@@ -1,41 +1,12 @@
-; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dopevectorconstprop 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=dopevectorconstprop 2>&1 | FileCheck %s
 
-; Check that full load, stride, and extent dope vector constant values are
-; determined for ARG #0 and ARG #1 of new_solver_.
+; Check that dope vector constants are not recognized because AVX2 is not
+; specified.
 
-; Check the trace output.
+; This is the same test as dvcp06.ll, but checks the IR rather than the traces.
 
-; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN
-; CHECK: DV FOUND: ARG #0 new_solver_ 2 x i32
-; CHECK: VALID
-; CHECK: LB[0] = 1
-; CHECK: ST[0] = 4
-; CHECK: EX[0] = 9
-; CHECK: LB[1] = 1
-; CHECK: ST[1] = 36
-; CHECK: EX[1] = 9
-; CHECK: REPLACING 1 LOAD WITH 4
-; CHECK: REPLACING 1 LOAD WITH 36
-; CHECK: DV FOUND: ARG #1 new_solver_ 3 x i32
-; CHECK: VALID
-; CHECK: LB[0] = 1
-; CHECK: ST[0] = 4
-; CHECK: EX[0] = 9
-; CHECK: LB[1] = 1
-; CHECK: ST[1] = 36
-; CHECK: EX[1] = 9
-; CHECK: LB[2] = 1
-; CHECK: ST[2] = 324
-; CHECK: EX[2] = 9
-; CHECK: REPLACING 1 LOAD WITH 9
-; CHECK: REPLACING 1 LOAD WITH 9
-; CHECK: REPLACING 1 LOAD WITH 9
-; CHECK: REPLACING 1 LOAD WITH 4
-; CHECK: REPLACING 1 LOAD WITH 36
-; CHECK: REPLACING 1 LOAD WITH 324
-; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
+; Check the IR
 
 @"main_$PART" = internal global [9 x [9 x i32]] zeroinitializer, align 16
 
@@ -208,47 +179,52 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 ; NOTE: Load extent 2 value for arg #1 into %22
   %22 = load i64, i64* %21, align 8
   %23 = icmp slt i64 %22, 1
-; NOTE: replace %22 with 9
+; NOTE: DO NOT replace %22 with 9
+; CHECK-NOT: [[V:%[0-9]+]] = icmp slt i64 9, 1
   %24 = icmp slt i64 %18, 1
-; NOTE: replace %18 with 9
+; NOTE: DO NOT replace %18 with 9
+; CHECK-NOT: [[V:%[0-9]+]] = icmp slt i64 9, 1
   %25 = or i1 %23, %24
   %26 = icmp slt i64 %14, 1
-; NOTE: replace %14 with 9
+; NOTE: DO NOT replace %14 with 9
+; CHECK-NOT: [[V:%[0-9]+]] = icmp slt i64 9, 1
   %27 = or i1 %25, %26
   br i1 %27, label %45, label %42
 
 28:                                               ; preds = %36, %28
   %29 = phi i64 [ 1, %36 ], [ %31, %28 ]
   %30 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* %38, i64 %29)
-; NOTE: replace %12 with 4
   store i32 0, i32* %30, align 4
   %31 = add nuw i64 %29, 1
   %32 = icmp eq i64 %29, %14
-; NOTE: replace %14 with 9
+; NOTE: DO NOT replace %14 with 9
+; CHECK-NOT: [[V:%[0-9]+]] = icmp eq i64 {{.*}}, 9
   br i1 %32, label %33, label %28
 
 33:                                               ; preds = %28
   %34 = add nuw i64 %37, 1
   %35 = icmp eq i64 %37, %18
-; NOTE: replace %18 with 9
+; NOTE: DO NOT replace %18 with 9
+; CHECK-NOT: [[V:%[0-9]+]] = icmp eq i64 {{.*}}, 9
   br i1 %35, label %39, label %36
 
 36:                                               ; preds = %42, %33
   %37 = phi i64 [ 1, %42 ], [ %34, %33 ]
   %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* %44, i64 %37)
-; NOTE: replace %16 with 36
   br label %28
 
 39:                                               ; preds = %33
   %40 = add nuw i64 %43, 1
   %41 = icmp eq i64 %43, %22
-; NOTE: replace %22 with 9
+; NOTE: DO NOT replace %22 with 9
+; CHECK-NOT: [[V:%[0-9]+]] = icmp eq i64 {{.*}}, 9
   br i1 %41, label %45, label %42
 
 42:                                               ; preds = %39, %2
   %43 = phi i64 [ %40, %39 ], [ 1, %2 ]
   %44 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* %10, i64 %43)
-; NOTE: replace %20 with 324
+; NOTE: DO NOT replace %20 with 324
+; CHECK-NOT: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324,{{.*}})
   br label %36
 
 45:                                               ; preds = %39, %2
@@ -268,9 +244,7 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 53:                                               ; preds = %80, %51
   %54 = phi i64 [ %81, %80 ], [ 1, %51 ]
   %55 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %50, i32* %46, i64 %54)
-; NOTE: replace %50 with 36
   %56 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %48, i32* %55, i64 %52)
-; NOTE: replace %48 with 4
   %57 = load i32, i32* %56, align 4
   %58 = icmp eq i32 %57, 0
   br i1 %58, label %76, label %80
@@ -290,9 +264,9 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
   %68 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %79, i64 %67)
   %69 = load i32, i32* %68, align 4
   %70 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* %10, i64 %67)
-; NOTE: replace %20 with 324
+; NOTE: DO NOT replace %20 with 324
+; CHECK-NOT: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324,{{.*}})
   %71 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* %70, i64 %54)
-; NOTE: replace %16 with 36
   %72 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* %71, i64 %52)
   store i32 %69, i32* %72, align 4
   %73 = add nuw nsw i64 %67, 1
