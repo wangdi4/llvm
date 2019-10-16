@@ -278,7 +278,8 @@ bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
 
 bool OpenclRuntime::needsConcatenatedVectorReturn(StringRef name) const {
   return name.contains("intel_sub_group_block_") ||
-         name.contains("intel_sub_group_ballot");
+         name.contains("intel_sub_group_ballot") ||
+         name.contains("intel_sub_group_shuffle");
 }
 
 bool OpenclRuntime::needsConcatenatedVectorParams(StringRef name) const {
