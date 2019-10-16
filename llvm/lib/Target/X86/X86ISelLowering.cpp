@@ -5927,7 +5927,6 @@ static SDValue insert1BitVector(SDValue Op, SelectionDAG &DAG,
 
   // Widen the vector if needed.
   Vec = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, WideOpVT, Undef, Vec, ZeroIdx);
-<<<<<<< HEAD
 
   // Clear the upper bits of the subvector and move it to its insert position.
   unsigned ShiftLeft = NumElems - SubVecNumElems;
@@ -5936,42 +5935,20 @@ static SDValue insert1BitVector(SDValue Op, SelectionDAG &DAG,
   unsigned ShiftRight = NumElems - SubVecNumElems - IdxVal;
   SubVec = DAG.getNode(X86ISD::KSHIFTR, dl, WideOpVT, SubVec,
                        DAG.getTargetConstant(ShiftRight, dl, MVT::i8));
-=======
-#if INTEL_CUSTOMIZATION
-  // Clear the upper bits of the subvector and move it to its insert position.
-  unsigned ShiftLeft = NumElems - SubVecNumElems;
-  SubVec = DAG.getNode(X86ISD::KSHIFTL, dl, WideOpVT, SubVec,
-                       DAG.getConstant(ShiftLeft, dl, MVT::i8));
-  unsigned ShiftRight = NumElems - SubVecNumElems - IdxVal;
-  SubVec = DAG.getNode(X86ISD::KSHIFTR, dl, WideOpVT, SubVec,
-                       DAG.getConstant(ShiftRight, dl, MVT::i8));
->>>>>>> a5d4105eca25fce209bc9e14698c28a364ef0993
 
   // Isolate the bits below the insertion point.
   unsigned LowShift = NumElems - IdxVal;
   SDValue Low = DAG.getNode(X86ISD::KSHIFTL, dl, WideOpVT, Vec,
-<<<<<<< HEAD
                             DAG.getTargetConstant(LowShift, dl, MVT::i8));
   Low = DAG.getNode(X86ISD::KSHIFTR, dl, WideOpVT, Low,
                     DAG.getTargetConstant(LowShift, dl, MVT::i8));
-=======
-                            DAG.getConstant(LowShift, dl, MVT::i8));
-  Low = DAG.getNode(X86ISD::KSHIFTR, dl, WideOpVT, Low,
-                    DAG.getConstant(LowShift, dl, MVT::i8));
->>>>>>> a5d4105eca25fce209bc9e14698c28a364ef0993
 
   // Isolate the bits after the last inserted bit.
   unsigned HighShift = IdxVal + SubVecNumElems;
   SDValue High = DAG.getNode(X86ISD::KSHIFTR, dl, WideOpVT, Vec,
-<<<<<<< HEAD
                             DAG.getTargetConstant(HighShift, dl, MVT::i8));
   High = DAG.getNode(X86ISD::KSHIFTL, dl, WideOpVT, High,
                     DAG.getTargetConstant(HighShift, dl, MVT::i8));
-=======
-                            DAG.getConstant(HighShift, dl, MVT::i8));
-  High = DAG.getNode(X86ISD::KSHIFTL, dl, WideOpVT, High,
-                    DAG.getConstant(HighShift, dl, MVT::i8));
->>>>>>> a5d4105eca25fce209bc9e14698c28a364ef0993
 
   // Now OR all 3 pieces together.
   Vec = DAG.getNode(ISD::OR, dl, WideOpVT, Low, High);
@@ -5979,10 +5956,6 @@ static SDValue insert1BitVector(SDValue Op, SelectionDAG &DAG,
 
   // Reduce to original width if needed.
   return DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, OpVT, SubVec, ZeroIdx);
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> a5d4105eca25fce209bc9e14698c28a364ef0993
 }
 
 static SDValue concatSubVectors(SDValue V1, SDValue V2, SelectionDAG &DAG,
