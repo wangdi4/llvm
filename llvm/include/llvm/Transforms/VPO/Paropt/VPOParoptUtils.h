@@ -27,6 +27,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -1213,6 +1214,10 @@ public:
 
   /// Returns execution scheme for loop-kind regions on SPIR targets.
   static spirv::ExecutionSchemeTy getSPIRExecutionScheme();
+
+  /// Returns true, if the given instruction \p I represents a call
+  /// to library function __kmpc_critical.
+  static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
 
   /// @}
 

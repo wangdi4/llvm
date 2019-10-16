@@ -88,6 +88,8 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 // Class names mapping to minimize the diff:
 #define InnerLoopVectorizer VPOCodeGen
 #define LoopVectorizationLegality VPOVectorizationLegality
+
+struct TripCountInfo;
 #endif // INTEL_CUSTOMIZATION
 
 /// In what follows, the term "input IR" refers to code that is fed into the
@@ -2530,11 +2532,28 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 
+  TripCountInfo *getTripCountInfo() { return TCInfo.get(); }
+  const TripCountInfo *getTripCountInfo() const { return TCInfo.get(); }
+  void setTripCountInfo(std::unique_ptr<TripCountInfo> TCInfo) {
+    assert(!this->TCInfo && "Trip count info alread set!");
+    this->TCInfo = std::move(TCInfo);
+  }
+  void moveTripCountInfoFrom(VPBasicBlock *OtherBB) {
+    TCInfo = std::move(OtherBB->TCInfo);
+  }
+
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
+
+  // TODO: Not sure what other types of loop metadata we'd need. Most probably,
+  // we need some abstraction on top of TripCountInfo (and maybe that struct
+  // itself should be split in some way). The idea about this field is to have
+  // something similar to LLVM IR's loop metadata on the backedge branch
+  // instruction, so it will be filled for the latches only.
+  std::unique_ptr<TripCountInfo> TCInfo;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
@@ -2770,8 +2789,6 @@ protected:
   DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
       VPMetadataAsValues;
 
-  std::shared_ptr<VPLoopAnalysisBase> VPLA;
-
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
@@ -2786,9 +2803,8 @@ public:
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
 
-  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
-        const DataLayout *DL)
-      : Context(Context), DL(DL), VPLA(VPLA) {}
+  VPlan(LLVMContext *Context, const DataLayout *DL)
+      : Context(Context), DL(DL) {}
 #else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 #endif
@@ -2805,8 +2821,6 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
-
-  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
 
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 

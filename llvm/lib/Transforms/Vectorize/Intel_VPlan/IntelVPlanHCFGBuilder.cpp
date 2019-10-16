@@ -496,6 +496,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPBasicBlock *NewLoopLatch =
       new VPBasicBlock(VPlanUtils::createUniqueName("new.loop.latch"));
   OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
+  NewLoopLatch->moveTripCountInfoFrom(OrigLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
   // Remove the original loop latch from the blocks of the phi node of the loop
@@ -1346,6 +1347,57 @@ void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
   }
 }
 
+static TripCountInfo readIRLoopMetadata(Loop *Lp) {
+  TripCountInfo TCInfo;
+  MDNode *LoopID = Lp->getLoopID();
+  if (!LoopID)
+    // Default construct to trigger usage of the default estimated trip count
+    // later.
+    return TCInfo;
+
+  for (const MDOperand &MDOp : LoopID->operands()) {
+    const auto *MD = dyn_cast<MDNode>(MDOp);
+    if (!MD)
+      continue;
+    const auto *S = dyn_cast<MDString>(MD->getOperand(0));
+    if (!S)
+      continue;
+
+    auto ExtractValue = [S, MD](auto &TCInfoField, StringRef MetadataName,
+                                StringRef ReadableString) -> void {
+      (void)ReadableString;
+      if (S->getString().equals(MetadataName))
+        TCInfoField =
+            mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+      LLVM_DEBUG(dbgs() << ReadableString << " trip count is " << TCInfoField
+                        << " set by pragma loop count.\n";);
+    };
+    ExtractValue(TCInfo.MaxTripCount, "llvm.loop.intel.loopcount_maximum",
+                 "Max");
+    ExtractValue(TCInfo.MinTripCount, "llvm.loop.intel.loopcount_minimum",
+                 "Min");
+    ExtractValue(TCInfo.TripCount, "llvm.loop.intel.loopcount_average",
+                 "Average");
+  }
+
+  return TCInfo;
+}
+
+void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
+  for (VPLoop *VPL : VPLInfo->getLoopsInPreorder()) {
+    auto *VPLatch = cast_or_null<VPBasicBlock>(VPL->getLoopLatch());
+    assert(VPLatch && "No dedicated latch!");
+    BasicBlock *Latch = VPLatch->getOriginalBB();
+    assert(Latch && "Loop massaging happened before VPLoop's creation?");
+    Loop *Lp = LI->getLoopFor(Latch);
+    assert(Lp &&
+           "VPLoopLatch does not correspond to Latch, massaging happened?");
+    TripCountInfo TCInfo = readIRLoopMetadata(Lp);
+    TCInfo.calculateEstimatedTripCount();
+    VPL->setTripCountInfo(TCInfo);
+  }
+}
+
 void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   VPLoopEntityConverterList CvtVec;
@@ -1371,6 +1423,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   Plan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLInfo->analyze(VPDomTree);
+  populateVPLoopMetadata(VPLInfo);
 
   // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
   LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";

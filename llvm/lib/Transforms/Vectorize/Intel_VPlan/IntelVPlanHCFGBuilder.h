@@ -88,6 +88,9 @@ protected:
   virtual std::unique_ptr<VPRegionBlock>
   buildPlainCFG(VPLoopEntityConverterList &Cvts);
 
+  /// Translate loop metadata from underlying IR to VPLoop data structure.
+  virtual void populateVPLoopMetadata(VPLoopInfo *VPLInfo);
+
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
     assert(VPLp && "Expected a valid VPLoop.");
     VPLoopRegion *Loop =

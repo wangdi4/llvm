@@ -534,6 +534,7 @@ void initializeHIRIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRMVForConstUBLegacyPassPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
+void initializeHIRAosToSoaLegacyPassPass(PassRegistry&);
 void initializeHIRLoopFusionLegacyPassPass(PassRegistry&);
 void initializeHIRDeadStoreEliminationLegacyPassPass(PassRegistry&);
 void initializeHIRLastValueComputationLegacyPassPass(PassRegistry&);

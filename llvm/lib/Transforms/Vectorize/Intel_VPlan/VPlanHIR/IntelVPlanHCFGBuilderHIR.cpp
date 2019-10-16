@@ -640,6 +640,46 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
   updateActiveVPBB(HLabel);
 }
 
+void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
+  for (VPLoop *VPL : VPLInfo->getLoopsInPreorder()) {
+    auto *Header = cast<VPBasicBlock>(VPL->getHeader());
+
+    assert(Header2HLLoop.count(Header) &&
+           "Missing mapping from loop header to HLLoop!");
+    const HLLoop *HLoop = Header2HLLoop[Header];
+
+    using TripCountTy = VPLoop::TripCountTy;
+    TripCountTy TripCount;
+    if (HLoop->isConstTripLoop(&TripCount)) {
+      VPL->setKnownTripCount(TripCount);
+      return;
+    }
+
+    TripCountInfo TCInfo;
+    if (TripCountTy MaxTripCount = HLoop->getMaxTripCountEstimate()) {
+      TCInfo.MaxTripCount = MaxTripCount;
+      LLVM_DEBUG(dbgs() << "Max trip count is " << MaxTripCount
+                        << " set by pragma loop count\n");
+    }
+
+    unsigned MinTripCount;
+    if (HLoop->getPragmaBasedMinimumTripCount(MinTripCount)) {
+      TCInfo.MinTripCount = MinTripCount;
+      LLVM_DEBUG(dbgs() << "Min trip count is " << TCInfo.MinTripCount
+                        << " set by pragma loop count\n");
+    }
+
+    unsigned AvgTripCount;
+    if (HLoop->getPragmaBasedAverageTripCount(AvgTripCount)) {
+      TCInfo.TripCount = AvgTripCount;
+      LLVM_DEBUG(dbgs() << "Average trip count is " << AvgTripCount
+                        << " set by pragma loop count\n");
+    }
+    TCInfo.calculateEstimatedTripCount();
+    VPL->setTripCountInfo(TCInfo);
+  }
+}
+
 std::unique_ptr<VPRegionBlock> PlainCFGBuilderHIR::buildPlainCFG() {
   // Create new TopRegion.
   TopRegion = std::make_unique<VPRegionBlock>(

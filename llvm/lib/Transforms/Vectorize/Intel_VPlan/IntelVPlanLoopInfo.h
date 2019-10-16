@@ -31,6 +31,23 @@ class VPInstruction;
 class VPlanDivergenceAnalysis;
 class VPLoop;
 
+struct TripCountInfo {
+  using TripCountTy = uint64_t;
+  TripCountTy MinTripCount = 0;
+  static constexpr TripCountTy UnknownMaxTripCount =
+      // unsigned is due to inconsistency in interfaces we use to get known
+      // trip count vs. get maximum trip count.
+      std::numeric_limits<unsigned>::max();
+  TripCountTy MaxTripCount = UnknownMaxTripCount;
+  TripCountTy TripCount = 0;
+  bool IsEstimated = true;
+
+  void calculateEstimatedTripCount();
+  static TripCountInfo getKnownTripCountInfo(TripCountTy TripCount) {
+    return {TripCount, TripCount, TripCount, false};
+  }
+};
+
 /// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
 /// Hierarchical CFG. It is a specialization of LoopInfoBase class.
 typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
@@ -71,6 +88,13 @@ public:
     printRPOT(dbgs(), VPLI);
   };
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  using TripCountTy = TripCountInfo::TripCountTy;
+  void setTripCountInfo(TripCountInfo TCInfo);
+  TripCountInfo getTripCountInfo();
+  void setKnownTripCount(TripCountTy TripCount) {
+    setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
+  }
 };
 } // namespace vpo
 

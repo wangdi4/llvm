@@ -25,6 +25,7 @@
 #define LLVM_TRANSFORMS_VPO_PAROPT_MODULE_TRANSFORMS_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 
@@ -71,7 +72,8 @@ public:
 
   /// Perform paropt transformation on a module.
   bool doParoptTransforms(
-      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
+      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
 
 private:
   friend class VPOParoptTransform;
@@ -173,6 +175,18 @@ private:
 
   /// Routine to populate PrintfDecl and OCLPrintfDecl
   void createOCLPrintfDecl(Function *F);
+
+  /// Routine to identify Functions that may use "omp critical"
+  /// either directly or down the call stack.
+  void collectMayHaveOMPCriticalFunctions(
+      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
+
+  /// A set of Functions identified by collectMayHaveOMPCriticalFunctions()
+  /// to potentially "invoke" "omp critical".
+  SmallPtrSet<Function *, 32> MayHaveOMPCritical;
+
+  /// Returns true for Functions marked by collectMayHaveOMPCriticalFunctions().
+  bool mayHaveOMPCritical(const Function *F) const;
 
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {

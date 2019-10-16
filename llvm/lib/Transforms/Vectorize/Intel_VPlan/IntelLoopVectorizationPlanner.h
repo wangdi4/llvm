@@ -24,12 +24,6 @@
 #endif
 #include "llvm/ADT/DenseMap.h"
 
-#if INTEL_CUSTOMIZATION
-extern cl::opt<uint64_t> VPlanDefaultEstTrip;
-#else
-extern cl::opt<unsigned> VPlanDefaultEstTrip;
-#endif // INTEL_CUSTOMIZATION
-
 namespace llvm {
 class Loop;
 class ScalarEvolution;
@@ -70,7 +64,6 @@ public:
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
         LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
-    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip, LI);
   }
 
   void setUseNewPredicator() { UseNewPredicator = true; }
@@ -206,9 +199,6 @@ private:
   class DominatorTree *DT;
 
 #if INTEL_CUSTOMIZATION
-  /// VPLoop Analysis.
-  std::shared_ptr<VPLoopAnalysisBase> VPLA;
-
   /// VPlan VLS Analysis.
   VPlanVLSAnalysis *VLSA;
 
