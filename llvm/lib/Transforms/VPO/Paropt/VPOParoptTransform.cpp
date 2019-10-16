@@ -4185,63 +4185,61 @@ void VPOParoptTransform::fixOMPDoWhileLoop(WRegionNode *W, Loop *L) {
 // canonical do-while loop.
 void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
 
-  BasicBlock *H = L->getHeader();
+  PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
+  assert(PN && "Cannot find canonical induction variable.");
   BasicBlock *Backedge = L->getLoopLatch();
 
-  for (BasicBlock::iterator I = H->begin(); isa<PHINode>(I); ++I) {
-    PHINode *PN = cast<PHINode>(I);
-    if (Instruction *Inc =
-            dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge))) {
-      if (Inc->getOpcode() == Instruction::Add &&
-          (Inc->getOperand(1) ==
-               ConstantInt::get(Type::getInt32Ty(F->getContext()), 1) ||
-           Inc->getOperand(1) ==
-               ConstantInt::get(Type::getInt64Ty(F->getContext()), 1))) {
-        Instruction *TermInst = Inc->getParent()->getTerminator();
-        BranchInst *ExitBrInst = dyn_cast<BranchInst>(TermInst);
-        if (!ExitBrInst)
-          continue;
-        ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
-        if (!CondInst)
-          continue;
-        ICmpInst::Predicate Pred = CondInst->getPredicate();
-        if (Pred == CmpInst::ICMP_SLE || Pred == CmpInst::ICMP_ULE) {
-          Value *Operand = CondInst->getOperand(0);
-          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
-            Operand = cast<CastInst>(Operand)->getOperand(0);
+  if (Instruction *Inc =
+          dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge))) {
+    if (Inc->getOpcode() == Instruction::Add &&
+        (Inc->getOperand(1) ==
+             ConstantInt::get(Type::getInt32Ty(F->getContext()), 1) ||
+         Inc->getOperand(1) ==
+             ConstantInt::get(Type::getInt64Ty(F->getContext()), 1))) {
+      Instruction *TermInst = Inc->getParent()->getTerminator();
+      BranchInst *ExitBrInst = dyn_cast<BranchInst>(TermInst);
+      if (!ExitBrInst)
+        return;
+      ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+      if (!CondInst)
+        return;
+      ICmpInst::Predicate Pred = CondInst->getPredicate();
+      if (Pred == CmpInst::ICMP_SLE || Pred == CmpInst::ICMP_ULE) {
+        Value *Operand = CondInst->getOperand(0);
+        if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+          Operand = cast<CastInst>(Operand)->getOperand(0);
 
-          if (Operand == Inc)
-            return;
+        if (Operand == Inc)
+          return;
+        else
+          llvm_unreachable("cannot fix omp do-while loop");
+      } else if (Pred == CmpInst::ICMP_SGT || Pred == CmpInst::ICMP_UGT) {
+        Value *Operand = CondInst->getOperand(0);
+        if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+          Operand = cast<CastInst>(Operand)->getOperand(0);
+
+        if (Operand == Inc) {
+          if (Pred == CmpInst::ICMP_SGT)
+            CondInst->setPredicate(CmpInst::ICMP_SLE);
           else
-            llvm_unreachable("cannot fix omp do-while loop");
-        } else if (Pred == CmpInst::ICMP_SGT || Pred == CmpInst::ICMP_UGT) {
-          Value *Operand = CondInst->getOperand(0);
-          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
-            Operand = cast<CastInst>(Operand)->getOperand(0);
+            CondInst->setPredicate(CmpInst::ICMP_ULE);
+          ExitBrInst->swapSuccessors();
+          return;
+        } else
+          llvm_unreachable("cannot fix omp do-while loop");
+      } else if (Pred == CmpInst::ICMP_SLT || Pred == CmpInst::ICMP_ULT) {
+        Value *Operand = CondInst->getOperand(1);
+        if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+          Operand = cast<CastInst>(Operand)->getOperand(0);
 
-          if (Operand == Inc) {
-            if (Pred == CmpInst::ICMP_SGT)
-              CondInst->setPredicate(CmpInst::ICMP_SLE);
-            else
-              CondInst->setPredicate(CmpInst::ICMP_ULE);
-            ExitBrInst->swapSuccessors();
-            return;
-          } else
-            llvm_unreachable("cannot fix omp do-while loop");
-        } else if (Pred == CmpInst::ICMP_SLT || Pred == CmpInst::ICMP_ULT) {
-          Value *Operand = CondInst->getOperand(1);
-          if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
-            Operand = cast<CastInst>(Operand)->getOperand(0);
-
-          if (Operand == Inc) {
-            if (Pred == CmpInst::ICMP_SLT)
-              CondInst->setPredicate(CmpInst::ICMP_SLE);
-            else
-              CondInst->setPredicate(CmpInst::ICMP_ULE);
-            CondInst->swapOperands();
-            ExitBrInst->swapSuccessors();
-            return;
-          }
+        if (Operand == Inc) {
+          if (Pred == CmpInst::ICMP_SLT)
+            CondInst->setPredicate(CmpInst::ICMP_SLE);
+          else
+            CondInst->setPredicate(CmpInst::ICMP_ULE);
+          CondInst->swapOperands();
+          ExitBrInst->swapSuccessors();
+          return;
         }
       }
     }
@@ -4384,13 +4382,34 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
   return Changed;
 }
 
-// Transform the Ith level of the loop in the region W into the
-// OMP canonical loop form.
-void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
-  Loop *L = W->getWRNLoopInfo().getLoop(Index);
-  const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
-  const SimplifyQuery SQ = {DL, TLI, DT, AC};
-  LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
+void VPOParoptTransform::simplifyLoopPHINodes(
+    const Loop &L, const SimplifyQuery &SQ) const {
+  SmallVector<PHINode *, 8> PHIsToDelete;
+
+  // TODO: it should be better to optimize PHINode instructions in the loop
+  //       using reverse post_order walk (in the use-def graph of PHINodes).
+  for (auto *BB : L.blocks()) {
+    for (auto IB = BB->begin(), IE = BB->end(); IB != IE; ++IB) {
+      auto *PN = dyn_cast<PHINode>(&*IB);
+      if (!PN)
+        // Stop processing the block at the first non-PHINode instruction.
+        break;
+      if (auto *V = SimplifyInstruction(PN, SQ)) {
+        PN->replaceAllUsesWith(V);
+        PHIsToDelete.push_back(PN);
+      }
+    }
+
+    // Delete instructions that are not used anymore.
+    for (auto *PN : PHIsToDelete) {
+      PN->eraseFromParent();
+    }
+    PHIsToDelete.clear();
+  }
+}
+
+void VPOParoptTransform::registerizeLoopEssentialValues(
+    WRegionNode *W, unsigned Index) {
   std::vector<AllocaInst *> Allocas;
   SmallVector<std::pair<Value *, bool>, 3> LoopEssentialValues;
   if (Index < W->getWRNLoopInfo().getNormIVSize()) {
@@ -4540,6 +4559,57 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   }
 
   PromoteMemToReg(Allocas, *DT, AC);
+}
+
+// Transform the Ith level of the loop in the region W into the
+// OMP canonical loop form.
+void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
+  Loop *L = W->getWRNLoopInfo().getLoop(Index);
+  const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
+  const SimplifyQuery SQ = {DL, TLI, DT, AC};
+  LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
+  // Critical edges splitting for loop nests done during loop rotation
+  // may produce PHI nodes that we'd better optimize right away,
+  // otherwise they will prevent IV recognition in
+  // getOmpCanonicalInductionVariable().
+  //
+  // Example:
+  //   bb1:
+  //     %0 = load i64, i64* %outer.lb
+  //     %ztt.outer = icmp sle %0, %outer.ub
+  //     bt i1 %ztt.outer, label %outer.loop.ph, label %outer.exit
+  //   outer.loop.ph:
+  //     br label %outer.loop.body
+  //   outer.loop.body:
+  //     %outer.iv = phi i64 [ %0, %bb1 ], [ %outer.add, %outer.loop.inc ]
+  //     %1 = load i64, i64* %inner.lb
+  //     %ztt_inner = icmp sle %1, %inner.ub
+  //     br i1 %ztt_inner, label %inner.loop.ph, label %inner.exit
+  //   inner.loop.ph:
+  //     br label %inner.loop.body
+  //   inner.loop.body:
+  //     ...
+  //     br i1 %cmp1, label %inner.loop.body, label %crit.edge.block
+  //   crit.edge.block:
+  //     br label %inner.exit
+  //   inner.exit:
+  //     %outer.iv.phi = phi i64 [ %outer.iv, %crit.edge.block ],
+  //                             [%outer.iv, %outer.loop.body ]
+  //     %outer.add = add nsw i64 %outer.iv.phi, 1
+  //     %cmp2 = icmp sle i64 %outer.add, %outer.ub
+  //     br i1 %cmp2, label %outer.loop.body, label %crit.edge.exit.block
+  //   crit.edge.exit.block:
+  //     br label %outer.exit
+  //   outer.exit:
+  //     ...
+  //
+  // We need to simplify %outer.iv.phi before we can proceed to
+  // getOmpCanonicalInductionVariable(). Moreover, the PHI nodes
+  // may become more complex, if we do not reset 'volatile'
+  // from the load/store instructions accessing the normalized IVs.
+  // This is why we process all IVs in a loop nest before starting
+  // rotating the loops.
+  simplifyLoopPHINodes(*L, SQ);
   fixOMPDoWhileLoop(W, L);
 
   BasicBlock *ZTTBB = nullptr;
@@ -4568,10 +4638,19 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
     return false;
 
   W->populateBBSet();
-  if (!First)
+  if (!First) {
+    // First, we have to registerize the loops' essential values
+    // (i.e. normalized IV and UB), so that PHI instructions
+    // produced by loop rotation in regularizeOMPLoopImpl() can be simplified
+    // to be recognizable by getOmpCanonicalInductionVariable().
+    for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
+      registerizeLoopEssentialValues(W, I - 1);
+    // Regularize the loops, which includes the loops rotation,
+    // simplification of PHI instructions and loop conditions,
+    // and finding the loops' ZTT instructions.
     for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
       regularizeOMPLoopImpl(W, I - 1);
-  else {
+  } else {
     std::vector<AllocaInst *> Allocas;
     SmallVector<Value *, 2> LoopEssentialValues;
     if (W->getWRNLoopInfo().getNormIV())
