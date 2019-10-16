@@ -84,17 +84,14 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
     return static_cast<const OMPThreadLimitClause *>(C);
   case OMPC_device:
     return static_cast<const OMPDeviceClause *>(C);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
     return static_cast<const OMPDataflowClause *>(C);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
   case OMPC_grainsize:
     return static_cast<const OMPGrainsizeClause *>(C);
->>>>>>> b9c55e2760b1be461f05a10ca92696b3381036d2
   case OMPC_default:
   case OMPC_proc_bind:
   case OMPC_final:

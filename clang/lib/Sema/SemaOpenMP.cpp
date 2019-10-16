@@ -10847,7 +10847,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
       llvm_unreachable("Unknown OpenMP directive");
     }
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -10887,7 +10886,39 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel:
     case OMPD_parallel_sections:
     case OMPD_threadprivate:
-=======
+    case OMPD_taskyield:
+    case OMPD_barrier:
+    case OMPD_taskwait:
+    case OMPD_cancellation_point:
+    case OMPD_flush:
+    case OMPD_declare_reduction:
+    case OMPD_declare_mapper:
+    case OMPD_declare_simd:
+    case OMPD_declare_target:
+    case OMPD_end_declare_target:
+    case OMPD_declare_variant:
+    case OMPD_target_variant_dispatch:
+    case OMPD_simd:
+    case OMPD_sections:
+    case OMPD_section:
+    case OMPD_single:
+    case OMPD_master:
+    case OMPD_critical:
+    case OMPD_taskgroup:
+    case OMPD_distribute:
+    case OMPD_ordered:
+    case OMPD_atomic:
+    case OMPD_distribute_simd:
+    case OMPD_target_teams:
+    case OMPD_requires:
+    case OMPD_allocate:
+      llvm_unreachable("Unexpected OpenMP directive with dataflow clause");
+    case OMPD_unknown:
+      llvm_unreachable("Unknown OpenMP directive");
+    }
+    break;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_grainsize:
     switch (DKind) {
     case OMPD_task:
@@ -10926,7 +10957,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_for_simd:
     case OMPD_threadprivate:
     case OMPD_allocate:
->>>>>>> b9c55e2760b1be461f05a10ca92696b3381036d2
     case OMPD_taskyield:
     case OMPD_barrier:
     case OMPD_taskwait:
@@ -10935,20 +10965,12 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_declare_simd:
-<<<<<<< HEAD
-    case OMPD_declare_target:
-    case OMPD_end_declare_target:
-    case OMPD_declare_variant:
-    case OMPD_target_variant_dispatch:
-    case OMPD_simd:
-=======
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:
->>>>>>> b9c55e2760b1be461f05a10ca92696b3381036d2
     case OMPD_sections:
     case OMPD_section:
     case OMPD_single:
@@ -10959,24 +10981,12 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_ordered:
     case OMPD_atomic:
     case OMPD_distribute_simd:
-<<<<<<< HEAD
-    case OMPD_target_teams:
-    case OMPD_requires:
-    case OMPD_allocate:
-      llvm_unreachable("Unexpected OpenMP directive with dataflow clause");
-=======
     case OMPD_requires:
       llvm_unreachable("Unexpected OpenMP directive with grainsize-clause");
->>>>>>> b9c55e2760b1be461f05a10ca92696b3381036d2
     case OMPD_unknown:
       llvm_unreachable("Unknown OpenMP directive");
     }
     break;
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> b9c55e2760b1be461f05a10ca92696b3381036d2
   case OMPC_firstprivate:
   case OMPC_lastprivate:
   case OMPC_reduction:
