@@ -2150,6 +2150,14 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
     { ISD::FSQRT,      MVT::f32,    28 }, // Pentium III from http://www.agner.org/
     { ISD::FSQRT,      MVT::v4f32,  56 }, // Pentium III from http://www.agner.org/
   };
+  static const CostTblEntry LZCNT64CostTbl[] = { // 64-bit targets
+    { ISD::CTLZ,       MVT::i64,     1 },
+  };
+  static const CostTblEntry LZCNT32CostTbl[] = { // 32 or 64-bit targets
+    { ISD::CTLZ,       MVT::i32,     1 },
+    { ISD::CTLZ,       MVT::i16,     1 },
+    { ISD::CTLZ,       MVT::i8,      1 },
+  };
   static const CostTblEntry POPCNT64CostTbl[] = { // 64-bit targets
     { ISD::CTPOP,      MVT::i64,     1 },
   };
@@ -2160,6 +2168,7 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
   };
   static const CostTblEntry X64CostTbl[] = { // 64-bit targets
     { ISD::BITREVERSE, MVT::i64,    14 },
+    { ISD::CTLZ,       MVT::i64,     4 }, // BSR+XOR or BSR+XOR+CMOV
     { ISD::CTPOP,      MVT::i64,    10 },
     { ISD::SADDO,      MVT::i64,     1 },
     { ISD::UADDO,      MVT::i64,     1 },
@@ -2168,6 +2177,9 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
     { ISD::BITREVERSE, MVT::i32,    14 },
     { ISD::BITREVERSE, MVT::i16,    14 },
     { ISD::BITREVERSE, MVT::i8,     11 },
+    { ISD::CTLZ,       MVT::i32,     4 }, // BSR+XOR or BSR+XOR+CMOV
+    { ISD::CTLZ,       MVT::i16,     4 }, // BSR+XOR or BSR+XOR+CMOV
+    { ISD::CTLZ,       MVT::i8,      4 }, // BSR+XOR or BSR+XOR+CMOV
     { ISD::CTPOP,      MVT::i32,     8 },
     { ISD::CTPOP,      MVT::i16,     9 },
     { ISD::CTPOP,      MVT::i8,      7 },
@@ -2282,6 +2294,15 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
       if (const auto *Entry = CostTableLookup(SSE1CostTbl, ISD, MTy))
         return LT.first * Entry->Cost;
 
+    if (ST->hasLZCNT()) {
+      if (ST->is64Bit())
+        if (const auto *Entry = CostTableLookup(LZCNT64CostTbl, ISD, MTy))
+          return LT.first * Entry->Cost;
+
+      if (const auto *Entry = CostTableLookup(LZCNT32CostTbl, ISD, MTy))
+        return LT.first * Entry->Cost;
+    }
+
     if (ST->hasPOPCNT()) {
       if (ST->is64Bit())
         if (const auto *Entry = CostTableLookup(POPCNT64CostTbl, ISD, MTy))
@@ -2291,7 +2312,7 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
         return LT.first * Entry->Cost;
     }
 
-    // TODO - add LZCNT and BMI (TZCNT) scalar handling
+    // TODO - add BMI (TZCNT) scalar handling
 
     if (ST->is64Bit())
       if (const auto *Entry = CostTableLookup(X64CostTbl, ISD, MTy))
