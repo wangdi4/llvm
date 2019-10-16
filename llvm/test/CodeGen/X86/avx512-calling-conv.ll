@@ -753,11 +753,7 @@ define <17 x i1> @test16(<17 x i1> %a, <17 x i1> %b) nounwind {
 ; KNL-NEXT:    kmovw %edi, %k2
 ; KNL-NEXT:    kshiftlw $12, %k2, %k2
 ; KNL-NEXT:    korw %k2, %k4, %k2
-<<<<<<< HEAD
 ; KNL-NEXT:    testb $1, {{[0-9]+}}(%rsp)
-=======
-; KNL-NEXT:    cmpb $0, {{[0-9]+}}(%rsp)
->>>>>>> a5d4105eca25fce209bc9e14698c28a364ef0993
 ; KNL-NEXT:    kshiftlw $4, %k0, %k0
 ; KNL-NEXT:    kshiftrw $4, %k0, %k0
 ; KNL-NEXT:    korw %k2, %k0, %k0
@@ -1515,11 +1511,7 @@ define <17 x i1> @test16(<17 x i1> %a, <17 x i1> %b) nounwind {
 ; KNL_X32-NEXT:    kshiftlw $15, %k1, %k1
 ; KNL_X32-NEXT:    korw %k1, %k0, %k0
 ; KNL_X32-NEXT:    kmovw %edx, %k1
-<<<<<<< HEAD
 ; KNL_X32-NEXT:    testb $1, {{[0-9]+}}(%esp)
-=======
-; KNL_X32-NEXT:    cmpb $0, {{[0-9]+}}(%esp)
->>>>>>> a5d4105eca25fce209bc9e14698c28a364ef0993
 ; KNL_X32-NEXT:    cmovnel %ecx, %eax
 ; KNL_X32-NEXT:    kmovw (%esp), %k2 ## 2-byte Reload
 ; KNL_X32-NEXT:    kandw %k2, %k0, %k0
