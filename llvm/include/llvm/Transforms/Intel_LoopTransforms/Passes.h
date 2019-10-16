@@ -138,6 +138,9 @@ FunctionPass *createHIRLoopConcatenationPass();
 /// Creates pass that performs array transpose.
 FunctionPass *createHIRArrayTransposePass();
 
+/// Creates pass that performs Aos To Soa.
+FunctionPass *createHIRAosToSoaPass();
+
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
 

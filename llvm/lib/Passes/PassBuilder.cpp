@@ -228,6 +228,7 @@
 
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTranspose.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoa.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"

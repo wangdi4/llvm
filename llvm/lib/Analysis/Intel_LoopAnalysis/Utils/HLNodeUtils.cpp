@@ -323,7 +323,7 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
 }
 
 unsigned HLNodeUtils::createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name) {
-  // Adjust the intertion point to pointer before the first dummy instruction as
+  // Adjust the insertion point to pointer before the first dummy instruction as
   // we do not want alloca to be a dummy instruction.
   auto SavedInsertPt = DummyIRBuilder->GetInsertPoint();
   auto InsertBB = SavedInsertPt->getParent();
@@ -346,6 +346,23 @@ unsigned HLNodeUtils::createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name) {
   Reg->addLiveInTemp(NewSymbase, Inst);
 
   return AllocaBlobIndex;
+}
+
+HLInst *HLNodeUtils::createAlloca(Type *Ty, RegDDRef *ArraySizeRvalRef,
+                                  const Twine &Name) {
+  // Create dummy val.
+  auto DummyVal = UndefValue::get(ArraySizeRvalRef->getDestType());
+
+  Value *InstVal = DummyIRBuilder->CreateAlloca(Ty, DummyVal, Name);
+
+  assert(isa<Instruction>(InstVal) && "Expected instruction!");
+  Instruction *Inst = cast<Instruction>(InstVal);
+
+  RegDDRef *LvalRef = nullptr;
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+  HInst->setRvalDDRef(ArraySizeRvalRef);
+
+  return HInst;
 }
 
 HLInst *HLNodeUtils::createLoad(RegDDRef *RvalRef, const Twine &Name,
@@ -1010,6 +1027,35 @@ HLInst *HLNodeUtils::createCall(FunctionCallee Func,
                                 ArrayRef<OperandBundleDef> Bundle,
                                 ArrayRef<RegDDRef *> BundelOps) {
   return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
+}
+
+HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
+
+  Function *StacksaveFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::stacksave);
+
+  SmallVector<RegDDRef *, 1> Ops;
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(StacksaveFunc, Ops);
+
+  Call->setDebugLoc(DLoc);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
+  Function *StackrestoreFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::stackrestore);
+
+  SmallVector<RegDDRef *, 1> Ops = {AddrArg};
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(StackrestoreFunc, Ops);
+
+  Call->setDebugLoc(AddrArg->getDebugLoc());
+
+  return HInst;
 }
 
 HLInst *HLNodeUtils::createPrefetch(RegDDRef *AddressRef, RegDDRef *RW,

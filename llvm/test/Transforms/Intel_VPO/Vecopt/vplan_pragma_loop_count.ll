@@ -1,12 +1,12 @@
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
-; RUN:     -debug-only=vploop-analysis < %s 2>&1 \
+; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
 ; RUN:     | FileCheck %s
 
 ; REQUIRES: asserts
 
-; CHECK: Max trip count is {{[0-9]+}} updated by loop opt upon retrieving loop count from pragma
-; CHECK: Average trip count is {{[0-9]+}} set by pragma loop count
+; CHECK: Max trip count is {{[0-9]+}} set by pragma loop count
 ; CHECK: Min trip count is {{[0-9]+}} set by pragma loop count
+; CHECK: Average trip count is {{[0-9]+}} set by pragma loop count
 
 ;Set the pragma loop_count min/max/avg in the Vectorizer LoopInfoAnalysis for HIR path
 ;int a[1024], b[1024];

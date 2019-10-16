@@ -328,6 +328,8 @@ private:
   std::unique_ptr<VPRegionBlock>
   buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
 
+  void populateVPLoopMetadata(VPLoopInfo *VPLInfo) override;
+
   void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
 
   void collectUniforms(VPRegionBlock *Region) override {

@@ -30,6 +30,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 
 #if INTEL_CUSTOMIZATION
@@ -90,7 +91,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   bool
   runImpl(Module &M,
-          std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
+          std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+          std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
 
 private:
   // Paropt mode.

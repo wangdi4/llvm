@@ -262,16 +262,16 @@ static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
   APInt Weight(64, Prof->TrueWeight);
   APInt AQuotient(64, 0);
   APInt::udivrem(Weight, Denom, AQuotient, Prof->Remainder);
-  Prof->Quotient = Prof->TrueWeight == 0 ? 0 :
-                   std::max(AQuotient.getLimitedValue(),
-                            static_cast<uint64_t>(1));
+  Prof->Quotient = Prof->TrueWeight == 0 ? 0
+                                         : std::max(AQuotient.getLimitedValue(),
+                                                    static_cast<uint64_t>(1));
 
   if (Prof->Remainder == 0 && Prof->TrueWeight > 2) {
     // Heuristic:
     // We adjust 0 remainder to 1 to avoid the situation where
     // remainder loop is completely missed because of modulo.
     // Just leave a small branch_weights.
-    // If the original weight is already too small as 2 or less, 
+    // If the original weight is already too small as 2 or less,
     // adjusting 0 to 1 for remainder loop might not help.
     Prof->Remainder = 1;
   }
@@ -1200,4 +1200,48 @@ void HIRTransformUtils::divideProfileDataBy(HLContainerTy::iterator Begin,
   std::for_each(
       HLRangeIterator(Begin), HLRangeIterator(End),
       [Denominator](HLNode *Node) { Node->divideProfileData(Denominator); });
+}
+
+void HIRTransformUtils::cloneOrRemoveZttPredicates(
+    HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs, bool Clone) {
+  if (Loop->hasZtt()) {
+    for (auto PredI = Loop->ztt_pred_begin(), PredE = Loop->ztt_pred_end();
+         PredI != PredE; ++PredI) {
+
+      RegDDRef *LHS;
+      RegDDRef *RHS;
+
+      if (Clone) {
+        LHS = Loop->getZttPredicateOperandDDRef(PredI, true)->clone();
+        RHS = Loop->getZttPredicateOperandDDRef(PredI, false)->clone();
+      } else {
+        LHS = Loop->removeZttPredicateOperandDDRef(PredI, true);
+        RHS = Loop->removeZttPredicateOperandDDRef(PredI, false);
+      }
+
+      ZTTs.emplace_back(LHS, *PredI, RHS);
+    }
+  }
+}
+
+void HIRTransformUtils::mergeZtt(HLLoop *Loop,
+                                 SmallVectorImpl<PredicateTuple> &ZTTs) {
+  if (!ZTTs.empty()) {
+    RegDDRef *LHS;
+    HLPredicate Pred;
+    RegDDRef *RHS;
+
+    auto ZttI = ZTTs.begin();
+
+    if (!Loop->hasZtt()) {
+      std::tie(LHS, Pred, RHS) = *ZttI++;
+      Loop->createZtt(LHS, Pred, RHS);
+    }
+
+    for (auto E = ZTTs.end(); ZttI != E; ++ZttI) {
+      std::tie(LHS, Pred, RHS) = *ZttI;
+
+      Loop->addZttPredicate(Pred, LHS, RHS);
+    }
+  }
 }

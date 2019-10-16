@@ -1603,6 +1603,11 @@ private:
   /// There are additional limitations to when we actually create
   /// ND-range information (see implementation for details).
   bool constructNDRangeInfo(WRegionNode *W);
+
+  /// Marks the given region \p W as may-have-openmp-critical,
+  /// if it contains "omp critical" or a call that may "invoke"
+  /// "omp critical".
+  void setMayHaveOMPCritical(WRegionNode *W) const;
 };
 
 } /// namespace vpo
