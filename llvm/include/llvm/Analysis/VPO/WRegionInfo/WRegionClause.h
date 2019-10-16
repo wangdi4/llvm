@@ -109,7 +109,9 @@ class Item
   private :
     VAR   OrigItem;  // original var
 #if INTEL_CUSTOMIZATION
-    HVAR  HOrigItem; // original var for HIR
+    HVAR HOrigItem;       // original var for HIR
+    bool IsF90DopeVector; // true for a F90 dope vector
+    EXPR F90DVNumElements; // number of elements in the F90 DV
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
                      // the offset into the thunk for the new var
@@ -128,8 +130,8 @@ class Item
   public:
     Item(VAR Orig, ItemKind K)
 #if INTEL_CUSTOMIZATION
-        : OrigItem(Orig), HOrigItem(nullptr), NewItem(nullptr),
-          OrigGEP(nullptr),
+        : OrigItem(Orig), HOrigItem(nullptr), IsF90DopeVector(false),
+          F90DVNumElements(nullptr), NewItem(nullptr), OrigGEP(nullptr),
 #else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
@@ -165,9 +167,22 @@ class Item
 #if INTEL_CUSTOMIZATION
     void setHOrig(HVAR V)         { HOrigItem = V;         }
     template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
+    void setIsF90DopeVector(bool Flag) { IsF90DopeVector = Flag;  }
+    bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
+    void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
+    EXPR getF90DVNumElements() const   { return F90DVNumElements; }
 #endif // INTEL_CUSTOMIZATION
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
+
+#if INTEL_CUSTOMIZATION
+      if (getIsF90DopeVector()) {
+        if (getIsByRef())
+          OS << "F90_DV,";
+        else
+          OS << "F90_DV(";
+      }
+#endif // INTEL_CUSTOMIZATION
       if (getIsByRef())
         OS << "BYREF(";
 #if INTEL_CUSTOMIZATION
@@ -178,9 +193,20 @@ class Item
       getOrig()->printAsOperand(OS, PrintType);
       if (getIsByRef())
         OS << ")";
+#if INTEL_CUSTOMIZATION
+      else if (getIsF90DopeVector())
+        OS << ")";
+#endif // INTEL_CUSTOMIZATION
     }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+#if INTEL_CUSTOMIZATION
+      if (getIsF90DopeVector()) {
+        OS << "F90_DV";
+        if (getIsByRef())
+          OS << ",";
+      }
+#endif // INTEL_CUSTOMIZATION
       if (getIsByRef())
         OS << "BYREF";
       OS << "(" ;

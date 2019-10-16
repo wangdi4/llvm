@@ -359,26 +359,6 @@ private:
   static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements,
                           unsigned &AddrSpace);
 
-  /// Generate an optionally addrspacecast'ed pointer Value for an array
-  /// of Type \p ElementType, size \p NumElements, name \p VarName.
-  /// \p NumElements can be null for one element.
-  /// If new instructions need to be generated, they will be inserted
-  /// before \p InsertPt.
-  /// \p AllocaAddrSpace specifies address space in which the memory
-  /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
-  /// address space, as specified by DataLayout. Note that some address
-  /// spaces may require allocating the private version of the variable
-  /// as a GlobalVariable, not as an AllocaInst.
-  /// If \p ValueAddrSpace does not match llvm::None,
-  /// then the generated Value will be immediately addrspacecast'ed
-  /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
-  /// expression will be returned as a result.
-  static Value *genPrivatizationAlloca(
-      Type *ElementType, Value *NumElements,
-      Instruction *InsertPt, const Twine &VarName = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
