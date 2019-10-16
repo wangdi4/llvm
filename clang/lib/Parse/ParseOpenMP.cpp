@@ -47,6 +47,7 @@ enum OpenMPDirectiveKindEx {
   OMPD_target_teams_distribute_parallel,
   OMPD_mapper,
   OMPD_variant,
+  OMPD_parallel_master,
 };
 
 class DeclDirectiveListParserHelper final {
@@ -142,7 +143,9 @@ static OpenMPDirectiveKind parseOpenMPDirectiveKind(Parser &P) {
        OMPD_target_teams_distribute_parallel_for},
       {OMPD_target_teams_distribute_parallel_for, OMPD_simd,
        OMPD_target_teams_distribute_parallel_for_simd},
-      {OMPD_master, OMPD_taskloop, OMPD_master_taskloop}};
+      {OMPD_master, OMPD_taskloop, OMPD_master_taskloop},
+      {OMPD_parallel, OMPD_master, OMPD_parallel_master},
+      {OMPD_parallel_master, OMPD_taskloop, OMPD_parallel_master_taskloop}};
   enum { CancellationPoint = 0, DeclareReduction = 1, TargetData = 2 };
   Token Tok = P.getCurToken();
   unsigned DKind =
@@ -1679,6 +1682,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
+  case OMPD_parallel_master_taskloop:
   case OMPD_distribute:
   case OMPD_end_declare_target:
   case OMPD_target_update:
@@ -1768,17 +1772,15 @@ void Parser::skipUnsupportedTargetDirectives() {
 ///         'barrier' | 'taskwait' | 'flush' | 'ordered' | 'atomic' |
 ///         'for simd' | 'parallel for simd' | 'target' | 'target data' |
 ///         'taskgroup' | 'teams' | 'taskloop' | 'taskloop simd' | 'master
-///         taskloop' | 'distribute' | 'target enter data' | 'target exit data'
-///         | 'target parallel' | 'target parallel for' | 'target update' |
-///         'distribute parallel for' | 'distribute paralle for simd' |
-///         'distribute simd' | 'target parallel for simd' | 'target simd' |
-///         'teams distribute' | 'teams distribute simd' |
-///         'teams distribute parallel for simd' |
-///         'teams distribute parallel for' | 'target teams' |
-///         'target teams distribute' |
-///         'target teams distribute parallel for' |
-///         'target teams distribute parallel for simd' |
-///         'target teams distribute simd' {clause}
+///         taskloop' | 'parallel master taskloop' | 'distribute' | 'target
+///         enter data' | 'target exit data' | 'target parallel' | 'target
+///         parallel for' | 'target update' | 'distribute parallel for' |
+///         'distribute paralle for simd' | 'distribute simd' | 'target parallel
+///         for simd' | 'target simd' | 'teams distribute' | 'teams distribute
+///         simd' | 'teams distribute parallel for simd' | 'teams distribute
+///         parallel for' | 'target teams' | 'target teams distribute' | 'target
+///         teams distribute parallel for' | 'target teams distribute parallel
+///         for simd' | 'target teams distribute simd' {clause}
 ///         annot_pragma_openmp_end
 ///
 StmtResult
@@ -1998,6 +2000,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
+  case OMPD_parallel_master_taskloop:
   case OMPD_distribute:
   case OMPD_distribute_parallel_for:
   case OMPD_distribute_parallel_for_simd:
