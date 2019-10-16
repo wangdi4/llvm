@@ -1,40 +1,14 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
 
-; Check that full load, stride, and extent dope vector constant values are
-; determined for ARG #0 and ARG #1 of new_solver_.
+; Check that dope vector constants are not recognized because AVX2 is not
+; specified.
 
 ; Check the trace output.
 
 ; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN
-; CHECK: DV FOUND: ARG #0 new_solver_ 2 x i32
-; CHECK: VALID
-; CHECK: LB[0] = 1
-; CHECK: ST[0] = 4
-; CHECK: EX[0] = 9
-; CHECK: LB[1] = 1
-; CHECK: ST[1] = 36
-; CHECK: EX[1] = 9
-; CHECK: REPLACING 1 LOAD WITH 4
-; CHECK: REPLACING 1 LOAD WITH 36
-; CHECK: DV FOUND: ARG #1 new_solver_ 3 x i32
-; CHECK: VALID
-; CHECK: LB[0] = 1
-; CHECK: ST[0] = 4
-; CHECK: EX[0] = 9
-; CHECK: LB[1] = 1
-; CHECK: ST[1] = 36
-; CHECK: EX[1] = 9
-; CHECK: LB[2] = 1
-; CHECK: ST[2] = 324
-; CHECK: EX[2] = 9
-; CHECK: REPLACING 1 LOAD WITH 9
-; CHECK: REPLACING 1 LOAD WITH 9
-; CHECK: REPLACING 1 LOAD WITH 9
-; CHECK: REPLACING 1 LOAD WITH 4
-; CHECK: REPLACING 1 LOAD WITH 36
-; CHECK: REPLACING 1 LOAD WITH 324
+; CHECK: NOT AVX2
 ; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
 
 @"main_$PART" = internal global [9 x [9 x i32]] zeroinitializer, align 16
