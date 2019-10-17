@@ -10973,6 +10973,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_target_variant_dispatch: // INTEL
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:
