@@ -42,7 +42,7 @@ static cl::opt<bool> DisableNonLoopSubRegions(
     cl::desc("Disable construction of non-loop subregions in VPlan"));
 
 static cl::opt<bool> DisableLoopRegions(
-    "disable-vplan-loop-regions", cl::init(false), cl::Hidden,
+    "disable-vplan-loop-regions", cl::init(true), cl::Hidden,
     cl::desc("Disable construction of loop regions in VPlan"));
 
 cl::opt<bool> LoopMassagingEnabled(

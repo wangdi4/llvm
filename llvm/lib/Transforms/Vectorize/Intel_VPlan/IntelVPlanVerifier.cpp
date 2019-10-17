@@ -199,6 +199,10 @@ void VPlanVerifier::verifyNumLoops(const VPRegionBlock *TopRegion) const {
 
 // Main class to verify loop information.
 void VPlanVerifier::verifyLoops(const VPRegionBlock *TopRegion) const {
+  if (all_of(depth_first(TopRegion),
+             [](const VPBlockBase *BB) { return isa<VPBasicBlock>(BB); }))
+    // Flattened CFG, skip loop regions verification.
+    return;
   verifyNumLoops(TopRegion);
   verifyLoopRegions(TopRegion);
 }
