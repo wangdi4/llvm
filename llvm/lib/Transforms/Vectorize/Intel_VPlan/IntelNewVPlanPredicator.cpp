@@ -223,6 +223,27 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   // post-dom frontier have uniform predicates and uniform condition bits.
   bool Uniform = true;
   for (auto *InfluenceBB : Frontier) {
+    // Ignore latches of loops that CurrBlock belongs to. Needed for the
+    // flattened CFG. Note that latches post-dominate blocks in the loop and the
+    // same can't be true for any other block in the CurrBlock's frontier - no
+    // need to perform VPLoopInfo-based checks. Here is the case when this check
+    // is needed:
+    //
+    //         |
+    //       Header<-----------------------+
+    //         |                           |
+    //     SESE region                     |
+    //         |                           |
+    //       CurrBlock (dominates Header)  |
+    //       /   \                         |
+    //        ...                          |
+    //       \ | /                         |
+    //       Latch-------------------------+
+    //         |
+    //
+    if (VPPostDomTree.dominates(InfluenceBB, CurrBlock))
+      continue;
+
     auto *Cond = InfluenceBB->getCondBit();
     LLVM_DEBUG(dbgs() << "  Influencing term: {Block: "
                       << InfluenceBB->getName() << ", Cond: ";
@@ -570,6 +591,8 @@ void VPlanPredicator::linearizeRegion(
     for (auto *Pred : RemainingDivergentEdges) {
       // The edge is in the linearized subgraph and is processed first. Keep it,
       // but remove other successors of the pred to perform linearization.
+      assert(!shouldPreserveOutgoingEdges(Pred) &&
+             "Trying to remove an edge that should be preserved!");
       Pred->getSuccessors().clear();
       Pred->appendSuccessor(CurrBlock);
 
@@ -596,7 +619,15 @@ void VPlanPredicator::linearizeRegion(
       // , including itself.
       while (PredSucc && BlockIndexInRPOT[PredSucc] < CurrBlockRPOTIndex) {
         LastProcessed = PredSucc;
-        PredSucc = PredSucc->getSingleHierarchicalSuccessor();
+        assert(VPBlockUtils::countSuccessorsNoBE(PredSucc, VPLI) <= 1 &&
+               "Broken linearized chain!");
+        auto *SavedPtr = PredSucc;
+        PredSucc = nullptr;
+        for (auto *Succ : SavedPtr->getHierarchicalSuccessors())
+          if (!VPBlockUtils::isBackEdge(SavedPtr, Succ, VPLI)) {
+            PredSucc = Succ;
+            break;
+          }
       }
 
       if (is_contained(LastProcessed->getSuccessors(), CurrBlock)) {
@@ -805,10 +836,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
 void VPlanPredicator::predicate(void) {
 #if INTEL_CUSTOMIZATION
   assert(VPLI->size() == 1 && "more than 1 loop?");
-  VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
-  assert(PH && "Unexpected null pre-header!");
-  VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
-  VPLoop *VPL = EntryLoopR->getVPLoop();
+  VPLoop *VPL = *VPLI->begin();
   SmallVector<VPBlockBase *, 4> Exits;
   VPL->getExitBlocks(Exits);
 
