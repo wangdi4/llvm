@@ -244,6 +244,8 @@ LANGOPT(UseAutoOpenCLAddrSpaceForOpenMP, 1, 0,
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
 LANGOPT(OpenMPLateOutlineAtomic, 1, 0, "Outline OpenMP atomic construct in the back end")
+LANGOPT(OpenMPLateOutlineAllowUncollapsedLoops, 1, 0,
+        "Generate an uncollapsed form of OpenMP loops")
 #if INTEL_FEATURE_CSA
 LANGOPT(CSAvISA, 1, 0, "[CSA] Customize target IR for binary vISA")
 #endif // INTEL_FEATURE_CSA

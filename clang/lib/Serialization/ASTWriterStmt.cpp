@@ -2022,6 +2022,20 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
     Record.AddStmt(S);
   for (Stmt *S : D->finals_conditions())
     Record.AddStmt(S);
+#if INTEL_CUSTOMIZATION
+#define ADD_UNCOLLAPSED(Name)                                                  \
+  for (auto I : D->uncollapsed##Name()) {                                      \
+    Record.AddStmt(I);                                                         \
+  }
+  ADD_UNCOLLAPSED(IVs)
+  ADD_UNCOLLAPSED(LowerBounds)
+  ADD_UNCOLLAPSED(UpperBounds)
+  ADD_UNCOLLAPSED(Inits)
+  ADD_UNCOLLAPSED(LoopConds)
+  ADD_UNCOLLAPSED(Incs)
+  ADD_UNCOLLAPSED(Updates)
+#undef ADD_UNCOLLAPSED
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ASTStmtWriter::VisitOMPParallelDirective(OMPParallelDirective *D) {
