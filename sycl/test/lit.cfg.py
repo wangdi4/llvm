@@ -5,6 +5,7 @@ import platform
 import re
 import subprocess
 import tempfile
+from distutils.spawn import find_executable
 
 import lit.formats
 import lit.util
@@ -14,7 +15,7 @@ from lit.llvm import llvm_config
 # Configuration file for the 'lit' test runner.
 
 # name: The name of this test suite.
-config.name = 'SYCLUnitTests'
+config.name = 'SYCL'
 
 # testFormat: The test format to use to interpret tests.
 #
@@ -31,7 +32,7 @@ config.excludes = ['CMakeLists.txt', 'run_tests.sh', 'README.txt']
 config.test_source_root = os.path.dirname(__file__)
 
 # test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.path.join(config.sycl_dir, 'test')
+config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
 if platform.system() == "Linux":
     # Propagate 'LD_LIBRARY_PATH' through the environment.
@@ -56,6 +57,7 @@ if 'OCL_ICD_FILENAMES' in os.environ:
     config.environment['OCL_ICD_FILENAMES'] = os.environ['OCL_ICD_FILENAMES']
 
 config.substitutions.append( ('%clang_cc1', ' ' + config.clang + ' -cc1 ') )
+<<<<<<< HEAD:sycl/test/lit.cfg
 # INTEL_CUSTOMIZATION
 # Propagate --gcc-toolchain if we are overriding system installed gcc.
 if 'ICS_GCCBIN' in os.environ:
@@ -69,6 +71,11 @@ else:
     config.substitutions.append( ('%clangxx', ' ' + config.clangxx + ' -I'+config.opencl_include ) )
     config.substitutions.append( ('%clang', ' ' + config.clang + ' -I'+config.opencl_include ) )
 # end INTEL_CUSTOMIZATION
+=======
+config.substitutions.append( ('%clangxx', ' ' + config.clangxx + ' -I'+config.opencl_include ) )
+config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl + ' /I '+config.opencl_include ) )
+config.substitutions.append( ('%clang', ' ' + config.clang + ' -I'+config.opencl_include ) )
+>>>>>>> origin/sycl:sycl/test/lit.cfg.py
 config.substitutions.append( ('%llvm_build_libs_dir',  config.llvm_build_libs_dir ) )
 config.substitutions.append( ('%opencl_include',  config.opencl_include ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
@@ -162,6 +169,16 @@ config.substitutions.append( ('%ACC_CHECK_PLACEHOLDER',  acc_check_substitute) )
 path = config.environment['PATH']
 path = os.path.pathsep.join((config.llvm_tools_dir, path))
 config.environment['PATH'] = path
+
+# Device AOT compilation tools aren't part of the SYCL project,
+# so they need to be pre-installed on the machine
+aot_tools = ["ioc64", "ocloc", "aoc"]
+for aot_tool in aot_tools:
+    if find_executable(aot_tool) != None:
+        print("Found AOT device compiler " + aot_tool)
+        config.available_features.add(aot_tool)
+    else:
+        print("Could not find AOT device compiler " + aot_tool)
 
 # Set timeout for test = 10 mins
 try:

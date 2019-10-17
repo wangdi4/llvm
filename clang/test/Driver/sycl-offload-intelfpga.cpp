@@ -30,6 +30,17 @@
 // CHK-FPGA-IMAGE: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocx]]" "[[OUTPUT4]]" "-sycl"
 // CHK-FPGA-LINK: {{lib|llvm-ar}}{{.*}}
 
+/// -fintelfpga -fsycl-link clang-cl specific
+// RUN:  touch %t.obj
+// RUN:  %clang_cl -### -clang:-target -clang:x86_64-pc-windows-msvc -fsycl -fintelfpga -fsycl-link %t.obj 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK-WIN %s
+// CHK-FPGA-LINK-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,sycl-spir64_fpga-unknown-{{.*}}-sycldevice{{.*}}" "-inputs=[[INPUT:.+\.obj]]" "-outputs=[[OUTPUT1:.+\.obj]],[[OUTPUT2:.+\.obj]]" "-unbundle"
+// CHK-FPGA-LINK-WIN: llvm-link{{.*}} "[[OUTPUT2]]" "-o" "[[OUTPUT3:.+\.bc]]"
+// CHK-FPGA-LINK-WIN: llvm-spirv{{.*}} "-spirv-max-version=1.1" "-spirv-ext=+all" "-o" "[[OUTPUT4:.+\.spv]]" "[[OUTPUT3]]"
+// CHK-FPGA-LINK-WIN: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocr]]" "[[OUTPUT4]]" "-sycl" "-rtl"
+// CHK-FPGA-LINK-WIN: lib.exe{{.*}}
+
+
 /// Check -fintelfpga -fsycl-link with an FPGA archive
 // Create the dummy archive
 // RUN:  echo "Dummy AOCR image" > %t.aocr
@@ -63,7 +74,7 @@
 // CHK-FPGA: llvm-no-spir-kernel{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT3:.+\.o]]"
 // CHK-FPGA: llvm-link{{.*}} "[[OUTPUT3]]" "-o" "[[OUTPUT4:.+\.bc]]"
 // CHK-FPGA: llvm-spirv{{.*}} "-o" "[[OUTPUT5:.+\.spv]]" "[[OUTPUT4]]"
-// CHK-FPGA: clang-offload-wrapper{{.*}} "-o=[[OUTPUT6:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-kind=sycl" "[[OUTPUT5]]"
+// CHK-FPGA: clang-offload-wrapper{{.*}} "-o=[[OUTPUT6:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=spir64_fpga" "-kind=sycl" "[[OUTPUT5]]"
 // CHK-FPGA: llc{{.*}} "-filetype=obj" "-o" "[[FINALLINK3:.+\.o]]" "[[OUTPUT6]]"
 // CHK-FPGA: clang-offload-bundler{{.*}} "-type=aoo" "-targets=host-x86_64-unknown-linux-gnu" {{.*}} "-outputs=[[FINALLINK4:.+\.txt]]" "-unbundle"
 // CHK-FPGA: {{link|ld}}{{.*}} "@[[FINALLINK4]]" "[[FINALLINK2]]" "[[FINALLINK]]" "[[FINALLINK3]]"
