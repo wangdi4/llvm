@@ -1048,7 +1048,7 @@ public:
   }
 
   /// A DBG_VALUE is an entry value iff its debug expression contains the
-  /// DW_OP_entry_value DWARF operation.
+  /// DW_OP_LLVM_entry_value operation.
   bool isDebugEntryValue() const {
     return isDebugValue() && getDebugExpression()->isEntryValue();
   }

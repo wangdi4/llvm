@@ -3257,13 +3257,6 @@ private:
         assert(II.getArgOperand(1) == OldPtr);
 #endif  //INTEL_CUSTOMIZATION
 
-    bool EntireRange = (NewBeginOffset == NewAllocaBeginOffset &&
-                        NewEndOffset == NewAllocaEndOffset);
-
-    // If the new lifetime marker would not differ from the old, just keep it.
-    if (&OldAI == &NewAI && EntireRange)
-      return true;
-
     // Record this instruction for deletion.
     Pass.DeadInsts.insert(&II);
 
@@ -3274,7 +3267,8 @@ private:
     // promoted, but PromoteMemToReg doesn't handle that case.)
     // FIXME: Check whether the alloca is promotable before dropping the
     // lifetime intrinsics?
-    if (!EntireRange)
+    if (NewBeginOffset != NewAllocaBeginOffset ||
+        NewEndOffset != NewAllocaEndOffset)
       return true;
 
     ConstantInt *Size;                                          //INTEL
