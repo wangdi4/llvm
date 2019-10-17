@@ -272,6 +272,9 @@ void Sema::ActOnPragmaClangSection(SourceLocation PragmaLoc, PragmaClangSectionA
     case PragmaClangSectionKind::PCSK_Rodata:
       CSec = &PragmaClangRodataSection;
       break;
+    case PragmaClangSectionKind::PCSK_Relro:
+      CSec = &PragmaClangRelroSection;
+      break;
     case PragmaClangSectionKind::PCSK_Text:
       CSec = &PragmaClangTextSection;
       break;
