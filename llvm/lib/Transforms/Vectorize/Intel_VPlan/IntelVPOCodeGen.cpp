@@ -839,6 +839,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
 
   // Handle vectorization of a linear value store.
   if (isVPValueLinear(Ptr)) {
@@ -849,10 +850,28 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 #endif
   }
 
+  // Stores to uniform pointers can be optimally generated as a scalar store in
+  // vectorized code.
+  // TODO: Extend the optimization for masked uniform stores too. Will need
+  // all-zero check (like masked uniform load) and functionality to find out
+  // last unmasked lane for divergent data operand. This optimization is also
+  // disabled for volatile/atomic stores.
+  bool IsSimpleStore = true;
+  if (Instruction *I = VPInst->getInstruction())
+    IsSimpleStore = cast<StoreInst>(I)->isSimple();
+
+  if (isVPValueUniform(Ptr, Plan) && !MaskValue && IsSimpleStore) {
+    Value *ScalarPtr = getScalarValue(Ptr, 0);
+    VPValue *DataOp = VPInst->getOperand(0);
+    // Extract last lane of data operand to generate scalar store. For uniform
+    // data operand, the same value is present on all lanes.
+    Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1), ScalarPtr,
+                               Alignment);
+    return;
+  }
+
   unsigned OriginalVL =
       StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
-
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
 
   // Try to handle consecutive stores without VLS.
