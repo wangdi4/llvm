@@ -134,28 +134,6 @@ if (MSVC)
     elseif (CMAKE_BUILD_TYPE MATCHES "MinSizeRel")
       set(SYCL_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
     endif()
-<<<<<<< HEAD
-else()
-# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
-  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
-  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
-
-# Workaround for bug in GCC version 5 and higher.
-# More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
-      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
-    target_link_libraries(sycl PRIVATE gcc_s gcc)
-  endif()
-
-endif()
-
-# INTEL_CUSTOMIZATION
-# TODO: remove when PI plugins are implemented.
-if (CMAKE_SYCL_USE_LEVEL0)
-  add_definitions(-DSYCL_USE_LEVEL0=1)
-  target_link_libraries(sycl PRIVATE pi_level0)
-=======
     string(REPLACE "/MD" "" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
     string(REPLACE "/MT" "" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
   endif()
@@ -177,7 +155,26 @@ if (CMAKE_SYCL_USE_LEVEL0)
 
   add_sycl_rt_library(sycld ${SYCL_SOURCES})
   target_compile_options(sycld PUBLIC ${SYCL_CXX_FLAGS_DEBUG})
->>>>>>> origin/sycl
+else()
+# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
+  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+
+# Workaround for bug in GCC version 5 and higher.
+# More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+    target_link_libraries(sycl PRIVATE gcc_s gcc)
+  endif()
+
+endif()
+
+# INTEL_CUSTOMIZATION
+# TODO: remove when PI plugins are implemented.
+if (CMAKE_SYCL_USE_LEVEL0)
+  add_definitions(-DSYCL_USE_LEVEL0=1)
+  target_link_libraries(sycl PRIVATE pi_level0)
 endif()
 # end INTEL_CUSTOMIZATION
 

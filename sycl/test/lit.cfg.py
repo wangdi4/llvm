@@ -57,7 +57,6 @@ if 'OCL_ICD_FILENAMES' in os.environ:
     config.environment['OCL_ICD_FILENAMES'] = os.environ['OCL_ICD_FILENAMES']
 
 config.substitutions.append( ('%clang_cc1', ' ' + config.clang + ' -cc1 ') )
-<<<<<<< HEAD:sycl/test/lit.cfg
 # INTEL_CUSTOMIZATION
 # Propagate --gcc-toolchain if we are overriding system installed gcc.
 if 'ICS_GCCBIN' in os.environ:
@@ -69,13 +68,9 @@ if 'ICS_GCCBIN' in os.environ:
         + ' -I'+config.opencl_include ) )
 else:
     config.substitutions.append( ('%clangxx', ' ' + config.clangxx + ' -I'+config.opencl_include ) )
+    config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl + ' /I '+config.opencl_include ) )
     config.substitutions.append( ('%clang', ' ' + config.clang + ' -I'+config.opencl_include ) )
 # end INTEL_CUSTOMIZATION
-=======
-config.substitutions.append( ('%clangxx', ' ' + config.clangxx + ' -I'+config.opencl_include ) )
-config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl + ' /I '+config.opencl_include ) )
-config.substitutions.append( ('%clang', ' ' + config.clang + ' -I'+config.opencl_include ) )
->>>>>>> origin/sycl:sycl/test/lit.cfg.py
 config.substitutions.append( ('%llvm_build_libs_dir',  config.llvm_build_libs_dir ) )
 config.substitutions.append( ('%opencl_include',  config.opencl_include ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
