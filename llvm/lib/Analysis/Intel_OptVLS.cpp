@@ -43,12 +43,6 @@ typedef OVLSVector<MemrefDistanceMap *> MemrefDistanceMapVector;
 typedef MemrefDistanceMapVector::iterator MemrefDistanceMapVectorIt;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSAccessKind::dump() const {
-  print(OVLSdbgs());
-  OVLSdbgs() << '\n';
-}
-#endif
-
 void OVLSAccessKind::print(OVLSostream &OS) const {
   switch (AccessKind) {
   case SLoad:
@@ -69,6 +63,12 @@ void OVLSAccessKind::print(OVLSostream &OS) const {
   }
 }
 
+void OVLSAccessKind::dump() const {
+  print(OVLSdbgs());
+  OVLSdbgs() << '\n';
+}
+#endif
+
 OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T, OVLSAccessKind AKind)
     : Kind(K), AccessKind(AKind) {
   DType = T;
@@ -82,12 +82,6 @@ OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T, OVLSAccessKind AKind)
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSMemref::dump() const {
-  print(OVLSdbgs(), 0);
-  OVLSdbgs() << '\n';
-}
-#endif
-
 void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
   unsigned Counter = 0;
   while (Counter++ != NumSpaces)
@@ -105,8 +99,7 @@ void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
   getAccessKind().print(OS);
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSGroup::dump() const {
+void OVLSMemref::dump() const {
   print(OVLSdbgs(), 0);
   OVLSdbgs() << '\n';
 }
@@ -1741,6 +1734,7 @@ bool OVLSGroup::isSafeToInsert(OVLSMemref &Mrf) const {
   llvm_unreachable("Unknown AccessKind");
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   OS << "\n    Vector Length(in bytes): " << getVectorLength();
@@ -1760,6 +1754,11 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
     MemrefVec[i]->print(OS, NumSpaces);
     OS << "\n";
   }
+}
+
+void OVLSGroup::dump() const {
+  print(OVLSdbgs(), 0);
+  OVLSdbgs() << '\n';
 }
 
 /// print the load instruction like this:
@@ -1815,6 +1814,7 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   OS << *Op3;
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
                                    OVLSOperand *Mask) const {
