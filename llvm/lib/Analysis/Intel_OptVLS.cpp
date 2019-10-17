@@ -1851,7 +1851,10 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
 void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps, unsigned VectorLength,
                                 OVLSMemrefToGroupMap *MemrefToGroupMap) {
-  OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n");
+  OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
+                       << "  Recieved a vector of memrefs (" << Memrefs.size()
+                       << "): \n");
+  OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
 
   if (Memrefs.empty())
     return;
@@ -1861,9 +1864,6 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                          << " bytes is not supported currently\n");
     return;
   }
-
-  OVLSDebug(OVLSdbgs() << "  Recieved a vector of memrefs: \n");
-  OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
 
   // Split the vector of memrefs into sub groups where memrefs in each sub group
   // are neighbors, means they

@@ -73,6 +73,14 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
       if (!Memref)
         continue;
 
+      // FIXME: Remove this if-stmt after VLS server can handle big access
+      //        sizes. At the moment, it crashes trying to compute access mask
+      //        for a group if element size is greater than MAX_VECTOR_LENGTH.
+      if (Memref->getType().getElementSize() >= MAX_VECTOR_LENGTH * 8) {
+        delete Memref;
+        continue;
+      }
+
       MemrefVector.push_back(Memref);
       LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump(););
     }
