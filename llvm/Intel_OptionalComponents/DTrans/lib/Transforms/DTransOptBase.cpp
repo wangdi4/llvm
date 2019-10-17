@@ -860,7 +860,7 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
           /*init=*/nullptr, GV->getName(),
           /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
           GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
-      NewGV->setAlignment(GV->getAlignment());
+      NewGV->setAlignment(MaybeAlign(GV->getAlignment()));
       NewGV->copyAttributesFrom(GV);
       NewGV->copyMetadata(GV, /*Offset=*/0);
     }

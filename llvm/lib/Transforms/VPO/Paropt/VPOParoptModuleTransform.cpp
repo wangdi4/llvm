@@ -1134,7 +1134,7 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
       // Align entries to their size, so that entries_end symbol
       // points to the end of 32-byte aligned chunk always,
       // otherwise libomptarget may read past the section.
-      cast<GlobalObject>(Entry)->setAlignment(32);
+      cast<GlobalObject>(Entry)->setAlignment(MaybeAlign(32));
       // By convention between Paropt and clang-offload-wrapper
       // the entries contribute into sections with suffix $B,
       // the entries_begin symbol is in the section with suffix $A,

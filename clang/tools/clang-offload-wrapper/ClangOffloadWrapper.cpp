@@ -548,7 +548,7 @@ private:
             ConstantAggregateZero::get(LabelTy),
             Twine(OffloadKindTag) + Twine("entries_begin"));
         auto *EntriesBObj = cast<GlobalObject>(EntriesB);
-        EntriesBObj->setAlignment(32);
+        EntriesBObj->setAlignment(MaybeAlign(32));
         EntriesBObj->setSection(".omp_offloading.entries$A");
         EntriesBObj->setVisibility(GlobalValue::HiddenVisibility);
         EntriesBObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
@@ -563,7 +563,7 @@ private:
         // in the middle of the section, and we want to make sure
         // entries_end points to the end of 32-byte aligned chunk,
         // otherwise libomptarget may read past the section.
-        EntriesEObj->setAlignment(32);
+        EntriesEObj->setAlignment(MaybeAlign(32));
         EntriesEObj->setSection(".omp_offloading.entries$C");
         EntriesEObj->setVisibility(GlobalValue::HiddenVisibility);
         EntriesEObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
