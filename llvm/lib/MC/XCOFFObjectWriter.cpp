@@ -346,7 +346,11 @@ void XCOFFObjectWriter::writeSymbolName(const StringRef &SymbolName) {
     W.write<uint32_t>(Strings.getOffset(SymbolName));
   } else {
     char Name[XCOFF::NameSize];
-    std::strncpy(Name, SymbolName.data(), XCOFF::NameSize);
+#if INTEL_CUSTOMIZATION
+    assert(strlen(SymbolName.data()) <= XCOFF::NameSize &&
+       "Symbol's name is not larger than XCOFF::NameSize");
+    std::memcpy(Name, SymbolName.data(), XCOFF::NameSize);
+#endif // INTEL_CUSTOMIZATION
     ArrayRef<char> NameRef(Name, XCOFF::NameSize);
     W.write(NameRef);
   }
@@ -488,57 +492,9 @@ void XCOFFObjectWriter::writeSymbolTable(const MCAsmLayout &Layout) {
   for (auto &Csect : BSSCsects) {
     assert(Csect.Syms.size() == 1 &&
            "Uninitialized csect cannot contain more then 1 symbol.");
-<<<<<<< HEAD
-    Symbol &Sym = Sec.Syms.back();
-
-    // Write the symbol's name.
-    if (Sym.nameInStringTable()) {
-      W.write<int32_t>(0);
-      W.write<uint32_t>(Strings.getOffset(Sym.getName()));
-    } else {
-      char Name[XCOFF::NameSize];
-#if INTEL_CUSTOMIZATION
-      assert(strlen(Sym.getName().data()) <= XCOFF::NameSize &&
-         "Symbol's name is not larger than XCOFF::NameSize");
-      std::memcpy(Name, Sym.getName().data(), XCOFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
-      ArrayRef<char> NameRef(Name, XCOFF::NameSize);
-      W.write(NameRef);
-    }
-
-    W.write<uint32_t>(Sec.Address);
-    W.write<int16_t>(BSS.Index);
-    // Basic/Derived type. See the description of the n_type field for symbol
-    // table entries for a detailed description. Since we don't yet support
-    // visibility, and all other bits are either optionally set or reserved,
-    // this is always zero.
-    // TODO FIXME How to assert a symbols visibility is default?
-    W.write<uint16_t>(0);
-
-    W.write<uint8_t>(Sym.getStorageClass());
-
-    // Always 1 aux entry for now.
-    W.write<uint8_t>(1);
-
-    W.write<uint32_t>(Sec.Size);
-
-    // Parameter typecheck hash. Not supported.
-    W.write<uint32_t>(0);
-    // Typecheck section number. Not supported.
-    W.write<uint16_t>(0);
-    // Symbol type.
-    W.write<uint8_t>(getEncodedType(Sec.MCCsect));
-    // Storage mapping class.
-    W.write<uint8_t>(Sec.MCCsect->getMappingClass());
-    // Reserved (x_stab).
-    W.write<uint32_t>(0);
-    // Reserved (x_snstab).
-    W.write<uint16_t>(0);
-=======
     Symbol &Sym = Csect.Syms.back();
     writeSymbolTableEntryForControlSection(Csect, BSS.Index,
                                            Sym.getStorageClass());
->>>>>>> fdfd6ab12e5e2ad3f6641a3b4442b3140212d29b
   }
 }
 
