@@ -288,6 +288,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   const bool is_simd = TII->getOpcodeClass(MI.getOpcode()) == CSA::VARIANT_SIMD;
   MachineOperand &result = MI.getOperand(0);
   MachineOperand &init   = MI.getOperand(1);
+  MachineOperand &seq    = MI.getOperand(2);
   MachineOperand &pred   = MI.getOperand(is_fma ? 4 : 3);
 
   // Determine the number of partial reductions needed. If the flag is set, use
@@ -305,12 +306,13 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   const StringRef base_name = LMFI->getLICName(result.getReg());
   const auto add_lic = [&](
     const TargetRegisterClass *RC, const Twine &name,
-    bool ignore_on_exit
+    bool ignore_on_exit, auto lic_group
   ) {
     const unsigned lic = LMFI->allocateLIC(
       RC, base_name.empty() ? name : base_name + "." + name
     );
     if (ignore_on_exit) LMFI->addLICAttribute(lic, "csasim_ignore_on_exit");
+    LMFI->setLICGroup(lic, lic_group);
     return lic;
   };
 
@@ -326,14 +328,14 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   // Another for creating small fountain1s producing <64-bit sequences.
   LLVMContext &ctx = MI.getParent()->getParent()->getFunction().getContext();
   const auto smallfountain = [&](uint64_t bits, uint64_t len,
-                                 const Twine &name) {
+                                 const Twine &name, auto lic_group) {
     if (EmulateFountains) {
       // To keep the fountain-replacement loops saturated and avoid late tools
       // problems, repeat small sequences ceil(9/len) times so that there are at
       // least 9 values circulating around the loop.
       const unsigned reps = 8 / len + 1;
-      const unsigned res = add_lic(i1_class, name, true);
-      const unsigned lthack = add_lic(i1_class, name + ".lthack", true);
+      const unsigned res = add_lic(i1_class, name, true, lic_group);
+      const unsigned lthack = add_lic(i1_class, name + ".lthack", true, lic_group);
       LMFI->setLICDepth(lthack, reps * len);
       add_instr(CSA::MOV1).addDef(lthack).addUse(res);
       for (unsigned r = 0; r < reps; ++r) {
@@ -345,7 +347,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
       add_instr(CSA::MOV1).addDef(res).addUse(lthack);
       return res;
     } else {
-      const unsigned res = add_lic(i1_class, name, true);
+      const unsigned res = add_lic(i1_class, name, true, lic_group);
       add_instr(CSA::FOUNTAIN1)
           .addDef(res)
           .addImm(bits)
@@ -379,8 +381,37 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
                                          identity_fp->getValueAPF());
   }
 
+  // Create the LICGroup's for the newly created LICs.
+  auto lic_group_a = LMFI->getLICGroup(seq.getReg());
+  auto lic_group_b = LMFI->getLICGroup(result.getReg());
+
+  const auto makeLicGroup = [&](ScaledNumber<uint64_t> executionFrequency) {
+    auto res = std::make_shared<CSALicGroup>();
+    res->LoopId = lic_group_a->LoopId;
+    res->LoopDepth = lic_group_a->LoopDepth;
+    res->executionFrequency = executionFrequency;
+    return res;
+  };
+
+  typedef ScaledNumber<uint64_t> Scaled64;
+
+  Scaled64 frequency_a = lic_group_a->executionFrequency;
+  Scaled64 frequency_b = lic_group_b->executionFrequency;
+  Scaled64 s_p  = Scaled64(partred_count, 0);
+  Scaled64 s_p1 = Scaled64(partred_count - 1, 0);
+  Scaled64 s_p2 = Scaled64(partred_count - 2, 0);
+  Scaled64 s_2p1 = Scaled64(2 * (partred_count - 1), 0);
+
+  auto lic_group_apb = makeLicGroup(frequency_a + s_p * frequency_b);
+  auto lic_group_pb = makeLicGroup(s_p * frequency_b);
+  auto lic_group_p1b = makeLicGroup(s_p1 * frequency_b);
+  auto lic_group_p2b = makeLicGroup(s_p2 * frequency_b);
+  auto lic_group_2p1b = makeLicGroup(s_2p1 * frequency_b);
+  auto lic_group_ap1b = makeLicGroup(frequency_a + s_p1 * frequency_b);
+
   // The partial reduction lic, with initial values.
-  const unsigned parts = add_lic(lic_class, "parts", false);
+  const unsigned parts = add_lic(lic_class, "parts", false,
+                                          lic_group_apb);
   LMFI->setLICDepth(parts, partred_count);
   for (int i = 0; i < partred_count - 1; ++i) {
     if (is_simd) {
@@ -400,10 +431,14 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   }
 
   // Add logic for moving values to and from parts.
-  const unsigned parts_pred_ctl = add_lic(i1_class,  "parts_pred_ctl", false);
-  const unsigned parts_to_op    = add_lic(lic_class, "parts_to_op", false);
-  const unsigned parts_to_clpsr = add_lic(lic_class, "parts_to_clpsr", false);
-  const unsigned op_to_parts    = add_lic(lic_class, "op_to_parts", false);
+  const unsigned parts_pred_ctl = add_lic(i1_class,  "parts_pred_ctl", false,
+                                          lic_group_apb);
+  const unsigned parts_to_op    = add_lic(lic_class, "parts_to_op", false,
+                                          lic_group_a);
+  const unsigned parts_to_clpsr = add_lic(lic_class, "parts_to_clpsr", false,
+                                          lic_group_pb);
+  const unsigned op_to_parts    = add_lic(lic_class, "op_to_parts", false,
+                                          lic_group_a);
   add_instr(CSA::REPLICATE1)
     .addDef(parts_pred_ctl)
     .add(pred)
@@ -441,8 +476,10 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   // If it's some other immediate, use a fountain to reinitialize parts.
   else if (init_is_imm) {
     if (EmulateFountains) {
-      const unsigned parts_init = add_lic(lic_class, "parts_init", true);
-      const unsigned lthack = add_lic(lic_class, "parts_init.lthack", true);
+      const unsigned parts_init = add_lic(lic_class, "parts_init", true,
+                                          lic_group_pb);
+      const unsigned lthack = add_lic(lic_class, "parts_init.lthack", true,
+                                      lic_group_pb);
       LMFI->setLICDepth(lthack, partred_count);
       add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
           .addDef(lthack)
@@ -480,7 +517,8 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         ConstantArray::get(ArrayType::get(identity->getType(), partred_count),
                            consts),
         lic_size / 8);
-      const unsigned parts_init = add_lic(lic_class, "parts_init", true);
+      const unsigned parts_init = add_lic(lic_class, "parts_init", true,
+                                          lic_group_pb);
       add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
           .addDef(parts_init)
           .addConstantPoolIndex(scratch)
@@ -497,10 +535,13 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   // Otherwise, use a pick to pull in the value from init and inject a 0 to make
   // sure that it pulls in the init value for the first reduction.
   else {
-    const unsigned parts_init_pred = smallfountain(
-      n_ones(partred_count - 1) << 1, partred_count, "parts_init_pred");
-    const unsigned parts_init        = add_lic(lic_class, "parts_init", false);
-    const unsigned parts_pred_picker = add_lic(i1_class,  "parts_pred_picker", false);
+    const unsigned parts_init_pred =
+      smallfountain(n_ones(partred_count - 1) << 1, partred_count,
+                    "parts_init_pred", lic_group_pb);
+    const unsigned parts_init        = add_lic(lic_class, "parts_init", false,
+                                               lic_group_pb);
+    const unsigned parts_pred_picker = add_lic(i1_class,  "parts_pred_picker",
+                                               false, lic_group_apb);
     if (is_simd) {
       add_instr(opcode_pick)
         .addDef(parts_init)
@@ -594,17 +635,25 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // Put in the collapser.
   const int internal_count       = collapser_internal_count(partred_count);
-  const unsigned clpsr_alternate = smallfountain(0x2, 2, "clpsr_alternate");
+  const unsigned clpsr_alternate = smallfountain(0x2, 2, "clpsr_alternate",
+                                                 lic_group_2p1b);
   const unsigned clpsr_picker =
     smallfountain(n_ones(internal_count) << partred_count,
-                  internal_count + partred_count, "clpsr_picker");
+                  internal_count + partred_count, "clpsr_picker",
+                  lic_group_2p1b);
   const unsigned clpsr_switcher =
-    smallfountain(n_ones(internal_count), internal_count + 1, "clpsr_switcher");
-  const unsigned clpsr_in    = add_lic(lic_class, "clpsr_in", false);
-  const unsigned clpsr_left  = add_lic(lic_class, "clpsr_left", false);
-  const unsigned clpsr_right = add_lic(lic_class, "clpsr_right", false);
-  const unsigned clpsr_out   = add_lic(lic_class, "clpsr_out", false);
-  const unsigned clpsr_back  = add_lic(lic_class, "clpsr_back", false);
+    smallfountain(n_ones(internal_count), internal_count + 1, "clpsr_switcher",
+                  lic_group_p1b);
+  const unsigned clpsr_in    = add_lic(lic_class, "clpsr_in", false,
+                                       lic_group_2p1b);
+  const unsigned clpsr_left  = add_lic(lic_class, "clpsr_left", false,
+                                       lic_group_p1b);
+  const unsigned clpsr_right = add_lic(lic_class, "clpsr_right", false,
+                                       lic_group_p1b);
+  const unsigned clpsr_out   = add_lic(lic_class, "clpsr_out", false,
+                                       lic_group_p1b);
+  const unsigned clpsr_back  = add_lic(lic_class, "clpsr_back", false,
+                                       lic_group_p2b);
   LMFI->addLICAttribute(clpsr_back, "csasim_backedge");
   add_instr(opcode_pick)
     .addDef(clpsr_in)
@@ -642,10 +691,14 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // If multiplexing is enabled, insert the multiplexing code here.
   if (Multiplex != none) {
-    const unsigned op_pred_ctl = add_lic(i1_class,  "op_pred_ctl", false);
-    const unsigned op_left     = add_lic(lic_class, "op_left", false);
-    const unsigned op_right    = add_lic(lic_class, "op_right", false);
-    const unsigned op_out      = add_lic(lic_class, "op_out", false);
+    const unsigned op_pred_ctl = add_lic(i1_class,  "op_pred_ctl", false,
+                                         lic_group_ap1b);
+    const unsigned op_left     = add_lic(lic_class, "op_left", false,
+                                         lic_group_ap1b);
+    const unsigned op_right    = add_lic(lic_class, "op_right", false,
+                                         lic_group_ap1b);
+    const unsigned op_out      = add_lic(lic_class, "op_out", false,
+                                         lic_group_ap1b);
 
     // For deterministic multiplexing, drive both inputs off of a replicate1.
     // For nondeterministic multiplexing, drive both off of a pickany on the
@@ -681,7 +734,8 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         .addUse(op_pred_ctl)
         .addUse(clpsr_left)
         .add(MI.getOperand(2));
-      const unsigned op_not_as_left = add_lic(lic_class, "op_not_as_left", false);
+      const unsigned op_not_as_left = add_lic(lic_class, "op_not_as_left",
+                                              false, lic_group_ap1b);
       if (is_simd) {
         add_instr(opcode_pick)
           .addDef(op_not_as_left)
@@ -734,7 +788,8 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     // input (which is really the right one for SUBs - the conventions here are
     // FMA-based) needs a negation there.
     else if (gen_opcode == CSA::Generic::REDSUB) {
-      const unsigned op_neg = add_lic(lic_class, "op_neg", false);
+      const unsigned op_neg = add_lic(lic_class, "op_neg", false,
+                                      lic_group_p1b);
       if (is_simd) {
         add_instr(TII->makeOpcode(CSA::Generic::XOR, lic_size))
           .addDef(op_neg)
