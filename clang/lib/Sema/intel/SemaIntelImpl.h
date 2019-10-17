@@ -22,9 +22,7 @@ void Sema::HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
     E = ICE.get();
   }
 
-  if (NumReadPortsAttr::classof(&TmpAttr) ||
-      NumWritePortsAttr::classof(&TmpAttr) ||
-      IntelFPGAMaxReplicatesAttr::classof(&TmpAttr) ||
+  if (IntelFPGAMaxReplicatesAttr::classof(&TmpAttr) ||
       (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(

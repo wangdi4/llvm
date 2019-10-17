@@ -30,26 +30,6 @@ __attribute__((__bankwidth__(4))) const int global_const5 = 1;
 //CHECK: IntegerLiteral{{.*}}8{{$}}
 __attribute__((__numbanks__(8))) const int global_const6 = 1;
 
-//CHECK: VarDecl{{.*}}global_const7
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: NumReadPortsAttr
-//CHECK: IntegerLiteral{{.*}}2{{$}}
-__attribute__((__numreadports__(2))) const int global_const7 = 1; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
-//CHECK: VarDecl{{.*}}global_const8
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: NumWritePortsAttr
-//CHECK: IntegerLiteral{{.*}}4{{$}}
-__attribute__((__numwriteports__(4))) const int global_const8 = 1; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
-//CHECK: VarDecl{{.*}}global_const9
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: NumReadPortsAttr
-//CHECK: IntegerLiteral{{.*}}4{{$}}
-//CHECK: NumWritePortsAttr
-//CHECK: IntegerLiteral{{.*}}16{{$}}
-__attribute__((__numports_readonly_writeonly__(4, 16))) const int global_const9 = 1; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
 //CHECK: VarDecl{{.*}}global_const10
 //CHECK: MemoryAttr{{.*}}Implicit
 //CHECK: MergeAttr{{.*}}"mrg1" "depth"{{$}}
@@ -76,16 +56,6 @@ __attribute__((__static_array_reset__(1))) const int global_const13 = 1;
 //CHECK: IntegerLiteral{{.*}}32{{$}}
 __attribute__((internal_max_block_ram_depth(32))) const int global_const14 = 1;
 
-//CHECK: VarDecl{{.*}}global_const15
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: OptimizeFMaxAttr
-__attribute__((optimize_fmax)) const int global_const15 = 1;
-
-//CHECK: VarDecl{{.*}}global_const16
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: OptimizeRamUsageAttr
-__attribute__((optimize_ram_usage)) const int global_const16 = 1;
-
 //CHECK: VarDecl{{.*}}global_const17
 //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
 //CHECK: IntegerLiteral{{.*}}16{{$}}
@@ -102,54 +72,54 @@ __attribute__((ihc_component))
 void foo1()
 {
   //CHECK: VarDecl{{.*}}v_one
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: DoublePumpAttr
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGADoublePumpAttr
   __attribute__((__doublepump__))
   unsigned int v_one[64];
 
   //CHECK: VarDecl{{.*}}v_two
-  //CHECK: MemoryAttr
+  //CHECK: IntelFPGAMemoryAttr
   __attribute__((__memory__))
   unsigned int v_two[64];
 
   //CHECK: VarDecl{{.*}}v_two_A
-  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  //CHECK: IntelFPGAMemoryAttr{{.*}}MLAB{{$}}
   __attribute__((__memory__("MLAB")))
   unsigned int v_two_A[64];
 
   //CHECK: VarDecl{{.*}}v_two_B
-  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  //CHECK: IntelFPGAMemoryAttr{{.*}}BlockRAM{{$}}
   __attribute__((__memory__("BLOCK_RAM")))
   unsigned int v_two_B[64];
 
   //CHECK: VarDecl{{.*}}v_two_C
-  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
-  //CHECK: DoublePumpAttr
+  //CHECK: IntelFPGAMemoryAttr{{.*}}BlockRAM{{$}}
+  //CHECK: IntelFPGADoublePumpAttr
   __attribute__((__memory__("BLOCK_RAM")))
   __attribute__((doublepump))
   unsigned int v_two_C[64];
 
   //CHECK: VarDecl{{.*}}v_three
-  //CHECK: RegisterAttr
+  //CHECK: IntelFPGARegisterAttr
   __attribute__((__register__))
   unsigned int v_three[64];
 
   //CHECK: VarDecl{{.*}}v_four
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: SinglePumpAttr
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGASinglePumpAttr
   __attribute__((__singlepump__))
   unsigned int v_four[64];
 
   //CHECK: VarDecl{{.*}}v_five
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: BankWidthAttr
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   __attribute__((__bankwidth__(4)))
   unsigned int v_five[64];
 
   //CHECK: VarDecl{{.*}}v_five_two
-  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
@@ -157,54 +127,29 @@ void foo1()
   unsigned int v_five_two[64];
 
   //CHECK: VarDecl{{.*}}v_six
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumBanksAttr
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   __attribute__((__numbanks__(8)))
   unsigned int v_six[64];
 
-  //CHECK: VarDecl{{.*}}v_seven
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumReadPortsAttr
-  //CHECK: IntegerLiteral{{.*}}2{{$}}
-  __attribute__((__numreadports__(2))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int v_seven[64];
-
-  //CHECK: VarDecl{{.*}}v_eight
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumWritePortsAttr
-  //CHECK: IntegerLiteral{{.*}}4{{$}}
-  __attribute__((__numwriteports__(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int v_eight[64];
-
-  //CHECK: VarDecl{{.*}}v_nine
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumReadPortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK: NumWritePortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  __attribute__((__numports_readonly_writeonly__(4,16))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int v_nine[64];
-
   //CHECK: VarDecl{{.*}}v_ten
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: MergeAttr{{.*}}"mrg1" "depth"{{$}}
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg1" "depth"{{$}}
   __attribute__((__merge__("mrg1","depth")))
   unsigned int v_ten[64];
 
   //CHECK: VarDecl{{.*}}v_eleven
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: MergeAttr{{.*}}"mrg2" "width"{{$}}
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg2" "width"{{$}}
   __attribute__((__merge__("mrg2","width")))
   unsigned int v_eleven[64];
 
   //CHECK: VarDecl{{.*}}v_twelve
-  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
@@ -218,9 +163,9 @@ void foo1()
   unsigned int v_twelve[64];
 
   //CHECK: VarDecl{{.*}}v_twelve_A
-  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
@@ -234,15 +179,15 @@ void foo1()
   unsigned int v_twelve_A[64];
 
   //CHECK: VarDecl{{.*}}v_thirteen
-  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK: BankWidthAttr
+  //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__bank_bits__(2,3), __bankwidth__(16)))
@@ -261,27 +206,17 @@ void foo1()
   static unsigned int v_fifteen[64];
 
   int __attribute__((__register__)) A;
-  int __attribute__((__numbanks__(4), __bankwidth__(16), __singlepump__,
-                     __numreadports__(1), __numwriteports__(2))) B; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}} //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  int __attribute__((__numbanks__(4), __bankwidth__(16), __doublepump__,
-                     __numreadports__(1), __numwriteports__(2))) C; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}} //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
+  int __attribute__((__numbanks__(4), __bankwidth__(16), __singlepump__)) B;
+  int __attribute__((__numbanks__(4), __bankwidth__(16), __doublepump__)) C;
   int __attribute__((__numbanks__(4), __bankwidth__(16), __doublepump__)) D;
   int __attribute__((__numbanks__(4), __bankwidth__(16))) E;
   int __attribute__((__bank_bits__(2,3), __bankwidth__(16))) F;
 
   //CHECK: VarDecl{{.*}}G0
-  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: InternalMaxBlockRamDepthAttr
   //CHECK: IntegerLiteral{{.*}}32{{$}}
   int __attribute__((internal_max_block_ram_depth(32))) G0;
-  //CHECK: VarDecl{{.*}}G1
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: OptimizeFMaxAttr
-  int __attribute__((optimize_fmax)) G1;
-  //CHECK: VarDecl{{.*}}G2
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: OptimizeRamUsageAttr
-  int __attribute__((optimize_ram_usage)) G2;
 
   // diagnostics
 
@@ -290,63 +225,11 @@ void foo1()
   __attribute__((internal_max_block_ram_depth(32)))
   int imbrd_one;
 
-  //expected-warning@+2{{'optimize_fmax' is already applied}}
-  __attribute__((optimize_fmax))
-  __attribute__((optimize_fmax))
-  int ofm_one;
-
-  //expected-warning@+2{{'optimize_ram_usage' is already applied}}
-  __attribute__((optimize_ram_usage))
-  __attribute__((optimize_ram_usage))
-  int oru_one;
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((optimize_fmax))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int imbrd_two[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((optimize_ram_usage))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int imbrd_three[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_fmax))
-  __attribute__((optimize_ram_usage))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int ofm_two[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_ram_usage))
-  __attribute__((optimize_fmax))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int ofm_three[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_fmax))
-  __attribute__((register))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int ofm_four[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((register))
-  __attribute__((optimize_fmax))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int ofm_five[64];
-
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((internal_max_block_ram_depth(32)))
   __attribute__((register))
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int imbrd_four[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_ram_usage))
-  __attribute__((register))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int oru_two[64];
 
   // **doublepump
   //expected-error@+2{{attributes are not compatible}}
@@ -422,29 +305,11 @@ void foo1()
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six_two[64];
 
-  //expected-error@+2{{attributes are not compatible}}
+  //expected-note@+1{{conflicting attribute is here}}
   __attribute__((__register__))
+  //expected-error@+1{{'__numbanks__' and 'register' attributes are not compatible}}
   __attribute__((__numbanks__(8)))
-  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_seven[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((__register__))
-  __attribute__((__numreadports__(8))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int reg_eight[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((__register__))
-  __attribute__((__numwriteports__(8))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int reg_nine[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((__register__))
-  __attribute__((__numports_readonly_writeonly__(4,8))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int reg_ten[64];
 
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
@@ -491,10 +356,10 @@ void foo1()
   unsigned int bw_one[64];
 
   //CHECK: VarDecl{{.*}}bw_two
-  //CHECK: BankWidthAttr
+  //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: BankWidthAttr
+  //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{is already applied}}
@@ -533,6 +398,7 @@ void foo1()
   unsigned int mc_one[64];
 
   //CHECK: VarDecl{{.*}}mc_two
+  //CHECK: IntelFPGAMemoryAttr
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -567,10 +433,10 @@ void foo1()
   unsigned int nb_one[64];
 
   //CHECK: VarDecl{{.*}}nb_two
-  //CHECK: NumBanksAttr
+  //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: NumBanksAttr
+  //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{is already applied}}
@@ -601,35 +467,8 @@ void foo1()
   __attribute__((__numbanks__(0)))
   unsigned int nb_seven[64];
 
-  // numreadports
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((__numreadports__(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   __attribute__((__register__))
-  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int nrp_one[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((__numreadports__(-4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nrp_two[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((__numreadports__(0))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nrp_three[4];
-
-  // numwriteports
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((__numwriteports__(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  __attribute__((__register__))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int nwp_one[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((__numwriteports__(-4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nwp_two[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((__numwriteports__(0))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nwp_three[4];
 
   // static_array_reset
   //expected-error@+1{{attribute only applies to constant variables, local static variables, and non-static data members}}
@@ -650,56 +489,9 @@ void foo1()
   __attribute__((__static_array_reset__(2)))
   static unsigned int sar_four[4];
 
-  // numports_readonly_writeonly
-  //expected-error@+5{{attributes are not compatible}}
-  //expected-note@+3 {{conflicting attribute is here}}
-  //expected-error@+3{{attributes are not compatible}}
-  //expected-note@+1 {{conflicting attribute is here}}
-  __attribute__((__numports_readonly_writeonly__(4,4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  __attribute__((__register__))
-  unsigned int nprowo_one[4];
-
-  //expected-error@+1{{attribute requires exactly 2 arguments}}
-  __attribute__((__numports_readonly_writeonly__(4)))
-  unsigned int nprowo_two[4];
-
-  //expected-error@+1{{attribute requires exactly 2 arguments}}
-  __attribute__((__numports_readonly_writeonly__(4,4,4)))
-  unsigned int nprowo_three[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((__numports_readonly_writeonly__(-4,8))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nprowo_four[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((__numports_readonly_writeonly__(4,0))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nprowo_five[4];
-
   int i_nprowo = 32;
-  //expected-error@+3{{expression is not an integral constant expression}}
-  //expected-note@+2{{not allowed in a constant expression}}
-  //expected-note@-3{{declared here}}
-  __attribute__((__numports_readonly_writeonly__(4,i_nprowo))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   unsigned int nprowo_six[4];
 
-  //CHECK: VarDecl{{.*}}nprowo_seven
-  //CHECK: NumReadPortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}9{{$}}
-  //CHECK-NEXT: NumWritePortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK: NumReadPortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: NumWritePortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //expected-warning@+3{{'numreadports' is already applied}}
-  //expected-warning@+2{{'numwriteports' is already applied}}
-  __attribute__((__numports_readonly_writeonly__(9,16))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  __attribute__((__numports_readonly_writeonly__(2,4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  unsigned int nprowo_seven[4];
 
   // merge
   //expected-error@+2{{attributes are not compatible}}
@@ -726,8 +518,8 @@ void foo1()
 
   //Last one is applied and others ignored.
   //CHECK: VarDecl{{.*}}mrg_six
-  //CHECK: MergeAttr{{.*}}"mrg4" "depth"{{$}}
-  //CHECK: MergeAttr{{.*}}"mrg5" "width"{{$}}
+  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg4" "depth"{{$}}
+  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg5" "width"{{$}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__merge__("mrg4","depth")))
   __attribute__((__merge__("mrg5","width")))
@@ -793,9 +585,8 @@ void foo1()
 
 //CHECK: FunctionTemplateDecl{{.*}}tattr
 //CHECK: FunctionDecl{{.*}}tattr
-//CHECK: TemplateArgument{{.*}}4{{$}}
 //CHECK: TemplateArgument{{.*}}8{{$}}
-//CHECK: TemplateArgument{{.*}}2{{$}}
+//CHECK: TemplateArgument{{.*}}4{{$}}
 //CHECK: TemplateArgument{{.*}}8{{$}}
 //CHECK: TemplateArgument{{.*}}2{{$}}
 //CHECK: TemplateArgument{{.*}}3{{$}}
@@ -811,14 +602,6 @@ void foo1()
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-//CHECK: NumReadPortsAttr
-//CHECK-NEXT: ConstantExpr
-//CHECK-NEXT: SubstNonTypeTemplateParmExpr
-//CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-//CHECK: NumWritePortsAttr
-//CHECK-NEXT: ConstantExpr
-//CHECK-NEXT: SubstNonTypeTemplateParmExpr
-//CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 //CHECK: NumBanksAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
@@ -828,14 +611,14 @@ void foo1()
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 template <int max_concurrency, unsigned bankwidth, unsigned numbanks,
-          int numreadports, unsigned numwriteports, int bit1, int bit2,
-          int bit3>
+          int bit1, int bit2, int bit3>
 void tattr() {
 
+  //expected-error@+1{{'max_concurrency' attribute requires integer constant between 0 and 1048576 inclusive}}
   __attribute__((max_concurrency(max_concurrency)))
+    //expected-error@+1{{'bankwidth' attribute argument must be a constant power of two greater than zero}}
   __attribute__((bankwidth(bankwidth)))
   __attribute__((numbanks(numbanks)))
-  __attribute__((numports_readonly_writeonly(numreadports, numwriteports))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   __attribute__((__bank_bits__(bit1,3,bit3)))
   int var1;
 }
@@ -843,30 +626,21 @@ void tattr() {
 void foo2()
 {
   tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
-        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
-        /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
 
-  //expected-error@-13{{must be a constant power of two greater than zero}}
   //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*max_concurrency=*/8, /*bankwidth=*/3, /*numbanks=*/8,
-        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
-        /*bit3=*/4>();
-
-  //expected-error@-17{{requires integer constant between 1 and 1048576}}
-  //expected-note@+1{{in instantiation of function template specialization}}
-  tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
-        /*numreadports=*/-1, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
-        /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
 
   tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
-        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/4, /*bit2=*/3,
-        /*bit3=*/2>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
 
-  //expected-error@-30{{requires integer constant between 0 and 1048576}}
+  tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
+	/*bit1=*/4, /*bit2=*/3, /*bit3=*/2>();
+
   //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*max_concurrency=*/-1, /*bankwidth=*/4, /*numbanks=*/8,
-        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
-        /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
 }
 
 template <typename T>
@@ -976,28 +750,6 @@ struct foo {
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   __attribute__((__numbanks__(8))) unsigned int v_six[64];
 
-  //CHECK: FieldDecl{{.*}}v_seven
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumReadPortsAttr
-  //CHECK: IntegerLiteral{{.*}}2{{$}}
-  __attribute__((__numreadports__(2))) unsigned int v_seven[64]; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
-  //CHECK: FieldDecl{{.*}}v_eight
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumWritePortsAttr
-  //CHECK: IntegerLiteral{{.*}}4{{$}}
-  __attribute__((__numwriteports__(4))) unsigned int v_eight[64]; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
-  //CHECK: FieldDecl{{.*}}v_nine
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: NumReadPortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK: NumWritePortsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  __attribute__((__numports_readonly_writeonly__(4, 16))) unsigned int v_nine[64]; //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
   //CHECK: FieldDecl{{.*}}v_ten
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: MergeAttr{{.*}}"mrg1" "depth"{{$}}
@@ -1053,15 +805,6 @@ struct foo {
   //CHECK: IntegerLiteral{{.*}}32{{$}}
   int __attribute__((internal_max_block_ram_depth(32))) G0;
 
-  //CHECK: FieldDecl{{.*}}G1
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: OptimizeFMaxAttr
-  int __attribute__((optimize_fmax)) G1;
-
-  //CHECK: FieldDecl{{.*}}G2
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: OptimizeRamUsageAttr
-  int __attribute__((optimize_ram_usage)) G2;
 };
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
@@ -1079,15 +822,6 @@ __attribute__((__bankwidth__(4))) int ext_5;
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __attribute__((__numbanks__(8))) int ext_6;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((__numreadports__(2))) int ext_7;
-
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((__numwriteports__(4))) int ext_8;
-
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((__numports_readonly_writeonly__(4, 16))) int ext_9;
-
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
 __attribute__((__merge__("mrg1", "depth"))) int ext_10;
 
@@ -1102,12 +836,6 @@ __attribute__((__static_array_reset__(1))) int ext_13;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __attribute__((internal_max_block_ram_depth(32))) int ext_14;
-
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((optimize_fmax)) int ext_15;
-
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((optimize_ram_usage)) int ext_16;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __attribute__((__bank_bits__(2, 3, 4, 5))) int ext_17;
