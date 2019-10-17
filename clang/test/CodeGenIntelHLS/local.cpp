@@ -14,19 +14,12 @@
 //CHECK: @_ZL13global_const7 = internal constant i32 0, align 4
 //CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:4}{bank_bits:4,5}
 //CHECK: @_ZL13global_const8 = internal constant i32 0, align 4
-//CHECK: @_ZL13global_const9 = internal constant i32 0, align 4
-//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numreadports:2}{numwriteports:3}
-//CHECK: @_ZL14global_const10 = internal constant i32 0, align 4
 //CHECK: @_ZL14global_const11 = internal constant i32 0, align 4
 //CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{internal_max_block_ram_depth:32}
 //CHECK: @_ZL14global_const12 = internal constant i32 0, align 4
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}
 //CHECK: @_ZL14global_const13 = internal constant i32 0, align 4
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:foo:depth}
-//CHECK: @_ZL14global_const14 = internal constant i32 0, align 4
-//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{optimize_fmax:1}
-//CHECK: @_ZL14global_const15 = internal constant i32 0, align 4
-//CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{optimize_ram_usage:1}
 //CHECK: @_ZL14global_const16 = internal constant i32 0, align 4
 //CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:1}
 //CHECK: @_ZL14global_const17 = internal constant i32 0, align 4
@@ -42,9 +35,9 @@
 //CHECK: [[ANN42:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,16,8}{numbanks:2}{bank_bits:4}
 //CHECK: [[ANN43:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:2}{bank_bits:4}
 //CHECK: [[ANN44:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:2,10}{numbanks:2}{bank_bits:4}
-//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:1}{bankwidth:4}{numbanks:8}{merge:merge_foo_one:depth}{max_concurrency:4}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:1}{bankwidth:4}{numbanks:8}{merge:merge_foo_one:depth}{max_concurrency:4}{bank_bits:2,3,4}
 //CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{bank_bits:4,3,2}
-//CHECK: @llvm.global.annotations = appending global{{.*}}@_ZL13global_const1 {{.*}}[[ANN4]]{{.*}}@_ZL13global_const2{{.*}}[[ANN7]]{{.*}}@_ZL13global_const3{{.*}}[[ANN8]]{{.*}}@_ZL13global_const5{{.*}}@_ZL13global_const6{{.*}}[[ANN5B]]{{.*}}@_ZL13global_const7{{.*}}[[ANN2]]{{.*}}@_ZL13global_const8{{.*}}[[ANN2]]{{.*}}@_ZL13global_const9 {{.*}}[[ANN3]]{{.*}}@_ZL14global_const10{{.*}}[[ANN3]]{{.*}}@_ZL14global_const11{{.*}}[[ANN13]]{{.*}}@_ZL14global_const12{{.*}}[[ANN6]]{{.*}}@_ZL14global_const13{{.*}}[[ANN9]]{{.*}}@_ZL14global_const14{{.*}}[[ANN11]]{{.*}}@_ZL14global_const15{{.*}}[[ANN12]]{{.*}}@_ZL14global_const16{{.*}}[[ANN14]]{{.*}}@_ZL14global_const17{{.*}}[[ANN15]]
+//CHECK: @llvm.global.annotations = appending global{{.*}}@_ZL13global_const1 {{.*}}[[ANN4]]{{.*}}@_ZL13global_const2{{.*}}[[ANN7]]{{.*}}@_ZL13global_const3{{.*}}[[ANN8]]{{.*}}@_ZL13global_const5{{.*}}@_ZL13global_const6{{.*}}[[ANN5B]]{{.*}}@_ZL13global_const7{{.*}}[[ANN2]]{{.*}}@_ZL13global_const8{{.*}}[[ANN2]]{{.*}}@_ZL14global_const11{{.*}}[[ANN13]]{{.*}}@_ZL14global_const12{{.*}}[[ANN6]]{{.*}}@_ZL14global_const13{{.*}}[[ANN9]]{{.*}}@_ZL14global_const16{{.*}}[[ANN14]]{{.*}}@_ZL14global_const17{{.*}}[[ANN15]]
 
 const int __attribute__((register)) global_const1 = 0;
 const int __attribute__((singlepump)) global_const2 = 0;
@@ -53,15 +46,9 @@ const int __attribute__((__memory__("MLAB"))) global_const5 = 0;
 const int __attribute__((__memory__("BLOCK_RAM"))) global_const6 = 0;
 const int __attribute__((bank_bits(4, 5))) global_const7 = 0;
 const int __attribute__((numbanks(4), bank_bits(4, 5))) global_const8 = 0;
-// expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-const int __attribute__((numports_readonly_writeonly(2, 3))) global_const9 = 0;
-// expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-const int __attribute__((numreadports(2), numwriteports(3))) global_const10 = 0;
 const int __attribute__((internal_max_block_ram_depth(32))) global_const11 = 0;
 const int __attribute__((__bankwidth__(4))) global_const12 = 0;
 const int __attribute__((merge("foo", "depth"))) global_const13 = 0;
-const int __attribute__((optimize_fmax)) global_const14 = 0;
-const int __attribute__((optimize_ram_usage)) global_const15 = 0;
 const int __attribute__((static_array_reset(1))) global_const16 = 0;
 const int __attribute__((doublepump, memory("MLAB"))) global_const17 = 0;
 
@@ -75,10 +62,6 @@ void foo_two() {
   int __attribute__((bank_bits(4,5),numbanks(4))) var_four;
   //CHECK: llvm.var.annotation{{.*}}var_four_A{{.*}}[[ANN2A]]
   int __attribute__((bank_bits(5,4),numbanks(4))) var_four_A;
-  //CHECK: llvm.var.annotation{{.*}}var_five{{.*}}[[ANN3]]
-  int __attribute__((numports_readonly_writeonly(2,3))) var_five;
-  //CHECK: llvm.var.annotation{{.*}}var_six{{.*}}[[ANN3]]
-  int __attribute__((numreadports(2),numwriteports(3))) var_six;
   //CHECK: llvm.var.annotation{{.*}}var_seven{{.*}}[[ANN4]]
   int __attribute__((register)) var_seven;
   //CHECK: llvm.var.annotation{{.*}}var_eight{{.*}}[[ANN5]]
@@ -99,10 +82,6 @@ void foo_two() {
   int __attribute__((merge("foo","depth"))) var_twelve;
   //CHECK: llvm.var.annotation{{.*}}var_thirteen{{.*}}[[ANN10]]
   int __attribute__((merge("bar","width"))) var_thirteen;
-  //CHECK: llvm.var.annotation{{.*}}var_forteen{{.*}}[[ANN11]]
-  int __attribute__((optimize_fmax)) var_forteen;
-  //CHECK: llvm.var.annotation{{.*}}var_fifteen{{.*}}[[ANN12]]
-  int __attribute__((optimize_ram_usage)) var_fifteen;
   //CHECK: llvm.var.annotation{{.*}}var_sixteen{{.*}}[[ANN15]]
   int __attribute__((doublepump, memory("MLAB"))) var_sixteen = 0;
 }
@@ -113,7 +92,6 @@ __attribute__((ihc_component))
 void foo_one()
 {
   __attribute__((bankwidth(bankwidth),numbanks(numbanks),
-                 numports_readonly_writeonly(readports,writeports),
                  merge("merge_foo_one","depth"), memory, singlepump,
                  __bank_bits__(bit1,bit2,bit3),
                  max_concurrency(max_concurrency)))
@@ -149,13 +127,9 @@ struct foo_three {
   int __attribute__((__memory__("BLOCK_RAM"))) f6;
   int __attribute__((bank_bits(4, 5))) f7;
   int __attribute__((numbanks(4), bank_bits(4, 5))) f8;
-  int __attribute__((numports_readonly_writeonly(2, 3))) f9;
-  int __attribute__((numreadports(2), numwriteports(3))) f10;
   int __attribute__((internal_max_block_ram_depth(32))) f11;
   int __attribute__((__bankwidth__(4))) f12;
   int __attribute__((merge("foo", "depth"))) f13;
-  int __attribute__((optimize_fmax)) f14;
-  int __attribute__((optimize_ram_usage)) f15;
   int __attribute__((static_array_reset(1))) f16;
   int __attribute__((doublepump, memory("MLAB"))) f17;
 };
@@ -179,23 +153,15 @@ void bar1() {
   s1.f7 = 0;
   //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 7){{.*}}getelementptr{{.*}}[[ANN2]]
   s1.f8 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 8){{.*}}getelementptr{{.*}}[[ANN3]]
-  s1.f9 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 9){{.*}}getelementptr{{.*}}[[ANN3]]
-  s1.f10 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 10){{.*}}getelementptr{{.*}}[[ANN13]]
+  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 8){{.*}}getelementptr{{.*}}[[ANN13]]
   s1.f11 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 11){{.*}}getelementptr{{.*}}[[ANN6]]
+  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 9){{.*}}getelementptr{{.*}}[[ANN6]]
   s1.f12 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 12){{.*}}getelementptr{{.*}}[[ANN9]]
+  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 10){{.*}}getelementptr{{.*}}[[ANN9]]
   s1.f13 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 13){{.*}}getelementptr{{.*}}[[ANN11]]
-  s1.f14 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 14){{.*}}getelementptr{{.*}}[[ANN12]]
-  s1.f15 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 15){{.*}}getelementptr{{.*}}[[ANN14]]
+  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 11){{.*}}getelementptr{{.*}}[[ANN14]]
   s1.f16 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 16){{.*}}getelementptr{{.*}}[[ANN15]]
+  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct1]], i32 0, i32 12){{.*}}getelementptr{{.*}}[[ANN15]]
   s1.f17 = 0;
 }
 
@@ -235,6 +201,7 @@ int foo() {
   //CHECK: call void @llvm.var.annotation(i8* %p21, i8* getelementptr{{.*}}[[ANN40]]
   p1.mem[4] = 10;
   //CHECK: call [120 x i32]* @llvm.ptr.annotation.p0a120i32([120 x i32]* %mem, i8* getelementptr{{.*}}[[ANN41]]
+  return 0;
 }
 
 int main ()
