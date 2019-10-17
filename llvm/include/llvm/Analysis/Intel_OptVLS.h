@@ -93,8 +93,8 @@ public:
   bool isLoad() const { return AccessKind == ILoad || AccessKind == SLoad; }
   bool isStore() const { return AccessKind == IStore || AccessKind == SStore; }
 
-  void print(OVLSostream &OS) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(OVLSostream &OS) const;
   void dump() const;
 #endif
 
@@ -143,14 +143,12 @@ public:
   void setNumElements(uint32_t NElems) { NumElements = NElems; }
   uint32_t getSize() const { return NumElements * ElementSize; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief prints the type as "<NumElements x ElementSize>"
   void print(OVLSostream &OS) const {
     OS << "<" << NumElements << " x " << ElementSize << ">";
   }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
   void dump() const {
     print(OVLSdbgs());
     OVLSdbgs() << '\n';
@@ -158,11 +156,13 @@ public:
 #endif
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Printing of OVLStypes.
 static inline OVLSostream &operator<<(OVLSostream &OS, OVLSType T) {
   T.print(OS);
   return OS;
 }
+#endif
 
 class OVLSMemref {
 public:
@@ -193,8 +193,8 @@ public:
 
   unsigned getId() const { return Id; }
 
-  virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
   void dump() const;
 #endif
 
@@ -242,9 +242,9 @@ public:
   /// Therefore, if the caller uses canMoveTo multiple times to ask about
   /// accumulative moves, the answers may not be valid, unless the following
   /// two conditions are met:
-  /// 1) caller only moves loads up, and only moves stores down, based on the
-  /// getLocation() function; This will guarantee that no new Write-After-Read
-  /// (WAR) dependencies will be introduced. (A TODO on the server side).
+  /// 1) caller only moves loads up, and only moves stores down. This will
+  /// guarantee that no new Write-After-Read (WAR) dependencies will be
+  /// introduced. (A TODO on the server side).
   /// 2) canMoveTo will not allow any moves in the face of any Read-After-Write
   /// (RAW) dependences. (A TODO on the client canMoveTo side)
   ///
@@ -264,12 +264,9 @@ public:
   /// st2->canMoveTo(st1): returns true, but this is wrong if previous
   ///                      canMoveTo was actually committed.
   ///
-  /// Validity of canMoveTo answers upon multiple calls that assume
-  /// accumulative moves will be guaranteed with the following sequence of
-  /// calls, in which loads are hoisted up, namely -- moved towards the
-  /// load with the smaller getLocation() between this and Memref; And
-  /// stores are only sinked down, namely moved towards the store with
-  /// larger getLocation() among this and Memref:
+  /// Validity of canMoveTo answers upon multiple calls that assume accumulative
+  /// moves will be guaranteed with the following sequence of calls, in which
+  /// loads are hoisted up, and stores are only sinked down:
   ///
   /// ld2->canMoveTo(ld1): returns true
   /// st1->canMoveTo(st2): returns true, and this is valid even if previous
@@ -282,18 +279,16 @@ public:
   /// functionality (None does not mean that it has a variable stride).
   virtual Optional<int64_t> getConstStride() const = 0;
 
-  /// \brief Return the location of this in the code. The location should be
-  /// relative to other Memrefs sent by the client to the VLS engine.
-  /// getLocation can be used for a location-based group-formation heuristic.
-  /// A location-based heuristic can be useful in order to use canMoveTo()
-  /// *multiple* times, to ask about *accumulative* moves (moves that are all
-  /// assumed to take place, if approved). The scheme is to only move loads up
-  /// and only move stores down.
-  /// So, for every pair of loads (ld1,ld2) that the caller wants
-  /// to put together in one group, the caller would ask about moving ld1 to
-  /// the location of ld2 only if ld2->getLocation() < ld1->getLocation().
-  /// Otherwise, the caller should ask about moving ld2 to the location of ld1.
-  virtual unsigned getLocation() const = 0;
+  /// Check if this memory reference dominates/postdominates another one. It is
+  /// safe to form groups only at the location that dominates (in case of loads)
+  /// or postdominates (in case of stores) all memrefs in the group. It is
+  /// conservatively safe to return false even if there is in fact a dominance
+  /// relationship between memrefs. The memrefs will not be groupped in this
+  /// case.
+  /// \{
+  virtual bool dominates(const OVLSMemref &Mrf) const = 0;
+  virtual bool postDominates(const OVLSMemref &Mrf) const = 0;
+  /// \}
 
 private:
   unsigned Id;               // A unique Id, helps debugging.
@@ -301,11 +296,21 @@ private:
   OVLSAccessKind AccessKind; // Access kind of the Memref, e.g {S|I}{Load|store}
 };
 
-/// OVLSGroup represents a group of adjacent gathers/scatters.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSMemref &M) {
+  M.print(OS);
+  return OS;
+}
+#endif
+
+/// OVLSGroup represents a group of adjacent gathers/scatters. The memrefs in
+/// the group are sorted by their offsets. The information about lexical
+/// ordering of the memrefs is not preserved. The InsertPoint points to the
+/// Memref where the Group-wide memory access must be emitted.
 class OVLSGroup {
 public:
-  explicit OVLSGroup(int VLen, OVLSAccessKind AKind)
-      : VectorLength(VLen), AccessKind(AKind) {
+  OVLSGroup(OVLSMemref *InsertPoint, int VLen, OVLSAccessKind AKind)
+      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {
     NByteAccessMask = 0;
   }
 
@@ -317,10 +322,14 @@ public:
   inline const_iterator begin() const { return MemrefVec.begin(); }
   inline const_iterator end() const { return MemrefVec.end(); }
 
+  // Check if inserting \p Mrf into the group would preserve program semantics.
+  bool isSafeToInsert(OVLSMemref &Mrf) const;
+
   // Returns true if the group is empty.
   bool empty() const { return MemrefVec.empty(); }
   // Insert an element into the Group and set the masks accordingly.
   void insert(OVLSMemref *Mrf, uint64_t AMask) {
+    assert(isSafeToInsert(*Mrf) && "Not safe to insert");
     MemrefVec.push_back(Mrf);
     NByteAccessMask = AMask;
   }
@@ -334,7 +343,9 @@ public:
   // Returns the total number of memrefs that this group contains.
   uint32_t size() const { return MemrefVec.size(); }
 
-  // Return the first OVLSMemref of this group.
+  OVLSMemref *getInsertPoint() const { return InsertPoint; }
+
+  // Return OVLSMemref with the lowest offset.
   OVLSMemref *getFirstMemref() const {
     if (!MemrefVec.empty())
       return MemrefVec[0];
@@ -373,21 +384,23 @@ public:
   /// \brief Return the vector of memrefs of this group.
   const OVLSMemrefVector &getMemrefVec() const { return MemrefVec; }
 
-  void print(OVLSostream &OS, unsigned SpaceCount) const;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
+  void print(OVLSostream &OS, unsigned SpaceCount) const;
   void dump() const;
 #endif
 
 private:
-  /// \brief MemrefVec contains the adjacent gathers/scatters by storing
-  /// them sequentially in this MemrefVec.
+  /// MemrefVec contains the adjacent gathers/scatters by storing them
+  /// sequentially in this MemrefVec. The memrefs are sorted by their offsets.
   /// TODO: please note that, MemrefVec only stores the memrefs that are
   /// physically existed. Which means, any missing memrefs are not represented
   /// by the vector. Support gap by creating a dummy memref.
   OVLSMemrefVector MemrefVec;
+
+  /// Valid location for the group. The whole group can be replaced with a
+  /// different code sequence if the new sequence is put at the location of this
+  /// memory reference.
+  OVLSMemref *InsertPoint;
 
   /// \brief Vector length in bytes, default/maximum supported length is 64.
   /// VectorLength can be the maximum length of the underlying vector register
@@ -430,11 +443,13 @@ public:
   void setType(OVLSType T) { Type = T; }
   virtual uint64_t getId() const { return -1; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
   virtual void printAsOperand(OVLSostream &OS) const {
     OS << Type << " %undef";
   }
+#endif
 
 private:
   OperandKind Kind;
@@ -460,6 +475,7 @@ public:
     return Operand->getKind() == OK_Constant;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const {
     OVLSType Type = getType();
     uint32_t NumElems = Type.getNumElements();
@@ -481,6 +497,7 @@ public:
       break;
     }
   }
+#endif
 
   // Returns the 32bit value at \p index.
   uint32_t getElement(unsigned Index) const {
@@ -532,15 +549,17 @@ public:
     return *this;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
+
   void printAsOperand(OVLSostream &OS) const {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -572,14 +591,12 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
+  void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
   virtual void dump() const = 0;
 #endif
 
   uint64_t getId() const { return Id; }
 
-  void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
   OperationCode getKind() const { return OPCode; }
 
   virtual void setMask(uint64_t Mask) {}
@@ -608,9 +625,9 @@ public:
     return I->getKind() == OC_Load;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -656,9 +673,9 @@ public:
     return I->getKind() == OC_Store;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -730,9 +747,9 @@ public:
     return I->getKind() == OC_Shuffle;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -765,11 +782,13 @@ private:
   const OVLSOperand *Op3;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Printing of OVLSOperand.
 static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSOperand &Op) {
   Op.print(OS, 2);
   return OS;
 }
+#endif
 
 /// OVLS server works in a target independent manner. In order to estimate
 /// more accurate cost for a specific target (architecture), client needs to
@@ -958,13 +977,13 @@ public:
   /// contained by 1 (and only 1) OVLSGroup such that being
   /// together these memrefs in a group do not violate any program semantics or
   /// memory dependencies.
+  ///
   /// Current grouping is done using a greedy approach; i.e. it keeps inserting
-  /// adjacent memrefs into the same group until the total element size(
-  /// considering a single element from each memref) is less than or equal to
-  /// vector length. Currently, it only tries to form a group at the location
-  /// of a memref that has a lowest distance from the base, it does not try
-  /// other adjacent-memref-locations. Because of this greediness it can miss
-  /// some opportunities. This can be improved in the future if needed.
+  /// adjacent memrefs into the same group until the total element size
+  /// (considering a single element from each memref) is less than or equal to
+  /// vector length. At the moment, the grouping algorithm is far from perfect.
+  /// For best results it is recommended to keep Memrefs in reverse postorder.
+  /// This recommendation is to be removed after the algorithm is improved.
   static void getGroups(const OVLSMemrefVector &Memrefs, OVLSGroupVector &Grps,
                         uint32_t VectorLength,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);

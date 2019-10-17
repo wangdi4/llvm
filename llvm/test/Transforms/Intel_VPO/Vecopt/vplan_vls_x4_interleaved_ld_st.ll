@@ -6,14 +6,10 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32* nocapture %ary) {
 ;  for (i = 0; i < 1024; i += 4) {
-;    t0 = ary[i + 3] + 11;
-;    t1 = ary[i + 0] + 22;
-;    t2 = ary[i + 2] + 33;
-;    t3 = ary[i + 1] + 44;
-;    ary[i + 2] = t0;
-;    ary[i + 3] = t1;
-;    ary[i + 0] = t2;
-;    ary[i + 1] = t3;
+;    ary[i + 0] += 10;
+;    ary[i + 1] += 11;
+;    ary[i + 2] += 12;
+;    ary[i + 3] += 13;
 ;  }
 ;
 ; CHECK:       Printing Groups- Total Groups 2
@@ -21,49 +17,48 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111111111111111
-; CHECK-NEXT:   #2 <4 x 32> SLoad
-; CHECK-NEXT:   #4 <4 x 32> SLoad
-; CHECK-NEXT:   #3 <4 x 32> SLoad
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
+; CHECK-NEXT:   #3 <4 x 32> SLoad
+; CHECK-NEXT:   #5 <4 x 32> SLoad
+; CHECK-NEXT:   #7 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111111111111111
-; CHECK-NEXT:   #7 <4 x 32> SStore
-; CHECK-NEXT:   #8 <4 x 32> SStore
-; CHECK-NEXT:   #5 <4 x 32> SStore
+; CHECK-NEXT:   #2 <4 x 32> SStore
+; CHECK-NEXT:   #4 <4 x 32> SStore
 ; CHECK-NEXT:   #6 <4 x 32> SStore
+; CHECK-NEXT:   #8 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP11:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 4, i64 8, i64 12>, [[VECTOR_PH]] ], [ [[TMP10:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 3, i64 3, i64 3, i64 3>
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[TMP0]]
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
-; CHECK-NEXT:    [[GROUPSTART:%.*]] = getelementptr inbounds i32, i32* [[MM_VECTORGEP_0]], i64 -3
-; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[GROUPSTART]] to <16 x i32>*
+; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <16 x i32>*
 ; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <16 x i32>, <16 x i32>* [[GROUPPTR]], align 4
-; CHECK-NEXT:    [[GROUPSHUFFLE:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 3, i32 7, i32 11, i32 15>
-; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE]], <i32 11, i32 11, i32 11, i32 11>
-; CHECK-NEXT:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[GROUPSHUFFLE2:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 0, i32 4, i32 8, i32 12>
-; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE2]], <i32 22, i32 22, i32 22, i32 22>
+; CHECK-NEXT:    [[GROUPSHUFFLE:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 0, i32 4, i32 8, i32 12>
+; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE]], <i32 10, i32 10, i32 10, i32 10>
+; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 1, i64 1, i64 1, i64 1>
+; CHECK-NEXT:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP1]]
+; CHECK-NEXT:    [[GROUPSHUFFLE2:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 1, i32 5, i32 9, i32 13>
+; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE2]], <i32 11, i32 11, i32 11, i32 11>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 2, i64 2, i64 2, i64 2>
 ; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[GROUPSHUFFLE4:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 2, i32 6, i32 10, i32 14>
-; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE4]], <i32 33, i32 33, i32 33, i32 33>
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 1, i64 1, i64 1, i64 1>
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE4]], <i32 12, i32 12, i32 12, i32 12>
+; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 3, i64 3, i64 3, i64 3>
 ; CHECK-NEXT:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP5]]
-; CHECK-NEXT:    [[GROUPSHUFFLE6:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 1, i32 5, i32 9, i32 13>
-; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE6]], <i32 44, i32 44, i32 44, i32 44>
-; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> [[TMP6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[GROUPSHUFFLE6:%.*]] = shufflevector <16 x i32> [[GROUPLOAD]], <16 x i32> undef, <4 x i32> <i32 3, i32 7, i32 11, i32 15>
+; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE6]], <i32 13, i32 13, i32 13, i32 13>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> [[TMP2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> [[TMP6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <8 x i32> [[TMP7]], <8 x i32> [[TMP8]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[GROUPSHUFFLE7:%.*]] = shufflevector <16 x i32> [[TMP9]], <16 x i32> undef, <16 x i32> <i32 0, i32 4, i32 8, i32 12, i32 1, i32 5, i32 9, i32 13, i32 2, i32 6, i32 10, i32 14, i32 3, i32 7, i32 11, i32 15>
-; CHECK-NEXT:    [[MM_VECTORGEP1_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP1]], i64 0
-; CHECK-NEXT:    [[GROUPPTR8:%.*]] = bitcast i32* [[MM_VECTORGEP1_0]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[GROUPSHUFFLE7]], <16 x i32>* [[GROUPPTR8]], align 4
+; CHECK-NEXT:    [[MM_VECTORGEP_08:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
+; CHECK-NEXT:    [[GROUPPTR9:%.*]] = bitcast i32* [[MM_VECTORGEP_08]] to <16 x i32>*
+; CHECK-NEXT:    store <16 x i32> [[GROUPSHUFFLE7]], <16 x i32>* [[GROUPPTR9]], align 4
 ; CHECK-NEXT:    [[TMP10]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP11]] = add nuw nsw i64 [[UNI_PHI]], 16
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp ult <4 x i64> [[TMP10]], <i64 1024, i64 1024, i64 1024, i64 1024>
@@ -79,39 +74,31 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
 
-  ; ld: stmt 0 (ary + 3)
-  %i0 = add nsw i64 %indvars.iv, 3
-  %p0 = getelementptr inbounds i32, i32* %ary, i64 %i0
+  ; ary[i + 0] += 10
+  %p0 = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
   %l0 = load i32, i32* %p0, align 4
-  %t0 = add nsw i32 %l0, 11
+  %t0 = add nsw i32 %l0, 10
+  store i32 %t0, i32* %p0, align 4
 
-  ; ld: stmt 1 (ary + 0)
-  %p1 = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
+  ; ary[i + 1] += 11
+  %i1 = add nsw i64 %indvars.iv, 1
+  %p1 = getelementptr inbounds i32, i32* %ary, i64 %i1
   %l1 = load i32, i32* %p1, align 4
-  %t1 = add nsw i32 %l1, 22
+  %t1 = add nsw i32 %l1, 11
+  store i32 %t1, i32* %p1, align 4
 
-  ; ld: stmt 2 (ary + 2)
+  ; ary[i + 2] += 12
   %i2 = add nsw i64 %indvars.iv, 2
   %p2 = getelementptr inbounds i32, i32* %ary, i64 %i2
   %l2 = load i32, i32* %p2, align 4
-  %t2 = add nsw i32 %l2, 33
+  %t2 = add nsw i32 %l2, 12
+  store i32 %t2, i32* %p2, align 4
 
-  ; ld: stmt 3 (ary + 1)
-  %i3 = add nsw i64 %indvars.iv, 1
+  ; ary[i + 3] += 13
+  %i3 = add nsw i64 %indvars.iv, 3
   %p3 = getelementptr inbounds i32, i32* %ary, i64 %i3
   %l3 = load i32, i32* %p3, align 4
-  %t3 = add nsw i32 %l3, 44
-
-  ; st: stmt 0 (ary + 2)
-  store i32 %t0, i32* %p2, align 4
-
-  ; st: stmt 1 (ary + 3)
-  store i32 %t1, i32* %p0, align 4
-
-  ; st: stmt 2 (ary + 0)
-  store i32 %t2, i32* %p1, align 4
-
-  ; st: stmt 3 (ary + 1)
+  %t3 = add nsw i32 %l3, 13
   store i32 %t3, i32* %p3, align 4
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
