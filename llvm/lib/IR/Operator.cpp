@@ -60,4 +60,29 @@ bool GEPOperator::accumulateConstantOffset(const DataLayout &DL,
   }
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+bool GEPOrSubsOperator::accumulateConstantOffset(const DataLayout &DL,
+                                                 APInt &Offset) const {
+  if (const GEPOperator *GEP = dyn_cast<GEPOperator>(this))
+    return GEP->accumulateConstantOffset(DL, Offset);
+
+  const SubscriptInst *Subs = cast<SubscriptInst>(this);
+  ConstantInt *IndexC = dyn_cast<ConstantInt>(Subs->getIndex());
+  ConstantInt *StrideC = dyn_cast<ConstantInt>(Subs->getStride());
+
+  if (!IndexC || !StrideC)
+    return false;
+
+  if (IndexC->isZero())
+    return true;
+
+  // Multiply Index by the Stride.
+  APInt Index = IndexC->getValue().sextOrTrunc(Offset.getBitWidth());
+  APInt Stride = StrideC->getValue().sextOrTrunc(Offset.getBitWidth());
+
+  Offset += Index * Stride;
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 }
