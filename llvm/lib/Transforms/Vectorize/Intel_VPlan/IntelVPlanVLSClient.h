@@ -40,9 +40,8 @@ public:
 
   Optional<int64_t> getConstStride() const override;
 
-  unsigned getLocation() const override {
-    llvm_unreachable("Unimplemented");
-  }
+  bool dominates(const OVLSMemref &Mrf) const override;
+  bool postDominates(const OVLSMemref &Mrf) const override;
 
   const VPInstruction *getInstruction(void) const { return Inst; }
 

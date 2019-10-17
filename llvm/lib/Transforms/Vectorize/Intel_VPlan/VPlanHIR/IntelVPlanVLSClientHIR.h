@@ -152,8 +152,6 @@ public:
     return None;
   }
 
-  unsigned getLocation() const override { return 0; }
-
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;
   }

@@ -760,7 +760,6 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, LoadInst *> VLSGroupLoadMap;
-  SmallDenseMap<const OVLSGroup *, StoreInst *> VLSGroupStoreMap;
 };
 
 } // end vpo namespace
