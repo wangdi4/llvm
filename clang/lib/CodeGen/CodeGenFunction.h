@@ -3564,15 +3564,24 @@ public:
                                  OpenMPDirectiveKind Kind);
   const OMPLoopDirective *GetLoopForHoisting(const OMPExecutableDirective &S,
                                              OpenMPDirectiveKind Kind);
+  bool hasOMPSpirTarget() const;
+  bool useUncollapsedLoop(const OMPLoopDirective &S) const;
+  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
+                                         OpenMPDirectiveKind Kind,
+                                         unsigned Depth);
+
 private:
   llvm::SmallPtrSet<const void *, 8> HoistedBoundsLoops;
 #endif // INTEL_CUSTOMIZATION
   void EnsureAddressableClauseExpr(const OMPClause *C);
   void HoistTeamsClausesIfPossible(const OMPExecutableDirective &S,
                                    OpenMPDirectiveKind Kind);
+  void EmitLateOutlineOMPIterationVariable(const OMPLoopDirective &S);
   void EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
                                     OpenMPDirectiveKind Kind,
                                     bool WithPreInits);
+  void EmitLateOutlineOMPFinals(const OMPLoopDirective &S);
+
   void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                               OpenMPDirectiveKind Kind);
 

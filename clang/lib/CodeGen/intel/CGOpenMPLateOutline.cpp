@@ -519,19 +519,42 @@ void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
   if (K == ICK_unknown)
     return;
 
+#if INTEL_CUSTOMIZATION
+  if ((K == ICK_normalized_iv || K == ICK_normalized_ub) &&
+      CGF.useUncollapsedLoop(cast<OMPLoopDirective>(Directive))) {
+    // Add multiple IV/UB variables to a bundle.  When the first is
+    // encountered add them all and change the kind to prevent further
+    // processing.
+    CodeGenFunction::CGCapturedStmtRAII SaveCSI(CGF, nullptr);
+    ClauseEmissionHelper CEH(*this, OMPC_unknown);
+    if (K == ICK_normalized_iv)
+      addArg("QUAL.OMP.NORMALIZED.IV");
+    else
+      addArg("QUAL.OMP.NORMALIZED.UB");
+    for (auto &A : ImplicitMap) {
+      if (A.second == K) {
+        DeclRefExpr DRE(CGF.CGM.getContext(), const_cast<VarDecl *>(A.first),
+                        /*RefersToEnclosingVariableOrCapture=*/false,
+                        A.first->getType().getNonReferenceType(), VK_LValue,
+                        SourceLocation());
+        addArg(&DRE);
+        A.second = ICK_unknown;
+      }
+    }
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (!OMPLateOutlineLexicalScope::isCapturedVar(CGF, VD)) {
     // We don't want this DeclRefExpr to generate entries in the Def/Ref
     // lists, so temporarily save and null the CapturedStmtInfo.
-    auto savedCSI = CGF.CapturedStmtInfo;
-    CGF.CapturedStmtInfo = nullptr;
+    CodeGenFunction::CGCapturedStmtRAII SaveCSI(CGF, nullptr);
 
     DeclRefExpr DRE(CGF.CGM.getContext(), const_cast<VarDecl *>(VD),
                     /*RefersToEnclosingVariableOrCapture=*/false,
                     VD->getType().getNonReferenceType(), VK_LValue,
                     SourceLocation());
     emitImplicit(&DRE, K);
-
-    CGF.CapturedStmtInfo = savedCSI;
   }
 }
 
@@ -1455,6 +1478,12 @@ void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   }
 }
 
+void OpenMPLateOutliner::HandleImplicitVar(const Expr *E,
+                                           ImplicitClauseKind ICK) {
+  auto VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+  ImplicitMap.insert(std::make_pair(VD, ICK));
+}
+
 OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
                                        const OMPExecutableDirective &D,
                                        OpenMPDirectiveKind Kind)
@@ -1499,18 +1528,30 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
           ImplicitMap.insert(std::make_pair(PVD, ICK_private));
       }
     }
-    auto IVExpr = cast<DeclRefExpr>(LoopDir->getIterationVariable());
-    auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
-    ImplicitMap.insert(std::make_pair(IVDecl, ICK_normalized_iv));
-    auto UBExpr = cast<DeclRefExpr>(LoopDir->getUpperBoundVariable());
-    auto UBDecl = cast<VarDecl>(UBExpr->getDecl());
-    ImplicitMap.insert(std::make_pair(UBDecl, ICK_normalized_ub));
+#if INTEL_CUSTOMIZATION
+    if (CGF.useUncollapsedLoop(*LoopDir)) {
+      auto UncollapsedIVs = LoopDir->uncollapsedIVs();
+      auto UncollapsedLowerBounds = LoopDir->uncollapsedLowerBounds();
+      auto UncollapsedUpperBounds = LoopDir->uncollapsedUpperBounds();
+      for (unsigned I = 0, E = LoopDir->getCollapsedNumber(); I < E; ++I) {
+        HandleImplicitVar(UncollapsedIVs[I], ICK_normalized_iv);
+        HandleImplicitVar(UncollapsedUpperBounds[I], ICK_normalized_ub);
+        if (isOpenMPWorksharingDirective(CurrentDirectiveKind) ||
+            isOpenMPTaskLoopDirective(CurrentDirectiveKind) ||
+            isOpenMPDistributeDirective(CurrentDirectiveKind)) {
+          HandleImplicitVar(UncollapsedLowerBounds[I], ICK_firstprivate);
+        }
+      }
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
+
+    HandleImplicitVar(LoopDir->getIterationVariable(), ICK_normalized_iv);
+    HandleImplicitVar(LoopDir->getUpperBoundVariable(), ICK_normalized_ub);
     if (isOpenMPWorksharingDirective(CurrentDirectiveKind) ||
         isOpenMPTaskLoopDirective(CurrentDirectiveKind) ||
         isOpenMPDistributeDirective(CurrentDirectiveKind)) {
-      auto LBExpr = cast<DeclRefExpr>(LoopDir->getLowerBoundVariable());
-      auto LBDecl = cast<VarDecl>(LBExpr->getDecl());
-      ImplicitMap.insert(std::make_pair(LBDecl, ICK_firstprivate));
+      HandleImplicitVar(LoopDir->getLowerBoundVariable(), ICK_firstprivate);
     }
   }
 }

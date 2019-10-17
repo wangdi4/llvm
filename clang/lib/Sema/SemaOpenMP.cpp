@@ -7389,6 +7389,15 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DependentCounters.resize(NestedLoopCount);
   Built.DependentInits.resize(NestedLoopCount);
   Built.FinalsConditions.resize(NestedLoopCount);
+#if INTEL_CUSTOMIZATION
+  Built.UncollapsedIVs.resize(NestedLoopCount);
+  Built.UncollapsedLowerBounds.resize(NestedLoopCount);
+  Built.UncollapsedUpperBounds.resize(NestedLoopCount);
+  Built.UncollapsedInits.resize(NestedLoopCount);
+  Built.UncollapsedLoopConds.resize(NestedLoopCount);
+  Built.UncollapsedIncs.resize(NestedLoopCount);
+  Built.UncollapsedUpdates.resize(NestedLoopCount);
+#endif // INTEL_CUSTOMIZATION
   {
     // We implement the following algorithm for obtaining the
     // original loop iteration variable values based on the
@@ -7473,6 +7482,84 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
         break;
       }
 
+#if INTEL_CUSTOMIZATION
+     SourceLocation UCLoc = IterSpaces[Cnt].InitSrcRange.getBegin();
+     VarDecl *UncollapsedIVDecl =
+         buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.iv");
+     ExprResult UncollapsedIV =
+         buildDeclRefExpr(SemaRef, UncollapsedIVDecl, VType, UCLoc);
+     if (!UncollapsedIV.isUsable()) {
+       HasErrors = true;
+       break;
+      }
+
+      ExprResult UncollapsedLowerBound;
+      VarDecl *UncollapsedLBDecl =
+          buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.lb");
+      UncollapsedLowerBound =
+          buildDeclRefExpr(SemaRef, UncollapsedLBDecl, VType, UCLoc);
+      SemaRef.AddInitializerToDecl(
+          UncollapsedLBDecl, SemaRef.ActOnIntegerConstant(UCLoc, 0).get(),
+          /*DirectInit*/ false);
+      if (!UncollapsedLowerBound.isUsable()) {
+        HasErrors = true;
+        break;
+      }
+
+      ExprResult UCLastIter = SemaRef.PerformImplicitConversion(
+          IterSpaces[Cnt].NumIterations->IgnoreImpCasts(), VType,
+          Sema::AA_Converting, /*AllowExplicit=*/true);
+
+      UCLastIter = SemaRef.BuildBinOp(
+          CurScope, UCLastIter.get()->getExprLoc(), BO_Sub, UCLastIter.get(),
+          SemaRef.ActOnIntegerConstant(SourceLocation(), 1).get());
+      if (!UCLastIter.isUsable()) {
+        HasErrors = true;
+        break;
+      }
+
+      ExprResult UncollapsedUpperBound;
+      VarDecl *UncollapsedUBDecl =
+          buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.ub");
+      UncollapsedUpperBound =
+          buildDeclRefExpr(SemaRef, UncollapsedUBDecl, VType, UCLoc);
+      SemaRef.AddInitializerToDecl(UncollapsedUBDecl, UCLastIter.get(),
+                                   /*DirectInit*/ false);
+      if (!UncollapsedUpperBound.isUsable()) {
+        HasErrors = true;
+        break;
+      }
+
+      UCLoc = AStmt->getBeginLoc();
+      ExprResult UncollapsedInit =
+          SemaRef.BuildBinOp(CurScope, UCLoc, BO_Assign,
+                             UncollapsedIV.get(), UncollapsedLowerBound.get());
+      UncollapsedInit = SemaRef.ActOnFinishFullExpr(UncollapsedInit.get(),
+                                                    /*DiscardedValue*/ false);
+
+      ExprResult UncollapsedLoopCond =
+          SemaRef.BuildBinOp(CurScope, UCLoc, BO_LE, UncollapsedIV.get(),
+                             UncollapsedUpperBound.get());
+
+      ExprResult UncollapsedInc =
+          SemaRef.BuildBinOp(CurScope, UCLoc, BO_Add, UncollapsedIV.get(),
+                             SemaRef.ActOnIntegerConstant(UCLoc, 1).get());
+      UncollapsedInc =
+          SemaRef.BuildBinOp(CurScope, UCLoc, BO_Assign, UncollapsedIV.get(),
+                             UncollapsedInc.get());
+
+      ExprResult UIV_DRE =
+          buildDeclRefExpr(SemaRef, UncollapsedIVDecl, VType, UCLoc);
+
+      ExprResult UncollapsedUpdate = buildCounterUpdate(
+          SemaRef, CurScope, UpdLoc, CounterVar, IS.CounterInit, UIV_DRE,
+          IS.CounterStep, IS.Subtract, IS.IsNonRectangularLB, &Captures);
+      if (!UncollapsedUpdate.isUsable()) {
+        HasErrors = true;
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
+
       if (!Update.isUsable() || !Final.isUsable()) {
         HasErrors = true;
         break;
@@ -7493,6 +7580,18 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
             Built.Inits[NestedLoopCount - 1 - IS.LoopDependentIdx];
         Built.FinalsConditions[Cnt] = IS.FinalCondition;
       }
+#if INTEL_CUSTOMIZATION
+#define SET_BUILT_UNCOLLAPSED(Name)                                            \
+  Built.Uncollapsed##Name##s[Cnt] = Uncollapsed##Name.get();
+      SET_BUILT_UNCOLLAPSED(IV)
+      SET_BUILT_UNCOLLAPSED(LowerBound)
+      SET_BUILT_UNCOLLAPSED(UpperBound)
+      SET_BUILT_UNCOLLAPSED(Init)
+      SET_BUILT_UNCOLLAPSED(LoopCond)
+      SET_BUILT_UNCOLLAPSED(Inc)
+      SET_BUILT_UNCOLLAPSED(Update)
+#undef SET_BUILT_UNCOLLAPSED
+#endif // INTEL_CUSTOMIZATION
     }
   }
 

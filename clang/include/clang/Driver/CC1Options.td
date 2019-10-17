@@ -839,6 +839,12 @@ def fno_intel_openmp_offload : Flag<["-"], "fno-intel-openmp-offload">,
   HelpText<"Enable emitting of Intel specific OpenMP offload code">;
 def fintel_openmp_region_atomic : Flag<["-"], "fintel-openmp-region-atomic">,
   HelpText<"Enable emitting of OpenMP atomics with regions">;
+def fintel_openmp_region_early_collapsed_loops : Flag<["-"],
+      "fintel-openmp-region-early-collapsed-loops">,
+      HelpText<"Always generate early collapsed OpenMP loops">;
+def fintel_openmp_region_late_collapsed_loops : Flag<["-"],
+      "fintel-openmp-region-late-collapsed-loops">,
+      HelpText<"Generate late collapsed OpenMP loops if beneficial">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
   HelpText<"Generate legacy OpenMP threadprivates">;
 def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,

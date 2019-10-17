@@ -665,13 +665,21 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // Step 3 : Creates cascaded if blocks. The head of the cascaded if blocks is
   // emitted after the new loop latch. The cascaded if blocks are not emitted
   // in case 2.
+
+  // We need to collect all the cascaded if blocks in a small vector which will
+  // be used in a separate step. Each cascaded if block should be assigned to
+  // the correct loop of the loop nest. This does not happen along the
+  // generation of the cascaded if blocks, but it happens in a separate step.
+  // Because the choice of the correct loop depends on the loop that cascaded if
+  // block's successors belong. Therefore, we first need to connect the cascaded
+  // if blocks with their successors (other cascaded if blocks, exit blocks) and
+  // next, we can decide which is the right loop for each cascaded if block.
+  SmallVector<VPBasicBlock *, 2> CascadedIfBlocks;
+
   if (ExitBlocks.size() > 1) {
     VPBasicBlock *IfBlock =
         new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
-    VPRegionBlock *Parent = NewLoopLatch->getParent();
-    IfBlock->setParent(Parent);
-    Parent->setSize(Parent->getSize() + 1);
-    ParentLoop->addBasicBlockToLoop(IfBlock, *VPLInfo);
+    CascadedIfBlocks.push_back(IfBlock);
     // Update the predecessors of the IfBlock.
     if (LatchExitBlock)
       VPBlockUtils::movePredecessor(NewLoopLatch, LatchExitBlock, IfBlock);
@@ -684,16 +692,15 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       const auto &Pair = ExitBlockIDPairs[i];
       VPBlockBase *ExitBlock = Pair.first;
       VPConstant *ExitID = Pair.second;
-      VPInstruction *CondBr = new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
+      VPInstruction *CondBr =
+          new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
       IfBlock->appendRecipe(CondBr);
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
         NextIfBlock =
             new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
-        NextIfBlock->setParent(Parent);
-        Parent->setSize(Parent->getSize() + 1);
-        ParentLoop->addBasicBlockToLoop(NextIfBlock, *VPLInfo);
+        CascadedIfBlocks.push_back(NextIfBlock);
       } else {
         // The current NextIfBlock is the LatchExitBlock.
         NextIfBlock = cast<VPBasicBlock>(ExitBlockIDPairs[0].first);
@@ -723,6 +730,33 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     ExitBlock->appendPredecessor(NewLoopLatch);
   }
 
+  // Now, we should assign the cascaded if block to the right loop nesting
+  // level. The cascaded if block should belong to the same loop nesting level
+  // as its successors (exit blocks). Each exit block might belong to different
+  // loop nesting level than the other exit block. In this case, the cascaded if
+  // block will have the same loop nesting level as the exit block which is
+  // deepest in the loop hierarchy.
+  while (!CascadedIfBlocks.empty()) {
+    // Start from the last cascaded if block because it has two exit blocks.
+    VPBasicBlock *CurrentCascadedIfBlock = CascadedIfBlocks.pop_back_val();
+    assert(CurrentCascadedIfBlock->getSuccessors().size() == 2 &&
+           "Two successors are expected");
+    VPLoop *Succ0Loop = VPLInfo->getLoopFor(
+        cast<VPBasicBlock>(CurrentCascadedIfBlock->getSuccessors()[0]));
+    VPLoop *Succ1Loop = VPLInfo->getLoopFor(
+        cast<VPBasicBlock>(CurrentCascadedIfBlock->getSuccessors()[1]));
+    unsigned LoopDepthOfSucc0 = Succ0Loop->getLoopDepth();
+    unsigned LoopDepthOfSucc1 = Succ1Loop->getLoopDepth();
+    // The bigger the loop depth the deeper the loop is in the loop nest.
+    VPLoop *CascadedIfBlockParentLoop =
+        LoopDepthOfSucc0 >= LoopDepthOfSucc1 ? Succ0Loop : Succ1Loop;
+    VPRegionBlock *ParentRegion = NewLoopLatch->getParent();
+    CurrentCascadedIfBlock->setParent(ParentRegion);
+    ParentRegion->setSize(ParentRegion->getSize() + 1);
+    CascadedIfBlockParentLoop->addBasicBlockToLoop(CurrentCascadedIfBlock,
+                                                   *VPLInfo);
+  }
+
   VPRegionBlock *CurrentLoopRegion =
       cast<VPRegionBlock>(VPL->getHeader()->getParent());
   VPDomTree.recalculate(*CurrentLoopRegion);
@@ -732,6 +766,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
   VPDomTree.recalculate(*ParentLoopRegion);
   VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  assert(
+      VPL->getExitingBlock() == NewLoopLatch &&
+      "Only 1 exiting block is expeted after merge loop exits transformation");
 
   LLVM_DEBUG(dbgs() << "After merge loop exits transformation.\n");
   LLVM_DEBUG(Plan->dump());
@@ -952,6 +990,10 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
       cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
   VPDomTree.recalculate(*ParentLoopRegion);
   VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  assert(VPL->getExitingBlock() == NewLoopLatch &&
+         "Only 1 exiting block is expeted after single-exit while loop "
+         "canonicalization");
 
   LLVM_DEBUG(dbgs() << "After single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());

@@ -271,7 +271,7 @@ class OpenMPLateOutliner {
     ICK_specified_firstprivate,
     ICK_unknown
   };
-
+  void HandleImplicitVar(const Expr *E, ImplicitClauseKind ICK);
   llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> MapRefs;
