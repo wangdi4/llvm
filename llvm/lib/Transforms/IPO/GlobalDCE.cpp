@@ -17,13 +17,9 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_AggInline.h"   // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"   // INTEL
 #include "llvm/Analysis/Intel_WP.h"          // INTEL
-#include "llvm/Analysis/TypeMetadataUtils.h"
-=======
->>>>>>> f2179b63b513b05828a18272d25e19f8b9f1aaaf
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
