@@ -767,6 +767,11 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM.add(llvm::createPromoteMemoryToRegisterPass());
   }
+  // Only support CPU Device
+  if (debugType == intel::None && !isFpgaEmulator && !isEyeQEmulator) {
+    PM.add(llvm::createLICMPass());      // Hoist loop invariants
+    PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop form, e.g. memcpy
+  }
 
   // PrepareKernelArgsPass must run in debugging mode as well
   PM.add(createPrepareKernelArgsPass(UseTLSGlobals));
