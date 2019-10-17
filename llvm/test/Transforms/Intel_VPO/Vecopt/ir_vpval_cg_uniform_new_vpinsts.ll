@@ -10,40 +10,45 @@
 ; Checks for VPValue-based CG
 
 ; CHECK-LABEL:  define void @test_uniform_edge_to_uniform_block
-; CHECK:        vector.body:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[VPLANNEDBB80:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP15:%.*]], [[VPLANNEDBB80]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH0]] ], [ [[TMP14:%.*]], [[VPLANNEDBB80]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i32> [[BROADCAST_SPLAT0:%.*]], <i32 42, i32 42>
-; CHECK-NEXT:    [[EXTRACT0:%.*]] = extractelement <2 x i1> [[TMP1]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = or i1 [[EXTRACT0]], true
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT10:%.*]] = insertelement <2 x i1> undef, i1 [[TMP2]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT20:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT10]], <2 x i1> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[WIDE_LOAD0]], zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT20]], <i1 true, i1 true>
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VPLANNEDBB0:%.*]], label [[VPLANNEDBB50:%.*]]
+; CHECK:       vector.body:
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VPLANNEDBB8:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP22:%.*]], [[VPLANNEDBB8]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP21:%.*]], [[VPLANNEDBB8]] ]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 [[UNI_PHI]]
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i32> [[BROADCAST_SPLAT:%.*]], <i32 42, i32 42>
+; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i1> [[TMP1]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = or i1 [[TMP2]], true
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i1> undef, i1 [[TMP3]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT1]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[WIDE_LOAD]], zeroinitializer
+; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT2]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x i1> [[TMP5]], i32 0
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB:%.*]], label [[VPLANNEDBB5:%.*]]
 
-; CHECK:        VPlannedBB:
-; CHECK-NEXT:    [[TMP5:%.*]] = or i1 [[EXTRACT0]], true
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT30:%.*]] = insertelement <2 x i1> undef, i1 [[TMP5]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT40:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT30]], <2 x i1> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i32> [[WIDE_LOAD0]], <i32 1, i32 1>
-; CHECK-NEXT:    [[TMP7:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT40]], <i1 true, i1 true>
-; FIXME: Both the "and" instructions below are marked as uniform by predicator, but vectorized by VPValue-CG.
-; CHECK-NEXT:    [[TMP8:%.*]] = and <2 x i1> [[BROADCAST_SPLAT20]], [[TMP7]]
-; CHECK-NEXT:    [[TMP9:%.*]] = and <2 x i1> [[BROADCAST_SPLAT20]], [[BROADCAST_SPLAT40]]
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB70:%.*]], label [[VPLANNEDBB50]]
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP2]], true
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i1> undef, i1 [[TMP7]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT3]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP8:%.*]] = add <2 x i32> [[WIDE_LOAD]], <i32 1, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT4]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <2 x i1> [[TMP9]], i32 0
+; CHECK-NEXT:    [[TMP11:%.*]] = and i1 [[TMP3]], [[TMP10]]
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT10:%.*]] = insertelement <2 x i1> undef, i1 [[TMP11]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT11:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT10]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP12:%.*]] = and i1 [[TMP3]], [[TMP10]]
+; CHECK-NEXT:    [[TMP13:%.*]] = and i1 [[TMP3]], [[TMP7]]
+; CHECK-NEXT:    [[TMP14:%.*]] = and i1 [[TMP3]], [[TMP7]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB7:%.*]], label [[VPLANNEDBB5]]
 
-; CHECK:        VPlannedBB5:
-; CHECK-NEXT:    [[VEC_PHI60:%.*]] = phi <2 x i1> [ [[TMP8]], [[VPLANNEDBB0]] ], [ zeroinitializer, [[VECTOR_BODY0:%.*]] ]
-; FIXME: The "or" instruction below is marked as uniform by predicator, but vectorized by VPValue-CG.
-; CHECK-NEXT:    [[TMP10:%.*]] = or <2 x i1> [[VEC_PHI60]], [[TMP4]]
-; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i32> [[WIDE_LOAD0]], <i32 2, i32 2>
-; CHECK-NEXT:    br label [[VPLANNEDBB80]]
-;
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[VEC_PHI6:%.*]] = phi <2 x i1> [ [[BROADCAST_SPLAT11]], [[VPLANNEDBB]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[TMP15:%.*]] = extractelement <2 x i1> [[VEC_PHI6]], i32 0
+; CHECK-NEXT:    [[TMP16:%.*]] = or i1 [[TMP15]], [[TMP6]]
+; CHECK-NEXT:    [[TMP17:%.*]] = or i1 [[TMP15]], [[TMP6]]
+; CHECK-NEXT:    [[TMP18:%.*]] = add <2 x i32> [[WIDE_LOAD]], <i32 2, i32 2>
+; CHECK-NEXT:    br label [[VPLANNEDBB8]]
 
 define void @test_uniform_edge_to_uniform_block(i32* %a, i32 %b) local_unnamed_addr {
 entry:

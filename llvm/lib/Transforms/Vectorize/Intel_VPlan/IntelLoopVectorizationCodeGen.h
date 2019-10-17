@@ -114,14 +114,6 @@ public:
     Loop *OrigLoop, VPOVectorizationLegality *Legal,
     SmallPtrSetImpl<Instruction *> &DeadInstructions);
 
-  // TODO;TODO;TODO
-  // At this point VPlan-to-VPlan transforms are not updating DA after
-  // introducing new VPInstructions. Hence VPValues without underlying IR are
-  // known to have incorrect DA results. This must be removed once this problem
-  // is addressed. This utility can actually be static to codegen once DA
-  // problem is addressed
-  bool isVPValueUniform(VPValue *V, const VPlan *Plan);
-
   // Get the widened vector value for given value V. If the scalar value
   // has not been widened, we widen it by VF and store it in WidenMap
   // before returning the widened value

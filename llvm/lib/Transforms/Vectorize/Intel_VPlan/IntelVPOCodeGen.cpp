@@ -53,15 +53,7 @@ static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
 }
 
 /// Helper function to check if given VPValue is uniform based on DA.
-bool VPOCodeGen::isVPValueUniform(VPValue *V, const VPlan *Plan) {
-  // TODO;TODO;TODO
-  // At this point VPlan-to-VPlan transforms are not updating DA after
-  // introducing new VPInstructions. Hence VPValues without underlying IR are
-  // known to have incorrect DA results. This must be removed once this problem
-  // is addressed.
-  if (!V->getUnderlyingValue())
-    return false;
-
+static bool isVPValueUniform(VPValue *V, const VPlan *Plan) {
   return !Plan->getVPlanDA()->isDivergent(*V);
 }
 
