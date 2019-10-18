@@ -160,14 +160,14 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH1]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_EXIT_ID_PHI]] = phi  [ i32 [[VP0]], [[BB19]] ],  [ i32 1, [[INTERMEDIATE_BB4]] ],  [ i32 2, [[INTERMEDIATE_BB5]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND_1:%.*]] = phi  [ i1 true, [[BB19]] ],  [ i1 false, [[INTERMEDIATE_BB4]] ],  [ i1 false, [[INTERMEDIATE_BB5]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_EXIT_ID_PHI]] = phi  [ i32 [[VP0]], [[BB19]] ],  [ i32 1, [[INTERMEDIATE_BB5]] ],  [ i32 2, [[INTERMEDIATE_BB4]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND_1:%.*]] = phi  [ i1 true, [[BB19]] ],  [ i1 false, [[INTERMEDIATE_BB5]] ],  [ i1 false, [[INTERMEDIATE_BB4]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7]](i1 [[VP_TAKE_BACKEDGE_COND_1]]), [[CASCADED_IF_BLOCK3:cascaded.if.block[0-9]+]](!i1 [[VP_TAKE_BACKEDGE_COND_1]])
-; CHECK-NEXT:    PREDECESSORS(3): [[BB19]] [[INTERMEDIATE_BB4]] [[INTERMEDIATE_BB5]]
+; CHECK-NEXT:    PREDECESSORS(3): [[BB19]] [[INTERMEDIATE_BB5]] [[INTERMEDIATE_BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK3]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP6:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
-; CHECK-NEXT:    SUCCESSORS(2):[[BB20:BB[0-9]+]](i1 [[VP6]]), [[NEW_LOOP_LATCH0]](!i1 [[VP6]])
+; CHECK-NEXT:    SUCCESSORS(2):[[NEW_LOOP_LATCH0]](i1 [[VP6]]), [[BB20:BB[0-9]+]](!i1 [[VP6]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB20]] (BP: NULL) :
@@ -175,9 +175,8 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK3]]
 ; CHECK-EMPTY:
-; FIXME: The false incoming block of the phi node is not updated correctly.
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 true, [[BB20]] ],  [ i1 false, [[CASCADED_IF_BLOCK0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 true, [[BB20]] ],  [ i1 false, [[CASCADED_IF_BLOCK3]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB21:BB[0-9]+]](!i1 [[VP_TAKEBACKEDGECOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB20]] [[CASCADED_IF_BLOCK3]]
 ; CHECK-EMPTY:
@@ -204,6 +203,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
+; FIXME: The false incoming block of the phi node is not updated correctly.
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16) ]
   br label %simd.loop.preheader
