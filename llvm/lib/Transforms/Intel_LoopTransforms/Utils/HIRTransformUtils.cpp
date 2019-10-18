@@ -1204,44 +1204,47 @@ void HIRTransformUtils::divideProfileDataBy(HLContainerTy::iterator Begin,
 
 void HIRTransformUtils::cloneOrRemoveZttPredicates(
     HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs, bool Clone) {
-  if (Loop->hasZtt()) {
-    for (auto PredI = Loop->ztt_pred_begin(), PredE = Loop->ztt_pred_end();
-         PredI != PredE; ++PredI) {
 
-      RegDDRef *LHS;
-      RegDDRef *RHS;
+  if (!Loop->hasZtt())
+    return;
 
-      if (Clone) {
-        LHS = Loop->getZttPredicateOperandDDRef(PredI, true)->clone();
-        RHS = Loop->getZttPredicateOperandDDRef(PredI, false)->clone();
-      } else {
-        LHS = Loop->removeZttPredicateOperandDDRef(PredI, true);
-        RHS = Loop->removeZttPredicateOperandDDRef(PredI, false);
-      }
+  for (auto PredI = Loop->ztt_pred_begin(), PredE = Loop->ztt_pred_end();
+       PredI != PredE; ++PredI) {
 
-      ZTTs.emplace_back(LHS, *PredI, RHS);
+    RegDDRef *LHS;
+    RegDDRef *RHS;
+
+    if (Clone) {
+      LHS = Loop->getZttPredicateOperandDDRef(PredI, true)->clone();
+      RHS = Loop->getZttPredicateOperandDDRef(PredI, false)->clone();
+    } else {
+      LHS = Loop->removeZttPredicateOperandDDRef(PredI, true);
+      RHS = Loop->removeZttPredicateOperandDDRef(PredI, false);
     }
+
+    ZTTs.emplace_back(LHS, *PredI, RHS);
   }
 }
 
 void HIRTransformUtils::mergeZtt(HLLoop *Loop,
                                  SmallVectorImpl<PredicateTuple> &ZTTs) {
-  if (!ZTTs.empty()) {
-    RegDDRef *LHS;
-    HLPredicate Pred;
-    RegDDRef *RHS;
+  if (ZTTs.empty())
+    return;
 
-    auto ZttI = ZTTs.begin();
+  RegDDRef *LHS;
+  HLPredicate Pred;
+  RegDDRef *RHS;
 
-    if (!Loop->hasZtt()) {
-      std::tie(LHS, Pred, RHS) = *ZttI++;
-      Loop->createZtt(LHS, Pred, RHS);
-    }
+  auto ZttI = ZTTs.begin();
 
-    for (auto E = ZTTs.end(); ZttI != E; ++ZttI) {
-      std::tie(LHS, Pred, RHS) = *ZttI;
+  if (!Loop->hasZtt()) {
+    std::tie(LHS, Pred, RHS) = *ZttI++;
+    Loop->createZtt(LHS, Pred, RHS);
+  }
 
-      Loop->addZttPredicate(Pred, LHS, RHS);
-    }
+  for (auto E = ZTTs.end(); ZttI != E; ++ZttI) {
+    std::tie(LHS, Pred, RHS) = *ZttI;
+
+    Loop->addZttPredicate(Pred, LHS, RHS);
   }
 }
