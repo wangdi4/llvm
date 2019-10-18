@@ -166,7 +166,7 @@ void HLNode::printFMF(raw_ostream &OS, FastMathFlags FMF) {
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
+void HLNode::printPredicate(raw_ostream &OS, PredicateTy Pred) {
 #if !INTEL_PRODUCT_RELEASE
   if (Pred == PredicateTy::FCMP_TRUE) {
     OS << " true ";

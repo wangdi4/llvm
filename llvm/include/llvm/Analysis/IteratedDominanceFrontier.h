@@ -11,10 +11,6 @@
 
 #include "llvm/IR/CFGDiff.h"
 #include "llvm/Support/GenericIteratedDominanceFrontier.h"
-#if INTEL_CUSTOMIZATION
-#include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
-#include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDominatorTree.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -22,63 +18,42 @@ class BasicBlock;
 
 namespace IDFCalculatorDetail {
 
-/// Specialization for BasicBlock and VPBlockBase for the optional   // INTEL
-/// use of GraphDiff.                                                // INTEL
-template <typename BlockTy, bool IsPostDom>                          // INTEL
-struct BBChildrenGetterTy {                                          // INTEL
-  using NodeRef = BlockTy *;                                         // INTEL
-  using ChildrenTy = SmallVector<BlockTy *, 8>;                      // INTEL
+/// Specialization for BasicBlock for the optional use of GraphDiff.
+template <bool IsPostDom> struct ChildrenGetterTy<BasicBlock, IsPostDom> {
+  using NodeRef = BasicBlock *;
+  using ChildrenTy = SmallVector<BasicBlock *, 8>;
 
-  BBChildrenGetterTy() = default;                                    // INTEL
-  BBChildrenGetterTy(const GraphDiff<BlockTy *, IsPostDom> *GD)      // INTEL
-      : GD(GD) {                                                     // INTEL
+  ChildrenGetterTy() = default;
+  ChildrenGetterTy(const GraphDiff<BasicBlock *, IsPostDom> *GD) : GD(GD) {
     assert(GD);
   }
 
   ChildrenTy get(const NodeRef &N);
 
-  const GraphDiff<BlockTy *, IsPostDom> *GD = nullptr;               // INTEL
+  const GraphDiff<BasicBlock *, IsPostDom> *GD = nullptr;
 };
-#if INTEL_CUSTOMIZATION
-
-template <bool IsPostDom>
-struct ChildrenGetterTy<BasicBlock, IsPostDom>
-    : BBChildrenGetterTy<BasicBlock, IsPostDom> {
-  using BBChildrenGetterTy<BasicBlock, IsPostDom>::BBChildrenGetterTy;
-};
-
-template <bool IsPostDom>
-struct ChildrenGetterTy<vpo::VPBlockBase, IsPostDom>
-    : BBChildrenGetterTy<vpo::VPBlockBase, IsPostDom> {
-  using BBChildrenGetterTy<vpo::VPBlockBase, IsPostDom>::BBChildrenGetterTy;
-};
-#endif // INTEL_CUSTOMIZATION
 
 } // end of namespace IDFCalculatorDetail
 
-template <typename BlockTy, bool IsPostDom>                          // INTEL
-class IDFCalculator final                                            // INTEL
-    : public IDFCalculatorBase<BlockTy, IsPostDom> {                 // INTEL
+template <bool IsPostDom>
+class IDFCalculator final : public IDFCalculatorBase<BasicBlock, IsPostDom> {
 public:
   using IDFCalculatorBase =
-      typename llvm::IDFCalculatorBase<BlockTy, IsPostDom>;          // INTEL
+      typename llvm::IDFCalculatorBase<BasicBlock, IsPostDom>;
   using ChildrenGetterTy = typename IDFCalculatorBase::ChildrenGetterTy;
 
-  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT)           // INTEL
+  IDFCalculator(DominatorTreeBase<BasicBlock, IsPostDom> &DT)
       : IDFCalculatorBase(DT) {}
 
-  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT,           // INTEL
-                const GraphDiff<BlockTy *, IsPostDom> *GD)           // INTEL
+  IDFCalculator(DominatorTreeBase<BasicBlock, IsPostDom> &DT,
+                const GraphDiff<BasicBlock *, IsPostDom> *GD)
       : IDFCalculatorBase(DT, ChildrenGetterTy(GD)) {
     assert(GD);
   }
 };
 
-using ForwardIDFCalculator = IDFCalculator<BasicBlock, false>;       // INTEL
-using ReverseIDFCalculator = IDFCalculator<BasicBlock, true>;        // INTEL
-#if INTEL_CUSTOMIZATION
-using VPlanForwardIDFCalculator = IDFCalculator<vpo::VPBlockBase, false>;
-#endif // INTEL_CUSTOMIZATION
+using ForwardIDFCalculator = IDFCalculator<false>;
+using ReverseIDFCalculator = IDFCalculator<true>;
 
 //===----------------------------------------------------------------------===//
 // Implementation.
@@ -86,21 +61,20 @@ using VPlanForwardIDFCalculator = IDFCalculator<vpo::VPBlockBase, false>;
 
 namespace IDFCalculatorDetail {
 
-template <typename BlockTy, bool IsPostDom>                          // INTEL
-typename BBChildrenGetterTy<BlockTy, IsPostDom>::ChildrenTy          // INTEL
-BBChildrenGetterTy<BlockTy, IsPostDom>::get(const NodeRef &N) {      // INTEL
+template <bool IsPostDom>
+typename ChildrenGetterTy<BasicBlock, IsPostDom>::ChildrenTy
+ChildrenGetterTy<BasicBlock, IsPostDom>::get(const NodeRef &N) {
 
   using OrderedNodeTy =
-      typename IDFCalculatorBase<BlockTy, IsPostDom>::OrderedNodeTy; // INTEL
+      typename IDFCalculatorBase<BasicBlock, IsPostDom>::OrderedNodeTy;
 
   if (!GD) {
     auto Children = children<OrderedNodeTy>(N);
     return {Children.begin(), Children.end()};
   }
 
-  using SnapShotBBPairTy =                                           // INTEL
-      std::pair<const GraphDiff<BlockTy *, IsPostDom> *,             // INTEL
-                OrderedNodeTy>;                                      // INTEL
+  using SnapShotBBPairTy =
+      std::pair<const GraphDiff<BasicBlock *, IsPostDom> *, OrderedNodeTy>;
 
   ChildrenTy Ret;
   for (const auto &SnapShotBBPair : children<SnapShotBBPairTy>({GD, N}))

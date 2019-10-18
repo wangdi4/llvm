@@ -35,11 +35,22 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
+static cl::opt<bool> VPlanUseDAForUnitStride(
+    "vplan-use-da-unit-stride-accesses", cl::init(true), cl::Hidden,
+    cl::desc("Use DA knowledge in VPlan for unit-stride accesses."));
+
 ///////// VPValue version of common vectorizer legality utilities /////////
 
-/// Helper function to check if given VPValue has consecutive pointer stride.
-// TODO: Need to use DA to identify unit-stridedness.
-static int isVPValueConsecutivePtr(VPValue *V) { return 0; }
+/// Helper function to check if given VPValue has consecutive pointer stride and
+/// return the stride value.
+static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
+                                                    const VPlan *Plan) {
+  VPVectorShape *PtrShape = Plan->getVPlanDA()->getVectorShape(Ptr);
+  if (PtrShape->isUnitStridePtr())
+    return PtrShape->getStrideVal();
+
+  return None;
+}
 
 /// Helper function to check if given VPValue is uniform based on DA.
 bool VPOCodeGen::isVPValueUniform(VPValue *V, const VPlan *Plan) {
@@ -150,11 +161,22 @@ static Value *generateSerialInstruction(IRBuilder<> &Builder,
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
-    assert(isa<Function>(Ops.back()) &&
-           "Last operand of call VPInstruction is not Function.");
-    Function *ScalarF = cast<Function>(Ops.back());
-    Ops.pop_back();
-    SerialInst = Builder.CreateCall(ScalarF, Ops);
+    if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
+      Ops.pop_back();
+      SerialInst = Builder.CreateCall(ScalarF, Ops);
+    } else {
+      // Indirect call (via function pointer).
+      Value *FuncPtr = Ops.back();
+      Ops.pop_back();
+
+      Type *FuncPtrTy = FuncPtr->getType();
+      assert(isa<PointerType>(FuncPtrTy) &&
+             "Function pointer operand is not pointer type.");
+      auto *FT = cast<FunctionType>(
+          cast<PointerType>(FuncPtrTy)->getPointerElementType());
+
+      SerialInst = Builder.CreateCall(FT, FuncPtr, Ops);
+    }
   } else if (VPGEPInstruction *VPGEP = dyn_cast<VPGEPInstruction>(VPInst)) {
     assert(ScalarOperands.size() > 1 &&
            "VPGEPInstruction should have atleast two operands.");
@@ -261,108 +283,105 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     Parms = VecVariant->getParameters();
   }
 
-  bool IsScalarArg = false;
+  Function *F = getCalledFunction(VPCall);
+  assert(F && "Function not found for call instruction");
+  StringRef FnName = F->getName();
+
+  auto ProcessCallArg = [&](unsigned OrigArgIdx) -> Value * {
+    if (isOpenCLWriteChannelSrc(FnName, OrigArgIdx)) {
+      llvm_unreachable(
+          "VPVALCG: OpenCL write channel vectorization not uplifted.");
+    }
+
+    if ((!VecVariant || Parms[OrigArgIdx].isVector()) &&
+        !isScalarArgument(FnName, OrigArgIdx)) {
+      // This is a vector call arg, so vectorize it.
+      VPValue *Arg = VPCall->getOperand(OrigArgIdx);
+
+      // Generate the right mask for OpenCL vector 'select' intrinsic
+      if (isOpenCLSelectMask(FnName, OrigArgIdx))
+        return getOpenCLSelectVectorMask(Arg);
+
+      return getVectorValue(Arg);
+    }
+    // Linear and uniform parameters for simd functions must be passed as
+    // scalars according to the vector function abi. CodeGen currently
+    // vectorizes all instructions, so the scalar arguments for the vector
+    // function must be extracted from them. For both linear and uniform
+    // args, extract from lane 0. Linear args can use the value at lane 0
+    // because this will be the starting value for which the stride will be
+    // added. The same method applies to built-in functions for args that
+    // need to be treated as uniform.
+
+    assert(!isOpenCLSelectMask(FnName, OrigArgIdx) &&
+           "OpenCL select mask parameter is linear/uniform?");
+
+    VPValue *Arg = VPCall->getOperand(OrigArgIdx);
+    Value *ScalarArg = getScalarValue(Arg, 0);
+
+    return ScalarArg;
+  };
 
   // TODO: For a VPInstruction representing Call, all the Call argument operands
   // are stored first. The last operand represents the called Function. Is this
   // true in all cases? What about indirect calls?
   unsigned NumArgOperands = VPCall->getNumOperands() - 1;
 
-  for (unsigned I = 0; I < NumArgOperands; I++) {
-    Function *F = getVPCalledFunction(VPCall);
-    assert(F && "Function not found for call instruction");
-    StringRef FnName = F->getName();
-    IsScalarArg = isScalarArgument(FnName, I);
-    if (isOpenCLReadChannelDest(FnName, I))
+  for (unsigned OrigArgIdx = 0; OrigArgIdx < NumArgOperands; OrigArgIdx++) {
+    if (isOpenCLReadChannelDest(FnName, OrigArgIdx))
       continue;
 
-    if (isOpenCLWriteChannelSrc(FnName, I)) {
-      llvm_unreachable(
-          "VPVALCG: OpenCL write channel vectorization not uplifted.");
-#if 0
-      Value *VecWriteSrc =
-        vectorizeOpenCLWriteChannelSrc(Call, i);
-      assert(VecWriteSrc && "Vector value for channel write source not found");
-      VecArgs.push_back(VecWriteSrc);
-      VecArgTys.push_back(VecWriteSrc->getType());
-#endif
-    } else if ((!VecVariant || Parms[I].isVector()) && !IsScalarArg) {
-      // This is a vector call arg, so vectorize it.
-      VPValue *Arg = VPCall->getOperand(I);
-      Value *VecArg;
-
-      // Generate the right mask for OpenCL vector 'select' intrinsic
-      if (isOpenCLSelectMask(FnName, I)) {
-        llvm_unreachable("VPVALCG: OpenCL select vector mask not uplifted.");
-#if 0
-        VecArg = getOpenCLSelectVectorMask(Call->getArgOperand(i));
-#endif
-      } else
-        VecArg = getVectorValue(Arg);
-
-      VecArgs.push_back(VecArg);
-      VecArgTys.push_back(VecArg->getType());
-    } else {
-      // Linear and uniform parameters for simd functions must be passed as
-      // scalars according to the vector function abi. CodeGen currently
-      // vectorizes all instructions, so the scalar arguments for the vector
-      // function must be extracted from them. For both linear and uniform
-      // args, extract from lane 0. Linear args can use the value at lane 0
-      // because this will be the starting value for which the stride will be
-      // added. The same method applies to built-in functions for args that
-      // need to be treated as uniform.
-
-      assert(!isOpenCLSelectMask(FnName, I) &&
-             "OpenCL select mask parameter is linear/uniform?");
-
-      VPValue *Arg = VPCall->getOperand(I);
-      Value *ScalarArg = getScalarValue(Arg, 0);
-      VecArgs.push_back(ScalarArg);
-      VecArgTys.push_back(ScalarArg->getType());
-    }
+    Value *VecArg = ProcessCallArg(OrigArgIdx);
+    VecArgs.push_back(VecArg);
+    VecArgTys.push_back(VecArg->getType());
   }
 
+  // We're done, unless we have an additional mask parameter to process that
+  // wasn't part of the original (scalar) call.
+  if (!VecVariant || !VecVariant->isMasked())
+    return;
+
+  Value *MaskToUse = MaskValue ? MaskValue
+                               : Constant::getAllOnesValue(VectorType::get(
+                                     Type::getInt1Ty(F->getContext()), VF));
+
   // Add the mask parameter for masked simd functions.
-  if (VecVariant && VecVariant->isMasked()) {
-    // Mask should already be vectorized as i1 type.
-    VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
-    assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
-           "Mask parameter is not vector of i1");
+  // Mask should already be vectorized as i1 type.
+  VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
+  assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
+         "Mask parameter is not vector of i1");
 
-    // Incorrect code is generated by backend codegen when using i1 mask.
-    // Therefore, the mask is promoted to the characteristic type of the
-    // function.
-    if (Usei1MaskForSimdFunctions) {
-      VecArgs.push_back(MaskValue);
-      VecArgTys.push_back(MaskTy);
-    } else {
-      Function *CalledFunc = getVPCalledFunction(VPCall);
-      assert(CalledFunc && "Unexpected null called function");
-      Type *CharacteristicType =
-          calcCharacteristicType(*CalledFunc, *VecVariant);
-      unsigned CharacteristicTypeSize =
-          CharacteristicType->getPrimitiveSizeInBits();
+  // Incorrect code is generated by backend codegen when using i1 mask.
+  // Therefore, the mask is promoted to the characteristic type of the
+  // function, unless we're specifically told not to do so.
+  if (Usei1MaskForSimdFunctions) {
+    VecArgs.push_back(MaskToUse);
+    VecArgTys.push_back(MaskTy);
+    return;
+  }
 
-      // Promote the i1 to an integer type that has the same size as the
-      // characteristic type.
-      Type *ScalarToType =
-          IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-      VectorType *VecToType = VectorType::get(ScalarToType, VF);
-      Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+  // Promote to characteristic type.
+  Type *CharacteristicType = calcCharacteristicType(*F, *VecVariant);
+  unsigned CharacteristicTypeSize =
+      CharacteristicType->getPrimitiveSizeInBits();
 
-      // Bitcast if the promoted type is not the same as the characteristic
-      // type.
-      if (ScalarToType != CharacteristicType) {
-        Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
-        Value *MaskCast =
-            Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
-        VecArgs.push_back(MaskCast);
-        VecArgTys.push_back(MaskCastTy);
-      } else {
-        VecArgs.push_back(MaskExt);
-        VecArgTys.push_back(VecToType);
-      }
-    }
+  // Promote the i1 to an integer type that has the same size as the
+  // characteristic type.
+  Type *ScalarToType =
+      IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
+  VectorType *VecToType = VectorType::get(ScalarToType, VF);
+  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
+
+  // Bitcast if the promoted type is not the same as the characteristic
+  // type.
+  if (ScalarToType != CharacteristicType) {
+    Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
+    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
+    VecArgs.push_back(MaskCast);
+    VecArgTys.push_back(MaskCastTy);
+  } else {
+    VecArgs.push_back(MaskExt);
+    VecArgTys.push_back(VecToType);
   }
 }
 
@@ -388,7 +407,16 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   } else if (!Cond->getType()->isVectorTy() &&
              VPInst->getType()->isVectorTy()) {
     unsigned OriginalVL = VPInst->getType()->getVectorNumElements();
-    VCond = replicateVector(VCond, OriginalVL, Builder);
+    // Widen the cond variable as following
+    //                        <0, 1, 0, 1>
+    //                             |
+    //                             | VF = 4,
+    //                             | OriginalVL = 2
+    //                             |
+    //                             V
+    //                  <0, 0, 1, 1, 0, 0, 1, 1>
+
+    VCond = replicateVectorElts(VCond, OriginalVL, Builder);
   }
 
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
@@ -421,50 +449,6 @@ VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   return Alignment;
 }
 
-void VPOCodeGen::widenVectorLoad(VPInstruction *VPLoad) {
-  // Pointer operand for Load is first operand.
-  VPValue *Ptr = VPLoad->getOperand(0);
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPLoad);
-  Type *VecTy = getLoadStoreType(VPLoad);
-  Type *ScalarTy = VecTy->getVectorElementType();
-  unsigned OriginalVL = VecTy->getVectorNumElements();
-  if (!ScalarTy->isSingleValueType())
-    llvm_unreachable("Re-vectorization supports simple vectors only!");
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-
-  Value *NewLI = nullptr;
-  if (ConsecutiveStride) {
-    llvm_unreachable(
-        "VPVALCG: Unit strided vector load vectorization not uplifted.");
-#if 0
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        LI, Ptr, ConsecutiveStride == -1);
-
-    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
-      // Masking not needed for privates.
-      // Mask value should be replicated for each element.
-      Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                "replicatedMaskElts.");
-      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue, nullptr,
-                                       "wide.masked.load");
-    } else
-      NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-    if (ConsecutiveStride == -1)
-      NewLI = reverseVector(NewLI, OriginalVL);
-#endif
-  } else {
-    // We replicate the mask-value as {m0, m0, m1, m1, m2, m2, m3, m3}.
-    Value *WidenMask = MaskValue
-                           ? replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                 "replicatedMaskVecElts.")
-                           : nullptr;
-    Value *VectorGEP = createWidenedGEPForScatterGather(VPLoad);
-    NewLI = Builder.CreateMaskedGather(VectorGEP, Alignment, WidenMask, nullptr,
-                                       "wide.masked.gather");
-  }
-  VPWidenMap[VPLoad] = NewLI;
-}
-
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   auto FoundIter = VLSGroupLoadMap.find(Group);
   if (FoundIter != VLSGroupLoadMap.end())
@@ -474,8 +458,10 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
 
+  OVLSMemref *InsertPoint = Group->getInsertPoint();
+  int InterleaveIndex = computeInterleaveIndex(InsertPoint, Group);
   const VPInstruction *Leader =
-      cast<VPVLSClientMemref>(Group->getFirstMemref())->getInstruction();
+      cast<VPVLSClientMemref>(InsertPoint)->getInstruction();
 
   Type *GroupType =
       getWidenedType(getLoadStoreType(Leader), VF * Group->size());
@@ -484,6 +470,14 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(!MaskValue && "Scalar address may be invalid (masked out)");
   Value *ScalarAddress = Builder.CreateExtractElement(
       GatherAddress, (uint64_t)0, GatherAddress->getName() + "_0");
+
+  // If the group leader (lexically first load) does not access the lowest
+  // memory address address (InterleaveIndex != 0), we should adjust
+  // ScalarAddress to make it point to the beginning of the Group.
+  if (InterleaveIndex != 0)
+    ScalarAddress = Builder.CreateConstInBoundsGEP1_64(
+        ScalarAddress, -InterleaveIndex, "groupStart");
+
   auto AddressSpace =
       cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
   Value *GroupPtr = Builder.CreateBitCast(
@@ -508,16 +502,55 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
   auto InterleaveFactor = computeInterleaveFactor(Memref);
 
+  assert((Group->getInsertPoint() == Memref ||
+          VLSGroupLoadMap.find(Group) != VLSGroupLoadMap.end()) &&
+         "Wide load must be emitted at the group insertion point");
   Value *GroupLoad = getOrCreateWideLoadForGroup(Group);
-  Constant *ShuffleMask =
-      createStrideMask(Builder, InterleaveIndex, InterleaveFactor, VF);
+
+  // Extract a proper widened value from the wide load. A bit more sophisticated
+  // shuffle mask is required if the input type is itself a vector type.
+  Type *Ty = VPLoad->getType();
+  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  Constant *ShuffleMask = createVectorStrideMask(
+      Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
   return Builder.CreateShuffleVector(GroupLoad,
                                      UndefValue::get(GroupLoad->getType()),
                                      ShuffleMask, "groupShuffle");
 }
 
+Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
+                                           bool IsPvtPtr) {
+  Value *WideLoad = nullptr;
+  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  Type *LoadType = getLoadStoreType(VPInst);
+  unsigned OriginalVL =
+      LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
+
+  // Masking not needed for privates.
+  if (MaskValue && !IsPvtPtr) {
+    // Replicate the mask if VPInst is a vector instruction.
+    Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                              "replicatedMaskElts.");
+    WideLoad = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue,
+                                        nullptr, "wide.masked.load");
+  } else
+    WideLoad = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+
+  if (StrideVal < 0) // Reverse
+    WideLoad = reverseVector(WideLoad);
+
+  return WideLoad;
+}
+
 void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
                                           bool EmitIntrinsic) {
+  Type *LoadType = VPInst->getType();
+  assert((!LoadType->isVectorTy() ||
+          LoadType->getVectorElementType()->isSingleValueType()) &&
+         "Re-vectorization supports simple vectors only!");
+
   // Pointer operand of Load is always the first operand.
   VPValue *Ptr = VPInst->getOperand(0);
   int LinStride = 0;
@@ -540,54 +573,67 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     return;
   }
 
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-
-  if (VPInst->getType()->isVectorTy()) {
-    return widenVectorLoad(VPInst);
+  if (isa<VPAllocatePrivate>(Ptr)) {
+    // TODO. Need to handshake with VLS. No sure if VLS currently operates
+    // on privates. At least it should account SOA property of private.
+    Value *VecPtr = getVectorValue(Ptr);
+    unsigned Alignment = 0;
+    if (auto PrivAlloca = dyn_cast<AllocaInst>(VecPtr))
+      Alignment = PrivAlloca->getAlignment();
+    if (MaskValue)
+      VPWidenMap[VPInst] =
+          Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue,
+                                   nullptr /*PassThru*/, "wide.masked.load");
+    else
+      VPWidenMap[VPInst] =
+          Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+    return;
   }
+
+  unsigned OriginalVL =
+      LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
 
   unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *NewLI = nullptr;
 
-  // Handle consecutive loads.
-  if (ConsecutiveStride) {
-    llvm_unreachable("VPVALCG: Unit-strided load vectorization not uplifted.");
-#if 0
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        LI, Ptr, ConsecutiveStride == -1);
+  // Try to handle consecutive loads without VLS.
+  if (VPlanUseDAForUnitStride) {
+    Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
+    // TODO: VPVALCG: Unit strided load from private pointer not implemented
+    // yet.
+    bool IsPvtPtr = Ptr->getUnderlyingValue() &&
+                    Legal->isLoopPrivate(Ptr->getUnderlyingValue());
 
-    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
-      // Masking not needed for privates.
-      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue, nullptr,
-                                       "wide.masked.load");
-    } else
-      NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-
-    if (ConsecutiveStride == -1) //Reverse
-      NewLI = reverseVector(NewLI);
-
-    WidenMap[cast<Value>(Inst)] = NewLI;
-#endif
-  } else {
-
-    // Try to do GATHER-to-SHUFFLE optimization.
-    // TODO: VLS optimization is disabled in masked basic blocks so far. It
-    // should be enabled for uniform masks, though.
-    OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    if (Group && Group->size() > 1) {
-      Optional<int64_t> GroupStride = Group->getConstStride();
-      assert(GroupStride && "Indexed loads are not supported");
-      // Groups with gaps are not supported either.
-      if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride))
-        NewLI = vectorizeInterleavedLoad(VPInst, Group);
+    if (ConsecutiveStride && !IsPvtPtr) {
+      NewLI = vectorizeUnitStrideLoad(VPInst, ConsecutiveStride.getValue(),
+                                      IsPvtPtr);
+      VPWidenMap[VPInst] = NewLI;
+      return;
     }
+  }
 
-    // GATHER
-    if (!NewLI) {
-      NewLI =
-          Builder.CreateMaskedGather(getVectorValue(Ptr), Alignment, MaskValue,
-                                     nullptr, "wide.masked.gather");
-    }
+  // Try to do GATHER-to-SHUFFLE optimization.
+  // TODO: VLS optimization is disabled in masked basic blocks so far. It
+  // should be enabled for uniform masks, though.
+  OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+  if (Group && Group->size() > 1) {
+    Optional<int64_t> GroupStride = Group->getConstStride();
+    assert(GroupStride && "Indexed loads are not supported");
+    // Groups with gaps are not supported either.
+    if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride))
+      NewLI = vectorizeInterleavedLoad(VPInst, Group);
+  }
+
+  // If VLS failed to emit a wide load, we have to emit a GATHER instruction.
+  if (!NewLI) {
+    // Replicate the mask if VPInst is a vector instruction originally.
+    Value *RepMaskValue = nullptr;
+    if (MaskValue)
+      RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                         "replicatedMaskElts.");
+    Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
+    NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
+                                       nullptr, "wide.masked.gather");
   }
 
   VPWidenMap[VPInst] = NewLI;
@@ -595,21 +641,11 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
 void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
                                            OVLSGroup *Group) {
-  // First, check if the wide store has been already generated.
-  if (VLSGroupStoreMap.find(Group) != VLSGroupStoreMap.end())
+  // Don't do anything unless we're vectorizing an instruction that is the group
+  // insertion point.
+  auto *Memref = cast<VPVLSClientMemref>(Group->getInsertPoint());
+  if (Memref->getInstruction() != VPStore)
     return;
-
-  // If the wide store hasn't been generated yet, generate it.
-
-  // FIXME: Currently VLS groups store instructions only if it is safe to move
-  //        all the stores to the lexically first one (that means that all the
-  //        stored values must be available at this point). That matches our
-  //        current behavior in VPlan: we generate wide store when we encounter
-  //        first store from a group. However, we may want to modify VLS
-  //        analysis, and for example check if it is safe to move all group
-  //        elements to the last store. If we do such change, the code below
-  //        will be broken, as it will keep generating wide store in place of
-  //        the first store.
 
   // Values to be stored.
   SmallVector<Value *, 8> GrpValues;
@@ -647,8 +683,12 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Concatenate all the values being stored into a single wide vector.
   Value *ConcatValue = concatenateVectors(Builder, GrpValues);
 
-  // Shuffle scalar values into the correct order.
-  Constant *ShuffleMask = createInterleaveMask(Builder, VF, InterleaveFactor);
+  // Shuffle values into the correct order. A bit more sophisticated shuffle
+  // mask is required if the original type is itself a vector type.
+  Type *Ty = VPStore->getOperand(0)->getType();
+  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  Constant *ShuffleMask =
+      createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
   Value *StoredValue = Builder.CreateShuffleVector(
       ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
       "groupShuffle");
@@ -668,60 +708,40 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
 
   // Create the wide store.
   unsigned Align = getOriginalLoadStoreAlignment(VPStore);
-  StoreInst *GroupStore =
-      Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
-  VLSGroupStoreMap.insert(std::make_pair(Group, GroupStore));
+  Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
 }
 
-void VPOCodeGen::widenVectorStore(VPInstruction *VPStore) {
-  VPValue *Ptr = VPStore->getOperand(1);
-  VPValue *DataOp = VPStore->getOperand(0);
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPStore);
-  Value *VecDataOp = getVectorValue(DataOp);
-  Type *WideDataTy = VecDataOp->getType();
-  unsigned OriginalVL = WideDataTy->getVectorNumElements() / VF;
+void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
+                                          bool IsPvtPtr) {
+  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+  Type *StoreType = getLoadStoreType(VPInst);
+  unsigned OriginalVL =
+      StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
 
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-  if (ConsecutiveStride) {
-    llvm_unreachable(
-        "VPVALCG: Unit strided vector store vectorization not uplifted.");
-#if 0
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        SI, Ptr, ConsecutiveStride == -1);
+  if (StrideVal < 0) // Reverse
+    // If we store to reverse consecutive memory locations, then we need
+    // to reverse the order of elements in the stored value.
+    VecDataOp = reverseVector(VecDataOp);
 
-    // We replicate the mask-value as {m0, m0, m1, m1, m2, m2, m3, m3}.
-    Value *WidenedMask =
-        MaskValue ? replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                        "replicatedMaskElts.")
-                  : nullptr;
-
-    if (ConsecutiveStride == -1) // Reverse
-      VecDataOp = reverseVector(VecDataOp, OriginalVL);
-
-    if (WidenedMask) {
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, WidenedMask);
-    } else
-      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-
-    // Store the mask value in case of a last-private.
-    if (Legal->isCondLastPrivate(Ptr))
-      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruCast<BitCastInst>(Ptr)], VF,
-                     Builder);
-
-#endif
-  } else {
-    // We replicate the mask-value as {m0, m1, m2, m3, m0, m1, m2, m3}.
-    Value *WidenMask = MaskValue
-                           ? replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                 "replicatedMaskVecElts.")
-                           : nullptr;
-    Value *VectorGEP = createWidenedGEPForScatterGather(VPStore);
-    Builder.CreateMaskedScatter(VecDataOp, VectorGEP, Alignment, WidenMask);
-  }
+  if (MaskValue) {
+    // Replicate the mask if VPInst is a vector instruction originally.
+    Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                              "replicatedMaskElts.");
+    Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
+  } else
+    Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
 }
 
 void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
                                            bool EmitIntrinsic) {
+  Type *StoreType = VPInst->getOperand(0)->getType();
+  assert((!StoreType->isVectorTy() ||
+          StoreType->getVectorElementType()->isSingleValueType()) &&
+         "Re-vectorization supports simple vectors only!");
+
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
 
@@ -734,86 +754,100 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 #endif
   }
 
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-
-  // Value operand of store is always the first operand.
-  if (VPInst->getOperand(0)->getType()->isVectorTy()) {
-    return widenVectorStore(VPInst);
-  }
-
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
-  Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
-
-  // Handle consecutive stores.
-  if (ConsecutiveStride) {
-    llvm_unreachable("VPVALCG: Unit-strided store vectorization not uplifted.");
-#if 0
-    bool StoreMaskValue = Legal->isCondLastPrivate(Ptr);
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        SI, Ptr, ConsecutiveStride == -1);
-
-    if (ConsecutiveStride == -1) // Reverse
-      // If we store to reverse consecutive memory locations, then we need
-      // to reverse the order of elements in the stored value.
-      VecDataOp = reverseVector(VecDataOp);
-
+  if (isa<VPAllocatePrivate>(Ptr)) {
+    // TODO. Need to handshake with VLS. No sure if VLS currently operates
+    // on privates. At least it should account SOA property of private.
+    Value *VecPtr = getVectorValue(Ptr);
+    unsigned Alignment = 0;
+    if (auto PrivAlloca = dyn_cast<AllocaInst>(VecPtr))
+      Alignment = PrivAlloca->getAlignment();
+    Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
     if (MaskValue)
       Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
     else
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-
-    if (StoreMaskValue)
-      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruCast<BitCastInst>(Ptr)], VF,
-                     Builder);
-#endif
-  } else {
-    // Try to do SCATTER-to-SHUFFLE optimization.
-    // TODO: VLS optimization is disabled in masked basic blocks so far. It
-    // should be enabled for uniform masks, though.
-    OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    if (Group && Group->size() > 1) {
-      Optional<int64_t> GroupStride = Group->getConstStride();
-      assert(GroupStride && "Indexed loads are not supported");
-      // Groups with gaps are not supported either.
-      if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride)) {
-        vectorizeInterleavedStore(VPInst, Group);
-        return;
-      }
-    }
-
-    // SCATTER
-    Value *VectorPtr = getVectorValue(Ptr);
-    Type *PtrToElemTy = VectorPtr->getType()->getVectorElementType();
-    Type *ElemTy = PtrToElemTy->getPointerElementType();
-    VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
-    // TODO: Verify if this bitcast should be done this late. Maybe an earlier
-    // transform can introduce it, if needed.
-    VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
-
-    Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
+    return;
+  } else if (isa<VPExternalDef>(Ptr) ||
+             (isa<VPConstant>(Ptr) && Ptr->getType()->isPointerTy())) {
+    // Scalar store
+    Value *ScalarPtr = getScalarValue(Ptr, 0);
+    Value *ScalarVal = getScalarValue(VPInst->getOperand(0), 0);
+    Builder.CreateAlignedStore(ScalarVal, ScalarPtr, 0);
+    return;
   }
+
+  unsigned OriginalVL =
+      StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
+
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+
+  // Try to handle consecutive stores without VLS.
+  if (VPlanUseDAForUnitStride) {
+    Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
+    // TODO: VPVALCG: Unit strided store to private pointer not implemented yet.
+    // Special handling for mask value is also needed for conditional last
+    // privates.
+    bool IsPvtPtr = Ptr->getUnderlyingValue() &&
+                    Legal->isLoopPrivate(Ptr->getUnderlyingValue());
+    if (ConsecutiveStride && !IsPvtPtr) {
+      vectorizeUnitStrideStore(VPInst, ConsecutiveStride.getValue(), IsPvtPtr);
+      return;
+    }
+  }
+
+  // Try to do SCATTER-to-SHUFFLE optimization.
+  // TODO: VLS optimization is disabled in masked basic blocks so far. It
+  // should be enabled for uniform masks, though.
+  OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+  if (Group && Group->size() > 1) {
+    Optional<int64_t> GroupStride = Group->getConstStride();
+    assert(GroupStride && "Indexed loads are not supported");
+    // Groups with gaps are not supported either.
+    if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride)) {
+      vectorizeInterleavedStore(VPInst, Group);
+      return;
+    }
+  }
+
+  // If VLS failed to emit a wide store, we have to emit a SCATTER
+  // instruction.
+  Value *ScatterPtr = getWidenedAddressForScatterGather(VPInst);
+  Type *PtrToElemTy = ScatterPtr->getType()->getVectorElementType();
+  Type *ElemTy = PtrToElemTy->getPointerElementType();
+  VectorType *DesiredDataTy = VectorType::get(ElemTy, VF * OriginalVL);
+  // TODO: Verify if this bitcast should be done this late. Maybe an earlier
+  // transform can introduce it, if needed.
+  VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+  // Replicate the mask if VPInst is a vector instruction originally.
+  Value *RepMaskValue = nullptr;
+  if (MaskValue)
+    RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                       "replicatedMaskElts.");
+  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
 }
 
 // This function returns computed addresses of memory locations which should be
 // accessed in the vectorized code. These addresses, take the form of a GEP
 // instruction, and this GEP is used as pointer operand of the resulting
 // scatter/gather intrinsic.
-Value *VPOCodeGen::createWidenedGEPForScatterGather(VPInstruction *VPI) {
+Value *VPOCodeGen::getWidenedAddressForScatterGather(VPInstruction *VPI) {
   assert((VPI->getOpcode() == Instruction::Load ||
           VPI->getOpcode() == Instruction::Store) &&
          "Expect 'VPI' to be either a LoadInst or a StoreInst");
-  Type *LSIType = getLoadStoreType(VPI);
-  assert(
-      isa<VectorType>(LSIType) &&
-      "Expect the original type of Load/Store instruction to be a vector-type");
 
+  // Vectorize BasePtr.
   VPValue *VPBasePtr = getPointerOperand(VPI);
+  Value *BasePtr = getVectorValue(VPBasePtr);
+
+  // No replication is needed for non-vector types.
+  Type *LSIType = getLoadStoreType(VPI);
+  if (!isa<VectorType>(LSIType))
+    return BasePtr;
 
   unsigned AddrSpace =
       cast<PointerType>(VPBasePtr->getType())->getAddressSpace();
-
-  // Vectorize BasePtr.
-  Value *BasePtr = getVectorValue(VPBasePtr);
 
   // Cast the inner vector-type to it's elemental scalar type.
   // e.g. - <VF x <OriginalVL x Ty> addrspace(x)*>
@@ -854,15 +888,82 @@ Value *VPOCodeGen::createWidenedGEPForScatterGather(VPInstruction *VPI) {
   return WidenedVectorGEP;
 }
 
-Function *VPOCodeGen::getVPCalledFunction(VPInstruction *Call) {
-  assert(Call->getOpcode() == Instruction::Call &&
-         "getVPCalledFunction called on non-call VPInstruction,");
-  // The called function will always be the last operand.
-  VPValue *FuncOp = Call->getOperand(Call->getNumOperands() - 1);
-  assert(isa<VPConstant>(FuncOp) && "Function operand is not an external def.");
-  assert(isa<Function>(getScalarValue(FuncOp, 0 /*Lane*/)) &&
-         "Underlying value for function operand is not Function.");
-  return cast<Function>(getScalarValue(FuncOp, 0 /*Lane*/));
+// This function return an appropriate BasePtr for cases where we are dealing
+// with load/store to consecutive memory locations
+Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
+                                                            bool Reverse) {
+  Type *VecTy = Ptr->getType()->getPointerElementType();
+  unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
+  Type *WideDataTy = getWidenedType(VecTy, VF);
+
+  // TODO: Peeking at underlying IR for privates.
+  // TODO: Support loop private pointers here.
+  assert(!(Ptr->getUnderlyingValue() &&
+           Legal->isLoopPrivate(Ptr->getUnderlyingValue())) &&
+         "VPVALCG: Widened base ptr for private unit stride load/store not "
+         "uplifted yet.");
+  // We do not care whether the 'Ptr' operand comes from a GEP or any other
+  // source. We just fetch the first element and then create a
+  // bitcast  which assumes the 'consecutive-ness' property and return the
+  // correct operand for widened load/store.
+  Value *VecPtr = getScalarValue(Ptr, 0);
+
+  VecPtr = Reverse
+               ? Builder.CreateGEP(
+                     VecPtr,
+                     Builder.getInt32(1 - WideDataTy->getVectorNumElements()))
+               : VecPtr;
+  VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
+  return VecPtr;
+}
+
+// Return the right vector mask for a OpenCL vector select built-in.
+//
+// Definition of OpenCL select intrinsic:
+//   gentype select ( gentype a, gentype b, igentype c)
+//
+//   For each component of a vector type, result[i] = if MSB of c[i] is set ?
+//   b[i] : a[i] For scalar type, result = c ? b : a.
+//
+// Scalar select built-in uses integer mask (integer != 0 means true). However,
+// vector select built-in uses the MSB of each vector element.
+//
+// Returned vector mask depends on ScalarMask as follows:
+//   1) if ScalarMask == ZExt(i1), return widened SExt.
+//   2) if ScalarMask == SExt(i1), return widened SExt.
+//   3) Otherwise, return SExt(VectorMask != 0).
+//
+Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
+
+  Type *ScTy = ScalarMask->getType();
+  assert(!ScTy->isVectorTy() && ScTy->isIntegerTy() &&
+         "Scalar integer type expected.");
+  Type *VecTy = getWidenedType(ScTy, VF);
+
+  // Special cases for i1 type.
+  VPInstruction *VPInst = dyn_cast<VPInstruction>(ScalarMask);
+  if (VPInst && VPInst->isCast() &&
+      VPInst->getOperand(0)->getType()->isIntegerTy(1 /*i1*/)) {
+    if (VPInst->getOpcode() == Instruction::SExt) {
+      // SExt mask doesn't need to be fixed.
+      return getVectorValue(ScalarMask);
+    } else if (VPInst->getOpcode() == Instruction::ZExt) {
+      // ZExt is replaced by an SExt.
+      Value *Val = getVectorValue(VPInst->getOperand(0));
+      return Builder.CreateSExt(Val, VecTy);
+    }
+  }
+
+  // General case. We generate a SExt(VectorMask != 0).
+  // TODO: Look at Volcano vectorizer, file OCLBuiltinPreVectorizationPass.cpp.
+  // It is doing something different, creating a fake call to a built-in
+  // intrinsic. I don't know if that approach is applicable here at this point.
+  Value *VectorMask = getVectorValue(ScalarMask);
+  Constant *Zero = Constant::getNullValue(VecTy);
+
+  // Only integer mask is supported.
+  Value *Cmp = Builder.CreateICmpNE(VectorMask, Zero);
+  return Builder.CreateSExt(Cmp, VecTy);
 }
 
 void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
@@ -871,7 +972,7 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
   CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
   assert(UnderlyingCI &&
          "VPVALCG: Need underlying CallInst for call-site attributes.");
-  Function *CalledFunc = getVPCalledFunction(VPCall);
+  Function *CalledFunc = getCalledFunction(VPCall);
   assert(CalledFunc && "Unexpected null called function.");
   bool IsMasked = (MaskValue != nullptr) ? true : false;
 
@@ -1043,8 +1144,15 @@ Value *VPOCodeGen::getVectorValueUplifted(VPValue *V) {
   if (V->getType()->isVectorTy()) {
     assert(V->getType()->getVectorElementType()->isSingleValueType() &&
            "Re-vectorization is supported for simple vectors only");
-    VPWidenMap[V] = replicateVectorElts(
-        UnderlyingV, VF, Builder, "replicatedVal." + UnderlyingV->getName());
+    // Widen the uniform vector variable as following
+    //                        <i32 0, i32 1>
+    //                             |
+    //                             |VF = 4
+    //                             |
+    //                             V
+    //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
+    VPWidenMap[V] = replicateVector(UnderlyingV, VF, Builder,
+                                    "replicatedVal." + UnderlyingV->getName());
   } else
     VPWidenMap[V] = getBroadcastInstrs(UnderlyingV);
 
@@ -1080,13 +1188,15 @@ Value *VPOCodeGen::getScalarValueUplifted(VPValue *V, unsigned Lane) {
     return buildScalarIVForLane(cast<PHINode>(V), Lane);
 #endif
 
+  // Get the scalar value by extracting from the vector instruction based on the
+  // requested lane.
+  Value *VecV = getVectorValue(V);
+
   // This code assumes that the widened vector, that we are extracting from has
   // data in AOS layout. If OriginalVL = 2, VF = 4 the widened value would be
   // Wide.Val = <v1_0, v2_0, v1_1, v2_1, v1_2, v2_2, v1_3, v2_3>.
   // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
-
-  if (V->getType()->isVectorTy() && VPWidenMap.count(V)) {
-    Value *WidenedVar = VPWidenMap[V];
+  if (V->getType()->isVectorTy()) {
     unsigned OrigNumElts = V->getType()->getVectorNumElements();
     SmallVector<unsigned, 8> ShufMask;
     for (unsigned StartIdx = Lane * OrigNumElts,
@@ -1095,7 +1205,7 @@ Value *VPOCodeGen::getScalarValueUplifted(VPValue *V, unsigned Lane) {
       ShufMask.push_back(StartIdx);
 
     Value *Shuff = Builder.CreateShuffleVector(
-        WidenedVar, UndefValue::get(WidenedVar->getType()), ShufMask,
+        VecV, UndefValue::get(VecV->getType()), ShufMask,
         "extractsubvec.");
 
     VPScalarMap[V][Lane] = Shuff;
@@ -1103,7 +1213,6 @@ Value *VPOCodeGen::getScalarValueUplifted(VPValue *V, unsigned Lane) {
     return Shuff;
   }
 
-  Value *VecV = getVectorValue(V);
   IRBuilder<>::InsertPointGuard Guard(Builder);
   if (auto VecInst = dyn_cast<Instruction>(VecV)) {
     if (isa<PHINode>(VecInst))
@@ -1384,16 +1493,8 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
   assert(!VPInst->getType()->isAggregateType() &&
          "Can't serialize aggregate type instructions.");
 
-  auto HasLoopInvariantOperands = [&](const VPInstruction *VPI) {
-    return all_of(VPI->operands(),
-                  [&](VPValue *V) { return isVPValueUniform(V, Plan); });
-  };
-
-  // TODO: Currently using DA for HasLoopInvariantOperands
-  // TODO: Handle cases like - call i32 random_number_generator(void)
   unsigned Lanes =
-      HasLoopInvariantOperands(VPInst) || isVPValueUniform(VPInst, Plan) ? 1
-                                                                         : VF;
+      !VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan) ? 1 : VF;
 
   for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
     SmallVector<Value *, 4> ScalarOperands;
@@ -1416,13 +1517,31 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
 void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::GetElementPtr: {
-    // Consecutive Load/Store will clone the GEP.
+    // For consecutive load/store we create a scalar GEP.
+    // TODO: Extend support for private pointers and VLS-based unit-stride
+    // optimization.
+    bool IsPvtPtr = VPInst->getUnderlyingValue() &&
+                    Legal->isLoopPrivate(VPInst->getUnderlyingValue());
     if (all_of(VPInst->users(),
                [&](VPUser *U) -> bool {
                  return getLoadStorePointerOperand(U) == VPInst;
                }) &&
-        isVPValueConsecutivePtr(VPInst))
+        getVPValueConsecutivePtrStride(VPInst, Plan) &&
+        VPlanUseDAForUnitStride && !IsPvtPtr) {
+      SmallVector<Value *, 6> ScalarOperands;
+      for (unsigned Op = 0; Op < VPInst->getNumOperands(); ++Op) {
+        auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), 0 /*Lane*/);
+        assert(ScalarOp && "Operand for scalar GEP not found.");
+        ScalarOperands.push_back(ScalarOp);
+      }
+
+      Value *ScalarGep =
+          generateSerialInstruction(Builder, VPInst, ScalarOperands);
+      ScalarGep->setName("scalar.gep");
+      VPScalarMap[VPInst][0] = ScalarGep;
       break;
+    }
+    // Serialize if all users of GEP are uniform load/store.
     if (all_of(VPInst->users(), [&](VPUser *U) -> bool {
           return getLoadStorePointerOperand(U) == VPInst &&
                  isVPValueUniform(U, Plan);
@@ -1534,15 +1653,27 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     Value *V = Builder.CreateBinOp(BinOpCode, A, B);
 
     // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
-    // flags). Use underlying IR flags if any.
-    if (VPInst->getUnderlyingValue()) {
-      BinaryOperator *BinOp =
-          cast<BinaryOperator>(VPInst->getUnderlyingValue());
+    // flags). Use underlying IR flags if any
+    if (auto *IRValue = VPInst->getUnderlyingValue()) {
+      BinaryOperator *BinOp = cast<BinaryOperator>(IRValue);
       BinaryOperator *VecOp = cast<BinaryOperator>(V);
       VecOp->copyIRFlags(BinOp);
     }
-
     VPWidenMap[VPInst] = V;
+    // TODO: Need to check for scalar code generation for the most of
+    // VPInstructions.
+    if (needScalarCode(VPInst)) {
+      Value *AScal = getScalarValue(VPInst->getOperand(0), 0);
+      Value *BScal = getScalarValue(VPInst->getOperand(1), 0);
+      Value *VScal = Builder.CreateBinOp(
+          static_cast<Instruction::BinaryOps>(VPInst->getOpcode()), AScal,
+          BScal);
+      VPScalarMap[VPInst][0] = VScal;
+      if (auto Underlying = VPInst->getUnderlyingValue()) {
+        if (auto Inst = dyn_cast<Instruction>(VScal))
+          Inst->copyIRFlags(Underlying);
+      }
+    }
     return;
   }
 
@@ -1604,10 +1735,15 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     CallInst *UnderlyingCI = dyn_cast<CallInst>(VPInst->getUnderlyingValue());
     assert(UnderlyingCI &&
            "VPVALCG: Need underlying CallInst for call-site attributes.");
-    Function *F = getVPCalledFunction(VPInst);
+    Function *F = getCalledFunction(VPInst);
+
+    if (!F) {
+      // Indirect calls.
+      serializeWithPredication(VPInst);
+      return;
+    }
+
     assert(F && "Unexpected null called function");
-    // TODO: Handle indirect call in serializeWithPredication before enabling
-    // here.
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;
@@ -1626,6 +1762,91 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
   case VPInstruction::AllZeroCheck: {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Type *Ty = A->getType();
+
+    if (MaskValue) {
+      // Consider the inner loop that is executed under the mask, after loop CFU
+      // transformation and predication it looks something like this:
+      //
+      //   REGION: loop19 (BP: NULL)
+      //   BB16 (BP: NULL) :
+      //    i1 %vp24064 = block-predicate i1 %loop_incoming_mask
+      //   SUCCESSORS(1):BB11
+      //   no PREDECESSORS
+
+      //   BB11 (BP: NULL) :
+      //    i1 %vp24384 = block-predicate i1 %loop_incoming_mask
+      //    i64 %vp54864 = phi  [ i64 %vp20544, BB23 ],  [ i64 1, BB16 ]
+      //    i32 %vp55072 = phi  [ i32 %vp20704, BB23 ],  [ i32 %vp49616, BB16 ]
+      //    i1 %inner_loop_specific_mask =
+      //         phi  [ i1 true, BB16 ],
+      //              [ i1 %inner_loop_specific_mask.next, BB23 ]
+      //   SUCCESSORS(1):mask_region24
+      //   PREDECESSORS(2): BB16 BB23
+
+      //   REGION: mask_region24 (BP: NULL)
+      //   BB21 (BP: NULL) :
+      //    i1 %vp24544 = block-predicate i1 %loop_incoming_mask
+      //   SUCCESSORS(1):BB22
+      //   no PREDECESSORS
+
+      //   BB22 (BP: NULL) :
+      //    i1 %real_mask = and i1 %loop_incoming_mask i1, %inner_loop_specific_mask
+      //    i1 %real_mask_predicate = block-predicate i1 %real_mask
+      //    i32 addrspace(1)* %vp38496 =
+      //        getelementptr inbounds i32 addrspace(1)* %input i64 %vp54864
+      //    i32 %ld = load i32 addrspace(1)* %vp38496
+      //    i1 %vp55440 = icmp i32 %vp55072 i32 %ld
+      //    i32 %vp55616 =  select i1 %vp55440 i32 %ld i32 %vp55072
+      //    i64 %vp55888 = add i64 %vp54864 i64 1
+      //   SUCCESSORS(1):BB17
+      //   PREDECESSORS(1): BB21
+
+      //   BB17 (BP: NULL) :
+      //    i1 %vp25472 = not i1 %inner_loop_specific_mask
+      //    i1 %vp25632 = and i1 %loop_incoming_mask i1 %vp25472
+      //    i1 %vp25920 = block-predicate i1 %loop_incoming_mask
+      //    i1 %vp56048 = icmp i64 %vp55888 i64 %vp1824
+      //
+      //    ;; This "not" is because original latch was at false successor
+      //    i1 %continue_cond = not i1 %vp56048
+      //    i1 %inner_loop_specific_mask.next =
+      //       and i1 %continue_cond i1  %inner_loop_specific_mask
+      //
+      //    ;; Live-outs updates
+      //
+      //   i1 %vp20864 = all-zero-check i1 %inner_loop_specific_mask.next
+      //   no SUCCESSORS
+      //   PREDECESSORS(1): BB22
+      //
+      // After vectorizing the loop above we create something like
+      //
+      //    %wide.ld = gather %vector_gep, %real_mask, undef_vector
+      //
+      // All-zero-check is dependent on the result of this gather, including the
+      // lanes that were masked out by %real_mask (which includes
+      // %loop_incoming_mask). That means that for lanes masked out by
+      // %loop_incoming_mask we can only have undef values and naive
+      //
+      //   %vp1 bitcast <VF x i1> %innerl_loop_specific_mask.next to iVF
+      //   %should_exit %cmp %vp1, 0
+      //   br i1 %should_exit, %exit_bb, %header_bb
+      //
+      // would result in branching based on that undef, which is UB. To avoid
+      // this, use only the active lanes when calculating the all-zero-check.
+      // Note, that technically we can use either %loop_incoming_mask or
+      // %real_mask. The former is easily available, so use it. Also,
+      //
+      //   and undef, %vpval
+      //
+      // semantics isn't immediately obvious for the reader.
+      //
+      // Another approach to this issue is to modify Predicator/LoopCFU to have
+      // a single phi/value for the mask, but it looks like much more work.
+      // Changing the semantics of the all-zero-check VPInstruction to reflect
+      // the mask (similar to loads/stores/calls) doesn't seem to have any
+      // drawbacks and is much easier to do.
+      A = Builder.CreateAnd(A, MaskValue);
+    }
 
     // Bitcast <VF x i1> to an integer value VF bits long.
     Type *IntTy =
@@ -1646,6 +1867,11 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Value *V = Builder.CreateNot(A);
     VPWidenMap[VPInst] = V;
+    if (needScalarCode(VPInst)) {
+      Value *AScal = getScalarValue(VPInst->getOperand(0), 0);
+      Value *VScal = Builder.CreateNot(AScal);
+      VPScalarMap[VPInst][0] = VScal;
+    }
     return;
   }
   case VPInstruction::Pred: {
@@ -1654,9 +1880,463 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     setMaskValue(A);
     return;
   }
+  case VPInstruction::ReductionInit: {
+    // Generate a broadcast/splat of reduction's identity. If a start value is
+    // specified for reduction, then insert into lane 0 after broadcast.
+    // Example -
+    // i32 %vp0 = reduction-init i32 0 i32 %red.init
+    //
+    // Generated instructions-
+    // %0 = insertelement <4 x i32> zeroinitializer, i32 %red.init, i32 0
+
+    Value *Identity = getVectorValue(VPInst->getOperand(0));
+    if (VPInst->getNumOperands() > 1) {
+      auto *StartVPVal = VPInst->getOperand(1);
+      assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
+             "Unsupported reduction StartValue");
+      auto *StartVal = getScalarValue(StartVPVal, 0);
+      Identity = Builder.CreateInsertElement(
+          Identity, StartVal, Builder.getInt32(0), "red.init.insert");
+    }
+    VPWidenMap[VPInst] = Identity;
+    return;
+  }
+  case VPInstruction::ReductionFinal: {
+    vectorizeReductionFinal(cast<VPReductionFinal>(VPInst));
+    return;
+  }
+  case VPInstruction::InductionInit: {
+    vectorizeInductionInit(cast<VPInductionInit>(VPInst));
+    return;
+  }
+  case VPInstruction::InductionInitStep: {
+    vectorizeInductionInitStep(cast<VPInductionInitStep>(VPInst));
+    return;
+  }
+  case VPInstruction::InductionFinal: {
+    vectorizeInductionFinal(cast<VPInductionFinal>(VPInst));
+    return;
+  }
+  case VPInstruction::AllocatePrivate: {
+    vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
   }
   }
 }
+
+void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
+                                       PHINode *UnderlyingPhi) {
+  Type *ScalarTy = VPPhi->getType();
+  assert(!ScalarTy->isAggregateType() && "Unexpected reduction type");
+  assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
+         "Unexpected reduction phi placement");
+  assert(!VPPhi->getBlend() && "Unexpected blend on reduction phi");
+  Type *VecTy = VectorType::get(ScalarTy, VF);
+  PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
+                                    &*LoopVectorBody->getFirstInsertionPt());
+  if (UnderlyingPhi)
+    // TODO. Remove after switching to VPValue-based code gen.
+    WidenMap[UnderlyingPhi] = VecPhi;
+  VPWidenMap[VPPhi] = VecPhi;
+  if (EnableVPValueCodegen)
+    // In this case we need an additional fixup.
+    PhisToFix[VPPhi] = VecPhi;
+}
+
+void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
+  assert(EnableVPValueCodegen && "This call is unexpected");
+
+  if (VPEntities && VPEntities->getReduction(VPPhi))
+    // Handle reductions.
+    vectorizeReductionPHI(VPPhi);
+  else
+    widenNonInductionPhi(VPPhi);
+}
+
+void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
+  Value *VecValue = getVectorValue(RedFinal->getOperand(0));
+  Intrinsic::ID Intrin = RedFinal->getVectorReduceIntrinsic();
+  Type *ElType = RedFinal->getOperand(0)->getType();
+  if (isa<VectorType>(ElType))
+    // TODO: can implement as shufle/OP sequence for vectors.
+    llvm_unreachable("Unsupported vector data type in reduction");
+
+  auto *StartVPVal =
+      RedFinal->getNumOperands() > 1 ? RedFinal->getOperand(1) : nullptr;
+  Value *Acc = nullptr;
+  if (StartVPVal) {
+    assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
+           "Unsupported reduction StartValue");
+    Acc = getScalarValue(StartVPVal, 0);
+  }
+  Value *Ret = nullptr;
+  // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
+  // parameter.
+  switch (Intrin) {
+  case Intrinsic::experimental_vector_reduce_v2_fadd:
+    assert(Acc && "Expected initial value");
+    Ret = Builder.CreateFAddReduce(Acc, VecValue);
+    Acc = nullptr;
+    break;
+  case Intrinsic::experimental_vector_reduce_v2_fmul:
+    assert(Acc && "Expected initial value");
+    Ret = Builder.CreateFMulReduce(Acc, VecValue);
+    Acc = nullptr;
+    break;
+  case Intrinsic::experimental_vector_reduce_add:
+    Ret = Builder.CreateAddReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_mul:
+    Ret = Builder.CreateMulReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_and:
+    Ret = Builder.CreateAndReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_or:
+    Ret = Builder.CreateOrReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_xor:
+    Ret = Builder.CreateXorReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_umax:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMaxReduce(VecValue, false);
+    break;
+  case Intrinsic::experimental_vector_reduce_smax:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMaxReduce(VecValue, true);
+    break;
+  case Intrinsic::experimental_vector_reduce_umin:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMinReduce(VecValue, false);
+    break;
+  case Intrinsic::experimental_vector_reduce_smin:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMinReduce(VecValue, true);
+    break;
+  case Intrinsic::experimental_vector_reduce_fmax:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateFPMaxReduce(VecValue, /*NoNan*/ false);
+    break;
+  case Intrinsic::experimental_vector_reduce_fmin:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateFPMinReduce(VecValue, /*NoNaN*/ false);
+    break;
+  default:
+    llvm_unreachable("unsupported reduction");
+    break;
+  }
+  if (Acc)
+    Ret = Builder.CreateBinOp(
+        static_cast<Instruction::BinaryOps>(RedFinal->getBinOpcode()), Acc, Ret,
+        "final.red");
+  VPScalarMap[RedFinal][0] = Ret;
+
+  const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
+  assert(Entity && "Unexpected: reduction last value is not for entity");
+  EntitiesLastValMap[Entity] = Ret;
+}
+
+void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
+  // Private memory is a pointer. We need to get element type
+  // and allocate VF elements.
+  Type *OrigTy = V->getType()->getPointerElementType();
+  assert((!OrigTy->isAggregateType() || !V->isSOALayout()) &&
+         "SOA is not supported for aggregate types yet");
+
+  Type *VecTyForAlloca;
+  // TODO. We should handle the case when original alloca has the size argument,
+  // e.g. it's like alloca i32, i32 4.
+  if (OrigTy->isAggregateType())
+    VecTyForAlloca = ArrayType::get(OrigTy, VF);
+  else {
+    // For non-aggregate types create a vector type.
+    Type *EltTy = OrigTy;
+    unsigned NumEls = VF;
+    if (OrigTy->isVectorTy()) {
+      EltTy = OrigTy->getVectorElementType();
+      NumEls *= OrigTy->getVectorNumElements();
+    }
+    VecTyForAlloca = VectorType::get(EltTy, NumEls);
+  }
+
+  // Create an alloca in the appropriate block
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  Function *F = OrigLoop->getHeader()->getParent();
+  BasicBlock &FirstBB = F->front();
+  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
+
+  AllocaInst *WidenedPrivArr =
+      Builder.CreateAlloca(VecTyForAlloca, nullptr, "private.mem");
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  WidenedPrivArr->setAlignment(
+      MaybeAlign(DL.getPrefTypeAlignment(VecTyForAlloca)));
+
+  VPWidenMap[V] = WidenedPrivArr;
+}
+
+// InductionInit has two arguments {Start, Step} and keeps the operation
+// opcode. We generate
+// For +/-   : broadcast(start) +/GEP step*{0, 1,..,VL-1} (GEP for pointers)
+// For */div : broadcast(start) * pow(step,{0, 1,..,VL-1})
+// In the current version, pow() is replaced with a series of multiplications.
+void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
+  auto *StartVPVal = VPInst->getOperand(0);
+  auto *StartVal = getScalarValue(StartVPVal, 0);
+  Value *BcastStart =
+      createVectorSplat(StartVal, VF, Builder, "ind.start.bcast");
+
+  auto *StepVPVal = VPInst->getOperand(1);
+  Value *StepVal = getScalarValue(StepVPVal, 0);
+  unsigned Opc = VPInst->getBinOpcode();
+  bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
+                Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+                Opc == Instruction::FDiv;
+  bool IsFloat = VPInst->getType()->isFloatingPointTy();
+  int StartConst = isMult ? 1 : 0;
+  Constant *StartCoeff =
+      IsFloat ? ConstantFP::get(VPInst->getType(), StartConst)
+              : ConstantInt::getSigned(StepVal->getType(), StartConst);
+  Value *VectorStep;
+  if (isMult) {
+    // Generate series of mult and insert operations, to avoid calling pow(),
+    // forming the following vector
+    // {StartCoeff, StartCoeff*Step, StartCoeff*Step*Step, ...,
+    //  StartCoeff{*Step}{VF-1 times}}
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    Value *Val = StartCoeff;
+    VectorStep = createVectorSplat(UndefValue::get(Val->getType()), VF, Builder,
+                                   "ind.step.vec");
+    unsigned I = 0;
+    for (I = 0; I < VF - 1; I++) {
+      VectorStep = Builder.CreateInsertElement(VectorStep, Val, I);
+      Val = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(StepOpc),
+                                Val, StepVal);
+    }
+    // Here I = VF - 1.
+    VectorStep = Builder.CreateInsertElement(VectorStep, Val, I);
+  } else {
+    // Generate sequence of vector operations:
+    // %i_seq = {0, 1, 2, 3, ...VF-1}
+    // %bcst_step = broadcast step
+    // %vector_step = mul %i_seq, %bcst_step
+    SmallVector<Constant *, 32> IndStep;
+    IndStep.push_back(StartCoeff);
+    for (unsigned I = 1; I < VF; I++) {
+      Constant *ConstVal = IsFloat
+                               ? ConstantFP::get(VPInst->getType(), I)
+                               : ConstantInt::getSigned(StepVal->getType(), I);
+      IndStep.push_back(ConstVal);
+    }
+    Value *VecConst = ConstantVector::get(IndStep);
+    Value *BcstStep = createVectorSplat(StepVal, VF, Builder, "ind.step.vec");
+    VectorStep = Builder.CreateBinOp(
+        IsFloat ? Instruction::FMul : Instruction::Mul, BcstStep, VecConst);
+
+    if (auto BinOp = dyn_cast<BinaryOperator>(VectorStep))
+      // May be a constant.
+      if (BinOp->getOpcode() == Instruction::FMul) {
+        FastMathFlags Flags;
+        Flags.setFast();
+        BinOp->setFastMathFlags(Flags);
+      }
+
+  }
+  Value *Ret =
+      (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
+          ? Builder.CreateInBoundsGEP(BcastStart, {VectorStep}, "vector_gep")
+          : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
+                                BcastStart, VectorStep);
+  VPWidenMap[VPInst] = Ret;
+  if (needScalarCode(VPInst)) {
+    VPScalarMap[VPInst][0] = StartVal;
+  }
+}
+
+void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
+  unsigned Opc = VPInst->getBinOpcode();
+  bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
+                Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+                Opc == Instruction::FDiv;
+  bool IsFloat = VPInst->getType()->isFloatingPointTy();
+  auto *StartVPVal = VPInst->getOperand(0);
+  auto *StartVal = getScalarValue(StartVPVal, 0);
+
+  unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+  Value *MulVF = StartVal;
+  if (isMult) {
+    for (unsigned I = 1; I < VF; I *= 2)
+      MulVF = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(StepOpc),
+                                  MulVF, MulVF);
+  } else {
+    Constant *VFVal = IsFloat ? ConstantFP::get(VPInst->getType(), VF)
+                              : ConstantInt::getSigned(StartVal->getType(), VF);
+    MulVF = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(StepOpc),
+                                MulVF, VFVal);
+  }
+  Value *Ret = createVectorSplat(MulVF, VF, Builder, "ind.step.init");
+  VPWidenMap[VPInst] = Ret;
+
+  if (needScalarCode(VPInst)) {
+    VPScalarMap[VPInst][0] = MulVF;
+  }
+}
+
+void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
+  Value *LastValue = nullptr;
+  const VPLoopEntity *Entity = VPEntities->getInduction(VPInst);
+  assert(Entity && "Induction last value is not for entity");
+  if (VPInst->getNumOperands() == 1) {
+    // One operand - extract from vector
+    Value *VecVal = getVectorValue(VPInst->getOperand(0));
+    LastValue = Builder.CreateExtractElement(VecVal, Builder.getInt32(VF - 1));
+  } else {
+    // Otherwise calculate by formulas
+    //  for post increment liveouts LV = start + step*rounded_tc,
+    //  for pre increment liveouts LV = start + step*(rounded_tc-1)
+    //
+    assert(VPInst->getNumOperands() == 2 && "Incorrect number of operands");
+    unsigned Opc = VPInst->getBinOpcode();
+    assert(!(Opc == Instruction::Mul || Opc == Instruction::FMul ||
+             Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+             Opc == Instruction::FDiv) &&
+           "Unsupported induction final form");
+
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    auto *VPStep = VPInst->getOperand(1);
+    auto *Step = getScalarValue(VPStep, 0);
+
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    Type *StepType = Step->getType();
+    Value *TripCnt = VectorTripCount;
+    if (VPEntities->isInductionLastValPreInc(cast<VPInduction>(Entity)))
+      TripCnt =
+          Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));
+    Instruction::CastOps CastOp =
+        CastInst::getCastOpcode(TripCnt, true, StepType, true);
+    Value *CRD = Builder.CreateCast(CastOp, TripCnt, StepType, "cast.crd");
+    Value *MulV = Builder.CreateBinOp(
+        static_cast<Instruction::BinaryOps>(StepOpc), Step, CRD);
+    auto *VPStart = VPInst->getOperand(0);
+    auto *Start = getScalarValue(VPStart, 0);
+    LastValue =
+        (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
+            ? Builder.CreateInBoundsGEP(Start, {MulV}, "final_gep")
+            : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
+                                  Start, MulV);
+  }
+  // The value is scalar
+  VPScalarMap[VPInst][0] = LastValue;
+  EntitiesLastValMap[Entity] = LastValue;
+}
+
+void VPOCodeGen::fixOutgoingValues() {
+  for (auto &LastValPair : EntitiesLastValMap) {
+    if (auto *Reduction = dyn_cast<VPReduction>(LastValPair.first))
+      fixReductionLastVal(*Reduction, LastValPair.second);
+    if (auto *Induction = dyn_cast<VPInduction>(LastValPair.first))
+      fixInductionLastVal(*Induction, LastValPair.second);
+  }
+}
+
+void VPOCodeGen::fixLiveOutValues(const VPLoopEntity &Entity, Value *LastVal) {
+  for (auto *Linked : Entity.getLinkedVPValues())
+    for (auto *User : Linked->users())
+      if (isa<VPExternalUse>(User)) {
+        Value *ExtVal = User->getUnderlyingValue();
+        if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
+          int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
+          if (Ndx == -1)
+            Phi->addIncoming(LastVal, LoopMiddleBlock);
+          else
+            Phi->setIncomingValue(Ndx, LastVal);
+        } else {
+          int Ndx = User->getOperandIndex(Linked);
+          assert(Ndx != -1 && "Operand not found in User");
+          Value *Operand = const_cast<Value *>(
+              cast<VPExternalUse>(User)->getUnderlyingOperand(Ndx));
+          cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
+        }
+      }
+}
+
+void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,
+                                                   PHINode *Phi,
+                                                   const Twine &NameStr,
+                                                   Value *LastVal) {
+  PHINode *BCBlockPhi = PHINode::Create(OrigStartValue->getType(), 2, NameStr,
+                                        LoopScalarPreHeader->getTerminator());
+  for (unsigned I = 0, E = LoopBypassBlocks.size(); I != E; ++I)
+    BCBlockPhi->addIncoming(OrigStartValue, LoopBypassBlocks[I]);
+  BCBlockPhi->addIncoming(LastVal, LoopMiddleBlock);
+
+  // Fix the scalar loop reduction variable.
+  int IncomingEdgeBlockIdx = Phi->getBasicBlockIndex(OrigLoop->getLoopLatch());
+  assert(IncomingEdgeBlockIdx >= 0 && "Invalid block index");
+  // Pick the other block.
+  int SelfEdgeBlockIdx = (IncomingEdgeBlockIdx ? 0 : 1);
+  Phi->setIncomingValue(SelfEdgeBlockIdx, BCBlockPhi);
+}
+
+void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
+  if (Red.getIsMemOnly()) {
+#if 0
+    // TODO: Implement last value fixing for in-memory reductions.
+    auto OrigPtr = VPEntities->getOrigMemoryPtr(&Red);
+    assert(OrigPtr && "Unexpected nullptr original memory");
+    auto ScalarPtr = OrigPtr->getUnderlyingValue();
+    Builder.SetInsertPoint(LoopScalarPreHeader->getTerminator());
+    MergedVal = Builder.CreateLoad(ScalarPtr, ScalarPtr->getName() + ".reload");
+#endif
+  } else {
+    VPValue *VPStart = Red.getRecurrenceStartValue();
+    Value *OrigStartValue = VPStart->getUnderlyingValue();
+    VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Red);
+    PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
+    createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.merge.reduction",
+                                      LastVal);
+    fixLiveOutValues(Red, LastVal);
+  }
+}
+
+void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
+  if (Ind.getIsMemOnly()) {
+    // TODO: Implement last value fixing for in-memory inductions.
+  } else {
+    VPValue *VPStart = Ind.getStartValue();
+    Value *OrigStartValue = VPStart->getUnderlyingValue();
+    VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Ind);
+    PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
+    createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.resume.val",
+                                      LastVal);
+    fixLiveOutValues(Ind, LastVal);
+  }
+}
+
+void VPOCodeGen::fixNonInductionVPPhis() {
+  std::function<void(DenseMap<VPPHINode *, PHINode *> &)> fixInductions =
+      [&](DenseMap<VPPHINode *, PHINode *> &Table) -> void {
+    bool IsScalar = &Table == &ScalarPhisToFix;
+    for (auto PhiToFix : Table) {
+      auto *VPPhi = PhiToFix.first;
+      auto *Phi = PhiToFix.second;
+      const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+      for (unsigned I = 0; I < NumPhiValues; ++I) {
+        auto *VPVal = VPPhi->getIncomingValue(I);
+        auto *VPBB = VPPhi->getIncomingBlock(I);
+        Value *IncValue =
+            IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
+        Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
+      }
+    }
+    return;
+  };
+  fixInductions(ScalarPhisToFix);
+  fixInductions(PhisToFix);
+}
+
+

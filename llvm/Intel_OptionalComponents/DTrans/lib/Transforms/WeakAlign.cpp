@@ -65,9 +65,11 @@ public:
     if (skipModule(M))
       return false;
 
-    auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
     auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, TLI, WPInfo);
+    return Impl.runImpl(M, GetTLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -81,9 +83,12 @@ public:
 
 PreservedAnalyses dtrans::WeakAlignPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  if (!runImpl(M, TLI, WPInfo))
+  if (!runImpl(M, GetTLI, WPInfo))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
@@ -99,16 +104,21 @@ class WeakAlignImpl {
 public:
   // Analyze and perform the transform, if possible. Return 'true'
   // if IR changes are made.
-  bool run(Module &M, const TargetLibraryInfo &TLI);
+  bool run(Module &M,
+           std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
 
 private:
-  bool analyzeModule(Module &M, const TargetLibraryInfo &TLI);
+  bool analyzeModule(
+      Module &M,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
   bool analyzeFunction(Function &F);
   bool isSupportedIntrinsicInst(IntrinsicInst *II);
 
   // Identify the "mallopt" function, if it exists on the target being compiled
   // for.
-  FunctionCallee getMalloptFunction(Module &M, const TargetLibraryInfo &TLI);
+  FunctionCallee getMalloptFunction(
+      Module &M,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
 
   // Insert the necessary calls to mallopt.
   void insertMalloptCalls();
@@ -127,14 +137,16 @@ private:
   Function *MainFunc = nullptr;
 };
 
-bool WeakAlignImpl::run(Module &M, const TargetLibraryInfo &TLI) {
+bool WeakAlignImpl::run(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
   // Make sure the mallopt function is available before analyzing the IR.
-  MalloptFunc = getMalloptFunction(M, TLI);
+  MalloptFunc = getMalloptFunction(M, GetTLI);
   if (!MalloptFunc)
     return false;
 
   // Check for safety issues that prevent the transform.
-  if (!analyzeModule(M, TLI))
+  if (!analyzeModule(M, GetTLI))
     return false;
 
   LLVM_DEBUG(
@@ -147,8 +159,25 @@ bool WeakAlignImpl::run(Module &M, const TargetLibraryInfo &TLI) {
 
 // Get a handle the mallopt() function, if it is available. Otherwise,
 // return nullptr.
-FunctionCallee WeakAlignImpl::getMalloptFunction(Module &M,
-                                            const TargetLibraryInfo &TLI) {
+FunctionCallee WeakAlignImpl::getMalloptFunction(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
+
+  // Find the main function, then get the TLI for it.
+  Function *MainFunc = nullptr;
+  for (auto &F : M)
+    if (!F.isDeclaration() && isMainFunction(F)) {
+      MainFunc = &F;
+      break;
+    }
+
+  if (!MainFunc) {
+    LLVM_DEBUG(
+        dbgs() << "DTRANS Weak Align: inhibited -- mallopt() not available\n");
+    return nullptr;
+  }
+
+  const TargetLibraryInfo &TLI = GetTLI(*MainFunc);
   LibFunc MalloptLF;
   bool Found = TLI.getLibFunc("mallopt", MalloptLF);
   if (!Found) {
@@ -181,7 +210,9 @@ FunctionCallee WeakAlignImpl::getMalloptFunction(Module &M,
 // Check if there are issues within the module that should inhibit setting
 // qkmalloc allocator to use the weak memory allocation mode. Return 'true'
 // if the function is safe, 'false' otherwise.
-bool WeakAlignImpl::analyzeModule(Module &M, const TargetLibraryInfo &TLI) {
+bool WeakAlignImpl::analyzeModule(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
 
   // List of allocation functions that are allowed to be seen in the program.
   // Any reference to an allocation function (as identified in the
@@ -223,6 +254,7 @@ bool WeakAlignImpl::analyzeModule(Module &M, const TargetLibraryInfo &TLI) {
   LibFunc TheLibFunc;
   bool SawSOAToAOS = false;
   for (auto &F : M) {
+    const TargetLibraryInfo &TLI = GetTLI(F);
     if (TLI.getLibFunc(F.getName(), TheLibFunc) && TLI.has(TheLibFunc) &&
         llvm::isAllocationLibFunc(TheLibFunc) &&
         !IsSupportedAllocationFn(TheLibFunc)) {
@@ -461,8 +493,10 @@ CallInst *WeakAlignImpl::createMalloptCall(int32_t Param,
   return CI;
 }
 
-bool WeakAlignPass::runImpl(Module &M, const TargetLibraryInfo &TLI,
-                            WholeProgramInfo &WPInfo) {
+bool WeakAlignPass::runImpl(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(
         dbgs() << "DTRANS Weak Align: inhibited -- not whole program safe");
@@ -470,7 +504,7 @@ bool WeakAlignPass::runImpl(Module &M, const TargetLibraryInfo &TLI,
   }
 
   WeakAlignImpl Impl;
-  return Impl.run(M, TLI);
+  return Impl.run(M, GetTLI);
 }
 
 } // end namespace dtrans

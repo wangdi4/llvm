@@ -71,6 +71,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeCallTreeCloningLegacyPassPass(Registry);    // INTEL
   initializeIntelAdvancedFastCallWrapperPassPass(Registry); // INTEL
   initializeIntelPartialInlineLegacyPassPass(Registry); // INTEL
+  initializeDopeVectorConstPropLegacyPassPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {
@@ -135,6 +136,10 @@ void LLVMAddPruneEHPass(LLVMPassManagerRef PM) {
 
 void LLVMAddIPSCCPPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createIPSCCPPass());
+}
+
+void LLVMAddMergeFunctionsPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createMergeFunctionsPass());
 }
 
 void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {

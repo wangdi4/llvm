@@ -1408,15 +1408,17 @@ all optional, but the attribute has to have at least one clause.
   }];
 }
 
-def RequireConstantInitDocs : Documentation {
+def ConstInitDocs : Documentation {
   let Category = DocCatVariable;
+  let Heading = "require_constant_initialization, constinit (C++20)";
   let Content = [{
 This attribute specifies that the variable to which it is attached is intended
 to have a `constant initializer <http://en.cppreference.com/w/cpp/language/constant_initialization>`_
 according to the rules of [basic.start.static]. The variable is required to
 have static or thread storage duration. If the initialization of the variable
 is not a constant initializer an error will be produced. This attribute may
-only be used in C++.
+only be used in C++; the ``constinit`` spelling is only accepted in C++20
+onwards.
 
 Note that in C++03 strict constant expression checking is not done. Instead
 the attribute reports if Clang can emit the variable as a constant, even if it's
@@ -1430,6 +1432,12 @@ This attribute acts as a compile time assertion that the requirements
 for constant initialization have been met. Since these requirements change
 between dialects and have subtle pitfalls it's important to fail fast instead
 of silently falling back on dynamic initialization.
+
+The first use of the attribute on a variable must be part of, or precede, the
+initializing declaration of the variable. C++20 requires the ``constinit``
+spelling of the attribute to be present on the initializing declaration if it
+is used anywhere. The other spellings can be specified on a forward declaration
+and omitted on a later initializing declaration.
 
 .. code-block:: c++
 
@@ -1876,6 +1884,17 @@ optimization.
 This attribute allows to pass name and address of the function to a special
 ``cl::sycl::intel::get_device_func_ptr`` API call which extracts the device
 function pointer for the specified function.
+  }];
+}
+
+def SYCLDeviceDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "sycl_device";
+  let Content = [{
+This attribute can only be applied to functions and indicates that the
+function must be treated as a device function and must be emitted even if it has
+no direct uses from other device functions. All ``sycl_device`` function callees
+implicitly inherit this attribute.
   }];
 }
 
@@ -2708,6 +2727,30 @@ manipulating bits of the enumerator when issuing warnings.
   }];
 }
 
+def AsmLabelDocs : Documentation {
+  let Category = DocCatDecl;
+  let Content = [{
+This attribute can be used on a function or variable to specify its symbol name.
+
+On some targets, all C symbols are prefixed by default with a single character, typically ``_``.  This was done historically to distinguish them from symbols used by other languages.  (This prefix is also added to the standard Itanium C++ ABI prefix on "mangled" symbol names, so that e.g. on such targets the true symbol name for a C++ variable declared as ``int cppvar;`` would be ``__Z6cppvar``; note the two underscores.)  This prefix is *not* added to the symbol names specified by the ``asm`` attribute; programmers wishing to match a C symbol name must compensate for this.
+
+For example, consider the following C code:
+
+.. code-block:: c
+
+  int var1 asm("altvar") = 1;  // "altvar" in symbol table.
+  int var2 = 1; // "_var2" in symbol table.
+
+  void func1(void) asm("altfunc");
+  void func1(void) {} // "altfunc" in symbol table.
+  void func2(void) {} // "_func2" in symbol table.
+
+Clang's implementation of this attribute is compatible with GCC's, `documented here <https://gcc.gnu.org/onlinedocs/gcc/Asm-Labels.html>`_.
+
+While it is possible to use this attribute to name a special symbol used internally by the compiler, such as an LLVM intrinsic, this is neither recommended nor supported and may cause the compiler to crash or miscompile.  Users who wish to gain access to intrinsic behavior are strongly encouraged to request new builtin functions.
+  }];
+}
+
 def EnumExtensibilityDocs : Documentation {
   let Category = DocCatDecl;
   let Content = [{
@@ -2787,7 +2830,7 @@ is retained by the return value of the annotated function
 It is only supported in C++.
 
 This attribute provides an experimental implementation of the facility
-described in the C++ committee paper [http://wg21.link/p0936r0](P0936R0),
+described in the C++ committee paper `P0936R0 <http://wg21.link/p0936r0>`_,
 and is subject to change as the design of the corresponding functionality
 changes.
   }];
@@ -3034,6 +3077,16 @@ used to specify full unrolling or partial unrolling by a specified amount.
 This is a compiler hint and the compiler may ignore this directive. See
 `OpenCL v2.0 <https://www.khronos.org/registry/cl/specs/opencl-2.0.pdf>`_
 s6.11.5 for details.
+  }];
+}
+
+def LoopUnrollHintDocs : Documentation {
+  let Category = DocCatStmt;
+  let Content = [{
+Loop unrolling optimization hint can be specified with CXX11 attribute
+``[[clang::loop_unroll]]``. The attribute is placed immediately before a for,
+while, do-while, or c++11 range-based for loop. This attribute can be
+used to specify full unrolling or partial unrolling by a specified amount.
   }];
 }
 
@@ -3362,6 +3415,55 @@ The syntax of the declare target directive is as follows:
     #pragma omp declare target new-line
     declarations-definition-seq
     #pragma omp end declare target new-line
+
+or
+
+  .. code-block:: c
+
+    #pragma omp declare target (extended-list) new-line
+
+or
+
+  .. code-block:: c
+
+    #pragma omp declare target clause[ [,] clause ... ] new-line
+
+where clause is one of the following:
+
+
+  .. code-block:: c
+
+     to(extended-list)
+     link(list)
+     device_type(host | nohost | any)
+  }];
+}
+
+def OMPDeclareVariantDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "#pragma omp declare variant";
+  let Content = [{
+The `declare variant` directive declares a specialized variant of a base
+ function and specifies the context in which that specialized variant is used.
+ The declare variant directive is a declarative directive.
+The syntax of the `declare variant` construct is as follows:
+
+  .. code-block:: none
+
+    #pragma omp declare variant(variant-func-id) clause new-line
+    [#pragma omp declare variant(variant-func-id) clause new-line]
+    [...]
+    function definition or declaration
+
+where clause is one of the following:
+
+  .. code-block:: none
+
+    match(context-selector-specification)
+
+and where `variant-func-id` is the name of a function variant that is either a
+ base language identifier or, for C++, a template-id.
+
   }];
 }
 

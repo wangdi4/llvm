@@ -22,6 +22,7 @@
 
 #include "ParVecDirectiveInsertion.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
 
 #define DEBUG_TYPE "parvec-transform"
 
@@ -37,41 +38,61 @@ static cl::opt<bool>
 
 namespace {
 
+/// \brief Analyze auto-vectorizability of the loops.
+static bool shouldRunOnFunction(Function &F, bool OuterVec) {
+  if (NoAutoVec) {
+    LLVM_DEBUG(dbgs() << "Vec Directive Insertion disabled"
+                         " due to -disable-hir-vec-dir-insert.\n");
+    return false;
+  }
+  if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
+    LLVM_DEBUG(dbgs() << "Vec Directive Insertion skipped"
+                         " for vector variants of SIMD Enabled Function : "
+                      << F.getName() << "\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << "Vec Directive Insertion (Outer Loop "
+                    << (OuterVec ? "Enabled" : "Disabled")
+                    << ") for Function : " << F.getName() << "\n");
+  return true;
+}
+
 /// \brief Invoke auto-vectorization legality analysis and insert
 /// auto-vectorization candidate directive to the loops. When the directive
 /// is inserted to a loop, further analysis will be performed by the vectorizer
 /// before final auto-vectorization decision is made.
-class HIRVecDirInsert : public ParVecDirectiveInsertion {
+class HIRVecDirInsert : public HIRTransformPass {
+  ParVecDirectiveInsertion Impl;
   bool OuterVec;
 
 public:
   static char ID;
 
   HIRVecDirInsert(bool OuterVec = true)
-      : ParVecDirectiveInsertion(
-            ID, OuterVec && !OuterVecDisabled
-                    ? ParVecInfo::VectorForVectorizer
-                    : ParVecInfo::VectorForVectorizerInnermost),
+      : HIRTransformPass(ID),
+        Impl(OuterVec && !OuterVecDisabled
+                 ? ParVecInfo::VectorForVectorizer
+                 : ParVecInfo::VectorForVectorizerInnermost),
         OuterVec(OuterVec && !OuterVecDisabled) {
     initializeHIRVecDirInsertPass(*PassRegistry::getPassRegistry());
   }
-  /// \brief Analyze auto-vectorizability of the loops.
+
   bool runOnFunction(Function &F) override {
-    if (NoAutoVec) {
-      LLVM_DEBUG(dbgs() << "Vec Directive Insertion disabled"
-                           " due to -disable-hir-vec-dir-insert.\n");
+    if (skipFunction(F))
       return false;
-    }
-    if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
-      LLVM_DEBUG(dbgs() << "Vec Directive Insertion skipped"
-                           " for vector variants of SIMD Enabled Function : "
-                        << F.getName() << "\n");
+    if (!shouldRunOnFunction(F, OuterVec))
       return false;
-    }
-    LLVM_DEBUG(dbgs() << "Vec Directive Insertion (Outer Loop "
-                      << (OuterVec ? "Enabled" : "Disabled")
-                      << ") for Function : " << F.getName() << "\n");
-    return ParVecDirectiveInsertion::runOnFunction(F);
+    auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+    auto HPVA = &getAnalysis<HIRParVecAnalysisWrapperPass>().getHPVA();
+    return Impl.runOnFunction(F, HIRF, HPVA);
+  }
+
+  void releaseMemory() override {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRParVecAnalysisWrapperPass>();
+    AU.setPreservesAll();
   }
 };
 
@@ -80,6 +101,7 @@ public:
 char HIRVecDirInsert::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRVecDirInsert, "hir-vec-dir-insert",
                       "HIR Vec Directive Insertion Pass", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRVecDirInsert, "hir-vec-dir-insert",
                     "HIR Vec Directive Insertion Pass", false, false)
@@ -87,3 +109,24 @@ INITIALIZE_PASS_END(HIRVecDirInsert, "hir-vec-dir-insert",
 FunctionPass *llvm::createHIRVecDirInsertPass(bool OuterVec) {
   return new HIRVecDirInsert(OuterVec);
 }
+
+namespace llvm {
+
+namespace loopopt {
+
+PreservedAnalyses HIRVecDirInsertPass::run(Function &F,
+                                           FunctionAnalysisManager &AM) {
+  auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
+  auto HPVA = &AM.getResult<HIRParVecAnalysisPass>(F);
+  const bool OuterVec = this->OuterVec && !OuterVecDisabled;
+  if (shouldRunOnFunction(F, OuterVec)) {
+    ParVecDirectiveInsertion(OuterVec
+                                 ? ParVecInfo::VectorForVectorizer
+                                 : ParVecInfo::VectorForVectorizerInnermost)
+        .runOnFunction(F, HIRF, HPVA);
+  }
+  return PreservedAnalyses::all();
+}
+
+} // namespace loopopt
+} // namespace llvm

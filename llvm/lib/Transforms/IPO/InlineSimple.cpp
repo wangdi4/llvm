@@ -61,7 +61,7 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
-    TargetLibraryInfo &TLI = TLIWP->getTLI(); // INTEL
+    TargetLibraryInfo &TLI = TLIWP->getTLI(*Callee); // INTEL
 
     bool RemarksEnabled = false;
     const auto &BBs = CS.getCaller()->getBasicBlockList();

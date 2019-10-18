@@ -88,6 +88,10 @@ static inline std::string codeToString(cl_int code){
 #define ALWAYS_INLINE
 #endif
 
+#ifndef SYCL_EXTERNAL
+#define SYCL_EXTERNAL
+#endif
+
 namespace cl {
 namespace sycl {
 namespace detail {
@@ -154,9 +158,9 @@ struct NDLoopIterateImpl {
                     const LoopBoundTy<NDIMS> &Stride,
                     const LoopBoundTy<NDIMS> &UpperBound, FuncTy f,
                     LoopIndexTy<NDIMS> &Index) {
-
-    for (Index[DIM] = LowerBound[DIM]; Index[DIM] < UpperBound[DIM];
-         Index[DIM] += Stride[DIM]) {
+    constexpr size_t AdjIdx = NDIMS - 1 - DIM;
+    for (Index[AdjIdx] = LowerBound[AdjIdx]; Index[AdjIdx] < UpperBound[AdjIdx];
+         Index[AdjIdx] += Stride[AdjIdx]) {
 
       NDLoopIterateImpl<NDIMS, DIM - 1, LoopBoundTy, FuncTy, LoopIndexTy>{
           LowerBound, Stride, UpperBound, f, Index};
@@ -173,8 +177,9 @@ struct NDLoopIterateImpl<NDIMS, 0, LoopBoundTy, FuncTy, LoopIndexTy> {
                     const LoopBoundTy<NDIMS> &UpperBound, FuncTy f,
                     LoopIndexTy<NDIMS> &Index) {
 
-    for (Index[0] = LowerBound[0]; Index[0] < UpperBound[0];
-         Index[0] += Stride[0]) {
+    constexpr size_t AdjIdx = NDIMS - 1;
+    for (Index[AdjIdx] = LowerBound[AdjIdx]; Index[AdjIdx] < UpperBound[AdjIdx];
+         Index[AdjIdx] += Stride[AdjIdx]) {
 
       f(Index);
     }
@@ -186,6 +191,7 @@ struct NDLoopIterateImpl<NDIMS, 0, LoopBoundTy, FuncTy, LoopIndexTy> {
 /// over a multi-dimensional space - it allows to avoid generating unnecessary
 /// outer loops like 'for (int z=0; z<1; z++)' in case of 1D and 2D iteration
 /// spaces or writing specializations of the algorithms for 1D, 2D and 3D cases.
+/// Loop is unrolled in a reverse directions, i.e. ID = 0 is the inner-most one.
 template <int NDIMS> struct NDLoop {
   /// Generates ND loop nest with {0,..0} .. \c UpperBound bounds with unit
   /// stride. Applies \c f at each iteration, passing current index of
@@ -198,7 +204,8 @@ template <int NDIMS> struct NDLoop {
         InitializedVal<NDIMS, LoopIndexTy>::template get<0>();
     const LoopBoundTy<NDIMS> Stride =
         InitializedVal<NDIMS, LoopBoundTy>::template get<1>();
-    LoopIndexTy<NDIMS> Index; // initialized down the call stack
+    LoopIndexTy<NDIMS> Index =
+        InitializedVal<NDIMS, LoopIndexTy>::template get<0>();
 
     NDLoopIterateImpl<NDIMS, NDIMS - 1, LoopBoundTy, FuncTy, LoopIndexTy>{
         LowerBound, Stride, UpperBound, f, Index};
@@ -228,6 +235,15 @@ constexpr size_t getNextPowerOfTwoHelper(size_t Var, size_t Offset) {
 // Returns the smallest power of two not less than Var
 constexpr size_t getNextPowerOfTwo(size_t Var) {
   return getNextPowerOfTwoHelper(Var - 1, 1) + 1;
+}
+
+// Returns linear index by given index and range
+template <int Dims, template <int> class T, template <int> class U>
+size_t getLinearIndex(const T<Dims> &Index, const U<Dims> &Range) {
+  size_t LinearIndex = 0;
+  for (int I = 0; I < Dims; ++I)
+    LinearIndex = LinearIndex * Range[I] + Index[I];
+  return LinearIndex;
 }
 
 } // namespace detail

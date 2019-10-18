@@ -138,6 +138,9 @@ FunctionPass *createHIRLoopConcatenationPass();
 /// Creates pass that performs array transpose.
 FunctionPass *createHIRArrayTransposePass();
 
+/// Creates pass that performs Aos To Soa.
+FunctionPass *createHIRAosToSoaPass();
+
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
 
@@ -167,6 +170,14 @@ FunctionPass *createHIRPrefetchingPass();
 
 /// Create pass that enables sinking for perfect Loop nest.
 FunctionPass *createHIRSinkingForPerfectLoopnestPass();
+
+/// Create pass that enables undosinking for perfect Loop nest.
+FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
+
+/// Create pass that enables sinking for conditional temps.
+FunctionPass *createHIRConditionalTempSinkingPass();
+/// Create pass that sinks loop invariant memory reductions.
+FunctionPass *createHIRMemoryReductionSinkingPass();
 } // namespace llvm
 
 #endif

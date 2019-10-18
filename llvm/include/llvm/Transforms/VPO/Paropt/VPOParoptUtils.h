@@ -27,6 +27,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -116,6 +117,36 @@ namespace spirv {
     GroupOperationReduce        = 0,
     GroupOperationInclusiveScan = 1,
     GroupOperationExclusiveScan = 2
+  };
+
+  static const StringRef ExecutionSchemeOptionName(
+      "vpo-paropt-gpu-execution-scheme");
+
+  enum ExecutionSchemeTy {
+    // Implicit SIMD mode, which is kernel-level vectorization.
+    // Maximum number of WIs per WG is controlled by
+    // CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_KERNEL_WORK_GROUP_SIZE,
+    // OMP_THREAD_LIMIT environment variable and thread_limit() clause.
+    // Maximum number of WGs controlled by CL_DEVICE_MAX_COMPUTE_UNITS and
+    // num_teams() clause.
+    ImplicitSIMDES = 0,
+
+    // Implicit SIMD mode with SPMD - implicit SIMD mode, which is kernel-level
+    // vectorization.
+    // Maximum number of WIs per WG is controlled by
+    // CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_KERNEL_WORK_GROUP_SIZE,
+    // OMP_THREAD_LIMIT environment variable and thread_limit() clause.
+    // Maximum number of WGs is defined by the actual loop(s) trip-count(s)
+    // and the maximum number of WIs per WG. This scheme will only be used
+    // for combined constructs, e.g. "omp target teams distribute parallel for",
+    // for which it is possible to compute the ND-range before the target
+    // region. If num_teams() clause is present on the combined construct,
+    // then we fall back to implicit SIMD mode (see default above).
+    ImplicitSIMDSPMDES,
+
+    // Explicit SIMD mode - loop level vectorization (not supported yet,
+    // so we silently ignore this option).
+    ExplicitSIMDES
   };
 } // end namespace spirv
 
@@ -732,6 +763,11 @@ public:
   removeOperandBundlesFromCall(CallInst *CI,
                                ArrayRef<StringRef> OpBundlesToRemove);
 
+  /// Returns true, if the given \p V value may be rematerialized
+  /// before the given \p W region (i.e. right before the \p W region's
+  /// entry block).
+  static bool mayCloneUBValueBeforeRegion(Value *V, const WRegionNode *W);
+
   /// Clone the instructions and insert them before \p InsertPt.
   static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
@@ -1168,6 +1204,20 @@ public:
   static Value *genSPIRVHorizontalReduction(
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
+
+  /// Returns true, if work partitioning for the loop-kind \p W region
+  /// should rely on ND-range driven parallelization. This implies
+  /// that for the given \p W region there is an enclosing "omp target"
+  /// region, for which ND-range infomation has already been constructed
+  /// (see VPOParoptTransform::constructNDRangeInfo() for details).
+  static bool useSPMDMode(WRegionNode *W);
+
+  /// Returns execution scheme for loop-kind regions on SPIR targets.
+  static spirv::ExecutionSchemeTy getSPIRExecutionScheme();
+
+  /// Returns true, if the given instruction \p I represents a call
+  /// to library function __kmpc_critical.
+  static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
 
   /// @}
 

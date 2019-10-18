@@ -639,7 +639,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     unsigned GroupA = findAndGroup(Groups, SrcRef);
 
     for (const DDEdge *Edge : DDG.outgoing(SrcRef)) {
-      assert(!Edge->isINPUTdep() && "Input edges are unexpected");
+      assert(!Edge->isInput() && "Input edges are unexpected");
 
       RegDDRef *DstRef = cast<RegDDRef>(Edge->getSink());
       unsigned GroupB = findAndGroup(Groups, DstRef);

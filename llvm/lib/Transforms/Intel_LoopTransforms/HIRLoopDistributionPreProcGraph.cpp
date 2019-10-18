@@ -279,7 +279,15 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     const HLInst *SrcInst = dyn_cast<HLInst>(Edge->getSrc()->getHLDDNode());
     if (SinkInst && SrcInst && SARA->isSparseArrayReduction(SinkInst) &&
         !SARA->isSparseArrayReduction(SrcInst)) {
-      return false;
+
+      // Do not create back edge for sparse array reduction terms (%add) but
+      // create them for the index (%idx):
+      //   %t = %p[%idx]
+      //   %p[%idx] = %t + %add
+      auto *SinkDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
+      if (!SinkDDRef || SinkDDRef->getParentDDRef()->isTerminalRef()) {
+        return false;
+      }
     }
 
     //  When max level is reached, cannot stripmine
@@ -288,16 +296,6 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     }
 
     if (SrcInst && SrcInst->isInPreheaderOrPostexit()) {
-      return true;
-    }
-
-    //  Except blobs in Sparse Array Reductions,
-    //  We will not handle Blob DDREF for scalar expansion now
-    //  because of direct replacement is done w/o creating an assignment.
-    //  It is uncommon anyway.
-    //  TODO: Check it helps performance
-    DDRef *DDRefSink = Edge->getSink();
-    if (isa<BlobDDRef>(DDRefSink)) {
       return true;
     }
 
@@ -323,7 +321,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     HLNode *SrcHIR = DDRefSrc->getHLDDNode();
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSrc);
 
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       assert(RegRef && "RegDDRef expected");
       if (RegRef->isTerminalRef() &&
           Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {

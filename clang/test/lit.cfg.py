@@ -175,6 +175,9 @@ if lit.util.which('xmllint'):
 if config.enable_backtrace:
     config.available_features.add('backtrace')
 
+if config.enable_threads:
+    config.available_features.add('thread_support')
+
 # INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 # TODO (vzakhari 11/30/2018): we probably want to make intel_opencl

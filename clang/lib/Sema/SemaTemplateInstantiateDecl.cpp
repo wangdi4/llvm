@@ -17,6 +17,7 @@
 #include "clang/AST/DependentDiagnostic.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/Mangle.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Sema/Initialization.h"
@@ -87,15 +88,13 @@ static void instantiateDependentAlignedAttr(
         S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
     ExprResult Result = S.SubstExpr(Aligned->getAlignmentExpr(), TemplateArgs);
     if (!Result.isInvalid())
-      S.AddAlignedAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
-                       Aligned->getSpellingListIndex(), IsPackExpansion);
+      S.AddAlignedAttr(New, *Aligned, Result.getAs<Expr>(), IsPackExpansion);
   } else {
     TypeSourceInfo *Result = S.SubstType(Aligned->getAlignmentType(),
                                          TemplateArgs, Aligned->getLocation(),
                                          DeclarationName());
     if (Result)
-      S.AddAlignedAttr(Aligned->getLocation(), New, Result,
-                       Aligned->getSpellingListIndex(), IsPackExpansion);
+      S.AddAlignedAttr(New, *Aligned, Result, IsPackExpansion);
   }
 }
 
@@ -157,8 +156,7 @@ static void instantiateDependentAssumeAlignedAttr(
     OE = Result.getAs<Expr>();
   }
 
-  S.AddAssumeAlignedAttr(Aligned->getLocation(), New, E, OE,
-                         Aligned->getSpellingListIndex());
+  S.AddAssumeAlignedAttr(New, *Aligned, E, OE);
 }
 
 static void instantiateDependentAlignValueAttr(
@@ -169,8 +167,7 @@ static void instantiateDependentAlignValueAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(Aligned->getAlignment(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddAlignValueAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
-                        Aligned->getSpellingListIndex());
+    S.AddAlignValueAttr(New, *Aligned, Result.getAs<Expr>());
 }
 #if INTEL_CUSTOMIZATION
 static void instantiateDependentInternalMaxBlockRamDepthAttr(
@@ -182,9 +179,7 @@ static void instantiateDependentInternalMaxBlockRamDepthAttr(
   ExprResult Result =
       S.SubstExpr(Max->getInternalMaxBlockRamDepth(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddInternalMaxBlockRamDepthAttr(Max->getLocation(), New,
-                                      Result.getAs<Expr>(),
-                                      Max->getSpellingListIndex());
+    S.AddInternalMaxBlockRamDepthAttr(New, *Max, Result.getAs<Expr>());
 }
 
 static void instantiateDependentSchedulerTargetFmaxMHzAttr(
@@ -196,9 +191,7 @@ static void instantiateDependentSchedulerTargetFmaxMHzAttr(
   ExprResult Result =
       S.SubstExpr(STFM->getSchedulerTargetFmaxMHz(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddSchedulerTargetFmaxMHzAttr(STFM->getLocation(), New,
-                                          Result.getAs<Expr>(),
-                                          STFM->getSpellingListIndex());
+    S.AddSchedulerTargetFmaxMHzAttr(New, *STFM, Result.getAs<Expr>());
 }
 
 template <typename AttrType>
@@ -210,8 +203,7 @@ static void instantiateDependentHLSOneConstantValueAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.HLSAddOneConstantValueAttr<AttrType>(
-        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+    S.HLSAddOneConstantValueAttr<AttrType>(New, *A, Result.getAs<Expr>());
 }
 
 template <typename AttrType>
@@ -224,7 +216,7 @@ static void instantiateDependentHLSOneConstantPowerTwoValueAttr(
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
     S.HLSAddOneConstantPowerTwoValueAttr<AttrType>(
-        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+        New, *A, Result.getAs<Expr>());
 }
 
 static void instantiateDependentHLSBankBitsAttr(
@@ -241,8 +233,7 @@ static void instantiateDependentHLSBankBitsAttr(
       return;
     Args.push_back(Result.getAs<Expr>());
   }
-  S.AddBankBitsAttr(BBA->getLocation(), New, Args.data(), Args.size(),
-                    BBA->getSpellingListIndex());
+  S.AddBankBitsAttr(New, *BBA, Args.data(), Args.size());
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -253,8 +244,7 @@ static void instantiateDependentAllocAlignAttr(
       S.getASTContext(),
       llvm::APInt(64, Align->getParamIndex().getSourceIndex()),
       S.getASTContext().UnsignedLongLongTy, Align->getLocation());
-  S.AddAllocAlignAttr(Align->getLocation(), New, Param,
-                      Align->getSpellingListIndex());
+  S.AddAllocAlignAttr(New, *Align, Param);
 }
 
 static Expr *instantiateDependentFunctionAttrCondition(
@@ -295,9 +285,8 @@ static void instantiateDependentEnableIfAttr(
       S, TemplateArgs, EIA, EIA->getCond(), Tmpl, New);
 
   if (Cond)
-    New->addAttr(new (S.getASTContext()) EnableIfAttr(
-        EIA->getLocation(), S.getASTContext(), Cond, EIA->getMessage(),
-        EIA->getSpellingListIndex()));
+    New->addAttr(new (S.getASTContext()) EnableIfAttr(S.getASTContext(), *EIA,
+                                                      Cond, EIA->getMessage()));
 }
 
 static void instantiateDependentDiagnoseIfAttr(
@@ -308,9 +297,8 @@ static void instantiateDependentDiagnoseIfAttr(
 
   if (Cond)
     New->addAttr(new (S.getASTContext()) DiagnoseIfAttr(
-        DIA->getLocation(), S.getASTContext(), Cond, DIA->getMessage(),
-        DIA->getDiagnosticType(), DIA->getArgDependent(), New,
-        DIA->getSpellingListIndex()));
+        S.getASTContext(), *DIA, Cond, DIA->getMessage(),
+        DIA->getDiagnosticType(), DIA->getArgDependent(), New));
 }
 
 // Constructs and adds to New a new instance of CUDALaunchBoundsAttr using
@@ -335,16 +323,15 @@ static void instantiateDependentCUDALaunchBoundsAttr(
     MinBlocks = Result.getAs<Expr>();
   }
 
-  S.AddLaunchBoundsAttr(Attr.getLocation(), New, MaxThreads, MinBlocks,
-                        Attr.getSpellingListIndex());
+  S.AddLaunchBoundsAttr(New, Attr, MaxThreads, MinBlocks);
 }
 
 static void
 instantiateDependentModeAttr(Sema &S,
                              const MultiLevelTemplateArgumentList &TemplateArgs,
                              const ModeAttr &Attr, Decl *New) {
-  S.AddModeAttr(Attr.getRange(), New, Attr.getMode(),
-                Attr.getSpellingListIndex(), /*InInstantiation=*/true);
+  S.AddModeAttr(New, Attr, Attr.getMode(),
+                /*InInstantiation=*/true);
 }
 
 /// Instantiation of 'declare simd' attribute and its arguments.
@@ -430,6 +417,77 @@ static void instantiateOMPDeclareSimdDeclAttr(
       Attr.getRange());
 }
 
+/// Instantiation of 'declare variant' attribute and its arguments.
+static void instantiateOMPDeclareVariantAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const OMPDeclareVariantAttr &Attr, Decl *New) {
+  // Allow 'this' in clauses with varlists.
+  if (auto *FTD = dyn_cast<FunctionTemplateDecl>(New))
+    New = FTD->getTemplatedDecl();
+  auto *FD = cast<FunctionDecl>(New);
+  auto *ThisContext = dyn_cast_or_null<CXXRecordDecl>(FD->getDeclContext());
+
+  auto &&SubstExpr = [FD, ThisContext, &S, &TemplateArgs](Expr *E) {
+    if (auto *DRE = dyn_cast<DeclRefExpr>(E->IgnoreParenImpCasts()))
+      if (auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl())) {
+        Sema::ContextRAII SavedContext(S, FD);
+        LocalInstantiationScope Local(S);
+        if (FD->getNumParams() > PVD->getFunctionScopeIndex())
+          Local.InstantiatedLocal(
+              PVD, FD->getParamDecl(PVD->getFunctionScopeIndex()));
+        return S.SubstExpr(E, TemplateArgs);
+      }
+    Sema::CXXThisScopeRAII ThisScope(S, ThisContext, Qualifiers(),
+                                     FD->isCXXInstanceMember());
+    return S.SubstExpr(E, TemplateArgs);
+  };
+
+  // Substitute a single OpenMP clause, which is a potentially-evaluated
+  // full-expression.
+  auto &&Subst = [&SubstExpr, &S](Expr *E) {
+    EnterExpressionEvaluationContext Evaluated(
+        S, Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
+    ExprResult Res = SubstExpr(E);
+    if (Res.isInvalid())
+      return Res;
+    return S.ActOnFinishFullExpr(Res.get(), false);
+  };
+
+  ExprResult VariantFuncRef;
+  if (Expr *E = Attr.getVariantFuncRef())
+    VariantFuncRef = Subst(E);
+
+#if INTEL_CUSTOMIZATION
+  SmallVector<OMPDeclareVariantAttr::ConstructTy, 4> Constructs;
+  SmallVector<OMPDeclareVariantAttr::DeviceTy, 4> Devices;
+  for (auto C : Attr.construct())
+    Constructs.push_back(C);
+  for (auto D : Attr.device())
+    Devices.push_back(D);
+#endif // INTEL_CUSTOMIZATION
+
+  ExprResult Score;
+  if (Expr *E = Attr.getScore())
+    Score = Subst(E);
+
+  // Check function/variant ref.
+  Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
+      S.checkOpenMPDeclareVariantFunction(
+          S.ConvertDeclToDeclGroup(New), VariantFuncRef.get(), Attr.getRange());
+  if (!DeclVarData)
+    return;
+  // Instantiate the attribute.
+  Sema::OpenMPDeclareVariantCtsSelectorData Data(Attr.getCtxSelectorSet(),
+                                                 Attr.getCtxSelector(),
+                                                 Attr.getImplVendor(), Score);
+  S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
+                                       DeclVarData.getValue().second,
+#if INTEL_CUSTOMIZATION
+                                       Attr.getRange(), Constructs, Devices,
+                                       Data);
+#endif // INTEL_CUSTOMIZATION
+}
+
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const AMDGPUFlatWorkGroupSizeAttr &Attr, Decl *New) {
@@ -447,8 +505,7 @@ static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
     return;
   Expr *MaxExpr = Result.getAs<Expr>();
 
-  S.addAMDGPUFlatWorkGroupSizeAttr(Attr.getLocation(), New, MinExpr, MaxExpr,
-                                   Attr.getSpellingListIndex());
+  S.addAMDGPUFlatWorkGroupSizeAttr(New, Attr, MinExpr, MaxExpr);
 }
 
 static ExplicitSpecifier
@@ -494,8 +551,7 @@ static void instantiateDependentAMDGPUWavesPerEUAttr(
     MaxExpr = Result.getAs<Expr>();
   }
 
-  S.addAMDGPUWavesPerEUAttr(Attr.getLocation(), New, MinExpr, MaxExpr,
-                            Attr.getSpellingListIndex());
+  S.addAMDGPUWavesPerEUAttr(New, Attr, MinExpr, MaxExpr);
 }
 
 void Sema::InstantiateAttrsForDecl(
@@ -544,14 +600,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    const AssumeAlignedAttr *AssumeAligned = dyn_cast<AssumeAlignedAttr>(TmplAttr);
-    if (AssumeAligned) {
+    if (const auto *AssumeAligned = dyn_cast<AssumeAlignedAttr>(TmplAttr)) {
       instantiateDependentAssumeAlignedAttr(*this, TemplateArgs, AssumeAligned, New);
       continue;
     }
 
-    const AlignValueAttr *AlignValue = dyn_cast<AlignValueAttr>(TmplAttr);
-    if (AlignValue) {
+    if (const auto *AlignValue = dyn_cast<AlignValueAttr>(TmplAttr)) {
       instantiateDependentAlignValueAttr(*this, TemplateArgs, AlignValue, New);
       continue;
     }
@@ -603,18 +657,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     if (IMBRDA) {
       instantiateDependentInternalMaxBlockRamDepthAttr(*this, TemplateArgs,
                                                        IMBRDA, New);
-      continue;
-    }
-    const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
-    if (NRPA) {
-      instantiateDependentHLSOneConstantValueAttr<NumReadPortsAttr>(
-          *this, TemplateArgs, NRPA, New);
-      continue;
-    }
-    const NumWritePortsAttr *NWPA = dyn_cast<NumWritePortsAttr>(TmplAttr);
-    if (NWPA) {
-      instantiateDependentHLSOneConstantValueAttr<NumWritePortsAttr>(
-          *this, TemplateArgs, NWPA, New);
       continue;
     }
     const IntelFPGAMaxReplicatesAttr *MRA =
@@ -669,14 +711,14 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    if (const CUDALaunchBoundsAttr *CUDALaunchBounds =
+    if (const auto *CUDALaunchBounds =
             dyn_cast<CUDALaunchBoundsAttr>(TmplAttr)) {
       instantiateDependentCUDALaunchBoundsAttr(*this, TemplateArgs,
                                                *CUDALaunchBounds, New);
       continue;
     }
 
-    if (const ModeAttr *Mode = dyn_cast<ModeAttr>(TmplAttr)) {
+    if (const auto *Mode = dyn_cast<ModeAttr>(TmplAttr)) {
       instantiateDependentModeAttr(*this, TemplateArgs, *Mode, New);
       continue;
     }
@@ -686,13 +728,18 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    if (const AMDGPUFlatWorkGroupSizeAttr *AMDGPUFlatWorkGroupSize =
+    if (const auto *OMPAttr = dyn_cast<OMPDeclareVariantAttr>(TmplAttr)) {
+      instantiateOMPDeclareVariantAttr(*this, TemplateArgs, *OMPAttr, New);
+      continue;
+    }
+
+    if (const auto *AMDGPUFlatWorkGroupSize =
             dyn_cast<AMDGPUFlatWorkGroupSizeAttr>(TmplAttr)) {
       instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
           *this, TemplateArgs, *AMDGPUFlatWorkGroupSize, New);
     }
 
-    if (const AMDGPUWavesPerEUAttr *AMDGPUFlatWorkGroupSize =
+    if (const auto *AMDGPUFlatWorkGroupSize =
             dyn_cast<AMDGPUWavesPerEUAttr>(TmplAttr)) {
       instantiateDependentAMDGPUWavesPerEUAttr(*this, TemplateArgs,
                                                *AMDGPUFlatWorkGroupSize, New);
@@ -706,18 +753,27 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       }
     }
 
-    if (auto ABIAttr = dyn_cast<ParameterABIAttr>(TmplAttr)) {
-      AddParameterABIAttr(ABIAttr->getRange(), New, ABIAttr->getABI(),
-                          ABIAttr->getSpellingListIndex());
+    if (const auto *ABIAttr = dyn_cast<ParameterABIAttr>(TmplAttr)) {
+      AddParameterABIAttr(New, *ABIAttr, ABIAttr->getABI());
       continue;
     }
 
     if (isa<NSConsumedAttr>(TmplAttr) || isa<OSConsumedAttr>(TmplAttr) ||
         isa<CFConsumedAttr>(TmplAttr)) {
-      AddXConsumedAttr(New, TmplAttr->getRange(),
-                       TmplAttr->getSpellingListIndex(),
-                       attrToRetainOwnershipKind(TmplAttr),
+      AddXConsumedAttr(New, *TmplAttr, attrToRetainOwnershipKind(TmplAttr),
                        /*template instantiation=*/true);
+      continue;
+    }
+
+    if (auto *A = dyn_cast<PointerAttr>(TmplAttr)) {
+      if (!New->hasAttr<PointerAttr>())
+        New->addAttr(A->clone(Context));
+      continue;
+    }
+
+    if (auto *A = dyn_cast<OwnerAttr>(TmplAttr)) {
+      if (!New->hasAttr<OwnerAttr>())
+        New->addAttr(A->clone(Context));
       continue;
     }
 
@@ -879,6 +935,9 @@ Decl *TemplateDeclInstantiator::InstantiateTypedefNameDecl(TypedefNameDecl *D,
   }
 
   SemaRef.InstantiateAttrs(TemplateArgs, D, Typedef);
+
+  if (D->getUnderlyingType()->getAs<DependentNameType>())
+    SemaRef.inferGslPointerAttribute(Typedef);
 
   Typedef->setAccess(D->getAccess());
 
@@ -2259,10 +2318,9 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
         Constructor->getConstexprKind());
     Method->setRangeEnd(Constructor->getEndLoc());
   } else if (CXXDestructorDecl *Destructor = dyn_cast<CXXDestructorDecl>(D)) {
-    Method = CXXDestructorDecl::Create(SemaRef.Context, Record,
-                                       StartLoc, NameInfo, T, TInfo,
-                                       Destructor->isInlineSpecified(),
-                                       false);
+    Method = CXXDestructorDecl::Create(
+        SemaRef.Context, Record, StartLoc, NameInfo, T, TInfo,
+        Destructor->isInlineSpecified(), false, Destructor->getConstexprKind());
     Method->setRangeEnd(Destructor->getEndLoc());
   } else if (CXXConversionDecl *Conversion = dyn_cast<CXXConversionDecl>(D)) {
     Method = CXXConversionDecl::Create(
@@ -2508,6 +2566,7 @@ Decl *TemplateDeclInstantiator::VisitTemplateTypeParmDecl(
       D->getDepth() - TemplateArgs.getNumSubstitutedLevels(), D->getIndex(),
       D->getIdentifier(), D->wasDeclaredWithTypename(), D->isParameterPack());
   Inst->setAccess(AS_public);
+  Inst->setImplicit(D->isImplicit());
 
   if (D->hasDefaultArgument() && !D->defaultArgumentWasInherited()) {
     TypeSourceInfo *InstantiatedDefaultArg =
@@ -2654,6 +2713,7 @@ Decl *TemplateDeclInstantiator::VisitNonTypeTemplateParmDecl(
         D->getPosition(), D->getIdentifier(), T, D->isParameterPack(), DI);
 
   Param->setAccess(AS_public);
+  Param->setImplicit(D->isImplicit());
   if (Invalid)
     Param->setInvalidDecl();
 
@@ -2797,6 +2857,7 @@ TemplateDeclInstantiator::VisitTemplateTemplateParmDecl(
                               D->getDefaultArgument().getTemplateNameLoc()));
   }
   Param->setAccess(AS_public);
+  Param->setImplicit(D->isImplicit());
 
   // Introduce this template parameter's instantiation into the instantiation
   // scope.
@@ -3584,7 +3645,11 @@ Decl *Sema::SubstDecl(Decl *D, DeclContext *Owner,
   if (D->isInvalidDecl())
     return nullptr;
 
-  return Instantiator.Visit(D);
+  Decl *SubstD;
+  runWithSufficientStackSpace(D->getLocation(), [&] {
+    SubstD = Instantiator.Visit(D);
+  });
+  return SubstD;
 }
 
 /// Instantiates a nested template parameter list in the current
@@ -5682,6 +5747,8 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
 /// Performs template instantiation for all implicit template
 /// instantiations we have seen until this point.
 void Sema::PerformPendingInstantiations(bool LocalOnly) {
+  std::unique_ptr<MangleContext> MangleCtx(
+      getASTContext().createMangleContext());
   while (!PendingLocalImplicitInstantiations.empty() ||
          (!LocalOnly && !PendingInstantiations.empty())) {
     PendingImplicitInstantiation Inst;
@@ -5700,7 +5767,8 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
                                 TSK_ExplicitInstantiationDefinition;
       if (Function->isMultiVersion()) {
         getASTContext().forEachMultiversionedFunctionVersion(
-            Function, [this, Inst, DefinitionRequired](FunctionDecl *CurFD) {
+            Function, [this, Inst, DefinitionRequired,
+                       MangleCtx = move(MangleCtx)](FunctionDecl *CurFD) {
               InstantiateFunctionDefinition(/*FIXME:*/ Inst.second, CurFD, true,
                                             DefinitionRequired, true);
               if (CurFD->isDefined()) {
@@ -5709,7 +5777,7 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
                 // so we are checking for SYCL kernel attribute after instantination.
                 if (getLangOpts().SYCLIsDevice &&
                         CurFD->hasAttr<SYCLKernelAttr>()) {
-                  ConstructOpenCLKernel(CurFD);
+                  ConstructOpenCLKernel(CurFD, *MangleCtx);
                 }
                 CurFD->setInstantiationIsPending(false);
               }
@@ -5723,7 +5791,7 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
           // so we are checking for SYCL kernel attribute after instantination.
           if (getLangOpts().SYCLIsDevice &&
                   Function->hasAttr<SYCLKernelAttr>()) {
-              ConstructOpenCLKernel(Function);
+            ConstructOpenCLKernel(Function, *MangleCtx);
           }
           Function->setInstantiationIsPending(false);
         }

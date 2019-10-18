@@ -103,7 +103,8 @@ bool UnreachableMachineBlockElim::runOnMachineFunction(MachineFunction &F) {
   df_iterator_default_set<MachineBasicBlock*> Reachable;
   bool ModifiedPHI = false;
 
-  MMI = getAnalysisIfAvailable<MachineModuleInfo>();
+  auto *MMIWP = getAnalysisIfAvailable<MachineModuleInfoWrapperPass>();
+  MMI = MMIWP ? &MMIWP->getMMI() : nullptr;
   MachineDominatorTree *MDT = getAnalysisIfAvailable<MachineDominatorTree>();
   MachineLoopInfo *MLI = getAnalysisIfAvailable<MachineLoopInfo>();
 
@@ -173,8 +174,8 @@ bool UnreachableMachineBlockElim::runOnMachineFunction(MachineFunction &F) {
       if (phi->getNumOperands() == 3) {
         const MachineOperand &Input = phi->getOperand(1);
         const MachineOperand &Output = phi->getOperand(0);
-        unsigned InputReg = Input.getReg();
-        unsigned OutputReg = Output.getReg();
+        Register InputReg = Input.getReg();
+        Register OutputReg = Output.getReg();
         assert(Output.getSubReg() == 0 && "Cannot have output subregister");
         ModifiedPHI = true;
 

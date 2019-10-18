@@ -117,6 +117,68 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   }
 }
 
+// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
+  Function *PrintfDecl = MT->getPrintfDecl();
+  if (!PrintfDecl)
+    // no printf() found in the module
+    return;
+
+  Function *OCLPrintfDecl = MT->getOCLPrintfDecl();
+  assert(OCLPrintfDecl != nullptr && "OCLPrintfDecl not initialized");
+
+  // find all printf's in this function and replace them with the OCL version
+  for (User *U : PrintfDecl->users())
+    if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
+
+      if (OldCall->getParent()->getParent() != F)
+        // ignore printfs that are not in this function
+        continue;
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": old printf(): " << *OldCall
+                        << "\n");
+      SmallVector<Value *, 4> FnArgs(OldCall->arg_operands());
+
+      // First argument of the original printf() is of
+      // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
+      //
+      //   call i32 (i8 addrspace(4)*, ...) @printf(
+      //     i8 addrspace(4)* addrspacecast (
+      //       i8 addrspace(1)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //     to i8 addrspace(4)*)
+      //       , ...)
+      //
+      // The OCL printf does not expect that address space.
+      // We must remove the addrspacecast, resulting in:
+      //
+      //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //       i8 addrspace(1)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //       , ...)
+      if (auto *FirstParm = dyn_cast<ConstantExpr>(FnArgs[0]))
+        if (FirstParm->getOpcode() == Instruction::AddrSpaceCast)
+          FnArgs[0] = cast<Value>(FirstParm->getOperand(0));
+
+      // Create the new call based on OCLPrintfDecl and
+      // insert it before the old call
+      CallInst *NewCall =
+          CallInst::Create(OCLPrintfDecl, FnArgs, "oclPrint", OldCall);
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": new OCL printf(): " << *NewCall
+                        << "\n");
+
+      // Relace all uses of the old call's return value with
+      // that from the new call
+      for (User *OldU : OldCall->users())
+        if (Instruction *I = dyn_cast<Instruction>(OldU))
+          I->replaceUsesOfWith(OldCall, NewCall);
+
+      // Remove the old call
+      OldCall->eraseFromParent();
+    }
+}
+
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                                                      Function *Fn,
                                                      CallInst *&Call) {
@@ -177,8 +239,28 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs.erase(DI);
     FunctionDIs[NFn] = SP;
   }
-  if (isTargetSPIRV())
+  if (isTargetSPIRV()) {
     InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
+
+    // We intentionally call the function below after InferAddrSpaces() to have
+    // the latter restructure addrspacecasts hidden inside GEP expressions.
+    // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
+    // addrspacecast in the printf's first argument would fail to find the cast.
+    // For example:
+    //   BEFORE:
+    //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
+    //     addrspace(4)* addrspacecast (
+    //       [25 x i8] addrspace(1)* @.str to
+    //       [25 x i8] addrspace(4)*
+    //     ), i64 0, i64 0)
+    //   AFTER:
+    //     i8 addrspace(4)* addrspacecast (
+    //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
+    //       addrspace(1)* @.str, i64 0, i64 0)
+    //     to i8 addrspace(4)*)
+    //
+    replacePrintfWithOCLBuiltin(NFn);
+  }
 
   return NFn;
 }
@@ -260,7 +342,9 @@ static bool ignoreSpecialOperands(const Instruction *I,
       "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
-    auto CalledF = CallI->getCalledFunction();
+    // Unprototyped function calls may result in a call of a bitcasted
+    // Function.
+    auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found ");
     if (CalledF->hasName() &&
         IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
@@ -293,8 +377,6 @@ void VPOParoptTransform::guardSideEffectStatements(
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
-  BasicBlock *CriticalBegin  = nullptr;
-  BasicBlock *CriticalExit  = nullptr;
 
   SmallPtrSet<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
@@ -330,7 +412,6 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
-
     } else if (TargetDirectiveBegin == nullptr &&
                isParOrTargetDirective(&*I, true)) {
       TargetDirectiveBegin = &*I;
@@ -340,31 +421,11 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
-    } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
-      auto CallI = cast<CallInst>(&*I);
-      // Unprototyped function calls may result in a call of a bitcasted
-      // Function.
-      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledF) &&
-          CalledF->getName() == "__kmpc_critical") {
-        CriticalBegin = CallI->getParent();
-      }
-    } else if (CriticalExit == nullptr && isa<CallInst>(&*I)){
-      auto CallI = cast<CallInst>(&*I);
-      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledF) &&
-          CalledF->getName() == "__kmpc_end_critical") {
-        CriticalExit = CallI->getParent();
-        GeneralUtils::collectBBSet(CriticalBegin,
-            CriticalExit, CriticalSectionBlocks);
-      }
     }
   }
 
   SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
                                          ParBBVector.end());
-  SmallPtrSet<BasicBlock *, 10> CriticalBBSet(CriticalSectionBlocks.begin(),
-                                         CriticalSectionBlocks.end());
   // Iterate over all instructions and add the side effect instructions
   // to the set "SideEffectInstructions".
 
@@ -391,6 +452,15 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (isa<IntrinsicInst>(&I))
         continue;
       if (I.mayHaveSideEffects()) {
+        // REMOVE this code when hierarchical parallelism is fully implemented.
+        // We avoid conditionalizing calls with return values, because the
+        // threads > 0 will get undefined values. We also might need a better
+        // filter than mayHaveSideEffects, which is very broad.
+        if (auto *Call = dyn_cast<CallInst>(&I)) {
+          auto *FnType = Call->getFunctionType();
+          if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
+            continue;
+        }
         if (ignoreSpecialOperands(&I, PrivateVariables))
           continue;
 
@@ -422,12 +492,6 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
     Instruction* Term = InsertPt->getNextNonDebugInstruction();
-    if (CriticalBBSet.find(ThisBB) != CriticalBBSet.end()){
-      // Add master thread guard the basic block in the critical section.
-      // That is, get the terminator instruction, and split that into another
-      // BB, and guard everything else under the condition.
-      Term = ThisBB->getTerminator();
-    }
 
     BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
 
@@ -464,7 +528,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       // TODO: select dimension of thread_id,
       initArgArray(&Arg, 0);
       VPOParoptUtils::genOCLGenericCall("_Z18work_group_barrierj",
-                                        GeneralUtils::getSizeTTy(F), Arg,
+                                        Builder.getVoidTy(), Arg,
                                         InsertPt);
     }
   }
@@ -719,17 +783,6 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
   return Res;
 }
 
-// Return the map modifiers for the firstprivate.
-uint64_t VPOParoptTransform::getMapModifiersForFirstPrivate() {
-  return TGT_MAP_TO;
-}
-
-// Return the defaut map information.
-uint64_t VPOParoptTransform::generateDefaultMap() {
-  return getMapModifiersForFirstPrivate() | TGT_MAP_TARGET_PARAM |
-         TGT_MAP_IMPLICIT;
-}
-
 // Generate the sizes and map type flags for the given map type, map
 // modifier and the expression V.
 void VPOParoptTransform::genTgtInformationForPtrs(
@@ -791,10 +844,18 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         continue;
       if (FprivI->getInMap())
         continue;
-      Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
-      MapTypes.push_back(generateDefaultMap());
+      Type *T = V->getType()->getPointerElementType();
+      if (FprivI->getIsPointer()) {
+        // firstprivate() pointers are mapped with zero size
+        // and map type NONE.
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM);
+      }
+      else {
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                              DL.getTypeAllocSize(T)));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+      }
     }
   }
 
@@ -803,9 +864,26 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getOrig() != V)
         continue;
-      Type *T = Type::getInt64Ty(C);
-      ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT);
+      Type *T = V->getType()->getPointerElementType();
+      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                            DL.getTypeAllocSize(T)));
+      // Example:
+      //   int *p;
+      //   #pragma omp target is_device_ptr(p)
+      //
+      // is_device_ptr clause will refer to (i32 **%p), where
+      // %p is defined as:
+      //   %p = alloca i32 *
+      //
+      // We have to map 'p' as MAP_TO, so that device allocates
+      // a memory to hold the pointer value, and the pointer value
+      // is supposed to be a valid device pointer.
+      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+      // TODO: we may get rid of the double pointer for is_device_ptr()
+      //       representation the same way as for firstprivate() clause.
+      //       See setIsPointer() call in VPOParoptTransform.cpp.
+      //       When we do this, we need to use the following mapping:
+      //         TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
@@ -831,15 +909,23 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
   for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
     auto *L = WL->getWRNLoopInfo().getLoop(I);
-    auto *UpperBoundAI =
+    auto *UpperBoundDef =
         cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-    assert(UpperBoundAI->getParent() != NewEntryBB &&
-           "genTgtLoopParameter: how come UB alloca "
-           "is in target region's begin block?");
-    if (!DT->dominates(UpperBoundAI, NewEntryBB)) {
+    if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(
+             UpperBoundDef, W)) {
+      // FIXME: if we stop calling this function for SPIR compilation,
+      //        then the check for isTargetSPIRV() has to be removed below.
+      if (isTargetSPIRV())
+        // This code may be executed only for ImplicitSIMDSPMDES mode.
+        F->getContext().diagnose(ParoptDiagInfo(*F,
+            WL->getEntryDirective()->getDebugLoc(),
+            Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
+            Twine("' option ignored for OpenMP region, since ") +
+            Twine("loop(s) bounds cannot be computed before the enclosing ") +
+            Twine("target region.  Consider using combined construct.")));
       LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": upper bound AllocaInst for loop #" << I <<
-                 " does not dominate the enclosing target region.\n");
+                 ": loop bounds cannot be computed before the enclosing "
+                 "target region.\n");
       return nullptr;
     }
   }

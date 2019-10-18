@@ -1,4 +1,7 @@
 // RUN: %clang_cc1 -ffreestanding -triple x86_64-unknown-unknown -emit-llvm -o - %s | FileCheck %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -ffreestanding -triple i686-unknown-unknown -emit-llvm -o - %s | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 // PR33722
 // RUN: %clang_cc1 -ffreestanding -triple x86_64-unknown-unknown -fms-extensions -fms-compatibility-version=19.00 -emit-llvm -o - %s | FileCheck %s

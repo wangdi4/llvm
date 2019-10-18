@@ -140,17 +140,19 @@ public:
   //                      parameter must be provided.
   // \param Context       llvm context for the module
   // \param DL            Module's data layout
+  // \param GetTLI        Routine to get TargetLibraryInfo for a function.
   // \param DepTypePrefix Optional string to prefix structure names of rewritten
   //                      dependent types
   // \param TypeRemapper  Class that will perform type mapping from old types
   //                      to new types
   // \param Materializer  Optional class that works with ValueMapper to create
   //                      new Values during type remapping
-  DTransOptBase(DTransAnalysisInfo *DTInfo, LLVMContext &Context,
-                const DataLayout &DL, const TargetLibraryInfo &TLI,
-                StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
-                ValueMaterializer *Materializer = nullptr)
-      : DTInfo(DTInfo), Context(Context), DL(DL), TLI(TLI),
+  DTransOptBase(
+      DTransAnalysisInfo *DTInfo, LLVMContext &Context, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
+      ValueMaterializer *Materializer = nullptr)
+      : DTInfo(DTInfo), Context(Context), DL(DL), GetTLI(GetTLI),
         DepTypePrefix(DepTypePrefix), TypeRemapper(TypeRemapper),
         Materializer(Materializer) {}
 
@@ -295,7 +297,7 @@ protected:
   DTransAnalysisInfo *const DTInfo;
   LLVMContext &Context;
   const DataLayout &DL;
-  const TargetLibraryInfo &TLI;
+  std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 
   // Optional string to precede names of dependent types that get renamed.
   std::string DepTypePrefix;

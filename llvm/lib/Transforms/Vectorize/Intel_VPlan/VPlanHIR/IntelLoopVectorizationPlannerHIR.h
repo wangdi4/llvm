@@ -18,7 +18,6 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELLOOPVECTORIZATIONPLANNER_HIR_H
 
 #include "../IntelLoopVectorizationPlanner.h"
-#include "IntelVPLoopAnalysisHIR.h"
 #include "IntelVPlanHCFGBuilderHIR.h"
 #include "IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -43,16 +42,12 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-
-  std::shared_ptr<VPLoopAnalysisBase> VPLA;
-
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                            unsigned &EndRangeVF,
                                            LLVMContext *Context,
                                            const DataLayout *DL) override {
     // Create new empty VPlan
-    std::shared_ptr<VPlan> SharedPlan =
-        std::make_shared<VPlan>(VPLA, Context, DL);
+    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
     VPlan *Plan = SharedPlan.get();
 
     // Build hierarchical CFG
@@ -61,6 +56,7 @@ private:
     VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
     HCFGBuilder.buildHierarchicalCFG();
 
+    Plan->markFullLinearizationForced();
     return SharedPlan;
   }
 
@@ -73,9 +69,7 @@ public:
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA)
       : LoopVectorizationPlanner(WRL, nullptr, nullptr, nullptr, TLI, TTI, DL,
                                  nullptr, nullptr, VLSA),
-        TheLoop(Lp), DDA(DDA), HIRLegality(HIRLegal) {
-    VPLA = std::make_shared<VPLoopAnalysisHIR>(VPlanDefaultEstTripHIR);
-  }
+        TheLoop(Lp), DDA(DDA), HIRLegality(HIRLegal) {}
 
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan. This function returns true if code generation was

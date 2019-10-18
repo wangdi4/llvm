@@ -48,15 +48,17 @@ typedef pi_uint64   pi_bitfield;
 // TODO: populate PI enums.
 //
 typedef enum {
-  PI_SUCCESS                    = CL_SUCCESS,
+  PI_SUCCESS = CL_SUCCESS,
   PI_RESULT_INVALID_KERNEL_NAME = CL_INVALID_KERNEL_NAME,
-  PI_INVALID_OPERATION          = CL_INVALID_OPERATION,
-  PI_INVALID_QUEUE_PROPERTIES   = CL_INVALID_QUEUE_PROPERTIES,
-  PI_INVALID_VALUE              = CL_INVALID_VALUE,
-  PI_INVALID_CONTEXT            = CL_INVALID_CONTEXT,
-  PI_INVALID_PLATFORM           = CL_INVALID_PLATFORM,
-  PI_INVALID_DEVICE             = CL_INVALID_DEVICE,
-  PI_OUT_OF_HOST_MEMORY         = CL_OUT_OF_HOST_MEMORY
+  PI_INVALID_OPERATION = CL_INVALID_OPERATION,
+  PI_INVALID_QUEUE_PROPERTIES = CL_INVALID_QUEUE_PROPERTIES,
+  PI_INVALID_VALUE = CL_INVALID_VALUE,
+  PI_INVALID_CONTEXT = CL_INVALID_CONTEXT,
+  PI_INVALID_PLATFORM = CL_INVALID_PLATFORM,
+  PI_INVALID_DEVICE = CL_INVALID_DEVICE,
+  PI_INVALID_BINARY = CL_INVALID_BINARY,
+  PI_MISALIGNED_SUB_BUFFER_OFFSET = CL_MISALIGNED_SUB_BUFFER_OFFSET,
+  PI_OUT_OF_HOST_MEMORY = CL_OUT_OF_HOST_MEMORY
 } _pi_result;
 
 typedef enum {
@@ -78,17 +80,23 @@ typedef enum : pi_uint64 {
 
 // TODO: populate and sync with cl::sycl::info::device
 typedef enum {
-  PI_DEVICE_INFO_TYPE           = CL_DEVICE_TYPE,
-  PI_DEVICE_INFO_PARENT         = CL_DEVICE_PARENT_DEVICE,
-  PI_DEVICE_INFO_PLATFORM       = CL_DEVICE_PLATFORM,
-  PI_DEVICE_INFO_PARTITION_TYPE = CL_DEVICE_PARTITION_TYPE,
-  PI_DEVICE_INFO_NAME           = CL_DEVICE_NAME
+  PI_DEVICE_INFO_TYPE               = CL_DEVICE_TYPE,
+  PI_DEVICE_INFO_PARENT             = CL_DEVICE_PARENT_DEVICE,
+  PI_DEVICE_INFO_PLATFORM           = CL_DEVICE_PLATFORM,
+  PI_DEVICE_INFO_PARTITION_TYPE     = CL_DEVICE_PARTITION_TYPE,
+  PI_DEVICE_INFO_VENDOR_ID          = CL_DEVICE_VENDOR_ID,
+  PI_DEVICE_INFO_EXTENSIONS         = CL_DEVICE_EXTENSIONS,
+  PI_DEVICE_INFO_COMPILER_AVAILABLE = CL_DEVICE_COMPILER_AVAILABLE,
+  PI_DEVICE_INFO_LINKER_AVAILABLE   = CL_DEVICE_LINKER_AVAILABLE,
+  PI_DEVICE_INFO_MAX_COMPUTE_UNITS  = CL_DEVICE_MAX_COMPUTE_UNITS,
+  PI_DEVICE_INFO_NAME               = CL_DEVICE_NAME 
 } _pi_device_info;
 
 // TODO: populate
 typedef enum {
   PI_CONTEXT_INFO_DEVICES     = CL_CONTEXT_DEVICES,
-  PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES
+  PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
+  PI_CONTEXT_INFO_REFERENCE_COUNT = CL_CONTEXT_REFERENCE_COUNT
 } _pi_context_info;
 
 // TODO: populate
@@ -106,6 +114,12 @@ typedef enum {
   PI_IMAGE_INFO_HEIGHT       = CL_IMAGE_HEIGHT,
   PI_IMAGE_INFO_DEPTH        = CL_IMAGE_DEPTH
 } _pi_image_info;
+
+// TODO: populate
+typedef enum {
+  PI_KERNEL_INFO_PROGRAM     = CL_KERNEL_PROGRAM,
+  PI_KERNEL_INFO_CONTEXT     = CL_KERNEL_CONTEXT
+} _pi_kernel_info;
 
 typedef enum {
   PI_MEM_TYPE_BUFFER         = CL_MEM_OBJECT_BUFFER,
@@ -212,6 +226,7 @@ typedef _pi_device_info             pi_device_info;
 typedef _pi_context_info            pi_context_info;
 typedef _pi_queue_info              pi_queue_info;
 typedef _pi_image_info              pi_image_info;
+typedef _pi_kernel_info             pi_kernel_info;
 typedef _pi_mem_type                pi_mem_type;
 typedef _pi_image_channel_order     pi_image_channel_order;
 typedef _pi_image_channel_type      pi_image_channel_type;
@@ -244,9 +259,20 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 /// Target identification strings for
 /// pi_device_binary_struct.DeviceTargetSpec
 ///
+/// A device type represented by a particular target
+/// triple requires specific binary images. We need
+/// to map the image type onto the device target triple
+///
 #define PI_DEVICE_BINARY_TARGET_UNKNOWN "<unknown>"
+/// SPIR-V 32-bit image <-> "spir", 32-bit OpenCL device
 #define PI_DEVICE_BINARY_TARGET_SPIRV32 "spir"
-#define PI_DEVICE_BINARY_TARGET_SPIRV64 "spir64";
+/// SPIR-V 64-bit image <-> "spir64", 64-bit OpenCL device
+#define PI_DEVICE_BINARY_TARGET_SPIRV64 "spir64"
+/// Device-specific binary images produced from SPIR-V 64-bit <->
+/// various "spir64_*" triples for specific 64-bit OpenCL devices
+#define PI_DEVICE_BINARY_TARGET_SPIRV64_X86_64 "spir64_x86_64"
+#define PI_DEVICE_BINARY_TARGET_SPIRV64_GEN "spir64_gen"
+#define PI_DEVICE_BINARY_TARGET_SPIRV64_FPGA "spir64_fpga"
 
 /// This struct is a record of the device binary information. If the Kind field
 /// denotes a portable binary type (SPIRV or LLVMIR), the DeviceTargetSpec field
@@ -263,6 +289,13 @@ struct pi_device_binary_struct {
   /// format of the binary data - SPIRV, LLVMIR bitcode,...
   uint8_t Format;
   /// null-terminated string representation of the device's target architecture
+  /// which holds one of:
+  /// PI_DEVICE_BINARY_TARGET_UNKNOWN - unknown
+  /// PI_DEVICE_BINARY_TARGET_SPIRV32 - general value for 32-bit OpenCL devices
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64 - general value for 64-bit OpenCL devices
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64_X86_64 - 64-bit OpenCL CPU device
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64_GEN - GEN GPU device (64-bit OpenCL)
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64_FPGA - 64-bit OpenCL FPGA device
   const char *DeviceTargetSpec;
   /// a null-terminated string; target- and compiler-specific options
   /// which are suggested to use to "build" program at runtime
@@ -404,10 +437,24 @@ pi_result piDevicePartition(
 /// and the IR characteristics.
 ///
 pi_result piextDeviceSelectBinary(
-  pi_device           device, // TODO: does this need to be context?
+  pi_device           device,
   pi_device_binary *  binaries,
   pi_uint32           num_binaries,
   pi_device_binary *  selected_binary);
+
+/// Retrieves a device function pointer to a user-defined function
+/// \arg \c function_name. \arg \c function_pointer_ret is set to 0 if query
+/// failed.
+///
+/// \arg \c program must be built before calling this API. \arg \c device
+/// must present in the list of devices returned by \c get_device method for
+/// \arg \c program.
+///
+pi_result piextGetDeviceFunctionPointer(
+  pi_device        device,
+  pi_program       program,
+  const char *     function_name,
+  pi_uint64 *      function_pointer_ret);
 
 //
 // Context
@@ -495,7 +542,7 @@ pi_result piMemRetain(
 pi_result piMemRelease(
   pi_mem mem);
 
-pi_mem piSubBufCreate( // TODO: change interface to return error code
+pi_mem piMemBufferPartition( // TODO: change interface to return error code
     pi_mem context, pi_mem_flags flags,
     pi_buffer_create_type buffer_create_type, void *buffer_create_info,
     pi_result *errcode_ret);

@@ -52,7 +52,7 @@
 
 #include "llvm/ADT/StringRef.h"
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include "lldb/Host/windows/windows.h"
 #endif
 
@@ -73,7 +73,7 @@ using namespace lldb_private;
 
 IOHandler::IOHandler(Debugger &debugger, IOHandler::Type type)
     : IOHandler(debugger, type,
-                StreamFileSP(), // Adopt STDIN from top input reader
+                FileSP(),       // Adopt STDIN from top input reader
                 StreamFileSP(), // Adopt STDOUT from top input reader
                 StreamFileSP(), // Adopt STDERR from top input reader
                 0,              // Flags
@@ -81,7 +81,7 @@ IOHandler::IOHandler(Debugger &debugger, IOHandler::Type type)
       ) {}
 
 IOHandler::IOHandler(Debugger &debugger, IOHandler::Type type,
-                     const lldb::StreamFileSP &input_sp,
+                     const lldb::FileSP &input_sp,
                      const lldb::StreamFileSP &output_sp,
                      const lldb::StreamFileSP &error_sp, uint32_t flags,
                      repro::DataRecorder *data_recorder)
@@ -98,7 +98,7 @@ IOHandler::IOHandler(Debugger &debugger, IOHandler::Type type,
 IOHandler::~IOHandler() = default;
 
 int IOHandler::GetInputFD() {
-  return (m_input_sp ? m_input_sp->GetFile().GetDescriptor() : -1);
+  return (m_input_sp ? m_input_sp->GetDescriptor() : -1);
 }
 
 int IOHandler::GetOutputFD() {
@@ -110,7 +110,7 @@ int IOHandler::GetErrorFD() {
 }
 
 FILE *IOHandler::GetInputFILE() {
-  return (m_input_sp ? m_input_sp->GetFile().GetStream() : nullptr);
+  return (m_input_sp ? m_input_sp->GetStream() : nullptr);
 }
 
 FILE *IOHandler::GetOutputFILE() {
@@ -121,18 +121,18 @@ FILE *IOHandler::GetErrorFILE() {
   return (m_error_sp ? m_error_sp->GetFile().GetStream() : nullptr);
 }
 
-StreamFileSP &IOHandler::GetInputStreamFile() { return m_input_sp; }
+FileSP &IOHandler::GetInputFileSP() { return m_input_sp; }
 
-StreamFileSP &IOHandler::GetOutputStreamFile() { return m_output_sp; }
+StreamFileSP &IOHandler::GetOutputStreamFileSP() { return m_output_sp; }
 
-StreamFileSP &IOHandler::GetErrorStreamFile() { return m_error_sp; }
+StreamFileSP &IOHandler::GetErrorStreamFileSP() { return m_error_sp; }
 
 bool IOHandler::GetIsInteractive() {
-  return GetInputStreamFile()->GetFile().GetIsInteractive();
+  return GetInputFileSP() ? GetInputFileSP()->GetIsInteractive() : false;
 }
 
 bool IOHandler::GetIsRealTerminal() {
-  return GetInputStreamFile()->GetFile().GetIsRealTerminal();
+  return GetInputFileSP() ? GetInputFileSP()->GetIsRealTerminal() : false;
 }
 
 void IOHandler::SetPopped(bool b) { m_popped.SetValue(b, eBroadcastOnChange); }
@@ -170,17 +170,11 @@ IOHandlerConfirm::IOHandlerConfirm(Debugger &debugger, llvm::StringRef prompt,
 
 IOHandlerConfirm::~IOHandlerConfirm() = default;
 
-int IOHandlerConfirm::IOHandlerComplete(
-    IOHandler &io_handler, const char *current_line, const char *cursor,
-    const char *last_char, StringList &matches, StringList &descriptions) {
-  if (current_line == cursor) {
-    if (m_default_response) {
-      matches.AppendString("y");
-    } else {
-      matches.AppendString("n");
-    }
-  }
-  return matches.GetSize();
+void IOHandlerConfirm::IOHandlerComplete(IOHandler &io_handler,
+                                         CompletionRequest &request) {
+  if (request.GetRawCursorPos() != 0)
+    return;
+  request.AddCompletion(m_default_response ? "y" : "n");
 }
 
 void IOHandlerConfirm::IOHandlerInputComplete(IOHandler &io_handler,
@@ -218,43 +212,20 @@ void IOHandlerConfirm::IOHandlerInputComplete(IOHandler &io_handler,
   }
 }
 
-int IOHandlerDelegate::IOHandlerComplete(
-    IOHandler &io_handler, const char *current_line, const char *cursor,
-    const char *last_char, StringList &matches, StringList &descriptions) {
+void IOHandlerDelegate::IOHandlerComplete(IOHandler &io_handler,
+                                          CompletionRequest &request) {
   switch (m_completion) {
   case Completion::None:
     break;
-
   case Completion::LLDBCommand:
-    return io_handler.GetDebugger().GetCommandInterpreter().HandleCompletion(
-        current_line, cursor, last_char, matches, descriptions);
-  case Completion::Expression: {
-    CompletionResult result;
-    CompletionRequest request(current_line, cursor - current_line, result);
+    io_handler.GetDebugger().GetCommandInterpreter().HandleCompletion(request);
+    break;
+  case Completion::Expression:
     CommandCompletions::InvokeCommonCompletionCallbacks(
         io_handler.GetDebugger().GetCommandInterpreter(),
         CommandCompletions::eVariablePathCompletion, request, nullptr);
-    result.GetMatches(matches);
-    result.GetDescriptions(descriptions);
-
-    size_t num_matches = request.GetNumberOfMatches();
-    if (num_matches > 0) {
-      std::string common_prefix = matches.LongestCommonPrefix();
-      const size_t partial_name_len = request.GetCursorArgumentPrefix().size();
-
-      // If we matched a unique single command, add a space... Only do this if
-      // the completer told us this was a complete word, however...
-      if (num_matches == 1 && request.GetWordComplete()) {
-        common_prefix.push_back(' ');
-      }
-      common_prefix.erase(0, partial_name_len);
-      matches.InsertStringAtIndex(0, std::move(common_prefix));
-    }
-    return num_matches;
-  } break;
+    break;
   }
-
-  return 0;
 }
 
 IOHandlerEditline::IOHandlerEditline(
@@ -264,7 +235,7 @@ IOHandlerEditline::IOHandlerEditline(
     bool multi_line, bool color_prompts, uint32_t line_number_start,
     IOHandlerDelegate &delegate, repro::DataRecorder *data_recorder)
     : IOHandlerEditline(debugger, type,
-                        StreamFileSP(), // Inherit input from top input reader
+                        FileSP(),       // Inherit input from top input reader
                         StreamFileSP(), // Inherit output from top input reader
                         StreamFileSP(), // Inherit error from top input reader
                         0,              // Flags
@@ -273,9 +244,9 @@ IOHandlerEditline::IOHandlerEditline(
                         line_number_start, delegate, data_recorder) {}
 
 IOHandlerEditline::IOHandlerEditline(
-    Debugger &debugger, IOHandler::Type type,
-    const lldb::StreamFileSP &input_sp, const lldb::StreamFileSP &output_sp,
-    const lldb::StreamFileSP &error_sp, uint32_t flags,
+    Debugger &debugger, IOHandler::Type type, const lldb::FileSP &input_sp,
+    const lldb::StreamFileSP &output_sp, const lldb::StreamFileSP &error_sp,
+    uint32_t flags,
     const char *editline_name, // Used for saving history files
     llvm::StringRef prompt, llvm::StringRef continuation_prompt,
     bool multi_line, bool color_prompts, uint32_t line_number_start,
@@ -295,7 +266,7 @@ IOHandlerEditline::IOHandlerEditline(
 #ifndef LLDB_DISABLE_LIBEDIT
   bool use_editline = false;
 
-  use_editline = m_input_sp->GetFile().GetIsRealTerminal();
+  use_editline = m_input_sp && m_input_sp->GetIsRealTerminal();
 
   if (use_editline) {
     m_editline_up.reset(new Editline(editline_name, GetInputFILE(),
@@ -443,15 +414,11 @@ int IOHandlerEditline::FixIndentationCallback(Editline *editline,
       *editline_reader, lines, cursor_position);
 }
 
-int IOHandlerEditline::AutoCompleteCallback(
-    const char *current_line, const char *cursor, const char *last_char,
-    StringList &matches, StringList &descriptions, void *baton) {
+void IOHandlerEditline::AutoCompleteCallback(CompletionRequest &request,
+                                             void *baton) {
   IOHandlerEditline *editline_reader = (IOHandlerEditline *)baton;
   if (editline_reader)
-    return editline_reader->m_delegate.IOHandlerComplete(
-        *editline_reader, current_line, cursor, last_char, matches,
-        descriptions);
-  return 0;
+    editline_reader->m_delegate.IOHandlerComplete(*editline_reader, request);
 }
 #endif
 
@@ -612,7 +579,7 @@ void IOHandlerEditline::PrintAsync(Stream *stream, const char *s, size_t len) {
   else
 #endif
   {
-#ifdef _MSC_VER
+#ifdef _WIN32
     const char *prompt = GetPrompt();
     if (prompt) {
       // Back up over previous prompt using Windows API
@@ -627,9 +594,9 @@ void IOHandlerEditline::PrintAsync(Stream *stream, const char *s, size_t len) {
     }
 #endif
     IOHandler::PrintAsync(stream, s, len);
-#ifdef _MSC_VER
+#ifdef _WIN32
     if (prompt)
-      IOHandler::PrintAsync(GetOutputStreamFile().get(), prompt,
+      IOHandler::PrintAsync(GetOutputStreamFileSP().get(), prompt,
                             strlen(prompt));
 #endif
   }

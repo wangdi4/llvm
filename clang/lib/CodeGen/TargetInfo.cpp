@@ -876,8 +876,9 @@ ABIArgInfo WebAssemblyABIInfo::classifyReturnType(QualType RetTy) const {
 
 Address WebAssemblyABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                       QualType Ty) const {
-  bool IsIndirect =
-      isAggregateTypeForABI(Ty) && !isSingleElementStruct(Ty, getContext());
+  bool IsIndirect = isAggregateTypeForABI(Ty) &&
+                    !isEmptyRecord(getContext(), Ty, true) &&
+                    !isSingleElementStruct(Ty, getContext());
   return emitVoidPtrVAArg(CGF, VAListAddr, Ty, IsIndirect,
                           getContext().getTypeInfoInChars(Ty),
                           CharUnits::fromQuantity(4),
@@ -2239,6 +2240,17 @@ class X86_64ABIInfo : public SwiftABIInfo {
     return true;
   }
 
+  // GCC classifies vectors of __int128 as memory.
+  bool passInt128VectorsInMem() const {
+    // Clang <= 9.0 did not do this.
+    if (getContext().getLangOpts().getClangABICompat() <=
+        LangOptions::ClangABI::Ver9)
+      return false;
+
+    const llvm::Triple &T = getTarget().getTriple();
+    return T.isOSLinux() || T.isOSNetBSD();
+  }
+
   X86AVXABILevel AVXLevel;
   // Some ABIs (e.g. X32 ABI and Native Client OS) use 32 bit pointers on
   // 64-bit hardware.
@@ -2730,6 +2742,14 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
         Hi = Lo;
     } else if (Size == 128 ||
                (isNamedArg && Size <= getNativeVectorSizeForAVXABI(AVXLevel))) {
+      QualType ElementType = VT->getElementType();
+
+      // gcc passes 256 and 512 bit <X x __int128> vectors in memory. :(
+      if (passInt128VectorsInMem() && Size != 128 &&
+          (ElementType->isSpecificBuiltinType(BuiltinType::Int128) ||
+           ElementType->isSpecificBuiltinType(BuiltinType::UInt128)))
+        return;
+
       // Arguments of 256-bits are split into four eightbyte chunks. The
       // least significant one belongs to class SSE and all the others to class
       // SSEUP. The original Lo and Hi design considers that types can't be
@@ -2866,8 +2886,8 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
       for (const auto &I : CXXRD->bases()) {
         assert(!I.isVirtual() && !I.getType()->isDependentType() &&
                "Unexpected base class!");
-        const CXXRecordDecl *Base =
-          cast<CXXRecordDecl>(I.getType()->getAs<RecordType>()->getDecl());
+        const auto *Base =
+            cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
 
         // Classify this field.
         //
@@ -2978,6 +2998,11 @@ bool X86_64ABIInfo::IsIllegalVectorType(QualType Ty) const {
     unsigned LargestVector = getNativeVectorSizeForAVXABI(AVXLevel);
     if (Size <= 64 || Size > LargestVector)
       return true;
+    QualType EltTy = VecTy->getElementType();
+    if (passInt128VectorsInMem() &&
+        (EltTy->isSpecificBuiltinType(BuiltinType::Int128) ||
+         EltTy->isSpecificBuiltinType(BuiltinType::UInt128)))
+      return true;
   }
 
   return false;
@@ -3052,14 +3077,27 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
     Ty = QualType(InnerTy, 0);
 
   llvm::Type *IRType = CGT.ConvertType(Ty);
+  if (isa<llvm::VectorType>(IRType)) {
+    // Don't pass vXi128 vectors in their native type, the backend can't
+    // legalize them.
+    if (passInt128VectorsInMem() &&
+        IRType->getVectorElementType()->isIntegerTy(128)) {
+      // Use a vXi64 vector.
+      uint64_t Size = getContext().getTypeSize(Ty);
+      return llvm::VectorType::get(llvm::Type::getInt64Ty(getVMContext()),
+                                   Size / 64);
+    }
 
-  if (isa<llvm::VectorType>(IRType) ||
-      IRType->getTypeID() == llvm::Type::FP128TyID)
+    return IRType;
+  }
+
+  if (IRType->getTypeID() == llvm::Type::FP128TyID)
     return IRType;
 
   // We couldn't find the preferred IR vector type for 'Ty'.
   uint64_t Size = getContext().getTypeSize(Ty);
   assert((Size == 128 || Size == 256 || Size == 512) && "Invalid type found!");
+
 
   // Return a LLVM IR vector type based on the size of 'Ty'.
   return llvm::VectorType::get(llvm::Type::getDoubleTy(getVMContext()),
@@ -3110,8 +3148,8 @@ static bool BitsContainNoUserData(QualType Ty, unsigned StartBit,
       for (const auto &I : CXXRD->bases()) {
         assert(!I.isVirtual() && !I.getType()->isDependentType() &&
                "Unexpected base class!");
-        const CXXRecordDecl *Base =
-          cast<CXXRecordDecl>(I.getType()->getAs<RecordType>()->getDecl());
+        const auto *Base =
+            cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
 
         // If the base is after the span we care about, ignore it.
         unsigned BaseOffset = Context.toBits(Layout.getBaseClassOffset(Base));
@@ -4146,6 +4184,13 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
       // Clang matches them for compatibility.
       return ABIArgInfo::getDirect(
           llvm::VectorType::get(llvm::Type::getInt64Ty(getVMContext()), 2));
+
+#if INTEL_CUSTOMIZATION
+    // Pass float128 return and arguments indirectly on x64 Windows to match
+    // icc.
+    case BuiltinType::Float128:
+      return ABIArgInfo::getIndirect(Align, /*ByVal=*/false);
+#endif
 
     default:
       break;
@@ -8080,8 +8125,12 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   const auto *ReqdWGS = M.getLangOpts().OpenCL ?
     FD->getAttr<ReqdWorkGroupSizeAttr>() : nullptr;
 
-  if (((M.getLangOpts().OpenCL && FD->hasAttr<OpenCLKernelAttr>()) ||
-      (M.getLangOpts().HIP && FD->hasAttr<CUDAGlobalAttr>())) &&
+
+  const bool IsOpenCLKernel = M.getLangOpts().OpenCL &&
+                              FD->hasAttr<OpenCLKernelAttr>();
+  const bool IsHIPKernel = M.getLangOpts().HIP &&
+                           FD->hasAttr<CUDAGlobalAttr>();
+  if ((IsOpenCLKernel || IsHIPKernel) &&
       (M.getTriple().getOS() == llvm::Triple::AMDHSA))
     F->addFnAttr("amdgpu-implicitarg-num-bytes", "56");
 
@@ -8107,6 +8156,9 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
       F->addFnAttr("amdgpu-flat-work-group-size", AttrVal);
     } else
       assert(Max == 0 && "Max must be zero");
+  } else if (IsOpenCLKernel || IsHIPKernel) {
+    // By default, restrict the maximum size to 256.
+    F->addFnAttr("amdgpu-flat-work-group-size", "1,256");
   }
 
   if (const auto *Attr = FD->getAttr<AMDGPUWavesPerEUAttr>()) {
@@ -9668,7 +9720,7 @@ ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty, bool IsFixed,
   // Complex types for the hard float ABI must be passed direct rather than
   // using CoerceAndExpand.
   if (IsFixed && Ty->isComplexType() && FLen && ArgFPRsLeft >= 2) {
-    QualType EltTy = Ty->getAs<ComplexType>()->getElementType();
+    QualType EltTy = Ty->castAs<ComplexType>()->getElementType();
     if (getContext().getTypeSize(EltTy) <= FLen) {
       ArgFPRsLeft -= 2;
       return ABIArgInfo::getDirect();
@@ -9900,7 +9952,8 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
 
   case llvm::Triple::ppc:
     return SetCGInfo(
-        new PPC32TargetCodeGenInfo(Types, CodeGenOpts.FloatABI == "soft"));
+        new PPC32TargetCodeGenInfo(Types, CodeGenOpts.FloatABI == "soft" ||
+                                   getTarget().hasFeature("spe")));
   case llvm::Triple::ppc64:
     if (Triple.isOSBinFormatELF()) {
       PPC64_SVR4_ABIInfo::ABIKind Kind = PPC64_SVR4_ABIInfo::ELFv1;
@@ -10089,7 +10142,7 @@ llvm::Function *AMDGPUTargetCodeGenInfo::createEnqueuedBlockKernel(
   Builder.SetInsertPoint(BB);
   unsigned BlockAlign = CGF.CGM.getDataLayout().getPrefTypeAlignment(BlockTy);
   auto *BlockPtr = Builder.CreateAlloca(BlockTy, nullptr);
-  BlockPtr->setAlignment(BlockAlign);
+  BlockPtr->setAlignment(llvm::MaybeAlign(BlockAlign));
   Builder.CreateAlignedStore(F->arg_begin(), BlockPtr, BlockAlign);
   auto *Cast = Builder.CreatePointerCast(BlockPtr, InvokeFT->getParamType(0));
   llvm::SmallVector<llvm::Value *, 2> Args;

@@ -236,16 +236,30 @@ static bool isMatchedLoadPattern(const RegDDRef *RDDRef,
   }
 
   const RegDDRef *RRef = SrcInst->getRvalDDRef();
-  const CanonExpr *BaseCE = RRef->getBaseCE();
-  if (!BaseCE->isInvariantAtLevel(NestingLevel)) {
-    return false;
-  }
+  // TODO: The following check is too conservative in case of inaccurate def
+  //       levels. (CMPLRLLVM-10587)
+  //
+  // DO i1 {
+  //   if () {
+  //     A = ...
+  //   }
+  //
+  //   ... A[i1] ... (non-linear) (1)
+  // }
+  //
+  // (1) has non-linear base A, however after loop unswitch the def levels
+  // in the false loop may be updated to some linear level.
+  //
+  // const CanonExpr *BaseCE = RRef->getBaseCE();
+  // if  (!BaseCE->isInvariantAtLevel(NestingLevel)) {
+  //   return false;
+  // }
 
   auto I = RRef->canon_begin();
   auto E = RRef->canon_end();
 
-  // TODO: canon expressions like [i1 + 5] should be identified as valid
-  if (!(*I)->isStandAloneIV()) {
+
+  if ((*I)->numIVs() != 1) {
     return false;
   }
 
@@ -342,7 +356,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
     for (auto I2 = DDG.incoming_edges_begin(RRef),
               E2 = DDG.incoming_edges_end(RRef);
          I2 != E2; ++I2) {
-      assert((*I2)->isFLOWdep() &&
+      assert((*I2)->isFlow() &&
              "Incoming edges to blob refs should be flow edges only");
 
       auto *DDRefSrc = (*I2)->getSrc();
@@ -365,7 +379,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
       for (auto I2 = DDG.incoming_edges_begin(BRRef),
                 E2 = DDG.incoming_edges_end(BRRef);
            I2 != E2; ++I2) {
-        assert((*I2)->isFLOWdep() &&
+        assert((*I2)->isFlow() &&
                "Incoming edges to blob refs should be flow edges only");
 
         auto *DDRefSrc = (*I2)->getSrc();
@@ -434,7 +448,7 @@ bool HIRSparseArrayReductionAnalysis::isReductionStmt(const HLInst *Inst,
     // We are hunting a load with index from another load (thus sparse array
     // reduction).
     auto *Edge = *(DDG.incoming_edges_begin(RRef));
-    assert(Edge->isFLOWdep() &&
+    assert(Edge->isFlow() &&
            "Incoming edges to blob refs should be flow edges only");
 
     DDRef *DDRefSrc = Edge->getSrc();
@@ -451,17 +465,13 @@ bool HIRSparseArrayReductionAnalysis::isReductionStmt(const HLInst *Inst,
 }
 
 // Example reduction group:
-// <3>       |   %0 = (@a1)[0][i1];
-// <5>       |   %div = 4 * %0  /  3;
-// ...
-// <59>      |   %mul42 = %sub8  *  %mul41;
-// <62>      |   %14 = (@f)[0][%div + %foff];
-// <63>      |   %add46 = %14  +  %mul42;
-// <64>      |   (@f)[0][%div + %foff] = %add46;
+//   %0 = (@a1)[0][i1];
+//   (@f)[0][3 * %0] = %1989;
 // From the above example, this function will get the load and store memrefs
-// and the only nonlinear-blob %div.
+// thru the nonlinear-blob %iv.
 // We are going to check the legality in terms of dependency, reduction
-// operator and existance of load instruction <3>
+// operator and existence of load instruction
+
 bool HIRSparseArrayReductionAnalysis::isLegallyValid(
     const RegDDRef *LoadRef, const RegDDRef *StoreRef, const HLLoop *Loop,
     const BlobDDRef *NonLinearBRRef, HLInst **ReductionInst,
@@ -480,7 +490,7 @@ bool HIRSparseArrayReductionAnalysis::isLegallyValid(
 
   // Start walking through the incoming edge to %add46.
   auto *Edge = *(DDG.incoming_edges_begin(ReductionTempRef));
-  assert(Edge->isFLOWdep() &&
+  assert(Edge->isFlow() &&
          "Incoming edges to blob refs should be flow edges only");
 
   auto *DDRefSrc = Edge->getSrc();
@@ -495,16 +505,16 @@ bool HIRSparseArrayReductionAnalysis::isLegallyValid(
     return false;
   }
 
-  // Check if that non-linear blob (%div) comes from a load.
+  // Check if that non-linear blob (%iv) comes from a load.
   // Thus making the memory access sparse.
   Edge = *(DDG.incoming_edges_begin(NonLinearBRRef));
-  assert(Edge->isFLOWdep() &&
+  assert(Edge->isFlow() &&
          "Incoming edges to blob refs should be flow edges only");
 
   DDRefSrc = Edge->getSrc();
   auto *InstAtNextHop = cast<HLInst>(DDRefSrc->getHLDDNode());
 
-  // Hunt for load through %div.
+  // Hunt for load through %iv.
   bool SingleLoadFound = false;
   if (!findLoadInstWithinNHops(InstAtNextHop, Loop->getNestingLevel(),
                                SparserLoadDistance, &SingleLoadFound) ||
@@ -537,7 +547,7 @@ static unsigned getSingleNonLinearBlobIndex(const RegDDRef *StoreRef,
 }
 
 // Structural checks on the canon expressions of the store ref
-// is done here. From the above example- canon expression is %div + %foff + ...
+// is done here. From the above example- canon expression is %iv + %foff + ...
 // Need to walk the blobs and work with the identified non-linear blob.
 static bool isStructurallyValid(const RegDDRef *StoreRef, unsigned LoopLevel,
                                 unsigned NonLinearBlobIndex) {

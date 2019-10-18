@@ -76,8 +76,9 @@ public:
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
 
-    const TargetLibraryInfo &TLInfo =
-        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
 
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
@@ -88,7 +89,7 @@ public:
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
 
-    return Impl.runImpl(M, DTInfo, GetLI, TLInfo, WPInfo);
+    return Impl.runImpl(M, DTInfo, GetLI, GetTLI, WPInfo);
   }
 };
 
@@ -503,7 +504,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     LoadInst *LoadGlobal = Builder.CreateLoad(GlobalCounter);
     if (UseOpenMP) {
       LoadGlobal->setAtomic(AtomicOrdering::SequentiallyConsistent);
-      LoadGlobal->setAlignment(4);
+      LoadGlobal->setAlignment(MaybeAlign(4));
     }
     Value *Cmp = Builder.CreateICmpULT(LoadGlobal, PMLimitVal);
 
@@ -624,10 +625,10 @@ unsigned llvm::getPaddedMallocLimit() {
 }
 
 // Actual implementation of padded malloc
-bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                       LoopInfoFuncType &GetLI,
-                                       const TargetLibraryInfo &TLInfo,
-                                       WholeProgramInfo &WPInfo) {
+bool dtrans::PaddedMallocPass::runImpl(
+    Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
 
   if (!WPInfo.isWholeProgramSafe())
     return false;
@@ -695,7 +696,9 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   checkForParallelRegion(M, PaddedMallocVect);
 
-  return applyPaddedMalloc(PaddedMallocVect, GlobalCounter, PMFunc, &M, TLInfo,
+  const TargetLibraryInfo &TLIInfo = GetTLI(*PMFunc);
+
+  return applyPaddedMalloc(PaddedMallocVect, GlobalCounter, PMFunc, &M, TLIInfo,
                            DTInfo);
 }
 
@@ -703,7 +706,6 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
 
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &TLInfo = AM.getResult<TargetLibraryAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   FunctionAnalysisManager &FAM =
@@ -713,7 +715,11 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
     return FAM.getResult<LoopAnalysis>(F);
   };
 
-  if (!runImpl(M, DTransInfo, GetLI, TLInfo, WPInfo))
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  if (!runImpl(M, DTransInfo, GetLI, GetTLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

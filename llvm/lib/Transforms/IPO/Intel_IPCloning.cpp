@@ -46,7 +46,8 @@ enum IPCloneKind {
   FuncPtrsClone = 1,
   SpecializationClone = 2,
   GenericClone = 3,
-  RecProgressionClone = 4
+  RecProgressionClone = 4,
+  ManyRecCallsClone = 5
 };
 }
 
@@ -112,6 +113,12 @@ static cl::opt<unsigned> IPGenCloningMinRecFormalCount(
 // see at least this many callsites to the routine.
 static cl::opt<unsigned> IPGenCloningMinRecCallsites(
           "ip-gen-cloning-min-rec-callsites", cl::init(10), cl::ReallyHidden);
+
+// Do not specially qualify a recursive routine for generic cloning unless we
+// see at least this many callsites to the routine.
+static cl::opt<unsigned> IPManyRecCallsCloningMinRecCallsites(
+          "ip-manyreccalls-cloning-min-rec-callsites", cl::init(11),
+          cl::ReallyHidden);
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
@@ -557,8 +564,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   auto PHI_I = cast<Instruction>(*PhiValues.begin());
   // Skip CallSite if BasicBlock has too many preds.
   if (cast<PHINode>(PHI_I)->getNumIncomingValues() > IPSpeCloningCallLimit) {
-    if (IPCloningTrace)
-      dbgs() << "     More Preds ... Skipped Spe cloning  " << "\n";
+    LLVM_DEBUG(dbgs() << "     More Preds ... Skipped Spe cloning  " << "\n");
     return;
   }
 
@@ -609,8 +615,8 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 
   // Check for minimum limit on size of Argument sets
   if (CallArgumentsSets.size() <= IPSpeCloningMinArgSetsLimit) {
-    if (IPCloningTrace)
-      dbgs() << "     Not enough sets... Skipped Spe cloning  " << "\n";
+    LLVM_DEBUG(dbgs() << "     Not enough sets... Skipped Spe cloning  "
+                      << "\n");
     return;
   }
 
@@ -622,7 +628,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   CurrCallList.push_back(&CI);
 
   // Dump arg sets
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << "    Args sets collected \n";
     if (InexactArgsSetsCallList.count(&CI)) {
       dbgs() << "    Inexact args sets found \n";
@@ -635,7 +641,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
                   *(I->second) << "\n";
       }
     }
-  }
+  });
 }
 
 // Analyze CallInst 'CI' of 'F' and collect argument sets for
@@ -671,8 +677,7 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
 //
 static void analyzeCallSitesForSpecializationCloning(Function &F) {
   if (!IPSpecializationCloning) {
-    if (IPCloningTrace)
-      dbgs() << "   Specialization cloning disabled \n";
+    LLVM_DEBUG(dbgs() << "   Specialization cloning disabled \n");
     return;
   }
   FunctionLoopInfoMap.clear();
@@ -700,8 +705,8 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
   bool FunctionAddressTaken = false;
 
   if (CloneType == SpecializationClone) {
-    if (IPCloningTrace)
-      dbgs() << " Processing for Spe cloning  " << F.getName() << "\n";
+    LLVM_DEBUG(dbgs() << " Processing for Spe cloning  "
+                      << F.getName() << "\n");
     analyzeCallSitesForSpecializationCloning(F);
     return false;
   }
@@ -1443,14 +1448,12 @@ static void addSpecialRecProCloneCode(Function *F,
       CVUpper);
   Builder.CreateStore(C9, SIUB);
   Builder.CreateBr(BBLastExit);
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << "Inserting special extra clone test:\n";
-#ifndef NDEBUG
     BBCond->dump();
     BBCallClone->dump();
     BBConstStore->dump();
-#endif // NDEBUG
-  }
+  });
 }
 
 //
@@ -1538,14 +1541,12 @@ static bool tryToMakeRecProSubscriptsConstant(Function *F,
     auto LI = LV[I];
     if (hasThisRecProSubscript(LI, 8)) {
       auto CCI = ConstantInt::get(LI->getType(), Bound);
-      if (IPCloningTrace) {
+      LLVM_DEBUG({
         dbgs() << "Replacing Load in Function " << F->getName() << " with "
                << Bound << "\n";
-#ifndef NDEBUG
         LI->dump();
         CCI->dump();
-#endif // NDEBUG
-      }
+      });
       LI->replaceAllUsesWith(CCI);
     }
   }
@@ -1588,16 +1589,14 @@ static bool tryToMakeRecProSubscriptsSame(Function *F,
   for (unsigned I = 0; I < LV.size(); ++I) {
     auto LI = LV[I];
     if (hasThisRecProSubscript(LI, 8)) {
-      if (IPCloningTrace) {
+      LLVM_DEBUG({
         dbgs() << "Replacing Load in Function " << F->getName()
                << " with alternate bound\n";
-#ifndef NDEBUG
         LI->dump();
         LI->getPointerOperand()->dump();
         LILower->dump();
         LILower->getPointerOperand()->dump();
-#endif // NDEBUG
-      }
+      });
       LI->replaceAllUsesWith(LILower);
     }
   }
@@ -1800,13 +1799,13 @@ static void createRecProgressionClones(Function &F,
       ConstantType = ConstantType->getPointerElementType();
     Value *Rep = ConstantInt::get(ConstantType, FormalValue);
     FormalValue += Inc;
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << "        Function: " << NewF->getName() << "\n";
       dbgs() << "        ArgPos : " << ArgPos << "\n";
       dbgs() << "        Argument : " << *NewFormal << "\n";
       dbgs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
       dbgs() << "        Replacement:  " << *Rep << "\n";
-    }
+    });
     if (IsByRef) {
       assert(NewFormal->hasOneUse() && "Expecting single use of ByRef Formal");
       auto LI = cast<LoadInst>(*(NewFormal->user_begin()));
@@ -1840,9 +1839,8 @@ static void createRecProgressionClones(Function &F,
       ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
       ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
       ExtraCloneF->addFnAttr("contains-rec-pro-clone");
-      if (IPCloningTrace)
-        dbgs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
-               << "\n";
+      LLVM_DEBUG(dbgs() << "Extra RecProClone Candidate: "
+                        << LastCloneF->getName() << "\n");
     }
     deleteRecProgressionRecCalls(F, *LastCloneF);
     if (ExtraCloneF) {
@@ -1877,8 +1875,10 @@ static void createRecProgressionClones(Function &F,
       addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
         BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
       deleteRecProgressionRecCalls(F, *ExtraCloneF);
-      if (IPCloningTrace && SubCount == 3)
-        dbgs() << "All desired subscript bounds substituted\n";
+      LLVM_DEBUG({
+        if (SubCount == 3)
+          dbgs() << "All desired subscript bounds substituted\n";
+      });
     }
   }
 }
@@ -2017,10 +2017,10 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
     if (ValList.size() == 0)
       continue;
 
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << " Collecting potential constants for Formal_";
       dbgs() << (f_count - 1) << "\n";
-    }
+    });
     if (AfterInl || IsGenRec) {
       unsigned IFCount = 0;
       unsigned SwitchCount = 0;
@@ -2030,8 +2030,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
         if (IFCount + SwitchCount == 0) {
           // Qualified unconditionally under the loop heuristic.
           WorthyFormalsForCloning.insert(V);
-          if (IPCloningTrace)
-            dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
+          LLVM_DEBUG(dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n");
         } else {
           // Qualified under the if-switch heuristic. Mark the formal as
           // pending for now, and qualify it later if the total number of
@@ -2040,19 +2039,19 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           GlobalIFCount += IFCount;
           GlobalSwitchCount += SwitchCount;
           PossiblyWorthyFormalsForCloning.insert(V);
-          if (IPCloningTrace) {
+          LLVM_DEBUG({
             dbgs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
             dbgs() << "    IFCount " << GlobalIFCount << " <- "
                    << IFCount << "\n";
             dbgs() << "    SwitchCount " << GlobalSwitchCount << " <- "
                    << SwitchCount << "\n";
-          }
+          });
         }
       } else {
-        if (IPCloningTrace) {
+        LLVM_DEBUG({
           dbgs() << "  Skipping FORMAL_" << (f_count - 1);
           dbgs() << " due to heuristics\n";
-        }
+        });
       }
     } else {
       // No heuristics for IPCloning before Inlining, unless IsGenRec
@@ -2063,27 +2062,25 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       GlobalSwitchCount >= IPGenCloningMinSwitchCount) {
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
-    if (IPCloningTrace)
-      dbgs() << "  Selecting all Pending FORMALs\n";
+    LLVM_DEBUG(dbgs() << "  Selecting all Pending FORMALs\n");
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
   } else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
       IPGenCloningMinRecFormalCount) {
-    if (IPCloningTrace)
-      dbgs() << "  Possibly selecting all Pending FORMALs in "
-             << "Recursive Function\n";
+    LLVM_DEBUG(dbgs() << "  Possibly selecting all Pending FORMALs in "
+                      << "Recursive Function\n");
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
     *IsGenRecQualified = true;
   } else if (SawPending) {
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       if (GlobalIFCount < IPGenCloningMinIFCount)
         dbgs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
                << IPGenCloningMinIFCount << ")\n";
       if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
         dbgs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
                << IPGenCloningMinSwitchCount << ")\n";
-    }
+    });
   }
   // Return false if none of formals is selected.
   if (WorthyFormalsForCloning.size() == 0)
@@ -2110,20 +2107,18 @@ static bool collectAllConstantArgumentsSets(Function &F) {
     CallInstArgumentSetIndexMap[CI] = index;
 
     if (FunctionAllArgumentsSets.size() > IPFunctionCloningLimit) {
-      if (IPCloningTrace)
-        dbgs() << "     Exceeding number of argument sets limit \n";
+      LLVM_DEBUG(dbgs() << "     Exceeding number of argument sets limit \n");
       return false;
     }
   }
   if (FunctionAllArgumentsSets.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "     Zero argument sets found \n";
+    LLVM_DEBUG(dbgs() << "     Zero argument sets found \n");
     return false;
   }
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << "    Number of argument sets found: ";
     dbgs() << FunctionAllArgumentsSets.size() << "\n";
-  }
+  });
 
   return true;
 }
@@ -2206,9 +2201,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
         okayEliminateRecursion(ClonedFn, index, *CI)) {
       CI->setCalledFunction(ClonedFn);
       NumIPCallsCloned++;
-
-      if (IPCloningTrace)
-        dbgs() << " Replaced Cloned call:   " << *CI << "\n";
+      LLVM_DEBUG(dbgs() << " Replaced Cloned call:   " << *CI << "\n");
     }
   }
 }
@@ -2242,9 +2235,7 @@ static void cloneFunction(void) {
     CI->setCalledFunction(NewFn);
     NumIPCallsCloned++;
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
-
-    if (IPCloningTrace)
-      dbgs() << " Cloned call:   " << *CI << "\n";
+    LLVM_DEBUG(dbgs() << " Cloned call:   " << *CI << "\n");
   }
 }
 
@@ -2282,8 +2273,7 @@ static Value* createGEPAtFrontInClonedFunction(Function* NewFn,
      Indices.push_back(ConstantInt::get(Int32Ty, 0));
 
    Rep = GetElementPtrInst::CreateInBounds(BaseAddr, Indices, "", InsertPt);
-   if (IPCloningTrace)
-     dbgs() << "     Created New GEP: " << *Rep << "\n";
+   LLVM_DEBUG(dbgs() << "     Created New GEP: " << *Rep << "\n");
 
    return Rep;
 }
@@ -2332,11 +2322,9 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
                 GlobalValue::PrivateLinkage, nullptr,
                 NewFn->getName()+".clone."+Twine(Counter));
 
-   NewGlobal->setInitializer(ConstantArray::get(ArrayArrayTy, ArrayArrayVec));
-   Counter++;
-
-  if (IPCloningTrace)
-    dbgs() << "     Created New Array:  " << *NewGlobal << "\n";
+  NewGlobal->setInitializer(ConstantArray::get(ArrayArrayTy, ArrayArrayVec));
+  Counter++;
+  LLVM_DEBUG(dbgs() << "     Created New Array:  " << *NewGlobal << "\n");
   return NewGlobal;
 }
 
@@ -2441,11 +2429,11 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
 
      Rep = getReplacementValueForArg(NewFn, V, Formal, CallI, DL, Counter);
 
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << "        Formal : " << *AI << "\n";
       dbgs() << "        Value : " << *V << "\n";
       dbgs() << "        Replacement:  " << *Rep << "\n";
-    }
+    });
 
     Formal->replaceAllUsesWith(Rep);
   }
@@ -2530,8 +2518,7 @@ static void cloneSpecializationFunction(void) {
     NewCondStmtBBs.clear();
     NewCondStmts.clear();
     CallInst *CI = CurrCallList[I];
-    if (IPCloningTrace)
-       dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n";
+    LLVM_DEBUG(dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n");
     auto &CallArgsSets = AllCallsArgumentsSets[CI];
 
     if (CallArgsSets.size() == 0)
@@ -2539,8 +2526,7 @@ static void cloneSpecializationFunction(void) {
 
     // No point to specialize, if there is only one arg set for this CallSite
     if (CallArgsSets.size() <= 1) {
-      if (IPCloningTrace)
-        dbgs() << "    Giving up: Not enough cases to specialize\n";
+      LLVM_DEBUG(dbgs() << "    Giving up: Not enough cases to specialize\n");
       continue;
     }
     // Split the BasicBlock containing the CallSite, so that the newly
@@ -2642,7 +2628,7 @@ static void cloneSpecializationFunction(void) {
       RPHI->setDebugLoc(CI->getDebugLoc());
       CI->replaceAllUsesWith(RPHI);
     }
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       for  (unsigned J = 0; J < CloneCount; J++) {
        if (J < NumConds) {
         dbgs() << "    Cond[" << J << "] = ";
@@ -2656,7 +2642,7 @@ static void cloneSpecializationFunction(void) {
           << *(NewClonedCallBBs[CloneCount]) << "\n\n";
       else
         dbgs() << "    No Fallback Call" << "\n\n";
-    }
+    });
     CI->eraseFromParent();
   }
 }
@@ -2722,49 +2708,46 @@ static bool canChangeCPUAttributes(Module &M) {
       "+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,"
       "+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,"
       "+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves");
-  if (IPCloningTrace)
-    dbgs() << "Begin test for AVX512->AVX2 conversion\n";
+  LLVM_DEBUG(dbgs() << "Begin test for AVX512->AVX2 conversion\n");
   unsigned FI = llvm::AttributeList::FunctionIndex;
   for (auto &F: M.getFunctionList()) {
     if (!F.hasFnAttribute("target-cpu"))
       continue;
     StringRef TCA = F.getAttribute(FI, "target-cpu").getValueAsString();
     if (TCA != "skylake-avx512") {
-      if (IPCloningTrace)
-        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n";
+      LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n");
       return false;
     }
     StringRef TFA = F.getAttribute(FI, "target-features").getValueAsString();
     if (TFA != SKLAttributes) {
-      if (IPCloningTrace)
-        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 attributes\n";
+      LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 "
+                           "attributes\n");
       return false;
     }
     for (auto &I : instructions(&F)) {
       if (containsVectorType(I.getType())) {
-        if (IPCloningTrace)
-          dbgs() << "No AVX512->AVX2 conversion: Vector return type\n";
+        LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Vector return "
+                             "type\n");
         return false;
       }
       for (Value *Op : I.operands())
         if (containsVectorType(Op->getType())) {
-          if (IPCloningTrace)
-            dbgs() << "No AVX512->AVX2 conversion: Vector operand type\n";
+          LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Vector operand "
+                               "type\n");
           return false;
         }
       auto II = dyn_cast<IntrinsicInst>(&I);
       if (II) {
         Function *Callee = II->getCalledFunction();
         if (Callee && Callee->getName().startswith("llvm.x86")) {
-          if (IPCloningTrace)
-            dbgs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
+          LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Vector "
+                               "intrinsic\n");
           return false;
         }
       }
     }
   }
-  if (IPCloningTrace)
-    dbgs() << "AVX512->AVX2 conversion: All tests pass\n";
+  LLVM_DEBUG(dbgs() << "AVX512->AVX2 conversion: All tests pass\n");
   return true;
 }
 
@@ -2791,11 +2774,512 @@ static void changeCPUAttributes(Module &M) {
     Attrs.addAttribute("target-features", AVX2Attributes);
     F.addAttributes(FI, Attrs);
   }
-  if (IPCloningTrace)
-    dbgs() << "AVX512->AVX2 conversion: Conversion complete\n";
+  LLVM_DEBUG(dbgs() << "AVX512->AVX2 conversion: Conversion complete\n");
 }
 
 // END: AVX512->AVX2 conversion code
+
+// BEGIN: Many Recursive Calls Cloning
+//
+// This is a specialized type of cloning that will be applied to functions
+// which call themselves many times recursively. The actual cloning that is
+// done will depend on which arguments feed if-tests and which feed switch-
+// tests. The clone created will replace 'best' callsites for which the
+// arguments feeding if-tests are constant. The arguments feeding the
+// switch-tests are not expected to be constant at the 'best' callsites.
+// Specialization tests are introduced for these. The specialization value
+// is taken to be 0.
+
+// Short forms of sets and maps used in many recursive calls cloning.
+using SmallArgumentSet = SmallPtrSetImpl<Argument *>;
+using SmallCallBaseSet = SmallPtrSetImpl<CallBase *>;
+using SmallArgConstMap = SmallDenseMap<Argument *, ConstantInt *>;
+
+// Return 'true' if 'F' is a candidate for many recursive calls cloning.
+// If it is, add the formal arguments which feed if-tests to 'IfArgs',
+// those that feed switch-tests to 'SwitchArgs'. Put in 'BestCBs' the
+// callsites on which we intend to clone.
+static bool isManyRecCallsCloneCandidate(Function &F,
+                                         SmallArgumentSet &IfArgs,
+                                         SmallArgumentSet &SwitchArgs,
+                                         SmallCallBaseSet &BestCBs) {
+
+  // Return the number of recursive calls to 'F'.
+  auto NumRecCalls = [](Function &F) -> unsigned {
+    unsigned Count = 0;
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (CB && CB->getCaller() == &F && CB->getCalledFunction() == &F)
+        Count++;
+    }
+    return Count;
+  };
+
+  // Insert into 'ConstArgs' the arguments of 'F' for which some call to 'F'
+  // provides a constant argument.
+  auto FindArgConstCandidates = [](Function &F,
+                                   SmallArgumentSet &ConstArgs) {
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        continue;
+      unsigned Position = 0;
+      for (Value *V : CB->arg_operands()) {
+        auto CI = dyn_cast<ConstantInt>(V);
+        if (CI)
+          ConstArgs.insert(F.getArg(Position));
+        Position++;
+      }
+    }
+  };
+
+  // Given 'F' and 'ConstArgs', the set of Arguments of F which have a
+  // constant supplied at at least one callsite, compute 'IfArgs', the set
+  // of Arguments of F that are used in an ICmpInst and 'SwitchArgs', the
+  // set of Arguments that are used in a switch statement without being
+  // reassigned in 'F'.
+  auto FindArgTestCandidates = [](Function &F,
+                                  SmallArgumentSet &ConstArgs,
+                                  SmallArgumentSet &IfArgs,
+                                  SmallArgumentSet &SwitchArgs) {
+
+    for (Argument &Arg : F.args()) {
+      if (!ConstArgs.count(&Arg))
+        continue;
+      for (User *U : Arg.users()) {
+        if (isa<ICmpInst>(U))
+          IfArgs.insert(&Arg);
+        else if (isa<SwitchInst>(U))
+          SwitchArgs.insert(&Arg);
+      }
+    }
+  };
+
+  // Add each callsite of 'F' to 'GoodIfCBs' if it has constant values for
+  // each Argument in 'IfArgs'.
+  auto FindGoodIfCallSites = [](Function &F,
+                                SmallArgumentSet &IfArgs,
+                                SmallCallBaseSet &GoodIfCBs) {
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB || CB->getCaller() == &F)
+        continue;
+      bool IsGood = true;
+      for (Argument *Arg : IfArgs) {
+        unsigned Position = Arg->getArgNo();
+        auto CI = dyn_cast_or_null<ConstantInt>(CB->getArgOperand(Position));
+        if (!CI) {
+          IsGood = false;
+          break;
+        }
+      }
+      if (IsGood)
+        GoodIfCBs.insert(CB);
+    }
+  };
+
+  // Add each callsite of 'F' to 'GoodSwitchCBs' which has a 'SwitchArg'
+  // corresponding to an actual argument of the callsite which is a load of
+  // a GEP whose pointer operand is an argument. (This is a somewhat "clever"
+  // heuristic.)
+  auto FindGoodSwitchCallSites = [](Function &F,
+                                    SmallArgumentSet &SwitchArgs,
+                                    SmallCallBaseSet &GoodSwitchCBs) {
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB || CB->getCaller() == &F)
+        continue;
+      bool IsGood = true;
+      for (Argument *Arg : SwitchArgs) {
+        unsigned Position = Arg->getArgNo();
+        auto LI = dyn_cast_or_null<LoadInst>(CB->getArgOperand(Position));
+        if (!LI) {
+          IsGood = false;
+          break;
+        }
+        auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+        if (!GEPI) {
+          IsGood = false;
+          break;
+        }
+        auto CA = dyn_cast<Argument>(GEPI->getPointerOperand());
+        if (!CA) {
+          IsGood = false;
+          break;
+        }
+      }
+      if (IsGood)
+        GoodSwitchCBs.insert(CB);
+    }
+  };
+
+  // Create 'BestCBs' which is the interesection of 'GoldIfCBs' and
+  // 'GoodSwitchCBs'.
+  auto FindBestCallSites = [](SmallCallBaseSet &GoodIfCBs,
+                              SmallCallBaseSet &GoodSwitchCBs,
+                              SmallCallBaseSet &BestCBs) {
+    for (CallBase *CB : GoodIfCBs)
+      if (GoodSwitchCBs.find(CB) != GoodSwitchCBs.end())
+        BestCBs.insert(CB);
+  };
+
+  // Main code for isManyRecCallsCloneCandidate
+  SmallPtrSet<Argument *, 16> ConstArgs;
+  SmallPtrSet<CallBase *, 16> GoodIfCBs;
+  SmallPtrSet<CallBase *, 16> GoodSwitchCBs;
+  // Reject candidates that don't have enough recursive calls.
+  LLVM_DEBUG(dbgs() << "MRC Cloning: Testing: " << F.getName() << "\n");
+  if (NumRecCalls(F) < IPManyRecCallsCloningMinRecCallsites) {
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Not enough recursive "
+                         "callsites\n");
+    return false;
+  }
+  // Reject vargars candidates for simplicity.
+  if (F.isVarArg()) {
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Is VarArgs\n");
+    return false;
+  }
+  // Collect formal Arguments corresponding to actual arguments with constant
+  // values that feed if-tests and switch-tests in 'F'.
+  FindArgConstCandidates(F, ConstArgs);
+  FindArgTestCandidates(F, ConstArgs, IfArgs, SwitchArgs);
+  LLVM_DEBUG({
+    for (Argument *Arg : IfArgs)
+      dbgs() << "MRC Cloning: IF ARG #" << Arg->getArgNo() << "\n";
+    for (Argument *Arg : SwitchArgs)
+      dbgs() << "MRC Cloning: SWITCH ARG #" << Arg->getArgNo() << "\n";
+  });
+  // Reject candidates that don't have at least one if-test argument and only
+  // one switch-test argument.
+  if (IfArgs.size() == 0 || SwitchArgs.size() != 1)
+    return false;
+  // Find callsites that pass the if-test heuristic.
+  FindGoodIfCallSites(F, IfArgs, GoodIfCBs);
+  LLVM_DEBUG({
+    for (CallBase *CB : GoodIfCBs)
+      dbgs() << "MRC Cloning: GOOD IF CB: " << CB->getCaller()->getName()
+             << " " << *CB << "\n";
+  });
+  if (GoodIfCBs.size() == 0) {
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Not enough good IF "
+                         "candidates\n");
+    return false;
+  }
+  // Find callsites that pass the switch-test heuristic.
+  FindGoodSwitchCallSites(F, SwitchArgs, GoodSwitchCBs);
+  LLVM_DEBUG({
+    for (CallBase *CB : GoodSwitchCBs)
+      dbgs() << "MRC Cloning: GOOD SWITCH CB: " << CB->getCaller()->getName()
+             << " " << *CB << "\n";
+  });
+  if (GoodSwitchCBs.size() == 0) {
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Not enough good SWITCH "
+                         "candidates\n");
+    return false;
+  }
+  // Get the intersection of the callsites that pass both the if-test heuristic
+  // and the switch-test heuristic and consider these the "best" callsites,
+  // i.e. the ones that should be transformed.
+  FindBestCallSites(GoodIfCBs, GoodSwitchCBs, BestCBs);
+  if (BestCBs.size() == 0) {
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: No BEST callsite "
+                         "identified\n");
+    return false;
+  }
+  LLVM_DEBUG({
+    for (CallBase *CB : BestCBs)
+      dbgs() << "MRC Cloning: BEST CB: " << CB->getCaller()->getName()
+             << " " << *CB << "\n";
+    dbgs() << "MRC Cloning: OK: " << F.getName() << "\n";
+  });
+  return true;
+}
+
+//
+// Create the clones required for the "may recursive calls" cloning. 'F'
+// is the Function being cloned. 'IfArgs' are the arguments feeding if-tests
+// that will be constant in the clone, 'SwitchArgs' are the arguments that
+// will feed switch-tests, but will be tested for explicitly when calls are
+// made to the clone. 'BestCBs' are the callsites for which cloning will be
+// applied.
+//
+static void createManyRecCallsClone(Function &F,
+                                    SmallArgumentSet &IfArgs,
+                                    SmallArgumentSet &SwitchArgs,
+                                    SmallCallBaseSet &BestCBs) {
+
+  // Change 'CB' to call 'NewF' rather than 'OldF'
+  auto SetCallBaseUser = [](CallBase *CB, Function *OldF, Function *NewF) {
+    assert(CB && "Expecting non-nullptr CB");
+    for (Use &U : OldF->uses()) {
+      auto *NCB = dyn_cast<CallBase>(U.getUser());
+      if (NCB == CB) {
+        U.set(NewF);
+        NCB->setCalledFunction(NewF);
+        return;
+      }
+    }
+  };
+
+  // Make the control flow structure for an if-test of the form:
+  // if (TAnd)
+  //   CBClone
+  // else
+  //   CB
+  // where 'TAnd' is in 'BBPred'.
+  auto MakeBlocks = [](CallBase *CB, CallBase *CBClone, Value *TAnd,
+                       BasicBlock *BBPred) {
+    BasicBlock *BBofCB = CB->getParent();
+    Instruction *IAfterCB = CB->getNextNonDebugInstruction();
+    BasicBlock *BBTail = BBofCB->splitBasicBlock(IAfterCB);
+    BasicBlock *BBTrue = BasicBlock::Create(CB->getContext(),
+        ".clone.recmanycalls.truepath", CB->getFunction(), BBTail);
+    if (!CB->getType()->isVoidTy()) {
+      PHINode *PHI = PHINode::Create(CB->getType(), 2,
+          ".clone.recmapcalls.phi", &BBTail->front());
+      CB->replaceAllUsesWith(PHI);
+      PHI->addIncoming(CB, BBofCB);
+      PHI->addIncoming(CBClone, BBTrue);
+    }
+    BranchInst::Create(BBTail, BBTrue);
+    BranchInst::Create(BBTrue, BBofCB, TAnd, BBPred);
+    CBClone->insertBefore(BBTrue->getTerminator());
+  };
+
+  // Add conditionals to 'TAnd', placing each in 'BBPred'. Each conditional
+  // is of the form 'Argument' == 'ConstantInt' where each Argument comes
+  // from the 'SAS' and is mapped to a ConstantInt with the 'ArgConstMap'.
+  // The corresponding actual argument value of the 'CBClone' will be set
+  // to this ConstantInt, if 'CBClone' is not nullptr. 'CB' is the callsite
+  // from which 'CBClone' was cloned. 'NewF' is the clone. We return the
+  // updated value of 'TAnd'. The created conditionals are ANDed together
+  // with the original value of 'TAnd'.
+  auto MakeTAndFromMap = [](Value *TAnd, CallBase *CB, CallBase *CBClone,
+                            BasicBlock *BBPred, Function *NewF,
+                            SmallArgumentSet &SAS,
+                            SmallArgConstMap &ArgConstMap) -> Value * {
+    for (Argument *Arg : SAS) {
+      Value *V = CB->getArgOperand(Arg->getArgNo());
+      Argument *NewArg = NewF->getArg(Arg->getArgNo());
+      ConstantInt *CI = ArgConstMap[NewArg];
+      if (CBClone)
+        CBClone->setArgOperand(Arg->getArgNo(), CI);
+      Value *LCmp = CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ,
+          V, CI, ".clone.recmanycalls.cmp", BBPred);
+      TAnd = !TAnd ? LCmp :  BinaryOperator::CreateAnd(TAnd, LCmp,
+          ".clone.recmanycalls.and", BBPred);
+    }
+    return TAnd;
+  };
+
+  // Transform 'CB' into:
+  // if (SwitchArg[0] == 0 & ... & SwitchArg[N-1] == 0)
+  //   call NewF(...)
+  // else
+  //   CB
+  // where the arguments in the call to NewF are replaced by the ConstantInt
+  // values mapped by 'ArgConstMap' from 'IfArgs' and 'SwitchArgs'. Return
+  // the new call that was created.
+  auto ConditionalizeCallBase2WayEarly = [&MakeBlocks, &MakeTAndFromMap]
+                                         (CallBase *CB,
+                                          Function *NewF,
+                                          SmallArgumentSet &IfArgs,
+                                          SmallArgumentSet &SwitchArgs,
+                                          SmallArgConstMap &ArgConstMap)
+                                          -> CallBase * {
+    CallBase *CBClone = cast<CallBase>(CB->clone());
+    BasicBlock *BBPred = CB->getParent();
+    BBPred->splitBasicBlock(CB);
+    BBPred->getTerminator()->eraseFromParent();
+    for (Argument *Arg : IfArgs) {
+      Value *V = CB->getArgOperand(Arg->getArgNo());
+      auto CI = cast<ConstantInt>(V);
+      Argument *NewArg = NewF->getArg(Arg->getArgNo());
+      ArgConstMap[NewArg] = CI;
+    }
+    for (Argument *Arg : SwitchArgs) {
+      Value *V = CB->getArgOperand(Arg->getArgNo());
+      Type *Ty = V->getType();
+      auto ITy = cast<IntegerType>(Ty);
+      ConstantInt *CI = ConstantInt::get(ITy, 0);
+      Argument *NewArg = NewF->getArg(Arg->getArgNo());
+      ArgConstMap[NewArg] = CI;
+    }
+    Value *TAnd = nullptr;
+    TAnd = MakeTAndFromMap(TAnd, CB, CBClone, BBPred, NewF, SwitchArgs,
+        ArgConstMap);
+    MakeBlocks(CB, CBClone, TAnd, BBPred);
+    return CBClone;
+  };
+
+  // Return 'true' if all of the actual arguments of CB corresponding to
+  // the 'SwitchArgs' have the value of ConstantInt 0.
+  auto SwitchArgsMatch = [](CallBase *CB,
+                            SmallArgumentSet &SwitchArgs) -> bool {
+    for (Argument *Arg : SwitchArgs) {
+      Value *V = CB->getArgOperand(Arg->getArgNo());
+      auto CI = dyn_cast_or_null<ConstantInt>(V);
+      if (!CI || CI->getZExtValue() != 0)
+        return false;
+    }
+    return true;
+  };
+
+  // Return 'true' if all of the IfArgs for 'CB' are defined in the
+  // 'ArgConstMap' and match the values of the corresponding actual arguments
+  // of 'CB'.
+  auto IfArgsMatch = [](CallBase *CB,
+                        SmallArgumentSet &IfArgs,
+                        SmallArgConstMap ArgConstMap) -> bool {
+    Function *NewF = CB->getCaller();
+    for (Argument *Arg : IfArgs) {
+      Value *V = CB->getArgOperand(Arg->getArgNo());
+      auto CI = dyn_cast_or_null<ConstantInt>(V);
+      Argument *NewArg = NewF->getArg(Arg->getArgNo());
+      if (!CI || ArgConstMap[NewArg] != CI) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Insert into 'ReplaceArgs' all of those members of 'IfArgs' that whose
+  // corresponding actual arguments of 'CB' have the values indicated in the
+  // 'ArgConstMap'.
+  auto FindReplaceArgs = [](CallBase *CB,
+                            SmallArgumentSet &IfArgs,
+                            SmallArgConstMap ArgConstMap,
+                            SmallArgumentSet &ReplaceArgs) {
+    Function *NewF = CB->getCaller();
+    for (Argument *Arg : IfArgs) {
+      Value *V = CB->getArgOperand(Arg->getArgNo());
+      auto CI = dyn_cast_or_null<ConstantInt>(V);
+      Argument *NewArg = NewF->getArg(Arg->getArgNo());
+      if (!CI || ArgConstMap[NewArg] != CI)
+        ReplaceArgs.insert(Arg);
+    }
+  };
+
+  // Transform 'CB' into:
+  // if (ReplaceArgs[0] == 0 & ... & ReplaceArgs[N-1])
+  //   CBClone(...)
+  // else
+  //   CB
+  // where the 'ArgConstMap' maps the 'ReplaceArgs' into ConstantInt values.
+  auto ConditionalizeCallBase2WayLate = [&MakeBlocks, &MakeTAndFromMap]
+                                        (CallBase *CB,
+                                         SmallArgConstMap ArgConstMap,
+                                         SmallArgumentSet &ReplaceArgs)
+                                         -> CallBase * {
+    BasicBlock *BBPred = CB->getParent();
+    BBPred->splitBasicBlock(CB);
+    BBPred->getTerminator()->eraseFromParent();
+    Value *TAnd = nullptr;
+    Function *NewF = CB->getCaller();
+    CallBase *CBClone = cast<CallBase>(CB->clone());
+    TAnd = MakeTAndFromMap(TAnd, CB, CBClone, BBPred, NewF, ReplaceArgs,
+        ArgConstMap);
+    MakeBlocks(CB, CBClone, TAnd, BBPred);
+    return CBClone;
+  };
+
+  // Insert code of the following form into the beginning of 'F', so that
+  // the clone 'NewF' is called when the actual arguments of 'F' have the
+  // appropriate constnat values:
+  // if (Args that are expected to be constant in NewF are constant)
+  //   call NewF(Args set to those expected constant values)
+  auto InsertOriginalToCloneCall = [&MakeTAndFromMap]
+                                   (Function *F, Function *NewF,
+                                    SmallArgumentSet &IfArgs,
+                                    SmallArgumentSet &SwitchArgs,
+                                    SmallArgConstMap &ArgConstMap) {
+    SmallVector<Value*, 16> Args;
+    for (Argument &Arg : F->args())
+      Args.push_back(&Arg);
+    CallInst *CB = CallInst::Create(NewF->getFunctionType(), NewF, Args,
+        ".clone.recmanycalls.reccall", &F->getEntryBlock().front());
+    BasicBlock *BBofCB = CB->getParent();
+    BBofCB->splitBasicBlock(CB);
+    BasicBlock *BBPred = BBofCB;
+    BBofCB = CB->getParent();
+    Instruction *IAfterCB = CB->getNextNonDebugInstruction();
+    BasicBlock *BBTail = BBofCB->splitBasicBlock(IAfterCB);
+    Value *TAnd = nullptr;
+    BBPred->getTerminator()->eraseFromParent();
+    TAnd = MakeTAndFromMap(TAnd, CB, nullptr, BBPred, NewF, IfArgs,
+        ArgConstMap);
+    TAnd = MakeTAndFromMap(TAnd, CB, nullptr, BBPred, NewF, SwitchArgs,
+        ArgConstMap);
+    BranchInst::Create(BBofCB, BBTail, TAnd, BBPred);
+    BBofCB->getTerminator()->eraseFromParent();
+    if (CB->getType()->isVoidTy())
+      ReturnInst::Create(CB->getContext(), CB->getParent());
+    else
+      ReturnInst::Create(CB->getContext(), CB, CB->getParent());
+  };
+
+  // Main code for 'createManyRecCallsClone'. Iterate over the selected
+  // "best" callsites of the original Function, creating a clone for each
+  // and patching up the callsites to the original and cloned Function
+  // as desired.
+  for (CallBase *CB : BestCBs) {
+    ValueToValueMapTy VMap;
+    // Clone the original F to NewF
+    Function *NewF = CloneFunction(&F, VMap);
+    LLVM_DEBUG(dbgs() << "MRC Cloning: " << F.getName() << " TO "
+                      << NewF->getName() << "\n");
+    // Surround the best callsite with a test which allows the clone
+    // to be called when the right arguments are constant.
+    SmallArgConstMap ArgConstMap;
+    CB = ConditionalizeCallBase2WayEarly(CB, NewF, IfArgs, SwitchArgs,
+      ArgConstMap);
+    SetCallBaseUser(CB, &F, NewF);
+    // Replace the formal arguments in the clone with the appropriate
+    // constant values to simplify the the clone.  The actual simpification
+    // will be performed by downstream optimizations. The formals will also
+    // become dead, and will be eliminated by dead argument elimination.
+    for (auto &Entry : ArgConstMap)
+      Entry.first->replaceAllUsesWith(Entry.second);
+    // Find the calls within the clone that are still to the original function.
+    // Determine which need to be replaced by calls to the clone, and whether
+    // those calls needs to be conditional.  We transform only those calls
+    // which will not be eliminated later by dead code elimination.
+    SmallDenseMap<CallBase *, bool> NeedConditionalization;
+    for (User *U : F.users()) {
+      CallBase *NCB = dyn_cast<CallBase>(U);
+      if (!NCB || NCB->getCaller() != NewF)
+        continue;
+      // If the SwitchArgs don't match, don't transform the call. In the case
+      // of a mismatched constant value, it will be dead code eliminated.
+      // Otherwise, it may be called with a switch arg value different than
+      // the original, and which case the call cannot be legally transformed.
+      if (!SwitchArgsMatch(NCB, SwitchArgs))
+        continue;
+      // If the IFArgs don't match, we must make the call to the clone
+      // conditional.
+      bool IfMatch = IfArgsMatch(NCB, IfArgs, ArgConstMap);
+      NeedConditionalization[NCB] = IfMatch;
+    }
+    // Convert calls to the original function to calls to the clone,
+    // conditionalizing those calls when necessary.
+    for (auto &Entry : NeedConditionalization) {
+      CallBase *NCB = Entry.first;
+      bool HasIfMatch = Entry.second;
+      if (!HasIfMatch) {
+        SmallPtrSet<Argument *, 16> ReplaceArgs;
+        FindReplaceArgs(NCB, IfArgs, ArgConstMap, ReplaceArgs);
+        NCB = ConditionalizeCallBase2WayLate(NCB, ArgConstMap, ReplaceArgs);
+      }
+      SetCallBaseUser(NCB, &F, NewF);
+    }
+    // Insert code at the beginning of the original function to test if
+    // the arguments of the original function have the constant values
+    // required by the clone, and if so, call the clone.
+    InsertOriginalToCloneCall(&F, NewF, IfArgs, SwitchArgs, ArgConstMap);
+  }
+}
+
+// END: Many Recursive Calls Cloning
 
 // Main routine to analyze all calls and clone functions if profitable.
 //
@@ -2803,34 +3287,31 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
                                         bool IFSwitchHeuristic) {
   bool FunctionAddressTaken;
 
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << " Enter IP cloning";
     if (AfterInl)
       dbgs() << ": (After inlining)\n";
     else
       dbgs() << ": (Before inlining)\n";
-  }
+  });
 
   ClonedFunctionList.clear();
 
   for (Function &F : M) {
 
     if (skipAnalyzeCallsOfFunction(F)) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping " << F.getName() << "\n");
       continue;
     }
 
     clearAllMaps();
 
-    if (IPCloningTrace)
-      dbgs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
+    LLVM_DEBUG(dbgs() << " Cloning Analysis for:  " <<  F.getName() << "\n");
 
     IPCloneKind CloneType;
     if (AfterInl) {
       CloneType = GenericClone;
-      if (IPCloningTrace)
-        dbgs() << "    Selected generic cloning  " << "\n";
+      LLVM_DEBUG(dbgs() << "    Selected generic cloning  " << "\n");
     } else {
       int Start, Inc;
       unsigned ArgPos, Count;
@@ -2838,8 +3319,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       if (isRecProgressionCloneCandidate(F, true,
           &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
         CloneType = RecProgressionClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected RecProgression cloning  " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected RecProgression cloning  " << "\n");
         createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
         if (!IsCyclic && canChangeCPUAttributes(M))
@@ -2852,32 +3332,40 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       // function-pointer type argument.
       if (IsFunctionPtrCloneCandidate(F)) {
         CloneType = FuncPtrsClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected FuncPtrs cloning  " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected FuncPtrs cloning  " << "\n");
       } else if (isDirectlyRecursive(&F)) {
+        SmallPtrSet<Argument *, 16> IfArgs;
+        SmallPtrSet<Argument *, 16> SwitchArgs;
+        SmallPtrSet<CallBase *, 16> BestCBs;
+        if (isManyRecCallsCloneCandidate(F, IfArgs, SwitchArgs, BestCBs)) {
+          CloneType = ManyRecCallsClone;
+          LLVM_DEBUG(dbgs() << "    Selected many recursive calls cloning "
+                            << "\n");
+          createManyRecCallsClone(F, IfArgs, SwitchArgs, BestCBs);
+          continue;
+        }
         CloneType = GenericClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected generic cloning (recursive) " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected generic cloning (recursive) "
+                          << "\n");
       } else {
         CloneType = SpecializationClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected Specialization cloning  " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected Specialization cloning  " << "\n");
       }
     }
+
     FunctionAddressTaken = analyzeAllCallsOfFunction(F, CloneType);
 
     // It is okay to enable cloning for address taken routines but
     // disable it for now.
     if (FunctionAddressTaken) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping address taken " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping address taken " << F.getName() << "\n");
       continue;
     }
 
     if (CloneType == SpecializationClone && CurrCallList.size() != 0) {
       if (CurrCallList.size() > IPSpeCloningNumCallSitesLimit) {
-        if (IPCloningTrace)
-          dbgs() << " Too many CallSites: Skipping Specialization cloning\n";
+        LLVM_DEBUG(dbgs() << " Too many CallSites: Skipping Specialization "
+                             "cloning\n");
         continue;
       }
       // Transformation done here if Specialization cloning is kicked-in.
@@ -2886,25 +3374,23 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     }
 
     if (FormalConstantValues.size() == 0 || CurrCallList.size() == 0) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping non-candidate " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping non-candidate " << F.getName() << "\n");
       continue;
     }
 
-    if (IPCloningTrace)
-      dumpFormalsConstants(F);
+    LLVM_DEBUG(dumpFormalsConstants(F));
 
     unsigned MaxClones = getMaxClones();
     unsigned MinClones = getMinClones();
 
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << " Max clones:  " << MaxClones << "\n";
       dbgs() << " Min clones:  " << MinClones << "\n";
-    }
+    });
 
     if (MaxClones <= 1 || MinClones > IPFunctionCloningLimit) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping not worthy candidate " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping not worthy candidate "
+                        << F.getName() << "\n");
       continue;
     }
 
@@ -2914,14 +3400,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     bool IsGenRecQualified = false;
     if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
       &IsGenRecQualified)) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping due to Heuristics " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping due to Heuristics "
+                        << F.getName() << "\n");
       continue;
     }
 
     if (!collectAllConstantArgumentsSets(F)) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping not profitable candidate " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping not profitable candidate "
+                        << F.getName() << "\n");
       continue;
     }
 
@@ -2930,17 +3416,17 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     // and at least 'IPGenCloningMinRecCallsites' callsites.
     if (IsGenRecQualified && (FunctionAllArgumentsSets.size() != 1
       || CurrCallList.size() < IPGenCloningMinRecCallsites)) {
-      if (IPCloningTrace)
+      LLVM_DEBUG({
         dbgs() << " Skipping not profitable recursive candidate "
                << F.getName() << "\n";
+      });
       continue;
     }
 
     cloneFunction();
   }
 
-  if (IPCloningTrace)
-    dbgs() << " Total clones:  " << NumIPCloned << "\n";
+  LLVM_DEBUG(dbgs() << " Total clones:  " << NumIPCloned << "\n");
 
   if (NumIPCloned != 0)
     return true;

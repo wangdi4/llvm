@@ -25,6 +25,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/DDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/IntegerRange.h"
 #include "llvm/Analysis/MemoryLocation.h"
 
 namespace llvm {
@@ -605,6 +606,17 @@ public:
   }
   const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.rend(); }
 
+  /// Dimension index iterator methods
+  //    Iterates through dimension 1 to getNumDimensions(), inclusively.
+  //     ex)
+  //        for (auto I : make_range(Ref->dim_index_begin(),
+  //        Ref->dim_index_end()))
+  //          CanonExpr *CE = Ref->getNumDimension(I);
+  IntegerRangeIterator dim_index_begin() { return IntegerRangeIterator(1); }
+  IntegerRangeIterator dim_index_end() {
+    return IntegerRangeIterator(getNumDimensions() + 1);
+  }
+
   bool hasBlobDDRefs() const { return !BlobDDRefs.empty(); }
   unsigned numBlobDDRefs() const { return BlobDDRefs.size(); }
 
@@ -799,6 +811,7 @@ public:
     assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
     return CanonExprs[DimensionNum - 1];
   }
+
   const CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
     return const_cast<RegDDRef *>(this)->getDimensionIndex(DimensionNum);
   }

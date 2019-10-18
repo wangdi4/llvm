@@ -13,6 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "ReduceFunctions.h"
+#include "Delta.h"
+#include "llvm/ADT/SetVector.h"
+#include <set>
+
+using namespace llvm;
 
 /// Removes all the Defined Functions (as well as their calls)
 /// that aren't inside any of the desired Chunks.
@@ -20,9 +25,9 @@ static void extractFunctionsFromModule(const std::vector<Chunk> &ChunksToKeep,
                                        Module *Program) {
   // Get functions inside desired chunks
   std::set<Function *> FuncsToKeep;
-  unsigned I = 0, FunctionCount = 0;
+  int I = 0, FunctionCount = 0;
   for (auto &F : *Program)
-    if (!F.isDeclaration() && I < ChunksToKeep.size()) {
+    if (I < (int)ChunksToKeep.size()) {
       if (ChunksToKeep[I].contains(++FunctionCount))
         FuncsToKeep.insert(&F);
       if (FunctionCount == ChunksToKeep[I].end)
@@ -31,49 +36,42 @@ static void extractFunctionsFromModule(const std::vector<Chunk> &ChunksToKeep,
 
   // Delete out-of-chunk functions, and replace their calls with undef
   std::vector<Function *> FuncsToRemove;
+  SetVector<CallInst *> CallsToRemove;
   for (auto &F : *Program)
-    if (!F.isDeclaration() && !FuncsToKeep.count(&F)) {
+    if (!FuncsToKeep.count(&F)) {
+      for (auto U : F.users())
+        if (auto *Call = dyn_cast<CallInst>(U)) {
+          Call->replaceAllUsesWith(UndefValue::get(Call->getType()));
+          CallsToRemove.insert(Call);
+        }
       F.replaceAllUsesWith(UndefValue::get(F.getType()));
       FuncsToRemove.push_back(&F);
     }
 
+  for (auto *C : CallsToRemove)
+    C->eraseFromParent();
+
   for (auto *F : FuncsToRemove)
     F->eraseFromParent();
-
-  // Delete instructions with undef calls
-  std::vector<Instruction *> InstToRemove;
-  for (auto &F : *Program)
-    for (auto &BB : F)
-      for (auto &I : BB)
-        if (auto *Call = dyn_cast<CallInst>(&I))
-          if (!Call->getCalledFunction()) {
-            // Instruction might be stored / used somewhere else
-            I.replaceAllUsesWith(UndefValue::get(I.getType()));
-            InstToRemove.push_back(&I);
-          }
-
-  for (auto *I : InstToRemove)
-    I->eraseFromParent();
 }
 
 /// Counts the amount of non-declaration functions and prints their
 /// respective name & index
-static unsigned countDefinedFunctions(Module *Program) {
+static int countFunctions(Module *Program) {
   // TODO: Silence index with --quiet flag
-  outs() << "----------------------------\n";
-  outs() << "Function Index Reference:\n";
-  unsigned FunctionCount = 0;
+  errs() << "----------------------------\n";
+  errs() << "Function Index Reference:\n";
+  int FunctionCount = 0;
   for (auto &F : *Program)
-    if (!F.isDeclaration())
-      outs() << "\t" << ++FunctionCount << ": " << F.getName() << "\n";
+    errs() << "\t" << ++FunctionCount << ": " << F.getName() << "\n";
 
-  outs() << "----------------------------\n";
+  errs() << "----------------------------\n";
   return FunctionCount;
 }
 
 void llvm::reduceFunctionsDeltaPass(TestRunner &Test) {
-  outs() << "*** Reducing Functions...\n";
-  unsigned Functions = countDefinedFunctions(Test.getProgram());
+  errs() << "*** Reducing Functions...\n";
+  int Functions = countFunctions(Test.getProgram());
   runDeltaPass(Test, Functions, extractFunctionsFromModule);
-  outs() << "----------------------------\n";
+  errs() << "----------------------------\n";
 }

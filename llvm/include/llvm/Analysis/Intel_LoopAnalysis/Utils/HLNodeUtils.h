@@ -18,6 +18,7 @@
 
 #include "llvm/Support/Compiler.h"
 
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
@@ -244,7 +245,7 @@ private:
 
   /// Creates a new Call instruction.
   std::pair<HLInst *, CallInst *>
-  createCallImpl(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
+  createCallImpl(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                  const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                  ArrayRef<OperandBundleDef> Bundle = {},
                  ArrayRef<RegDDRef *> BundleOps = {});
@@ -638,6 +639,10 @@ public:
   /// GEP refs using the returned blob index as the base pointer.
   unsigned createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name = "alloca");
 
+  /// Generated alloca with arraysize. Useful for var array.
+  HLInst *createAlloca(Type *Ty, RegDDRef *ArraySizeRvalRef,
+                       const Twine &Name = "alloca");
+
   /// Creates a new Load instruction.
   HLInst *createLoad(RegDDRef *RvalRef, const Twine &Name = "load",
                      RegDDRef *LvalRef = nullptr);
@@ -828,7 +833,7 @@ public:
                     const Twine &Name = "max");
 
   /// Creates a new Call instruction.
-  HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
+  HLInst *createCall(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                      ArrayRef<OperandBundleDef> Bundle = {},
                      ArrayRef<RegDDRef *> BundleOps = {});
@@ -842,6 +847,12 @@ public:
 
   /// Creates a new Memset intrinsic call.
   HLInst *createMemset(RegDDRef *StoreRef, RegDDRef *Value, RegDDRef *Size);
+
+  /// Creates a new stacksave intrinsic call.
+  HLInst *createStacksave(const DebugLoc &DLoc);
+
+  /// Creates a new stackrestore intrinsic call.
+  HLInst *createStackrestore(RegDDRef *AddrArg);
 
   /// Creates a new vector reduce intrinsic call for FP min/max reduction.
   HLInst *createFPMinMaxVectorReduce(RegDDRef *VecRef,

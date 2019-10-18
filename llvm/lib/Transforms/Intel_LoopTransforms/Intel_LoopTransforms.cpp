@@ -45,6 +45,7 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRMVForConstUBLegacyPassPass(Registry);
   initializeHIRLoopConcatenationLegacyPassPass(Registry);
   initializeHIRArrayTransposeLegacyPassPass(Registry);
+  initializeHIRAosToSoaLegacyPassPass(Registry);
   initializeHIRLoopFusionLegacyPassPass(Registry);
   initializeHIRDeadStoreEliminationLegacyPassPass(Registry);
   initializeHIRLastValueComputationLegacyPassPass(Registry);
@@ -54,4 +55,7 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(Registry);
   initializeHIRPrefetchingLegacyPassPass(Registry);
   initializeHIRSinkingForPerfectLoopnestLegacyPassPass(Registry);
+  initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(Registry);
+  initializeHIRConditionalTempSinkingLegacyPassPass(Registry);
+  initializeHIRMemoryReductionSinkingLegacyPassPass(Registry);
 }

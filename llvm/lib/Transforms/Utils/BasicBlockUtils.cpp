@@ -373,11 +373,13 @@ llvm::SplitAllCriticalEdges(Function &F,
 
 BasicBlock *llvm::SplitBlock(BasicBlock *Old, Instruction *SplitPt,
                              DominatorTree *DT, LoopInfo *LI,
-                             MemorySSAUpdater *MSSAU) {
+                             MemorySSAUpdater *MSSAU, const Twine &BBName) {
   BasicBlock::iterator SplitIt = SplitPt->getIterator();
   while (isa<PHINode>(SplitIt) || SplitIt->isEHPad())
     ++SplitIt;
-  BasicBlock *New = Old->splitBasicBlock(SplitIt, Old->getName()+".split");
+  std::string Name = BBName.str();
+  BasicBlock *New = Old->splitBasicBlock(
+      SplitIt, Name.empty() ? Old->getName() + ".split" : Name);
 
   // The new block lives in whichever loop the old one did. This preserves
   // LCSSA as well, because we force the split point to be after any PHI nodes.
@@ -849,6 +851,10 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
   ReplaceInstWithInst(HeadOldTerm, HeadNewTerm);
 }
 
+#if INTEL_CUSTOMIZATION
+/// We replace the 3-argument function with a call to the 4-argument function.
+/// Any changes made to the open-source 3-argument function will need to be
+/// merged properly.
 Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                              BasicBlock *&IfFalse) {
   PHINode *SomePHI = dyn_cast<PHINode>(BB->begin());
@@ -865,32 +871,15 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
     Pred1 = *PI++;
     if (PI == PE) // Only one predecessor
       return nullptr;
+    PI++;
     if (PI != PE) // More than two predecessors
       return nullptr;
   }
 
-#if INTEL_CUSTOMIZATION
   // Call the general version of GetIfCondition(..) here that
   // does not limit basicblock to have only two predecessors.
   return GetIfCondition(BB, Pred1, IfTrue, IfFalse);
-#endif // INTEL_CUSTOMIZATION
 }
-
-#if INTEL_CUSTOMIZATION
-/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
-/// is an Intel customized routine that overloads the more limited
-/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) LLVM
-/// open-source routine. This function has been more generalized so that the
-/// BB can have more than two predecessors. In addition,
-/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) has been replaced
-/// with an Intel customized version.  This version has the same prototype but
-/// internally uses the more generalized
-/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
-/// Any changes made by the LLVM community to
-/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) will need to be
-/// incorporated into these two routines. There might be conflicts
-/// during code merge and if resolving conflicts becomes too cumbersome,
-/// we can try something different.
 
 /// GetIfCondition - Given a basic block (BB) and its predecessor (Pred),
 /// (does not have to be an immediate predecessor) check to see if the merge at

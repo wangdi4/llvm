@@ -1,5 +1,6 @@
-; RUN: opt < %s -ip-cloning -print-ip-cloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -ip-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and eight clones of it are created. Also test that the recursive progression

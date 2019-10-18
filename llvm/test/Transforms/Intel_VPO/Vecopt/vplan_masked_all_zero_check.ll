@@ -1,4 +1,5 @@
 ; RUN: opt -S -VPlanDriver < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -enable-vp-value-codegen < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -28,7 +29,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %i.022
   %1 = load i64, i64* %arrayidx2, align 8
   %cmp319 = icmp slt i64 %0, %1
-; CHECK:       vector.body:
+; CHECK:  vector.body:
 ; CHECK:    [[WIDE_LOAD:%.*]] = load <8 x i64>, <8 x i64>* [[TMP1:%.*]], align 8
 ; CHECK:    [[WIDE_LOAD1:%.*]] = load <8 x i64>, <8 x i64>* [[TMP3:%.*]], align 8
 ; CHECK:    [[TMP4:%.*]] = icmp slt <8 x i64> [[WIDE_LOAD]], [[WIDE_LOAD1]]

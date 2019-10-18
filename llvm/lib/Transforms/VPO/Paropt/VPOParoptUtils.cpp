@@ -22,6 +22,7 @@
 //==------------------------------------------------------------------------==//
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -53,6 +54,19 @@ static cl::opt<bool> EnableOutlineVerification(
 static cl::opt<bool> StrictOutlineVerification(
     "vpo-paropt-strict-outline-verification", cl::Hidden, cl::init(true),
     cl::desc("Only allow pointers to be arguments of outlined routines."));
+
+// Undocumented option to control execution scheme for SPIR targets.
+cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
+    spirv::ExecutionSchemeOptionName, cl::Hidden,
+    cl::init(spirv::ImplicitSIMDSPMDES),
+    cl::desc(""),
+    cl::values(
+        clEnumValN(spirv::ImplicitSIMDES,
+            "0", "Default"),               // Implicit SIMD
+        clEnumValN(spirv::ImplicitSIMDSPMDES,
+            "1", "<undocumented>"),        // Implicit SIMD with SPMD
+        clEnumValN(spirv::ExplicitSIMDES,
+            "2", "<undocumented>")));      // Explicit SIMD
 
 static const unsigned StackAdjustedAlignment = 16;
 
@@ -642,6 +656,10 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 
   Value *DeviceID       = WTarget->getDevice();
   Value *NumTeamsPtr    = W->getNumTeams();
+
+  assert((!useSPMDMode(W) || !NumTeamsPtr) &&
+         "SPMD mode cannot be used with num_teams.");
+
   Value *ThreadLimitPtr = W->getThreadLimit();
   CallInst *Call= genTgtCall("__tgt_target_teams", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
@@ -816,8 +834,14 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
   BasicBlock *B  = InsertPt->getParent();
   Function *F    = B->getParent();
   LLVMContext &C = F->getContext();
+
+  SmallVector<Type *, 1> ArgType = { Type::getInt32Ty(C) };
+
+  if (FnArgs.empty())
+    ArgType.clear();
+
   CallInst *Call =
-      genCall(FnName, RetType, FnArgs, { Type::getInt32Ty(C) } , InsertPt);
+      genCall(FnName, RetType, FnArgs, ArgType, InsertPt);
   return Call;
 }
 
@@ -2161,7 +2185,7 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
 
   // Create the arg for Tid
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Create the argument list
   SmallVector<Value *, 3> FnArgs = {Loc, LoadTid};
@@ -2238,7 +2262,7 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // loc argument is obtained using the IdentTy struct inside genKmpcCall. But
   // we need a valid Tid, which we can load from memory using TidPtr.
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value*, 3> FnArgs = {LoadTid};
@@ -2292,7 +2316,7 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   RetTy = Type::getVoidTy(C);
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -2336,7 +2360,7 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
   }
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -2373,7 +2397,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
   }
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -2407,7 +2431,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
     FnName = "__kmpc_end_ordered";
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3118,7 +3142,8 @@ void VPOParoptUtils::genCopyByAddr(Value *To, Value *From,
     genCopyConstructorCall(Cctor, To, From, InsertPt);
   else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
            (AI && AI->isArrayAllocation())) {
-    unsigned Alignment = AI ? AI->getAlignment() : DL.getStackAlignment();
+    unsigned Alignment =
+        AI ? AI->getAlignment() : DL.getABITypeAlignment(To->getType());
     VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
   } else
     Builder.CreateStore(Builder.CreateLoad(From), To);
@@ -3337,6 +3362,58 @@ CallInst *VPOParoptUtils::removeOperandBundlesFromCall(
   CI->replaceAllUsesWith(NewI);
   CI->eraseFromParent();
   return NewI;
+}
+
+// Check if the given value may be cloned before the given region.
+// This method does not do all the necessary checks to guarantee
+// cloneability in general. It works correctly only for a special
+// case of values of loops' upper bounds originating from normalized
+// upper bounds values produced by FE, for example:
+//   [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%omp.ub) ]
+//   [ "DIR.OMP.TEAMS"(), "QUAL.OMP.SHARED"(i32 *%omp.ub) ]
+//   [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NORMALIZED.UB"(i32 *%omp.ub) ]
+//   %1 = load i32, i32* %omp.ub
+//   ...
+//   <use of %1 as a loop upper bound>
+//
+// We start from the use of %1, and trace it back to the load instruction
+// (we do allow some intermediate instructions). We check if the load's
+// address is firstprivate() to "omp target" region, and return true
+// in this case, otherwise we return false.
+//
+// Note that this is not enough in general, e.g.:
+//   [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%x) ]
+//   [ "DIR.OMP.TEAMS"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%x) ]
+//   [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%x) ]
+//   store i32 %val, i32* %x
+//   %1 = load i32, i32* %x
+//   ...
+//   <use of %1>
+//
+// We cannot legally rematerialize value of %1 before any of the regions,
+// since its value is changed by the intervening store instruction.
+bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
+    Value *V, const WRegionNode *W) {
+  if (isa<Constant>(V))
+    return true;
+
+  if (!W->canHaveFirstprivate())
+    return false;
+
+  SmallVector<Instruction *, 3> ChainToBase;
+  auto *LI = cast<LoadInst>(findChainToLoad(V, ChainToBase));
+  auto *ChainBase = LI->getPointerOperand();
+
+  if (!std::any_of(W->getFpriv().items().begin(),
+                   W->getFpriv().items().end(),
+                   [ChainBase] (FirstprivateItem *FprivI) {
+                     if (ChainBase == FprivI->getOrig())
+                       return true;
+                     return false;
+                   }))
+    return false;
+
+  return true;
 }
 
 // Clones the load instruction and inserts before the InsertPt.
@@ -3717,4 +3794,37 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
   return Result;
 }
 
+bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+  // We cannot support SPMD execution scheme with SIMD1 emulation.
+  if (W->mayHaveOMPCritical())
+    return false;
+
+  WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  if (!WT)
+    return false;
+
+  return WT->getParLoopNdInfoAlloca() != nullptr;
+}
+
+spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
+  return SPIRExecutionScheme;
+}
+
+bool VPOParoptUtils::isOMPCritical(
+    const Instruction *I, const TargetLibraryInfo &TLI) {
+  const auto *CI = dyn_cast<const CallInst>(I);
+  if (!CI)
+    return false;
+
+  auto *CalledF =
+      dyn_cast<Function>(CI->getCalledOperand()->stripPointerCasts());
+  if (!CalledF)
+    return false;
+
+  LibFunc LF;
+  if (TLI.getLibFunc(*CalledF, LF))
+    return LF == LibFunc_kmpc_critical;
+
+  return false;
+}
 #endif // INTEL_COLLAB

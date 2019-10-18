@@ -568,13 +568,13 @@ bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
   DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.incoming(LRef)) {
-    if (E->isANTIdep() || E->isOUTPUTdep()) {
+    if (E->isAnti() || E->isOutput()) {
       return false;
     }
   }
 
   for (DDEdge *E : DDG.outgoing(LRef)) {
-    if (E->isOUTPUTdep()) {
+    if (E->isOutput()) {
       return false;
     }
   }
@@ -623,7 +623,7 @@ bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
   DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.outgoing(RRef)) {
-    if (E->isANTIdep()) {
+    if (E->isAnti()) {
       return false;
     }
   }
@@ -779,7 +779,7 @@ bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
   DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.outgoing(TempRef)) {
-    if (E->isFLOWdep()) {
+    if (E->isFlow()) {
       DDRef *DDRefSink = E->getSink();
       setLinear(DDRefSink);
     }

@@ -65,11 +65,12 @@ entry:
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i32*, i32** @xptr
 ; CHECK: store i32* [[LOAD1]], i32** [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
 ; CHECK: call void @__kmpc_barrier{{.*}}
-; CHECK: call void @__kmpc_for_static_init_4({{.*}}
+; CHECK: call void @__kmpc_for_static_init_4(%__struct.ident_t* @{{[^, ]+}}, i32 %{{[^, ]+}}, i32 34, i32* %{{[^, ]+}}, i32* [[CHUNK_LB_PTR:%[^, ]+]]{{.*}}
 
-; Initialization of linear var per iteration
+; Initialization of linear var per chunk
+; CHECK: [[CHUNK_LB:%[^ ]+]] = load i32, i32* [[CHUNK_LB_PTR]]
 ; CHECK: [[LOAD2:%[a-zA-Z._0-9]+]] = load i32*, i32** [[LINEAR_INIT]]
-; CHECK: [[CAST1:%[a-zA-Z._0-9]+]] = sext i32 %.omp.iv.local{{[.0-9]*}} to i64
+; CHECK: [[CAST1:%[a-zA-Z._0-9]+]] = sext i32 [[CHUNK_LB]] to i64
 ; CHECK: [[MUL:%[a-zA-Z._0-9]+]] = mul i64 [[CAST1]], [[LOAD_STEP]]
 ; CHECK: [[GEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds i32, i32* [[LOAD2]], i64 [[MUL]]
 ; CHECK: store i32* [[GEP]], i32** [[LINEAR_LOCAL:%[a-zA-Z._0-9]+]]

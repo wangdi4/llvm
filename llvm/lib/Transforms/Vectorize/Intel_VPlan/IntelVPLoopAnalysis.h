@@ -11,8 +11,6 @@
 //
 /// \file
 /// This file provides VPLoop-based analyses:
-///  - VPLoopAnalysisBase, which can be used to compute min, known, estimated
-///    or max trip counts for a VPLoopRegion.
 ///  - VPLoopEntity, which is a base class for loop entities like inductions,
 ///    reductions, private.
 ///  - VPlanScalVecAnalysis, which is used to keep information about code
@@ -51,126 +49,6 @@ class VPInstruction;
 class VPPHINode;
 class VPBlockBase;
 class VPBuilder;
-
-class VPLoopAnalysisBase {
-protected:
-#if INTEL_CUSTOMIZATION
-  using TripCountTy = uint64_t;
-#else
-  // SCEV's getConstantTripCount() is limited to trip counts that fit into
-  // uint32_t
-  using TripCountTy = unsigned;
-#endif // INTEL_CUSTOMIZATION
-  typedef struct TripCountInfo {
-    TripCountTy MinTripCount;
-    TripCountTy MaxTripCount;
-    TripCountTy TripCount;
-    bool IsEstimated;
-
-    explicit TripCountInfo(void)
-        : MinTripCount(0), MaxTripCount(0), TripCount(0), IsEstimated(true) {}
-    explicit TripCountInfo(const TripCountTy MinTC, const TripCountTy MaxTC,
-                           const TripCountTy TC, const bool IsEstimated)
-        : MinTripCount(MinTC), MaxTripCount(MaxTC), TripCount(TC),
-          IsEstimated(IsEstimated) {}
-  } TripCount;
-
-  std::map<const VPLoopRegion *, TripCountInfo> LoopTripCounts;
-
-  // Trip count for loops with unknown loop count
-  const TripCountTy DefaultTripCount;
-
-  TripCountInfo computeAndReturnTripCountInfo(const VPLoopRegion *Lp) {
-    if (LoopTripCounts.count(Lp))
-      return LoopTripCounts.find(Lp)->second;
-    computeTripCount(Lp);
-    assert(LoopTripCounts.count(Lp) &&
-           "Cannot compute trip count for this loop");
-    return LoopTripCounts.find(Lp)->second;
-  }
-
-  virtual void computeTripCountImpl(const VPLoopRegion *Lp) = 0;
-
-public:
-  explicit VPLoopAnalysisBase(const TripCountTy DefaultTripCount)
-      : DefaultTripCount(DefaultTripCount) {}
-
-  virtual ~VPLoopAnalysisBase(){}
-
-  void computeTripCount(const VPLoopRegion *Lp) { computeTripCountImpl(Lp); }
-
-  /// Return true if trip count for the loop is known in compile time.
-  bool isKnownTripCountFor(const VPLoopRegion *Lp) {
-    return !computeAndReturnTripCountInfo(Lp).IsEstimated;
-  }
-
-  /// Return minimal trip count for the loop, which was either computed by some
-  /// analysis or was provided by user.
-  TripCountTy getMinTripCountFor(const VPLoopRegion *Lp) {
-    return computeAndReturnTripCountInfo(Lp).MinTripCount;
-  }
-
-  /// Return minimal trip count for the loop, which was either computed by some
-  /// analysis or was provided by user.
-  TripCountTy getMaxTripCountFor(const VPLoopRegion *Lp) {
-    return computeAndReturnTripCountInfo(Lp).MaxTripCount;
-  }
-
-  /// Return trip count for the loop. It's caller's responsibility to check
-  /// whether this trip count was estimated or was known in compile time.
-  TripCountTy getTripCountFor(const VPLoopRegion *Lp) {
-    return computeAndReturnTripCountInfo(Lp).TripCount;
-  }
-
-  /// Set known trip count for a given VPLoop. This function also sets MinTC and
-  /// MaxTC to same value.
-  void setKnownTripCountFor(const VPLoopRegion *Lp,
-                            const TripCountTy TripCount) {
-    LoopTripCounts[Lp] = TripCountInfo(TripCount, TripCount, TripCount, false);
-  }
-
-  /// Set estimated trip count for a given VPLoop. This function doesn't touch
-  /// MinTC or MaxTC.
-  void setEstimatedTripCountFor(const VPLoopRegion *Lp,
-                                const TripCountTy TripCount) {
-    LoopTripCounts[Lp].TripCount = TripCount;
-    LoopTripCounts[Lp].IsEstimated = true;
-  }
-
-  /// Set MinTC for a given VPLoop. This function doesn't touch TC or MaxTC.
-  void setMinTripCountFor(const VPLoopRegion *Lp, const TripCountTy TripCount) {
-    LoopTripCounts[Lp].MinTripCount = TripCount;
-    LoopTripCounts[Lp].IsEstimated = true;
-    if (TripCount > getMaxTripCountFor(Lp))
-      setMaxTripCountFor(Lp, TripCount);
-  }
-
-  /// Set MaxTC for a given VPLoop. This function doesn't touch TC or MinTC.
-  void setMaxTripCountFor(const VPLoopRegion *Lp, const TripCountTy TripCount) {
-    LoopTripCounts[Lp].MaxTripCount = TripCount;
-    LoopTripCounts[Lp].IsEstimated = true;
-    if (TripCount < getMinTripCountFor(Lp))
-      setMinTripCountFor(Lp, TripCount);
-  }
-
-  void setTripCountsFromPragma(const VPLoopRegion *Lp, uint64_t MinTripCount,
-                               uint64_t MaxTripCount, uint64_t AvgTripCount);
-};
-
-class VPLoopAnalysis : public VPLoopAnalysisBase {
-private:
-  ScalarEvolution *SE;
-  LoopInfo *LI;
-  // TODO: templatizing of getSmallConstantMaxTripCount() is required to support
-  // VPLoop.
-
-  void computeTripCountImpl(const VPLoopRegion *Lp) final;
-
-public:
-  explicit VPLoopAnalysis(ScalarEvolution *SE,
-                          const TripCountTy DefaultTripCount, LoopInfo *LI)
-      : VPLoopAnalysisBase(DefaultTripCount), SE(SE), LI(LI) {}
-};
 
 /// Base class for loop entities
 class VPLoopEntity {
@@ -228,13 +106,16 @@ public:
     return V->getID() == Reduction;
   }
 
-  unsigned getReductionOpcode() const;
+  unsigned getReductionOpcode() const {
+    return getReductionOpcode(getRecurrenceKind(), getMinMaxRecurrenceKind());
+  }
 
   bool isMinMax() const { return MinMaxKind != MRK_Invalid; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &OS) const;
 #endif
+  static unsigned getReductionOpcode(RecurrenceKind K, MinMaxRecurrenceKind MK);
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -505,7 +386,7 @@ public:
 
   /// Get original memory pointer for an entity. Returns nullptr for
   /// in-register entities.
-  const VPValue* getOrigMemoryPtr(const VPLoopEntity *E) const {
+  const VPValue *getOrigMemoryPtr(const VPLoopEntity *E) const {
     const VPLoopEntityMemoryDescriptor *Descr = getMemoryDescriptor(E);
     return Descr ? Descr->getMemoryPtr() : nullptr;
   }
@@ -590,6 +471,9 @@ public:
   void replaceDuplicateInductionPHIs();
   void doEscapeAnalysis();
 
+  /// Return VPPHINode that corresponds to a recurrent entity.
+  VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
+
 private:
   VPlan &Plan;
   VPLoop &Loop;
@@ -661,6 +545,8 @@ private:
   void linkValue(VPLoopEntity *E, VPValue *Val) {
     if (auto Red = dyn_cast<VPReduction>(E))
       linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPIndexReduction>(E))
+      linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
@@ -712,7 +598,8 @@ private:
   // loop body. The second way increases register pressure but seems more
   // effective in terms of run-time.
   void createInductionCloseForm(VPInduction *Induction, VPBuilder &Builder,
-                                VPValue &InitStep, VPValue &PrivateMem);
+                                VPValue &Init, VPValue &InitStep,
+                                VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 };
@@ -895,6 +782,7 @@ public:
   void setStep(VPValue *V) { Step = V; }
   void setInductionBinOp(VPInstruction *V) { InductionBinOp = V; }
   void setBinOpcode(unsigned V) { BinOpcode = V; }
+  void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
 
   /// Clear the content.
   void clear() override {

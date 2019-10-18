@@ -76,7 +76,7 @@ public:
     return SyntheticSection::classof(d) && d->name == ".eh_frame";
   }
 
-  template <class ELFT> void addSection(InputSectionBase *s);
+  void addSection(EhInputSection *sec);
 
   std::vector<EhInputSection *> sections;
   size_t numFdes = 0;
@@ -97,7 +97,9 @@ private:
   uint64_t size = 0;
 
   template <class ELFT, class RelTy>
-  void addSectionAux(EhInputSection *s, llvm::ArrayRef<RelTy> rels);
+  void addRecords(EhInputSection *s, llvm::ArrayRef<RelTy> rels);
+  template <class ELFT>
+  void addSectionAux(EhInputSection *s);
 
   template <class ELFT, class RelTy>
   CieRecord *addCie(EhSectionPiece &piece, ArrayRef<RelTy> rels);
@@ -1004,7 +1006,7 @@ public:
 
   size_t getSize() const override { return size; }
   void writeTo(uint8_t *buf) override;
-  bool isNeeded() const override { return !empty; }
+  bool isNeeded() const override;
   // Sort and remove duplicate entries.
   void finalizeContents() override;
   InputSection *getLinkOrderDep() const;
@@ -1017,9 +1019,6 @@ public:
 
 private:
   size_t size;
-
-  // Empty if ExecutableSections contains no dependent .ARM.exidx sections.
-  bool empty = true;
 
   // Instead of storing pointers to the .ARM.exidx InputSections from
   // InputObjects, we store pointers to the executable sections that need
@@ -1110,19 +1109,11 @@ public:
   void writeTo(uint8_t *buf) override;
 };
 
-// Create a dummy .sdata for __global_pointer$ if .sdata does not exist.
-class RISCVSdataSection final : public SyntheticSection {
-public:
-  RISCVSdataSection();
-  size_t getSize() const override { return 0; }
-  bool isNeeded() const override;
-  void writeTo(uint8_t *buf) override {}
-};
-
 InputSection *createInterpSection();
 MergeInputSection *createCommentSection();
+MergeSyntheticSection *createMergeSynthetic(StringRef name, uint32_t type,
+                                            uint64_t flags, uint32_t alignment);
 template <class ELFT> void splitSections();
-void mergeSections();
 
 template <typename ELFT> void writeEhdr(uint8_t *buf, Partition &part);
 template <typename ELFT> void writePhdrs(uint8_t *buf, Partition &part);
@@ -1186,7 +1177,6 @@ struct InStruct {
   IBTPltSection *ibtPlt;
 #endif // INTEL_CUSTOMIZATION
   PPC32Got2Section *ppc32Got2;
-  RISCVSdataSection *riscvSdata;
   RelocationBaseSection *relaPlt;
   RelocationBaseSection *relaIplt;
   StringTableSection *shStrTab;

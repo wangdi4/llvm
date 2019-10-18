@@ -140,7 +140,8 @@ def analyzer_checker_help_developer : Flag<["-"], "analyzer-checker-help-develop
            "and debug checkers">;
 
 def analyzer_config_help : Flag<["-"], "analyzer-config-help">,
-  HelpText<"Display the list of -analyzer-config options">;
+  HelpText<"Display the list of -analyzer-config options. These are meant for "
+           "development purposes only!">;
 
 def analyzer_list_enabled_checkers : Flag<["-"], "analyzer-list-enabled-checkers">,
   HelpText<"Display the list of enabled analyzer checkers">;
@@ -694,7 +695,7 @@ let Flags = [CC1Option, CC1AsOption, NoDriverOption] in {
 def version : Flag<["-"], "version">,
   HelpText<"Print the compiler version">;
 def main_file_name : Separate<["-"], "main-file-name">,
-  HelpText<"Main file name to use for debug info">;
+  HelpText<"Main file name to use for debug info and source if missing">;
 def split_dwarf_output : Separate<["-"], "split-dwarf-output">,
   HelpText<"File name to use for split dwarf debug info output">;
 
@@ -813,6 +814,9 @@ def fintel_compatibility_disable
 def fintel_compatibility_help
     : Flag<[ "-" ], "fintel-compatibility-help">,
       HelpText<"Display the list of Intel C/C++ compatibility items">;
+def fintel_compatibility_doc
+    : Joined<[ "-" ], "fintel-compatibility-doc=">,
+      HelpText<"Display help information for Intel C/C++ compatibility items">;
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
@@ -838,6 +842,12 @@ def fno_intel_openmp_offload : Flag<["-"], "fno-intel-openmp-offload">,
   HelpText<"Enable emitting of Intel specific OpenMP offload code">;
 def fintel_openmp_region_atomic : Flag<["-"], "fintel-openmp-region-atomic">,
   HelpText<"Enable emitting of OpenMP atomics with regions">;
+def fintel_openmp_region_early_collapsed_loops : Flag<["-"],
+      "fintel-openmp-region-early-collapsed-loops">,
+      HelpText<"Always generate early collapsed OpenMP loops">;
+def fintel_openmp_region_late_collapsed_loops : Flag<["-"],
+      "fintel-openmp-region-late-collapsed-loops">,
+      HelpText<"Generate late collapsed OpenMP loops if beneficial">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
   HelpText<"Generate legacy OpenMP threadprivates">;
 def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,

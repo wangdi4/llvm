@@ -11,19 +11,12 @@
 ; }
 
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LINEAR"(i32* %[[LPRIV:[^,]+]], i32 1){{.*}} ]
-; CHECK: %[[IV:.+]] = load i32, i32* %l
-; CHECK: store i32 %[[IV]], i32* %[[LINEAR_START:[^,]+]]
-; CHECK: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
-; CHECK: [[PHB]]:
 ; CHECK: br label %[[LOOPBODY:[^,]+]]
 ; CHECK: [[LOOPBODY]]:
-; CHECK: load i32, i32* %[[LINEAR_START]]
-; CHECK: store {{.*}}i32* %[[LPRIV]]
-; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
-; CHECK: [[LEXIT]]:
 ; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
-; CHECK: store i32 %[[V]], i32* %l
-; CHECK: br label %[[REXIT]]
+; CHECK_NEXT: %[[INC:.+]] = add nsw i32 %2, 1
+; CHECK_NEXT: store i32 %[[INC]], i32* %[[LPRIV]]
+; CHECK: br label %[[REXIT:[^,]+]]
 ; CHECK: [[REXIT]]:
 ; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
 

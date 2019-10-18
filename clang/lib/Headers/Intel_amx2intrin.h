@@ -248,15 +248,51 @@
   __asm__ volatile("tdpfp16ps %%tmm" #tile1 ", %%tmm" #tile2 ", "              \
                    "%%tmm" #tile3 ::)
 // Tile to AVX512
-#define _tile_mov2zmm(tile, imm)                                               \
+#define _tile_movrowe(tile, row)                                               \
   __extension__({                                                              \
     __m512 __zmm;                                                              \
-    __asm__ volatile("tilemov2zmm %1, %%tmm" #tile ", %0"                      \
+    __asm__ volatile("tilemovrowe %1, %%tmm" #tile ", %0"                      \
                      : "=v"(__zmm)                                             \
-                     : "i"(imm));                                              \
+                     : "ir"(row));                                             \
     __zmm;                                                                     \
   })
-
+#define _tile_movrowe_x(tile, row)                                             \
+  __extension__({                                                              \
+    __m512 __zmm;                                                              \
+    __asm__ volatile("tilemovrowe %1, %%tmm" #tile ", %0"                      \
+                     : "=v"(__zmm)                                             \
+                     : "v"(row));                                              \
+    __zmm;                                                                     \
+  })
+#define _tile_move(tile1, tile2)                                               \
+  __asm__ volatile("tilemove %%tmm" #tile2 ", %%tmm" #tile1 ::)
+#define _tile_16move(tile, zmmx)                                               \
+  __asm__ volatile("tile16move %%zmm" #zmmx ", %%tmm" #tile ::)
+#define _tile_loadde(dst, base, stride)                                        \
+  __asm__ volatile("tileloadde (%0,%1,1), %%tmm" #dst ::"r"(base),             \
+                   "r"((unsigned long long)(stride)))
+#define _tile_loaddt1e(dst, base, stride)                                      \
+  __asm__ volatile("tileloaddt1e  (%0,%1,1), %%tmm" #dst ::"r"(base),          \
+                   "r"((unsigned long long)(stride)))
+#define _tile_storede(src, base, stride)                                       \
+  __asm__ volatile("tilestorede  %%tmm" #src ", (%0,%1,1)" ::"r"(base),        \
+                   "r"((unsigned long long)(stride)))
+#define _tile_zeroe(src) __asm__ volatile("tilezeroe %%tmm" #src::)
+#define _tile_dpbf16pse(tile1, tile2, tile3)                                   \
+  __asm__ volatile("tdpbf16pse %%tmm" #tile3 ", %%tmm" #tile2 ", "             \
+                   "%%tmm" #tile1 ::)
+#define _tile_dpbssde(tile1, tile2, tile3)                                     \
+  __asm__ volatile("tdpbssde %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
+                   "%%tmm" #tile1 ::)
+#define _tile_dpbsude(tile1, tile2, tile3)                                     \
+  __asm__ volatile("tdpbsude %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
+                   "%%tmm" #tile1 ::)
+#define _tile_dpbusde(tile1, tile2, tile3)                                     \
+  __asm__ volatile("tdpbusde %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
+                   "%%tmm" #tile1 ::)
+#define _tile_dpbuude(tile1, tile2, tile3)                                     \
+  __asm__ volatile("tdpbuude %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
+                   "%%tmm" #tile1 ::)
 #endif /* __x86_64__ */
 #endif /* __AMX2INTRIN_H */
 /* end INTEL_FEATURE_ISA_AMX2 */

@@ -22,6 +22,8 @@
 
 #include "HIRLoopDistributionGraph.h"
 
+#define LLVM_DEBUG_DDG(X) DEBUG_WITH_TYPE("hir-loop-distribute-ddg", X)
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -107,6 +109,34 @@ void PiGraph::createEdges() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+LLVM_DUMP_METHOD
+void PiGraph::dump() const {
+  dbgs() << "\n<start> Proposed order\n";
+  for (auto *Block : PiBlocks) {
+    dbgs() << "\nPiBlock: \n";
+    Block->dump();
+
+    LLVM_DEBUG_DDG(
+    dbgs() << "\nInternal PP Edges: \n";
+    for (auto *Node :
+        make_range(Block->dist_node_begin(), Block->dist_node_end())) {
+      for (auto *Edge : PPGraph->outgoing(Node)) {
+        Edge->dump();
+      }
+      dbgs() << "-\n";
+    }
+
+    dbgs() << "\nExternal Pi Edges: \n";
+    for (auto *Edge : outgoing(Block)) {
+      Edge->dump();
+    }
+    dbgs() << "\n";
+    );
+  }
+  dbgs() << "<end>\n";
+}
+
 LLVM_DUMP_METHOD
 void PiBlock::dump() const {
   for (auto *PPNode : DistPPNodes) {

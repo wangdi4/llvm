@@ -133,7 +133,7 @@ ObjectFile *ObjectFilePECOFF::CreateInstance(const lldb::ModuleSP &module_sp,
       return nullptr;
   }
 
-  auto objfile_up = llvm::make_unique<ObjectFilePECOFF>(
+  auto objfile_up = std::make_unique<ObjectFilePECOFF>(
       module_sp, data_sp, data_offset, file, file_offset, length);
   if (!objfile_up || !objfile_up->ParseHeader())
     return nullptr;
@@ -150,7 +150,7 @@ ObjectFile *ObjectFilePECOFF::CreateMemoryInstance(
     const lldb::ProcessSP &process_sp, lldb::addr_t header_addr) {
   if (!data_sp || !ObjectFilePECOFF::MagicBytesMatch(data_sp))
     return nullptr;
-  auto objfile_up = llvm::make_unique<ObjectFilePECOFF>(
+  auto objfile_up = std::make_unique<ObjectFilePECOFF>(
       module_sp, data_sp, process_sp, header_addr);
   if (objfile_up.get() && objfile_up->ParseHeader()) {
     return objfile_up.release();
@@ -195,7 +195,11 @@ size_t ObjectFilePECOFF::GetModuleSpecifications(
     specs.Append(module_spec);
     break;
   case MachineArmNt:
-    spec.SetTriple("arm-pc-windows");
+    spec.SetTriple("armv7-pc-windows");
+    specs.Append(module_spec);
+    break;
+  case MachineArm64:
+    spec.SetTriple("aarch64-unknown-windows");
     specs.Append(module_spec);
     break;
   default:
@@ -524,7 +528,7 @@ DataExtractor ObjectFilePECOFF::ReadImageData(uint32_t offset, size_t size) {
   ProcessSP process_sp(m_process_wp.lock());
   DataExtractor data;
   if (process_sp) {
-    auto data_up = llvm::make_unique<DataBufferHeap>(size, 0);
+    auto data_up = std::make_unique<DataBufferHeap>(size, 0);
     Status readmem_error;
     size_t bytes_read =
         process_sp->ReadMemory(m_image_base + offset, data_up->GetBytes(),
@@ -1200,6 +1204,7 @@ ArchSpec ObjectFilePECOFF::GetArchitecture() {
   case llvm::COFF::IMAGE_FILE_MACHINE_ARM:
   case llvm::COFF::IMAGE_FILE_MACHINE_ARMNT:
   case llvm::COFF::IMAGE_FILE_MACHINE_THUMB:
+  case llvm::COFF::IMAGE_FILE_MACHINE_ARM64:
     ArchSpec arch;
     arch.SetArchitecture(eArchTypeCOFF, machine, LLDB_INVALID_CPUTYPE,
                          IsWindowsSubsystem() ? llvm::Triple::Win32

@@ -82,6 +82,28 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
                              uint32_t *ArrayRank,
                              Type **ElementType);
 
+// Helper routine to check whether a variable type is a type for an
+// uplevel variable.
+extern bool isUplevelVarType(Type *Ty);
+
+// Check for arguments of a subscript intrinsic call for the expected values.
+// The intrinsic call is declared as:
+//    declare <ty>* @llvm.intel.subscript...(i8 <rank>, <ty> <lb>,
+//                                           <ty> <stride>, <ty>* <base>,
+//                                           <ty> <index>)
+//
+// Return 'true' if call has the expected values for the Base, if
+// CheckForTranspose is set, check that the Rank is equal to the supplied
+// value. If the LowerBound and Stride parameters are supplied, also
+// check those.
+//
+extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
+                                      const Value &Base,
+                                      uint32_t ArrayRank, uint32_t Rank,
+                                      bool CheckForTranspose,
+                                      Optional<uint64_t> LowerBound = None,
+                                      Optional<uint64_t> Stride = None);
+
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
 // analysis to track loads and stores of the field for safety.
@@ -240,6 +262,12 @@ public:
   DopeVectorAnalyzer operator=(const DopeVectorAnalyzer &) = delete;
   DopeVectorAnalyzer operator=(DopeVectorAnalyzer &&) = delete;
 
+  // Accessor for dope vector object
+  Value* getDVObject() { return DVObject; }
+
+  // Accessor for array rank
+  unsigned long getRank() { return Rank; }
+
   // Check whether the dope vector was able to be analyzed.
   bool getIsValid() const { return IsValid; }
 
@@ -323,6 +351,14 @@ public:
   // Get the number of calls the dope vector is passed to
   uint64_t getNumberCalledFunctions() const { return FuncsWithDVParam.size(); }
 
+  // Check if the uses of the pointer address field results in a load
+  // instruction that may result in the address of the array pointer being used
+  // for something other than a supported subscript call. Return 'true' if all
+  // the uses are supported. If \p SubscriptCalls is not nullptr, this function
+  // collects the set of subscript calls which use the address of the array
+  // pointer into \p SubscriptCalls.
+  bool checkArrayPointerUses(SubscriptInstSet *SubscriptCalls);
+
   // Accessor for the set of calls taking dope vector as parameter.
   iterator_range<FuncArgPosPairSetIter> funcsWithDVParam() const {
     return iterator_range<FuncArgPosPairSetIter>(FuncsWithDVParam);
@@ -401,6 +437,21 @@ public:
   //                     i8 0, i64 0, i32 24, i64* %STRIDE, i32 0)
   Value *findPerDimensionArrayFieldPtr(GetElementPtrInst &FieldGEP,
                                        unsigned Dimension);
+
+  // Check that the subscript calls are using stride values from the dope
+  // vector. This should always be true, until dope vector constant
+  // propagation is implemented, in which case this transform needs to occur
+  // first. Otherwise, this check will invalidate candidates that have
+  // had constants substituted into the subscript calls.
+  bool checkSubscriptStrideValues(const SubscriptInstSet &SubscriptCalls);
+
+  // This checks the use of a dope vector in a function to verify the fields
+  // are not modified and the address of the array does not escape. If
+  // SubscriptCalls is not nullptr, add the subscript calls for the dope
+  // vector to *SubscriptCalls.
+  bool analyzeDopeVectorUseInFunction(const Function &F,
+                                      SubscriptInstSet *SubscriptCalls =
+                                          nullptr);
 private:
   // Value object that represents a dope vector.
   Value *DVObject;

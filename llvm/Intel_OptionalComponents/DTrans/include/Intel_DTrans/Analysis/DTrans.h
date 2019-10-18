@@ -67,7 +67,8 @@ public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
         ComplexUse(false), AddressTaken(false), SVKind(SVK_Complete),
-        SAFKind(SAFK_Top), SingleAllocFunction(nullptr), Frequency(0) {}
+        SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
+        SingleAllocFunction(nullptr), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -79,17 +80,29 @@ public:
   bool isNoValue() const {
     return SVKind == SVK_Complete && ConstantValues.empty();
   }
+  bool isNoIAValue() const {
+    return SVIAKind == SVK_Complete && ConstantIAValues.empty();
+  }
   bool isTopAllocFunction() const { return SAFKind == SAFK_Top; }
   bool isSingleValue() const {
     return SVKind == SVK_Complete && ConstantValues.size() == 1;
+  }
+  bool isSingleIAValue() const {
+    return SVIAKind == SVK_Complete && ConstantIAValues.size() == 1;
   }
   bool isSingleAllocFunction() const { return SAFKind == SAFK_Single; }
   bool isMultipleValue() const {
     return SVKind == SVK_Incomplete || ConstantValues.size() > 1;
   }
+  bool isMultipleIAValue() const {
+    return SVIAKind == SVK_Incomplete || ConstantIAValues.size() > 1;
+  }
   bool isBottomAllocFunction() const { return SAFKind == SAFK_Bottom; }
   llvm::Constant *getSingleValue() {
     return isSingleValue() ? *ConstantValues.begin() : nullptr;
+  }
+  llvm::Constant *getSingleIAValue() {
+    return isSingleIAValue() ? *ConstantIAValues.begin() : nullptr;
   }
   llvm::Function *getSingleAllocFunction() {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
@@ -107,6 +120,7 @@ public:
     SingleAllocFunction = F;
   }
   void setMultipleValue() { SVKind = SVK_Incomplete; }
+  void setIAMultipleValue() { SVIAKind = SVK_Incomplete; }
   void setBottomAllocFunction() {
     SAFKind = SAFK_Bottom;
     SingleAllocFunction = nullptr;
@@ -115,16 +129,30 @@ public:
   uint64_t getFrequency() const { return Frequency; }
 
   // Returns a set of possible constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &values() { return ConstantValues; }
+  llvm::SmallPtrSetImpl<llvm::Constant *> &values()
+      { return ConstantValues; }
+
+  // Returns a set of possible indirect array constant values.
+  llvm::SmallPtrSetImpl<llvm::Constant *> &iavalues()
+      { return ConstantIAValues; }
 
   // Returns true if the set of possible values is complete.
   bool isValueSetComplete() const { return SVKind == SVK_Complete; }
+
+  // Returns true if the set of possible values is complete.
+  bool isIAValueSetComplete() const { return SVIAKind == SVK_Complete; }
 
   //
   // Update the "single value" of the field, given that a constant value C
   // for the field has just been seen. Return true if the value is updated.
   //
   bool processNewSingleValue(llvm::Constant *C);
+  //
+  // Update the "indirect array single value" of the field, given that a
+  // constant value C for the field has just been seen. Return true if the
+  // value is updated.
+  //
+  bool processNewSingleIAValue(llvm::Constant *C);
   //
   // Update the single alloc function for the field, given that we have just
   // seen an assignment to it from the return value of a call to F. Return
@@ -141,6 +169,8 @@ private:
   bool AddressTaken;
   SingleValueKind SVKind;
   llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
+  SingleValueKind SVIAKind;
+  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantIAValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
   // It represents relative field access frequency and is used in
@@ -960,6 +990,13 @@ void getFreePtrArg(FreeKind Kind, const CallBase *Call, unsigned &PtrArgInd,
 void collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
                             SmallPtrSetImpl<const Value *> &OutputSet,
                             const TargetLibraryInfo &TLI);
+
+/// There is a possibility that a call to be analyzed is inside a BitCast, in
+/// which case we need to strip the pointer casting from the \p Call operand to
+/// identify the Function. The call may also be using an Alias to a Function,
+/// in which case we need to get the aliasee. If a function is found, return it.
+/// Otherwise, return nullptr.
+Function *getCalledFunction(const CallBase &Call);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
 bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);

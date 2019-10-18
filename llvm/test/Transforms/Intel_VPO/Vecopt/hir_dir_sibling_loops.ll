@@ -1,8 +1,7 @@
 ; Check that both inner loops are marked as vectorizable.
 
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-vec-dir-insert -print-after=hir-vec-dir-insert < %s 2>&1 | FileCheck %s
-
-; CHECK: After
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: BEGIN REGION
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>

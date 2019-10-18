@@ -447,6 +447,7 @@ static bool willNotOverflow(BinaryOpIntrinsic *BO, LazyValueInfo *LVI) {
   return NWRegion.contains(LRange);
 }
 
+// Rewrite this with.overflow intrinsic as non-overflowing.
 static void processOverflowIntrinsic(WithOverflowInst *WO) {
   IRBuilder<> B(WO);
   Value *NewOp = B.CreateBinOp(
@@ -459,8 +460,11 @@ static void processOverflowIntrinsic(WithOverflowInst *WO) {
       Inst->setHasNoUnsignedWrap();
   }
 
-  Value *NewI = B.CreateInsertValue(UndefValue::get(WO->getType()), NewOp, 0);
-  NewI = B.CreateInsertValue(NewI, ConstantInt::getFalse(WO->getContext()), 1);
+  StructType *ST = cast<StructType>(WO->getType());
+  Constant *Struct = ConstantStruct::get(ST,
+      { UndefValue::get(ST->getElementType(0)),
+        ConstantInt::getFalse(ST->getElementType(1)) });
+  Value *NewI = B.CreateInsertValue(Struct, NewOp, 0);
   WO->replaceAllUsesWith(NewI);
   WO->eraseFromParent();
   ++NumOverflows;

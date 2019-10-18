@@ -780,14 +780,14 @@ FMAImmediateTerm *X86FMABasicBlock::createZeroTerm(MVT VT) {
   // be re-used as (v4f32)0.0.
   auto &Term = ZeroTerms[VT.getSizeInBits()];
   if (!Term)
-    Term = make_unique<X86FMAImmediateTerm>(VT, this, 0u);
+    Term = std::make_unique<X86FMAImmediateTerm>(VT, this, 0u);
   return Term.get();
 }
 
 FMAImmediateTerm *X86FMABasicBlock::createOneTerm(MVT VT) {
   auto &Term = OneTerms[VT];
   if (!Term)
-    Term = make_unique<X86FMAImmediateTerm>(VT, this, 1u);
+    Term = std::make_unique<X86FMAImmediateTerm>(VT, this, 1u);
   return Term.get();
 }
 
@@ -800,7 +800,7 @@ FMARegisterTerm *X86FMABasicBlock::createRegisterTerm(MVT VT,
   // then just return the existing term. Otherwise, create a new term.
   auto &Term = RegisterToFMARegisterTerm[Reg];
   if (!Term)
-    Term = make_unique<FMARegisterTerm>(VT, this, Reg,
+    Term = std::make_unique<FMARegisterTerm>(VT, this, Reg,
                                         RegisterToFMARegisterTerm.size() +
                                         MIToFMAMemoryTerm.size());
   if (MO.isKill())
@@ -830,7 +830,7 @@ FMAMemoryTerm *X86FMABasicBlock::createMemoryTerm(MVT VT, MachineInstr *MI) {
     // between those loads, then the memory term created for the first machine
     // instruction could be re-used in the next machine instruction.
     // Currently, we just create a new memory term.
-    Term = make_unique<FMAMemoryTerm>(VT, this, MI,
+    Term = std::make_unique<FMAMemoryTerm>(VT, this, MI,
                                       RegisterToFMARegisterTerm.size() +
                                       MIToFMAMemoryTerm.size());
   return Term.get();
@@ -838,7 +838,7 @@ FMAMemoryTerm *X86FMABasicBlock::createMemoryTerm(MVT VT, MachineInstr *MI) {
 
 unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
                                            bool LookForAVX512) {
-  LLVM_DEBUG(dbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
+  LLVM_DEBUG(FMADbg::dbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
 
   for (auto &MI : getMBB()) {
     MVT VT;
@@ -912,7 +912,7 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
   }
   setDefHasUnknownUsersForRegisterTerms(MRI);
 
-  LLVM_DEBUG(dbgs() << *this << "FMA-STEP1 DONE.\n");
+  LLVM_DEBUG(FMADbg::dbgs() << *this << "FMA-STEP1 DONE.\n");
   return getFMAs().size();
 }
 
@@ -987,7 +987,8 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
         Opcode == Instruction::FRem || Opcode == Instruction::FCmp ||
         Opcode == Instruction::Call;
     if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasAllowReassoc()) {
-      LLVM_DEBUG(dbgs() << "Exit because found mixed fast-math settings.\n");
+      LLVM_DEBUG(FMADbg::dbgs()
+                     << "Exit because found mixed fast-math settings.\n");
       return false;
     }
   }
@@ -1001,7 +1002,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // if the patterns are initialized one way for AVX, another way for AVX2,
   // and there are functions with different target CPU settings.
   if (!Patterns)
-    Patterns = make_unique<X86FMAPatterns>();
+    Patterns = std::make_unique<X86FMAPatterns>();
 
   // TODO: CMPLRLLVM-9046: Need to fix the following block of code to
   // have correct latency values for SKL-client and Broadwell without
@@ -1037,7 +1038,7 @@ X86GlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {
   // Find MUL/ADD/SUB/FMA/etc operations in the input machine instructions
   // and create internal FMA structures for them.
   // Exit if there are not enough optimizable expressions.
-  auto FMABB = make_unique<X86FMABasicBlock>(MBB);
+  auto FMABB = std::make_unique<X86FMABasicBlock>(MBB);
   if (FMABB->parseBasicBlock(MRI, HasAVX512) < 2)
     return nullptr;
   return FMABB;
@@ -1122,8 +1123,8 @@ X86GlobalFMA::generateMachineOperandForFMATerm(FMATerm *Term,
   // In case of FMAMemoryTerm terms the new instruction must be inserted before
   // the original machine instruction performing the load from memory.
   MBB->insert(MI, NewMIs[0]);
-  LLVM_DEBUG(dbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: " << Term
-                    << "\n    " << *NewMIs[0]);
+  LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: "
+                            << Term << "\n    " << *NewMIs[0]);
 
   // 3. This is the first time when the load to a virtual register was
   // generated. Save the register to avoid the load duplication when the same
@@ -1271,7 +1272,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       ResultRegs[NodeInd] = NewMI->getOperand(0).getReg();
 
     MBB.insert(MI, NewMI);
-    LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+    LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
 
     if (NegateResult) {
       // Currently, for the expression -R we generate SUB(0, R).
@@ -1284,11 +1285,13 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       NewMI = genInstruction(SubOpcode, MI->getOperand(0).getReg(), MOs, DL);
       Term->setLastUseMI(NewMI);
       MBB.insert(MI, NewMI);
-      LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+      LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW INSTRUCTION:\n    "
+                                << *NewMI);
     }
   }
   auto DeleteMI = [&MBB](MachineInstr *MI) {
-    LLVM_DEBUG(dbgs() << "  DELETE the MI (it is replaced): \n    " << *MI);
+    LLVM_DEBUG(FMADbg::dbgs() << "  DELETE the MI (it is replaced): \n    "
+                              << *MI);
     MBB.erase(MI);
   };
   for (auto *MI : Expr.getConsumedMIs())

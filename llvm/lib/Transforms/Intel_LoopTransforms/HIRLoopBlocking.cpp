@@ -76,11 +76,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
-static cl::opt<bool>
-    EnableLoopBlockingNonConstTC("enable-" OPT_SWITCH "-nonconst-trip-count",
-                   cl::init(true), cl::Hidden,
-                   cl::desc("Enable " OPT_DESC
-                            " pass even when some trip counts are non-const"));
+static cl::opt<bool> EnableLoopBlockingNonConstTC(
+    "enable-" OPT_SWITCH "-nonconst-trip-count", cl::init(true), cl::Hidden,
+    cl::desc("Enable " OPT_DESC
+             " pass even when some trip counts are non-const"));
 
 // Following check will be disabled.
 //      Loop Depth > number of different IVs appearing
@@ -338,8 +337,11 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
   unsigned Max = 0;
   for (RegDDRef *Ref : Refs) {
     unsigned NumVariantDimensions = 0;
-    for (int I = 1, E = Ref->getNumDimensions(); I <= E; I++) {
+
+    for (unsigned I :
+         make_range(Ref->dim_index_begin(), Ref->dim_index_end())) {
       const CanonExpr *CE = Ref->getDimensionIndex(I);
+
       if (CE->isInvariantAtLevel(OutermostLoopLevel, false)) {
         continue;
       }
@@ -351,7 +353,7 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
     }
   }
   return Max;
-}
+} // namespace
 
 void populateTCs(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
                  DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
@@ -748,6 +750,14 @@ private:
   BlockingLoopNestInfoTy &OutermostToStrips;
 };
 
+// LoopVectors contains loops at levels from [OutermostLoopLevel, ..]
+// Whenever a loop's level is given, it should be adjusted by OutermostLoopLevel
+// to index the correct entry of a container.
+inline unsigned getIndexForLoopVectors(unsigned Level,
+                                       unsigned OutermostLoopLevel) {
+  return Level - OutermostLoopLevel;
+}
+
 // LoopPermutation: Info before permutation
 // CurLoopNests : Info after permutation
 void hoistMinDefs(const LoopSetTy &ByStripLoops,
@@ -770,11 +780,6 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     llvm_unreachable("Stripmined loop is not found after permutation.");
   };
 
-  // Adjust index
-  auto GetIndex = [OutermostLevel](unsigned Level) {
-    return Level - OutermostLevel;
-  };
-
   unsigned InnermostLevel = CurLoopNests.back()->getNestingLevel();
   unsigned DestLevel = OutermostLevel - 1;
 
@@ -786,7 +791,8 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
       continue;
     }
 
-    HLLoop *LpDest = CurLoopNests[GetIndex(DestLevel)];
+    HLLoop *LpDest =
+        CurLoopNests[getIndexForLoopVectors(DestLevel, OutermostLevel)];
     unsigned OrigLevel = LpWithDef->getNestingLevel();
     assert(DestLevel <= OrigLevel);
 
@@ -809,7 +815,7 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     unsigned DefMinLevel = DestLevel;
     unsigned UseMinLevel = FindUseMinLevel(OrigLevel);
     // Update Def@level of Loop UB with min blob
-    CurLoopNests[GetIndex(UseMinLevel)]
+    CurLoopNests[getIndexForLoopVectors(UseMinLevel, OutermostLevel)]
         ->getUpperDDRef()
         ->getSingleCanonExpr()
         ->setDefinedAtLevel(DefMinLevel);
@@ -821,15 +827,28 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     LLVM_DEBUG(dbgs() << "MinSB: " << MinSB << " DefMinLevel: " << DefMinLevel
                       << " UseMinLevel: " << UseMinLevel << "\n");
     for (unsigned I = DefMinLevel + 1; I <= UseMinLevel; I++) {
-      CurLoopNests[GetIndex(I)]->addLiveInTemp(MinSB);
+      CurLoopNests[getIndexForLoopVectors(I, OutermostLevel)]->addLiveInTemp(
+          MinSB);
     }
     for (unsigned I = OutermostLevel; I <= DefMinLevel; I++) {
-      CurLoopNests[GetIndex(I)]->removeLiveInTemp(MinSB);
+      CurLoopNests[getIndexForLoopVectors(I, OutermostLevel)]->removeLiveInTemp(
+          MinSB);
     }
     for (unsigned I = UseMinLevel + 1; I <= InnermostLevel; I++) {
-      CurLoopNests[GetIndex(I)]->removeLiveInTemp(MinSB);
+      CurLoopNests[getIndexForLoopVectors(I, OutermostLevel)]->removeLiveInTemp(
+          MinSB);
     }
   }
+}
+
+// Used after loop permutation to reference data structure based on loops
+// before permutation.
+const HLLoop *getLoopForReferingInfoBeforePermutation(
+    const HLLoop *LoopAfterPerm,
+    const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+    const unsigned OutermostLoopLevel) {
+  unsigned Level = LoopAfterPerm->getNestingLevel();
+  return LoopPermutation[getIndexForLoopVectors(Level, OutermostLoopLevel)];
 }
 
 // Do stripmine & interchange
@@ -844,6 +863,8 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     HLLoop *InnermostLoop;
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
+
+    InnermostLoop->setIsUndoSinkingCandidate(false);
 
     HLLoop *NewOutermostLoop = stripmineSelectedLoops(
         InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);
@@ -866,6 +887,20 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     ForEach<HLLoop>::visit(NewOutermostLoop, [&CurLoopNests](HLLoop *Lp) {
       CurLoopNests.push_back(Lp);
     });
+
+    // Add OptReport after permutation.
+    // ToStripmines knows which loops are blocked in terms of the level
+    // before the permutation happens.
+    LoopOptReportBuilder &LORBuilder = CurLoopNests.front()
+                                           ->getHLNodeUtils()
+                                           .getHIRFramework()
+                                           .getLORBuilder();
+    for (auto Lp : CurLoopNests) {
+      const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
+          Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
+      if (ToStripmines.count(OrigLoop))
+        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop is blocked");
+    }
 
     // Hoist min var's definitions to Destination Levels
     LLVM_DEBUG(NewOutermostLoop->dump(1));

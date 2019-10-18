@@ -521,76 +521,6 @@ def InternalMaxBlockRamDepth : InheritableAttr {
   }];
 }
 
-// No arguments.
-def OptimizeFMax : Attr {
-  let Spellings = [GNU<"optimize_fmax">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
-def OptimizeRamUsage : Attr {
-  let Spellings = [GNU<"optimize_ram_usage">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
-// One integral argument.
-def NumReadPorts : Attr {
-  let Spellings = [GNU<"numreadports">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-def NumWritePorts : Attr {
-  let Spellings = [GNU<"numwriteports">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-// Two integral arguments.
-def NumPortsReadOnlyWriteOnly : Attr {
-  let Spellings = [GNU<"numports_readonly_writeonly">];
-  let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
 // Variadic integral arguments.
 def BankBits : Attr {
   let Spellings = [GNU<"bank_bits">];
@@ -641,43 +571,6 @@ def ArbPrecInt : TypeAttr {
   let LangOpts = [OpenCL, HLS];
   let Documentation = [ArbPrecIntDocs];
   let ASTNode = 0;
-}
-
-def OMPDeclareVariantDecl : Attr {
-  let Spellings = [Pragma<"omp", "declare variant">];
-  let Subjects = SubjectList<[Function]>;
-  let SemaHandler = 0;
-  let HasCustomParsing = 1;
-  let Documentation = [OMPDeclareVariantDocs];
-  let Args = [FunctionArgument<"FunctionDecl">,
-              VariadicEnumArgument<"Construct", "ConstructTy",
-                 ["", "target", "teams", "parallel", "for", "simd",
-                  "target_variant_dispatch"],
-                 ["Construct_None", "Construct_Target", "Construct_Teams",
-                  "Construct_Parallel", "Construct_For", "Construct_Simd",
-                  "Construct_Target_Variant_Dispatch"]>,
-              VariadicEnumArgument<"Device", "DeviceTy",
-                 ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
-  ];
-
-  let AdditionalMembers = [{
-    static const char *getSupportedSelectorSets() {
-      return "'construct' or 'device'";
-    }
-    static const char *getSupportedConstructs() {
-      return "'target variant dispatch'";
-    }
-    static const char *getSupportedDevices() {
-      return "'arch'";
-    }
-    static const char *getSupportedArchs() {
-      return "'gen'";
-    }
-    void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
-        const {
-      OS << "(" << getFunctionDecl()->getName() << ")";
-    }
-  }];
 }
 
 // IntrinsicPromotion implementation.

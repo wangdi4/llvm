@@ -158,7 +158,7 @@ namespace detail {
 // DefaultValue, truncation just removes extra values.
 template <int NewDim, int DefaultValue, template <int> class T, int OldDim>
 static T<NewDim> convertToArrayOfN(T<OldDim> OldObj) {
-  T<NewDim> NewObj;
+  T<NewDim> NewObj = InitializedVal<NewDim, T>::template get<0>();
   const int CopyDims = NewDim > OldDim ? OldDim : NewDim;
   for (int I = 0; I < CopyDims; ++I)
     NewObj[I] = OldObj[I];
@@ -193,12 +193,8 @@ protected:
   constexpr static bool IsAccessReadWrite =
       AccessMode == access::mode::read_write;
 
-  using RefType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type &, DataT &>::type;
-  using PtrType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type *, DataT *>::type;
+  using RefType = DataT &;
+  using PtrType = DataT *;
 
   using AccType =
       accessor<DataT, Dimensions, AccessMode, AccessTarget, IsPlaceholder>;
@@ -673,13 +669,9 @@ class accessor :
   using AccessorSubscript =
       typename AccessorCommonT::template AccessorSubscript<Dims>;
 
-  using RefType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type &, DataT &>::type;
+  using RefType = DataT &;
   using ConcreteASPtrType = typename detail::PtrValueType<DataT, AS>::type *;
-  using PtrType =
-      typename std::conditional<AS == access::address_space::constant_space,
-                                ConcreteASPtrType, DataT *>::type;
+  using PtrType = DataT *;
 
   template <int Dims = Dimensions> size_t getLinearIndex(id<Dims> Id) const {
 
@@ -707,7 +699,7 @@ class accessor :
 
   detail::AccessorImplDevice<AdjustedDim> impl;
 
-  PtrType MData;
+  ConcreteASPtrType MData;
 
   void __init(ConcreteASPtrType Ptr, range<AdjustedDim> AccessRange,
               range<AdjustedDim> MemRange, id<AdjustedDim> Offset) {
@@ -723,11 +715,14 @@ class accessor :
       MData += Offset[0];
   }
 
-  PtrType getQualifiedPtr() const { return MData; }
+  ConcreteASPtrType getQualifiedPtr() const { return MData; }
 
 public:
   // Default constructor for objects later initialized with __init member.
-  accessor() : impl({}) {}
+  accessor()
+    : impl({}, detail::InitializedVal<AdjustedDim, range>::template get<0>(),
+            detail::InitializedVal<AdjustedDim, range>::template get<0>()) {}
+
 #else
   using AccessorBaseHost::getAccessRange;
   using AccessorBaseHost::getMemoryRange;
@@ -753,18 +748,20 @@ public:
                 (IsPlaceH && (IsGlobalBuf || IsConstantBuf)))>* = nullptr>
   accessor(buffer<DataT, 1, AllocatorT> &BufferRef)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.get_range()) {
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
             detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), AdjustedDim,
-            sizeof(DataT)) {
-    detail::EventImplPtr Event =
-        detail::Scheduler::getInstance().addHostAccessor(
-            AccessorBaseHost::impl.get());
-    Event->wait(Event);
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), AdjustedDim, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
+    if (!IsPlaceH) {
+      detail::EventImplPtr Event =
+          detail::Scheduler::getInstance().addHostAccessor(
+              AccessorBaseHost::impl.get());
+      Event->wait(Event);
+    }
 #endif
   }
 
@@ -774,15 +771,15 @@ public:
                                (!IsPlaceH && (IsGlobalBuf || IsConstantBuf)),
                                handler> &CommandGroupHandler)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
             detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), Dimensions,
-            sizeof(DataT)) {
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
     CommandGroupHandler.associateWithHandler(*this);
   }
 #endif
@@ -794,19 +791,21 @@ public:
                 * = nullptr>
   accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
             detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), Dimensions,
-            sizeof(DataT)) {
-    detail::EventImplPtr Event =
-        detail::Scheduler::getInstance().addHostAccessor(
-            AccessorBaseHost::impl.get());
-    Event->wait(Event);
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
+    if (!IsPlaceH) {
+      detail::EventImplPtr Event =
+          detail::Scheduler::getInstance().addHostAccessor(
+              AccessorBaseHost::impl.get());
+      Event->wait(Event);
+    }
   }
 #endif
 
@@ -816,15 +815,15 @@ public:
   accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
            handler &CommandGroupHandler)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
             detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), Dimensions,
-            sizeof(DataT)) {
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
     CommandGroupHandler.associateWithHandler(*this);
   }
 #endif
@@ -836,18 +835,21 @@ public:
   accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
            range<Dimensions> AccessRange, id<Dimensions> AccessOffset = {})
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(AccessOffset, AccessRange, BufferRef.MemRange) {
+      : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
                          detail::convertToArrayOfN<3, 1>(AccessRange),
-                         detail::convertToArrayOfN<3, 1>(BufferRef.MemRange),
+                         detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
                          AccessMode, detail::getSyclObjImpl(BufferRef).get(),
-                         Dimensions, sizeof(DataT)) {
-    detail::EventImplPtr Event =
-        detail::Scheduler::getInstance().addHostAccessor(
-            AccessorBaseHost::impl.get());
-    Event->wait(Event);
+                         Dimensions, sizeof(DataT), BufferRef.OffsetInBytes,
+                         BufferRef.IsSubBuffer) {
+    if (!IsPlaceH) {
+      detail::EventImplPtr Event =
+          detail::Scheduler::getInstance().addHostAccessor(
+              AccessorBaseHost::impl.get());
+      Event->wait(Event);
+    }
   }
 #endif
 
@@ -858,14 +860,15 @@ public:
            handler &CommandGroupHandler, range<Dimensions> AccessRange,
            id<Dimensions> AccessOffset = {})
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(AccessOffset, AccessRange, BufferRef.MemRange) {
+      : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
                          detail::convertToArrayOfN<3, 1>(AccessRange),
-                         detail::convertToArrayOfN<3, 1>(BufferRef.MemRange),
+                         detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
                          AccessMode, detail::getSyclObjImpl(BufferRef).get(),
-                         Dimensions, sizeof(DataT)) {
+                         Dimensions, sizeof(DataT), BufferRef.OffsetInBytes,
+                         BufferRef.IsSubBuffer) {
     CommandGroupHandler.associateWithHandler(*this);
   }
 #endif
@@ -1012,13 +1015,9 @@ class accessor<DataT, Dimensions, AccessMode, access::target::local,
   using AccessorSubscript =
       typename AccessorCommonT::template AccessorSubscript<Dims>;
 
-  using RefType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type &, DataT &>::type;
+  using RefType = DataT &;
   using ConcreteASPtrType = typename detail::PtrValueType<DataT, AS>::type *;
-  using PtrType =
-      typename std::conditional<AS == access::address_space::constant_space,
-                                ConcreteASPtrType, DataT *>::type;
+  using PtrType = DataT *;
 
 #ifdef __SYCL_DEVICE_ONLY__
   detail::LocalAccessorBaseDevice<AdjustedDim> impl;
@@ -1035,12 +1034,13 @@ class accessor<DataT, Dimensions, AccessMode, access::target::local,
 
 public:
   // Default constructor for objects later initialized with __init member.
-  accessor() : impl({}) {}
+  accessor()
+      : impl(detail::InitializedVal<AdjustedDim, range>::template get<0>()) {}
 
 private:
-  PtrType getQualifiedPtr() const { return MData; }
+  ConcreteASPtrType getQualifiedPtr() const { return MData; }
 
-  PtrType MData;
+  ConcreteASPtrType MData;
 
 #else
 

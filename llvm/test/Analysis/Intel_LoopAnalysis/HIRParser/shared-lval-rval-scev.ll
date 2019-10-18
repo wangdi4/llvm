@@ -12,7 +12,8 @@
 ; CHECK: |   + END LOOP
 ; CHECK: |      %dec.sink.lcssa = 24;
 ; CHECK: |
-; CHECK: |   (@a1_ob)[0][-1 * i1 + 46] = trunc.i32.i8(%dec.sink.lcssa);
+; CHECK: |   %conv6 = %dec.sink.lcssa  &&  255;
+; CHECK: |   (@a1_ob)[0][-1 * i1 + 46] = %conv6;
 ; CHECK: |   %indvars.iv118 = -1 * i1 + 45;
 ; CHECK: + END LOOP
 

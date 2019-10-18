@@ -307,7 +307,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
         .Case("true", true)
         .Case("false", false)
         .Default(false);
-  Opts.DisableAllChecks = Args.hasArg(OPT_analyzer_disable_all_checks);
+  Opts.DisableAllCheckers = Args.hasArg(OPT_analyzer_disable_all_checks);
 
   Opts.visualizeExplodedGraphWithGraphViz =
     Args.hasArg(OPT_analyzer_viz_egraph_graphviz);
@@ -328,18 +328,18 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
       getLastArgIntValue(Args, OPT_analyzer_inline_max_stack_depth,
                          Opts.InlineMaxStackDepth, Diags);
 
-  Opts.CheckersControlList.clear();
+  Opts.CheckersAndPackages.clear();
   for (const Arg *A :
        Args.filtered(OPT_analyzer_checker, OPT_analyzer_disable_checker)) {
     A->claim();
-    bool enable = (A->getOption().getID() == OPT_analyzer_checker);
+    bool IsEnabled = A->getOption().getID() == OPT_analyzer_checker;
     // We can have a list of comma separated checker names, e.g:
     // '-analyzer-checker=cocoa,unix'
-    StringRef checkerList = A->getValue();
-    SmallVector<StringRef, 4> checkers;
-    checkerList.split(checkers, ",");
-    for (auto checker : checkers)
-      Opts.CheckersControlList.emplace_back(checker, enable);
+    StringRef CheckerAndPackageList = A->getValue();
+    SmallVector<StringRef, 16> CheckersAndPackages;
+    CheckerAndPackageList.split(CheckersAndPackages, ",");
+    for (const StringRef CheckerOrPackage : CheckersAndPackages)
+      Opts.CheckersAndPackages.emplace_back(CheckerOrPackage, IsEnabled);
   }
 
   // Go through the analyzer configuration options.
@@ -467,6 +467,35 @@ static void parseAnalyzerConfigs(AnalyzerOptions &AnOpts,
 #undef ANALYZER_OPTION_DEPENDS_ON_USER_MODE
 
   // At this point, AnalyzerOptions is configured. Let's validate some options.
+
+  // FIXME: Here we try to validate the silenced checkers or packages are valid.
+  // The current approach only validates the registered checkers which does not
+  // contain the runtime enabled checkers and optimally we would validate both.
+  if (!AnOpts.RawSilencedCheckersAndPackages.empty()) {
+    std::vector<StringRef> Checkers =
+        AnOpts.getRegisteredCheckers(/*IncludeExperimental=*/true);
+    std::vector<StringRef> Packages =
+        AnOpts.getRegisteredPackages(/*IncludeExperimental=*/true);
+
+    SmallVector<StringRef, 16> CheckersAndPackages;
+    AnOpts.RawSilencedCheckersAndPackages.split(CheckersAndPackages, ";");
+
+    for (const StringRef CheckerOrPackage : CheckersAndPackages) {
+      if (Diags) {
+        bool IsChecker = CheckerOrPackage.contains('.');
+        bool IsValidName =
+            IsChecker
+                ? llvm::find(Checkers, CheckerOrPackage) != Checkers.end()
+                : llvm::find(Packages, CheckerOrPackage) != Packages.end();
+
+        if (!IsValidName)
+          Diags->Report(diag::err_unknown_analyzer_checker_or_package)
+              << CheckerOrPackage;
+      }
+
+      AnOpts.SilencedCheckersAndPackages.emplace_back(CheckerOrPackage);
+    }
+  }
 
   if (!Diags)
     return;
@@ -1745,22 +1774,28 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
     case OPT_emit_pch:
       Opts.ProgramAction = frontend::GeneratePCH; break;
     case OPT_emit_iterface_stubs: {
+      StringRef ArgStr =
+          Args.hasArg(OPT_iterface_stub_version_EQ)
+              ? Args.getLastArgValue(OPT_iterface_stub_version_EQ)
+              : "";
       llvm::Optional<frontend::ActionKind> ProgramAction =
-          llvm::StringSwitch<llvm::Optional<frontend::ActionKind>>(
-              Args.hasArg(OPT_iterface_stub_version_EQ)
-                  ? Args.getLastArgValue(OPT_iterface_stub_version_EQ)
-                  : "")
-              .Case("experimental-yaml-elf-v1",
-                    frontend::GenerateInterfaceYAMLExpV1)
-              .Case("experimental-tapi-elf-v1",
-                    frontend::GenerateInterfaceTBEExpV1)
+          llvm::StringSwitch<llvm::Optional<frontend::ActionKind>>(ArgStr)
+              .Case("experimental-ifs-v1", frontend::GenerateInterfaceIfsExpV1)
               .Default(llvm::None);
-      if (!ProgramAction)
+      if (!ProgramAction) {
+        std::string ErrorMessage =
+            "Invalid interface stub format: " + ArgStr.str() +
+            ((ArgStr == "experimental-yaml-elf-v1" ||
+              ArgStr == "experimental-tapi-elf-v1")
+                 ? " is deprecated."
+                 : ".");
         Diags.Report(diag::err_drv_invalid_value)
-            << "Must specify a valid interface stub format type using "
-            << "-interface-stub-version=<experimental-tapi-elf-v1 | "
-               "experimental-yaml-elf-v1>";
-      Opts.ProgramAction = *ProgramAction;
+            << "Must specify a valid interface stub format type, ie: "
+               "-interface-stub-version=experimental-ifs-v1"
+            << ErrorMessage;
+      } else {
+        Opts.ProgramAction = *ProgramAction;
+      }
       break;
     }
     case OPT_init_only:
@@ -2280,7 +2315,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
   if (Opts.OpenCL) {
     Opts.AltiVec = 0;
     Opts.ZVector = 0;
-    Opts.LaxVectorConversions = 0;
+    Opts.setLaxVectorConversions(LangOptions::LaxVectorConversionKind::None);
     Opts.setDefaultFPContractMode(LangOptions::FPC_On);
     Opts.NativeHalfType = 1;
     Opts.NativeHalfArgsAndReturns = 1;
@@ -2548,6 +2583,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Diags.Report(diag::err_drv_invalid_value) << A->getSpelling() << Item;
     }
   }
+  // Look for intel compatibility user doc flag
+  Opts.ShowIntelCompatUserDocsHelp = Args.hasArg(OPT_fintel_compatibility_doc);
+  if (Opts.ShowIntelCompatUserDocsHelp) {
+    Opts.setAllIntelCompatUserDocsInit();
+    for (const Arg *A : Args.filtered(OPT_fintel_compatibility_doc)) {
+      A->claim();
+      // We can have a list of comma separated names.
+      StringRef ItemList = A->getValue();
+      SmallVector<StringRef, 32> Items;
+      ItemList.split(Items, ",");
+      for (StringRef Item : Items) {
+        if (!Opts.setEmitIntelCompatUserDocs(Item))
+          Diags.Report(diag::err_drv_invalid_value) << A->getSpelling() << Item;
+      }
+    }
+  }
+
   Opts.ShowIntelCompatHelp = Args.hasArg(OPT_fintel_compatibility_help);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.HLS = Args.hasArg(OPT_fhls);
@@ -2598,8 +2650,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
       Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
-  Opts.Restrict =
-      Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
@@ -2658,6 +2708,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.CUDADeviceApproxTranscendentals = 1;
 
   Opts.GPURelocatableDeviceCode = Args.hasArg(OPT_fgpu_rdc);
+  Opts.HIPUseNewLaunchAPI = Args.hasArg(OPT_fhip_new_launch_api);
 
   Opts.SYCLIntHeader = Args.getLastArgValue(OPT_fsycl_int_header);
 
@@ -2810,8 +2861,18 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.WritableStrings = Args.hasArg(OPT_fwritable_strings);
   Opts.ConstStrings = Args.hasFlag(OPT_fconst_strings, OPT_fno_const_strings,
                                    Opts.ConstStrings);
-  if (Args.hasArg(OPT_fno_lax_vector_conversions))
-    Opts.LaxVectorConversions = 0;
+  if (Arg *A = Args.getLastArg(OPT_flax_vector_conversions_EQ)) {
+    using LaxKind = LangOptions::LaxVectorConversionKind;
+    if (auto Kind = llvm::StringSwitch<Optional<LaxKind>>(A->getValue())
+                        .Case("none", LaxKind::None)
+                        .Case("integer", LaxKind::Integer)
+                        .Case("all", LaxKind::All)
+                        .Default(llvm::None))
+      Opts.setLaxVectorConversions(*Kind);
+    else
+      Diags.Report(diag::err_drv_invalid_value)
+          << A->getAsString(Args) << A->getValue();
+  }
   if (Args.hasArg(OPT_fno_threadsafe_statics))
     Opts.ThreadsafeStatics = 0;
   Opts.Exceptions = Args.hasArg(OPT_fexceptions);
@@ -2829,9 +2890,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.FixedPoint;
 
   // Handle exception personalities
-  Arg *A = Args.getLastArg(options::OPT_fsjlj_exceptions,
-                           options::OPT_fseh_exceptions,
-                           options::OPT_fdwarf_exceptions);
+  Arg *A = Args.getLastArg(
+      options::OPT_fsjlj_exceptions, options::OPT_fseh_exceptions,
+      options::OPT_fdwarf_exceptions, options::OPT_fwasm_exceptions);
   if (A) {
     const Option &Opt = A->getOption();
     llvm::Triple T(TargetOpts.Triple);
@@ -2842,6 +2903,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.SjLjExceptions = Opt.matches(options::OPT_fsjlj_exceptions);
     Opts.SEHExceptions = Opt.matches(options::OPT_fseh_exceptions);
     Opts.DWARFExceptions = Opt.matches(options::OPT_fdwarf_exceptions);
+    Opts.WasmExceptions = Opt.matches(options::OPT_fwasm_exceptions);
   }
 
   Opts.ExternCNoUnwind = Args.hasArg(OPT_fexternc_nounwind);
@@ -2926,6 +2988,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       getLastArgIntValue(Args, OPT_fconstexpr_depth, 512, Diags);
   Opts.ConstexprStepLimit =
       getLastArgIntValue(Args, OPT_fconstexpr_steps, 1048576, Diags);
+  Opts.EnableNewConstInterp =
+      Args.hasArg(OPT_fexperimental_new_constant_interpreter);
+  Opts.ForceNewConstInterp =
+      Args.hasArg(OPT_fforce_experimental_new_constant_interpreter);
   Opts.BracketDepth = getLastArgIntValue(Args, OPT_fbracket_depth, 256, Diags);
   Opts.DelayedTemplateParsing = Args.hasArg(OPT_fdelayed_template_parsing);
   Opts.NumLargeByValueCopy =
@@ -3125,6 +3191,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
   Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
+  Opts.OpenMPLateOutlineAllowUncollapsedLoops =
+      Args.hasArg(OPT_fintel_openmp_region_late_collapsed_loops) &&
+      !Args.hasArg(OPT_fintel_openmp_region_early_collapsed_loops);
 #if INTEL_FEATURE_CSA
   Opts.CSAvISA = Args.hasArg(OPT_fcsa_visa);
 #endif // INTEL_FEATURE_CSA
@@ -3386,6 +3455,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.setClangABICompat(LangOptions::ClangABI::Ver6);
       else if (Major <= 7)
         Opts.setClangABICompat(LangOptions::ClangABI::Ver7);
+      else if (Major <= 9)
+        Opts.setClangABICompat(LangOptions::ClangABI::Ver9);
     } else if (Ver != "latest") {
       Diags.Report(diag::err_drv_invalid_value)
           << A->getAsString(Args) << A->getValue();
@@ -3414,8 +3485,7 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::GenerateModuleInterface:
   case frontend::GenerateHeaderModule:
   case frontend::GeneratePCH:
-  case frontend::GenerateInterfaceYAMLExpV1:
-  case frontend::GenerateInterfaceTBEExpV1:
+  case frontend::GenerateInterfaceIfsExpV1:
   case frontend::ParseSyntaxOnly:
   case frontend::ModuleFileInfo:
   case frontend::VerifyPCH:
@@ -3599,18 +3669,16 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
 }
 
 bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
-                                        const char *const *ArgBegin,
-                                        const char *const *ArgEnd,
+                                        ArrayRef<const char *> CommandLineArgs,
                                         DiagnosticsEngine &Diags) {
   bool Success = true;
 
   // Parse the arguments.
-  std::unique_ptr<OptTable> Opts = createDriverOptTable();
+  const OptTable &Opts = getDriverOptTable();
   const unsigned IncludedFlagsBitmask = options::CC1Option;
   unsigned MissingArgIndex, MissingArgCount;
-  InputArgList Args =
-      Opts->ParseArgs(llvm::makeArrayRef(ArgBegin, ArgEnd), MissingArgIndex,
-                      MissingArgCount, IncludedFlagsBitmask);
+  InputArgList Args = Opts.ParseArgs(CommandLineArgs, MissingArgIndex,
+                                     MissingArgCount, IncludedFlagsBitmask);
   LangOptions &LangOpts = *Res.getLangOpts();
 
   // Check for missing argument error.
@@ -3624,7 +3692,7 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   for (const auto *A : Args.filtered(OPT_UNKNOWN)) {
     auto ArgString = A->getAsString(Args);
     std::string Nearest;
-    if (Opts->findNearest(ArgString, Nearest, IncludedFlagsBitmask) > 1)
+    if (Opts.findNearest(ArgString, Nearest, IncludedFlagsBitmask) > 1)
       Diags.Report(diag::err_drv_unknown_argument) << ArgString;
     else
       Diags.Report(diag::err_drv_unknown_argument_with_suggestion)
@@ -3635,6 +3703,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   Success &= ParseAnalyzerArgs(*Res.getAnalyzerOpts(), Args, Diags);
   Success &= ParseMigratorArgs(Res.getMigratorOpts(), Args);
   ParseDependencyOutputArgs(Res.getDependencyOutputOpts(), Args);
+  if (!Res.getDependencyOutputOpts().OutputFile.empty() &&
+      Res.getDependencyOutputOpts().Targets.empty()) {
+    Diags.Report(diag::err_fe_dependency_file_requires_MT);
+    Success = false;
+  }
   Success &=
       ParseDiagnosticArgs(Res.getDiagnosticOpts(), Args, &Diags,
                           false /*DefaultDiagColor*/, false /*DefaultShowOpt*/);
@@ -3676,6 +3749,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
       Res.getDiagnosticOpts().Warnings.push_back("no-stdlibcxx-not-found");
     }
   }
+
+#if !INTEL_CUSTOMIZATION
+  if (Diags.isIgnored(diag::warn_profile_data_misexpect, SourceLocation()))
+    Res.FrontendOpts.LLVMArgs.push_back("-pgo-warn-misexpect");
+#endif // !INTEL_CUSTOMIZATION
 
   LangOpts.FunctionAlignment =
       getLastArgIntValue(Args, OPT_function_alignment, 0, Diags);

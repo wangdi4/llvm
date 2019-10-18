@@ -1,4 +1,5 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -S -VPlanDriver -enable-vp-value-codegen=false -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -S -VPlanDriver -enable-vp-value-codegen=true -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 < %s  -instcombine | FileCheck --check-prefix VPBCG %s
 
 ;float fp_inc;
 ;void fp_iv_loop(float init, float * __restrict__ A, int N) {
@@ -14,22 +15,41 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK-LABEL: fp_iv_loop
-; CHECK: min.iters.checked
-; CHECK: vector.ph:
-; CHECK:  %[[TMP0:.*]] = insertelement <4 x float> undef, float %0, i32 0
-; CHECK:  %[[TMP1:.*]] = shufflevector <4 x float> %[[TMP0]], <4 x float> undef, <4 x i32> zeroinitializer
-; CHECK:  %[[TMP2:.*]] = fmul fast <4 x float> %[[TMP1]], <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00>
-; CHECK: %[[TMP3:.*]] = fmul fast float %0, 4.000000e+00
-; CHECK: %[[TMP4:.*]] = insertelement <4 x float> undef, float %[[TMP3]], i32 0
-; CHECK: %[[TMP5:.*]] = shufflevector <4 x float> %[[TMP4]], <4 x float> undef, <4 x i32> zeroinitializer
-; CHECK: vector.body
-; CHECK: %index = phi i64 [ 0,
-; CHECK: %[[VEC_IND:.*]] = phi <4 x float>
-; CHECK: store <4 x float> %[[VEC_IND]]
-; CHECK: fsub fast <4 x float> %[[VEC_IND]], %[[TMP5]]
-
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
+; CHECK-LABEL: @fp_iv_loop(
+; CHECK:       min.iters.checked:
+; CHECK:       vector.ph:
+; CHECK:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[INIT:%.*]], i32 0
+; CHECK:    [[DOTSPLAT:%.*]] = shufflevector <4 x float> [[DOTSPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
+; CHECK:    [[DOTSPLATINSERT2:%.*]] = insertelement <4 x float> undef, float [[TMP0:%.*]], i32 0
+; CHECK:    [[DOTSPLAT3:%.*]] = shufflevector <4 x float> [[DOTSPLATINSERT2]], <4 x float> undef, <4 x i32> zeroinitializer
+; CHECK:    [[TMP2:%.*]] = fmul fast <4 x float> [[DOTSPLAT3]], <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00>
+; CHECK:    [[TMP3:%.*]] = fmul fast float [[TMP0]], 4.000000e+00
+; CHECK:    [[DOTSPLATINSERT4:%.*]] = insertelement <4 x float> undef, float [[TMP3]], i32 0
+; CHECK:    [[DOTSPLAT5:%.*]] = shufflevector <4 x float> [[DOTSPLATINSERT4]], <4 x float> undef, <4 x i32> zeroinitializer
+; CHECK:       vector.body:
+; CHECK:    [[INDEX:%.*]] = phi i64 [ 0,
+; CHECK:    [[VEC_IND6:%.*]] = phi <4 x float>
+; CHECK:    store <4 x float> [[VEC_IND6]]
+; CHECK:    [[VEC_IND_NEXT7:%.*]] = fsub fast <4 x float> [[VEC_IND6]], [[DOTSPLAT5]]
+;
+; VPBCG-LABEL: @fp_iv_loop(
+; VPBCG:       for.body.lr.ph:
+; VPBCG:    [[TMP0:%.*]] = load float, float* @fp_inc, align 4
+; VPBCG:       vector.ph:
+; VPBCG:    [[INITIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[INIT:%.*]], i32 0
+; VPBCG:    [[INITIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x float> [[INITIND_START_BCAST_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
+; VPBCG:    [[IND_STEP_VEC_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[TMP0]], i32 0
+; VPBCG:    [[IND_STEP_VEC_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_VEC_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
+; VPBCG:    [[TMP1:%.*]] = fmul fast <4 x float> [[IND_STEP_VEC_SPLAT]], <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00>
+; VPBCG:    [[TMP2:%.*]] = fsub <4 x float> [[INITIND_START_BCAST_SPLAT]], [[TMP1]]
+; VPBCG:    [[TMP3:%.*]] = fmul float [[TMP0]], 4.000000e+00
+; VPBCG:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[TMP3]], i32 0
+; VPBCG:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_INIT_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
+; VPBCG:       vector.body:
+; VPBCG:    [[VEC_PHI2:%.*]] = phi <4 x float> [ [[TMP2]], [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
+; VPBCG:    [[TMP4]] = fsub fast <4 x float> [[VEC_PHI2]], [[IND_STEP_INIT_SPLAT]]
+;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2

@@ -710,7 +710,7 @@ void VPlanPredicator::predicate(void) {
 
   // Transform inner loop control to become uniform.
   if (VPlanLoopCFU)
-    handleInnerLoopBackedges(EntryLoopR);
+    handleInnerLoopBackedges(EntryLoopR->getVPLoop());
 
   // Predicate the blocks within Region and recursively predicate nested
   // regions.

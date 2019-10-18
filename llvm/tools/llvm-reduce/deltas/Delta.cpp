@@ -14,62 +14,38 @@
 
 #include "Delta.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include <fstream>
+#include <set>
 
-/// Writes IR code to the given Filepath
-static bool writeProgramToFile(StringRef Filepath, int FD, const Module &M) {
-  ToolOutputFile Out(Filepath, FD);
-  M.print(Out.os(), /*AnnotationWriter=*/nullptr);
-  Out.os().close();
+using namespace llvm;
 
-  if (!Out.os().has_error()) {
-    Out.keep();
-    return false;
-  }
-  return true;
-}
-
-/// Creates a temporary (and unique) file inside the tmp folder and writes
-/// the given module IR.
-static SmallString<128> createTmpFile(Module *M, StringRef TmpDir) {
-  SmallString<128> UniqueFilepath;
-  int UniqueFD;
-
-  SmallString<128> TmpFilepath;
-  sys::path::append(TmpFilepath, TmpDir, "tmp-%%%.ll");
+bool IsReduced(Module &M, TestRunner &Test, SmallString<128> &CurrentFilepath) {
+  // Write Module to tmp file
+  int FD;
   std::error_code EC =
-      sys::fs::createUniqueFile(TmpFilepath, UniqueFD, UniqueFilepath);
+      sys::fs::createTemporaryFile("llvm-reduce", "ll", FD, CurrentFilepath);
   if (EC) {
     errs() << "Error making unique filename: " << EC.message() << "!\n";
     exit(1);
   }
 
-  if (writeProgramToFile(UniqueFilepath, UniqueFD, *M)) {
-    errs() << "Error emitting bitcode to file '" << UniqueFilepath << "'!\n";
+  ToolOutputFile Out(CurrentFilepath, FD);
+  M.print(Out.os(), /*AnnotationWriter=*/nullptr);
+  Out.os().close();
+  if (Out.os().has_error()) {
+    errs() << "Error emitting bitcode to file '" << CurrentFilepath << "'!\n";
     exit(1);
   }
-  return UniqueFilepath;
-}
 
-/// Prints the Chunk Indexes with the following format: [start, end], if
-/// chunk is at minimum size (1), then it just displays [start].
-static void printChunks(std::vector<Chunk> Chunks, bool Oneline = false) {
-  if (Chunks.empty()) {
-    outs() << "No Chunks";
-    return;
-  }
-
-  for (auto C : Chunks) {
-    if (!Oneline)
-      outs() << '\t';
-    C.print();
-    if (!Oneline)
-      outs() << '\n';
-  }
+  // Current Chunks aren't interesting
+  return Test.run(CurrentFilepath);
 }
 
 /// Counts the amount of lines for a given file
-static unsigned getLines(StringRef Filepath) {
-  unsigned Lines = 0;
+static int getLines(StringRef Filepath) {
+  int Lines = 0;
   std::string CurrLine;
   std::ifstream FileStream(Filepath);
 
@@ -82,7 +58,7 @@ static unsigned getLines(StringRef Filepath) {
 /// Splits Chunks in half and prints them.
 /// If unable to split (when chunk size is 1) returns false.
 static bool increaseGranularity(std::vector<Chunk> &Chunks) {
-  outs() << "Increasing granularity...";
+  errs() << "Increasing granularity...";
   std::vector<Chunk> NewChunks;
   bool SplitOne = false;
 
@@ -90,7 +66,7 @@ static bool increaseGranularity(std::vector<Chunk> &Chunks) {
     if (C.end - C.begin == 0)
       NewChunks.push_back(C);
     else {
-      unsigned Half = (C.begin + C.end) / 2;
+      int Half = (C.begin + C.end) / 2;
       NewChunks.push_back({C.begin, Half});
       NewChunks.push_back({Half + 1, C.end});
       SplitOne = true;
@@ -98,8 +74,12 @@ static bool increaseGranularity(std::vector<Chunk> &Chunks) {
   }
   if (SplitOne) {
     Chunks = NewChunks;
-    outs() << "Success! New Chunks:\n";
-    printChunks(Chunks);
+    errs() << "Success! New Chunks:\n";
+    for (auto C : Chunks) {
+      errs() << '\t';
+      C.print();
+      errs() << '\n';
+    }
   }
   return SplitOne;
 }
@@ -108,25 +88,29 @@ static bool increaseGranularity(std::vector<Chunk> &Chunks) {
 /// reduces the amount of chunks that are considered interesting by the
 /// given test.
 void llvm::runDeltaPass(
-    TestRunner &Test, unsigned Targets,
+    TestRunner &Test, int Targets,
     std::function<void(const std::vector<Chunk> &, Module *)>
         ExtractChunksFromModule) {
+  assert(Targets >= 0);
   if (!Targets) {
-    outs() << "\nNothing to reduce\n";
+    errs() << "\nNothing to reduce\n";
     return;
+  }
+
+  if (Module *Program = Test.getProgram()) {
+    SmallString<128> CurrentFilepath;
+    if (!IsReduced(*Program, Test, CurrentFilepath)) {
+      errs() << "\nInput isn't interesting! Verify interesting-ness test\n";
+      exit(1);
+    }
   }
 
   std::vector<Chunk> Chunks = {{1, Targets}};
   std::set<Chunk> UninterestingChunks;
   std::unique_ptr<Module> ReducedProgram;
 
-  if (!Test.run(Test.getReducedFilepath())) {
-    outs() << "\nInput isn't interesting! Verify interesting-ness test\n";
-    return;
-  }
-
   if (!increaseGranularity(Chunks)) {
-    outs() << "\nAlready at minimum size. Cannot reduce anymore.\n";
+    errs() << "\nAlready at minimum size. Cannot reduce anymore.\n";
     return;
   }
 
@@ -146,24 +130,23 @@ void llvm::runDeltaPass(
       std::unique_ptr<Module> Clone = CloneModule(*Test.getProgram());
       // Generate Module with only Targets inside Current Chunks
       ExtractChunksFromModule(CurrentChunks, Clone.get());
-      // Write Module to tmp file
-      SmallString<128> CurrentFilepath =
-          createTmpFile(Clone.get(), Test.getTmpDir());
 
-      outs() << "Testing with: ";
-      printChunks(CurrentChunks, /*Oneline=*/true);
-      outs() << " | " << sys::path::filename(CurrentFilepath);
+      errs() << "Ignoring: ";
+      Chunks[I].print();
+      for (auto C : UninterestingChunks)
+        C.print();
 
-      // Current Chunks aren't interesting
-      if (!Test.run(CurrentFilepath)) {
-        outs() << "\n";
+
+
+      SmallString<128> CurrentFilepath;
+      if (!IsReduced(*Clone, Test, CurrentFilepath)) {
+        errs() << "\n";
         continue;
       }
 
       UninterestingChunks.insert(Chunks[I]);
-      Test.setReducedFilepath(CurrentFilepath);
       ReducedProgram = std::move(Clone);
-      outs() << " **** SUCCESS | lines: " << getLines(CurrentFilepath) << "\n";
+      errs() << " **** SUCCESS | lines: " << getLines(CurrentFilepath) << "\n";
     }
     // Delete uninteresting chunks
     erase_if(Chunks, [&UninterestingChunks](const Chunk &C) {
@@ -175,5 +158,5 @@ void llvm::runDeltaPass(
   // If we reduced the testcase replace it
   if (ReducedProgram)
     Test.setProgram(std::move(ReducedProgram));
-  outs() << "Couldn't increase anymore.\n";
+  errs() << "Couldn't increase anymore.\n";
 }

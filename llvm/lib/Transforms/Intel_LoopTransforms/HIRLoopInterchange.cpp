@@ -756,6 +756,7 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   LLVM_DEBUG(dbgs() << "\tBefore permuteloopNests:"; Loop->dump());
   assert(OutmostNestingLevel == Loop->getNestingLevel());
   assert(InnermostNestingLevel == InnermostLoop->getNestingLevel());
+  InnermostLoop->setIsUndoSinkingCandidate(false);
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation,
                                       InnermostNestingLevel);
 

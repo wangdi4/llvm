@@ -23,8 +23,7 @@ using namespace sema;
 
 static Attr *handleFallThroughAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                    SourceRange Range) {
-  FallThroughAttr Attr(A.getRange(), S.Context,
-                       A.getAttributeSpellingListIndex());
+  FallThroughAttr Attr(S.Context, A);
   if (!isa<NullStmt>(St)) {
     S.Diag(A.getRange().getBegin(), diag::err_fallthrough_attr_wrong_target)
         << Attr.getSpelling() << St->getBeginLoc();
@@ -45,10 +44,10 @@ static Attr *handleFallThroughAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   // about using it as an extension.
   if (!S.getLangOpts().CPlusPlus17 && A.isCXX11Attribute() &&
       !A.getScopeName())
-    S.Diag(A.getLoc(), diag::ext_cxx17_attr) << A.getName();
+    S.Diag(A.getLoc(), diag::ext_cxx17_attr) << A;
 
   FnScope->setHasFallthroughStmt();
-  return ::new (S.Context) auto(Attr);
+  return ::new (S.Context) FallThroughAttr(S.Context, A);
 }
 
 static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
@@ -71,8 +70,7 @@ static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   }
 
   return ::new (S.Context) SuppressAttr(
-      A.getRange(), S.Context, DiagnosticIdentifiers.data(),
-      DiagnosticIdentifiers.size(), A.getAttributeSpellingListIndex());
+      S.Context, A, DiagnosticIdentifiers.data(), DiagnosticIdentifiers.size());
 }
 
 template <typename FPGALoopAttrT>
@@ -188,8 +186,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     return nullptr;
   }
 
-  LoopHintAttr::Spelling Spelling =
-      LoopHintAttr::Spelling(A.getAttributeSpellingListIndex());
   LoopHintAttr::OptionType Option;
   LoopHintAttr::LoopHintState State;
 
@@ -362,9 +358,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       llvm_unreachable("bad loop hint");
   }
 
-  return LoopHintAttr::CreateImplicit(S.Context, Spelling, Option, State,
 #if INTEL_CUSTOMIZATION
-                                      ValueExpr, ArrayExpr, A.getRange());
+  return LoopHintAttr::CreateImplicit(S.Context, Option, State, ValueExpr,
+                                      ArrayExpr, A);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -385,10 +381,7 @@ static Attr *handleIntelInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   else {
     Option = IntelInlineAttr::NotRecursive;
   }
-  return IntelInlineAttr::CreateImplicit(
-      S.Context,
-      static_cast<IntelInlineAttr::Spelling>(A.getAttributeSpellingListIndex()),
-      Option, A.getRange());
+  return IntelInlineAttr::CreateImplicit(S.Context, Option, A);
 }
 
 static int64_t getConstInt(Sema &S, unsigned Idx, const ParsedAttr &A) {
@@ -1098,42 +1091,69 @@ CheckForIncompatibleAttributes(Sema &S,
   }
 }
 
-
-template <typename FPGALoopAttrT> static void
-CheckForDuplicationFPGALoopAttribute(Sema &S,
-                                     const SmallVectorImpl<const Attr *>
-                                     &Attrs, SourceRange Range) {
-  const FPGALoopAttrT *LoopFPGAAttr = nullptr;
+template <typename LoopAttrT>
+static void CheckForDuplicationSYCLLoopAttribute(
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range,
+    bool isIntelFPGAAttr = true) {
+  const LoopAttrT *LoopAttr = nullptr;
 
   for (const auto *I : Attrs) {
-    if (LoopFPGAAttr) {
-      if (isa<FPGALoopAttrT>(I)) {
+    if (LoopAttr) {
+      if (isa<LoopAttrT>(I)) {
         SourceLocation Loc = Range.getBegin();
         // Cannot specify same type of attribute twice.
-        S.Diag(Loc, diag::err_intel_fpga_loop_attr_duplication)
-          << LoopFPGAAttr->getName();
+        S.Diag(Loc, diag::err_sycl_loop_attr_duplication)
+            << isIntelFPGAAttr << LoopAttr->getName();
       }
     }
-    if (isa<FPGALoopAttrT>(I))
-      LoopFPGAAttr = cast<FPGALoopAttrT>(I);
+    if (isa<LoopAttrT>(I))
+      LoopAttr = cast<LoopAttrT>(I);
   }
 }
 
-static void
-CheckForIncompatibleFPGALoopAttributes(Sema &S,
-                                       const SmallVectorImpl<const Attr *>
-                                       &Attrs, SourceRange Range) {
-  CheckForDuplicationFPGALoopAttribute<SYCLIntelFPGAIVDepAttr>(S, Attrs, Range);
-  CheckForDuplicationFPGALoopAttribute<SYCLIntelFPGAIIAttr>(S, Attrs, Range);
-  CheckForDuplicationFPGALoopAttribute<
-    SYCLIntelFPGAMaxConcurrencyAttr>(S, Attrs, Range);
+static void CheckForIncompatibleSYCLLoopAttributes(
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAIVDepAttr>(S, Attrs, Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAIIAttr>(S, Attrs, Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxConcurrencyAttr>(
+      S, Attrs, Range);
+  CheckForDuplicationSYCLLoopAttribute<LoopUnrollHintAttr>(S, Attrs, Range,
+                                                           false);
 }
 
-static Attr *handleOpenCLUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
-                                    SourceRange Range) {
+void CheckForIncompatibleUnrollHintAttributes(
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
+
+  // This check is entered after it was analyzed that there are no duplicating
+  // pragmas and loop attributes. So, let's perform check that there are no
+  // conflicting pragma unroll and unroll attribute for the loop.
+  const LoopUnrollHintAttr *AttrUnroll = nullptr;
+  const LoopHintAttr *PragmaUnroll = nullptr;
+  for (const auto *I : Attrs) {
+    if (auto *LH = dyn_cast<LoopUnrollHintAttr>(I))
+      AttrUnroll = LH;
+    if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
+      LoopHintAttr::OptionType Opt = LH->getOption();
+      if (Opt == LoopHintAttr::Unroll || Opt == LoopHintAttr::UnrollCount)
+        PragmaUnroll = LH;
+    }
+  }
+
+  if (AttrUnroll && PragmaUnroll) {
+    PrintingPolicy Policy(S.Context.getLangOpts());
+    SourceLocation Loc = Range.getBegin();
+    S.Diag(Loc, diag::err_loop_unroll_compatibility)
+        << PragmaUnroll->getDiagnosticName(Policy)
+        << AttrUnroll->getDiagnosticName();
+  }
+}
+
+template <typename LoopUnrollAttrT>
+static Attr *handleLoopUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
+                                  SourceRange Range) {
   // Although the feature was introduced only in OpenCL C v2.0 s6.11.5, it's
   // useful for OpenCL 1.x too and doesn't require HW support.
-  // opencl_unroll_hint can have 0 arguments (compiler
+  // opencl_unroll_hint or clang::unroll can have 0 arguments (compiler
   // determines unrolling factor) or 1 argument (the unroll factor provided
   // by the user).
 
@@ -1167,7 +1187,7 @@ static Attr *handleOpenCLUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
     UnrollFactor = Val;
   }
 
-  return OpenCLUnrollHintAttr::CreateImplicit(S.Context, UnrollFactor);
+  return LoopUnrollAttrT::CreateImplicit(S.Context, UnrollFactor);
 }
 
 static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
@@ -1180,7 +1200,7 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     S.Diag(A.getLoc(), A.isDeclspecAttribute()
                            ? (unsigned)diag::warn_unhandled_ms_attribute_ignored
                            : (unsigned)diag::warn_unknown_attribute_ignored)
-        << A.getName();
+        << A;
     return nullptr;
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_IntelInline:
@@ -1199,14 +1219,16 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency:
     return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(S, St, A);
   case ParsedAttr::AT_OpenCLUnrollHint:
-    return handleOpenCLUnrollHint(S, St, A, Range);
+    return handleLoopUnrollHint<OpenCLUnrollHintAttr>(S, St, A, Range);
+  case ParsedAttr::AT_LoopUnrollHint:
+    return handleLoopUnrollHint<LoopUnrollHintAttr>(S, St, A, Range);
   case ParsedAttr::AT_Suppress:
     return handleSuppressAttr(S, St, A, Range);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute
     S.Diag(A.getRange().getBegin(), diag::err_decl_attribute_invalid_on_stmt)
-        << A.getName() << St->getBeginLoc();
+        << A << St->getBeginLoc();
     return nullptr;
   }
 }
@@ -1223,7 +1245,8 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   }
 
   CheckForIncompatibleAttributes(*this, Attrs);
-  CheckForIncompatibleFPGALoopAttributes(*this, Attrs, Range);
+  CheckForIncompatibleSYCLLoopAttributes(*this, Attrs, Range);
+  CheckForIncompatibleUnrollHintAttributes(*this, Attrs, Range);
 
 #if INTEL_CUSTOMIZATION
   CheckForRedundantIVDepAttributes(*this, Attrs);

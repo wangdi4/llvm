@@ -28,6 +28,7 @@
 source_filename = "target_firstprivate_vla.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "spir64"
 
 @yptr = common dso_local global double* null, align 8
 @.str = private unnamed_addr constant [30 x i8] c"y[2] = %f, yptr = %p, y = %p\0A\00", align 1

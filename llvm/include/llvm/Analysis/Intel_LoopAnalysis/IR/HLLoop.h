@@ -135,6 +135,8 @@ private:
 
   bool HasDistributePoint;
 
+  bool IsUndoSinkingCandidate;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -710,6 +712,28 @@ public:
     }
   }
 
+  void addLiveInTemp(const ArrayRef<unsigned> &Symbases) {
+    for (auto Symbase : Symbases)
+      addLiveInTemp(Symbase);
+  }
+
+  /// Adds all symbases attached at Ref as live into the loop
+  void addLiveInTemp(const RegDDRef *Ref) {
+    if (Ref->isSelfBlob()) {
+      addLiveInTemp(Ref->getSymbase());
+    }
+
+    for (auto DRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      addLiveInTemp(DRef->getSymbase());
+    }
+  }
+
+  // TODO: const
+  void addLiveInTemp(const ArrayRef<RegDDRef *> &Refs) {
+    for (auto Ref : Refs)
+      addLiveInTemp(Ref);
+  }
+
   /// Adds symbase as live out of the loop.
   void addLiveOutTemp(unsigned Symbase) {
     auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
@@ -736,6 +760,10 @@ public:
       LiveOutSet.erase(It);
     }
   }
+
+  void clearLiveInTemp() { LiveInSet.clear(); }
+
+  void clearLiveOutTemp() { LiveOutSet.clear(); }
 
   void replaceLiveInTemp(unsigned OldSymbase, unsigned NewSymbase) {
     assert(isLiveIn(OldSymbase) && "OldSymbase is not liveout!");
@@ -1070,6 +1098,9 @@ public:
 
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
+
+  bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
+  void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
 
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);

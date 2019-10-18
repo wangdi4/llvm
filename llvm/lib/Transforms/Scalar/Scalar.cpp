@@ -133,7 +133,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #endif // INTEL_FEATURE_CSA
   initializeLoopCarriedCSELegacyPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-  initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeLoopVersioningPassPass(Registry);
@@ -152,6 +151,10 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
 
 void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAggressiveDCEPass());
+}
+
+void LLVMAddDCEPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createDeadCodeEliminationPass());
 }
 
 void LLVMAddBitTrackingDCEPass(LLVMPassManagerRef PM) {

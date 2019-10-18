@@ -16,12 +16,14 @@
 #include "BranchCloneCheck.h"
 #include "CopyConstructorInitCheck.h"
 #include "DanglingHandleCheck.h"
+#include "DynamicStaticInitializersCheck.h"
 #include "ExceptionEscapeCheck.h"
 #include "FoldInitTypeCheck.h"
 #include "ForwardDeclarationNamespaceCheck.h"
 #include "ForwardingReferenceOverloadCheck.h"
 #include "InaccurateEraseCheck.h"
 #include "IncorrectRoundingsCheck.h"
+#include "InfiniteLoopCheck.h"
 #include "IntegerDivisionCheck.h"
 #include "LambdaFunctionNameCheck.h"
 #include "MacroParenthesesCheck.h"
@@ -73,6 +75,8 @@ public:
         "bugprone-copy-constructor-init");
     CheckFactories.registerCheck<DanglingHandleCheck>(
         "bugprone-dangling-handle");
+    CheckFactories.registerCheck<DynamicStaticInitializersCheck>(
+        "bugprone-dynamic-static-initializers");
     CheckFactories.registerCheck<ExceptionEscapeCheck>(
         "bugprone-exception-escape");
     CheckFactories.registerCheck<FoldInitTypeCheck>(
@@ -85,6 +89,8 @@ public:
         "bugprone-inaccurate-erase");
     CheckFactories.registerCheck<IncorrectRoundingsCheck>(
         "bugprone-incorrect-roundings");
+    CheckFactories.registerCheck<InfiniteLoopCheck>(
+        "bugprone-infinite-loop");
     CheckFactories.registerCheck<IntegerDivisionCheck>(
         "bugprone-integer-division");
     CheckFactories.registerCheck<LambdaFunctionNameCheck>(

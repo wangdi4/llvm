@@ -19,6 +19,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/Stack.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
@@ -365,6 +366,11 @@ void Sema::pushCodeSynthesisContext(CodeSynthesisContext Ctx) {
 
   if (!Ctx.isInstantiationRecord())
     ++NonInstantiationEntries;
+
+  // Check to see if we're low on stack space. We can't do anything about this
+  // from here, but we can at least warn the user.
+  if (isStackNearlyExhausted())
+    warnStackExhausted(Ctx.PointOfInstantiation);
 }
 
 void Sema::popCodeSynthesisContext() {
@@ -1309,23 +1315,21 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
         (!ValueAPS.isStrictlyPositive() || ValueAPS.getActiveBits() > 31)) {
       if (ValueAPS.getBoolValue())
         return LoopHintAttr::CreateImplicit(
-            getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
-            LoopHintAttr::Enable, TransformedExpr, TransformedLoopExpr,
-            LH->getRange());
+            getSema().Context, LoopHintAttr::Unroll, LoopHintAttr::Enable,
+            TransformedExpr, TransformedLoopExpr, *LH);
       return LoopHintAttr::CreateImplicit(
-          getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
-          LoopHintAttr::Disable, TransformedExpr, TransformedLoopExpr,
-          LH->getRange());
+          getSema().Context, LoopHintAttr::Unroll, LoopHintAttr::Disable,
+          TransformedExpr, TransformedLoopExpr, *LH);
     }
   }
 #endif // INTEL_CUSTOMIZATION
 
   // Create new LoopHintValueAttr with integral expression in place of the
   // non-type template parameter.
-  return LoopHintAttr::CreateImplicit(
-      getSema().Context, LH->getSemanticSpelling(), LH->getOption(),
+  return LoopHintAttr::CreateImplicit(getSema().Context, LH->getOption(),
 #if INTEL_CUSTOMIZATION
-      LH->getState(), TransformedExpr, TransformedLoopExpr, LH->getRange());
+                                      LH->getState(), TransformedExpr,
+                                      TransformedLoopExpr, *LH);
 #endif // INTEL_CUSTOMIZATION
 }
 

@@ -259,7 +259,7 @@ public:
 #if INTEL_CUSTOMIZATION
            MemoryDependenceResults *MD, MemorySSA *MSSA, bool HoistingGeps)
       : DT(DT), PDT(PDT), AA(AA), MD(MD), MSSA(MSSA),
-        MSSAUpdater(llvm::make_unique<MemorySSAUpdater>(MSSA)),
+        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)),
         HoistingGeps(HoistingGeps) {}
 #endif // INTEL_CUSTOMIZATION
 
@@ -892,19 +892,18 @@ private:
 
   void updateAlignment(Instruction *I, Instruction *Repl) {
     if (auto *ReplacementLoad = dyn_cast<LoadInst>(Repl)) {
-      ReplacementLoad->setAlignment(
-          std::min(ReplacementLoad->getAlignment(),
-                   cast<LoadInst>(I)->getAlignment()));
+      ReplacementLoad->setAlignment(MaybeAlign(std::min(
+          ReplacementLoad->getAlignment(), cast<LoadInst>(I)->getAlignment())));
       ++NumLoadsRemoved;
     } else if (auto *ReplacementStore = dyn_cast<StoreInst>(Repl)) {
       ReplacementStore->setAlignment(
-          std::min(ReplacementStore->getAlignment(),
-                   cast<StoreInst>(I)->getAlignment()));
+          MaybeAlign(std::min(ReplacementStore->getAlignment(),
+                              cast<StoreInst>(I)->getAlignment())));
       ++NumStoresRemoved;
     } else if (auto *ReplacementAlloca = dyn_cast<AllocaInst>(Repl)) {
       ReplacementAlloca->setAlignment(
-          std::max(ReplacementAlloca->getAlignment(),
-                   cast<AllocaInst>(I)->getAlignment()));
+          MaybeAlign(std::max(ReplacementAlloca->getAlignment(),
+                              cast<AllocaInst>(I)->getAlignment())));
     } else if (isa<CallInst>(Repl)) {
       ++NumCallsRemoved;
     }

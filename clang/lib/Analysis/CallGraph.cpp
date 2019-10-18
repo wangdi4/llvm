@@ -80,7 +80,10 @@ public:
   }
 
   void VisitLambdaExpr(LambdaExpr *LE) {
-    if (CXXMethodDecl *MD = LE->getCallOperator())
+    if (FunctionTemplateDecl *FTD = LE->getDependentCallOperator())
+      for (FunctionDecl *FD : FTD->specializations())
+        G->VisitFunctionDecl(FD);
+    else if (CXXMethodDecl *MD = LE->getCallOperator())
       G->VisitFunctionDecl(MD);
   }
 
@@ -94,6 +97,8 @@ public:
     CXXConstructorDecl *Ctor = E->getConstructor();
     if (FunctionDecl *Def = Ctor->getDefinition())
       addCalledDecl(Def);
+    // TODO: resolve issues raised in review with llorg. See
+    // https://reviews.llvm.org/D65453?vs=on&id=212351&whitespace=ignore-most#1632207
     const auto *ConstructedType = Ctor->getParent();
     if (ConstructedType->hasUserDeclaredDestructor()) {
       CXXDestructorDecl *Dtor = ConstructedType->getDestructor();
@@ -207,7 +212,7 @@ CallGraphNode *CallGraph::getOrInsertNode(Decl *F) {
   if (Node)
     return Node.get();
 
-  Node = llvm::make_unique<CallGraphNode>(F);
+  Node = std::make_unique<CallGraphNode>(F);
   // Make Root node a parent of all functions to make sure all are reachable.
   if (F)
     Root->addCallee(Node.get());

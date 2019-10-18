@@ -86,8 +86,8 @@ static bool isAttributeLateParsed(const IdentifierInfo &II) {
 }
 
 /// Check if the a start and end source location expand to the same macro.
-bool FindLocsWithCommonFileID(Preprocessor &PP, SourceLocation StartLoc,
-                              SourceLocation EndLoc) {
+static bool FindLocsWithCommonFileID(Preprocessor &PP, SourceLocation StartLoc,
+                                     SourceLocation EndLoc) {
   if (!StartLoc.isMacroID() || !EndLoc.isMacroID())
     return false;
 
@@ -429,7 +429,7 @@ unsigned Parser::ParseAttributeArgsCommon(
                            attributeHasVariadicIdentifierArg(*AttrName);
 #endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
-        ParsedAttr::getKind(AttrName, ScopeName, Syntax);
+        ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
     // If we don't know how to parse this attribute, but this is the only
     // token in this argument, assume it's meant to be an identifier.
@@ -523,7 +523,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
   assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
 
   ParsedAttr::Kind AttrKind =
-      ParsedAttr::getKind(AttrName, ScopeName, Syntax);
+      ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
   if (AttrKind == ParsedAttr::AT_Availability) {
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
@@ -575,7 +575,7 @@ unsigned Parser::ParseClangAttributeArgs(
   assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
 
   ParsedAttr::Kind AttrKind =
-      ParsedAttr::getKind(AttrName, ScopeName, Syntax);
+      ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
   switch (AttrKind) {
   default:
@@ -1778,9 +1778,9 @@ void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
     if (!AL.isCXX11Attribute() && !AL.isC2xAttribute())
       continue;
     if (AL.getKind() == ParsedAttr::UnknownAttribute)
-      Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL.getName();
+      Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
     else {
-      Diag(AL.getLoc(), DiagID) << AL.getName();
+      Diag(AL.getLoc(), DiagID) << AL;
       AL.setInvalid();
     }
   }
@@ -1830,9 +1830,10 @@ void Parser::stripTypeAttributesOffDeclSpec(ParsedAttributesWithRange &Attrs,
 /// [C++11/C11] static_assert-declaration
 ///         others... [FIXME]
 ///
-Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
-                                                SourceLocation &DeclEnd,
-                                          ParsedAttributesWithRange &attrs) {
+Parser::DeclGroupPtrTy
+Parser::ParseDeclaration(DeclaratorContext Context, SourceLocation &DeclEnd,
+                         ParsedAttributesWithRange &attrs,
+                         SourceLocation *DeclSpecStart) {
   ParenBraceBracketBalancer BalancerRAIIObj(*this);
   // Must temporarily exit the objective-c container scope for
   // parsing c none objective-c decls.
@@ -1852,8 +1853,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
       SourceLocation InlineLoc = ConsumeToken();
       return ParseNamespace(Context, DeclEnd, InlineLoc);
     }
-    return ParseSimpleDeclaration(Context, DeclEnd, attrs,
-                                  true);
+    return ParseSimpleDeclaration(Context, DeclEnd, attrs, true, nullptr,
+                                  DeclSpecStart);
   case tok::kw_namespace:
     ProhibitAttributes(attrs);
     return ParseNamespace(Context, DeclEnd);
@@ -1866,7 +1867,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
     SingleDecl = ParseStaticAssertDeclaration(DeclEnd);
     break;
   default:
-    return ParseSimpleDeclaration(Context, DeclEnd, attrs, true);
+    return ParseSimpleDeclaration(Context, DeclEnd, attrs, true, nullptr,
+                                  DeclSpecStart);
   }
 
   // This routine returns a DeclGroup, if the thing we parsed only contains a
@@ -1891,11 +1893,14 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
 /// If FRI is non-null, we might be parsing a for-range-declaration instead
 /// of a simple-declaration. If we find that we are, we also parse the
 /// for-range-initializer, and place it here.
-Parser::DeclGroupPtrTy
-Parser::ParseSimpleDeclaration(DeclaratorContext Context,
-                               SourceLocation &DeclEnd,
-                               ParsedAttributesWithRange &Attrs,
-                               bool RequireSemi, ForRangeInit *FRI) {
+///
+/// DeclSpecStart is used when decl-specifiers are parsed before parsing
+/// the Declaration. The SourceLocation for this Decl is set to
+/// DeclSpecStart if DeclSpecStart is non-null.
+Parser::DeclGroupPtrTy Parser::ParseSimpleDeclaration(
+    DeclaratorContext Context, SourceLocation &DeclEnd,
+    ParsedAttributesWithRange &Attrs, bool RequireSemi, ForRangeInit *FRI,
+    SourceLocation *DeclSpecStart) {
   // Parse the common declaration-specifiers piece.
   ParsingDeclSpec DS(*this);
 
@@ -1924,6 +1929,9 @@ Parser::ParseSimpleDeclaration(DeclaratorContext Context,
     }
     return Actions.ConvertDeclToDeclGroup(TheDecl);
   }
+
+  if (DeclSpecStart)
+    DS.SetRangeStart(*DeclSpecStart);
 
   DS.takeAttributesFrom(Attrs);
   return ParseDeclGroup(DS, Context, &DeclEnd, FRI);
@@ -2603,7 +2611,7 @@ void Parser::ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS,
   // Issue diagnostic and remove constexpr specifier if present.
   if (DS.hasConstexprSpecifier() && DSC != DeclSpecContext::DSC_condition) {
     Diag(DS.getConstexprSpecLoc(), diag::err_typename_invalid_constexpr)
-        << (DS.getConstexprSpecifier() == CSK_consteval);
+        << DS.getConstexprSpecifier();
     DS.ClearConstexprSpec();
   }
 }
@@ -3670,6 +3678,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isStorageClass = true;
       break;
     case tok::kw__Thread_local:
+      if (!getLangOpts().C11)
+        Diag(Tok, diag::ext_c11_feature) << Tok.getName();
       isInvalid = DS.SetStorageClassSpecThread(DeclSpec::TSCS__Thread_local,
                                                Loc, PrevSpec, DiagID);
       isStorageClass = true;
@@ -3720,14 +3730,14 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     }
     case tok::kw__Noreturn:
       if (!getLangOpts().C11)
-        Diag(Loc, diag::ext_c11_noreturn);
+        Diag(Tok, diag::ext_c11_feature) << Tok.getName();
       isInvalid = DS.setFunctionSpecNoreturn(Loc, PrevSpec, DiagID);
       break;
 
     // alignment-specifier
     case tok::kw__Alignas:
       if (!getLangOpts().C11)
-        Diag(Tok, diag::ext_c11_alignment) << Tok.getName();
+        Diag(Tok, diag::ext_c11_feature) << Tok.getName();
       ParseAlignmentSpecifier(DS.getAttributes());
       continue;
 
@@ -3747,14 +3757,15 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.setModulePrivateSpec(Loc, PrevSpec, DiagID);
       break;
 
-    // constexpr
+    // constexpr, consteval, constinit specifiers
     case tok::kw_constexpr:
       isInvalid = DS.SetConstexprSpec(CSK_constexpr, Loc, PrevSpec, DiagID);
       break;
-
-    // consteval
     case tok::kw_consteval:
       isInvalid = DS.SetConstexprSpec(CSK_consteval, Loc, PrevSpec, DiagID);
+      break;
+    case tok::kw_constinit:
+      isInvalid = DS.SetConstexprSpec(CSK_constinit, Loc, PrevSpec, DiagID);
       break;
 
     // type-specifier
@@ -3783,10 +3794,14 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                      DiagID);
       break;
     case tok::kw__Complex:
+      if (!getLangOpts().C99)
+        Diag(Tok, diag::ext_c99_feature) << Tok.getName();
       isInvalid = DS.SetTypeSpecComplex(DeclSpec::TSC_complex, Loc, PrevSpec,
                                         DiagID);
       break;
     case tok::kw__Imaginary:
+      if (!getLangOpts().C99)
+        Diag(Tok, diag::ext_c99_feature) << Tok.getName();
       isInvalid = DS.SetTypeSpecComplex(DeclSpec::TSC_imaginary, Loc, PrevSpec,
                                         DiagID);
       break;
@@ -3867,6 +3882,9 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     case tok::kw_bool:
     case tok::kw__Bool:
+      if (Tok.is(tok::kw__Bool) && !getLangOpts().C99)
+        Diag(Tok, diag::ext_c99_feature) << Tok.getName();
+
       if (Tok.is(tok::kw_bool) &&
           DS.getTypeSpecType() != DeclSpec::TST_unspecified &&
           DS.getStorageClassSpec() == DeclSpec::SCS_typedef) {
@@ -4029,6 +4047,9 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       //   If the _Atomic keyword is immediately followed by a left parenthesis,
       //   it is interpreted as a type specifier (with a type name), not as a
       //   type qualifier.
+      if (!getLangOpts().C11)
+        Diag(Tok, diag::ext_c11_feature) << Tok.getName();
+
       if (NextToken().is(tok::l_paren)) {
         ParseAtomicSpecifier(DS);
         continue;
@@ -4798,8 +4819,10 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
     ExprResult AssignedVal;
     EnumAvailabilityDiags.emplace_back(*this);
 
+    EnterExpressionEvaluationContext ConstantEvaluated(
+        Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
     if (TryConsumeToken(tok::equal, EqualLoc)) {
-      AssignedVal = ParseConstantExpression();
+      AssignedVal = ParseConstantExpressionInExprEvalContext();
       if (AssignedVal.isInvalid())
         SkipUntil(tok::comma, tok::r_brace, StopBeforeMatch);
     }
@@ -5215,8 +5238,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::annot_decltype:
   case tok::kw_constexpr:
 
-    // C++20 consteval.
+    // C++20 consteval and constinit.
   case tok::kw_consteval:
+  case tok::kw_constinit:
 
     // C11 _Atomic
   case tok::kw__Atomic:
@@ -5468,6 +5492,8 @@ void Parser::ParseTypeQualifierListOpt(
     case tok::kw__Atomic:
       if (!AtomicAllowed)
         goto DoneWithTypeQuals;
+      if (!getLangOpts().C11)
+        Diag(Tok, diag::ext_c11_feature) << Tok.getName();
       isInvalid = DS.SetTypeQual(DeclSpec::TQ_atomic, Loc, PrevSpec, DiagID,
                                  getLangOpts());
       break;

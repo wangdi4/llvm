@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#include "ClangdUnit.h"
 #include "Logger.h"
+#include "ParsedAST.h"
 #include "Protocol.h"
 #include "Selection.h"
 #include "SourceCode.h"
@@ -453,7 +453,7 @@ bool ExtractVariable::prepare(const Selection &Inputs) {
   const SourceManager &SM = Inputs.AST.getSourceManager();
   if (const SelectionTree::Node *N =
           computeExtractedExpr(Inputs.ASTSelection.commonAncestor()))
-    Target = llvm::make_unique<ExtractionContext>(N, SM, Ctx);
+    Target = std::make_unique<ExtractionContext>(N, SM, Ctx);
   return Target && Target->isExtractable();
 }
 
@@ -468,7 +468,7 @@ Expected<Tweak::Effect> ExtractVariable::apply(const Selection &Inputs) {
   // replace expression with variable name
   if (auto Err = Result.add(Target->replaceWithVar(Range, VarName)))
     return std::move(Err);
-  return Effect::applyEdit(Result);
+  return Effect::mainFileEdit(Inputs.AST.getSourceManager(), std::move(Result));
 }
 
 } // namespace

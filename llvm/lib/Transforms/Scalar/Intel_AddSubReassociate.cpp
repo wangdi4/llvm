@@ -1774,7 +1774,7 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees) {
     if (!isRootCandidate(&I))
       continue;
 
-    TreePtr UTree = llvm::make_unique<Tree>(DL);
+    TreePtr UTree = std::make_unique<Tree>(DL);
     Tree *T = UTree.get();
     T->setRoot(&I);
     growTree(AllTrees, T,

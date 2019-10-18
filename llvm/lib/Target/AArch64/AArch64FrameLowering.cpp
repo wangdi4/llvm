@@ -44,11 +44,19 @@
 // |                                   |
 // |-----------------------------------|
 // |                                   |
-// | prev_fp, prev_lr                  |
+// | callee-saved gpr registers        | <--.
+// |                                   |    | On Darwin platforms these
+// |- - - - - - - - - - - - - - - - - -|    | callee saves are swapped,
+// |                                   |    | (frame record first)
+// | prev_fp, prev_lr                  | <--'
 // | (a.k.a. "frame record")           |
 // |-----------------------------------| <- fp(=x29)
 // |                                   |
-// | other callee-saved registers      |
+// | callee-saved fp/simd/SVE regs     |
+// |                                   |
+// |-----------------------------------|
+// |                                   |
+// |        SVE stack objects          |
 // |                                   |
 // |-----------------------------------|
 // |.empty.space.to.make.part.below....|
@@ -79,6 +87,20 @@
 //   variables with more-than-default alignment requirements.
 // * A frame pointer is definitely needed when there are local variables with
 //   more-than-default alignment requirements.
+//
+// For Darwin platforms the frame-record (fp, lr) is stored at the top of the
+// callee-saved area, since the unwind encoding does not allow for encoding
+// this dynamically and existing tools depend on this layout. For other
+// platforms, the frame-record is stored at the bottom of the (gpr) callee-saved
+// area to allow SVE stack objects (allocated directly below the callee-saves,
+// if available) to be accessed directly from the framepointer.
+// The SVE spill/fill instructions have VL-scaled addressing modes such
+// as:
+//    ldr z8, [fp, #-7 mul vl]
+// For SVE the size of the vector length (VL) is not known at compile-time, so
+// '#-7 mul vl' is an offset that can only be evaluated at runtime. With this
+// layout, we don't need to add an unscaled offset to the framepointer before
+// accessing the SVE object in the frame.
 //
 // In some cases when a base pointer is not strictly needed, it is generated
 // anyway when offsets from the frame pointer to access local variables become
@@ -184,6 +206,12 @@ static unsigned estimateRSStackSizeLimit(MachineFunction &MF) {
   return DefaultSafeSPDisplacement;
 }
 
+/// Returns the size of the entire SVE stackframe (calleesaves + spills).
+static StackOffset getSVEStackSize(const MachineFunction &MF) {
+  const AArch64FunctionInfo *AFI = MF.getInfo<AArch64FunctionInfo>();
+  return {(int64_t)AFI->getStackSizeSVE(), MVT::nxv1i8};
+}
+
 bool AArch64FrameLowering::canUseRedZone(const MachineFunction &MF) const {
   if (!EnableRedZone)
     return false;
@@ -196,7 +224,8 @@ bool AArch64FrameLowering::canUseRedZone(const MachineFunction &MF) const {
   const AArch64FunctionInfo *AFI = MF.getInfo<AArch64FunctionInfo>();
   unsigned NumBytes = AFI->getLocalStackSize();
 
-  return !(MFI.hasCalls() || hasFP(MF) || NumBytes > 128);
+  return !(MFI.hasCalls() || hasFP(MF) || NumBytes > 128 ||
+           getSVEStackSize(MF));
 }
 
 /// hasFP - Return true if the specified function should have a dedicated frame
@@ -436,6 +465,11 @@ bool AArch64FrameLowering::shouldCombineCSRLocalStackBump(
   // current RedZone handling code assumes the SP is adjusted by the
   // callee-save save/restore code.
   if (canUseRedZone(MF))
+    return false;
+
+  // When there is an SVE area on the stack, always allocate the
+  // callee-saves and spills/locals separately.
+  if (getSVEStackSize(MF))
     return false;
 
   return true;
@@ -793,6 +827,10 @@ static bool needsWinCFI(const MachineFunction &MF) {
          F.needsUnwindTableEntry();
 }
 
+static bool isTargetDarwin(const MachineFunction &MF) {
+  return MF.getSubtarget<AArch64Subtarget>().isTargetDarwin();
+}
+
 void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
                                         MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator MBBI = MBB.begin();
@@ -848,6 +886,8 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
   // Ideally it should match SP value after prologue.
   AFI->setTaggedBasePointerOffset(MFI.getStackSize());
 
+  const StackOffset &SVEStackSize = getSVEStackSize(MF);
+
   // getStackSize() includes all the locals in its size calculation. We don't
   // include these locals when computing the stack size of a funclet, as they
   // are allocated in the parent's stack frame and accessed via the frame
@@ -858,6 +898,8 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
                            : (int)MFI.getStackSize();
   if (!AFI->hasStackFrame() && !windowsRequiresStackProbe(MF, NumBytes)) {
     assert(!HasFP && "unexpected function without stack frame but with FP");
+    assert(!SVEStackSize &&
+           "unexpected function without stack frame but with SVE objects");
     // All of the stack allocation is for locals.
     AFI->setLocalStackSize(NumBytes);
     if (!NumBytes)
@@ -904,6 +946,7 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
   AFI->setLocalStackSize(NumBytes - PrologueSaveSize);
   bool CombineSPBump = shouldCombineCSRLocalStackBump(MF, NumBytes);
   if (CombineSPBump) {
+    assert(!SVEStackSize && "Cannot combine SP bump with SVE");
     emitFrameOffset(MBB, MBBI, DL, AArch64::SP, AArch64::SP,
                     {-NumBytes, MVT::i8}, TII, MachineInstr::FrameSetup, false,
                     NeedsWinCFI, &HasWinCFI);
@@ -952,9 +995,9 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
   }
 
   if (HasFP) {
-    // Only set up FP if we actually need to. Frame pointer is fp =
-    // sp - fixedobject - 16.
-    int FPOffset = AFI->getCalleeSavedStackSize() - 16;
+    // Only set up FP if we actually need to.
+    int FPOffset = isTargetDarwin(MF) ? (AFI->getCalleeSavedStackSize() - 16) : 0;
+
     if (CombineSPBump)
       FPOffset += AFI->getLocalStackSize();
 
@@ -1061,6 +1104,9 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
     NumBytes = 0;
   }
 
+  emitFrameOffset(MBB, MBBI, DL, AArch64::SP, AArch64::SP, -SVEStackSize, TII,
+                  MachineInstr::FrameSetup);
+
   // Allocate space for the rest of the frame.
   if (NumBytes) {
     const bool NeedsRealignment = RegInfo->needsStackRealignment(MF);
@@ -1136,7 +1182,9 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
 
   if (needsFrameMoves) {
     const DataLayout &TD = MF.getDataLayout();
-    const int StackGrowth = -TD.getPointerSize(0);
+    const int StackGrowth = isTargetDarwin(MF)
+                                ? (2 * -TD.getPointerSize(0))
+                                : -AFI->getCalleeSavedStackSize();
     Register FramePtr = RegInfo->getFrameRegister(MF);
     // An example of the prologue:
     //
@@ -1208,7 +1256,7 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
       // Define the current CFA rule to use the provided FP.
       unsigned Reg = RegInfo->getDwarfRegNum(FramePtr, true);
       unsigned CFIIndex = MF.addFrameInst(MCCFIInstruction::createDefCfa(
-          nullptr, Reg, 2 * StackGrowth - FixedObject));
+          nullptr, Reg, StackGrowth - FixedObject));
       BuildMI(MBB, MBBI, DL, TII->get(TargetOpcode::CFI_INSTRUCTION))
           .addCFIIndex(CFIIndex)
           .setMIFlags(MachineInstr::FrameSetup);
@@ -1407,8 +1455,11 @@ void AArch64FrameLowering::emitEpilogue(MachineFunction &MF,
         .setMIFlag(MachineInstr::FrameDestroy);
   }
 
+  const StackOffset &SVEStackSize = getSVEStackSize(MF);
+
   // If there is a single SP update, insert it before the ret and we're done.
   if (CombineSPBump) {
+    assert(!SVEStackSize && "Cannot combine SP bump with SVE");
     emitFrameOffset(MBB, MBB.getFirstTerminator(), DL, AArch64::SP, AArch64::SP,
                     {NumBytes + (int64_t)AfterCSRPopSize, MVT::i8}, TII,
                     MachineInstr::FrameDestroy, false, NeedsWinCFI, &HasWinCFI);
@@ -1421,6 +1472,12 @@ void AArch64FrameLowering::emitEpilogue(MachineFunction &MF,
 
   NumBytes -= PrologueSaveSize;
   assert(NumBytes >= 0 && "Negative stack allocation size!?");
+
+  // Deallocate the SVE area.
+  if (SVEStackSize)
+    if (!AFI->isStackRealigned())
+      emitFrameOffset(MBB, LastPopI, DL, AArch64::SP, AArch64::SP, SVEStackSize,
+                      TII, MachineInstr::FrameDestroy);
 
   if (!hasFP(MF)) {
     bool RedZone = canUseRedZone(MF);
@@ -1462,11 +1519,13 @@ void AArch64FrameLowering::emitEpilogue(MachineFunction &MF,
   // FIXME: Rather than doing the math here, we should instead just use
   // non-post-indexed loads for the restores if we aren't actually going to
   // be able to save any instructions.
-  if (!IsFunclet && (MFI.hasVarSizedObjects() || AFI->isStackRealigned()))
+  if (!IsFunclet && (MFI.hasVarSizedObjects() || AFI->isStackRealigned())) {
+    int64_t OffsetToFrameRecord =
+        isTargetDarwin(MF) ? (-(int64_t)AFI->getCalleeSavedStackSize() + 16) : 0;
     emitFrameOffset(MBB, LastPopI, DL, AArch64::SP, AArch64::FP,
-                    {-(int64_t)AFI->getCalleeSavedStackSize() + 16, MVT::i8},
+                    {OffsetToFrameRecord, MVT::i8},
                     TII, MachineInstr::FrameDestroy, false, NeedsWinCFI);
-  else if (NumBytes)
+  } else if (NumBytes)
     emitFrameOffset(MBB, LastPopI, DL, AArch64::SP, AArch64::SP,
                     {NumBytes, MVT::i8}, TII, MachineInstr::FrameDestroy, false,
                     NeedsWinCFI);
@@ -1526,7 +1585,8 @@ static StackOffset getFPOffset(const MachineFunction &MF, int ObjectOffset) {
   bool IsWin64 =
       Subtarget.isCallingConvWin64(MF.getFunction().getCallingConv());
   unsigned FixedObject = IsWin64 ? alignTo(AFI->getVarArgsGPRSize(), 16) : 0;
-  return {ObjectOffset + FixedObject + 16, MVT::i8};
+  unsigned FPAdjust = isTargetDarwin(MF) ? 16 : AFI->getCalleeSavedStackSize();
+  return {ObjectOffset + FixedObject + FPAdjust, MVT::i8};
 }
 
 static StackOffset getStackOffset(const MachineFunction &MF, int ObjectOffset) {
@@ -1567,6 +1627,11 @@ StackOffset AArch64FrameLowering::resolveFrameOffsetReference(
   int Offset = getStackOffset(MF, ObjectOffset).getBytes();
   bool isCSR =
       !isFixed && ObjectOffset >= -((int)AFI->getCalleeSavedStackSize());
+
+  const StackOffset &SVEStackSize = getSVEStackSize(MF);
+  if (SVEStackSize)
+    llvm_unreachable("Accessing frame indices in presence of SVE "
+                     "not yet supported");
 
   // Use frame pointer to reference fixed objects. Use it for locals if
   // there are VLAs or a dynamically realigned SP (and thus the SP isn't
@@ -1689,6 +1754,23 @@ static bool invalidateWindowsRegisterPairing(unsigned Reg1, unsigned Reg2,
   return true;
 }
 
+/// Returns true if Reg1 and Reg2 cannot be paired using a ldp/stp instruction.
+/// WindowsCFI requires that only consecutive registers can be paired.
+/// LR and FP need to be allocated together when the frame needs to save
+/// the frame-record. This means any other register pairing with LR is invalid.
+static bool invalidateRegisterPairing(unsigned Reg1, unsigned Reg2,
+                                      bool NeedsWinCFI, bool NeedsFrameRecord) {
+  if (NeedsWinCFI)
+    return invalidateWindowsRegisterPairing(Reg1, Reg2, true);
+
+  // If we need to store the frame record, don't pair any register
+  // with LR other than FP.
+  if (NeedsFrameRecord)
+    return Reg2 == AArch64::LR;
+
+  return false;
+}
+
 namespace {
 
 struct RegPairInfo {
@@ -1708,7 +1790,7 @@ struct RegPairInfo {
 static void computeCalleeSaveRegisterPairs(
     MachineFunction &MF, const std::vector<CalleeSavedInfo> &CSI,
     const TargetRegisterInfo *TRI, SmallVectorImpl<RegPairInfo> &RegPairs,
-    bool &NeedShadowCallStackProlog) {
+    bool &NeedShadowCallStackProlog, bool NeedsFrameRecord) {
 
   if (CSI.empty())
     return;
@@ -1750,7 +1832,8 @@ static void computeCalleeSaveRegisterPairs(
       switch (RPI.Type) {
       case RegPairInfo::GPR:
         if (AArch64::GPR64RegClass.contains(NextReg) &&
-            !invalidateWindowsRegisterPairing(RPI.Reg1, NextReg, NeedsWinCFI))
+            !invalidateRegisterPairing(RPI.Reg1, NextReg, NeedsWinCFI,
+                                       NeedsFrameRecord))
           RPI.Reg2 = NextReg;
         break;
       case RegPairInfo::FPR64:
@@ -1783,6 +1866,10 @@ static void computeCalleeSaveRegisterPairs(
     assert((!RPI.isPaired() ||
             (CSI[i].getFrameIdx() + 1 == CSI[i + 1].getFrameIdx())) &&
            "Out of order callee saved regs!");
+
+    assert((!RPI.isPaired() || !NeedsFrameRecord || RPI.Reg2 != AArch64::FP ||
+            RPI.Reg1 == AArch64::LR) &&
+           "FrameRecord must be allocated together with LR");
 
     // MachO's compact unwind format relies on all registers being stored in
     // adjacent register pairs.
@@ -1832,7 +1919,7 @@ bool AArch64FrameLowering::spillCalleeSavedRegisters(
 
   bool NeedShadowCallStackProlog = false;
   computeCalleeSaveRegisterPairs(MF, CSI, TRI, RegPairs,
-                                 NeedShadowCallStackProlog);
+                                 NeedShadowCallStackProlog, hasFP(MF));
   const MachineRegisterInfo &MRI = MF.getRegInfo();
 
   if (NeedShadowCallStackProlog) {
@@ -1962,7 +2049,7 @@ bool AArch64FrameLowering::restoreCalleeSavedRegisters(
 
   bool NeedShadowCallStackProlog = false;
   computeCalleeSaveRegisterPairs(MF, CSI, TRI, RegPairs,
-                                 NeedShadowCallStackProlog);
+                                 NeedShadowCallStackProlog, hasFP(MF));
 
   auto EmitMI = [&](const RegPairInfo &RPI) {
     unsigned Reg1 = RPI.Reg1;
@@ -2126,8 +2213,19 @@ void AArch64FrameLowering::determineCalleeSaves(MachineFunction &MF,
              << ' ' << printReg(Reg, RegInfo);
              dbgs() << "\n";);
 
+  bool HasSVEStackObjects = [&MFI]() {
+    for (int I = MFI.getObjectIndexBegin(); I != 0; ++I)
+      if (MFI.getStackID(I) == TargetStackID::SVEVector &&
+          MFI.getObjectOffset(I) < 0)
+        return true;
+    // Note: We don't take allocatable stack objects into
+    // account yet, because allocation for those is not yet
+    // implemented.
+    return false;
+  }();
+
   // If any callee-saved registers are used, the frame cannot be eliminated.
-  bool CanEliminateFrame = SavedRegs.count() == 0;
+  bool CanEliminateFrame = (SavedRegs.count() == 0) && !HasSVEStackObjects;
 
   // The CSR spill slots have not been allocated yet, so estimateStackSize
   // won't include them.
@@ -2190,12 +2288,34 @@ bool AArch64FrameLowering::enableStackSlotScavenging(
 
 void AArch64FrameLowering::processFunctionBeforeFrameFinalized(
     MachineFunction &MF, RegScavenger *RS) const {
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+
+  assert(getStackGrowthDirection() == TargetFrameLowering::StackGrowsDown &&
+         "Upwards growing stack unsupported");
+
+  // Process all fixed stack SVE objects.
+  int64_t Offset = 0;
+  for (int I = MFI.getObjectIndexBegin(); I != 0; ++I) {
+    unsigned StackID = MFI.getStackID(I);
+    if (StackID == TargetStackID::SVEVector) {
+      int64_t FixedOffset = -MFI.getObjectOffset(I);
+      if (FixedOffset > Offset)
+        Offset = FixedOffset;
+    }
+  }
+
+  unsigned MaxAlign = getStackAlignment();
+  uint64_t SVEStackSize = alignTo(Offset, MaxAlign);
+
+  AArch64FunctionInfo *AFI = MF.getInfo<AArch64FunctionInfo>();
+  AFI->setStackSizeSVE(SVEStackSize);
+  assert(MaxAlign <= 16 && "Cannot align scalable vectors more than 16 bytes");
+
   // If this function isn't doing Win64-style C++ EH, we don't need to do
   // anything.
   if (!MF.hasEHFunclets())
     return;
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
   WinEHFuncInfo &EHInfo = *MF.getWinEHFuncInfo();
 
   MachineBasicBlock &MBB = MF.front();

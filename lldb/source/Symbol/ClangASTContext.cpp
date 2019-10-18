@@ -65,6 +65,7 @@
 #include "llvm/Support/Threading.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangFunctionCaller.h"
+#include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
 #include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
 #include "lldb/Utility/ArchSpec.h"
@@ -82,7 +83,6 @@
 #include "lldb/Symbol/ClangUtil.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolFile.h"
-#include "lldb/Symbol/VerifyDecl.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/Process.h"
@@ -103,10 +103,17 @@
 
 using namespace lldb;
 using namespace lldb_private;
-using namespace llvm;
 using namespace clang;
+using llvm::StringSwitch;
 
 namespace {
+#ifdef LLDB_CONFIGURATION_DEBUG
+static void VerifyDecl(clang::Decl *decl) {
+  assert(decl && "VerifyDecl called with nullptr?");
+  decl->getAccess();
+}
+#endif
+
 static inline bool
 ClangASTContextSupportsLanguage(lldb::LanguageType language) {
   return language == eLanguageTypeUnknown || // Clang is the default type system
@@ -330,219 +337,82 @@ static ClangASTMap &GetASTMap() {
   return *g_map_ptr;
 }
 
-bool ClangASTContext::IsOperator(const char *name,
+bool ClangASTContext::IsOperator(llvm::StringRef name,
                                  clang::OverloadedOperatorKind &op_kind) {
-  if (name == nullptr || name[0] == '\0')
+  // All operators have to start with "operator".
+  if (!name.consume_front("operator"))
     return false;
 
-#define OPERATOR_PREFIX "operator"
-#define OPERATOR_PREFIX_LENGTH (sizeof(OPERATOR_PREFIX) - 1)
+  // Remember if there was a space after "operator". This is necessary to
+  // check for collisions with strangely named functions like "operatorint()".
+  bool space_after_operator = name.consume_front(" ");
 
-  const char *post_op_name = nullptr;
+  op_kind = StringSwitch<clang::OverloadedOperatorKind>(name)
+                .Case("+", clang::OO_Plus)
+                .Case("+=", clang::OO_PlusEqual)
+                .Case("++", clang::OO_PlusPlus)
+                .Case("-", clang::OO_Minus)
+                .Case("-=", clang::OO_MinusEqual)
+                .Case("--", clang::OO_MinusMinus)
+                .Case("->", clang::OO_Arrow)
+                .Case("->*", clang::OO_ArrowStar)
+                .Case("*", clang::OO_Star)
+                .Case("*=", clang::OO_StarEqual)
+                .Case("/", clang::OO_Slash)
+                .Case("/=", clang::OO_SlashEqual)
+                .Case("%", clang::OO_Percent)
+                .Case("%=", clang::OO_PercentEqual)
+                .Case("^", clang::OO_Caret)
+                .Case("^=", clang::OO_CaretEqual)
+                .Case("&", clang::OO_Amp)
+                .Case("&=", clang::OO_AmpEqual)
+                .Case("&&", clang::OO_AmpAmp)
+                .Case("|", clang::OO_Pipe)
+                .Case("|=", clang::OO_PipeEqual)
+                .Case("||", clang::OO_PipePipe)
+                .Case("~", clang::OO_Tilde)
+                .Case("!", clang::OO_Exclaim)
+                .Case("!=", clang::OO_ExclaimEqual)
+                .Case("=", clang::OO_Equal)
+                .Case("==", clang::OO_EqualEqual)
+                .Case("<", clang::OO_Less)
+                .Case("<<", clang::OO_LessLess)
+                .Case("<<=", clang::OO_LessLessEqual)
+                .Case("<=", clang::OO_LessEqual)
+                .Case(">", clang::OO_Greater)
+                .Case(">>", clang::OO_GreaterGreater)
+                .Case(">>=", clang::OO_GreaterGreaterEqual)
+                .Case(">=", clang::OO_GreaterEqual)
+                .Case("()", clang::OO_Call)
+                .Case("[]", clang::OO_Subscript)
+                .Case(",", clang::OO_Comma)
+                .Default(clang::NUM_OVERLOADED_OPERATORS);
 
-  bool no_space = true;
+  // We found a fitting operator, so we can exit now.
+  if (op_kind != clang::NUM_OVERLOADED_OPERATORS)
+    return true;
 
-  if (::strncmp(name, OPERATOR_PREFIX, OPERATOR_PREFIX_LENGTH))
-    return false;
+  // After the "operator " or "operator" part is something unknown. This means
+  // it's either one of the named operators (new/delete), a conversion operator
+  // (e.g. operator bool) or a function which name starts with "operator"
+  // (e.g. void operatorbool).
 
-  post_op_name = name + OPERATOR_PREFIX_LENGTH;
+  // If it's a function that starts with operator it can't have a space after
+  // "operator" because identifiers can't contain spaces.
+  // E.g. "operator int" (conversion operator)
+  //  vs. "operatorint" (function with colliding name).
+  if (!space_after_operator)
+    return false; // not an operator.
 
-  if (post_op_name[0] == ' ') {
-    post_op_name++;
-    no_space = false;
-  }
-
-#undef OPERATOR_PREFIX
-#undef OPERATOR_PREFIX_LENGTH
-
-  // This is an operator, set the overloaded operator kind to invalid in case
-  // this is a conversion operator...
-  op_kind = clang::NUM_OVERLOADED_OPERATORS;
-
-  switch (post_op_name[0]) {
-  default:
-    if (no_space)
-      return false;
-    break;
-  case 'n':
-    if (no_space)
-      return false;
-    if (strcmp(post_op_name, "new") == 0)
-      op_kind = clang::OO_New;
-    else if (strcmp(post_op_name, "new[]") == 0)
-      op_kind = clang::OO_Array_New;
-    break;
-
-  case 'd':
-    if (no_space)
-      return false;
-    if (strcmp(post_op_name, "delete") == 0)
-      op_kind = clang::OO_Delete;
-    else if (strcmp(post_op_name, "delete[]") == 0)
-      op_kind = clang::OO_Array_Delete;
-    break;
-
-  case '+':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Plus;
-    else if (post_op_name[2] == '\0') {
-      if (post_op_name[1] == '=')
-        op_kind = clang::OO_PlusEqual;
-      else if (post_op_name[1] == '+')
-        op_kind = clang::OO_PlusPlus;
-    }
-    break;
-
-  case '-':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Minus;
-    else if (post_op_name[2] == '\0') {
-      switch (post_op_name[1]) {
-      case '=':
-        op_kind = clang::OO_MinusEqual;
-        break;
-      case '-':
-        op_kind = clang::OO_MinusMinus;
-        break;
-      case '>':
-        op_kind = clang::OO_Arrow;
-        break;
-      }
-    } else if (post_op_name[3] == '\0') {
-      if (post_op_name[2] == '*')
-        op_kind = clang::OO_ArrowStar;
-      break;
-    }
-    break;
-
-  case '*':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Star;
-    else if (post_op_name[1] == '=' && post_op_name[2] == '\0')
-      op_kind = clang::OO_StarEqual;
-    break;
-
-  case '/':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Slash;
-    else if (post_op_name[1] == '=' && post_op_name[2] == '\0')
-      op_kind = clang::OO_SlashEqual;
-    break;
-
-  case '%':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Percent;
-    else if (post_op_name[1] == '=' && post_op_name[2] == '\0')
-      op_kind = clang::OO_PercentEqual;
-    break;
-
-  case '^':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Caret;
-    else if (post_op_name[1] == '=' && post_op_name[2] == '\0')
-      op_kind = clang::OO_CaretEqual;
-    break;
-
-  case '&':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Amp;
-    else if (post_op_name[2] == '\0') {
-      switch (post_op_name[1]) {
-      case '=':
-        op_kind = clang::OO_AmpEqual;
-        break;
-      case '&':
-        op_kind = clang::OO_AmpAmp;
-        break;
-      }
-    }
-    break;
-
-  case '|':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Pipe;
-    else if (post_op_name[2] == '\0') {
-      switch (post_op_name[1]) {
-      case '=':
-        op_kind = clang::OO_PipeEqual;
-        break;
-      case '|':
-        op_kind = clang::OO_PipePipe;
-        break;
-      }
-    }
-    break;
-
-  case '~':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Tilde;
-    break;
-
-  case '!':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Exclaim;
-    else if (post_op_name[1] == '=' && post_op_name[2] == '\0')
-      op_kind = clang::OO_ExclaimEqual;
-    break;
-
-  case '=':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Equal;
-    else if (post_op_name[1] == '=' && post_op_name[2] == '\0')
-      op_kind = clang::OO_EqualEqual;
-    break;
-
-  case '<':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Less;
-    else if (post_op_name[2] == '\0') {
-      switch (post_op_name[1]) {
-      case '<':
-        op_kind = clang::OO_LessLess;
-        break;
-      case '=':
-        op_kind = clang::OO_LessEqual;
-        break;
-      }
-    } else if (post_op_name[3] == '\0') {
-      if (post_op_name[2] == '=')
-        op_kind = clang::OO_LessLessEqual;
-    }
-    break;
-
-  case '>':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Greater;
-    else if (post_op_name[2] == '\0') {
-      switch (post_op_name[1]) {
-      case '>':
-        op_kind = clang::OO_GreaterGreater;
-        break;
-      case '=':
-        op_kind = clang::OO_GreaterEqual;
-        break;
-      }
-    } else if (post_op_name[1] == '>' && post_op_name[2] == '=' &&
-               post_op_name[3] == '\0') {
-      op_kind = clang::OO_GreaterGreaterEqual;
-    }
-    break;
-
-  case ',':
-    if (post_op_name[1] == '\0')
-      op_kind = clang::OO_Comma;
-    break;
-
-  case '(':
-    if (post_op_name[1] == ')' && post_op_name[2] == '\0')
-      op_kind = clang::OO_Call;
-    break;
-
-  case '[':
-    if (post_op_name[1] == ']' && post_op_name[2] == '\0')
-      op_kind = clang::OO_Subscript;
-    break;
-  }
+  // Now the operator is either one of the named operators or a conversion
+  // operator.
+  op_kind = StringSwitch<clang::OverloadedOperatorKind>(name)
+                .Case("new", clang::OO_New)
+                .Case("new[]", clang::OO_Array_New)
+                .Case("delete", clang::OO_Delete)
+                .Case("delete[]", clang::OO_Array_Delete)
+                // conversion operators hit this case.
+                .Default(clang::NUM_OVERLOADED_OPERATORS);
 
   return true;
 }
@@ -624,7 +494,7 @@ static void ParseLangArgs(LangOptions &Opts, InputKind IK, const char *triple) {
     Opts.OpenCL = 1;
     Opts.AltiVec = 1;
     Opts.CXXOperatorNames = 1;
-    Opts.LaxVectorConversions = 1;
+    Opts.setLaxVectorConversions(LangOptions::LaxVectorConversionKind::All);
   }
 
   // OpenCL and C++ both have bool, true, false keywords.
@@ -652,15 +522,29 @@ static void ParseLangArgs(LangOptions &Opts, InputKind IK, const char *triple) {
   Opts.NoInlineDefine = !Opt;
 }
 
-ClangASTContext::ClangASTContext(const char *target_triple)
-    : TypeSystem(TypeSystem::eKindClang), m_target_triple(), m_ast_up(),
-      m_language_options_up(), m_source_manager_up(), m_diagnostics_engine_up(),
-      m_target_options_rp(), m_target_info_up(), m_identifier_table_up(),
-      m_selector_table_up(), m_builtins_up(), m_callback_tag_decl(nullptr),
-      m_callback_objc_decl(nullptr), m_callback_baton(nullptr),
-      m_pointer_byte_size(0), m_ast_owned(false) {
-  if (target_triple && target_triple[0])
+ClangASTContext::ClangASTContext(llvm::StringRef target_triple)
+    : TypeSystem(TypeSystem::eKindClang) {
+  if (!target_triple.empty())
     SetTargetTriple(target_triple);
+  // The caller didn't pass an ASTContext so create a new one for this
+  // ClangASTContext.
+  CreateASTContext();
+}
+
+ClangASTContext::ClangASTContext(ArchSpec arch)
+    : TypeSystem(TypeSystem::eKindClang) {
+  SetTargetTriple(arch.GetTriple().str());
+  // The caller didn't pass an ASTContext so create a new one for this
+  // ClangASTContext.
+  CreateASTContext();
+}
+
+ClangASTContext::ClangASTContext(ASTContext &existing_ctxt)
+  : TypeSystem(TypeSystem::eKindClang) {
+  SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
+
+  m_ast_up.reset(&existing_ctxt);
+  GetASTMap().Insert(&existing_ctxt, this);
 }
 
 // Destructor
@@ -702,58 +586,57 @@ lldb::TypeSystemSP ClangASTContext::CreateInstance(lldb::LanguageType language,
       }
 
       if (module) {
-        std::shared_ptr<ClangASTContext> ast_sp(new ClangASTContext);
-        if (ast_sp) {
-          ast_sp->SetArchitecture(fixed_arch);
-        }
+        std::shared_ptr<ClangASTContext> ast_sp(
+            new ClangASTContext(fixed_arch));
         return ast_sp;
       } else if (target && target->IsValid()) {
         std::shared_ptr<ClangASTContextForExpressions> ast_sp(
-            new ClangASTContextForExpressions(*target));
-        if (ast_sp) {
-          ast_sp->SetArchitecture(fixed_arch);
-          ast_sp->m_scratch_ast_source_up.reset(
-              new ClangASTSource(target->shared_from_this()));
-          lldbassert(ast_sp->getFileManager());
-          ast_sp->m_scratch_ast_source_up->InstallASTContext(
-              *ast_sp->getASTContext(), *ast_sp->getFileManager(), true);
-          llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(
-              ast_sp->m_scratch_ast_source_up->CreateProxy());
-          ast_sp->SetExternalSource(proxy_ast_source);
-          return ast_sp;
-        }
+            new ClangASTContextForExpressions(*target, fixed_arch));
+        ast_sp->m_scratch_ast_source_up.reset(
+            new ClangASTSource(target->shared_from_this()));
+        lldbassert(ast_sp->getFileManager());
+        ast_sp->m_scratch_ast_source_up->InstallASTContext(
+            *ast_sp->getASTContext(), *ast_sp->getFileManager(), true);
+        llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(
+            ast_sp->m_scratch_ast_source_up->CreateProxy());
+        ast_sp->SetExternalSource(proxy_ast_source);
+        return ast_sp;
       }
     }
   }
   return lldb::TypeSystemSP();
 }
 
-void ClangASTContext::EnumerateSupportedLanguages(
-    std::set<lldb::LanguageType> &languages_for_types,
-    std::set<lldb::LanguageType> &languages_for_expressions) {
-  static std::vector<lldb::LanguageType> s_supported_languages_for_types(
-      {lldb::eLanguageTypeC89, lldb::eLanguageTypeC, lldb::eLanguageTypeC11,
-       lldb::eLanguageTypeC_plus_plus, lldb::eLanguageTypeC99,
-       lldb::eLanguageTypeObjC, lldb::eLanguageTypeObjC_plus_plus,
-       lldb::eLanguageTypeC_plus_plus_03, lldb::eLanguageTypeC_plus_plus_11,
-       lldb::eLanguageTypeC11, lldb::eLanguageTypeC_plus_plus_14});
+LanguageSet ClangASTContext::GetSupportedLanguagesForTypes() {
+  LanguageSet languages;
+  languages.Insert(lldb::eLanguageTypeC89);
+  languages.Insert(lldb::eLanguageTypeC);
+  languages.Insert(lldb::eLanguageTypeC11);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus);
+  languages.Insert(lldb::eLanguageTypeC99);
+  languages.Insert(lldb::eLanguageTypeObjC);
+  languages.Insert(lldb::eLanguageTypeObjC_plus_plus);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus_03);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus_11);
+  languages.Insert(lldb::eLanguageTypeC11);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus_14);
+  return languages;
+}
 
-  static std::vector<lldb::LanguageType> s_supported_languages_for_expressions(
-      {lldb::eLanguageTypeC_plus_plus, lldb::eLanguageTypeObjC_plus_plus,
-       lldb::eLanguageTypeC_plus_plus_03, lldb::eLanguageTypeC_plus_plus_11,
-       lldb::eLanguageTypeC_plus_plus_14});
-
-  languages_for_types.insert(s_supported_languages_for_types.begin(),
-                             s_supported_languages_for_types.end());
-  languages_for_expressions.insert(
-      s_supported_languages_for_expressions.begin(),
-      s_supported_languages_for_expressions.end());
+LanguageSet ClangASTContext::GetSupportedLanguagesForExpressions() {
+  LanguageSet languages;
+  languages.Insert(lldb::eLanguageTypeC_plus_plus);
+  languages.Insert(lldb::eLanguageTypeObjC_plus_plus);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus_03);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus_11);
+  languages.Insert(lldb::eLanguageTypeC_plus_plus_14);
+  return languages;
 }
 
 void ClangASTContext::Initialize() {
-  PluginManager::RegisterPlugin(GetPluginNameStatic(),
-                                "clang base AST context plug-in",
-                                CreateInstance, EnumerateSupportedLanguages);
+  PluginManager::RegisterPlugin(
+      GetPluginNameStatic(), "clang base AST context plug-in", CreateInstance,
+      GetSupportedLanguagesForTypes(), GetSupportedLanguagesForExpressions());
 }
 
 void ClangASTContext::Terminate() {
@@ -761,11 +644,10 @@ void ClangASTContext::Terminate() {
 }
 
 void ClangASTContext::Finalize() {
-  if (m_ast_up) {
-    GetASTMap().Erase(m_ast_up.get());
-    if (!m_ast_owned)
-      m_ast_up.release();
-  }
+  assert(m_ast_up);
+  GetASTMap().Erase(m_ast_up.get());
+  if (!m_ast_owned)
+    m_ast_up.release();
 
   m_builtins_up.reset();
   m_selector_table_up.reset();
@@ -775,21 +657,7 @@ void ClangASTContext::Finalize() {
   m_diagnostics_engine_up.reset();
   m_source_manager_up.reset();
   m_language_options_up.reset();
-  m_ast_up.reset();
   m_scratch_ast_source_up.reset();
-}
-
-void ClangASTContext::Clear() {
-  m_ast_up.reset();
-  m_language_options_up.reset();
-  m_source_manager_up.reset();
-  m_diagnostics_engine_up.reset();
-  m_target_options_rp.reset();
-  m_target_info_up.reset();
-  m_identifier_table_up.reset();
-  m_selector_table_up.reset();
-  m_builtins_up.reset();
-  m_pointer_byte_size = 0;
 }
 
 void ClangASTContext::setSema(Sema *s) {
@@ -802,20 +670,8 @@ const char *ClangASTContext::GetTargetTriple() {
   return m_target_triple.c_str();
 }
 
-void ClangASTContext::SetTargetTriple(const char *target_triple) {
-  Clear();
-  m_target_triple.assign(target_triple);
-}
-
-void ClangASTContext::SetArchitecture(const ArchSpec &arch) {
-  SetTargetTriple(arch.GetTriple().str().c_str());
-}
-
-bool ClangASTContext::HasExternalSource() {
-  ASTContext *ast = getASTContext();
-  if (ast)
-    return ast->getExternalSource() != nullptr;
-  return false;
+void ClangASTContext::SetTargetTriple(llvm::StringRef target_triple) {
+  m_target_triple = target_triple.str();
 }
 
 void ClangASTContext::SetExternalSource(
@@ -827,56 +683,40 @@ void ClangASTContext::SetExternalSource(
   }
 }
 
-void ClangASTContext::RemoveExternalSource() {
-  ASTContext *ast = getASTContext();
-
-  if (ast) {
-    llvm::IntrusiveRefCntPtr<ExternalASTSource> empty_ast_source_up;
-    ast->setExternalSource(empty_ast_source_up);
-    ast->getTranslationUnitDecl()->setHasExternalLexicalStorage(false);
-  }
-}
-
-void ClangASTContext::setASTContext(clang::ASTContext *ast_ctx) {
-  if (!m_ast_owned) {
-    m_ast_up.release();
-  }
-  m_ast_owned = false;
-  m_ast_up.reset(ast_ctx);
-  GetASTMap().Insert(ast_ctx, this);
-}
-
 ASTContext *ClangASTContext::getASTContext() {
-  if (m_ast_up == nullptr) {
-    m_ast_owned = true;
-    m_ast_up.reset(new ASTContext(*getLanguageOptions(), *getSourceManager(),
-                                  *getIdentifierTable(), *getSelectorTable(),
-                                  *getBuiltinContext()));
-
-    m_ast_up->getDiagnostics().setClient(getDiagnosticConsumer(), false);
-
-    // This can be NULL if we don't know anything about the architecture or if
-    // the target for an architecture isn't enabled in the llvm/clang that we
-    // built
-    TargetInfo *target_info = getTargetInfo();
-    if (target_info)
-      m_ast_up->InitBuiltinTypes(*target_info);
-
-    if ((m_callback_tag_decl || m_callback_objc_decl) && m_callback_baton) {
-      m_ast_up->getTranslationUnitDecl()->setHasExternalLexicalStorage();
-      // m_ast_up->getTranslationUnitDecl()->setHasExternalVisibleStorage();
-    }
-
-    GetASTMap().Insert(m_ast_up.get(), this);
-
-    llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> ast_source_up(
-        new ClangExternalASTSourceCallbacks(
-            ClangASTContext::CompleteTagDecl,
-            ClangASTContext::CompleteObjCInterfaceDecl, nullptr,
-            ClangASTContext::LayoutRecordType, this));
-    SetExternalSource(ast_source_up);
-  }
+  assert(m_ast_up);
   return m_ast_up.get();
+}
+
+void ClangASTContext::CreateASTContext() {
+  assert(!m_ast_up);
+  m_ast_owned = true;
+  m_ast_up.reset(new ASTContext(*getLanguageOptions(), *getSourceManager(),
+                                *getIdentifierTable(), *getSelectorTable(),
+                                *getBuiltinContext()));
+
+  m_ast_up->getDiagnostics().setClient(getDiagnosticConsumer(), false);
+
+  // This can be NULL if we don't know anything about the architecture or if
+  // the target for an architecture isn't enabled in the llvm/clang that we
+  // built
+  TargetInfo *target_info = getTargetInfo();
+  if (target_info)
+    m_ast_up->InitBuiltinTypes(*target_info);
+
+  if ((m_callback_tag_decl || m_callback_objc_decl) && m_callback_baton) {
+    m_ast_up->getTranslationUnitDecl()->setHasExternalLexicalStorage();
+    // m_ast_up->getTranslationUnitDecl()->setHasExternalVisibleStorage();
+  }
+
+  GetASTMap().Insert(m_ast_up.get(), this);
+
+  llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> ast_source_up(
+      new ClangExternalASTSourceCallbacks(
+          ClangASTContext::CompleteTagDecl,
+          ClangASTContext::CompleteObjCInterfaceDecl, nullptr,
+          ClangASTContext::LayoutRecordType, this));
+  SetExternalSource(ast_source_up);
 }
 
 ClangASTContext *ClangASTContext::GetASTContext(clang::ASTContext *ast) {
@@ -1378,11 +1218,12 @@ CompilerType ClangASTContext::GetBuiltinTypeForDWARFEncodingAndBitSize(
 
     case DW_ATE_UTF:
       if (type_name) {
-        if (streq(type_name, "char16_t")) {
+        if (streq(type_name, "char16_t"))
           return CompilerType(this, ast->Char16Ty.getAsOpaquePtr());
-        } else if (streq(type_name, "char32_t")) {
+        if (streq(type_name, "char32_t"))
           return CompilerType(this, ast->Char32Ty.getAsOpaquePtr());
-        }
+        if (streq(type_name, "char8_t"))
+          return CompilerType(this, ast->Char8Ty.getAsOpaquePtr());
       }
       break;
     }
@@ -1462,6 +1303,16 @@ bool ClangASTContext::AreTypesSame(CompilerType type1, CompilerType type2,
   return ast->getASTContext()->hasSameType(type1_qual, type2_qual);
 }
 
+CompilerType ClangASTContext::GetTypeForDecl(void *opaque_decl) {
+  if (!opaque_decl)
+    return CompilerType();
+
+  clang::Decl *decl = static_cast<clang::Decl *>(opaque_decl);
+  if (auto *named_decl = llvm::dyn_cast<clang::NamedDecl>(decl))
+    return GetTypeForDecl(named_decl);
+  return CompilerType();
+}
+
 CompilerType ClangASTContext::GetTypeForDecl(clang::NamedDecl *decl) {
   if (clang::ObjCInterfaceDecl *interface_decl =
           llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
@@ -1519,14 +1370,43 @@ CompilerType ClangASTContext::CreateRecordType(DeclContext *decl_ctx,
   // something is struct or a class, so we default to always use the more
   // complete definition just in case.
 
-  bool is_anonymous = (!name) || (!name[0]);
+  bool has_name = name && name[0];
 
   CXXRecordDecl *decl = CXXRecordDecl::Create(
       *ast, (TagDecl::TagKind)kind, decl_ctx, SourceLocation(),
-      SourceLocation(), is_anonymous ? nullptr : &ast->Idents.get(name));
+      SourceLocation(), has_name ?  &ast->Idents.get(name) : nullptr);
 
-  if (is_anonymous)
-    decl->setAnonymousStructOrUnion(true);
+  if (!has_name) {
+    // In C++ a lambda is also represented as an unnamed class. This is
+    // different from an *anonymous class* that the user wrote:
+    //
+    // struct A {
+    //  // anonymous class (GNU/MSVC extension)
+    //  struct {
+    //    int x;
+    //  };
+    //  // unnamed class within a class
+    //  struct {
+    //    int y;
+    //  } B;
+    // };
+    //
+    // void f() {
+    //    // unammed class outside of a class
+    //    struct {
+    //      int z;
+    //    } C;
+    // }
+    //
+    // Anonymous classes is a GNU/MSVC extension that clang supports. It
+    // requires the anonymous class be embedded within a class. So the new
+    // heuristic verifies this condition.
+    //
+    // FIXME: An unnamed class within a class is also wrongly recognized as an
+    // anonymous struct.
+    if (isa<CXXRecordDecl>(decl_ctx))
+      decl->setAnonymousStructOrUnion(true);
+  }
 
   if (decl) {
     if (metadata)
@@ -2300,7 +2180,7 @@ CompilerType ClangASTContext::CreateArrayType(const CompilerType &element_type,
       } else {
         return CompilerType(this, ast->getConstantArrayType(
                                          ClangUtil::GetQualType(element_type),
-                                         ap_element_count,
+                                         ap_element_count, nullptr,
                                          clang::ArrayType::Normal, 0)
                                       .getAsOpaquePtr());
       }
@@ -4589,7 +4469,7 @@ CompilerType ClangASTContext::GetArrayType(lldb::opaque_compiler_type_t type,
         return CompilerType(
             this, ast_ctx
                       ->getConstantArrayType(
-                          qual_type, llvm::APInt(64, size),
+                          qual_type, llvm::APInt(64, size), nullptr,
                           clang::ArrayType::ArraySizeModifier::Normal, 0)
                       .getAsOpaquePtr());
       else
@@ -5077,6 +4957,22 @@ CompilerType ClangASTContext::GetBasicTypeFromAST(lldb::BasicType basic_type) {
   return ClangASTContext::GetBasicType(getASTContext(), basic_type);
 }
 // Exploring the type
+
+const llvm::fltSemantics &
+ClangASTContext::GetFloatTypeSemantics(size_t byte_size) {
+  if (auto *ast = getASTContext()) {
+    const size_t bit_size = byte_size * 8;
+    if (bit_size == ast->getTypeSize(ast->FloatTy))
+      return ast->getFloatTypeSemantics(ast->FloatTy);
+    else if (bit_size == ast->getTypeSize(ast->DoubleTy))
+      return ast->getFloatTypeSemantics(ast->DoubleTy);
+    else if (bit_size == ast->getTypeSize(ast->LongDoubleTy))
+      return ast->getFloatTypeSemantics(ast->LongDoubleTy);
+    else if (bit_size == ast->getTypeSize(ast->HalfTy))
+      return ast->getFloatTypeSemantics(ast->HalfTy);
+  }
+  return llvm::APFloatBase::Bogus();
+}
 
 Optional<uint64_t>
 ClangASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
@@ -8299,7 +8195,8 @@ clang::CXXMethodDecl *ClangASTContext::AddMethodToCXXRecordType(
             getASTContext()->DeclarationNames.getCXXDestructorName(
                 getASTContext()->getCanonicalType(record_qual_type)),
             clang::SourceLocation()),
-        method_qual_type, nullptr, is_inline, is_artificial);
+        method_qual_type, nullptr, is_inline, is_artificial,
+          ConstexprSpecKind::CSK_unspecified);
     cxx_method_decl = cxx_dtor_decl;
   } else if (decl_name == cxx_record_decl->getDeclName()) {
     cxx_ctor_decl = clang::CXXConstructorDecl::Create(
@@ -8370,8 +8267,8 @@ clang::CXXMethodDecl *ClangASTContext::AddMethodToCXXRecordType(
     cxx_method_decl->addAttr(clang::UsedAttr::CreateImplicit(*getASTContext()));
 
   if (mangled_name != nullptr) {
-    cxx_method_decl->addAttr(
-        clang::AsmLabelAttr::CreateImplicit(*getASTContext(), mangled_name));
+    cxx_method_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
+        *getASTContext(), mangled_name, /*literal=*/false));
   }
 
   // Populate the method decl with parameter decls
@@ -8444,7 +8341,7 @@ ClangASTContext::CreateBaseClassSpecifier(lldb::opaque_compiler_type_t type,
   if (!type)
     return nullptr;
 
-  return llvm::make_unique<clang::CXXBaseSpecifier>(
+  return std::make_unique<clang::CXXBaseSpecifier>(
       clang::SourceRange(), is_virtual, base_of_class,
       ClangASTContext::ConvertAccessTypeToAccessSpecifier(access),
       getASTContext()->getTrivialTypeSourceInfo(GetQualType(type)),
@@ -8811,74 +8708,6 @@ clang::ObjCMethodDecl *ClangASTContext::AddMethodToObjCObjectType(
 #endif
 
   return objc_method_decl;
-}
-
-bool ClangASTContext::GetHasExternalStorage(const CompilerType &type) {
-  if (ClangUtil::IsClangType(type))
-    return false;
-
-  clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
-
-  const clang::Type::TypeClass type_class = qual_type->getTypeClass();
-  switch (type_class) {
-  case clang::Type::Record: {
-    clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
-    if (cxx_record_decl)
-      return cxx_record_decl->hasExternalLexicalStorage() ||
-             cxx_record_decl->hasExternalVisibleStorage();
-  } break;
-
-  case clang::Type::Enum: {
-    clang::EnumDecl *enum_decl =
-        llvm::cast<clang::EnumType>(qual_type)->getDecl();
-    if (enum_decl)
-      return enum_decl->hasExternalLexicalStorage() ||
-             enum_decl->hasExternalVisibleStorage();
-  } break;
-
-  case clang::Type::ObjCObject:
-  case clang::Type::ObjCInterface: {
-    const clang::ObjCObjectType *objc_class_type =
-        llvm::dyn_cast<clang::ObjCObjectType>(qual_type.getTypePtr());
-    assert(objc_class_type);
-    if (objc_class_type) {
-      clang::ObjCInterfaceDecl *class_interface_decl =
-          objc_class_type->getInterface();
-
-      if (class_interface_decl)
-        return class_interface_decl->hasExternalLexicalStorage() ||
-               class_interface_decl->hasExternalVisibleStorage();
-    }
-  } break;
-
-  case clang::Type::Typedef:
-    return GetHasExternalStorage(CompilerType(
-        type.GetTypeSystem(), llvm::cast<clang::TypedefType>(qual_type)
-                                  ->getDecl()
-                                  ->getUnderlyingType()
-                                  .getAsOpaquePtr()));
-
-  case clang::Type::Auto:
-    return GetHasExternalStorage(CompilerType(
-        type.GetTypeSystem(), llvm::cast<clang::AutoType>(qual_type)
-                                  ->getDeducedType()
-                                  .getAsOpaquePtr()));
-
-  case clang::Type::Elaborated:
-    return GetHasExternalStorage(CompilerType(
-        type.GetTypeSystem(), llvm::cast<clang::ElaboratedType>(qual_type)
-                                  ->getNamedType()
-                                  .getAsOpaquePtr()));
-
-  case clang::Type::Paren:
-    return GetHasExternalStorage(CompilerType(
-        type.GetTypeSystem(),
-        llvm::cast<clang::ParenType>(qual_type)->desugar().getAsOpaquePtr()));
-
-  default:
-    break;
-  }
-  return false;
 }
 
 bool ClangASTContext::SetHasExternalStorage(lldb::opaque_compiler_type_t type,
@@ -10402,9 +10231,9 @@ ClangASTContext::DeclContextGetClangASTContext(const CompilerDeclContext &dc) {
   return nullptr;
 }
 
-ClangASTContextForExpressions::ClangASTContextForExpressions(Target &target)
-    : ClangASTContext(target.GetArchitecture().GetTriple().getTriple().c_str()),
-      m_target_wp(target.shared_from_this()),
+ClangASTContextForExpressions::ClangASTContextForExpressions(Target &target,
+                                                             ArchSpec arch)
+    : ClangASTContext(arch), m_target_wp(target.shared_from_this()),
       m_persistent_variables(new ClangPersistentVariables) {}
 
 UserExpression *ClangASTContextForExpressions::GetUserExpression(

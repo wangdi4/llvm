@@ -433,6 +433,22 @@ public:
     return getNumExplicitDefs() + MCID->getNumImplicitDefs();
   }
 
+  /// Returns true if the instruction has implicit definition.
+  bool hasImplicitDef() const {
+    for (unsigned I = getNumExplicitOperands(), E = getNumOperands();
+      I != E; ++I) {
+      const MachineOperand &MO = getOperand(I);
+      if (MO.isDef() && MO.isImplicit())
+        return true;
+    }
+    return false;
+  }
+
+  /// Returns the implicit operands number.
+  unsigned getNumImplicitOperands() const {
+    return getNumOperands() - getNumExplicitOperands();
+  }
+
   /// Return true if operand \p OpIdx is a subregister index.
   bool isOperandSubregIdx(unsigned OpIdx) const {
     assert(getOperand(OpIdx).getType() == MachineOperand::MO_Immediate &&
@@ -606,6 +622,12 @@ public:
 
     // If this is the first instruction in a bundle, take the slow path.
     return hasPropertyInBundle(1ULL << MCFlag, Type);
+  }
+
+  /// Return true if this is an instruction that should go through the usual
+  /// legalization steps.
+  bool isPreISelOpcode(QueryType Type = IgnoreBundle) const {
+    return hasProperty(MCID::PreISelOpcode, Type);
   }
 
   /// Return true if this instruction can have a variable number of operands.
@@ -1609,8 +1631,8 @@ public:
   /// Scan instructions following MI and collect any matching DBG_VALUEs.
   void collectDebugValues(SmallVectorImpl<MachineInstr *> &DbgValues);
 
-  /// Find all DBG_VALUEs immediately following this instruction that point
-  /// to a register def in this instruction and point them to \p Reg instead.
+  /// Find all DBG_VALUEs that point to the register def in this instruction
+  /// and point them to \p Reg instead.
   void changeDebugValuesDefReg(Register Reg);
 
   /// Returns the Intrinsic::ID for this instruction.

@@ -2,7 +2,7 @@
 
 ; CHECK-LABEL: simd_loop
 ; CHECK: %[[CmpRes:.*]] = icmp sgt <4 x i32> %{{.*}}, zeroinitializer
-; CHECK: %[[Replicated:.*]] = shufflevector <4 x i1> %[[CmpRes]], <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
+; CHECK: %[[Replicated:.*]] = shufflevector <4 x i1> %[[CmpRes]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
 ; CHECK: select <8 x i1> %[[Replicated]], <8 x i32> 
 
 define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {

@@ -2237,7 +2237,7 @@ void CSACvtCFDFPass::computeBlockPredicates() {
       .addReg(BlockPred)
       .addReg(LoopInitPredicate);
 
-    PredMergeTrees[MBB] = llvm::make_unique<PickTreeNode>(
+    PredMergeTrees[MBB] = std::make_unique<PickTreeNode>(
       std::move(LoopStartPair.first), std::move(LoopLatchPair.first),
       HeaderPickReg);
 
@@ -2550,7 +2550,7 @@ CSACvtCFDFPass::makePickTree(
     ArrayRef<MachineBasicBlock *> Blocks, ArrayRef<unsigned> Predicates) {
   assert(!Blocks.empty() && "Cannot make a tree of no nodes");
   if (Blocks.size() == 1) {
-    return std::make_pair(llvm::make_unique<PickTreeNode>(Blocks[0]),
+    return std::make_pair(std::make_unique<PickTreeNode>(Blocks[0]),
         Predicates[0]);
   } else {
     unsigned ChopPoint = Blocks.size() / 2;
@@ -2570,7 +2570,7 @@ CSACvtCFDFPass::makePickTree(
     (void)PredMerge;
     LLVM_DEBUG(dbgs() << "  Inserted block predicate merge: " <<
         *PredMerge);
-    return std::make_pair(llvm::make_unique<PickTreeNode>(
+    return std::make_pair(std::make_unique<PickTreeNode>(
           std::move(FalsePair.first), std::move(TruePair.first), PickIndex),
         MergedPred);
   }

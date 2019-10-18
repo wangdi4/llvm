@@ -183,10 +183,6 @@ def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
   "included by default">;
 def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
   Alias<intel_mno_intrinsic_promote>;
-def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
-  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
-def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
-  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">,
@@ -214,8 +210,10 @@ def _SLASH_W1 : CLFlag<"W1">, HelpText<"Enable -Wall">, Alias<Wall>;
 def _SLASH_W2 : CLFlag<"W2">, HelpText<"Enable -Wall">, Alias<Wall>;
 def _SLASH_W3 : CLFlag<"W3">, HelpText<"Enable -Wall">, Alias<Wall>;
 def _SLASH_W4 : CLFlag<"W4">, HelpText<"Enable -Wall and -Wextra">, Alias<WCL4>;
-def _SLASH_Wall : CLFlag<"Wall">, HelpText<"Enable -Weverything">,
-  Alias<W_Joined>, AliasArgs<["everything"]>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Wall : CLFlag<"Wall">, HelpText<"Enable -Wall">,
+  Alias<W_Joined>, AliasArgs<["all"]>;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_WX : CLFlag<"WX">, HelpText<"Treat warnings as errors">,
   Alias<W_Joined>, AliasArgs<["error"]>;
 def _SLASH_WX_ : CLFlag<"WX-">,
@@ -438,6 +436,9 @@ def _SLASH_Zc_inline : CLIgnoredFlag<"Zc:inline">;
 def _SLASH_Zc_rvalueCast : CLIgnoredFlag<"Zc:rvalueCast">;
 def _SLASH_Zc_ternary : CLIgnoredFlag<"Zc:ternary">;
 def _SLASH_Zc_wchar_t : CLIgnoredFlag<"Zc:wchar_t">;
+def _SLASH_ZH_MD5 : CLIgnoredFlag<"ZH:MD5">;
+def _SLASH_ZH_SHA1 : CLIgnoredFlag<"ZH:SHA1">;
+def _SLASH_ZH_SHA_256 : CLIgnoredFlag<"ZH:SHA_256">;
 def _SLASH_Zm : CLIgnoredJoined<"Zm">;
 def _SLASH_Zo : CLIgnoredFlag<"Zo">;
 def _SLASH_Zo_ : CLIgnoredFlag<"Zo-">;

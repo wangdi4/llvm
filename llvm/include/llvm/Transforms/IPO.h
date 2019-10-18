@@ -304,6 +304,10 @@ ModulePass *createOptimizeDynamicCastsPass();
 /// parameter set propagation and folding.
 ModulePass* createCallTreeCloningPass();
 
+/// \brief This pass implements DopeVectorConstProp (propagation of constant
+/// lower bounds, strides, and extents of dope vectors whose pointers are
+/// formal parameters).
+ModulePass *createDopeVectorConstPropLegacyPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

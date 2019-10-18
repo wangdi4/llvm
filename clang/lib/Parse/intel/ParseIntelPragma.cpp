@@ -413,7 +413,7 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
   BlockLoopTok.setAnnotationEndLoc(PragmaName.getLocation());
   BlockLoopTok.setAnnotationValue(static_cast<void *>(Info));
   TokenList.push_back(BlockLoopTok);
-  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
   std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),

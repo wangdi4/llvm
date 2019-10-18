@@ -12,6 +12,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Driver/Action.h"
+#include "clang/Driver/Options.h"
 #include "clang/Driver/Phases.h"
 #include "clang/Driver/ToolChain.h"
 #include "clang/Driver/Types.h"
@@ -56,8 +57,6 @@ enum LTOKind {
 /// Driver - Encapsulate logic for constructing compilation processes
 /// from a set of gcc-driver-like command line arguments.
 class Driver {
-  std::unique_ptr<llvm::opt::OptTable> Opts;
-
   DiagnosticsEngine &Diags;
 
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS;
@@ -301,7 +300,7 @@ public:
 
   const std::string &getConfigFile() const { return ConfigFile; }
 
-  const llvm::opt::OptTable &getOpts() const { return *Opts; }
+  const llvm::opt::OptTable &getOpts() const { return getDriverOptTable(); }
 
   const DiagnosticsEngine &getDiags() const { return Diags; }
 
@@ -630,6 +629,9 @@ public:
 /// \return True if the last defined optimization level is -Ofast.
 /// And False otherwise.
 bool isOptimizationLevelFast(const llvm::opt::ArgList &Args);
+
+/// \return True if the filename has a valid object file extension.
+bool isObjectFile(std::string FileName);
 
 } // end namespace driver
 } // end namespace clang

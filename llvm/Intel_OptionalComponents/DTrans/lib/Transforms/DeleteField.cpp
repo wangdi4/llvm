@@ -57,11 +57,12 @@ public:
     DTransAnalysisWrapper &DTAnalysisWrapper =
         getAnalysis<DTransAnalysisWrapper>();
     DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    const TargetLibraryInfo &TLI =
-        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
-    bool Changed = Impl.runImpl(M, DTInfo, TLI, WPInfo);
+    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WPInfo);
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
     return Changed;
@@ -79,10 +80,12 @@ public:
 
 class DeleteFieldImpl : public DTransOptBase {
 public:
-  DeleteFieldImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                  const DataLayout &DL, const TargetLibraryInfo &TLI,
-                  StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
+  DeleteFieldImpl(
+      DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix,
+                      TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -751,6 +754,7 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
                         << *Call << "\n"
                         << "  " << *OrigTy << "\n");
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
   }
@@ -946,9 +950,10 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
   for_each(GEPsToErase, safeEraseValue);
 }
 
-bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                      const TargetLibraryInfo &TLI,
-                                      WholeProgramInfo &WPInfo) {
+bool dtrans::DeleteFieldPass::runImpl(
+    Module &M, DTransAnalysisInfo &DTInfo,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
 
   if (!WPInfo.isWholeProgramSafe())
     return false;
@@ -957,7 +962,7 @@ bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
     return false;
 
   DTransTypeRemapper TypeRemapper;
-  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
+  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), GetTLI,
                               "__DFDT_", &TypeRemapper);
   return Transformer.run(M);
 }
@@ -965,10 +970,13 @@ bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, TLI, WPInfo))
+  if (!runImpl(M, DTransInfo, GetTLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

@@ -31,13 +31,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
-  if (skipFunction(Func))
-    return false;
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto HPVA = &getAnalysis<HIRParVecAnalysisWrapperPass>().getHPVA();
-
+bool ParVecDirectiveInsertion::runOnFunction(Function &Func, HIRFramework *HIRF,
+                                             HIRParVecAnalysis *HPVA) {
   // Analyze for all regions. Due to the on-demand nature of ParVecAnalysis,
   // this explicit call should not be necessary, but it's easier for
   // debugging. Keep this here until we confirm that on-demand functionality

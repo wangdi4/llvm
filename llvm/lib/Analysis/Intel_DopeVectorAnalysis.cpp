@@ -87,9 +87,7 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
   return true;
 }
 
-// Helper routine to check whether a variable type is a type for an
-// uplevel variable.
-static bool isUplevelVarType(Type *Ty) {
+extern bool isUplevelVarType(Type *Ty) {
   // For now, just check the type of the variable as being named
   // "%uplevel_type[.#]" In the future, the front-end should provide some
   // metadata indicator that a variable is an uplevel.
@@ -102,6 +100,41 @@ static bool isUplevelVarType(Type *Ty) {
   TypeName = TypeName.take_until([](char C) { return C == '.'; });
   if (TypeName != "uplevel_type")
     return false;
+
+  return true;
+}
+
+extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
+                                      const Value &Base,
+                                      uint32_t ArrayRank, uint32_t Rank,
+                                      bool CheckForTranspose,
+                                      Optional<uint64_t> LowerBound,
+                                      Optional<uint64_t> Stride) {
+  LLVM_DEBUG({
+    dbgs().indent((ArrayRank - Rank) * 2 + 4);
+    dbgs() << "Checking call: " << Subs << "\n";
+  });
+
+  if (Subs.getArgOperand(PtrOpNum) != &Base)
+    return false;
+
+  if (CheckForTranspose) {
+    unsigned RankParam = Subs.getRank();
+    if (RankParam != Rank)
+      return false;
+  }
+
+  if (LowerBound) {
+    auto LBVal = dyn_cast<ConstantInt>(Subs.getLowerBound());
+    if (!LBVal || LBVal->getLimitedValue() != *LowerBound)
+      return false;
+  }
+
+  if (Stride) {
+    auto StrideVal = dyn_cast<ConstantInt>(Subs.getStride());
+    if (!StrideVal || StrideVal->getLimitedValue() != *Stride)
+      return false;
+  }
 
   return true;
 }
@@ -228,6 +261,192 @@ bool DopeVectorAnalyzer::checkMayBeModified() const {
       return true;
 
   return false;
+}
+
+bool
+DopeVectorAnalyzer::checkArrayPointerUses(SubscriptInstSet *SubscriptCalls) {
+  // Get a set of Value objects that hold the address of the array pointer.
+  SmallPtrSet<Value *, 8> ArrayPtrValues;
+  const DopeVectorFieldUse &PtrAddr = getPtrAddrField();
+  if (!getAllValuesHoldingFieldValue(PtrAddr, ArrayPtrValues)) {
+    LLVM_DEBUG(dbgs() << "Unsupported use of array pointer address:\n");
+    return false;
+  }
+
+  // Now check all uses of the address to be sure they are only used to move
+  // the address to another var (Select or PhiNode), or are used in a
+  // subscript intrinsic call.
+  for (auto *ArrPtr : ArrayPtrValues) {
+    LLVM_DEBUG(dbgs() << "  Uses: " << *ArrPtr << "\n");
+    for (auto *PtrUser : ArrPtr->users()) {
+      if (isa<SelectInst>(PtrUser) || isa<PHINode>(PtrUser)) {
+        continue;
+      } else if (auto *Subs = dyn_cast<SubscriptInst>(PtrUser)) {
+        uint32_t ArrayRank = getRank();
+        if (!isValidUseOfSubscriptCall(*Subs, *ArrPtr, ArrayRank,
+                                       ArrayRank - 1, SubscriptCalls)) {
+          LLVM_DEBUG(dbgs() << "Array address: " << *ArrPtr
+                            << " not in subscript call: " << *Subs << "\n");
+          return false;
+        }
+        if (SubscriptCalls)
+          SubscriptCalls->insert(Subs);
+      } else {
+        LLVM_DEBUG(dbgs() << "Unsupported use of array pointer address:\n"
+                          << *PtrUser << "\n");
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+// Forward declaration
+static bool analyzeUplevelCallArg(uint32_t ArrayRank,
+                                  SubscriptInstSet *SubscriptCalls,
+                                  Function &F,
+                                  uint64_t ArgPos, uint64_t FieldNum);
+
+// This checks the uses of an uplevel variable for safety. Safe uses are:
+// - If \p DVObject is non-null, we are analyzing the function that
+//   initialized the uplevel var. In this case the dope vector member of the
+//   uplevel can be written. Otherwise, writes are not allowed.
+// - If the dope vector object is loaded from the uplevel variable, the uses
+//   of the dope vector are checked to ensure the dope vector fields are not
+//   modified.
+// - If the uplevel variable is passed in a function call, a recursive call
+//   will be made to this routine to check the usage of the uplevel in the
+//   called function.
+// Here 'ArrayRank' is the number of dimensions of the array represented
+// by the dope vector, and 'SubscriptCalls', if not nullptr, is the set of
+// subscript calls that reference the dope vector.
+static bool analyzeUplevelVar(uint32_t ArrayRank,
+                              SubscriptInstSet *SubscriptCalls,
+                              const Function &F,
+                              UplevelDVField &Uplevel, Value *DVObject) {
+  Value *Var = Uplevel.first;
+  uint64_t FieldNum = Uplevel.second;
+
+  LLVM_DEBUG(dbgs() << "\nChecking use of uplevel variable in function: "
+                    << F.getName() << " Field: " << FieldNum << "\n");
+
+  // If the function makes use of the uplevel, then we expect there should be
+  // an Instruction that is a GEP which gets the address of the DV field from
+  // the uplevel variable. Collect all these GEPs into this vector for
+  // analysis.
+  SmallVector<GetElementPtrInst *, 4> DVFieldAddresses;
+
+  // The uplevel variable may be passed to another function, collect the set
+  // of {Function*, argument pos} pairs for functions that take this uplevel
+  // as a parameter.
+  FuncArgPosPairSet FuncsWithUplevelParams;
+
+  for (auto *U : Var->users()) {
+    auto *I = dyn_cast<Instruction>(U);
+    assert(I && "Expected instruction\n");
+
+    LLVM_DEBUG(dbgs() << "Uplevel var use: " << *I << "\n");
+
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      if (GEP->getNumIndices() == 2) {
+        auto Idx0 = getConstGEPIndex(*GEP, 1);
+        auto Idx1 = getConstGEPIndex(*GEP, 2);
+        if (Idx0 && Idx1 && *Idx0 == 0) {
+          // Ignore uses of other uplevel fields.
+          if (*Idx1 != FieldNum)
+            continue;
+
+          DVFieldAddresses.push_back(GEP);
+          continue;
+        }
+      }
+      LLVM_DEBUG(dbgs() << "Unsupported usage of uplevel var:\n"
+                        << *I << "\n");
+      return false;
+    } else if (auto *CI = dyn_cast<CallInst>(I)) {
+      Function *F = CI->getCalledFunction();
+      if (!F) {
+        LLVM_DEBUG(dbgs() << "Uplevel var passed in indirect function call:\n"
+                          << *CI << "\n");
+        return false;
+      }
+      Optional<unsigned int> ArgPos = getArgumentPosition(*CI, Var);
+      if (!ArgPos) {
+        LLVM_DEBUG(dbgs() << "Uplevel var argument not unique in call:\n"
+                          << *CI << "\n");
+        return false;
+      }
+      FuncsWithUplevelParams.insert(FuncArgPosPair(F, *ArgPos));
+    } else {
+      LLVM_DEBUG(dbgs() << "Unsupported usage of uplevel var:\n"
+                        << *I << "\n");
+
+      return false;
+    }
+  }
+
+  // Check the usage for all the GEPs that get the address of the dope vector
+  // variable.
+  // If the dope vector pointer field is loaded, check that all uses of the
+  // dope vector are safe. If the dope vector pointer field is stored, check
+  // that it is the write we expected that is initializing the uplevel.
+  for (auto *DVFieldAddr : DVFieldAddresses)
+    for (auto *U : DVFieldAddr->users()) {
+      auto *I = dyn_cast<Instruction>(U);
+      assert(I && "Expected instruction\n");
+
+      if (auto *LI = dyn_cast<LoadInst>(I)) {
+        DopeVectorAnalyzer DVA(LI);
+        DVA.analyze(false);
+        if (!DVA.analyzeDopeVectorUseInFunction(F, SubscriptCalls))
+          return false;
+      } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+        // The only store we expect to the DV field is the dope vector object
+        // currently being analyzed.
+        if (!DVObject || SI->getValueOperand() != DVObject) {
+           LLVM_DEBUG(dbgs()
+                   << "Store into uplevel var dope vector field no allowed\n");
+           return false;
+        }
+      } else {
+        return false;
+      }
+    }
+
+  // Check all the functions that take the uplevel variable.
+  for (auto &FuncArg : FuncsWithUplevelParams)
+    if (!analyzeUplevelCallArg(ArrayRank, SubscriptCalls, *FuncArg.first,
+                               FuncArg.second, FieldNum))
+      return false;
+
+  return true;
+}
+
+// Check a called function for usage of the uplevel variable for safety.
+// Here 'ArrayRank' is the number of dimensions of the array represented
+// by the dope vector, and 'SubscriptCalls', if not nullptr, is the set of
+// subscript calls that reference the dope vector.
+static bool analyzeUplevelCallArg(uint32_t ArrayRank,
+                                  SubscriptInstSet *SubscriptCalls,
+                                  Function &F, uint64_t ArgPos,
+                                  uint64_t FieldNum) {
+  if (F.isDeclaration())
+    return false;
+
+  assert(ArgPos < F.arg_size() && "Invalid argument position");
+  auto Args = F.arg_begin();
+  std::advance(Args, ArgPos);
+  Argument *FormalArg = &(*Args);
+
+  // Check the called function for its use of the uplevel passed in. We do
+  // not allow the called function to store a new dope vector into the field,
+  // so pass 'nullptr' for the DVObject.
+  UplevelDVField LocalUplevel(FormalArg, FieldNum);
+  if (!analyzeUplevelVar(ArrayRank, SubscriptCalls, F, LocalUplevel, nullptr))
+    return false;
+
+  return true;
 }
 
 bool DopeVectorAnalyzer::getAllValuesHoldingFieldValue(
@@ -709,6 +928,117 @@ DopeVectorAnalyzer::findPerDimensionArrayFieldPtr(GetElementPtrInst &FieldGEP,
   }
 
   return Addr;
+}
+
+bool
+DopeVectorAnalyzer::analyzeDopeVectorUseInFunction(const Function &F,
+                                                   SubscriptInstSet
+                                                      *SubscriptCalls) {
+  LLVM_DEBUG({
+    dbgs() << "\nDope vector collection for function: " << F.getName() << "\n"
+           << *getDVObject() << "\n";
+    dump();
+  });
+
+  // Verify that the dope vector fields are not written.
+  if (checkMayBeModified()) {
+    LLVM_DEBUG(dbgs() << "Dope vector fields modified in function: "
+                      << F.getName() << "\n");
+    return false;
+  }
+
+  // Check that the DV object was not forwarded to another function call. We
+  // could allow this by analyzing all the uses within that function,
+  // but we currently do not.
+  if (getNumberCalledFunctions()) {
+    LLVM_DEBUG(dbgs() << "Dope vector passed to another function within: "
+                      << F.getName() << "\n");
+    return false;
+  }
+
+  // Check that the array pointer does not escape to another memory location.
+  SubscriptInstSet LocalSubscriptCalls;
+  SubscriptInstSet *LocalSubscriptCallsCheck = SubscriptCalls ?
+      &LocalSubscriptCalls : nullptr;
+  if (!checkArrayPointerUses(LocalSubscriptCallsCheck)) {
+    LLVM_DEBUG(dbgs() << "Array pointer address may escape from: "
+                      << F.getName() << "\n");
+    return false;
+  }
+
+  if (SubscriptCalls && !LocalSubscriptCalls.empty()) {
+    // Check the stride value used in the subscript calls.
+    if (!checkSubscriptStrideValues(LocalSubscriptCalls)) {
+      LLVM_DEBUG(dbgs() << "Subscript call with unsupported stride in: "
+                        << F.getName() << "\n");
+      return false;
+    }
+
+    // Save the set of subscript calls that use the dope vector for
+    // profitability analysis.
+    SubscriptCalls->insert(LocalSubscriptCalls.begin(),
+      LocalSubscriptCalls.end());
+  }
+
+  // If there was a store of the dope vector into an uplevel variable, check
+  // the uses of the uplevel variable.
+  UplevelDVField Uplevel = getUplevelVar();
+  if (Uplevel.first && !analyzeUplevelVar(getRank(), SubscriptCalls, F,
+                                          Uplevel, getDVObject()))
+      return false;
+  return true;
+}
+
+bool
+DopeVectorAnalyzer::checkSubscriptStrideValues(const SubscriptInstSet
+                                                    &SubscriptCalls) {
+  SmallVector<SmallPtrSet<Value *, 4>, FortranMaxRank> StrideLoads;
+
+  // Function to check one subscript call, and recurse to checks subscript
+  // calls that use the result to verify the stride to the call is a member of
+  // \p StrideLoads.
+  std::function<bool(const SmallVectorImpl<SmallPtrSet<Value *, 4>> &,
+                     const SubscriptInst &, uint32_t)>
+      CheckCall;
+  CheckCall = [&CheckCall](
+                  const SmallVectorImpl<SmallPtrSet<Value *, 4>> &StrideLoads,
+                  const SubscriptInst &Subs, uint32_t Rank) -> bool {
+    Value *StrideOp = Subs.getStride();
+    if (!StrideLoads[Rank].count(StrideOp))
+      return false;
+
+    if (Rank == 0)
+      return true;
+
+    for (auto *UU : Subs.users())
+      if (auto *Subs2 = dyn_cast<SubscriptInst>(UU))
+        if (!CheckCall(StrideLoads, *Subs2, Rank - 1))
+          return false;
+
+    return true;
+  };
+
+  // For each dimension of the variable, get the set of objects that hold the
+  // value for the stride loaded from the dope vector object.
+  for (unsigned Dim = 0; Dim < getRank(); ++Dim) {
+    if (!hasStrideField(Dim))
+      return false;
+
+    const DopeVectorFieldUse &StrideField = getStrideField(Dim);
+    StrideLoads.push_back(SmallPtrSet<Value *, 4>());
+    auto &LoadSet = StrideLoads.back();
+    bool Valid = getAllValuesHoldingFieldValue(StrideField, LoadSet);
+    if (!Valid)
+      return false;
+  }
+
+  // Check all the subscript calls to ensure the stride value comes from the
+  // dope vector.
+  for (auto *Subs : SubscriptCalls)
+    if (!CheckCall(StrideLoads, *Subs, getRank() - 1))
+      return false;
+
+  return true;
 }
 
 } // end namespace dvanalysis

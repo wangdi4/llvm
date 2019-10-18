@@ -69,11 +69,10 @@ const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
 }
 
 VPVLSClientMemref::VPVLSClientMemref(const OVLSMemrefKind &Kind,
-                                     const OVLSAccessType &AccTy,
-                                     const OVLSType &Ty,
+                                     OVLSAccessKind AccKind, const OVLSType &Ty,
                                      const VPInstruction *Inst,
                                      const VPlanVLSAnalysis *VLSA)
-    : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {
+    : OVLSMemref(Kind, Ty, AccKind), Inst(Inst), VLSA(VLSA) {
   if (Kind == OVLSMemref::VLSK_VPlanVLSClientMemref)
     ScevExpr = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
 }
@@ -99,6 +98,9 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   const VPInstruction *FromInst = Inst;
   const SCEV *FromSCEV = ScevExpr;
 
+  if (ToInst == FromInst)
+    return true;
+
   // At this point, only same block movement is supported.
   if (ToInst->getParent() != FromInst->getParent())
     return false;
@@ -116,12 +118,19 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     return false;
 
   // Check if it is safe to move FromInst past every instruction between it and
-  // ToInst. ToInst is assumed to precede FromInst.
-  // FIXME: It is expected that VLS will be changed so that loads are moved
-  // upward and stores are moved downward. We will need to support downward
-  // movement when such change is implemented.
-  for (const VPRecipeBase *I = FromInst->getPrevNode(); I != nullptr;
-       I = I->getPrevNode()) {
+  // ToInst. We consider only moving loads up and moving stores down.
+
+  SmallVector<const VPRecipeBase *, 64> RangeToCheck;
+  if (getAccessKind().isLoad())
+    for (const VPRecipeBase *I = FromInst->getPrevNode(); I != nullptr;
+         I = I->getPrevNode())
+      RangeToCheck.push_back(I);
+  else
+    for (const VPRecipeBase *I = FromInst->getNextNode(); I != nullptr;
+         I = I->getNextNode())
+      RangeToCheck.push_back(I);
+
+  for (const VPRecipeBase *I : RangeToCheck) {
     const VPInstruction *IterInst = dyn_cast<VPInstruction>(I);
 
     // Bail out if we run into an unexpected recipe.
@@ -131,11 +140,6 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     // ToInst has been safely reached by the algorithm.
     if (IterInst == ToInst)
       return true;
-
-    // Cannot move a Store instruction past the definition of the stored value.
-    if (FromInst->getOpcode() == Instruction::Store &&
-        IterInst == FromInst->getOperand(0))
-      return false;
 
     // It is safe to move past an instruction without side effects nor memory
     // access.
@@ -193,4 +197,34 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
   return getConstStrideImpl(ScevExpr, VLSA->getMainLoop());
+}
+
+bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {
+  const VPRecipeBase *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
+  // FIXME: we should check for basic block dominance if the two instructions
+  // are not in the same basic block.
+  if (Inst->getParent() != Other->getParent())
+    return false;
+
+  const VPRecipeBase *Iter = Other;
+  for (; Iter; Iter = Iter->getPrevNode())
+    if (Iter == Inst)
+      return true;
+
+  return false;
+}
+
+bool VPVLSClientMemref::postDominates(const OVLSMemref &Mrf) const {
+  const VPRecipeBase *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
+  // FIXME: we should check for basic block postdominance if the two
+  // instructions are not in the same basic block.
+  if (Inst->getParent() != Other->getParent())
+    return false;
+
+  const VPRecipeBase *Iter = Other;
+  for (; Iter; Iter = Iter->getNextNode())
+    if (Iter == Inst)
+      return true;
+
+  return false;
 }

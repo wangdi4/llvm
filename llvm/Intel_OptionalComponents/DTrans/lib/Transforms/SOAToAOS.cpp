@@ -55,11 +55,12 @@ static cl::opt<std::string> DTransSOAToAOSType("dtrans-soatoaos-typename",
 
 class SOAToAOSTransformImpl : public DTransOptBase {
 public:
-  SOAToAOSTransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                        const DataLayout &DL, const TargetLibraryInfo &TLI,
-                        StringRef DepTypePrefix,
-                        DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
+  SOAToAOSTransformImpl(
+      DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix,
+                      TypeRemapper) {}
 
   ~SOAToAOSTransformImpl() {
     for (auto *Cand : Candidates) {
@@ -244,7 +245,8 @@ private:
         return;
       }
 
-      ArrayMethodTransformation AMT(Impl.DL, *Impl.DTInfo, Impl.TLI, Impl.VMap,
+      const TargetLibraryInfo &TLI = Impl.GetTLI(OrigFunc);
+      ArrayMethodTransformation AMT(Impl.DL, *Impl.DTInfo, TLI, Impl.VMap,
                                     TI, OrigFunc.getParent()->getContext());
 
       AMT.updateBasePointerInsts(CopyElemInsts, getNumArrays(),
@@ -346,7 +348,8 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
   for (auto Pair : zip_first(methodsets(), fields()))
     for (auto *F : *std::get<0>(Pair)) {
-      DepCompute DC(*Impl.DTInfo, Impl.DL, Impl.TLI, F, std::get<1>(Pair),
+      const TargetLibraryInfo &TLI = Impl.GetTLI(*F);
+      DepCompute DC(*Impl.DTInfo, Impl.DL, TLI, F, std::get<1>(Pair),
                     // *this as DepMap to fill.
                     *this);
 
@@ -368,7 +371,8 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     }
 
   for (auto *F : StructMethods) {
-    DepCompute DC(*Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
+    const TargetLibraryInfo &TLI = Impl.GetTLI(*F);
+    DepCompute DC(*Impl.DTInfo, Impl.DL, TLI, F, Struct, *this);
 
     bool Result = DC.computeDepApproximation();
     LLVM_DEBUG({
@@ -405,12 +409,12 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       std::unique_ptr<ComputeArrayMethodClassification::TransformationData>
           Data(new ComputeArrayMethodClassification::TransformationData());
 
+      const TargetLibraryInfo &TLI = Impl.GetTLI(*F);
       ComputeArrayMethodClassification MC(Impl.DL,
                                           // *this as DepMap to query.
                                           *this, S,
                                           // Info for transformation
-                                          *Data,
-                                          Impl.TLI);
+                                          *Data, TLI);
       auto Res = MC.classify();
       auto Kind = Res.first;
 
@@ -535,7 +539,8 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     std::unique_ptr<StructureMethodAnalysis::TransformationData> Data(
         new StructureMethodAnalysis::TransformationData());
 
-    StructureMethodAnalysis MChecker(Impl.DL, *Impl.DTInfo, Impl.TLI, *this, S,
+    const TargetLibraryInfo &TLI = Impl.GetTLI(*F);
+    StructureMethodAnalysis MChecker(Impl.DL, *Impl.DTInfo, TLI, *this, S,
                                      Arrays, *Data);
     bool SeenArrays = false;
     bool CheckResult = MChecker.checkStructMethod(SeenArrays);
@@ -557,7 +562,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       llvm_unreachable("inconsistent logic in checkStructMethod.");
 
     if (SeenArrays) {
-      CallSiteComparator CSCmp(Impl.DL, *Impl.DTInfo, Impl.TLI, *this, S, Arrays,
+      CallSiteComparator CSCmp(Impl.DL, *Impl.DTInfo, TLI, *this, S, Arrays,
                                ArrayFieldOffsets, *Data, CSInfo,
                                BasePointerOffset);
       bool Comparison = CSCmp.canCallSitesBeMerged();
@@ -700,9 +705,10 @@ void SOAToAOSTransformImpl::postprocessFunction(Function &OrigFunc,
 namespace llvm {
 namespace dtrans {
 
-bool SOAToAOSPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           const TargetLibraryInfo &TLI,
-                           WholeProgramInfo &WPInfo) {
+bool SOAToAOSPass::runImpl(
+    Module &M, DTransAnalysisInfo &DTInfo,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
@@ -710,7 +716,7 @@ bool SOAToAOSPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   // Perform the actual transformation.
   DTransTypeRemapper TypeRemapper;
   SOAToAOSTransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
-                                    TLI, "__SOADT_", &TypeRemapper);
+                                    GetTLI, "__SOADT_", &TypeRemapper);
   return Transformer.run(M);
 }
 
@@ -720,8 +726,11 @@ PreservedAnalyses SOAToAOSPass::run(Module &M, ModuleAnalysisManager &AM) {
     return PreservedAnalyses::all();
 
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
-  bool Changed = runImpl(M, DTransInfo, TLI, WP);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
+  bool Changed = runImpl(M, DTransInfo, GetTLI, WP);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -760,9 +769,10 @@ public:
     if (!DTInfo.useDTransAnalysis())
       return false;
 
-    auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
-    bool Changed = Impl.runImpl(M, DTInfo, TLI, WP);
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WP);
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
     return Changed;

@@ -88,6 +88,8 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 // Class names mapping to minimize the diff:
 #define InnerLoopVectorizer VPOCodeGen
 #define LoopVectorizationLegality VPOVectorizationLegality
+
+struct TripCountInfo;
 #endif // INTEL_CUSTOMIZATION
 
 /// In what follows, the term "input IR" refers to code that is fed into the
@@ -253,9 +255,11 @@ struct VPTransformState {
   VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
                    class DominatorTree *DT, IRBuilder<> &Builder,
                    VectorizerValueMap &ValueMap, InnerLoopVectorizer *ILV,
-                   VPCallback &Callback, LoopVectorizationLegality *Legal)
+                   VPCallback &Callback, LoopVectorizationLegality *Legal,
+                   VPLoopInfo *VPLI)
       : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder),
-        ValueMap(ValueMap), ILV(ILV), Callback(Callback), Legal(Legal) {}
+        ValueMap(ValueMap), ILV(ILV), Callback(Callback), Legal(Legal),
+        VPLI(VPLI) {}
 #else
   VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
                    class DominatorTree *DT, IRBuilder<> &Builder,
@@ -360,6 +364,8 @@ struct VPTransformState {
   /// The condition bit value carried by the VPValue.
   SmallDenseMap<VPValue *, Value *> CBVToConditionBitMap;
   UniformsTy *UniformCBVs;
+
+  VPLoopInfo *VPLI;
 #endif
 };
 
@@ -888,22 +894,11 @@ public:
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
 
-  // Return number of successors that this VPInstruction has. The instruction
-  // must be a terminator.
-  // TODO: Implement function when/if terminator instructions are added to
-  // VPlan. This function is needed to templatize common LLVM CFG algorithms
-  // (like GraphDiff).
-  unsigned getNumSuccessors() {
-    llvm_unreachable(
-        "VPlan function defined for GraphDiff compilation invoked.");
-  }
-  // Return the specified successor. This instruction must be a terminator.
-  // TODO: Implement function when/if terminator instructions are added to
-  // VPlan. This function is needed to templatize common LLVM CFG algorithms
-  // (like GraphDiff).
-  VPBlockBase *getSuccessor(unsigned Idx) {
-    llvm_unreachable(
-        "VPlan function defined for GraphDiff compilation invoked.");
+  bool mayHaveSideEffects() const {
+    auto *Instr = getInstruction();
+    if (!Instr)
+      return true; // Without underlying IR return pessimistic answer.
+    return Instr->mayHaveSideEffects();
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1484,10 +1479,10 @@ public:
         BinOpcode(BinOp), Signed(false) {}
 
   /// Constructor for index part of min/max+index reduction.
-  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
-                   bool Sign, VPReductionFinal *MinMax)
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *ParentExit,
+                   VPReductionFinal *ParentFinal, bool Sign)
       : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
-                      {ReducVec, StartValue, MinMax}),
+                      {ReducVec, ParentExit, ParentFinal}),
         BinOpcode(BinOp), Signed(Sign) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1510,12 +1505,17 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() > 1 ? getOperand(1) : nullptr;
+    return getNumOperands() == 2 ? getOperand(1) : nullptr;
   }
 
-  /// Return operand that corrrespond to min/max parent reduction.
-  VPValue *getParentValueOperand() const {
-    return getNumOperands() > 2 ? getOperand(2) : nullptr;
+  /// Return operand that corrresponds to min/max parent vector value.
+  VPValue *getParentExitValOperand() const {
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+  }
+
+  /// Return operand that corrresponds to min/max parent final value.
+  VPValue *getParentFinalValOperand() const {
+    return getNumOperands() == 3 ? getOperand(1) : nullptr;
   }
 
   /// Return ID of the corresponding reduce intrinsic.
@@ -1979,6 +1979,8 @@ public:
 
   const std::string &getName() const { return Name; }
 
+  void setName(const Twine &newName) { Name = newName.str(); }
+
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
@@ -2192,24 +2194,15 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
+    (void)PrintType;
+    OS << getName();
   }
 
-  void print(raw_ostream &OS) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
-  }
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const {
-    std::string Indent((Depth * 4), ' ');
-    OS << Indent << getName();
-  }
-
-  virtual void dump() const = 0;
-
-  virtual void dump(raw_ostream &OS, unsigned Indent = 0,
-                    const VPlanDivergenceAnalysis *DA = nullptr) const = 0;
+  void dump() const { print(dbgs()); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Iterators and types to access Successors of a VPBlockBase
@@ -2395,18 +2388,21 @@ public:
     return &VPBasicBlock::Recipes;
   }
 
-  /// Returns a range that iterates over the VPPHINodes in the VPBasicBlock
-  iterator_range<iterator> getVPPhis() {
+  auto getVPPhis() {
+    auto AsVPPHINode = [](VPRecipeBase &Recipe) -> VPPHINode & {
+      return cast<VPPHINode>(Recipe);
+    };
+
     // If the block is empty or if it has no PHIs, return null range
     if (empty() || !isa<VPPHINode>(begin()))
-      return make_range(nullptr, nullptr);
+      return map_range(make_range(end(), end()), AsVPPHINode);
 
     // Increment iterator till a non PHI VPInstruction is found
     iterator It = begin();
     while (It != end() && isa<VPPHINode>(It))
       ++It;
 
-    return make_range(begin(), It);
+    return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
   VPBasicBlock(const std::string &Name, VPRecipeBase *Recipe = nullptr)
@@ -2519,9 +2515,9 @@ public:
     return make_range(It, ItEnd);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0,
-            const VPlanDivergenceAnalysis *DA = nullptr) const override;
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2536,11 +2532,28 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 
+  TripCountInfo *getTripCountInfo() { return TCInfo.get(); }
+  const TripCountInfo *getTripCountInfo() const { return TCInfo.get(); }
+  void setTripCountInfo(std::unique_ptr<TripCountInfo> TCInfo) {
+    assert(!this->TCInfo && "Trip count info alread set!");
+    this->TCInfo = std::move(TCInfo);
+  }
+  void moveTripCountInfoFrom(VPBasicBlock *OtherBB) {
+    TCInfo = std::move(OtherBB->TCInfo);
+  }
+
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
+
+  // TODO: Not sure what other types of loop metadata we'd need. Most probably,
+  // we need some abstraction on top of TripCountInfo (and maybe that struct
+  // itself should be split in some way). The idea about this field is to have
+  // something similar to LLVM IR's loop metadata on the backedge branch
+  // instruction, so it will be filled for the latches only.
+  std::unique_ptr<TripCountInfo> TCInfo;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
@@ -2689,9 +2702,9 @@ public:
   void computePDT(void);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0,
-            const VPlanDivergenceAnalysis *DA = nullptr) const override;
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -2719,9 +2732,14 @@ private:
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   const DataLayout *DL = nullptr;
 
-  // Ugly hack to enable full linearization for cases where while-loop
-  // canonicalization or merge loop exits transformation break SSA.
-  bool SSAIsBroken = false;
+  // We need to force full linearization for certain cases. Currently this
+  // happens for cases where while-loop canonicalization or merge loop exits
+  // transformation break SSA or for HIR vector code generation which needs
+  // to be extended to preserve uniform control flow. This flag is set to true
+  // when we need to force full linearization. Full linearization can still
+  // kick in when this flag is false such as cases where we use a command
+  // line option to do the same.
+  bool FullLinearizationForced = false;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2771,8 +2789,6 @@ protected:
   DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
       VPMetadataAsValues;
 
-  std::shared_ptr<VPLoopAnalysisBase> VPLA;
-
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
@@ -2787,9 +2803,8 @@ public:
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
 
-  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
-        const DataLayout *DL)
-      : Context(Context), DL(DL), VPLA(VPLA) {}
+  VPlan(LLVMContext *Context, const DataLayout *DL)
+      : Context(Context), DL(DL) {}
 #else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 #endif
@@ -2807,8 +2822,6 @@ public:
   void executeHIR(VPOCodeGenHIR *CG);
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
-  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
-
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
   void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
@@ -2823,8 +2836,8 @@ public:
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
 
-  void markSSABroken() { SSAIsBroken = true; }
-  bool isSSABroken() { return SSAIsBroken; }
+  void markFullLinearizationForced() { FullLinearizationForced = true; }
+  bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
   const DataLayout* getDataLayout() const { return DL; }
 
@@ -2911,7 +2924,7 @@ public:
 
   /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
+  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
@@ -2934,7 +2947,7 @@ public:
 
   /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
+  VPExternalUse *getVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
   }
 
@@ -3024,7 +3037,8 @@ private:
   // Create or retrieve an external item from \p Table for given HIR unitary
   // DDRef \p DDR.
   template <typename Def>
-  Def *getExternalItemForDDRef(FoldingSet<Def> &Table, loopopt::DDRef *DDR) {
+  Def *getExternalItemForDDRef(FoldingSet<Def> &Table,
+                               const loopopt::DDRef *DDR) {
     assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
     FoldingSetNodeID ID;
     ID.AddInteger(DDR->getSymbase());
@@ -3185,15 +3199,10 @@ inline raw_ostream &operator<<(raw_ostream &OS,
   P.dump(OS);
   return OS;
 }
-inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
-  BB.dump(OS, 2);
+inline raw_ostream &operator<<(raw_ostream &OS, const VPBlockBase &BB) {
+  BB.print(OS, 2);
   return OS;
 }
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
-  RB.dump(OS, 2);
-  return OS;
-}
-
 #endif // INTEL_CUSTOMIZATION
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -3564,6 +3573,15 @@ template <> struct GraphTraits<vpo::VPBlockBase *> {
   }
 };
 
+// This specialization is for the ChildrenGetterTy from
+// GenericIteratedDominanceFrontier.h. Clang's GraphTraits for clang::CFGBlock
+// do the same trick.
+// TODO: Consider fixing GenericIteratedDominanceFrontier.h during upstreaming
+// instead.
+template <>
+struct GraphTraits<vpo::VPBlockBase> : public GraphTraits<vpo::VPBlockBase *> {
+};
+
 template <> struct GraphTraits<const vpo::VPBlockBase *> {
   using NodeRef = const vpo::VPBlockBase *;
   using ChildIteratorType = SmallVectorImpl<vpo::VPBlockBase *>::const_iterator;
@@ -3664,21 +3682,6 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
 
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
-
-#if INTEL_CUSTOMIZATION
-// Successors iterating interfaces added to compile VPlan HCFG for GraphDiff
-// utility.The iterator requires terminator instruction for corresponding VPBB.
-// TODO: Implement function when/if terminator instructions are added to VPlan.
-// This function is needed to templatize common LLVM CFG algorithms (like
-// GraphDiff).
-using vp_succ_iterator = SuccIterator<vpo::VPInstruction, vpo::VPBlockBase>;
-inline vp_succ_iterator succ_begin(vpo::VPBlockBase *VPBB) {
-  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
-}
-inline vp_succ_iterator succ_end(vpo::VPBlockBase *VPBB) {
-  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
-}
-#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H

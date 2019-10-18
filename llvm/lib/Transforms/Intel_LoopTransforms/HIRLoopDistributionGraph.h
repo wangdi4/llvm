@@ -198,30 +198,7 @@ public:
   unsigned size() { return PiBlocks.size(); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD
-  void dump() const {
-    dbgs() << "\n<start> Proposed order\n";
-    for (auto *Block : PiBlocks) {
-      dbgs() << "\nPiBlock: \n";
-      Block->dump();
-
-      dbgs() << "\nInternal PP Edges: \n";
-      for (auto *Node :
-           make_range(Block->dist_node_begin(), Block->dist_node_end())) {
-        for (auto *Edge : PPGraph->outgoing(Node)) {
-          Edge->dump();
-        }
-        dbgs() << "-\n";
-      }
-
-      dbgs() << "\nExternal Pi Edges: \n";
-      for (auto *Edge : outgoing(Block)) {
-        Edge->dump();
-      }
-      dbgs() << "\n";
-    }
-    dbgs() << "<end>\n";
-  }
+  LLVM_DUMP_METHOD void dump() const;
 #endif
 
   virtual ~PiGraph() {
@@ -235,6 +212,11 @@ public:
   getControlDependence(DistPPNode *Dst) {
     assert(PPGraph && "PPGraph is not initialized");
     return PPGraph->getControlDependence(Dst);
+  }
+
+  bool hasControlDependences() const {
+    assert(PPGraph && "PPGraph is not initialized");
+    return PPGraph->hasControlDependences();
   }
 
 private:

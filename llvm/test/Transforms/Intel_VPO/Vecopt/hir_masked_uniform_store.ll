@@ -13,47 +13,44 @@
 ;   return 0;
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MIXED
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
-; Generated HIR for the code is expected to look like:
+; Incoming HIR into the vectorizer is expected to look like:
 ;
-;<0>       BEGIN REGION { modified }
-;<46>            + DO i1 = 0, 40, 1   <DO_LOOP>
-;<2>             |   %2 = (%ar)[0][0];
-;<4>             |   (%ar)[0][0] = %2 + 1;
-;<6>             |   if (i1 + 1 >u 1)
-;<6>             |   {
-;<52>            |      %tgu = (i1)/u4;
-;<54>            |      if (0 <u 4 * %tgu)
-;<54>            |      {
-;<53>            |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 10> <nounroll> <novectorize>
-;<56>            |         |   %wide.cmp. = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
-;<57>            |         |   %.vec = (<4 x i32>*)(%yarrrr)[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{%wide.cmp.}
-;<58>            |         |   (<4 x i32>*)(%ar)[0][i1 + 1] = %.vec; Mask = @{%wide.cmp.}
-;<59>            |         |   %.vec3 = %wide.cmp.  ^  -1;
-;<53>            |         + END LOOP
-;<54>            |      }
-;<47>            |      
-;<47>            |      + DO i2 = 4 * %tgu, i1 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <novectorize>
-;<16>            |      |   if (i2 + 1 >u 1)
-;<16>            |      |   {
-;<23>            |      |      %4 = (%yarrrr)[0][i2 + -1];
-;<24>            |      |      (%ar)[0][i1 + 1] = %4;
-;<16>            |      |   }
-;<47>            |      + END LOOP
-;<6>             |   }
-;<46>            + END LOOP
-;<0>       END REGION
+;<0>          BEGIN REGION { }
+;<46>               + DO i1 = 0, 40, 1   <DO_LOOP>
+;<2>                |   %2 = (%ar)[0][0];
+;<4>                |   (%ar)[0][0] = %2 + 1;
+;<48>               |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+;<47>               |
+;<47>               |   + DO i2 = 0, i1 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 40>
+;<16>               |   |   if (i2 + 1 >u 1)
+;<16>               |   |   {
+;<24>               |   |      (%ar)[0][i1 + 1] = (%yarrrr)[0][i2 + -1];
+;<16>               |   |   }
+;<47>               |   + END LOOP
+;<47>               |
+;<49>               |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+;<46>               + END LOOP
+;<0>          END REGION
 ;
+; The store to %ar array inside the i2 loop is to a loop invariant address.
 ; Current code generation does not generate efficient code for masked uniform
 ; stores. The loop is vectorized, but the inefficient scatter instruction is
 ; generated. This test checks for the corresponding HIR and LLVM-IR generated.
+; HIR checks specifically test that the load from %yarrrr and store to %ar
+; are under a mask. LLVM IR checks specifically test that a scatter gets
+; generated.
 
 ; Check HIR
 ; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP>
-; CHECK-NEXT: [[Mask:%.*]] = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
-; CHECK: [[Load:%.*]] = (<4 x i32>*)({{%.*}})[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{[[Mask]]}
-; CHECK-NEXT: (<4 x i32>*)({{%.*}})[0][i1 + 1] = [[Load]]; Mask = @{[[Mask]]}
+; CHECK-MIXED-NEXT: [[Mask:%.*]] = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
+; CHECK-MIXED: [[Load:%.*]] = (<4 x i32>*)(%yarrrr)[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{[[Mask]]}
+; CHECK-MIXED-NEXT: (<4 x i32>*)(%ar)[0][i1 + 1] = [[Load]]; Mask = @{[[Mask]]}
+; CHECK-VPVAL: [[Mask:%.*]] = {{.*}} >u 1;
+; CHECK-VPVAL: [[Load:%.*]] = (<4 x i32>*)(%yarrrr)[0][{{.*}}]; Mask = @{[[Mask]]}
+; CHECK-VPVAL: (<4 x i32>*)(%ar)[0][{{.*}}] = [[Load]]; Mask = @{[[Mask]]}
 ; CHECK: END LOOP
 
 ; Check LLVM-IR

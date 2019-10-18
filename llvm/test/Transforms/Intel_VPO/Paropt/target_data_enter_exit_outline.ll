@@ -40,6 +40,7 @@
 source_filename = "target_data_outlining.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "spir64"
 
 @a = dso_local target_declare global [100 x i32] zeroinitializer, align 16
 

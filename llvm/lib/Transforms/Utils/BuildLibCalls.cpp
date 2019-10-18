@@ -321,12 +321,21 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_memcpy:
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setDoesNotAlias(F, 1);
-    LLVM_FALLTHROUGH;
+    Changed |= setReturnedArg(F, 0);
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 1);
+    return Changed;
   case LibFunc_memmove:
     Changed |= setReturnedArg(F, 0);
-    LLVM_FALLTHROUGH;
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 1);
+    return Changed;
   case LibFunc_mempcpy:
   case LibFunc_memccpy:
+    Changed |= setDoesNotAlias(F, 0);
+    Changed |= setDoesNotAlias(F, 1);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
@@ -969,6 +978,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_exit:
     Changed |= setDoesNotReturn(F);
     return Changed;
+  case LibFunc_under_fileno:
+    return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
     return Changed;
@@ -976,6 +987,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_set_errno:
+    return Changed;
+  case LibFunc_under_setmode:
     return Changed;
   case LibFunc_under_purecall:
     Changed |= setDoesNotReturn(F);
@@ -1797,6 +1810,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_time64:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_wassert:
+    Changed |= setDoesNotReturn(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_tolower:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -1901,6 +1918,12 @@ Value *llvm::emitStrLen(Value *Ptr, IRBuilder<> &B, const DataLayout &DL,
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(LibFunc_strlen, DL.getIntPtrType(Context),
                      B.getInt8PtrTy(), castToCStr(Ptr, B), B, TLI);
+}
+
+Value *llvm::emitStrDup(Value *Ptr, IRBuilder<> &B,
+                        const TargetLibraryInfo *TLI) {
+  return emitLibCall(LibFunc_strdup, B.getInt8PtrTy(), B.getInt8PtrTy(),
+                     castToCStr(Ptr, B), B, TLI);
 }
 
 Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilder<> &B,

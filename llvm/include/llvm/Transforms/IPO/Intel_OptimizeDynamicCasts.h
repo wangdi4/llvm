@@ -31,8 +31,9 @@ private:
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
-  PreservedAnalyses runImpl(Module &M, WholeProgramInfo &WPI,
-                            TargetLibraryInfo &TLI);
+  PreservedAnalyses
+  runImpl(Module &M, WholeProgramInfo &WPI,
+          std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
 };
 
 ModulePass *createOptimizeDynamicCastsWrapperPass();

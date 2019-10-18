@@ -6661,4 +6661,4 @@ STIDebug::STIDebug() {}
 
 STIDebug::~STIDebug() {}
 
-std::unique_ptr<STIDebug> STIDebug::create(AsmPrinter *Asm) { return llvm::make_unique<STIDebugImpl>(Asm); }
+std::unique_ptr<STIDebug> STIDebug::create(AsmPrinter *Asm) { return std::make_unique<STIDebugImpl>(Asm); }

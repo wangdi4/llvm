@@ -69,7 +69,7 @@ Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
                                                      const Twine &Name,
                                                      llvm::Value *ArraySize) {
   auto Alloca = CreateTempAlloca(Ty, Name, ArraySize);
-  Alloca->setAlignment(Align.getQuantity());
+  Alloca->setAlignment(Align.getAsAlign());
   return Address(Alloca, Align);
 }
 
@@ -132,7 +132,7 @@ Address CodeGenFunction::CreateDefaultAlignTempAlloca(llvm::Type *Ty,
 void CodeGenFunction::InitTempAlloca(Address Var, llvm::Value *Init) {
   assert(isa<llvm::AllocaInst>(Var.getPointer()));
   auto *Store = new llvm::StoreInst(Init, Var.getPointer());
-  Store->setAlignment(Var.getAlignment().getQuantity());
+  Store->setAlignment(Var.getAlignment().getAsAlign());
   llvm::BasicBlock *Block = AllocaInsertPt->getParent();
   Block->getInstList().insertAfter(AllocaInsertPt->getIterator(), Store);
 }
@@ -398,7 +398,7 @@ static Address createReferenceTemporary(CodeGenFunction &CGF,
               llvm::GlobalValue::NotThreadLocal,
               CGF.getContext().getTargetAddressSpace(AS));
           CharUnits alignment = CGF.getContext().getTypeAlignInChars(Ty);
-          GV->setAlignment(alignment.getQuantity());
+          GV->setAlignment(alignment.getAsAlign());
           llvm::Constant *C = GV;
           if (AS != LangAS::Default)
             C = TCG.performAddrSpaceCast(
@@ -522,13 +522,13 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
 
       // Avoid creating a conditional cleanup just to hold an llvm.lifetime.end
       // marker. Instead, start the lifetime of a conditional temporary earlier
-      // so that it's unconditional. Don't do this in ASan's use-after-scope
-      // mode so that it gets the more precise lifetime marks. If the type has
-      // a non-trivial destructor, we'll have a cleanup block for it anyway,
-      // so this typically doesn't help; skip it in that case.
+      // so that it's unconditional. Don't do this with sanitizers which need
+      // more precise lifetime marks.
       ConditionalEvaluation *OldConditional = nullptr;
       CGBuilderTy::InsertPoint OldIP;
       if (isInConditionalBranch() && !E->getType().isDestructedType() &&
+          !SanOpts.has(SanitizerKind::HWAddress) &&
+          !SanOpts.has(SanitizerKind::Memory) &&
           !CGM.getCodeGenOpts().SanitizeAddressUseAfterScope) {
         OldConditional = OutermostConditional;
         OutermostConditional = nullptr;
@@ -683,8 +683,7 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
   // Quickly determine whether we have a pointer to an alloca. It's possible
   // to skip null checks, and some alignment checks, for these pointers. This
   // can reduce compile-time significantly.
-  auto PtrToAlloca =
-      dyn_cast<llvm::AllocaInst>(Ptr->stripPointerCastsNoFollowAliases());
+  auto PtrToAlloca = dyn_cast<llvm::AllocaInst>(Ptr->stripPointerCasts());
 
   llvm::Value *True = llvm::ConstantInt::getTrue(getLLVMContext());
   llvm::Value *IsNonNull = nullptr;
@@ -1004,7 +1003,7 @@ EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
     // Add the inc/dec to the real part.
     NextVal = Builder.CreateAdd(InVal.first, NextVal, isInc ? "inc" : "dec");
   } else {
-    QualType ElemTy = E->getType()->getAs<ComplexType>()->getElementType();
+    QualType ElemTy = E->getType()->castAs<ComplexType>()->getElementType();
     llvm::APFloat FVal(getContext().getFloatTypeSemantics(ElemTy), 1);
     if (!isInc)
       FVal.changeSign();
@@ -2223,7 +2222,7 @@ static void setObjCGCLValueClass(const ASTContext &Ctx, const Expr *E,
       // If ivar is a structure pointer, assigning to field of
       // this struct follows gcc's behavior and makes it a non-ivar
       // writer-barrier conservatively.
-      ExpTy = ExpTy->getAs<PointerType>()->getPointeeType();
+      ExpTy = ExpTy->castAs<PointerType>()->getPointeeType();
       if (ExpTy->isRecordType()) {
         LV.setObjCIvar(false);
         return;
@@ -2259,7 +2258,7 @@ static void setObjCGCLValueClass(const ASTContext &Ctx, const Expr *E,
       // a non-ivar write-barrier.
       QualType ExpTy = E->getType();
       if (ExpTy->isPointerType())
-        ExpTy = ExpTy->getAs<PointerType>()->getPointeeType();
+        ExpTy = ExpTy->castAs<PointerType>()->getPointeeType();
       if (ExpTy->isRecordType())
         LV.setObjCIvar(false);
     }
@@ -2390,7 +2389,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
 
   // If it's thread_local, emit a call to its wrapper function instead.
   if (VD->getTLSKind() == VarDecl::TLS_Dynamic &&
-      CGF.CGM.getCXXABI().usesThreadWrapperFunction())
+      CGF.CGM.getCXXABI().usesThreadWrapperFunction(VD))
     return CGF.CGM.getCXXABI().EmitThreadLocalVarDeclLValue(CGF, VD, T);
   // Check if the variable is marked as declare target with link clause in
   // device codegen.
@@ -2575,6 +2574,11 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         // Spill the constant value to a global.
         Addr = CGM.createUnnamedGlobalFrom(*VD, Val,
                                            getContext().getDeclAlign(VD));
+        llvm::Type *VarTy = getTypes().ConvertTypeForMem(VD->getType());
+        auto *PTy = llvm::PointerType::get(
+            VarTy, getContext().getTargetAddressSpace(VD->getType()));
+        if (PTy != Addr.getType())
+          Addr = Builder.CreatePointerBitCastOrAddrSpaceCast(Addr, PTy);
       } else {
         // Should we be using the alignment of the constant pointer we emitted?
         CharUnits Alignment =
@@ -4233,7 +4237,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   unsigned RecordCVR = base.getVRQualifiers();
   if (rec->isUnion()) {
     // For unions, there is no pointer adjustment.
-    assert(!FieldType->isReferenceType() && "union has reference member");
     if (CGM.getCodeGenOpts().StrictVTablePointers &&
         hasAnyVptr(FieldType, getContext()))
       // Because unions can easily skip invariant.barriers, we need to add
@@ -4250,60 +4253,63 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
               addr.getPointer(), getDebugInfoFIndex(rec, field->getFieldIndex()), DbgInfo),
           addr.getAlignment());
     }
-  } else {
 
+    if (FieldType->isReferenceType())
+      addr = Builder.CreateElementBitCast(
+          addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+  } else {
     if (!IsInPreservedAIRegion)
       // For structs, we GEP to the field that the record layout suggests.
       addr = emitAddrOfFieldStorage(*this, addr, field);
     else
       // Remember the original struct field index
       addr = emitPreserveStructAccess(*this, addr, field);
+  }
 
 #if INTEL_CUSTOMIZATION
-    // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
-    // handled by the AA even without TBAA.
-    if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
-      auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
-      if (GEP && !FieldTBAAInfo.isMayAlias()) {
-        // HACK: If the base didn't have a base type we created the base type
-        // for the field access exclusively above. In such case, we need to
-        // re-use that newly created BaseType. Otherwise, we already have a
-        // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
-        // to use the "base" of the last field access.
-        auto BaseType = base.getTBAAInfo().BaseType
-                            ? base.getTBAAInfo().AccessType
-                            : FieldTBAAInfo.BaseType;
-        // FIXME: isValidBaseType returns false for the structs with flexible
-        // array members. For some reason, for such structs TBAA access tags are
-        // completely disabled (even in LLORG), so we don't have a valid
-        // BaseType available. Don't emit anything in such case.
-        //
-        // Note: I'd expect that only annotation of the flexible array member
-        // itself should not contain the access path. Not sure why it affects
-        // other fields of the structs.
-        if (BaseType) {
-          TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
-                            FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
-                            FieldTBAAInfo.Size);
-          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
-          GEP->setMetadata("intel-tbaa", N);
-        }
+  // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
+  // handled by the AA even without TBAA.
+  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+    auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
+    if (GEP && !FieldTBAAInfo.isMayAlias()) {
+      // HACK: If the base didn't have a base type we created the base type
+      // for the field access exclusively above. In such case, we need to
+      // re-use that newly created BaseType. Otherwise, we already have a
+      // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
+      // to use the "base" of the last field access.
+      auto BaseType = base.getTBAAInfo().BaseType
+                          ? base.getTBAAInfo().AccessType
+                          : FieldTBAAInfo.BaseType;
+      // FIXME: isValidBaseType returns false for the structs with flexible
+      // array members. For some reason, for such structs TBAA access tags are
+      // completely disabled (even in LLORG), so we don't have a valid
+      // BaseType available. Don't emit anything in such case.
+      //
+      // Note: I'd expect that only annotation of the flexible array member
+      // itself should not contain the access path. Not sure why it affects
+      // other fields of the structs.
+      if (BaseType) {
+        TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
+                          FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
+                          FieldTBAAInfo.Size);
+        llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+        GEP->setMetadata("intel-tbaa", N);
       }
     }
+  }
 #endif // INTEL_CUSTOMIZATION
 
-    // If this is a reference field, load the reference right now.
-    if (FieldType->isReferenceType()) {
-      LValue RefLVal = MakeAddrLValue(addr, FieldType, FieldBaseInfo,
-                                      FieldTBAAInfo);
-      if (RecordCVR & Qualifiers::Volatile)
-        RefLVal.getQuals().addVolatile();
-      addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
+  // If this is a reference field, load the reference right now.
+  if (FieldType->isReferenceType()) {
+    LValue RefLVal =
+        MakeAddrLValue(addr, FieldType, FieldBaseInfo, FieldTBAAInfo);
+    if (RecordCVR & Qualifiers::Volatile)
+      RefLVal.getQuals().addVolatile();
+    addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
 
-      // Qualifiers on the struct don't apply to the referencee.
-      RecordCVR = 0;
-      FieldType = FieldType->getPointeeType();
-    }
+    // Qualifiers on the struct don't apply to the referencee.
+    RecordCVR = 0;
+    FieldType = FieldType->getPointeeType();
   }
 
   // Make sure that the address is pointing to the right type.  This is critical
@@ -4783,10 +4789,11 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
 #if INTEL_CUSTOMIZATION
   if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
-    for (const auto *DVDA : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+    for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
       // Force target emission of variants as they are conditionally called
       // based on the device clause.
-      const FunctionDecl *VFD = DVDA->getFunctionDecl();
+      auto *DRE = cast<DeclRefExpr>(DVA->getVariantFuncRef());
+      FunctionDecl *VFD = cast<FunctionDecl>(DRE->getDecl());
       CGF.CGM.GetAddrOfFunction(VFD);
     }
   }

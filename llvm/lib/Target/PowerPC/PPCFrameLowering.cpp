@@ -378,8 +378,8 @@ static void HandleVRSaveUpdate(MachineInstr &MI, const TargetInstrInfo &TII) {
     return;
   }
 
-  unsigned SrcReg = MI.getOperand(1).getReg();
-  unsigned DstReg = MI.getOperand(0).getReg();
+  Register SrcReg = MI.getOperand(1).getReg();
+  Register DstReg = MI.getOperand(0).getReg();
 
   if ((UsedRegMask & 0xFFFF) == UsedRegMask) {
     if (DstReg != SrcReg)
@@ -830,7 +830,7 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF,
   bool HasRedZone = isPPC64 || !isSVR4ABI;
 
   unsigned SPReg       = isPPC64 ? PPC::X1  : PPC::R1;
-  unsigned BPReg       = RegInfo->getBaseRegister(MF);
+  Register BPReg = RegInfo->getBaseRegister(MF);
   unsigned FPReg       = isPPC64 ? PPC::X31 : PPC::R31;
   unsigned LRReg       = isPPC64 ? PPC::LR8 : PPC::LR;
   unsigned TOCReg      = isPPC64 ? PPC::X2 :  PPC::R2;
@@ -1401,7 +1401,7 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
   bool HasRedZone = Subtarget.isPPC64() || !Subtarget.isSVR4ABI();
 
   unsigned SPReg      = isPPC64 ? PPC::X1  : PPC::R1;
-  unsigned BPReg      = RegInfo->getBaseRegister(MF);
+  Register BPReg = RegInfo->getBaseRegister(MF);
   unsigned FPReg      = isPPC64 ? PPC::X31 : PPC::R31;
   unsigned ScratchReg = 0;
   unsigned TempReg     = isPPC64 ? PPC::X12 : PPC::R12; // another scratch reg
@@ -1776,8 +1776,8 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
 
   //  Save R31 if necessary
   int FPSI = FI->getFramePointerSaveIndex();
-  bool isPPC64 = Subtarget.isPPC64();
-  bool isDarwinABI  = Subtarget.isDarwinABI();
+  const bool isPPC64 = Subtarget.isPPC64();
+  const bool IsDarwinABI  = Subtarget.isDarwinABI();
   MachineFrameInfo &MFI = MF.getFrameInfo();
 
   // If the frame pointer save index hasn't been defined yet.
@@ -1826,7 +1826,7 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
 
   // For 32-bit SVR4, allocate the nonvolatile CR spill slot iff the
   // function uses CR 2, 3, or 4.
-  if (!isPPC64 && !isDarwinABI &&
+  if (!isPPC64 && !IsDarwinABI &&
       (SavedRegs.test(PPC::CR2) ||
        SavedRegs.test(PPC::CR3) ||
        SavedRegs.test(PPC::CR4))) {
@@ -1886,8 +1886,7 @@ void PPCFrameLowering::processFunctionBeforeFrameFinalized(MachineFunction &MF,
     assert((!MF.getInfo<PPCFunctionInfo>()->mustSaveTOC() ||
             (Reg != PPC::X2 && Reg != PPC::R2)) &&
            "Not expecting to try to spill R2 in a function that must save TOC");
-    if (PPC::GPRCRegClass.contains(Reg) ||
-        PPC::SPE4RCRegClass.contains(Reg)) {
+    if (PPC::GPRCRegClass.contains(Reg)) {
       HasGPSaveArea = true;
 
       GPRegs.push_back(CSI[i]);
@@ -1981,7 +1980,7 @@ void PPCFrameLowering::processFunctionBeforeFrameFinalized(MachineFunction &MF,
     assert(FI && "No Base Pointer Save Slot!");
     MFI.setObjectOffset(FI, LowerBound + MFI.getObjectOffset(FI));
 
-    unsigned BP = RegInfo->getBaseRegister(MF);
+    Register BP = RegInfo->getBaseRegister(MF);
     if (PPC::G8RCRegClass.contains(BP)) {
       MinG8R = std::min<unsigned>(MinG8R, BP);
       HasG8SaveArea = true;

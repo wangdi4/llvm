@@ -26,30 +26,32 @@ namespace llvm {
 namespace vpo {
 
 OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
-                                              const VPVectorShape &Shape,
                                               const unsigned VF) const {
-  OVLSAccessType AccTy = OVLSAccessType::getUnknownTy();
-  if (!Shape.isAnyStrided())
-    return nullptr;
-
   int Opcode = VPInst->getOpcode();
+  OVLSAccessKind AccKind = OVLSAccessKind::Unknown;
   int AccessSize;
+
   if (Opcode == Instruction::Load) {
-    AccTy = OVLSAccessType::getStridedLoadTy();
+    AccKind = OVLSAccessKind::SLoad;
     AccessSize = DL.getTypeAllocSizeInBits(VPInst->getType());
   } else {
     assert(Opcode == Instruction::Store);
-    AccTy = OVLSAccessType::getStridedStoreTy();
+    AccKind = OVLSAccessKind::SStore;
     AccessSize = DL.getTypeAllocSizeInBits(VPInst->getOperand(0)->getType());
   }
 
   OVLSType Ty(AccessSize, VF);
-  return new VPVLSClientMemref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccTy, Ty,
-                               VPInst, this);
+
+  // At this point we are not sure if this memref should be created. So, we
+  // create a temporary memref on the stack and move it to the heap only if it
+  // is strided.
+  VPVLSClientMemref Memref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccKind, Ty,
+                           VPInst, this);
+  return Memref.getConstStride() ? new VPVLSClientMemref(std::move(Memref))
+                                 : nullptr;
 }
 
 void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
-                                      const VPlanDivergenceAnalysis &DA,
                                       OVLSMemrefVector &MemrefVector,
                                       unsigned VF) {
   auto Range = make_range(df_iterator<const VPRegionBlock *>::begin(Region),
@@ -57,7 +59,7 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
 
   for (const VPBlockBase *Block : Range) {
     if (auto *NestedRegion = dyn_cast<const VPRegionBlock>(Block)) {
-      collectMemrefs(NestedRegion, DA, MemrefVector, VF);
+      collectMemrefs(NestedRegion, MemrefVector, VF);
       continue;
     }
 
@@ -67,14 +69,17 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
       if (Opcode != Instruction::Load && Opcode != Instruction::Store)
         continue;
 
-      VPValue *Address = Opcode == Instruction::Load ? VPInst.getOperand(0)
-                                                     : VPInst.getOperand(1);
-      const VPVectorShape *Shape = DA.getVectorShape(Address);
-      assert(Shape && "DA is not supposed to return null shape");
-
-      OVLSMemref *Memref = createVLSMemref(&VPInst, *Shape, VF);
+      OVLSMemref *Memref = createVLSMemref(&VPInst, VF);
       if (!Memref)
         continue;
+
+      // FIXME: Remove this if-stmt after VLS server can handle big access
+      //        sizes. At the moment, it crashes trying to compute access mask
+      //        for a group if element size is greater than MAX_VECTOR_LENGTH.
+      if (Memref->getType().getElementSize() >= MAX_VECTOR_LENGTH * 8) {
+        delete Memref;
+        continue;
+      }
 
       MemrefVector.push_back(Memref);
       LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump(););
@@ -105,7 +110,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
     else
       std::tie(VLSInfoIt, std::ignore) = Plan2VLSInfo.insert({Plan, {}});
 
-    collectMemrefs(cast<VPRegionBlock>(Plan->getEntry()), *Plan->getVPlanDA(),
+    collectMemrefs(cast<VPRegionBlock>(Plan->getEntry()),
                    VLSInfoIt->second.Memrefs, VF);
   }
 
@@ -141,8 +146,8 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
     for (auto J = I + 1; J != E; ++J) {
       dbgs() << "\t distance to ";
       const auto To = cast<VPVLSClientMemrefHIR>(*J);
-      To->print(dbgs(), "\t");
-      dbgs() << "\t" << From->getConstDistanceFrom(*To);
+      To->print(dbgs(), 2);
+      dbgs() << "  " << From->getConstDistanceFrom(*To);
 
       dbgs() << " | "
              << (From->canMoveTo(*To) ? "can be moved" : "cannot be moved");
@@ -156,17 +161,10 @@ void VPlanVLSAnalysis::dump() const {
     dump(PI.first);
 }
 
-void VPVLSClientMemref::print(raw_ostream &Os, const Twine Indent) const {
-  Os << Indent;
-  Os << "OVLSMemref for VPInst ";
-  Inst->print(Os);
-  Os << "[ ";
-  Os << "id = " << getId();
-  Os << " | AccessType: ";
-  getAccessType().print(Os);
-  Os << " | VLSType = ";
-  getType().print(Os);
-  Os << " | Stride = " << getConstStride();
+void VPVLSClientMemref::print(raw_ostream &OS, unsigned Indent) const {
+  OVLSMemref::print(OS, Indent);
+  OS << ": ";
+  Inst->print(OS);
 }
 
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

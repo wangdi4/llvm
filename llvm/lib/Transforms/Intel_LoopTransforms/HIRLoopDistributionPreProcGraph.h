@@ -257,6 +257,10 @@ public:
     return Iter->second;
   }
 
+  bool hasControlDependences() const {
+    return !ControlDeps.empty();
+  }
+
 private:
   // unlike other hirgraphs, this one actually owns the memory for its nodes
   // Special note, the dist nodes(well more precisely DistPPNode->hnode) in this

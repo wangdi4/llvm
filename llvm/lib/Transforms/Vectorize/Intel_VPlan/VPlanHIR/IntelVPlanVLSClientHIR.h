@@ -39,11 +39,11 @@ private:
   const DDGraph getDDGraph() const;
 
 public:
-  explicit VPVLSClientMemrefHIR(const OVLSAccessType &AccTy, const OVLSType &Ty,
+  explicit VPVLSClientMemrefHIR(OVLSAccessKind AccKind, const OVLSType &Ty,
                                 const VPInstruction *Inst,
                                 const unsigned LoopLevel, HIRDDAnalysis *DDA,
                                 const RegDDRef *Ref)
-      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst,
+      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccKind, Ty, Inst,
                           /*VLSA=*/nullptr),
         LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
 
@@ -122,7 +122,7 @@ public:
       // Lastly: Check the dependence edge.
       if (Edge->getSrc() == Edge->getSink())
         return false;
-      if (Edge->isINPUTdep())
+      if (Edge->isInput())
         return false;
       return true;
     };
@@ -152,8 +152,6 @@ public:
     return None;
   }
 
-  unsigned getLocation() const override { return 0; }
-
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;
   }
@@ -161,8 +159,9 @@ public:
   const RegDDRef *getRegDDRef() const { return Ref; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void print(raw_ostream &Os, const Twine Indent = "") const final {
+  void print(raw_ostream &Os, unsigned Indent = 0) const override {
     VPVLSClientMemref::print(Os, Indent);
+    Os << " | ";
     formatted_raw_ostream Fos(Os);
     getRegDDRef()->print(Fos);
   }

@@ -1,4 +1,5 @@
-; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -S -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -VPlanDriver -enable-vp-value-codegen=false -disable-vplan-predicator -disable-vplan-subregions -S -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -VPlanDriver -enable-vp-value-codegen=true -disable-vplan-predicator -disable-vplan-subregions -S -vplan-force-vf=4 < %s  -instcombine | FileCheck --check-prefix VPBCG %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -12,25 +13,35 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return Sum;
 ;}
 
-; CHECK-LABEL: foo
-; CHECK: vector.ph
-; CHECK: %[[TMP0:.*]] = insertelement <4 x i32> <i32 undef, i32 0, i32 0, i32 0>, i32 %Init, i32 0
-; CHECK: vector.body
-; CHECK: %vec.phi = phi <4 x i32> [ %[[TMP0]], %vector.ph ], [ {{.*}}, %vector.body ]
-; CHECK: %wide.load = load <4 x i32>
-; CHECK: add nsw <4 x i32> %wide.load, %vec.phi
-; CHECK: middle.block
-; CHECK: shufflevector <4 x i32>
-; CHECK: add <4 x i32>
-; CHECK: shufflevector <4 x i32>
-; CHECK: extractelement <4 x i32>
-
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
+; CHECK:         vector.ph:
+; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> <i32 undef, i32 0, i32 0, i32 0>, i32 [[INIT:%.*]], i32 0
+; CHECK:         vector.body:
+; CHECK:         [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP0]], [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP1:.*]], align 4
+; CHECK-NEXT:    [[TMP2]] = add nsw <4 x i32> [[WIDE_LOAD]], [[VEC_PHI]]
+; CHECK:       middle.block:
+; CHECK-NEXT:    [[RDX_SHUF:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+; CHECK-NEXT:    [[BIN_RDX:%.*]] = add <4 x i32> [[TMP2]], [[RDX_SHUF]]
+; CHECK-NEXT:    [[RDX_SHUF3:%.*]] = shufflevector <4 x i32> [[BIN_RDX]], <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[BIN_RDX4:%.*]] = add <4 x i32> [[BIN_RDX]], [[RDX_SHUF3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <4 x i32> [[BIN_RDX4]], i32 0
+;
+; VPBCG:         vector.ph:
+; VPBCG-NEXT:    [[RED_INIT_INSERT:%.*]] = insertelement <4 x i32> <i32 undef, i32 0, i32 0, i32 0>, i32 [[INIT:%.*]], i32 0
+; VPBCG:         vector.body:
+; VPBCG:         [[VEC_PHI1:%.*]] = phi <4 x i32> [ [[RED_INIT_INSERT]], [[VECTOR_PH:%.*]] ], [ [[TMP0:%.*]], [[VECTOR_BODY:%.*]] ]
+; VPBCG:         [[TMP0]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER:%.*]], [[VEC_PHI1]]
+; VPBCG:         VPlannedBB:
+; VPBCG-NEXT:    [[TMP3:%.*]] = call i32 @llvm.experimental.vector.reduce.add.v4i32(<4 x i32> [[TMP0]])
+; VPBCG:         middle.block:
+; VPBCG:         [[BC_MERGE_REDUCTION:%.*]] = phi i32 [ [[INIT:%.*]], [[FOR_BODY_PH:%.*]] ], [ [[INIT:%.*]], [[MIN_ITERS_CHECKED:%.*]] ], [ [[TMP3]], [[MIDDLE_BLOCK:%.*]] ]
+;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
-DIR.QUAL.LIST.END.2:  
+DIR.QUAL.LIST.END.2:
   %cmp6 = icmp sgt i32 %N, 0
   br i1 %cmp6, label %for.body.ph, label %for.cond.cleanup
 
@@ -66,3 +77,4 @@ DIR.QUAL.LIST.END.3:
 }
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+

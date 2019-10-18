@@ -11,9 +11,8 @@
 #define XSTR(x)    VERSTR(x)
 
 #define XMAIN_VERSION_NUMBER   "201900"
-#define XMAIN_VERSION_STRING   "8.x.0"
-#define XMAIN_VERSION_CLANG     8
-#define XMAIN_VERSION_MINOR     9
+#define XMAIN_VERSION_STRING   "x.0"
+#define XMAIN_VERSION_MINOR     1
 #define XMAIN_VERSION_UPDATE    0
 
 #define DPCPP_VERSION_QUALITY   ""

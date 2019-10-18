@@ -1363,6 +1363,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     addDTransLegacyPasses(PM);
   }
 #endif // INTEL_INCLUDE_DTRANS
+  PM.add(createDopeVectorConstPropLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Now that we internalized some globals, see if we can hack on them!
@@ -1502,9 +1503,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   PM.add(createCorrelatedValuePropagationPass());
 
-  if (EnableInlineAggAnalysis) {
-    PM.add(createAggInlAALegacyPass());
-  }
   if (EnableMultiVersioning)
     PM.add(createMultiVersioningWrapperPass());
 #endif // INTEL_CUSTOMIZATION
@@ -1788,7 +1786,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         if (RunVPOOpt)
           PM.add(createHIRParDirInsertPass());
 
+        PM.add(createHIRConditionalTempSinkingPass());
         PM.add(createHIROptPredicatePass(OptLevel == 3, true));
+        PM.add(createHIRAosToSoaPass());
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());
       }
@@ -1796,9 +1796,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRSinkingForPerfectLoopnestPass());
       PM.add(createHIRLoopDistributionForLoopNestPass());
       PM.add(createHIRLoopInterchangePass());
-      PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRGenerateMKLCallPass());
       PM.add(createHIRLoopBlockingPass());
+      PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
+      PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRLoopReversalPass());
       PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
     }
@@ -1807,8 +1808,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
     }
 
-    if (RunLoopOpts == LoopOptMode::Full)
+    if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRLMMPass());
+      if (SizeLevel == 0)
+        PM.add(createHIRMemoryReductionSinkingPass());
+    }
 
     PM.add(createHIRLastValueComputationPass());
 

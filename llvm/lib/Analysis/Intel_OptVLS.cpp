@@ -31,12 +31,11 @@
 #include <set>
 using namespace llvm;
 constexpr uint32_t OVLSShuffle::UndefMask;
-// MemrefDistanceMap contains a set of distances where each distance gets
-// mapped to a memref. Basically, it contains a set of adjacent memrefs.
-// Keeping them in a map helps eliminate any duplicate distances and keeps them
-// sorted.
-typedef OVLSMap<int, OVLSMemref *> MemrefDistanceMap;
-typedef MemrefDistanceMap::iterator MemrefDistanceMapIt;
+
+// A set of adjacent memrefs and their distances from the first memref. The
+// choice of the vector is intentional, so that the original order of memrefs is
+// preserved.
+using MemrefDistanceMap = std::vector<std::pair<OVLSMemref *, int64_t>>;
 
 // MemrefDistanceMapVector is a vector of groups where each group contains a set
 // of adjacent memrefs.
@@ -44,14 +43,8 @@ typedef OVLSVector<MemrefDistanceMap *> MemrefDistanceMapVector;
 typedef MemrefDistanceMapVector::iterator MemrefDistanceMapVectorIt;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSAccessType::dump() const {
-  print(OVLSdbgs());
-  OVLSdbgs() << '\n';
-}
-#endif
-
-void OVLSAccessType::print(OVLSostream &OS) const {
-  switch (AccType) {
+void OVLSAccessKind::print(OVLSostream &OS) const {
+  switch (AccessKind) {
   case SLoad:
     OS << "SLoad";
     break;
@@ -70,26 +63,25 @@ void OVLSAccessType::print(OVLSostream &OS) const {
   }
 }
 
-OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T,
-                       const OVLSAccessType &AType)
-    : Kind(K), AccType(AType) {
+void OVLSAccessKind::dump() const {
+  print(OVLSdbgs());
+  OVLSdbgs() << '\n';
+}
+#endif
+
+OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T, OVLSAccessKind AKind)
+    : Kind(K), AccessKind(AKind) {
   DType = T;
   static unsigned MemrefId = 1;
   Id = MemrefId++;
 
-  if (AccType.isUnknown()) {
+  if (AccessKind == OVLSAccessKind::Unknown) {
     OVLSDebug(OVLSdbgs() << "#" << Id
                          << " .Created an OVLSMemref of Unknown AccesType.");
   }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSMemref::dump() const {
-  print(OVLSdbgs(), 0);
-  OVLSdbgs() << '\n';
-}
-#endif
-
 void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
   unsigned Counter = 0;
   while (Counter++ != NumSpaces)
@@ -104,11 +96,10 @@ void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   // print accessType
   OS << " ";
-  getAccessType().print(OS);
+  getAccessKind().print(OS);
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSGroup::dump() const {
+void OVLSMemref::dump() const {
   print(OVLSdbgs(), 0);
   OVLSdbgs() << '\n';
 }
@@ -1047,7 +1038,7 @@ public:
     uint32_t TotalGSNodes = 0;
 
     bool GroupOfGathers = false;
-    if (Group.hasGathers())
+    if (Group.getAccessKind().isLoad())
       GroupOfGathers = true;
 
     for (GraphNode *N : Nodes) {
@@ -1188,8 +1179,8 @@ dumpMemrefDistanceMapVector(OVLSostream &OS,
     OS << "  Set #" << ++Id << "\n";
     // print each adjacent memref-set
     for (const auto &AMapElem : *AdjMemrefSet) {
-      (AMapElem.second)->print(OS, 2);
-      OS << "   Dist: " << AMapElem.first << "\n";
+      AMapElem.first->print(OS, 2);
+      OS << "   Dist: " << AMapElem.second << "\n";
     }
   }
 }
@@ -1234,33 +1225,49 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
                        OVLSMemrefToGroupMap *MemrefToGroupMap) {
   for (MemrefDistanceMap *AdjMemrefSet : AdjMrfSetVec) {
     assert(!AdjMemrefSet->empty() && "Adjacent memref-set cannot be empty");
-    MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
+    auto AdjMemrefSetIt = AdjMemrefSet->begin();
 
-    OVLSAccessType AccType = (AdjMemrefSetIt->second)->getAccessType();
-    OVLSGroup *CurrGrp = new OVLSGroup(VectorLength, AccType);
-    int GrpFirstMDist = AdjMemrefSetIt->first;
+    OVLSAccessKind AccessKind = AdjMemrefSetIt->first->getAccessKind();
+    OVLSGroup *CurrGrp =
+        new OVLSGroup(AdjMemrefSetIt->first, VectorLength, AccessKind);
+    int64_t GrpFirstMDist = 0;
+    assert(AdjMemrefSetIt->second == 0 &&
+           "Zero distance between first Memref and itself is expected");
 
     // Group memrefs in each set using a greedy approach, keep inserting the
     // memrefs into the same group until the group is full. Form a new group
     // for a memref that cannot be moved into the group.
-    for (MemrefDistanceMapIt E = (*AdjMemrefSet).end(); AdjMemrefSetIt != E;
-         ++AdjMemrefSetIt) {
-      OVLSMemref *Memref = AdjMemrefSetIt->second;
+    for (auto E = AdjMemrefSet->end(); AdjMemrefSetIt != E; ++AdjMemrefSetIt) {
+      OVLSMemref *Memref = AdjMemrefSetIt->first;
       unsigned ElemSize = Memref->getType().getElementSize() / BYTE; // in bytes
 
-      int Dist = AdjMemrefSetIt->first;
+      int64_t Dist = AdjMemrefSetIt->second;
 
       uint64_t AccMask = CurrGrp->getNByteAccessMask();
 
-      // If Current Group has members, and the new memref cannot be added to it
-      // for either it is outside the register range or cannot be moved to the
-      // Group's firstmemref's location, we make a new group for the new memref.
-      if (!CurrGrp->empty() &&
-          ( // capacity exceeded.
-              (Dist - GrpFirstMDist + ElemSize) > VectorLength ||
-              !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
+      // Adjust mask and distance if the new memref precedes all the previously
+      // seen memrefs.
+      if (Dist < GrpFirstMDist) {
+        AccMask <<= GrpFirstMDist - Dist;
+        GrpFirstMDist = Dist;
+      }
+
+      // FIXME: We assume that the first memory reference in AdjMemrefSet is the
+      //        best InsertPoint to form a new group. Here we only check if it
+      //        is legal to group Memref with InsertPoint, but do not try to
+      //        find the really best InsertPoint yet. Though, we should use
+      //        dominance information to find the optimal InsertPoint.
+
+      // If it is not safe to insert the memref to the group, or if the group
+      // capacity has been exceeded, then we create a new group.
+      if (!CurrGrp->isSafeToInsert(*Memref) ||
+          (Dist - GrpFirstMDist + ElemSize) > VectorLength) {
+        // Sort memrefs in the group using their offsets.
+        sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
+          return *RHS->getConstDistanceFrom(*LHS) > 0;
+        });
         OVLSGrps.push_back(CurrGrp);
-        CurrGrp = new OVLSGroup(VectorLength, AccType);
+        CurrGrp = new OVLSGroup(Memref, VectorLength, AccessKind);
 
         // Reset GrpFirstMDist
         GrpFirstMDist = Dist;
@@ -1275,6 +1282,10 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
             .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp));
     }
 
+    // Sort memrefs in the group using their offsets.
+    sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
+      return *RHS->getConstDistanceFrom(*LHS) > 0;
+    });
     OVLSGrps.push_back(CurrGrp);
   }
 
@@ -1283,14 +1294,80 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
   return;
 }
 
+static void splitMrfsStep(OVLSMemref *Memref,
+                          MemrefDistanceMapVector &AdjMemrefSetVec) {
+  bool AdjMrfSetFound = false;
+
+  // TODO: Currently finding the appropriate group is done using a linear
+  // search. It would be better to use a hashing algorithm for this search.
+  for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
+    assert(!AdjMemrefSet->empty() && "Set cannot be empty");
+    OVLSMemref *SetFirstMrf = AdjMemrefSet->begin()->first;
+
+    if (Memref->getAccessKind() != SetFirstMrf->getAccessKind())
+      continue;
+
+    if (Memref->getNumElements() != SetFirstMrf->getNumElements())
+      continue;
+
+    // Currently we support grouping Memrefs with same elementsize.
+    auto ElementSize = SetFirstMrf->getType().getElementSize();
+    if (Memref->getType().getElementSize() != ElementSize)
+      continue;
+
+    // Dist is the distance to be added in Dist(SetFirstMrf) to get
+    // Dist(Memref).
+    // Dist = Dist(Memref) - Dist(SetFirstMrf)
+    // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
+    //    FirstSeenMrf : a[2*i+1].
+    //    Memref : a[2*i], Dist = -4.
+    Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstMrf);
+    if (!Dist)
+      continue;
+
+    // Found a possible set. Check if the memref overlaps any of the memrefs
+    // already in the set.
+    auto OverlappedMemref =
+        find_if(*AdjMemrefSet, [Dist, ElementSize](auto &x) {
+          return std::abs(x.second - *Dist) < ElementSize / BYTE;
+        });
+
+    if (OverlappedMemref != AdjMemrefSet->end()) {
+      OVLSDebug(OVLSdbgs() << "Cannot group a memref\n  " << *Memref
+                           << "\ndue to overlapping with\n  "
+                           << *OverlappedMemref->first << '\n');
+      continue;
+    }
+
+    // FIXME: We assume that this function is invoked in the lexical order of
+    //        memrefs for loads and in the reverse lexical order for stores. We
+    //        preserve this order in AdjMemrefSet. We should switch from relying
+    //        on such assumptions to proper ordering of incoming memrefs using
+    //        dominance information.
+
+    // Alright. Memref can be grouped.
+    AdjMrfSetFound = true;
+    AdjMemrefSet->emplace_back(Memref, *Dist);
+    break;
+  }
+
+  if (!AdjMrfSetFound) {
+    // No adjacent memref set exits for this memref, create a new set.
+    MemrefDistanceMap *AdjMemrefSet = new MemrefDistanceMap();
+    // Assign 0 as a distance to the first memref in the set.
+    AdjMemrefSet->emplace_back(Memref, 0);
+    AdjMemrefSetVec.push_back(AdjMemrefSet);
+  }
+}
+
 // Split the memref-vector into groups where memrefs in each group
 // are neighbors(adjacent), means they
-//   1) have the same access type
+//   1) have the same access kind
 //   2) have same number of vector elements
 //   3) are a constant distance apart
 //
-// Adjacent memrefs in the group are sorted based on their distance from the
-// first memref in the group in an ascending order.
+// The relative order of adjacent loads is preserved, relative order of stores
+// is reversed (so that the first item in every set is a valid insertion point).
 static void splitMrfs(const OVLSMemrefVector &Memrefs,
                       MemrefDistanceMapVector &AdjMemrefSetVec) {
   OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
@@ -1298,77 +1375,25 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
   OVLSDebug(OVLSdbgs() << "    Distance is (in bytes) from the first memref of"
                           " the set\n");
 
-  for (unsigned i = 0, Size = Memrefs.size(); i < Size; ++i) {
-    OVLSMemref *Memref = Memrefs[i];
+  // FIXME: Here we assume that refs inside \p Memref vector are in RPOT order.
+  //        If this assumption holds true, for every grouppable set of memory
+  //        references, the first reference to be processed by splitMrfsStep is
+  //        either the lexically first load or the lexically last store.
+  //        splitMrfsStep and formGroups rely on this and they are not able to
+  //        form groups if the order of references is wrong. The algorithm
+  //        should be changed in future to work even with shuffled \p Memref
+  //        vector and use dominance information to sort it.
 
-    bool AdjMrfSetFound = false;
+  // Process loads top down.
+  for (OVLSMemref *Memref : Memrefs)
+    if (Memref->getAccessKind().isLoad())
+      splitMrfsStep(Memref, AdjMemrefSetVec);
 
-    // TODO: Currently finding the appropriate group is done using a linear
-    // search. It would be better to use a hashing algorithm for this search.
-    for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
+  // Process stores bottom up.
+  for (OVLSMemref *Memref : reverse(Memrefs))
+    if (Memref->getAccessKind().isStore())
+      splitMrfsStep(Memref, AdjMemrefSetVec);
 
-      OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
-
-      if (Memref->getAccessType() != SetFirstSeenMrf->getAccessType())
-        continue;
-
-      if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
-        continue;
-
-      // Currently we support grouping Memrefs with same elementsize. Note that
-      // this check redundantly also checks the number of vector elements. We
-      // still keep it, so that when we extend to support different sized
-      // neighbors, we only remove this check below.
-      if (!Memref->haveSameOVLSType(*SetFirstSeenMrf))
-        continue;
-
-      // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
-      // Dist(Memref).
-      // Dist = Dist(Memref) - Dist(SetFirstSeenMrf)
-      // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
-      //    FirstSeenMrf : a[2*i+1].
-      //    Memref : a[2*i], Dist = -4.
-      Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstSeenMrf);
-      if (!Dist)
-        continue;
-
-      // Found a possible set.
-      // Look for duplicates first.
-      auto SearchDuplicate = AdjMemrefSet->find(*Dist);
-      if (SearchDuplicate == AdjMemrefSet->end()) {
-        // Duplicate not found. Memref can be grouped.
-        AdjMrfSetFound = true;
-        (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(*Dist, Memref));
-        break;
-      }
-
-      // Found a possible redundant duplicate. Duplicate is Redundant if Memref
-      // can be moved to SearchDuplicate's location. Drop Memref and do not
-      // group it with any memref, if found to be a redundant duplicate, else
-      // try to group it with other sets in AdjMemrefSetVec.
-      OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
-      bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
-      if (RedundantDuplicate) {
-        // Message on Duplicates Found.
-        OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
-        OVLSDebug(Memref->print(OVLSdbgs(), 2));
-        OVLSDebug(OVLSdbgs() << " and ");
-        OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
-        OVLSDebug(OVLSdbgs() << "\n");
-        // Break out of the loop and proceed to next memref.
-        break;
-      }
-    }
-    if (!AdjMrfSetFound) {
-      // No adjacent memref set exits for this memref, create a new set.
-      MemrefDistanceMap *AdjMemrefSet = new MemrefDistanceMap();
-      // Assign 0 as a distance to the first memref in the set.
-      (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(0, Memref));
-      AdjMemrefSetVec.push_back(AdjMemrefSet);
-    }
-  }
-
-  // dump sorted set
   OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
   return;
 }
@@ -1487,7 +1512,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
 
   // If it's not a group of gathers that means it's a group of scatters.
   bool GroupOfGathers = false;
-  if (Group.hasGathers())
+  if (Group.getAccessKind().isLoad())
     GroupOfGathers = true;
 
   // Assuming the highest element size is 64.
@@ -1697,12 +1722,26 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
 } // end of getLoadsOrStores
 } // end of OptVLS namespace
 
+bool OVLSGroup::isSafeToInsert(OVLSMemref &Mrf) const {
+  if (!Mrf.canMoveTo(*InsertPoint))
+    return false;
+
+  if (Mrf.getAccessKind().isLoad())
+    return InsertPoint->dominates(Mrf);
+  else if (Mrf.getAccessKind().isStore())
+    return InsertPoint->postDominates(Mrf);
+
+  llvm_unreachable("Unknown AccessKind");
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   OS << "\n    Vector Length(in bytes): " << getVectorLength();
   // print accessType
   OS << "\n    AccType: ";
-  getAccessType().print(OS);
+  getAccessKind().print(OS);
+  OS << ", Stride (in bytes): " << getConstStride();
 
   // Print result mask
   OS << "\n    AccessMask(per byte, R to L): ";
@@ -1715,6 +1754,11 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
     MemrefVec[i]->print(OS, NumSpaces);
     OS << "\n";
   }
+}
+
+void OVLSGroup::dump() const {
+  print(OVLSdbgs(), 0);
+  OVLSdbgs() << '\n';
 }
 
 /// print the load instruction like this:
@@ -1770,6 +1814,7 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   OS << *Op3;
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
                                    OVLSOperand *Mask) const {
@@ -1795,20 +1840,21 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
   return true;
 }
 
-// getGroups() takes a vector of OVLSMemrefs and a group size in bytes
-// (which is the the maximum length of the underlying vector register
-// or any other desired size that clients want to consider, maximum size
-// can be 64), and returns a vector of OVLSGroups. It also optionally returns
-// a map where each memref is mapped to the group that it belongs to. Each
-// group contains one or more OVLSMemrefs, (and each OVLSMemref is contained by
-// 1 (and only 1) OVLSGroup) in a way where having all the memrefs in
-// OptVLSgroup (at one single point in the program, the location of first
-// memref in the group)does not violate any program semantics nor any memory
-// dependencies.
+// getGroups() takes a vector of OVLSMemrefs and a group size in bytes (which is
+// the the maximum length of the underlying vector register or any other desired
+// size that clients want to consider, maximum size can be 64), and returns a
+// vector of OVLSGroups. It also optionally returns a map where each memref is
+// mapped to the group that it belongs to. Each group contains one or more
+// OVLSMemrefs, (and each OVLSMemref is contained by 1 (and only 1) OVLSGroup)
+// in a way where having all the memrefs in OptVLSgroup (at group InsertPoint
+// location) does not violate any program semantics nor any memory dependencies.
 void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps, unsigned VectorLength,
                                 OVLSMemrefToGroupMap *MemrefToGroupMap) {
-  OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n");
+  OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
+                       << "  Recieved a vector of memrefs (" << Memrefs.size()
+                       << "): \n");
+  OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
 
   if (Memrefs.empty())
     return;
@@ -1819,12 +1865,9 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
     return;
   }
 
-  OVLSDebug(OVLSdbgs() << "  Recieved a vector of memrefs: \n");
-  OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
-
   // Split the vector of memrefs into sub groups where memrefs in each sub group
   // are neighbors, means they
-  //   1) have the same access type
+  //   1) have the same access kind
   //   2) are a constant distance apart
   MemrefDistanceMapVector AdjMemrefSetVec;
   OptVLS::splitMrfs(Memrefs, AdjMemrefSetVec);
@@ -1886,7 +1929,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   // Allowing execution of the graph algorithm only for this case.
   // Stride = 16 , represents factor =2.
   // Group.size = 2, has two neighbors.
-  if (!(Group.getElemSize() == 64 && Group.size() == 2 && Group.hasGathers() &&
+  if (!(Group.getElemSize() == 64 && Group.size() == 2 &&
+        Group.getAccessKind().isLoad() &&
         Group.getConstStride() == (int64_t)16))
     return false;
 
@@ -2472,7 +2516,7 @@ bool OptVLSInterface::getSequencePredefined(
       // of size stride instead of hard-coded 65535. See other uses of
       // getNByteAccessMask.
       Group.getNByteAccessMask() == 65535 &&
-      Group.getAccessType().isStridedLoad()) {
+      Group.getAccessKind() == OVLSAccessKind::SLoad) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi32(Group, InstVector, MemrefToInstMap);
   }
@@ -2507,7 +2551,7 @@ bool OptVLSInterface::getSequencePredefined(
   // independent for now.
   if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 16 &&
       Group.getNByteAccessMask() == 65535 &&
-      Group.getAccessType().isStridedLoad()) {
+      Group.getAccessKind() == OVLSAccessKind::SLoad) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi16(Group, InstVector, MemrefToInstMap);
   }
@@ -2537,7 +2581,7 @@ bool OptVLSInterface::getSequencePredefined(
   // independent for now.
   if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 32 &&
       Group.getNByteAccessMask() == 65535 &&
-      Group.getAccessType().isStridedAccess() && Group.hasScatters() == true) {
+      Group.getAccessKind() == OVLSAccessKind::SStore) {
     // Sequence can be safely generated.
     return genSeqStoreStride16Packed8xi32(Group, InstVector);
   }

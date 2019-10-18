@@ -18,50 +18,48 @@ define void @foo(i32* nocapture %ary) {
 ;    }
 ;  }
 ;
-; CHECK:       Printing Groups- Total Groups 2
+; CHECK:       Printing Groups- Total Groups 3
 ; CHECK-NEXT:  Group#1
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #2 <4 x 32> SStore
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
+; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
+; CHECK-NEXT:   #2 <4 x 32> SLoad
+; CHECK-NEXT:   #3 <4 x 32> SLoad
+; CHECK-NEXT:   #4 <4 x 32> SLoad
+; CHECK-NEXT:  Group#3
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 16
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111111111111111
+; CHECK-NEXT:   #5 <4 x 32> SStore
+; CHECK-NEXT:   #6 <4 x 32> SStore
+; CHECK-NEXT:   #7 <4 x 32> SStore
+; CHECK-NEXT:   #8 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 4, i64 8, i64 12>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_IND]]
+; CHECK:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> {{%.*}}
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP0:%.*]] = and <4 x i32> [[WIDE_MASKED_GATHER]], <i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[TMP0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER]], <i32 7, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[TMP4:%.*]] = or <4 x i64> [[VEC_IND]], <i64 1, i64 1, i64 1, i64 1>
-; CHECK-NEXT:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP4]]
+; CHECK:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> {{%.*}}
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER2:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP1]], i32 4, <4 x i1> [[TMP2]], <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER2]], <i32 11, i32 11, i32 11, i32 11>
-; CHECK-NEXT:    [[TMP6:%.*]] = or <4 x i64> [[VEC_IND]], <i64 2, i64 2, i64 2, i64 2>
-; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP6]]
+; CHECK:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> {{%.*}}
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER4:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP3]], i32 4, <4 x i1> [[TMP2]], <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER4]], <i32 12, i32 12, i32 12, i32 12>
-; CHECK-NEXT:    [[TMP8:%.*]] = or <4 x i64> [[VEC_IND]], <i64 3, i64 3, i64 3, i64 3>
-; CHECK-NEXT:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP8]]
+; CHECK:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> {{%.*}}
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER6:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP5]], i32 4, <4 x i1> [[TMP2]], <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER6]], <i32 61, i32 61, i32 61, i32 61>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP3]], <4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> [[TMP2]])
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP5]], <4 x i32*> [[MM_VECTORGEP1]], i32 4, <4 x i1> [[TMP2]])
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP7]], <4 x i32*> [[MM_VECTORGEP3]], i32 4, <4 x i1> [[TMP2]])
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP9]], <4 x i32*> [[MM_VECTORGEP5]], i32 4, <4 x i1> [[TMP2]])
-; CHECK-NEXT:    [[TMP10:%.*]] = add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult <4 x i64> [[TMP10]], <i64 1024, i64 1024, i64 1024, i64 1024>
-; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <4 x i1> [[TMP11]], i32 0
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i64 [[INDEX_NEXT]], 256
-; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 16, i64 16, i64 16, i64 16>
-; CHECK-NEXT:    br i1 [[TMP13]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

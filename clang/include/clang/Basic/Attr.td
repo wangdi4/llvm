@@ -732,9 +732,25 @@ def AVRSignal : InheritableAttr, TargetSpecificAttr<TargetAVR> {
 
 def AsmLabel : InheritableAttr {
   let Spellings = [Keyword<"asm">, Keyword<"__asm__">];
-  let Args = [StringArgument<"Label">];
+  let Args = [
+    // Label specifies the mangled name for the decl.
+    StringArgument<"Label">,
+
+    // IsLiteralLabel specifies whether the label is literal (i.e. suppresses
+    // the global C symbol prefix) or not. If not, the mangle-suppression prefix
+    // ('\01') is omitted from the decl name at the LLVM IR level.
+    //
+    // Non-literal labels are used by some external AST sources like LLDB.
+    BoolArgument<"IsLiteralLabel", /*optional=*/0, /*fake=*/1>
+  ];
   let SemaHandler = 0;
-  let Documentation = [Undocumented];
+  let Documentation = [AsmLabelDocs];
+  let AdditionalMembers =
+[{
+bool isEquivalent(AsmLabelAttr *Other) const {
+  return getLabel() == Other->getLabel() && getIsLiteralLabel() == Other->getIsLiteralLabel();
+}
+}];
 }
 
 def Availability : InheritableAttr {
@@ -921,6 +937,17 @@ def Const : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def ConstInit : InheritableAttr {
+  // This attribute does not have a C [[]] spelling because it requires the
+  // CPlusPlus language option.
+  let Spellings = [Keyword<"constinit">,
+                   Clang<"require_constant_initialization", 0>];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag>;
+  let Accessors = [Accessor<"isConstinit", [Keyword<"constinit">]>];
+  let Documentation = [ConstInitDocs];
+  let LangOpts = [CPlusPlus];
+}
+
 def Constructor : InheritableAttr {
   let Spellings = [GCC<"constructor">];
   let Args = [DefaultIntArgument<"Priority", 65535>];
@@ -1033,9 +1060,9 @@ def CUDAShared : InheritableAttr {
 
 def SYCLDevice : InheritableAttr {
   let Spellings = [GNU<"sycl_device">];
-  let Subjects = SubjectList<[Function, Var]>;
+  let Subjects = SubjectList<[Function]>;
   let LangOpts = [SYCLIsDevice];
-  let Documentation = [Undocumented];
+  let Documentation = [SYCLDeviceDocs];
 }
 
 def SYCLKernel : InheritableAttr {
@@ -1098,6 +1125,24 @@ def OpenCLUnrollHint : InheritableAttr {
   let Spellings = [GNU<"opencl_unroll_hint">];
   let Args = [UnsignedArgument<"UnrollHint">];
   let Documentation = [OpenCLUnrollHintDocs];
+}
+
+def LoopUnrollHint : InheritableAttr {
+  let Spellings = [CXX11<"clang","loop_unroll">];
+  let Args = [UnsignedArgument<"UnrollHint">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "loop_unroll";
+    }
+    std::string getDiagnosticName() const {
+      std::string Value = "";
+      if (getUnrollHint())
+        Value = "(" + std::to_string(getUnrollHint()) + ")";
+      return "[[clang::loop_unroll" + Value + "]]";
+    }
+  }];
+  let Documentation = [LoopUnrollHintDocs];
 }
 
 def IntelReqdSubGroupSize: InheritableAttr {
@@ -1223,7 +1268,7 @@ def ExtVectorType : Attr {
 
 def FallThrough : StmtAttr {
   let Spellings = [CXX11<"", "fallthrough", 201603>, C2x<"", "fallthrough">,
-                   CXX11<"clang", "fallthrough">];
+                   CXX11<"clang", "fallthrough">, GCC<"fallthrough">];
 //  let Subjects = [NullStmt];
   let Documentation = [FallthroughDocs];
 }
@@ -2191,15 +2236,6 @@ def ReqdWorkGroupSize : InheritableAttr {
               UnsignedArgument<"ZDim">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
-}
-
-def RequireConstantInit : InheritableAttr {
-  // This attribute does not have a C [[]] spelling because it requires the
-  // CPlusPlus language option.
-  let Spellings = [Clang<"require_constant_initialization", 0>];
-  let Subjects = SubjectList<[GlobalVar], ErrorDiag>;
-  let Documentation = [RequireConstantInitDocs];
-  let LangOpts = [CPlusPlus];
 }
 
 def WorkGroupSizeHint :  InheritableAttr {
@@ -3348,7 +3384,7 @@ def LoopHint : Attr {
   }
 
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
-    unsigned SpellingIndex = getSpellingListIndex();
+    unsigned SpellingIndex = getAttributeSpellingListIndex();
     // For "#pragma unroll" and "#pragma nounroll" the string "unroll" or
     // "nounroll" is already emitted as the pragma name.
     if (SpellingIndex == Pragma_nounroll || SpellingIndex == Pragma_nounroll_and_jam)
@@ -3399,7 +3435,7 @@ def LoopHint : Attr {
 
   // Return a string suitable for identifying this attribute in diagnostics.
   std::string getDiagnosticName(const PrintingPolicy &Policy) const {
-    unsigned SpellingIndex = getSpellingListIndex();
+    unsigned SpellingIndex = getAttributeSpellingListIndex();
     if (SpellingIndex == Pragma_nounroll)
       return "#pragma nounroll";
     else if (SpellingIndex == Pragma_unroll)
@@ -3570,11 +3606,16 @@ def OMPDeclareTargetDecl : InheritableAttr {
   let Args = [
     EnumArgument<"MapType", "MapTypeTy",
                  [ "to", "link" ],
-                 [ "MT_To", "MT_Link" ]>
+                 [ "MT_To", "MT_Link" ]>,
+    EnumArgument<"DevType", "DevTypeTy",
+                 [ "host", "nohost", "any" ],
+                 [ "DT_Host", "DT_NoHost", "DT_Any" ]>
   ];
   let AdditionalMembers = [{
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       // Use fake syntax because it is for testing and debugging purpose only.
+      if (getDevType() != DT_Any)
+        OS << " device_type(" << ConvertDevTypeTyToStr(getDevType()) << ")";
       if (getMapType() != MT_To)
         OS << ' ' << ConvertMapTypeTyToStr(getMapType());
     }
@@ -3584,6 +3625,14 @@ def OMPDeclareTargetDecl : InheritableAttr {
         return llvm::None;
       if (const auto *Attr = VD->getAttr<OMPDeclareTargetDeclAttr>())
         return Attr->getMapType();
+
+      return llvm::None;
+    }
+    static llvm::Optional<DevTypeTy> getDeviceType(const ValueDecl *VD) {
+      if (!VD->hasAttrs())
+        return llvm::None;
+      if (const auto *Attr = VD->getAttr<OMPDeclareTargetDeclAttr>())
+        return Attr->getDevType();
 
       return llvm::None;
     }
@@ -3611,6 +3660,102 @@ def OMPAllocateDecl : InheritableAttr {
     ExprArgument<"Allocator">
   ];
   let Documentation = [Undocumented];
+}
+
+def OMPDeclareVariant : InheritableAttr {
+  let Spellings = [Pragma<"omp", "declare variant">];
+  let Subjects = SubjectList<[Function]>;
+  let SemaHandler = 0;
+  let HasCustomParsing = 1;
+  let InheritEvenIfAlreadyPresent = 1;
+  let Documentation = [OMPDeclareVariantDocs];
+  let Args = [
+    ExprArgument<"VariantFuncRef">,
+// INTEL_CUSTOMIZATION
+    VariadicEnumArgument<"Construct", "ConstructTy",
+       ["", "target", "teams", "parallel", "for", "simd",
+        "target_variant_dispatch"],
+       ["Construct_None", "Construct_Target", "Construct_Teams",
+        "Construct_Parallel", "Construct_For", "Construct_Simd",
+        "Construct_Target_Variant_Dispatch"]>,
+    VariadicEnumArgument<"Device", "DeviceTy",
+       ["", "gen"], ["Device_None", "Device_Arch_Gen"]>,
+// end INTEL_CUSTOMIZATION
+    ExprArgument<"Score">,
+    EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
+                 [ "", "implementation"
+                 ],
+                 [
+                   "CtxSetUnknown", "CtxSetImplementation"
+                 ]>,
+    EnumArgument<"CtxScore", "ScoreType",
+                 [ "", "score"
+                 ],
+                 [
+                   "ScoreUnknown", "ScoreSpecified"
+                 ]>,
+    EnumArgument<"CtxSelector", "CtxSelectorType",
+                 [ "", "vendor"
+                 ],
+                 [
+                   "CtxUnknown", "CtxVendor"
+                 ]>,
+    StringArgument<"ImplVendor", 1>
+  ];
+  let AdditionalMembers = [{
+// INTEL_CUSTOMIZATION
+    static const char *getSupportedSelectorSets() {
+      return "'construct' or 'device'";
+    }
+    static const char *getSupportedConstructs() {
+      return "'target variant dispatch'";
+    }
+    static const char *getSupportedDevices() {
+      return "'arch'";
+    }
+    static const char *getSupportedArchs() {
+      return "'gen'";
+    }
+// end INTEL_CUSTOMIZATION
+    void printScore(raw_ostream & OS, const PrintingPolicy &Policy) const {
+      if (const Expr *E = getScore()) {
+        OS << "score(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << "):";
+      }
+    }
+    void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
+        const {
+      assert(getCtxSelectorSet() != CtxSetUnknown &&
+             getCtxSelector() != CtxUnknown && "Unknown context selector.");
+      if (const Expr *E = getVariantFuncRef()) {
+        OS << "(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << ")";
+      }
+      // TODO: add printing of real context selectors.
+      OS << " match(";
+      switch (getCtxSelectorSet()) {
+      case CtxSetImplementation:
+        OS << "implementation={";
+        switch (getCtxSelector()) {
+        case CtxVendor:
+          OS << "vendor(";
+          printScore(OS, Policy);
+          OS << getImplVendor();
+          OS << ")";
+          break;
+        case CtxUnknown:
+          llvm_unreachable("Unknown context selector.");
+        }
+        OS << "}";
+        break;
+      case CtxSetUnknown:
+        llvm_unreachable("Unknown context selector set.");
+      }
+      OS << ")";
+    }
+  }];
 }
 
 def InternalLinkage : InheritableAttr {

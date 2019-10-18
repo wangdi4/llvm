@@ -19,6 +19,9 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Support/CommandLine.h"
+
+extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
 namespace llvm {
 
@@ -39,6 +42,17 @@ class VPlanVLSAnalysis;
 struct VPTransformState;
 class VPOVectorizationLegality;
 class VPlan;
+class VPReductionFinal;
+class VPPrivateMemory;
+class VPInductionInit;
+class VPInductionInitStep;
+class VPInductionFinal;
+class VPAllocatePrivate;
+class VPLoopEntityList;
+class VPLoopEntity;
+class VPReduction;
+class VPInduction;
+class VPGEPInstruction;
 
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -52,10 +66,10 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), VLSA(VLSA), Plan(Plan), TripCount(nullptr),
-        VectorTripCount(nullptr), Induction(nullptr), OldInduction(nullptr),
-        VF(VecWidth), UF(UnrollFactor), Builder(Context), StartValue(nullptr),
-        StrideValue(nullptr), LoopVectorPreHeader(nullptr),
+        Legal(LVL), VLSA(VLSA), Plan(Plan), VPEntities(nullptr),
+        TripCount(nullptr), VectorTripCount(nullptr), Induction(nullptr),
+        OldInduction(nullptr), VF(VecWidth), UF(UnrollFactor), Builder(Context),
+        StartValue(nullptr), StrideValue(nullptr), LoopVectorPreHeader(nullptr),
         LoopScalarPreHeader(nullptr), LoopMiddleBlock(nullptr),
         LoopExitBlock(nullptr), LoopVectorBody(nullptr),
         LoopScalarBody(nullptr), MaskValue(nullptr) {}
@@ -177,11 +191,23 @@ public:
 
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
+  void setVPlan(const VPlan *P, const VPLoopEntityList *Entities) {
+    Plan = P;
+    VPEntities = Entities;
+  }
+
 private:
   /// Find the best simd function variant.
   std::unique_ptr<VectorVariant>
   matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked);
 
+  /// Return true if instruction \p V needs scalar code generated, i.e. is
+  /// used in scalar context after vectorization.
+  bool needScalarCode(VPInstruction *V);
+
+  /// Return true if instruction \p V needs vector generated, i.e. is
+  /// used in vector context after vectorization.
+  bool needVectorCode(VPValue *V) { return true; }
 
   /// Emit blocks of vector loop
   /// Emit a bypass check to see if we have enough iterations \p Count to
@@ -319,6 +345,22 @@ private:
       RecurrenceDescriptor::RecurrenceKind Kind,
       RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
 
+  /// Make the needed fixups for all live out values.
+  void fixOutgoingValues();
+
+  /// Fix up reduction last value (link with remainder etc).
+  void fixReductionLastVal(const VPReduction &Red, Value *LastVal);
+
+  /// Fix up live out value for a loop entity \p Ent.
+  void fixLiveOutValues(const VPLoopEntity &Ent, Value *LastVal);
+
+  /// A part of fix up of last value. Creates a needed phi in intermediate
+  /// block and updates phi in remainder.
+  void createLastValPhiAndUpdateOldStart(Value *OrigStartValue, PHINode *Phi,
+                                         const Twine &NameStr, Value *LastVal);
+  /// Fix up induction last value.
+  void fixInductionLastVal(const VPInduction &Ind, Value *LastVal);
+
   /// Set up the values of the IVs correctly when exiting the vector loop.
   void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
                     Value *CountRoundDown, Value *EndValue,
@@ -373,6 +415,7 @@ private:
   void widenNonInductionPhi(VPPHINode *Phi);
 
   void fixNonInductionPhis();
+  void fixNonInductionVPPhis();
 
   /// Build a tail code for all reductions going through the
   /// memory.
@@ -410,6 +453,47 @@ private:
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(Value *ScalarMask);
+  Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);
+
+  /// Generate vector code for reduction finalization.
+  /// The final vector reduction value is reduced horizontally using
+  /// "llvm.experimental.vector.reduce" intrinsics. The scalar result is
+  /// recorded in VPEntities last-value tracking map to update out-of-the-loop
+  /// uses. If accumulator value is present, then a final scalar operation is
+  /// also performed.
+  // Example -
+  // i32 % vp1 = reduction-final{u_add} i32 %vp.red.add
+  //
+  // Generated instruction-
+  // %red.lvc = @llvm.experimental.vector.reduce.add.v4i32 (%vec.red.add)
+  void vectorizeReductionFinal(VPReductionFinal *RedFinal);
+
+  /// Generate vector code for induction initialization.
+  /// InductionInit has two arguments {Start, Step} and keeps the operation
+  /// opcode. We generate
+  /// For +/-   : broadcast(start) +/GEP step*{0, 1,..,VL-1} (GEP for pointers)
+  /// For */div : broadcast(start) * pow(step,{0, 1,..,VL-1})
+  /// Other binary operations are not induction-compatible.
+  void vectorizeInductionInit(VPInductionInit *VPInst);
+
+  /// Generate vector code for induction-step initialization.
+  /// Induction's step for vector loop will be
+  /// For +/-    : VF * step
+  /// For */div  : pow(step, VF)
+  /// This value is broadcasted on all lanes.
+  void vectorizeInductionInitStep(VPInductionInitStep *VPInst);
+
+  /// Generate vector code for induction finalization.
+  /// Last-value computation for inductions depends on its opcode. We generate
+  /// For */div         : extractelement(ind.vec, VF-1)
+  /// For all others    : start OP step*rounded_tc
+  /// TODO: need to decide about masked calculation for early-exit loops.
+  void vectorizeInductionFinal(VPInductionFinal *VPInst);
+
+  /// Vectorize private memory creating alloca.
+  /// Create a new widened alloca in the function entry BB. We allocate VF
+  /// elements of the private element type.
+  void vectorizeAllocatePrivate(VPAllocatePrivate *V);
 
   /// The original loop.
   Loop *OrigLoop;
@@ -437,8 +521,11 @@ private:
   /// Variable-length stridedness analysis.
   VPlanVLSAnalysis *VLSA;
 
-  /// VPlan for which vector code is generated.
+  /// VPlan for which vector code is generated, need to finalize external uses.
   const VPlan *Plan;
+
+  // Loop entities, for correct reductions processing
+  const VPLoopEntityList *VPEntities;
 
   // Loop trip count
   Value *TripCount;
@@ -478,6 +565,7 @@ private:
   /// IR PHI node that needs fix up. The operands of the VPPHINode are used
   /// to setup the operands of the LLVM IR PHI node.
   DenseMap<VPPHINode *, PHINode *> PhisToFix;
+  DenseMap<VPPHINode *, PHINode *> ScalarPhisToFix;
 
   // Map of scalar LLVM IR value and widened LLVM IR value.
   DenseMap<Value *, Value *> WidenMap;
@@ -487,6 +575,7 @@ private:
 
   // Map of scalar values.
   std::map<Value *, DenseMap<unsigned, Value *>> ScalarMap;
+  // Map of scalar values for VPValues.
   std::map<VPValue *, DenseMap<unsigned, Value *>> VPScalarMap;
 
   // Map of widened private values. Unlike WidenMap, this is
@@ -499,6 +588,9 @@ private:
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.
   DenseMap<PHINode *, Value *> IVEndValues;
+
+  // Holds last values generated for loop entities.
+  DenseMap<const VPLoopEntity *, Value *> EntitiesLastValMap;
 
   // --- Vectorization state ---
 
@@ -539,6 +631,10 @@ private:
   void vectorizeLoadInstruction(VPInstruction *VPInst,
                                 bool EmitIntrinsic = false);
 
+  // Generate a wide (un)masked load for a given consecutive stride load.
+  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
+                                 bool IsPvtPtr);
+
   // Widen the store of a linear value. We do a scalar store of the value in the
   // first vector lane.
   void vectorizeLinearStore(Instruction *Inst);
@@ -551,15 +647,17 @@ private:
   void vectorizeStoreInstruction(VPInstruction *VPInst,
                                  bool EmitIntrinsic = false);
 
+  // Generate a wide (un)masked store for a given consecutive stride store.
+  void vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
+                                bool IsPvtPtr);
+
   // Re-vectorize the given vector load instruction. The function handles 
   // only simple vectors.
   void widenVectorLoad(LoadInst *Inst);
-  void widenVectorLoad(VPInstruction *VPLoad);
 
   // Re-vectorize the given vector store instruction. The function handles 
   // only simple vectors.
   void widenVectorStore(StoreInst *Inst);
-  void widenVectorStore(VPInstruction *VPStore);
 
   // Widen a BitCast/AddrSpaceCast instructions
   template <typename CastInstTy> void vectorizeCast(Instruction *Inst);
@@ -592,8 +690,6 @@ private:
   // extended to user-defined vector functions.
   void vectorizeCallInstruction(CallInst *Call);
   void vectorizeCallInstruction(VPInstruction *VPCall);
-  // Get the called Function for given VPInstruction representing a call.
-  Function *getVPCalledFunction(VPInstruction *Call);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(Instruction *Inst);
@@ -603,7 +699,12 @@ private:
   // the Induction PHI.
   void vectorizePHIInstruction(VPPHINode *VPPhi);
 
-  void vectorizeReductionPHI(PHINode *Inst);
+  // Generate code for given VPPHINode transforming it either into PHINode or
+  // into Select instruction (for blends).
+  void vectorizeVPPHINode(VPPHINode *VPPhi);
+
+  // Create a PHINode for VPPHINode that represent reduction.
+  void vectorizeReductionPHI(VPPHINode *Inst, PHINode *UnderlyingPhi = nullptr);
 
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
@@ -638,12 +739,13 @@ private:
   /// the returned GEP is itself used as an operand of a Scatter/Gather
   /// function.
   Value *createWidenedGEPForScatterGather(Instruction *I);
-  Value *createWidenedGEPForScatterGather(VPInstruction *VPI);
+  Value *getWidenedAddressForScatterGather(VPInstruction *VPI);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations
   Value *createWidenedBasePtrConsecutiveLoadStore(Instruction *I, Value *Ptr,
                                                   bool Reverse);
+  Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr, bool Reverse);
 
   /// Create a wide load for the \p Group (or get existing one).
   Value *getOrCreateWideLoadForGroup(OVLSGroup *Group);
@@ -658,7 +760,6 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, LoadInst *> VLSGroupLoadMap;
-  SmallDenseMap<const OVLSGroup *, StoreInst *> VLSGroupStoreMap;
 };
 
 } // end vpo namespace

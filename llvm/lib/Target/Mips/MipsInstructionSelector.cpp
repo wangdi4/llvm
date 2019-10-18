@@ -338,6 +338,11 @@ bool MipsInstructionSelector::select(MachineInstr &I) {
     I.eraseFromParent();
     return true;
   }
+  case G_BRINDIRECT: {
+    MI = BuildMI(MBB, I, I.getDebugLoc(), TII.get(Mips::PseudoIndirectBranch))
+             .add(I.getOperand(0));
+    break;
+  }
   case G_PHI: {
     const Register DestReg = I.getOperand(0).getReg();
     const unsigned OpSize = MRI.getType(DestReg).getSizeInBits();
@@ -436,6 +441,18 @@ bool MipsInstructionSelector::select(MachineInstr &I) {
              .add(I.getOperand(3));
     break;
   }
+  case G_IMPLICIT_DEF: {
+    MI = BuildMI(MBB, I, I.getDebugLoc(), TII.get(Mips::IMPLICIT_DEF))
+             .add(I.getOperand(0));
+
+    // Set class based on register bank, there can be fpr and gpr implicit def.
+    MRI.setRegClass(MI->getOperand(0).getReg(),
+                    getRegClassForTypeOnBank(
+                        MRI.getType(I.getOperand(0).getReg()).getSizeInBits(),
+                        *RBI.getRegBank(I.getOperand(0).getReg(), MRI, TRI),
+                        RBI));
+    break;
+  }
   case G_CONSTANT: {
     MachineIRBuilder B(I);
     if (!materialize32BitImm(I.getOperand(0).getReg(),
@@ -503,7 +520,7 @@ bool MipsInstructionSelector::select(MachineInstr &I) {
       Opcode = Mips::TRUNC_W_S;
     else
       Opcode = STI.isFP64bit() ? Mips::TRUNC_W_D64 : Mips::TRUNC_W_D32;
-    unsigned ResultInFPR = MRI.createVirtualRegister(&Mips::FGR32RegClass);
+    Register ResultInFPR = MRI.createVirtualRegister(&Mips::FGR32RegClass);
     MachineInstr *Trunc = BuildMI(MBB, I, I.getDebugLoc(), TII.get(Opcode))
                 .addDef(ResultInFPR)
                 .addUse(I.getOperand(1).getReg());
@@ -724,7 +741,7 @@ bool MipsInstructionSelector::select(MachineInstr &I) {
     // MipsFCMPCondCode, result is inverted i.e. MOVT_I is used.
     unsigned MoveOpcode = isLogicallyNegated ? Mips::MOVT_I : Mips::MOVF_I;
 
-    unsigned TrueInReg = MRI.createVirtualRegister(&Mips::GPR32RegClass);
+    Register TrueInReg = MRI.createVirtualRegister(&Mips::GPR32RegClass);
     BuildMI(MBB, I, I.getDebugLoc(), TII.get(Mips::ADDiu))
         .addDef(TrueInReg)
         .addUse(Mips::ZERO)
@@ -747,6 +764,33 @@ bool MipsInstructionSelector::select(MachineInstr &I) {
                              .addUse(Mips::FCC0)
                              .addUse(TrueInReg);
     if (!constrainSelectedInstRegOperands(*Move, TII, TRI, RBI))
+      return false;
+
+    I.eraseFromParent();
+    return true;
+  }
+  case G_FENCE: {
+    MI = BuildMI(MBB, I, I.getDebugLoc(), TII.get(Mips::SYNC)).addImm(0);
+    break;
+  }
+  case G_VASTART: {
+    MipsFunctionInfo *FuncInfo = MF.getInfo<MipsFunctionInfo>();
+    int FI = FuncInfo->getVarArgsFrameIndex();
+
+    Register LeaReg = MRI.createVirtualRegister(&Mips::GPR32RegClass);
+    MachineInstr *LEA_ADDiu =
+        BuildMI(MBB, I, I.getDebugLoc(), TII.get(Mips::LEA_ADDiu))
+            .addDef(LeaReg)
+            .addFrameIndex(FI)
+            .addImm(0);
+    if (!constrainSelectedInstRegOperands(*LEA_ADDiu, TII, TRI, RBI))
+      return false;
+
+    MachineInstr *Store = BuildMI(MBB, I, I.getDebugLoc(), TII.get(Mips::SW))
+                              .addUse(LeaReg)
+                              .addUse(I.getOperand(0).getReg())
+                              .addImm(0);
+    if (!constrainSelectedInstRegOperands(*Store, TII, TRI, RBI))
       return false;
 
     I.eraseFromParent();

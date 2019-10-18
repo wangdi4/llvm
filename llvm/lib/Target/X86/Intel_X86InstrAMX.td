@@ -329,15 +329,14 @@ multiclass m_tgatherrow {
 
 defm TGATHERROW : m_tgatherrow;
 
-// TILEMOV2ZMM
-let Predicates = [HasAMXTILE, HasAVX512, In64BitMode] in {
+let Predicates = [HasAMXAVX512, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TILEMOV2ZMM : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                        (ins VTILE:$src1, u8imm:$src2),
-                        "tilemov2zmm\t{$src2, $src1, $dst|$dst, $src1, $src2}",
-                        []>, TAPD, EVEX, EVEX_V512;
+    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs VTILEX:$dst),
+                        (ins VR512:$src1),
+                        "tile16move\t{$src1, $dst|$dst, $src1}",
+                        []>, T8PD, EVEX, EVEX_V512;
   }
-} // HasAMXTILE, HasAVX512
+} // HasAMXAVX512, In64BitMode
 
 // TINTERLEAVE
 multiclass m_tinterleave {
@@ -590,5 +589,85 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
                     []>, VEX_4V, T_MAP5XS;
   }
 } // HasAMXTILE, HasAMXELEMENT
+
+let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs),
+                      (ins VTILEX:$src1, i8mem:$src2),
+                      "tileloadde\t{$src2, $src1|$src1, $src2}", []>,
+                      EVEX, T8XD;
+    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs),
+                        (ins VTILEX:$src1, i8mem:$src2),
+                        "tileloaddt1e\t{$src2, $src1|$src1, $src2}", []>,
+                        EVEX, T8PD;
+    def TILESTOREDE : I<0x4b, MRMSrcMemFSIB, (outs),
+                       (ins VTILEX:$src1, i8mem:$src2),
+                       "tilestorede\t{$src1, $src2|$src2, $src1}", []>,
+                       EVEX, T8XS;
+    def TILEZEROE : I<0x49, MRMr0, (outs), (ins VTILEX:$src),
+                     "tilezeroe\t$src", []>,
+                     EVEX, T8XD;
+  } // SchedRW
+} // HasAMXTILEEVEX, In64BitMode
+
+let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TDPBSSDE : I<0x5e, MRMSrcReg4VOp3, (outs),
+                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
+                    "tdpbssde\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
+                    EVEX_4V, T8XD;
+    def TDPBSUDE : I<0x5e, MRMSrcReg4VOp3, (outs),
+                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
+                    "tdpbsude\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
+                    EVEX_4V, T8XS;
+    def TDPBUSDE : I<0x5e, MRMSrcReg4VOp3, (outs),
+                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
+                    "tdpbusde\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
+                    EVEX_4V, T8PD;
+    def TDPBUUDE : I<0x5e, MRMSrcReg4VOp3, (outs),
+                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
+                    "tdpbuude\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
+                    EVEX_4V, T8PS;
+  }
+} // HasAMXINT8EVEX, In64BitMode
+
+let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TDPBF16PSE : I<0x5c, MRMSrcReg4VOp3, (outs),
+                      (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
+                      "tdpbf16pse\t{$src1, $src2, $src3|$src3, $src2, $src1}",
+                      []>, EVEX_4V, T8XS;
+  }
+} // HasAMXBF16EVEX, In64BitMode
+
+let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TILEMOVE : I<0x4b, MRMSrcReg, (outs VTILEX:$dst),
+                        (ins VTILEX:$src1),
+                        "tilemove\t{$src1, $dst|$dst, $src1}",
+                        []>, T8XD, EVEX;
+  }
+} // HasAMXTILEEVEX, In64BitMode
+
+multiclass m_tilemovrowe {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
+    let SchedRW = [WriteSystem] in {
+      def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
+                        (ins VTILEX:$src1, u8imm:$src2),
+                        "tilemovrowe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                        []>, TAPD, EVEX, EVEX_V512;
+      def rre : I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
+                        (ins VTILEX:$src1, GR32:$src2),
+                        "tilemovrowe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                        []>, T8PD, EVEX_4V, EVEX_V512;
+      def rrx: I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
+                        (ins VTILEX:$src1, VR128X:$src2),
+                        "tilemovrowe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                        []>, T8PS, EVEX_4V, EVEX_V512;
+    }
+  } // HasAMXAVX512, In64BitMode
+}
+
+defm TILEMOVROWE : m_tilemovrowe;
 
 // end INTEL_FEATURE_ISA_AMX2

@@ -139,13 +139,6 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
       Flags = Flags & KEYINTELALL;
     if (LangOpts.Float128 && (Flags & KEYFLOAT128))
       return KS_Extension;
-    // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
-    if (Flags & KEYRESTRICT) {
-      if (LangOpts.Restrict)
-        return LangOpts.C99 ? KS_Enabled : KS_Extension;
-      else
-        return KS_Disabled;
-    }
     // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
     if (LangOpts.AsmBlocks && (Flags & KEYMSASM))
       return KS_Extension;

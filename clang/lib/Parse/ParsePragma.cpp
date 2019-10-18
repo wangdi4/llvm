@@ -333,100 +333,101 @@ struct PragmaAttributeHandler : public PragmaHandler {
 }  // end namespace
 
 void Parser::initializePragmaHandlers() {
-  AlignHandler = llvm::make_unique<PragmaAlignHandler>();
+  AlignHandler = std::make_unique<PragmaAlignHandler>();
   PP.AddPragmaHandler(AlignHandler.get());
 
-  GCCVisibilityHandler = llvm::make_unique<PragmaGCCVisibilityHandler>();
+  GCCVisibilityHandler = std::make_unique<PragmaGCCVisibilityHandler>();
   PP.AddPragmaHandler("GCC", GCCVisibilityHandler.get());
 
-  OptionsHandler = llvm::make_unique<PragmaOptionsHandler>();
+  OptionsHandler = std::make_unique<PragmaOptionsHandler>();
   PP.AddPragmaHandler(OptionsHandler.get());
 
-  PackHandler = llvm::make_unique<PragmaPackHandler>();
+  PackHandler = std::make_unique<PragmaPackHandler>();
   PP.AddPragmaHandler(PackHandler.get());
 
-  MSStructHandler = llvm::make_unique<PragmaMSStructHandler>();
+  MSStructHandler = std::make_unique<PragmaMSStructHandler>();
   PP.AddPragmaHandler(MSStructHandler.get());
 
-  UnusedHandler = llvm::make_unique<PragmaUnusedHandler>();
+  UnusedHandler = std::make_unique<PragmaUnusedHandler>();
   PP.AddPragmaHandler(UnusedHandler.get());
 
-  WeakHandler = llvm::make_unique<PragmaWeakHandler>();
+  WeakHandler = std::make_unique<PragmaWeakHandler>();
   PP.AddPragmaHandler(WeakHandler.get());
 
-  RedefineExtnameHandler = llvm::make_unique<PragmaRedefineExtnameHandler>();
+  RedefineExtnameHandler = std::make_unique<PragmaRedefineExtnameHandler>();
   PP.AddPragmaHandler(RedefineExtnameHandler.get());
 
-  FPContractHandler = llvm::make_unique<PragmaFPContractHandler>();
+  FPContractHandler = std::make_unique<PragmaFPContractHandler>();
   PP.AddPragmaHandler("STDC", FPContractHandler.get());
 
-  STDCFENVHandler = llvm::make_unique<PragmaSTDC_FENV_ACCESSHandler>();
+  STDCFENVHandler = std::make_unique<PragmaSTDC_FENV_ACCESSHandler>();
   PP.AddPragmaHandler("STDC", STDCFENVHandler.get());
 
-  STDCCXLIMITHandler = llvm::make_unique<PragmaSTDC_CX_LIMITED_RANGEHandler>();
+  STDCCXLIMITHandler = std::make_unique<PragmaSTDC_CX_LIMITED_RANGEHandler>();
   PP.AddPragmaHandler("STDC", STDCCXLIMITHandler.get());
 
-  STDCUnknownHandler = llvm::make_unique<PragmaSTDC_UnknownHandler>();
+  STDCUnknownHandler = std::make_unique<PragmaSTDC_UnknownHandler>();
   PP.AddPragmaHandler("STDC", STDCUnknownHandler.get());
 
-  PCSectionHandler = llvm::make_unique<PragmaClangSectionHandler>(Actions);
+  PCSectionHandler = std::make_unique<PragmaClangSectionHandler>(Actions);
   PP.AddPragmaHandler("clang", PCSectionHandler.get());
 
   if (getLangOpts().OpenCL) {
-    OpenCLExtensionHandler = llvm::make_unique<PragmaOpenCLExtensionHandler>();
+    OpenCLExtensionHandler = std::make_unique<PragmaOpenCLExtensionHandler>();
     PP.AddPragmaHandler("OPENCL", OpenCLExtensionHandler.get());
 
     PP.AddPragmaHandler("OPENCL", FPContractHandler.get());
   }
   if (getLangOpts().OpenMP)
-    OpenMPHandler = llvm::make_unique<PragmaOpenMPHandler>();
+    OpenMPHandler = std::make_unique<PragmaOpenMPHandler>();
   else
-    OpenMPHandler = llvm::make_unique<PragmaNoOpenMPHandler>();
+    OpenMPHandler = std::make_unique<PragmaNoOpenMPHandler>();
   PP.AddPragmaHandler(OpenMPHandler.get());
 
   if (getLangOpts().MicrosoftExt ||
       getTargetInfo().getTriple().isOSBinFormatELF()) {
-    MSCommentHandler = llvm::make_unique<PragmaCommentHandler>(Actions);
+    MSCommentHandler = std::make_unique<PragmaCommentHandler>(Actions);
     PP.AddPragmaHandler(MSCommentHandler.get());
   }
 
   if (getLangOpts().MicrosoftExt) {
     MSDetectMismatchHandler =
-        llvm::make_unique<PragmaDetectMismatchHandler>(Actions);
+        std::make_unique<PragmaDetectMismatchHandler>(Actions);
     PP.AddPragmaHandler(MSDetectMismatchHandler.get());
-    MSPointersToMembers = llvm::make_unique<PragmaMSPointersToMembers>();
+    MSPointersToMembers = std::make_unique<PragmaMSPointersToMembers>();
     PP.AddPragmaHandler(MSPointersToMembers.get());
-    MSVtorDisp = llvm::make_unique<PragmaMSVtorDisp>();
+    MSVtorDisp = std::make_unique<PragmaMSVtorDisp>();
     PP.AddPragmaHandler(MSVtorDisp.get());
-    MSInitSeg = llvm::make_unique<PragmaMSPragma>("init_seg");
+    MSInitSeg = std::make_unique<PragmaMSPragma>("init_seg");
     PP.AddPragmaHandler(MSInitSeg.get());
-    MSDataSeg = llvm::make_unique<PragmaMSPragma>("data_seg");
+    MSDataSeg = std::make_unique<PragmaMSPragma>("data_seg");
     PP.AddPragmaHandler(MSDataSeg.get());
-    MSBSSSeg = llvm::make_unique<PragmaMSPragma>("bss_seg");
+    MSBSSSeg = std::make_unique<PragmaMSPragma>("bss_seg");
     PP.AddPragmaHandler(MSBSSSeg.get());
-    MSConstSeg = llvm::make_unique<PragmaMSPragma>("const_seg");
+    MSConstSeg = std::make_unique<PragmaMSPragma>("const_seg");
     PP.AddPragmaHandler(MSConstSeg.get());
-    MSCodeSeg = llvm::make_unique<PragmaMSPragma>("code_seg");
+    MSCodeSeg = std::make_unique<PragmaMSPragma>("code_seg");
     PP.AddPragmaHandler(MSCodeSeg.get());
-    MSSection = llvm::make_unique<PragmaMSPragma>("section");
+    MSSection = std::make_unique<PragmaMSPragma>("section");
     PP.AddPragmaHandler(MSSection.get());
-    MSRuntimeChecks = llvm::make_unique<PragmaMSRuntimeChecksHandler>();
+    MSRuntimeChecks = std::make_unique<PragmaMSRuntimeChecksHandler>();
     PP.AddPragmaHandler(MSRuntimeChecks.get());
-    MSIntrinsic = llvm::make_unique<PragmaMSIntrinsicHandler>();
+    MSIntrinsic = std::make_unique<PragmaMSIntrinsicHandler>();
     PP.AddPragmaHandler(MSIntrinsic.get());
-    MSOptimize = llvm::make_unique<PragmaMSOptimizeHandler>();
+    MSOptimize = std::make_unique<PragmaMSOptimizeHandler>();
     PP.AddPragmaHandler(MSOptimize.get());
   }
 
   if (getLangOpts().CUDA) {
     CUDAForceHostDeviceHandler =
-        llvm::make_unique<PragmaForceCUDAHostDeviceHandler>(Actions);
+        std::make_unique<PragmaForceCUDAHostDeviceHandler>(Actions);
     PP.AddPragmaHandler("clang", CUDAForceHostDeviceHandler.get());
   }
-  OptimizeHandler = llvm::make_unique<PragmaOptimizeHandler>(Actions);
+
+  OptimizeHandler = std::make_unique<PragmaOptimizeHandler>(Actions);
   PP.AddPragmaHandler("clang", OptimizeHandler.get());
 
-  LoopHintHandler = llvm::make_unique<PragmaLoopHintHandler>();
+  LoopHintHandler = std::make_unique<PragmaLoopHintHandler>();
   PP.AddPragmaHandler("clang", LoopHintHandler.get());
 
 #if INTEL_CUSTOMIZATION
@@ -436,83 +437,83 @@ void Parser::initializePragmaHandlers() {
                     getTargetInfo().getTriple().isINTELFPGAEnvironment());
   if (HLSCompat) {
     LoopCoalesceHandler =
-        llvm::make_unique<PragmaLoopCoalesceHandler>("loop_coalesce");
+        std::make_unique<PragmaLoopCoalesceHandler>("loop_coalesce");
     PP.AddPragmaHandler(LoopCoalesceHandler.get());
-    IIHandler = llvm::make_unique<PragmaIIHandler>("ii");
+    IIHandler = std::make_unique<PragmaIIHandler>("ii");
     PP.AddPragmaHandler(IIHandler.get());
     MaxConcurrencyHandler =
-        llvm::make_unique<PragmaMaxConcurrencyHandler>("max_concurrency");
+        std::make_unique<PragmaMaxConcurrencyHandler>("max_concurrency");
     PP.AddPragmaHandler(MaxConcurrencyHandler.get());
     MaxInterleavingHandler =
-        llvm::make_unique<PragmaMaxInterleavingHandler>("max_interleaving");
+        std::make_unique<PragmaMaxInterleavingHandler>("max_interleaving");
     PP.AddPragmaHandler(MaxInterleavingHandler.get());
-    IIAtMostHandler = llvm::make_unique<PragmaHLSConstArgHandler>("ii_at_most");
+    IIAtMostHandler = std::make_unique<PragmaHLSConstArgHandler>("ii_at_most");
     PP.AddPragmaHandler(IIAtMostHandler.get());
     IIAtLeastHandler =
-        llvm::make_unique<PragmaHLSConstArgHandler>("ii_at_least");
+        std::make_unique<PragmaHLSConstArgHandler>("ii_at_least");
     PP.AddPragmaHandler(IIAtLeastHandler.get());
     MinIIAtTargetFmaxHandler =
-        llvm::make_unique<PragmaHLSNoArgHandler>("min_ii_at_target_fmax");
+        std::make_unique<PragmaHLSNoArgHandler>("min_ii_at_target_fmax");
     PP.AddPragmaHandler(MinIIAtTargetFmaxHandler.get());
     SpeculatedIterationsHandler =
-        llvm::make_unique<PragmaHLSConstArgHandler>("speculated_iterations");
+        std::make_unique<PragmaHLSConstArgHandler>("speculated_iterations");
     PP.AddPragmaHandler(SpeculatedIterationsHandler.get());
     DisableLoopPipeliningHandler =
-        llvm::make_unique<PragmaHLSNoArgHandler>("disable_loop_pipelining");
+        std::make_unique<PragmaHLSNoArgHandler>("disable_loop_pipelining");
     PP.AddPragmaHandler(DisableLoopPipeliningHandler.get());
     ForceHyperoptHandler =
-        llvm::make_unique<PragmaHLSNoArgHandler>("force_hyperopt");
+        std::make_unique<PragmaHLSNoArgHandler>("force_hyperopt");
     PP.AddPragmaHandler(ForceHyperoptHandler.get());
     ForceNoHyperoptHandler =
-        llvm::make_unique<PragmaHLSNoArgHandler>("force_no_hyperopt");
+        std::make_unique<PragmaHLSNoArgHandler>("force_no_hyperopt");
     PP.AddPragmaHandler(ForceNoHyperoptHandler.get());
   }
   bool IntelCompat = getLangOpts().IntelCompat;
   if (IntelCompat) {
     DistributePointHandler =
-        llvm::make_unique<PragmaDistributePointHandler>("distribute_point");
+        std::make_unique<PragmaDistributePointHandler>("distribute_point");
     PP.AddPragmaHandler(DistributePointHandler.get());
-    NoFusionHandler = llvm::make_unique<PragmaNoFusionHandler>("nofusion");
+    NoFusionHandler = std::make_unique<PragmaNoFusionHandler>("nofusion");
     PP.AddPragmaHandler(NoFusionHandler.get());
-    FusionHandler = llvm::make_unique<PragmaFusionHandler>("fusion");
+    FusionHandler = std::make_unique<PragmaFusionHandler>("fusion");
     PP.AddPragmaHandler(FusionHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
-    NoVectorHandler = llvm::make_unique<PragmaNoVectorHandler>("novector");
+    NoVectorHandler = std::make_unique<PragmaNoVectorHandler>("novector");
     PP.AddPragmaHandler(NoVectorHandler.get());
   }
   if (HLSCompat || IntelCompat) {
-    IVDepHandler = llvm::make_unique<PragmaIVDepHandler>("ivdep");
+    IVDepHandler = std::make_unique<PragmaIVDepHandler>("ivdep");
     PP.AddPragmaHandler(IVDepHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
-    VectorHandler = llvm::make_unique<PragmaVectorHandler>("vector");
+    VectorHandler = std::make_unique<PragmaVectorHandler>("vector");
     PP.AddPragmaHandler(VectorHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaLoopCount)) {
-    LoopCountHandler = llvm::make_unique<PragmaLoopCountHandler>("loop_count");
+    LoopCountHandler = std::make_unique<PragmaLoopCountHandler>("loop_count");
     PP.AddPragmaHandler(LoopCountHandler.get());
   }
 #endif // INTEL_CUSTOMIZATION
-  UnrollHintHandler = llvm::make_unique<PragmaUnrollHintHandler>("unroll");
+  UnrollHintHandler = std::make_unique<PragmaUnrollHintHandler>("unroll");
   PP.AddPragmaHandler(UnrollHintHandler.get());
 
-  NoUnrollHintHandler = llvm::make_unique<PragmaUnrollHintHandler>("nounroll");
+  NoUnrollHintHandler = std::make_unique<PragmaUnrollHintHandler>("nounroll");
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
 
   UnrollAndJamHintHandler =
-      llvm::make_unique<PragmaUnrollHintHandler>("unroll_and_jam");
+      std::make_unique<PragmaUnrollHintHandler>("unroll_and_jam");
   PP.AddPragmaHandler(UnrollAndJamHintHandler.get());
 
   NoUnrollAndJamHintHandler =
-      llvm::make_unique<PragmaUnrollHintHandler>("nounroll_and_jam");
+      std::make_unique<PragmaUnrollHintHandler>("nounroll_and_jam");
   PP.AddPragmaHandler(NoUnrollAndJamHintHandler.get());
 
-  FPHandler = llvm::make_unique<PragmaFPHandler>();
+  FPHandler = std::make_unique<PragmaFPHandler>();
   PP.AddPragmaHandler("clang", FPHandler.get());
 
   AttributePragmaHandler =
-      llvm::make_unique<PragmaAttributeHandler>(AttrFactory);
+      std::make_unique<PragmaAttributeHandler>(AttrFactory);
   PP.AddPragmaHandler("clang", AttributePragmaHandler.get());
 }
 
@@ -1194,18 +1195,13 @@ struct PragmaLoopHintInfo {
 } // end anonymous namespace
 
 static std::string PragmaLoopHintString(Token PragmaName, Token Option) {
-  std::string PragmaString;
-  if (PragmaName.getIdentifierInfo()->getName() == "loop") {
-    PragmaString = "clang loop ";
-    PragmaString += Option.getIdentifierInfo()->getName();
-  } else if (PragmaName.getIdentifierInfo()->getName() == "unroll_and_jam") {
-    PragmaString = "unroll_and_jam";
-  } else {
-    assert(PragmaName.getIdentifierInfo()->getName() == "unroll" &&
-           "Unexpected pragma name");
-    PragmaString = "unroll";
-  }
-  return PragmaString;
+  StringRef Str = PragmaName.getIdentifierInfo()->getName();
+  std::string ClangLoopStr = (llvm::Twine("clang loop ") + Str).str();
+  return llvm::StringSwitch<StringRef>(Str)
+      .Case("loop", ClangLoopStr)
+      .Case("unroll_and_jam", Str)
+      .Case("unroll", Str)
+      .Default("");
 }
 
 bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
@@ -1230,38 +1226,28 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   // Return a valid hint if pragma unroll or nounroll were specified
   // without an argument.
 #if INTEL_CUSTOMIZATION
-  bool PragmaLoopCoalesce = PragmaNameInfo->getName() == "loop_coalesce";
-  bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
-  bool PragmaMinIIAtTargetFmax =
-        PragmaNameInfo->getName() == "min_ii_at_target_fmax";
-  bool PragmaDisableLoopPipelining =
-          PragmaNameInfo->getName() == "disable_loop_pipelining";
   bool PragmaSpeculatedIterations=
           PragmaNameInfo->getName() == "speculated_iterations";
-  bool PragmaForceHyperopt =
-          PragmaNameInfo->getName() == "force_hyperopt";
-  bool PragmaForceNoHyperopt =
-          PragmaNameInfo->getName() == "force_no_hyperopt";
-  bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
-  bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
-  bool PragmaFusion = PragmaNameInfo->getName() == "fusion";
-  bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
-  bool PragmaVector = PragmaNameInfo->getName() == "vector";
-#endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
-  bool PragmaNoUnroll = PragmaNameInfo->getName() == "nounroll";
   bool PragmaUnrollAndJam = PragmaNameInfo->getName() == "unroll_and_jam";
-  bool PragmaNoUnrollAndJam = PragmaNameInfo->getName() == "nounroll_and_jam";
+#endif // INTEL_CUSTOMIZATION
+  auto IsLoopHint = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
+#if INTEL_CUSTOMIZATION
+                        .Cases("loop_coalesce", "ivdep",
+                               "min_ii_at_target_fmax",
+                               "disable_loop_pipelining", true)
+                        .Cases("force_hyperopt", "force_no_hyperopt",
+                               "nofusion", "fusion", true)
+                        .Cases("vector", "novector","distribute_point", true)
+                        .Cases("nounroll",
+#endif // INTEL_CUSTOMIZATION
+                               "nounroll_and_jam", true)
+                        .Default(false);
+
 #if INTEL_CUSTOMIZATION
   if (Toks.empty() && Info->ArrayToks.empty() &&
-                      (PragmaUnroll || PragmaNoUnroll || PragmaUnrollAndJam ||
-                       PragmaLoopCoalesce || PragmaIVDep ||
-                       PragmaDisableLoopPipelining || PragmaMinIIAtTargetFmax ||
-                       PragmaForceHyperopt || PragmaForceNoHyperopt ||
-                       PragmaDistributePoint || PragmaNoFusion ||
-                       PragmaFusion || PragmaNoVector || PragmaVector ||
+      (IsLoopHint || PragmaUnroll || PragmaUnrollAndJam)) {
 #endif // INTEL_CUSTOMIZATION
-                       PragmaNoUnrollAndJam)) {
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
     return true;
@@ -1718,9 +1704,9 @@ void Parser::HandlePragmaAttribute() {
     if (Tok.getIdentifierInfo()) {
       // If we suspect that this is an attribute suggest the use of
       // '__attribute__'.
-      if (ParsedAttr::getKind(Tok.getIdentifierInfo(), /*ScopeName=*/nullptr,
-                              ParsedAttr::AS_GNU) !=
-          ParsedAttr::UnknownAttribute) {
+      if (ParsedAttr::getParsedKind(
+              Tok.getIdentifierInfo(), /*ScopeName=*/nullptr,
+              ParsedAttr::AS_GNU) != ParsedAttr::UnknownAttribute) {
         SourceLocation InsertStartLoc = Tok.getLocation();
         ConsumeToken();
         if (Tok.is(tok::l_paren)) {
@@ -1754,7 +1740,7 @@ void Parser::HandlePragmaAttribute() {
   ParsedAttr &Attribute = *Attrs.begin();
   if (!Attribute.isSupportedByPragmaAttribute()) {
     Diag(PragmaLoc, diag::err_pragma_attribute_unsupported_attribute)
-        << Attribute.getName();
+        << Attribute;
     SkipToEnd();
     return;
   }
@@ -1871,7 +1857,7 @@ void PragmaGCCVisibilityHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
-  auto Toks = llvm::make_unique<Token[]>(1);
+  auto Toks = std::make_unique<Token[]>(1);
   Toks[0].startToken();
   Toks[0].setKind(tok::annot_pragma_vis);
   Toks[0].setLocation(VisLoc);
@@ -2487,7 +2473,7 @@ void PragmaOpenMPHandler::HandlePragma(Preprocessor &PP,
   Tok.setLocation(EodLoc);
   Pragma.push_back(Tok);
 
-  auto Toks = llvm::make_unique<Token[]>(Pragma.size());
+  auto Toks = std::make_unique<Token[]>(Pragma.size());
   std::copy(Pragma.begin(), Pragma.end(), Toks.get());
   PP.EnterTokenStream(std::move(Toks), Pragma.size(),
                       /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
@@ -2704,7 +2690,7 @@ void PragmaMSPragma::HandlePragma(Preprocessor &PP,
   TokenVector.push_back(EoF);
   // We must allocate this array with new because EnterTokenStream is going to
   // delete it later.
-  auto TokenArray = llvm::make_unique<Token[]>(TokenVector.size());
+  auto TokenArray = std::make_unique<Token[]>(TokenVector.size());
   std::copy(TokenVector.begin(), TokenVector.end(), TokenArray.get());
   auto Value = new (PP.getPreprocessorAllocator())
       std::pair<std::unique_ptr<Token[]>, size_t>(std::move(TokenArray),
@@ -2989,7 +2975,7 @@ void PragmaFPHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
-  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
   std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
@@ -3174,7 +3160,7 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
-  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
   std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
@@ -3246,7 +3232,7 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3294,7 +3280,7 @@ void PragmaLoopCoalesceHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3341,7 +3327,7 @@ void PragmaIIHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3392,7 +3378,7 @@ void PragmaMaxConcurrencyHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3439,7 +3425,7 @@ void PragmaMaxInterleavingHandler::HandlePragma(Preprocessor &PP,
     return;
   }
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3606,7 +3592,7 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3644,7 +3630,7 @@ void PragmaHLSConstArgHandler::HandlePragma(
   }
 
   // Generate the hint token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3670,7 +3656,7 @@ void PragmaHLSNoArgHandler::HandlePragma(Preprocessor &PP,
                                  PragmaLoopHintInfo;
   Info->PragmaName = PragmaName;
   Info->Option.startToken();
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3697,7 +3683,7 @@ void PragmaDistributePointHandler::HandlePragma(Preprocessor &PP,
                                  PragmaLoopHintInfo;
   Info->PragmaName = PragmaName;
   Info->Option.startToken();
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3724,7 +3710,7 @@ void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP,
       new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
   Info->PragmaName = PragmaName;
   Info->Option.startToken();
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3751,7 +3737,7 @@ void PragmaFusionHandler::HandlePragma(Preprocessor &PP,
       new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
   Info->PragmaName = PragmaName;
   Info->Option.startToken();
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3789,7 +3775,7 @@ void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
   Tok.setKind(tok::annot_pragma_loop_count_end);
   Tok.setLocation(EodLoc);
   Pragma.push_back(Tok);
-  auto Toks = llvm::make_unique<Token[]>(Pragma.size());
+  auto Toks = std::make_unique<Token[]>(Pragma.size());
   std::copy(Pragma.begin(), Pragma.end(), Toks.get());
   PP.EnterTokenStream(std::move(Toks), Pragma.size(),
                       /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
@@ -3943,7 +3929,7 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
       new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
   Info->PragmaName = PragmaName;
   Info->Option.startToken();
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
@@ -3999,7 +3985,7 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
         << "vector";
     return;
   }
-  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
   std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
@@ -4270,7 +4256,7 @@ void PragmaAttributeHandler::HandlePragma(Preprocessor &PP,
         << "clang attribute";
 
   // Generate the annotated pragma token.
-  auto TokenArray = llvm::make_unique<Token[]>(1);
+  auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_attribute);
   TokenArray[0].setLocation(FirstToken.getLocation());

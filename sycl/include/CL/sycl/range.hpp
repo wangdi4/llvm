@@ -17,7 +17,7 @@ namespace sycl {
 template <int dimensions> class id;
 template <int dimensions = 1> class range : public detail::array<dimensions> {
   static_assert(dimensions >= 1 && dimensions <= 3,
-                "range can only be 1, 2, or 3 dimentional.");
+                "range can only be 1, 2, or 3 dimensional.");
   using base = detail::array<dimensions>;
 
 public:
@@ -59,7 +59,7 @@ public:
   range(range<dimensions> &&rhs) = default;
   range<dimensions> &operator=(const range<dimensions> &rhs) = default;
   range<dimensions> &operator=(range<dimensions> &&rhs) = default;
-  range() = default;
+  range() = delete;
 
 // OP is: +, -, *, /, %, <<, >>, &, |, ^, &&, ||, <, >, <=, >=
 #define __SYCL_GEN_OPT(op)                                                     \
@@ -133,5 +133,6 @@ public:
 
 #undef __SYCL_GEN_OPT
 };
+
 } // namespace sycl
 } // namespace cl

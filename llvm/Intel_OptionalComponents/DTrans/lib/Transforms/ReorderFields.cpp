@@ -180,10 +180,12 @@ public:
     DTransAnalysisWrapper &DTAnalysisWrapper =
         getAnalysis<DTransAnalysisWrapper>();
     DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
 
     bool Changed = Impl.runImpl(
-        M, DTInfo, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-        getAnalysis<WholeProgramWrapperPass>().getResult());
+        M, DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult());
 
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
@@ -353,11 +355,13 @@ void ReorderFieldTransInfo::dump() const {
 //
 class ReorderFieldsImpl : public DTransOptBase {
 public:
-  ReorderFieldsImpl(ReorderFieldTransInfo &RTI, DTransAnalysisInfo &DTInfo,
-                    LLVMContext &Context, const DataLayout &DL,
-                    const TargetLibraryInfo &TLI, StringRef DepTypePrefix,
-                    DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+  ReorderFieldsImpl(
+      ReorderFieldTransInfo &RTI, DTransAnalysisInfo &DTInfo,
+      LLVMContext &Context, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix,
+                      TypeRemapper),
         RTI(RTI) {}
 
   virtual bool prepareTypes(Module &M) override;
@@ -581,6 +585,7 @@ void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *OrigTy,
 
   unsigned SizeArgPos = 0;
   unsigned CountArgPos = 0;
+  const TargetLibraryInfo &TLI = GetTLI(*CI.getFunction());
   getAllocSizeArgs(Kind, &CI, SizeArgPos, CountArgPos, TLI);
 
   // Obtain OrigTypeSize and ReorderTypeSize:
@@ -1964,9 +1969,10 @@ bool ReorderFieldsPass::doCollection(DTransAnalysisInfo &DTInfo,
   return !CandidateTypeV.empty();
 }
 
-bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                const TargetLibraryInfo &TLI,
-                                WholeProgramInfo &WPInfo) {
+bool ReorderFieldsPass::runImpl(
+    Module &M, DTransAnalysisInfo &DTInfo,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
   if (!EnableReorderField)
     return false;
   if (!WPInfo.isWholeProgramSafe())
@@ -1988,7 +1994,7 @@ bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   // *ReorderField Transformation*
   DTransTypeRemapper TypeRemapper;
-  ReorderFieldsImpl ReorderFieldsImpl(RTI, DTInfo, M.getContext(), DL, TLI,
+  ReorderFieldsImpl ReorderFieldsImpl(RTI, DTInfo, M.getContext(), DL, GetTLI,
                                       "__DFR_", &TypeRemapper);
   bool RunResult = ReorderFieldsImpl.run(M);
 
@@ -2002,8 +2008,12 @@ bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 PreservedAnalyses ReorderFieldsPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo))
+  if (!runImpl(M, DTransInfo, GetTLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

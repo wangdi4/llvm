@@ -1,6 +1,6 @@
 ; RUN: opt -S -functionattrs -enable-nonnull-arg-prop %s | FileCheck %s --check-prefixes=BOTH,FNATTR
 ; RUN: opt -S -passes=function-attrs -enable-nonnull-arg-prop %s | FileCheck %s --check-prefixes=BOTH,FNATTR
-; RUN: opt -attributor --attributor-disable=false -S < %s | FileCheck %s --check-prefixes=BOTH,ATTRIBUTOR
+; RUN: opt -attributor --attributor-disable=false -attributor-max-iterations-verify -attributor-max-iterations=8 -S < %s | FileCheck %s --check-prefixes=BOTH,ATTRIBUTOR
 ; INTEL
 ; RUN: opt -S -convert-to-subscript %s | opt -S -functionattrs -enable-nonnull-arg-prop | FileCheck %s --check-prefixes=BOTH,FNATTR
 ; RUN: opt -S -passes=convert-to-subscript %s | opt -S -passes=function-attrs -enable-nonnull-arg-prop | FileCheck %s --check-prefixes=BOTH,FNATTR
@@ -162,7 +162,7 @@ define void @test13_helper() {
   ret void
 }
 define internal void @test13(i8* %a, i8* %b, i8* %c) {
-; ATTRIBUTOR: define internal void @test13(i8* nonnull %a, i8* %b, i8* %c) 
+; ATTRIBUTOR: define internal void @test13(i8* nocapture nonnull %a, i8* nocapture %b, i8* nocapture %c) 
   ret void
 }
 
@@ -201,7 +201,7 @@ bb4:                                              ; preds = %bb1
 
 bb6:                                              ; preds = %bb1
 ; FIXME: missing nonnull. It should be @f2(i32* nonnull %arg)
-; ATTRIBUTOR: %tmp7 = tail call i32* @f2(i32* %arg)
+; ATTRIBUTOR: %tmp7 = tail call nonnull i32* @f2(i32* %arg)
   %tmp7 = tail call i32* @f2(i32* %arg)
   ret i32* %tmp7
 
@@ -216,7 +216,7 @@ define internal i32* @f2(i32* %arg) {
 bb:
 
 ; FIXME: missing nonnull. It should be @f1(i32* nonnull %arg) 
-; ATTRIBUTOR:   %tmp = tail call i32* @f1(i32* %arg)
+; ATTRIBUTOR:   %tmp = tail call nonnull i32* @f1(i32* %arg)
   %tmp = tail call i32* @f1(i32* %arg)
   ret i32* %tmp
 }
@@ -405,7 +405,7 @@ declare i32 @esfp(...)
 define i1 @parent8(i8* %a, i8* %bogus1, i8* %b) personality i8* bitcast (i32 (...)* @esfp to i8*){
 ; FNATTR-LABEL: @parent8(i8* nonnull %a, i8* nocapture readnone %bogus1, i8* nonnull %b)
 ; FIXME : missing "nonnull", it should be @parent8(i8* nonnull %a, i8* %bogus1, i8* nonnull %b)
-; ATTRIBUTOR-LABEL: @parent8(i8* %a, i8* %bogus1, i8* %b)
+; ATTRIBUTOR-LABEL: @parent8(i8* %a, i8* nocapture %bogus1, i8* %b)
 ; BOTH-NEXT:  entry:
 ; FNATTR-NEXT:    invoke void @use2nonnull(i8* %a, i8* %b)
 ; ATTRIBUTOR-NEXT:    invoke void @use2nonnull(i8* nonnull %a, i8* nonnull %b)
@@ -459,6 +459,18 @@ define internal i32* @g2() {
 define  i32* @g1() {
  %c = call i32* @g2()
   ret i32* %c
+}
+
+; ATTRIBUTOR: define internal void @called_by_weak(i32* nocapture nonnull %a)
+define internal void @called_by_weak(i32* %a) {
+  ret void
+}
+
+; Check we do not annotate the function interface of this weak function.
+; ATTRIBUTOR: define weak_odr void @weak_caller(i32* nonnull %a)
+define weak_odr void @weak_caller(i32* nonnull %a) {
+  call void @called_by_weak(i32* %a)
+  ret void
 }
 
 attributes #0 = { "null-pointer-is-valid"="true" }

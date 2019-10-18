@@ -1,17 +1,17 @@
 ; Test for indirect call serialization.
 
-; RUN: opt %s -VPlanDriver -vplan-force-vf=4 -S 2>&1 | FileCheck %s
+; RUN: opt %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
+; RUN: opt %s -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=2 -S | FileCheck %s
 
-;CHECK-LABEL: vector.body:
-;CHECK: extractelement
-;CHECK: call i32 [[EX11:%.*]](i32 [[EX21:%.*]])
-;CHECK-NEXT: insertelement
-;CHECK-NEXT: call
-;CHECK-NEXT: insertelement
-;CHECK-NEXT: call
-;CHECK-NEXT: insertelement
-;CHECK-NEXT: call
-;CHECK-NEXT: insertelement
+; CHECK-LABEL:       vector.body:
+; CHECK:    [[F1:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_LOAD:%.*]], i32 1
+; CHECK-NEXT:    [[F0:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_LOAD]], i32 0
+; CHECK:    [[ARG1:%.*]] = extractelement <2 x i32> [[WIDE_LOAD1:%.*]], i32 1
+; CHECK-NEXT:    [[ARG0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD1]], i32 0
+; CHECK-NEXT:    [[CALL0:%.*]] = call i32 [[F0]](i32 [[ARG0]])
+; CHECK-NEXT:    [[INS0:%.*]] = insertelement <2 x i32> undef, i32 [[CALL0]], i32 0
+; CHECK-NEXT:    [[CALL1:%.*]] = call i32 [[F1]](i32 [[ARG1]])
+; CHECK-NEXT:    [[INS1:%.*]] = insertelement <2 x i32> [[INS0]], i32 [[CALL1]], i32 1
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -17,23 +17,21 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 12
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
 ; CHECK-NEXT:   #2 <4 x 32> SLoad
 ; CHECK-NEXT:   #3 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 12
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
 ; CHECK-NEXT:   #4 <4 x 32> SStore
 ; CHECK-NEXT:   #5 <4 x 32> SStore
 ; CHECK-NEXT:   #6 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 3, i64 6, i64 9>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_IND]]
+; CHECK:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_IND:%.*]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <12 x i32>*
 ; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <12 x i32>, <12 x i32>* [[GROUPPTR]], align 4
@@ -54,13 +52,6 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    [[MM_VECTORGEP_06:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR7:%.*]] = bitcast i32* [[MM_VECTORGEP_06]] to <12 x i32>*
 ; CHECK-NEXT:    store <12 x i32> [[GROUPSHUFFLE5]], <12 x i32>* [[GROUPPTR7]], align 4
-; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[VEC_IND]], <i64 3, i64 3, i64 3, i64 3>
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult <4 x i64> [[TMP8]], <i64 3072, i64 3072, i64 3072, i64 3072>
-; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <4 x i1> [[TMP9]], i32 0
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
-; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 12, i64 12, i64 12, i64 12>
-; CHECK-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

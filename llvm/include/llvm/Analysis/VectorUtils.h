@@ -15,12 +15,122 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
+
+/// Describes the type of Parameters
+enum class VFParamKind {
+  Vector,            // No semantic information.
+  OMP_Linear,        // declare simd linear(i)
+  OMP_LinearRef,     // declare simd linear(ref(i))
+  OMP_LinearVal,     // declare simd linear(val(i))
+  OMP_LinearUVal,    // declare simd linear(uval(i))
+  OMP_LinearPos,     // declare simd linear(i:c) uniform(c)
+  OMP_LinearValPos,  // declare simd linear(val(i:c)) uniform(c)
+  OMP_LinearRefPos,  // declare simd linear(ref(i:c)) uniform(c)
+  OMP_LinearUValPos, // declare simd linear(uval(i:c)) uniform(c
+  OMP_Uniform,       // declare simd uniform(i)
+  GlobalPredicate,   // Global logical predicate that acts on all lanes
+                     // of the input and output mask concurrently. For
+                     // example, it is implied by the `M` token in the
+                     // Vector Function ABI mangled name.
+  Unknown
+};
+
+/// Describes the type of Instruction Set Architecture
+enum class VFISAKind {
+  AdvancedSIMD, // AArch64 Advanced SIMD (NEON)
+  SVE,          // AArch64 Scalable Vector Extension
+  SSE,          // x86 SSE
+  AVX,          // x86 AVX
+  AVX2,         // x86 AVX2
+  AVX512,       // x86 AVX512
+  Unknown       // Unknown ISA
+};
+
+/// Encapsulates information needed to describe a parameter.
+///
+/// The description of the parameter is not linked directly to
+/// OpenMP or any other vector function description. This structure
+/// is extendible to handle other paradigms that describe vector
+/// functions and their parameters.
+struct VFParameter {
+  unsigned ParamPos;         // Parameter Position in Scalar Function.
+  VFParamKind ParamKind;     // Kind of Parameter.
+  int LinearStepOrPos = 0;   // Step or Position of the Parameter.
+  Align Alignment = Align(); // Optional aligment in bytes, defaulted to 1.
+
+  // Comparison operator.
+  bool operator==(const VFParameter &Other) const {
+    return std::tie(ParamPos, ParamKind, LinearStepOrPos, Alignment) ==
+           std::tie(Other.ParamPos, Other.ParamKind, Other.LinearStepOrPos,
+                    Other.Alignment);
+  }
+};
+
+/// Contains the information about the kind of vectorization
+/// available.
+///
+/// This object in independent on the paradigm used to
+/// represent vector functions. in particular, it is not attached to
+/// any target-specific ABI.
+struct VFShape {
+  unsigned VF;     // Vectorization factor.
+  bool IsScalable; // True if the function is a scalable function.
+  VFISAKind ISA;   // Instruction Set Architecture.
+  SmallVector<VFParameter, 8> Parameters; // List of parameter informations.
+  // Comparison operator.
+  bool operator==(const VFShape &Other) const {
+    return std::tie(VF, IsScalable, ISA, Parameters) ==
+           std::tie(Other.VF, Other.IsScalable, Other.ISA, Other.Parameters);
+  }
+};
+
+/// Holds the VFShape for a specific scalar to vector function mapping.
+struct VFInfo {
+  VFShape Shape;        // Classification of the vector function.
+  StringRef ScalarName; // Scalar Function Name.
+  StringRef VectorName; // Vector Function Name associated to this VFInfo.
+
+  // Comparison operator.
+  bool operator==(const VFInfo &Other) const {
+    return std::tie(Shape, ScalarName, VectorName) ==
+           std::tie(Shape, Other.ScalarName, Other.VectorName);
+  }
+};
+
+namespace VFABI {
+/// Function to contruct a VFInfo out of a mangled names in the
+/// following format:
+///
+/// <VFABI_name>{(<redirection>)}
+///
+/// where <VFABI_name> is the name of the vector function, mangled according
+/// to the rules described in the Vector Function ABI of the target vector
+/// extentsion (or <isa> from now on). The <VFABI_name> is in the following
+/// format:
+///
+/// _ZGV<isa><mask><vlen><parameters>_<scalarname>[(<redirection>)]
+///
+/// This methods support demangling rules for the following <isa>:
+///
+/// * AArch64: https://developer.arm.com/docs/101129/latest
+///
+/// * x86 (libmvec): https://sourceware.org/glibc/wiki/libmvec and
+///  https://sourceware.org/glibc/wiki/libmvec?action=AttachFile&do=view&target=VectorABI.txt
+///
+///
+///
+/// \param MangledName -> input string in the format
+/// _ZGV<isa><mask><vlen><parameters>_<scalarname>[(<redirection>)].
+Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName);
+
+/// Retrieve the `VFParamKind` from a string token.
+VFParamKind getVFParamKindFromString(const StringRef Token);
+} // end namespace VFABI
 
 template <typename T> class ArrayRef;
 class DemandedBits;
@@ -28,6 +138,7 @@ class GetElementPtrInst;
 template <typename InstTy> class InterleaveGroup;
 class Loop;
 class ScalarEvolution;
+class TargetLibraryInfo;
 class TargetTransformInfo;
 class Type;
 class Value;
@@ -237,6 +348,13 @@ Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
 Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
                        IRBuilder<> &Builder, const Twine &Name = "");
 
+/// Create vector which contains \p V broadcasted \p VF times. \p V can be
+/// either another vector or a scalar value. So the resulting vector is
+/// - in case \p V is a scalar: {V, V,..,V}, vector of VF elements
+/// - in case \p V is vector: {v1,v2,...vN, v1,v2,...vN,...,v1,v2,...vN},
+///   vector of NxVF elements
+Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+                         const Twine &Name = "");
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.
@@ -321,6 +439,44 @@ Constant *createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
 ///   <0, 2, 4, 6>
 Constant *createStrideMask(IRBuilder<> &Builder, unsigned Start,
                            unsigned Stride, unsigned VF);
+
+#if INTEL_CUSTOMIZATION
+/// Create an interleave shuffle mask for a "vector of vectors".
+///
+/// When vectorizing an IR with incoming vector types (e.g. float4), we have to
+/// flatten the resulting widened type. For example, ater applying VF=8 to
+/// float4, instead of <8 x <4 x float>> we have to generate <32 x float>. That
+/// means that masks produced by createInterleaveMask are not applicable to such
+/// widened values. This function adapts createInterleaveMask to be usable for
+/// vectors of size \p VecWidth.
+///
+/// For example, a mask to interleave 3 adjacent <4 x <3 x float>> vectors
+/// (VF = 4, NumVecs = 3, VecWidth = 3) is:
+///
+///     <(0, 1, 2), (12, 13, 14), (24, 25, 26),
+///      (3, 4, 5), (15, 16, 17), (27, 28, 29),
+///      (6, 7, 8), (18, 19, 20), (30, 31, 32),
+///      (9, 10, 11), (21, 22, 23), (33, 34, 35)>.
+Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+                                     unsigned NumVecs, unsigned VecWidth);
+
+/// Create a stride shuffle mask for a "vector of vectors".
+///
+/// When vectorizing an IR with incoming vector types (e.g. float4), we have to
+/// flatten the resulting widened type. For example, ater applying VF=8 to
+/// float4, instead of <8 x <4 x float>> we have to generate <32 x float>. That
+/// means that masks produced by createStrideMask are not applicable to such
+/// widened values. This function adapts createStrideMask to be usable for
+/// vectors of size \p VecWidth.
+///
+/// For example, a mask with Stride=3 to extract 4 elements (VF=4) from vector
+/// <12 x <3 x float>> starting with the second element (Start=1) is:
+///
+///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
+Constant *createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+                                 unsigned Stride, unsigned VF,
+                                 unsigned VecWidth);
+#endif /* INTEL_CUSTOMIZATION */
 
 /// Create a sequential shuffle mask.
 ///

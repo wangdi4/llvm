@@ -177,10 +177,19 @@ public:
 
 // Provide global constructors that automatically figure out correct types...
 //
-template <class T>
-po_iterator<T> po_begin(const T &G) { return po_iterator<T>::begin(G); }
-template <class T>
-po_iterator<T> po_end  (const T &G) { return po_iterator<T>::end(G); }
+#if INTEL_CUSTOMIZATION
+// INTEL: Add non-default GT parameter.
+template <class T, class GT = GraphTraits<T>,
+          class SetType = SmallPtrSet<typename GT::NodeRef, 8>>
+po_iterator<T, SetType, false, GT> po_begin(const T &G) {
+  return po_iterator<T, SetType, false, GT>::begin(G);
+}
+template <class T, class GT = GraphTraits<T>,
+          class SetType = SmallPtrSet<typename GT::NodeRef, 8>>
+po_iterator<T, SetType, false, GT> po_end(const T &G) {
+  return po_iterator<T, SetType, false, GT>::end(G);
+}
+#endif // INTEL_CUSTOMIZATION
 
 template <class T> iterator_range<po_iterator<T>> post_order(const T &G) {
   return make_range(po_begin(G), po_end(G));
@@ -283,21 +292,29 @@ inverse_post_order_ext(const T &G, SetType &S) {
 // }
 //
 
-template<class GraphT, class GT = GraphTraits<GraphT>>
+#if INTEL_CUSTOMIZATION
+template <class GraphT, class GT = GraphTraits<GraphT>,
+          class SetType = SmallPtrSet<typename GT::NodeRef, 8>>
+#endif // INTEL_CUSTOMIZATION
 class ReversePostOrderTraversal {
   using NodeRef = typename GT::NodeRef;
 
   std::vector<NodeRef> Blocks; // Block list in normal PO order
 
-  void Initialize(NodeRef BB) {
-    std::copy(po_begin(BB), po_end(BB), std::back_inserter(Blocks));
+#if INTEL_CUSTOMIZATION
+  // INTEL: Handle non-default combination of GraphT/GT and/or
+  // GraphtT != NodeRef.
+  void Initialize(GraphT G) {
+    std::copy(po_begin<GraphT, GT, SetType>(G), po_end<GraphT, GT, SetType>(G),
+              std::back_inserter(Blocks));
+#endif
   }
 
 public:
   using rpo_iterator = typename std::vector<NodeRef>::reverse_iterator;
   using const_rpo_iterator = typename std::vector<NodeRef>::const_reverse_iterator;
 
-  ReversePostOrderTraversal(GraphT G) { Initialize(GT::getEntryNode(G)); }
+  ReversePostOrderTraversal(GraphT G) { Initialize(G); } // INTEL
 
   // Because we want a reverse post order, use reverse iterators from the vector
   rpo_iterator begin() { return Blocks.rbegin(); }

@@ -124,7 +124,7 @@ def sync_source_lists(write):
         else:
             print()
 
-    return bool(changes_by_rev)
+    return bool(changes_by_rev) and not write
 
 
 def sync_unittests():
@@ -153,7 +153,6 @@ def main():
     tests = sync_unittests()
     if src or tests:
         sys.exit(1)
-
 
 
 if __name__ == '__main__':

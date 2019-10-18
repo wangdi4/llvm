@@ -26,7 +26,12 @@
 
 namespace llvm {
 
+class DominatorTree;
+
 namespace dtrans {
+
+using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
+using MemGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
 
 // Get class type of the given function if there is one.
 inline StructType *getClassType(const Function *F) {
@@ -122,9 +127,7 @@ public:
                       CandidateFieldMemberFuncs[FI].end());
   }
 
-  inline bool isStructMethod(Function *F) {
-    return StructMethods.count(F);
-  }
+  inline bool isStructMethod(Function *F) { return StructMethods.count(F); }
 
 private:
   // Candidate struct.
@@ -415,8 +418,8 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
       return true;
     for (const auto &I : instructions(F))
       if (auto *CB = dyn_cast<CallBase>(&I)) {
-        auto *Callee =
-            dyn_cast<Function>(CB->getCalledValue()->stripPointerCasts());
+        auto *Callee = dtrans::getCalledFunction(*CB);
+
         // At LTO, only direct calls are expected in the member functions.
         if (AtLTO && !Callee) {
           DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {

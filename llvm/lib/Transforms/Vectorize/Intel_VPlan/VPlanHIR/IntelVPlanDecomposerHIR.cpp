@@ -15,13 +15,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanDecomposerHIR.h"
+#include "../IntelVPlanIDF.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/IteratedDominanceFrontier.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
@@ -505,7 +505,7 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 // Return true if \p Def is considered an external definition. An external
 // definition is a definition that happens outside of the outermost HLLoop,
 // including its preheader and exit.
-bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
+bool VPDecomposerHIR::isExternalDef(const DDRef *UseDDR) {
   // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
   // for now so this code won't be valid until we bring them back. return
   // !Def->getHLNodeUtils().contains(OutermostHLp, Def,
@@ -837,8 +837,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   Builder.setInsertPoint(LpH, LpH->begin());
   // Base type for the VPPHINode is obtained from IVStart
   Type *BaseTy = IVStart->getType();
-  VPPHINode *IndVPPhi =
-      cast<VPPHINode>(Builder.createPhiInstruction(BaseTy, HLp));
+  VPPHINode *IndVPPhi = Builder.createPhiInstruction(BaseTy, HLp);
   IndVPPhi->addIncoming(IVStart, LpPH);
   assert(!HLLp2IVPhi.count(HLp) && "HLLoop has multiple IVs?");
   HLLp2IVPhi[HLp] = IndVPPhi;
@@ -891,7 +890,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
     IndList.reset(new VPInductionHIRList);
   IndList->insert(
       IndList->begin(),
-      llvm::make_unique<VPInductionHIR>(
+      std::make_unique<VPInductionHIR>(
           IVNext, One,
           Plan->getVPConstant(Constant::getNullValue(HLp->getIVType()))));
 
@@ -1184,8 +1183,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
         assert(TrackedSymTypes.count(Sym) &&
                "PHI type for tracked symbase not found.");
-        auto *NewIDFPHI =
-            cast<VPPHINode>(Builder.createPhiInstruction(TrackedSymTypes[Sym]));
+        auto *NewIDFPHI = Builder.createPhiInstruction(TrackedSymTypes[Sym]);
         // Add the new empty PHI to list of phis to fix
         PhisToFix[VPBBSymPair] = std::make_pair(NewIDFPHI, nullptr);
 
@@ -1416,9 +1414,8 @@ void VPDecomposerHIR::fixPhiNodePass(
   LLVM_DEBUG(dbgs() << "\nEntering VPBB: " << VPBB->getName() << " from Pred: "
                     << (Pred ? Pred->getName() : "nullptr") << "\n");
   // First step is updating any PHI nodes in this VPBB, if it's incomplete
-  for (auto &VPN : VPBB->getVPPhis()) {
-    VPPHINode *FPN = cast<VPPHINode>(&VPN);
-    if (PhiToSymbaseMap.count(FPN)) {
+  for (VPPHINode &VPN : VPBB->getVPPhis()) {
+    if (PhiToSymbaseMap.count(&VPN)) {
       assert(Pred && "VPBB has null predecessor.");
 
       // Number of incoming edges from Pred to VPBB
@@ -1427,7 +1424,7 @@ void VPDecomposerHIR::fixPhiNodePass(
       assert(NumEdges && "Atleast one edge must exist from Pred to VPBB.");
 
       // Find Symbase that this PHI node corresponds to in TrackedSymbases
-      unsigned Symbase = PhiToSymbaseMap[FPN];
+      unsigned Symbase = PhiToSymbaseMap[&VPN];
       assert(TrackedSymbases.count(Symbase) &&
              "Empty PHI corresponds to a Symbase which is not being tracked.");
 
@@ -1468,10 +1465,10 @@ void VPDecomposerHIR::fixPhiNodePass(
           LLVM_DEBUG(dbgs() << "DDG:\n"; DDG.dump());
           (void)DDR;
         } else {
-          FPN->addIncoming(IncomingVPVals[Symbase], Pred);
+          VPN.addIncoming(IncomingVPVals[Symbase], Pred);
           // Current value for the Symbase is now the result of PHI for control
           // flowing through this VPBB
-          IncomingVPVals[Symbase] = FPN;
+          IncomingVPVals[Symbase] = &VPN;
         }
       }
     }
@@ -1637,8 +1634,7 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
 
     // If no entry is found in PhisToFix then create a new VPPhi node and add it
     // to the map
-    auto *VPPhi =
-        cast<VPPHINode>(Decomposer.Builder.createPhiInstruction(BaseTy));
+    auto *VPPhi = Decomposer.Builder.createPhiInstruction(BaseTy);
     Decomposer.PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
 
     LLVM_DEBUG(dbgs() << "Adding a new empty PHI node for:\n");

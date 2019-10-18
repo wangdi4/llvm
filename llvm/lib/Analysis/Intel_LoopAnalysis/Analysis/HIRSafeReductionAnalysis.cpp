@@ -219,7 +219,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
             E = DDG.outgoing_edges_end(LRef);
        I != E; ++I) {
     const DDEdge *Edge = *I;
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       // Allow only one output edge for case 'c' mentioned above in the
       // comments.
       if (SingleOutputDepInst) {
@@ -230,7 +230,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       SingleOutputDepInst = dyn_cast<HLInst>(Edge->getSink()->getHLDDNode());
       continue;
     }
-    assert(Edge->isFLOWdep() && "Outgoing edges from lval has to be either an "
+    assert(Edge->isFlow() && "Outgoing edges from lval has to be either an "
                                 "OUTPUT or a FLOW edge.");
     FlowEdgeFound = true;
 
@@ -336,37 +336,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
 //  s = n * s  +  ..
 //  s = 2 * s * i  +  ..
 bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, unsigned BlobIndex) {
-
-  if (CE->getDenominator() != 1) {
-    return false;
-  }
-
-  auto &BU = CE->getBlobUtils();
-  auto TempBlob = BU.getBlob(BlobIndex);
-
-  for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
-    unsigned BlobIdx = CE->getIVBlobCoeff(I);
-    if (BlobIdx == InvalidBlobIndex) {
-      continue;
-    }
-    auto Blob = BU.getBlob(BlobIdx);
-    if (BU.contains(Blob, TempBlob)) {
-      return false;
-    }
-  }
-
-  bool Found = false;
-  for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
-    auto Blob = BU.getBlob(CE->getBlobIndex(I));
-    if (BU.contains(Blob, TempBlob)) {
-      if (Found || (Blob != TempBlob) || (CE->getBlobCoeff(I) != 1)) {
-        return false;
-      }
-      Found = true;
-    }
-  }
-  assert(Found && "Blob not found!");
-  return true;
+  return CE->containsStandAloneBlob(BlobIndex, false);
 }
 
 void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
@@ -505,7 +475,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
       for (auto I = DDG.incoming_edges_begin(Ref),
                 E = DDG.incoming_edges_end(Ref);
            I != E; ++I) {
-        if (!(*I)->isFLOWdep()) {
+        if (!(*I)->isFlow()) {
           continue;
         }
 

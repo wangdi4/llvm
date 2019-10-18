@@ -70,23 +70,26 @@ private:
   bool isLinkedAsExecutable();
 
   // Compute the values of IsAdvancedOptEnabled[].
-  void computeIsAdvancedOptEnabled(Module &M,
+  void computeIsAdvancedOptEnabled(
+      Module &M,
       function_ref<TargetTransformInfo &(Function &)> GTTI);
 
   // Compute if all functions in the module M are internal with the exception
   // of libfuncs, main and functions added by the linker.
-  void computeFunctionsVisibility(Module &M, const TargetLibraryInfo &TLI);
+  void computeFunctionsVisibility(
+      Module &M,
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
 
 public:
   WholeProgramInfo();
   //WholeProgramInfo(WholeProgramInfo &&Arg);
   ~WholeProgramInfo();
 
-  static WholeProgramInfo analyzeModule(Module &M,
-                                        const TargetLibraryInfo &TLI,
-                                        function_ref<TargetTransformInfo
-                                            &(Function &)> GTTI,
-                                        CallGraph *CG, unsigned OptLevel);
+  static WholeProgramInfo analyzeModule(
+      Module &M,
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+      function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG,
+      unsigned OptLevel);
 
   // Fold the intrinsic llvm.intel.wholeprogramsafe
   // into true or false depending on the result of the analysis
@@ -100,12 +103,21 @@ public:
   bool isWholeProgramSeen();
   bool isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel AO);
 
-  void wholeProgramAllExternsAreIntrins(Module &M,
-                                        const TargetLibraryInfo &TLI);
-  bool resolveAllLibFunctions(Module &M, const TargetLibraryInfo &TLI);
-  bool resolveCallsInRoutine(const TargetLibraryInfo &TLI, llvm::Function *F);
-  bool resolveCalledValue(const TargetLibraryInfo &TLI, const Value *Arg,
-                          const Function *Caller);
+  void wholeProgramAllExternsAreIntrins(
+      Module &M,
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+
+  bool resolveAllLibFunctions(
+      Module &M,
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+
+  bool resolveCallsInRoutine(
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+      llvm::Function *F);
+
+  bool resolveCalledValue(
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+      const Value *Arg, const Function *Caller);
 };
 
 // Analysis pass providing a never-invalidated whole program analysis result.

@@ -2,8 +2,6 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
 //CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:64}
-//CHECK: [[IMDA:@.str[\.]*[0-9]*]] = {{.*}}{optimize_fmax:1}
-//CHECK: [[IMDB:@.str[\.]*[0-9]*]] = {{.*}}{optimize_ram_usage:1}
 
 __attribute__((max_work_group_size(1024, 1, 1)))
 __kernel void k1() {}
@@ -52,22 +50,6 @@ __kernel void k13() {
 // CHECK: %[[STUFFBC:[0-9]+]] = bitcast [100 x i32]* %stuff to i8*
     int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
 // CHECK: llvm.var.annotation{{.*}}[[STUFFBC]]{{.*}}[[IMD]]
-}
-
-__kernel void k13a() {
-// CHECK: define spir_kernel void @k13a{{[^{]+}}
-// CHECK: stuff = alloca [100 x i32], align
-// CHECK: %[[STUFFBCA:[0-9]+]] = bitcast [100 x i32]* %stuff to i8*
-    int stuff[100] __attribute__((optimize_fmax));
-// CHECK: llvm.var.annotation{{.*}}[[STUFFBCA]]{{.*}}[[IMDA]]
-}
-
-__kernel void k13b() {
-// CHECK: define spir_kernel void @k13b{{[^{]+}}
-// CHECK: stuff = alloca [100 x i32], align
-// CHECK: %[[STUFFBCB:[0-9]+]] = bitcast [100 x i32]* %stuff to i8*
-    int stuff[100] __attribute__((optimize_ram_usage));
-// CHECK: llvm.var.annotation{{.*}}[[STUFFBCB]]{{.*}}[[IMDB]]
 }
 
 __kernel void k14() __attribute__((uses_global_work_offset(0))) {}

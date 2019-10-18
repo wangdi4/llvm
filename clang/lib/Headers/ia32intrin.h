@@ -77,7 +77,7 @@ _bswap(int __A) {
 #define _bit_scan_forward(A) __bsfd((A))
 #define _bit_scan_reverse(A) __bsrd((A))
 
-#ifdef __x86_64__
+/* #ifdef __x86_64__ */ /* INTEL */
 /** Find the first set bit starting from the lsb. Result is undefined if
  *  input is 0.
  *
@@ -129,7 +129,7 @@ __bswapq(long long __A) {
 }
 
 #define _bswap64(A) __bswapq((A))
-#endif
+/* #endif */ /* INTEL */
 
 /** Counts the number of bits in the source operand having a value of 1.
  *
@@ -151,7 +151,7 @@ __popcntd(unsigned int __A)
 
 #define _popcnt32(A) __popcntd((A))
 
-#ifdef __x86_64__
+/* #ifdef __x86_64__ */ /* INTEL */
 /** Counts the number of bits in the source operand having a value of 1.
  *
  *  \headerfile <x86intrin.h>
@@ -171,7 +171,7 @@ __popcntq(unsigned long long __A)
 }
 
 #define _popcnt64(A) __popcntq((A))
-#endif /* __x86_64__ */
+/* #endif */ /* __x86_64__ */ /* INTEL */
 
 #ifdef __x86_64__
 static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
@@ -199,6 +199,74 @@ __writeeflags(unsigned int __f)
   __builtin_ia32_writeeflags_u32(__f);
 }
 #endif /* !__x86_64__ */
+
+/** Cast a 32-bit float value to a 32-bit unsigned integer value
+ *
+ *  \headerfile <x86intrin.h>
+ *  This intrinsic corresponds to the <c> VMOVD / MOVD </c> instruction in x86_64,
+ *  and corresponds to the <c> VMOVL / MOVL </c> instruction in ia32.
+ *
+ *  \param __A
+ *     A 32-bit float value.
+ *  \returns a 32-bit unsigned integer containing the converted value.
+ */
+static __inline__ unsigned int __attribute__((__always_inline__))
+_castf32_u32(float __A) {
+  unsigned int D;
+  __builtin_memcpy(&D, &__A, sizeof(__A));
+  return D;
+}
+
+/** Cast a 64-bit float value to a 64-bit unsigned integer value
+ *
+ *  \headerfile <x86intrin.h>
+ *  This intrinsic corresponds to the <c> VMOVQ / MOVQ </c> instruction in x86_64,
+ *  and corresponds to the <c> VMOVL / MOVL </c> instruction in ia32.
+ *
+ *  \param __A
+ *     A 64-bit float value.
+ *  \returns a 64-bit unsigned integer containing the converted value.
+ */
+static __inline__ unsigned long long __attribute__((__always_inline__))
+_castf64_u64(double __A) {
+  unsigned long long D;
+  __builtin_memcpy(&D, &__A, sizeof(__A));
+  return D;
+}
+
+/** Cast a 32-bit unsigned integer value to a 32-bit float value
+ *
+ *  \headerfile <x86intrin.h>
+ *  This intrinsic corresponds to the <c> VMOVQ / MOVQ </c> instruction in x86_64,
+ *  and corresponds to the <c> FLDS </c> instruction in ia32.
+ *
+ *  \param __A
+ *     A 32-bit unsigned integer value.
+ *  \returns a 32-bit float value containing the converted value.
+ */
+static __inline__ float __attribute__((__always_inline__))
+_castu32_f32(unsigned int __A) {
+  float D;
+  __builtin_memcpy(&D, &__A, sizeof(__A));
+  return D;
+}
+
+/** Cast a 64-bit unsigned integer value to a 64-bit float value
+ *
+ *  \headerfile <x86intrin.h>
+ *  This intrinsic corresponds to the <c> VMOVQ / MOVQ </c> instruction in x86_64,
+ *  and corresponds to the <c> FLDL </c> instruction in ia32.
+ *
+ *  \param __A
+ *     A 64-bit unsigned integer value.
+ *  \returns a 64-bit float value containing the converted value.
+ */
+static __inline__ double __attribute__((__always_inline__))
+_castu64_f64(unsigned long long __A) {
+  double D;
+  __builtin_memcpy(&D, &__A, sizeof(__A));
+  return D;
+}
 
 /** Adds the unsigned integer operand to the CRC-32C checksum of the
  *     unsigned char operand.

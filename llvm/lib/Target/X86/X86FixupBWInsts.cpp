@@ -80,7 +80,7 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// destination register of the MachineInstr passed in. It returns true if
   /// that super register is dead just prior to \p OrigMI, and false if not.
   bool getSuperRegDestIfDead(MachineInstr *OrigMI,
-                             unsigned &SuperDestReg, // INTEL
+                             Register &SuperDestReg, // INTEL
                              bool IsMOV = true) const; // INTEL
 
   /// Change the MachineInstr \p MI into the equivalent extending load to 32 bit
@@ -93,6 +93,11 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// nullptr.
   MachineInstr *tryReplaceCopy(MachineInstr *MI) const;
 
+  /// Change the MachineInstr \p MI into the equivalent extend to 32 bit
+  /// register if it is safe to do so.  Return the replacement instruction if
+  /// OK, otherwise return nullptr.
+  MachineInstr *tryReplaceExtend(unsigned New32BitOpcode,
+                                 MachineInstr *MI) const;
 #if INTEL_CUSTOMIZATION
   /// Change the MachineInstr \p MI into the equivalent 32-bit unop if it is
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
@@ -182,11 +187,11 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 ///
 /// If so, return that super register in \p SuperDestReg.
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
-                                            unsigned &SuperDestReg, // INTEL
+                                            Register &SuperDestReg, // INTEL
                                             bool IsMOV) const { // INTEL
   auto *TRI = &TII->getRegisterInfo();
 
-  unsigned OrigDestReg = OrigMI->getOperand(0).getReg();
+  Register OrigDestReg = OrigMI->getOperand(0).getReg();
   SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
 
   const auto SubRegIdx = TRI->getSubRegIndex(SuperDestReg, OrigDestReg);
@@ -253,12 +258,12 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
   //   %ax = KILL %ax, implicit killed %eax
   //   RET 0, %ax
   unsigned Opc = OrigMI->getOpcode(); (void)Opc;
-  // These are the opcodes currently handled by the pass, if something
-  // else will be added we need to ensure that new opcode has the same
-  // properties.
-  assert((Opc == X86::MOV8rm || Opc == X86::MOV16rm || Opc == X86::MOV8rr ||
-          Opc == X86::MOV16rr) &&
-         "Unexpected opcode.");
+  // These are the opcodes currently known to work with the code below, if
+  // something // else will be added we need to ensure that new opcode has the
+  // same properties.
+  if (Opc != X86::MOV8rm && Opc != X86::MOV16rm && Opc != X86::MOV8rr &&
+      Opc != X86::MOV16rr)
+    return false;
 
   bool IsDefined = false;
   for (auto &MO: OrigMI->implicit_operands()) {
@@ -268,7 +273,7 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
     assert((MO.isDef() || MO.isUse()) && "Expected Def or Use only!");
 
     if (MO.isDef() && TRI->isSuperRegisterEq(OrigDestReg, MO.getReg()))
-        IsDefined = true;
+      IsDefined = true;
 
     // If MO is a use of any part of the destination register but is not equal
     // to OrigDestReg or one of its subregisters, we cannot use SuperDestReg.
@@ -289,7 +294,7 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
 
 MachineInstr *FixupBWInstPass::tryReplaceLoad(unsigned New32BitOpcode,
                                               MachineInstr *MI) const {
-  unsigned NewDestReg;
+  Register NewDestReg;
 
   // We are going to try to rewrite this load to a larger zero-extending
   // load.  This is safe if all portions of the 32 bit super-register
@@ -316,11 +321,11 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
   auto &OldDest = MI->getOperand(0);
   auto &OldSrc = MI->getOperand(1);
 
-  unsigned NewDestReg;
+  Register NewDestReg;
   if (!getSuperRegDestIfDead(MI, NewDestReg))
     return nullptr;
 
-  unsigned NewSrcReg = getX86SubSuperRegister(OldSrc.getReg(), 32);
+  Register NewSrcReg = getX86SubSuperRegister(OldSrc.getReg(), 32);
 
   // This is only correct if we access the same subregister index: otherwise,
   // we could try to replace "movb %ah, %al" with "movl %eax, %eax".
@@ -347,6 +352,33 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
   return MIB;
 }
 
+MachineInstr *FixupBWInstPass::tryReplaceExtend(unsigned New32BitOpcode,
+                                                MachineInstr *MI) const {
+  Register NewDestReg;
+  if (!getSuperRegDestIfDead(MI, NewDestReg))
+    return nullptr;
+
+  // Don't interfere with formation of CBW instructions which should be a
+  // shorter encoding than even the MOVSX32rr8. It's also immunte to partial
+  // merge issues on Intel CPUs.
+  if (MI->getOpcode() == X86::MOVSX16rr8 &&
+      MI->getOperand(0).getReg() == X86::AX &&
+      MI->getOperand(1).getReg() == X86::AL)
+    return nullptr;
+
+  // Safe to change the instruction.
+  MachineInstrBuilder MIB =
+      BuildMI(*MF, MI->getDebugLoc(), TII->get(New32BitOpcode), NewDestReg);
+
+  unsigned NumArgs = MI->getNumOperands();
+  for (unsigned i = 1; i < NumArgs; ++i)
+    MIB.add(MI->getOperand(i));
+
+  MIB.setMemRefs(MI->memoperands());
+
+  return MIB;
+}
+
 #if INTEL_CUSTOMIZATION
 MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
                                               MachineInstr *MI) const {
@@ -358,7 +390,7 @@ MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
 
   // FIXME: Skip checking implicit operands until we have a better understanding
   // of whether that applies to arithmetic or only moves.
-  unsigned NewReg;
+  Register NewReg;
   if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
     return nullptr;
 
@@ -391,7 +423,7 @@ MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
 
   // FIXME: Skip checking implicit operands until we have a better understanding
   // of whether that applies to arithmetic or only moves.
-  unsigned NewReg;
+  Register NewReg;
   if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
     return nullptr;
 
@@ -422,13 +454,18 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
   switch (MI->getOpcode()) {
 
   case X86::MOV8rm:
+#if INTEL_CUSTOMIZATION
     // Only replace 8 bit loads with the zero extending versions if
-    // in an inner most loop and not optimizing for size. This takes
+    // in a loop and not optimizing for size. This takes
     // an extra byte to encode, and provides limited performance upside.
-    if (MachineLoop *ML = MLI->getLoopFor(&MBB))
-      if (ML->begin() == ML->end() && !OptForSize)
+    if (MachineLoop *ML = MLI->getLoopFor(&MBB)) {
+      const TargetOptions &Options = MBB.getParent()->getTarget().Options;
+      if ((ML->begin() == ML->end() || Options.IntelAdvancedOptim) &&
+          !OptForSize)
         return tryReplaceLoad(X86::MOVZX32rm8, MI);
+    }
     break;
+#endif
 
   case X86::MOV16rm:
     // Always try to replace 16 bit load with 32 bit zero extending.
@@ -444,6 +481,15 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
     // perf advantage from eliminating a false dependence on the upper portion
     // of the register.
     return tryReplaceCopy(MI);
+
+  case X86::MOVSX16rr8:
+    return tryReplaceExtend(X86::MOVSX32rr8, MI);
+  case X86::MOVSX16rm8:
+    return tryReplaceExtend(X86::MOVSX32rm8, MI);
+  case X86::MOVZX16rr8:
+    return tryReplaceExtend(X86::MOVZX32rr8, MI);
+  case X86::MOVZX16rm8:
+    return tryReplaceExtend(X86::MOVZX32rm8, MI);
 
 #if INTEL_CUSTOMIZATION
   case X86::DEC16r:

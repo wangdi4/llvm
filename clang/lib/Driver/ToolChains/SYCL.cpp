@@ -49,7 +49,7 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(Compilation &C,
   SmallString<128> LLVMSpirvPath(C.getDriver().Dir);
   llvm::sys::path::append(LLVMSpirvPath, "llvm-spirv");
   const char *LLVMSpirv = C.getArgs().MakeArgString(LLVMSpirvPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, LLVMSpirv, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, LLVMSpirv, CmdArgs, None));
   return OutputFileName;
 }
 
@@ -96,7 +96,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
   SmallString<128> ExecPath(C.getDriver().Dir);
   llvm::sys::path::append(ExecPath, "llvm-link");
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
   return OutputFileName;
 }
 
@@ -109,7 +109,7 @@ void SYCL::Linker::constructLlcCommand(Compilation &C, const JobAction &JA,
   SmallString<128> LlcPath(C.getDriver().Dir);
   llvm::sys::path::append(LlcPath, "llc");
   const char *Llc = C.getArgs().MakeArgString(LlcPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Llc, LlcArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Llc, LlcArgs, None));
 }
 
 // For SYCL the inputs of the linker job are SPIR-V binaries and output is
@@ -297,9 +297,8 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
           continue;
         if (types::isSrcFile(Ty) || Ty == types::TY_Object) {
           llvm::sys::path::replace_extension(FN, "d");
-          if (llvm::sys::fs::exists(FN))
-            FPGADepFiles.push_back(InputInfo(types::TY_Dependencies,
-                  Args.MakeArgString(FN), Args.MakeArgString(FN)));
+          FPGADepFiles.push_back(InputInfo(types::TY_Dependencies,
+              Args.MakeArgString(FN), Args.MakeArgString(FN)));
         }
       }
     }
@@ -346,33 +345,13 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
   TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
   // Look for -reuse-exe=XX option
   if (Arg *A = Args.getLastArg(options::OPT_reuse_exe_EQ)) {
-    StringRef reuse_exe = A->getValue();
     Args.ClaimAllArgs(options::OPT_reuse_exe_EQ);
-    if (llvm::sys::fs::exists(reuse_exe)) {
-      SmallString<128> ExecPath(getToolChain().GetProgramPath("aocl"));
-      const char *Exec = C.getArgs().MakeArgString(ExecPath);
-      ArgStringList ExtractArgs{"do", "aocl-extract-aocx", "-i"};
-      ExtractArgs.push_back(C.getArgs().MakeArgString(reuse_exe));
-      std::string TmpName = C.getDriver().GetTemporaryPath("reused-exe", "aocx");
-      auto OutputFileName = C.addTempFile(C.getArgs().MakeArgString(TmpName));
-      ExtractArgs.push_back("-o");
-      ExtractArgs.push_back(OutputFileName);
-      Command run_extract(JA, *this, Exec, ExtractArgs, None);
-      const Command* failingCommand = nullptr;
-      auto res = C.ExecuteCommand(run_extract, failingCommand);
-      if (res == 0) {
-        // We extracted the aocx file.  Pass it to the aoc command.
-        CmdArgs.push_back(Args.MakeArgString(Twine("-reuse-aocx=") + TmpName));
-      }
-    } else {
-      const Driver &D = getToolChain().getDriver();
-      D.Diag(clang::diag::warn_drv_reuse_exe_file_not_found) << reuse_exe;
-    }
+    CmdArgs.push_back(Args.MakeArgString(A->getAsString(Args)));
   }
 
   SmallString<128> ExecPath(getToolChain().GetProgramPath("aoc"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
@@ -389,11 +368,13 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
     CmdArgs.push_back("-file");
     CmdArgs.push_back(II.getFilename());
   }
+  // The next line prevents ocloc from modifying the image name
+  CmdArgs.push_back("-output_no_suffix");
   CmdArgs.push_back("-spirv_input");
   TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
   SmallString<128> ExecPath(getToolChain().GetProgramPath("ocloc"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 void SYCL::x86_64::BackendCompiler::ConstructJob(Compilation &C,
@@ -411,7 +392,7 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(Compilation &C,
   TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
   SmallString<128> ExecPath(getToolChain().GetProgramPath("ioc64"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
@@ -435,15 +416,14 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
                              Action::OffloadKind DeviceOffloadKind) const {
   DerivedArgList *DAL =
       HostTC.TranslateArgs(Args, BoundArch, DeviceOffloadKind);
-  if (!DAL)
+
+  if (!DAL) {
     DAL = new DerivedArgList(Args.getBaseArgs());
-
-  const OptTable &Opts = getDriver().getOpts();
-
-  for (Arg *A : Args) {
-    DAL->append(A);
+    for (Arg *A : Args)
+      DAL->append(A);
   }
 
+  const OptTable &Opts = getDriver().getOpts();
   if (!BoundArch.empty()) {
     DAL->eraseArg(options::OPT_march_EQ);
     DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_march_EQ),

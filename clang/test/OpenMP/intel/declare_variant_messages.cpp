@@ -46,34 +46,36 @@ template <>
 void h(int *hp, int *hp2, int *hq) {
 }
 
-// expected-error@+1 {{variant function not found}}
+// expected-error@+1 {{use of undeclared identifier 'foo3'}}
 #pragma omp declare variant(foo3) match(construct={target variant dispatch})
 void bar();
 
 int var1;
-// expected-error@+1 {{variant must be a function}}
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'int' is incompatible with type 'void (*)()'}}
 #pragma omp declare variant(var1) match(construct={target variant dispatch})
 void bar();
 
-// expected-error@+1 {{variant must be the name of a function or a template-id}}
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'int' is incompatible with type 'void (*)()'}}
 #pragma omp declare variant(42) match(construct={target variant dispatch})
 void bar();
 
 // expected-error@+1 {{unknown or unsupported context selector set, expecting 'construct' or 'device'}}
 #pragma omp declare variant(foo) match(onstruct={target variant dispatch})
-void bar();
+void bar(int);
 
 // expected-error@+1 {{unknown or unsupported 'construct' context selector, expecting 'target variant dispatch'}}
 #pragma omp declare variant(foo) match(construct={arget})
-void bar();
+void bar(int);
 
-// expected-error@+1 {{unknown or unsupported 'device' context selector, expecting 'arch'}}
+// expected-error@+3 {{unknown or unsupported 'device' context selector, expecting 'arch'}}
+// expected-error@+2 {{expected '}'}}
+// expected-note@+1 {{to match this '{'}}
 #pragma omp declare variant(foo) match(construct={target variant dispatch},device={rch(gen)})
-void bar();
+void bar(int);
 
 // expected-error@+1 {{unknown or unsupported 'arch' selector, expecting 'gen'}}
 #pragma omp declare variant(foo) match(construct={target variant dispatch},device={arch(en)})
-void bar();
+void bar(int);
 
 void disp_call();
 
@@ -89,7 +91,7 @@ void testit() {
 #pragma omp declare variant(foo) match(\
    construct={arget},\
    device={arch(gen),arch(foobar)})
-void bar();
+void bar(int);
 
 namespace N {
   // expected-error@+1 {{function declaration is expected after 'declare variant' directive}}

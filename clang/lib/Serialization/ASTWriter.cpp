@@ -166,7 +166,7 @@ namespace clang {
 #define TYPE(Class, Base) \
         case Type::Class: Visit##Class##Type(cast<Class##Type>(T)); break;
 #define ABSTRACT_TYPE(Class, Base)
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
         }
       }
     }
@@ -177,7 +177,7 @@ namespace clang {
 
 #define TYPE(Class, Base) void Visit##Class##Type(const Class##Type *T);
 #define ABSTRACT_TYPE(Class, Base)
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
   };
 
 } // namespace clang
@@ -238,6 +238,7 @@ void ASTTypeWriter::VisitArrayType(const ArrayType *T) {
 void ASTTypeWriter::VisitConstantArrayType(const ConstantArrayType *T) {
   VisitArrayType(T);
   Record.AddAPInt(T->getSize());
+  Record.AddStmt(const_cast<Expr*>(T->getSizeExpr()));
   Code = TYPE_CONSTANT_ARRAY;
 }
 
@@ -1845,12 +1846,12 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
 
     InputFileEntry Entry;
     Entry.File = Cache->OrigEntry;
-    Entry.IsSystemFile = Cache->IsSystemFile;
+    Entry.IsSystemFile = isSystem(File.getFileCharacteristic());
     Entry.IsTransient = Cache->IsTransient;
     Entry.BufferOverridden = Cache->BufferOverridden;
     Entry.IsTopLevelModuleMap = isModuleMap(File.getFileCharacteristic()) &&
                                 File.getIncludeLoc().isInvalid();
-    if (Cache->IsSystemFile)
+    if (Entry.IsSystemFile)
       SortedFiles.push_back(Entry);
     else
       SortedFiles.push_front(Entry);
@@ -1883,6 +1884,7 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
         Entry.IsTransient,
         Entry.IsTopLevelModuleMap};
 
+    // FIXME: The path should be taken from the FileEntryRef.
     EmitRecordWithPath(IFAbbrevCode, Record, Entry.File->getName());
   }
 
@@ -2355,8 +2357,8 @@ void ASTWriter::WriteSourceManagerBlock(SourceManager &SourceMgr,
         // We add one to the size so that we capture the trailing NULL
         // that is required by llvm::MemoryBuffer::getMemBuffer (on
         // the reader side).
-        const llvm::MemoryBuffer *Buffer
-          = Content->getBuffer(PP.getDiagnostics(), PP.getSourceManager());
+        const llvm::MemoryBuffer *Buffer =
+            Content->getBuffer(PP.getDiagnostics(), PP.getFileManager());
         StringRef Name = Buffer->getBufferIdentifier();
         Stream.EmitRecordWithBlob(SLocBufferAbbrv, Record,
                                   StringRef(Name.data(), Name.size() + 1));
@@ -2370,7 +2372,7 @@ void ASTWriter::WriteSourceManagerBlock(SourceManager &SourceMgr,
         // Include the implicit terminating null character in the on-disk buffer
         // if we're writing it uncompressed.
         const llvm::MemoryBuffer *Buffer =
-            Content->getBuffer(PP.getDiagnostics(), PP.getSourceManager());
+            Content->getBuffer(PP.getDiagnostics(), PP.getFileManager());
         StringRef Blob(Buffer->getBufferStart(), Buffer->getBufferSize() + 1);
         emitBlob(Stream, Blob, SLocBufferBlobCompressedAbbrv,
                  SLocBufferBlobAbbrv);
@@ -2547,7 +2549,7 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
       MacroIdentifiers.push_back(Id.second);
   // Sort the set of macro definitions that need to be serialized by the
   // name of the macro, to provide a stable ordering.
-  llvm::sort(MacroIdentifiers, llvm::less_ptr<IdentifierInfo>());
+  llvm::sort(MacroIdentifiers, llvm::deref<std::less<>>());
 
   // Emit the macro directives as a list and associate the offset with the
   // identifier they belong to.
@@ -3789,7 +3791,7 @@ void ASTWriter::WriteIdentifierTable(Preprocessor &PP,
       IIs.push_back(ID.second);
     // Sort the identifiers lexicographically before getting them references so
     // that their order is stable.
-    llvm::sort(IIs, llvm::less_ptr<IdentifierInfo>());
+    llvm::sort(IIs, llvm::deref<std::less<>>());
     for (const IdentifierInfo *II : IIs)
       if (Trait.isInterestingNonMacroIdentifier(II))
         getIdentifierRef(II);
@@ -4562,7 +4564,14 @@ void ASTRecordWriter::AddAttr(const Attr *A) {
   if (!A)
     return Record.push_back(0);
   Record.push_back(A->getKind() + 1); // FIXME: stable encoding, target attrs
+
+  Record.AddIdentifierRef(A->getAttrName());
+  Record.AddIdentifierRef(A->getScopeName());
   Record.AddSourceRange(A->getRange());
+  Record.AddSourceLocation(A->getScopeLoc());
+  Record.push_back(A->getParsedKind());
+  Record.push_back(A->getSyntax());
+  Record.push_back(A->getAttributeSpellingListIndexRaw());
 
 #include "clang/Serialization/AttrPCHWrite.inc"
 }
@@ -4965,7 +4974,7 @@ ASTFileSignature ASTWriter::WriteASTCore(Sema &SemaRef, StringRef isysroot,
         IIs.push_back(II);
     }
     // Sort the identifiers to visit based on their name.
-    llvm::sort(IIs, llvm::less_ptr<IdentifierInfo>());
+    llvm::sort(IIs, llvm::deref<std::less<>>());
     for (const IdentifierInfo *II : IIs) {
       for (IdentifierResolver::iterator D = SemaRef.IdResolver.begin(II),
                                      DEnd = SemaRef.IdResolver.end();

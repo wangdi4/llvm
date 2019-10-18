@@ -22,7 +22,6 @@ add_llvm_library(LLVMScalarOpts
   InferAddressSpaces.cpp
   InstSimplifyPass.cpp
 # INTEL_CUSTOMIZATION
-  Intel_AggInlAA.cpp
   Intel_GlobalOpt.cpp
   Intel_IndirectCallConv.cpp
   Intel_LoopOptMarker.cpp

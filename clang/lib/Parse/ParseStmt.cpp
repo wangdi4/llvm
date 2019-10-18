@@ -103,7 +103,7 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
   ParsedAttributesWithRange Attrs(AttrFactory);
   MaybeParseCXX11Attributes(Attrs, nullptr, /*MightBeObjCMessageSend*/ true);
   if (!MaybeParseOpenCLUnrollHintAttribute(Attrs) ||
-      !MaybeParseIntelFPGALoopAttributes(Attrs))
+      !MaybeParseSYCLLoopAttributes(Attrs))
     return StmtError();
 
   StmtResult Res = ParseStatementOrDeclarationAfterAttributes(
@@ -143,7 +143,7 @@ public:
   }
 
   std::unique_ptr<CorrectionCandidateCallback> clone() override {
-    return llvm::make_unique<StatementFilterCCC>(*this);
+    return std::make_unique<StatementFilterCCC>(*this);
   }
 
 private:
@@ -156,6 +156,7 @@ StmtResult Parser::ParseStatementOrDeclarationAfterAttributes(
     SourceLocation *TrailingElseLoc, ParsedAttributesWithRange &Attrs) {
   const char *SemiError = nullptr;
   StmtResult Res;
+  SourceLocation GNUAttributeLoc;
 
   // Cases in this switch statement should fall through if the parser expects
   // the token to end in a semicolon (in which case SemiError should be set),
@@ -213,10 +214,17 @@ Retry:
     if ((getLangOpts().CPlusPlus || getLangOpts().MicrosoftExt ||
          (StmtCtx & ParsedStmtContext::AllowDeclarationsInC) !=
              ParsedStmtContext()) &&
-        isDeclarationStatement()) {
+        (GNUAttributeLoc.isValid() || isDeclarationStatement())) {
       SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
-      DeclGroupPtrTy Decl = ParseDeclaration(DeclaratorContext::BlockContext,
-                                             DeclEnd, Attrs);
+      DeclGroupPtrTy Decl;
+      if (GNUAttributeLoc.isValid()) {
+        DeclStart = GNUAttributeLoc;
+        Decl = ParseDeclaration(DeclaratorContext::BlockContext, DeclEnd, Attrs,
+                                &GNUAttributeLoc);
+      } else {
+        Decl =
+            ParseDeclaration(DeclaratorContext::BlockContext, DeclEnd, Attrs);
+      }
       return Actions.ActOnDeclStmt(Decl, DeclStart, DeclEnd);
     }
 
@@ -226,6 +234,12 @@ Retry:
     }
 
     return ParseExprStatement(StmtCtx);
+  }
+
+  case tok::kw___attribute: {
+    GNUAttributeLoc = Tok.getLocation();
+    ParseGNUAttributes(Attrs);
+    goto Retry;
   }
 
   case tok::kw_case:                // C99 6.8.1: labeled-statement
@@ -2425,7 +2439,7 @@ bool Parser::ParseOpenCLUnrollHintAttribute(ParsedAttributes &Attrs) {
   return true;
 }
 
-bool Parser::ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
+bool Parser::ParseSYCLLoopAttributes(ParsedAttributes &Attrs) {
   MaybeParseCXX11Attributes(Attrs);
 
   if (Attrs.empty())
@@ -2433,11 +2447,14 @@ bool Parser::ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
 
   if (Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAIVDep &&
       Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAII &&
-      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency)
+      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency &&
+      Attrs.begin()->getKind() != ParsedAttr::AT_LoopUnrollHint)
     return true;
 
+  bool IsIntelFPGAAttribute = (Attrs.begin()->getKind() != ParsedAttr::AT_LoopUnrollHint);
+
   if (!(Tok.is(tok::kw_for) || Tok.is(tok::kw_while) || Tok.is(tok::kw_do))) {
-    Diag(Tok, diag::err_intel_fpga_loop_attrs_on_non_loop);
+    Diag(Tok, diag::err_loop_attr_on_non_loop) << IsIntelFPGAAttribute;
     return false;
   }
   return true;

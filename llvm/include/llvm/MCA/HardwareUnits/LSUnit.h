@@ -209,8 +209,10 @@ public:
 
   unsigned getUsedLQEntries() const { return UsedLQEntries; }
   unsigned getUsedSQEntries() const { return UsedSQEntries; }
-  unsigned assignLQSlot() { return UsedLQEntries++; }
-  unsigned assignSQSlot() { return UsedSQEntries++; }
+  void acquireLQSlot() { ++UsedLQEntries; }
+  void acquireSQSlot() { ++UsedSQEntries; }
+  void releaseLQSlot() { --UsedLQEntries; }
+  void releaseSQSlot() { --UsedSQEntries; }
 
   bool assumeNoAlias() const { return NoAlias; }
 
@@ -285,7 +287,7 @@ public:
 
   unsigned createMemoryGroup() {
     Groups.insert(
-        std::make_pair(NextGroupID, llvm::make_unique<MemoryGroup>()));
+        std::make_pair(NextGroupID, std::make_unique<MemoryGroup>()));
     return NextGroupID++;
   }
 

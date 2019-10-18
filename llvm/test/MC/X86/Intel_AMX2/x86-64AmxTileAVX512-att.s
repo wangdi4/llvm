@@ -1,6 +1,43 @@
 // REQUIRES: intel_feature_isa_amx2
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding %s | FileCheck %s
 
-// CHECK:      tilemov2zmm     $128, %tmm1, %zmm2
-// CHECK: encoding: [0x62,0xf3,0x7d,0x48,0x07,0xd1,0x80]
-               tilemov2zmm     $128, %tmm1, %zmm2
+// CHECK:      tilemovrowe %xmm24, %tmm14, %zmm22
+// CHECK: encoding: [0x62,0xc2,0x3c,0x40,0x4a,0xf6]
+               tilemovrowe %xmm24, %tmm14, %zmm22
+
+// CHECK:      tilemovrowe %xmm24, %tmm30, %zmm22
+// CHECK: encoding: [0x62,0x82,0x3c,0x40,0x4a,0xf6]
+               tilemovrowe %xmm24, %tmm30, %zmm22
+
+// CHECK:      tilemovrowe %edx, %tmm14, %zmm22
+// CHECK: encoding: [0x62,0xc2,0x6d,0x48,0x4a,0xf6]
+               tilemovrowe %edx, %tmm14, %zmm22
+
+// CHECK:      tilemovrowe %edx, %tmm30, %zmm22
+// CHECK: encoding: [0x62,0x82,0x6d,0x48,0x4a,0xf6]
+               tilemovrowe %edx, %tmm30, %zmm22
+
+// CHECK:      tilemovrowe $123, %tmm14, %zmm22
+// CHECK: encoding: [0x62,0xc3,0x7d,0x48,0x07,0xf6,0x7b]
+               tilemovrowe $123, %tmm14, %zmm22
+
+// CHECK:      tilemovrowe $123, %tmm30, %zmm22
+// CHECK: encoding: [0x62,0x83,0x7d,0x48,0x07,0xf6,0x7b]
+               tilemovrowe $123, %tmm30, %zmm22
+
+// CHECK:      tile16move      %zmm23, %tmm6
+// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xf7]
+               tile16move      %zmm23, %tmm6
+
+// CHECK:      tile16move      %zmm23, %tmm3
+// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xdf]
+               tile16move      %zmm23, %tmm3
+
+// CHECK:      tile16move      %zmm23, %tmm22
+// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xf7]
+               tile16move      %zmm23, %tmm22
+
+// CHECK:      tile16move      %zmm23, %tmm19
+// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xdf]
+               tile16move      %zmm23, %tmm19
+

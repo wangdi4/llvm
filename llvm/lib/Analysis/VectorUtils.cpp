@@ -57,6 +57,7 @@ bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
   case Intrinsic::smul_fix:
   case Intrinsic::smul_fix_sat:
   case Intrinsic::umul_fix:
+  case Intrinsic::umul_fix_sat:
   case Intrinsic::sqrt: // Begin floating-point.
   case Intrinsic::sin:
   case Intrinsic::cos:
@@ -99,6 +100,7 @@ bool llvm::hasVectorInstrinsicScalarOpd(Intrinsic::ID ID,
   case Intrinsic::smul_fix:
   case Intrinsic::smul_fix_sat:
   case Intrinsic::umul_fix:
+  case Intrinsic::umul_fix_sat:
     return (ScalarOpdIdx == 2);
   default:
     return false;
@@ -916,6 +918,13 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                                      ShuffleMask, Name + OrigVal->getName());
 }
 
+Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+                               const Twine &Name) {
+  if (V->getType()->isVectorTy())
+    return replicateVectorElts(V, VF, Builder, Name);
+  return Builder.CreateVectorSplat(VF, V, V->getName() + Name);
+}
+
 #endif // INTEL_CUSTOMIZATION
 /// Add all access groups in @p AccGroups to @p List.
 template <typename ListT>
@@ -1094,6 +1103,31 @@ Constant *llvm::createStrideMask(IRBuilder<> &Builder, unsigned Start,
   return ConstantVector::get(Mask);
 }
 
+#if INTEL_CUSTOMIZATION
+Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+                                           unsigned NumVecs,
+                                           unsigned VecWidth) {
+  SmallVector<Constant *, 64> Mask;
+  for (unsigned i = 0; i < VF; i++)
+    for (unsigned j = 0; j < NumVecs; j++)
+      for (unsigned k = 0; k < VecWidth; k++)
+        Mask.push_back(Builder.getInt32((j * VF + i) * VecWidth + k));
+
+  return ConstantVector::get(Mask);
+}
+
+Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+                                       unsigned Stride, unsigned VF,
+                                       unsigned VecWidth) {
+  SmallVector<Constant *, 64> Mask;
+  for (unsigned i = 0; i < VF; i++)
+    for (unsigned j = 0; j < VecWidth; j++)
+      Mask.push_back(Builder.getInt32((Start + i * Stride) * VecWidth + j));
+
+  return ConstantVector::get(Mask);
+}
+#endif // INTEL_CUSTOMIZATION
+
 Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
                                      unsigned NumInts, unsigned NumUndefs) {
   SmallVector<Constant *, 16> Mask;
@@ -1243,7 +1277,7 @@ void InterleavedAccessInfo::collectConstStrideAccesses(
                                     /*Assume=*/true, /*ShouldCheckWrap=*/false);
 
       const SCEV *Scev = replaceSymbolicStrideSCEV(PSE, Strides, Ptr);
-      PointerType *PtrTy = dyn_cast<PointerType>(Ptr->getType());
+      PointerType *PtrTy = cast<PointerType>(Ptr->getType());
       uint64_t Size = DL.getTypeAllocSize(PtrTy->getElementType());
 
       // An alignment of 0 means target ABI alignment.

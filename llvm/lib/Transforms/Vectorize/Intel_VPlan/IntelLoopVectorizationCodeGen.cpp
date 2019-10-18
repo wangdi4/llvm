@@ -101,15 +101,6 @@ static Value *reduceVector(Value *Vec,
   return Builder.CreateExtractElement(Vec, Builder.getInt32(0));
 }
 
-/// Create splat vector from a short vector or from a scalar value -
-/// enabling broadcast functionality for vectors.
-static Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<>& Builder,
-                                const Twine &Name = "") {
-  if (V->getType()->isVectorTy())
-    return replicateVectorElts(V, VF, Builder, Name);
-  return Builder.CreateVectorSplat(VF, V, V->getName() + Name);
-}
-
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo& LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
@@ -481,9 +472,13 @@ void VPOCodeGen::createEmptyLoop() {
   // If (N - N%VF) == N, then we *don't* need to run the remainder.
   emitEndOfVectorLoop(Count, CountRoundDown);
 
-  // Resume from vector loop. If vector loop was executed, the remainder
-  // is Count - CountRoundDown. Otherwise the remainder is Count.
-  emitResume(CountRoundDown);
+  if (!EnableVPValueCodegen)
+    // Resume from vector loop. If vector loop was executed, the remainder
+    // is Count - CountRoundDown. Otherwise the remainder is Count. Emit
+    // final values for inductions using the old infrastracture.
+    // During VPValue-based code gen this is done by lowering VPEntities
+    // instructions.
+    emitResume(CountRoundDown);
 
   // Inform SCEV analysis to forget original loop
   PSE.getSE()->forgetLoop(OrigLoop);
@@ -491,8 +486,10 @@ void VPOCodeGen::createEmptyLoop() {
   // Save the state.
   LoopVectorPreHeader = Lp->getLoopPreheader();
 
-  // Initialize loop linears
-  initLinears(Induction, Lp);
+  if (!EnableVPValueCodegen)
+    // Initialize loop linears. During VPValue-based code gen this is
+    // done by lowering VPEntities instructions.
+    initLinears(Induction, Lp);
 
   // Get ready to start creating new instructions into the vector preheader.
   Builder.SetInsertPoint(&*LoopVectorPreHeader->getFirstInsertionPt());
@@ -500,20 +497,22 @@ void VPOCodeGen::createEmptyLoop() {
 
 void VPOCodeGen::finalizeLoop() {
 
-  // Should come before fixCrossIterationPHIs().
-  completeInMemoryReductions();
-
-  fixCrossIterationPHIs();
+  if (!EnableVPValueCodegen) {
+    // Should come before fixCrossIterationPHIs().
+    completeInMemoryReductions();
+    fixCrossIterationPHIs();
+  } else
+    fixOutgoingValues();
 
   fixNonInductionPhis();
 
   updateAnalysis();
-
-  // Fix-up external users of the induction variables.
-  for (auto &Entry : *Legal->getInductionVars())
-    fixupIVUsers(Entry.first, Entry.second,
-                 getOrCreateVectorTripCount(LI->getLoopFor(LoopVectorBody)),
-                 IVEndValues[Entry.first], LoopMiddleBlock);
+  if (!EnableVPValueCodegen)
+    // Fix-up external users of the induction variables.
+    for (auto &Entry : *Legal->getInductionVars())
+      fixupIVUsers(Entry.first, Entry.second,
+                   getOrCreateVectorTripCount(LI->getLoopFor(LoopVectorBody)),
+                   IVEndValues[Entry.first], LoopMiddleBlock);
 
   fixLCSSAPHIs();
 
@@ -561,7 +560,6 @@ void VPOCodeGen::fixCrossIterationPHIs() {
         fixReductionLCSSA(LoopExitInst, ReductionEofLoopVal[Ptr]);
       }
     }
-
   }
 }
 
@@ -747,7 +745,7 @@ void VPOCodeGen::createSerialPrivateArrayBase(Value *ArrPriv) {
     AllocaInst *SPrivArr = Builder.CreateAlloca(
         PointeeTy, nullptr, ArrPrivInst->getName() + ".vec");
     // Alignment of the alloca should match the original alignment.
-    SPrivArr->setAlignment(getPrivateVarAlignment(ArrPriv));
+    SPrivArr->setAlignment(MaybeAlign(getPrivateVarAlignment(ArrPriv)));
     ScalarMap[ArrPriv][I] = SPrivArr;
   }
   Builder.restoreIP(OldIP);
@@ -826,7 +824,7 @@ Value *VPOCodeGen::getVectorPrivateAggregateBase(Value *AggrPriv) {
   AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
       VecTyForAlloca, nullptr, AggrPriv->getName() + ".vec");
   // Alignment of the alloca should match the original alignment.
-  WidenedPrivArr->setAlignment(getPrivateVarAlignment(AggrPriv));
+  WidenedPrivArr->setAlignment(MaybeAlign(getPrivateVarAlignment(AggrPriv)));
 
   // Save alloca's result
   LoopPrivateWidenMap[AggrPriv] = WidenedPrivArr;
@@ -884,7 +882,7 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
       Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec"));
 
   // Alignment of vector alloca should match the original alignment
-  PtrToVec->setAlignment(getPrivateVarAlignment(V));
+  PtrToVec->setAlignment(MaybeAlign(getPrivateVarAlignment(V)));
 
   // Save alloca's result
   LoopPrivateWidenMap[V] = PtrToVec;
@@ -1037,8 +1035,15 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
   if (V->getType()->isVectorTy()) {
     assert(V->getType()->getVectorElementType()->isSingleValueType() &&
            "Re-vectorization is supported for simple vectors only");
+    // Widen the uniform vector variable as following
+    //                        <i32 0, i32 1>
+    //                             |
+    //                             |VF = 4
+    //                             |
+    //                             V
+    //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
     WidenMap[V] =
-        replicateVectorElts(V, VF, Builder, "replicatedVal." + V->getName());
+        replicateVector(V, VF, Builder, "replicatedVal." + V->getName());
   } else
     WidenMap[V] = getBroadcastInstrs(V);
 
@@ -1060,8 +1065,6 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
       else
         Builder.SetInsertPoint(VecInst->getNextNode());
     }
-
-    // TODO - add ScalarMap for VPValue.
     return Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
   }
 }
@@ -1100,13 +1103,15 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   if (Legal->isInductionVariable(V))
     return buildScalarIVForLane(cast<PHINode>(V), Lane);
 
+  // Get the scalar value by extracting from the vector instruction based on the
+  // requested lane.
+  Value *VecV = getVectorValue(V);
+
   // This code assumes that the widened vector, that we are extracting from has
   // data in AOS layout. If OriginalVL = 2, VF = 4 the widened value would be
   // Wide.Val = <v1_0, v2_0, v1_1, v2_1, v1_2, v2_2, v1_3, v2_3>.
   // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
-
-  if (V->getType()->isVectorTy() && WidenMap.count(V)) {
-    Value *WidenedVar = WidenMap[V];
+  if (V->getType()->isVectorTy()) {
     unsigned OrigNumElts = V->getType()->getVectorNumElements();
     SmallVector<unsigned, 8> ShufMask;
     for (unsigned StartIdx = Lane * OrigNumElts,
@@ -1115,7 +1120,7 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
       ShufMask.push_back(StartIdx);
 
     Value *Shuff = Builder.CreateShuffleVector(
-        WidenedVar, UndefValue::get(WidenedVar->getType()), ShufMask,
+        VecV, UndefValue::get(VecV->getType()), ShufMask,
         "extractsubvec.");
 
     ScalarMap[V][Lane] = Shuff;
@@ -1123,7 +1128,6 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
     return Shuff;
   }
 
-  Value *VecV = getVectorValue(V);
   IRBuilder<>::InsertPointGuard Guard(Builder);
   if (auto VecInst = dyn_cast<Instruction>(VecV)) {
     if (isa<PHINode>(VecInst))
@@ -1491,7 +1495,17 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
     VCond = getScalarValue(Cond, 0);
   else if (Inst->getType()->isVectorTy()) {
     unsigned OriginalVL = Inst->getType()->getVectorNumElements();
-    VCond = replicateVector(VCond, OriginalVL, Builder);
+
+    // Widen the cond variable as following
+    //                        <0, 1, 0, 1>
+    //                             |
+    //                             | VF = 4,
+    //                             | OriginalVL = 2
+    //                             |
+    //                             V
+    //                  <0, 0, 1, 1, 0, 0, 1, 1>
+
+    VCond = replicateVectorElts(VCond, OriginalVL, Builder);
   }
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
 
@@ -1828,12 +1842,10 @@ void VPOCodeGen::serializeInstruction(Instruction *Instr, bool HasLoopPrivateOpe
 
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
-  unsigned Lanes =
-      (!HasLoopPrivateOperand && OrigLoop->hasLoopInvariantOperands(Instr)) ||
-              isUniformAfterVectorization(Instr, VF)
-          ? 1
-          : VF;
-
+  unsigned Lanes = !HasLoopPrivateOperand && !Instr->mayHaveSideEffects() &&
+                           isUniformAfterVectorization(Instr, VF)
+                       ? 1
+                       : VF;
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
 
@@ -2116,21 +2128,26 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV, VPPHINode *VPIV) {
 void VPOCodeGen::fixNonInductionPhis() {
   // Fix up the PHIs in the PhisToFix map. We use the VPPHI operands to setup
   // the operands of the PHI.
-  for (auto PhiToFix : PhisToFix) {
-    auto *VPPhi = PhiToFix.first;
-    auto *Phi = PhiToFix.second;
-    auto *UnderlyingPhi = VPPhi->getInstruction();
-    const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
-    bool IsUniform = isUniformAfterVectorization(UnderlyingPhi, VF);
-
-    for (unsigned I = 0; I < NumPhiValues; ++I) {
-      auto *VPValue = VPPhi->getIncomingValue(I);
-      auto *VPBB = VPPhi->getIncomingBlock(I);
-      Value *IncValue =
-          IsUniform ? getScalarValue(VPValue, 0) : getVectorValue(VPValue);
-      Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
-    }
+  if (EnableVPValueCodegen) {
+    fixNonInductionVPPhis();
+    return;
   }
+  else
+    for (auto PhiToFix : PhisToFix) {
+      auto *VPPhi = PhiToFix.first;
+      auto *Phi = PhiToFix.second;
+      auto *UnderlyingPhi = VPPhi->getInstruction();
+      const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+      bool IsUniform = isUniformAfterVectorization(UnderlyingPhi, VF);
+
+      for (unsigned I = 0; I < NumPhiValues; ++I) {
+        auto *VPValue = VPPhi->getIncomingValue(I);
+        auto *VPBB = VPPhi->getIncomingBlock(I);
+        Value *IncValue =
+            IsUniform ? getScalarValue(VPValue, 0) : getVectorValue(VPValue);
+        Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
+      }
+    }
 }
 
 void VPOCodeGen::setEdgeMask(BasicBlock *From, BasicBlock *To, Value *Mask) {
@@ -2144,6 +2161,23 @@ Value *VPOCodeGen::getEdgeMask(BasicBlock *From, BasicBlock *To) {
   return nullptr;
 }
 
+static bool isOrUsesVPInduction(VPInstruction *VPI) {
+  auto IsVPInductionRelated = [](const VPValue *V) {
+    return isa<VPInductionInit>(V) || isa<VPInductionInitStep>(V);
+  };
+
+  // Really, need to recurse, but that is not required at the moment.
+  // This is a temporary fix, will be removed after scalar/vector analysis
+  // implemented.
+  return IsVPInductionRelated(VPI) ||
+         llvm::any_of(VPI->operands(), IsVPInductionRelated);
+}
+
+// TODO: replace with a query to a real analysis.
+bool VPOCodeGen::needScalarCode(VPInstruction *V) {
+  return isOrUsesVPInduction(V);
+}
+
 void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
   PHINode *UnderlyingPhi = cast_or_null<PHINode>(VPPhi->getInstruction());
 
@@ -2152,19 +2186,33 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
   if (VPPhi->getBlend() == false) {
     auto PhiTy = VPPhi->getType();
     PHINode *NewPhi;
-    if (isUniformAfterVectorization(UnderlyingPhi, VF)) {
-      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
-      ScalarMap[UnderlyingPhi][0] = NewPhi;
+    if (!EnableVPValueCodegen) {
+      if (isUniformAfterVectorization(UnderlyingPhi, VF)) {
+        NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+        ScalarMap[UnderlyingPhi][0] = NewPhi;
+      } else {
+        PhiTy = getWidenedType(PhiTy, VF);
+        NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+        WidenMap[UnderlyingPhi] = NewPhi;
+        VPWidenMap[VPPhi] = NewPhi;
+      }
+      // Set incoming values later, they may not be ready yet in case of
+      // back-edges.
+      PhisToFix[VPPhi] = NewPhi;
     } else {
-      PhiTy = VectorType::get(PhiTy, VF);
-      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
-      WidenMap[UnderlyingPhi] = NewPhi;
-      VPWidenMap[VPPhi] = NewPhi;
+      // TODO: move this code to IntelVPOCodeGen.cpp.
+      if (needScalarCode(VPPhi)) {
+        NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+        VPScalarMap[VPPhi][0] = NewPhi;
+        ScalarPhisToFix[VPPhi] = NewPhi;
+      }
+      if (needVectorCode(VPPhi)) {
+        PhiTy = getWidenedType(PhiTy, VF);
+        NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+        VPWidenMap[VPPhi] = NewPhi;
+        PhisToFix[VPPhi] = NewPhi;
+      }
     }
-
-    // Set incoming values later, they may not be ready yet in case of
-    // back-edges.
-    PhisToFix[VPPhi] = NewPhi;
     return;
   }
 
@@ -2219,6 +2267,10 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
     }
 
     Value *Cond = getVectorValue(Block->getPredicate());
+    if (VPPhi->getType()->isVectorTy()) {
+      unsigned OriginalVL = VPPhi->getType()->getVectorNumElements();
+      Cond = replicateVectorElts(Cond, OriginalVL, Builder);
+    }
     BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predphi");
   }
 
@@ -2228,29 +2280,21 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
 
 void VPOCodeGen::vectorizePHIInstruction(VPPHINode *VPPhi) {
 
+  if (EnableVPValueCodegen)
+    return vectorizeVPPHINode(VPPhi);
+
   PHINode *P = cast_or_null<PHINode>(VPPhi->getInstruction());
 
-  // We are assuming for now that any VPPHIs added without an underlying
-  // PHI is not an induction.
-  if (!P) {
-    return widenNonInductionPhi(VPPhi);
-  }
-
   // Handle recurrences.
-  if (Legal->isReductionVariable(P)) {
-    Type *VecTy = VectorType::get(P->getType(), VF);
-    PHINode *VecPhi = PHINode::Create(
-      VecTy, 2, "vec.phi", &*LoopVectorBody->getFirstInsertionPt());
-    WidenMap[P] = VecPhi;
-    VPWidenMap[VPPhi] = VecPhi;
-    return;
-  }
+  if (P && Legal->isReductionVariable(P))
+    return vectorizeReductionPHI(VPPhi, P);
 
-  if (!Legal->getInductionVars()->count(P)) {
+  if (!VPPhi->isUnderlyingIRValid() || !Legal->getInductionVars()->count(P))
+    // We are assuming for now that any VPPHIs added without an underlying
+    // PHI is not an induction.
     // The Phi node is not induction. It combines 2 basic blocks ruled out
     // by uniform branch.
     return widenNonInductionPhi(VPPhi);
-  }
 
   InductionDescriptor II = Legal->getInductionVars()->lookup(P);
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
@@ -2353,7 +2397,7 @@ VPOCodeGen::matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked)
   }
 
   if (VariantIdx >= 0)
-    return llvm::make_unique<VectorVariant>(Variants[VariantIdx]);
+    return std::make_unique<VectorVariant>(Variants[VariantIdx]);
 
   return nullptr;
 }
@@ -2855,7 +2899,15 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
         // Check for GEPs producing unit-stride pointers.
         VPVectorShape *VPPtrShape = DA->getVectorShape(VPInst);
-        if (VPPtrShape->isUnitStridePtr()) {
+        if (all_of(VPInst->users(),
+                   [](const VPUser *U) -> bool {
+                     if (auto *UserInst = dyn_cast<VPInstruction>(U))
+                       if (!UserInst->isUnderlyingIRValid())
+                         return false;
+
+                     return true;
+                   }) &&
+            VPPtrShape->isUnitStridePtr()) {
           int StrideInBytes = VPPtrShape->getStrideVal();
           Legal->addPtrStride(Inst, StrideInBytes > 0 ? 1 : -1);
         }
@@ -2981,8 +3033,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case Instruction::Or: {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Value *B = getVectorValue(VPInst->getOperand(1));
-    Value *V =
-        Builder.CreateBinOp((Instruction::BinaryOps)VPInst->getOpcode(), A, B);
+    Value *V = Builder.CreateBinOp(
+        (Instruction::BinaryOps)(VPInst->getOpcode()), A, B);
     VPWidenMap[VPInst] = V;
     return;
   }
@@ -3000,9 +3052,13 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
   case Instruction::Select: {
     Value *M = getVectorValue(VPInst->getOperand(0));
+    if (VPInst->getType()->isVectorTy()) {
+      unsigned OriginalVL = VPInst->getType()->getVectorNumElements();
+      M = replicateVectorElts(M, OriginalVL, Builder);
+    }
     Value *A = getVectorValue(VPInst->getOperand(1));
     Value *B = getVectorValue(VPInst->getOperand(2));
-    Value *V = Builder.CreateSelect(M, A, B);
+    Value *V = Builder.CreateSelect(M, A, B, "wide.select.");
     VPWidenMap[VPInst] = V;
     return;
   }
@@ -3441,18 +3497,11 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Collect instructions inside the loop that will remain uniform after
   // vectorization.
 
-  // Global values, params and instructions outside of current loop are out of
-  // scope.
-  auto isOutOfScope = [&](Value *V) -> bool {
-    Instruction *I = dyn_cast<Instruction>(V);
-    return (!I || !OrigLoop->contains(I));
-  };
-
   SetVector<Instruction *> Worklist;
 
   // Start from Uniforms that alerady collected for any VF.
   //for (Instruction *I : Legal->uniforms())
-    Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
+  Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
 
   // Holds consecutive and consecutive-like pointers. Consecutive-like pointers
   // are pointers that are treated like consecutive pointers during
@@ -3463,6 +3512,12 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Holds pointer operands of instructions that are possibly non-uniform.
   SmallPtrSet<Instruction *, 8> PossibleNonUniformPtrs;
 
+  // Check if a value is loop invariant or has already been
+  // accounted as uniform.
+  auto isInWorklistOrOutOfScope = [&](Value *V) -> bool {
+    return OrigLoop->isLoopInvariant(V) || Worklist.count(cast<Instruction>(V));
+  };
+
   // Iterate over the instructions in the loop, and collect all
   // consecutive-like pointer operands in ConsecutiveLikePtrs. If it's possible
   // that a consecutive-like pointer operand will be scalarized, we collect it
@@ -3471,8 +3526,21 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // memory instructions. For example, if a loop loads and stores from the same
   // location, but the store is conditional, the store will be scalarized, and
   // the getelementptr won't remain uniform.
+  // We also collect call instructions that have a return value as they are
+  // (seems) the only instructions that may not be uniform even with uniform
+  // operands(or with no operands at all). Check whether a call instruction
+  // may have a side effect to determine that. That actually is a bit
+  // pessimistic approach since function determinism is only a subset of all
+  // possible side effects.
   for (auto *BB : OrigLoop->blocks())
     for (auto &I : *BB) {
+
+      if (I.getOpcode() == Instruction::Call &&
+          (I.getType()->isVoidTy() || !I.mayHaveSideEffects()) &&
+          all_of(I.operands(), isInWorklistOrOutOfScope)) {
+        Worklist.insert(&I);
+        LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << I << "\n");
+      }
 
       // If there's no pointer operand, there's nothing to do.
       auto *Ptr = dyn_cast_or_null<Instruction>(getLoadStorePointerOperand(&I));
@@ -3509,17 +3577,15 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
 
   // Expand Worklist in topological order: whenever a new instruction
   // is added , its users should be either already inside Worklist, or
-  // out of scope. It ensures a uniform instruction will only be used
-  // by uniform instructions or out of scope instructions.
+  // out of scope (loop invariant). It ensures a uniform instruction will only
+  // be used by uniform instructions or out of scope instructions.
   unsigned idx = 0;
   while (idx != Worklist.size()) {
     Instruction *I = Worklist[idx++];
 
     for (auto OV : I->operand_values()) {
       if (auto *OI = dyn_cast<Instruction>(OV)) {
-        if (all_of(OI->users(), [&](User *U) -> bool {
-              return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
-            })) {
+        if (all_of(OI->users(), isInWorklistOrOutOfScope)) {
           Worklist.insert(OI);
           LLVM_DEBUG(dbgs()
                      << "LV: Found uniform instruction: " << *OI << "\n");

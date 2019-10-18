@@ -773,7 +773,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   //VarargNodes.clear();
 
   if (UseIntelModRef) {
-      IMR.reset(new IntelModRef(this, TLI));
+      IMR.reset(new IntelModRef(this, GetTLI));
       IMR->runAnalysis(M);
   }
 
@@ -791,8 +791,8 @@ void AndersensAAResult::PrintNonEscapes() const {
 }
 
 AndersensAAResult::AndersensAAResult(const DataLayout &DL,
-         const TargetLibraryInfo &TLI, WholeProgramInfo *WPInfo)
-    : AAResultBase(), DL(DL), TLI(TLI) {
+         AndersGetTLITy GetTLI, WholeProgramInfo *WPInfo)
+    : AAResultBase(), DL(DL), GetTLI(GetTLI) {
   WholeProgramSafeDetected = (WPInfo && WPInfo->isWholeProgramSafe());
 }
 
@@ -804,7 +804,7 @@ AndersensAAResult::AndersensAAResult(const DataLayout &DL,
 // use to implement indirect-call conversion. 
 //
 AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
-    : AAResultBase(std::move(Arg)), DL(Arg.DL), TLI(Arg.TLI),
+    : AAResultBase(std::move(Arg)), DL(Arg.DL), GetTLI(Arg.GetTLI),
       IndirectCallList(std::move(Arg.IndirectCallList)),
       DirectCallList(std::move(Arg.DirectCallList)),
       GraphNodes(std::move(Arg.GraphNodes)),
@@ -821,9 +821,9 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
 }
 
 /*static*/ AndersensAAResult
-AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
+AndersensAAResult::analyzeModule(Module &M, AndersGetTLITy GetTLI,
                                  CallGraph &CG, WholeProgramInfo *WPInfo) {
-  AndersensAAResult Result(M.getDataLayout(), TLI, WPInfo);
+  AndersensAAResult Result(M.getDataLayout(), GetTLI, WPInfo);
 
   // Run Andersens'ss points-to analysis.
   Result.RunAndersensAnalysis(M);
@@ -834,8 +834,12 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 AnalysisKey AndersensAA::Key;
 
 AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
-  return AndersensAAResult::analyzeModule(
-      M, AM.getResult<TargetLibraryAnalysis>(M),
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+  return AndersensAAResult::analyzeModule(M, GetTLI,
       AM.getResult<CallGraphAnalysis>(M),
       AM.getCachedResult<WholeProgramAnalysis>(M));
 }
@@ -873,9 +877,11 @@ AndersensAAWrapperPass::AndersensAAWrapperPass() : ModulePass(ID) {
 
 bool AndersensAAWrapperPass::runOnModule(Module &M) {
   auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
   Result.reset(new AndersensAAResult(AndersensAAResult::analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-      getAnalysis<CallGraphWrapperPass>().getCallGraph(),
+      M, GetTLI, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
       WPA ? &WPA->getResult() : nullptr)));
   return false;
 }
@@ -4235,12 +4241,14 @@ private:
     // Helper to the getModRefInfo function to handle the case where the call is
     // to a LibFunc.
     ModRefInfo getLibFuncModRefInfo(LibFunc TheLibFunc, const CallBase *Call,
-                                    const MemoryLocation &Loc);
+                                    const MemoryLocation &Loc,
+                                    const TargetLibraryInfo &TLI);
 
     // Get the LibFunc ModRef model for a specific LibFunc. Returns LFMR_UNKNOWN
     // if there is no information available for the library function, or the
     // function can modify/reference any memory location.
-    unsigned getLibfuncModRefModel(LibFunc &TheLibFunc) const;
+    unsigned getLibfuncModRefModel(LibFunc &TheLibFunc,
+                                   const TargetLibraryInfo &TLI) const;
 
     // For Library functions marked with LFMR_FMT_CHECK attribute, get the
     // argument position of the formatting string
@@ -4596,8 +4604,8 @@ public:
   // the specific methods for points-to only available from Andersens.
   // Also save the pointer as the base class for invoking the base class
   // methods.
-  IntelModRefImpl(AndersensAAResult *Ander, const TargetLibraryInfo &TLI)
-      : Ander(Ander), TLI(TLI) {}
+  IntelModRefImpl(AndersensAAResult *Ander, AndersGetTLITy GetTLI)
+      : Ander(Ander), GetTLI(GetTLI) {}
 
   // Destructor. No memory is allocated with 'new', so nothing to delete.
   ~IntelModRefImpl(){};
@@ -4623,7 +4631,7 @@ private:
   AndersensAAResult *Ander;
 
   // Handle for getting information about library function calls.
-  const TargetLibraryInfo &TLI;
+  AndersGetTLITy GetTLI;
 
   // Pointer for DataLayout for GetUnderlyingObject calls
   const DataLayout *DL;
@@ -5323,7 +5331,8 @@ void IntelModRefImpl::print(raw_ostream &O, bool Summary) const {
 
 // This function stores and retrieves the information about how individual
 // library functions are modeled for the purpose of ModRef information.
-unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc) const {
+unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc,
+                                        const TargetLibraryInfo &TLI) const {
   static unsigned *LibFuncModRefAttributes = nullptr;
   if (!LibFuncModRefAttributes) {
     // Build the model to be accessed by the LibFunc enumeration value upon the
@@ -5469,6 +5478,7 @@ unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc) const {
     unsigned Len = sizeof(LibFuncModelAttrs) / sizeof(LibFuncDetails);
     for (unsigned Idx = 0; Idx != Len; ++Idx) {
       LibFunc FuncId = LibFuncModelAttrs[Idx].LibFuncId;
+      assert(FuncId < NumLibFuncs && "Unexpected FuncId");
       assert(LibFuncModRefAttributes[FuncId] == LFMR_UNKNOWN &&
              "Duplicate table entry");
       assert(!((LibFuncModelAttrs[Idx].Mask & LFMR_NONE) &&
@@ -5560,10 +5570,11 @@ unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
 
 ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
                                                  const CallBase *Call,
-                                                 const MemoryLocation &Loc) {
+                                                 const MemoryLocation &Loc,
+                                                 const TargetLibraryInfo &TLI) {
   Function *F = Call->getCalledFunction();
   assert(F && "getLibFuncModRefInfo used without direct function call");
-  unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc);
+  unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc, TLI);
   DEBUG_WITH_TYPE("imr-query", {
     dbgs() << "irm-query: LibFunc: " << F->getName();
     bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
@@ -5686,8 +5697,9 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
   }
 
   LibFunc TheLibFunc;
+  auto &TLI = GetTLI(*(const_cast<CallBase*>(Call)->getFunction()));
   if (F->isDeclaration() && TLI.getLibFunc(*F, TheLibFunc))
-    return getLibFuncModRefInfo(TheLibFunc, Call, Loc);
+    return getLibFuncModRefInfo(TheLibFunc, Call, Loc, TLI);
 
   const FunctionRecord *FR = getFunctionInfo(F);
   if (!FR) {
@@ -5759,8 +5771,8 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
 
 // Constructor of actual implementation object
 AndersensAAResult::IntelModRef::IntelModRef(AndersensAAResult *AnderAA,
-                                            const TargetLibraryInfo &TLI) {
-  Impl = new IntelModRefImpl(AnderAA, TLI);
+                                            AndersGetTLITy GetTLI) {
+  Impl = new IntelModRefImpl(AnderAA, GetTLI);
 }
 
 // Destructor of actual implementation object

@@ -143,7 +143,6 @@ private:
   HIRFramework *HIRF;
   HIRLoopStatistics *HIRLoopStats;
   HIRDDAnalysis *DDA;
-  // HIRVectVLSAnalysis *VLS;
   LoopOptReportBuilder LORBuilder;
   bool processLoop(HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
   bool isSupported(HLLoop *Lp);

@@ -127,6 +127,17 @@ public:
     return make_range(fields_begin(), fields_end());
   }
 
+  // Returns number of potential array fields.
+  unsigned getNumPotentialArrays() const {
+    return PotentialArrayFieldOffsets.size();
+  }
+  // Iterator for PotentialArrayFieldOffsets.
+  typedef OffsetsTy::const_iterator p_f_const_iterator;
+  inline iterator_range<p_f_const_iterator> potential_arr_fields() {
+    return make_range(PotentialArrayFieldOffsets.begin(),
+                      PotentialArrayFieldOffsets.end());
+  }
+
 protected:
   // Helper class for elements* methods.
   template <typename IterTy>
@@ -182,6 +193,12 @@ protected:
   // Offsets in Struct's elements() to represent pointers to candidate
   // _arrays_. _Arrays_ are represented as some classes.
   OffsetsTy ArrayFieldOffsets;
+
+  // Offsets of Struct's elements that are not selected by SOAToAOS
+  // transformation as candidates due to layout issues but they are
+  // potential candidates for the transformation.
+  OffsetsTy PotentialArrayFieldOffsets;
+
   // Offset inside _arrays_' elements(), which represent base pointers to
   // allocated memory.
   unsigned BasePointerOffset = -1U;
@@ -423,6 +440,8 @@ bool SOAToAOSLayoutInfo::populateLayoutInformation(Type *Ty) {
           // Ignore classes with non-trivial base classes and/or vtable.
           if (!HasVT && S == Pointee)
             ArrayFieldOffsets.push_back(Offset);
+          else
+            PotentialArrayFieldOffsets.push_back(Offset);
           continue;
         }
       }

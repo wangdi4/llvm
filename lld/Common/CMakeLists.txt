@@ -58,3 +58,10 @@ add_lld_library(lldCommon
   DEPENDS
   ${tablegen_deps}
   )
+
+# INTEL_CUSTOMIZATION
+# Export LLD header files for OpenCL CPU RT in-tree Windows build.
+target_include_directories(lldCommon PUBLIC
+  ${LLD_SOURCE_DIR}/include ${LLD_BINARY_DIR}/include
+  )
+# end INTEL_CUSTOMIZATION

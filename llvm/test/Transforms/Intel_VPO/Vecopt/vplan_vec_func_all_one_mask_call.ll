@@ -1,4 +1,5 @@
 ; RUN: opt -VPlanDriver -use-i1-mask-for-simd-funcs -S < %s | FileCheck %s
+; RUN: opt -VPlanDriver -use-i1-mask-for-simd-funcs -enable-vp-value-codegen -S < %s | FileCheck %s
 ; Check that we can vectorize vector functions with masked variants only in
 ; uniform CFG.
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

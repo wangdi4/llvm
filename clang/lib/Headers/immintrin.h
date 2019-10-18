@@ -591,63 +591,51 @@ _storebe_i64(void * __P, long long __D) {
 /* INTEL_CUSTOMIZATION */
 
 /* INTEL_FEATURE_ISA_ULI */
-/*
- * TODO: when ULI is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules)
- */
-#if defined(__ULI__)
+#if defined(__ULI_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__ULI__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <uliintrin.h>
 #endif
-
+#endif
 /* end INTEL_FEATURE_ISA_ULI */
+
 /* INTEL_FEATURE_ISA_SERIALIZE */
-/*
- * TODO: when SERIALIZE is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules)
- */
-#if defined(__SERIALIZE__)
+#if defined(__SERIALIZE_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SERIALIZE__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <serializeintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_SERIALIZE */
 
 /* INTEL_FEATURE_ISA_TSXLDTRK */
-/*
- * TODO: when TSXLDTRK is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules)
- */
-#if defined(__TSXLDTRK__)
+#if defined(__TSXLDTRK_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__TSXLDTRK__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <tsxldtrkintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_TSXLDTRK */
 
 /* INTEL_FEATURE_ISA_AMX */
-/*
- * TODO: when AMX is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules) || ...
- */
-#if defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#if defined(__AMXTILE_SUPPORTED__) || defined(__AMXINT8_SUPPORTED__) || defined(__AMXBF16_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX */
 
 /* INTEL_FEATURE_ISA_AMX2 */
-/*
- * TODO: when AMX2 is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules) || ...
- */
-#if defined(__AMX2TILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#if defined(__AMX2TILE_SUPPORTED__) || defined(__AMXINT8_SUPPORTED__) || defined(__AMXBF16_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX2TILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
 // TODO: when AMX2 clang part is finished, fix here.
 #include <Intel_amx2intrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX2 */
 
 /* INTEL_FEATURE_ISA_KEYLOCKER */
-/*
- * TODO: when KeyLocker is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules) || ...
- */
-#if defined(__KEYLOCKER__)
+#if defined(__KEYLOCKER_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__KEYLOCKER__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <keylockerintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_KEYLOCKER */
 /* end INTEL_CUSTOMIZATION */

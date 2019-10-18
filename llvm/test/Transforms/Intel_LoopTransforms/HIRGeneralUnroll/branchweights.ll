@@ -1,5 +1,5 @@
-;RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -S %s | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -S %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -hir-general-unroll-disable-replace-by-first-iteration -S %s | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -hir-general-unroll-disable-replace-by-first-iteration -S %s | FileCheck %s
 
 ; Make sure HIR loopopt generall unroll preserves input profile-related metadata (i.e. "branch_weights")
 ; Original branch_weight 10(true weight), 1(false weight) changes into 5, 1 after unroll by two.

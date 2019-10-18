@@ -249,14 +249,14 @@ public:
 
   bool isLegalMaskedLoad(Type *DataType) { return false; }
 
-  bool isLegalNTStore(Type *DataType, unsigned Alignment) {
+  bool isLegalNTStore(Type *DataType, Align Alignment) {
     // By default, assume nontemporal memory stores are available for stores
     // that are aligned and have a size that is a power of 2.
     unsigned DataSize = DL.getTypeStoreSize(DataType);
     return Alignment >= DataSize && isPowerOf2_32(DataSize);
   }
 
-  bool isLegalNTLoad(Type *DataType, unsigned Alignment) {
+  bool isLegalNTLoad(Type *DataType, Align Alignment) {
     // By default, assume nontemporal memory loads are available for loads that
     // are aligned and have a size that is a power of 2.
     unsigned DataSize = DL.getTypeStoreSize(DataType);
@@ -295,10 +295,6 @@ public:
   bool useAA() { return false; }
 
   bool isTypeLegal(Type *Ty) { return false; }
-
-  unsigned getJumpBufAlignment() { return 0; }
-
-  unsigned getJumpBufSize() { return 0; }
 
   bool shouldBuildLookupTables() { return true; }
   bool shouldBuildLookupTablesForConstant(Constant *C) { return true; }
@@ -856,6 +852,9 @@ public:
   unsigned getUserCost(const User *U, ArrayRef<const Value *> Operands) {
     if (isa<PHINode>(U))
       return TTI::TCC_Free; // Model all PHI nodes as free.
+
+    if (isa<ExtractValueInst>(U))
+      return TTI::TCC_Free; // Model all ExtractValue nodes as free.
 
     // Static alloca doesn't generate target instructions.
     if (auto *A = dyn_cast<AllocaInst>(U))

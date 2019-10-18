@@ -325,7 +325,7 @@ static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
 bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
 #if INTEL_CUSTOMIZATION
   // If we need structured CFGs, disable jump threading, since it generally
   // tends to destructure them.
@@ -2680,11 +2680,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
        {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
        {DominatorTree::Delete, PredBB, RegionTop}});
   DTU->applyUpdatesPermissive(DTUpdates);
-
-  // Apply all updates we queued with DTU and get the updated Dominator Tree.
-  DominatorTree *DT = &DTU->getDomTree();
-  (void)DT;
-
 
   // If there were values defined in the region that are used outside the
   // region, then we now have to update all uses of the value to use either the

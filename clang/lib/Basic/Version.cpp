@@ -109,7 +109,7 @@ std::string getClangToolFullVersion(StringRef ToolName) {
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #if INTEL_CUSTOMIZATION
-  OS << "DPC++ Compiler " << getDPCPPVersionString() << " (" <<
+  OS << "Intel(R) oneAPI DPC++ Compiler " << getDPCPPVersionString() << " (" <<
       getICXVersionString() << ")";
 #endif // INTEL_CUSTOMIZATION
   return OS.str();

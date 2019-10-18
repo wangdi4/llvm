@@ -112,8 +112,7 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
     // always 'this' pointer and the second argument is 'size' argument.
     // Indirect call means that devirtualization on this call site didn't
     // happen.
-    if (Call->arg_size() == 2 ||
-        !dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts())) {
+    if (Call->arg_size() == 2 || !dtrans::getCalledFunction(*Call)) {
       // Allow user-defined malloc with 'this' ptr argument.
       Type *ZeroArgType = Call->getArgOperand(0)->getType();
       Type *FirstArgType = Call->getArgOperand(1)->getType();
@@ -182,7 +181,7 @@ void dtrans::getFreePtrArg(FreeKind Kind, const CallBase *Call,
                            unsigned &PtrArgInd, const TargetLibraryInfo &TLI) {
   assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
 
-  if (!dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts())) {
+  if (!dtrans::getCalledFunction(*Call)) {
     assert(Kind == FK_UserFree);
     PtrArgInd = 1;
     return;
@@ -210,6 +209,20 @@ void dtrans::collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
 
   if (PtrArgInd < Call->arg_size())
     OutputSet.insert(Call->getArgOperand(PtrArgInd));
+}
+
+Function *dtrans::getCalledFunction(const CallBase &Call) {
+  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
+  if (auto *CalledF = dyn_cast<Function>(CalledValue))
+    return CalledF;
+
+  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
+    if (!GA->isInterposable())
+      if (auto *AliasF =
+              dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
+        return AliasF;
+
+  return nullptr;
 }
 
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
@@ -664,8 +677,13 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
   if (!C)
     return false;
-
   return ConstantValues.insert(C).second;
+}
+
+bool dtrans::FieldInfo::processNewSingleIAValue(llvm::Constant *C) {
+  if (!C)
+    return false;
+  return ConstantIAValues.insert(C).second;
 }
 
 bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
@@ -970,7 +988,7 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 // Check that function only throws an exception.
 bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
-  auto *F = dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts());
+  auto *F = dtrans::getCalledFunction(*Call);
   if (!F)
     return false;
   if (F->size() != 1)
@@ -993,8 +1011,7 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
       // Skip debug intrinsics
       if (isa<DbgInfoIntrinsic>(&I))
         continue;
-      auto *Func =
-          dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts());
+      auto *Func = dtrans::getCalledFunction(*Call);
       if (!Func)
         return false;
 

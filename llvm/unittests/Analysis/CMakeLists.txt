@@ -31,6 +31,7 @@ add_llvm_unittest(AnalysisTests
   PhiValuesTest.cpp
   ProfileSummaryInfoTest.cpp
   ScalarEvolutionTest.cpp
+  VectorFunctionABITest.cpp
   SparsePropagation.cpp
   TargetLibraryInfoTest.cpp
   TBAATest.cpp

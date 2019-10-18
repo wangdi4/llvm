@@ -96,7 +96,7 @@ private:
   // Returns true if this edge contains dd edge with (<) at loop level
   // Such an edge would be eliminated by distributing the src sink piblocks
   // into separate loops
-  bool piEdgeIsRecurrence(const HLLoop *Lp, const PiGraphEdge &Edge) const;
+  bool piEdgeIsRecurrence(const HLLoop *Lp, const PiGraphEdge &PiEdge) const;
 
   // Loop may be discarded prior to any analysis by some heuristics.
   // For example, the costmodel may consider only innermost loops, no need
@@ -122,7 +122,7 @@ private:
   bool distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
                       LoopOptReportBuilder &LORBuilder);
 
-  bool distributeLoop(HLLoop *L,
+  void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
                       bool ForDirective, LoopOptReportBuilder &LORBuilder);
 
@@ -177,6 +177,8 @@ private:
   processPiBlocksToHLNodes(const std::unique_ptr<PiGraph> &PGraph,
                            ArrayRef<PiBlockList> GroupsOfPiBlocks,
                            SmallVectorImpl<HLDDNodeList> &DistributedLoops);
+
+  void invalidateLoop(HLLoop *Loop) const;
 };
 
 class HIRLoopDistributionLegacyPass : public HIRTransformPass {

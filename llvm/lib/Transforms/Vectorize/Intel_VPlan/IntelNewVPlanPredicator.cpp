@@ -16,7 +16,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelNewVPlanPredicator.h"
 #include "IntelVPlan.h"
-#include "llvm/Analysis/IteratedDominanceFrontier.h"
+#include "IntelVPlanIDF.h"
 #else
 #include "VPlanPredicator.h"
 #include "VPlan.h"
@@ -52,6 +52,14 @@ static cl::opt<bool> DotAfterLinearization(
 static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
     cl::desc("Preserve uniform branches during linearization."));
+
+namespace llvm {
+namespace vpo {
+cl::opt<bool> DisableLCFUMaskRegion(
+    "disable-vplan-cfu-mask-region", cl::init(true), cl::Hidden,
+    cl::desc("Disable construction of non-loop mask subregion in LoopCFU"));
+}
+} // namespace llvm
 
 // Generate a tree of ORs for all IncomingPredicates in  WorkList.
 // Note: This function destroys the original Worklist.
@@ -146,6 +154,8 @@ static void getPostDomFrontier(VPBlockBase *Block,
 }
 
 void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
+  LLVM_DEBUG(dbgs() << "Calculating predicate terms for "
+                    << CurrBlock->getName() << ":\n");
   VPRegionBlock *Region = CurrBlock->getParent();
   // Blocks that dominate region exit inherit the predicate from the region.
   if (VPDomTree.dominates(CurrBlock, Region->getExit())) {
@@ -155,6 +165,10 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
     Block2PredicateTermsAndUniformity[CurrBlock] = {
         {Term}, Block2PredicateTermsAndUniformity[Region].second};
     PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
+    LLVM_DEBUG(dbgs() << " Re-using region's predicate, {Block: "
+                      << Region->getName() << ", Uniformity: "
+                      << Block2PredicateTermsAndUniformity[Region].second
+                      << "}\n");
     return;
   }
 
@@ -170,6 +184,10 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
       Block2PredicateTermsAndUniformity[CurrBlock] = {
           {Term}, Block2PredicateTermsAndUniformity[PredBB].second};
       PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
+      LLVM_DEBUG(dbgs() << " Re-using previous block predicate, {Block: "
+                        << PredBB->getName() << ", Uniformity: "
+                        << Block2PredicateTermsAndUniformity[PredBB].second
+                        << "}\n");
       return;
     }
   }
@@ -206,6 +224,12 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   bool Uniform = true;
   for (auto *InfluenceBB : Frontier) {
     auto *Cond = InfluenceBB->getCondBit();
+    LLVM_DEBUG(dbgs() << "  Influencing term: {Block: "
+                      << InfluenceBB->getName() << ", Cond: ";
+               if (Cond) Cond->printAsOperand(dbgs()); else dbgs() << "nullptr";
+               dbgs() << ", uniformity: "
+                      << Block2PredicateTermsAndUniformity[InfluenceBB].second
+                      << "}\n");
     Uniform &= Block2PredicateTermsAndUniformity[InfluenceBB].second;
     Uniform &= !Plan.getVPlanDA()->isDivergent(*Cond);
     assert((Cond || CurrBlock == InfluenceBB->getSuccessors()[0]) &&
@@ -319,14 +343,16 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     // Add successors to worklist now, so that the code can do early-continue
     // without duplicating this insertion code.
     for (auto *Succ : BB->getSuccessors()) {
-      if (Visited.insert(std::make_pair(Succ, BB)).second)
+      // Don't try to go outside the sub-graph contained in LiveInBlocks - we
+      // don't know where to insert phis outside it (and we don't need to).
+      if (LiveInBlocks.count(Succ) &&
+          Visited.insert(std::make_pair(Succ, BB)).second)
         Worklist.emplace_back(Succ, BB);
     }
 
     auto *LiveIn = LiveValueMap[PredBB];
     if (!is_contained(IDFPHIBlocks, BB)) {
       LiveValueMap[BB] = LiveIn;
-      PredBB = BB;
       continue;
     }
     assert(BB != Block &&
@@ -356,7 +382,6 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     // TODO: Should it be an assert instead?
     if (DA->isDivergent(*LiveIn))
       DA->markDivergent(*Phi);
-    PredBB = BB;
   }
 
   assert(LiveValueMap.count(AtBlock) == 1 && "Live for AtBlock not computed!");
@@ -364,14 +389,12 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
 }
 
 static void markPhisAsBlended(VPBlockBase *Block) {
-  for (auto &PhiRecipe : Block->getEntryBasicBlock()->getVPPhis()) {
-    auto *Phi = cast<VPPHINode>(&PhiRecipe);
-    Phi->setBlend(true);
-  }
+  for (VPPHINode &Phi : Block->getEntryBasicBlock()->getVPPhis())
+    Phi.setBlend(true);
 }
 
 bool VPlanPredicator::shouldPreserveUniformBranches() const {
-  if (Plan.isSSABroken())
+  if (Plan.isFullLinearizationForced())
     return false;
 
   return PreserveUniformCFG;
@@ -611,29 +634,29 @@ void VPlanPredicator::linearizeRegion(
     for (auto &It : EdgeToBlendBBs) {
       auto *IncomingBlock = It.first;
       IncomingBlock->getSuccessors().clear();
-      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("BlendBB"));
+      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"));
       BlendBB->setParent(CurrBlock->getParent());
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);
       CurrBlock->removePredecessor(IncomingBlock);
-      for (auto &PhiRecipe : VPPhisIteratorRange) {
-        auto *Phi = cast<VPPHINode>(&PhiRecipe);
-        auto BlendPhi = new VPPHINode(Phi->getType());
+      for (VPPHINode &Phi : VPPhisIteratorRange) {
+        auto BlendPhi = new VPPHINode(Phi.getType());
         BlendPhi->setBlend(true);
         BlendBB->addRecipe(BlendPhi);
-        int NumIncoming = Phi->getNumIncomingValues();
+        Plan.getVPlanDA()->markDivergent(*BlendPhi);
+        int NumIncoming = Phi.getNumIncomingValues();
         // Ugly loop to protect against iterator invalidation due to removal
         // of incoming values.
         for (int IdxIt = 0; IdxIt < NumIncoming; ++IdxIt) {
           int Idx = NumIncoming - 1 - IdxIt;
-          VPValue *PhiIncVal = Phi->getIncomingValue(Idx);
-          auto *PhiIncBB = cast<VPBasicBlock>(Phi->getIncomingBlock(Idx));
+          VPValue *PhiIncVal = Phi.getIncomingValue(Idx);
+          auto *PhiIncBB = cast<VPBasicBlock>(Phi.getIncomingBlock(Idx));
           if (!is_contained(It.second, PhiIncBB))
             continue;
-          Phi->removeIncomingValue(PhiIncBB);
+          Phi.removeIncomingValue(PhiIncBB);
           BlendPhi->addIncoming(PhiIncVal, PhiIncBB);
         }
-        Phi->addIncoming(BlendPhi, BlendBB);
+        Phi.addIncoming(BlendPhi, BlendBB);
       }
     }
   }
@@ -672,7 +695,7 @@ void VPlanPredicator::computeLiveInsForIDF(
 
     // Add predecessors of VPBB unless it is a latch coming through back edge.
     for (VPBlockBase *Pred : VPBB->getPredecessors()) {
-      if (VPBlockUtils::blockIsLoopLatch(Pred, VPLI))
+      if (VPBlockUtils::isBackEdge(Pred, VPBB, VPLI))
         continue;
 
       Worklist.push_back(Pred);
@@ -774,7 +797,7 @@ void VPlanPredicator::predicate(void) {
   VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
   assert(PH && "Unexpected null pre-header!");
   VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
-  const VPLoop *VPL = EntryLoopR->getVPLoop();
+  VPLoop *VPL = EntryLoopR->getVPLoop();
   SmallVector<VPBlockBase *, 4> Exits;
   VPL->getExitBlocks(Exits);
 
@@ -782,7 +805,7 @@ void VPlanPredicator::predicate(void) {
   if (VPlanLoopCFU) {
     LLVM_DEBUG(dbgs() << "Before inner loop control flow transformation\n");
     LLVM_DEBUG(Plan.dump());
-    handleInnerLoopBackedges(EntryLoopR);
+    handleInnerLoopBackedges(VPL);
     LLVM_DEBUG(dbgs() << "After inner loop control flow transformation\n");
     LLVM_DEBUG(Plan.dump());
 

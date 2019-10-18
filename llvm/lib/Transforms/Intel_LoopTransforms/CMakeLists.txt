@@ -36,6 +36,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRMVForConstUB.cpp
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
+        HIRAosToSoa.cpp
         Utils/HIRTransformUtils.cpp
         HIRLoopFusion.cpp
         HIRLoopFusionGraph.cpp
@@ -47,6 +48,9 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRIdentityMatrixIdiomRecognition.cpp
         HIRPrefetching.cpp
         HIRSinkingForPerfectLoopnest.cpp
+        HIRUndoSinkingForPerfectLoopnest.cpp
+        HIRConditionalTempSinking.cpp
+        HIRMemoryReductionSinking.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

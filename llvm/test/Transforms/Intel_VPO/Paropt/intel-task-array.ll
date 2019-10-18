@@ -9,10 +9,10 @@
 ; Caller side
 ; CHECK: [[BREG0:%.+]] = bitcast {{.*}} %B to i8*
 ; CHECK: [[BREG:%.+]] = bitcast {{.*}} %B to i8*
-; CHECK: call void @llvm.memcpy{{.*}}, {{.*}}[[BREG]]{{.*}} 4000000
+; CHECK: call void @llvm.memcpy{{.*}}align 16 {{.*}}, {{.*}}[[BREG]]{{.*}} 4000000
 
 ; CHECK: [[TASKT:%.+]] = bitcast {{.*}} %taskt.shared.agg
-; CHECK: call void @llvm.memcpy{{.*}}, {{.*}}[[TASKT]]{{.*}} 4000000
+; CHECK: call void @llvm.memcpy{{.*}}align 4 {{.*}}, {{.*}}[[TASKT]]{{.*}} 4000000
 
 ; Task side
 ; CHECK: define{{.*}}TASK

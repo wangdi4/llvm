@@ -40,6 +40,24 @@
 
 #include "omptargetplugin.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif  // __cplusplus
+
+// FIXME: we should actually include omp.h instead of declaring
+//        these ourselves.
+#if _WIN32
+int __cdecl omp_get_thread_limit(void);
+double __cdecl omp_get_wtime(void);
+#else   // !_WIN32
+int omp_get_thread_limit(void) __attribute__((weak));
+double omp_get_wtime(void) __attribute__((weak));
+#endif  // !_WIN32
+
+#ifdef __cplusplus
+}
+#endif  // __cplusplus
+
 #ifndef TARGET_NAME
 #define TARGET_NAME OPENCL
 #endif
@@ -293,8 +311,8 @@ class RTLDeviceInfoTy {
 
 public:
   cl_uint numDevices;
+  cl_platform_id platformID;
   // per device information
-  std::vector<cl_platform_id> platformIDs;
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxWorkGroups;
   std::vector<size_t> maxWorkGroupSize;
@@ -311,7 +329,10 @@ public:
   int64_t flag;
   int32_t DataTransferLatency;
   int32_t DataTransferMethod;
-  const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
+  cl_device_type DeviceType;
+
+  // Limit for the number of WIs in a WG.
+  int32_t OMPThreadLimit = -1;
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
 
   RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0),
@@ -322,12 +343,15 @@ public:
     }
 #endif // OMPTARGET_OPENCL_DEBUG
     // set misc. flags
-    const char *env = std::getenv("SIMT");
-    if (!env || std::string(env) != "on") {
-      flag |= DEVICE_LIMIT_NUM_WORK_GROUPS;
-    }
+
+    // Get global OMP_THREAD_LIMIT for SPMD parallelization.
+    OMPThreadLimit = omp_get_thread_limit();
+    DP("omp_get_thread_limit() returned %d\n", OMPThreadLimit);
+
+    const char *env;
+
     // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
-    if ((env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY"))) {
+    if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
         flag |= DATA_TRANSFER_LATENCY;
@@ -336,7 +360,7 @@ public:
       }
     }
     // Read LIBOMPTARGET_DATA_TRANSFER_METHOD
-    if ((env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_METHOD"))) {
+    if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_METHOD")) {
       std::string value(env);
       DataTransferMethod = DATA_TRANSFER_METHOD_INVALID;
       if (value.size() == 1 && std::isdigit(value.c_str()[0])) {
@@ -350,6 +374,23 @@ public:
         DataTransferMethod = DATA_TRANSFER_METHOD_CLMEM;
       }
     }
+    // Read LIBOMPTARGET_DEVICETYPE
+    DeviceType = CL_DEVICE_TYPE_GPU;
+    if (env = std::getenv("LIBOMPTARGET_DEVICETYPE")) {
+      std::string value(env);
+      if (value == "GPU" || value == "gpu")
+        DeviceType = CL_DEVICE_TYPE_GPU;
+      else if (value == "ACCELERATOR" || value == "accelerator")
+        DeviceType = CL_DEVICE_TYPE_ACCELERATOR;
+      else if (value == "CPU" || value == "cpu")
+        DeviceType = CL_DEVICE_TYPE_CPU;
+      else
+        DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);
+    }
+    DP("Target device type is set to %s\n",
+       (DeviceType == CL_DEVICE_TYPE_GPU) ? "GPU" : (
+       (DeviceType == CL_DEVICE_TYPE_ACCELERATOR) ? "ACCELERATOR" : (
+       (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "INVALID")));
   }
 
   ~RTLDeviceInfoTy() {
@@ -386,12 +427,6 @@ static std::string getDeviceRTLPath() {
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#if _WIN32
-__declspec(dllimport) double omp_get_wtime(void);
-#else   // !_WIN32
-double omp_get_wtime(void) __attribute__((weak));
-#endif  // !_WIN32
 
 static inline void addDataTransferLatency() {
   if (!(DeviceInfo.flag & DeviceInfo.DATA_TRANSFER_LATENCY))
@@ -455,9 +490,6 @@ int32_t __tgt_rtl_number_of_devices() {
   std::vector<cl_platform_id> platformIds(platformIdCount);
   clGetPlatformIDs(platformIdCount, platformIds.data(), nullptr);
 
-  std::vector<cl_device_id> deviceIDTail;
-  std::vector<cl_platform_id> platformIDTail;
-
   // OpenCL device IDs are stored in a list so that
   // 1. All device IDs from a single platform are stored consecutively.
   // 2. Device IDs from a platform having at least one GPU device appear
@@ -476,47 +508,21 @@ int32_t __tgt_rtl_number_of_devices() {
     if (rc != CL_SUCCESS || strncmp("OpenCL 2.1", buf.data(), 8)) {
       continue;
     }
-    cl_uint numGPU = 0, numACC = 0, numCPU = 0;
-    char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
-    if (!envStr || strncmp(envStr, "GPU", 3) == 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, 0, nullptr, &numGPU);
-    if (!envStr || strncmp(envStr, "ACCELERATOR", 11) == 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, 0, nullptr, &numACC);
-    if (!envStr || strncmp(envStr, "CPU", 3) == 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, 0, nullptr, &numCPU);
-    cl_uint numCurrDevices = numGPU + numACC + numCPU;
-    if (numCurrDevices == 0)
+    cl_uint numDevices = 0;
+    clGetDeviceIDs(id, DeviceInfo.DeviceType, 0, nullptr, &numDevices);
+    if (numDevices == 0)
       continue;
 
-    DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buf.data(),
-       numGPU, numACC, numCPU);
-    std::vector<cl_device_id> currDeviceIDs(numCurrDevices);
-    std::vector<cl_platform_id> currPlatformIDs(numCurrDevices, id);
-    // There is at least one element in currDeviceIDs allocated
-    // at this point.
-    clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, numGPU, &currDeviceIDs[0],
-                   nullptr);
-    if (numACC > 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, numACC,
-                     &currDeviceIDs[numGPU], nullptr);
-    if (numCPU > 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, numCPU,
-                     &currDeviceIDs[numGPU + numACC], nullptr);
-
-    std::vector<cl_device_id> *dID = &DeviceInfo.deviceIDs;
-    std::vector<cl_platform_id> *pID = &DeviceInfo.platformIDs;
-    if (numGPU == 0) {
-      dID = &deviceIDTail;
-      pID = &platformIDTail;
-    }
-    dID->insert(dID->end(), currDeviceIDs.begin(), currDeviceIDs.end());
-    pID->insert(pID->end(), currPlatformIDs.begin(), currPlatformIDs.end());
-    DeviceInfo.numDevices += numCurrDevices;
+    DP("Platform %s has %" PRIu32 " Devices\n", buf.data(), numDevices);
+    DeviceInfo.deviceIDs.resize(numDevices);
+    clGetDeviceIDs(id, DeviceInfo.DeviceType, numDevices,
+                   DeviceInfo.deviceIDs.data(), nullptr);
+    DeviceInfo.numDevices = numDevices;
+    DeviceInfo.platformID = id;
+    break;
+    // It is unrealistic to have multiple platforms that support the same
+    // device type, so breaking here should be fine.
   }
-  DeviceInfo.deviceIDs.insert(DeviceInfo.deviceIDs.end(),
-                              deviceIDTail.begin(), deviceIDTail.end());
-  DeviceInfo.platformIDs.insert(DeviceInfo.platformIDs.end(),
-                                platformIDTail.begin(), platformIDTail.end());
 
   DeviceInfo.maxWorkGroups.resize(DeviceInfo.numDevices);
   DeviceInfo.maxWorkGroupSize.resize(DeviceInfo.numDevices);
@@ -573,7 +579,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
          "bad device id");
 
   // create context
-  auto PlatformID = DeviceInfo.platformIDs[device_id];
+  auto PlatformID = DeviceInfo.platformID;
   cl_context_properties props[] = {
       CL_CONTEXT_PLATFORM,
       (cl_context_properties)PlatformID, 0};
@@ -765,7 +771,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       ExtensionStatusEnabled)
     ExtCall = reinterpret_cast<decltype(ExtCall)>(
         clGetExtensionFunctionAddressForPlatform(
-            DeviceInfo.platformIDs[device_id],
+            DeviceInfo.platformID,
             "clGetDeviceGlobalVariablePointerINTEL"));
 
   if (!ExtCall) {
@@ -1265,13 +1271,9 @@ static inline int32_t run_target_team_nd_region(
 
   // For portability, we also need to set max local_work_size.
   size_t local_work_size_max = DeviceInfo.maxWorkGroupSize[device_id];
+  DP("OpenCL maximum work-group size is %zu.\n", local_work_size_max);
   size_t num_work_groups_max = DeviceInfo.maxWorkGroups[device_id];
-
-  assert(num_teams >= 0 && "negative num_teams!");
-  assert(thread_limit >= 0 && "negative thread_limit!");
-
-  if (thread_limit)
-    local_work_size_max = MIN((size_t)thread_limit, local_work_size_max);
+  DP("OpenCL maximum number of work-groups is %zu.\n", num_work_groups_max);
 
   // Account for kernel-specific maximum work group size.
   size_t kernel_wg_size = 1;
@@ -1279,33 +1281,72 @@ static inline int32_t run_target_team_nd_region(
   INVOKE_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
                      DeviceInfo.deviceIDs[device_id], CL_KERNEL_WORK_GROUP_SIZE,
                      sizeof(size_t), &kernel_wg_size, nullptr);
-  local_work_size_max = MIN(kernel_wg_size, local_work_size_max);
+  if (kernel_wg_size < local_work_size_max) {
+    local_work_size_max = kernel_wg_size;
+    DP("Capping maximum work-group size to %zu due to kernel constraints.\n",
+       local_work_size_max);
+  }
 
-  if (num_teams)
-    num_work_groups_max = MIN((size_t)num_teams, num_work_groups_max);
+  if (thread_limit > 0 &&
+      (size_t)thread_limit < local_work_size_max) {
+    local_work_size_max = (size_t)thread_limit;
+    DP("Setting maximum work-group size to %zu (due to thread_limit clause).\n",
+       local_work_size_max);
+  }
+
+  if (DeviceInfo.OMPThreadLimit > 0 &&
+      (size_t)DeviceInfo.OMPThreadLimit < local_work_size_max) {
+    local_work_size_max = (size_t)DeviceInfo.OMPThreadLimit;
+    DP("Setting maximum work-group size to %zu (due to OMP_THREAD_LIMIT).\n",
+       local_work_size_max);
+  }
+
+  if (num_teams > 0 &&
+      (size_t)num_teams < num_work_groups_max) {
+    num_work_groups_max = (size_t)num_teams;
+    DP("Setting maximum number of work groups to %zu "
+       "(due to num_teams clause).\n", num_work_groups_max);
+  }
+
+  int64_t *loop_levels = loop_desc ? (int64_t *)loop_desc : nullptr;
+  if (loop_levels && thread_limit <= 0 &&
+      (DeviceInfo.OMPThreadLimit <= 0 ||
+       // omp_get_thread_limit() would return INT_MAX by default.
+       // NOTE: Windows.h defines max() macro, so we have to guard
+       //       the call with parentheses.
+       DeviceInfo.OMPThreadLimit == (std::numeric_limits<int32_t>::max)()) &&
+      local_work_size_max > 16)
+    // Default to 16 WIs per WG for ND-range paritioning.
+    // This size seems to provide the best results for steam and nbody
+    // benchmarks. Users may use more WIs/WG by using thread_limit clause
+    // and OMP_THREAD_LIMIT, but the number may not exceed OpenCL limits.
+    local_work_size_max = 16;
 
   // TODO: we may want to reshape local work if necessary.
   size_t local_work_size[3] = {local_work_size_max, 1, 1};
   size_t num_work_groups[3] = {num_work_groups_max, 1, 1};
   cl_uint work_dim = 1;
 
-  int64_t *loop_levels = (int64_t *)loop_desc;
-  // Compute num_work_groups using the loop info
-  if (!num_teams && loop_levels) {
+  // Compute num_work_groups using the loop descriptor.
+  if (loop_levels) {
+    assert(*loop_levels > 0 && *loop_levels <= 3 &&
+           "ND-range parallelization requested "
+           "with invalid number of dimensions.");
+    assert(num_teams <= 0 &&
+           "ND-range parallelization requested with num_teams.");
     TgtLoopDescTy *level = (TgtLoopDescTy *)(loop_levels + 1);
-    size_t num_work_groups_total = 1;
-    // TODO: check if we need to reverse this loop.
+
     for (int32_t i = 0; i < *loop_levels; ++i) {
-      assert(level[i].ub > level[i].lb && level[i].stride > 0);
-      int64_t trip = (level[i].ub - level[i].lb) / level[i].stride + 1;
-      num_work_groups[i] = (trip - 1) / local_work_size[i] + 1;
-      num_work_groups_total *= num_work_groups[i];
-    }
-    if ((DeviceInfo.flag & DeviceInfo.DEVICE_LIMIT_NUM_WORK_GROUPS) &&
-        num_work_groups_total > num_work_groups_max) {
-      num_work_groups[0] = num_work_groups_max;
-      num_work_groups[1] = 1;
-      num_work_groups[2] = 1;
+      assert(level[i].ub >= level[i].lb && level[i].stride > 0);
+      DP("NDrange[dim=%d]: (lb=%" PRId64 ", ub=%" PRId64
+         ", stride=%" PRId64 ")\n",
+         i, level[i].lb, level[i].ub, level[i].stride);
+      size_t trip =
+          (level[i].ub - level[i].lb + level[i].stride) / level[i].stride;
+      if (local_work_size[i] >= trip)
+        local_work_size[i] = trip;
+
+      num_work_groups[i] = (trip + local_work_size[i] - 1) / local_work_size[i];
     }
     work_dim = *loop_levels;
   }
@@ -1448,7 +1489,6 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
                                          int32_t arg_num, int32_t team_num,
                                          int32_t thread_limit,
                                          uint64_t loop_tripcount /*not used*/) {
-  // TODO: convert loop_tripcount to loop descriptor
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, arg_num, team_num, thread_limit,
                                    nullptr, nullptr);

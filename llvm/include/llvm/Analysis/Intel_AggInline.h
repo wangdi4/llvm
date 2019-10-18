@@ -15,27 +15,34 @@
 
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
 
+using AggInlGetTLITy =
+    std::function<const TargetLibraryInfo &(const Function &)>;
+
 // It handles actual analysis and results of Inline Aggressive analysis.
 struct InlineAggressiveInfo {
+  InlineAggressiveInfo(AggInlGetTLITy);
+  InlineAggressiveInfo(InlineAggressiveInfo &&);
   InlineAggressiveInfo();
   ~InlineAggressiveInfo();
 
-  static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo &WPI);
+  static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo &WPI,
+                                      AggInlGetTLITy GetTLI);
   bool analyzeModule(Module &MI);
 
   bool isCallInstInAggInlList(CallBase &CB);
 
   bool isAggInlineOccured(void);
 
-
 private:
+  AggInlGetTLITy GetTLI;
+
   // List of calls that are marked as AggInline.
   std::vector<WeakTrackingVH> AggInlCalls;
 
@@ -44,8 +51,10 @@ private:
   bool setAggInlineInfo(CallBase &CB);
   void setAggInlInfoForCallSite(CallBase &CB);
   bool setAggInlineInfoForAllCallSites(Function *F);
-  bool trackUsesofAllocatedGlobalVariables(
-                             std::vector<GlobalVariable*> &Globals);
+  bool
+  trackUsesofAllocatedGlobalVariables(std::vector<GlobalVariable *> &Globals);
+  bool analyzeHugeMallocGlobalPointersHeuristic(Module &MI);
+  bool analyzeSingleAccessFunctionGlobalVarHeuristic(Module &MI);
 };
 
 // Analysis pass providing a never-invalidated Inline Aggressive
@@ -80,6 +89,6 @@ public:
 
 ModulePass *createInlineAggressiveWrapperPassPass();
 
-}
+} // namespace llvm
 
 #endif

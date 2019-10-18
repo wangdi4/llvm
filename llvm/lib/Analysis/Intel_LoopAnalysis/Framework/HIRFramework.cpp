@@ -109,8 +109,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
           [&]() {
             return AM.getCachedResult<HIRSparseArrayReductionAnalysisPass>(F);
-          },
-          [&]() { return nullptr; }));
+          }));
 }
 
 INITIALIZE_PASS_BEGIN(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
@@ -198,8 +197,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
             auto *Wrapper = getAnalysisIfAvailable<
                 HIRSparseArrayReductionAnalysisWrapperPass>();
             return Wrapper ? &Wrapper->getHSAR() : nullptr;
-          },
-          [&]() { return getAnalysisIfAvailable<HIRVectVLSAnalysis>(); })));
+          })));
   return false;
 }
 

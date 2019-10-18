@@ -104,6 +104,7 @@ VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
   VPBasicBlock *BB = Block->getExitBasicBlock();
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   BB->moveConditionalEOBTo(NewBlock);
+  NewBlock->moveTripCountInfoFrom(BB);
   insertBlockAfter(NewBlock, BB);
 
   // Add NewBlock to VPLoopInfo
@@ -118,17 +119,13 @@ VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
     // we should take its entry.
     // NOTE: Here we assume that all VPPHINodes are always placed at the top of
     // its parent VPBasicBlock
-    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
-      assert(isa<VPPHINode>(Inst) &&
-             "Non VPPHINode found in sublist returned by getVPPhis().");
-      VPPHINode *VPN = cast<VPPHINode>(&Inst);
-
-      if (VPN->getBlend())
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
+      if (VPN.getBlend())
         continue;
 
       // Transform the VPBBUsers vector of the PHI node by replacing any
       // occurrence of Block with NewBlock
-      llvm::transform(VPN->blocks(), VPN->block_begin(),
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
                       [BB, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
                         if (A == BB)
                           return NewBlock;
@@ -164,8 +161,10 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
                                        VPDominatorTree &DomTree,
                                        VPPostDominatorTree &PostDomTree) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  if (isa<VPBasicBlock>(Block))
-    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock);
+  if (auto *BB = dyn_cast<VPBasicBlock>(Block)) {
+    BB->moveConditionalEOBTo(NewBlock);
+    NewBlock->moveTripCountInfoFrom(BB);
+  }
   insertBlockAfter(NewBlock, Block);
 
   // Add NewBlock to VPLoopInfo
@@ -179,14 +178,10 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
     // we should take its entry.
     // NOTE: Here we assume that all VPPHINodes are always placed at the top of
     // its parent VPBasicBlock
-    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
-      assert(isa<VPPHINode>(Inst) &&
-             "Non VPPHINode found in sublist returned by getVPPhis().");
-      VPPHINode *VPN = cast<VPPHINode>(&Inst);
-
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
       // Transform the VPBBUsers vector of the PHI node by replacing any
       // occurrence of Block with NewBlock
-      llvm::transform(VPN->blocks(), VPN->block_begin(),
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
                       [Block, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
                         if (A == cast<VPBasicBlock>(Block))
                           return NewBlock;
@@ -286,6 +281,21 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
     delete Block;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPBlockBase::print(raw_ostream &OS, unsigned Depth,
+                        const VPlanDivergenceAnalysis *DA,
+                        const Twine &NamePrefix) const {
+  formatted_raw_ostream FOS(OS);
+  if (auto *Region = dyn_cast<VPRegionBlock>(this)) {
+    Region->print(FOS, Depth, DA, NamePrefix);
+    return;
+  }
+
+  auto *BB = cast<VPBasicBlock>(this);
+  BB->print(FOS, Depth, DA, NamePrefix);
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 BasicBlock *
 #if INTEL_CUSTOMIZATION
 VPBasicBlock::createEmptyBasicBlock(VPTransformState *State)
@@ -373,7 +383,15 @@ void VPBasicBlock::execute(VPTransformState *State) {
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
   VPBlockBase *SingleHPred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
-  VPLoopRegion *ParentLoop = nullptr;
+
+  VPLoopInfo *VPLI = State->VPLI;
+
+  // TODO: Won't take place with explicit peel/reminder. But we'd need much more
+  // fixes to support CG for such case anyway.
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
+         && "Expected single outermost loop!");
+
+  VPLoop *OuterMostVPLoop = *VPLI->begin();
 
   // 1. Create an IR basic block, or reuse one already available if possible.
   // The last IR basic block is reused in four cases:
@@ -383,15 +401,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
   //    is PrevVPBB and the latter has a single (hierarchical) successor; and
   // D. when the current VPBB is an entry of a region replica - where PrevVPBB
   //    is the exit of this region from a previous instance.
-  // TODO: We currently cannot use VPLoopRegion class here
-  if (PrevVPBB && (ParentLoop = dyn_cast<VPLoopRegion>(this->getParent())) &&
-      ParentLoop->getEntry() == PrevVPBB /* B */ &&
-      // TODO: We need to properly support outer-loop vectorization scenarios.
-      // Latches for inner loops are not removed and we don't have VPlan,
-      // VPLoopInfo, etc. accessible from State. Temporal fix: outermost loop's
-      // parent is TopRegion. TopRegion's parent is null.
-      !ParentLoop->getParent()->getParent()) {
-
+  if (OuterMostVPLoop->getHeader() == this) {
     // Set NewBB to loop H basic block
     BasicBlock *LoopPH = State->CFG.PrevBB;
     NewBB = LoopPH->getSingleSuccessor();
@@ -566,11 +576,12 @@ void VPRegionBlock::recomputeSize() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
-                        const VPlanDivergenceAnalysis *DA) const {
+void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
+                         const VPlanDivergenceAnalysis *DA,
+                         const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
-  OS << StrIndent << getName() << " (BP: ";
+  OS << StrIndent << NamePrefix << getName() << " (BP: ";
   if (getPredicateRecipe())
     OS << *getPredicateRecipe();
   else
@@ -643,10 +654,6 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
   }
   OS << "\n\n";
 }
-
-void VPBasicBlock::dump() const {
-  dump(errs(), 1);
-}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 /// Return true if \p Recipe is a VPInstruction in a single-use chain of
@@ -697,8 +704,9 @@ void VPRegionBlock::computePDT(void) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
-                         const VPlanDivergenceAnalysis *DA) const {
+void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
+                          const VPlanDivergenceAnalysis *DA,
+                          const Twine &NamePrefix) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
 
@@ -725,7 +733,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
   //       BB7          +0
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
   for (const VPBlockBase *BB : RPOT) {
-    BB->dump(OS, Indent + SuccList.size() - 1, DA);
+    BB->print(OS, Indent + SuccList.size() - 1, DA);
     Printed.insert(BB);
     SuccList.remove(BB);
     for (auto *Succ : BB->getSuccessors())
@@ -737,10 +745,6 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
     OS << StrIndent << "SUCCESSORS(1):" << Successor->getName() << "\n";
   OS << StrIndent << "END Region(" << getName() << ")\n";
   OS << "\n";
-}
-
-void VPRegionBlock::dump() const {
-  dump(errs(), 1);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -1089,6 +1093,8 @@ void VPlan::execute(VPTransformState *State) {
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
   // of code, we decided to seperate both versions with a single
   // INTEL_CUSTOMIZATION
+  auto VLoop = VPlanUtils::findFirstLoopDFS(this)->getVPLoop();
+  State->ILV->setVPlan(this, getLoopEntities(VLoop));
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
@@ -1356,9 +1362,16 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
     E->dump(OS, EIter->first->getHeader());
   }
   const VPBlockBase *Entry = getEntry();
-  Entry->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+  Entry->print(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   for (auto &Succ : Entry->getSuccessors()) {
-    Succ->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+    Succ->print(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+  }
+  if (!VPExternalUses.empty()) {
+    OS << "External Uses:\n";
+    for (auto &ExtUse : VPExternalUses) {
+      ExtUse.second->dump(OS);
+      OS << "\n";
+    }
   }
 }
 

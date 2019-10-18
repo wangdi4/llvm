@@ -30,6 +30,11 @@ namespace loopopt {
 class DDGraph;
 class HLLoop;
 class HIRSafeReductionAnalysis;
+class HLInst;
+template <class T> class VectorIdioms;
+using HIRVectorIdioms = VectorIdioms<HLInst>;
+extern void deleteHIRVectorIdioms(HIRVectorIdioms *);
+class HIRDDAnalysis;
 class RegDDRef;
 class DDRef;
 class DDRefUtils;
@@ -52,7 +57,7 @@ public:
   };
   // Base class for descriptors which have init/finalize HIR values
   struct DescrValues {
-    DescrValues(DDRef *RefV) : Ref(RefV), InitValue(nullptr) {}
+    DescrValues(const DDRef *RefV) : Ref(RefV), InitValue(nullptr) {}
     // Move constructor
     DescrValues(DescrValues &&Other) = default;
 
@@ -72,14 +77,14 @@ public:
       }
     }
 
-    void dump() { dump(errs()); }
+    void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    DDRef *Ref;
+    const DDRef *Ref;
     // NOTE: InitValue holds only DDRefs for which VPExternalDefs were created
     // for a descriptor/alias. DDRefs with VPConstants are not accounted for.
     // Each descriptor/alias may have multiple updating HLInsts within the loop.
-    DDRef *InitValue;
+    const DDRef *InitValue;
     SmallVector<HLInst *, 4> UpdateInstructions;
   };
   // Base class for descriptors which may have alias DDRefs used within the loop
@@ -88,7 +93,7 @@ public:
   // descriptors. NOTE : Only original descriptors can have aliases and they are
   // always of the form &(%a)[0]
   struct DescrWithAliases : public DescrValues {
-    DescrWithAliases(RegDDRef *RefV) : DescrValues(RefV) {
+    DescrWithAliases(const RegDDRef *RefV) : DescrValues(RefV) {
       assert(RefV->isSelfAddressOf() && "Unexpected clause Ref!");
     }
     // Move constructor
@@ -123,15 +128,15 @@ public:
     void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    std::map<DDRef *, std::unique_ptr<DescrValues>, CompareByDDRefSymbase>
+    std::map<const DDRef *, std::unique_ptr<DescrValues>, CompareByDDRefSymbase>
         Aliases;
   };
   // Specialized class to represent reduction descriptors specified explicitly
   // via SIMD reduction clause. The reduction's kind and signed datatype
   // information is also stored within this class.
   struct RedDescr : public DescrWithAliases {
-    RedDescr(RegDDRef *RegV, RecurrenceKind KindV, MMRecurrenceKind MMKindV,
-             bool Signed)
+    RedDescr(const RegDDRef *RegV, RecurrenceKind KindV,
+             MMRecurrenceKind MMKindV, bool Signed)
         : DescrWithAliases(RegV), Kind(KindV), MMKind(MMKindV),
           IsSigned(Signed) {}
     // Move constructor
@@ -145,7 +150,7 @@ public:
   // Specialized class to represent private descriptors specified explicitly via
   // SIMD private clause.
   struct PrivDescr : public DescrWithAliases {
-    PrivDescr(RegDDRef *RegV, bool IsLastV, bool IsCondV)
+    PrivDescr(const RegDDRef *RegV, bool IsLastV, bool IsCondV)
         : DescrWithAliases(RegV), IsLast(IsLastV), IsCond(IsCondV) {}
     // Move constructor
     PrivDescr(PrivDescr &&Other) = default;
@@ -158,12 +163,12 @@ public:
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
   struct LinearDescr : public DescrWithAliases {
-    LinearDescr(RegDDRef *RegV, RegDDRef *StepV)
+    LinearDescr(const RegDDRef *RegV, const RegDDRef *StepV)
         : DescrWithAliases(RegV), Step(StepV) {}
     // Move constructor
     LinearDescr(LinearDescr &&Other) = default;
 
-    DDRef *Step;
+    const DDRef *Step;
   };
   typedef SmallVector<LinearDescr, 8> LinearListTy;
 
@@ -174,8 +179,9 @@ public:
   HIRVectorizationLegality(HIRVectorizationLegality &&) = delete;
   HIRVectorizationLegality &operator=(HIRVectorizationLegality &&) = delete;
 
-  HIRVectorizationLegality(HIRSafeReductionAnalysis *SafeReds)
-      : SRA(SafeReds) {}
+  HIRVectorizationLegality(HIRSafeReductionAnalysis *SafeReds,
+                           HIRDDAnalysis *DDA)
+      : SRA(SafeReds), DDAnalysis(DDA) {}
 
   // Add explicit private.
   void addLoopPrivate(RegDDRef *PrivVal, bool IsLast = false,
@@ -218,20 +224,25 @@ public:
   }
 
   HIRSafeReductionAnalysis *getSRA() const { return SRA; }
+  const HIRVectorIdioms *getVectorIdioms(HLLoop *Loop) const;
 
   const PrivatesListTy &getPrivates() const { return PrivatesList; }
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
 
-  PrivDescr *isPrivate(DDRef *Ref) {
+  PrivDescr *isPrivate(const DDRef *Ref) const {
     return findDescr<PrivDescr>(PrivatesList, Ref);
   }
-  LinearDescr *isLinear(DDRef *Ref) {
+  LinearDescr *isLinear(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
   }
-  RedDescr *isReduction(DDRef *Ref) {
+  RedDescr *isReduction(const DDRef *Ref) const {
     return findDescr<RedDescr>(ReductionList, Ref);
   }
+
+  /// Check if the given temp ref \p Ref is part of minmax+index idiom
+  /// recognized for a loop \p HLoop.
+  bool isMinMaxIdiomTemp(const DDRef *Ref, HLLoop *HLoop) const;
 
   /// Identify any DDRefs in the \p HLoop's pre-loop nodes which alias the OMP
   /// SIMD clause descriptor DDRefs
@@ -267,7 +278,7 @@ private:
   /// \p DescrType in the list \p List, if yes then return the descriptor object
   /// corresponding to it, else nullptr
   template <typename DescrType>
-  DescrType *findDescr(SmallVectorImpl<DescrType> &List, DDRef *Ref);
+  DescrType *findDescr(ArrayRef<DescrType> List, const DDRef *Ref) const;
 
   /// Return the descriptor object corresponding to the input \p Ref, if it
   /// represents a reduction or linear SIMD variable (original or aliases). If
@@ -284,9 +295,19 @@ private:
   }
 
   HIRSafeReductionAnalysis *SRA;
+  HIRDDAnalysis *DDAnalysis;
   PrivatesListTy PrivatesList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
+  struct HIRVectorIdiomDeleter {
+    void operator()(HIRVectorIdioms *p) { deleteHIRVectorIdioms(p); }
+  };
+  using IdiomListTy = std::unique_ptr<HIRVectorIdioms, HIRVectorIdiomDeleter>;
+  // List of idioms recognized for each corresponding HLLoop.
+  // NOTE: Map is made mutable since the const getter method repopulates the
+  // list of idioms on the fly if no entry is found for a given loop. Check
+  // getVectorIdioms(HLLoop*).
+  mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
@@ -306,6 +327,8 @@ private:
 
   std::unique_ptr<VPRegionBlock>
   buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
+
+  void populateVPLoopMetadata(VPLoopInfo *VPLInfo) override;
 
   void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
 

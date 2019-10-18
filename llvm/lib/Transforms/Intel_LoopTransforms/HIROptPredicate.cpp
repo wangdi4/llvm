@@ -420,7 +420,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
 bool HIROptPredicate::processPUEdge(
     const HLIf *If, DDEdge *Edge, PUContext &PU,
     SmallVectorImpl<const RegDDRef *> &RefsStack, DDGraph &DDG) const {
-  if (!Edge->isFLOWdep()) {
+  if (!Edge->isFlow()) {
     // May ignore non-flow edges.
     return true;
   }
@@ -505,7 +505,7 @@ bool HIROptPredicate::processPUEdge(
   }
 
   for (auto &Edge : DDG.outgoing(SrcRef)) {
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       return false;
     }
   }
@@ -1360,8 +1360,16 @@ void HIROptPredicate::removeOrHoistIf(HoistCandidate &Candidate,
                 return A->getTopSortNum() < B->getTopSortNum();
               });
 
+    unsigned Level = TargetLoop->getNestingLevel();
     for (HLInst *DefInst : DefInstructions) {
-      HLNodeUtils::insertBefore(TargetLoop, DefInst->clone());
+      HLInst *DefInstClone = DefInst->clone();
+      HLNodeUtils::insertBefore(TargetLoop, DefInstClone);
+
+      // Update def levels in DefInstructions.
+      for (RegDDRef *Ref : make_range(DefInstClone->ddref_begin(),
+                                      DefInstClone->ddref_end())) {
+        Ref->updateDefLevel(Level - 1);
+      }
     }
 
     hoistIf(FirstIf, TargetLoop);

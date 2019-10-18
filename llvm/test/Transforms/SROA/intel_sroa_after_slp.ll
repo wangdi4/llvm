@@ -1,5 +1,5 @@
-; RUN: opt < %s -sroa -tti -mtriple=x86_64-unknown-linux-gnu  -mcpu=skylake-avx512 -x86-experimental-max-legal-vector-width=256 -S | FileCheck %s
-; RUN: opt < %s -passes=sroa -tti -mtriple=x86_64-unknown-linux-gnu  -mcpu=skylake-avx512 -x86-experimental-max-legal-vector-width=256 -S | FileCheck %s
+; RUN: opt < %s -sroa -tti -mtriple=x86_64-unknown-linux-gnu  -mcpu=skylake-avx512 -S | FileCheck %s
+; RUN: opt < %s -passes=sroa -tti -mtriple=x86_64-unknown-linux-gnu  -mcpu=skylake-avx512 -S | FileCheck %s
 
 ; This lit test is intended to verify that 'alloca' instructions get removed by SROA.
 

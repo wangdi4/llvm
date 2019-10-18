@@ -128,7 +128,7 @@ class EmitAssemblyHelper {
 
   std::unique_ptr<llvm::ToolOutputFile> openOutputFile(StringRef Path) {
     std::error_code EC;
-    auto F = llvm::make_unique<llvm::ToolOutputFile>(Path, EC,
+    auto F = std::make_unique<llvm::ToolOutputFile>(Path, EC,
                                                      llvm::sys::fs::OF_None);
     if (EC) {
       Diags.Report(diag::err_fe_unable_to_open_output) << Path << EC.message();
@@ -233,7 +233,6 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
   const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
   auto Opts = getSancovOptsFromCGOpts(CGOpts);
   PM.add(createModuleSanitizerCoverageLegacyPassPass(Opts));
-  PM.add(createSanitizerCoverageLegacyPassPass(Opts));
 }
 
 // Check if ASan should use GC-friendly instrumentation for globals.
@@ -481,6 +480,8 @@ static void initTargetOptions(llvm::TargetOptions &Options,
     Options.ExceptionModel = llvm::ExceptionHandling::WinEH;
   if (LangOpts.DWARFExceptions)
     Options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
+  if (LangOpts.WasmExceptions)
+    Options.ExceptionModel = llvm::ExceptionHandling::Wasm;
 
   Options.NoInfsFPMath = CodeGenOpts.NoInfsFPMath;
   Options.NoNaNsFPMath = CodeGenOpts.NoNaNsFPMath;
@@ -922,6 +923,7 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
 
   {
     PrettyStackTraceString CrashInfo("Per-function optimization");
+    llvm::TimeTraceScope TimeScope("PerFunctionPasses", StringRef(""));
 
     PerFunctionPasses.doInitialization();
     for (Function &F : *TheModule)
@@ -932,11 +934,13 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
 
   {
     PrettyStackTraceString CrashInfo("Per-module optimization passes");
+    llvm::TimeTraceScope TimeScope("PerModulePasses", StringRef(""));
     PerModulePasses.run(*TheModule);
   }
 
   {
     PrettyStackTraceString CrashInfo("Code generation");
+    llvm::TimeTraceScope TimeScope("CodeGenPasses", StringRef(""));
     CodeGenPasses.run(*TheModule);
   }
 
@@ -1122,7 +1126,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   std::unique_ptr<TargetLibraryInfoImpl> TLII(
       createTLII(TargetTriple, CodeGenOpts));
   FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
-  MAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
 
   // Register all the basic analyses with the managers.
   PB.registerModuleAnalyses(MAM);
@@ -1179,21 +1182,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
         MPM.addPass(createModuleToFunctionPassAdaptor(
             EntryExitInstrumenterPass(/*PostInlining=*/false)));
       });
-
-      if (CodeGenOpts.SanitizeCoverageType ||
-          CodeGenOpts.SanitizeCoverageIndirectCalls ||
-          CodeGenOpts.SanitizeCoverageTraceCmp) {
-        auto SancovOpts = getSancovOptsFromCGOpts(CodeGenOpts);
-        PB.registerPipelineStartEPCallback(
-            [SancovOpts](ModulePassManager &MPM) {
-              MPM.addPass(ModuleSanitizerCoveragePass(SancovOpts));
-            });
-        PB.registerOptimizerLastEPCallback(
-            [SancovOpts](FunctionPassManager &FPM,
-                         PassBuilder::OptimizationLevel Level) {
-              FPM.addPass(SanitizerCoveragePass(SancovOpts));
-            });
-      }
 
       // Register callbacks to schedule sanitizer passes at the appropriate part of
       // the pipeline.
@@ -1262,6 +1250,13 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
       }
     }
 
+    if (CodeGenOpts.SanitizeCoverageType ||
+        CodeGenOpts.SanitizeCoverageIndirectCalls ||
+        CodeGenOpts.SanitizeCoverageTraceCmp) {
+      auto SancovOpts = getSancovOptsFromCGOpts(CodeGenOpts);
+      MPM.addPass(ModuleSanitizerCoveragePass(SancovOpts));
+    }
+
     if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
       bool Recover = CodeGenOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
       MPM.addPass(HWAddressSanitizerPass(
@@ -1273,15 +1268,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     }
 
     if (CodeGenOpts.OptimizationLevel == 0) {
-      if (CodeGenOpts.SanitizeCoverageType ||
-          CodeGenOpts.SanitizeCoverageIndirectCalls ||
-          CodeGenOpts.SanitizeCoverageTraceCmp) {
-        auto SancovOpts = getSancovOptsFromCGOpts(CodeGenOpts);
-        MPM.addPass(ModuleSanitizerCoveragePass(SancovOpts));
-        MPM.addPass(createModuleToFunctionPassAdaptor(
-            SanitizerCoveragePass(SancovOpts)));
-      }
-
       addSanitizersAtO0(MPM, TargetTriple, LangOpts, CodeGenOpts);
     }
   }
@@ -1325,7 +1311,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
         if (!TheModule->getModuleFlag("ThinLTO"))
           TheModule->addModuleFlag(Module::Error, "ThinLTO", uint32_t(0));
         TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                                 CodeGenOpts.EnableSplitLTOUnit);
+                                 uint32_t(1));
       }
       MPM.addPass(
           BitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists, EmitLTOSummary));
@@ -1458,7 +1444,7 @@ static void runThinLTOBackend(ModuleSummaryIndex *CombinedIndex, Module *M,
     OwnedImports.push_back(std::move(*MBOrErr));
   }
   auto AddStream = [&](size_t Task) {
-    return llvm::make_unique<lto::NativeObjectStream>(std::move(OS));
+    return std::make_unique<lto::NativeObjectStream>(std::move(OS));
   };
   lto::Config Conf;
   if (CGOpts.SaveTempsFilePrefix != "") {
@@ -1588,7 +1574,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
       // trying to read it. Also for some features, like CFI, we must skip
       // the compilation as CombinedIndex does not contain all required
       // information.
-      EmptyModule = llvm::make_unique<llvm::Module>("empty", M->getContext());
+      EmptyModule = std::make_unique<llvm::Module>("empty", M->getContext());
       EmptyModule->setTargetTriple(M->getTargetTriple());
       M = EmptyModule.get();
     }

@@ -69,9 +69,9 @@ bool initTargetMachine() {
 
   IRModule.setDataLayout(TM->createDataLayout());
 
-  static MachineModuleInfo info(TM);
+  static MachineModuleInfoWrapperPass info(TM);
   info.doInitialization(IRModule);
-  MMI = &info;
+  MMI = &info.getMMI();
 
   return true;
 }

@@ -32,7 +32,6 @@
 // CHECK_GLC_M32: #define __LZCNT__ 1
 // CHECK_GLC_M32: #define __MMX__ 1
 // CHECK_GLC_M32: #define __MOVBE__ 1
-// CHECK_GLC_M32: #define __MPX__ 1
 // CHECK_GLC_M32: #define __PCLMUL__ 1
 // CHECK_GLC_M32: #define __PCONFIG__ 1
 // CHECK_GLC_M32: #define __PKU__ 1
@@ -95,7 +94,6 @@
 // CHECK_GLC_M64: #define __LZCNT__ 1
 // CHECK_GLC_M64: #define __MMX__ 1
 // CHECK_GLC_M64: #define __MOVBE__ 1
-// CHECK_GLC_M64: #define __MPX__ 1
 // CHECK_GLC_M64: #define __PCLMUL__ 1
 // CHECK_GLC_M64: #define __PCONFIG__ 1
 // CHECK_GLC_M64: #define __PKU__ 1

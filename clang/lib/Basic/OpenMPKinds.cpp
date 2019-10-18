@@ -90,6 +90,8 @@ OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
 #define OPENMP_CLAUSE(Name, Class) .Case(#Name, OMPC_##Name)
 #include "clang/Basic/OpenMPKinds.def"
       .Case("uniform", OMPC_uniform)
+      .Case("device_type", OMPC_device_type)
+      .Case("match", OMPC_match)
       .Default(OMPC_unknown);
 }
 
@@ -106,6 +108,10 @@ const char *clang::getOpenMPClauseName(OpenMPClauseKind Kind) {
     return "uniform";
   case OMPC_threadprivate:
     return "threadprivate or thread local";
+  case OMPC_device_type:
+    return "device_type";
+  case OMPC_match:
+    return "match";
   }
   llvm_unreachable("Invalid OpenMP clause kind");
 }
@@ -180,6 +186,11 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   .Case(#Name, OMPC_ATOMIC_DEFAULT_MEM_ORDER_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ATOMIC_DEFAULT_MEM_ORDER_unknown);
+  case OMPC_device_type:
+    return llvm::StringSwitch<OpenMPDeviceType>(Str)
+#define OPENMP_DEVICE_TYPE_KIND(Name) .Case(#Name, OMPC_DEVICE_TYPE_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_DEVICE_TYPE_unknown);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -237,6 +248,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
+  case OMPC_match:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -373,6 +385,16 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
 }
     llvm_unreachable("Invalid OpenMP 'atomic_default_mem_order' clause type");
+  case OMPC_device_type:
+    switch (Type) {
+    case OMPC_DEVICE_TYPE_unknown:
+      return "unknown";
+#define OPENMP_DEVICE_TYPE_KIND(Name)                                          \
+    case OMPC_DEVICE_TYPE_##Name:                                              \
+      return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'device_type' clause type");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -434,6 +456,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
+  case OMPC_match:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -646,8 +669,6 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
     default:
       break;
     }
-    break;
-  case OMPD_declare_simd:
     break;
   case OMPD_cancel:
     switch (CKind) {
@@ -891,9 +912,18 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
       break;
     }
     break;
+  case OMPD_declare_variant:
+    switch (CKind) {
+#define OPENMP_DECLARE_VARIANT_CLAUSE(Name)                                    \
+  case OMPC_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+    default:
+      break;
+    }
+    break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant: // INTEL
   case OMPD_unknown:
   case OMPD_threadprivate:
   case OMPD_section:
@@ -903,6 +933,7 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
   case OMPD_taskwait:
   case OMPD_cancellation_point:
   case OMPD_declare_reduction:
+  case OMPD_declare_simd:
     break;
   }
   return false;
@@ -1127,13 +1158,13 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_cancellation_point:
   case OMPD_cancel:
   case OMPD_flush:
-  case OMPD_declare_variant: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_requires:
+  case OMPD_declare_variant:
     llvm_unreachable("OpenMP Directive is not allowed");
   case OMPD_unknown:
     llvm_unreachable("Unknown OpenMP directive");

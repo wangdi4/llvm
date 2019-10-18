@@ -33,7 +33,7 @@ void LiveRangeEdit::Delegate::anchor() { }
 
 LiveInterval &LiveRangeEdit::createEmptyIntervalFrom(unsigned OldReg,
                                                      bool createSubRanges) {
-  unsigned VReg = MRI.createVirtualRegister(MRI.getRegClass(OldReg));
+  Register VReg = MRI.createVirtualRegister(MRI.getRegClass(OldReg));
   if (VRM)
     VRM->setIsSplitFromReg(VReg, VRM->getOriginal(OldReg));
 
@@ -53,7 +53,7 @@ LiveInterval &LiveRangeEdit::createEmptyIntervalFrom(unsigned OldReg,
 }
 
 unsigned LiveRangeEdit::createFrom(unsigned OldReg) {
-  unsigned VReg = MRI.createVirtualRegister(MRI.getRegClass(OldReg));
+  Register VReg = MRI.createVirtualRegister(MRI.getRegClass(OldReg));
   if (VRM) {
     VRM->setIsSplitFromReg(VReg, VRM->getOriginal(OldReg));
   }
@@ -321,7 +321,7 @@ void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
          MOE = MI->operands_end(); MOI != MOE; ++MOI) {
     if (!MOI->isReg())
       continue;
-    unsigned Reg = MOI->getReg();
+    Register Reg = MOI->getReg();
     if (!Register::isVirtualRegister(Reg)) {
       // Check if MI reads any unreserved physregs.
       if (Reg && MOI->readsReg() && !MRI.isReserved(Reg))

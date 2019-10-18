@@ -133,7 +133,7 @@ public:
 
   HLInst *findTempDef(const DDRef *TempRef) const {
     for (DDEdge *E : DDG.incoming(TempRef)) {
-      if (E->isFLOWdep()) {
+      if (E->isFlow()) {
         DDRef *Src = E->getSrc();
         if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
           return DefInst;
@@ -469,7 +469,8 @@ bool SequenceChecker::getDistance(const VecCEsTy &CEList1,
     }
 
     // If there were differences in IVs, return false
-    for (unsigned Level = 1; Level < MaxLoopNestLevel; Level++) {
+    for (auto Level :
+         make_range(AllLoopLevelRange::begin(), AllLoopLevelRange::end())) {
       const CanonExpr *CEs[2] = {CE1, CE2};
       unsigned Indexes[2] = {InvalidBlobIndex, InvalidBlobIndex};
       int64_t Coeffs[2] = {0, 0};
@@ -1127,7 +1128,7 @@ bool dependencyCheck(DDGraph G, const VecSeedInfoTy &VecSeedInfo, unsigned II) {
         }
 
         for (auto Edge : G.outgoing(Ref)) {
-          if (!Edge->isANTIdep()) {
+          if (!Edge->isAnti()) {
             continue;
           }
 

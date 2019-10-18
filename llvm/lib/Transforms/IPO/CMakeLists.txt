@@ -21,6 +21,7 @@ add_llvm_library(LLVMipo
   IPO.cpp
   InferFunctionAttrs.cpp
   Intel_AdvancedFastCall.cpp   # INTEL
+  Intel_DopeVectorConstProp.cpp   # INTEL
   Intel_InlineReport.cpp   # INTEL
   Intel_MDInlineReport.cpp   # INTEL
   Intel_InlineReportSetup.cpp # INTEL
@@ -61,7 +62,7 @@ add_llvm_library(LLVMipo
 
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
-  target_link_libraries(LLVMipo PRIVATE LLVMIntel_DTrans)
+  target_link_libraries(LLVMipo PRIVATE LLVMIntel_DTrans LLVMIntel_DTransAnalysis)
 endif(INTEL_INCLUDE_DTRANS)
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)

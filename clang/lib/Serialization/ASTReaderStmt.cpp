@@ -2075,6 +2075,21 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   for (unsigned i = 0; i < CollapsedNum; ++i)
     Sub.push_back(Record.readSubExpr());
   D->setFinalsConditions(Sub);
+#if INTEL_CUSTOMIZATION
+#define READ_UNCOLLAPSED(Name)                                                 \
+  Sub.clear();                                                                 \
+  for (unsigned i = 0; i < CollapsedNum; ++i)                                  \
+    Sub.push_back(Record.readSubExpr());                                       \
+  D->setUncollapsed##Name(Sub);
+  READ_UNCOLLAPSED(IVs)
+  READ_UNCOLLAPSED(LowerBounds)
+  READ_UNCOLLAPSED(UpperBounds)
+  READ_UNCOLLAPSED(Inits)
+  READ_UNCOLLAPSED(LoopConds)
+  READ_UNCOLLAPSED(Incs)
+  READ_UNCOLLAPSED(Updates)
+#undef READ_UNCOLLAPSED
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ASTStmtReader::VisitOMPParallelDirective(OMPParallelDirective *D) {

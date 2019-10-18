@@ -54,6 +54,7 @@
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
@@ -68,25 +69,25 @@ using namespace vpo;
 
 /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef \p
 /// DescrRef
-static bool isSIMDDescriptorDDRef(RegDDRef *DescrRef, DDRef *Ref) {
+static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
   assert(DescrRef->isAddressOf() &&
          "Original SIMD descriptor ref is not address of type.");
 
   // Since we know descriptor ref is always address of type, set address-of to
   // false for equality check. Reset to true after check.
-  DescrRef->setAddressOf(false);
+  const_cast<RegDDRef *>(DescrRef)->setAddressOf(false);
   if (DescrRef->getDDRefUtils().areEqual(DescrRef, Ref)) {
-    DescrRef->setAddressOf(true);
+    const_cast<RegDDRef *>(DescrRef)->setAddressOf(true);
     return true;
   }
 
-  DescrRef->setAddressOf(true);
+  const_cast<RegDDRef *>(DescrRef)->setAddressOf(true);
 
   // Special casing for incoming Ref of the form %s which was actually the Base
   // CE of the memref %s[0]
-  CanonExpr *DescrRefCE = DescrRef->getBaseCE();
+  auto *DescrRefCE = DescrRef->getBaseCE();
   if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
-    CanonExpr *RefCE = BDDR->getSingleCanonExpr();
+    auto *RefCE = BDDR->getSingleCanonExpr();
     if (DescrRefCE->getCanonExprUtils().areEqual(DescrRefCE, RefCE))
       return true;
   }
@@ -116,10 +117,10 @@ void HIRVectorizationLegality::dump(raw_ostream &OS) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 template <typename DescrType>
-DescrType *HIRVectorizationLegality::findDescr(SmallVectorImpl<DescrType> &List,
-                                               DDRef *Ref) {
+DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
+                                               const DDRef *Ref) const {
   for (auto &Descr : List) {
-    DescrType *CurrentDescr = &Descr;
+    DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
     assert(isa<RegDDRef>(CurrentDescr->Ref) &&
            "The original SIMD descriptor Ref is not a RegDDRef.");
     if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->Ref), Ref))
@@ -132,6 +133,18 @@ DescrType *HIRVectorizationLegality::findDescr(SmallVectorImpl<DescrType> &List,
 
   return nullptr;
 }
+
+// Explicit template instantiations for findDescr.
+template HIRVectorizationLegality::RedDescr *
+HIRVectorizationLegality::findDescr(
+    ArrayRef<HIRVectorizationLegality::RedDescr> List, const DDRef *Ref) const;
+template HIRVectorizationLegality::PrivDescr *
+HIRVectorizationLegality::findDescr(
+    ArrayRef<HIRVectorizationLegality::PrivDescr> List, const DDRef *Ref) const;
+template HIRVectorizationLegality::LinearDescr *
+HIRVectorizationLegality::findDescr(
+    ArrayRef<HIRVectorizationLegality::LinearDescr> List,
+    const DDRef *Ref) const;
 
 void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
@@ -233,9 +246,32 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
                  RVal->dump(); dbgs() << "\n");
       RegDDRef *LVal = HInst->getLvalDDRef();
       assert(LVal && "HLInst in the preheader does not have an Lval.");
-      Descr->Aliases[LVal] = llvm::make_unique<DescrValues>(LVal);
+      Descr->Aliases[LVal] = std::make_unique<DescrValues>(LVal);
     }
   }
+}
+
+const HIRVectorIdioms *
+HIRVectorizationLegality::getVectorIdioms(HLLoop *Loop) const {
+  IdiomListTy &IdiomList = VecIdioms[Loop];
+  if (!IdiomList) {
+    IdiomList.reset(new HIRVectorIdioms());
+    HIRVectorIdiomAnalysis Analysis;
+    Analysis.gatherIdioms(*IdiomList, DDAnalysis->getGraph(Loop), *SRA, Loop);
+  }
+  return IdiomList.get();
+}
+
+bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
+                                                 HLLoop *Loop) const {
+  auto *Idioms = getVectorIdioms(Loop);
+  for (auto &Inst : make_range(Idioms->begin(), Idioms->end()))
+    if ((Inst.second == HIRVectorIdioms::IdiomId::MinOrMax ||
+         Inst.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
+        DDRefUtils::areEqual(Inst.first->getLvalDDRef(), Ref))
+      return true;
+
+  return false;
 }
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
@@ -604,9 +640,49 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
   updateActiveVPBB(HLabel);
 }
 
+void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
+  for (VPLoop *VPL : VPLInfo->getLoopsInPreorder()) {
+    auto *Header = cast<VPBasicBlock>(VPL->getHeader());
+
+    assert(Header2HLLoop.count(Header) &&
+           "Missing mapping from loop header to HLLoop!");
+    const HLLoop *HLoop = Header2HLLoop[Header];
+
+    using TripCountTy = VPLoop::TripCountTy;
+    TripCountTy TripCount;
+    if (HLoop->isConstTripLoop(&TripCount)) {
+      VPL->setKnownTripCount(TripCount);
+      return;
+    }
+
+    TripCountInfo TCInfo;
+    if (TripCountTy MaxTripCount = HLoop->getMaxTripCountEstimate()) {
+      TCInfo.MaxTripCount = MaxTripCount;
+      LLVM_DEBUG(dbgs() << "Max trip count is " << MaxTripCount
+                        << " set by pragma loop count\n");
+    }
+
+    unsigned MinTripCount;
+    if (HLoop->getPragmaBasedMinimumTripCount(MinTripCount)) {
+      TCInfo.MinTripCount = MinTripCount;
+      LLVM_DEBUG(dbgs() << "Min trip count is " << TCInfo.MinTripCount
+                        << " set by pragma loop count\n");
+    }
+
+    unsigned AvgTripCount;
+    if (HLoop->getPragmaBasedAverageTripCount(AvgTripCount)) {
+      TCInfo.TripCount = AvgTripCount;
+      LLVM_DEBUG(dbgs() << "Average trip count is " << AvgTripCount
+                        << " set by pragma loop count\n");
+    }
+    TCInfo.calculateEstimatedTripCount();
+    VPL->setTripCountInfo(TCInfo);
+  }
+}
+
 std::unique_ptr<VPRegionBlock> PlainCFGBuilderHIR::buildPlainCFG() {
   // Create new TopRegion.
-  TopRegion = llvm::make_unique<VPRegionBlock>(
+  TopRegion = std::make_unique<VPRegionBlock>(
       VPBlockBase::VPRegionBlockSC, VPlanUtils::createUniqueName("region"));
 
   // Create a dummy VPBB as TopRegion's Entry.
@@ -640,10 +716,115 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                        Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
                        nullptr),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
-  Verifier = llvm::make_unique<VPlanVerifierHIR>(Lp);
+  Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
          "Inconsistent Loop information");
 }
+
+class ReductionDescriptorHIR {
+  using DataType = loopopt::HLInst;
+  using RecurrenceKind = VPReduction::RecurrenceKind;
+  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
+  friend class ReductionInputIteratorHIR;
+  friend class MinMaxIdiomsInputIteratorHIR;
+
+public:
+  ReductionDescriptorHIR() { clear(); }
+
+  const DataType *getHLInst() const { return HLInst; }
+  const DataType *getParentInst() const { return ParentInst; }
+  RecurrenceKind getKind() const { return RKind; }
+  MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+  Type *getRedType() const { return RedType; }
+  bool isSigned() const { return IsSigned; }
+
+private:
+  void fillReductionKinds(Type *DestType, unsigned OpCode, PredicateTy Pred,
+                          bool IsMax) {
+    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    RedType = DestType;
+    IsSigned = false;
+    switch (OpCode) {
+    case Instruction::FAdd:
+    case Instruction::FSub:
+      RKind = RecurrenceKind::RK_FloatAdd;
+      break;
+    case Instruction::Add:
+    case Instruction::Sub:
+      RKind = RecurrenceKind::RK_IntegerAdd;
+      break;
+    case Instruction::FMul:
+      RKind = RecurrenceKind::RK_FloatMult;
+      break;
+    case Instruction::Mul:
+      RKind = RecurrenceKind::RK_IntegerMult;
+      break;
+    case Instruction::And:
+      RKind = RecurrenceKind::RK_IntegerAnd;
+      break;
+    case Instruction::Or:
+      RKind = RecurrenceKind::RK_IntegerOr;
+      break;
+    case Instruction::Xor:
+      RKind = RecurrenceKind::RK_IntegerXor;
+      break;
+    case Instruction::Select: {
+      if (RedType->isIntegerTy()) {
+        RKind = RecurrenceKind::RK_IntegerMinMax;
+      } else {
+        assert(RedType->isFloatingPointTy() &&
+               "Floating point type expected at this point!");
+        RKind = RecurrenceKind::RK_FloatMinMax;
+      }
+      setMinMaxReductionKind(Pred, IsMax);
+      break;
+    }
+    default:
+      llvm_unreachable("Unexpected reduction opcode");
+      break;
+    }
+  }
+
+  void setMinMaxReductionKind(PredicateTy Pred, bool IsMax) {
+    switch (Pred) {
+    case PredicateTy::ICMP_SGE:
+    case PredicateTy::ICMP_SGT:
+    case PredicateTy::ICMP_SLE:
+    case PredicateTy::ICMP_SLT:
+      MK = IsMax ? MinMaxRecurrenceKind::MRK_SIntMax
+                 : MinMaxRecurrenceKind::MRK_SIntMin;
+      IsSigned = true;
+      break;
+    case PredicateTy::ICMP_UGE:
+    case PredicateTy::ICMP_UGT:
+    case PredicateTy::ICMP_ULE:
+    case PredicateTy::ICMP_ULT:
+      MK = IsMax ? MinMaxRecurrenceKind::MRK_UIntMax
+                 : MinMaxRecurrenceKind::MRK_UIntMin;
+      break;
+    default:
+      MK = IsMax ? MinMaxRecurrenceKind::MRK_FloatMax
+                 : MinMaxRecurrenceKind::MRK_FloatMin;
+      break;
+    }
+  }
+
+  void clear() {
+    HLInst = nullptr;
+    ParentInst = nullptr;
+    RKind = RecurrenceKind::RK_NoRecurrence;
+    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    RedType = nullptr;
+    IsSigned = false;
+  }
+
+  const DataType *HLInst;
+  const DataType *ParentInst; // Link to parent reduction.
+  RecurrenceKind RKind;
+  MinMaxRecurrenceKind MK;
+  Type *RedType;
+  bool IsSigned;
+};
 
 /// Class implements input iterator for reductions. The input is done
 /// from HIRSafeReductionAnalysis object.
@@ -660,59 +841,6 @@ class ReductionInputIteratorHIR {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
 public:
-  class ReductionDescriptorHIR {
-    using DataType = SafeRedChain::value_type;
-    friend class ReductionInputIteratorHIR;
-
-  public:
-    ReductionDescriptorHIR() { clear(); }
-
-    DataType getHLInst() const { return HLInst; }
-    RecurrenceKind getKind() const { return RKind; }
-    MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
-    Type *getRedType() const { return RedType; }
-    bool getSigned() const { return Signed; }
-
-  private:
-    void clear() {
-      HLInst = nullptr;
-      RKind = RecurrenceKind::RK_NoRecurrence;
-      MK = MinMaxRecurrenceKind::MRK_Invalid;
-      RedType = nullptr;
-      Signed = false;
-    }
-
-    void setMinMaxReductionKind(PredicateTy Pred, bool isMax) {
-      switch (Pred) {
-      case PredicateTy::ICMP_SGE:
-      case PredicateTy::ICMP_SGT:
-      case PredicateTy::ICMP_SLE:
-      case PredicateTy::ICMP_SLT:
-        MK = isMax ? MinMaxRecurrenceKind::MRK_SIntMax
-                   : MinMaxRecurrenceKind::MRK_SIntMin;
-        Signed = true;
-        break;
-      case PredicateTy::ICMP_UGE:
-      case PredicateTy::ICMP_UGT:
-      case PredicateTy::ICMP_ULE:
-      case PredicateTy::ICMP_ULT:
-        MK = isMax ? MinMaxRecurrenceKind::MRK_UIntMax
-                   : MinMaxRecurrenceKind::MRK_UIntMin;
-        break;
-      default:
-        MK = isMax ? MinMaxRecurrenceKind::MRK_FloatMax
-                   : MinMaxRecurrenceKind::MRK_FloatMin;
-        break;
-      }
-    }
-
-    DataType HLInst;
-    RecurrenceKind RKind;
-    MinMaxRecurrenceKind MK;
-    Type *RedType;
-    bool Signed;
-  };
-
   using iterator_category = std::input_iterator_tag;
   using value_type = ReductionDescriptorHIR;
   using const_pointer = const ReductionDescriptorHIR *;
@@ -770,7 +898,15 @@ private:
         RedCurrent = RedEnd;
         RedCurrent--;
         if (!isMaskedReduction()) {
-          fillReductionKinds();
+          auto Opcode = ChainCurrent->OpCode;
+          // Predicate type is needed to determine reduction kind for min/max
+          // reductions. For other reductions predicate is undefined.
+          auto Pred = Opcode == Instruction::Select
+                          ? (*RedCurrent)->getPredicate().Kind
+                          : PredicateTy::BAD_ICMP_PREDICATE;
+          Descriptor.fillReductionKinds(
+              (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
+              (*RedCurrent)->isMax());
           break;
         } else {
           // invalidate iterators for masked reductions
@@ -798,59 +934,136 @@ private:
     return false;
   }
 
-  void fillReductionKinds() {
-    Descriptor.MK = MinMaxRecurrenceKind::MRK_Invalid;
-    Descriptor.RedType = (*RedCurrent)->getLvalDDRef()->getDestType();
-    Descriptor.Signed = false;
-    switch (ChainCurrent->OpCode) {
-    case Instruction::FAdd:
-    case Instruction::FSub:
-      Descriptor.RKind = RecurrenceKind::RK_FloatAdd;
-      break;
-    case Instruction::Add:
-    case Instruction::Sub:
-      Descriptor.RKind = RecurrenceKind::RK_IntegerAdd;
-      break;
-    case Instruction::FMul:
-      Descriptor.RKind = RecurrenceKind::RK_FloatMult;
-      break;
-    case Instruction::Mul:
-      Descriptor.RKind = RecurrenceKind::RK_IntegerMult;
-      break;
-    case Instruction::And:
-      Descriptor.RKind = RecurrenceKind::RK_IntegerAnd;
-      break;
-    case Instruction::Or:
-      Descriptor.RKind = RecurrenceKind::RK_IntegerOr;
-      break;
-    case Instruction::Xor:
-      Descriptor.RKind = RecurrenceKind::RK_IntegerXor;
-      break;
-    case Instruction::Select: {
-      if (Descriptor.RedType->isIntegerTy()) {
-        Descriptor.RKind = RecurrenceKind::RK_IntegerMinMax;
-      } else {
-        assert(Descriptor.RedType->isFloatingPointTy() &&
-               "Floating point type expected at this point!");
-        Descriptor.RKind = RecurrenceKind::RK_FloatMinMax;
-      }
-      PredicateTy Pred = (*RedCurrent)->getPredicate();
-      bool isMax = (*RedCurrent)->isMax();
-      Descriptor.setMinMaxReductionKind(Pred, isMax);
-      break;
-    }
-    default:
-      llvm_unreachable("Unexpected reduction opcode");
-      break;
-    }
-  }
-
 private:
   ReductionDescriptorHIR Descriptor;
   SafeRedInfoList::const_iterator ChainCurrent;
   SafeRedInfoList::const_iterator ChainEnd;
   SafeRedChain::const_iterator RedCurrent;
   SafeRedChain::const_iterator RedEnd;
+};
+
+/// Class implements input iterator for minmax+index vector idioms. The input is
+/// done from HIRVectorIdioms object. The HIRVectorIdioms contains list of
+/// instructions that are recognized as vector minmax idioms linked with other,
+/// index, instructions. The iterator iterates over HIRVectorIdioms main list,
+/// looking for minmax idioms and then it goes through the list of linked
+/// indexes. Both kinds of instructions are imported as reductions (VPReduction
+/// and VPReductionIndex).
+class MinMaxIdiomsInputIteratorHIR {
+  using RecurrenceKind = VPReduction::RecurrenceKind;
+  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
+
+public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = ReductionDescriptorHIR;
+  using const_pointer = const ReductionDescriptorHIR *;
+  using const_reference = const ReductionDescriptorHIR &;
+
+  /// Constructor. The \p Begin defines for which point the iterator is created,
+  /// either for the beginning of the sequence or for the end.
+  MinMaxIdiomsInputIteratorHIR(bool Begin, const HIRVectorIdioms &IList)
+      : IdiomList(IList) {
+    MainCurrent = Begin ? IdiomList.begin() : IdiomList.end();
+    MainEnd = IdiomList.end();
+    resetRedIterators();
+    fillData();
+  }
+
+  inline bool operator==(const MinMaxIdiomsInputIteratorHIR &R) const {
+    return MainCurrent == R.MainCurrent && MainEnd == R.MainEnd &&
+           LinkedCurrent == R.LinkedCurrent && LinkedEnd == R.LinkedEnd;
+  }
+  inline bool operator!=(const MinMaxIdiomsInputIteratorHIR &R) const {
+    return !operator==(R);
+  }
+  inline const_reference operator*() { return Descriptor; }
+  inline const_pointer operator->() { return &operator*(); }
+
+  MinMaxIdiomsInputIteratorHIR &operator++() {
+    advance();
+    return *this;
+  }
+
+private:
+  /// Move the iterator forward.
+  void advance() {
+    if (LinkedCurrent != LinkedEnd)
+      LinkedCurrent++;
+    if (LinkedCurrent == LinkedEnd) {
+      if (MainCurrent != MainEnd) {
+        advanceMainIter();
+        resetRedIterators();
+      } else
+        llvm_unreachable("Can't advance iterator");
+    }
+    fillData();
+  }
+
+  void resetRedIterators() {
+    LinkedCurrent = LinkedEnd = nullptr; // invalidate the statements iterator
+    fillTempArray();
+    if (MainCurrent != MainEnd) {
+      LinkedCurrent = TempVector.begin();
+      LinkedEnd = TempVector.end();
+      assert(LinkedCurrent != LinkedEnd && "Unexpected empty list");
+      MainInst = *LinkedCurrent;
+    }
+  }
+
+  void fillData() {
+    if (LinkedCurrent != LinkedEnd) {
+      unsigned Opcode = 0;
+      (*LinkedCurrent)->isReductionOp(&Opcode);
+      // Only select is expected here.
+      assert(Opcode == Instruction::Select && "expected reduction");
+      Descriptor.fillReductionKinds(
+          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Opcode,
+          (*LinkedCurrent)->getPredicate(), (*LinkedCurrent)->isMax());
+      Descriptor.HLInst = *LinkedCurrent;
+      if (Descriptor.HLInst != MainInst)
+        Descriptor.ParentInst = MainInst;
+    } else
+      Descriptor.clear();
+  }
+
+  void advanceMainIter() {
+    while (MainCurrent != MainEnd) {
+      MainCurrent++;
+      if (MainCurrent == MainEnd ||
+          MainCurrent->second == HIRVectorIdioms::MinOrMax)
+        break;
+    }
+  }
+
+  void fillTempArray() {
+    TempVector.clear();
+    if (MainCurrent != MainEnd) {
+      TempVector.push_back(MainCurrent->first);
+      auto *LinkedList = IdiomList.getLinkedIdioms(MainCurrent->first);
+      if (LinkedList)
+        for (auto Linked : *LinkedList)
+          TempVector.push_back(Linked);
+    }
+  }
+
+private:
+  using TempVectorTy = SmallVector<const ReductionDescriptorHIR::DataType *, 2>;
+
+  ReductionDescriptorHIR Descriptor;
+  // Reduction instruction representing the main min/max reduction.
+  const ReductionDescriptorHIR::DataType *MainInst;
+  const HIRVectorIdioms &IdiomList;
+
+  // Iterators pointing to the current and last min/max+index idiom.
+  HIRVectorIdioms::const_iterator MainCurrent;
+  HIRVectorIdioms::const_iterator MainEnd;
+  // Temporary list to collect the main min/max reduction and all of its
+  // corresponding linked index reductions. The list is cleared and repopulated
+  // for every main min/max reduction.
+  TempVectorTy TempVector;
+  // Iterators for the temporary list.
+  TempVectorTy::const_iterator LinkedCurrent;
+  TempVectorTy::const_iterator LinkedEnd;
 };
 
 // Base class for VPLoopEntity conversion functors.
@@ -905,7 +1118,7 @@ public:
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
     Type *IndTy = CurrValue.Ref->getDestType();
-    HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
+    const HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
     if (IndTy->isIntegerTy())
@@ -941,16 +1154,18 @@ public:
 };
 
 /// Convert data from auto-recognized reductions list.
+template <class Iterator>
 class ReductionListCvt : public VPEntityConverterBase {
+  using value_type = typename Iterator::value_type;
+
 public:
   ReductionListCvt(VPDecomposerHIR &Decomp) : VPEntityConverterBase(Decomp) {}
 
-  void operator()(ReductionDescr &Descriptor,
-                  const ReductionInputIteratorHIR::value_type &CurValue) {
-    auto HLExit = CurValue.getHLInst();
-    if (HLExit)
+  void operator()(ReductionDescr &Descriptor, const value_type &CurValue) {
+    auto Inst = CurValue.getHLInst();
+    if (Inst)
       Descriptor.setExit(
-          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLExit)));
+          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(Inst)));
     else
       Descriptor.setExit(nullptr);
     Descriptor.setStartPhi(nullptr);
@@ -958,9 +1173,14 @@ public:
     Descriptor.setKind(CurValue.getKind());
     Descriptor.setMinMaxKind(CurValue.getMinMaxKind());
     Descriptor.setRecType(CurValue.getRedType());
-    Descriptor.setSigned(CurValue.getSigned());
+    Descriptor.setSigned(CurValue.isSigned());
     Descriptor.setAllocaInst(nullptr);
-    Descriptor.setLinkPhi(nullptr);
+    Inst = CurValue.getParentInst();
+    if (Inst)
+      Descriptor.setLinkPhi(
+          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(Inst)));
+    else
+      Descriptor.setLinkPhi(nullptr);
   }
 };
 
@@ -1117,7 +1337,8 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     );
 
     const InductionList &IL = Decomposer.getInductions(HL);
-    iterator_range<InductionList::const_iterator> InducRange(IL.begin(), IL.end());
+    iterator_range<InductionList::const_iterator> InducRange(IL.begin(),
+                                                             IL.end());
     InductionListCvt InducListCvt(Decomposer);
     auto InducPair = std::make_pair(InducRange, InducListCvt);
 
@@ -1126,14 +1347,16 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     // TODO: remove after correction of descriptor translation (see
     iterator_range<LinearList::const_iterator> LinearRange(LL.end(), LL.end());
 #else
-    iterator_range<LinearList::const_iterator> LinearRange(LL->begin(), LL->end());
+    iterator_range<LinearList::const_iterator> LinearRange(LL->begin(),
+                                                           LL->end());
 #endif
     LinearListCvt LinListCvt(Decomposer);
     auto LinearPair = std::make_pair(LinearRange, LinListCvt);
 
     iterator_range<ReductionInputIteratorHIR> ReducRange(
-                   ReductionInputIteratorHIR(true, SRCL), ReductionInputIteratorHIR(false, SRCL));
-    ReductionListCvt RedListCvt(Decomposer);
+        ReductionInputIteratorHIR(true, SRCL),
+        ReductionInputIteratorHIR(false, SRCL));
+    ReductionListCvt<ReductionInputIteratorHIR> RedListCvt(Decomposer);
     auto ReducPair = std::make_pair(ReducRange, RedListCvt);
 
     const ExplicitReductionList &ERL = Legal->getReductions();
@@ -1144,7 +1367,14 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     ExplicitReductionListCvt ExplRedCvt(Decomposer);
     auto ExplRedPair = std::make_pair(ExplRedRange, ExplRedCvt);
 
-    RedCvt->createDescrList(HL, ReducPair, ExplRedPair);
+    const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
+    iterator_range<MinMaxIdiomsInputIteratorHIR> MinMaxIdiomRange(
+        MinMaxIdiomsInputIteratorHIR(true, *Idioms),
+        MinMaxIdiomsInputIteratorHIR(false, *Idioms));
+    ReductionListCvt<MinMaxIdiomsInputIteratorHIR> RedIdiomCvt(Decomposer);
+    auto RedIdiomPair = std::make_pair(MinMaxIdiomRange, RedIdiomCvt);
+
+    RedCvt->createDescrList(HL, ReducPair, ExplRedPair, RedIdiomPair);
     IndCvt->createDescrList(HL, InducPair, LinearPair);
   }
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));

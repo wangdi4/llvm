@@ -473,7 +473,7 @@ struct PartialInlinerLegacyPass : public ModulePass {
     };
 
 #if INTEL_CUSTOMIZATION
-    auto ILIC = make_unique<InliningLoopInfoCache>();
+    auto ILIC = std::make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
                               &GetTTI, NoneType::None, ILIC.get(), PSI,
                               RunLTOPartialInline, EnableSpecialCases)
@@ -505,7 +505,7 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(Function *F,
     return std::unique_ptr<FunctionOutliningMultiRegionInfo>();
 
   std::unique_ptr<FunctionOutliningMultiRegionInfo> OutliningInfo =
-      llvm::make_unique<FunctionOutliningMultiRegionInfo>();
+      std::make_unique<FunctionOutliningMultiRegionInfo>();
 
   auto IsSingleEntry = [](SmallVectorImpl<BasicBlock *> &BlockList) {
     BasicBlock *Dom = BlockList.front();
@@ -685,7 +685,7 @@ PartialInlinerImpl::computeOutliningInfo(Function *F) {
   };
 
   std::unique_ptr<FunctionOutliningInfo> OutliningInfo =
-      llvm::make_unique<FunctionOutliningInfo>();
+      std::make_unique<FunctionOutliningInfo>();
 
   BasicBlock *CurrEntry = EntryBlock;
   bool CandidateFound = false;
@@ -1097,7 +1097,7 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
     Function *F, FunctionOutliningInfo *OI, OptimizationRemarkEmitter &ORE,
     function_ref<AssumptionCache *(Function &)> LookupAC)
     : OrigFunc(F), ORE(ORE), LookupAC(LookupAC) {
-  ClonedOI = llvm::make_unique<FunctionOutliningInfo>();
+  ClonedOI = std::make_unique<FunctionOutliningInfo>();
 
   // Clone the function, so that we can hack away on it.
   ValueToValueMapTy VMap;
@@ -1122,7 +1122,7 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
     OptimizationRemarkEmitter &ORE,
     function_ref<AssumptionCache *(Function &)> LookupAC)
     : OrigFunc(F), ORE(ORE), LookupAC(LookupAC) {
-  ClonedOMRI = llvm::make_unique<FunctionOutliningMultiRegionInfo>();
+  ClonedOMRI = std::make_unique<FunctionOutliningMultiRegionInfo>();
 
   // Clone the function, so that we can hack away on it.
   ValueToValueMapTy VMap;
@@ -1509,7 +1509,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
   if (PSI->isFunctionEntryCold(F))
     return {false, nullptr};
 
-  if (empty(F->users()))
+  if (F->users().empty())
     return {false, nullptr};
 
   OptimizationRemarkEmitter ORE(F);
@@ -1615,7 +1615,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     return false;
   }
 
-  assert(empty(Cloner.OrigFunc->users()) &&
+  assert(Cloner.OrigFunc->users().empty() &&
          "F's users should all be replaced!");
 
   std::vector<User *> Users(Cloner.ClonedFunc->user_begin(),
@@ -1786,7 +1786,7 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 #if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  auto ILIC = make_unique<InliningLoopInfoCache>();
+  auto ILIC = std::make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
                          {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline,
                          EnableSpecialCases)

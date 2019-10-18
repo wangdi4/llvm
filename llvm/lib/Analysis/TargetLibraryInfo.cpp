@@ -32,7 +32,8 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "Glibc vector math library")));
 #endif
 
-StringRef const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
+StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
+    {
 #define TLI_DEFINE_STRING
 #include "llvm/Analysis/TargetLibraryInfo.def"
 };
@@ -69,7 +70,7 @@ static bool hasBcmp(const Triple &TT) {
 /// target triple. This should be carefully written so that a missing target
 /// triple gets a sane set of defaults.
 static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
-                       ArrayRef<StringRef> StandardNames) {
+                       ArrayRef<StringLiteral> StandardNames) {
   // Verify that the StandardNames array is in alphabetical order.
   assert(std::is_sorted(StandardNames.begin(), StandardNames.end(),
                         [](StringRef LHS, StringRef RHS) {
@@ -108,18 +109,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   TLI.setShouldSignExtI32Param(ShouldSignExtI32Param);
 
   if (T.getArch() == Triple::r600 ||
-      T.getArch() == Triple::amdgcn) {
-    TLI.setUnavailable(LibFunc_ldexp);
-    TLI.setUnavailable(LibFunc_ldexpf);
-    TLI.setUnavailable(LibFunc_ldexpl);
-    TLI.setUnavailable(LibFunc_exp10);
-    TLI.setUnavailable(LibFunc_exp10f);
-    TLI.setUnavailable(LibFunc_exp10l);
-    TLI.setUnavailable(LibFunc_log10);
-    TLI.setUnavailable(LibFunc_log10f);
-    TLI.setUnavailable(LibFunc_log10l);
-    TLI.setUnavailable(LibFunc_printf);
-  }
+      T.getArch() == Triple::amdgcn)
+    TLI.disableAllFunctions();
 
   // There are no library implementations of memcpy and memset for AMD gpus and
   // these can be difficult to lower in the backend.
@@ -819,6 +810,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_std_exception_destroy);
     TLI.setUnavailable(LibFunc_strncpy_s);
     TLI.setUnavailable(LibFunc_under_errno);
+    TLI.setUnavailable(LibFunc_under_fileno);
     TLI.setUnavailable(LibFunc_under_fstat64i32);
     TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
     TLI.setUnavailable(LibFunc_under_localtime64);
@@ -826,10 +818,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_getcwd);
     TLI.setUnavailable(LibFunc_under_purecall);
     TLI.setUnavailable(LibFunc_under_set_errno);
+    TLI.setUnavailable(LibFunc_under_setmode);
     TLI.setUnavailable(LibFunc_under_stat64i32);
     TLI.setUnavailable(LibFunc_under_stricmp);
     TLI.setUnavailable(LibFunc_under_strnicmp);
     TLI.setUnavailable(LibFunc_under_time64);
+    TLI.setUnavailable(LibFunc_under_wassert);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -900,19 +894,14 @@ static StringRef sanitizeFunctionName(StringRef funcName) {
   return GlobalValue::dropLLVMManglingEscape(funcName);
 }
 
-bool TargetLibraryInfoImpl::getLibFunc(StringRef funcName,
-                                       LibFunc &F) const {
-  StringRef const *Start = &StandardNames[0];
-  StringRef const *End = &StandardNames[NumLibFuncs];
-
+bool TargetLibraryInfoImpl::getLibFunc(StringRef funcName, LibFunc &F) const {
   funcName = sanitizeFunctionName(funcName);
   if (funcName.empty())
     return false;
 
-  StringRef const *I = std::lower_bound(
-      Start, End, funcName, [](StringRef LHS, StringRef RHS) {
-        return LHS < RHS;
-      });
+  const auto *Start = std::begin(StandardNames);
+  const auto *End = std::end(StandardNames);
+  const auto *I = std::lower_bound(Start, End, funcName);
   if (I != End && *I == funcName) {
     F = (LibFunc)(I - Start);
     return true;
@@ -1810,6 +1799,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
       return false;
   }
   case LibFunc::NumLibFuncs:
+  case LibFunc::NotLibFunc:
     break;
 
 #if INTEL_CUSTOMIZATION
@@ -2165,6 +2155,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
+  case LibFunc_under_fileno:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
@@ -2178,6 +2172,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_set_errno:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_under_setmode:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_under_stat64i32:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -2198,6 +2197,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_time64:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_under_wassert:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy(),
+            FTy.getParamType(1)->isPointerTy(),
+            FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_obstack_begin:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
@@ -3685,14 +3690,6 @@ StringRef TargetLibraryInfoImpl::getScalarizedFunction(StringRef F,
     return StringRef();
   VF = I->VectorizationFactor;
   return I->ScalarFnName;
-}
-
-TargetLibraryInfo TargetLibraryAnalysis::run(Module &M,
-                                             ModuleAnalysisManager &) {
-  if (PresetInfoImpl)
-    return TargetLibraryInfo(*PresetInfoImpl);
-
-  return TargetLibraryInfo(lookupInfoImpl(Triple(M.getTargetTriple())));
 }
 
 TargetLibraryInfo TargetLibraryAnalysis::run(Function &F,

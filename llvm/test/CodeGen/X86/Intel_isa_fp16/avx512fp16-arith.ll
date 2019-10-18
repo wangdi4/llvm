@@ -229,8 +229,8 @@ define half @div_sh_2(half %i, half %j, half* %x.ptr) nounwind readnone {
   ret half %r
 }
 
-define i1 @cmp_sh(half %x, half %y) {
-; CHECK-LABEL: cmp_sh:
+define i1 @cmp_une_sh(half %x, half %y) {
+; CHECK-LABEL: cmp_une_sh:
 ; CHECK:       ## %bb.0: ## %entry
 ; CHECK-NEXT:    vcmpneqsh %xmm1, %xmm0, %k0
 ; CHECK-NEXT:    kmovd %k0, %eax
@@ -238,6 +238,29 @@ define i1 @cmp_sh(half %x, half %y) {
 ; CHECK-NEXT:    retq
 entry:
   %0 = fcmp une half %x, %y
+  ret i1 %0
+}
+
+define i1 @cmp_oeq_sh(half %x, half %y) {
+; CHECK-LABEL: cmp_oeq_sh:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqsh %xmm1, %xmm0, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    ## kill: def $al killed $al killed $eax
+; CHECK-NEXT:    retq
+entry:
+  %0 = fcmp oeq half %x, %y
+  ret i1 %0
+}
+
+define i1 @cmp_olt_sh(half %x, half %y) {
+; CHECK-LABEL: cmp_olt_sh:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vucomish %xmm0, %xmm1
+; CHECK-NEXT:    seta %al
+; CHECK-NEXT:    retq
+  entry:
+  %0 = fcmp olt half %x, %y
   ret i1 %0
 }
 
@@ -286,11 +309,8 @@ declare half @llvm.fabs.f16(half)
 define half @fcopysign(half %x, half %y) {
 ; CHECK-LABEL: fcopysign:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpbroadcastw {{.*#+}} xmm2 = [-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0]
-; CHECK-NEXT:    vpand %xmm2, %xmm1, %xmm1
 ; CHECK-NEXT:    vpbroadcastw {{.*#+}} xmm2 = [NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN]
-; CHECK-NEXT:    vpand %xmm2, %xmm0, %xmm0
-; CHECK-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vpternlogq $226, %xmm1, %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %a = call half @llvm.copysign.f16(half %x, half %y)
   ret half %a
@@ -331,11 +351,8 @@ declare <8 x half> @llvm.fabs.v8f16(<8 x half>)
 define <8 x half> @fcopysignv8f16(<8 x half> %x, <8 x half> %y) {
 ; CHECK-LABEL: fcopysignv8f16:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpbroadcastw {{.*#+}} xmm2 = [-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0]
-; CHECK-NEXT:    vpand %xmm2, %xmm1, %xmm1
 ; CHECK-NEXT:    vpbroadcastw {{.*#+}} xmm2 = [NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN]
-; CHECK-NEXT:    vpand %xmm2, %xmm0, %xmm0
-; CHECK-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vpternlogq $226, %xmm1, %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %a = call <8 x half> @llvm.copysign.v8f16(<8 x half> %x, <8 x half> %y)
   ret <8 x half> %a
@@ -376,11 +393,8 @@ declare <16 x half> @llvm.fabs.v16f16(<16 x half>)
 define <16 x half> @fcopysignv16f16(<16 x half> %x, <16 x half> %y) {
 ; CHECK-LABEL: fcopysignv16f16:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpbroadcastw {{.*#+}} ymm2 = [-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0]
-; CHECK-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; CHECK-NEXT:    vpbroadcastw {{.*#+}} ymm2 = [NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN]
-; CHECK-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; CHECK-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    vpternlogq $226, %ymm1, %ymm2, %ymm0
 ; CHECK-NEXT:    retq
   %a = call <16 x half> @llvm.copysign.v16f16(<16 x half> %x, <16 x half> %y)
   ret <16 x half> %a
@@ -421,11 +435,8 @@ declare <32 x half> @llvm.fabs.v32f16(<32 x half>)
 define <32 x half> @fcopysignv32f16(<32 x half> %x, <32 x half> %y) {
 ; CHECK-LABEL: fcopysignv32f16:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpbroadcastw {{.*#+}} zmm2 = [-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0,-0.0E+0]
-; CHECK-NEXT:    vpandq %zmm2, %zmm1, %zmm1
 ; CHECK-NEXT:    vpbroadcastw {{.*#+}} zmm2 = [NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN]
-; CHECK-NEXT:    vpandq %zmm2, %zmm0, %zmm0
-; CHECK-NEXT:    vporq %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    vpternlogq $226, %zmm1, %zmm2, %zmm0
 ; CHECK-NEXT:    retq
   %a = call <32 x half> @llvm.copysign.v32f16(<32 x half> %x, <32 x half> %y)
   ret <32 x half> %a

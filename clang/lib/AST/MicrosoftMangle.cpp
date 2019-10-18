@@ -375,7 +375,7 @@ private:
 #define TYPE(CLASS, PARENT) void mangleType(const CLASS##Type *T, \
                                             Qualifiers Quals, \
                                             SourceRange Range);
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
 #undef ABSTRACT_TYPE
 #undef NON_CANONICAL_TYPE
 #undef TYPE
@@ -634,6 +634,8 @@ void MicrosoftCXXNameMangler::mangleMemberDataPointer(const CXXRecordDecl *RD,
   case MSInheritanceAttr::Keyword_multiple_inheritance:    Code = '0'; break;
   case MSInheritanceAttr::Keyword_virtual_inheritance:     Code = 'F'; break;
   case MSInheritanceAttr::Keyword_unspecified_inheritance: Code = 'G'; break;
+  case MSInheritanceAttr::SpellingNotCalculated:
+    llvm_unreachable("not reachable");
   }
 
   Out << '$' << Code;
@@ -665,6 +667,8 @@ MicrosoftCXXNameMangler::mangleMemberFunctionPointer(const CXXRecordDecl *RD,
   case MSInheritanceAttr::Keyword_multiple_inheritance:    Code = 'H'; break;
   case MSInheritanceAttr::Keyword_virtual_inheritance:     Code = 'I'; break;
   case MSInheritanceAttr::Keyword_unspecified_inheritance: Code = 'J'; break;
+  case MSInheritanceAttr::SpellingNotCalculated:
+    llvm_unreachable("not reachable");
   }
 
   // If non-virtual, mangle the name.  If virtual, mangle as a virtual memptr
@@ -887,16 +891,11 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       }
 
       if (const DecompositionDecl *DD = dyn_cast<DecompositionDecl>(ND)) {
-        // FIXME: Invented mangling for decomposition declarations:
-        //   [X,Y,Z]
-        // where X,Y,Z are the names of the bindings.
-        llvm::SmallString<128> Name("[");
-        for (auto *BD : DD->bindings()) {
-          if (Name.size() > 1)
-            Name += ',';
-          Name += BD->getDeclName().getAsIdentifierInfo()->getName();
-        }
-        Name += ']';
+        // Decomposition declarations are considered anonymous, and get
+        // numbered with a $S prefix.
+        llvm::SmallString<64> Name("$S");
+        // Get a unique id for the anonymous struct.
+        Name += llvm::utostr(Context.getAnonymousStructId(DD) + 1);
         mangleSourceName(Name);
         break;
       }
@@ -1970,7 +1969,7 @@ void MicrosoftCXXNameMangler::mangleType(QualType T, SourceRange Range,
   case Type::CLASS: \
     mangleType(cast<CLASS##Type>(ty), Quals, Range); \
     break;
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
 #undef ABSTRACT_TYPE
 #undef NON_CANONICAL_TYPE
 #undef TYPE
@@ -2437,9 +2436,9 @@ void MicrosoftCXXNameMangler::mangleCallingConvention(CallingConv CC) {
       llvm_unreachable("Unsupported CC for mangling");
     case CC_Win64:
     case CC_X86_64SysV:
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     case CC_SpirFunction:
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     case CC_C: Out << 'A'; break;
     case CC_X86Pascal: Out << 'C'; break;
     case CC_X86ThisCall: Out << 'E'; break;

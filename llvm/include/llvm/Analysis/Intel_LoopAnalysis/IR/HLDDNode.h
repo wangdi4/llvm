@@ -28,6 +28,21 @@ class BasicBlock;
 
 namespace loopopt {
 
+struct PredicateTuple {
+  RegDDRef *Op1;
+  RegDDRef *Op2;
+  HLPredicate Pred;
+
+  PredicateTuple(RegDDRef *Op1, HLPredicate Pred, RegDDRef *Op2)
+      : Op1(Op1), Op2(Op2), Pred(Pred) {}
+
+  bool operator==(const PredicateTuple &Cnd) const;
+
+  operator std::tuple<RegDDRef *&, HLPredicate &, RegDDRef *&>() {
+    return std::tie(Op1, Pred, Op2);
+  }
+};
+
 /// Base class for high level nodes which can contain DDRefs.
 class HLDDNode : public HLNode {
 public:

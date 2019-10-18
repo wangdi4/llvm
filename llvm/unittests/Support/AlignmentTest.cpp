@@ -11,6 +11,12 @@
 
 #include <vector>
 
+#ifdef _MSC_VER
+// Disable warnings about potential divide by 0.
+#pragma warning(push)
+#pragma warning(disable : 4723)
+#endif
+
 using namespace llvm;
 
 namespace {
@@ -22,7 +28,10 @@ std::vector<uint64_t> getValidAlignments() {
   return Out;
 }
 
-TEST(AlignmentTest, AlignDefaultCTor) { EXPECT_EQ(Align().value(), 1ULL); }
+TEST(AlignmentTest, AlignDefaultCTor) {
+  EXPECT_EQ(Align().value(), 1ULL);
+  EXPECT_EQ(Align::None().value(), 1ULL);
+}
 
 TEST(AlignmentTest, MaybeAlignDefaultCTor) {
   EXPECT_FALSE(MaybeAlign().hasValue());
@@ -218,6 +227,29 @@ TEST(AlignmentTest, AlignComparisons) {
   }
 }
 
+TEST(AlignmentTest, Max) {
+  // We introduce std::max here to test ADL.
+  using std::max;
+
+  // Uses llvm::max.
+  EXPECT_EQ(max(MaybeAlign(), Align(2)), Align(2));
+  EXPECT_EQ(max(Align(2), MaybeAlign()), Align(2));
+
+  EXPECT_EQ(max(MaybeAlign(1), Align(2)), Align(2));
+  EXPECT_EQ(max(Align(2), MaybeAlign(1)), Align(2));
+
+  EXPECT_EQ(max(MaybeAlign(2), Align(2)), Align(2));
+  EXPECT_EQ(max(Align(2), MaybeAlign(2)), Align(2));
+
+  EXPECT_EQ(max(MaybeAlign(4), Align(2)), Align(4));
+  EXPECT_EQ(max(Align(2), MaybeAlign(4)), Align(4));
+
+  // Uses std::max.
+  EXPECT_EQ(max(Align(2), Align(4)), Align(4));
+  EXPECT_EQ(max(MaybeAlign(2), MaybeAlign(4)), MaybeAlign(4));
+  EXPECT_EQ(max(MaybeAlign(), MaybeAlign()), MaybeAlign());
+}
+
 TEST(AlignmentTest, AssumeAligned) {
   EXPECT_EQ(assumeAligned(0), Align(1));
   EXPECT_EQ(assumeAligned(0), Align());
@@ -298,3 +330,7 @@ TEST(AlignmentDeathTest, CompareAlignToUndefMaybeAlign) {
 #endif // NDEBUG
 
 } // end anonymous namespace
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

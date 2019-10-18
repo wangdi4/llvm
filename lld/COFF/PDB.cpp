@@ -1150,7 +1150,7 @@ void DebugSHandler::finish() {
   // string table. Generally the string table subsection appears after the
   // checksum table, so we have to do this after looping over all the
   // subsections.
-  auto newChecksums = make_unique<DebugChecksumsSubsection>(linker.pdbStrTab);
+  auto newChecksums = std::make_unique<DebugChecksumsSubsection>(linker.pdbStrTab);
   for (FileChecksumEntry &fc : checksums) {
     SmallString<128> filename =
         exitOnErr(cVStrTab.getString(fc.FileNameOffset));
@@ -1693,6 +1693,7 @@ void PDBLinker::addSections(ArrayRef<OutputSection *> outputSections,
 }
 
 void PDBLinker::commit(codeview::GUID *guid) {
+  ExitOnError exitOnErr((config->pdbPath + ": ").str());
   // Write to a file.
   exitOnErr(builder.commit(config->pdbPath, guid));
 }
@@ -1799,8 +1800,8 @@ static bool findLineTable(const SectionChunk *c, uint32_t addr,
 // Use CodeView line tables to resolve a file and line number for the given
 // offset into the given chunk and return them, or {"", 0} if a line table was
 // not found.
-std::pair<StringRef, uint32_t> coff::getFileLine(const SectionChunk *c,
-                                                 uint32_t addr) {
+std::pair<StringRef, uint32_t> coff::getFileLineCodeView(const SectionChunk *c,
+                                                         uint32_t addr) {
   ExitOnError exitOnErr;
 
   DebugStringTableSubsectionRef cVStrTab;

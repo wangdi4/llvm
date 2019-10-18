@@ -278,7 +278,6 @@ IcelakeCommon:
 SkylakeCommon:
     setFeatureEnabledImpl(Features, "xsavec", true);
     setFeatureEnabledImpl(Features, "xsaves", true);
-    setFeatureEnabledImpl(Features, "mpx", true);
     setFeatureEnabledImpl(Features, "clflushopt", true);
     setFeatureEnabledImpl(Features, "aes", true);
     LLVM_FALLTHROUGH;
@@ -357,7 +356,6 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "xsavec", true);
     setFeatureEnabledImpl(Features, "xsaves", true);
     setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "mpx", true);
     setFeatureEnabledImpl(Features, "fsgsbase", true);
     setFeatureEnabledImpl(Features, "aes", true);
     LLVM_FALLTHROUGH;
@@ -959,8 +957,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512VP2INTERSECT = true;
     } else if (Feature == "+sha") {
       HasSHA = true;
-    } else if (Feature == "+mpx") {
-      HasMPX = true;
     } else if (Feature == "+shstk") {
       HasSHSTK = true;
     } else if (Feature == "+movbe") {
@@ -1445,8 +1441,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__CLWB__");
   if (HasWBNOINVD)
     Builder.defineMacro("__WBNOINVD__");
-  if (HasMPX)
-    Builder.defineMacro("__MPX__");
   if (HasSHSTK)
     Builder.defineMacro("__SHSTK__");
   if (HasSGX)
@@ -1459,6 +1453,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_ISA_KEYLOCKER
   if (HasKeyLocker)
     Builder.defineMacro("__KEYLOCKER__");
+  Builder.defineMacro("__KEYLOCKER_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
 #endif // INTEL_CUSTOMIZATION
   if (HasRDPID)
@@ -1483,22 +1478,28 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_ISA_ULI
   if (HasULI)
     Builder.defineMacro("__ULI__");
+  Builder.defineMacro("__ULI_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
+  Builder.defineMacro("__SERIALIZE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_TSXLDTRK
   if (HasTSXLDTRK)
     Builder.defineMacro("__TSXLDTRK__");
+  Builder.defineMacro("__TSXLDTRK_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
+  Builder.defineMacro("__AMXTILE_SUPPORTED__");
   if (HasAMXINT8)
     Builder.defineMacro("__AMXINT8__");
+  Builder.defineMacro("__AMXINT8_SUPPORTED__");
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
+  Builder.defineMacro("__AMXBF16_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
 // TODO: when AMX2 clang part is finished, fix here.
@@ -1507,6 +1508,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_ISA_AVX_VNNI
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
+  Builder.defineMacro("__AVXVNNI_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
@@ -1684,7 +1686,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("movbe", true)
       .Case("movdiri", true)
       .Case("movdir64b", true)
-      .Case("mpx", true)
       .Case("mwaitx", true)
       .Case("pclmul", true)
       .Case("pconfig", true)
@@ -1801,7 +1802,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("movbe", HasMOVBE)
       .Case("movdiri", HasMOVDIRI)
       .Case("movdir64b", HasMOVDIR64B)
-      .Case("mpx", HasMPX)
       .Case("mwaitx", HasMWAITX)
       .Case("pclmul", HasPCLMUL)
       .Case("pconfig", HasPCONFIG)

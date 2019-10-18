@@ -734,7 +734,7 @@ struct WholeProgramDevirt : public ModulePass {
     // an optimization remark emitter on the fly, when we need it.
     std::unique_ptr<OptimizationRemarkEmitter> ORE;
     auto OREGetter = [&](Function *F) -> OptimizationRemarkEmitter & {
-      ORE = make_unique<OptimizationRemarkEmitter>(F);
+      ORE = std::make_unique<OptimizationRemarkEmitter>(F);
       return *ORE;
     };
 
@@ -818,7 +818,7 @@ void runWholeProgramDevirtOnIndex(
 
 void updateIndexWPDForExports(
     ModuleSummaryIndex &Summary,
-    StringMap<FunctionImporter::ExportSetTy> &ExportLists,
+    function_ref<bool(StringRef, GlobalValue::GUID)> isExported,
     std::map<ValueInfo, std::vector<VTableSlotSummary>> &LocalWPDTargetsMap) {
   for (auto &T : LocalWPDTargetsMap) {
     auto &VI = T.first;
@@ -826,9 +826,7 @@ void updateIndexWPDForExports(
     assert(VI.getSummaryList().size() == 1 &&
            "Devirt of local target has more than one copy");
     auto &S = VI.getSummaryList()[0];
-    const auto &ExportList = ExportLists.find(S->modulePath());
-    if (ExportList == ExportLists.end() ||
-        !ExportList->second.count(VI.getGUID()))
+    if (!isExported(S->modulePath(), VI.getGUID()))
       continue;
 
     // It's been exported by a cross module import.

@@ -30,12 +30,14 @@ add_lld_library(lldCOFF
   DebugInfoCodeView
   DebugInfoMSF
   DebugInfoPDB
+  Demangle
   LibDriver
   LTO
   MC
   Object
   Option
   Support
+  Symbolize
   WindowsManifest
 
   LINK_LIBS
@@ -46,3 +48,10 @@ add_lld_library(lldCOFF
   COFFOptionsTableGen
   ${tablegen_deps}
   )
+
+# INTEL_CUSTOMIZATION
+# Export LLD header files for OpenCL CPU RT in-tree Windows build.
+target_include_directories(lldCOFF PUBLIC
+  ${LLD_SOURCE_DIR}/include ${LLD_BINARY_DIR}/include
+  )
+# end INTEL_CUSTOMIZATION

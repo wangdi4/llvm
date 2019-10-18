@@ -12,52 +12,65 @@
 // analyze all uses of global pointers in single routine.
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_AggInline.h"
+#include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/Module.h"
-
-
+#include "llvm/IR/Operator.h"
 
 using namespace llvm;
-
-// Trace option for Aggressive Inline Analysis.
-//
-static cl::opt<bool> InlineAggressiveTrace("inline-agg-trace",
-                                        cl::init(false), cl::ReallyHidden);
 
 // Maximum number of callsites marked by this analysis. If it exceeds
 // this threshold, this analysis is disabled.
 //
 static cl::opt<unsigned> InlineAggressiveCSLimit("inline-agg-callsites-limit",
-                                        cl::init(25), cl::ReallyHidden);
+                                                 cl::init(25),
+                                                 cl::ReallyHidden);
 
 // Minimum malloc size limit for Aggressive Inline Analysis. A  malloc
 // call that allocates more than this limit is considered for this
 // analysis.
 //
 static cl::opt<unsigned> InlineAggressiveMallocLimit("inline-agg-malloc-limit",
-                                    cl::init(0x6000000), cl::ReallyHidden);
+                                                     cl::init(0x6000000),
+                                                     cl::ReallyHidden);
 
 // If number of instructions in entire application is greater than
 // this limit, it will not be considered for aggressive inline analysis.
 //
 static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
-                                    cl::init(0x3000), cl::ReallyHidden);
+                                                   cl::init(0x3000),
+                                                   cl::ReallyHidden);
 
-#define DEBUG_TYPE  "inlineaggressiveanalysis"
+// Maximum number of Global variable's uses allowed.
+static const unsigned MaxNumGVUses = 16;
 
+// Maximum number of Calls allowed to inline for any Global Variable
+static const unsigned MaxNumInlineCalls = 16;
+
+// Maximum number of instructions visited to track uses of any Global Variable
+static const unsigned MaxNumInstructionsVisited = 32;
+
+// Function is not allowed to inline if size of the function exceeds this limit.
+static const unsigned MaxNumBBInlineLimit = 32;
+
+// Function is not considered as tiny function if size of the function exceeds
+// this limit.
+static const unsigned MaxNumBBTinyFuncLimit = 1;
+
+#define DEBUG_TYPE "inlineaggressiveanalysis"
 
 INITIALIZE_PASS_BEGIN(InlineAggressiveWrapperPass, "inlineaggressiveanalysis",
-                "inline aggressive analysis", false, false)
+                      "inline aggressive analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(InlineAggressiveWrapperPass, "inlineaggressiveanalysis",
-                "inline aggressive analysis", false, false)
+                    "inline aggressive analysis", false, false)
 
 char InlineAggressiveWrapperPass::ID = 0;
 
@@ -76,14 +89,22 @@ bool InlineAggressiveWrapperPass::doFinalization(Module &M) {
 
 bool InlineAggressiveWrapperPass::runOnModule(Module &M) {
   auto &WPA = getAnalysis<WholeProgramWrapperPass>();
+  auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
+    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
+
   Result.reset(new InlineAggressiveInfo(
-                InlineAggressiveInfo::runImpl(M, WPA.getResult())));
+      InlineAggressiveInfo::runImpl(M, WPA.getResult(), GetTLI)));
   return false;
 }
 
-InlineAggressiveInfo::InlineAggressiveInfo() {
+InlineAggressiveInfo::InlineAggressiveInfo(AggInlGetTLITy GetTLI)
+    : GetTLI(GetTLI) {
   AggInlCalls.clear();
 }
+
+InlineAggressiveInfo::InlineAggressiveInfo(InlineAggressiveInfo &&Arg)
+    : AggInlCalls(std::move(Arg.AggInlCalls)) {}
 
 InlineAggressiveInfo::~InlineAggressiveInfo() {}
 
@@ -91,7 +112,7 @@ InlineAggressiveInfo::~InlineAggressiveInfo() {}
 //
 bool InlineAggressiveInfo::isAggInlineOccured(void) {
   if (AggInlCalls.size())
-   return true;
+    return true;
   return false;
 }
 
@@ -138,8 +159,7 @@ static bool noCallsToUserDefinedRoutinesInCallee(CallBase &CB) {
 // Mark all callsites of 'F' as aggressive-inlined-calls.
 //
 bool InlineAggressiveInfo::setAggInlineInfoForAllCallSites(Function *F) {
-  for (const Use &U : F->uses()) {
-    User *UR = U.getUser();
+  for (auto *UR : F->users()) {
     if (!isa<CallInst>(UR)) {
       return false;
     }
@@ -152,14 +172,12 @@ bool InlineAggressiveInfo::setAggInlineInfoForAllCallSites(Function *F) {
 // Mark 'CS' as aggressive-inlined-calls and all callsites of callee of
 // 'CS' as aggressive-inlined-calls.
 //
-bool InlineAggressiveInfo::setAggInlineInfo(CallBase &CB)
-{
+bool InlineAggressiveInfo::setAggInlineInfo(CallBase &CB) {
   setAggInlInfoForCallSite(CB);
   Function *Callee = CB.getCalledFunction();
   if (!Callee)
     return false;
   return setAggInlineInfoForAllCallSites(Callee);
-
 }
 
 // Propagate AggInfo from callsites to called functions recursively.
@@ -172,8 +190,8 @@ bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallBase &CB) {
     return false;
   }
   bool DoInline = false;
-  for (inst_iterator II = inst_begin(Callee), E = inst_end(Callee);
-       II != E; ++II) {
+  for (inst_iterator II = inst_begin(Callee), E = inst_end(Callee); II != E;
+       ++II) {
 
     auto CB1 = dyn_cast<CallBase>(&*II);
     if (!CB1)
@@ -184,7 +202,7 @@ bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallBase &CB) {
     }
   }
   if (isCallInstInAggInlList(CB))
-   DoInline = true;
+    DoInline = true;
 
   return DoInline;
 }
@@ -244,9 +262,9 @@ static bool isMallocAllocatingHugeMemory(const CallInst *CI) {
 static bool isValueSavedInArg(Value *V, StoreInst *SI) {
   if (V != SI->getOperand(0))
     return false;
-  Value* V2 = SI->getOperand(1);
+  Value *V2 = SI->getOperand(1);
   if (Operator::getOpcode(V2) == Instruction::BitCast)
-    V2 = cast<Operator>(V2)->getOperand(0);;
+    V2 = cast<Operator>(V2)->getOperand(0);
   if (!isa<Argument>(V2))
     return false;
   return true;
@@ -276,11 +294,10 @@ static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
   if (!FTy->getParamType(0)->isPointerTy())
     return false;
 
-  Value* V = &CB;
+  Value *V = &CB;
 
   bool malloc_saved_in_arg = false;
-  for (Use &U : V->uses()) {
-    User *I = U.getUser();
+  for (auto *I : V->users()) {
     if (isa<ICmpInst>(I)) {
       // Ignore use in ICmp
       continue;
@@ -297,17 +314,15 @@ static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
           malloc_saved_in_arg = true;
         else
           return false;
-      }
-      else
+      } else
         return false;
-    } else  if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
       // store i8* %call, i8** %0
       if (isValueSavedInArg(V, SI))
         malloc_saved_in_arg = true;
       else
         return false;
-    }
-    else {
+    } else {
       return false;
     }
   }
@@ -324,7 +339,7 @@ static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
 // variables. All collected variables are inserted into 'Globals'.
 //
 static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
-             Function * MallocRtn, std::vector<GlobalVariable*> &Globals) {
+    Function *MallocRtn, std::vector<GlobalVariable *> &Globals) {
 
   for (Use &U : MallocRtn->uses()) {
     User *UR = U.getUser();
@@ -337,12 +352,12 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
 
     Value *Glob = *(CB1->arg_begin());
     if (Operator::getOpcode(Glob) == Instruction::BitCast)
-      Glob = cast<Operator>(Glob)->getOperand(0);;
+      Glob = cast<Operator>(Glob)->getOperand(0);
+    ;
 
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Glob)) {
       Globals.push_back(GV);
-    }
-    else {
+    } else {
       return false;
     }
   }
@@ -371,7 +386,7 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
 //             }
 //
 bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
-                             std::vector<GlobalVariable*> &Globals) {
+    std::vector<GlobalVariable *> &Globals) {
   for (unsigned i = 0, e = Globals.size(); i != e; ++i) {
     GlobalVariable *GV = Globals[i];
     for (User *U1 : GV->users()) {
@@ -388,13 +403,11 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
             Operator::getOpcode(U1) == Instruction::Load ||
             Operator::getOpcode(U1) == Instruction::GetElementPtr) {
           U1 = *U1->user_begin();
-         } else {
-           if (InlineAggressiveTrace) {
-             errs() << " Skipped AggInl ... unexpeced use of global\n";
-             errs() << "      " << *U1  << "\n";
-           }
-           return false;
-         }
+        } else {
+          LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpeced use of global\n"
+                            << "      " << *U1 << "\n");
+          return false;
+        }
       }
 
       assert(U1 && "Expecting use");
@@ -406,16 +419,13 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
         // we can ignore propagating formals to other calls in Callee.
         //
         if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
-          if (InlineAggressiveTrace) {
-            errs() << " Skipped AggInl ... global may be escaped in callee\n";
-            errs() << "      " << CB1 << "\n";
-          }
+          LLVM_DEBUG(dbgs()
+                     << " Skipped AggInl ... global may be escaped in callee\n"
+                     << "      " << CB1 << "\n");
           return false;
         }
-        if (InlineAggressiveTrace) {
-          errs() << "AggInl:  Marking callsite for inline  \n";
-          errs() << "      " << CB1 << "\n";
-        }
+        LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
+                          << "      " << CB1 << "\n");
         setAggInlInfoForCallSite(*CB1);
         continue;
       }
@@ -427,10 +437,8 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
           //     ...
           //     store i64 %1, @srcGrid to i64*)
           Function *F1 = cast<Instruction>(U2)->getParent()->getParent();
-          if (InlineAggressiveTrace) {
-            errs() << "AggInl:  Marking all callsites of ";
-            errs() << F1->getName() << "\n";
-          }
+          LLVM_DEBUG(dbgs() << "AggInl:  Marking all callsites of "
+                            << F1->getName() << "\n");
           setAggInlineInfoForAllCallSites(F1);
         } else if (CallInst *CI2 = dyn_cast<CallInst>(U2)) {
           // %7 = load @srcGrid,
@@ -439,38 +447,30 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
           // LBM_initializeSpecialCellsForLDC(double* %arraydecay8)
           auto CB1 = cast<CallBase>(CI2);
           if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
-            if (InlineAggressiveTrace) {
-              errs() << " Skipped AggInl ...global may be escaped in callee\n";
-              errs() << "      " << CB1 << "\n";
-            }
+            LLVM_DEBUG(dbgs()
+                       << " Skipped AggInl ...global may be escaped in callee\n"
+                       << "      " << CB1 << "\n");
             return false;
           }
-          if (InlineAggressiveTrace) {
-            errs() << "AggInl:  Marking callsite for inline  \n";
-            errs() << "      " << CB1 << "\n";
-          }
+          LLVM_DEBUG(dbgs() << "AggInl:  Marking callsite for inline  \n"
+                            << "      " << CB1 << "\n");
           setAggInlInfoForCallSite(*CB1);
         } else if (Operator::getOpcode(U2) == Instruction::Load) {
           for (User *U3 : U2->users()) {
             if (Operator::getOpcode(U3) != Instruction::Store) {
-              if (InlineAggressiveTrace) {
-                errs() << " Skipped AggInl ... unexpected use of global\n";
-                errs() << "      " << *U3  << "\n";
-              }
+              LLVM_DEBUG(dbgs()
+                         << " Skipped AggInl ... unexpected use of global\n"
+                         << "      " << *U3 << "\n");
               return false;
             }
             Function *F1 = cast<Instruction>(U3)->getParent()->getParent();
-            if (InlineAggressiveTrace) {
-              errs() << "AggInl:  Marking all callsites of ";
-              errs() << F1->getName() << "\n";
-            }
+            LLVM_DEBUG(dbgs() << "AggInl:  Marking all callsites of "
+                              << F1->getName() << "\n");
             setAggInlineInfoForAllCallSites(F1);
           }
         } else {
-           if (InlineAggressiveTrace) {
-             errs() << " Skipped AggInl ... unexpected use of global\n";
-             errs() << "      " << *U2  << "\n";
-           }
+          LLVM_DEBUG(dbgs() << " Skipped AggInl ... unexpected use of global\n"
+                            << "      " << *U2 << "\n");
           return false;
         }
       }
@@ -480,20 +480,19 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
 }
 
 InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
-                                              WholeProgramInfo &WPI) {
-  InlineAggressiveInfo Result;
+                                                   WholeProgramInfo &WPI,
+                                                   AggInlGetTLITy GetTLI) {
+  InlineAggressiveInfo Result(GetTLI);
   if (!WPI.isWholeProgramSafe()) {
-    if (InlineAggressiveTrace) {
-      errs() << " Skipped AggInl ... Whole Program NOT safe \n";
-    }
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe \n");
     return Result;
   }
   Result.analyzeModule(M);
   return Result;
 }
 
-bool InlineAggressiveInfo::analyzeModule(Module &M) {
-
+// Inline Analysis to expose uses of global pointers to malloc'ed memory.
+bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
   Function *AllocRtn = nullptr;
   Function *MainRtn = nullptr;
 
@@ -507,9 +506,8 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
       continue;
 
     if (!F.doesNotRecurse()) {
-      if (InlineAggressiveTrace) {
-        errs() << " Skipped AggInl ..." << F.getName() << " is recursive \n";
-      }
+      LLVM_DEBUG(dbgs() << " Skipped AggInl ..." << F.getName()
+                        << " is recursive \n");
       return false;
     }
 
@@ -520,9 +518,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
 
       TotalInstCount++;
       if (isa<InvokeInst>(&*II)) {
-        if (InlineAggressiveTrace) {
-          errs() << " Skipped AggInl ... InvokeInst is seen";
-        }
+        LLVM_DEBUG(dbgs() << " Skipped AggInl ... InvokeInst is seen");
         return false;
       }
       const CallInst *CI = dyn_cast<CallInst>(&*II);
@@ -531,9 +527,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
       Function *Callee = CI->getCalledFunction();
 
       if (Callee == nullptr) {
-        if (InlineAggressiveTrace) {
-          errs() << " Skipped AggInl ... Indirect call is seen";
-        }
+        LLVM_DEBUG(dbgs() << " Skipped AggInl ... Indirect call is seen");
         return false;
       }
       if (!isMallocAllocatingHugeMemory(CI)) {
@@ -543,9 +537,8 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
       auto CB = cast<CallBase>(&*II);
       if (isMallocAddressSavedInArg(F, *CB)) {
         if (AllocRtn != nullptr) {
-          if (InlineAggressiveTrace) {
-            errs() << " Skipped AggInl ... Found more than 1 malloc routine";
-          }
+          LLVM_DEBUG(dbgs()
+                     << " Skipped AggInl ... Found more than 1 malloc routine");
           return false;
         }
         AllocRtn = &F;
@@ -553,77 +546,339 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
     }
 
     if (TotalInstCount > InlineAggressiveInstLimit) {
-      if (InlineAggressiveTrace) {
-        errs() << " Skipped AggInl ... too many instructions";
-      }
+      LLVM_DEBUG(dbgs() << " Skipped AggInl ... too many instructions");
       return false;
     }
-
   }
-  if (InlineAggressiveTrace)
-    errs() << " Total inst: " << TotalInstCount << "\n";
+  LLVM_DEBUG(dbgs() << " Total inst: " << TotalInstCount << "\n");
 
-  if (AllocRtn == nullptr) {
-    if (InlineAggressiveTrace) {
-      errs() << " Skipped AggInl ... No malloc routine found";
-    }
+  if (MainRtn == nullptr || AllocRtn == nullptr) {
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No main/malloc routine found");
     return false;
   }
 
-  if (InlineAggressiveTrace) {
-    errs() << "AggInl: " << AllocRtn->getName() << " malloc routine found\n";
-  }
+  LLVM_DEBUG(dbgs() << "AggInl: " << AllocRtn->getName()
+                    << " malloc routine found\n");
 
-  std::vector<GlobalVariable*> AllocatedGlobals;
+  std::vector<GlobalVariable *> AllocatedGlobals;
   AllocatedGlobals.clear();
 
   if (!collectMemoryAllocatedGlobVarsUsingAllocRtn(AllocRtn,
-                                          AllocatedGlobals)) {
-    if (InlineAggressiveTrace) {
-      errs() << " Skipped AggInl ... Not able to collect Allocated Globals\n";
-    }
+                                                   AllocatedGlobals)) {
+    LLVM_DEBUG(
+        dbgs()
+        << " Skipped AggInl ... Not able to collect Allocated Globals\n");
     return false;
   }
 
   if (AllocatedGlobals.empty()) {
-    if (InlineAggressiveTrace) {
-      errs() << " Skipped AggInl ... No Allocated Globals found";
-    }
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No Allocated Globals found");
     return false;
   }
 
-  if (InlineAggressiveTrace) {
-    errs() << "AggInl:  collected globals \n";
-    for (unsigned i = 0, e = AllocatedGlobals.size(); i != e; ++i) {
-      errs() << "      " << *AllocatedGlobals[i] << "\n";
-    }
-  }
+  LLVM_DEBUG({
+    dbgs() << "AggInl:  collected globals \n";
+    for (unsigned i = 0, e = AllocatedGlobals.size(); i != e; ++i)
+      dbgs() << "      " << *AllocatedGlobals[i] << "\n";
+  });
 
   if (!trackUsesofAllocatedGlobalVariables(AllocatedGlobals)) {
     AggInlCalls.clear();
-    if (InlineAggressiveTrace) {
-      errs() << " Skipped AggInl ... can't track uses of Allocated Globals\n";
-    }
+    LLVM_DEBUG(
+        dbgs()
+        << " Skipped AggInl ... can't track uses of Allocated Globals\n");
     return false;
   }
 
   if (!propagateAggInlineInfo(MainRtn)) {
     AggInlCalls.clear();
-    if (InlineAggressiveTrace) {
-      errs() << " Skipped AggInl ... can't propagate Agg Inline info\n";
-    }
+    LLVM_DEBUG(
+        dbgs() << " Skipped AggInl ... can't propagate Agg Inline info\n");
     return false;
   }
 
-  if (InlineAggressiveTrace) {
-    errs() << "AggInl:  All CallSites marked for inline after propagation\n";
-    for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-      errs() << "      " << *AggInlCalls[i]  << "\n";
-    }
-  }
+  LLVM_DEBUG({
+    dbgs() << "AggInl:  All CallSites marked for inline after propagation\n";
+    for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i)
+      dbgs() << "      " << *AggInlCalls[i] << "\n";
+  });
 
   MainRtn->addFnAttr("may_have_huge_local_malloc");
   return true;
+}
+
+// This does inline analysis to expose uses of global variable that is
+// accessed in only one function and is escaped to other functions as
+// arguments of calls.
+//
+//  Ex:
+//     foo() {
+//       static double* grad;
+//
+//       some_free_call(grad);
+//       grad = nullptr;
+//       ...
+//       grad = some_memory_alloc();
+//       ...
+//       bar1(grad);
+//       ...
+//       new_grad = PHI(grad, ...);
+//       ...
+//       bar2(new_grad);
+//       ...
+//     }
+//
+// This analysis tries to inline bar1 and bar2 so that all uses of "grad"
+// will be exposed in "foo".
+//
+// These are the main points of the analysis:
+//   1. Global variable has to be accessed in a single function.
+//   2. The variable is assigned with newly allocated memory. nullptr
+//      assignment is also allowed.
+//   3. Track all uses of the variable and collect all calls where the
+//      variable is escaped as argument.
+//   4. Make sure all the calls are direct calls.
+//   5. Make sure callees don't have any other calls except calls
+//      to small functions.
+//
+bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
+    Module &M) {
+
+  std::function<bool(Value *, SmallPtrSet<CallBase *, MaxNumInlineCalls> &,
+                     SmallPtrSet<Value *, MaxNumInstructionsVisited> &)>
+      TrackUses;
+
+  // Returns true if "Call" is a wrapper to either Alloc or Free call.
+  auto IsTinyAllocFreeCall = [this](const CallBase *Call) {
+    auto &TLI = GetTLI(*Call->getFunction());
+    // Check for alloc call.
+    if (isNoAliasFn(Call, &TLI))
+      return true;
+
+    Function *F = Call->getCalledFunction();
+    // Returns false if F is not small routine or has any calls except "free".
+    if (!F || F->isDeclaration() || F->size() > MaxNumBBTinyFuncLimit)
+      return false;
+    for (const auto &I : instructions(F)) {
+      if (isa<DbgInfoIntrinsic>(&I))
+        continue;
+      if (auto *Call = dyn_cast<CallBase>(&I))
+        if (!isFreeCall(Call, &TLI))
+          return false;
+    }
+    return true;
+  };
+
+  // Returns true if F doesn't have any user calls except tiny alloc/free
+  // wrapper calls. Get almost leaf info from AlmostLeafFunctionMap if already
+  // computed.
+  auto IsAlmostLeafFunction =
+      [&IsTinyAllocFreeCall](
+          Function *F, DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
+        bool IsLeaf = true;
+
+        if (AlmostLeafFunctionMap.find(F) != AlmostLeafFunctionMap.end()) {
+          IsLeaf = AlmostLeafFunctionMap[F];
+        } else {
+          for (const auto &I : instructions(F)) {
+            if (auto *Call = dyn_cast<CallBase>(&I)) {
+              // Tiny alloc/free wrapper calls are allowed.
+              if (IsTinyAllocFreeCall(Call))
+                continue;
+              // Any call to user function (except tiny alloc/free wrapper
+              // calls) is considered as not leaf.
+              Function *Callee = Call->getCalledFunction();
+              if (!Callee || !Callee->isDeclaration()) {
+                IsLeaf = false;
+                break;
+              }
+            }
+          }
+          AlmostLeafFunctionMap[F] = IsLeaf;
+        }
+        return IsLeaf;
+      };
+
+  // Returns false if any call in InlineCalls is indirect/not-leaf.
+  auto InlineCallsOkay =
+      [&IsAlmostLeafFunction](
+          SmallPtrSet<CallBase *, MaxNumInlineCalls> &InlineCalls,
+          DenseMap<Function *, bool> &AlmostLeafFunctionMap) {
+        if (InlineCalls.size() > MaxNumInlineCalls)
+          return false;
+
+        for (auto *CB : InlineCalls) {
+          Function *F = CB->getCalledFunction();
+          // Indirect call is not allowed.
+          if (!F)
+            return false;
+
+          if (F->isDeclaration())
+            continue;
+
+          // Don't allow big functions.
+          if (F->size() > MaxNumBBInlineLimit)
+            return false;
+
+          // Make sure they are almost leaf.
+          if (!IsAlmostLeafFunction(F, AlmostLeafFunctionMap))
+            return false;
+        }
+        return true;
+      };
+
+  // Tracks uses of "V" recursively. This routine supports only limited
+  // instruction types. Returns false if use of "V" is used by unexpected
+  // instruction. All calls, which use "V" directly or indirectly, are
+  // collected in "InlineCalls". "Visited" is used to control recursion and
+  // reduce compile-time.
+  TrackUses =
+      [&TrackUses](Value *V,
+                   SmallPtrSet<CallBase *, MaxNumInlineCalls> &InlineCalls,
+                   SmallPtrSet<Value *, MaxNumInstructionsVisited> &Visited) {
+        if (!Visited.insert(V).second)
+          return true;
+        if (Visited.size() >= MaxNumInstructionsVisited ||
+            V->hasNUsesOrMore(MaxNumInstructionsVisited))
+          return false;
+
+        for (auto *UR : V->users()) {
+          auto *I = dyn_cast<Instruction>(UR);
+          if (!I)
+            return false;
+          switch (I->getOpcode()) {
+          case Instruction::Call:
+            InlineCalls.insert(cast<CallBase>(I));
+            break;
+
+          case Instruction::Load:
+          case Instruction::Store:
+          case Instruction::ICmp:
+            break;
+
+          case Instruction::BitCast:
+          case Instruction::GetElementPtr:
+          case Instruction::PHI:
+            if (!TrackUses(I, InlineCalls, Visited))
+              return false;
+            break;
+
+          default:
+            return false;
+          }
+        }
+        return true;
+      };
+
+  // Analyze all accesses of "V", which is Global Variable.
+  //  1. Returns false if all uses of "V" are not in single function.
+  //     "AccessFunction" is the function where V is used.
+  //  2. Newly allocated memory is stored to V. nullptr assignment is ignored.
+  //     No other stores are allowed.
+  //  3. All loads of "V" are tracked using TrackUses.
+  //
+  auto AnalyzeGV = [this, &TrackUses](
+                       Value *V,
+                       SmallPtrSet<CallBase *, MaxNumInlineCalls> &InlineCalls,
+                       Function *&AccessFunction) -> bool {
+    StoreInst *NullPtrStore = nullptr;
+    StoreInst *AllocPtrStore = nullptr;
+    SmallPtrSet<Value *, MaxNumInstructionsVisited> Visited;
+    Visited.clear();
+    for (auto *UR : V->users()) {
+      Instruction *I = dyn_cast<Instruction>(UR);
+      if (!I)
+        return false;
+      Function *F = I->getFunction();
+      if (!AccessFunction)
+        AccessFunction = F;
+      else if (AccessFunction != F)
+        return false;
+      if (auto *LI = dyn_cast<LoadInst>(I)) {
+        if (!TrackUses(LI, InlineCalls, Visited))
+          return false;
+      } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+        Value *ValOp = SI->getValueOperand();
+        if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
+          if (NullPtrStore)
+            return false;
+          NullPtrStore = SI;
+        } else if (isNoAliasFn(ValOp, &GetTLI(*SI->getFunction()))) {
+          if (AllocPtrStore)
+            return false;
+          AllocPtrStore = SI;
+          // Track uses of allocated pointer.
+          if (!TrackUses(ValOp, InlineCalls, Visited))
+            return false;
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+    if (!AccessFunction || !AllocPtrStore || InlineCalls.size() == 0)
+      return false;
+
+    return true;
+  };
+
+  // Used to map function and calls that will be inlined into the function.
+  DenseMap<Function *, SmallPtrSet<CallBase *, MaxNumInlineCalls>>
+      InlineCallsInFunction;
+  // This map is used to avoid recomputation of leaf info.
+  DenseMap<Function *, bool> AlmostLeafFunctionMap;
+
+  LLVM_DEBUG(
+      dbgs() << " Started AggInl SingleAccessFunctionGlobalVar Analysis\n");
+
+  for (GlobalVariable &GV : M.globals()) {
+    if (!GV.hasLocalLinkage())
+      continue;
+    // Skip if GV has many uses.
+    if (GV.hasNUsesOrMore(MaxNumGVUses))
+      continue;
+
+    SmallPtrSet<CallBase *, MaxNumInlineCalls> InlineCalls;
+    InlineCalls.clear();
+    Function *AccessFunction = nullptr;
+    if (!AnalyzeGV(&GV, InlineCalls, AccessFunction))
+      continue;
+
+    LLVM_DEBUG(dbgs() << "   GV selected as candidate: " << GV.getName()
+                      << "\n");
+
+    if (!InlineCallsOkay(InlineCalls, AlmostLeafFunctionMap)) {
+      LLVM_DEBUG(dbgs() << "   Ignored GV ... calls are not okay to inline \n");
+      continue;
+    }
+    for (auto *CB : InlineCalls)
+      InlineCallsInFunction[AccessFunction].insert(CB);
+  }
+  for (auto TPair : InlineCallsInFunction) {
+    LLVM_DEBUG(dbgs() << "  Function: " << TPair.first->getName() << "\n");
+    if (TPair.second.size() > MaxNumInlineCalls) {
+      LLVM_DEBUG(
+          dbgs() << "    Not inlining any calls ...exceeding heuristic. \n");
+      continue;
+    }
+    LLVM_DEBUG(dbgs() << "  Inlining calls \n");
+    for (auto *CB : TPair.second) {
+      LLVM_DEBUG(dbgs() << "     " << *CB << "\n");
+      setAggInlInfoForCallSite(*CB);
+    }
+  }
+  if (AggInlCalls.size())
+    return true;
+  return false;
+}
+
+bool InlineAggressiveInfo::analyzeModule(Module &M) {
+  if (analyzeHugeMallocGlobalPointersHeuristic(M))
+    return true;
+  if (analyzeSingleAccessFunctionGlobalVarHeuristic(M))
+    return true;
+  return false;
 }
 
 // This analysis depends on WholeProgramAnalysis. Analysis info is not
@@ -632,6 +887,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
 void InlineAggressiveWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<WholeProgramWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
 char InlineAggAnalysis::PassID;
@@ -640,10 +896,12 @@ char InlineAggAnalysis::PassID;
 AnalysisKey InlineAggAnalysis::Key;
 
 InlineAggressiveInfo InlineAggAnalysis::run(Module &M,
-                                AnalysisManager<Module> &AM) {
+                                            AnalysisManager<Module> &AM) {
 
-  return InlineAggressiveInfo::runImpl(M,
-                              AM.getResult<WholeProgramAnalysis>(M));
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
+  };
+  return InlineAggressiveInfo::runImpl(M, AM.getResult<WholeProgramAnalysis>(M),
+                                       GetTLI);
 }
-
-

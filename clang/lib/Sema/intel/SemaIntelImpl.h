@@ -11,9 +11,9 @@
 using namespace clang;
 
 template <typename AttrType>
-void Sema::HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                      unsigned SpellingListIndex) {
-  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
+void Sema::HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                      Expr *E) {
+  AttrType TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
     ExprResult ICE;
@@ -22,9 +22,7 @@ void Sema::HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
     E = ICE.get();
   }
 
-  if (NumReadPortsAttr::classof(&TmpAttr) ||
-      NumWritePortsAttr::classof(&TmpAttr) ||
-      IntelFPGAMaxReplicatesAttr::classof(&TmpAttr) ||
+  if (IntelFPGAMaxReplicatesAttr::classof(&TmpAttr) ||
       (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
@@ -32,14 +30,14 @@ void Sema::HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   }
 
   D->addAttr(::new (Context)
-                 AttrType(AttrRange, Context, E, SpellingListIndex));
+                 AttrType(Context, CI, E));
 }
 
 template <typename AttrType>
-void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
-                                              Expr *E,
-                                              unsigned SpellingListIndex) {
-  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
+void Sema::HLSAddOneConstantPowerTwoValueAttr(Decl *D,
+                                              const AttributeCommonInfo &CI,
+                                              Expr *E) {
+  AttrType TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
     ExprResult ICE;
@@ -49,7 +47,7 @@ void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
     E->EvaluateAsInt(Result, Context);
     llvm::APSInt Value = Result.Val.getInt();
     if (!Value.isPowerOf2()) {
-      Diag(AttrRange.getBegin(), diag::err_attribute_argument_not_power_of_two)
+      Diag(TmpAttr.getLocation(), diag::err_attribute_argument_not_power_of_two)
           << &TmpAttr;
       return;
     }
@@ -57,7 +55,7 @@ void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
       if (auto *BBA = D->getAttr<BankBitsAttr>()) {
         unsigned NumBankBits = BBA->args_size();
         if (NumBankBits != Value.ceilLogBase2()) {
-          Diag(AttrRange.getBegin(), diag::err_bankbits_numbanks_conflicting);
+          Diag(TmpAttr.getLocation(), diag::err_bankbits_numbanks_conflicting);
           return;
         }
       }
@@ -77,5 +75,5 @@ void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
   }
 
   D->addAttr(::new (Context)
-                 AttrType(AttrRange, Context, E, SpellingListIndex));
+                 AttrType(Context, CI, E));
 }

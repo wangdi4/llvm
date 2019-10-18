@@ -36,29 +36,25 @@
 # RUN: llvm-objdump -s -d %t | FileCheck -check-prefix=DISASM %s
 
 # DISASM:      Disassembly of section .text:
-# DISASM:      0000000000201000 func1:
-# DISASM-NEXT: 201000:       e8 2b 00 00 00  callq   43 <func2+0x201030>
-# DISASM-NEXT: 201005:       c3      retq
+# DISASM:      {{.*}} func1:
+# DISASM-NEXT: {{.*}} callq   {{.*}} <func2+{{.*}}>
+# DISASM-NEXT: {{.*}} retq
 
 # DISASM:      Disassembly of section .plt:
-# DISASM:      0000000000201010 .plt:
-# DISASM-NEXT: 201010:       ff 35 f2 1f 00 00       pushq   8178(%rip)
-# DISASM-NEXT: 201016:       ff 25 f4 1f 00 00       jmpq    *8180(%rip)
-# DISASM-NEXT: 20101c:       0f 1f 40 00     nopl    (%rax)
-# DISASM-NEXT: 201020:       f3 0f 1e fa     endbr64
-# DISASM-NEXT: 201024:       68 00 00 00 00  pushq   $0
-# DISASM-NEXT: 201029:       e9 e2 ff ff ff  jmp     -30 <.plt>
-# DISASM-NEXT: 20102e:       66 90   nop
+# DISASM:      {{.*}} .plt:
+# DISASM-NEXT: {{.*}} pushq {{.*}}
+# DISASM-NEXT: {{.*}} jmpq  {{.*}}
+# DISASM-NEXT: {{.*}} nopl    (%rax)
+# DISASM-NEXT: {{.*}} endbr64
+# DISASM-NEXT: {{.*}} pushq   $0
+# DISASM-NEXT: {{.*}} jmp     -30 <.plt>
+# DISASM-NEXT: {{.*}} nop
 
 # DISASM:      Disassembly of section .plt.sec:
-# DISASM:      0000000000201030 .plt.sec:
-# DISASM-NEXT: 201030:       f3 0f 1e fa     endbr64
-# DISASM-NEXT: 201034:       ff 25 de 1f 00 00       jmpq    *8158(%rip)
-# DISASM-NEXT: 20103a:       66 0f 1f 44 00 00       nopw    (%rax,%rax)
-
-# DISASM:      Contents of section .got.plt:
-# DISASM-NEXT: 203000 00202000 00000000 00000000 00000000
-# DISASM-NEXT: 203010 00000000 00000000 20102000 00000000
+# DISASM:      {{.*}} .plt.sec:
+# DISASM-NEXT: {{.*}} endbr64
+# DISASM-NEXT: {{.*}} jmpq  {{.*}}
+# DISASM-NEXT: {{.*}} nopw  {{.*}}
 # end INTEL_CUSTOMIZATION
 .section ".note.gnu.property", "a"
 .long 4

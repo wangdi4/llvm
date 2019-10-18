@@ -22,6 +22,7 @@
 #define INTEL_LOOPANALYSIS_PVA_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Pass.h"
 
@@ -37,8 +38,10 @@ class HIRFramework;
 class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class DDEdge;
+class DDGraph;
 class HLRegion;
 class HLSwitch;
+class HLInst;
 
 class ParVecInfo;
 using HIRParVecInfoMapType =
@@ -295,6 +298,127 @@ class HIRParVecAnalysisPass : public AnalysisInfoMixin<HIRParVecAnalysisPass> {
 public:
   using Result = HIRParVecAnalysis;
   HIRParVecAnalysis run(Function &F, FunctionAnalysisManager &AM);
+};
+
+template <class Instruction> class VectorIdioms {
+public:
+  enum IdiomId {
+    NoIdiom = 0,
+    // Min or Max main instruction in minmax+index idiom.
+    MinOrMax,
+    // Index instruction of minmax+index idiom.
+    MMFirstLastLoc,
+  };
+
+private:
+  using IdiomListTy = MapVector<const Instruction *, IdiomId>;
+  using IdiomLinksTy =
+      DenseMap<const Instruction *, SmallPtrSet<const Instruction *, 2>>;
+
+public:
+  using iterator = typename IdiomListTy::iterator;
+  using const_iterator = typename IdiomListTy::const_iterator;
+  using LinkedIdiomListTy = SmallPtrSetImpl<const Instruction *>;
+
+  VectorIdioms() = default;
+  VectorIdioms(const VectorIdioms &) = delete;
+  VectorIdioms &operator=(const VectorIdioms &) = delete;
+
+  /// Mark \p Instr with IdiomId \p Id.
+  void addIdiom(const Instruction *Instr, IdiomId Id) {
+    assert(Id != NoIdiom && "Expected idiom");
+    iterator Iter = IdiomData.find(Instr);
+    if (Iter != IdiomData.end())
+      assert(Iter->second == Id && "Conflicting idiom");
+    else
+      IdiomData[Instr] = Id;
+  }
+
+  /// Return IdiomId if \p Instr is registered as idiom or NoIdiom if
+  /// it is not.
+  IdiomId isIdiom(const Instruction *Instr) const {
+    const_iterator Iter = IdiomData.find(Instr);
+    return Iter == IdiomData.end() ? NoIdiom : Iter->second;
+  }
+
+  /// Add \p Linked as an idiom and link it to \p Master.
+  void addLinked(const Instruction *Master, const Instruction *Linked,
+                 IdiomId Id) {
+    assert(isIdiom(Master) != NoIdiom && "Expected master idiom registered");
+    addIdiom(Linked, Id);
+    IdiomLinks[Master].insert(Linked);
+  }
+
+  /// Link already inserted idioms.
+  void linkIdiom(const Instruction *Master, const Instruction *Linked,
+                 IdiomId Id) {
+    assert(isIdiom(Master) != NoIdiom && "Expected master idiom registered");
+    assert((Id != NoIdiom && isIdiom(Linked) == Id) &&
+           "Expected linked idiom registered");
+    IdiomLinks[Master].insert(Linked);
+  }
+
+  const_iterator begin() const { return IdiomData.begin(); }
+  const_iterator end() const { return IdiomData.end(); }
+
+  /// Return list of idioms linked to \p Master
+  const LinkedIdiomListTy *getLinkedIdioms(const Instruction *Master) const {
+    auto Iter = IdiomLinks.find(Master);
+    return Iter == IdiomLinks.end() ? nullptr : &Iter->second;
+  }
+
+  /// Predicate whether \p Id means a standalone idiom.
+  static bool isStandaloneIdiom(IdiomId Id) { return false; }
+
+  /// Predicate whether \p Id marks idioms that require the linked ones.
+  static bool isMasterIdiom(IdiomId Id) { return Id == MinOrMax; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    raw_ostream &OS = dbgs();
+    OS << "Idiom List\n";
+    if (IdiomData.empty()) {
+      OS << "  No idioms detected.\n";
+      return;
+    }
+    for (auto &Idiom : IdiomData)
+      if (isMasterIdiom(Idiom.second) || isStandaloneIdiom(Idiom.second)) {
+        OS << getIdiomName(Idiom.second) << ": ";
+        Idiom.first->dump();
+        if (const LinkedIdiomListTy *LinkedList = getLinkedIdioms(Idiom.first))
+          for (const Instruction *Linked : *LinkedList) {
+            auto IdiomCode = isIdiom(Linked);
+            OS << "  " << getIdiomName(IdiomCode) << ": ";
+            Linked->dump();
+          }
+      }
+  }
+
+  static const char *getIdiomName(IdiomId Id) {
+    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastLoc"};
+    return Names[Id];
+  }
+#endif
+
+private:
+  IdiomListTy IdiomData;
+  IdiomLinksTy IdiomLinks;
+};
+
+using HIRVectorIdioms = VectorIdioms<HLInst>;
+
+// Deleter, to use with std::unique_ptr<HIRVectorIdioms> when this header is
+// not included and HIRVectorIdioms is forward declared as incomplete.
+// This declaration is unnecessary here, keeping just to able to copy it in the
+// needed place.
+extern void deleteHIRVectorIdioms(HIRVectorIdioms *);
+
+class HIRVectorIdiomAnalysis {
+public:
+  HIRVectorIdiomAnalysis() = default;
+
+  void gatherIdioms(HIRVectorIdioms &IList, const DDGraph &DDG,
+                    HIRSafeReductionAnalysis &SRA, HLLoop *Loop);
 };
 
 } // namespace loopopt

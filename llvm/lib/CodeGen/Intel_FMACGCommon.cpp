@@ -24,10 +24,36 @@
 
 using namespace llvm;
 
+/// This internal bit-set switch to control the amount of debug printings.
+/// The bits are:
+///   FMADbgLevel[0] - print the general debug messages.
+///   FMADbgLevel[1] - print the pattern matching related messages.
+///   FMADbgLevel[2] - print the messages during the fusing optimization.
+static cl::opt<int> FMADbgLevel("global-fma-debug-level",
+                                cl::desc("Control the amount of debug output."),
+                                cl::init(-1), cl::Hidden);
+
+raw_ostream &FMADbg::dbgs() {
+  return (FMADbgLevel & FMADbg::Main) ? ::dbgs() : nulls();
+}
+raw_ostream &FMADbg::match() {
+  if (FMADbgLevel & FMADbg::Matching) {
+    ::dbgs() << "  MATCHING: ";
+    return ::dbgs();
+  }
+  return nulls();
+}
+raw_ostream &FMADbg::fws() {
+  if (FMADbgLevel & FMADbg::FWS) {
+    ::dbgs() << "  FWS: ";
+    return ::dbgs();
+  }
+  return nulls();
+}
+
 bool FMAPerfDesc::isBetterThan(const FMAPerfDesc &OtherDesc,
                                bool TuneForLatency,
                                bool TuneForThroughput) const {
-
   // Tuning for latency AND throughput means that the caller does not have
   // strong preferences and the choice should be made heuristically.
   if (TuneForLatency && TuneForThroughput) {
@@ -187,7 +213,7 @@ std::unique_ptr<unsigned[]> FMAExprSP::getTermsMappingToCompactTerms() {
     return nullptr;
 
   // Compact the term indices now.
-  auto TermsMapping = make_unique<unsigned[]>(MaxNumOfUniqueTermsInSP);
+  auto TermsMapping = std::make_unique<unsigned[]>(MaxNumOfUniqueTermsInSP);
   unsigned TheLastNewUsedTerm = 0;
   for (unsigned Term = 0; Term < MaxNumOfUniqueTermsInSP; Term++) {
     if (!IsTermUsed[Term])
@@ -331,7 +357,7 @@ void FMAPatterns::init() {
 const FMAExprSP *FMAPatterns::acquireSP(uint64_t EncodedDag) {
   auto &SP = EncodedDagToSPMap[EncodedDag];
   if (!SP) {
-    SP = make_unique<FMAExprSP>();
+    SP = std::make_unique<FMAExprSP>();
     SP->initForEncodedDag(EncodedDag);
   }
   return SP.get();
@@ -376,8 +402,8 @@ std::unique_ptr<FMADag> FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
   if (!DagsSet)
     return nullptr;
 
-  LLVM_DEBUG(dbgs() << "  MATCHING: could find a set of DAGs for SHAPE("
-                    << format_hex(SP.Shape, 2) << ")\n");
+  LLVM_DEBUG(FMADbg::match() << "could find a set of DAGs for SHAPE("
+                             << format_hex(SP.Shape, 2) << ")\n");
 
   // Find the best DAG for the given SP.
   std::unique_ptr<FMADagCommon> BestDag;
@@ -387,10 +413,9 @@ std::unique_ptr<FMADag> FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
 
     auto *CandidateSP = acquireSP(Dag64);
 
-    LLVM_DEBUG(dbgs() << "  MATCHING: let's try to match 2 SPs:\n    actual: ");
-    LLVM_DEBUG(SP.print(dbgs()));
-    LLVM_DEBUG(dbgs() << "    formal: ");
-    LLVM_DEBUG(CandidateSP->print(dbgs()));
+    LLVM_DEBUG(FMADbg::match() << "let's try to match 2 SPs:\n");
+    LLVM_DEBUG(FMADbg::match() << "  actual: " << SP);
+    LLVM_DEBUG(FMADbg::match() << "  formal: " << *CandidateSP);
 
     FMASPToSPMatcher SPMatcher;
     if (auto *CandidateDag = SPMatcher.getDagToMatchSPs(*CandidateSP, SP)) {
@@ -404,7 +429,7 @@ std::unique_ptr<FMADag> FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
   }
 
   if (BestDag)
-    return make_unique<FMADag>(*BestDag);
+    return std::make_unique<FMADag>(*BestDag);
   return nullptr;
 }
 
@@ -426,7 +451,8 @@ FMAExpr::FMAExpr(MVT VT, FMABasicBlock *BB, MachineInstr *MI,
                  bool AddSign, unsigned IndexInBB)
     : FMANode(NK_Expr, BB, VT), MulSign(MulSign), AddSign(AddSign),
       Operands(Ops), IsFullyConsumedByKnownExpressions(false),
-      ResultTerm(ResultTerm), MI(MI), DbgValMI(nullptr), IndexInBB(IndexInBB) {
+      IsMustBeOptimized(false), ResultTerm(ResultTerm), MI(MI),
+      DbgValMI(nullptr), IndexInBB(IndexInBB) {
 
   assert(ResultTerm && "Unexpected result term in FMAExpr constructor.");
 
@@ -436,6 +462,22 @@ FMAExpr::FMAExpr(MVT VT, FMABasicBlock *BB, MachineInstr *MI,
       if (!Term->isZero() && !Term->isOne())
         addToUsedTerms(cast<FMATerm>(Op));
   }
+}
+
+void FMAExpr::insertImmediateUsersOfTo(
+         const FMANode *Node, SmallPtrSetImpl<const FMAExpr *> &ExprSet) const {
+  SmallVector<const FMANode *, 16u> WorkList({this});
+  do {
+    auto *Expr = cast<FMAExpr>(WorkList.pop_back_val());
+    for (auto *Opnd : Expr->Operands) {
+      if (Opnd == Node) {
+        ExprSet.insert(Expr);
+        break;
+      }
+      if (isa<FMAExpr>(Opnd))
+        WorkList.push_back(Opnd);
+    }
+  } while (!WorkList.empty());
 }
 
 void FMAExpr::putExprToExprSet(
@@ -498,11 +540,11 @@ FMAExprSP *FMAExpr::generateSPRecursively(
       auto &TermSP = Node2SP[Term];
       if (!TermSP) {
         if (Term->isZero())
-          TermSP = make_unique<FMAExprSP>(FMAExprSPCommon::TermZERO);
+          TermSP = std::make_unique<FMAExprSP>(FMAExprSPCommon::TermZERO);
         else if (Term->isOne())
-          TermSP = make_unique<FMAExprSP>(FMAExprSPCommon::TermONE);
+          TermSP = std::make_unique<FMAExprSP>(FMAExprSPCommon::TermONE);
         else
-          TermSP = make_unique<FMAExprSP>(RootFMAExpr->getUsedTermIndex(Term));
+          TermSP = std::make_unique<FMAExprSP>(RootFMAExpr->getUsedTermIndex(Term));
       }
       OpnSP = TermSP.get();
     } else if (auto *Expr = dyn_cast<FMAExpr>(Opnd))
@@ -522,7 +564,7 @@ FMAExprSP *FMAExpr::generateSPRecursively(
   if (!MulSP.initForMul(*OperandSP[0], *OperandSP[1]))
     return nullptr;
 
-  auto &SP = Node2SP[this] = make_unique<FMAExprSP>();
+  auto &SP = Node2SP[this] = std::make_unique<FMAExprSP>();
   if (!SP->initForAdd(MulSP, *OperandSP[2], MulSign, AddSign))
     return nullptr;
 
@@ -554,12 +596,13 @@ std::unique_ptr<FMAExprSP> FMAExpr::generateSP() const {
 // in SP and in 'this' FMAExpr.
 void FMAExpr::compactTerms(FMAExprSP &SP) {
   if (auto TermsMapping = SP.getTermsMappingToCompactTerms()) {
-    LLVM_DEBUG(dbgs() << "  Need to compact terms in EXPR: " << *this << "\n");
-    LLVM_DEBUG(dbgs() << "  SP before compact: " << SP << "\n");
+    LLVM_DEBUG(FMADbg::match() << "  Need to compact terms in EXPR: "
+                               << *this << "\n");
+    LLVM_DEBUG(FMADbg::match() << "  SP before compact: " << SP << "\n");
 
     SP.doTermsMapping(TermsMapping.get());
 
-    LLVM_DEBUG(dbgs() << "  SP after compact: " << SP << "\n");
+    LLVM_DEBUG(FMADbg::match() << "  SP after compact: " << SP << "\n");
 
     // Now delete the unused terms from the vector UsedTerms.
     unsigned TermsMappingIndex = 0;
@@ -567,7 +610,7 @@ void FMAExpr::compactTerms(FMAExprSP &SP) {
       // Terms mapping has the value ~0U if the corresponding term must be
       // removed.
       if (TermsMapping[TermsMappingIndex] == ~0U) {
-        LLVM_DEBUG(dbgs() << "  Remove the term from UsedTerms: " << **I);
+        LLVM_DEBUG(FMADbg::match() << "  Remove the term from UsedTerms: " << **I);
         I = UsedTerms.erase(I);
       } else
         I++;
@@ -622,8 +665,8 @@ void FMAExpr::commitConsume(FMAExpr &FWSExpr, bool HasOtherFMAUsers) {
 
   if (!HasOtherFMAUsers && !FWSExpr.hasUnknownUsers()) {
 
-    LLVM_DEBUG(dbgs() << "    !! Remove all USED terms from EXPR: " << FWSExpr
-                      << "\n");
+    LLVM_DEBUG(FMADbg::fws() << "  !! Remove all USED terms from EXPR: "
+                             << FWSExpr << "\n");
     // FWSExpr does not need to keep the list of used terms anymore.
     FWSExpr.UsedTerms.clear();
 
@@ -650,7 +693,7 @@ bool FMAExpr::consume(FMAExpr &FWSExpr, const FMAPatterns &Patterns,
 
   commitConsume(FWSExpr, HasOtherFMAUsers);
 
-  LLVM_DEBUG(dbgs() << "  -->After consuming expr: " << *this << "\n");
+  LLVM_DEBUG(FMADbg::fws() << "  ->After consuming expr: " << *this << "\n\n");
   return true;
 }
 
@@ -698,21 +741,21 @@ FMAExpr *FMAExpr::findFWSCandidate(
     // but those are very rare corner cases, which though complicate
     // the optimization alot and create bigger risks.
     if (TermDefFMA->hasUnknownUsers()) {
-      LLVM_DEBUG(dbgs() << "  Candidate is skipped as having unknown users: "
-                        << *Term << "\n");
+      LLVM_DEBUG(FMADbg::fws()
+                     << "  Candidate is skipped as having unknown users: "
+                     << *Term << "\n\n");
       continue;
     }
 
     if (BadFWSCandidates.count(TermDefFMA)) {
-      LLVM_DEBUG(dbgs() << "  Candidate is skipped as BAD candidate: " << *Term
-                        << "\n");
+      LLVM_DEBUG(FMADbg::fws() << "  Candidate is skipped as BAD candidate: "
+                               << *Term << "\n\n");
       continue;
     }
 
     if (!CanConsumeIfOneUser && InefficientFWSCandidates.count(TermDefFMA)) {
-      LLVM_DEBUG(dbgs() << "  Candidate is skipped as INEFFICIENT "
-                           "candidate: "
-                        << *Term << "\n");
+      LLVM_DEBUG(FMADbg::fws() << "  Candidate is skipped as INEFFICIENT: "
+                               << *Term << "\n\n");
       continue;
     }
 
@@ -731,8 +774,9 @@ FMAExpr *FMAExpr::findFWSCandidate(
     // Skip the candidate if it fusible into 2 or more users in
     // the mode that enables FWS only candidates with 1 user.
     if (CanConsumeIfOneUser && UsersSet.size() > 1) {
-      LLVM_DEBUG(dbgs() << "  Candidate is skipped as HAVING MANY USERS: "
-                        << *Term << "\n");
+      LLVM_DEBUG(FMADbg::fws()
+                     << "  Candidate is skipped as HAVING MANY USERS: "
+                     << *Term << "\n");
       continue;
     }
 
@@ -776,9 +820,9 @@ bool GlobalFMA::runOnMachineFunction(MachineFunction &MF) {
     if (optBasicBlock(MB))
       EverMadeChangeInFunc = true;
 
-  LLVM_DEBUG(dbgs() << "********** Global FMA **********\n");
+  LLVM_DEBUG(FMADbg::dbgs() << "********** Global FMA **********\n");
   if (EverMadeChangeInFunc) {
-    LLVM_DEBUG(MF.print(dbgs()));
+    LLVM_DEBUG(MF.print(FMADbg::dbgs()));
   }
 
   return EverMadeChangeInFunc;
@@ -788,13 +832,14 @@ bool GlobalFMA::runOnMachineFunction(MachineFunction &MF) {
 /// MUL/ADD/FMA expressions. Return true iff any changes in the machine
 /// operation were done.
 bool GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
-  LLVM_DEBUG(dbgs() << "\n**** RUN FMA OPT FOR ANOTHER BASIC BLOCK ****\n");
+  LLVM_DEBUG(FMADbg::dbgs()
+                 << "\n**** RUN FMA OPT FOR ANOTHER BASIC BLOCK ****\n");
 
   // Save the dump of the basic block, we may want to print it after the basic
   // block is changed by this optimization.
   std::string LogBBStr = "";
   raw_string_ostream LogBB(LogBBStr);
-  LLVM_DEBUG(LogBB << "Basic block before Global FMA opt:\n" << MBB << "\n");
+  LLVM_DEBUG(LogBB << MBB);
 
   // Find MUL/ADD/SUB/FMA/etc operations in the input machine instructions
   // and create internal FMA structures for them.
@@ -806,20 +851,23 @@ bool GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
   // Run the FMA optimization and dump the debug messages if the optimization
   // produced any changes in IR.
   bool EverMadeChangeInBB = optParsedBasicBlock(*FMABB);
+
   if (EverMadeChangeInBB) {
-    LLVM_DEBUG(dbgs() << LogBB.str());
-    LLVM_DEBUG(dbgs() << "\nBasic block after Global FMA opt:\n"
-                      << MBB << "\n");
+    LLVM_DEBUG(FMADbg::dbgs() << "Basic block before Global FMA opt:\n"
+                              << LogBB.str() << "\n");
+    LLVM_DEBUG(FMADbg::dbgs() << "\nBasic block after Global FMA opt:\n"
+                              << MBB << "\n");
   }
   return EverMadeChangeInBB;
 }
 
 std::unique_ptr<FMADag>
 GlobalFMA::getDagForExpression(FMAExpr &Expr, bool DoCompactTerms) const {
-  LLVM_DEBUG(dbgs() << "  Find DAG for FMA EXPR:\n  " << Expr << "\n");
+  LLVM_DEBUG(FMADbg::match() << "    Find DAG for FMA EXPR:\n";
+             FMADbg::match() << "    " << Expr << "\n");
   auto SP = Expr.generateSP();
   if (!SP) {
-    LLVM_DEBUG(dbgs() << "  Could not compute SP.\n");
+    LLVM_DEBUG(FMADbg::match() << "    Could not compute SP.\n");
     return nullptr;
   }
 
@@ -832,9 +880,8 @@ GlobalFMA::getDagForExpression(FMAExpr &Expr, bool DoCompactTerms) const {
   if (DoCompactTerms)
     Expr.compactTerms(*SP);
 
-  LLVM_DEBUG(dbgs() << "  Computed SP is: ");
-  LLVM_DEBUG(SP->print(dbgs()));
-  LLVM_DEBUG(dbgs() << "  SHAPE: " << format_hex(SP->Shape, 2) << "\n\n");
+  LLVM_DEBUG(FMADbg::match() << "Computed SP is: " << *SP);
+  LLVM_DEBUG(FMADbg::match() << "SHAPE: " << format_hex(SP->Shape, 2) << "\n");
 
   return Patterns->getDagForBestSPMatch(*SP);
 }
@@ -854,44 +901,52 @@ bool GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB) {
   bool EverMadeChangeInBB = false;
   doFWS(FMABB);
 
-  LLVM_DEBUG(dbgs() << "\nFMA-STEP3: DO PATTERN MATCHING AND CODE-GEN:\n");
+  LLVM_DEBUG(FMADbg::dbgs()
+                 << "\nFMA-STEP3: DO PATTERN MATCHING AND CODE-GEN:\n");
   for (auto &Expr : FMABB.getFMAs()) {
     if (!Expr->isOptimizable())
       continue;
 
-    LLVM_DEBUG(dbgs() << "  Optimize FMA EXPR:\n  " << *Expr);
+    LLVM_DEBUG(FMADbg::dbgs() << "  Optimize FMA EXPR:\n  " << *Expr << "\n");
     auto Dag = getDagForExpression(*Expr, true);
     if (!Dag) {
       Expr->unsetLastUseMIsForRegisterTerms();
       continue;
     }
 
-    LLVM_DEBUG(dbgs() << "  CONGRATULATIONS! A searched DAG was found:\n    ");
-    LLVM_DEBUG(Dag->print(dbgs()));
+    LLVM_DEBUG(FMADbg::dbgs()
+                   << "  CONGRATULATIONS! A searched DAG was found:\n    "
+                   << *Dag);
 
-    // FIXME: Currently, the setting of the latency vs throughput priorities
-    // is set only accordingly to the internal switch value.
-    // For some target architectures (e.g. in-order targets) the throughput
-    // aspects should be more important.
-    // Also, this place should be updated after the latency vs throughput
-    // analysis of the optimized basic block and the data dependencies analysis
-    // in the optimized expression are implemented.
-    if (!isDagBetterThanInitialExpr(*Dag, *Expr)) {
-      LLVM_DEBUG(dbgs() << "  DAG is NOT better than the initial EXPR.\n\n");
+    if (Expr->isMustBeOptimized()) {
+      LLVM_DEBUG(FMADbg::dbgs() << "  EXPR is marked as MUST BE OPTIMIZED"
+                                   " presumably by FWS module.\n");
+    } else if (isDagBetterThanInitialExpr(*Dag, *Expr)) {
+      // FIXME: Currently, the setting of the latency vs throughput priorities
+      // is set only accordingly to the internal switch value.
+      // For some target architectures (e.g. in-order targets) the throughput
+      // aspects should be more important.
+      // Also, this place should be updated after the latency vs throughput
+      // analysis of the optimized basic block and the data dependencies analysis
+      // in the optimized expression are implemented.
+      LLVM_DEBUG(FMADbg::dbgs() << "  DAG IS better than the initial EXPR.\n");
+    } else {
+      LLVM_DEBUG(FMADbg::dbgs()
+                     << "  DAG is NOT better than the initial EXPR.\n\n");
       Expr->unsetLastUseMIsForRegisterTerms();
       continue;
     }
-    LLVM_DEBUG(dbgs() << "  DAG IS better than the initial EXPR.\n");
 
     EverMadeChangeInBB = true;
     generateOutputIR(*Expr, *Dag);
-    LLVM_DEBUG(dbgs() << "\n");
+    LLVM_DEBUG(FMADbg::dbgs() << "\n");
   }
 
   FMABB.setIsKilledAttributeForTerms();
 
-  LLVM_DEBUG(dbgs() << "\nFMA-STEP3 IS DONE. Machine basic block IS "
-                    << (EverMadeChangeInBB ? "" : "NOT ") << "UPDATED.\n\n");
+  LLVM_DEBUG(FMADbg::dbgs() << "\nFMA-STEP3 IS DONE. Machine basic block IS "
+                            << (EverMadeChangeInBB ? "" : "NOT ")
+                            << "UPDATED.\n\n");
   return EverMadeChangeInBB;
 }
 
@@ -970,9 +1025,9 @@ bool GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
   FMAPerfDesc DagDesc = getDagPerfDesc(Dag);
   FMAPerfDesc ExprDesc = getExprPerfDesc(Expr);
 
-  LLVM_DEBUG(dbgs() << "  Compare DAG and initial EXPR:\n"
-                    << "    DAG  has: " << DagDesc << "\n"
-                    << "    EXPR has: " << ExprDesc << "\n");
+  LLVM_DEBUG(FMADbg::dbgs() << "  Compare DAG and initial EXPR:\n"
+                            << "    DAG  has: " << DagDesc << "\n"
+                            << "    EXPR has: " << ExprDesc << "\n");
 
   // If the internal switch requires FMAs, then just return true.
   // This code is placed after the printings of the DAG/Expr properties
@@ -985,12 +1040,51 @@ bool GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
                               Control.TuneForThroughput);
 }
 
+bool GlobalFMA::isSafeToFuse(
+    const FMATerm *T,
+    const SmallPtrSetImpl<const FMAExpr *> &GoodUsersSet,
+    const SmallPtrSetImpl<const FMAExpr *> &BadUsersSet) const {
+
+  if (BadUsersSet.empty())
+    return true;
+
+  // To check if fusing of T into some/all of GoodUsersSet is safe,
+  // we need to check that FMA expressions from GoodUsersSet do not
+  // intersect (as result of FWS) with FMA expressions from BadUsersSet.
+  //     T   A       T - is the candidate for fusing it may be replaced
+  //      \ /            with some expression during FWS.
+  //   Z   N   X     U - is immediate user of T, included into "good" expr G
+  //    \ / \ /          and "bad" expr B.
+  //     G   B       Replacing T would cause changes in both G and B.
+  // 1) For each top-user G from GoodUsersSet find and add immediate users
+  //    of T to GoodImmediateUsersSet.
+  // 2) For each top-user B from BadUsersSet find and add immediate users
+  //    of T to NotGoodImmediateUsersSet.
+  // 3) Check if there are immediate users IU from GoodImmediateUsersSet
+  //    that are also in BadImmediateUsersSet.
+  //    If there are such, then fusing is unsafe as changing a good user
+  //    would cause unwanted changes in a bad user.
+  SmallPtrSet<const FMAExpr *, 16u> GoodImmediateUsersSet;
+  SmallPtrSet<const FMAExpr *, 16u> NotGoodImmediateUsersSet;
+  for (auto *G : GoodUsersSet)
+    G->insertImmediateUsersOfTo(T, GoodImmediateUsersSet);
+  for (auto *B : BadUsersSet)
+    B->insertImmediateUsersOfTo(T, NotGoodImmediateUsersSet);
+
+  for (auto *U : GoodImmediateUsersSet)
+    if (NotGoodImmediateUsersSet.count(U))
+      return false;
+
+  return true;
+}
+
 bool GlobalFMA::doFWSAndConsumeIfProfitable(
     FMAExpr &FWSExpr, const SmallPtrSetImpl<FMAExpr *> &UsersSet,
     SmallPtrSetImpl<FMAExpr *> &BadUsersSet,
     SmallPtrSetImpl<FMAExpr *> &InefficientUsersSet, bool CanConsumeIfOneUser) {
 
   SmallPtrSet<FMAExpr *, 16u> NeutralUsersSet;
+  SmallPtrSet<FMAExpr *, 16u> GoodUsersSet;
   unsigned NumOtherFMAUsers = UsersSet.size();
 
   int NumAdditionalAddSub = 0;
@@ -1005,7 +1099,10 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
   if (CanConsumeIfOneUser && UsersSet.size() > 1)
     return false;
 
+  int UserIndex = 0;
   for (auto *UserExpr : UsersSet) {
+    UserIndex++;
+    LLVM_DEBUG(FMADbg::fws() << "  Analyze user #" << UserIndex << "...\n";);
     if (BadUsersSet.count(UserExpr) ||
         (!CanConsumeIfOneUser && InefficientUsersSet.count(UserExpr)))
       continue;
@@ -1014,9 +1111,9 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
     if (!OriginalDag) {
       // User cannot consume anything as it cannot have a DAG even without
       // fusing UserExpr and FWSExpr.
-      LLVM_DEBUG(dbgs() << "  User is marked as BAD now because "
-                           "getDagForExpression() returned NULL: "
-                        << *UserExpr << "\n");
+      LLVM_DEBUG(FMADbg::fws() << "  User is marked as BAD because "
+                                  "getDagForExpression() returned NULL: "
+                               << *UserExpr << "\n");
       BadUsersSet.insert(UserExpr);
       continue;
     }
@@ -1024,21 +1121,21 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
     auto FusedDag = getDagForFusedExpression(*UserExpr, FWSExpr);
     if (!FusedDag) {
       // DAG could not be created for the fused expression (UserExpr + FWSExpr).
-      LLVM_DEBUG(dbgs() << "  User is marked as BAD now because "
-                           "getDagForFusedExpression() returned NULL: "
-                        << *UserExpr << "\n  FWSExpr: " << FWSExpr << "\n");
+      LLVM_DEBUG(FMADbg::fws() << "  User is marked as BAD because "
+                                  "getDagForFusedExpression() returned NULL: "
+                               << *UserExpr << "\n");
       BadUsersSet.insert(UserExpr);
       continue;
     }
 
     FMAPerfDesc OriginalDesc = getDagPerfDesc(*OriginalDag);
     FMAPerfDesc FusedDesc = getDagPerfDesc(*FusedDag);
-    LLVM_DEBUG(dbgs() << "      DAG before FWS: " << *OriginalDag << "      "
-                      << OriginalDesc << "\n");
-    LLVM_DEBUG(dbgs() << "      DAG after FWS: " << *FusedDag << "      "
-                      << FusedDesc << "\n");
+    LLVM_DEBUG(FMADbg::fws() << "  DAG before FWS: " << *OriginalDag;
+               FMADbg::fws() << "  " << OriginalDesc << "\n");
+    LLVM_DEBUG(FMADbg::fws() << "  DAG after FWS: " << *FusedDag;
+               FMADbg::fws() << "  " << FusedDesc << "\n");
     // TODO: vklochko: The 2nd and 3rd arguments of the next call must depend
-    // on the existance of recurrent terms used by the fused expression.
+    // on the existence of recurrent terms used by the fused expression.
     // Currently, such analysis are not available.
     if (!FusedDesc.isBetterThan(OriginalDesc, false /*TuneForLatency */,
                                 false /*TuneForThroughput*/)) {
@@ -1049,8 +1146,9 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
           FusedDesc.getNumAddSub() - OriginalDesc.getNumAddSub();
       NumAdditionalMul += FusedDesc.getNumMul() - OriginalDesc.getNumMul();
       NumAdditionalFMA += FusedDesc.getNumFMA() - OriginalDesc.getNumFMA();
-      LLVM_DEBUG(dbgs() << "      Fusing does NOT seems efficient now. "
-                           "Add the candidate to neutral users.\n");
+      LLVM_DEBUG(FMADbg::fws()
+                     << "  Fusing is NOT efficient if keep FWS candidate. "
+                        "Add the candidate to neutral users now.\n");
     } else {
       // If the fused DAG is better than the original DAG, then just
       // fuse UserExpr and FWSExpr.
@@ -1060,10 +1158,56 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
       // -->
       //    t1 = a-b;
       //    t2 = a-(a-b); // Better because it is equal to t2 = b;
-      LLVM_DEBUG(dbgs() << "      Fusing seems efficient. Dot it now.\n");
-      NumOtherFMAUsers--;
-      Consumed = UserExpr->consume(FWSExpr, *Patterns, NumOtherFMAUsers != 0);
-      assert(Consumed && "FWS/consume must be possible.");
+      //
+      // It is risky to perform the fusing right now and may lead to errors if
+      // there are N > 1 users and both (a) and (b) are true:
+      // a) some of users have got common subexpressions as result of FWS
+      // b) fusing to some of users is not efficient.
+      // In such cases fusing with a good user here would cause
+      // unwanted/inefficient fusing with another user, but the real problem
+      // is that the latter will not get terms used by the consumed expression
+      // to the list of the consumer expression.
+      // Thus we only register such good fuse opportunities now and do
+      // the actual fusing later if it is safe.
+      GoodUsersSet.insert(UserExpr);
+      LLVM_DEBUG(FMADbg::fws() << "  Fusing seems efficient. Add to good users"
+                                  " now for fusing later.\n");
+    }
+  }
+
+  if (!GoodUsersSet.empty()) {
+    bool SafeToFuse = UsersSet.size() == 1;
+    if (!SafeToFuse) {
+      // Check if is safe to fuse FWSExpr with GoodUsersSet expressions
+      // i.e. that it would not cause unexpected changes in other not good
+      // users: NotGoodUsersSet = UsersSet - GoodUsersSet, which also
+      // must be equal to BadUsersSet + InefficientUsersSet + NeutralUsersSet.
+      SmallPtrSet<const FMAExpr *, 16u> NotGoodUsersSet;
+      NotGoodUsersSet.insert(BadUsersSet.begin(), BadUsersSet.end());
+      NotGoodUsersSet.insert(NeutralUsersSet.begin(), NeutralUsersSet.end());
+      NotGoodUsersSet.insert(InefficientUsersSet.begin(),
+                             InefficientUsersSet.end());
+      assert((NotGoodUsersSet.size() + GoodUsersSet.size() == UsersSet.size())
+             && "Unexpected user sets.");
+      SmallPtrSet<const FMAExpr *, 16u>
+          CGoodUsersSet(GoodUsersSet.begin(), GoodUsersSet.end());
+      SafeToFuse = isSafeToFuse(FWSExpr.getResultTerm(),
+                                CGoodUsersSet, NotGoodUsersSet);
+    }
+    if (SafeToFuse) {
+      for (auto *E : GoodUsersSet) {
+        LLVM_DEBUG(FMADbg::fws() << "  Fuse into a good candidate now: "
+                                  << *E << "\n";);
+        NumOtherFMAUsers--;
+        Consumed = E->consume(FWSExpr, *Patterns, NumOtherFMAUsers != 0);
+        assert(Consumed && "FWS/consume must be possible.");
+      }
+    } else {
+      NeutralUsersSet.insert(GoodUsersSet.begin(), GoodUsersSet.end());
+      LLVM_DEBUG(FMADbg::fws() << "  Fusing in the following good candidates "
+                                   "causes fusing in other users. "
+                                   "Put them to neutral users now:\n";);
+      LLVM_DEBUG(for (auto *E : GoodUsersSet) {FMADbg::fws() << *E << "\n";});
     }
   }
 
@@ -1073,8 +1217,8 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
 
   // If the FWS expression cannot be removed due to existing users, then exit.
   if (FWSExpr.hasUnknownUsers() || !BadUsersSet.empty()) {
-    LLVM_DEBUG(
-        dbgs() << "      Fusing neutral users does NOT seem efficient.\n");
+    LLVM_DEBUG(FMADbg::fws()
+                   << "  Fusing neutral users is inefficient or not doable.\n");
     InefficientUsersSet.insert(NeutralUsersSet.begin(), NeutralUsersSet.end());
     return Consumed;
   }
@@ -1103,39 +1247,73 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
         NumAdditionalAddSub + NumAdditionalMul + NumAdditionalFMA;
   FMAPerfDesc FWSExprDesc = getExprPerfDesc(FWSExpr);
 
-  if ((CanConsumeIfOneUser && NeutralUsersSet.size() == 1) ||
-      (NumAdditionalOperations < (int)FWSExprDesc.getNumOperations() ||
-       (NumAdditionalOperations == (int)FWSExprDesc.getNumOperations() &&
-        NumAdditionalFMA <= (int)FWSExprDesc.getNumFMA()))) {
+  if (NumAdditionalOperations < (int)FWSExprDesc.getNumOperations() ||
+      (NumAdditionalOperations == (int)FWSExprDesc.getNumOperations() &&
+       NumAdditionalFMA <= (int)FWSExprDesc.getNumFMA())) {
+    // Fusing produces same or better expressions because one of these is true:
+    // a) better: fused exprs have less operations than the original
+    //    expr(s) + fws expr;
+    // b) same-or-better: fusing keeps the smae number of operations,
+    //    but it does not increase the number of heavy FMAs.
+    ;
+  }
+  else if (CanConsumeIfOneUser && NeutralUsersSet.size() == 1) {
     // It is already known that the fusing FWSExpr and its only user does not
     // seem efficient (otherwise, the user of FWSExpr would not be in
     // NeutralUsersSet) and fusing would happen earlier.
-    //
-    // The fusing still may be useful as it may give more opportinuties for
-    // further and more efficient fusing. Do the fusing if the fused
-    // expression is at least the same good as the two expressions before
-    // fusing.
-    ;
-  } else if (NumAdditionalOperations > (int)FWSExprDesc.getNumOperations() ||
-             (NumAdditionalOperations == (int)FWSExprDesc.getNumOperations() &&
-              NumAdditionalFMA >= (int)FWSExprDesc.getNumFMA())) {
-    // Do not fuse if any of the following is true:
-    // - fusing to all users produces more instructions than FWSExpr has;
-    // - fusing to all users produces the same number of instructions as
-    //   FWSExpr has, and the number of heavy FMA instructions did not decrease.
+    // The fusing still may be useful as it may give more opportunities for
+    // further and more efficient fusing.
+    auto User = *(NeutralUsersSet.begin());
+    if (FWSExpr.isMustBeOptimized() || User->isMustBeOptimized()) {
+      // If one of fused expressions is marked as MustBeOptimized,
+      // then do not fuse! Otherwise, the result must be marked
+      // as MustBeOptimized too, which cannot be cancelled and may lead
+      // to to inefficient code-generation. For such cases it is better to
+      // simply move such user to BadUsersSet as adding it
+      // to InefficientUsersSet will let the FWSExpr be a candidate for FWS
+      // again and again, which leads to endless loop during compilation.
+      LLVM_DEBUG(FMADbg::fws() << "  Fusing into neutral users is inefficient "
+                                  "or not doable.\n");
+      BadUsersSet.insert(NeutralUsersSet.begin(), NeutralUsersSet.end());
+      return Consumed;
+    }
+    // If reached this point, then fusing is approved.
+  } else {
+    // Do not fuse if the fused expression is not any better than the
+    // original expression(s) + FWSExpr.
     InefficientUsersSet.insert(NeutralUsersSet.begin(), NeutralUsersSet.end());
     return Consumed;
   }
 
-  // Fusing FWSExpr to all users seems efficient.
-  LLVM_DEBUG(dbgs() << "      Fusing into " << NumOtherFMAUsers
-                    << " neutral users seems efficient.\n");
+  // Fusing into more than 1 user already has been evaluated as efficient.
+  // Thus, all users must be re-generated/optimized at the code-generation
+  // phase. Otherwise, if re-generate/optimize only some of users
+  // (not all of users), then:
+  // a) It is an error as it is assumed at later stages that when one
+  //    expression is optimized, then all previous MIs, from which FMA
+  //    expression was composed, must be deleted/replaced by new MIs.
+  //    This would remove MIs composing FWSExpr. Oops...
+  // b) If handle (a) above somehow, then it would leave MIs creating
+  //    FWSExpr, which does not make sense from efficiency point of view
+  //    as the whole 'fusing  FWSExpr into several users' makes sense
+  //    mostly/only because the original FWSExpr gets removed.
+  // Also, if FWSExpr is already marked as MustBeOptimzed, then
+  // the new fused expression(s) must get that attribute too.
+  // Otherwise, there is some chance that the new fused expression
+  // is not optimized/re-generated, which means FWSExpr also not
+  // optimized/re-generated.
+  LLVM_DEBUG(FMADbg::fws() << "  Fusing into " << NumOtherFMAUsers
+                           << " neutral user(s) seems efficient.\n");
+  bool MarkAsMustBeOptimized =
+      NumOtherFMAUsers > 1 || FWSExpr.isMustBeOptimized();
   for (auto E : NeutralUsersSet) {
-    LLVM_DEBUG(dbgs() << "      Fuse with the neutral user #"
-                      << NumOtherFMAUsers << ": " << *E << "\n");
+    LLVM_DEBUG(FMADbg::fws() << "  Fuse with the neutral user #"
+                             << NumOtherFMAUsers << ": " << *E << "\n");
     NumOtherFMAUsers--;
     Consumed = E->consume(FWSExpr, *Patterns, NumOtherFMAUsers != 0);
     assert(Consumed && "FWS/consume must be possible.");
+    if (MarkAsMustBeOptimized)
+      E->markAsMustBeOptimized();
   }
   FWSExpr.markAsFullyConsumedByKnownExpressions();
   return Consumed;
@@ -1143,7 +1321,7 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
 
 void GlobalFMA::doFWS(FMABasicBlock &FMABB) {
 
-  LLVM_DEBUG(dbgs() << "\nFMA-STEP2: DO FWS:\n");
+  LLVM_DEBUG(FMADbg::dbgs() << "\nFMA-STEP2: DO FWS:\n");
 
   using FMAExprSet = SmallPtrSet<FMAExpr *, 8u>;
   SmallVector<FMAExprSet, 8u> BadFWSCandidates(FMABB.getFMAs().size());
@@ -1160,19 +1338,23 @@ void GlobalFMA::doFWS(FMABasicBlock &FMABB) {
       if (Expr->isFullyConsumedByKnownExpressions())
         continue;
 
-      LLVM_DEBUG(dbgs() << "\n  FWS: try to find terms that could be "
-                           "substituted by expressions in: "
-                        << *Expr << "\n");
+      LLVM_DEBUG(FMADbg::fws() << "Find terms that could be "
+                                  "substituted by expressions in: "
+                               << *Expr << "\n");
       SmallPtrSet<FMAExpr *, 16u> UsersSet;
       FMAExpr *FWSExpr = Expr->findFWSCandidate(
           BadFWSCandidates[ExprIndex], InefficientFWSCandidates[ExprIndex],
           CanConsumeIfOneUser, UsersSet);
+      int FWSExprCandNum = 0;
+      LLVM_DEBUG(if (!FWSExpr) FMADbg::fws() << "\n";);
       while (FWSExpr) {
-        LLVM_DEBUG(dbgs() << "    Found a FWS candidate:\n    " << *FWSExpr
-                          << " fusible to " << UsersSet.size()
-                          << " user(s):\n");
-        LLVM_DEBUG(for (auto E
-                        : UsersSet) { dbgs() << "      " << *E << "\n"; });
+        LLVM_DEBUG(FMADbg::fws() << "Found a FWS candidate(#"
+                                 << FWSExprCandNum << "): " << *FWSExpr
+                                 << "  fusible to " << UsersSet.size()
+                                 << " user(s):\n");
+        FWSExprCandNum++;
+        LLVM_DEBUG(
+            for (auto E : UsersSet) { FMADbg::fws() << "    " << *E << "\n"; });
         SmallPtrSet<FMAExpr *, 16u> BadUsersSet;
         SmallPtrSet<FMAExpr *, 16u> InefficientUsersSet;
 
@@ -1211,20 +1393,20 @@ void GlobalFMA::doFWS(FMABasicBlock &FMABB) {
       // Give temporary permit to do FWS for expressions having only one use
       // if the fused expression is not worse than two separate expressions
       // before fusing.
-      LLVM_DEBUG(dbgs() << "\n\n  FWS: Now set CanConsumeIfOneUser "
-                           "to TRUE and repeat.\n\n");
+      LLVM_DEBUG(FMADbg::fws() << "!! Now set CanConsumeIfOneUser "
+                                  "to TRUE and repeat.\n\n");
       CanConsumeIfOneUser = true;
       Consumed = true;
     } else if (Consumed && CanConsumeIfOneUser) {
-      LLVM_DEBUG(dbgs() << "\n\n  FWS: Now set CanConsumeIfOneUser "
-                           "to FALSE to give priority to cases with "
-                           "clean bonuses.\n\n");
+      LLVM_DEBUG(FMADbg::fws() << "!! Now set CanConsumeIfOneUser "
+                                  "to FALSE to give priority to cases with "
+                                  "clean bonuses.\n\n");
       // 'CanConsumeIfOneUser' was a temporary permit to do FWS in cases where
       // it potentially gives more opportunities for doing beneficial FWS
       // cases. Revoke the permit and try to do efficient FWS cases now.
       CanConsumeIfOneUser = false;
     }
   } // end while (Consumed)
-  LLVM_DEBUG(dbgs() << "\nFMA-STEP2 DONE. FMA basic block after FWS:\n"
-                    << FMABB);
+  LLVM_DEBUG(FMADbg::dbgs() << "\nFMA-STEP2 DONE. FMA basic block after FWS:\n"
+                            << FMABB);
 }

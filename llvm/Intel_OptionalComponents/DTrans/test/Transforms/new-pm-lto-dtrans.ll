@@ -51,6 +51,8 @@
 ; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
+; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
@@ -58,6 +60,7 @@
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
+; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.

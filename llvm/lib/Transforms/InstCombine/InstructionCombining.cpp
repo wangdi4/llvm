@@ -39,6 +39,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
+#include "llvm/ADT/ScopeExit.h" // INTEL
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -212,8 +213,8 @@ bool InstCombiner::shouldChangeType(Type *From, Type *To) const {
 // where both B and C should be ConstantInts, results in a constant that does
 // not overflow. This function only handles the Add and Sub opcodes. For
 // all other opcodes, the function conservatively returns false.
-static bool MaintainNoSignedWrap(BinaryOperator &I, Value *B, Value *C) {
-  OverflowingBinaryOperator *OBO = dyn_cast<OverflowingBinaryOperator>(&I);
+static bool maintainNoSignedWrap(BinaryOperator &I, Value *B, Value *C) {
+  auto *OBO = dyn_cast<OverflowingBinaryOperator>(&I);
   if (!OBO || !OBO->hasNoSignedWrap())
     return false;
 
@@ -236,8 +237,13 @@ static bool MaintainNoSignedWrap(BinaryOperator &I, Value *B, Value *C) {
 }
 
 static bool hasNoUnsignedWrap(BinaryOperator &I) {
-  OverflowingBinaryOperator *OBO = dyn_cast<OverflowingBinaryOperator>(&I);
+  auto *OBO = dyn_cast<OverflowingBinaryOperator>(&I);
   return OBO && OBO->hasNoUnsignedWrap();
+}
+
+static bool hasNoSignedWrap(BinaryOperator &I) {
+  auto *OBO = dyn_cast<OverflowingBinaryOperator>(&I);
+  return OBO && OBO->hasNoSignedWrap();
 }
 
 /// Conservatively clears subclassOptionalData after a reassociation or
@@ -344,22 +350,21 @@ bool InstCombiner::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
           // It simplifies to V.  Form "A op V".
           I.setOperand(0, A);
           I.setOperand(1, V);
-          // Conservatively clear the optional flags, since they may not be
-          // preserved by the reassociation.
           bool IsNUW = hasNoUnsignedWrap(I) && hasNoUnsignedWrap(*Op0);
-          bool IsNSW = MaintainNoSignedWrap(I, B, C);
+          bool IsNSW = maintainNoSignedWrap(I, B, C) && hasNoSignedWrap(*Op0);
 
+          // Conservatively clear all optional flags since they may not be
+          // preserved by the reassociation. Reset nsw/nuw based on the above
+          // analysis.
           ClearSubclassDataAfterReassociation(I);
 
+          // Note: this is only valid because SimplifyBinOp doesn't look at
+          // the operands to Op0.
           if (IsNUW)
             I.setHasNoUnsignedWrap(true);
 
-          if (IsNSW &&
-              (!Op0 || (isa<BinaryOperator>(Op0) && Op0->hasNoSignedWrap()))) {
-            // Note: this is only valid because SimplifyBinOp doesn't look at
-            // the operands to Op0.
+          if (IsNSW)
             I.setHasNoSignedWrap(true);
-          }
 
           Changed = true;
           ++NumReassoc;
@@ -622,7 +627,6 @@ Value *InstCombiner::tryFactorization(BinaryOperator &I,
           HasNUW &= ROBO->hasNoUnsignedWrap();
         }
 
-        const APInt *CInt;
         if (TopLevelOpcode == Instruction::Add &&
             InnerOpcode == Instruction::Mul) {
           // We can propagate 'nsw' if we know that
@@ -632,6 +636,7 @@ Value *InstCombiner::tryFactorization(BinaryOperator &I,
           //  %Z = mul nsw i16 %X, C+1
           //
           // iff C+1 isn't INT_MIN
+          const APInt *CInt;
           if (match(V, m_APInt(CInt))) {
             if (!CInt->isMinSignedValue())
               BO->setHasNoSignedWrap(HasNSW);
@@ -1215,7 +1220,36 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   // Log base 2 of the scale. Negative if not a power of 2.
   int32_t logScale = Scale.exactLogBase2();
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<std::pair<Instruction *, Instruction *>, 4> DuplicatedInsts;
+  bool Successful = false;
+  auto AutoDelete = make_scope_exit([&]() {
+    if (!Successful) {
+      for (auto &Pair : DuplicatedInsts) {
+        Pair.first->replaceAllUsesWith(Pair.second);
+        Pair.first->eraseFromParent();
+      }
+    }
+  });
+#endif // INTEL_CUSTOMIZATION
+
   for (;; Op = Parent.first->getOperand(Parent.second)) { // Drill down
+#if INTEL_CUSTOMIZATION
+    auto makeUniqueOp = [&](BinaryOperator *BO) {
+      if (!BO->hasOneUse()) {
+        Instruction *Clone = BO->clone();
+        Clone->insertAfter(BO);
+        DuplicatedInsts.push_back(std::make_pair(Clone, BO));
+        BO = cast<BinaryOperator>(Clone);
+        if (Op == Val)
+          Val = BO;
+        else
+          Parent.first->setOperand(Parent.second, BO);
+      }
+      return BO;
+    };
+#endif // INTEL_CUSTOMIZATION
+
     if (ConstantInt *CI = dyn_cast<ConstantInt>(Op)) {
       // If Op is a constant divisible by Scale then descale to the quotient.
       APInt Quotient(Scale), Remainder(Scale); // Init ensures right bitwidth.
@@ -1252,21 +1286,24 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
           }
 
           // Otherwise drill down into the constant.
-          if (!Op->hasOneUse())
-            return nullptr;
-
-          Parent = std::make_pair(BO, 1);
+          Parent = std::make_pair(makeUniqueOp(BO), 1); // INTEL
           continue;
         }
 
         // Multiplication by something else. Drill down into the left-hand side
         // since that's where the reassociate pass puts the good stuff.
-        if (!Op->hasOneUse())
-          return nullptr;
-
-        Parent = std::make_pair(BO, 0);
+        Parent = std::make_pair(makeUniqueOp(BO), 0); // INTEL
         continue;
       }
+
+#if INTEL_CUSTOMIZATION
+      // If the value is -X, drill through X.
+      if (BO->getOpcode() == Instruction::Sub &&
+          match(BO->getOperand(0), m_Zero())) {
+        Parent = std::make_pair(makeUniqueOp(BO), 1);
+        continue;
+      }
+#endif // INTEL_CUSTOMIZATION
 
       if (logScale > 0 && BO->getOpcode() == Instruction::Shl &&
           isa<ConstantInt>(BO->getOperand(1))) {
@@ -1286,12 +1323,12 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
           Op = LHS;
           break;
         }
-        if (Amt < logScale || !Op->hasOneUse())
+        if (Amt < logScale) // INTEL
           return nullptr;
 
         // Multiplication by more than the scale.  Reduce the multiplying amount
         // by the scale in the parent.
-        Parent = std::make_pair(BO, 1);
+        Parent = std::make_pair(makeUniqueOp(BO), 1); // INTEL
         Op = ConstantInt::get(BO->getType(), Amt - logScale);
         break;
       }
@@ -1348,6 +1385,11 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
     return nullptr;
   }
 
+#if INTEL_CUSTOMIZATION
+  // If we reach this point, we know we can descale.
+  Successful = true;
+#endif // INTEL_CUSTOMIZATION
+
   // If Op is zero then Val = Op * Scale.
   if (match(Op, m_Zero())) {
     NoSignedWrap = true;
@@ -1364,7 +1406,8 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
     return Op;
 
   // Rewrite the parent using the descaled version of its operand.
-  assert(Parent.first->hasOneUse() && "Drilled down when more than one use!");
+  assert((Parent.first == Val || Parent.first->hasOneUse()) && // INTEL
+      "Drilled down when more than one use!"); // INTEL
   assert(Op != Parent.first->getOperand(Parent.second) &&
          "Descaling was a no-op?");
   Parent.first->setOperand(Parent.second, Op);
@@ -1712,7 +1755,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     // to an index of zero, so replace it with zero if it is not zero already.
     Type *EltTy = GTI.getIndexedType();
     if (EltTy->isSized() && DL.getTypeAllocSize(EltTy) == 0)
-      if (!isa<Constant>(*I) || !cast<Constant>(*I)->isNullValue()) {
+      if (!isa<Constant>(*I) || !match(I->get(), m_Zero())) {
         *I = Constant::getNullValue(NewIndexType);
         MadeChange = true;
       }
@@ -2619,9 +2662,7 @@ Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
 Instruction *InstCombiner::visitBranchInst(BranchInst &BI) {
   // Change br (not X), label True, label False to: br X, label False, True
   Value *X = nullptr;
-  BasicBlock *TrueDest;
-  BasicBlock *FalseDest;
-  if (match(&BI, m_Br(m_Not(m_Value(X)), TrueDest, FalseDest)) &&
+  if (match(&BI, m_Br(m_Not(m_Value(X)), m_BasicBlock(), m_BasicBlock())) &&
       !isa<Constant>(X)) {
     // Swap Destinations and condition...
     BI.setCondition(X);
@@ -2639,8 +2680,8 @@ Instruction *InstCombiner::visitBranchInst(BranchInst &BI) {
 
   // Canonicalize, for example, icmp_ne -> icmp_eq or fcmp_one -> fcmp_oeq.
   CmpInst::Predicate Pred;
-  if (match(&BI, m_Br(m_OneUse(m_Cmp(Pred, m_Value(), m_Value())), TrueDest,
-                      FalseDest)) &&
+  if (match(&BI, m_Br(m_OneUse(m_Cmp(Pred, m_Value(), m_Value())),
+                      m_BasicBlock(), m_BasicBlock())) &&
       !isCanonicalPredicate(Pred)) {
     // Swap destinations and condition.
     CmpInst *Cond = cast<CmpInst>(BI.getCondition());
@@ -3226,6 +3267,21 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock) {
   findDbgUsers(DbgUsers, I);
   for (auto *DII : reverse(DbgUsers)) {
     if (DII->getParent() == SrcBlock) {
+      if (isa<DbgDeclareInst>(DII)) {
+        // A dbg.declare instruction should not be cloned, since there can only be
+        // one per variable fragment. It should be left in the original place since
+        // sunk instruction is not an alloca(otherwise we could not be here).
+        // But we need to update arguments of dbg.declare instruction, so that it
+        // would not point into sunk instruction.
+        if (!isa<CastInst>(I))
+          continue; // dbg.declare points at something it shouldn't
+
+        DII->setOperand(
+            0, MetadataAsValue::get(I->getContext(),
+                                    ValueAsMetadata::get(I->getOperand(0))));
+        continue;
+      }
+
       // dbg.value is in the same basic block as the sunk inst, see if we can
       // salvage it. Clone a new copy of the instruction: on success we need
       // both salvaged and unsalvaged copies.
@@ -3664,7 +3720,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   // Required analyses.
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F); // INTEL
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();

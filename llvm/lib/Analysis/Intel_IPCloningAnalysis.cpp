@@ -32,6 +32,8 @@
 using namespace llvm;
 using namespace llvm::llvm_cloning_analysis;
 
+#define DEBUG_TYPE "ipcloning"
+
 namespace llvm {
 namespace llvm_cloning_analysis {
 // Option to trace IP Cloning
@@ -176,8 +178,7 @@ static void collectSextZextAsPotentialConstants(Value* V,
     if (isa<SExtInst>(U) || isa<ZExtInst>(U)) {
 
       PotentialConstValuesAfterCloning.insert(U);
-      if (IPCloningTrace)
-        dbgs() <<  "     SExt/ZExt:  " << *U << "\n";
+      LLVM_DEBUG(dbgs() <<  "     SExt/ZExt:  " << *U << "\n");
     }
   }
 }
@@ -190,8 +191,7 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
 
   // Add formal value as potential constant value after cloning
   PotentialConstValuesAfterCloning.insert(V);
-  if (IPCloningTrace)
-    dbgs() <<  "     Added original formal:  " << *V << "\n";
+  LLVM_DEBUG(dbgs() <<  "     Added original formal:  " << *V << "\n");
 
   // Look at all uses of formal value and try to find potential
   // constant values
@@ -206,8 +206,7 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
     if (isa<UnaryInstruction>(U) || isa<CastInst>(U) || isa<BitCastInst>(U)) {
       // Add simple Unary operator as potential constants
       PotentialConstValuesAfterCloning.insert(U);
-      if (IPCloningTrace)
-        dbgs() <<  "     Unary:  " << *U << "\n";
+      LLVM_DEBUG(dbgs() <<  "     Unary:  " << *U << "\n");
       // Consider SExt/ZExt as potential constants
       collectSextZextAsPotentialConstants(U, NumUsesExplored);
     }
@@ -216,8 +215,7 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
       // Add it if other operand is constant
       if (isa<Constant>(LHS) || isa<Constant>(RHS)) {
         PotentialConstValuesAfterCloning.insert(U);
-        if (IPCloningTrace)
-          dbgs() <<  "     Binary:   " << *U << "\n";
+        LLVM_DEBUG(dbgs() <<  "     Binary:   " << *U << "\n");
         // Consider SExt/ZExt as potential constants
         collectSextZextAsPotentialConstants(U, NumUsesExplored);
       }
@@ -245,10 +243,10 @@ static bool applyIFHeurstic(Value *User, Value *V) {
     auto BI = dyn_cast<BranchInst>(W);
     if (!BI || !BI->isConditional())
       continue;
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << "  Used in IF: " << *User << "\n";
       dbgs() << "      Branch: " << *BI << "\n";
-    }
+    });
     return true;
   }
   return false;
@@ -312,9 +310,7 @@ static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI) {
     return false;
   if (Cond != U)
     return false;
-  if (IPCloningTrace) {
-    dbgs() << "  Used in Loop: " << *U << "\n";
-  }
+  LLVM_DEBUG(dbgs() << "  Used in Loop: " << *U << "\n";);
   return true;
 }
 
@@ -352,9 +348,7 @@ static bool applySwitchHeuristic(Value *User, Value *V) {
   if (V != SI.getCondition())
     return false;
 
-  if (IPCloningTrace)
-    dbgs() << "  Used in Switch: " << *U << "\n";
-
+  LLVM_DEBUG(dbgs() << "  Used in Switch: " << *U << "\n");
   return true;
 }
 
@@ -370,11 +364,11 @@ static bool applyIFSwitchHeuristics(Function &F, Value *V,
     if (applySwitchHeuristic(U, V))
       ++SwitchCount;
   }
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     if (IFCount || SwitchCount)
       dbgs() << "IFSwitch: " << F.getName() << " "
              << IFCount << " " << SwitchCount << "\n";
-  }
+  });
   return IFCount + SwitchCount > 0;
 }
 
@@ -439,8 +433,7 @@ extern bool isConstantArgWorthyForSpecializationClone(Value *Arg) {
 extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
                                        SmallPtrSet<Value *, 8>& PhiValues) {
 
-  if (IPCloningTrace)
-    dbgs() << "   Analyzing for Spe Cloning: " << CB << "\n";
+  LLVM_DEBUG(dbgs() << "   Analyzing for Spe Cloning: " << CB << "\n");
 
   auto CAI = CB.arg_begin();
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
@@ -460,20 +453,19 @@ extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
   }
 
   if (PhiValues.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "     Skip ... No PHIs selected for Spe cloning\n";
+    LLVM_DEBUG(dbgs() << "     Skip ... No PHIs selected for Spe cloning\n");
     return false;
   }
 
   if (PhiValues.size() > IPSpeCloningPhiLimit) {
-    if (IPCloningTrace)
-      dbgs() << "     Skip ... Too many PHIs selected for Spe cloning \n";
+    LLVM_DEBUG(dbgs() << "     Skip ... Too many PHIs selected for Spe "
+                         "cloning \n");
     return false;
   }
 
   if (!allPhisDefinedInSameBB(PhiValues)) {
-    if (IPCloningTrace)
-      dbgs() << "     Skip ... Not all PHIs in same BB for Spe cloning\n";
+    LLVM_DEBUG(dbgs() << "     Skip ... Not all PHIs in same BB for Spe "
+                         "cloning\n");
     return false;
   }
   return true;
@@ -535,8 +527,8 @@ extern bool applyHeuristicsForSpecialization(Function &F, CallBase &CB,
   }
 
   if (PhiValues.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "     Skip ... No PHIs selected after applying heuristics\n";
+    LLVM_DEBUG(dbgs() << "     Skip ... No PHIs selected after applying "
+                         "heuristics\n");
     return false;
   }
   return true;

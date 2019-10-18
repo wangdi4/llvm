@@ -43,11 +43,8 @@ struct MathLibraryFunctionsReplacementPass
 static bool isOptimizableOperation(Instruction *Inst) {
   Value *Divisor = Inst->getOperand(1);
 
-  assert(Divisor->getType()->isIntegerTy() &&
-         "Unexpected divisor element type");
-
-  // This change is only valid for 32-bit integers
-  if (cast<IntegerType>(Divisor->getType())->getBitWidth() != 32)
+  // This change is valid only for non-vectors and 32-bit integers.
+  if (!Divisor->getType()->isIntegerTy(32))
     return false;
 
   // Do not replace functions with constant divisors as they may be replaced

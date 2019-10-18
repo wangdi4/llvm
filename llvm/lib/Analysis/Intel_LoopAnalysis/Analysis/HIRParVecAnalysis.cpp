@@ -45,6 +45,10 @@ static cl::opt<bool>
          cl::desc("Enable non-vectorization/non-parallelization diagnostics "
                   "from ParVec analyzer"));
 
+cl::opt<bool>
+    MinMaxIndexEnabled("enable-mmindex", cl::init(false), cl::Hidden,
+                       cl::desc("Enable min/max+index idiom recognition"));
+
 namespace {
 
 /// \brief Visitor class to determine parallelizabilty/vectorizability of loops
@@ -104,6 +108,8 @@ class DDWalk final : public HLNodeVisitorBase {
   /// Indicates whether we have computed safe reduction chain for the loop.
   bool ComputedSafeRedn;
 
+  const HIRVectorIdioms &IdiomList;
+
   /// \brief Analyze one DDEdge for the source node.
   void analyze(const RegDDRef *SrcRef, const DDEdge *Edge);
 
@@ -113,9 +119,11 @@ class DDWalk final : public HLNodeVisitorBase {
 
 public:
   DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
-         HIRSafeReductionAnalysis &SRA, HLLoop *CandidateLoop, ParVecInfo *Info)
+         HIRSafeReductionAnalysis &SRA, HLLoop *CandidateLoop, ParVecInfo *Info,
+         const HIRVectorIdioms &IList)
       : TLI(TLI), DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop)),
-        CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false) {}
+        CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false),
+        IdiomList(IList) {}
 
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
@@ -216,7 +224,7 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
     return false;
   }
 
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   auto SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
@@ -300,7 +308,7 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
 }
 
 bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
-  assert(Edge->isFLOWdep() && "Flow edge expected!");
+  assert(Edge->isFlow() && "Flow edge expected!");
 
   DDRef *SrcRef = Edge->getSrc();
 
@@ -318,16 +326,12 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
 
   auto SRI = SRA.getSafeRedInfo(Inst);
 
-  // The vectorizer currently cannot handle min/max reductions, they are
-  // therefore suppressed
   if (SRI) {
-    if (SRI->OpCode == Instruction::Select || SRI->HasUnsafeAlgebra) {
-      return false;
-    }
-    return true;
+    // TODO: add support.
+    return !SRI->HasUnsafeAlgebra;
   }
 
-  return false;
+  return IdiomList.isIdiom(Inst) != HIRVectorIdioms::NoIdiom;
 }
 
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
@@ -356,7 +360,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   DDRef *SinkRef = Edge->getSink();
 
-  if (Edge->isFLOWdep() && isSafeReductionFlowDep(Edge)) {
+  if (Edge->isFlow() && isSafeReductionFlowDep(Edge)) {
     LLVM_DEBUG(
         dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
@@ -425,6 +429,9 @@ void DDWalk::visit(HLDDNode *Node) {
         return;
       }
     }
+    // If the node is marked as idiom then we don't need to check dd edges.
+    if (IdiomList.isIdiom(Inst) != HIRVectorIdioms::NoIdiom)
+      return;
   }
 
   // For all DDREFs
@@ -476,7 +483,6 @@ static bool loopInSIMD(HLLoop *Loop) {
 
 void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
-
   if (Loop->hasUnrollEnablingPragma()) {
     setVecType(UNROLL_PRAGMA_LOOP);
     emitDiag();
@@ -518,7 +524,12 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
 
   if (!isDone()) {
     cleanEdges();
-    DDWalk DDW(*TLI, *DDA, *SRA, Loop, this); // Legality checker.
+    HIRVectorIdioms IList;
+    if (isVectorMode()) {
+      HIRVectorIdiomAnalysis IdAnalysis;
+      IdAnalysis.gatherIdioms(IList, DDA->getGraph(Loop), *SRA, Loop);
+    }
+    DDWalk DDW(*TLI, *DDA, *SRA, Loop, this, IList); // Legality checker.
     Loop->getHLNodeUtils().visit(DDW, Loop); // This can change isDone() status.
   }
   if (isDone()) {
@@ -592,3 +603,157 @@ void ParVecInfo::printIndent(raw_ostream &OS, bool ZeroBase) const {
 const std::string ParVecInfo::LoopTypeString[4] = {
     "analyzing", "loop is parallelizable", "loop is vectorizable",
     "loop has SIMD directive"};
+
+class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
+  const DDGraph &DDG;
+  HIRSafeReductionAnalysis &SRAnalysis;
+
+  /// Output, list of idioms
+  HIRVectorIdioms &IdiomList;
+  /// Current loop to analyse.
+  HLLoop *Loop;
+
+public:
+  HIRIdiomAnalyzer(HIRVectorIdioms &IList, const DDGraph &DDG,
+                   HIRSafeReductionAnalysis &SRA, HLLoop *Loop)
+      : DDG(DDG), SRAnalysis(SRA), IdiomList(IList), Loop(Loop) {
+    SRAnalysis.computeSafeReductionChains(Loop);
+  }
+
+  /// \brief Visit all outgoing DDEdges for the given node.
+  void visit(HLDDNode *Node);
+  void visit(HLSwitch *Switch) {}
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+};
+
+void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
+  auto MinMaxInst = dyn_cast<HLInst>(Node);
+  if (!MinMaxInst)
+    return;
+
+  // First hunt for min/max pattern
+  if (!MinMaxInst->isMinOrMax())
+    return;
+
+  // If the instruction is safe reduction then it can't be idiom.
+  if (SRAnalysis.getSafeRedInfo(MinMaxInst))
+    return;
+
+  // Get operands and predicate
+  const RegDDRef *Operand1 = MinMaxInst->getOperandDDRef(1);
+  const RegDDRef *Operand2 = MinMaxInst->getOperandDDRef(2);
+  const RegDDRef *Operand3 = MinMaxInst->getOperandDDRef(3);
+  const RegDDRef *Operand4 = MinMaxInst->getOperandDDRef(4);
+  const RegDDRef *Lval = MinMaxInst->getLvalDDRef();
+
+  PredicateTy Pred = MinMaxInst->getPredicate();
+
+  if (!Lval->isTerminalRef())
+    return;
+
+  bool LvalEqualsThirdOp = DDRefUtils::areEqual(Lval, Operand3);
+
+  // Lval should be involved in minmax idiom.
+  if (!LvalEqualsThirdOp && !DDRefUtils::areEqual(Lval, Operand4))
+    return;
+
+  SmallPtrSet<HLInst *, 2> LinkedInstr;
+
+  // Supposing the MinMaxInst is in the form
+  //  mm = (mm OP b) ? mm : b;
+  // For all outgoing edges, check whether sink stmt is in the form
+  //  t = (mm OP b) ? t : c;
+  // Where t is arbitrary temp, (mm OP b) is the same as in MinMaxInst and
+  // the select is in the same order as in MinMaxInst i.e. the condtion is
+  // not flipped. That means, 't' in the rhs is in the same position as mm in
+  // rhs of MinMaxInst.
+  //
+  // Actual example where mm is %best.014 and t is %tmp.015.
+  // + DO i1 = 0, sext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+  // |   %0 = (@ordering)[0][i1];
+  // |   %tmp.015 = (%0 > %best.014) ? i1 : %tmp.015;
+  // |   %best.014 = (%0 > %best.014) ? %0 : %best.014;
+  // + END LOOP
+  //
+
+  for (DDEdge *E : DDG.outgoing(Lval)) {
+    if (E->isOutput()) {
+      if (E->getSink() != Lval)
+        return;
+    } else {
+      assert(E->isFlow() && "Flow edge expected");
+
+      auto *SinkRef = E->getSink();
+
+      auto *SinkNode = SinkRef->getHLDDNode();
+
+      // Ignore flow edges to same node.
+      if (SinkNode == Node)
+        continue;
+
+      // Node should be at top level.
+      if (SinkNode->getParent() != Loop)
+        return;
+
+      // Only backward edges are allowed.
+      if (SinkNode->getTopSortNum() > Node->getTopSortNum())
+        return;
+
+      auto *Select = dyn_cast<HLInst>(SinkNode);
+      if (!Select || !isa<SelectInst>(Select->getLLVMInstruction()))
+        return;
+
+      auto *SelectLval = Select->getLvalDDRef();
+      if (!SelectLval->isTerminalRef())
+        return;
+
+      auto *SelectOp1 = Select->getOperandDDRef(1);
+      auto *SelectOp2 = Select->getOperandDDRef(2);
+
+      // To make sure that SinkRef is the ref that occurs in the comparison, not
+      // some blob embedded in the 3rd or 4th operand.
+      if (SinkRef != SelectOp1 && SinkRef != SelectOp2)
+        return;
+
+      // This verifies that the two comparison operations are identical.
+      if ((Select->getPredicate() != Pred) ||
+          !DDRefUtils::areEqual(SelectOp1, Operand1) ||
+          !DDRefUtils::areEqual(SelectOp2, Operand2))
+        return;
+
+      // This verifies that temp occurs in the rval in the same position as the
+      // minmax temp.
+      if (LvalEqualsThirdOp) {
+        if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(3)))
+          return;
+      } else if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(4)))
+        return;
+
+      // Add HInst as recognized temp.
+      LinkedInstr.insert(Select);
+    }
+  }
+  if (!LinkedInstr.empty()) {
+    // Add Node as idiom.
+    IdiomList.addIdiom(MinMaxInst, HIRVectorIdioms::MinOrMax);
+    for (auto Linked : LinkedInstr) {
+      IdiomList.addLinked(MinMaxInst, Linked, HIRVectorIdioms::MMFirstLastLoc);
+    }
+  }
+}
+
+void HIRVectorIdiomAnalysis::gatherIdioms(HIRVectorIdioms &IList,
+                                          const DDGraph &DDG,
+                                          HIRSafeReductionAnalysis &SRA,
+                                          HLLoop *Loop) {
+  if (MinMaxIndexEnabled) {
+    HIRIdiomAnalyzer IdiomAnalyzer(IList, DDG, SRA, Loop);
+    Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
+    LLVM_DEBUG(IList.dump());
+  }
+}
+
+extern void llvm::loopopt::deleteHIRVectorIdioms(HIRVectorIdioms *p) {
+  delete p;
+}

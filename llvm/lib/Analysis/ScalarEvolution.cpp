@@ -148,6 +148,7 @@ STATISTIC(NumBruteForceTripCountsComputed,
 
 static cl::opt<unsigned>
 MaxBruteForceIterations("scalar-evolution-max-iterations", cl::ReallyHidden,
+                        cl::ZeroOrMore,
                         cl::desc("Maximum number of iterations SCEV will "
                                  "symbolically execute a constant "
                                  "derived loop"),
@@ -935,7 +936,21 @@ public:
   // Expr by Denominator for the following functions with empty implementation.
   void visitTruncateExpr(const SCEVTruncateExpr *Numerator) {}
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *Numerator) {}
-  void visitSignExtendExpr(const SCEVSignExtendExpr *Numerator) {}
+#if INTEL_CUSTOMIZATION
+  void visitSignExtendExpr(const SCEVSignExtendExpr *Numerator) {
+    if (auto *DenominatorCast = dyn_cast<SCEVSignExtendExpr>(Denominator)) {
+      const SCEV *SrcNumerator = Numerator->getOperand();
+      const SCEV *SrcDenominator = DenominatorCast->getOperand();
+
+      const SCEV *Q, *R;
+      divide(SE, SrcNumerator, SrcDenominator, &Q, &R);
+      if (R->isZero()) {
+        Quotient = SE.getSignExtendExpr(Q, Numerator->getType());
+        Remainder = Zero;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   void visitUDivExpr(const SCEVUDivExpr *Numerator) {}
   void visitSMaxExpr(const SCEVSMaxExpr *Numerator) {}
   void visitUMaxExpr(const SCEVUMaxExpr *Numerator) {}
@@ -1707,7 +1722,7 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
       // in infinite recursion. In the later case, the analysis code will
       // cope with a conservative value, and it will take care to purge
       // that value once it has finished.
-      const SCEV *MaxBECount = getMaxBackedgeTakenCount(L);
+      const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(L);
       if (!isa<SCEVCouldNotCompute>(MaxBECount)) {
         // Manually compute the final value for AR, checking for
         // overflow.
@@ -2051,7 +2066,7 @@ ScalarEvolution::getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
       // in infinite recursion. In the later case, the analysis code will
       // cope with a conservative value, and it will take care to purge
       // that value once it has finished.
-      const SCEV *MaxBECount = getMaxBackedgeTakenCount(L);
+      const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(L);
       if (!isa<SCEVCouldNotCompute>(MaxBECount)) {
         // Manually compute the final value for AR, checking for
         // overflow.
@@ -3421,7 +3436,7 @@ ScalarEvolution::getAddRecExpr(SmallVectorImpl<const SCEV *> &Operands,
     return getAddRecExpr(Operands, L, SCEV::FlagAnyWrap); // {X,+,0}  -->  X
   }
 
-  // It's tempting to want to call getMaxBackedgeTakenCount count here and
+  // It's tempting to want to call getConstantMaxBackedgeTakenCount count here and
   // use that information to infer NUW and NSW flags. However, computing a
   // BE count requires calling getAddRecExpr, so we may not yet have a
   // meaningful BE count at this point (and if we don't, we'd be stuck
@@ -5222,7 +5237,7 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
   // overflow.
   if (auto *BEInst = dyn_cast<Instruction>(BEValueV))
     if (isLoopInvariant(Accum, L) && isAddRecNeverPoison(BEInst, L))
-      (void)getAddRecExpr(getAddExpr(StartVal, Accum, Flags), Accum, L, Flags);
+      (void)getAddRecExpr(getAddExpr(StartVal, Accum), Accum, L, Flags);
 
   return PHISCEV;
 }
@@ -5876,6 +5891,22 @@ ScalarEvolution::getRangeRef(const SCEV *S,
                     ConservativeResult.intersectWith(X, RangeType));
   }
 
+  if (const SCEVSMinExpr *SMin = dyn_cast<SCEVSMinExpr>(S)) {
+    ConstantRange X = getRangeRef(SMin->getOperand(0), SignHint);
+    for (unsigned i = 1, e = SMin->getNumOperands(); i != e; ++i)
+      X = X.smin(getRangeRef(SMin->getOperand(i), SignHint));
+    return setRange(SMin, SignHint,
+                    ConservativeResult.intersectWith(X, RangeType));
+  }
+
+  if (const SCEVUMinExpr *UMin = dyn_cast<SCEVUMinExpr>(S)) {
+    ConstantRange X = getRangeRef(UMin->getOperand(0), SignHint);
+    for (unsigned i = 1, e = UMin->getNumOperands(); i != e; ++i)
+      X = X.umin(getRangeRef(UMin->getOperand(i), SignHint));
+    return setRange(UMin, SignHint,
+                    ConservativeResult.intersectWith(X, RangeType));
+  }
+
   if (const SCEVUDivExpr *UDiv = dyn_cast<SCEVUDivExpr>(S)) {
     ConstantRange X = getRangeRef(UDiv->getLHS(), SignHint);
     ConstantRange Y = getRangeRef(UDiv->getRHS(), SignHint);
@@ -5934,7 +5965,7 @@ ScalarEvolution::getRangeRef(const SCEV *S,
 
     // TODO: non-affine addrec
     if (AddRec->isAffine()) {
-      const SCEV *MaxBECount = getMaxBackedgeTakenCount(AddRec->getLoop());
+      const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(AddRec->getLoop());
       if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
           getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
         auto RangeFromAffine = getRangeForAffineAR(
@@ -6878,7 +6909,7 @@ unsigned ScalarEvolution::getSmallConstantTripCount(const Loop *L,
 
 unsigned ScalarEvolution::getSmallConstantMaxTripCount(const Loop *L) {
   const auto *MaxExitCount =
-      dyn_cast<SCEVConstant>(getMaxBackedgeTakenCount(L));
+      dyn_cast<SCEVConstant>(getConstantMaxBackedgeTakenCount(L));
   return getConstantTripCount(MaxExitCount);
 }
 
@@ -6954,7 +6985,7 @@ const SCEV *ScalarEvolution::getBackedgeTakenCount(const Loop *L) {
 
 /// Similar to getBackedgeTakenCount, except return the least SCEV value that is
 /// known never to be less than the actual backedge taken count.
-const SCEV *ScalarEvolution::getMaxBackedgeTakenCount(const Loop *L) {
+const SCEV *ScalarEvolution::getConstantMaxBackedgeTakenCount(const Loop *L) {
   return getBackedgeTakenInfo(L).getMax(this);
 }
 
@@ -11975,8 +12006,8 @@ static void PrintLoopInfo(raw_ostream &OS, ScalarEvolution *SE,
   L->getHeader()->printAsOperand(OS, /*PrintType=*/false);
   OS << ": ";
 
-  if (!isa<SCEVCouldNotCompute>(SE->getMaxBackedgeTakenCount(L))) {
-    OS << "max backedge-taken count is " << *SE->getMaxBackedgeTakenCount(L);
+  if (!isa<SCEVCouldNotCompute>(SE->getConstantMaxBackedgeTakenCount(L))) {
+    OS << "max backedge-taken count is " << *SE->getConstantMaxBackedgeTakenCount(L);
     if (SE->isBackedgeTakenCountMaxOrZero(L))
       OS << ", actual taken count either this or zero.";
   } else {
@@ -12501,7 +12532,7 @@ ScalarEvolutionWrapperPass::ScalarEvolutionWrapperPass() : FunctionPass(ID) {
 
 bool ScalarEvolutionWrapperPass::runOnFunction(Function &F) {
   SE.reset(new ScalarEvolution(
-      F, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      F, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo()));

@@ -36,8 +36,10 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, const TargetLibraryInfo &TLI,
-               WholeProgramInfo &WPInfo);
+  bool
+  runImpl(Module &M,
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+          WholeProgramInfo &WPInfo);
 };
 
 } // namespace dtrans

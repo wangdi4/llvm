@@ -3,8 +3,6 @@
 
 ; The imagick loop on line 2224. Check that we are able to distribute it.
 
-; XFAIL: *
-
 ; BEGIN REGION { }
 ;       + DO i1 = 0, -1 * %arg + smax(%arg, %arg18), 1   <DO_LOOP>
 ;       |   %tmp38 = i1 + %arg  *  i1 + %arg;

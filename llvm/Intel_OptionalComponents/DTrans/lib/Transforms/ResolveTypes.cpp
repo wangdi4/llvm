@@ -94,11 +94,13 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    const TargetLibraryInfo &TLI =
-        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, TLI, WPInfo);
+    return Impl.runImpl(M, GetTLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -110,10 +112,11 @@ public:
 
 class ResolveTypesImpl : public DTransOptBase {
 public:
-  ResolveTypesImpl(LLVMContext &Context, const DataLayout &DL,
-                   const TargetLibraryInfo &TLI,
-                   DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(nullptr, Context, DL, TLI, "__DTRT_", TypeRemapper) {}
+  ResolveTypesImpl(
+      LLVMContext &Context, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(nullptr, Context, DL, GetTLI, "__DTRT_", TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -1918,23 +1921,28 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
   return CompareResult::Equivalent;
 }
 
-bool dtrans::ResolveTypesPass::runImpl(Module &M, const TargetLibraryInfo &TLI,
-                                       WholeProgramInfo &WPInfo) {
+bool dtrans::ResolveTypesPass::runImpl(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
   DTransTypeRemapper TypeRemapper;
-  ResolveTypesImpl Transformer(M.getContext(), M.getDataLayout(), TLI,
+  ResolveTypesImpl Transformer(M.getContext(), M.getDataLayout(), GetTLI,
                                &TypeRemapper);
   return Transformer.run(M);
 }
 
 PreservedAnalyses dtrans::ResolveTypesPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, TLI, WPInfo))
+  if (!runImpl(M, GetTLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

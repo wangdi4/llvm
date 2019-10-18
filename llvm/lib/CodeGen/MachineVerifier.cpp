@@ -1375,6 +1375,20 @@ void MachineVerifier::verifyPreISelGenericInstruction(const MachineInstr *MI) {
         break;
       }
     }
+    switch (IntrID) {
+    case Intrinsic::memcpy:
+      if (MI->getNumOperands() != 5)
+        report("Expected memcpy intrinsic to have 5 operands", MI);
+      break;
+    case Intrinsic::memmove:
+      if (MI->getNumOperands() != 5)
+        report("Expected memmove intrinsic to have 5 operands", MI);
+      break;
+    case Intrinsic::memset:
+      if (MI->getNumOperands() != 5)
+        report("Expected memset intrinsic to have 5 operands", MI);
+      break;
+    }
     break;
   }
   case TargetOpcode::G_SEXT_INREG: {
@@ -1442,6 +1456,27 @@ void MachineVerifier::verifyPreISelGenericInstruction(const MachineInstr *MI) {
         report("Out of bounds shuffle index", MI);
     }
 
+    break;
+  }
+  case TargetOpcode::G_DYN_STACKALLOC: {
+    const MachineOperand &DstOp = MI->getOperand(0);
+    const MachineOperand &AllocOp = MI->getOperand(1);
+    const MachineOperand &AlignOp = MI->getOperand(2);
+
+    if (!DstOp.isReg() || !MRI->getType(DstOp.getReg()).isPointer()) {
+      report("dst operand 0 must be a pointer type", MI);
+      break;
+    }
+
+    if (!AllocOp.isReg() || !MRI->getType(AllocOp.getReg()).isScalar()) {
+      report("src operand 1 must be a scalar reg type", MI);
+      break;
+    }
+
+    if (!AlignOp.isImm()) {
+      report("src operand 2 must be an immediate type", MI);
+      break;
+    }
     break;
   }
   default:
@@ -1616,7 +1651,7 @@ MachineVerifier::visitMachineOperand(const MachineOperand *MO, unsigned MONum) {
 
   switch (MO->getType()) {
   case MachineOperand::MO_Register: {
-    const unsigned Reg = MO->getReg();
+    const Register Reg = MO->getReg();
     if (!Reg)
       return;
     if (MRI->tracksLiveness() && !MI->isDebugValue())
@@ -2191,7 +2226,7 @@ void MachineVerifier::checkPHIOps(const MachineBasicBlock &MBB) {
     if (MODef.isTied() || MODef.isImplicit() || MODef.isInternalRead() ||
         MODef.isEarlyClobber() || MODef.isDebug())
       report("Unexpected flag on PHI operand", &MODef, 0);
-    unsigned DefReg = MODef.getReg();
+    Register DefReg = MODef.getReg();
     if (!Register::isVirtualRegister(DefReg))
       report("Expected first PHI operand to be a virtual register", &MODef, 0);
 

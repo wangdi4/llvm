@@ -65,7 +65,9 @@ public:
     ALLOCA_SUB_BUF,
     RELEASE,
     MAP_MEM_OBJ,
-    UNMAP_MEM_OBJ
+    UNMAP_MEM_OBJ,
+    UPDATE_REQUIREMENT,
+    EMPTY_TASK
   };
 
   Command(CommandType Type, QueueImplPtr Queue, bool UseExclusiveQueue = false);
@@ -104,6 +106,8 @@ protected:
   QueueImplPtr MQueue;
   std::vector<EventImplPtr> MDepsEvents;
 
+  void waitForEvents(QueueImplPtr Queue, std::vector<RT::PiEvent> &RawEvents,
+                     RT::PiEvent &Event);
   std::vector<RT::PiEvent> prepareEvents(ContextImplPtr Context);
 
   bool MUseExclusiveQueue = false;
@@ -118,6 +122,23 @@ public:
 private:
   CommandType MType;
   std::atomic<bool> MEnqueued;
+};
+
+// The command does nothing during enqueue. The task can be used to implement
+// lock in the graph, or to merge several nodes into one.
+class EmptyCommand : public Command {
+public:
+  EmptyCommand(QueueImplPtr Queue, Requirement *Req)
+      : Command(CommandType::EMPTY_TASK, std::move(Queue)),
+        MStoredRequirement(*Req) {}
+
+  Requirement *getStoredRequirement() { return &MStoredRequirement; }
+
+private:
+  cl_int enqueueImp() override { return CL_SUCCESS; }
+  void printDot(std::ostream &Stream) const override;
+
+  Requirement MStoredRequirement;
 };
 
 // The command enqueues release instance of memory allocated on Host or
@@ -139,7 +160,9 @@ private:
 class AllocaCommandBase : public Command {
 public:
   AllocaCommandBase(CommandType Type, QueueImplPtr Queue, Requirement Req)
-      : Command(Type, Queue), MReleaseCmd(Queue, this), MReq(std::move(Req)) {}
+      : Command(Type, Queue), MReleaseCmd(Queue, this), MReq(std::move(Req)) {
+    MReq.MAccessMode = access::mode::read_write;
+  }
 
   ReleaseCommand *getReleaseCmd() { return &MReleaseCmd; }
 
@@ -178,12 +201,14 @@ class AllocaSubBufCommand : public AllocaCommandBase {
 public:
   AllocaSubBufCommand(QueueImplPtr Queue, Requirement Req,
                       AllocaCommandBase *ParentAlloca)
-      : AllocaCommandBase(CommandType::ALLOCA_SUB_BUF, std::move(Queue), Req),
+      : AllocaCommandBase(CommandType::ALLOCA_SUB_BUF, std::move(Queue),
+                          std::move(Req)),
         MParentAlloca(ParentAlloca) {
     addDep(DepDesc(MParentAlloca, &MReq, MParentAlloca));
   }
 
   void printDot(std::ostream &Stream) const override;
+  AllocaCommandBase *getParentAlloca() { return MParentAlloca; }
 
 private:
   cl_int enqueueImp() override final;
@@ -285,6 +310,25 @@ private:
   AllocaCommandBase *getAllocaForReq(Requirement *Req);
 
   std::unique_ptr<detail::CG> MCommandGroup;
+};
+
+class UpdateHostRequirementCommand : public Command {
+public:
+  UpdateHostRequirementCommand(QueueImplPtr Queue, Requirement *Req,
+                               AllocaCommandBase *AllocaForReq)
+      : Command(CommandType::UPDATE_REQUIREMENT, std::move(Queue)),
+        MReqToUpdate(Req), MAllocaForReq(AllocaForReq),
+        MStoredRequirement(*Req) {}
+
+  Requirement *getStoredRequirement() { return &MStoredRequirement; }
+
+private:
+  cl_int enqueueImp() override;
+  void printDot(std::ostream &Stream) const override;
+
+  Requirement *MReqToUpdate = nullptr;
+  AllocaCommandBase *MAllocaForReq = nullptr;
+  Requirement MStoredRequirement;
 };
 
 } // namespace detail

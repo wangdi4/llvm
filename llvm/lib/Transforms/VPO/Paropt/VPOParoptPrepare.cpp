@@ -170,6 +170,10 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
   LLVM_DEBUG(
       dbgs() << "\n === VPOParoptPreparePass before Transformation === \n");
 
+  // Disable offload constructs if -fopenmp-targets was not used on command line
+  if (F.getParent()->getTargetDevices().empty())
+    PrepareDisableOffload = true;
+
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),

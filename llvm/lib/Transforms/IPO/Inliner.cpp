@@ -273,7 +273,7 @@ static void mergeInlinedArrayAllocas(
         }
 
         if (Align1 > Align2)
-          AvailableAlloca->setAlignment(AI->getAlignment());
+          AvailableAlloca->setAlignment(MaybeAlign(AI->getAlignment()));
       }
 
       AI->eraseFromParent();
@@ -699,7 +699,8 @@ static unsigned recursiveCallCount(Function &F) {
 static bool
 inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 std::function<AssumptionCache &(Function &)> GetAssumptionCache,
-                ProfileSummaryInfo *PSI, TargetLibraryInfo &TLI,
+                ProfileSummaryInfo *PSI,
+                std::function<TargetLibraryInfo &(Function &)> GetTLI,
                 bool InsertLifetime,
                 function_ref<InlineCost(CallSite CS)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
@@ -826,7 +827,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
       Instruction *Instr = CS.getInstruction();
 
-      bool IsTriviallyDead = isInstructionTriviallyDead(Instr, &TLI);
+      bool IsTriviallyDead =
+          isInstructionTriviallyDead(Instr, &GetTLI(*Caller));
 
       int InlineHistoryID;
       if (!IsTriviallyDead) {
@@ -1025,15 +1027,17 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto GetTLI = [&](Function &F) -> TargetLibraryInfo & {
+    return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
   ILIC = new InliningLoopInfoCache(); // INTEL
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
     return ACT->getAssumptionCache(F);
   };
   CG.registerCGReport(&Report); // INTEL
   CG.registerCGReport(&MDReport); // INTEL
-  bool rv = inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, TLI, // INTEL
-                            InsertLifetime,                        // INTEL
+  bool rv = inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, GetTLI, // INTEL
+                            InsertLifetime,                           // INTEL
                             [this](CallSite CS) { return getInlineCost(CS); },
                             LegacyAARGetter(*this), // INTEL
                             ImportedFunctionsStats, // INTEL
@@ -1188,7 +1192,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
 #if INTEL_CUSTOMIZATION
-  TargetLibraryInfo *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(M);
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
 #endif // INTEL_CUSTOMIZATION
   ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
@@ -1198,7 +1201,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   if (!ImportedFunctionsStats &&
       InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {
     ImportedFunctionsStats =
-        llvm::make_unique<ImportedFunctionsInliningStatistics>();
+        std::make_unique<ImportedFunctionsInliningStatistics>();
     ImportedFunctionsStats->setModuleInfo(M);
   }
 
@@ -1362,6 +1365,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       if (IntelInlineReportLevel & InlineReportOptions::RealCost)
         Params.ComputeFullInlineCost = true;
+      TargetLibraryInfo *TLI =
+          FAM.getCachedResult<TargetLibraryAnalysis>(Callee);
 #endif // INTEL_CUSTOMIZATION
 
       return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,

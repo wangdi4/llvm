@@ -30,7 +30,6 @@
 // CHECK_TGL_M32: #define __MOVBE__ 1
 // CHECK_TGL_M32: #define __MOVDIR64B__ 1
 // CHECK_TGL_M32: #define __MOVDIRI__ 1
-// CHECK_TGL_M32: #define __MPX__ 1
 // CHECK_TGL_M32: #define __PCLMUL__ 1
 // CHECK_TGL_M32: #define __PKU__ 1
 // CHECK_TGL_M32: #define __POPCNT__ 1
@@ -91,7 +90,6 @@
 // CHECK_TGL_M64: #define __MOVBE__ 1
 // CHECK_TGL_M64: #define __MOVDIR64B__ 1
 // CHECK_TGL_M64: #define __MOVDIRI__ 1
-// CHECK_TGL_M64: #define __MPX__ 1
 // CHECK_TGL_M64: #define __PCLMUL__ 1
 // CHECK_TGL_M64: #define __PKU__ 1
 // CHECK_TGL_M64: #define __POPCNT__ 1

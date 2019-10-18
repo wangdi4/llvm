@@ -151,7 +151,7 @@ void HIRDDAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 // do any analysis
 bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
   AAResults *AAR =
-      new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
+      new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F));
 
   if (auto *Pass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());

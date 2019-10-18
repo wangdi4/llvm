@@ -134,6 +134,11 @@ static cl::opt<bool> DisableSwitchGeneration(
     "hir-general-unroll-disable-switch-generation", cl::init(false), cl::Hidden,
     cl::desc("Disable switch generation in HIR General Unroll"));
 
+static cl::opt<bool> DisableReplaceByFirstIteration(
+    "hir-general-unroll-disable-replace-by-first-iteration", cl::init(false),
+    cl::Hidden,
+    cl::desc("Disable replace by first iteration in HIR General Unroll"));
+
 namespace {
 
 class HIRGeneralUnroll {
@@ -310,11 +315,23 @@ void HIRGeneralUnroll::processGeneralUnroll(
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
 
-      if (!RemainderLoop || DisableSwitchGeneration) {
+      if (!RemainderLoop) {
         continue;
       }
 
-      replaceBySwitch(RemainderLoop, UnrollFactor);
+      if (RemainderLoop->isConstTripLoop()) {
+        // TODO: Perform complete unroll
+      } else if (UnrollFactor == 2) {
+        // Replace the remainder loop with the first iteration when the unroll
+        // factor is 2, because the remainder loop has at most one iteration
+        if (DisableReplaceByFirstIteration) {
+          continue;
+        }
+
+        RemainderLoop->replaceByFirstIteration();
+      } else {
+        replaceBySwitch(RemainderLoop, UnrollFactor);
+      }
     }
   }
 }
@@ -325,11 +342,7 @@ static bool isSwitchGenerationProfitable(HLLoop *RemainderLoop,
     return false;
   }
 
-  if (UnrollFactor > 8 || UnrollFactor < 4) {
-    return false;
-  }
-
-  if (RemainderLoop->isConstTripLoop()) {
+  if (UnrollFactor > 8) {
     return false;
   }
 
@@ -345,6 +358,10 @@ bool HIRGeneralUnroll::isSwitchGenerationLegal(HLLoop *RemainderLoop) {
 
 void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
                                        unsigned UnrollFactor) {
+  if (DisableSwitchGeneration) {
+    return;
+  }
+
   if (!isSwitchGenerationProfitable(RemainderLoop, UnrollFactor)) {
     return;
   }

@@ -44,6 +44,7 @@
 #error "SYCL device compiler is built without ext_vector_type support"
 #endif // __HAS_EXT_VECTOR_TYPE__
 
+#include <CL/sycl/aliases.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
 #include <CL/sycl/half_type.hpp>
@@ -51,6 +52,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstring>
 #ifndef __SYCL_DEVICE_ONLY__
 #include <cfenv>
 #endif
@@ -88,41 +90,6 @@ struct elem {
   static constexpr int sE = 14;
   static constexpr int sF = 15;
 };
-
-/**
- * A signed 8-bit integer.
- */
-typedef signed char schar;
-
-/**
- * An unsigned 8-bit integer.
- */
-typedef unsigned char uchar;
-
-/**
- * An unsigned 16-bit integer.
- */
-typedef unsigned short ushort;
-
-/**
- * An unsigned 32-bit integer.
- */
-typedef unsigned int uint;
-
-/**
- * An unsigned 64-bit integer.
- */
-typedef unsigned long ulong;
-
-/**
- * An signed integer with width of at least 64-bit.
- */
-typedef long long longlong;
-
-/**
- * An unsigned integer with width of at least 64-bit.
- */
-typedef unsigned long long ulonglong;
 
 namespace detail {
 
@@ -224,17 +191,6 @@ template <typename T> struct LShift {
     return Lhs << Rhs;
   }
 };
-
-// Add a specific is_arithmetic for SYCL types that include half FP type
-template <typename T>
-using is_arithmetic = std::integral_constant<bool,
-     std::is_arithmetic<T>::value ||
-     std::is_same<typename std::remove_const<T>::type, half>::value>;
-
-template <typename T>
-using is_floating_point =
-    std::integral_constant<bool, std::is_floating_point<T>::value ||
-                                     std::is_same<T, half>::value>;
 
 template <typename T, typename R>
 using is_int_to_int =
@@ -349,28 +305,26 @@ template <typename Type, int NumElements> class vec {
   using DataType =
       typename detail::BaseCLTypeConverter<DataT, NumElements>::DataType;
 
-  template <bool B, class T, class F>
-  using conditional_t = typename std::conditional<B, T, F>::type;
-
   static constexpr int getNumElements() { return NumElements; }
 
   // SizeChecker is needed for vec(const argTN &... args) ctor to validate args.
   template <int Counter, int MaxValue, class...>
-  struct SizeChecker
-      : conditional_t<Counter == MaxValue, std::true_type, std::false_type> {};
+  struct SizeChecker: detail::conditional_t<Counter == MaxValue,
+      std::true_type, std::false_type> {};
 
   template <int Counter, int MaxValue, typename DataT_, class... tail>
   struct SizeChecker<Counter, MaxValue, DataT_, tail...>
-      : conditional_t<Counter + 1 <= MaxValue,
+      : detail::conditional_t<Counter + 1 <= MaxValue,
                       SizeChecker<Counter + 1, MaxValue, tail...>,
                       std::false_type> {};
 
 #define ALLOW_VECTOR_SIZES(num_elements)                                       \
   template <int Counter, int MaxValue, typename DataT_, class... tail>         \
   struct SizeChecker<Counter, MaxValue, vec<DataT_, num_elements>, tail...>    \
-      : conditional_t<Counter + num_elements <= MaxValue,                      \
-                      SizeChecker<Counter + num_elements, MaxValue, tail...>,  \
-                      std::false_type> {};                                     \
+      : detail::conditional_t<                                                 \
+            Counter + (num_elements) <= MaxValue,                              \
+            SizeChecker<Counter + (num_elements), MaxValue, tail...>,          \
+            std::false_type> {};                                               \
   template <int Counter, int MaxValue, typename DataT_, typename T2,           \
             typename T3, template <typename> class T4, int... T5,              \
             class... tail>                                                     \
@@ -378,9 +332,10 @@ template <typename Type, int NumElements> class vec {
       Counter, MaxValue,                                                       \
       detail::SwizzleOp<vec<DataT_, num_elements>, T2, T3, T4, T5...>,         \
       tail...>                                                                 \
-      : conditional_t<Counter + sizeof...(T5) <= MaxValue,                     \
-                      SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>, \
-                      std::false_type> {};                                     \
+      : detail::conditional_t<                                                 \
+            Counter + sizeof...(T5) <= MaxValue,                               \
+            SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>,           \
+            std::false_type> {};                                               \
   template <int Counter, int MaxValue, typename DataT_, typename T2,           \
             typename T3, template <typename> class T4, int... T5,              \
             class... tail>                                                     \
@@ -388,9 +343,10 @@ template <typename Type, int NumElements> class vec {
       Counter, MaxValue,                                                       \
       detail::SwizzleOp<const vec<DataT_, num_elements>, T2, T3, T4, T5...>,   \
       tail...>                                                                 \
-      : conditional_t<Counter + sizeof...(T5) <= MaxValue,                     \
-                      SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>, \
-                      std::false_type> {};
+      : detail::conditional_t<                                                 \
+            Counter + sizeof...(T5) <= MaxValue,                               \
+            SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>,           \
+            std::false_type> {};
 
   ALLOW_VECTOR_SIZES(1)
   ALLOW_VECTOR_SIZES(2)
@@ -403,7 +359,7 @@ template <typename Type, int NumElements> class vec {
   template <class...> struct conjunction : std::true_type {};
   template <class B1, class... tail>
   struct conjunction<B1, tail...>
-      : conditional_t<bool(B1::value), conjunction<tail...>, B1> {};
+      : detail::conditional_t<bool(B1::value), conjunction<tail...>, B1> {};
 
   // TypeChecker is needed for vec(const argTN &... args) ctor to validate args.
   template <typename T, typename DataT_>
@@ -613,7 +569,8 @@ public:
   static constexpr size_t get_count() { return NumElements; }
   static constexpr size_t get_size() { return sizeof(m_Data); }
 
-  template <typename convertT, rounding_mode roundingMode>
+  template <typename convertT,
+            rounding_mode roundingMode = rounding_mode::automatic>
   vec<convertT, NumElements> convert() const {
     static_assert(std::is_integral<convertT>::value ||
                       detail::is_floating_point<convertT>::value,
@@ -626,11 +583,16 @@ public:
     return Result;
   }
 
-  template <typename asT>
-  typename std::enable_if<sizeof(asT) == sizeof(DataType), asT>::type
-  as() const {
+  template <typename asT> asT as() const {
+    static_assert((sizeof(*this) == sizeof(asT)),
+                  "The new SYCL vec type must have the same storage size in "
+                  "bytes as this SYCL vec");
+    static_assert(
+        detail::is_contained<asT, detail::gtl::vector_basic_list>::value,
+        "asT must be SYCL vec of a different element type and "
+        "number of elements specified by asT");
     asT Result;
-    *static_cast<DataType *>(static_cast<void *>(&Result.m_Data)) = m_Data;
+    std::memcpy(&Result.m_Data, &m_Data, sizeof(decltype(Result.m_Data)));
     return Result;
   }
 
@@ -882,6 +844,32 @@ public:
     for (size_t I = 0; I < NumElements; ++I) {
       Ret.setValue(I, !getValue(I));
     }
+    return Ret;
+#endif
+  }
+
+  vec operator+() const {
+// Use __SYCL_DEVICE_ONLY__ macro because cast to OpenCL vector type is defined
+// by SYCL device compiler only.
+#ifdef __SYCL_DEVICE_ONLY__
+    return vec{+m_Data};
+#else
+    vec Ret;
+    for (size_t I = 0; I < NumElements; ++I)
+      Ret.setValue(I, +getValue(I));
+    return Ret;
+#endif
+  }
+
+  vec operator-() const {
+// Use __SYCL_DEVICE_ONLY__ macro because cast to OpenCL vector type is defined
+// by SYCL device compiler only.
+#ifdef __SYCL_DEVICE_ONLY__
+    return vec{-m_Data};
+#else
+    vec Ret;
+    for (size_t I = 0; I < NumElements; ++I)
+      Ret.setValue(I, -getValue(I));
     return Ret;
 #endif
   }
@@ -1216,6 +1204,16 @@ public:
   vec_rel_t operator!() {
     vec_t Tmp = *this;
     return !Tmp;
+  }
+
+  vec_t operator+() {
+    vec_t Tmp = *this;
+    return +Tmp;
+  }
+
+  vec_t operator-() {
+    vec_t Tmp = *this;
+    return -Tmp;
   }
 
   template <int IdxNum = getNumElements(),
@@ -1737,29 +1735,12 @@ __SYCL_RELLOGOP(&&)
 __SYCL_RELLOGOP(||)
 #undef __SYCL_RELLOGOP
 
-using byte = uint8_t;
-using half = ::half;
-
-using cl_bool   = ::cl_bool;
-using cl_char   = ::cl_char;
-using cl_schar  = signed char;
-using cl_uchar  = ::cl_uchar;
-using cl_short  = ::cl_short;
-using cl_ushort = ::cl_ushort;
-using cl_int    = ::cl_int;
-using cl_uint   = ::cl_uint;
-using cl_long   = ::cl_long;
-using cl_ulong  = ::cl_ulong;
-using cl_half   = half;
-using cl_float  = ::cl_float;
-using cl_double = ::cl_double;
-
 } // namespace sycl
 } // namespace cl
 
 
 #ifdef __SYCL_USE_EXT_VECTOR_TYPE__
-#define DECLARE_TYPE_T(type)                           \
+#define DECLARE_TYPE_VIA_CL_T(type)                                            \
 using __##type##_t       = cl::sycl::cl_##type;        \
 using __##type##2_vec_t  = cl::sycl::cl_##type         \
                  __attribute__((ext_vector_type(2)));  \
@@ -1772,7 +1753,7 @@ using __##type##8_vec_t  = cl::sycl::cl_##type         \
 using __##type##16_vec_t = cl::sycl::cl_##type         \
                  __attribute__((ext_vector_type(16)));
 
-#define DECLARE_LLTYPE_T(type)                         \
+#define DECLARE_TYPE_T(type)                                                   \
 using __##type##_t       = cl::sycl::type;             \
 using __##type##2_vec_t  = cl::sycl::type              \
                  __attribute__((ext_vector_type(2)));  \
@@ -1785,44 +1766,35 @@ using __##type##8_vec_t  = cl::sycl::type              \
 using __##type##16_vec_t = cl::sycl::type              \
                  __attribute__((ext_vector_type(16)));
 
-DECLARE_TYPE_T(char);
+DECLARE_TYPE_VIA_CL_T(char);
 DECLARE_TYPE_T(schar);
-DECLARE_TYPE_T(uchar);
-DECLARE_TYPE_T(short);
-DECLARE_TYPE_T(ushort);
-DECLARE_TYPE_T(int);
-DECLARE_TYPE_T(uint);
-DECLARE_TYPE_T(long);
-DECLARE_TYPE_T(ulong);
-DECLARE_LLTYPE_T(longlong);
-DECLARE_LLTYPE_T(ulonglong);
-DECLARE_TYPE_T(float);
+DECLARE_TYPE_VIA_CL_T(uchar);
+DECLARE_TYPE_VIA_CL_T(short);
+DECLARE_TYPE_VIA_CL_T(ushort);
+DECLARE_TYPE_VIA_CL_T(int);
+DECLARE_TYPE_VIA_CL_T(uint);
+DECLARE_TYPE_VIA_CL_T(long);
+DECLARE_TYPE_VIA_CL_T(ulong);
+DECLARE_TYPE_T(longlong);
+DECLARE_TYPE_T(ulonglong);
+DECLARE_TYPE_VIA_CL_T(float);
 // Half type is defined as custom class for host and _Float16 for device.
 // The ext_vector_type attribute is only applicable to integral and float
 // scalars so it's not possible to use attribute ext_vector_type for half on
 // host.
 #ifdef __SYCL_DEVICE_ONLY__
-DECLARE_TYPE_T(half);
+DECLARE_TYPE_VIA_CL_T(half);
 #endif
-DECLARE_TYPE_T(double);
+DECLARE_TYPE_VIA_CL_T(double);
 
 #define GET_CL_TYPE(target, num) __##target##num##_vec_t
 #define GET_SCALAR_CL_TYPE(target) target
 
+#undef DECLARE_TYPE_VIA_CL_T
 #undef DECLARE_TYPE_T
-#undef DECLARE_LLTYPE_T
 #else // __SYCL_USE_EXT_VECTOR_TYPE__
-// For signed char. OpenCL doesn't have any type about `signed char`, therefore
-// we use type alias of cl_char instead.
-using cl_schar = cl_char;
-using cl_schar2 = cl_char2;
-using cl_schar3 = cl_char3;
-using cl_schar4 = cl_char4;
-using cl_schar8 = cl_char8;
-using cl_schar16 = cl_char16;
-
-#define GET_CL_TYPE(target, num) cl_##target##num
-#define GET_SCALAR_CL_TYPE(target) cl_##target
+#define GET_CL_TYPE(target, num) ::cl_##target##num
+#define GET_SCALAR_CL_TYPE(target) ::cl_##target
 #endif // __SYCL_USE_EXT_VECTOR_TYPE__
 
 // On the host side we cannot use OpenCL cl_half# types as an underlying type
@@ -1848,10 +1820,6 @@ using __half16_vec_t = half_vec<16>;
 namespace cl {
 namespace sycl {
 namespace detail {
-// Use conditional_t to improve code readablity.
-template <bool B, typename T1, typename T2>
-using conditional_t = typename std::conditional<B, T1, T2>::type;
-
 // select_apply_cl_t selects from T8/T16/T32/T64 basing on
 // sizeof(IN).  expected to handle scalar types in IN.
 template <typename T, typename T8, typename T16, typename T32, typename T64>
@@ -1870,7 +1838,7 @@ using select_apply_cl_t =
 #define DECLARE_SIGNED_INTEGRAL_CONVERTER(base, num)                           \
   template <> class BaseCLTypeConverter<base, num> {                           \
   public:                                                                      \
-    using DataType = detail::select_apply_cl_t<base, GET_CL_TYPE(schar, num),  \
+    using DataType = detail::select_apply_cl_t<base, GET_CL_TYPE(char, num),   \
       GET_CL_TYPE(short, num), GET_CL_TYPE(int, num), GET_CL_TYPE(long, num)>; \
   };
 
@@ -1893,13 +1861,27 @@ using select_apply_cl_t =
 #define DECLARE_LONGLONG_CONVERTER(base, num)                                  \
   template <> class BaseCLTypeConverter<base##long, num> {                     \
   public:                                                                      \
-    using DataType = ::GET_CL_TYPE(base, num);                                 \
+    using DataType = GET_CL_TYPE(base, num);                                   \
+  };
+
+#define DECLARE_SCHAR_CONVERTER(num)                                           \
+  template <> class BaseCLTypeConverter<schar, num> {                          \
+  public:                                                                      \
+    using DataType = detail::select_apply_cl_t<                                \
+        schar, GET_CL_TYPE(char, num), GET_CL_TYPE(short, num),                \
+        GET_CL_TYPE(int, num), GET_CL_TYPE(long, num)>;                        \
   };
 
 #define DECLARE_HALF_CONVERTER(base, num)                                      \
   template <> class BaseCLTypeConverter<base, num> {                           \
   public:                                                                      \
     using DataType = GET_CL_HALF_TYPE(base, num);                              \
+  };
+
+#define DECLARE_SCALAR_SCHAR_CONVERTER                                         \
+  template <> class BaseCLTypeConverter<schar, 1> {                            \
+  public:                                                                      \
+    using DataType = schar;                                                    \
   };
 
 #define DECLARE_SCALAR_CONVERTER(base)                                         \
@@ -1975,108 +1957,30 @@ using select_apply_cl_t =
   };                                                                           \
   } // namespace detail
 
-#define DECLARE_SYCL_VEC_WO_CONVERTERS(base)                                   \
-  using cl_##base##16 = vec<cl_##base, 16>;                                    \
-  using cl_##base##8 = vec<cl_##base, 8>;                                      \
-  using cl_##base##4 = vec<cl_##base, 4>;                                      \
-  using cl_##base##3 = vec<cl_##base, 3>;                                      \
-  using cl_##base##2 = vec<cl_##base, 2>;                                      \
-  using base##16 = cl_##base##16;                                              \
-  using base##8 = cl_##base##8;                                                \
-  using base##4 = cl_##base##4;                                                \
-  using base##3 = cl_##base##3;                                                \
-  using base##2 = cl_##base##2;
+#define DECLARE_SCHAR_VECTOR_CONVERTERS                                        \
+  namespace detail {                                                           \
+  DECLARE_SCHAR_CONVERTER(2)                                                   \
+  DECLARE_SCHAR_CONVERTER(3)                                                   \
+  DECLARE_SCHAR_CONVERTER(4)                                                   \
+  DECLARE_SCHAR_CONVERTER(8)                                                   \
+  DECLARE_SCHAR_CONVERTER(16)                                                  \
+  DECLARE_SCALAR_SCHAR_CONVERTER                                               \
+  } // namespace detail
 
-#define DECLARE_SYCL_VEC_CHAR_WO_CONVERTERS                                    \
-  using cl_char16 = vec<signed char, 16>;                                      \
-  using cl_char8 = vec<signed char, 8>;                                        \
-  using cl_char4 = vec<signed char, 4>;                                        \
-  using cl_char3 = vec<signed char, 3>;                                        \
-  using cl_char2 = vec<signed char, 2>;                                        \
-  using char16 = vec<char, 16>;                                                \
-  using char8 = vec<char, 8>;                                                  \
-  using char4 = vec<char, 4>;                                                  \
-  using char3 = vec<char, 3>;                                                  \
-  using char2 = vec<char, 2>;
-
-#define DECLARE_SYCL_VEC_HALF_WO_CONVERTERS                                    \
-  using cl_half16 = vec<half, 16>;                                             \
-  using cl_half8 = vec<half, 8>;                                               \
-  using cl_half4 = vec<half, 4>;                                               \
-  using cl_half3 = vec<half, 3>;                                               \
-  using cl_half2 = vec<half, 2>;                                               \
-  using half16 = vec<half, 16>;                                                \
-  using half8 = vec<half, 8>;                                                  \
-  using half4 = vec<half, 4>;                                                  \
-  using half3 = vec<half, 3>;                                                  \
-  using half2 = vec<half, 2>;
-
-#define DECLARE_SYCL_VEC_LONG_WO_CONVERTERS(base)                              \
-  using cl_##base##16 = vec<cl_##base, 16>;                                    \
-  using cl_##base##8 = vec<cl_##base, 8>;                                      \
-  using cl_##base##4 = vec<cl_##base, 4>;                                      \
-  using cl_##base##3 = vec<cl_##base, 3>;                                      \
-  using cl_##base##2 = vec<cl_##base, 2>;                                      \
-  using base##16 = vec<base, 16>;                                              \
-  using base##8 = vec<base, 8>;                                                \
-  using base##4 = vec<base, 4>;                                                \
-  using base##3 = vec<base, 3>;                                                \
-  using base##2 = vec<base, 2>;
-
-// cl_longlong/cl_ulonglong are not supported in SYCL
-#define DECLARE_SYCL_VEC_LONGLONG_WO_CONVERTERS(base)                          \
-  using base##long16 = vec<base##long, 16>;                                    \
-  using base##long8 = vec<base##long, 8>;                                      \
-  using base##long4 = vec<base##long, 4>;                                      \
-  using base##long3 = vec<base##long, 3>;                                      \
-  using base##long2 = vec<base##long, 2>;
-
-#define DECLARE_SYCL_SIGNED_INTEGRAL_VEC(base)                                 \
-  DECLARE_SIGNED_INTEGRAL_VECTOR_CONVERTERS(base)                              \
-  DECLARE_SYCL_VEC_WO_CONVERTERS(base)
-
-#define DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(base)                               \
-  DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(base)                            \
-  DECLARE_SYCL_VEC_WO_CONVERTERS(base)
-
-#define DECLARE_SYCL_FLOAT_VEC(base)                                           \
-  DECLARE_FLOAT_VECTOR_CONVERTERS(base)                                        \
-  DECLARE_SYCL_VEC_WO_CONVERTERS(base)
-
-#define DECLARE_SYCL_VEC_CHAR                                                  \
-  DECLARE_VECTOR_CONVERTERS(char)                                              \
-  DECLARE_SYCL_VEC_CHAR_WO_CONVERTERS
-
-#define DECLARE_SYCL_VEC_LONG                                                  \
-  DECLARE_SIGNED_INTEGRAL_VECTOR_CONVERTERS(long)                              \
-  DECLARE_SYCL_VEC_LONG_WO_CONVERTERS(long)
-
-#define DECLARE_SYCL_VEC_ULONG                                                 \
-  DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(ulong)                           \
-  DECLARE_SYCL_VEC_LONG_WO_CONVERTERS(ulong)
-
-#define DECLARE_SYCL_VEC_LONGLONG(base)                                        \
-  DECLARE_VECTOR_LONGLONG_CONVERTERS(base)                                     \
-  DECLARE_SYCL_VEC_LONGLONG_WO_CONVERTERS(base)
-
-#define DECLARE_SYCL_VEC_HALF(base)                                            \
-  DECLARE_HALF_VECTOR_CONVERTERS(base)                                         \
-  DECLARE_SYCL_VEC_HALF_WO_CONVERTERS
-
-DECLARE_SYCL_VEC_CHAR
-DECLARE_SYCL_SIGNED_INTEGRAL_VEC(schar)
-DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(uchar)
-DECLARE_SYCL_SIGNED_INTEGRAL_VEC(short)
-DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(ushort)
-DECLARE_SYCL_SIGNED_INTEGRAL_VEC(int)
-DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(uint)
-DECLARE_SYCL_VEC_LONG
-DECLARE_SYCL_VEC_ULONG
-DECLARE_SYCL_VEC_LONGLONG(long)
-DECLARE_SYCL_VEC_LONGLONG(ulong)
-DECLARE_SYCL_VEC_HALF(half)
-DECLARE_SYCL_FLOAT_VEC(float)
-DECLARE_SYCL_FLOAT_VEC(double)
+DECLARE_VECTOR_CONVERTERS(char)
+DECLARE_SCHAR_VECTOR_CONVERTERS
+DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(uchar)
+DECLARE_SIGNED_INTEGRAL_VECTOR_CONVERTERS(short)
+DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(ushort)
+DECLARE_SIGNED_INTEGRAL_VECTOR_CONVERTERS(int)
+DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(uint)
+DECLARE_SIGNED_INTEGRAL_VECTOR_CONVERTERS(long)
+DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(ulong)
+DECLARE_VECTOR_LONGLONG_CONVERTERS(long)
+DECLARE_VECTOR_LONGLONG_CONVERTERS(ulong)
+DECLARE_HALF_VECTOR_CONVERTERS(half)
+DECLARE_FLOAT_VECTOR_CONVERTERS(float)
+DECLARE_FLOAT_VECTOR_CONVERTERS(double)
 
 #undef GET_CL_TYPE
 #undef GET_SCALAR_CL_TYPE
@@ -2084,9 +1988,9 @@ DECLARE_SYCL_FLOAT_VEC(double)
 #undef DECLARE_VECTOR_CONVERTERS
 #undef DECLARE_SYCL_VEC
 #undef DECLARE_SYCL_VEC_WO_CONVERTERS
-#undef DECLARE_SYCL_VEC_LONG_WO_CONVERTERS
-#undef DECLARE_SYCL_VEC_LONG
-#undef DECLARE_SYCL_VEC_ULONG
+#undef DECLARE_SCHAR_VECTOR_CONVERTERS
+#undef DECLARE_SCHAR_CONVERTER
+#undef DECLARE_SCALAR_SCHAR_CONVERTER
 
 } // namespace sycl
 } // namespace cl

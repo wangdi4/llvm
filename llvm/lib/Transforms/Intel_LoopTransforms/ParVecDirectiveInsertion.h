@@ -28,7 +28,7 @@ namespace llvm {
 namespace loopopt {
 
 /// \brief Abstract parent class for ParDirectiveInsertion/VecDirectiInsertion.
-class ParVecDirectiveInsertion : public HIRTransformPass {
+class ParVecDirectiveInsertion {
   ParVecInfo::AnalysisMode Mode;
 
   /// \brief Worker class for directive insertion.
@@ -69,8 +69,7 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
   };
 
 public:
-  ParVecDirectiveInsertion(char &ID, ParVecInfo::AnalysisMode Mode)
-      : HIRTransformPass(ID), Mode(Mode) {
+  ParVecDirectiveInsertion(ParVecInfo::AnalysisMode Mode) : Mode(Mode) {
     // Be sure to take the ID parameter as reference, not by value.
     // Otherwise, it will be hard to diagnose bugs.
   }
@@ -78,15 +77,7 @@ public:
   /// \brief Analyze auto-parallelizability/auto-vectorizability of the loops
   /// in the function and insert directives for auto-parallelization/
   /// auto-vectorization.
-  bool runOnFunction(Function &Func) override;
-
-  void releaseMemory() override {}
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRParVecAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
+  bool runOnFunction(Function &Func, HIRFramework *HIRF, HIRParVecAnalysis *HPVA);
 };
 
 } // vpo namespace

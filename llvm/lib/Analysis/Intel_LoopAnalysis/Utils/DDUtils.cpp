@@ -118,7 +118,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
       return false;
     }
 
-    if (MemRef->isRval() ? Edge->isANTIdep() : Edge->isOUTPUTdep()) {
+    if (MemRef->isRval() ? Edge->isAnti() : Edge->isOutput()) {
       AntiOrOutputEdge = Edge;
       StoreNode1 = SinkNode;
     }
@@ -142,7 +142,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
 
       return false;
     }
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       if (SinkNode->getParentLoop() != InnermostLoop) {
         reportFail("F3");
         return false;
@@ -151,7 +151,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
         reportFail("F4");
         return false;
       }
-    } else if (Edge->isFLOWdep()) {
+    } else if (Edge->isFlow()) {
       const HLLoop *ParentLoop = SinkNode->getLexicalParentLoop();
       if (ParentLoop == ParentOfInnermost) {
         FlowEdge = Edge;
@@ -534,7 +534,7 @@ bool enablePerfectLPLegalityCheckPost(
       const DDEdge *Edge = *I;
       DDRef *DDRefSrc = Edge->getSrc();
       if (DDRefSrc->getLexicalParentLoop() == InnermostLoop &&
-          Edge->isFLOWdep()) {
+          Edge->isFlow()) {
         return false;
       }
     }
@@ -584,7 +584,7 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
          I2 != E2; ++I2) {
 
       const DDEdge *Edge = *I2;
-      if (!Edge->isFLOWdep()) {
+      if (!Edge->isFlow()) {
         continue;
       }
 
@@ -782,6 +782,7 @@ bool DDUtils::enablePerfectLoopNest(
       HLInst *LoadInst =
           InnermostLoop->getHLNodeUtils().createLoad(MemRef, "Load", TmpRef);
       HLNodeUtils::insertAsFirstChild(InnermostLoop, LoadInst);
+
       HLNodeUtils::remove(*I);
       *I = LoadInst;
 
@@ -790,10 +791,13 @@ bool DDUtils::enablePerfectLoopNest(
       HLNodeUtils::moveAsFirstChild(InnermostLoop, *I);
       updateLiveinsLiveoutsForSinkedInst(InnermostLoop, *I, true);
     }
+
+    (*I)->setIsSinked(true);
   }
 
   for (auto &I : PostLoopInsts) {
     HLNodeUtils::moveAsLastChild(InnermostLoop, I);
+    I->setIsSinked(true);
     updateLiveinsLiveoutsForSinkedInst(InnermostLoop, I, false);
   }
 
@@ -805,6 +809,8 @@ bool DDUtils::enablePerfectLoopNest(
   // Loop Interchange needs this information
   gatherTempRegDDRefSymbases(PreLoopInsts, SinkedTempDDRefSymbases);
   gatherTempRegDDRefSymbases(PostLoopInsts, SinkedTempDDRefSymbases);
+
+  InnermostLoop->setIsUndoSinkingCandidate(true);
 
   return true;
 }

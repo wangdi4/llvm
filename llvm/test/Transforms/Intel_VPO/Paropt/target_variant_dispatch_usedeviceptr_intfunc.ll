@@ -122,6 +122,7 @@
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "spir64"
 
 @floatPtr = common dso_local global float* null, align 8
 @a_cpu = common dso_local global i8* null, align 8

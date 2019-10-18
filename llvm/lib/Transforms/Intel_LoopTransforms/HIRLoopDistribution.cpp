@@ -32,6 +32,8 @@
 
 #define DEBUG_TYPE "hir-loop-distribute"
 
+#define LLVM_DEBUG_DDG(X) DEBUG_WITH_TYPE("hir-loop-distribute-ddg", X)
+
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::distribute;
@@ -93,6 +95,8 @@ bool HIRLoopDistribution::run() {
 
   for (auto I = Loops.begin(), E = Loops.end(); I != E; ++I) {
     HLLoop *Lp = *I;
+    LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: <" << Lp->getNumber() << ">\n");
+
     if (!loopIsCandidate(Lp)) {
       LLVM_DEBUG(
           dbgs() << "LOOP DISTRIBUTION: Loop is not candidate with current "
@@ -144,8 +148,16 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    LLVM_DEBUG(dbgs() << "DDG dump:\n");
-    LLVM_DEBUG(DDA.getGraph(Lp).dump());
+    if (PG->hasControlDependences() && Lp->isStripmineRequired(StripmineSize) &&
+        !Lp->canStripmine(StripmineSize)) {
+      // Assume stripmine is required
+      LLVM_DEBUG(dbgs() << "Stripmine is not possible but assumed to be "
+                           "required for loops with control dependencies\n");
+      continue;
+    }
+
+    LLVM_DEBUG_DDG(dbgs() << "DDG dump:\n");
+    LLVM_DEBUG_DDG(DDA.getGraph(Lp).dump());
 
     LLVM_DEBUG(dbgs() << "\nPiGraph dump:\n");
     LLVM_DEBUG(PG->dump());
@@ -167,7 +179,8 @@ bool HIRLoopDistribution::run() {
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
-      Modified = distributeLoop(Lp, DistributedLoops, false, LORBuilder);
+      distributeLoop(Lp, DistributedLoops, false, LORBuilder);
+      Modified = true;
     } else {
       LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                         << "Found no valid distribution points"
@@ -244,11 +257,13 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
 }
 
 bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
-                                             const PiGraphEdge &Edge) const {
-
-  for (auto DDEdgeIt = Edge.getDDEdges().begin(), End = Edge.getDDEdges().end();
-       DDEdgeIt != End; ++DDEdgeIt) {
-    if ((*DDEdgeIt)->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
+                                             const PiGraphEdge &PiEdge) const {
+  for (auto &Edge :
+       make_range(PiEdge.getDDEdges().begin(), PiEdge.getDDEdges().end())) {
+    // TODO: Use Edge->preventsVectorization(Lp->getNestingLevel())
+    // Will require to adjust some LIT test.
+    if (!Edge->getSrc()->isTerminalRef() &&
+        Edge->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
       return true;
     }
   }
@@ -538,12 +553,14 @@ bool HIRLoopDistribution::arrayTempExceeded(unsigned LastLoopNum,
 /// -  In summary, without using maximal distribution, the solution cannot be
 /// perfect.
 
-bool HIRLoopDistribution::distributeLoop(
+void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     bool ForDirective, LoopOptReportBuilder &LORBuilder) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
+
+  invalidateLoop(Loop);
 
   LastLoopNum = DistributedLoops.size();
   assert(LastLoopNum > 1 && "Invalid loop distribution");
@@ -569,15 +586,15 @@ bool HIRLoopDistribution::distributeLoop(
 
   // Find number of Scalar Temps.
   // Large number of extra memory refs will affect performance
-  // Do not proceed if threshold exceeds
+  // TODO: Do not proceed if threshold exceeds
+  arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs);
 
-  if (arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs)) {
-    return false;
-  }
   bool StripmineRequired = Loop->isStripmineRequired(StripmineSize);
   if (NumArrayTemps && StripmineRequired &&
       !Loop->canStripmine(StripmineSize)) {
-    return false;
+    // It's fine to bail out for loops without control flow dependencies.
+    // Loops with such dependencies do preliminary checks.
+    return;
   }
 
   unsigned Num = 0;
@@ -647,9 +664,6 @@ bool HIRLoopDistribution::distributeLoop(
     }
   }
 
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
-      Loop);
-  HIRInvalidationUtils::invalidateBody(Loop);
   HLNodeUtils::remove(Loop);
 
   // Distribution for perfect loopnest is not profitable by itself, it is only
@@ -658,8 +672,6 @@ bool HIRLoopDistribution::distributeLoop(
   if (DistCostModel != DistHeuristics::NestFormation) {
     RegionNode->setGenCode();
   }
-
-  return true;
 }
 
 void HIRLoopDistribution::fixTempArrayCoeff(HLLoop *Loop) {
@@ -878,19 +890,30 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
   // recurrences. If none, continue on. Otherwise terminate the current loop,
   // start a new one. Src and sink of recurrence will be in different loops,
   // breaking the recurrence.
-
   unsigned NumRefCounter = 0;
   SmallVector<unsigned, 12> MemRefSBVector;
 
+  bool UserCallSeen = false;
+  bool PrevUserCallSeen = false;
+
   SRA.computeSafeReductionChains(Lp);
-
   bool HasSparseArrayReductions = SARA.getNumSparseArrayReductionChains(Lp) > 0;
+  PiBlockList SparseReductionBlocks;
 
-  // Get number of loads/stores, needed to decide if threashold is exceeded.
+  auto CommitCurrentBlockList = [&]() {
+    DistPoints.push_back(CurLoopPiBlkList);
+    CurLoopPiBlkList.clear();
+    NumRefCounter = 0;
+  };
+
+  // Get number of loads/stores, needed to decide if threshold is exceeded.
   // Arrays with same SB, in general, have locality, and do not need to be
   // added twice.  Will need some fine tuning later
 
   for (auto N = PGraph->node_begin(), E = PGraph->node_end(); N != E; ++N) {
+    PrevUserCallSeen = UserCallSeen;
+    UserCallSeen = false;
+
     PiBlock *SrcBlk = *N;
 
     // If this current block has sparse array reduction instructions,
@@ -898,14 +921,27 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
     // reductions can be distributed into another separate loop.
     if (HasSparseArrayReductions && !CurLoopPiBlkList.empty() &&
         containsSparseArrayReductions(SrcBlk, SARA)) {
-      DistPoints.push_back(CurLoopPiBlkList);
-      CurLoopPiBlkList.clear();
-      NumRefCounter = 0;
+
+      // If there is no outgoing dependencies from sparse array reduction block,
+      // we can combine such blocks at the end.
+      bool NoOutgoingDeps = llvm::empty(PGraph->outgoing(SrcBlk));
+      if (NoOutgoingDeps) {
+        SparseReductionBlocks.push_back(SrcBlk);
+        continue;
+      }
     }
 
     for (auto NodeI = SrcBlk->nodes_begin(), E = SrcBlk->nodes_end();
          NodeI != E; ++NodeI) {
       HLDDNode *Node = cast<HLDDNode>(*NodeI);
+
+      // Split blocks with user calls.
+      if (HLInst *Inst = dyn_cast<HLInst>(Node)) {
+        if (Inst->isCallInst() && !Inst->getIntrinCall()) {
+          UserCallSeen = true;
+        }
+      }
+
       for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
            ++RefIt) {
         const RegDDRef *Ref = *RefIt;
@@ -925,18 +961,18 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       }
     }
 
+    if (!CurLoopPiBlkList.empty() && PrevUserCallSeen && !UserCallSeen) {
+      CommitCurrentBlockList();
+    }
+
     CurLoopPiBlkList.push_back(SrcBlk);
+
     if (NumRefCounter >= MaxMemResourceToDistribute) {
-      DistPoints.push_back(CurLoopPiBlkList);
-      CurLoopPiBlkList.clear();
-      NumRefCounter = 0;
+      CommitCurrentBlockList();
       continue;
     }
 
-    for (auto EdgeIt = PGraph->outgoing_edges_begin(SrcBlk),
-              EndEdgeIt = PGraph->outgoing_edges_end(SrcBlk);
-         EdgeIt != EndEdgeIt; ++EdgeIt) {
-
+    for (auto *Edge : PGraph->outgoing(SrcBlk)) {
       // TODO this is overly aggressive for at least two reasons.
       // Case1: 3 block graph with 2 edges,
       // 1->3, 2->3. This would create 3 loops, but 1 and 2 could have been
@@ -946,9 +982,8 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // Once split, the two loops are non vectorizable. If legality was
       // the only concern, we can iterate over all dd edges indirectly by
       // looking at distppedges whos src/sink are in piblock
-      if (piEdgeIsRecurrence(Lp, *(*EdgeIt))) {
-        DistPoints.push_back(CurLoopPiBlkList);
-        CurLoopPiBlkList.clear();
+      if (piEdgeIsRecurrence(Lp, *Edge)) {
+        CommitCurrentBlockList();
         break;
       }
       // TODO if sink blk is known to be non vectorizable and src blk(s) is
@@ -958,6 +993,10 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
   }
   if (!CurLoopPiBlkList.empty()) {
     DistPoints.push_back(CurLoopPiBlkList);
+  }
+
+  if (!SparseReductionBlocks.empty()) {
+    DistPoints.push_back(SparseReductionBlocks);
   }
 }
 
@@ -1068,8 +1107,8 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
-  bool RC = distributeLoop(Lp, DistributedLoops, true, HIRF.getLORBuilder());
-  return (RC ? Success : TooComplex);
+  distributeLoop(Lp, DistributedLoops, true, HIRF.getLORBuilder());
+  return Success;
 }
 
 void HIRLoopDistribution::collectHNodesForDirective(
@@ -1172,6 +1211,12 @@ HLDDNode *HIRLoopDistribution::processPragmaForIf(
     NewHLIf = nullptr;
   }
   return NewHLIf;
+}
+
+void HIRLoopDistribution::invalidateLoop(loopopt::HLLoop *Loop) const {
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
+      Loop);
+  HIRInvalidationUtils::invalidateBody(Loop);
 }
 
 void HIRLoopDistributionLegacyPass::getAnalysisUsage(

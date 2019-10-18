@@ -318,13 +318,22 @@ private:
   /// the local linear var in each iteration of the loop.
   /// -# At the end of the last loop iteration, copy the value of the local
   /// var back to the original linear var.
-  bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB);
+  /// If \p OMPLBForLinearClosedForm is provided, the linear closed-form
+  /// expression is inserted after it, and it is used instead of loop index
+  /// for the closed form computation of the local linear var. Otherwise, the
+  /// closed-form computation of the linear var happens in each iteration of the
+  /// loop, as part of the loop's body.
+  bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB,
+                     Instruction *OMPLBForLinearClosedForm = nullptr);
 
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
   /// Generate code for lastprivate variables
-  bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB);
+  bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB,
+                                Instruction *OMPLBForChunk = nullptr,
+                                Instruction *BranchToNextChunk = nullptr,
+                                Instruction *OMPZtt = nullptr);
 
   /// Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
@@ -525,17 +534,33 @@ private:
   void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
+  /// Collect all stores done to the local copy of the lastprivate item \p
+  /// LprivI. Puts the collected store instructions in \p LprivIStores.
+  void
+  collectStoresToLastprivateNewI(WRegionNode *W, LastprivateItem *LprivI,
+                                 SmallVectorImpl<Instruction *> &LprivIStores);
+  /// Emit Init/Fini code for conditional lastprivate clause.
+  void genConditionalLPCode(WRegionNode *W, LastprivateItem *LprivI,
+                            Instruction *OMPLBForChunk, Instruction *OMPZtt,
+                            Instruction *BranchToNextChunk,
+                            Instruction *ConditionalLPBarrier);
+
   /// Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(LastprivateItem *LprivI, Instruction *InsertPt);
 
-  /// Generate loop schdudeling code.
+  /// Generate loop scheduling code.
   /// \p IsLastVal is an output from this routine and is used to emit
   /// lastprivate code.
   /// If \p W is a loop construct with scheduling involving __kmpc_dispatch
   /// calls, \p InsertLastIterCheckBeforeOut is set to point to the instruction
   /// before which the lastprivate/linear finalization code should be inserted.
+  /// \p NewOmpLBInstOut is set to the load of omp.lb, which is computed for use
+  /// in the loop's ztt (lb < ub). \p NewOmpZttInstOut is set to the Instruction
+  /// computing the loop's ztt (lb < ub).
   bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal,
-                             Instruction *&InsertLastIterCheckBeforeOut);
+                             Instruction *&InsertLastIterCheckBeforeOut,
+                             Instruction *&NewOmpLBInstOut,
+                             Instruction *&NewOmpZttInstOut);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
@@ -738,12 +763,6 @@ private:
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 bool &hasRuntimeEvaluationCaptureSize);
 
-  /// Return the map modifiers for the firstprivate.
-  uint64_t getMapModifiersForFirstPrivate();
-
-  /// Return the defaut map information.
-  uint64_t generateDefaultMap();
-
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
@@ -814,6 +833,10 @@ private:
   bool genBarrierForFpLpAndLinears(WRegionNode *W,
                                    Instruction *InsertBefore = nullptr);
 
+  /// Emit and return an implicit barrier if \p W has any conditional lasptivate
+  /// clause operands.
+  Instruction *genBarrierForConditionalLP(WRegionNode *W);
+
   /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
   /// the if-then BBlock. This is used for emitting the final copy-out code for
   /// linear and lastprivate clause operands.
@@ -858,8 +881,10 @@ private:
 
   /// Insert a barrier at the end of the construct if \p InsertBefore is
   /// null. Otherwise, insert the barrier before \p InsertBefore.
+  /// If \p BarrierOut is provided, it is set to point to the emitted barrier.
   bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false,
-                  Instruction *InsertBefore = nullptr);
+                  Instruction *InsertBefore = nullptr,
+                  Instruction **BarrierOut = nullptr);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1394,6 +1419,9 @@ private:
                                  Instruction *KernelEntryDir = nullptr,
                                  Instruction *KernelExitDir = nullptr);
 
+  /// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
+  void replacePrintfWithOCLBuiltin(Function *F);
+
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
@@ -1565,7 +1593,23 @@ private:
 
   /// Replace loop construct with the mapped directive in IR
   bool replaceGenericLoop(WRegionNode *W);
+
+  /// The given \p W region is one of the kinds allowing internal normalized
+  /// upper bound clause (e.g. "omp parallel for").
+  /// For the given \p W region try to find the enclosing "omp target"
+  /// region and see if the normalized upper bound value may be computed
+  /// before the "omp target" region. If it is possible, this method
+  /// will setup ND-range information for the "omp target" region.
+  /// There are additional limitations to when we actually create
+  /// ND-range information (see implementation for details).
+  bool constructNDRangeInfo(WRegionNode *W);
+
+  /// Marks the given region \p W as may-have-openmp-critical,
+  /// if it contains "omp critical" or a call that may "invoke"
+  /// "omp critical".
+  void setMayHaveOMPCritical(WRegionNode *W) const;
 };
+
 } /// namespace vpo
 } /// namespace llvm
 

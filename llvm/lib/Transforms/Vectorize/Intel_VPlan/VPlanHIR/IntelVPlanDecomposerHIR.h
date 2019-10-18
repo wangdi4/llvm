@@ -143,7 +143,7 @@ private:
   void addIDFPhiNodes();
 
   // Methods to create VPInstructions out of an HLNode.
-  bool isExternalDef(loopopt::DDRef *UseDDR);
+  bool isExternalDef(const loopopt::DDRef *UseDDR);
   unsigned getNumReachingDefinitions(loopopt::DDRef *UseDDR);
   void setMasterForDecomposedVPIs(VPInstruction *MasterVPI,
                                   VPInstruction *LastVPIBeforeDec,
@@ -252,7 +252,7 @@ public:
     return Plan->getVPConstant(CVal);
   }
 
-  VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *Ref) {
+  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *Ref) {
     assert(isExternalDef(Ref) &&
            "DDRef is not externally defined for the loop.");
     return Plan->getVPExternalDefForDDRef(Ref);

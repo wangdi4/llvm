@@ -29,7 +29,7 @@ _mm_popcnt_u32(unsigned int __A)
   return __builtin_popcount(__A);
 }
 
-#ifdef __x86_64__
+/* #ifdef __x86_64__ */ /* INTEL */
 /// Counts the number of bits in the source operand having a value of 1.
 ///
 /// \headerfile <x86intrin.h>
@@ -45,7 +45,7 @@ _mm_popcnt_u64(unsigned long long __A)
 {
   return __builtin_popcountll(__A);
 }
-#endif /* __x86_64__ */
+/* #endif */ /* __x86_64__ */ /* INTEL */
 
 #undef __DEFAULT_FN_ATTRS
 

@@ -11,6 +11,7 @@ import lit.formats
 from lit.llvm import llvm_config
 from lit.llvm.subst import FindTool
 from lit.llvm.subst import ToolSubst
+from distutils.spawn import find_executable
 
 site.addsitedir(os.path.dirname(__file__))
 from helper import toolchain
@@ -64,13 +65,10 @@ llvm_config.feature_config(
      ('--targets-built', calculate_arch_features)
      ])
 
-# Clean the module caches in the test build directory.  This is
-# necessary in an incremental build whenever clang changes underneath,
-# so doing it once per lit.py invocation is close enough.
-
-for i in ['module-cache-clang', 'module-cache-lldb']:
-    cachedir = os.path.join(config.lldb_libs_dir, '..',
-                            'lldb-test-build.noindex', i)
+# Clean the module caches in the test build directory. This is necessary in an
+# incremental build whenever clang changes underneath, so doing it once per
+# lit.py invocation is close enough.
+for cachedir in [config.clang_module_cache, config.lldb_module_cache]:
     if os.path.isdir(cachedir):
         print("Deleting module cache at %s."%cachedir)
         shutil.rmtree(cachedir)
@@ -101,3 +99,9 @@ if 'native' in config.available_features:
 
 if not config.lldb_disable_python:
     config.available_features.add('python')
+
+if config.lldb_enable_lzma:
+    config.available_features.add('lzma')
+
+if find_executable('xz') != None:
+    config.available_features.add('xz')

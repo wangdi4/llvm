@@ -1206,7 +1206,7 @@ bool MachineInstr::mayAlias(AliasAnalysis *AA, const MachineInstr &Other,
     return false;
 
   // Let the target decide if memory accesses cannot possibly overlap.
-  if (TII->areMemAccessesTriviallyDisjoint(*this, Other, AA))
+  if (TII->areMemAccessesTriviallyDisjoint(*this, Other))
     return false;
 
   // FIXME: Need to handle multiple memory operands to support all targets.
@@ -1732,7 +1732,7 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
       MFI = &MF->getFrameInfo();
       Context = &MF->getFunction().getContext();
     } else {
-      CtxPtr = llvm::make_unique<LLVMContext>();
+      CtxPtr = std::make_unique<LLVMContext>();
       Context = CtxPtr.get();
     }
 
@@ -2126,7 +2126,21 @@ void MachineInstr::collectDebugValues(
 void MachineInstr::changeDebugValuesDefReg(Register Reg) {
   // Collect matching debug values.
   SmallVector<MachineInstr *, 2> DbgValues;
-  collectDebugValues(DbgValues);
+
+  if (!getOperand(0).isReg())
+    return;
+
+  unsigned DefReg = getOperand(0).getReg();
+  auto *MRI = getRegInfo();
+  for (auto &MO : MRI->use_operands(DefReg)) {
+    auto *DI = MO.getParent();
+    if (!DI->isDebugValue())
+      continue;
+    if (DI->getOperand(0).isReg() &&
+        DI->getOperand(0).getReg() == DefReg){
+      DbgValues.push_back(DI);
+    }
+  }
 
   // Propagate Reg to debug value instructions.
   for (auto *DBI : DbgValues)

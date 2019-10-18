@@ -25,6 +25,7 @@ namespace llvm {
 namespace dtrans {
 
 using LoopInfoFuncType = std::function<LoopInfo &(Function &)>;
+using DynGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
 
 /// Pass to perform Dynamic Cloning optimization.
 class DynClonePass : public PassInfoMixin<DynClonePass> {
@@ -32,7 +33,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, TargetLibraryInfo &TLI,
+  bool runImpl(Module &M, DTransAnalysisInfo &Info, DynGetTLITy GetTLI,
                WholeProgramInfo &WPInfo, LoopInfoFuncType &GetLI);
 };
 

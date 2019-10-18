@@ -146,7 +146,7 @@ bool VPlanDriver::processFunction(Function &Fn) {
   if (TTI->getRegisterBitWidth(true) == 0)
     return false;
 
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   DL = &Fn.getParent()->getDataLayout();
 
   assert(!(VPlanVectCand && VPlanConstrStressTest) &&
@@ -670,7 +670,6 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
@@ -700,7 +699,6 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   //  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.addRequired<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  //  AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<OptReportOptionsPass>();
 }
 
@@ -714,7 +712,6 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  // VLS = &getAnalysis<HIRVectVLSAnalysis>();
   LORBuilder.setup(Fn.getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 
@@ -749,7 +746,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   HIRSafeReductionAnalysis *SafeRedAnalysis =
       &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis);
+  HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
                                   &VLSA);
 

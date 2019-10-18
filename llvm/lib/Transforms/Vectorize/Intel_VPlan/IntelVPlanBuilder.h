@@ -232,18 +232,19 @@ public:
     return Instr;
   }
 
-  VPInstruction *createPhiInstruction(Instruction *Inst) {
+  VPPHINode *createPhiInstruction(Instruction *Inst, const Twine &Name = "") {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
-    VPInstruction *NewVPInst = createPhiInstruction(Inst->getType());
-    NewVPInst->setUnderlyingValue(*Inst);
-    return NewVPInst;
+    VPPHINode *NewVPPHINode = createPhiInstruction(Inst->getType(), Name);
+    NewVPPHINode->setUnderlyingValue(*Inst);
+    return NewVPPHINode;
   }
 
-  VPInstruction *createPhiInstruction(Type *BaseTy) {
-    VPInstruction *NewVPInst = new VPPHINode(BaseTy);
+  VPPHINode *createPhiInstruction(Type *BaseTy, const Twine &Name = "") {
+    VPPHINode *NewVPPHINode = new VPPHINode(BaseTy);
+    NewVPPHINode->setName(Name);
     if (BB)
-      BB->insert(NewVPInst, InsertPt);
-    return NewVPInst;
+      BB->insert(NewVPPHINode, InsertPt);
+    return NewVPPHINode;
   }
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
@@ -283,28 +284,29 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                      VPValue *StartValue, bool Sign) {
-    VPInstruction *NewVPInst =
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         VPValue *StartValue, bool Sign) {
+    VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
-    VPInstruction *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
+    VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   // Final value of index part of min/max+index
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                      VPValue *StartValue, bool Sign,
-                                      VPReductionFinal *MinMax) {
-    VPInstruction *NewVPInst =
-        new VPReductionFinal(BinOp, ReducVec, StartValue, Sign, MinMax);
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         VPValue *ParentExit,
+                                         VPReductionFinal *ParentFinal,
+                                         bool Sign) {
+    VPReductionFinal *NewVPInst =
+        new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;

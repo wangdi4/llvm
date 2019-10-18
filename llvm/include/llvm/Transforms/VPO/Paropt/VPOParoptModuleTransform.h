@@ -25,6 +25,7 @@
 #define LLVM_TRANSFORMS_VPO_PAROPT_MODULE_TRANSFORMS_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 
@@ -63,7 +64,7 @@ public:
         OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
         DisableOffload(DisableOffload), TgOffloadEntryTy(nullptr),
         TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
-        DsoHandle(nullptr) {}
+        DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
 
   ~VPOParoptModuleTransform() {
     DeleteContainerPointers(OffloadEntries);
@@ -71,7 +72,8 @@ public:
 
   /// Perform paropt transformation on a module.
   bool doParoptTransforms(
-      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
+      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
 
 private:
   friend class VPOParoptTransform;
@@ -157,6 +159,34 @@ private:
 
   /// Create a variable that binds the atexit to this shared object.
   GlobalVariable *DsoHandle;
+
+  /// Original declaration of printf() from clang:
+  ///   declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...)
+  /// This is populated during OpenCL offload compilation if printf() is used
+  /// in the module
+  Function *PrintfDecl;
+  Function *getPrintfDecl() { return PrintfDecl; }
+
+  /// Declaration of OCL's printf() created for OpenCL offload kernel code:
+  ///   declare dso_local spir_func i32
+  ///     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+  Function *OCLPrintfDecl;
+  Function *getOCLPrintfDecl() { return OCLPrintfDecl; }
+
+  /// Routine to populate PrintfDecl and OCLPrintfDecl
+  void createOCLPrintfDecl(Function *F);
+
+  /// Routine to identify Functions that may use "omp critical"
+  /// either directly or down the call stack.
+  void collectMayHaveOMPCriticalFunctions(
+      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
+
+  /// A set of Functions identified by collectMayHaveOMPCriticalFunctions()
+  /// to potentially "invoke" "omp critical".
+  SmallPtrSet<Function *, 32> MayHaveOMPCritical;
+
+  /// Returns true for Functions marked by collectMayHaveOMPCriticalFunctions().
+  bool mayHaveOMPCritical(const Function *F) const;
 
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {

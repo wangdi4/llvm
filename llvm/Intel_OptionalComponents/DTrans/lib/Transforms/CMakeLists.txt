@@ -27,8 +27,10 @@ add_llvm_library(LLVMIntel_DTransOpt
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
   SOAToAOSArrays.cpp
+  SOAToAOSClassInfo.cpp
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
+  SOAToAOSPrepare.cpp
   SOAToAOSStruct.cpp
   Transpose.cpp
   WeakAlign.cpp
