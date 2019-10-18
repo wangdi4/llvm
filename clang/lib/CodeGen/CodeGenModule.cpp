@@ -4171,6 +4171,9 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
     }
     Out << '}';
   }
+  if (const auto *RWA = D->getAttr<ReadWriteModeAttr>()) {
+    Out << '{' << "readwritememory:" << RWA->getType().upper() << '}';
+  }
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
     if (VD->getStorageClass() == SC_Static) {
       llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.

@@ -304,3 +304,19 @@ should take place as an ArbPrecInt type, promoting to the larger of the two
 types. All integer operations are currently supported.
   }];
 }
+
+def ReadWriteModeDocs : Documentation {
+ let Category = DocCatType;
+  let Content = [{
+The readwrite_mode attribute indicates to the compiler how the slave memory
+will be accessed from outside the component.
+
+__attribute__((readwrite_mode("readonly"))) indicates to the compiler that
+users from outside the component can only read from the slave interface.
+__attribute__((readwrite_mode("writeonly"))) indicates to the compiler that
+users from outside the component can only write to the slave interface.
+__attribute__((readwrite_mode("readwrite"))) indicates to the compiler that
+users from outside the component can read from and write to the slave
+interface.
+  }];
+}

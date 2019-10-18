@@ -146,6 +146,10 @@ def err_hls_force_loop_pipelining_invalid : Error<
   "%0 attribute argument must be 'on' or 'off'">;
 def err_hls_force_loop_pipelining_conflict : Error<
   "%0 and 'hls_force_loop_pipelining(off)' attributes are not compatible">;
+def err_hls_readwrite_arg_invalid : Error<
+  "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
+def err_readwritememory_attribute_invalid : Error<
+  "%0 attribute only applies to slave memory arguments">;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
