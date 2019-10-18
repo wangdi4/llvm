@@ -842,6 +842,15 @@ public:
   /// vectorizable. We do not vectorize such trees.
   bool isTreeTinyAndNotFullyVectorizable() const;
 
+  /// Assume that a legal-sized 'or'-reduction of shifted/zexted loaded values
+  /// can be load combined in the backend. Load combining may not be allowed in
+  /// the IR optimizer, so we do not want to alter the pattern. For example,
+  /// partially transforming a scalar bswap() pattern into vector code is
+  /// effectively impossible for the backend to undo.
+  /// TODO: If load combining is allowed in the IR optimizer, this analysis
+  ///       may not be necessary.
+  bool isLoadCombineReductionCandidate(unsigned ReductionOpcode) const;
+
   OptimizationRemarkEmitter *getORE() { return ORE; }
 
   /// This structure holds any data we need about the edges being traversed
@@ -6298,6 +6307,43 @@ bool BoUpSLP::isFullyVectorizableTinyTree() const {
   return true;
 }
 
+bool BoUpSLP::isLoadCombineReductionCandidate(unsigned RdxOpcode) const {
+  if (RdxOpcode != Instruction::Or)
+    return false;
+
+  unsigned NumElts = VectorizableTree[0]->Scalars.size();
+  Value *FirstReduced = VectorizableTree[0]->Scalars[0];
+
+  // Look past the reduction to find a source value. Arbitrarily follow the
+  // path through operand 0 of any 'or'. Also, peek through optional
+  // shift-left-by-constant.
+  Value *ZextLoad = FirstReduced;
+  while (match(ZextLoad, m_Or(m_Value(), m_Value())) ||
+         match(ZextLoad, m_Shl(m_Value(), m_Constant())))
+    ZextLoad = cast<BinaryOperator>(ZextLoad)->getOperand(0);
+
+  // Check if the input to the reduction is an extended load.
+  Value *LoadPtr;
+  if (!match(ZextLoad, m_ZExt(m_Load(m_Value(LoadPtr)))))
+    return false;
+
+  // Require that the total load bit width is a legal integer type.
+  // For example, <8 x i8> --> i64 is a legal integer on a 64-bit target.
+  // But <16 x i8> --> i128 is not, so the backend probably can't reduce it.
+  Type *SrcTy = LoadPtr->getType()->getPointerElementType();
+  unsigned LoadBitWidth = SrcTy->getIntegerBitWidth() * NumElts;
+  LLVMContext &Context = FirstReduced->getContext();
+  if (!TTI->isTypeLegal(IntegerType::get(Context, LoadBitWidth)))
+    return false;
+
+  // Everything matched - assume that we can fold the whole sequence using
+  // load combining.
+  LLVM_DEBUG(dbgs() << "SLP: Assume load combining for scalar reduction of "
+             << *(cast<Instruction>(FirstReduced)) << "\n");
+
+  return true;
+}
+
 bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() const {
   // We can vectorize the tree if its size is greater than or equal to the
   // minimum size specified by the MinTreeSize command line option.
@@ -9774,7 +9820,12 @@ public:
 #if !INTEL_CUSTOMIZATION
       if (V.isTreeTinyAndNotFullyVectorizable())
         break;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+      if (V.isLoadCombineReductionCandidate(ReductionData.getOpcode()))
+        break;
+>>>>>>> 8cc6d42e8d6c0c133e4d5d46e918e5e2ae0781c6
 
       V.computeMinimumValueSizes();
 
