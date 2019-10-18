@@ -4613,6 +4613,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
         if (isOpenMPParallelDirective(DSAStack->getCurrentDirective()))
           break;
         continue;
+      case OMPC_final:
+        // Do not analyze if no parent parallel directive.
+        if (isOpenMPParallelDirective(DSAStack->getCurrentDirective()))
+          break;
+        continue;
       case OMPC_ordered:
       case OMPC_device:
       case OMPC_num_teams:
@@ -4622,7 +4627,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_collapse:
       case OMPC_safelen:
       case OMPC_simdlen:
-      case OMPC_final:
       case OMPC_default:
       case OMPC_proc_bind:
       case OMPC_private:
@@ -11024,6 +11028,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
 #endif // INTEL_CUSTOMIZATION
   case OMPC_grainsize:
   case OMPC_num_tasks:
+  case OMPC_final:
     switch (DKind) {
     case OMPD_task:
     case OMPD_taskloop:
@@ -11100,7 +11105,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_linear:
   case OMPC_default:
   case OMPC_proc_bind:
-  case OMPC_final:
   case OMPC_safelen:
   case OMPC_simdlen:
   case OMPC_allocator:
@@ -11187,6 +11191,8 @@ OMPClause *Sema::ActOnOpenMPFinalClause(Expr *Condition,
                                         SourceLocation LParenLoc,
                                         SourceLocation EndLoc) {
   Expr *ValExpr = Condition;
+  Stmt *HelperValStmt = nullptr;
+  OpenMPDirectiveKind CaptureRegion = OMPD_unknown;
   if (!Condition->isValueDependent() && !Condition->isTypeDependent() &&
       !Condition->isInstantiationDependent() &&
       !Condition->containsUnexpandedParameterPack()) {
@@ -11195,10 +11201,21 @@ OMPClause *Sema::ActOnOpenMPFinalClause(Expr *Condition,
       return nullptr;
 
     ValExpr = MakeFullExpr(Val.get()).get();
+
+    OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
+    CaptureRegion = getOpenMPCaptureRegionForClause(DKind, OMPC_final);
+    if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
+      ValExpr = MakeFullExpr(ValExpr).get();
+      llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
+      ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
+      HelperValStmt = buildPreInits(Context, Captures);
+    }
   }
 
-  return new (Context) OMPFinalClause(ValExpr, StartLoc, LParenLoc, EndLoc);
+  return new (Context) OMPFinalClause(ValExpr, HelperValStmt, CaptureRegion,
+                                      StartLoc, LParenLoc, EndLoc);
 }
+
 ExprResult Sema::PerformOpenMPImplicitIntegerConversion(SourceLocation Loc,
                                                         Expr *Op) {
   if (!Op)
