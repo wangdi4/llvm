@@ -1,17 +1,22 @@
 ; Test DA divergence and vector shape propagation for the float, float version of mandelbrot kernel.
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug 2>&1 | FileCheck %s
+; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug-only=vplan-divergence-analysis -enable-vp-value-codegen=false 2>&1 | FileCheck %s -check-prefixes=CHECK,CHECK-LLVM
+; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug-only=vplan-divergence-analysis -enable-vp-value-codegen=true 2>&1 | FileCheck %s -check-prefixes=CHECK,CHECK-VPVAL
 
+; For VPValue-based CG, loop private variables and their corresponding users are marked as divergent by DA.
 ; CHECK: Basic Block: [[BB1:BB[0-9]+]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi  [ i64 [[VAL2:%vp.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, BB2 ]
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL3:%vp.*]] = trunc i64 [[VAL1]] to i32
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL4:%vp.*]] = sitofp i32 [[VAL3]] to float
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL5:%vp.*]] = fmul float [[VAL4]] float 0x3F5063B3E0000000
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL6:%vp.*]] = fadd float [[VAL5]] float -2.000000e+00
 ; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL6]] float* %in_vals_tmp_real.priv.priv
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT: Uniform: [Shape: Uniform] store float %sub float* %in_vals_tmp_imagine.priv.priv
+; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] store float %sub float* %in_vals_tmp_imagine.priv.priv
+; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] store float %sub float* %in_vals_tmp_imagine.priv.priv
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL7:%vp.*]] = fmul float [[VAL6]] float [[VAL6]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL8:%vp.*]] = fadd float %mul1.i float [[VAL7]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL9:%vp.*]] = call float [[VAL8]] float (float)* @sqrtf
@@ -46,8 +51,10 @@
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL28:%vp.*]] = phi  [ i32 1, [[BB1]] ],  [ i32 [[VAL27]], [[BB4]] ]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[VAL29:%vp.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 %indvars.iv39 i64 [[VAL1]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL28]] i32* [[VAL29]]
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2]] = add i64 [[VAL1]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i64 [[VAL2]] i64 3000
 
@@ -99,9 +106,9 @@ omp.inner.for.body:                               ; preds = %_ZL6mandelffj.exit,
   %conv3 = sitofp i32 %4 to float
   %mul4 = fmul float %conv3, 0x3F5063B3E0000000
   %add5 = fadd float %mul4, -2.000000e+00
-  store float %add5, float* %in_vals_tmp_real.priv.priv, align 4, !tbaa !2
+  store float %add5, float* %in_vals_tmp_real.priv.priv, align 4
   call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %3) #2
-  store float %sub, float* %in_vals_tmp_imagine.priv.priv, align 4, !tbaa !2
+  store float %sub, float* %in_vals_tmp_imagine.priv.priv, align 4
   %mul.i = fmul float %add5, %add5
   %add.i = fadd float %mul1.i, %mul.i
   %call.i = call float @sqrtf(float %add.i) #2
@@ -138,8 +145,8 @@ _ZL6mandelffj.exit.loopexit:                      ; preds = %while.body.i
 
 _ZL6mandelffj.exit:                               ; preds = %_ZL6mandelffj.exit.loopexit, %omp.inner.for.body
   %count.0.i.lcssa = phi i32 [ 1, %omp.inner.for.body ], [ %inc.i.lcssa, %_ZL6mandelffj.exit.loopexit ]
-  %arrayidx8 = getelementptr inbounds [3000 x [3000 x i32]], [3000 x [3000 x i32]]* @count, i64 0, i64 %indvars.iv39, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %count.0.i.lcssa, i32* %arrayidx8, align 4, !tbaa !6
+  %arrayidx8 = getelementptr inbounds [3000 x [3000 x i32]], [3000 x [3000 x i32]]* @count, i64 0, i64 %indvars.iv39, i64 %indvars.iv
+  store i32 %count.0.i.lcssa, i32* %arrayidx8, align 4
   call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %3) #2
   call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %2) #2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -181,16 +188,3 @@ attributes #2 = { nounwind }
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 9.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 073c4ff27c752ef4458b2ccda1ade381622937e4) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 1bb4bf87d07135f8ca12532427c838c9dcac65da)"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"float", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C++ TBAA"}
-!6 = !{!7, !9, i64 0}
-!7 = !{!"array@_ZTSA3000_A3000_j", !8, i64 0}
-!8 = !{!"array@_ZTSA3000_j", !9, i64 0}
-!9 = !{!"int", !4, i64 0}

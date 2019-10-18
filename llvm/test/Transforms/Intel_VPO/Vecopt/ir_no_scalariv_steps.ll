@@ -10,14 +10,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   for (index = 0; index < 1024; index++)
 ;     ip[index] = index;
 ; }
-; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -S -enable-vp-value-codegen=false %s | FileCheck %s
+; RUN: opt -VPlanDriver -S -enable-vp-value-codegen %s | FileCheck %s
 
 ; This test checks that scalar IV steps are not generated in vector loop
 ; CHECK: vector.ph:
 ; CHECK: vector.body:
-; CHECK:   %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; CHECK-NOT: {{.*}} = add i64 %index, {{[0123]}}
-; CHECK: {{.*}} = getelementptr inbounds i64, i64* %ip, i64 %index
+; CHECK:   [[IV_PHI:%.*]] = phi i64 [ 0, %vector.ph ], [ [[IV_NEXT:%.*]], %vector.body ]
+; CHECK-NOT: {{.*}} = add i64 [[IV_PHI]], {{[0123]}}
+; CHECK: {{.*}} = getelementptr inbounds i64, i64* %ip, i64 [[IV:%.*]]
 ; Function Attrs: nounwind uwtable
 define void @foo(i64* nocapture %ip)  {
 entry:
@@ -27,7 +28,7 @@ entry:
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
   %.omp.iv.07 = phi i64 [ 0, %entry ], [ %add1, %omp.inner.for.body ]
   %arrayidx = getelementptr inbounds i64, i64* %ip, i64 %.omp.iv.07
-  store i64 %.omp.iv.07, i64* %arrayidx, align 8, !tbaa !1
+  store i64 %.omp.iv.07, i64* %arrayidx, align 8
   %add1 = add nuw nsw i64 %.omp.iv.07, 1
   %exitcond = icmp eq i64 %add1, 1024
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
@@ -46,10 +47,3 @@ declare void @llvm.directive.region.exit(token) #1
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
 
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 4.0.0 (branches/vpo 21478)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"long", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
