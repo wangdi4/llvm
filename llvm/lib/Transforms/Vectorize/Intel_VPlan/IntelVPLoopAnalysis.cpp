@@ -927,6 +927,7 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
                              MK, RT, Signed, AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
+    assert(Parent && "nullptr is unexpected");
     bool ForLast = LE->isMinMaxInclusive(*Parent);
     VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
                                   ForLast, AllocaInst, ValidMemOnly);

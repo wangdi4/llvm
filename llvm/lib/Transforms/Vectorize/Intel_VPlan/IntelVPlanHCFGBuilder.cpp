@@ -471,8 +471,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // cascaded if blocks.
   SmallVector<std::pair<VPBlockBase *, VPConstant *>, 2> ExitBlockIDPairs;
   SmallDenseMap<VPBlockBase *, VPBlockBase *> ExitExitingBlocksMap;
-  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
-  VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
+  VPBasicBlock *OrigLoopLatch = cast<VPBasicBlock>(VPL->getLoopLatch());
+  VPBasicBlock *LoopHeader = cast<VPBasicBlock>(VPL->getHeader());
   // If the loop is a while loop (case 5), then it might not have a fall-through
   // edge. Therefore, in this case, the LatchExitBlock will be null.
   VPBlockBase *LatchExitBlock = nullptr;
@@ -918,7 +918,7 @@ bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
 //
 void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
 
-  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  VPBasicBlock *OrigLoopLatch = cast<VPBasicBlock>(VPL->getLoopLatch());
   if (OrigLoopLatch->getNumSuccessors() > 1)
     return;
 
