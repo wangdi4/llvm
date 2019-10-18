@@ -220,7 +220,8 @@ void LLDJIT::generateCodeForModule(Module *M) {
 
   std::string ObjectToLoad;
 
-  assert(M->getDataLayout() == getDataLayout() && "DataLayout Mismatch");
+  assert(TM->isCompatibleDataLayout(M->getDataLayout()) &&
+         "DataLayout Mismatch");
 
   // If the cache did not contain a suitable object, compile the object
   ObjectToLoad = emitObject(M);
