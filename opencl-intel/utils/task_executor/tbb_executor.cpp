@@ -474,11 +474,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     // The loading on tbb.dll was delayed,
     // Need to load manually before defualt dll is loaded
 
-    std::string tbbPath(MAX_PATH, '\0');
-
-    Intel::OpenCL::Utils::GetModuleDirectory(&tbbPath[0], MAX_PATH);
-    tbbPath.resize(tbbPath.find_first_of('\0'));
-    tbbPath += "tbb\\tbb";
+    std::string tbbPath("tbb");
 
 #ifdef _DEBUG
     tbbPath += "_debug";
