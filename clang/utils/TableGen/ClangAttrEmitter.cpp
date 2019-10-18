@@ -4417,18 +4417,26 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     EnumName += "Items";
     SmallString<32> StateName = EnumName;
     StateName += "State";
+    SmallString<32> DocStateName = OptionName;
+    DocStateName += "UserDocs";
     OS << "// Implementation for option " << OptionName;
     OS << "\nenum " << EnumName << " {\n";
     SmallString<2048> SwitchCases;
     SmallString<2048> HelpItems;
     SmallString<2048> DefaultStateInits;
+    SmallString<2048> UserDocs;
     int Count = 0;
     for (const auto *Doc : I.second) {
       StringRef ItemName = Doc->getName();
+      // UserContent contains any user oriented text, if any, associated
+      // with ItemName in the input .td file.
+      StringRef UserContent = Doc->getValueAsString("UserContent");
+
       if (ItemName.size() <= 4 ||
           ItemName.substr(ItemName.size() - 4, 4) != "Docs")
         PrintFatalError(Doc->getLoc(), "Name must be <TagName>Docs");
       ItemName = ItemName.drop_back(4);
+      // ItemName = option name, e.g., StringCharStarCatchableDocs
       OS << "  " << ItemName << ",\n";
       SwitchCases += "    .Case(\"";
       SwitchCases += ItemName;
@@ -4443,10 +4451,36 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       DefaultStateInits += "] = ";
       DefaultStateInits += std::to_string(Doc->getValueAsBit("Default"));
       DefaultStateInits += ";\n";
+      // If we have a user description for an Intel compatibility flag, ensure
+      // formatting (with respect to newlines).
+      if (!UserContent.empty()) {
+        UserDocs += "  IntelCompatUserDocs[";
+        UserDocs += ItemName;
+        UserDocs += "] = \"";
+
+        // Start with the actual beginning and end of description text without
+        // extraneous characters.
+        UserContent = UserContent.trim("\n ");
+        // If these are present, they should be removed.
+        assert(UserContent.find('\t') == StringRef::npos);
+        while (!UserContent.empty()) {
+          std::pair <StringRef, StringRef> UD = UserContent.split('\n');
+
+          assert(UD.first.size() <= 80);
+          UserDocs += UD.first.str();
+          UserDocs += "\\n";
+          UserContent = UD.second;
+	}
+        UserDocs += "\\n\"";
+        UserDocs += ";\n";
+      }
       Count++;
     }
     OS << "};\nstd::array<bool," << Count << "> " << StateName << " = {};\n";
+    OS << "std::array<StringRef," << Count << "> " << DocStateName << " = {};\n";
+    OS << "llvm::SmallVector<std::string, 0> Emit" << DocStateName << ";\n";
     OS << "bool Show" << OptionName << "Help = false;\n";
+    OS << "bool Show" << DocStateName << "Help = false;\n";
     OS << "StringRef help" << OptionName << "() const {\n";
     OS << "  return \"Valid values for " << OptionName << ":\\n\"";
     OS << HelpItems << ";\n}\n";
@@ -4459,10 +4493,21 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "void setAll" << StateName << "Default() {\n";
     OS << DefaultStateInits;
     OS << "}\n";
+    OS << "void setAll" << DocStateName << "Init() {\n";
+    OS <<  UserDocs;
+    OS << "}\n";
     OS << "bool set" << StateName << "(StringRef S, bool Enable) {\n";
     OS << "  int N = fromString" << EnumName << "(S);\n";
     OS << "  if (N == -1) return false;\n";
     OS << "  " << StateName << "[N] = Enable;\n  return true;\n}\n\n";
+    OS << "bool setEmit" << DocStateName << "(StringRef S) {\n";
+    OS << "  int N = fromString" << EnumName << "(S);\n";
+    OS << "  if (N == -1) return false;\n";
+    OS << "  std::string Underline(S.size(),'=');\n";
+    OS << "  std::string Msg(S.str()+\"\\n\"+" << "Underline" << "+\"\\n\"+" << DocStateName << "[N].str());\n";
+    OS << "  Emit" << DocStateName << ".push_back(Msg);\n";
+    OS << "  " << DocStateName << "[N] = \"\";\n";
+    OS << "  return true;\n}\n";
   }
 }
 #endif // INTEL_CUSTOMIZATION

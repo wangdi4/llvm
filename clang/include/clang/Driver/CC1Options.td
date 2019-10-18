@@ -814,6 +814,9 @@ def fintel_compatibility_disable
 def fintel_compatibility_help
     : Flag<[ "-" ], "fintel-compatibility-help">,
       HelpText<"Display the list of Intel C/C++ compatibility items">;
+def fintel_compatibility_doc
+    : Joined<[ "-" ], "fintel-compatibility-doc=">,
+      HelpText<"Display help information for Intel C/C++ compatibility items">;
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,

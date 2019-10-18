@@ -2591,6 +2591,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Diags.Report(diag::err_drv_invalid_value) << A->getSpelling() << Item;
     }
   }
+  // Look for intel compatibility user doc flag
+  Opts.ShowIntelCompatUserDocsHelp = Args.hasArg(OPT_fintel_compatibility_doc);
+  if (Opts.ShowIntelCompatUserDocsHelp) {
+    Opts.setAllIntelCompatUserDocsInit();
+    for (const Arg *A : Args.filtered(OPT_fintel_compatibility_doc)) {
+      A->claim();
+      // We can have a list of comma separated names.
+      StringRef ItemList = A->getValue();
+      SmallVector<StringRef, 32> Items;
+      ItemList.split(Items, ",");
+      for (StringRef Item : Items) {
+        if (!Opts.setEmitIntelCompatUserDocs(Item))
+          Diags.Report(diag::err_drv_invalid_value) << A->getSpelling() << Item;
+      }
+    }
+  }
+
   Opts.ShowIntelCompatHelp = Args.hasArg(OPT_fintel_compatibility_help);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.HLS = Args.hasArg(OPT_fhls);
