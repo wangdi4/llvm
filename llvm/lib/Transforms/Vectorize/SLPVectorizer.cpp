@@ -9820,12 +9820,9 @@ public:
 #if !INTEL_CUSTOMIZATION
       if (V.isTreeTinyAndNotFullyVectorizable())
         break;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
       if (V.isLoadCombineReductionCandidate(ReductionData.getOpcode()))
         break;
->>>>>>> 8cc6d42e8d6c0c133e4d5d46e918e5e2ae0781c6
 
       V.computeMinimumValueSizes();
 
