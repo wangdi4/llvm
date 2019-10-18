@@ -74,31 +74,13 @@
 
 // CHECK-IR: target triple = "x86_64-pc-linux-gnu"
 
-<<<<<<< HEAD
-// CHECK-IR: [[ENTRYTY:%.+]] = type { i8*, i8*, i64, i32, i32 }
-// INTEL_CUSTOMIZATION
-// CHECK-IR: [[OMP_IMGTY:%.+]] = type { i8*, i8*, [[ENTRYTY]]*, [[ENTRYTY]]* }
-// CHECK-IR: [[OMP_DESCTY:%.+]] = type { i32, [[OMP_IMGTY]]*, [[ENTRYTY]]*, [[ENTRYTY]]* }
-// END INTEL_CUSTOMIZATION
-// CHECK-IR: [[IMGTY:%.+]] = type { i16, i8, i8, i8*, i8*, i8*, i8*, i8*, i8*, [[ENTRYTY]]*, [[ENTRYTY]]* }
-// CHECK-IR: [[DESCTY:%.+]] = type { i16, i16, [[IMGTY]]*, [[ENTRYTY]]*, [[ENTRYTY]]* }
-// CHECK-IR: [[OMP_ENTRIESB:@.+]] = external constant [[ENTRYTY]]
-// CHECK-IR: [[OMP_ENTRIESE:@.+]] = external constant [[ENTRYTY]]
-=======
 // CHECK-IR-DAG: [[ENTTY:%.+]] = type { i8*, i8*, i{{32|64}}, i32, i32 }
 // CHECK-IR-DAG: [[IMAGETY:%.+]] = type { i8*, i8*, [[ENTTY]]*, [[ENTTY]]* }
 // CHECK-IR-DAG: [[DESCTY:%.+]] = type { i32, [[IMAGETY]]*, [[ENTTY]]*, [[ENTTY]]* }
->>>>>>> bdba33bf9dd44e2cef30c0e1dcf00b459caf9cb1
 
 // CHECK-IR-DAG: [[SYCL_IMAGETY:%.+]] = type { i16, i8, i8, i8*, i8*, i8*, i8*, i8*, i8*, [[ENTTY]]*, [[ENTTY]]* }
 // CHECK-IR-DAG: [[SYCL_DESCTY:%.+]] = type { i16, i16, [[SYCL_IMAGETY]]*, [[ENTTY]]*, [[ENTTY]]* }
 
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// CHECK-IR: [[OMP_IMGS:@.+]] = internal unnamed_addr constant [1 x [[OMP_IMGTY]]] [{{.+}} { i8* [[GEP:getelementptr inbounds]] ([24 x i8], [24 x i8]* [[OMP_BIN0]], i64 0, i64 0), i8* [[GEP]] ([24 x i8], [24 x i8]* [[OMP_BIN0]], i64 1, i64 0), [[ENTRYTY]]* [[OMP_ENTRIESB]], [[ENTRYTY]]* [[OMP_ENTRIESE]] }]
-// CHECK-IR: [[OMP_DESC:@.+]] = internal constant [[OMP_DESCTY]] { i32 1, [[OMP_IMGTY]]* [[GEP]] ([1 x [[OMP_IMGTY]]], [1 x [[OMP_IMGTY]]]* [[OMP_IMGS]], i64 0, i64 0), [[ENTRYTY]]* [[OMP_ENTRIESB]], [[ENTRYTY]]* [[OMP_ENTRIESE]] }
-// END INTEL_CUSTOMIZATION
-=======
 // CHECK-IR: [[ENTBEGIN:@.+]] = external hidden constant [[ENTTY]]
 // CHECK-IR: [[ENTEND:@.+]] = external hidden constant [[ENTTY]]
 
@@ -109,7 +91,6 @@
 // CHECK-IR: [[OMP_IMAGES:@.+]] = internal unnamed_addr constant [1 x [[IMAGETY]]] [{{.+}} { i8* getelementptr inbounds ([[OMP_BINTY]], [[OMP_BINTY]]* [[OMP_BIN]], i64 0, i64 0), i8* getelementptr inbounds ([[OMP_BINTY]], [[OMP_BINTY]]* [[OMP_BIN]], i64 1, i64 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }]
 
 // CHECK-IR: [[OMP_DESC:@.+]] = internal constant [[DESCTY]] { i32 1, [[IMAGETY]]* getelementptr inbounds ([1 x [[IMAGETY]]], [1 x [[IMAGETY]]]* [[OMP_IMAGES]], i64 0, i64 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }
->>>>>>> bdba33bf9dd44e2cef30c0e1dcf00b459caf9cb1
 
 // CHECK-IR: [[SYCL_TGT0:@.+]] = internal unnamed_addr constant [4 x i8] c"tg1\00"
 // CHECK-IR: [[SYCL_OPTS0:@.+]] = internal unnamed_addr constant [3 x i8] c"-g\00"
@@ -127,38 +108,6 @@
 
 // CHECK-IR: @llvm.global_dtors = appending global [2 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* [[OMP_UNREGFN:@.+]], i8* null }, { i32, void ()*, i8* } { i32 0, void ()* [[SYCL_UNREGFN:@.+]], i8* null }]
 
-<<<<<<< HEAD
-// CHECK-IR: define internal void [[OMP_REGF]]() section ".text.startup" {
-// CHECK-IR: entry:
-// INTEL_CUSTOMIZATION
-// CHECK-IR:   call void @__tgt_register_lib([[OMP_DESCTY]]* [[OMP_DESC]])
-// END INTEL_CUSTOMIZATION
-// CHECK-IR:   ret void
-// CHECK-IR: }
-// INTEL_CUSTOMIZATION
-// CHECK-IR: declare void @__tgt_register_lib([[OMP_DESCTY]]*)
-// END INTEL_CUSTOMIZATION
-// CHECK-IR: define internal void [[OMP_UNREGF]]() section ".text.startup" {
-// CHECK-IR: entry:
-// INTEL_CUSTOMIZATION
-// CHECK-IR:   call void @__tgt_unregister_lib([[OMP_DESCTY]]* [[OMP_DESC]])
-// END INTEL_CUSTOMIZATION
-// CHECK-IR:   ret void
-// CHECK-IR: }
-// CHECK-IR: declare void @__tgt_unregister_lib([[OMP_DESCTY]]*)
-// CHECK-IR: define internal void @.sycl_offloading.descriptor_reg() section ".text.startup" {
-// CHECK-IR: entry:
-// INTEL_CUSTOMIZATION
-// CHECK-IR:   call void bitcast (void ([[OMP_DESCTY]]*)* @__tgt_register_lib to void ([[DESCTY]]*)*)([[DESCTY]]* [[SYCL_DESC]])
-// END INTEL_CUSTOMIZATION
-// CHECK-IR:   ret void
-// CHECK-IR: }
-// CHECK-IR: define internal void @.sycl_offloading.descriptor_unreg() section ".text.startup" {
-// CHECK-IR: entry:
-// INTEL_CUSTOMIZATION
-// CHECK-IR:   call void bitcast (void ([[OMP_DESCTY]]*)* @__tgt_unregister_lib to void ([[DESCTY]]*)*)([[DESCTY]]* [[SYCL_DESC]])
-// END INTEL_CUSTOMIZATION
-=======
 // CHECK-IR: define internal void [[OMP_REGFN]]()
 // CHECK-IR:   call void @__tgt_register_lib([[DESCTY]]* [[OMP_DESC]])
 // CHECK-IR:   ret void
@@ -177,7 +126,6 @@
 
 // CHECK-IR: define internal void [[SYCL_UNREGFN]]()
 // CHECK-IR:   call void @__tgt_unregister_lib([[DESCTY]]* bitcast ([[SYCL_DESCTY]]* [[SYCL_DESC]] to [[DESCTY]]*))
->>>>>>> bdba33bf9dd44e2cef30c0e1dcf00b459caf9cb1
 // CHECK-IR:   ret void
 
 // -------

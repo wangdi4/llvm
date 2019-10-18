@@ -10091,29 +10091,6 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
   return RequiresRegFn;
 }
 
-<<<<<<< HEAD
-llvm::Function *CGOpenMPRuntime::emitRegistrationFunction() {
-  // If we have offloading in the current module, we need to emit the entries
-  // now and register the offloading descriptor.
-  createOffloadEntriesAndInfoMetadata();
-
-#if INTEL_COLLAB
-  // Offload registration is created by BE with late outlining.
-  if (CGM.getLangOpts().OpenMPLateOutline)
-#if INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-    return nullptr;
-#endif // INTEL_COLLAB
-
-  // Create and register the offloading binary descriptors. This is the main
-  // entity that captures all the information about offloading in the current
-  // compilation unit.
-  return createOffloadingBinaryDescriptorRegistration();
-}
-
-=======
->>>>>>> bdba33bf9dd44e2cef30c0e1dcf00b459caf9cb1
 void CGOpenMPRuntime::emitTeamsCall(CodeGenFunction &CGF,
                                     const OMPExecutableDirective &D,
                                     SourceLocation Loc,
