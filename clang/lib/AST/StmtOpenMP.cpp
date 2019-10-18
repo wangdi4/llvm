@@ -1153,6 +1153,7 @@ OMPMasterTaskLoopDirective *OMPMasterTaskLoopDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1209,6 +1210,7 @@ OMPParallelMasterTaskLoopDirective *OMPParallelMasterTaskLoopDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
