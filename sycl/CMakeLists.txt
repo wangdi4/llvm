@@ -161,6 +161,7 @@ elseif( NOT OpenCL_LIBRARIES )
                ${OPENCL_ICD_LOADER_WDK}
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
+    BUILD_BYPRODUCTS ${OpenCL_LIBRARIES}
   )
 else()
   file(GLOB ICD_LOADER_SRC "${OpenCL_LIBRARIES}*")
@@ -194,6 +195,11 @@ COMMENT "Copying SYCL headers ...")
 # Configure SYCL headers
 install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" COMPONENT sycl-headers)
 
+set(SYCL_RT_LIBS sycl)
+if (MSVC)
+  list(APPEND SYCL_RT_LIBS sycld)
+endif()
+
 # SYCL runtime library
 add_subdirectory(source)
 # TODO: remove me when support plugins in open-source   # INTEL_CUSTOMIZATION
@@ -201,7 +207,7 @@ add_subdirectory(plugins)                               # INTEL_CUSTOMIZATION
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
-  DEPENDS sycl
+  DEPENDS ${SYCL_RT_LIBS}
           clang
           clang-offload-wrapper
           clang-offload-bundler

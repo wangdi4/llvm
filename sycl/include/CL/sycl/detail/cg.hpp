@@ -134,7 +134,7 @@ public:
 class HostKernelBase {
 public:
   // The method executes lambda stored using NDRange passed.
-  virtual void call(const NDRDescT &NDRDesc) = 0;
+  virtual void call(const NDRDescT &NDRDesc, HostProfilingInfo *HPI) = 0;
   // Return pointer to the lambda object.
   // Used to extract captured variables.
   virtual char *getPtr() = 0;
@@ -149,7 +149,7 @@ class HostKernel : public HostKernelBase {
 
 public:
   HostKernel(KernelType Kernel) : MKernel(Kernel) {}
-  void call(const NDRDescT &NDRDesc) override {
+  void call(const NDRDescT &NDRDesc, HostProfilingInfo *HPI) override {
     // adjust ND range for serial host:
     NDRDescT AdjustedRange;
     bool Adjust = false;
@@ -167,7 +167,11 @@ public:
       Adjust = true;
     }
     const NDRDescT &R = Adjust ? AdjustedRange : NDRDesc;
+    if (HPI)
+      HPI->start();
     runOnHost(R);
+    if (HPI)
+      HPI->end();
   }
 
   char *getPtr() override { return reinterpret_cast<char *>(&MKernel); }
@@ -181,19 +185,12 @@ public:
   template <class ArgT = KernelArgType>
   typename std::enable_if<std::is_same<ArgT, sycl::id<Dims>>::value>::type
   runOnHost(const NDRDescT &NDRDesc) {
-    size_t XYZ[3] = {0};
-    sycl::id<Dims> ID;
-    for (; XYZ[2] < NDRDesc.GlobalSize[2]; ++XYZ[2]) {
-      XYZ[1] = 0;
-      for (; XYZ[1] < NDRDesc.GlobalSize[1]; ++XYZ[1]) {
-        XYZ[0] = 0;
-        for (; XYZ[0] < NDRDesc.GlobalSize[0]; ++XYZ[0]) {
-          for (int I = 0; I < Dims; ++I)
-            ID[I] = XYZ[I];
-          MKernel(ID);
-        }
-      }
-    }
+    sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
+    for (int I = 0; I < Dims; ++I)
+      Range[I] = NDRDesc.GlobalSize[I];
+
+    detail::NDLoop<Dims>::iterate(
+        Range, [&](const sycl::id<Dims> &ID) { MKernel(ID); });
   }
 
   template <class ArgT = KernelArgType>
@@ -206,20 +203,11 @@ public:
     for (int I = 0; I < Dims; ++I)
       Range[I] = NDRDesc.GlobalSize[I];
 
-    for (; XYZ[2] < NDRDesc.GlobalSize[2]; ++XYZ[2]) {
-      XYZ[1] = 0;
-      for (; XYZ[1] < NDRDesc.GlobalSize[1]; ++XYZ[1]) {
-        XYZ[0] = 0;
-        for (; XYZ[0] < NDRDesc.GlobalSize[0]; ++XYZ[0]) {
-          for (int I = 0; I < Dims; ++I)
-            ID[I] = XYZ[I];
-
-          sycl::item<Dims, /*Offset=*/false> Item =
-              IDBuilder::createItem<Dims, false>(Range, ID);
-          MKernel(Item);
-        }
-      }
-    }
+    detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> ID) {
+      sycl::item<Dims, /*Offset=*/false> Item =
+          IDBuilder::createItem<Dims, false>(Range, ID);
+      MKernel(Item);
+    });
   }
 
   template <class ArgT = KernelArgType>
@@ -232,22 +220,13 @@ public:
       Range[I] = NDRDesc.GlobalSize[I];
       Offset[I] = NDRDesc.GlobalOffset[I];
     }
-    size_t XYZ[3] = {0};
-    sycl::id<Dims> ID;
-    for (; XYZ[2] < NDRDesc.GlobalSize[2]; ++XYZ[2]) {
-      XYZ[1] = 0;
-      for (; XYZ[1] < NDRDesc.GlobalSize[1]; ++XYZ[1]) {
-        XYZ[0] = 0;
-        for (; XYZ[0] < NDRDesc.GlobalSize[0]; ++XYZ[0]) {
-          for (int I = 0; I < Dims; ++I)
-            ID[I] = XYZ[I] + Offset[I];
 
-          sycl::item<Dims, /*Offset=*/true> Item =
-              IDBuilder::createItem<Dims, true>(Range, ID, Offset);
-          MKernel(Item);
-        }
-      }
-    }
+    detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
+      sycl::id<Dims> OffsetID = ID + Offset;
+      sycl::item<Dims, /*Offset=*/true> Item =
+          IDBuilder::createItem<Dims, true>(Range, OffsetID, Offset);
+      MKernel(Item);
+    });
   }
 
   template <class ArgT = KernelArgType>
@@ -336,7 +315,8 @@ public:
     UPDATE_HOST,
     RUN_ON_HOST_INTEL,
     COPY_USM,
-    FILL_USM
+    FILL_USM,
+    PREFETCH_USM
   };
 
   CG(CGTYPE Type, std::vector<std::vector<char>> ArgsStorage,
@@ -523,6 +503,26 @@ public:
   void *getDst() { return MDst; }
   size_t getLength() { return MLength; }
   int getFill() { return MPattern[0]; }
+};
+
+// The class which represents "prefetch" command group for USM pointers.
+class CGPrefetchUSM : public CG {
+  void *MDst;
+  size_t MLength;
+
+public:
+  CGPrefetchUSM(void *DstPtr, size_t Length,
+                std::vector<std::vector<char>> ArgsStorage,
+                std::vector<detail::AccessorImplPtr> AccStorage,
+                std::vector<std::shared_ptr<const void>> SharedPtrStorage,
+                std::vector<Requirement *> Requirements,
+                std::vector<detail::EventImplPtr> Events)
+      : CG(PREFETCH_USM, std::move(ArgsStorage), std::move(AccStorage),
+           std::move(SharedPtrStorage), std::move(Requirements),
+           std::move(Events)),
+        MDst(DstPtr), MLength(Length) {}
+  void *getDst() { return MDst; }
+  size_t getLength() { return MLength; }
 };
 
 } // namespace detail

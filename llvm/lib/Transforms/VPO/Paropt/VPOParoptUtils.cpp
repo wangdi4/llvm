@@ -2185,7 +2185,7 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
 
   // Create the arg for Tid
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Create the argument list
   SmallVector<Value *, 3> FnArgs = {Loc, LoadTid};
@@ -2262,7 +2262,7 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // loc argument is obtained using the IdentTy struct inside genKmpcCall. But
   // we need a valid Tid, which we can load from memory using TidPtr.
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value*, 3> FnArgs = {LoadTid};
@@ -2316,7 +2316,7 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   RetTy = Type::getVoidTy(C);
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -2360,7 +2360,7 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
   }
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -2397,7 +2397,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
   }
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -2431,7 +2431,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
     FnName = "__kmpc_end_ordered";
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};

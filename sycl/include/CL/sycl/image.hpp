@@ -78,7 +78,7 @@ public:
   template <bool B = (Dimensions > 1)>
   image(image_channel_order Order, image_channel_type Type,
         const range<Dimensions> &Range,
-        typename std::enable_if<B, range<Dimensions - 1>>::type &Pitch,
+        const typename std::enable_if<B, range<Dimensions - 1>>::type &Pitch,
         const property_list &PropList = {}) {
     impl = std::make_shared<detail::image_impl<Dimensions, AllocatorT>>(
         Order, Type, Range, Pitch, PropList);
@@ -215,7 +215,7 @@ public:
   }
 
   // Returns the size of the image storage in bytes
-  size_t get_size() const { return impl->get_size(); }
+  size_t get_size() const { return impl->getSize(); }
 
   // Returns the total number of elements in the image
   size_t get_count() const { return impl->get_count(); }

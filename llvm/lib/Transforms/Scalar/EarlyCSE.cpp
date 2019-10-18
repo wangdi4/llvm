@@ -1385,6 +1385,7 @@ public:
     }
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
+    AU.addPreserved<AAResultsWrapperPass>();
     AU.setPreservesCFG();
   }
 };

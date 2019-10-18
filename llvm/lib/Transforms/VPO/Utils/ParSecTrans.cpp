@@ -753,7 +753,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
       AllocaInst *TmpUB =
         new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
 
-      TmpUB->setAlignment(4);
+      TmpUB->setAlignment(MaybeAlign(4));
 
       Triple TargetTriple(InsertPt->getModule()->getTargetTriple());
 
@@ -772,7 +772,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
         NormalizedUB = TmpUB;
    
       StoreInst *SI = new StoreInst(UB, NormalizedUB, false, InsertPt);
-      SI->setAlignment(4);
+      SI->setAlignment(MaybeAlign(4));
 
       InsertPt = PreHeaderBB->getTerminator();
       UpperBnd = new LoadInst(NormalizedUB, "sloop.ub", false, InsertPt);

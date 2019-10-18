@@ -1647,10 +1647,6 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
 
 #if INTEL_CUSTOMIZATION
   if (CostLowerBound > Threshold) {
-    if (!ComputeFullInlineCost) {
-      addCost((int64_t)SI.getNumCases() * InlineConstants::InstrCost);
-      return false;
-    }
     if (EarlyExitCost == INT_MAX) {
       EarlyExitCost = CostLowerBound;
       EarlyExitThreshold = Threshold;

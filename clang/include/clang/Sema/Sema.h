@@ -1736,6 +1736,8 @@ public:
   QualType BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
                                  SourceLocation AttrLoc);
 
+  bool CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc);
+
   bool CheckFunctionReturnType(QualType T, SourceLocation Loc);
 
   /// Build a function type.
@@ -4914,6 +4916,12 @@ public:
                            MultiExprArg ArgExprs, SourceLocation RParenLoc,
                            Expr *ExecConfig = nullptr,
                            bool IsExecConfig = false);
+  enum class AtomicArgumentOrder { API, AST };
+  ExprResult
+  BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
+                  SourceLocation RParenLoc, MultiExprArg Args,
+                  AtomicExpr::AtomicOp Op,
+                  AtomicArgumentOrder ArgOrder = AtomicArgumentOrder::API);
   ExprResult
   BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl, SourceLocation LParenLoc,
                         ArrayRef<Expr *> Arg, SourceLocation RParenLoc,
@@ -9398,6 +9406,23 @@ private:
                                                bool MightBeOdrUse);
 
 public:
+  /// Struct to store the context selectors info for declare variant directive.
+  struct OpenMPDeclareVariantCtsSelectorData {
+    OMPDeclareVariantAttr::CtxSelectorSetType CtxSet =
+        OMPDeclareVariantAttr::CtxSetUnknown;
+    OMPDeclareVariantAttr::CtxSelectorType Ctx =
+        OMPDeclareVariantAttr::CtxUnknown;
+    StringRef ImplVendor;
+    ExprResult CtxScore;
+    explicit OpenMPDeclareVariantCtsSelectorData() = default;
+    explicit OpenMPDeclareVariantCtsSelectorData(
+        OMPDeclareVariantAttr::CtxSelectorSetType CtxSet,
+        OMPDeclareVariantAttr::CtxSelectorType Ctx, StringRef ImplVendor,
+        ExprResult CtxScore)
+        : CtxSet(CtxSet), Ctx(Ctx), ImplVendor(ImplVendor), CtxScore(CtxScore) {
+    }
+  };
+
   /// Checks if the variant/multiversion functions are compatible.
   bool areMultiversionVariantFunctionsCompatible(
       const FunctionDecl *OldFD, const FunctionDecl *NewFD,
@@ -9839,19 +9864,32 @@ public:
       ArrayRef<Expr *> Alignments, ArrayRef<Expr *> Linears,
       ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps, SourceRange SR);
 
-  /// Called on well-formed '\#pragma omp declare variant' after parsing of
-  /// the associated method/function.
+  /// Checks '\#pragma omp declare variant' variant function and original
+  /// functions after parsing of the associated method/function.
   /// \param DG Function declaration to which declare variant directive is
   /// applied to.
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
-  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(DeclGroupPtrTy DG,
-                                                    Expr *VariantRef,
+  /// \returns None, if the function/variant function are not compatible with
+  /// the pragma, pair of original function/variant ref expression otherwise.
+  Optional<std::pair<FunctionDecl *, Expr *>> checkOpenMPDeclareVariantFunction(
+      DeclGroupPtrTy DG, Expr *VariantRef, SourceRange SR);
+
+  /// Called on well-formed '\#pragma omp declare variant' after parsing of
+  /// the associated method/function.
+  /// \param FD Function declaration to which declare variant directive is
+  /// applied to.
+  /// \param VariantRef Expression that references the variant function, which
+  /// must be used instead of the original one, specified in \p DG.
+  /// \param Data Set of context-specific data for the specified context
+  /// selector.
+  void ActOnOpenMPDeclareVariantDirective(
+      FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
 #if INTEL_CUSTOMIZATION
     SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
     SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
-                                                    SourceRange SR);
+      const Sema::OpenMPDeclareVariantCtsSelectorData &Data);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,
@@ -11775,7 +11813,7 @@ public:
     KernelCallVariadicFunction
  };
   DeviceDiagBuilder SYCLDiagIfDeviceCode(SourceLocation Loc, unsigned DiagID);
-  void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc);
+  void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc, MangleContext &MC);
   void MarkDevice(void);
   bool CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee);
 };

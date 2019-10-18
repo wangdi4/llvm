@@ -96,10 +96,12 @@ void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS);
 #endif // INTEL_CUSTOMIZATION
 void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
 void EmitGlobalISel(RecordKeeper &RK, raw_ostream &OS);
+void EmitGICombiner(RecordKeeper &RK, raw_ostream &OS);
 void EmitX86EVEX2VEXTables(RecordKeeper &RK, raw_ostream &OS);
 void EmitX86FoldTables(RecordKeeper &RK, raw_ostream &OS);
 void EmitRegisterBank(RecordKeeper &RK, raw_ostream &OS);
 void EmitExegesis(RecordKeeper &RK, raw_ostream &OS);
+void EmitAutomata(RecordKeeper &RK, raw_ostream &OS);
 
 } // End llvm namespace
 

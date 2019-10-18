@@ -745,7 +745,7 @@ void VPOCodeGen::createSerialPrivateArrayBase(Value *ArrPriv) {
     AllocaInst *SPrivArr = Builder.CreateAlloca(
         PointeeTy, nullptr, ArrPrivInst->getName() + ".vec");
     // Alignment of the alloca should match the original alignment.
-    SPrivArr->setAlignment(getPrivateVarAlignment(ArrPriv));
+    SPrivArr->setAlignment(MaybeAlign(getPrivateVarAlignment(ArrPriv)));
     ScalarMap[ArrPriv][I] = SPrivArr;
   }
   Builder.restoreIP(OldIP);
@@ -824,7 +824,7 @@ Value *VPOCodeGen::getVectorPrivateAggregateBase(Value *AggrPriv) {
   AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
       VecTyForAlloca, nullptr, AggrPriv->getName() + ".vec");
   // Alignment of the alloca should match the original alignment.
-  WidenedPrivArr->setAlignment(getPrivateVarAlignment(AggrPriv));
+  WidenedPrivArr->setAlignment(MaybeAlign(getPrivateVarAlignment(AggrPriv)));
 
   // Save alloca's result
   LoopPrivateWidenMap[AggrPriv] = WidenedPrivArr;
@@ -882,7 +882,7 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
       Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec"));
 
   // Alignment of vector alloca should match the original alignment
-  PtrToVec->setAlignment(getPrivateVarAlignment(V));
+  PtrToVec->setAlignment(MaybeAlign(getPrivateVarAlignment(V)));
 
   // Save alloca's result
   LoopPrivateWidenMap[V] = PtrToVec;

@@ -265,7 +265,6 @@ private:
       case access::target::global_buffer:
       case access::target::constant_buffer: {
         detail::Requirement *AccImpl = static_cast<detail::Requirement *>(Ptr);
-        AccImpl->MUsedFromSourceKernel = IsKernelCreatedFromSource;
         MArgs.emplace_back(Kind, AccImpl, Size, Index + IndexShift);
         if (!IsKernelCreatedFromSource) {
           // Dimensionality of the buffer is 1 when dimensionality of the
@@ -394,6 +393,12 @@ private:
     case detail::CG::FILL_USM:
       CommandGroup.reset(new detail::CGFillUSM(
           std::move(MPattern), MDstPtr, MLength, std::move(MArgsStorage),
+          std::move(MAccStorage), std::move(MSharedPtrStorage),
+          std::move(MRequirements), std::move(MEvents)));
+      break;
+    case detail::CG::PREFETCH_USM:
+      CommandGroup.reset(new detail::CGPrefetchUSM(
+          MDstPtr, MLength, std::move(MArgsStorage),
           std::move(MAccStorage), std::move(MSharedPtrStorage),
           std::move(MRequirements), std::move(MEvents)));
       break;
@@ -1162,6 +1167,13 @@ public:
     MPattern.push_back((char)Value);
     MLength = Count;
     MCGType = detail::CG::FILL_USM;
+  }
+
+  // Prefetch the memory pointed to by the pointer.
+  void prefetch(const void *Ptr, size_t Count) {
+    MDstPtr = const_cast<void *>(Ptr);
+    MLength = Count;
+    MCGType = detail::CG::PREFETCH_USM;
   }
 };
 } // namespace sycl

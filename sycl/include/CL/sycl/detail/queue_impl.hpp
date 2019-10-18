@@ -80,6 +80,10 @@ public:
 
   context get_context() const { return m_Context; }
 
+  ContextImplPtr get_context_impl() const {
+    return detail::getSyclObjImpl(m_Context);
+  }
+
   device get_device() const { return m_Device; }
 
   bool is_host() const { return m_HostQueue; }
@@ -221,8 +225,10 @@ public:
     return m_PropList.get_property<propertyT>();
   }
 
-  event memset(void *Ptr, int Value, size_t Count);
-  event memcpy(void *Dest, const void *Src, size_t Count);
+  event memset(std::shared_ptr<queue_impl> Impl, void *Ptr, int Value,
+               size_t Count);
+  event memcpy(std::shared_ptr<queue_impl> Impl, void *Dest, const void *Src,
+               size_t Count);
   event mem_advise(const void *Ptr, size_t Length, int Advice);
 
 private:

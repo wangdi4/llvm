@@ -1144,6 +1144,8 @@ X86InstrInfo::convertToThreeAddress(MachineFunction::iterator &MFI,
     return nullptr;
   case X86::SUB32ri8:
   case X86::SUB32ri: {
+    if (!MI.getOperand(2).isImm())
+      return nullptr;
     int64_t Imm = MI.getOperand(2).getImm();
     if (!isInt<32>(-Imm))
       return nullptr;
@@ -1170,6 +1172,8 @@ X86InstrInfo::convertToThreeAddress(MachineFunction::iterator &MFI,
 
   case X86::SUB64ri8:
   case X86::SUB64ri32: {
+    if (!MI.getOperand(2).isImm())
+      return nullptr;
     int64_t Imm = MI.getOperand(2).getImm();
     if (!isInt<32>(-Imm))
       return nullptr;
@@ -1992,7 +1996,8 @@ X86InstrInfo::findThreeSrcCommutedOpIndices(const MachineInstr &MI,
   return true;
 }
 
-bool X86InstrInfo::findCommutedOpIndices(MachineInstr &MI, unsigned &SrcOpIdx1,
+bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
+                                         unsigned &SrcOpIdx1,
                                          unsigned &SrcOpIdx2) const {
   const MCInstrDesc &Desc = MI.getDesc();
   if (!Desc.isCommutable())
@@ -4419,7 +4424,10 @@ unsigned X86InstrInfo::getPartialRegUpdateClearance(
 
 // Return true for any instruction the copies the high bits of the first source
 // operand into the unused high bits of the destination operand.
-static bool hasUndefRegUpdate(unsigned Opcode, bool ForLoadFold = false) {
+static bool hasUndefRegUpdate(unsigned Opcode, unsigned &OpNum,
+                              bool ForLoadFold = false) {
+  // Set the OpNum parameter to the first source operand.
+  OpNum = 1;
   switch (Opcode) {
   case X86::VCVTSI2SSrr:
   case X86::VCVTSI2SSrm:
@@ -4653,6 +4661,14 @@ static bool hasUndefRegUpdate(unsigned Opcode, bool ForLoadFold = false) {
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return true;
+  case X86::VMOVSSZrrk:
+  case X86::VMOVSDZrrk:
+    OpNum = 3;
+    return true;
+  case X86::VMOVSSZrrkz:
+  case X86::VMOVSDZrrkz:
+    OpNum = 2;
+    return true;
   }
 
   return false;
@@ -4675,11 +4691,8 @@ static bool hasUndefRegUpdate(unsigned Opcode, bool ForLoadFold = false) {
 unsigned
 X86InstrInfo::getUndefRegClearance(const MachineInstr &MI, unsigned &OpNum,
                                    const TargetRegisterInfo *TRI) const {
-  if (!hasUndefRegUpdate(MI.getOpcode()))
+  if (!hasUndefRegUpdate(MI.getOpcode(), OpNum))
     return 0;
-
-  // Set the OpNum parameter to the first source operand.
-  OpNum = 1;
 
   const MachineOperand &MO = MI.getOperand(OpNum);
   if (MO.isUndef() && Register::isPhysicalRegister(MO.getReg())) {
@@ -4924,7 +4937,8 @@ MachineInstr *X86InstrInfo::foldMemoryOperandCustom(
 
 static bool shouldPreventUndefRegUpdateMemFold(MachineFunction &MF,
                                                MachineInstr &MI) {
-  if (!hasUndefRegUpdate(MI.getOpcode(), /*ForLoadFold*/true) ||
+  unsigned Ignored;
+  if (!hasUndefRegUpdate(MI.getOpcode(), Ignored, /*ForLoadFold*/true) ||
       !MI.getOperand(1).isReg())
     return false;
 

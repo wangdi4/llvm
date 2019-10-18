@@ -2648,13 +2648,13 @@ private:
   /// \return false if error happens.
   bool ParseOpenCLUnrollHintAttribute(ParsedAttributes &Attrs);
 
-  /// Parses intelfpga:: loop attributes if the language is SYCL
-  bool MaybeParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
-    if (getLangOpts().SYCLIsDevice)
-      return ParseIntelFPGALoopAttributes(Attrs);
+  /// Parses intelfpga:: and clang:: loop attributes if the language is SYCL
+  bool MaybeParseSYCLLoopAttributes(ParsedAttributes &Attrs) {
+    if (getLangOpts().SYCLIsDevice || getLangOpts().SYCLIsHost)
+      return ParseSYCLLoopAttributes(Attrs);
     return true;
   }
-  bool ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs);
+  bool ParseSYCLLoopAttributes(ParsedAttributes &Attrs);
 
   void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
   VersionTuple ParseVersionTuple(SourceRange &Range);
@@ -2937,10 +2937,20 @@ private:
   DeclGroupPtrTy ParseOMPDeclareSimdClauses(DeclGroupPtrTy Ptr,
                                             CachedTokens &Toks,
                                             SourceLocation Loc);
+  /// Parses OpenMP context selectors and calls \p Callback for each
+  /// successfully parsed context selector.
+  bool parseOpenMPContextSelectors(
+      SourceLocation Loc,
+#if INTEL_CUSTOMIZATION
+      llvm::function_ref<void(SourceRange,
+          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::ConstructTy> &,
+          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::DeviceTy> &,
+          const Sema::OpenMPDeclareVariantCtsSelectorData &)> Callback);
+#endif // INTEL_CUSTOMIZATION
+
   /// Parse clauses for '#pragma omp declare variant'.
-  DeclGroupPtrTy ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr,
-                                               CachedTokens &Toks,
-                                               SourceLocation Loc);
+  void ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr, CachedTokens &Toks,
+                                     SourceLocation Loc);
   /// Parse clauses for '#pragma omp declare target'.
   DeclGroupPtrTy ParseOMPDeclareTargetClauses();
   /// Parse '#pragma omp end declare target'.

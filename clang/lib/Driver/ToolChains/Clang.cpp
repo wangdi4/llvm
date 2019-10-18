@@ -839,12 +839,14 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     }
   }
 
-  if (Args.hasArg(options::OPT_ftest_coverage) ||
-      Args.hasArg(options::OPT_coverage))
+  bool EmitCovNotes = Args.hasArg(options::OPT_ftest_coverage) ||
+                      Args.hasArg(options::OPT_coverage);
+  bool EmitCovData = Args.hasFlag(options::OPT_fprofile_arcs,
+                                  options::OPT_fno_profile_arcs, false) ||
+                     Args.hasArg(options::OPT_coverage);
+  if (EmitCovNotes)
     CmdArgs.push_back("-femit-coverage-notes");
-  if (Args.hasFlag(options::OPT_fprofile_arcs, options::OPT_fno_profile_arcs,
-                   false) ||
-      Args.hasArg(options::OPT_coverage))
+  if (EmitCovData)
     CmdArgs.push_back("-femit-coverage-data");
 
   if (Args.hasFlag(options::OPT_fcoverage_mapping,
@@ -880,40 +882,48 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     CmdArgs.push_back(Args.MakeArgString(Twine("-fprofile-filter-files=" + v)));
   }
 
-  if (C.getArgs().hasArg(options::OPT_c) ||
-      C.getArgs().hasArg(options::OPT_S)) {
-    if (Output.isFilename()) {
-      CmdArgs.push_back("-coverage-notes-file");
-      SmallString<128> OutputFilename;
-      if (Arg *FinalOutput = C.getArgs().getLastArg(options::OPT_o))
-        OutputFilename = FinalOutput->getValue();
-      else
-        OutputFilename = llvm::sys::path::filename(Output.getBaseInput());
-      SmallString<128> CoverageFilename = OutputFilename;
-      if (llvm::sys::path::is_relative(CoverageFilename)) {
-        SmallString<128> Pwd;
-        if (!llvm::sys::fs::current_path(Pwd)) {
-          llvm::sys::path::append(Pwd, CoverageFilename);
-          CoverageFilename.swap(Pwd);
-        }
-      }
-      llvm::sys::path::replace_extension(CoverageFilename, "gcno");
-      CmdArgs.push_back(Args.MakeArgString(CoverageFilename));
+  // Leave -fprofile-dir= an unused argument unless .gcda emission is
+  // enabled. To be polite, with '-fprofile-arcs -fno-profile-arcs' consider
+  // the flag used. There is no -fno-profile-dir, so the user has no
+  // targeted way to suppress the warning.
+  Arg *FProfileDir = nullptr;
+  if (Args.hasArg(options::OPT_fprofile_arcs) ||
+      Args.hasArg(options::OPT_coverage))
+    FProfileDir = Args.getLastArg(options::OPT_fprofile_dir);
 
-      // Leave -fprofile-dir= an unused argument unless .gcda emission is
-      // enabled. To be polite, with '-fprofile-arcs -fno-profile-arcs' consider
-      // the flag used. There is no -fno-profile-dir, so the user has no
-      // targeted way to suppress the warning.
-      if (Args.hasArg(options::OPT_fprofile_arcs) ||
-          Args.hasArg(options::OPT_coverage)) {
-        CmdArgs.push_back("-coverage-data-file");
-        if (Arg *FProfileDir = Args.getLastArg(options::OPT_fprofile_dir)) {
-          CoverageFilename = FProfileDir->getValue();
-          llvm::sys::path::append(CoverageFilename, OutputFilename);
-        }
-        llvm::sys::path::replace_extension(CoverageFilename, "gcda");
-        CmdArgs.push_back(Args.MakeArgString(CoverageFilename));
+  // Put the .gcno and .gcda files (if needed) next to the object file or
+  // bitcode file in the case of LTO.
+  // FIXME: There should be a simpler way to find the object file for this
+  // input, and this code probably does the wrong thing for commands that
+  // compile and link all at once.
+  if ((Args.hasArg(options::OPT_c) || Args.hasArg(options::OPT_S)) &&
+      (EmitCovNotes || EmitCovData) && Output.isFilename()) {
+    SmallString<128> OutputFilename;
+    if (Arg *FinalOutput = C.getArgs().getLastArg(options::OPT_o))
+      OutputFilename = FinalOutput->getValue();
+    else
+      OutputFilename = llvm::sys::path::filename(Output.getBaseInput());
+    SmallString<128> CoverageFilename = OutputFilename;
+    if (llvm::sys::path::is_relative(CoverageFilename)) {
+      SmallString<128> Pwd;
+      if (!llvm::sys::fs::current_path(Pwd)) {
+        llvm::sys::path::append(Pwd, CoverageFilename);
+        CoverageFilename.swap(Pwd);
       }
+    }
+    llvm::sys::path::replace_extension(CoverageFilename, "gcno");
+
+    CmdArgs.push_back("-coverage-notes-file");
+    CmdArgs.push_back(Args.MakeArgString(CoverageFilename));
+
+    if (EmitCovData) {
+      if (FProfileDir) {
+        CoverageFilename = FProfileDir->getValue();
+        llvm::sys::path::append(CoverageFilename, OutputFilename);
+      }
+      llvm::sys::path::replace_extension(CoverageFilename, "gcda");
+      CmdArgs.push_back("-coverage-data-file");
+      CmdArgs.push_back(Args.MakeArgString(CoverageFilename));
     }
   }
 }
@@ -1687,13 +1697,6 @@ void Clang::AddMIPSTargetArgs(const ArgList &Args,
     CmdArgs.push_back("hard");
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_mxgot, options::OPT_mno_xgot)) {
-    if (A->getOption().matches(options::OPT_mxgot)) {
-      CmdArgs.push_back("-mllvm");
-      CmdArgs.push_back("-mxgot");
-    }
-  }
-
   if (Arg *A = Args.getLastArg(options::OPT_mldc1_sdc1,
                                options::OPT_mno_ldc1_sdc1)) {
     if (A->getOption().matches(options::OPT_mno_ldc1_sdc1)) {
@@ -2036,7 +2039,7 @@ void Clang::DumpCompilationDatabase(Compilation &C, StringRef Filename,
   }
   auto &CDB = *CompilationDatabase;
   SmallString<128> Buf;
-  if (!llvm::sys::fs::current_path(Buf))
+  if (llvm::sys::fs::current_path(Buf))
     Buf = ".";
   CDB << "{ \"directory\": \"" << escape(Buf) << "\"";
   CDB << ", \"file\": \"" << escape(Input.getFilename()) << "\"";
@@ -4879,6 +4882,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Forward -sycl-std option to -cc1
   Args.AddLastArg(CmdArgs, options::OPT_sycl_std_EQ);
 
+  if (Args.hasFlag(options::OPT_fhip_new_launch_api,
+                   options::OPT_fno_hip_new_launch_api, false))
+    CmdArgs.push_back("-fhip-new-launch-api");
+
   if (Arg *A = Args.getLastArg(options::OPT_fcf_protection_EQ)) {
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-fcf-protection=") + A->getValue()));
@@ -5630,14 +5637,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fwhole-program-vtables");
   }
 
-  bool RequiresSplitLTOUnit = WholeProgramVTables || Sanitize.needsLTO();
+  bool DefaultsSplitLTOUnit = WholeProgramVTables || Sanitize.needsLTO();
   bool SplitLTOUnit =
       Args.hasFlag(options::OPT_fsplit_lto_unit,
-                   options::OPT_fno_split_lto_unit, RequiresSplitLTOUnit);
-  if (RequiresSplitLTOUnit && !SplitLTOUnit)
-    D.Diag(diag::err_drv_argument_not_allowed_with)
-        << "-fno-split-lto-unit"
-        << (WholeProgramVTables ? "-fwhole-program-vtables" : "-fsanitize=cfi");
+                   options::OPT_fno_split_lto_unit, DefaultsSplitLTOUnit);
+  if (Sanitize.needsLTO() && !SplitLTOUnit)
+    D.Diag(diag::err_drv_argument_not_allowed_with) << "-fno-split-lto-unit"
+                                                    << "-fsanitize=cfi";
   if (SplitLTOUnit)
     CmdArgs.push_back("-fsplit-lto-unit");
 
@@ -6698,7 +6704,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   SmallString<128> Triples;
   Triples += "-targets=";
   auto DepInfo = UA.getDependentActionsInfo();
-  for (unsigned I = 0; I < DepInfo.size(); ++I) {
+  for (unsigned I = 0, J = 0; I < DepInfo.size(); ++I) {
     auto &Dep = DepInfo[I];
     // FPGA device triples are 'transformed' for the bundler when creating
     // aocx or aocr type bundles.  Also, we only do a specific target
@@ -6724,8 +6730,14 @@ void OffloadBundler::ConstructJobMultipleOutputs(
         Triples += Dep.DependentToolChain->getTriple().normalize();
       }
       continue;
+    } else if (Input.getType() == types::TY_Archive) {
+      // Do not extract host part if we are unbundling archive on Windows
+      // because it is not needed. Static offload libraries are added to the
+      // host link command just as normal libraries.
+      if (Dep.DependentOffloadKind == Action::OFK_Host)
+        continue;
     }
-    if (I)
+    if (J++)
       Triples += ',';
     Triples += Action::GetOffloadKindName(Dep.DependentOffloadKind);
     Triples += '-';
@@ -6791,23 +6803,24 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   SmallString<128> HostTripleOpt("-host=");
   HostTripleOpt += getToolChain().getAuxTriple()->str();
   WrapperArgs.push_back(C.getArgs().MakeArgString(HostTripleOpt));
+
+  llvm::Triple TT = getToolChain().getTriple();
+  SmallString<128> TargetTripleOpt = TT.getArchName();
   // When wrapping an FPGA device binary, we need to be sure to apply the
   // appropriate triple that corresponds (fpga_aoc[xr]-intel-<os>-sycldevice)
   // to the target triple setting.
-  if (getToolChain().getTriple().getSubArch() ==
-          llvm::Triple::SPIRSubArch_fpga &&
+  if (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga &&
       TCArgs.hasArg(options::OPT_fsycl_link_EQ)) {
-    llvm::Triple TT;
     auto *A = C.getInputArgs().getLastArg(options::OPT_fsycl_link_EQ);
     TT.setArchName((A->getValue() == StringRef("early")) ? "fpga_aocr"
                                                          : "fpga_aocx");
     TT.setVendorName("intel");
     TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
     TT.setEnvironment(llvm::Triple::SYCLDevice);
-    SmallString<128> TargetTripleOpt("-target=");
-    TargetTripleOpt += TT.str();
-    WrapperArgs.push_back(C.getArgs().MakeArgString(TargetTripleOpt));
+    TargetTripleOpt = TT.str();
   }
+  WrapperArgs.push_back(
+      C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
 
   // TODO forcing offload kind is a simplification which assumes wrapper used
   // only with SYCL. Device binary format (-format=xxx) option should also come

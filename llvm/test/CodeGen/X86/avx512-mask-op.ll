@@ -484,8 +484,8 @@ define <4 x i32> @test4(<4 x i64> %x, <4 x i64> %y, <4 x i64> %x1, <4 x i64> %y1
 ; KNL-NEXT:    ## kill: def $ymm2 killed $ymm2 def $zmm2
 ; KNL-NEXT:    ## kill: def $ymm1 killed $ymm1 def $zmm1
 ; KNL-NEXT:    ## kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vpcmpleq %zmm1, %zmm0, %k1
-; KNL-NEXT:    vpcmpgtq %zmm3, %zmm2, %k1 {%k1}
+; KNL-NEXT:    vpcmpgtq %zmm3, %zmm2, %k1
+; KNL-NEXT:    vpcmpleq %zmm1, %zmm0, %k1 {%k1}
 ; KNL-NEXT:    vpternlogd $255, %zmm0, %zmm0, %zmm0 {%k1} {z}
 ; KNL-NEXT:    ## kill: def $xmm0 killed $xmm0 killed $zmm0
 ; KNL-NEXT:    vzeroupper
@@ -493,8 +493,8 @@ define <4 x i32> @test4(<4 x i64> %x, <4 x i64> %y, <4 x i64> %x1, <4 x i64> %y1
 ;
 ; SKX-LABEL: test4:
 ; SKX:       ## %bb.0:
-; SKX-NEXT:    vpcmpleq %ymm1, %ymm0, %k1
-; SKX-NEXT:    vpcmpgtq %ymm3, %ymm2, %k0 {%k1}
+; SKX-NEXT:    vpcmpgtq %ymm3, %ymm2, %k1
+; SKX-NEXT:    vpcmpleq %ymm1, %ymm0, %k0 {%k1}
 ; SKX-NEXT:    vpmovm2d %k0, %xmm0
 ; SKX-NEXT:    vzeroupper
 ; SKX-NEXT:    retq
@@ -505,8 +505,8 @@ define <4 x i32> @test4(<4 x i64> %x, <4 x i64> %y, <4 x i64> %x1, <4 x i64> %y1
 ; AVX512BW-NEXT:    ## kill: def $ymm2 killed $ymm2 def $zmm2
 ; AVX512BW-NEXT:    ## kill: def $ymm1 killed $ymm1 def $zmm1
 ; AVX512BW-NEXT:    ## kill: def $ymm0 killed $ymm0 def $zmm0
-; AVX512BW-NEXT:    vpcmpleq %zmm1, %zmm0, %k1
-; AVX512BW-NEXT:    vpcmpgtq %zmm3, %zmm2, %k1 {%k1}
+; AVX512BW-NEXT:    vpcmpgtq %zmm3, %zmm2, %k1
+; AVX512BW-NEXT:    vpcmpleq %zmm1, %zmm0, %k1 {%k1}
 ; AVX512BW-NEXT:    vpternlogd $255, %zmm0, %zmm0, %zmm0 {%k1} {z}
 ; AVX512BW-NEXT:    ## kill: def $xmm0 killed $xmm0 killed $zmm0
 ; AVX512BW-NEXT:    vzeroupper
@@ -518,8 +518,8 @@ define <4 x i32> @test4(<4 x i64> %x, <4 x i64> %y, <4 x i64> %x1, <4 x i64> %y1
 ; AVX512DQ-NEXT:    ## kill: def $ymm2 killed $ymm2 def $zmm2
 ; AVX512DQ-NEXT:    ## kill: def $ymm1 killed $ymm1 def $zmm1
 ; AVX512DQ-NEXT:    ## kill: def $ymm0 killed $ymm0 def $zmm0
-; AVX512DQ-NEXT:    vpcmpleq %zmm1, %zmm0, %k1
-; AVX512DQ-NEXT:    vpcmpgtq %zmm3, %zmm2, %k0 {%k1}
+; AVX512DQ-NEXT:    vpcmpgtq %zmm3, %zmm2, %k1
+; AVX512DQ-NEXT:    vpcmpleq %zmm1, %zmm0, %k0 {%k1}
 ; AVX512DQ-NEXT:    vpmovm2d %k0, %zmm0
 ; AVX512DQ-NEXT:    ## kill: def $xmm0 killed $xmm0 killed $zmm0
 ; AVX512DQ-NEXT:    vzeroupper
@@ -527,8 +527,8 @@ define <4 x i32> @test4(<4 x i64> %x, <4 x i64> %y, <4 x i64> %x1, <4 x i64> %y1
 ;
 ; X86-LABEL: test4:
 ; X86:       ## %bb.0:
-; X86-NEXT:    vpcmpleq %ymm1, %ymm0, %k1
-; X86-NEXT:    vpcmpgtq %ymm3, %ymm2, %k0 {%k1}
+; X86-NEXT:    vpcmpgtq %ymm3, %ymm2, %k1
+; X86-NEXT:    vpcmpleq %ymm1, %ymm0, %k0 {%k1}
 ; X86-NEXT:    vpmovm2d %k0, %xmm0
 ; X86-NEXT:    vzeroupper
 ; X86-NEXT:    retl
@@ -546,8 +546,8 @@ define <2 x i64> @test5(<2 x i64> %x, <2 x i64> %y, <2 x i64> %x1, <2 x i64> %y1
 ; KNL-NEXT:    ## kill: def $xmm2 killed $xmm2 def $zmm2
 ; KNL-NEXT:    ## kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    ## kill: def $xmm0 killed $xmm0 def $zmm0
-; KNL-NEXT:    vpcmpleq %zmm3, %zmm2, %k1
-; KNL-NEXT:    vpcmpgtq %zmm0, %zmm1, %k1 {%k1}
+; KNL-NEXT:    vpcmpgtq %zmm0, %zmm1, %k1
+; KNL-NEXT:    vpcmpleq %zmm3, %zmm2, %k1 {%k1}
 ; KNL-NEXT:    vpternlogq $255, %zmm0, %zmm0, %zmm0 {%k1} {z}
 ; KNL-NEXT:    ## kill: def $xmm0 killed $xmm0 killed $zmm0
 ; KNL-NEXT:    vzeroupper
@@ -555,8 +555,8 @@ define <2 x i64> @test5(<2 x i64> %x, <2 x i64> %y, <2 x i64> %x1, <2 x i64> %y1
 ;
 ; SKX-LABEL: test5:
 ; SKX:       ## %bb.0:
-; SKX-NEXT:    vpcmpleq %xmm3, %xmm2, %k1
-; SKX-NEXT:    vpcmpgtq %xmm0, %xmm1, %k0 {%k1}
+; SKX-NEXT:    vpcmpgtq %xmm0, %xmm1, %k1
+; SKX-NEXT:    vpcmpleq %xmm3, %xmm2, %k0 {%k1}
 ; SKX-NEXT:    vpmovm2q %k0, %xmm0
 ; SKX-NEXT:    retq
 ;
@@ -566,8 +566,8 @@ define <2 x i64> @test5(<2 x i64> %x, <2 x i64> %y, <2 x i64> %x1, <2 x i64> %y1
 ; AVX512BW-NEXT:    ## kill: def $xmm2 killed $xmm2 def $zmm2
 ; AVX512BW-NEXT:    ## kill: def $xmm1 killed $xmm1 def $zmm1
 ; AVX512BW-NEXT:    ## kill: def $xmm0 killed $xmm0 def $zmm0
-; AVX512BW-NEXT:    vpcmpleq %zmm3, %zmm2, %k1
-; AVX512BW-NEXT:    vpcmpgtq %zmm0, %zmm1, %k1 {%k1}
+; AVX512BW-NEXT:    vpcmpgtq %zmm0, %zmm1, %k1
+; AVX512BW-NEXT:    vpcmpleq %zmm3, %zmm2, %k1 {%k1}
 ; AVX512BW-NEXT:    vpternlogq $255, %zmm0, %zmm0, %zmm0 {%k1} {z}
 ; AVX512BW-NEXT:    ## kill: def $xmm0 killed $xmm0 killed $zmm0
 ; AVX512BW-NEXT:    vzeroupper
@@ -579,8 +579,8 @@ define <2 x i64> @test5(<2 x i64> %x, <2 x i64> %y, <2 x i64> %x1, <2 x i64> %y1
 ; AVX512DQ-NEXT:    ## kill: def $xmm2 killed $xmm2 def $zmm2
 ; AVX512DQ-NEXT:    ## kill: def $xmm1 killed $xmm1 def $zmm1
 ; AVX512DQ-NEXT:    ## kill: def $xmm0 killed $xmm0 def $zmm0
-; AVX512DQ-NEXT:    vpcmpleq %zmm3, %zmm2, %k1
-; AVX512DQ-NEXT:    vpcmpgtq %zmm0, %zmm1, %k0 {%k1}
+; AVX512DQ-NEXT:    vpcmpgtq %zmm0, %zmm1, %k1
+; AVX512DQ-NEXT:    vpcmpleq %zmm3, %zmm2, %k0 {%k1}
 ; AVX512DQ-NEXT:    vpmovm2q %k0, %zmm0
 ; AVX512DQ-NEXT:    ## kill: def $xmm0 killed $xmm0 killed $zmm0
 ; AVX512DQ-NEXT:    vzeroupper
@@ -588,8 +588,8 @@ define <2 x i64> @test5(<2 x i64> %x, <2 x i64> %y, <2 x i64> %x1, <2 x i64> %y1
 ;
 ; X86-LABEL: test5:
 ; X86:       ## %bb.0:
-; X86-NEXT:    vpcmpleq %xmm3, %xmm2, %k1
-; X86-NEXT:    vpcmpgtq %xmm0, %xmm1, %k0 {%k1}
+; X86-NEXT:    vpcmpgtq %xmm0, %xmm1, %k1
+; X86-NEXT:    vpcmpleq %xmm3, %xmm2, %k0 {%k1}
 ; X86-NEXT:    vpmovm2q %k0, %xmm0
 ; X86-NEXT:    retl
   %x_gt_y = icmp slt <2 x i64> %x, %y
@@ -5282,4 +5282,81 @@ bar:
 
 exit:
   ret void
+}
+
+define <64 x i1> @mask64_insert(i32 %a) {
+; KNL-LABEL: mask64_insert:
+; KNL:       ## %bb.0:
+; KNL-NEXT:    movq %rdi, %rax
+; KNL-NEXT:    movw $-4, %cx
+; KNL-NEXT:    kmovw %ecx, %k0
+; KNL-NEXT:    kshiftrw $1, %k0, %k0
+; KNL-NEXT:    kshiftlw $1, %k0, %k0
+; KNL-NEXT:    andl $1, %esi
+; KNL-NEXT:    kmovw %esi, %k1
+; KNL-NEXT:    korw %k1, %k0, %k0
+; KNL-NEXT:    kmovw %k0, (%rdi)
+; KNL-NEXT:    movw $-3, 6(%rdi)
+; KNL-NEXT:    movl $-131075, 2(%rdi) ## imm = 0xFFFDFFFD
+; KNL-NEXT:    retq
+;
+; SKX-LABEL: mask64_insert:
+; SKX:       ## %bb.0:
+; SKX-NEXT:    kmovd %edi, %k0
+; SKX-NEXT:    kshiftlq $63, %k0, %k0
+; SKX-NEXT:    kshiftrq $63, %k0, %k0
+; SKX-NEXT:    movabsq $-562958543486980, %rax ## imm = 0xFFFDFFFDFFFDFFFC
+; SKX-NEXT:    kmovq %rax, %k1
+; SKX-NEXT:    kshiftrq $1, %k1, %k1
+; SKX-NEXT:    kshiftlq $1, %k1, %k1
+; SKX-NEXT:    korq %k0, %k1, %k0
+; SKX-NEXT:    vpmovm2b %k0, %zmm0
+; SKX-NEXT:    retq
+;
+; AVX512BW-LABEL: mask64_insert:
+; AVX512BW:       ## %bb.0:
+; AVX512BW-NEXT:    kmovd %edi, %k0
+; AVX512BW-NEXT:    kshiftlq $63, %k0, %k0
+; AVX512BW-NEXT:    kshiftrq $63, %k0, %k0
+; AVX512BW-NEXT:    movabsq $-562958543486980, %rax ## imm = 0xFFFDFFFDFFFDFFFC
+; AVX512BW-NEXT:    kmovq %rax, %k1
+; AVX512BW-NEXT:    kshiftrq $1, %k1, %k1
+; AVX512BW-NEXT:    kshiftlq $1, %k1, %k1
+; AVX512BW-NEXT:    korq %k0, %k1, %k0
+; AVX512BW-NEXT:    vpmovm2b %k0, %zmm0
+; AVX512BW-NEXT:    retq
+;
+; AVX512DQ-LABEL: mask64_insert:
+; AVX512DQ:       ## %bb.0:
+; AVX512DQ-NEXT:    movq %rdi, %rax
+; AVX512DQ-NEXT:    movw $-4, %cx
+; AVX512DQ-NEXT:    kmovw %ecx, %k0
+; AVX512DQ-NEXT:    kshiftrw $1, %k0, %k0
+; AVX512DQ-NEXT:    kshiftlw $1, %k0, %k0
+; AVX512DQ-NEXT:    andl $1, %esi
+; AVX512DQ-NEXT:    kmovw %esi, %k1
+; AVX512DQ-NEXT:    korw %k1, %k0, %k0
+; AVX512DQ-NEXT:    kmovw %k0, (%rdi)
+; AVX512DQ-NEXT:    movw $-3, 6(%rdi)
+; AVX512DQ-NEXT:    movl $-131075, 2(%rdi) ## imm = 0xFFFDFFFD
+; AVX512DQ-NEXT:    retq
+;
+; X86-LABEL: mask64_insert:
+; X86:       ## %bb.0:
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k0
+; X86-NEXT:    movl $-131076, %eax ## imm = 0xFFFDFFFC
+; X86-NEXT:    kmovd %eax, %k1
+; X86-NEXT:    movl $-131075, %eax ## imm = 0xFFFDFFFD
+; X86-NEXT:    kmovd %eax, %k2
+; X86-NEXT:    kunpckdq %k1, %k2, %k1
+; X86-NEXT:    kshiftrq $1, %k1, %k1
+; X86-NEXT:    kshiftlq $1, %k1, %k1
+; X86-NEXT:    kshiftlq $63, %k0, %k0
+; X86-NEXT:    kshiftrq $63, %k0, %k0
+; X86-NEXT:    korq %k0, %k1, %k0
+; X86-NEXT:    vpmovm2b %k0, %zmm0
+; X86-NEXT:    retl
+  %a_i = trunc i32 %a to i1
+  %maskv = insertelement <64 x i1> <i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i1 %a_i, i32 0
+  ret <64 x i1> %maskv
 }

@@ -732,9 +732,25 @@ def AVRSignal : InheritableAttr, TargetSpecificAttr<TargetAVR> {
 
 def AsmLabel : InheritableAttr {
   let Spellings = [Keyword<"asm">, Keyword<"__asm__">];
-  let Args = [StringArgument<"Label">];
+  let Args = [
+    // Label specifies the mangled name for the decl.
+    StringArgument<"Label">,
+
+    // IsLiteralLabel specifies whether the label is literal (i.e. suppresses
+    // the global C symbol prefix) or not. If not, the mangle-suppression prefix
+    // ('\01') is omitted from the decl name at the LLVM IR level.
+    //
+    // Non-literal labels are used by some external AST sources like LLDB.
+    BoolArgument<"IsLiteralLabel", /*optional=*/0, /*fake=*/1>
+  ];
   let SemaHandler = 0;
-  let Documentation = [Undocumented];
+  let Documentation = [AsmLabelDocs];
+  let AdditionalMembers =
+[{
+bool isEquivalent(AsmLabelAttr *Other) const {
+  return getLabel() == Other->getLabel() && getIsLiteralLabel() == Other->getIsLiteralLabel();
+}
+}];
 }
 
 def Availability : InheritableAttr {
@@ -1109,6 +1125,24 @@ def OpenCLUnrollHint : InheritableAttr {
   let Spellings = [GNU<"opencl_unroll_hint">];
   let Args = [UnsignedArgument<"UnrollHint">];
   let Documentation = [OpenCLUnrollHintDocs];
+}
+
+def LoopUnrollHint : InheritableAttr {
+  let Spellings = [CXX11<"clang","loop_unroll">];
+  let Args = [UnsignedArgument<"UnrollHint">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "loop_unroll";
+    }
+    std::string getDiagnosticName() const {
+      std::string Value = "";
+      if (getUnrollHint())
+        Value = "(" + std::to_string(getUnrollHint()) + ")";
+      return "[[clang::loop_unroll" + Value + "]]";
+    }
+  }];
+  let Documentation = [LoopUnrollHintDocs];
 }
 
 def IntelReqdSubGroupSize: InheritableAttr {
@@ -3628,24 +3662,45 @@ def OMPAllocateDecl : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def OMPDeclareVariant : Attr {
+def OMPDeclareVariant : InheritableAttr {
   let Spellings = [Pragma<"omp", "declare variant">];
   let Subjects = SubjectList<[Function]>;
   let SemaHandler = 0;
   let HasCustomParsing = 1;
+  let InheritEvenIfAlreadyPresent = 1;
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
-    ExprArgument<"VariantFuncRef">
+    ExprArgument<"VariantFuncRef">,
 // INTEL_CUSTOMIZATION
-  , VariadicEnumArgument<"Construct", "ConstructTy",
+    VariadicEnumArgument<"Construct", "ConstructTy",
        ["", "target", "teams", "parallel", "for", "simd",
         "target_variant_dispatch"],
        ["Construct_None", "Construct_Target", "Construct_Teams",
         "Construct_Parallel", "Construct_For", "Construct_Simd",
         "Construct_Target_Variant_Dispatch"]>,
-       VariadicEnumArgument<"Device", "DeviceTy",
-          ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
+    VariadicEnumArgument<"Device", "DeviceTy",
+       ["", "gen"], ["Device_None", "Device_Arch_Gen"]>,
 // end INTEL_CUSTOMIZATION
+    ExprArgument<"Score">,
+    EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
+                 [ "", "implementation"
+                 ],
+                 [
+                   "CtxSetUnknown", "CtxSetImplementation"
+                 ]>,
+    EnumArgument<"CtxScore", "ScoreType",
+                 [ "", "score"
+                 ],
+                 [
+                   "ScoreUnknown", "ScoreSpecified"
+                 ]>,
+    EnumArgument<"CtxSelector", "CtxSelectorType",
+                 [ "", "vendor"
+                 ],
+                 [
+                   "CtxUnknown", "CtxVendor"
+                 ]>,
+    StringArgument<"ImplVendor", 1>
   ];
   let AdditionalMembers = [{
 // INTEL_CUSTOMIZATION
@@ -3662,15 +3717,43 @@ def OMPDeclareVariant : Attr {
       return "'gen'";
     }
 // end INTEL_CUSTOMIZATION
+    void printScore(raw_ostream & OS, const PrintingPolicy &Policy) const {
+      if (const Expr *E = getScore()) {
+        OS << "score(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << "):";
+      }
+    }
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
+      assert(getCtxSelectorSet() != CtxSetUnknown &&
+             getCtxSelector() != CtxUnknown && "Unknown context selector.");
       if (const Expr *E = getVariantFuncRef()) {
         OS << "(";
         E->printPretty(OS, nullptr, Policy);
         OS << ")";
       }
       // TODO: add printing of real context selectors.
-      OS << " match(unknown={})";
+      OS << " match(";
+      switch (getCtxSelectorSet()) {
+      case CtxSetImplementation:
+        OS << "implementation={";
+        switch (getCtxSelector()) {
+        case CtxVendor:
+          OS << "vendor(";
+          printScore(OS, Policy);
+          OS << getImplVendor();
+          OS << ")";
+          break;
+        case CtxUnknown:
+          llvm_unreachable("Unknown context selector.");
+        }
+        OS << "}";
+        break;
+      case CtxSetUnknown:
+        llvm_unreachable("Unknown context selector set.");
+      }
+      OS << ")";
     }
   }];
 }

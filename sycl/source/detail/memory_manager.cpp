@@ -160,21 +160,33 @@ void *MemoryManager::allocateMemImage(
                              Format);
 }
 
-void *MemoryManager::createSubBuffer(RT::PiMem ParentMem, size_t ElemSize,
-                                     id<3> Offset, range<3> Range,
-                                     std::vector<RT::PiEvent> DepEvents,
-                                     RT::PiEvent &OutEvent) {
+void *MemoryManager::allocateMemSubBuffer(ContextImplPtr TargetContext,
+                                          void *ParentMemObj, size_t ElemSize,
+                                          size_t Offset, range<3> Range,
+                                          std::vector<RT::PiEvent> DepEvents,
+                                          RT::PiEvent &OutEvent) {
   waitForEvents(DepEvents);
   OutEvent = nullptr;
 
+  if (TargetContext->is_host())
+    return static_cast<void *>(static_cast<char *>(ParentMemObj) + Offset);
+
+  size_t SizeInBytes = ElemSize;
+  for (size_t I = 0; I < 3; ++I)
+    SizeInBytes *= Range[I];
+
   RT::PiResult Error = PI_SUCCESS;
   // TODO replace with pi_buffer_region
-  cl_buffer_region Region{Offset[0] * ElemSize, Range[0] * ElemSize};
+  cl_buffer_region Region{Offset, SizeInBytes};
   RT::PiMem NewMem;
-  PI_CALL((NewMem = RT::piMemBufferPartition(ParentMem, PI_MEM_FLAGS_ACCESS_RW,
-                                             PI_BUFFER_CREATE_TYPE_REGION,
-                                             &Region, &Error),
-           Error));
+  PI_CALL_RESULT((NewMem = RT::piMemBufferPartition(
+                      pi::cast<RT::PiMem>(ParentMemObj), PI_MEM_FLAGS_ACCESS_RW,
+                      PI_BUFFER_CREATE_TYPE_REGION, &Region, &Error),
+                  Error));
+  if (Error == PI_MISALIGNED_SUB_BUFFER_OFFSET)
+    throw invalid_object_error(
+        "Specified offset of the sub-buffer being constructed is not a "
+        "multiple of the memory base address alignment");
   return NewMem;
 }
 
@@ -463,29 +475,56 @@ void MemoryManager::unmap(SYCLMemObjI *SYCLMemObj, void *Mem,
       DepEvents.empty() ? nullptr : &DepEvents[0], &OutEvent));
 }
 
-void MemoryManager::copy_usm(void *SrcMem, QueueImplPtr SrcQueue, size_t Len,
+void MemoryManager::copy_usm(const void *SrcMem, QueueImplPtr SrcQueue, size_t Len,
                              void *DstMem, std::vector<RT::PiEvent> DepEvents,
                              bool UseExclusiveQueue, RT::PiEvent &OutEvent) {
-  RT::PiQueue Queue = UseExclusiveQueue
-    ? SrcQueue->getExclusiveQueueHandleRef()
-    : SrcQueue->getHandleRef();
-
   sycl::context Context = SrcQueue->get_context();
-  std::shared_ptr<usm::USMDispatcher> USMDispatch =
-    getSyclObjImpl(Context)->getUSMDispatch();
-  PI_CHECK(USMDispatch->enqueueMemcpy(Queue,
-    /* blocking */ false, DstMem, SrcMem, Len, DepEvents.size(),
-    &DepEvents[0], &OutEvent));
+
+  if (Context.is_host()) {
+    std::memcpy(DstMem, SrcMem, Len);
+  } else {
+    RT::PiQueue Queue = UseExclusiveQueue
+                            ? SrcQueue->getExclusiveQueueHandleRef()
+                            : SrcQueue->getHandleRef();
+
+    std::shared_ptr<usm::USMDispatcher> USMDispatch =
+        getSyclObjImpl(Context)->getUSMDispatch();
+    PI_CHECK(USMDispatch->enqueueMemcpy(Queue,
+                                        /* blocking */ false, DstMem, SrcMem,
+                                        Len, DepEvents.size(), &DepEvents[0],
+                                        &OutEvent));
+  }
 }
 
 void MemoryManager::fill_usm(void *Mem, QueueImplPtr Queue, size_t Length,
                              int Pattern, std::vector<RT::PiEvent> DepEvents,
                              RT::PiEvent &OutEvent) {
   sycl::context Context = Queue->get_context();
-  std::shared_ptr<usm::USMDispatcher> USMDispatch =
-    getSyclObjImpl(Context)->getUSMDispatch();
-  PI_CHECK(USMDispatch->enqueueMemset(Queue->getHandleRef(),
-    Mem, Pattern, Length, DepEvents.size(), &DepEvents[0], &OutEvent));
+
+  if (Context.is_host()) {
+    std::memset(Mem, Pattern, Length);
+  } else {
+    std::shared_ptr<usm::USMDispatcher> USMDispatch =
+        getSyclObjImpl(Context)->getUSMDispatch();
+    PI_CHECK(USMDispatch->enqueueMemset(Queue->getHandleRef(), Mem, Pattern,
+                                        Length, DepEvents.size(), &DepEvents[0],
+                                        &OutEvent));
+  }
+}
+
+void MemoryManager::prefetch_usm(void *Mem, QueueImplPtr Queue, size_t Length,
+                                std::vector<RT::PiEvent> DepEvents,
+                                RT::PiEvent &OutEvent) {
+  sycl::context Context = Queue->get_context();
+
+  if (Context.is_host()) {
+    // TODO: Potentially implement prefetch on the host.
+  } else {
+    std::shared_ptr<usm::USMDispatcher> USMDispatch =
+      getSyclObjImpl(Context)->getUSMDispatch();
+    PI_CHECK(USMDispatch->enqueuePrefetch(Queue->getHandleRef(),
+      Mem, Length, DepEvents.size(), &DepEvents[0], &OutEvent));
+  }
 }
 
 } // namespace detail

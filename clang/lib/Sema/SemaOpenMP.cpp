@@ -170,7 +170,7 @@ private:
   OpenMPClauseKind ClauseKindMode = OMPC_unknown;
   Sema &SemaRef;
   bool ForceCapturing = false;
-  /// true if all the vaiables in the target executable directives must be
+  /// true if all the variables in the target executable directives must be
   /// captured by reference.
   bool ForceCaptureByReferenceInTargetExecutable = false;
   CriticalsWithHintsTy Criticals;
@@ -4617,6 +4617,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_dynamic_allocators:
       case OMPC_atomic_default_mem_order:
       case OMPC_device_type:
+      case OMPC_match:
         llvm_unreachable("Unexpected clause");
       }
       for (Stmt *CC : C->children()) {
@@ -4910,22 +4911,18 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
   return DG;
 }
 
-Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
-#if INTEL_CUSTOMIZATION
-    Sema::DeclGroupPtrTy DG, Expr *VariantRef,
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-    SourceRange SR) {
-#endif // INTEL_CUSTOMIZATION
+Optional<std::pair<FunctionDecl *, Expr *>>
+Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
+                                        Expr *VariantRef, SourceRange SR) {
   if (!DG || DG.get().isNull())
-    return DeclGroupPtrTy();
+    return None;
 
   const int VariantId = 1;
   // Must be applied only to single decl.
   if (!DG.get().isSingleDecl()) {
     Diag(SR.getBegin(), diag::err_omp_single_decl_in_declare_simd_variant)
         << VariantId << SR;
-    return DG;
+    return None;
   }
   Decl *ADecl = DG.get().getSingleDecl();
   if (auto *FTD = dyn_cast<FunctionTemplateDecl>(ADecl))
@@ -4936,7 +4933,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
   if (!FD) {
     Diag(ADecl->getLocation(), diag::err_omp_function_expected)
         << VariantId << SR;
-    return DeclGroupPtrTy();
+    return None;
   }
 
   auto &&HasMultiVersionAttributes = [](const FunctionDecl *FD) {
@@ -4948,34 +4945,32 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
   if (HasMultiVersionAttributes(FD)) {
     Diag(FD->getLocation(), diag::err_omp_declare_variant_incompat_attributes)
         << SR;
-    return DG;
+    return None;
   }
 
   // Allow #pragma omp declare variant only if the function is not used.
-  if (FD->isUsed(false)) {
-    Diag(SR.getBegin(), diag::err_omp_declare_variant_after_used)
+  if (FD->isUsed(false))
+    Diag(SR.getBegin(), diag::warn_omp_declare_variant_after_used)
         << FD->getLocation();
-    return DG;
-  }
+
+  // Check if the function was emitted already.
+  const FunctionDecl *Definition;
+  if (!FD->isThisDeclarationADefinition() && FD->isDefined(Definition) &&
+      (LangOpts.EmitAllDecls || Context.DeclMustBeEmitted(Definition)))
+    Diag(SR.getBegin(), diag::warn_omp_declare_variant_after_emitted)
+        << FD->getLocation();
 
   // The VariantRef must point to function.
   if (!VariantRef) {
     Diag(SR.getBegin(), diag::err_omp_function_expected) << VariantId;
-    return DG;
+    return None;
   }
 
   // Do not check templates, wait until instantiation.
   if (VariantRef->isTypeDependent() || VariantRef->isValueDependent() ||
       VariantRef->containsUnexpandedParameterPack() ||
-      VariantRef->isInstantiationDependent() || FD->isDependentContext()) {
-#if INTEL_CUSTOMIZATION
-    auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-        Context, VariantRef, Constructs.data(), Constructs.size(),
-        Devices.data(), Devices.size(), SR);
-#endif // INTEL_CUSTOMIZATION
-    FD->addAttr(NewAttr);
-    return DG;
-  }
+      VariantRef->isInstantiationDependent() || FD->isDependentContext())
+    return std::make_pair(FD, VariantRef);
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
@@ -4998,7 +4993,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
       if (!ER.isUsable()) {
         Diag(VariantRef->getExprLoc(), diag::err_omp_function_expected)
             << VariantId << VariantRef->getSourceRange();
-        return DG;
+        return None;
       }
       VariantRef = ER.get();
     } else {
@@ -5015,12 +5010,12 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
       Diag(VariantRef->getExprLoc(),
            diag::err_omp_declare_variant_incompat_types)
           << VariantRef->getType() << FnPtrType << VariantRef->getSourceRange();
-      return DG;
+      return None;
     }
     VariantRefCast = PerformImplicitConversion(
         VariantRef, FnPtrType.getUnqualifiedType(), AA_Converting);
     if (!VariantRefCast.isUsable())
-      return DG;
+      return None;
     // Drop previously built artificial addr_of unary op for member functions.
     if (Method && !Method->isStatic()) {
       Expr *PossibleAddrOfVariantRef = VariantRefCast.get();
@@ -5037,7 +5032,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
       !ER.get()->IgnoreParenImpCasts()->getType()->isFunctionType()) {
     Diag(VariantRef->getExprLoc(), diag::err_omp_function_expected)
         << VariantId << VariantRef->getSourceRange();
-    return DG;
+    return None;
   }
 
   // The VariantRef must point to function.
@@ -5045,13 +5040,13 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
   if (!DRE) {
     Diag(VariantRef->getExprLoc(), diag::err_omp_function_expected)
         << VariantId << VariantRef->getSourceRange();
-    return DG;
+    return None;
   }
   auto *NewFD = dyn_cast_or_null<FunctionDecl>(DRE->getDecl());
   if (!NewFD) {
     Diag(VariantRef->getExprLoc(), diag::err_omp_function_expected)
         << VariantId << VariantRef->getSourceRange();
-    return DG;
+    return None;
   }
 
   // Check if variant function is not marked with declare variant directive.
@@ -5062,7 +5057,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
     SourceRange SR =
         NewFD->specific_attr_begin<OMPDeclareVariantAttr>()->getRange();
     Diag(SR.getBegin(), diag::note_omp_marked_declare_variant_here) << SR;
-    return DG;
+    return None;
   }
 
   enum DoesntSupport {
@@ -5078,38 +5073,38 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
     if (CXXFD->isVirtual()) {
       Diag(FD->getLocation(), diag::err_omp_declare_variant_doesnt_support)
           << VirtFuncs;
-      return DG;
+      return None;
     }
 
     if (isa<CXXConstructorDecl>(FD)) {
       Diag(FD->getLocation(), diag::err_omp_declare_variant_doesnt_support)
           << Constructors;
-      return DG;
+      return None;
     }
 
     if (isa<CXXDestructorDecl>(FD)) {
       Diag(FD->getLocation(), diag::err_omp_declare_variant_doesnt_support)
           << Destructors;
-      return DG;
+      return None;
     }
   }
 
   if (FD->isDeleted()) {
     Diag(FD->getLocation(), diag::err_omp_declare_variant_doesnt_support)
         << DeletedFuncs;
-    return DG;
+    return None;
   }
 
   if (FD->isDefaulted()) {
     Diag(FD->getLocation(), diag::err_omp_declare_variant_doesnt_support)
         << DefaultedFuncs;
-    return DG;
+    return None;
   }
 
   if (FD->isConstexpr()) {
     Diag(FD->getLocation(), diag::err_omp_declare_variant_doesnt_support)
         << (NewFD->isConsteval() ? ConstevalFuncs : ConstexprFuncs);
-    return DG;
+    return None;
   }
 
   // Check general compatibility.
@@ -5125,15 +5120,41 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
                               PDiag(diag::err_omp_declare_variant_diff)
                                   << FD->getLocation()),
           /*TemplatesSupported=*/true, /*ConstexprSupported=*/false))
-    return DG;
+    return None;
+  return std::make_pair(FD, cast<Expr>(DRE));
+}
 
+void Sema::ActOnOpenMPDeclareVariantDirective(
+    FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
 #if INTEL_CUSTOMIZATION
-  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-      Context, DRE, Constructs.data(), Constructs.size(), Devices.data(),
-      Devices.size(), SR);
-  FD->addAttr(NewAttr);
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
-  return DG;
+    const Sema::OpenMPDeclareVariantCtsSelectorData &Data) {
+  if (Constructs.empty() && Devices.empty()) // INTEL
+  if (Data.CtxSet == OMPDeclareVariantAttr::CtxSetUnknown ||
+      Data.Ctx == OMPDeclareVariantAttr::CtxUnknown)
+    return;
+  Expr *Score = nullptr;
+  OMPDeclareVariantAttr::ScoreType ST = OMPDeclareVariantAttr::ScoreUnknown;
+  if (Data.CtxScore.isUsable()) {
+    ST = OMPDeclareVariantAttr::ScoreSpecified;
+    Score = Data.CtxScore.get();
+    if (!Score->isTypeDependent() && !Score->isValueDependent() &&
+        !Score->isInstantiationDependent() &&
+        !Score->containsUnexpandedParameterPack()) {
+      llvm::APSInt Result;
+      ExprResult ICE = VerifyIntegerConstantExpression(Score, &Result);
+      if (ICE.isInvalid())
+        return;
+    }
+  }
+  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
+#if INTEL_CUSTOMIZATION
+      Context, VariantRef, Constructs.data(), Constructs.size(), Devices.data(),
+      Devices.size(), Score, Data.CtxSet, ST, Data.Ctx, Data.ImplVendor, SR);
+#endif // INTEL_CUSTOMIZATION
+  FD->addAttr(NewAttr);
 }
 
 void Sema::markOpenMPDeclareVariantFuncsReferenced(SourceLocation Loc,
@@ -6266,13 +6287,21 @@ Expr *OpenMPIterationSpaceChecker::buildFinalCondition(Scope *S) const {
 Expr *OpenMPIterationSpaceChecker::buildPreCond(
     Scope *S, Expr *Cond,
     llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) const {
+  // Do not build a precondition when the condition/initialization is dependent
+  // to prevent pessimistic early loop exit.
+  // TODO: this can be improved by calculating min/max values but not sure that
+  // it will be very effective.
+  if (CondDependOnLC || InitDependOnLC)
+    return SemaRef.PerformImplicitConversion(
+        SemaRef.ActOnIntegerConstant(SourceLocation(), 1).get(),
+        SemaRef.Context.BoolTy, /*Action=*/Sema::AA_Casting,
+        /*AllowExplicit=*/true).get();
+
   // Try to build LB <op> UB, where <op> is <, >, <=, or >=.
   Sema::TentativeAnalysisScope Trap(SemaRef);
 
-  ExprResult NewLB =
-      InitDependOnLC ? LB : tryBuildCapture(SemaRef, LB, Captures);
-  ExprResult NewUB =
-      CondDependOnLC ? UB : tryBuildCapture(SemaRef, UB, Captures);
+  ExprResult NewLB = tryBuildCapture(SemaRef, LB, Captures);
+  ExprResult NewUB = tryBuildCapture(SemaRef, UB, Captures);
   if (!NewLB.isUsable() || !NewUB.isUsable())
     return nullptr;
 
@@ -7544,7 +7573,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       Built.DependentCounters[Cnt] = nullptr;
       Built.DependentInits[Cnt] = nullptr;
       Built.FinalsConditions[Cnt] = nullptr;
-      if (IS.IsNonRectangularLB) {
+      if (IS.IsNonRectangularLB || IS.IsNonRectangularUB) {
         Built.DependentCounters[Cnt] =
             Built.Counters[NestedLoopCount - 1 - IS.LoopDependentIdx];
         Built.DependentInits[Cnt] =
@@ -10224,6 +10253,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
+  case OMPC_match:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -10858,6 +10888,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
+  case OMPC_match:
     llvm_unreachable("Unexpected OpenMP clause.");
   }
   return CaptureRegion;
@@ -11260,6 +11291,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_device_type:
+  case OMPC_match:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -11444,6 +11476,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
+  case OMPC_match:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -11659,6 +11692,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_is_device_ptr:
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
+  case OMPC_match:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -11877,6 +11911,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
+  case OMPC_match:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -13276,8 +13311,9 @@ static bool actOnOMPReductionKindClause(
       // If we don't have a single element, we must emit a constant array type.
       if (ConstantLengthOASE && !SingleElement) {
         for (llvm::APSInt &Size : ArraySizes)
-          PrivateTy = Context.getConstantArrayType(
-              PrivateTy, Size, ArrayType::Normal, /*IndexTypeQuals=*/0);
+          PrivateTy = Context.getConstantArrayType(PrivateTy, Size, nullptr,
+                                                   ArrayType::Normal,
+                                                   /*IndexTypeQuals=*/0);
       }
     }
 
@@ -15039,6 +15075,11 @@ static ExprResult buildUserDefinedMapperRef(Sema &SemaRef, Scope *S,
                                             Expr *UnresolvedMapper) {
   if (MapperIdScopeSpec.isInvalid())
     return ExprError();
+  // Get the actual type for the array type.
+  if (Type->isArrayType()) {
+    assert(Type->getAsArrayTypeUnsafe() && "Expect to get a valid array type");
+    Type = Type->getAsArrayTypeUnsafe()->getElementType().getCanonicalType();
+  }
   // Find all user-defined mappers with the given MapperId.
   SmallVector<UnresolvedSet<8>, 4> Lookups;
   LookupResult Lookup(SemaRef, MapperId, Sema::LookupOMPMapperName);
@@ -15085,11 +15126,14 @@ static ExprResult buildUserDefinedMapperRef(Sema &SemaRef, Scope *S,
         MapperIdScopeSpec.getWithLocInContext(SemaRef.Context), MapperId,
         /*ADL=*/false, /*Overloaded=*/true, URS.begin(), URS.end());
   }
+  SourceLocation Loc = MapperId.getLoc();
   // [OpenMP 5.0], 2.19.7.3 declare mapper Directive, Restrictions
   //  The type must be of struct, union or class type in C and C++
-  if (!Type->isStructureOrClassType() && !Type->isUnionType())
-    return ExprEmpty();
-  SourceLocation Loc = MapperId.getLoc();
+  if (!Type->isStructureOrClassType() && !Type->isUnionType() &&
+      (MapperIdScopeSpec.isSet() || MapperId.getAsString() != "default")) {
+    SemaRef.Diag(Loc, diag::err_omp_mapper_wrong_type);
+    return ExprError();
+  }
   // Perform argument dependent lookup.
   if (SemaRef.getLangOpts().CPlusPlus && !MapperIdScopeSpec.isSet())
     argumentDependentLookup(SemaRef, MapperId, Loc, Type, Lookups);
