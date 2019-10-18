@@ -6758,6 +6758,14 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-kind=") + Twine(Kind)));
 
+#if INTEL_CUSTOMIZATION
+    // When debugging, make the native debugger the default for SYCL on Windows.
+    if (getToolChain().getTriple().isWindowsMSVCEnvironment() &&
+        TCArgs.getLastArg(options::OPT_g_Group)) {
+      WrapperArgs.push_back("--build-opts=-gnative");
+    }
+#endif // INTEL_CUSTOMIZATION
+
     for (const InputInfo &I : Inputs) {
       assert(I.isFilename() && "Invalid input.");
       WrapperArgs.push_back(I.getFilename());
@@ -6792,20 +6800,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
 
   ArgStringList CmdArgs;
 
-<<<<<<< HEAD
-  // When debugging, make the native debugger the default for SYCL on Windows.
-  if (getToolChain().getTriple().isWindowsMSVCEnvironment() &&
-      JA.getOffloadingDeviceKind() == Action::OFK_SYCL &&
-      TCArgs.getLastArg(options::OPT_g_Group)) {
-    WrapperArgs.push_back("--build-opts=-gnative");
-  }
-
-  for (auto I : Inputs) {
-    WrapperArgs.push_back(I.getFilename());
-  }
-=======
   const llvm::Triple &Triple = getToolChain().getEffectiveTriple();
->>>>>>> 448f428a2b12d9a665eb08e2b1f7709499db2cd8
 
   // Add the "effective" target triple.
   CmdArgs.push_back("-host");
