@@ -1,19 +1,10 @@
-; REQUIRES: assert
-; This test expects LTO to NOT detect whole program since IR
-; is not available for 'dealloc' user defined routine. LTO doesn't
-; expect IR for library routines like malloc, free, fprintf.
-
+; Test that whole program assert triggers since whole program wasn't achieved.
+; This test case is the same as whole_program_2.ll.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1  2>&1 | FileCheck %s
+; RUN: not llvm-lto -exported-symbol=main -whole-program-assert -o %t2 %t1  2>&1 | FileCheck %s
 
-; CHECK:   UNRESOLVED CALLSITES: 1
-; CHECK:   LIBFUNCS NOT FOUND: 1
-; CHECK:       dealloc
-; CHECK:   WHOLE PROGRAM NOT DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
-; CHECK:      whole program not seen;
-; CHECK:      whole program not read;
+; CHECK: Whole-Program-Analysis: Did not detect whole program
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
@@ -55,7 +46,7 @@ entry:
   ret void
 }
 
-declare i32 @fprintf(%struct._IO_FILE*, i8*, ...) 
+declare i32 @fprintf(%struct._IO_FILE*, i8*, ...)
 
 ; Function Attrs: nounwind uwtable
 define i32 @main()  {

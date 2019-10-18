@@ -1,10 +1,11 @@
+; REQUIRES: assert
 ; This test checks if the whole program seen was achieved
 ; since add is internal and sub is not used.
 
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=-whole-program-trace \
+; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-assume-executable %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
