@@ -324,7 +324,7 @@ foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_s
 
 foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_shuffle_up", "sub_group_shuffle_down" ] in {
   foreach base_type = [ "i32", "u32", "f32" ] in { // omit ulong, long, double per cl_intel_subgroups spec
-    foreach len = [ 2, 4, 8 ] in {
+    foreach len = [ 2, 4, 8, 16 ] in {
       def func_name#_#"v"#len#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v"#len#base_type)>;
       def func_name#_#"v"#len#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v"#!mul(4, len)#base_type)>;
       def func_name#_#"v"#len#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v"#!mul(8, len)#base_type)>;

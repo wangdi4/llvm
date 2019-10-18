@@ -214,6 +214,10 @@ let Attrs = [OVERLOADABLE],
     let Types = [v8i32, v16i32, v32i32, v64i32, v128i32] in {
       def __ocl_extend_mask_v8 : OclBuiltin<"__ocl_extend_mask_to_$VecLength", (outs gentype:$ret), (ins v8i32:$mask), [], [], 0, 0>, PRIVATE;
     }
+
+    let Types = [v4i32, v8i32, v16i32, v32i32, v64i32] in {
+      def __ocl_extend_mask_v4 : OclBuiltin<"__ocl_extend_mask_to_$VecLength", (outs gentype:$ret), (ins v4i32:$mask), [], [], 0, 0>, PRIVATE;
+    }
   }
 
 // ****************************************************************************
