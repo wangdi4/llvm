@@ -326,14 +326,15 @@ public:
   std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
   std::mutex *Mutexes;
 
-  int64_t flag;
+  uint64_t flag;
   int32_t DataTransferLatency;
   int32_t DataTransferMethod;
   cl_device_type DeviceType;
 
   // Limit for the number of WIs in a WG.
   int32_t OMPThreadLimit = -1;
-  const int64_t DATA_TRANSFER_LATENCY = 0x2;
+  static const uint64_t LinkDeviceRTLFlag              = 1ULL << 0;
+  static const uint64_t CollectDataTransferLatencyFlag = 1ULL << 1;
 
   RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
@@ -354,7 +355,7 @@ public:
     if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
-        flag |= DATA_TRANSFER_LATENCY;
+        flag |= CollectDataTransferLatencyFlag;
         int32_t usec = std::stoi(value.substr(2).c_str());
         DataTransferLatency = (usec > 0) ? usec : 0;
       }
@@ -391,6 +392,10 @@ public:
        (DeviceType == CL_DEVICE_TYPE_GPU) ? "GPU" : (
        (DeviceType == CL_DEVICE_TYPE_ACCELERATOR) ? "ACCELERATOR" : (
        (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "INVALID")));
+
+    if (env = std::getenv("LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL"))
+      if (std::stoi(env) != 0)
+        flag |= LinkDeviceRTLFlag;
   }
 
   ~RTLDeviceInfoTy() {
@@ -429,7 +434,7 @@ extern "C" {
 #endif
 
 static inline void addDataTransferLatency() {
-  if (!(DeviceInfo.flag & DeviceInfo.DATA_TRANSFER_LATENCY))
+  if ((DeviceInfo.flag & RTLDeviceInfoTy::CollectDataTransferLatencyFlag) != 0)
     return;
   double goal = omp_get_wtime() + 1e-6 * DeviceInfo.DataTransferLatency;
   // Naive spinning should be enough
@@ -694,36 +699,38 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   DP("OpenCL compilation options: %s\n", compilation_options);
 
-  std::string device_rtl_path = getDeviceRTLPath();
-  std::ifstream device_rtl(device_rtl_path, std::ios::binary);
+  if ((DeviceInfo.flag & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
+    std::string device_rtl_path = getDeviceRTLPath();
+    std::ifstream device_rtl(device_rtl_path, std::ios::binary);
 
-  if (device_rtl.is_open()) {
-    DP("Found device RTL: %s\n", device_rtl_path.c_str());
-    device_rtl.seekg(0, device_rtl.end);
-    int device_rtl_len = device_rtl.tellg();
-    std::string device_rtl_bin(device_rtl_len, '\0');
-    device_rtl.seekg(0);
-    if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
-      DP("I/O Error: Failed to read device RTL.\n");
-      return NULL;
+    if (device_rtl.is_open()) {
+      DP("Found device RTL: %s\n", device_rtl_path.c_str());
+      device_rtl.seekg(0, device_rtl.end);
+      int device_rtl_len = device_rtl.tellg();
+      std::string device_rtl_bin(device_rtl_len, '\0');
+      device_rtl.seekg(0);
+      if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
+        DP("I/O Error: Failed to read device RTL.\n");
+        return NULL;
+      }
+
+      dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
+
+      program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+                                         device_rtl_bin.c_str(), device_rtl_len,
+                                         &status);
+      if (status != CL_SUCCESS) {
+        DP("Error: Failed to create device RTL from IL: %d\n", status);
+        return NULL;
+      }
+
+      INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr,
+                         compilation_options, 0, nullptr, nullptr,
+                         nullptr, nullptr);
+      num_programs++;
+    } else {
+      DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
     }
-
-    dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
-
-    program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
-                                       device_rtl_bin.c_str(), device_rtl_len,
-                                       &status);
-    if (status != CL_SUCCESS) {
-      DP("Error: Failed to create device RTL from IL: %d\n", status);
-      return NULL;
-    }
-
-    INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr,
-                       compilation_options, 0, nullptr, nullptr,
-                       nullptr, nullptr);
-    num_programs++;
-  } else {
-    DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
   }
 
   // Create program for the target regions.
