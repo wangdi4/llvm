@@ -113,7 +113,7 @@ if (WIN32 AND NOT OPENCL_INTREE_BUILD)
     -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
     -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'
   )
-endif (WIN32)
+endif ()
 
 # See llvm commit adc4af6a5b70c31110559bdeb2f3f52646600b90
 # Author: Edwin Vane <edwin.vane@intel.com>
