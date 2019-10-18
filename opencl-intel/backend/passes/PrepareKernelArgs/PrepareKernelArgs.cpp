@@ -161,7 +161,7 @@ namespace intel{
         if (VecSize != 1 && VectorType::isValidElementType(EltTy))
           EltTy = VectorType::get(EltTy, VecSize);
         Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
-        Allocation->setAlignment(Alignment);
+        Allocation->setAlignment(MaybeAlign(Alignment));
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
           pArg = builder.CreateAddrSpaceCast(pGEP, callIt->getType());
@@ -180,7 +180,7 @@ namespace intel{
         LoadInst* pLoad = builder.CreateLoad(pPointerCast);
         size_t alignment = TypeAlignment::getAlignment(arg);
         if (alignment > 0) {
-          pLoad->setAlignment(TypeAlignment::getAlignment(arg));
+          pLoad->setAlignment(MaybeAlign(TypeAlignment::getAlignment(arg)));
         }
         pArg = pLoad;
       }
@@ -212,7 +212,7 @@ namespace intel{
       currOffset = arguments.back().offset_in_bytes +
                    TypeAlignment::getSize(arguments.back());
       currOffset = ImplicitArgsUtils::getAdjustedAlignment(
-          currOffset, m_DL->getPointerABIAlignment(m_DL->getAllocaAddrSpace()));
+          currOffset, m_DL->getPointerABIAlignment(m_DL->getAllocaAddrSpace()).value());
     }
     // Handle implicit arguments
     // Set to the Work Group Info implicit arg, as soon as it is known. Used for
@@ -243,7 +243,7 @@ namespace intel{
           AllocaInst *slmBuffer = builder.CreateAlloca(slmType, AllocaAddrSpace);
           // Set alignment of implicit local buffer to max alignment.
           // TODO: we should choose the min required alignment size
-          slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
+          slmBuffer->setAlignment(MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
           // move argument up over the lower side padding.
           Value* castBuf = builder.CreatePointerCast(slmBuffer,
                                                      PointerType::get(m_I8Ty, 3));
@@ -316,7 +316,7 @@ namespace intel{
           AllocaInst *BarrierBuffer = builder.CreateAlloca(
             m_I8Ty, AllocaAddrSpace, BarrierBufferSize);
           //TODO: we should choose the min required alignment size
-          BarrierBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
+          BarrierBuffer->setAlignment(MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
           pArg = BarrierBuffer;
         }
         break;
