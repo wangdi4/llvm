@@ -6781,6 +6781,7 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
+  case OMPD_master_taskloop_simd:
   case OMPD_parallel_master_taskloop:
   case OMPD_requires:
   case OMPD_unknown:
@@ -7090,6 +7091,7 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
+  case OMPD_master_taskloop_simd:
   case OMPD_parallel_master_taskloop:
   case OMPD_requires:
   case OMPD_unknown:
@@ -8937,6 +8939,7 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
     case OMPD_master_taskloop:
+    case OMPD_master_taskloop_simd:
     case OMPD_parallel_master_taskloop:
     case OMPD_requires:
     case OMPD_unknown:
@@ -9713,6 +9716,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
     case OMPD_master_taskloop:
+    case OMPD_master_taskloop_simd:
     case OMPD_parallel_master_taskloop:
     case OMPD_requires:
     case OMPD_unknown:
@@ -10370,6 +10374,7 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
     case OMPD_master_taskloop:
+    case OMPD_master_taskloop_simd:
     case OMPD_parallel_master_taskloop:
     case OMPD_target:
     case OMPD_target_simd:
