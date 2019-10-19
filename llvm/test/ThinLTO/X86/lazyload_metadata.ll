@@ -10,23 +10,15 @@
 ; RUN: llvm-lto -thinlto-action=import %t2.bc -thinlto-index=%t3.bc \
 ; RUN:          -o /dev/null -stats \
 ; RUN:  2>&1 | FileCheck %s -check-prefix=LAZY
-<<<<<<< HEAD
 ; INTEL -- xmain produces different Metadata record sizes.
 ; LAZY: 71 bitcode-reader  - Number of Metadata records loaded
-=======
-; LAZY: 65 bitcode-reader  - Number of Metadata records loaded
->>>>>>> 820f77c306a780f8f1ae574f83681136d5b465fb
 ; LAZY: 2 bitcode-reader  - Number of MDStrings loaded
 
 ; RUN: llvm-lto -thinlto-action=import %t2.bc -thinlto-index=%t3.bc \
 ; RUN:          -o /dev/null -disable-ondemand-mds-loading -stats \
 ; RUN:  2>&1 | FileCheck %s -check-prefix=NOTLAZY
-<<<<<<< HEAD
 ; INTEL -- xmain produces different Metadata record sizes.
 ; NOTLAZY: 80 bitcode-reader  - Number of Metadata records loaded
-=======
-; NOTLAZY: 74 bitcode-reader  - Number of Metadata records loaded
->>>>>>> 820f77c306a780f8f1ae574f83681136d5b465fb
 ; NOTLAZY: 7 bitcode-reader  - Number of MDStrings loaded
 
 
