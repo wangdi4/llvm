@@ -2850,16 +2850,12 @@ bool DevirtModule::run() {
                        cast<MDString>(S.first.TypeID)->getString())
                    .WPDRes[S.first.ByteOffset];
 
-<<<<<<< HEAD
-      if (!trySingleImplDevirt(TargetsForSlot, S.second, Res)) {
+      if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
         if (!tryMultiVersionDevirt(TargetsForSlot, S.second, CallSlotI)) {
 #endif // INTEL_CUSTOMIZATION
 
-=======
-      if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
->>>>>>> 943afb57aa65b03b29808765c4c657f03d3d0e94
         DidVirtualConstProp |=
             tryVirtualConstProp(TargetsForSlot, S.second, Res, S.first);
 
