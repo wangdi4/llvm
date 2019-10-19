@@ -5432,6 +5432,7 @@ void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoop(
 
 void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                                              OpenMPDirectiveKind Kind) {
+  TerminateHandlerRAII THandler(*this);
   // Check pre-condition.
   {
     OMPLoopScope PreInitScope(*this, S);

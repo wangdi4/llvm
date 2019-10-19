@@ -1487,7 +1487,7 @@ void OpenMPLateOutliner::HandleImplicitVar(const Expr *E,
 OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
                                        const OMPExecutableDirective &D,
                                        OpenMPDirectiveKind Kind)
-    : CGF(CGF), C(CGF.CGM.getLLVMContext()), TLPH(CGF), VSMH(CGF), Directive(D),
+    : CGF(CGF), C(CGF.CGM.getLLVMContext()), VSMH(CGF), Directive(D),
       CurrentDirectiveKind(Kind) {
   // Set an attribute indicating that the routine may have OpenMP directives
   // (represented with llvm intrinsics) in the LLVM IR
@@ -2141,6 +2141,7 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
 
 void CodeGenFunction::EmitLateOutlineOMPDirective(
     const OMPExecutableDirective &S, OpenMPDirectiveKind Kind) {
+  TerminateHandlerRAII THandler(*this);
   OMPLateOutlineLexicalScope Scope(*this, S, Kind);
   OpenMPLateOutliner Outliner(*this, S, Kind);
   OpenMPDirectiveKind CurrentDirectiveKind = Outliner.getCurrentDirectiveKind();
