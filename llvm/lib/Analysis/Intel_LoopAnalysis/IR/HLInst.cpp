@@ -181,6 +181,8 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
     OS << "(";
   } else if (isa<SelectInst>(Inst)) {
     OS << "(";
+  } else if (Inst->getOpcode() == Instruction::FNeg) {
+    OS << " - ";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
              !isa<GEPOrSubsOperator>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";

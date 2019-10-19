@@ -1950,6 +1950,10 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (isa<UnreachableInst>(Inst)) {
     assert(Ops.empty() && "No operands expected for uneachable inst!");
     StoreVal = Builder.CreateUnreachable();
+
+  } else if (Inst->getOpcode() == Instruction::FNeg) {
+    StoreVal = Builder.CreateFNeg(Ops[1], "fneg");
+
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
