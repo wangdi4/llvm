@@ -46,33 +46,33 @@
 ;}
 
 
-; RUN: opt %s -S -replace-with-math-library-functions -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring \
-; RUN: -VPlanDriver -vplan-force-vf=8 -vector-library=SVML 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -S -replace-with-math-library-functions -vector-library=SVML %s | FileCheck %s
 
-; CHECK-VF8: [[UDIV:%.*]] = call <8 x i32> @_Z4udivDv8_jS_(<8 x i32> {{.*}}, <8 x i32> {{.*}})
-; CHECK-VF8-NEXT: [[FUDIV:%.*]] = uitofp <8 x i32> [[UDIV]] to <8 x float>
+; CHECK: [[UDIV:%.*]] = call i32 @_Z4udivjj(i32 {{.*}}, i32 {{.*}})
+; CHECK-NEXT: [[FUDIV:%.*]] = uitofp i32 [[UDIV]] to float
 
-; CHECK-VF8: [[UREM:%.*]] = call <8 x i32> @_Z4uremDv8_jS_(<8 x i32> {{.*}}, <8 x i32> {{.*}})
-; CHECK-VF8-NEXT: [[FUREM:%.*]] = uitofp <8 x i32> [[UREM]] to <8 x float>
+; CHECK: [[UREM:%.*]] = call i32 @_Z4uremjj(i32 {{.*}}, i32 {{.*}})
+; CHECK-NEXT: [[FUREM:%.*]] = uitofp i32 [[UREM]] to float
 
-; CHECK-VF8: [[IDIV:%.*]] = call <8 x i32> @_Z4idivDv8_iS_(<8 x i32> {{.*}}, <8 x i32> {{.*}})
-; CHECK-VF8-NEXT: [[FIDIV:%.*]] = sitofp <8 x i32> [[IDIV]] to <8 x float>
+; CHECK: [[IDIV:%.*]] = call i32 @_Z4idivii(i32 {{.*}}, i32 {{.*}})
+; CHECK-NEXT: [[FIDIV:%.*]] = sitofp i32 [[IDIV]] to float
 
-; CHECK-VF8: [[IREM:%.*]] = call <8 x i32> @_Z4iremDv8_iS_(<8 x i32> {{.*}}, <8 x i32> {{.*}})
-; CHECK-VF8-NEXT: [[FUREM:%.*]] = sitofp <8 x i32> [[IREM]] to <8 x float>
+; CHECK: [[IREM:%.*]] = call i32 @_Z4iremii(i32 {{.*}}, i32 {{.*}})
+; CHECK-NEXT: [[FUREM:%.*]] = sitofp i32 [[IREM]] to float
 
 ; Check that we do not convert 'div' operations with power-of-2 divisors
-; CHECK-VF8: [[SDIV:%.*]] = sdiv <8 x i32> {{.*}}, <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
-; CHECK-VF8-NEXT: [[SUDIV:%.*]] = sitofp <8 x i32> [[SDIV]] to <8 x float>
+; CHECK: [[SDIV:%.*]] = sdiv i32 {{.*}}, 8
+; CHECK-NEXT: [[SUDIV:%.*]] = sitofp i32 [[SDIV]] to float
 
 ; Check that we do not convert 'div' operations with i64 operands
-; CHECK-VF8: [[DIV64:%.*]] = sdiv <8 x i64> [[OP1:%.*]], [[OP2:%.*]]
-; CHECK-VF8-NEXT: [[SUDIVF:%.*]] = sitofp <8 x i64> [[DIV64]] to <8 x float>
+; CHECK: [[DIV64:%.*]] = sdiv i64 [[OP1:%.*]], [[OP2:%.*]]
+; CHECK-NEXT: [[SUDIVF:%.*]] = sitofp i64 [[DIV64]] to float
 
 ; Check that we do not convert 'srem' operations with i64 operands
-; CHECK-VF8: [[REM64:%.*]] = srem <8 x i64> [[OP1:%.*]], [[OP2:%.*]]
-; CHECK-VF8-NEXT: [[SUREM64:%.*]] = sitofp <8 x i64> [[REM64]] to <8 x float>
+; CHECK: [[REM64:%.*]] = srem i64 [[OP1:%.*]], [[OP2:%.*]]
+; CHECK-NEXT: [[SUREM64:%.*]] = sitofp i64 [[REM64]] to float
 
+;; Check that no replacement happens when a given cl_opt is passed.
 ; RUN: opt %s -S -disable-mf-replacement -replace-with-math-library-functions \
 ; RUN: | FileCheck %s --check-prefix=CHECK-NO-REPLACEMENT
 
@@ -189,6 +189,8 @@ declare void @llvm.directive.region.exit(token)
 !18 = distinct !{!18, !19}
 !19 = !{!"llvm.loop.unroll.disable"}
 
+
+;; Check that no replacement happens for vector input operands.
 ; RUN: opt %s -S -replace-with-math-library-functions \
 ; RUN: | FileCheck %s --check-prefix=CHECK-VEC-NO-REPLACEMENT
 
