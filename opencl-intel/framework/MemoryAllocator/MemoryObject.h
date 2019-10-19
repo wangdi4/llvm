@@ -106,7 +106,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t*           dimension,
             const size_t*           pitches,
             void*                   pHostPtr,
-            cl_rt_memobj_creation_flags    creation_flags // modification flags
+            cl_rt_memobj_creation_flags    creation_flags, // modification flags
+            size_t                  force_alignment = 0
             ) = 0;
 
         // Update the host pointer that is used for the memory object

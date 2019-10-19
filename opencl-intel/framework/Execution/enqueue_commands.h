@@ -402,6 +402,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "SVM memcpy"; }
     };
     
+    class ReadUsmBufferCommand : public ReadBufferCommand
+    {
+    public:
+        ReadUsmBufferCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+            ocl_entry_points *    pOclEntryPoints,
+            const SharedPtr<MemoryObject>&     pBuffer,
+            const size_t      pszOffset[MAX_WORK_DIM],
+            const size_t      pszCb[MAX_WORK_DIM],
+            void*             pDst
+            ) : ReadBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pszOffset,
+                                  pszCb, pDst) {}
+
+        cl_command_type         GetCommandType() const {
+            return CL_COMMAND_MEMCPY_INTEL;
+        }
+        const char*             GetCommandName() const {
+            return "CL_COMMAND_MEMCPY_INTEL";
+        }
+        virtual const char*     GPA_GetCommandName() const {
+            return "USM memcpy";
+        }
+    };
+
     /******************************************************************
      * 
      ******************************************************************/
@@ -597,6 +621,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "SVM memcpy"; }
     };
     
+    class WriteUsmBufferCommand : public WriteBufferCommand
+    {
+    public:
+
+        WriteUsmBufferCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+            ocl_entry_points *    pOclEntryPoints,
+            cl_bool         bBlocking,
+            const SharedPtr<MemoryObject>&   pBuffer,
+            const size_t    pszOffset[MAX_WORK_DIM],
+            const size_t    pszCb[MAX_WORK_DIM],
+            const void*     cpSrc
+            ) : WriteBufferCommand(cmdQueue, pOclEntryPoints, bBlocking,
+                                   pBuffer, pszOffset, pszCb, cpSrc) {}
+
+        cl_command_type     GetCommandType() const {
+            return CL_COMMAND_MEMCPY_INTEL;
+        }
+        const char*         GetCommandName() const {
+            return "CL_COMMAND_MEMCPY_INTEL";
+        }
+        virtual const char* GPA_GetCommandName() const { return "USM memcpy"; }
+    };
+
     class FillBufferCommand : public FillMemObjCommand
     {
     public:
@@ -635,6 +683,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MEMFILL; }
         const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MEMFILL"; }        
         virtual const char*     GPA_GetCommandName() const { return "Fill SVM Buffer"; }
+    };
+
+    class MemsetUsmBufferCommand : public FillBufferCommand
+    {
+    public:
+        MemsetUsmBufferCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+            ocl_entry_points *    pOclEntryPoints,
+            const SharedPtr<MemoryObject>&   pBuffer,
+            const void *pattern,
+            size_t pattern_size,
+            size_t offset,
+            size_t size
+        ) : FillBufferCommand(cmdQueue, pOclEntryPoints, pBuffer, pattern,
+                              pattern_size, offset, size) {}
+
+        cl_command_type         GetCommandType() const {
+            return CL_COMMAND_MEMSET_INTEL;
+        }
+        const char*             GetCommandName() const {
+            return "CL_COMMAND_MEMSET_INTEL";
+        }
+        virtual const char*     GPA_GetCommandName() const {
+            return "Memset USM Buffer";
+        }
     };
 
     class WriteBufferRectCommand : public WriteMemObjCommand
@@ -810,6 +883,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "SVM memcpy"; }
     };
     
+    class CopyUsmBufferCommand : public CopyBufferCommand
+    {
+    public:
+
+        CopyUsmBufferCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+            ocl_entry_points *    pOclEntryPoints,
+            const SharedPtr<MemoryObject>&   pSrcBuffer,
+            const SharedPtr<MemoryObject>&   pDstBuffer,
+            const size_t    szSrcOrigin[MAX_WORK_DIM],
+            const size_t    szDstOrigin[MAX_WORK_DIM],
+            const size_t    szRegion[MAX_WORK_DIM]
+        ) : CopyBufferCommand(cmdQueue, pOclEntryPoints, pSrcBuffer, pDstBuffer,
+                              szSrcOrigin, szDstOrigin, szRegion) {}
+
+        cl_command_type     GetCommandType() const {
+            return CL_COMMAND_MEMCPY_INTEL;
+        }
+        const char*         GetCommandName() const {
+            return "CL_COMMAND_MEMCPY_INTEL";
+        }
+        virtual const char* GPA_GetCommandName() const { return "USM memcpy"; }
+    };
+
     /******************************************************************
      * 
      ******************************************************************/
@@ -1125,6 +1222,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const size_t*           m_cpszLocalWorkSize;
         
         std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;        
+        std::vector<IOCLDevMemoryObject*>   m_nonArgUsmBuffersVec;
 #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
 #endif
@@ -1261,6 +1359,94 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ContextModule*              m_pContextModule;
 
         cl_dev_cmd_param_migrate    m_migrateCmdParams;
+    };
+
+    /******************************************************************
+     * MigrateUSMMemCommand explicitly migrates a region of a shared
+     * USM allocation to the device associated with the command_queue.
+     ******************************************************************/
+    class MigrateUSMMemCommand : public Command
+    {
+
+    public:
+        MigrateUSMMemCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+            ContextModule* contextModule,
+            cl_mem_migration_flags clFlags,
+            const void* ptr,
+            size_t size
+        );
+
+        virtual                         ~MigrateUSMMemCommand() {}
+
+        virtual cl_command_type         GetCommandType() const {
+            return CL_COMMAND_MIGRATEMEM_INTEL;
+        }
+        virtual ECommandExecutionType   GetExecutionType() const {
+            return DEVICE_EXECUTION_TYPE;
+        }
+        virtual const char*             GetCommandName() const {
+            return "CL_COMMAND_MIGRATEMEM_INTEL";
+        }
+
+        virtual cl_err_code             Init();
+        virtual cl_err_code             Execute();
+        virtual cl_err_code             CommandDone();
+
+        // GPA related functions
+        virtual const char*             GPA_GetCommandName() const {
+            return "Migrate USM Memory Object";
+        }
+
+    protected:
+
+        const void*                  m_ptr;
+        ContextModule*               m_contextModule;
+
+        cl_dev_cmd_param_migrate_usm m_migrateCmdParams;
+    };
+
+    /******************************************************************
+     *
+     ******************************************************************/
+    class AdviseUSMMemCommand : public Command
+    {
+    public:
+        AdviseUSMMemCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+            ContextModule* pContextModule,
+            const void* ptr,
+            size_t size,
+            cl_mem_advice_intel advice
+        );
+
+        virtual                         ~AdviseUSMMemCommand() {}
+
+        virtual cl_command_type         GetCommandType() const {
+            return CL_COMMAND_MEMADVISE_INTEL;
+        }
+        virtual ECommandExecutionType   GetExecutionType() const {
+            return DEVICE_EXECUTION_TYPE;
+        }
+        virtual const char*             GetCommandName() const {
+            return "CL_COMMAND_MEMADVISE_INTEL";
+        }
+
+        virtual cl_err_code             Init();
+        virtual cl_err_code             Execute();
+        virtual cl_err_code             CommandDone();
+
+        // GPA related functions
+        virtual const char*             GPA_GetCommandName() const {
+            return "Advise USM Memory Object";
+        }
+
+    protected:
+
+        const void*                 m_ptr;
+        ContextModule*              m_contextModule;
+
+        cl_dev_cmd_param_advise_usm m_adviseCmdParams;
     };
 
     /******************************************************************

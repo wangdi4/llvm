@@ -129,6 +129,17 @@
         clEnableTracingINTEL;
         clDisableTracingINTEL;
         clGetTracingStateINTEL;
+
+        clHostMemAllocINTEL;
+        clDeviceMemAllocINTEL;
+        clSharedMemAllocINTEL;
+        clMemFreeINTEL;
+        clGetMemAllocInfoINTEL;
+        clSetKernelArgMemPointerINTEL;
+        clEnqueueMemsetINTEL;
+        clEnqueueMemcpyINTEL;
+        clEnqueueMigrateMemINTEL;
+        clEnqueueMemAdviseINTEL;
     local:
         *;
 };

@@ -28,7 +28,9 @@
 #include "conversion_rules.h"
 #include "GenericMemObj.h"
 #include "svm_commands.h"
+#include "usm_commands.h"
 #include "svm_buffer.h"
+#include "usm_buffer.h"
 
 #include "kernel.h"
 #include "Device.h"
@@ -874,7 +876,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
     }
 
     err = pMigrateCommand->EnqueueSelf(CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
-    if(CL_FAILED(err))
+    if (CL_FAILED(err))
     {
         // Enqueue failed, free resources
         pMigrateCommand->CommandDone();
@@ -3530,6 +3532,243 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
         delete pCmd;
         return err;
     }
+    return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
+    void* dst_ptr, cl_int value, size_t size, cl_uint num_events_in_wait_list,
+    const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
+{
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_COMMAND_QUEUE;
+
+    cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
+                                     event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    if (nullptr == dst_ptr)
+        return CL_INVALID_VALUE;
+    if (0 == size)
+        return CL_SUCCESS;
+
+    SharedPtr<USMBuffer> usmBuf = queue->GetContext()->
+        GetUSMBufferContainingAddr(dst_ptr);
+    if (nullptr != usmBuf.GetPtr() &&
+        (usmBuf->GetContext() != queue->GetContext() ||
+         !usmBuf->IsContainedInBuffer(dst_ptr, size)))
+        return CL_INVALID_VALUE;
+
+    // do the work:
+    Command* memsetCommand;
+    void *pPattern = &value;
+    size_t pattern_size = 1;
+    if (nullptr == usmBuf.GetPtr())
+        memsetCommand = new MemsetUsmBufferCommand(queue, m_pOclEntryPoints,
+            usmBuf, pPattern, pattern_size,
+            (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
+    else
+        memsetCommand = new RuntimeUSMMemsetCommand(dst_ptr, pPattern,
+            pattern_size, size, queue, num_events_in_wait_list > 0);
+
+    err = memsetCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete memsetCommand;
+        return err;
+    }
+    err = memsetCommand->EnqueueSelf(false, num_events_in_wait_list,
+                                     event_wait_list, event, api_logger);
+    if (CL_FAILED(err))
+    {
+        memsetCommand->CommandDone();
+        delete memsetCommand;
+        return err;
+    }
+    return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
+    cl_bool blocking, void* dst_ptr, const void* src_ptr, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event* event_wait_list,
+    cl_event* event, ApiLogger* api_logger)
+{
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_COMMAND_QUEUE;
+
+    if (nullptr == dst_ptr || nullptr == src_ptr)
+        return CL_INVALID_MEM_OBJECT;
+
+    if (((char*)dst_ptr >= (char*)src_ptr &&
+         (char*)dst_ptr < (char*)src_ptr + size) ||
+        ((char*)src_ptr >= (char*)dst_ptr &&
+         (char*)src_ptr < (char*)dst_ptr + size))
+        return CL_MEM_COPY_OVERLAP;
+
+    SharedPtr<Context> context = queue->GetContext();
+    SharedPtr<USMBuffer> srcBuffer = context->GetUSMBufferContainingAddr(
+        const_cast<void*>(src_ptr));
+    SharedPtr<USMBuffer> dstBuffer = context->GetUSMBufferContainingAddr(
+        dst_ptr);
+    if ((nullptr != srcBuffer.GetPtr() &&
+         !srcBuffer->IsContainedInBuffer(src_ptr, size)) ||
+        (nullptr != dstBuffer.GetPtr() &&
+         !dstBuffer->IsContainedInBuffer(dst_ptr, size)))
+    {
+        LOG_ERROR(TEXT("either source or destination pointers define a region"
+            " that spans beyond an USM buffer"), "");
+        return CL_INVALID_VALUE;
+    }
+    if ((nullptr != srcBuffer.GetPtr() &&
+         srcBuffer->GetContext() != context) ||
+        (nullptr != dstBuffer.GetPtr() &&
+         dstBuffer->GetContext() != context))
+        return CL_INVALID_VALUE;
+
+    cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
+                                     event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    // do the work:
+    Command* memcpyCommand;
+    const size_t srcOrigin[] = { nullptr != srcBuffer.GetPtr() ?
+            (size_t)((char*)src_ptr - (char*)srcBuffer->GetAddr()) : 0, 0, 0 };
+    const size_t dstOrigin[] = { nullptr != dstBuffer.GetPtr() ?
+            (size_t)((char*)dst_ptr - (char*)dstBuffer->GetAddr()) : 0, 0, 0 };
+    const size_t region[] = { size, 1, 1 };
+    if (nullptr == srcBuffer.GetPtr())
+    {
+        if (nullptr == dstBuffer.GetPtr())
+            memcpyCommand = new RuntimeUSMMemcpyCommand(dst_ptr, src_ptr, size,
+                queue, num_events_in_wait_list > 0);
+        else
+            memcpyCommand = new WriteUsmBufferCommand(queue, m_pOclEntryPoints,
+                blocking, dstBuffer, dstOrigin, region, src_ptr);
+    }
+    else
+    {
+        if (nullptr == dstBuffer.GetPtr())
+            memcpyCommand = new ReadUsmBufferCommand(queue, m_pOclEntryPoints,
+                srcBuffer, srcOrigin, region, dst_ptr);
+        else
+            memcpyCommand = new CopyUsmBufferCommand(queue, m_pOclEntryPoints,
+                srcBuffer, dstBuffer, srcOrigin, dstOrigin, region);
+    }
+
+    err = memcpyCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete memcpyCommand;
+        return err;
+    }
+    err = memcpyCommand->EnqueueSelf(blocking, num_events_in_wait_list,
+                                     event_wait_list, event, api_logger);
+    if (CL_FAILED(err))
+    {
+        memcpyCommand->CommandDone();
+        delete memcpyCommand;
+        return err;
+    }
+    return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
+    cl_command_queue command_queue, const void* ptr, size_t size,
+    cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
+    const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
+{
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_COMMAND_QUEUE;
+
+    cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
+                                     event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
+    // value for ptr and whether 0 is invalid for size.
+    if (nullptr == ptr || 0 == size || (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
+        CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+        return CL_INVALID_VALUE;
+
+    MigrateUSMMemCommand* migrateCommand = new MigrateUSMMemCommand(
+        queue, m_pContextModule, flags, ptr, size );
+
+    err = migrateCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete migrateCommand;
+        return err;
+    }
+
+    err = migrateCommand->EnqueueSelf(CL_FALSE, num_events_in_wait_list,
+                                       event_wait_list, event, api_logger);
+    if(CL_FAILED(err))
+    {
+        // Enqueue failed, free resources
+        migrateCommand->CommandDone();
+        delete migrateCommand;
+    }
+
+    return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
+    cl_command_queue command_queue, const void* ptr, size_t size,
+    cl_mem_advice_intel advice, cl_uint num_events_in_wait_list,
+    const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
+{
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_COMMAND_QUEUE;
+
+    cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
+                                     event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
+    // value for ptr and whether 0 is invalid for size.
+    if (nullptr == ptr || 0 == size)
+        return CL_INVALID_VALUE;
+
+    if (advice != CL_MEM_ADVICE_TBD0_INTEL &&
+        advice != CL_MEM_ADVICE_TBD1_INTEL &&
+        advice != CL_MEM_ADVICE_TBD2_INTEL &&
+        advice != CL_MEM_ADVICE_TBD3_INTEL &&
+        advice != CL_MEM_ADVICE_TBD4_INTEL &&
+        advice != CL_MEM_ADVICE_TBD5_INTEL &&
+        advice != CL_MEM_ADVICE_TBD6_INTEL &&
+        advice != CL_MEM_ADVICE_TBD7_INTEL)
+        return CL_INVALID_VALUE;
+
+    AdviseUSMMemCommand* adviseCommand = new AdviseUSMMemCommand(
+        queue, m_pContextModule, ptr, size, advice);
+
+    err = adviseCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete adviseCommand;
+        return err;
+    }
+
+    err = adviseCommand->EnqueueSelf(CL_FALSE, num_events_in_wait_list,
+                                     event_wait_list, event, api_logger);
+    if(CL_FAILED(err))
+    {
+        // Enqueue failed, free resources
+        adviseCommand->CommandDone();
+        delete adviseCommand;
+    }
+
     return CL_SUCCESS;
 }
 

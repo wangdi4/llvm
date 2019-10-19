@@ -41,6 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class MemoryObject;
     class ContextModule;
     class SVMBuffer;
+    class USMBuffer;
     class Pipe;
 
     typedef std::set<SharedPtr<Device> > tSetOfDevices;
@@ -401,8 +402,115 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // return access to context-specific OS event pool
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
         Intel::OpenCL::Utils::OclOsDependentEvent* GetOSEvent();
-        void    RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent);      
+        void    RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent);
 #endif
+
+
+        // check if host USM allocation is supported
+        bool DoesSupportUsmHost() const { return m_bSupportsUsmHost; }
+
+        // check if device USM allocation is supported
+        bool DoesSupportUsmDevice() const { return m_bSupportsUsmDevice; }
+
+        // check if single device shared USM allocation is supported
+        bool DoesSupportUsmSharedSingle() const {
+            return m_bSupportsUsmSharedSingle;
+        }
+
+        // check if cross-device shared USM allocation is supported
+        bool DoesSupportUsmSharedCross() const {
+            return m_bSupportsUsmSharedCross;
+        }
+
+        // check if shared system USM allocation is supported
+        bool DoesSupportUsmSharedSystem() const {
+            return m_bSupportsUsmSharedSystem;
+        }
+
+        /**
+         * @param ptr some pointer
+         * @return an USMBuffer that contains the address pointed to by ptr or
+         *  nullptr if no such USMBuffer exists
+         */
+        ConstSharedPtr<USMBuffer> GetUSMBufferContainingAddr(const void* ptr)
+            const;
+        SharedPtr<USMBuffer> GetUSMBufferContainingAddr(void* ptr);
+
+        // return true only if ptr points to a location inside an USM buffer
+        // that was created by USMAlloc
+        bool IsUSMPointer(const void* ptr) const;
+
+        /**
+         * Allocate host USM
+         * @param properties an optional list of allocation properties and
+                  their corresponding values.
+         * @param size the size in bytes of the requested device allocation.
+         * @param alignment the minimum alignment in bytes for the allocation.
+         * @param errcode_ret may return an appropriate error code.
+         * @return allocated host USM.
+         */
+        void* USMHostAlloc(const cl_mem_properties_intel* properties,
+                           size_t size,
+                           cl_uint alignment,
+                           cl_int* errcode_ret);
+
+        /**
+         * Allocate host USM
+         * @param device OpenCL device ID to associate with the allocation.
+         * @param properties an optional list of allocation properties and
+                  their corresponding values.
+         * @param size the size in bytes of the requested device allocation.
+         * @param alignment the minimum alignment in bytes for the allocation.
+         * @param errcode_ret may return an appropriate error code.
+         * @return allocated device USM.
+         */
+        void* USMDeviceAlloc(cl_device_id device,
+                             const cl_mem_properties_intel* properties,
+                             size_t size,
+                             cl_uint alignment,
+                             cl_int* errcode_ret);
+
+        /**
+         * Allocate USM with shared ownership between the host and the
+           specified OpenCL device.
+         * @param device OpenCL device ID to associate with the allocation.
+         * @param properties an optional list of allocation properties and
+                  their corresponding values.
+         * @param size the size in bytes of the requested device allocation.
+         * @param alignment the minimum alignment in bytes for the allocation.
+         * @param errcode_ret may return an appropriate error code.
+         * @return allocated shared USM.
+         */
+        void* USMSharedAlloc(cl_device_id device,
+                             const cl_mem_properties_intel* properties,
+                             size_t size,
+                             cl_uint alignment,
+                             cl_int* errcode_ret);
+
+        /**
+         * Free USM allocation
+         * @param usmPtr the USM allocation to free.
+         * @return CL_SUCCESS if the function executes successfully and
+         *         error codes if failed.
+         */
+        cl_int USMFree(void* usmPtr);
+
+        /**
+         * Query information about a Unified Shared Memory allocation.
+         * @param ptr a pointer into a USM allocation to query.
+         * @param param_name specifies the information to query.
+         * @param param_value_size specify the size in bytes of memory pointed
+                  to by param_value.
+         * @param param_value
+         * @param param_value_size_ret
+         * @return CL_SUCCESS if the function executes successfully and
+         *  error codes if failed.
+         */
+        cl_int GetMemAllocInfoINTEL(const void* ptr,
+                                    cl_mem_info_intel param_name,
+                                    size_t param_value_size,
+                                    void* param_value,
+                                    size_t* param_value_size_ret);
 
     protected:
         /******************************************************************************************
@@ -442,10 +550,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, const cl_image_format& clImageFormat, cl_mem_object_type objType);
 
+        /**
+         * Check and parse USM allocation properties.
+         * @param properties list of allocation properties and their corresponding values.
+         * @errcode_ret may return an appropriate error code.
+         * @return allocation flag.
+         */
+        cl_mem_alloc_flags_intel ParseUSMAllocProperties(
+            const cl_mem_properties_intel* properties,
+            cl_int* errcode_ret);
+
+        /**
+         * Allocate USM
+         * @param type USM type
+         * @param device OpenCL device ID to associate with the allocation.
+         * @param properties an optional list of allocation properties and
+            their corresponding values. The list is terminated with the special
+            property 0.
+         * @param size the size in bytes of the requested device allocation.
+         * @param alignment the minimum alignment in bytes for the allocation.
+         * @param errcode_ret may return an appropriate error code.
+         */
+        void* USMAlloc(cl_unified_shared_memory_type_intel type,
+                       cl_device_id device,
+                       const cl_mem_properties_intel* properties,
+                       size_t size,
+                       unsigned int alignment,
+                       cl_int* errcode_ret);
+
         bool                                    m_bTEActivated;
 
-        // -------------- DEVICES -------------- 
-        
+        // -------------- DEVICES --------------
+
         OCLObjectsMap<_cl_device_id_int, _cl_platform_id_int> m_mapDevices;           // holds the devices that associated to the program
         SharedPtr<Device>*                                m_ppExplicitRootDevices;  // list of all explicit root devices in the context
         SharedPtr<FissionableDevice>*                   m_ppAllDevices;
@@ -496,6 +632,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                                    m_bSupportsSvmSystem;   // if there is at least one device that supports this
         std::map<void*, SharedPtr<SVMBuffer> >  m_svmBuffers;
         mutable Intel::OpenCL::Utils::OclReaderWriterLock m_svmBuffersRwlock;
+
+        bool                                    m_bSupportsUsmHost;
+        bool                                    m_bSupportsUsmDevice;
+        bool                                    m_bSupportsUsmSharedSingle;
+        bool                                    m_bSupportsUsmSharedCross;
+        bool                                    m_bSupportsUsmSharedSystem;
+        std::map<void*, SharedPtr<USMBuffer> >  m_usmBuffers;
+        mutable Intel::OpenCL::Utils::OclReaderWriterLock m_usmBuffersRwlock;
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
         typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::OclOsDependentEvent*> t_OsEventPool;

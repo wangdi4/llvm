@@ -198,7 +198,9 @@ fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
     &FillMemObject::Create,         //    CL_DEV_CMD_FILL_BUFFER
     &FillMemObject::Create,         //    CL_DEV_CMD_FILL_IMAGE
     &MigrateMemObject::Create,      //    CL_DEV_CMD_MIGRATE
-    &MigrateMemObject::Create       //    CL_DEV_CMD_SVM_MIGRATE
+    &MigrateMemObject::Create,      //    CL_DEV_CMD_SVM_MIGRATE
+    &MigrateUSMMemObject::Create,   //    CL_DEV_CMD_USM_MIGRATE
+    &AdviseUSMMemObject::Create     //    CL_DEV_CMD_USM_ADVISE
 };
 
 // Constructor/Dispatcher

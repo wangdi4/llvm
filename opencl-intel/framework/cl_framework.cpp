@@ -3263,3 +3263,270 @@ SET_ALIAS(clGetDeviceFunctionPointerINTEL);
 
 REGISTER_EXTENSION_FUNCTION(clGetDeviceFunctionPointerINTEL,
     clGetDeviceFunctionPointerINTEL);
+
+void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
+                                      const cl_mem_properties_intel* properties,
+                                      size_t size,
+                                      cl_uint alignment,
+                                      cl_int* errcode_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clHostMemAllocINTEL);
+        apiLogger << "cl_context context" << context <<
+            "const cl_mem_properties_intel* properties" << properties <<
+            "size_t size" << size << "unsigned int alignment" << alignment;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*,
+            USMHostAlloc(context, properties, size, alignment, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*,
+            USMHostAlloc(context, properties, size, alignment, errcode_ret));
+    }
+}
+SET_ALIAS(clHostMemAllocINTEL);
+REGISTER_EXTENSION_FUNCTION(clHostMemAllocINTEL, clHostMemAllocINTEL);
+
+void* CL_API_CALL clDeviceMemAllocINTEL(cl_context context,
+                                        cl_device_id device,
+                                        const cl_mem_properties_intel* properties,
+                                        size_t size,
+                                        cl_uint alignment,
+                                        cl_int* errcode_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clDeviceMemAllocINTEL);
+        apiLogger << "cl_context context" << context <<
+            "const cl_mem_properties_intel* properties" << properties <<
+            "size_t size" << size << "unsigned int alignment" << alignment;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMDeviceAlloc(
+            context, device, properties, size, alignment, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*, USMDeviceAlloc(
+            context, device, properties, size, alignment, errcode_ret));
+    }
+}
+SET_ALIAS(clDeviceMemAllocINTEL);
+REGISTER_EXTENSION_FUNCTION(clDeviceMemAllocINTEL, clDeviceMemAllocINTEL);
+
+void* CL_API_CALL clSharedMemAllocINTEL(cl_context context,
+                                        cl_device_id device,
+                                        const cl_mem_properties_intel* properties,
+                                        size_t size,
+                                        cl_uint alignment,
+                                        cl_int* errcode_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clSharedMemAllocINTEL);
+        apiLogger << "cl_context context" << context <<
+            "const cl_mem_properties_intel* properties" << properties <<
+            "size_t size" << size << "unsigned int alignment" << alignment;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMSharedAlloc(
+            context, device, properties, size, alignment, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*, USMSharedAlloc(
+            context, device, properties, size, alignment, errcode_ret));
+    }
+}
+SET_ALIAS(clSharedMemAllocINTEL);
+REGISTER_EXTENSION_FUNCTION(clSharedMemAllocINTEL, clSharedMemAllocINTEL);
+
+cl_int CL_API_CALL clMemFreeINTEL(cl_context context,
+                                  const void* ptr)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clMemFreeINTEL);
+        apiLogger << "cl_context context" << context << "void* ptr" << ptr;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            USMFree(context, ptr));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, USMFree(context, ptr));
+    }
+}
+SET_ALIAS(clMemFreeINTEL);
+REGISTER_EXTENSION_FUNCTION(clMemFreeINTEL, clMemFreeINTEL);
+
+cl_int CL_API_CALL clGetMemAllocInfoINTEL(cl_context context,
+                                          const void* ptr,
+                                          cl_mem_info_intel param_name,
+                                          size_t param_value_size,
+                                          void* param_value,
+                                          size_t* param_value_size_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clGetMemAllocInfoINTEL);
+        apiLogger << "cl_context context" << context << "void* ptr" << ptr <<
+          "cl_mem_info_intel param_name" << param_name <<
+          "size_t param_value_size" << param_value_size_ret <<
+          "void* param_value" << param_value_size_ret <<
+          "size_t* param_value_size_ret" << param_value_size_ret;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            GetMemAllocInfoINTEL(context, ptr, param_name, param_value_size,
+                                 param_value, param_value_size_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            GetMemAllocInfoINTEL(context, ptr, param_name, param_value_size,
+                                 param_value, param_value_size_ret));
+    }
+}
+SET_ALIAS(clGetMemAllocInfoINTEL);
+REGISTER_EXTENSION_FUNCTION(clGetMemAllocInfoINTEL, clGetMemAllocInfoINTEL);
+
+cl_int CL_API_CALL clSetKernelArgMemPointerINTEL(cl_kernel kernel,
+                                                 cl_uint arg_index,
+                                                 const void* arg_value)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clSetKernelArgMemPointerINTEL);
+        apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_index" <<
+                     arg_index << "const void* arg_value" << arg_value;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            SetKernelArgUSMPointer(kernel, arg_index, arg_value));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            SetKernelArgUSMPointer(kernel, arg_index, arg_value));
+    }
+}
+SET_ALIAS(clSetKernelArgMemPointerINTEL);
+REGISTER_EXTENSION_FUNCTION(clSetKernelArgMemPointerINTEL,
+                            clSetKernelArgMemPointerINTEL);
+
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemsetINTEL(
+            cl_command_queue command_queue,
+            void* dst_ptr,
+            cl_int value,
+            size_t size,
+            cl_uint num_events_in_wait_list,
+            const cl_event* event_wait_list,
+            cl_event* event) CL_API_SUFFIX__VERSION_2_1
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clEnqueueMemsetINTEL);
+        apiLogger << "void* dst_ptr" << dst_ptr << "cl_int value" << value <<
+            "size_t size" << size << "cl_uint num_events_in_wait_list" <<
+            num_events_in_wait_list << "const cl_event* event_wait_list" <<
+            event_wait_list << "cl_event* event" << event;
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueUSMMemset(
+            command_queue, dst_ptr, value, size, num_events_in_wait_list,
+            event_wait_list, event, &apiLogger));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUSMMemset(
+            command_queue, dst_ptr, value, size, num_events_in_wait_list,
+            event_wait_list, event, nullptr));
+    }
+}
+SET_ALIAS(clEnqueueMemsetINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueMemsetINTEL, clEnqueueMemsetINTEL);
+
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemcpyINTEL(
+            cl_command_queue command_queue,
+            cl_bool blocking,
+            void* dst_ptr,
+            const void* src_ptr,
+            size_t size,
+            cl_uint num_events_in_wait_list,
+            const cl_event* event_wait_list,
+            cl_event* event) CL_API_SUFFIX__VERSION_2_1
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clEnqueueMemcpyINTEL);
+        apiLogger << "blocking" << blocking << "void* dst_ptr" << dst_ptr <<
+        "const void* src_ptr" << src_ptr << "size_t size" << size <<
+        "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
+        "const cl_event* event_wait_list" << event_wait_list <<
+        "cl_event* event" << event;
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueUSMMemcpy(
+            command_queue, blocking, dst_ptr, src_ptr, size,
+            num_events_in_wait_list, event_wait_list, event, &apiLogger));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUSMMemcpy(
+            command_queue, blocking, dst_ptr, src_ptr, size,
+            num_events_in_wait_list, event_wait_list, event, nullptr));
+    }
+}
+SET_ALIAS(clEnqueueMemcpyINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueMemcpyINTEL, clEnqueueMemcpyINTEL);
+
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
+            cl_command_queue command_queue,
+            const void* ptr,
+            size_t size,
+            cl_mem_migration_flags flags,
+            cl_uint num_events_in_wait_list,
+            const cl_event* event_wait_list,
+            cl_event* event) CL_API_SUFFIX__VERSION_2_1
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clEnqueueMigrateMemINTEL);
+        apiLogger << "ptr" << ptr << "size" << size << "flags" << flags <<
+        "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
+        "const cl_event* event_wait_list" << event_wait_list <<
+        "cl_event* event" << event;
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
+            EnqueueUSMMigrateMem(command_queue, ptr, size, flags,
+            num_events_in_wait_list, event_wait_list, event, &apiLogger));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUSMMigrateMem(
+            command_queue, ptr, size, flags, num_events_in_wait_list,
+            event_wait_list, event, nullptr));
+    }
+}
+SET_ALIAS(clEnqueueMigrateMemINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueMigrateMemINTEL,
+                            clEnqueueMigrateMemINTEL);
+
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemAdviseINTEL(
+            cl_command_queue command_queue,
+            const void* ptr,
+            size_t size,
+            cl_mem_advice_intel advice,
+            cl_uint num_events_in_wait_list,
+            const cl_event* event_wait_list,
+            cl_event* event) CL_API_SUFFIX__VERSION_2_1
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clEnqueueMemAdviseINTEL);
+        apiLogger << "ptr" << ptr << "size" << size << "advice" << advice <<
+        "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
+        "const cl_event* event_wait_list" << event_wait_list <<
+        "cl_event* event" << event;
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
+            EnqueueUSMMemAdvise(command_queue, ptr, size, advice,
+            num_events_in_wait_list, event_wait_list, event, &apiLogger));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUSMMemAdvise(
+            command_queue, ptr, size, advice, num_events_in_wait_list,
+            event_wait_list, event, nullptr));
+    }
+}
+SET_ALIAS(clEnqueueMemAdviseINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueMemAdviseINTEL, clEnqueueMemAdviseINTEL);
+
