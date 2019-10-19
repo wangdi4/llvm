@@ -518,7 +518,6 @@ struct DevirtModule {
   void buildTypeIdentifierMap(
       std::vector<VTableBits> &Bits,
       DenseMap<Metadata *, std::set<TypeMemberInfo>> &TypeIdMap);
-  Constant *getPointerAtOffset(Constant *I, uint64_t Offset);
   bool
   tryFindVirtualCallTargets(std::vector<VirtualCallTarget> &TargetsForSlot,
                             const std::set<TypeMemberInfo> &TypeMemberInfos,
@@ -917,38 +916,6 @@ void DevirtModule::buildTypeIdentifierMap(
   }
 }
 
-Constant *DevirtModule::getPointerAtOffset(Constant *I, uint64_t Offset) {
-  if (I->getType()->isPointerTy()) {
-    if (Offset == 0)
-      return I;
-    return nullptr;
-  }
-
-  const DataLayout &DL = M.getDataLayout();
-
-  if (auto *C = dyn_cast<ConstantStruct>(I)) {
-    const StructLayout *SL = DL.getStructLayout(C->getType());
-    if (Offset >= SL->getSizeInBytes())
-      return nullptr;
-
-    unsigned Op = SL->getElementContainingOffset(Offset);
-    return getPointerAtOffset(cast<Constant>(I->getOperand(Op)),
-                              Offset - SL->getElementOffset(Op));
-  }
-  if (auto *C = dyn_cast<ConstantArray>(I)) {
-    ArrayType *VTableTy = C->getType();
-    uint64_t ElemSize = DL.getTypeAllocSize(VTableTy->getElementType());
-
-    unsigned Op = Offset / ElemSize;
-    if (Op >= C->getNumOperands())
-      return nullptr;
-
-    return getPointerAtOffset(cast<Constant>(I->getOperand(Op)),
-                              Offset % ElemSize);
-  }
-  return nullptr;
-}
-
 bool DevirtModule::tryFindVirtualCallTargets(
     std::vector<VirtualCallTarget> &TargetsForSlot,
     const std::set<TypeMemberInfo> &TypeMemberInfos, uint64_t ByteOffset) {
@@ -957,7 +924,7 @@ bool DevirtModule::tryFindVirtualCallTargets(
       return false;
 
     Constant *Ptr = getPointerAtOffset(TM.Bits->GV->getInitializer(),
-                                       TM.Offset + ByteOffset);
+                                       TM.Offset + ByteOffset, M);
     if (!Ptr)
       return false;
 
@@ -2909,7 +2876,15 @@ bool DevirtModule::run() {
     for (VTableBits &B : Bits)
       rebuildGlobal(B);
 
+<<<<<<< HEAD
   runDevirtVerifier(M);  // INTEL
+=======
+  // We have lowered or deleted the type checked load intrinsics, so we no
+  // longer have enough information to reason about the liveness of virtual
+  // function pointers in GlobalDCE.
+  for (GlobalVariable &GV : M.globals())
+    GV.eraseMetadata(LLVMContext::MD_vcall_visibility);
+>>>>>>> 820f77c306a780f8f1ae574f83681136d5b465fb
 
   return true;
 }
