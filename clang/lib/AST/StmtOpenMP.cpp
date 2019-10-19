@@ -1189,6 +1189,9 @@ OMPMasterTaskLoopSimdDirective *OMPMasterTaskLoopSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1207,6 +1210,7 @@ OMPMasterTaskLoopSimdDirective *OMPMasterTaskLoopSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
