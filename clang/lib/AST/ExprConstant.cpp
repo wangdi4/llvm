@@ -6772,6 +6772,10 @@ public:
     }
   }
 
+  bool VisitCXXRewrittenBinaryOperator(const CXXRewrittenBinaryOperator *E) {
+    return StmtVisitorTy::Visit(E->getSemanticForm());
+  }
+
   bool VisitBinaryConditionalOperator(const BinaryConditionalOperator *E) {
     // Evaluate and cache the common expression. We treat it as a temporary,
     // even though it's not quite the same thing.
@@ -13981,6 +13985,9 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return CheckEvalInICE(E, Ctx);
     return ICEDiag(IK_NotICE, E->getBeginLoc());
   }
+  case Expr::CXXRewrittenBinaryOperatorClass:
+    return CheckICE(cast<CXXRewrittenBinaryOperator>(E)->getSemanticForm(),
+                    Ctx);
   case Expr::DeclRefExprClass: {
     if (isa<EnumConstantDecl>(cast<DeclRefExpr>(E)->getDecl()))
       return NoDiag();
