@@ -1,20 +1,24 @@
 ; ModuleID = 's4.c'
 ; void baz1(long);
-; 
+;
 ; void foo() {
 ;   long index;
-; 
+;
 ; #pragma omp simd simdlen(2)
 ;   for (index = 0; index < 1024; index++) {
 ;       baz1(index);
 ;   }
 ; }
-; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-IRCG
+; RUN: opt -VPlanDriver -enable-vp-value-codegen=true  -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPCG
+; TODO: Merge IRCG and VPCG checks after CMPLRLLVM-10781 is fixed.
+;
 ; CHECK: vector.ph:
 ; CHECK: vector.body:
 ; CHECK:   %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; CHECK: [[IND1:.*]] = add i64 %index, 1
-; CHECK: call void @baz1(i64 %0)
+; CHECK-IRCG: [[IND1:.*]] = add i64 %index, 1
+; CHECK-VPCG: [[IND1:.*]] = extractelement <2 x i64> [[VEC_PHI:.*]], i32 1
+; CHECK: call void @baz1(i64 %{{.*}})
 ; CHECK-NOT: {{.*}} = add i64 %index, 0
 
 ; source_filename = "s4.c"
