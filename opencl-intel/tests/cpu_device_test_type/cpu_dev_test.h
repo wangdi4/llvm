@@ -82,6 +82,9 @@ extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListS
 
 extern "C" char* clDevErr2Txt(cl_dev_err_code error_code);
 bool test_task_executor();
+#ifndef _WIN32
+void printAffinityMask(affinityMask_t* affinityMask);
+#endif
 
 class RTMemObjService : public IOCLDevRTMemObjectService
 {
