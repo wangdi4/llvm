@@ -727,6 +727,131 @@ public:
   }
 };
 #endif // INTEL_FEATURE_CSA
+
+/// This represents a 'tile' clause in the '#pragma omp ...'
+/// directive.
+///
+/// \code
+/// #pragma omp parallel for tile(8,16,8)
+/// \endcode
+/// In this example directive '#pragma omp parallel for' has clause 'tile'
+/// with three expressions '8', '16', '8'.
+/// The parameters must be constant non-negative integer expressions, which
+/// specifies tile sizes for the following N tightly-nested loops.
+class OMPTileClause final
+    : public OMPClause,
+      private llvm::TrailingObjects<OMPTileClause, Expr *> {
+  friend class OMPClauseReader;
+  friend TrailingObjects;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// Number of loops, associated with the tile clause.
+  unsigned NumLoops = 0;
+
+  /// Build clause with number of loops \a NumLoops.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  OMPTileClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                SourceLocation EndLoc, unsigned NumLoops)
+      : OMPClause(OMPC_tile, StartLoc, EndLoc), NumLoops(NumLoops) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  explicit OMPTileClause(unsigned NumLoops)
+      : OMPClause(OMPC_tile, SourceLocation(), SourceLocation()),
+        NumLoops(NumLoops) {}
+
+  /// Fetches list of expressions associated with this clause.
+  MutableArrayRef<Expr *> getExprRefs() {
+    return MutableArrayRef<Expr *>(getTrailingObjects<Expr *>(), NumLoops);
+  }
+
+public:
+  /// Creates clause with a list of tile expressions \a EL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param EL List of references to the expressions.
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  static OMPTileClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                               SourceLocation LParenLoc, SourceLocation EndLoc,
+                               ArrayRef<Expr *> EL, unsigned NumLoops);
+
+  /// Creates an empty clause with \a NumLoops loops.
+  ///
+  /// \param C AST context.
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  static OMPTileClause *CreateEmpty(const ASTContext &C, unsigned NumLoops);
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Get number of loops associated with the clause.
+  unsigned getNumLoops() const { return NumLoops; }
+
+  /// Set the data for the tile clause.
+  void setTile(unsigned NumLoop, Expr *E);
+
+  /// Get the data from the tile clause.
+  Expr *getTileData(unsigned NumLoop);
+  const Expr *getTileData(unsigned NumLoop) const;
+
+  using exprlist_iterator = MutableArrayRef<Expr *>::iterator;
+  using exprlist_const_iterator = ArrayRef<const Expr *>::iterator;
+
+  exprlist_iterator exprlist_begin() { return getExprRefs().begin(); }
+  exprlist_iterator exprlist_end() { return getExprRefs().end(); }
+
+  using sizes_iterator = MutableArrayRef<Expr *>::iterator;
+  using sizes_const_iterator = ArrayRef<const Expr *>::iterator;
+  using sizes_range = llvm::iterator_range<sizes_iterator>;
+  using sizes_const_range = llvm::iterator_range<sizes_const_iterator>;
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(exprlist_begin()),
+                       reinterpret_cast<Stmt **>(exprlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPTileClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  sizes_range sizes() {
+    return sizes_range(getTrailingObjects<Expr *>(),
+                       getTrailingObjects<Expr *>() + NumLoops);
+  }
+  sizes_const_range sizes() const {
+    return sizes_const_range(getTrailingObjects<Expr *>(),
+                             getTrailingObjects<Expr *>() + NumLoops);
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == OMPC_tile;
+  }
+};
 #endif // INTEL_CUSTOMIZATION
 
 /// This represents 'safelen' clause in the '#pragma omp ...'

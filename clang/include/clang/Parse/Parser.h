@@ -3008,6 +3008,15 @@ private:
   ///
   OMPClause *ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          bool ParseOnly);
+#if INTEL_CUSTOMIZATION
+  /// Parses clause with an expression list of a kind \a Kind.
+  ///
+  /// \param Kind Kind of current clause.
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPExprListClause(OpenMPClauseKind Kind, bool ParseOnly);
+#endif // INTEL_CUSTOMIZATION
   /// Parses simple clause of a kind \a Kind.
   ///
   /// \param Kind Kind of current clause.

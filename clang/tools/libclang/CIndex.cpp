@@ -2180,6 +2180,11 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
+  for (auto *E : C->sizes()) {
+    Visitor->AddStmt(E);
+  }
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseEnqueue::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

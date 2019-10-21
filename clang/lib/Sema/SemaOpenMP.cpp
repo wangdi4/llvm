@@ -4218,7 +4218,39 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
   VarsWithInheritedDSAType VarsWithInheritedDSA;
   bool ErrorFound = false;
-  ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
+#if INTEL_CUSTOMIZATION
+  // When using late outlining, do special handling for 'collapse' clauses.
+  // Remove any user 'collapse', and instead add an implicit one that matches
+  // the 'tile' clause.
+  if (getLangOpts().OpenMPLateOutline && !CurContext->isDependentContext()) {
+    const OMPTileClause *TileClause = nullptr;
+    for (auto *TC :
+         OMPExecutableDirective::getClausesOfKind<OMPTileClause>(Clauses))
+      TileClause = TC;
+
+    llvm::copy_if(
+        Clauses, std::back_inserter(ClausesWithImplicit), [=](OMPClause *C) {
+          return TileClause == nullptr || C->getClauseKind() != OMPC_collapse;
+        });
+
+    if (TileClause) {
+      for (auto *CollapseClause :
+           OMPExecutableDirective::getClausesOfKind<OMPCollapseClause>(
+               Clauses)) {
+        Diag(CollapseClause->getBeginLoc(),
+             diag::warn_collapse_ignored_with_tile);
+        break;
+      }
+
+      // Create an implicit 'collapse' clause matching the 'tile' clause.
+      ClausesWithImplicit.push_back(ActOnOpenMPCollapseClause(
+          ActOnIntegerConstant(SourceLocation(), TileClause->getNumLoops())
+              .get(),
+          SourceLocation(), SourceLocation(), SourceLocation()));
+    }
+  } else
+    ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
+#endif // INTEL_CUSTOMIZATION
   if (AStmt && !CurContext->isDependentContext()) {
     assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
 
@@ -4608,6 +4640,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_use_device_ptr:
       case OMPC_is_device_ptr:
 #if INTEL_CUSTOMIZATION
+      case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -6531,6 +6564,12 @@ static bool checkOpenMPIterationSpace(
         << getOpenMPDirectiveName(DKind) << TotalNestedLoopCount
         << (CurrentNestedLoopCount > 0) << CurrentNestedLoopCount;
     if (TotalNestedLoopCount > 1) {
+#if INTEL_CUSTOMIZATION
+      if (CollapseLoopCountExpr &&
+          !CollapseLoopCountExpr->getExprLoc().isValid()) {
+        SemaRef.Diag(DSA.getConstructLoc(), diag::note_omp_tile_expr);
+      } else
+#endif // INTEL_CUSTOMIZATION
       if (CollapseLoopCountExpr && OrderedLoopCountExpr)
         SemaRef.Diag(DSA.getConstructLoc(),
                      diag::note_omp_collapse_ordered_expr)
@@ -10262,6 +10301,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -10855,6 +10895,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_safelen:
   case OMPC_simdlen:
   case OMPC_allocator:
+  case OMPC_tile:      // INTEL
   case OMPC_collapse:
   case OMPC_private:
   case OMPC_shared:
@@ -11300,6 +11341,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -11485,6 +11527,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -11701,6 +11744,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -11920,6 +11964,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -16586,6 +16631,23 @@ OMPClause *Sema::ActOnOpenMPAllocateClause(
 }
 
 #if INTEL_CUSTOMIZATION
+OMPClause *Sema::ActOnOpenMPTileClause(ArrayRef<Expr *> Sizes,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc) {
+  SmallVector<Expr *, 8> NewSizes;
+  for (Expr *E : Sizes) {
+    ExprResult ER = VerifyPositiveIntegerConstantInClause(
+        E, OMPC_tile, /*StrictlyPositive=*/false);
+    if (ER.isInvalid())
+      return nullptr;
+    NewSizes.push_back(ER.get());
+  }
+
+  return OMPTileClause::Create(Context, StartLoc, LParenLoc, EndLoc, NewSizes,
+                               NewSizes.size());
+}
+
 #if INTEL_FEATURE_CSA
 OMPClause *Sema::ActOnOpenMPDataflowClause(Expr *StaticChunkSize,
                                            Expr *NumWorkersNum,

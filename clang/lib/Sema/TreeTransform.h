@@ -1569,6 +1569,16 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  /// Build a new OpenMP 'tile' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPTileClause(ArrayRef<Expr *> Sizes,
+                                  SourceLocation StartLoc,
+                                  SourceLocation LParenLoc,
+                                  SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPTileClause(Sizes, StartLoc, LParenLoc, EndLoc);
+  }
 #if INTEL_FEATURE_CSA
   /// Build a new OpenMP 'dataflow' clause.
   ///
@@ -8584,6 +8594,19 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPTileClause(OMPTileClause *C) {
+  llvm::SmallVector<Expr *, 4> Sizes;
+  for (unsigned I = 0, End = C->getNumLoops(); I < End; ++I) {
+    ExprResult E = getDerived().TransformExpr(C->getTileData(I));
+    if (E.isInvalid())
+      return nullptr;
+    Sizes.push_back(E.get());
+  }
+  return getDerived().RebuildOMPTileClause(
+      Sizes, C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+}
 #if INTEL_FEATURE_CSA
 template <typename Derived>
 OMPClause *

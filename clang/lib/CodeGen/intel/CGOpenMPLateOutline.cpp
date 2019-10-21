@@ -1125,6 +1125,11 @@ void OpenMPLateOutliner::emitOMPSimdlenClause(const OMPSimdlenClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPCollapseClause(const OMPCollapseClause *Cl) {
+#if INTEL_CUSTOMIZATION
+  // Don't emit implicit collapse clause when tile clause present.
+  if (Directive.hasClausesOfKind<OMPTileClause>())
+    return;
+#endif // INTEL_CUSTOMIZATION
   ClauseEmissionHelper CEH(*this, OMPC_collapse);
   addArg("QUAL.OMP.COLLAPSE");
   addArg(CGF.EmitScalarExpr(Cl->getNumForLoops()));
@@ -1435,6 +1440,13 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
       addArg(I->Size);
     }
   }
+}
+
+void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
+  ClauseEmissionHelper CEH(*this, OMPC_tile);
+  addArg("QUAL.OMP.TILE");
+  for (auto *E : C->sizes())
+    addArg(CGF.EmitScalarExpr(E));
 }
 
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}

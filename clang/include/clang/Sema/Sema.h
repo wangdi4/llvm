@@ -9918,6 +9918,11 @@ public:
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
 #if INTEL_CUSTOMIZATION
+  /// Called on well-formed 'tile' clause.
+  OMPClause *ActOnOpenMPTileClause(ArrayRef<Expr *> Sizes,
+                                   SourceLocation StartLoc,
+                                   SourceLocation LParenLoc,
+                                   SourceLocation EndLoc);
 #if INTEL_FEATURE_CSA
   /// Called on well-formed 'dataflow' clause.
   OMPClause *ActOnOpenMPDataflowClause(Expr *StaticSize,

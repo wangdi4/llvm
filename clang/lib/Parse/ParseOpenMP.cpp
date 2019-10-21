@@ -2209,6 +2209,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_hint:
   case OMPC_allocator:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -2250,6 +2251,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     if (CKind == OMPC_ordered && PP.LookAhead(/*N=*/0).isNot(tok::l_paren))
       Clause = ParseOpenMPClause(CKind, WrongDirective);
 #if INTEL_CUSTOMIZATION
+    else if (CKind == OMPC_tile)
+      Clause = ParseOpenMPExprListClause(CKind, WrongDirective);
 #if INTEL_FEATURE_CSA
     else if (CKind == OMPC_dataflow)
       if (getTargetInfo().getTriple().getArch() != llvm::Triple::csa) {
@@ -2640,6 +2643,62 @@ OMPClause *Parser::ParseOpenMPSingleExprWithArgClause(OpenMPClauseKind Kind,
   return Actions.ActOnOpenMPSingleExprWithArgClause(
       Kind, Arg, Val.get(), Loc, T.getOpenLocation(), KLoc, DelimLoc, RLoc);
 }
+
+#if INTEL_CUSTOMIZATION
+/// Parsing of OpenMP clauses with an expression list.
+///
+///    tile-clause:
+///      'tile' '(' constant-expr [, constant-expr ...] ')'
+///
+OMPClause *Parser::ParseOpenMPExprListClause(OpenMPClauseKind Kind,
+                                             bool ParseOnly) {
+  SourceLocation Loc = ConsumeToken();
+  SourceLocation DelimLoc;
+  // Parse '('.
+  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         getOpenMPClauseName(Kind)))
+    return nullptr;
+
+  bool IsComma = false;
+  bool IsInvalid = false;
+  SmallVector<Expr *, 4> Exprs;
+
+  while (IsComma ||
+         (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))) {
+    SourceLocation ELoc = Tok.getLocation();
+    ExprResult LHS(ParseCastExpression(false, false, NotTypeCast));
+    ExprResult Val = ParseRHSOfBinaryExpression(LHS, prec::Conditional);
+    Val =
+        Actions.ActOnFinishFullExpr(Val.get(), ELoc, /*DiscardedValue*/ false);
+    if (!Val.isInvalid()) {
+      Exprs.push_back(Val.get());
+    } else {
+      IsInvalid = true;
+      SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
+                StopBeforeMatch);
+    }
+    IsComma = Tok.is(tok::comma);
+    if (IsComma)
+      ConsumeToken();
+  }
+
+  if (Exprs.empty()) {
+    Diag(Tok.getLocation(), diag::err_expected_expression);
+    IsInvalid = true;
+  }
+
+  // Parse ')'.
+  SourceLocation RLoc = Tok.getLocation();
+  if (!T.consumeClose())
+    RLoc = T.getCloseLocation();
+
+  if (IsInvalid || ParseOnly)
+    return nullptr;
+
+  return Actions.ActOnOpenMPTileClause(Exprs, Loc, T.getOpenLocation(), RLoc);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static bool ParseReductionId(Parser &P, CXXScopeSpec &ReductionIdScopeSpec,
                              UnqualifiedId &ReductionId) {
