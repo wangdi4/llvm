@@ -4334,8 +4334,8 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   //  Number of dimemsion are different or different base: need to bail out,
   //  except for IVDEP
-  if (CommonIVDEPLoop && TestingMemRefs && !EqualBaseAndShape &&
-      adjustDVforIVDEP(Result, false)) { // SameBase = false
+  if (TestingMemRefs && !EqualBaseAndShape) {
+    adjustDV(Result, false, SrcRegDDRef); // SameBase = false
     return std::make_unique<Dependences>(Result);
   }
 
@@ -4768,7 +4768,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-  adjustDVforIVDEP(Result, true); // SameBase = true
+  adjustDV(Result, true, SrcRegDDRef); // SameBase = true
 
   //
   //  Reverse DV when needed
@@ -4964,6 +4964,21 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
   }
 }
 
+void DDTest::adjustDV(Dependences &Result, bool SameBase,
+                      const RegDDRef *SrcRegDDRef) {
+  adjustDVforIVDEP(Result, SameBase); // SameBase = true
+
+  if (!SrcRegDDRef->isMemRef()) {
+    return;
+  }
+
+  if (AssumeNoLoopCarriedDep == LoopCarriedDepMode::InnermostOnly) {
+    adjustForInnermostAssumedDeps(Result);
+  } else if (AssumeNoLoopCarriedDep == LoopCarriedDepMode::All) {
+    adjustForAllAssumedDeps(Result);
+  }
+}
+
 /// We will treat ivdep back and ivdep the same way.
 /// ivdep loop is for auto-parallel and ivdep back is
 /// for auto-vectorization.  Strictly speaking,
@@ -4998,6 +5013,38 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
     }
   }
   return IVDEPFound;
+}
+
+void DDTest::adjustForInnermostAssumedDeps(Dependences &Result) {
+  HLLoop *LCALoop = CommonIVDEPLoop;
+
+  if (!LCALoop) {
+    return;
+  }
+
+  if (!LCALoop->isInnermost()) {
+    return;
+  }
+
+  unsigned InnermostLoopLevel = LCALoop->getNestingLevel();
+
+  DVKind Direction = Result.getDirection(InnermostLoopLevel);
+
+  if (Direction == DVKind::ALL) {
+    Result.setDirection(InnermostLoopLevel, DVKind::EQ);
+  }
+}
+
+void DDTest::adjustForAllAssumedDeps(Dependences &Result) {
+  unsigned LCALoopLevel = CommonLevelsForIVDEP;
+
+  for (unsigned II = 1; II <= LCALoopLevel; ++II) {
+    DVKind Direction = Result.getDirection(II);
+
+    if (Direction == DVKind::ALL) {
+      Result.setDirection(II, DVKind::EQ);
+    }
+  }
 }
 
 void DDTest::setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
