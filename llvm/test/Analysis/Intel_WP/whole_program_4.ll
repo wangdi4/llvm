@@ -1,11 +1,11 @@
+; REQUIRES: assert
 ; Test that checks the libfuncs trace (-whole-program-trace-libfuncs) when
 ; -whole-program-trace is used.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-trace-libfuncs -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -whole-program-trace-libfuncs -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:      UNRESOLVED CALLSITES: 0
+; CHECK:     WHOLE-PROGRAM-ANALYSIS: LIBRARY FUNCTIONS TRACE
 ; CHECK:      TOTAL LIBFUNCS: 2
 ; CHECK:      LIBFUNCS FOUND: 2
 ; CHECK-NEXT:       malloc

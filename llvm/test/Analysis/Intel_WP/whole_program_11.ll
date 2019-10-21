@@ -1,8 +1,9 @@
+; REQUIRES: assert
 ; This test checks that the globals @__ImageBase, @stderr and @.str aren't
 ; considered as visible outside LTO since they aren't functions.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace-symbols -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -whole-program-trace-visibility -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE
 ; CHECK:   VISIBLE OUTSIDE LTO: 0

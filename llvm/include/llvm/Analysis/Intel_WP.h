@@ -46,12 +46,8 @@ private:
   bool IsAdvancedOptEnabled[
       TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels];
 
-  size_t UnresolvedCallsCount;
-
-  // SetVectors used for tracing the libfuncs
-  // that were found and not found.
-  SetVector<const Function *> LibFuncsFound;
-  SetVector<const Function *> LibFuncsNotFound;
+  // True if the definition of main is seen in the IR
+  bool MainDefSeen;
 
   // SetVector for storing the functions that are visible outside the
   // LTO module
@@ -79,6 +75,22 @@ private:
   void computeFunctionsVisibility(
       Module &M,
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // SetVectors used for tracing the libfuncs
+  // that were found and not found.
+  SetVector<const Function *> LibFuncsFound;
+  SetVector<const Function *> LibFuncsNotFound;
+
+  // Store the aliases that weren't found
+  SetVector<const GlobalAlias *> AliasesNotFound;
+
+  // Keep track of unresolved calls
+  size_t UnresolvedCallsCount;
+
+  // Print the whole program trace
+  void printWholeProgramTrace();
+#endif // NDEBUG || LLVM_ENABLE_DUMP
 
 public:
   WholeProgramInfo();
