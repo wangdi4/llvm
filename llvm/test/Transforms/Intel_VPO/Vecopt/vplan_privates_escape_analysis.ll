@@ -2,7 +2,7 @@
 ; are safe for data-layout transformations.
 
 ; RUN: opt %s -S -VPlanDriver -vplan-force-vf=4  -disable-vplan-codegen \
-; RUN: -vplan-use-entity-instr  -disable-output \
+; RUN: -enable-vp-value-codegen=true -vplan-use-entity-instr  -disable-output \
 ; RUN: -debug-only=vploop-analysis 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts

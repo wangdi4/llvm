@@ -39,11 +39,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
+#include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
+#include "IntelVPlanUtils.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -57,6 +58,7 @@ static cl::opt<bool>
                           cl::Hidden,
                           cl::desc("Allow VPlan's divergence analysis to "
                                    "ignore integer overflow checks."));
+extern cl::opt<bool> EnableVPValueCodegen;
 
 #define Uni VPVectorShape::Uni
 #define Seq VPVectorShape::Seq
@@ -134,6 +136,13 @@ void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
   // For VPlan, function arguments are ExternalDefs, so check that here instead.
   assert(!isAlwaysUniform(DivVal) && "cannot be a divergent");
   DivergentValues.insert(&DivVal);
+}
+
+// Mark DivVal as a value that is non-divergent.
+void VPlanDivergenceAnalysis::markNonDivergent(const VPValue *DivVal) {
+  assert(DivVal &&
+         "Cannot have non-null Value for clearing divergence property.");
+  DivergentValues.erase(DivVal);
 }
 
 void VPlanDivergenceAnalysis::addUniformOverride(const VPValue &UniVal) {
@@ -568,6 +577,9 @@ bool VPlanDivergenceAnalysis::isUniformLoopEntity(const VPValue *V) const {
 #endif
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
+  if (DivergentLoopEntities.count(&V))
+    return false;
+
   if (UniformOverrides.find(&V) != UniformOverrides.end() ||
       isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
     return true;
@@ -622,10 +634,13 @@ VPVectorShape *VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
 
 bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape *OldShape,
                                                  VPVectorShape *NewShape) {
-  if (OldShape && NewShape &&
-      (OldShape->getShapeDescriptor() != NewShape->getShapeDescriptor() ||
-       (OldShape->hasKnownStride() && NewShape->hasKnownStride() &&
-        OldShape->getStrideVal() != NewShape->getStrideVal()))) {
+  // For the first-time this function is called in context of private-entities,
+  // the OldShape is a nullptr.
+  if ((!OldShape && NewShape) || (OldShape && !NewShape) ||
+      (OldShape && NewShape &&
+       (OldShape->getShapeDescriptor() != NewShape->getShapeDescriptor() ||
+        (OldShape->hasKnownStride() && NewShape->hasKnownStride() &&
+         OldShape->getStrideVal() != NewShape->getStrideVal())))) {
     return true;
   }
   return false;
@@ -655,6 +670,15 @@ VPVectorShape* VPlanDivergenceAnalysis::getUniformVectorShape() {
 
 VPVectorShape* VPlanDivergenceAnalysis::getRandomVectorShape() {
   return new VPVectorShape(VPVectorShape::Rnd);
+}
+
+VPVectorShape *
+VPlanDivergenceAnalysis::getSequentialVectorShape(uint64_t Stride) {
+  return new VPVectorShape(VPVectorShape::Seq, getConstantInt(Stride));
+}
+
+VPVectorShape *VPlanDivergenceAnalysis::getStridedVectorShape(uint64_t Stride) {
+  return new VPVectorShape(VPVectorShape::Str, getConstantInt(Stride));
 }
 
 void VPlanDivergenceAnalysis::setVectorShapesForUniforms(const VPLoop *VPLp) {
@@ -1205,6 +1229,52 @@ void VPlanDivergenceAnalysis::initializeShapes(
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+template <typename EntitiesRange>
+void VPlanDivergenceAnalysis::markEntitiesAsDivergent(
+    const EntitiesRange &Range) {
+  // Mark the entity, i.e., the memory pointer as divergent.
+  // For the private-entities, We also mark the aliases, which are outside the
+  // loop, as divergent.
+  for (const auto *RawEntityPtr : Range) {
+    // Continue if there is no AllocaInst corresponding to the given entity.
+    if (!RawEntityPtr->getIsMemOnly())
+      continue;
+
+    auto *AllocaInst =
+        RegionLoopEntities->getMemoryDescriptor(RawEntityPtr)->getMemoryPtr();
+    LLVM_DEBUG(dbgs() << "Memory entity = " << *AllocaInst << "\n");
+    // Mark the Alloca instruction as divergent.
+    DivergentLoopEntities.insert(AllocaInst);
+    markDivergent(*AllocaInst);
+    // Alloca is of a pointer type. Get the pointee size and set a tentative
+    // shape.
+    assert(isa<PointerType>(AllocaInst->getType()) &&
+           "Expected private to be of a pointer-type");
+    Type *PointeeTy =
+        cast<PointerType>(AllocaInst->getType())->getPointerElementType();
+    // We set the stride in terms of bytes.
+    uint64_t Stride = Plan->getDataLayout()->getTypeSizeInBits(PointeeTy) >> 3;
+    updateVectorShape(AllocaInst, getStridedVectorShape(Stride));
+
+    // Currently, we only deal with aliases for loop-privates. Array-reductions
+    // can potentially have aliases, but when the FE is capable of handling it,
+    // we intend to take care of those in earlier passes. This code,
+    // accordingly, might have to change.
+    auto *PrivEntity = dyn_cast<VPPrivate>(RawEntityPtr);
+    if (!PrivEntity)
+      continue;
+
+    for (const auto &AliasPair : PrivEntity->aliases()) {
+      auto *AliasExternalDef = AliasPair.first;
+      DivergentLoopEntities.insert(AliasExternalDef);
+      markDivergent(*AliasExternalDef);
+      updateVectorShape(AliasExternalDef, getRandomVectorShape());
+    }
+  }
+}
+
+#endif // INTEL_CUSTOMIZATION
 void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
                                       VPDominatorTree &VPDomTree,
@@ -1228,6 +1298,29 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #endif
     markDivergent(*Phi);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Mark the relevant Loop-entities as divergent.
+
+  // The flag returned by 'isLoopEntitiesImportDone()', when \ false, enforces
+  // DA to consider VPExternalDef memory pointers corresponding to loop-entities
+  // like inductions, reductions, and privates as 'divergent' for correct
+  // propagation of privates' divergence. (The privatization process of those
+  // entities replaces them with private memory definitions.) When the flag is \
+  // true, all VPExternalDefs are treated as 'uniform' by DA.
+
+  if (EnableVPValueCodegen && !P->isLoopEntitiesPrivatizationDone()) {
+
+    // Mark private entities as divergent.
+    markEntitiesAsDivergent(RegionLoopEntities->vpprivates());
+
+    // Mark reduction entities as divergent.
+    markEntitiesAsDivergent(RegionLoopEntities->vpreductions());
+
+    // Mark induction entities as divergent.
+    markEntitiesAsDivergent(RegionLoopEntities->vpinductions());
+  }
+#endif
 
   // Collect instructions that may possibly have non-deterministic result.
   for (auto *B : CandidateLoop->getBlocks())
@@ -1265,6 +1358,17 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // set for all instructions for consistency.
   setVectorShapesForUniforms(CandidateLoop);
   //verifyVectorShapes(CandidateLoop);
+#endif
+
+#if INTEL_CUSTOMIZATION
+  // Mark the Loop-entities which we had marked as divergent, as uniform again.
+  if (EnableVPValueCodegen && !P->isLoopEntitiesPrivatizationDone()) {
+    for (auto *EntityPtr : DivergentLoopEntities) {
+      markNonDivergent(EntityPtr);
+      updateVectorShape(EntityPtr, getUniformVectorShape());
+    }
+    DivergentLoopEntities.clear();
+  }
 #endif
 
   LLVM_DEBUG(print(dbgs(), CandidateLoop));

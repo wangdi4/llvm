@@ -1911,17 +1911,25 @@ void VPBranchInst::print(raw_ostream &O) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
-                                     bool InvalidateIR) {
+                                     VPBasicBlock *VPBB, bool InvalidateIR) {
   assert(NewVal && "Can't replace uses with null value");
   assert(getType() == NewVal->getType() && "Incompatible data types");
+  assert(!(Loop && VPBB) && "Cannot have both Loop and VPBB to be non-null.");
   unsigned Cnt = 0;
   while (getNumUsers() > Cnt) {
-    if (Loop)
+    if (Loop) {
       if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
         if (!Loop->contains(cast<VPBlockBase>(Instr->getParent()))) {
           ++Cnt;
           continue;
         }
+    } else if (VPBB) {
+      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
+        if (Instr->getParent() != VPBB) {
+          ++Cnt;
+          continue;
+        }
+    }
     Users[Cnt]->replaceUsesOfWith(this, NewVal, InvalidateIR);
   }
 }

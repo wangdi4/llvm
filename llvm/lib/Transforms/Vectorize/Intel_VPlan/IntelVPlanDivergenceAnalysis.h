@@ -218,6 +218,12 @@ private:
   /// Returns a random vector shape.
   VPVectorShape* getRandomVectorShape();
 
+  /// Returns a sequential vector shape with the given stride.
+  VPVectorShape *getSequentialVectorShape(uint64_t Stride);
+
+  /// Returns a strided vector shape with the given stride.
+  VPVectorShape *getStridedVectorShape(uint64_t Stride);
+
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
   bool getConstantIntVal(VPValue *V, uint64_t &IntVal);
 
@@ -278,6 +284,23 @@ private:
 
   // Internal worklist for divergence propagation.
   SmallVector<const VPInstruction *, 8> Worklist;
+
+#if INTEL_CUSTOMIZATION
+
+  /// Mark \p DivVal as a value that is non-divergent.
+  void markNonDivergent(const VPValue *DivVal);
+
+  // Internal list of privates/induction/reductions collected from
+  // Loop-entities, to help functions like markDivergent and isAlwaysUniform
+  // distinguish between regular VPExternalDefs and Private pointers and their
+  // aliases which are outside the Loop and also appear as 'VPExternalDefs' in
+  // the representation.
+  DenseSet<VPValue *> DivergentLoopEntities;
+
+  // Mark all relevant loop-entities as Divergent.
+  template <typename EntitiesRange>
+  void markEntitiesAsDivergent(const EntitiesRange &Range);
+#endif
 };
 
 } // namespace vpo

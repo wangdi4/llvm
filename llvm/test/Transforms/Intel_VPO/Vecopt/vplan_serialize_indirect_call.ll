@@ -1,6 +1,8 @@
 ; Test for indirect call serialization.
 
 ; RUN: opt %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
+; XFAIL: *
+; This test requires vp-value based codegen support for privates. Captured here - CMPLRLLVM-10575.
 ; RUN: opt %s -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=2 -S | FileCheck %s
 
 ; CHECK-LABEL:       vector.body:

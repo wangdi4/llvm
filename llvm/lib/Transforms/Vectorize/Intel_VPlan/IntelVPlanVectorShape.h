@@ -97,6 +97,11 @@ public:
     return (Desc == VPShapeDescriptor::Undef);
   }
 
+  /// Create a new shape identical to the existing one.
+  VPVectorShape *clone() {
+    return new VPVectorShape(getShapeDescriptor(), getStride());
+  }
+
   VPShapeDescriptor getShapeDescriptor() const {
     if (isUniform())
       return VPShapeDescriptor::Uni;

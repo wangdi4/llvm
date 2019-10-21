@@ -24,6 +24,7 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -70,6 +71,8 @@ static cl::opt<bool>
 static cl::opt<bool>
     VPlanPrintPlainCFG("vplan-print-plain-cfg", cl::init(false),
                        cl::desc("Print plain dump after VPlan buildPlainCFG."));
+
+extern cl::opt<bool> EnableVPValueCodegen;
 #endif
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
@@ -1692,12 +1695,14 @@ bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
   return false;
 }
 
+class PrivatesListCvt;
+
 namespace {
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
 // of the plain CFG.
 class PlainCFGBuilder {
-private:
+
   /// Outermost loop of the input loop nest.
   Loop *TheLoop = nullptr;
 
@@ -1742,7 +1747,21 @@ private:
 
   void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
 
+  // Create a VPInstruction based on the input IR instruction.
+  VPInstruction *createVPInstruction(Instruction *Inst);
+
+  // Check if the given IR instruction is present in the loop-body.
+  bool loopContains(Instruction *Inst) {
+    assert(Inst && "Expect a non-null instruction passed into this function.");
+    return TheLoop->contains(Inst);
+  }
+
+  // Reset the insertion point.
+  void resetInsertPoint() { VPIRBuilder.clearInsertionPoint(); }
+
 public:
+  friend PrivatesListCvt;
+
   PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
                   VPlan *Plan)
       : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
@@ -1950,6 +1969,57 @@ public:
 
 // Convert data from Privates list
 class PrivatesListCvt : public VPEntityConverterBase {
+
+  // This method collects aliases that lie outside the loop-region. We are not
+  // concerned with aliases within the loop as they would be acquired
+  // when required (e.g., escape analysis).
+  void collectAliases(PrivateDescr &Descriptor, Value *Alloca) {
+    SetVector<Value *> WorkList;
+
+    // Start with the Alloca Inst.
+    WorkList.insert(Alloca);
+
+    while (!WorkList.empty()) {
+      Value *Head = WorkList.back();
+      WorkList.pop_back();
+      for (auto *Use : Head->users()) {
+        if (isa<IntrinsicInst>(Use) &&
+            VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
+          continue;
+
+        // Check that the use of this alias is within the loop-region and it is
+        // an alias-able instruction to begin with.
+        // Rather than the more generic 'aliasing', we are more concerned here
+        // with finding if the pointer here is based on another pointer.
+        // LLVM Aliasing instructions -
+        // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
+        Instruction *Inst = cast<Instruction>(Use);
+
+        // Lambda which determines if the 'User' is within the loop.
+        bool AliasesWithinLoop = llvm::any_of(Inst->users(), [=](Value *User) {
+          return Builder.loopContains(cast<Instruction>(User));
+        });
+
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
+            AliasesWithinLoop) {
+          auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
+          assert((isa<VPExternalDef>(NewVPOperand) ||
+                  isa<VPInstruction>(NewVPOperand)) &&
+                 "Expecting a VPExternalDef or a VPInstruction.");
+          if (isa<VPExternalDef>(NewVPOperand)) {
+            // Reset the insert-point. We do not want the instructions to be
+            // currently put into any existing basic block.
+            Builder.resetInsertPoint();
+            WorkList.insert(Inst);
+            VPInstruction *VPInst = Builder.createVPInstruction(Inst);
+            assert(VPInst && "Expect a valid VPInst to be created.");
+            Descriptor.addAlias(NewVPOperand, VPInst);
+          }
+        }
+      }
+    }
+  }
+
 public:
   PrivatesListCvt(PlainCFGBuilder &Bld, bool IsCond = false,
                   bool IsLast = false)
@@ -1961,26 +2031,18 @@ public:
     Descriptor.clear();
     assertIsSingleElementAlloca(CurValue);
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+
+    // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    for (auto *Use : make_range(CurValue->user_begin(), CurValue->user_end())) {
-      // Skip uses like the one from being an operand for the region-entry/exit
-      // directive
-      if (isa<IntrinsicInst>(Use) &&
-          VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
-        continue;
-      if (isa<BitCastInst>(Use) || isa<AddrSpaceCastInst>(Use) ||
-          isa<GetElementPtrInst>(Use)) {
-        auto *NewVPOperand = Builder.getOrCreateVPOperand(Use);
-        Descriptor.addAlias(NewVPOperand);
-      }
-    }
+    collectAliases(Descriptor, CurValue);
+
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(IsCondPriv);
     Descriptor.setIsLast(IsLastPriv);
     Descriptor.setIsExplicit(true);
-    Descriptor.setIsMemOnly(false);
+    Descriptor.setIsMemOnly(true);
   }
 
 private:
@@ -2257,6 +2319,60 @@ VPValue *PlainCFGBuilder::getOrCreateVPOperand(Value *IRVal) {
   return ExtDef;
 }
 
+VPInstruction *PlainCFGBuilder::createVPInstruction(Instruction *Inst) {
+
+  if (auto *Br = dyn_cast<BranchInst>(Inst)) {
+    // Branch instruction is not explicitly represented in VPlan but we need
+    // to represent its condition bit when it's conditional.
+    if (Br->isConditional())
+      getOrCreateVPOperand(Br->getCondition());
+
+    // Skip the rest of the Instruction processing for Branch instructions.
+    return nullptr;
+  }
+
+  VPInstruction *NewVPInst{nullptr};
+  if (auto *Phi = dyn_cast<PHINode>(Inst)) {
+    // Phi node's operands may have not been visited at this point. We create
+    // an empty VPInstruction that we will fix once the whole plain CFG has
+    // been built.
+#if INTEL_CUSTOMIZATION
+    NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
+#else
+    NewVPInst = cast<VPInstruction>(
+        VPIRBuilder.createNaryOp(Inst->getOpcode(), {} /*No operands*/, Inst));
+#endif // INTEL_CUSTOMIZATION
+    PhisToFix.push_back(Phi);
+    return NewVPInst;
+  } else {
+    // Translate LLVM-IR operands into VPValue operands and set them in the
+    // new VPInstruction.
+    SmallVector<VPValue *, 4> VPOperands;
+    for (Value *Op : Inst->operands())
+      VPOperands.push_back(getOrCreateVPOperand(Op));
+
+#if INTEL_CUSTOMIZATION
+    if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
+      assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
+      NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
+    } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
+      // Build VPGEPInstruction to represent GEP instructions
+      SmallVector<VPValue *, 3> IdxList(VPOperands.begin() + 1,
+                                        VPOperands.end());
+      if (GEP->isInBounds())
+        NewVPInst = VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
+      else
+        NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
+    } else
+#endif
+      // Build VPInstruction for any arbitraty Instruction without specific
+      // representation in VPlan.
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+          Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
+  }
+  return NewVPInst;
+}
+
 // Create new VPInstructions in a VPBasicBlock, given its BasicBlock
 // counterpart. This function must be invoked in RPO so that the operands of a
 // VPInstruction in \p BB have been visited before. VPInstructions representing
@@ -2266,64 +2382,18 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
                                                   BasicBlock *BB) {
   VPIRBuilder.setInsertPoint(VPBB);
   for (Instruction &InstRef : *BB) {
-    Instruction *Inst = &InstRef;
     // There shouldn't be any VPValue for Inst at this point. Otherwise, we
     // visited Inst when we shouldn't, breaking the RPO traversal order.
-    assert(!IRDef2VPValue.count(Inst) &&
+    assert(!IRDef2VPValue.count(&InstRef) &&
            "Instruction shouldn't have been visited.");
+    VPInstruction *NewVPInst = createVPInstruction(&InstRef);
+    // createVPInstruction can return nullptr in case of a BranchInst.
+    if (NewVPInst) {
+      if (TheLoop->contains(&InstRef))
+        addExternalUses(&InstRef, NewVPInst);
 
-    if (auto *Br = dyn_cast<BranchInst>(Inst)) {
-      // Branch instruction is not explicitly represented in VPlan but we need
-      // to represent its condition bit when it's conditional.
-      if (Br->isConditional())
-        getOrCreateVPOperand(Br->getCondition());
-
-      // Skip the rest of the Instruction processing for Branch instructions.
-      continue;
+      IRDef2VPValue[&InstRef] = NewVPInst;
     }
-
-    VPInstruction *NewVPInst;
-    if (auto *Phi = dyn_cast<PHINode>(Inst)) {
-      // Phi node's operands may have not been visited at this point. We create
-      // an empty VPInstruction that we will fix once the whole plain CFG has
-      // been built.
-#if INTEL_CUSTOMIZATION
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
-#else
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), {} /*No operands*/, Inst));
-#endif // INTEL_CUSTOMIZATION
-      PhisToFix.push_back(Phi);
-    } else {
-      // Translate LLVM-IR operands into VPValue operands and set them in the
-      // new VPInstruction.
-      SmallVector<VPValue *, 4> VPOperands;
-      for (Value *Op : Inst->operands())
-        VPOperands.push_back(getOrCreateVPOperand(Op));
-
-#if INTEL_CUSTOMIZATION
-      if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
-        assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-        NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
-      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
-        // Build VPGEPInstruction to represent GEP instructions
-        SmallVector<VPValue *, 3> IdxList(VPOperands.begin() + 1,
-                                          VPOperands.end());
-        if (GEP->isInBounds())
-          NewVPInst =
-              VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
-        else
-          NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
-      } else
-#endif
-      // Build VPInstruction for any arbitraty Instruction without specific
-      // representation in VPlan.
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
-    }
-    if (TheLoop->contains(Inst))
-      addExternalUses(Inst, NewVPInst);
-    IRDef2VPValue[Inst] = NewVPInst;
   }
 }
 
