@@ -7868,13 +7868,13 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
       WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
 
   if (!WTarget) {
-    if (isTargetSPIRV())
-      // Emit warning only during SPIR compilation.
-      F->getContext().diagnose(ParoptDiagInfo(*F,
-          W->getEntryDirective()->getDebugLoc(),
-          Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
-          Twine("' option ignored for OpenMP region, since ") +
-          Twine("no enclosing 'target' region was found")));
+    if (isTargetSPIRV()) {
+      // Emit opt-report only during SPIR compilation.
+      OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
+      R << "Consider using OpenMP combined construct "
+          "with \"target\" to get optimal performance";
+      ORE.emit(R);
+    }
     return false;
   }
 
@@ -7896,13 +7896,13 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
   WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
 
   if (WTeams && WTeams->getNumTeams()) {
-    if (isTargetSPIRV())
-      // Emit warning only during SPIR compilation.
-      F->getContext().diagnose(ParoptDiagInfo(*F,
-          W->getEntryDirective()->getDebugLoc(),
-          Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
-          Twine("' option ignored for OpenMP region, since ") +
-          Twine("the enclosing teams region specifies num_teams.")));
+    if (isTargetSPIRV()) {
+      // Emit opt-report only during SPIR compilation.
+      OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
+      R << "Performance may be reduced due to the enclosing teams region " <<
+          "specifying num_teams";
+      ORE.emit(R);
+    }
     return true;
   }
 

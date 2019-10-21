@@ -1,5 +1,7 @@
-; RUN: opt < %s -prepare-switch-to-offload -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-gpu-execution-scheme=1 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -prepare-switch-to-offload -switch-to-offload -vpo-paropt-gpu-execution-scheme=1 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -prepare-switch-to-offload -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-gpu-execution-scheme=1 -S -pass-remarks-missed=openmp -pass-remarks-output=%t 2>&1 | FileCheck %s
+; RUN: FileCheck --input-file=%t --check-prefix=YAML %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -prepare-switch-to-offload -switch-to-offload -vpo-paropt-gpu-execution-scheme=1 -S -pass-remarks-missed=openmp -pass-remarks-output=%t  2>&1 | FileCheck %s
+; RUN: FileCheck --input-file=%t --check-prefix=YAML %s
 
 ; Original source code:
 ; #pragma omp declare target
@@ -25,9 +27,31 @@
 ;   for (int i = 0; i < 100; ++i);
 ; }
 
-; CHECK: warning: test.c:3:1:{{.*}}option ignored for OpenMP region, since no enclosing 'target' region was found
-; CHECK: warning: test.c:10:1:{{.*}}option ignored for OpenMP region, since loop(s) bounds cannot be computed before the enclosing target region.  Consider using combined construct.
-; CHECK: warning: test.c:15:1:{{.*}}option ignored for OpenMP region, since the enclosing teams region specifies num_teams.
+; YAML: --- !Missed
+; YAML-NEXT: Pass:            openmp
+; YAML-NEXT: Name:            Target
+; YAML-NEXT: DebugLoc:        { File: test.c, Line: 3, Column: 1 }
+; YAML-NEXT: Function:        f1
+; YAML-NEXT: Args:
+; YAML-NEXT:  - String:          'Consider using OpenMP combined construct with "target" to get optimal performance'
+
+; YAML: --- !Missed
+; YAML-NEXT: Pass:            openmp
+; YAML-NEXT: Name:            Target
+; YAML-NEXT: DebugLoc:        { File: test.c, Line: 10, Column: 1 }
+; YAML-NEXT: Function:        f2
+; YAML-NEXT: Args:
+; YAML-NEXT:  - String:          'Consider using OpenMP combined construct with "target" to get optimal performance'
+
+; YAML: --- !Missed
+; YAML-NEXT: Pass:            openmp
+; YAML-NEXT: Name:            Target
+; YAML-NEXT: DebugLoc:        { File: test.c, Line: 15, Column: 1 }
+; YAML-NEXT: Function:        f3
+; YAML-NEXT: Args:
+; YAML-NEXT:   - String:          'Performance may be reduced due to the enclosing teams region '
+; YAML-NEXT:   - String:          specifying num_teams
+
 ; CHECK: call i64 @_Z13get_global_idj
 ; CHECK-NOT: call{{.*}}get_global_id
 
