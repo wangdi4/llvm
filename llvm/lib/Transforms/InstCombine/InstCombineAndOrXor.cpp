@@ -2753,6 +2753,10 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
     return X;
 #endif // INTEL_CUSTOMIZATION
 
+  if (Instruction *V =
+          canonicalizeCondSignextOfHighBitExtractToSignextHighBitExtract(I))
+    return V;
+
   return nullptr;
 }
 

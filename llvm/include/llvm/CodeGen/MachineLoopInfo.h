@@ -37,7 +37,6 @@
 
 namespace llvm {
 
-class MachineDominatorTree;
 // Implementation in LoopInfoImpl.h
 class MachineLoop;
 extern template class LoopBase<MachineBasicBlock, MachineLoop>;
@@ -102,10 +101,6 @@ public:
   MachineLoopInfo() : MachineFunctionPass(ID) {
     initializeMachineLoopInfoPass(*PassRegistry::getPassRegistry());
   }
-  explicit MachineLoopInfo(MachineDominatorTree &MDT)
-      : MachineFunctionPass(ID) {
-    calculate(MDT);
-  }
   MachineLoopInfo(const MachineLoopInfo &) = delete;
   MachineLoopInfo &operator=(const MachineLoopInfo &) = delete;
 
@@ -154,7 +149,6 @@ public:
 
   /// Calculate the natural loop information.
   bool runOnMachineFunction(MachineFunction &F) override;
-  void calculate(MachineDominatorTree &MDT);
 
   void releaseMemory() override { LI.releaseMemory(); }
 
