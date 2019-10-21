@@ -802,8 +802,12 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+    auto *VPLI = Plan->getVPLoopInfo();
+    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+           "Expected single outermost loop!");
+    VPLoop *OuterMostVPLoop = *VPLI->begin();
     const VPLoopEntityList *Entities =
-        Plan->getLoopEntities(VPlanUtils::findFirstLoopDFS(Plan)->getVPLoop());
+        Plan->getLoopEntities(OuterMostVPLoop);
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);

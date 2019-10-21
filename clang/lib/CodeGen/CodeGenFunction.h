@@ -1562,24 +1562,34 @@ public:
       CGF.VLASizeMap = SavedVLASizeMap;
     }
   };
-  // Save and clear the TerminateLandingPad on entry to each OpenMP region.
-  // This will ensure we have one for each OpenMP region when it is outlined.
-  class OMPTerminateLandingPadHandler {
+  // Save and clear the TerminateHandled and TerminateLandingPad on entry to
+  // each OpenMP region. This will ensure we have one for each OpenMP region
+  // when it is outlined.
+  class TerminateHandlerRAII {
     CodeGenFunction &CGF;
+    llvm::BasicBlock *TerminateHandler;
     llvm::BasicBlock *TerminateLandingPad;
-
   public:
-    OMPTerminateLandingPadHandler(CodeGenFunction &CGF)
-        : CGF(CGF), TerminateLandingPad(CGF.TerminateLandingPad) {
+    TerminateHandlerRAII(CodeGenFunction &CGF)
+      : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
+                         TerminateLandingPad(CGF.TerminateLandingPad) {
+      CGF.TerminateHandler = nullptr;
       CGF.TerminateLandingPad = nullptr;
     }
-    ~OMPTerminateLandingPadHandler() {
+    ~TerminateHandlerRAII() {
+      if (CGF.TerminateHandler) {
+        if (!CGF.TerminateHandler->use_empty())
+          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateHandler);
+        else
+          delete CGF.TerminateHandler;
+      }
       if (CGF.TerminateLandingPad) {
         if (!CGF.TerminateLandingPad->use_empty())
           CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
         else
           delete CGF.TerminateLandingPad;
       }
+      CGF.TerminateHandler = TerminateHandler;
       CGF.TerminateLandingPad = TerminateLandingPad;
     }
   };

@@ -2809,37 +2809,51 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       for (UseDevicePtrItem *Item : UDPtrClause.items()) {
         Value *HostPtr = Item->getOrig();
         Value *TgtBuffer = Item->getNew();
-        for (Value *Arg : FnArgs)
-          if (LoadInst *Load = dyn_cast<LoadInst>(Arg))
-            if (Load->getPointerOperand() == HostPtr) {
-              LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
+        for (Value *Arg : FnArgs) {
+          LoadInst *Load = dyn_cast<LoadInst>(Arg);
 
-              // HostPtr   type is:  SomeType**
-              // Arg       type is:  SomeType*
-              // TgtBuffer type is:  void**
-              // Buffer    type is:  void*
-              //
-              // To replace 'Arg' with 'Buffer' in the variant call,
-              // we must cast Buffer from void* to SomeType*
-              // Example (SomeType==float):
-              //    %buffer = load i8*, i8** %tgt.buffer
-              //    %buffer.cast = bitcast i8* %buffer23 to float*
-              //    call void @foo_gpu(..., float* %buffer.cast,... )
-              Type *HostPtrTy = HostPtr->getType(); // SomeType**
-              assert(HostPtrTy->isPointerTy() &&
-                     "HostPtrTy expected to be pointer type");
-              Type *HostPtrElemTy =
-                  HostPtrTy->getPointerElementType(); // SomeType*
-              assert(HostPtrElemTy->isPointerTy() &&
-                     "HostPtrElemTy expected to be pointer type");
-              assert(Arg->getType() == HostPtrElemTy &&
-                     "HostPtrElemTy expected to be the same as Arg's type");
-              Value *BufferCast =
-                  VCBuilder.CreateBitCast(Buffer, HostPtrElemTy);
-              BufferCast->setName("buffer.cast");
-              VariantCall->replaceUsesOfWith(Arg, BufferCast);
-              break;
-            }
+          if (!Load)
+            // Support cases like:
+            //   %5 = load %struct.S*, %struct.S** %a, align 8
+            //   %6 = bitcast %struct.S* %5 to i8*
+            //   call void @func_offload(i8* %6)
+            //
+            // Note that the host pointer's element type is %struct.S*,
+            // while the argument type is i8*.
+            Load = dyn_cast<LoadInst>(Arg->stripPointerCasts());
+
+          if (!Load)
+            continue;
+
+          if (Load->getPointerOperand() == HostPtr) {
+            LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
+
+            // HostPtr   type is:  SomeType**
+            // Arg       type is:  SomeType*
+            // TgtBuffer type is:  void**
+            // Buffer    type is:  void*
+            //
+            // To replace 'Arg' with 'Buffer' in the variant call,
+            // we must cast Buffer from void* to SomeType*
+            // Example (SomeType==float):
+            //    %buffer = load i8*, i8** %tgt.buffer
+            //    %buffer.cast = bitcast i8* %buffer23 to float*
+            //    call void @foo_gpu(..., float* %buffer.cast,... )
+            Type *HostPtrTy = HostPtr->getType(); // SomeType**
+            assert(HostPtrTy->isPointerTy() &&
+                   "HostPtrTy expected to be pointer type");
+            Type *HostPtrElemTy =
+              HostPtrTy->getPointerElementType(); // SomeType*
+            assert(HostPtrElemTy->isPointerTy() &&
+                   "HostPtrElemTy expected to be pointer type");
+            (void)HostPtrElemTy;
+            Value *BufferCast =
+              VCBuilder.CreateBitCast(Buffer, Arg->getType());
+            BufferCast->setName("buffer.cast");
+            VariantCall->replaceUsesOfWith(Arg, BufferCast);
+            break;
+          }
+        }
       }
     }
   }

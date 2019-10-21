@@ -3525,9 +3525,6 @@ public:
   }
 
   static const VPLoopRegion *findNthLoopDFS(const VPlan *Plan, unsigned N);
-  static const VPLoopRegion *findFirstLoopDFS(const VPlan *Plan) {
-    return findNthLoopDFS(Plan, 1);
-  }
 };
 
 /// A wrapper class to add VPlan related remarks for opt-report. Currently

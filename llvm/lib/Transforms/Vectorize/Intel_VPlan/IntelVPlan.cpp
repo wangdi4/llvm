@@ -1093,7 +1093,9 @@ void VPlan::execute(VPTransformState *State) {
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
   // of code, we decided to seperate both versions with a single
   // INTEL_CUSTOMIZATION
-  auto VLoop = VPlanUtils::findFirstLoopDFS(this)->getVPLoop();
+  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
+         "Expected single outermost loop!");
+  VPLoop *VLoop = *VPLInfo->begin();
   State->ILV->setVPlan(this, getLoopEntities(VLoop));
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
