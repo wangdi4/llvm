@@ -10752,6 +10752,7 @@ public:
     Ref_Compatible
   };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc, bool IsCompAssign,
@@ -10765,6 +10766,13 @@ public:
                                                       bool &DerivedToBase,
                                                       bool &ObjCConversion,
                                                 bool &ObjCLifetimeConversion);
+=======
+  ReferenceCompareResult
+  CompareReferenceRelationship(SourceLocation Loc, QualType T1, QualType T2,
+                               bool &DerivedToBase, bool &ObjCConversion,
+                               bool &ObjCLifetimeConversion,
+                               bool &FunctionConversion);
+>>>>>>> 766f15814a012e5e6522c4e0f93c094ca2408367
 
   ExprResult checkUnknownAnyCast(SourceRange TypeRange, QualType CastType,
                                  Expr *CastExpr, CastKind &CastKind,
