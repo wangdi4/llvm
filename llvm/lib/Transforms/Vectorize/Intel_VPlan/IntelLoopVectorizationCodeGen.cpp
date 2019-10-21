@@ -3121,6 +3121,24 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     WidenMap[VPInst->getUnderlyingValue()] = WideTrunc;
     return;
   }
+  case Instruction::FNeg: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated fneg VPInstruction.");
+
+    // Widen the source operand.
+    Value *VecSrc = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    auto UnOpCode = static_cast<Instruction::UnaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateUnOp(UnOpCode, VecSrc);
+
+    VPWidenMap[VPInst] = V;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = V;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }
@@ -3247,6 +3265,25 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::AddrSpaceCast:
     vectorizeCast<AddrSpaceCastInst>(Inst);
     break;
+  case Instruction::FNeg: {
+    if (isUniformAfterVectorization(Inst, VF)) {
+      serializeInstruction(Inst);
+      break;
+    }
+    // Widen operand
+    UnaryOperator *UnOp = cast<UnaryOperator>(Inst);
+    Value *Src = getVectorValue(Inst->getOperand(0));
+
+    // Create wide instruction
+    Value *V = Builder.CreateUnOp(UnOp->getOpcode(), Src);
+
+    UnaryOperator *VecOp = cast<UnaryOperator>(V);
+    VecOp->copyIRFlags(UnOp);
+
+    WidenMap[Inst] = V;
+    break;
+  }
+
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:

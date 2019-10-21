@@ -119,6 +119,11 @@ static Value *generateSerialInstruction(IRBuilder<> &Builder,
     SerialInst = Builder.CreateBinOp(
         static_cast<Instruction::BinaryOps>(VPInst->getOpcode()), Ops[0],
         Ops[1]);
+  } else if (Instruction::isUnaryOp(VPInst->getOpcode())) {
+    assert(ScalarOperands.size() == 1 &&
+           "Unop VPInstruction has incorrect number of operands.");
+    SerialInst = Builder.CreateUnOp(
+        static_cast<Instruction::UnaryOps>(VPInst->getOpcode()), Ops[0]);
   } else if (VPInst->getOpcode() == Instruction::Load) {
     assert(ScalarOperands.size() == 1 &&
            "Load VPInstruction has incorrect number of operands.");
@@ -1645,6 +1650,29 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
       addUnitStepLinear(Inst, ScalCast, LinStep);
 #endif
     }
+    return;
+  }
+
+  case Instruction::FNeg: {
+    if (isVPValueUniform(VPInst, Plan)) {
+      serializeInstruction(VPInst);
+      return;
+    }
+    // Widen operand.
+    Value *Src = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    auto UnOpCode = static_cast<Instruction::UnaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateUnOp(UnOpCode, Src);
+
+    // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
+    // flags). Use underlying IR flags if any
+    if (auto *IRValue = VPInst->getUnderlyingValue()) {
+      UnaryOperator *UnOp = cast<UnaryOperator>(IRValue);
+      UnaryOperator *VecOp = cast<UnaryOperator>(V);
+      VecOp->copyIRFlags(UnOp);
+    }
+    VPWidenMap[VPInst] = V;
     return;
   }
 
