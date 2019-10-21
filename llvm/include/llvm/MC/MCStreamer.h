@@ -18,12 +18,6 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
-#endif // !INTEL_CUSTOMIZATION
-=======
->>>>>>> 7bbe711fb1b9057e48dec3c15b084eee7f8ff5fb
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"

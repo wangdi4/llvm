@@ -22,13 +22,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
-#endif // INTEL_CUSTOMIZATION
-=======
-#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
->>>>>>> 7bbe711fb1b9057e48dec3c15b084eee7f8ff5fb
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeView.h"
 #include "llvm/MC/MCContext.h"
