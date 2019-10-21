@@ -3125,6 +3125,24 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     WidenMap[VPInst->getUnderlyingValue()] = WideZExt;
     return;
   }
+  case Instruction::Trunc: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated trunc VPInstruction.");
+
+    // Widen source operands.
+    Value *VecSrc = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    Value *WideTrunc =
+        Builder.CreateTrunc(VecSrc, getWidenedType(VPInst->getType(), VF));
+
+    VPWidenMap[VPInst] = WideTrunc;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = WideTrunc;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }
