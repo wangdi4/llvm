@@ -35,6 +35,7 @@ public:
             std::string dumpIRDir,
             llvm::TargetMachine* machine,
             bool debugInfo,
+            bool useNativeDebugger,
             bool profiling,
             bool disableOpt,
             bool relaxedMath,
@@ -51,6 +52,7 @@ public:
       m_dumpIRDir(dumpIRDir),
       m_targetMachine(machine),
       m_debugInfo(debugInfo),
+      m_useNativeDebugger(useNativeDebugger),
       m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
@@ -71,6 +73,7 @@ public:
     llvm::TargetMachine* GetTargetMachine() const { return m_targetMachine; }
     bool GetDisableOpt()    const { return m_disableOpt; }
     bool GetDebugInfoFlag() const { return m_debugInfo; }
+    bool GetUseNativeDebuggerFlag() const { return m_useNativeDebugger; }
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetUniformWGSize() const { return m_uniformWGSize; }
@@ -89,6 +92,7 @@ private:
     const std::string m_dumpIRDir;
     llvm::TargetMachine* m_targetMachine;
     bool m_debugInfo;
+    bool m_useNativeDebugger;
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;

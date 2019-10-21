@@ -354,7 +354,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isSPIRV,
                                        bool UseVplan) {
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M);
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
+                              pConfig->GetUseNativeDebuggerFlag());
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -484,7 +485,8 @@ static void populatePassesPostFailCheck(
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M);
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
+                              pConfig->GetUseNativeDebuggerFlag());
   bool UseTLSGlobals =
       (debugType == intel::Native) && !isFpgaEmulator && !isEyeQEmulator;
 
@@ -831,7 +833,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeOCLPasses(Registry);
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), pModule);
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), pModule,
+                              pConfig->GetUseNativeDebuggerFlag());
 
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
