@@ -12,9 +12,13 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/COFF.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #endif // INTEL_CUSTOMIZATION
+=======
+#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+>>>>>>> 7bbe711fb1b9057e48dec3c15b084eee7f8ff5fb
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeView.h"
@@ -420,7 +424,7 @@ void MCStreamer::EmitCVDefRangeDirectiveFramePointerRelSym(
 
 void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    codeview::DefRangeRegisterRelSym::Header DRHdr) {
+    codeview::DefRangeRegisterRelHeader DRHdr) {
   SmallString<20> BytePrefix;
   copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER_REL, DRHdr);
   EmitCVDefRangeDirective(Ranges, BytePrefix);
@@ -428,7 +432,7 @@ void MCStreamer::EmitCVDefRangeDirective(
 
 void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    codeview::DefRangeSubfieldRegisterSym::Header DRHdr) {
+    codeview::DefRangeSubfieldRegisterHeader DRHdr) {
   SmallString<20> BytePrefix;
   copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_SUBFIELD_REGISTER,
                        DRHdr);
@@ -437,7 +441,7 @@ void MCStreamer::EmitCVDefRangeDirective(
 
 void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    codeview::DefRangeRegisterSym::Header DRHdr) {
+    codeview::DefRangeRegisterHeader DRHdr) {
   SmallString<20> BytePrefix;
   copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER, DRHdr);
   EmitCVDefRangeDirective(Ranges, BytePrefix);
@@ -445,7 +449,7 @@ void MCStreamer::EmitCVDefRangeDirective(
 
 void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    codeview::DefRangeFramePointerRelSym::Header DRHdr) {
+    codeview::DefRangeFramePointerRelHeader DRHdr) {
   SmallString<20> BytePrefix;
   copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_FRAMEPOINTER_REL,
                        DRHdr);
