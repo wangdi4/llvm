@@ -348,6 +348,22 @@ protected:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
 
+// OCL migrate USM buffer command
+class MigrateUSMMemObject : public CommandBaseClass<ITask>
+{
+public:
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd,
+                                  SharedPtr<ITaskBase>* pTask,
+                                  const SharedPtr<ITaskList>& pList);
+
+    // ITask interface
+    bool    Execute();
+
+protected:
+    MigrateUSMMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
+};
+
 #ifdef __INCLUDE_MKL__
 // OCL Native function execution
 class NativeKernelTask : public CommandBaseClass<ITask>
@@ -368,5 +384,21 @@ protected:
     ITaskList* m_pList;
 };
 #endif
+
+// OCL advise USM mem command
+class AdviseUSMMemObject : public CommandBaseClass<ITask>
+{
+public:
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd,
+                                  SharedPtr<ITaskBase>* pTask,
+                                  const SharedPtr<ITaskList>& pList);
+
+    // ITask interface
+    bool    Execute();
+
+protected:
+    AdviseUSMMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
+    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
+};
 
 }}}

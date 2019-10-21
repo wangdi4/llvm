@@ -28,6 +28,7 @@
 #include "cl_sys_defines.h"
 #include "context_module.h"
 #include "svm_buffer.h"
+#include "usm_buffer.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "ocl_itt.h"
@@ -91,6 +92,12 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_sz3dDepth      = 0;
 
     m_bSupportsSvmSystem = false;
+
+    m_bSupportsUsmHost = false;
+    m_bSupportsUsmDevice = false;
+    m_bSupportsUsmSharedSingle = false;
+    m_bSupportsUsmSharedCross = false;
+    m_bSupportsUsmSharedSystem = false;
 
     m_ppAllDevices = nullptr;
     m_ppExplicitRootDevices = nullptr;
@@ -248,6 +255,47 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
             m_bSupportsSvmSystem = true;
             break;
         }
+    }
+
+    // unified shared memory
+    for (tSetOfDevices::const_iterator iter = pDevices->begin();
+         iter != pDevices->end(); iter++)
+    {
+        cl_unified_shared_memory_capabilities_intel usmCaps;
+
+        cl_err_code err = (*iter)->GetInfo(
+            CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL, sizeof(usmCaps), &usmCaps,
+            nullptr);
+        if (CL_SUCCEEDED(err) && (usmCaps &
+                                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL))
+            m_bSupportsUsmHost = true;
+
+        err = (*iter)->GetInfo(CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
+                               sizeof(usmCaps), &usmCaps, nullptr);
+        if (CL_SUCCEEDED(err) && (usmCaps &
+                                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL))
+            m_bSupportsUsmDevice = true;
+
+        err = (*iter)->GetInfo(
+            CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
+            sizeof(usmCaps), &usmCaps, nullptr);
+        if (CL_SUCCEEDED(err) && (usmCaps &
+                                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL))
+            m_bSupportsUsmSharedSingle = true;
+
+        err = (*iter)->GetInfo(
+            CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
+            sizeof(usmCaps), &usmCaps, nullptr);
+        if (CL_SUCCEEDED(err) && (usmCaps &
+                                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL))
+            m_bSupportsUsmSharedCross = true;
+
+        err = (*iter)->GetInfo(
+            CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL,
+            sizeof(usmCaps), &usmCaps, nullptr);
+        if (CL_SUCCEEDED(err) && (usmCaps &
+                                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL))
+            m_bSupportsUsmSharedSystem = true;
     }
 
     *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
@@ -1558,6 +1606,54 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
             pKernel->SetSvmFineGrainSystem(CL_TRUE == *(cl_bool*)pParamValue);
             break;
         }
+    case CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL:
+        {
+            if (szParamValueSize == 0 || szParamValueSize % sizeof(void*) != 0)
+                return CL_INVALID_VALUE;
+            std::vector<SharedPtr<USMBuffer> > usmBufs;
+            for (size_t i = 0; i < szParamValueSize / sizeof(void*); i++)
+            {
+                SharedPtr<USMBuffer> buf = GetUSMBufferContainingAddr(
+                                           ((void**)pParamValue)[i]);
+                if (nullptr == buf.GetPtr())
+                    return CL_INVALID_VALUE;
+                usmBufs.push_back(buf);
+            }
+            pKernel->SetNonArgUsmBuffers(usmBufs);
+            break;
+        }
+    case CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL:
+        {
+            if (szParamValueSize < sizeof(cl_bool))
+                return CL_INVALID_VALUE;
+            if (CL_TRUE == *(cl_bool*)pParamValue &&
+                !pKernel->GetContext()->DoesSupportUsmHost())
+                return CL_INVALID_OPERATION;
+            pKernel->SetUsmIndirectHost(CL_TRUE == *(cl_bool*)pParamValue);
+            break;
+        }
+    case CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL:
+        {
+            if (szParamValueSize < sizeof(cl_bool))
+                return CL_INVALID_VALUE;
+            if (CL_TRUE == *(cl_bool*)pParamValue &&
+                !pKernel->GetContext()->DoesSupportUsmDevice())
+                return CL_INVALID_OPERATION;
+            pKernel->SetUsmIndirectDevice(CL_TRUE == *(cl_bool*)pParamValue);
+            break;
+        }
+    case CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL:
+        {
+            if (szParamValueSize < sizeof(cl_bool))
+                return CL_INVALID_VALUE;
+            if (CL_TRUE == *(cl_bool*)pParamValue &&
+                !(pKernel->GetContext()->DoesSupportUsmSharedSingle() ||
+                  pKernel->GetContext()->DoesSupportUsmSharedCross() ||
+                  pKernel->GetContext()->DoesSupportUsmSharedSystem()))
+                return CL_INVALID_OPERATION;
+            pKernel->SetUsmIndirectShared(CL_TRUE == *(cl_bool*)pParamValue);
+            break;
+        }
     default:
         return CL_INVALID_VALUE;
     }
@@ -1663,6 +1759,338 @@ bool Context::IsSVMPointer(const void* ptr) const
         return true;
     }
     return false;
+}
+
+cl_mem_alloc_flags_intel Context::ParseUSMAllocProperties(
+    const cl_mem_properties_intel* properties, cl_int* errcode_ret)
+{
+    cl_mem_alloc_flags_intel flags = 0;
+
+    // check properties
+    std::map<cl_mem_alloc_flags_intel, cl_mem_alloc_flags_intel> propertyMap;
+    if (nullptr != properties)
+    {
+        size_t i = 0;
+
+        while (0 != properties[i])
+        {
+            if (propertyMap.find(properties[i]) != propertyMap.end())
+            {
+                LOG_ERROR(TEXT("%s"), TEXT(
+                    "the same property name is specified more than once"));
+                *errcode_ret = CL_INVALID_PROPERTY;
+                return flags;
+            }
+
+            static std::vector<cl_context_properties> legalProperties = {
+                CL_MEM_ALLOC_FLAGS_INTEL
+            };
+
+            cl_context_properties currentProperty = properties[i];
+            if (std::none_of(
+                    legalProperties.begin(), legalProperties.end(),
+                    [currentProperty](const cl_context_properties& prop) {
+                        return prop == currentProperty;
+                    }))
+            {
+                LOG_ERROR(TEXT("%s"), TEXT(
+                    "property name is not a supported property name"));
+                *errcode_ret = CL_INVALID_PROPERTY;
+                return flags;
+            }
+            propertyMap[properties[i]] = properties[i + 1];
+            i += 2;
+        }
+        if (propertyMap.find(CL_MEM_ALLOC_FLAGS_INTEL) != propertyMap.end())
+        {
+            cl_mem_alloc_flags_intel property =
+                propertyMap[CL_MEM_ALLOC_FLAGS_INTEL];
+            if (CL_MEM_ALLOC_WRITE_COMBINED_INTEL != property)
+            {
+                *errcode_ret = CL_INVALID_PROPERTY;
+                return flags;
+            }
+            flags = property;
+        }
+    }
+
+    *errcode_ret = CL_SUCCESS;
+    return flags;
+}
+
+void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
+                        cl_device_id device,
+                        const cl_mem_properties_intel* properties,
+                        size_t size, unsigned int alignment,
+                        cl_int* errcode_ret)
+{
+    cl_int err;
+    cl_mem_alloc_flags_intel flags = ParseUSMAllocProperties(properties,
+                                                             &err);
+#define USM_ALLOC_ERR_RET(err) \
+        { \
+            if (errcode_ret) \
+                *errcode_ret = err; \
+            return nullptr; \
+        }
+    if (CL_SUCCESS != err)
+        USM_ALLOC_ERR_RET(err);
+
+    // Check if device is valid
+    cl_uint numDevices;
+    SharedPtr<FissionableDevice> pDevice;
+    const SharedPtr<FissionableDevice> *pDevices;
+    if (device)
+    {
+        numDevices = 1;
+        bool res = GetDevicesFromList(numDevices, &device, &pDevice);
+        if (false == res)
+        {
+            LOG_ERROR(TEXT("%s"), TEXT("GetDevicesFromList returns false"));
+            USM_ALLOC_ERR_RET(CL_INVALID_DEVICE);
+        }
+        pDevices = &pDevice;
+    }
+    else if (CL_MEM_TYPE_DEVICE_INTEL == type)
+    {
+        LOG_ERROR(TEXT("%s"), TEXT("device is nullptr"));
+        USM_ALLOC_ERR_RET(CL_INVALID_DEVICE);
+    }
+    else
+    {
+        numDevices = m_mapDevices.Count();
+        pDevices = m_ppAllDevices;
+    }
+
+    // Check device capabilities
+    bool capSupported = false;
+    bool sizeSupported = false;
+    for (cl_uint i = 0; i < numDevices; i++)
+    {
+        SharedPtr<Device> rootDevice = pDevices[i]->GetRootDevice();
+
+        cl_unified_shared_memory_capabilities_intel hostCap;
+        cl_unified_shared_memory_capabilities_intel deviceCap;
+        cl_unified_shared_memory_capabilities_intel singleSharedCap;
+        cl_unified_shared_memory_capabilities_intel crossSharedCap;
+        err = rootDevice->GetInfo(CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
+            sizeof(hostCap), &hostCap, nullptr);
+        if (CL_SUCCESS != err)
+            USM_ALLOC_ERR_RET(err);
+        err = rootDevice->GetInfo(CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
+            sizeof(deviceCap), &deviceCap, nullptr);
+        if (CL_SUCCESS != err)
+            USM_ALLOC_ERR_RET(err);
+        err = rootDevice->GetInfo(
+            CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
+            sizeof(singleSharedCap), &singleSharedCap, nullptr);
+        if (CL_SUCCESS != err)
+            USM_ALLOC_ERR_RET(err);
+        err = rootDevice->GetInfo(
+            CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
+            sizeof(crossSharedCap), &crossSharedCap, nullptr);
+        if (CL_SUCCESS != err)
+            USM_ALLOC_ERR_RET(err);
+        if ((type == CL_MEM_TYPE_HOST_INTEL && 0 != hostCap) ||
+            (type == CL_MEM_TYPE_DEVICE_INTEL && 0 != deviceCap) ||
+            (type == CL_MEM_TYPE_SHARED_INTEL &&
+             (0 != singleSharedCap || 0 != crossSharedCap)))
+        {
+            capSupported = true;
+        }
+
+        cl_ulong ulDevMaxAllocSize;
+        err = rootDevice->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE,
+            sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, nullptr);
+        if (CL_SUCCESS != err)
+            USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
+        if (size > 0 && size <= ulDevMaxAllocSize)
+        {
+            sizeSupported = true;
+        }
+    }
+    if (!capSupported)
+    {
+        LOG_ERROR(TEXT("no devices support this type of USM allocation"), "");
+        USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
+    }
+    if (!sizeSupported)
+    {
+        LOG_ERROR(TEXT("size is zero or greater than "
+                       "CL_DEVICE_MAX_MEM_ALLOC_SIZE for all devices"), "");
+        USM_ALLOC_ERR_RET(CL_INVALID_BUFFER_SIZE);
+    }
+
+    // do the real work
+    SharedPtr<USMBuffer> usmBuf = USMBuffer::Allocate(this);
+    if (nullptr == usmBuf.GetPtr())
+        USM_ALLOC_ERR_RET(CL_OUT_OF_HOST_MEMORY);
+    usmBuf->SetType(type);
+    usmBuf->SetDevice(device);
+    // CL_MEM_ALLOC_WRITE_COMBINED_INTEL is used for write-combining uncached
+    // memory which helps to accelerate cases when the host is writing to
+    // device memory. This flag is ignored for CPU device.
+    usmBuf->SetFlags(flags);
+
+    flags |= CL_MEM_READ_WRITE;
+    size_t forceAlignment = 0;
+    if (0 != alignment)
+    {
+        if (0 != (alignment & (alignment - 1))) // if is not a power of 2
+            USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
+        forceAlignment = alignment;
+    }
+
+    // these flags aren't needed anymore
+    err = usmBuf->Initialize(flags & ~CL_MEM_ALLOC_WRITE_COMBINED_INTEL,
+        nullptr, 1, &size, nullptr, nullptr, 0, forceAlignment);
+    if (CL_SUCCESS != err)
+        USM_ALLOC_ERR_RET(err);
+
+    OclAutoWriter mu(&m_usmBuffersRwlock);
+    void* usmPtr = usmBuf->GetBackingStoreData();
+    m_usmBuffers[usmPtr] = usmBuf;
+
+    if (0 != forceAlignment && !IS_ALIGNED_ON(usmPtr, forceAlignment))
+        USM_ALLOC_ERR_RET(CL_OUT_OF_RESOURCES);
+
+    if (errcode_ret)
+        *errcode_ret = CL_SUCCESS;
+    return usmPtr;
+}
+
+void* Context::USMHostAlloc(const cl_mem_properties_intel* properties,
+                            size_t size,
+                            cl_uint alignment,
+                            cl_int* errcode_ret)
+{
+    cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_HOST_INTEL;
+    return USMAlloc(type, nullptr, properties, size, alignment, errcode_ret);
+}
+
+void* Context::USMDeviceAlloc(cl_device_id device,
+                              const cl_mem_properties_intel* properties,
+                              size_t size,
+                              cl_uint alignment,
+                              cl_int* errcode_ret)
+{
+    cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_DEVICE_INTEL;
+    return USMAlloc(type, device, properties, size, alignment, errcode_ret);
+}
+
+void* Context::USMSharedAlloc(cl_device_id device,
+                              const cl_mem_properties_intel* properties,
+                              size_t size,
+                              cl_uint alignment,
+                              cl_int* errcode_ret)
+{
+    cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_SHARED_INTEL;
+    return USMAlloc(type, device, properties, size, alignment, errcode_ret);
+}
+
+cl_int Context::USMFree(void* usmPtr)
+{
+    OclAutoWriter mu(&m_usmBuffersRwlock);
+    if (m_usmBuffers.find(usmPtr) == m_usmBuffers.end())
+    {
+        LOG_ERROR(TEXT("usmPtr isn't an USM buffer"), "");
+        return CL_INVALID_VALUE;
+    }
+    m_usmBuffers.erase(usmPtr);
+    return CL_SUCCESS;
+}
+
+cl_int Context::GetMemAllocInfoINTEL(const void* ptr,
+                                     cl_mem_info_intel param_name,
+                                     size_t param_value_size,
+                                     void* param_value,
+                                     size_t* param_value_size_ret)
+{
+    ConstSharedPtr<USMBuffer> buffer = GetUSMBufferContainingAddr(ptr);
+    bool notUSM = (nullptr == buffer.GetPtr());
+
+    size_t valueSize = 0;
+    const void *value = nullptr;
+    cl_unified_shared_memory_type_intel type;
+    cl_mem_alloc_flags_intel flags;
+    const void *basePtr;
+    size_t size;
+    cl_device_id device;
+
+    type = notUSM ? CL_MEM_TYPE_UNKNOWN_INTEL : buffer->GetType();
+    switch (param_name)
+    {
+    case CL_MEM_ALLOC_TYPE_INTEL:
+        valueSize = sizeof(cl_unified_shared_memory_type_intel);
+        value = &type;
+        break;
+    case CL_MEM_ALLOC_BASE_PTR_INTEL:
+        valueSize = sizeof(void*);
+        basePtr = (type == CL_MEM_TYPE_UNKNOWN_INTEL) ? nullptr :
+            buffer->GetAddr();
+        value = &basePtr;
+        break;
+    case CL_MEM_ALLOC_SIZE_INTEL:
+        valueSize = sizeof(size_t);
+        size = (type == CL_MEM_TYPE_UNKNOWN_INTEL) ? 0 : buffer->GetSize();
+        value = &size;
+        break;
+    case CL_MEM_ALLOC_DEVICE_INTEL:
+        valueSize = sizeof(cl_device_id);
+        device = ((type == CL_MEM_TYPE_DEVICE_INTEL) ||
+            ((type == CL_MEM_TYPE_SHARED_INTEL) && buffer->GetDevice())) ?
+            buffer->GetDevice() : nullptr;
+        value = &device;
+        break;
+    case CL_MEM_ALLOC_FLAGS_INTEL:
+        valueSize = sizeof(cl_mem_alloc_flags_intel);
+        flags = (type == CL_MEM_TYPE_UNKNOWN_INTEL) ? 0 : buffer->GetFlags();
+        value = &flags;
+        break;
+    default:
+        LOG_ERROR(TEXT("param_name (=%d) isn't valid"), param_name);
+        return CL_INVALID_VALUE;
+    }
+    if (nullptr != param_value && param_value_size < valueSize)
+        return CL_INVALID_VALUE;
+    if (nullptr != param_value_size_ret)
+        *param_value_size_ret = valueSize;
+    if (nullptr != param_value && valueSize > 0)
+    {
+        MEMCPY_S(param_value, param_value_size, value, valueSize);
+    }
+
+    return CL_SUCCESS;
+}
+
+SharedPtr<USMBuffer> Context::GetUSMBufferContainingAddr(void* ptr)
+{
+    OclAutoReader mu(&m_usmBuffersRwlock);
+    std::map<void*, SharedPtr<USMBuffer> >::iterator iter =
+        m_usmBuffers.upper_bound(ptr);
+    if (iter == m_usmBuffers.begin())
+        return nullptr;
+
+    const SharedPtr<USMBuffer>& usmBuffer = (--iter)->second;
+
+    if (((char*)ptr >= (char*)usmBuffer->GetAddr()) &&
+        ((char*)ptr < (char*)usmBuffer->GetAddr() + usmBuffer->GetSize()))
+        return usmBuffer;
+
+    return nullptr;
+}
+
+ConstSharedPtr<USMBuffer> Context::GetUSMBufferContainingAddr(const void* ptr)
+    const
+{
+    return const_cast<Context*>(this)->GetUSMBufferContainingAddr(
+        const_cast<void*>(ptr));
+}
+
+bool Context::IsUSMPointer(const void* ptr) const
+{
+    return (nullptr != ptr) &&
+        (nullptr != GetUSMBufferContainingAddr(ptr).GetPtr());
 }
 
 cl_err_code Context::CreatePipe(cl_mem_flags flags, cl_uint uiPipePacketSize,

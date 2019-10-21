@@ -25,6 +25,7 @@
 #include "cl_shared_ptr.hpp"
 #include "framework_proxy.h"
 #include "svm_buffer.h"
+#include "usm_buffer.h"
 
 //For debug
 #include <stdio.h>
@@ -1624,6 +1625,45 @@ cl_err_code NDRangeKernelCommand::Init()
         }
     }
 
+    // Indirect USM allocations that are not passed as kernel arguments
+    std::vector<SharedPtr<USMBuffer> > nonArgUsmBufs;
+    m_pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
+    if (!nonArgUsmBufs.empty())
+    {
+        cl_unified_shared_memory_capabilities_intel hostCaps =
+            GetDevice()->GetUSMCapabilities(
+            CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL);
+        cl_unified_shared_memory_capabilities_intel deviceCaps =
+            GetDevice()->GetUSMCapabilities(
+            CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL);
+        cl_unified_shared_memory_capabilities_intel sharedSingleCaps =
+            GetDevice()->GetUSMCapabilities(
+            CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
+        bool hostSupported = hostCaps & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
+        bool deviceSupported = deviceCaps &
+                               CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
+        bool sharedSupported =
+            sharedSingleCaps & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
+        m_nonArgUsmBuffersVec.resize(nonArgUsmBufs.size());
+        for (size_t i = 0; i < nonArgUsmBufs.size(); i++)
+        {
+            SharedPtr<USMBuffer> &buf = nonArgUsmBufs[i];
+            cl_unified_shared_memory_type_intel type = buf->GetType();
+            if ((type == CL_MEM_TYPE_HOST_INTEL && (!hostSupported ||
+                 !m_pKernel->IsUsmIndirectHost())) ||
+                (type == CL_MEM_TYPE_DEVICE_INTEL && (!deviceSupported ||
+                 !m_pKernel->IsUsmIndirectDevice())) ||
+                (type == CL_MEM_TYPE_SHARED_INTEL && (!sharedSupported ||
+                 !m_pKernel->IsUsmIndirectShared())))
+                return CL_INVALID_OPERATION;
+            AddToMemoryObjectArgList(m_MemOclObjects, buf,
+                                     MemoryObject::READ_WRITE);
+            res = GetMemObjectDescriptor(buf, &m_nonArgUsmBuffersVec[i]);
+            if (CL_FAILED(res))
+                return res;
+        }
+    }
+
     //
     // Query kernel info to validate input params
     //
@@ -1760,9 +1800,15 @@ cl_err_code NDRangeKernelCommand::Init()
                 // may it be an SVM object?
                 if (pArg->IsSvmPtr())
                 {
-                    SVMPointerArg* pSvmPtr;
-                    pArg->GetValue(sizeof(SVMPointerArg*), &pSvmPtr);
+                    SharedPointerArg* pSvmPtr;
+                    pArg->GetValue(sizeof(SharedPointerArg*), &pSvmPtr);
                     pMemObj = static_cast<MemoryObject*>( pSvmPtr );
+                }
+                else if (pArg->IsUsmPtr())
+                {
+                    SharedPointerArg* pUsmPtr;
+                    pArg->GetValue(sizeof(SharedPointerArg*), &pUsmPtr);
+                    pMemObj = static_cast<MemoryObject*>(pUsmPtr);
                 }
                 else
                 {
@@ -1772,7 +1818,9 @@ cl_err_code NDRangeKernelCommand::Init()
 
                     if ( nullptr == clMemId )
                     {
-                        assert( (pArg->IsBuffer() || pArg->IsSvmPtr()) && "NULL values is allowed only for buffers and SVM pointers");
+                        assert((pArg->IsBuffer() || pArg->IsSvmPtr() ||
+                                pArg->IsUsmPtr()) && "nullptr values is allowed "
+                                "only for buffers, SVM and USM pointers");
                         continue;
                     }
 
@@ -1815,17 +1863,13 @@ cl_err_code NDRangeKernelCommand::Init()
 
     pKernelParam->arg_size = uiDispatchSize;
     pKernelParam->arg_values = (void*)pDispatchBuffer;
-
-    if (m_nonArgSvmBuffersVec.empty())
-    {
-        pKernelParam->ppNonArgSvmBuffers = nullptr;
-    }
-    else
-    {
-        pKernelParam->ppNonArgSvmBuffers = &m_nonArgSvmBuffersVec[0];
-    }
+    pKernelParam->ppNonArgSvmBuffers = m_nonArgSvmBuffersVec.empty() ?
+        nullptr : &m_nonArgSvmBuffersVec[0];
     pKernelParam->uiNonArgSvmBuffersCount = m_nonArgSvmBuffersVec.size();
 
+    pKernelParam->ppNonArgUsmBuffers = m_nonArgUsmBuffersVec.empty() ?
+        nullptr : &m_nonArgUsmBuffersVec[0];
+    pKernelParam->uiNonArgUsmBuffersCount = m_nonArgUsmBuffersVec.size();
 
     // Fill specific command values
     pKernelParam->work_dim = m_uiWorkDim;
@@ -2859,6 +2903,189 @@ cl_err_code MigrateMemObjCommand::Execute()
  *
  ******************************************************************/
 cl_err_code MigrateMemObjCommand::CommandDone()
+{
+    RelinquishMemoryObjects(m_MemOclObjects);
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+MigrateUSMMemCommand::MigrateUSMMemCommand(
+    const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
+    ContextModule*         contextModule,
+    cl_mem_migration_flags clFlags,
+    const void* ptr,
+    size_t size):
+    Command(cmdQueue), m_ptr(ptr),
+    m_contextModule(contextModule)
+{
+    assert(nullptr != ptr);
+    assert(nullptr != contextModule);
+
+    memset(&m_migrateCmdParams, 0, sizeof(m_migrateCmdParams));
+    m_migrateCmdParams.flags   = clFlags;
+    m_migrateCmdParams.size = size;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MigrateUSMMemCommand::Init()
+{
+    MemoryObject::MemObjUsage access = (0 !=
+        (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)) ?
+        MemoryObject::WRITE_ENTIRE : MemoryObject::READ_ONLY;
+
+    SharedPtr<Context> queueContext =
+        m_contextModule->GetContext(m_pCommandQueue->GetParentHandle());
+
+    SharedPtr<USMBuffer> memObj = queueContext->GetUSMBufferContainingAddr(
+        const_cast<void*>(m_ptr));
+    if ((nullptr == memObj.GetPtr()) ||
+        !memObj->IsContainedInBuffer(m_ptr, m_migrateCmdParams.size) ||
+        (memObj->GetType() != CL_MEM_TYPE_SHARED_INTEL))
+        return CL_INVALID_VALUE;
+
+    cl_err_code cl_err = memObj->CreateDeviceResource(m_pDevice);
+    if (CL_FAILED(cl_err))
+        return cl_err;
+
+    cl_err = GetMemObjectDescriptor(memObj, &(m_migrateCmdParams.memObj));
+    if (CL_FAILED(cl_err))
+        return cl_err;
+
+    AddToMemoryObjectArgList(m_MemOclObjects, memObj, access);
+
+    // Initialize GPA data
+    GPA_InitCommand();
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MigrateUSMMemCommand::Execute()
+{
+    cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
+    if (CL_SUCCESS != res)
+        return res;
+
+    prepare_command_descriptor(CL_DEV_CMD_USM_MIGRATE, &m_migrateCmdParams,
+                               sizeof(m_migrateCmdParams));
+
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(),
+              m_Event->GetId());
+
+    SharedPtr<Context> queueContext = m_contextModule->GetContext(
+        m_pCommandQueue->GetParentHandle());
+    SharedPtr<USMBuffer> memObj = queueContext->GetUSMBufferContainingAddr(
+        const_cast<void*>(m_ptr));
+    if (nullptr == memObj.GetPtr())
+        return CL_INVALID_VALUE;
+    memObj->SetType(CL_MEM_TYPE_DEVICE_INTEL);
+    memObj->SetDevice(m_pDevice->GetHandle());
+
+    // Sending 1 command to the target device
+    cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
+    cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()
+        ->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
+    return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MigrateUSMMemCommand::CommandDone()
+{
+    RelinquishMemoryObjects(m_MemOclObjects);
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+AdviseUSMMemCommand::AdviseUSMMemCommand(
+    const SharedPtr<IOclCommandQueueBase>& cmdQueue,
+    ContextModule* contextModule,
+    const void* ptr,
+    size_t size,
+    cl_mem_advice_intel advice):
+    Command(cmdQueue), m_ptr(ptr), m_contextModule(contextModule)
+{
+    assert(nullptr != ptr);
+    assert(nullptr != contextModule);
+
+    memset(&m_adviseCmdParams, 0, sizeof(m_adviseCmdParams));
+
+    // Advice hints for GPU could be:
+    // * memadvise hints to pre-setup page tables to refer to remote memory.
+    // * override migration policy and keep an allocation on a specific device.
+    // * enable replicating an allocation for reading across multiple devices.
+    // TODO what are advice hints helpful for CPU?
+    m_adviseCmdParams.advice  = advice;
+    m_adviseCmdParams.size = size;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code AdviseUSMMemCommand::Init()
+{
+    m_adviseCmdParams.memObj = nullptr;
+
+    MemoryObject::MemObjUsage access = MemoryObject::WRITE_ENTIRE;
+
+    SharedPtr<Context> queueContext = m_contextModule->GetContext(
+        m_pCommandQueue->GetParentHandle());
+
+    SharedPtr<USMBuffer> memObj = queueContext
+        ->GetUSMBufferContainingAddr(const_cast<void*>(m_ptr));
+    if (nullptr == memObj.GetPtr() ||
+        !memObj->IsContainedInBuffer(m_ptr, m_adviseCmdParams.size))
+        return CL_INVALID_VALUE;
+
+    cl_err_code cl_err = memObj->CreateDeviceResource(m_pDevice);
+    if (CL_FAILED(cl_err))
+        return cl_err;
+
+    cl_err = GetMemObjectDescriptor(memObj, &(m_adviseCmdParams.memObj));
+    if (CL_FAILED(cl_err))
+        return cl_err;
+
+    AddToMemoryObjectArgList(m_MemOclObjects, memObj, access);
+
+    // Initialize GPA data
+    GPA_InitCommand();
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code AdviseUSMMemCommand::Execute()
+{
+    cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
+    if (CL_SUCCESS != res)
+        return res;
+
+    prepare_command_descriptor(CL_DEV_CMD_USM_ADVISE, &m_adviseCmdParams,
+                               sizeof(m_adviseCmdParams));
+
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(),
+              m_Event->GetId());
+
+    // Sending 1 command to the target device
+    cl_dev_cmd_desc* cmdPList[1] = { &m_DevCmd };
+    cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()
+        ->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
+    return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code AdviseUSMMemCommand::CommandDone()
 {
     RelinquishMemoryObjects(m_MemOclObjects);
     return CL_SUCCESS;

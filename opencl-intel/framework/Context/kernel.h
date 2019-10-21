@@ -33,7 +33,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Kernel;
     class Context;
     class SVMBuffer;
-    class SVMPointerArg;
+    class USMBuffer;
 
     /*! \struct cl_kernel_arg_info
      *  \brief Defines extended information for a kernel arguments.
@@ -173,6 +173,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void                SetValue( size_t size, const void* pValue );
         void                SetValid() { m_bValid = true; }
         void                SetSvmObject( const SharedPtr<ReferenceCountedObject>& svmMemObj ) { m_pSvmPtrArg = svmMemObj; }
+        void                SetUsmObject( const SharedPtr<ReferenceCountedObject>& usmMemObj ) { m_pUsmPtrArg = usmMemObj; }
 
         size_t              GetLocalBufferSize() const
             { assert( IsLocalPtr() && (NULL!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
@@ -189,11 +190,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                IsInt32Sampler()  const { return (   CL_KRNL_ARG_SAMPLER    == m_clKernelArgType.type); }
 
         bool                IsLocalPtr()      const { return (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type); }
-        
 
         bool                IsValid()         const { return m_bValid; }
 
-        bool                IsSvmPtr()        const { return (0 != m_pSvmPtrArg); }
+        bool                IsSvmPtr()        const { return nullptr != m_pSvmPtrArg.GetPtr(); }
+        bool                IsUsmPtr()        const { return nullptr != m_pUsmPtrArg.GetPtr(); }
 
         bool                IsQueueId()       const { return CL_KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.type; }
 
@@ -208,6 +209,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                            m_bValid;
 
         SharedPtr<ReferenceCountedObject> m_pSvmPtrArg;    // we hold a SharedPtr to ReferenceCountedObject because of header dependencies
+        SharedPtr<ReferenceCountedObject> m_pUsmPtrArg;
     };
 
     /**********************************************************************************************
@@ -314,7 +316,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // set kernel argument without checks.
         cl_err_code SetKernelArgInternal(cl_uint uiIndex, const KernelArg* arg);
         // set kernel argument
-        cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr = false);
+        cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize,
+                                 const void * pValue, bool bIsSvmPtr = false,
+                                 bool bIsUsmPtr = false);
 
         // returns the number of arguments in the kernel
         size_t GetKernelArgsCount() const { return m_sKernelPrototype.m_vArguments.size(); }
@@ -415,7 +419,63 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void GetNonArgSvmBuffers(std::vector<SharedPtr<SVMBuffer> >& svmBufs) const;
 
         size_t GetNonArgSvmBuffersCount() const;
-        
+
+        /**
+         * Set whether this kernel uses pointers that are host USM allocations.
+         * @param usmIndirectHost whether this kernel uses pointers that are
+         *        host USM allocations which are not passed as arguments.
+         */
+        void SetUsmIndirectHost(bool usmIndirectHost) {
+            m_usmIndirectHost = usmIndirectHost;
+        };
+
+        /**
+         * @return whether this kernel uses pointers that are host USM.
+         */
+        bool IsUsmIndirectHost() const { return m_usmIndirectHost; }
+
+        /**
+         * Set whether this kernel uses pointers that are device USM.
+         * @param usmIndirectHost whether this kernel uses pointers that are
+         *        device USM allocations which are not passed as arguments.
+         */
+        void SetUsmIndirectDevice(bool usmIndirectDevice) {
+            m_usmIndirectDevice = usmIndirectDevice;
+        };
+
+        /**
+         * @return whether this kernel uses pointers that are device USM.
+         */
+        bool IsUsmIndirectDevice() const { return m_usmIndirectDevice; }
+
+        /**
+         * Set whether this kernel uses pointers that are shared USM.
+         * @param usmIndirectShared whether this kernel uses pointers that are
+         *        shared USM allocations which are not passed as arguments.
+         */
+        void SetUsmIndirectShared(bool usmIndirectShared) {
+            m_usmIndirectShared = usmIndirectShared;
+        };
+
+        /**
+         * @return whether this kernel uses pointers that are shared USM.
+         */
+        bool IsUsmIndirectShared() const { return m_usmIndirectShared; }
+
+        /**
+         * Set indirect USMBuffers that are used by Kernel
+         * @param usmBufs a vector of SharedPtrs to the USMBuffers
+         */
+        void SetNonArgUsmBuffers(
+            const std::vector<SharedPtr<USMBuffer> >& usmBufs);
+
+        /**
+         * @param usmBufs a vector of indirect USMBuffers that are used by
+         * Kernel
+         */
+        void GetNonArgUsmBuffers(std::vector<SharedPtr<USMBuffer> >& usmBufs)
+            const;
+
         // needed so that DeviceKernel can access the raw program's binary (no const)
         friend class DeviceKernel;
 
@@ -456,8 +516,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
         mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlock;
         std::vector<SharedPtr<SVMBuffer> >                  m_nonArgSvmBufs;
 
+        bool                                    m_usmIndirectHost;
+        bool                                    m_usmIndirectDevice;
+        bool                                    m_usmIndirectShared;
+        mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlockUsm;
+        std::vector<SharedPtr<USMBuffer> >      m_nonArgUsmBufs;
+
     private:
-        
+
         /******************************************************************************************
         * Function:     Kernel
         * Description:    The Kernel class constructor

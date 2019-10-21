@@ -15,6 +15,7 @@
 #pragma once
 
 #include "CL/cl.h"
+#include "CL/cl_usm_ext.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -146,4 +147,14 @@ DECLARE_ALIAS(clDestroyTracingHandleINTEL);
 DECLARE_ALIAS(clEnableTracingINTEL);
 DECLARE_ALIAS(clDisableTracingINTEL);
 DECLARE_ALIAS(clGetTracingStateINTEL);
+DECLARE_ALIAS(clHostMemAllocINTEL);
+DECLARE_ALIAS(clDeviceMemAllocINTEL);
+DECLARE_ALIAS(clSharedMemAllocINTEL);
+DECLARE_ALIAS(clMemFreeINTEL);
+DECLARE_ALIAS(clGetMemAllocInfoINTEL);
+DECLARE_ALIAS(clSetKernelArgMemPointerINTEL);
+DECLARE_ALIAS(clEnqueueMemsetINTEL);
+DECLARE_ALIAS(clEnqueueMemcpyINTEL);
+DECLARE_ALIAS(clEnqueueMigrateMemINTEL);
+DECLARE_ALIAS(clEnqueueMemAdviseINTEL);
 }}}

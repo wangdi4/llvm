@@ -115,6 +115,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code EnqueueNativeKernel     (cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         cl_err_code EnqueueMigrateMemObjects(cl_command_queue clCommandQueue, cl_uint uiNumMemObjects, const cl_mem* pMemObjects, cl_mem_migration_flags clFlags, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         cl_err_code EnqueueSVMMigrateMem(cl_command_queue clCommandQueue, cl_uint num_svm_pointers, const void** svm_pointers, const size_t* sizes, cl_mem_migration_flags flags, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueUSMMemset(cl_command_queue command_queue,
+                                     void* dst_ptr, cl_int value, size_t size,
+                                     cl_uint num_events_in_wait_list,
+                                     const cl_event* event_wait_list,
+                                     cl_event* event, ApiLogger* api_logger);
+        cl_err_code EnqueueUSMMemcpy(cl_command_queue command_queue,
+                                     cl_bool blocking, void* dst_ptr,
+                                     const void* src_ptr, size_t size,
+                                     cl_uint num_events_in_wait_list,
+                                     const cl_event* event_wait_list,
+                                     cl_event* event, ApiLogger* api_logger);
+        cl_err_code EnqueueUSMMigrateMem(cl_command_queue command_queue,
+                                         const void* ptr, size_t size,
+                                         cl_mem_migration_flags flags,
+                                         cl_uint num_events_in_wait_list,
+                                         const cl_event* event_wait_list,
+                                         cl_event* event,
+                                         ApiLogger* api_logger);
+        cl_err_code EnqueueUSMMemAdvise(cl_command_queue command_queue,
+                                        const void* ptr,
+                                        size_t size,
+                                        cl_mem_advice_intel advice,
+                                        cl_uint num_events_in_wait_list,
+                                        const cl_event* event_wait_list,
+                                        cl_event* event,
+                                        ApiLogger* api_logger);
+
         // Profiling
 		cl_err_code GetEventProfilingInfo (cl_event clEvent, cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 

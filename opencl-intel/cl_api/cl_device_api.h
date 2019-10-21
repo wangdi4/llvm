@@ -20,6 +20,7 @@
 #include <cassert>
 #include <climits>
 #include "CL/cl.h"
+#include "CL/cl_usm_ext.h"
 
 #define IN
 #define OUT
@@ -275,6 +276,8 @@ enum cl_dev_cmd_type
     CL_DEV_CMD_FILL_IMAGE,          //!< Fill image
     CL_DEV_CMD_MIGRATE,             //!< Migrate memory object
     CL_DEV_CMD_SVM_MIGRATE,         //!< Migrate SVM memory object
+    CL_DEV_CMD_USM_MIGRATE,         //!< Migrate USM memory object
+    CL_DEV_CMD_USM_ADVISE,          //!< Advise USM memory object
     //--------------------
     CL_DEV_CMD_MAX_COMMAND_TYPE
 };
@@ -540,8 +543,10 @@ struct  cl_dev_cmd_param_kernel
                                                                  //!< An order of the values must be the same as the order of parameters in the kernel prototype.
                                                                  //!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
     size_t              arg_size;                                //!< Size in bytes of the arg_values array.
-    IOCLDevMemoryObject** ppNonArgSvmBuffers;                    //!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
+    IOCLDevMemoryObject** ppNonArgSvmBuffers;                    //!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or nullptr if they are not needed)
     cl_uint               uiNonArgSvmBuffersCount;               //!< number of entries in ppNonArgSvmBuffers
+    IOCLDevMemoryObject** ppNonArgUsmBuffers;                    //!< an array of pointers to IOCLDevMemoryObjects representing USM buffers that are used by Kernel, but not passed as arguments to it (or nullptr if they are not needed)
+    cl_uint               uiNonArgUsmBuffersCount;               //!< number of entries in ppNonArgUsmBuffers
 };
 
 
@@ -578,6 +583,16 @@ struct cl_dev_cmd_param_migrate
 };
 
 /**
+ * Used for USM memory object migration
+ */
+struct cl_dev_cmd_param_migrate_usm
+{
+    IOCLDevMemoryObject*        memObj;        //!< Handle to USM memory object
+    size_t                      size;          //!< Memory region size
+    cl_mem_migration_flags      flags;         //!< Migration flags
+};
+
+/**
 * \typedef fn_clNativeKernel
 * native function prototype
 */
@@ -594,6 +609,16 @@ struct cl_dev_cmd_param_native
     void*                               argv;               //!< A pointer to the args list that user function should be called with. Some items contain handles to device memory objects. Before the user function is executed, the memory object handles are replaced by pointers to global memory.
     unsigned int                        mem_num;            //!< The number of buffer objects that are passed in argv. These values will be updated by the device agent.
     size_t*                             mem_offset;         //!< An offset to appropriate locations that argv points to where memory object handles (void* values) are stored.
+};
+
+/**
+ * Used for advising USM memory objects
+ */
+struct cl_dev_cmd_param_advise_usm
+{
+    IOCLDevMemoryObject*  memObj;   //!< Handle to USM memory object
+    size_t                size;     //!< Memory region size
+    cl_mem_advice_intel   advice;   //!< Advice hint
 };
 
 // ------------------------------------------------------------------------------

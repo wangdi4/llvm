@@ -74,7 +74,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t*            dimension,
             const size_t*            pitches,
             void*                    pHostPtr,
-            cl_rt_memobj_creation_flags    creation_flags
+            cl_rt_memobj_creation_flags    creation_flags,
+            size_t                         force_alignment = 0
             );
 
         cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
