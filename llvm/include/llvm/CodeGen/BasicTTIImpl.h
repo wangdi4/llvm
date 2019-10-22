@@ -1163,9 +1163,7 @@ public:
                                                     OpPropsBW);
       // For non-rotates (X != Y) we must add shift-by-zero handling costs.
       if (X != Y) {
-        Type *CondTy = Type::getInt1Ty(RetTy->getContext());
-        if (RetVF > 1)
-          CondTy = VectorType::get(CondTy, RetVF);
+        Type *CondTy = RetTy->getWithNewBitWidth(1);
         Cost += ConcreteTTI->getCmpSelInstrCost(BinaryOperator::ICmp, RetTy,
                                                 CondTy, nullptr);
         Cost += ConcreteTTI->getCmpSelInstrCost(BinaryOperator::Select, RetTy,
@@ -1183,7 +1181,6 @@ public:
   unsigned getIntrinsicInstrCost(
       Intrinsic::ID IID, Type *RetTy, ArrayRef<Type *> Tys, FastMathFlags FMF,
       unsigned ScalarizationCostPassed = std::numeric_limits<unsigned>::max()) {
-    unsigned RetVF = (RetTy->isVectorTy() ? RetTy->getVectorNumElements() : 1);
     auto *ConcreteTTI = static_cast<T *>(this);
 
     SmallVector<unsigned, 2> ISDs;
@@ -1340,9 +1337,7 @@ public:
           /*IsUnsigned=*/false);
     case Intrinsic::sadd_sat:
     case Intrinsic::ssub_sat: {
-      Type *CondTy = Type::getInt1Ty(RetTy->getContext());
-      if (RetVF > 1)
-        CondTy = VectorType::get(CondTy, RetVF);
+      Type *CondTy = RetTy->getWithNewBitWidth(1);
 
       Type *OpTy = StructType::create({RetTy, CondTy});
       Intrinsic::ID OverflowOp = IID == Intrinsic::sadd_sat
@@ -1362,9 +1357,7 @@ public:
     }
     case Intrinsic::uadd_sat:
     case Intrinsic::usub_sat: {
-      Type *CondTy = Type::getInt1Ty(RetTy->getContext());
-      if (RetVF > 1)
-        CondTy = VectorType::get(CondTy, RetVF);
+      Type *CondTy = RetTy->getWithNewBitWidth(1);
 
       Type *OpTy = StructType::create({RetTy, CondTy});
       Intrinsic::ID OverflowOp = IID == Intrinsic::uadd_sat
@@ -1381,9 +1374,7 @@ public:
     case Intrinsic::smul_fix:
     case Intrinsic::umul_fix: {
       unsigned ExtSize = RetTy->getScalarSizeInBits() * 2;
-      Type *ExtTy = Type::getIntNTy(RetTy->getContext(), ExtSize);
-      if (RetVF > 1)
-        ExtTy = VectorType::get(ExtTy, RetVF);
+      Type *ExtTy = RetTy->getWithNewBitWidth(ExtSize);
 
       unsigned ExtOp =
           IID == Intrinsic::smul_fix ? Instruction::SExt : Instruction::ZExt;
@@ -1447,9 +1438,7 @@ public:
       Type *MulTy = RetTy->getContainedType(0);
       Type *OverflowTy = RetTy->getContainedType(1);
       unsigned ExtSize = MulTy->getScalarSizeInBits() * 2;
-      Type *ExtTy = Type::getIntNTy(RetTy->getContext(), ExtSize);
-      if (MulTy->isVectorTy())
-        ExtTy = VectorType::get(ExtTy, MulTy->getVectorNumElements() );
+      Type *ExtTy = MulTy->getWithNewBitWidth(ExtSize);
 
       unsigned ExtOp =
           IID == Intrinsic::smul_fix ? Instruction::SExt : Instruction::ZExt;
