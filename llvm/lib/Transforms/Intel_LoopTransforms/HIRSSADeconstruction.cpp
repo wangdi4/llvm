@@ -536,6 +536,28 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
   return hasNonSCEVableUses(Inst, ParentBB);
 }
 
+static bool isLoopLiveOut(Instruction *Inst, Loop *Lp, LoopInfo *LI) {
+
+  if (!Lp->contains(LI->getLoopFor(Inst->getParent()))) {
+    return true;
+  }
+
+  auto *Phi = dyn_cast<PHINode>(Inst);
+
+  // Trace single operand phis recursively because they are considered as the
+  // same value in HIR.
+  if (Phi && (Phi->getNumIncomingValues() == 1)) {
+
+    for (auto *User : make_range(Phi->user_begin(), Phi->user_end())) {
+      if (isLoopLiveOut(cast<Instruction>(User), Lp, LI)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
                                            const HIRSCCFormation::SCC *ParSCC,
                                            StringRef Name) {
@@ -618,12 +640,9 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
 
     } else if (!CopyRequired) {
 
-      auto UserBB = UserInst->getParent();
-
       // Add a liveout copy if this phi is used outside its parent loop as these
       // uses can cause live range violation.
-      if (IgnoreUsesInsideLoop &&
-          ((ParentBB == UserBB) || Lp->contains(LI->getLoopFor(UserBB)))) {
+      if (IgnoreUsesInsideLoop && !isLoopLiveOut(UserInst, Lp, LI)) {
         continue;
       }
     }
