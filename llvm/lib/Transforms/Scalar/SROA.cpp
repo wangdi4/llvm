@@ -1266,7 +1266,14 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
 #if INTEL_CUSTOMIZATION
   // For now, we can only do this promotion if the load is in the same block
   // as the PHI, and if there are no stores between the phi and load.
+<<<<<<< HEAD
   unsigned MaxAlign = 0;
+=======
+  // TODO: Allow recursive phi users.
+  // TODO: Allow stores.
+  BasicBlock *BB = PN.getParent();
+  MaybeAlign MaxAlign;
+>>>>>>> 301b4128acbdbf829d4c92907f2a1784b61e83b0
   uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
   APInt MaxSize(APWidth, 0);
   bool HasLoad = false;
@@ -1279,7 +1286,14 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
       return false;
 
+<<<<<<< HEAD
     HasLoad = true;
+=======
+    uint64_t Size = DL.getTypeStoreSize(LI->getType());
+    MaxAlign = std::max(MaxAlign, MaybeAlign(LI->getAlignment()));
+    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
+    HaveLoad = true;
+>>>>>>> 301b4128acbdbf829d4c92907f2a1784b61e83b0
   }
 
   if (!HasLoad)
@@ -1500,11 +1514,11 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
     // Both operands to the select need to be dereferenceable, either
     // absolutely (e.g. allocas) or at this point because we can see other
     // accesses to it.
-    if (!isSafeToLoadUnconditionally(TValue, LI->getType(), LI->getAlignment(),
-                                     DL, LI))
+    if (!isSafeToLoadUnconditionally(TValue, LI->getType(),
+                                     MaybeAlign(LI->getAlignment()), DL, LI))
       return false;
-    if (!isSafeToLoadUnconditionally(FValue, LI->getType(), LI->getAlignment(),
-                                     DL, LI))
+    if (!isSafeToLoadUnconditionally(FValue, LI->getType(),
+                                     MaybeAlign(LI->getAlignment()), DL, LI))
       return false;
   }
 
