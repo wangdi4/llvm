@@ -60,7 +60,7 @@ public:
         [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
     bool Changed =
@@ -778,8 +778,8 @@ PreservedAnalyses MemInitTrimDownPass::run(Module &M,
   MemInitDominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(F);
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
   };
 
   if (!runImpl(M, DTransInfo, GetTLI, WPInfo, GetDT))
