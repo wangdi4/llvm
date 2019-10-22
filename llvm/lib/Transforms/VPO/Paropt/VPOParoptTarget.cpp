@@ -1173,10 +1173,10 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    genOffloadArraysArgument(&Info, Call);
+    genOffloadArraysArgument(&Info, InsertPt);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, Call);
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
   } else if (isa<WRNTargetUpdateNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
