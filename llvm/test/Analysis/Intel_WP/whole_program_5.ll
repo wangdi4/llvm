@@ -1,9 +1,10 @@
+; REQUIRES: assert
 ; Test that checks the output of the libfuncs trace by itself (-whole-program-trace-libfuncs).
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace-libfuncs -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis  -whole-program-trace-libfuncs -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:     WHOLE-PROGRAM-ANALYSIS: LIBFUNCS TRACE
+; CHECK:     WHOLE-PROGRAM-ANALYSIS: LIBRARY FUNCTIONS TRACE
 ; CHECK:      TOTAL LIBFUNCS: 2
 ; CHECK:      LIBFUNCS FOUND: 1
 ; CHECK-NEXT:       malloc

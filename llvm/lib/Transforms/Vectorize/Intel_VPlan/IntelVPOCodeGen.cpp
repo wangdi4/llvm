@@ -2296,6 +2296,7 @@ void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
     VPValue *VPStart = Red.getRecurrenceStartValue();
     Value *OrigStartValue = VPStart->getUnderlyingValue();
     VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Red);
+    assert(VPHi && "nullptr is not expected");
     PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
     createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.merge.reduction",
                                       LastVal);
@@ -2310,6 +2311,7 @@ void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
     VPValue *VPStart = Ind.getStartValue();
     Value *OrigStartValue = VPStart->getUnderlyingValue();
     VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Ind);
+    assert(VPHi && "nullptr is not expected");
     PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
     createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.resume.val",
                                       LastVal);

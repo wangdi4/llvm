@@ -28,6 +28,17 @@ inline bool isMemoryInst(const Instruction *I) {
          (isa<CallInst>(I) && !cast<CallInst>(I)->doesNotAccessMemory());
 }
 
+/// \returns true if \p I is any instruction that can create a belong's-to, or
+/// simple 'aliasing' relationship, with it's input operand.
+template <typename InstTy = Instruction>
+inline bool isTrivialPointerAliasingInst(const InstTy *Inst) {
+  assert(Inst && "Expect a non-null input for isTrivialPointerAliasingInst");
+  return (Inst->getOpcode() == Instruction::BitCast ||
+          Inst->getOpcode() == Instruction::AddrSpaceCast ||
+          Inst->getOpcode() == Instruction::GetElementPtr ||
+          Inst->getOpcode() == Instruction::PHI);
+}
+
 /// \returns the vector bit-size of \p LI .
 inline size_t getVecBits(Instruction *LI, const DataLayout &DL,
                          bool AllowScalars = false) {

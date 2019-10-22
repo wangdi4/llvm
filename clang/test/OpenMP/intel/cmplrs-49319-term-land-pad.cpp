@@ -1,24 +1,65 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu \
+// RUN:  | FileCheck %s --check-prefixes=BOTH,NOOPT
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
+// RUN:  -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu \
+// RUN:  | FileCheck %s -check-prefixes=BOTH,OPT
+
 extern void bar(float*);
 extern void goo(float*);
 
-//CHECK-LABEL: foo
+//CHECK-BOTH: foo
 void foo(float *x)
 {
-  //CHECK: call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //CHECK: invoke void{{.*}}bar
-  //CHECK-NEXT: unwind label %[[TLP:terminate.lpad[0-9]*]]
+  //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
+  //BOTH: invoke void{{.*}}bar
+  //BOTH-NEXT: unwind label %[[TLP:.*lpad[0-9]*]]
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     bar(x);
+  //OPT: [[TLP]]:
+  //OPT: br label %[[TH1:terminate.handler.*]]
 
-  //CHECK: call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //CHECK: invoke void{{.*}}goo
-  //CHECK-NEXT: unwind label %[[TLP20:terminate.lpad[0-9]*]]
+  //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
+  //BOTH: invoke void{{.*}}goo
+  //BOTH-NEXT: unwind label %[[TLP20:.*lpad[0-9]*]]
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     goo(x);
 
-  //CHECK: [[TLP]]:
-  //CHECK: [[TLP20]]:
+  //OPT: [[TH1]]:
+  //OPT: call void @__clang_call_terminate
+
+  //NOOPT: [[TLP]]:
+  //NOOPT: call void @__clang_call_terminate
+  //NOOPT: [[TLP20]]:
+  //NOOPT: call void @__clang_call_terminate
+
+  //OPT: [[TLP20]]:
+  //OPT: br label %[[TH2:terminate.handler.*]]
+  //OPT: [[TH2]]:
+  //OPT: call void @__clang_call_terminate
+}
+
+//CHECK-BOTH: otherfoo
+void otherfoo(float *x)
+{
+  //BOTH: call token{{.*}}DIR.OMP.PARALLEL
+  //BOTH: invoke void{{.*}}bar
+  //BOTH-NEXT: unwind label %[[TLP:.*lpad[0-9]*]]
+  #pragma omp parallel
+  bar(x);
+
+  //BOTH: call token{{.*}}DIR.OMP.PARALLEL
+  //BOTH: invoke void{{.*}}goo
+  //BOTH-NEXT: unwind label %[[TLP20:.*lpad[0-9]*]]
+  #pragma omp parallel
+  goo(x);
+
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
+  //BOTH: [[TLP20]]:
+  //BOTH: call void @__clang_call_terminate
 }

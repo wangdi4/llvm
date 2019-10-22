@@ -1,10 +1,11 @@
+; REQUIRES: assert
 ; This test expects LTO to NOT detect whole program since IR
 ; is not available for 'dealloc' user defined routine. LTO doesn't
 ; expect IR for library routines like malloc, free, fprintf.
 
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1  2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1  2>&1 | FileCheck %s
 
 ; CHECK:   UNRESOLVED CALLSITES: 1
 ; CHECK:   LIBFUNCS NOT FOUND: 1
@@ -23,12 +24,12 @@
 ; Function Attrs: nounwind uwtable
 define i8* @allocate() {
 entry:
-  %call = call noalias i8* @malloc(i64 8) 
+  %call = call noalias i8* @malloc(i64 8)
   ret i8* %call
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) 
+declare noalias i8* @malloc(i64)
 
 ; Function Attrs: nounwind uwtable
 define void @assign(i8* %ptr)  {

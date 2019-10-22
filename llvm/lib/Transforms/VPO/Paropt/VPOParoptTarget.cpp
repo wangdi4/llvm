@@ -915,14 +915,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
              UpperBoundDef, W)) {
       // FIXME: if we stop calling this function for SPIR compilation,
       //        then the check for isTargetSPIRV() has to be removed below.
-      if (isTargetSPIRV())
+      if (isTargetSPIRV()) {
         // This code may be executed only for ImplicitSIMDSPMDES mode.
-        F->getContext().diagnose(ParoptDiagInfo(*F,
-            WL->getEntryDirective()->getDebugLoc(),
-            Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
-            Twine("' option ignored for OpenMP region, since ") +
-            Twine("loop(s) bounds cannot be computed before the enclosing ") +
-            Twine("target region.  Consider using combined construct.")));
+        OptimizationRemarkMissed R("openmp", "Target", WL->getEntryDirective());
+        R << "Consider using OpenMP combined construct "
+            "with \"target\" to get optimal performance";
+        ORE.emit(R);
+      }
       LLVM_DEBUG(dbgs() << __FUNCTION__ <<
                  ": loop bounds cannot be computed before the enclosing "
                  "target region.\n");
@@ -1173,10 +1172,10 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    genOffloadArraysArgument(&Info, Call);
+    genOffloadArraysArgument(&Info, InsertPt);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, Call);
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
   } else if (isa<WRNTargetUpdateNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,

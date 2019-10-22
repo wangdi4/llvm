@@ -60,9 +60,6 @@ class OpenMPLateOutliner {
   CodeGenFunction &CGF;
   llvm::LLVMContext &C;
 
-  // Save and restore the TerminateLandingPad.
-  CodeGenFunction::OMPTerminateLandingPadHandler TLPH;
-
   // Handle reprocessing VLASizeMap expressions.
   CodeGenFunction::VLASizeMapHandler VSMH;
 

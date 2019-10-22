@@ -1,9 +1,10 @@
+; REQUIRES: assert
 ; This test expects LTO to detect all used functions (0 funtions unresolved)
 ; since IR is available for all user defined routines. LTO doesn't expect IR
 ; for library routines like malloc, free, fprintf (known library functions).
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:   UNRESOLVED CALLSITES: 0
 ; CHECK:   WHOLE PROGRAM DETECTED
@@ -20,12 +21,12 @@
 ; Function Attrs: nounwind uwtable
 define i8* @allocate()  {
 entry:
-  %call = call noalias i8* @malloc(i64 8) 
+  %call = call noalias i8* @malloc(i64 8)
   ret i8* %call
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) 
+declare noalias i8* @malloc(i64)
 
 ; Function Attrs: nounwind uwtable
 define void @assign(i8* %ptr)  {

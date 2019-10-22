@@ -1,10 +1,11 @@
+; REQUIRES: assert
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in the IR. Whole program read isn't
 ; achieved because there is no definition for @sub.
 
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld -e main --lto-O2 \
-; RUN:    -mllvm -whole-program-trace \
+; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 

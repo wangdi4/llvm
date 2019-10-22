@@ -1,6 +1,8 @@
+; REQUIRES: assert
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld --lto-O2 -e main \
 ; RUN:    -plugin-opt=fintel-advanced-optim \
+; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-advanced-opt-trace \
 ; RUN:    -mllvm -print-after-all \
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
@@ -39,6 +41,3 @@ attributes #1 = { "target-features"="+avx,+avx2,+sse4.2" }
 ; CHECK: Target has AVX
 ; CHECK: Target has AVX2
 ; CHECK-NOT: Target has AVX512
-
-; Verify that there was IR in the module due to '-e.
-; CHECK: define dso_local i32 @main
