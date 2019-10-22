@@ -429,24 +429,21 @@ VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   assert((VPInst->getOpcode() == Instruction::Load ||
           VPInst->getOpcode() == Instruction::Store) &&
          "Alignment helper called on non load/store instruction.");
-  unsigned Alignment = 1;
   // TODO: Peeking at underlying Value for alignment info.
-  if (auto *UV = VPInst->getUnderlyingValue())
-    Alignment = getLoadStoreAlignment(UV);
+  auto *UV = VPInst->getUnderlyingValue();
+  if (!UV)
+    return 1;
 
-  if (!Alignment) {
-    // An alignment of 0 means target abi alignment. We need to use the scalar's
-    // target abi alignment in such a case.
-    const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-    // For store instructions alignment is determined by type of value operand.
-    Type *OrigTy = VPInst->getOpcode() == Instruction::Load
-                       ? VPInst->getType()
-                       : VPInst->getOperand(0)->getType();
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  // For store instructions alignment is determined by type of value operand.
+  Type *OrigTy = VPInst->getOpcode() == Instruction::Load
+                     ? VPInst->getType()
+                     : VPInst->getOperand(0)->getType();
 
-    Alignment = DL.getABITypeAlignment(OrigTy);
-  }
-
-  return Alignment;
+ // Absence of alignment means target abi alignment. We need to use the scalar's
+ // target abi alignment in such a case.
+  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy)
+      .value();
 }
 
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
