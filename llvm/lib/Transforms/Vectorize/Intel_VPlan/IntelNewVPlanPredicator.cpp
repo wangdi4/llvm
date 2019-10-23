@@ -599,7 +599,18 @@ void VPlanPredicator::linearizeRegion(
         PredSucc = PredSucc->getSingleHierarchicalSuccessor();
       }
 
-      if (!is_contained(RemainingDivergentEdges, LastProcessed)) {
+      if (is_contained(LastProcessed->getSuccessors(), CurrBlock)) {
+        // Nothing to do.
+        //
+        // Indeed, the LastProcessed-CurrBlock edge is one of the following:
+        //   - Uniform edge (e.g. exiting edge of an inner loop). No successors
+        //     fixup is needed.
+        //   - Remaining divergent edge. Successors were fixed up in a loop
+        //     processing such kind of edges.
+        //   - New edge connecting this block to a linearized chain created on
+        //     one of the previous iterations of this loop. Successors were
+        //     fixed up during edge creation (else part of this condition).
+      } else {
         // Pred was processed as part of some other linearization chain. Need to
         // merge it with the current one.
         LastProcessed->getSuccessors().clear();
