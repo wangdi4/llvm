@@ -276,6 +276,17 @@ bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
          name.contains("intel_sub_group_shuffle");
 }
 
+bool OpenclRuntime::needsConcatenatedVectorReturn(StringRef name) const {
+  return name.contains("intel_sub_group_block_") ||
+         name.contains("intel_sub_group_ballot") ||
+         name.contains("intel_sub_group_shuffle");
+}
+
+bool OpenclRuntime::needsConcatenatedVectorParams(StringRef name) const {
+  // So far these are the same functions as for ret value
+  return needsConcatenatedVectorReturn(name);
+}
+
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
   if (CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||

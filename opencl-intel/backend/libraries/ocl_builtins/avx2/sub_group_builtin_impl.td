@@ -293,7 +293,7 @@ OclBuiltinImpl sub_group_shuffle_up_avx2_gen = OclBuiltinImpl<sub_group_shuffle_
 }]>;
 
 
-OclBuiltinImpl sub_group_shuffle_up_avx2_gen = OclBuiltinImpl<sub_group_shuffle_up_avx2,
+OclBuiltinImpl sub_group_shuffle_up_avx2_v8d64 = OclBuiltinImpl<sub_group_shuffle_up_avx2,
         [v8i64, v8u64, v8f64], 0,
 [{
      $Arg0Type res_cur, res_next;

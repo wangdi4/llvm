@@ -452,7 +452,12 @@ OclBuiltinImpl __ocl_transpose16x4_sse3 = OclBuiltinImpl<__ocl_transpose16x4, [v
   }]>;
 
 
-OclBuiltinImpl __ocl_shuffle_transpose4x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x8, [v32i32, v32u32, v32f32], 0, [{
+list<OclType> __ocl_shuffle_transpose_v32_types = [ v32i64, v32u64,
+                                                    v32i32, v32u32, v32f32,
+                                                    v32i16, v32u16,
+                                                    v32i8,  v32u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose4x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x8, __ocl_shuffle_transpose_v32_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 4, 8, 12, 16, 20, 24, 28,
             1, 5, 9, 13, 17, 21, 25, 29,
@@ -460,7 +465,7 @@ OclBuiltinImpl __ocl_shuffle_transpose4x8_sse3 = OclBuiltinImpl<__ocl_shuffle_tr
             3, 7, 11, 15, 19, 23, 27, 31);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose8x4_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x4, [v32i32, v32u32, v32f32], 0, [{
+OclBuiltinImpl __ocl_shuffle_transpose8x4_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x4, __ocl_shuffle_transpose_v32_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 8, 16, 24, 1, 9, 17, 25,
             2, 10, 18, 26, 3, 11, 19, 27,
@@ -468,7 +473,12 @@ OclBuiltinImpl __ocl_shuffle_transpose8x4_sse3 = OclBuiltinImpl<__ocl_shuffle_tr
             6, 14, 22, 30, 7, 15, 23, 31);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose4x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x16, [v64i32, v64u32, v64f32], 0, [{
+list<OclType> __ocl_shuffle_transpose_v64_types = [ v64i64, v64u64,
+                                                    v64i32, v64u32, v64f32,
+                                                    v64i16, v64u16,
+                                                    v64i8,  v64u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose4x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x16, __ocl_shuffle_transpose_v64_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 4,  8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60,
             1, 5,  9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61,
@@ -476,7 +486,7 @@ OclBuiltinImpl __ocl_shuffle_transpose4x16_sse3 = OclBuiltinImpl<__ocl_shuffle_t
             3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose16x4_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x4, [v64i32, v64u32, v64f32], 0, [{
+OclBuiltinImpl __ocl_shuffle_transpose16x4_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x4, __ocl_shuffle_transpose_v64_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 16, 32, 48,   1, 17, 33, 49,   2, 18, 34, 50,   3, 19, 35, 51,
             4, 20, 36, 52,   5, 21, 37, 53,   6, 22, 38, 54,   7, 23, 39, 55,
@@ -484,7 +494,7 @@ OclBuiltinImpl __ocl_shuffle_transpose16x4_sse3 = OclBuiltinImpl<__ocl_shuffle_t
             12, 28, 44, 60,  13, 29, 45, 61, 14, 30, 46, 62,  15, 31, 47, 63);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose8x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x8, [v64i32, v64u32, v64f32], 0, [{
+OclBuiltinImpl __ocl_shuffle_transpose8x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x8, __ocl_shuffle_transpose_v64_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 8, 16, 24, 32, 40, 48, 56,
             1, 9, 17, 25, 33, 41, 49, 57,
@@ -496,7 +506,12 @@ OclBuiltinImpl __ocl_shuffle_transpose8x8_sse3 = OclBuiltinImpl<__ocl_shuffle_tr
             7, 15, 23, 31, 39, 47, 55, 63);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose8x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x16, [v128i32, v128u32, v128f32], 0, [{
+list<OclType> __ocl_shuffle_transpose_v128_types = [ v128i64, v128u64,
+                                                     v128i32, v128u32, v128f32,
+                                                     v128i16, v128u16,
+                                                     v128i8,  v128u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose8x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x16, __ocl_shuffle_transpose_v128_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120,
             1, 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121,
@@ -508,7 +523,7 @@ OclBuiltinImpl __ocl_shuffle_transpose8x16_sse3 = OclBuiltinImpl<__ocl_shuffle_t
             7, 15, 23, 31, 39, 47, 55, 63, 71, 79, 87, 95, 103, 111, 119, 127);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose16x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x8, [v128i32, v128u32, v128f32], 0, [{
+OclBuiltinImpl __ocl_shuffle_transpose16x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x8, __ocl_shuffle_transpose_v128_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 16, 32, 48, 64, 80,  96, 112,  1, 17, 33, 49, 65, 81, 97, 113,
             2, 18, 34, 50, 66, 82,  98, 114,  3, 19, 35, 51, 67, 83, 99, 115,
@@ -520,7 +535,12 @@ OclBuiltinImpl __ocl_shuffle_transpose16x8_sse3 = OclBuiltinImpl<__ocl_shuffle_t
             14, 30, 46, 62, 78, 94, 110, 126, 15, 31, 47, 63, 79, 95, 111, 127);
 }]>;
 
-OclBuiltinImpl __ocl_shuffle_transpose16x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x16, [v256i32, v256u32, v256f32], 0, [{
+list<OclType> __ocl_shuffle_transpose_v256_types = [ v256i64, v256u64,
+                                                     v256i32, v256u32, v256f32,
+                                                     v256i16, v256u16,
+                                                     v256i8,  v256u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose16x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x16, __ocl_shuffle_transpose_v256_types, 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
             0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240,
             1, 17, 33, 49, 65, 81, 97, 113, 129, 145, 161, 177, 193, 209, 225, 241,

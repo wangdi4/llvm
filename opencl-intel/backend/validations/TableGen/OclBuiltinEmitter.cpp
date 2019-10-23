@@ -142,6 +142,22 @@ OclType::getCMask() const
 }
 
 std::string
+OclType::getSGBlockOpSuffix() const
+{
+  StringRef Name(m_Name);
+  if (Name.endswith("u64"))
+    return "ul";
+  else if (Name.endswith("u32"))
+    return "ui";
+  else if (Name.endswith("u16"))
+    return "us";
+  else if (Name.endswith("u8"))
+    return "uc";
+  else
+    return "";
+}
+
+std::string
 OclType::getCVecLength() const
 {
   switch (m_VecLength) {
@@ -399,6 +415,18 @@ OclBuiltin::getArgumentSym(unsigned i, const std::string& Generator, const std::
   const OclType* g = m_DB.getOclType(Generator);
   const std::string& GT =  m_Inputs[i].first->getGenType(TyName);
   return g->getGenType(GT);
+}
+
+std::string
+OclBuiltin::getArgumentSGBlockOpSuffix(unsigned i, const std::string& TyName) const
+{
+  assert(i < m_Inputs.size() && "Argument index is out of bound.");
+
+  const std::string& GT = m_Inputs[i].first->getGenType(TyName);
+  const OclType* T = m_DB.getOclType(GT);
+  assert(T && "Invalid type found.");
+
+  return T->getSGBlockOpSuffix();
 }
 
 std::string
@@ -1023,6 +1051,9 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
     } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VarName" == pat.substr(6)) {
       unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
       val = OB->getArgumentCName(i, OT->getName());
+    } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 20 && "SGBlockOpSuffix" == pat.substr(5)) {
+      unsigned i = pat[4] - '0';
+      val = OB->getArgumentSGBlockOpSuffix(i, OT->getName());
     } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
       unsigned i = pat[4] - '0';
       val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());
