@@ -902,10 +902,45 @@ Instruction *InstCombiner::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
                         Constant::getNullValue(Offset->getType()));
   }
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10425
+  // Recognize this suspicious case:
+  // %2626 = sub i64 0, %2625
+  // %2628 = inttoptr i64 %2625 to i8*
+  // %2636 = getelementptr inbounds i8, i8* %2628, i64 %2626
+  // %2668 = icmp eq i8* %2636, null
+  // The GEP result is always 0, and we should not bypass it by changing
+  // the icmp operand to %2628.
+  // This is UB code (because of the inbounds keyword)
+  // but unfortunately it is present in obstack.h, used in gcc.502 and boost.
+  auto GEPMayBeOutOfBounds = [](GEPOperator *GEP) {
+    auto SkipIntPtrAndCasts = [](Value *V) {
+      V = V->stripPointerCasts();
+      if (auto *IntToPtr = dyn_cast<IntToPtrInst>(V))
+        V = IntToPtr->getOperand(0);
+      else if (auto *PtrToInt = dyn_cast<PtrToIntInst>(V))
+        V = PtrToInt->getOperand(0);
+      return V->stripPointerCasts();
+    };
+
+    if (GEP->getNumOperands() == 2) {
+      Value *GEPBase = SkipIntPtrAndCasts(GEP->getOperand(0));
+      Value *NegOffset = nullptr;
+      if (match(GEP->getOperand(1), m_Sub(m_Zero(), m_Value(NegOffset)))) {
+        NegOffset = SkipIntPtrAndCasts(NegOffset);
+        return NegOffset == GEPBase;
+      }
+    }
+    return false;
+  };
+#endif // INTEL_CUSTOMIZATION
+
   if (GEPLHS->isInBounds() && ICmpInst::isEquality(Cond) &&
       isa<Constant>(RHS) && cast<Constant>(RHS)->isNullValue() &&
-      !NullPointerIsDefined(I.getFunction(),
-                            RHS->getType()->getPointerAddressSpace())) {
+      !NullPointerIsDefined(
+          I.getFunction(),                             // INTEL
+          RHS->getType()->getPointerAddressSpace()) && // INTEL
+      !GEPMayBeOutOfBounds(GEPLHS)) {                  // INTEL
     // For most address spaces, an allocation can't be placed at null, but null
     // itself is treated as a 0 size allocation in the in bounds rules.  Thus,
     // the only valid inbounds address derived from null, is null itself.
