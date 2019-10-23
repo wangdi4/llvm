@@ -45,6 +45,7 @@
 #include "llvm/IR/Module.h"
 
 #include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 
@@ -1291,6 +1292,17 @@ private:
   ///  in the pass VPOParoptPrepare. This utility also promotes the
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
+
+  /// For the given loop \p Index in the loop kind region \p W
+  /// promote the loop's IV and UB variables to registers.
+  void registerizeLoopEssentialValues(WRegionNode *W, unsigned Index);
+
+  /// Utility to simplify PHI instructions in the given loop \p L.
+  /// Here is an example of a PHI instruction that may be produced
+  /// by the loop rotation transformation that we want to simplify:
+  ///   %2 = phi i64 [ %0, %bb1 ], [ %0, %bb2 ]
+  /// We want to relink all users of %2 to %0.
+  void simplifyLoopPHINodes(const Loop &L, const SimplifyQuery &SQ) const;
 
   /// Transform the Ith level of the loop in the region W into the
   /// OMP canonical loop form.
