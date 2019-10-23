@@ -7757,8 +7757,6 @@ static void handleMSAllocatorAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
-<<<<<<< HEAD
-=======
 
 static bool IsDeclLambdaCallOperator(Decl *D) {
   if (const auto *MD = dyn_cast<CXXMethodDecl>(D))
@@ -7767,7 +7765,6 @@ static bool IsDeclLambdaCallOperator(Decl *D) {
   return false;
 }
 
->>>>>>> 36319015d158941be07abdd85d06de40a74eab8e
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
 /// silently ignore it if a GNU attribute.
