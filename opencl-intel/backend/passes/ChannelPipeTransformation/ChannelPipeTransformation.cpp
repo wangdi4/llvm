@@ -457,12 +457,6 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
     auto *PacketArg1 = ChannelCall->getArgOperand(1);
     auto *PacketArg2 = ChannelCall->getArgOperand(2);
 
-    // At this time, the arguments are passed by value and not struct pointer
-    assert(!isa<PointerType>(PacketArg1->getType()) &&
-               "Expected not a pointer type");
-    assert(!isa<PointerType>(PacketArg2->getType()) &&
-               "Expected not a pointer type");
-
     SmallVector<Type *, 2> CoercedTypeVec;
     CoercedTypeVec.push_back(PacketArg1->getType());
     CoercedTypeVec.push_back(PacketArg2->getType());
