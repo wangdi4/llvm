@@ -3145,8 +3145,7 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs() {
   // exit instructions to have the new RegDDRef as its underlying reduction
   // RegDDRef. NOTE: The above mentioned instructions are expected to in
   // reduction's LinkedVPValues.
-  for (auto &Reduction : make_range(VPLoopEntities->reductionsBegin(),
-                                    VPLoopEntities->reductionsEnd())) {
+  for (VPReduction *Reduction : VPLoopEntities->vpreductions()) {
     if (Reduction->getIsMemOnly()) {
       VPValue *StartV = Reduction->getRecurrenceStartValue();
       assert(isa<VPExternalDef>(StartV) &&
