@@ -455,7 +455,7 @@ BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
     }
   }
 
-  BasicBlock *ReturnBlock;
+  BasicBlock *ReturnBlock = nullptr;
   if (dyn_cast<LoadInst>(SplitPt) || dyn_cast<ReturnInst>(SplitPt)) {
     ReturnBlock = LoopBlock->splitBasicBlock(SplitPt, "return");
   } else {
@@ -1806,6 +1806,17 @@ bool VecClone::runOnModule(Module &M) {
 
       BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, &*EntryBlock);
       BasicBlock *ReturnBlock = splitLoopIntoReturn(Clone, &Clone->back());
+      if (!ReturnBlock) {
+        // OpenCL, it's valid to have an infinite loop inside kernel with no
+        // independent forward progress guarantee. As such, creating a VecClone
+        // loop around the body is required. Handle such cases.
+        // For OpenMP cases, it's probably UB in the incoming IR, so creation of
+        // the loop is still valid.
+        ReturnBlock =
+            BasicBlock::Create(Clone->getContext(), "unreachable.ret", Clone);
+        IRBuilder<> B(ReturnBlock);
+        B.CreateUnreachable();
+      }
       BasicBlock *LoopExitBlock = createLoopExit(Clone, ReturnBlock);
       PHINode *Phi = createPhiAndBackedgeForLoop(Clone, &*EntryBlock,
                                                  LoopBlock, LoopExitBlock,
