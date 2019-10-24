@@ -5000,7 +5000,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   LLVM_DEBUG(dbgs() << "SLP: We are able to schedule this bundle.\n");
 
 #if INTEL_CUSTOMIZATION
-  if (EnableMultiNodeSLP && BB->size() < MaxBBSizeForMultiNodeSLP) {
+  if (EnableMultiNodeSLP &&
+      (BB->size() - llvm::count_if(DeletedInstructions, [BB](const auto &Pair) {
+         return Pair.getFirst()->getParent() == BB;
+       })) < MaxBBSizeForMultiNodeSLP) {
     // If we are already building a Multi-Node.
     // Try to continue the buildTree recursion in order to grow the Multi-Node.
     if (BuildingMultiNode) {
