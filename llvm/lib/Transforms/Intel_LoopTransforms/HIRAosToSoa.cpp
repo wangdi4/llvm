@@ -453,6 +453,14 @@ void HIRAosToSoa::Analyzer::collectLoopsInNest() {
        Lp = Lp->getParentLoop()) {
     LoopNests.push_back(Lp);
   }
+
+  // The assertion condition is already guaranteed by previous
+  // checks of the caller and the fact DefaultInnermostLoopNestsDepth is
+  // currently set to non-zero.
+  // This assertion is helping explicitly stating prerequites
+  // for later analysis/transformation.
+  assert(InnermostLoopNestsDepth &&
+         (LoopNests.size() == InnermostLoopNestsDepth));
 }
 
 bool HIRAosToSoa::Analyzer::anyComplexLoopBound(unsigned Level) const {
