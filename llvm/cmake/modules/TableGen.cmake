@@ -41,7 +41,7 @@ function(tablegen project ofn)
     file(GLOB_RECURSE global_tds "${LLVM_MAIN_INCLUDE_DIR}/llvm/*.td")
     # INTEL_CUSTOMIZATION
     file(GLOB intel_tds
-         "${LLVM_MAIN_SRC_DIR}/tools/clang/include/clang/Basic/intel/*.td")
+         "${LLVM_MAIN_SRC_DIR}/../clang/include/clang/Basic/intel/*.td")
     # end INTEL_CUSTOMIZATION
     set(additional_cmdline
       -o ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
