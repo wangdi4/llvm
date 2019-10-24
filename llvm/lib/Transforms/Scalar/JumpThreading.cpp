@@ -1732,7 +1732,7 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
            "Can't handle critical edge here!");
     LoadInst *NewVal = new LoadInst(
         LoadI->getType(), LoadedPtr->DoPHITranslation(LoadBB, UnavailablePred),
-        LoadI->getName() + ".pr", false, LoadI->getAlignment(),
+        LoadI->getName() + ".pr", false, MaybeAlign(LoadI->getAlignment()),
         LoadI->getOrdering(), LoadI->getSyncScopeID(),
         UnavailablePred->getTerminator());
     NewVal->setDebugLoc(LoadI->getDebugLoc());
