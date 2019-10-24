@@ -1411,9 +1411,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
     // Compute the aligment of the argument
     PM.add(createIntelArgumentAlignmentLegacyPass());
+    // Recognize Functions that implement qsort
+    PM.add(createQsortRecognizerLegacyPass());
+  }
 
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
 #else

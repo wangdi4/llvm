@@ -74,6 +74,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIntelIPOPrefetchWrapperPassPass(Registry); // INTEL
   initializeDopeVectorConstPropLegacyPassPass(Registry); // INTEL
   initializeIntelArgumentAlignmentLegacyPassPass(Registry); // INTEL
+  initializeQsortRecognizerLegacyPassPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {
