@@ -627,6 +627,9 @@ public:
   inline const_op_iterator idx_end() const {
     return const_cast<GEPOrSubsOperator *>(this)->idx_end();
   }
+
+  // See GEPOperator::accumulateConstantOffset()
+  bool accumulateConstantOffset(const DataLayout &DL, APInt &Offset) const;
 };
 
 class AddressOperator : public Operator {

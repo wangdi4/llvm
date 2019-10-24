@@ -873,7 +873,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
               FirstMemrefDD = MemrefDD;
               GrpStartInst = HInst;
               RefSizeInBytes =
-                  DL.getTypeSizeInBits(FirstMemrefDD->getDestType()) >> 3;
+                  DL.getTypeAllocSize(FirstMemrefDD->getDestType());
             } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
               TypesMatch = false;
 

@@ -1,6 +1,6 @@
 ; RUN: opt -print-memderefs -analyze -S <%s | FileCheck %s
 ; INTEL
-; RUN: opt -S -convert-to-subscript < %s | opt -S -print-memderefs -analyze  | FileCheck -check-prefix=CHECK-SUBS %s
+; RUN: opt -S -convert-to-subscript < %s | opt -S -print-memderefs -analyze  | FileCheck %s
 
 ; Uses the print-deref (+ analyze to print) pass to run
 ; isDereferenceablePointer() on many load instruction operands
@@ -22,8 +22,6 @@ declare i32* @foo()
 @globalptr.align16 = external global i8, align 16
 
 ; CHECK-LABEL: 'test'
-; INTEL
-; CHECK-SUBS-LABEL: 'test'
 define void @test(%struct.A* sret %result,
                   i32 addrspace(1)* dereferenceable(8) %dparam,
                   i8 addrspace(1)* dereferenceable(32) align 1 %dparam.align1,
@@ -48,8 +46,6 @@ entry:
 
     ; Loads from sret arguments
 ; CHECK: %sret_gep{{.*}}(aligned)
-; INTEL
-; CHECK-SUBS-NOT: %sret_gep{{.*}}(aligned)
     %sret_gep = getelementptr inbounds %struct.A, %struct.A* %result, i64 0, i32 1, i64 2
     load i8, i8* %sret_gep
 
@@ -97,17 +93,11 @@ entry:
 
     ; It's OK to overrun static array size as long as we stay within underlying object size
 ; CHECK: %within_allocation{{.*}}(aligned)
-; INTEL
-; Not allowed by llvm.intel.subscript and not exposed
-; CHECK-SUBS-NOT:  %within_allocation{{.*}}(aligned)
     %within_allocation = getelementptr inbounds %struct.A, %struct.A* @globalstruct, i64 0, i32 0, i64 10
     %load11 = load i8, i8* %within_allocation
 
     ; GEP is outside the underlying object size
 ; CHECK-NOT: %outside_allocation
-; INTEL
-; Not exposed by llvm.intel.subscript
-; CHECK-SUBS-NOT: %outside_allocation
     %outside_allocation = getelementptr inbounds %struct.A, %struct.A* @globalstruct, i64 0, i32 1, i64 10
     %load12 = load i8, i8* %outside_allocation
 
@@ -132,9 +122,6 @@ entry:
     %bad_byval_load = load i32, i32* %byval_cast
 
 ; CHECK: %byval_gep{{.*}}(aligned)
-; INTEL
-; Not exposed by llvm.intel.subscript
-; CHECK-SUBS-NOT: %byval_gep{{.*}}(aligned)
     %byval_gep = getelementptr inbounds %struct.A, %struct.A* %A_byval, i64 0, i32 1, i64 2
     load i8, i8* %byval_gep
 
@@ -151,12 +138,6 @@ entry:
 ; CHECK: %gep.align16.offset1{{.*}}(unaligned)
 ; CHECK: %gep.align1.offset16{{.*}}(unaligned)
 ; CHECK: %gep.align16.offset16{{.*}}(aligned)
-; INTEL
-; Not exposed by llvm.intel.subscript
-; CHECK-SUBS-NOT: %gep.align1.offset1{{.*}}(unaligned)
-; CHECK-SUBS-NOT: %gep.align16.offset1{{.*}}(unaligned)
-; CHECK-SUBS-NOT: %gep.align1.offset16{{.*}}(unaligned)
-; CHECK-SUBS-NOT: %gep.align16.offset16{{.*}}(aligned)
     %gep.align1.offset1 = getelementptr inbounds i8, i8 addrspace(1)* %dparam.align1, i32 1
     %gep.align16.offset1 = getelementptr inbounds i8, i8 addrspace(1)* %dparam.align16, i32 1
     %gep.align1.offset16 = getelementptr inbounds i8, i8 addrspace(1)* %dparam.align1, i32 16

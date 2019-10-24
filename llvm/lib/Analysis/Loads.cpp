@@ -80,7 +80,7 @@ static bool isDereferenceableAndAlignedPointer(
     }
 
   // For GEPs, determine if the indexing lands within the allocated object.
-  if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+  if (const GEPOrSubsOperator *GEP = dyn_cast<GEPOrSubsOperator>(V)) { // INTEL
     const Value *Base = GEP->getPointerOperand();
 
     APInt Offset(DL.getIndexTypeSizeInBits(GEP->getType()), 0);
