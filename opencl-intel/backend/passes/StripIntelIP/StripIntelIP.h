@@ -16,6 +16,7 @@
 #define __STRIP_INTEL_IP_H__
 
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 namespace intel {
 
