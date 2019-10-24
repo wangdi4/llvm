@@ -1,4 +1,5 @@
-;RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-IRCG
+; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=true  -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPCG
 
 ;void foo(int *ip, int n)
 ;{
@@ -8,7 +9,7 @@
 ;  for (i = 0; i < n; i++)
 ;    ip[i] = i;
 ;}
-   
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -18,12 +19,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: min.iters.checked
 ; CHECK: vector.body
 ; CHECK: %index = phi i64 [ 0,
-; CHECK: %vec.ind = phi <4 x i64> [
+; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
 ; CHECK: store {{.*}} <4 x i32>
-; CHECK: %vec.ind.next = add <4 x i64> %vec.ind, <i64 4, i64 4, i64 4, i64 4>
+; CHECK-IRCG: add <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-VPCG: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK: middle.block
 ; CHECK: scalar.ph
-; CHECK: %bc.resume.val = phi i64 [ %n.vec, %middle.block ], [ 0, %for.body.preheader ], [ 0, %min.iters.checked ]
+; CHECK-IRCG: %bc.resume.val = phi i64 [ %n.vec, %middle.block ], [ 0, %for.body.preheader ], [ 0, %min.iters.checked ]
+; CHECK-VPCG: %bc.resume.val = phi i64 [ 0, %for.body.preheader ], [ 0, %min.iters.checked ], [ %{{.*}}, %middle.block ]
 ; CHECK: for.body:
 ; CHECK: %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ %bc.resume.val, %scalar.ph ]
 
