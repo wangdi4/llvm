@@ -3322,6 +3322,29 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       S.Context, Attr, LocalMemSize));
 }
 
+static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute <ReadWriteModeAttr>(S, D, Attr);
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
+    return;
+  }
+
+  if (Str != "readonly" && Str != "writeonly" && Str != "readwrite") {
+    S.Diag(Attr.getLoc(), diag::err_hls_readwrite_arg_invalid) << Attr;
+    return;
+  }
+
+  // ReadWrite attributes applies only to slavememory attributes.
+  if (!D->getAttr<SlaveMemoryArgumentAttr>()) {
+    S.Diag(Attr.getLoc(), diag::err_readwritememory_attribute_invalid) << Attr;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ReadWriteModeAttr(S.Context, Attr, Str));
+}
+
 /// Handle the static_array_reset attribute.
 /// This attribute requires a single constant value that must be 0 or 1.
 /// It is incompatible with the register attribute.
@@ -8574,6 +8597,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleStallLatencyAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
+  case ParsedAttr::AT_ReadWriteMode:
+    handleReadWriteMode(S, D, AL);
+    break;
   case ParsedAttr::AT_BankBits:
     handleBankBitsAttr(S, D, AL);
     break;

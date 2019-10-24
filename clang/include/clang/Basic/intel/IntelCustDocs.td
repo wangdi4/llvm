@@ -2392,6 +2392,73 @@ attribute memory:default and can't be applied with register attribute.
   }];
 }
 
+def ReadWriteModeDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
+  let BugTracker = "CMPLRLLVM-10373";
+  let RegressionTest = "";
+  let Owner = "zahiraam";
+  let Content = [{
+The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+arguments. These are pointer arguments that already have the attribute
+"slave_memory_argument". The argument "type" is mandatory, and its values are
+"readonly", "writeonly", or "readwrite".
+It is illegal to apply the attribute readwrite_mode on pointer arguments that
+do not already have an attribute slave_memory_argument applied.
+
+Syntax:
+
+.. code-block:: text
+
+   Type ::= 'readonly' | 'writeonly' | 'readwrite';
+   __attribute__((readwrite_mode(<Type>)));
+
+Example:
+
+.. code-block:: c++
+
+   void foo0_1(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
+   {}
+
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp # HLS
+
+.. code-block:: text
+
+   FunctionDecl 0x20cec836848 <t1.cpp:6:19, line:21:1> foo0_1 'void (int *)'
+   |-ParmVarDecl 0x20cec836710 <line:2:19, line:18:82>
+     |-OpenCLLocalMemSizeAttr 0x20cec836778 <line:2:34, col:51> 32
+     |-SlaveMemoryArgumentAttr 0x20cec8367b8 <col:54>
+     `-ReadWriteModeAttr 0x20cec8367c8 <line:18:48, col:73> "readonly"
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp # HLS
+
+.. code-block:: llvm
+
+   define void @_Z6foo0_1Pi(i32* %i) {
+   entry:
+        %i.addr = alloca i32*, align 8
+        store i32* %i, i32** %i.addr, align 8
+        ret void
+   }
+   !2 = !{!"_Z6foo0_1Pi", !3}
+   !3 = !{}
+   !4 = !{!"mm_slave"}
+   !5 = !{!"wire"}
+   !6 = !{i32 0}
+   !7 = !{!"i"}
+   !8 = !{!"readwritememory: READONLY}"}
+
+   }];
+}
+
 def HLSIIDocs : Documentation {
   let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
