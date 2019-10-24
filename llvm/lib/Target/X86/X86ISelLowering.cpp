@@ -40630,7 +40630,10 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
       SDLoc dl(N);
       unsigned NumElts = SrcOps[0].getValueType().getVectorNumElements();
       EVT MaskVT = EVT::getIntegerVT(*DAG.getContext(), NumElts);
-      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget);
+#if INTEL_CUSTOMIZATION
+      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget,
+                                        /*UserIsSetcc*/ true);
+#endif // INTEL_CUSTOMIZATION
       if (Mask) {
         APInt AllBits = APInt::getNullValue(NumElts);
         return DAG.getSetCC(dl, MVT::i1, Mask,
