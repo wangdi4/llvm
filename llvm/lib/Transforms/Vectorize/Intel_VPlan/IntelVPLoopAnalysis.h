@@ -49,6 +49,7 @@ class VPConstant;
 class VPInstruction;
 class VPPHINode;
 class VPBlockBase;
+class VPBasicBlock;
 class VPBuilder;
 
 /// Base class for loop entities
@@ -615,6 +616,19 @@ private:
                                 VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
+
+  // Insert VPInstructions related to VPReductions.
+  void insertReductionVPInstructions(VPBuilder &Builder,
+                                     VPBasicBlock *Preheader,
+                                     VPBasicBlock *PostExit);
+
+  // Insert VPInstructions related to VPInductions.
+  void insertInductionVPInstructions(VPBuilder &Builder,
+                                     VPBasicBlock *Preheader,
+                                     VPBasicBlock *PostExit);
+
+  // Insert VPInstructions related to VPPrivates.
+  void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
 
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>
