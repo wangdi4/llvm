@@ -534,15 +534,24 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
   const Instruction *LLVMInst = getLLVMInstruction();
 
   if (isa<BinaryOperator>(LLVMInst)) {
-    *OpCode = LLVMInst->getOpcode();
-    return isValidReductionOpCode(*OpCode);
+    unsigned OpC = LLVMInst->getOpcode();
+
+    if (OpCode) {
+      *OpCode = OpC;
+    }
+
+    return isValidReductionOpCode(OpC);
+
   } else if (isa<SelectInst>(LLVMInst)) {
-    *OpCode = Instruction::Select;
+
+    if (OpCode) {
+      *OpCode = Instruction::Select;
+    }
+
     return isMinOrMax();
-  } else {
-    *OpCode = 0;
-    return false;
   }
+
+  return false;
 }
 
 bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
