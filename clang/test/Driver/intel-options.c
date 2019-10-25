@@ -46,3 +46,15 @@
 // RUN: %clang_cl -### -c %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE-OFF %s
 // CHECK-INTRINSIC-PROMOTE: "-mintrinsic-promote"
 // CHECK-INTRINSIC-PROMOTE-OFF-NOT: "-mintrinsic-promote"
+
+// RUN: %clang_cl -### -- %s 2>&1 | FileCheck -check-prefix=CL-LIBMMT %s
+// CL-LIBMMT: "--dependent-lib=libmmt"
+// CL-LIBMMT-NOT: "--dependent-lib=libmmd"
+
+// RUN: %clang_cl -MD /clang:-MD -### -- %s 2>&1 | FileCheck -check-prefix=CL-LIBMMD %s
+// CL-LIBMMD: "--dependent-lib=libmmd"
+// CL-LIBMMD-NOT: "--dependent-lib=libcmt"
+
+// RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
+// LIBMMT: "-defaultlib:libmmt"
+
