@@ -632,6 +632,7 @@ private:
   Instruction *narrowMathIfNoOverflow(BinaryOperator &I);
   Instruction *narrowRotate(TruncInst &Trunc);
   Instruction *optimizeBitCastFromPhi(CastInst &CI, PHINode *PN);
+  Instruction *matchSAddSubSat(SelectInst &MinMax1);
 
   /// Determine if a pair of casts can be replaced by a single cast.
   ///
