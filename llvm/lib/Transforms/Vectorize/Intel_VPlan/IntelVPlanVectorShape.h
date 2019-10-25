@@ -83,7 +83,9 @@ public:
             Desc == VPShapeDescriptor::Str);
   }
 
-  bool isAnyStrided() const {
+  bool isAnyStrided() const { return isAnyStrided(Desc); }
+
+  static bool isAnyStrided(VPShapeDescriptor Desc) {
     return (Desc == VPShapeDescriptor::Seq ||
             Desc == VPShapeDescriptor::Ptr ||
             Desc == VPShapeDescriptor::Str);
@@ -154,6 +156,8 @@ public:
   }
 
   static VPVectorShape* joinShapes(const VPVectorShape *Shape1, const VPVectorShape *Shape2);
+  static bool shapesHaveSameStride(const VPVectorShape *Shape1,
+                                   const VPVectorShape *Shape2);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION

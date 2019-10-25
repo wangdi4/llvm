@@ -1087,6 +1087,13 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
     VPValue *NewStride = nullptr;
     if (NewDesc == VPVectorShape::Uni)
       NewStride = getConstantInt(0);
+    else if (VPVectorShape::isAnyStrided(NewDesc)) {
+      // For selects generating strided VectorShape the stride information can
+      // be propagted from the operands being blended, only if they have the
+      // same stride.
+      if (VPVectorShape::shapesHaveSameStride(Shape1, Shape2))
+        NewStride = Shape1->getStride();
+    }
 
     return new VPVectorShape(NewDesc, NewStride);
   }
