@@ -1209,7 +1209,9 @@ Value *VPOCodeGen::getScalarValueUplifted(VPValue *V, unsigned Lane) {
     else
       Builder.SetInsertPoint(VecInst->getNextNode());
   }
-  auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
+  auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane),
+                                              VecV->getName() + ".extract." +
+                                                  Twine(Lane) + ".");
 
   // Add to scalar map.
   VPScalarMap[V][Lane] = ScalarV;
