@@ -231,6 +231,8 @@ public:
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
 
+  void dumpOptReport() const;
+
   /// Returns the underlying type of the loop IV.
   Type *getIVType() const { return IVType; }
   /// Sets the underlying type of the loop IV.

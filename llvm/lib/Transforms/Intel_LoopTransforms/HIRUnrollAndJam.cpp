@@ -1427,6 +1427,12 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
                               UHelper);
       HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
     }
+
+    // Opt reports for inner loops in unroll & jam mode are moved here.
+    LoopOptReportBuilder &LORBuilder =
+        OrigLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+    LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   }
 
   HLNode *CurFirstNode = OrigLoop->getFirstChild();

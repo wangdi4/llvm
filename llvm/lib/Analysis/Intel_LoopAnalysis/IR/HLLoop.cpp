@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
@@ -483,6 +484,25 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   printPostexit(OS, Depth, Detailed);
 #endif // !INTEL_PRODUCT_RELEASE
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HLLoop::dumpOptReport() const {
+#if !INTEL_PRODUCT_RELEASE
+  formatted_raw_ostream OS(dbgs());
+  LoopOptReport OptReport = getOptReport();
+
+  OptReportUtils::printLoopHeaderAndOrigin(OS, 0, OptReport, getDebugLoc());
+
+  if (OptReport)
+    OptReportUtils::printOptReport(OS, 0, OptReport);
+
+  OptReportUtils::printLoopFooter(OS, 0);
+
+  if (OptReport && OptReport.nextSibling())
+    OptReportUtils::printEnclosedOptReport(OS, 0, OptReport.nextSibling());
+#endif // !INTEL_PRODUCT_RELEASE
+}
+#endif
 
 unsigned
 HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
