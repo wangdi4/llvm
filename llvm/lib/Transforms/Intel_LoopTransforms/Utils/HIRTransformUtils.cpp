@@ -1048,7 +1048,7 @@ static bool doesConstTCOverflowAfterMult(const HLLoop *Loop, unsigned IVBitSize,
     APInt APOrigTC(IVBitSize, TripCnt);
     APInt APMultiplier(IVBitSize, Multiplier);
     bool Overflow = false;
-    APOrigTC.umul_ov(APMultiplier, Overflow);
+    (void) APOrigTC.umul_ov(APMultiplier, Overflow);
     return Overflow;
   }
 

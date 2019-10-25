@@ -299,7 +299,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
     bool Overflow;
     APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
     APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
-    RHSConstAP.sadd_ov(LHSConstAP, Overflow);
+    (void) RHSConstAP.sadd_ov(LHSConstAP, Overflow);
 
     if (Overflow) {
       return nullptr;
