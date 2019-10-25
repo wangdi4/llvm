@@ -834,12 +834,13 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 
         // Only handle strided OptVLS Groups with no access gaps for now.
         if (GroupStride) {
-          uint64_t AllAccessMask = ~(UINT64_MAX << *GroupStride);
           GrpSize = Group->size();
+          APInt AccessMask = Group->computeByteAccessMask();
 
           // Access mask is currently 64 bits, skip groups with group stride >
           // 64 and access gaps.
-          if (*GroupStride > 64 || Group->getNByteAccessMask() != AllAccessMask)
+          if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
+              AccessMask.getBitWidth() != *GroupStride)
             Group = nullptr;
         } else
           Group = nullptr;

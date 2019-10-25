@@ -686,7 +686,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
     // Groups with gaps are not supported either.
-    if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride))
+    APInt AccessMask = Group->computeByteAccessMask();
+    if (AccessMask.isAllOnesValue() && AccessMask.getBitWidth() == *GroupStride)
       NewLI = vectorizeInterleavedLoad(VPInst, Group);
   }
 
@@ -846,7 +847,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
     // Groups with gaps are not supported either.
-    if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride)) {
+    APInt AccessMask = Group->computeByteAccessMask();
+    if (AccessMask.isAllOnesValue() &&
+        AccessMask.getBitWidth() == *GroupStride) {
       vectorizeInterleavedStore(VPInst, Group);
       return;
     }
