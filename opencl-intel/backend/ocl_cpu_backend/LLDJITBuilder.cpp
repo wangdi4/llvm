@@ -101,10 +101,12 @@ void LLDJITBuilder::addDllMainFunction(llvm::Module *M) {
 }
 void LLDJITBuilder::convertToMSVCModule(llvm::Module *M) {
 #if _WIN64
-  M->setDataLayout("e-m:w-i64:64-f80:128-n8:16:32:64-S128");
+  M->setDataLayout("e-m:w-p270:32:32-p271:32:32-p272:64:64-"
+                   "i64:64-f80:128-n8:16:32:64-S128");
   M->setTargetTriple("x86_64-pc-windows-msvc");
 #else
-  M->setDataLayout("e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
+  M->setDataLayout("e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-"
+                   "i64:64-f80:32-n8:16:32-a:0:32-S32");
   M->setTargetTriple("i686-pc-windows-msvc");
 #endif
   M->addModuleFlag(llvm::Module::Warning, "CodeView", 1);
