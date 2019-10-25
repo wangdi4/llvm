@@ -6,6 +6,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: opencl-vec-uniform-return
 ; CHECK: declare spir_func i32 @_Z14work_group_alli(i32) local_unnamed_addr [[ATTR:#[0-9]*]]
 ; CHECK-NOT: opencl-vec-uniform-return
+; CHECK: declare spir_func i32 @_Z14work_group_anyi(i32) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z20work_group_broadcastim(i32, i64) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z20work_group_broadcastimm(i32, i64, i64) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z20work_group_broadcastimmm(i32, i64, i64, i64) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z21work_group_reduce_addi(i32) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z21work_group_reduce_mini(i32) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i32 @_Z21work_group_reduce_maxi(i32) local_unnamed_addr [[ATTR]]
 ; CHECK: attributes [[ATTR]] = { {{.*}}opencl-vec-uniform-return{{.*}} }
 ; CHECK-NOT: opencl-vec-uniform-return
 
@@ -19,11 +26,34 @@ entry:
 
   %call1 = tail call spir_func i32 @_Z14work_group_alli(i32 %0) #4
 
+  %call2 = tail call spir_func i32 @_Z14work_group_anyi(i32 %0) #4
+
+  %call3 = tail call spir_func i32 @_Z20work_group_broadcastim(i32 %0, i64 0) #4
+  %call4 = tail call spir_func i32 @_Z20work_group_broadcastimm(i32 %0, i64 0, i64 0) #4
+  %call5 = tail call spir_func i32 @_Z20work_group_broadcastimmm(i32 %0, i64 0, i64 0, i64 0) #4
+
+  %call6 = tail call spir_func i32 @_Z21work_group_reduce_addi(i32 %0) #4
+  %call7 = tail call spir_func i32 @_Z21work_group_reduce_mini(i32 %0) #4
+  %call8 = tail call spir_func i32 @_Z21work_group_reduce_maxi(i32 %0) #4
+
   ret void
 }
 
 ; Function Attrs: convergent
 declare spir_func i32 @_Z14work_group_alli(i32) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i32 @_Z14work_group_anyi(i32) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i32 @_Z20work_group_broadcastim(i32, i64) local_unnamed_addr #1
+declare spir_func i32 @_Z20work_group_broadcastimm(i32, i64, i64) local_unnamed_addr #1
+declare spir_func i32 @_Z20work_group_broadcastimmm(i32, i64, i64, i64) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i32 @_Z21work_group_reduce_addi(i32) local_unnamed_addr #1
+declare spir_func i32 @_Z21work_group_reduce_mini(i32) local_unnamed_addr #1
+declare spir_func i32 @_Z21work_group_reduce_maxi(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2

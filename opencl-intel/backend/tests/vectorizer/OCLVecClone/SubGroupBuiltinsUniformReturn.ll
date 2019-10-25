@@ -5,6 +5,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-NOT: opencl-vec-uniform-return
 ; CHECK: declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr [[ATTR:#[0-9]*]]
+; CHECK: declare spir_func i32 @_Z13sub_group_anyi(i32) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i8 @_Z19sub_group_broadcastcj(i8, i32) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i8 @_Z20sub_group_reduce_addc(i8) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i8 @_Z20sub_group_reduce_minc(i8) local_unnamed_addr [[ATTR]]
+; CHECK: declare spir_func i8 @_Z20sub_group_reduce_maxc(i8) local_unnamed_addr [[ATTR]]
 ; CHECK-NOT: opencl-vec-uniform-return
 ; CHECK: attributes [[ATTR]] = { {{.*}}opencl-vec-uniform-return{{.*}} }
 ; CHECK-NOT: opencl-vec-uniform-return
@@ -20,7 +25,14 @@ entry:
 
   %val = call i32 @_Z23intel_sub_group_shuffleij(i32 %0, i32 %slid.reverse)
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
+  %call2 = tail call spir_func i32 @_Z13sub_group_anyi(i32 %0) #4
   %call3 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
+
+  %1 = trunc i32 %0 to i8
+  %call4 = tail call spir_func i8 @_Z19sub_group_broadcastcj(i8 %1, i32 0) #4
+  %call5 = tail call spir_func i8 @_Z20sub_group_reduce_addc(i8 %1) #4
+  %call6 = tail call spir_func i8 @_Z20sub_group_reduce_minc(i8 %1) #4
+  %call7 = tail call spir_func i8 @_Z20sub_group_reduce_maxc(i8 %1) #4
 
   %mul = mul i32 %call3, 1000
   %conv = zext i32 %mul to i64
@@ -33,6 +45,13 @@ entry:
 
 ; Function Attrs: convergent
 declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #1
+declare spir_func i32 @_Z13sub_group_anyi(i32) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i8 @_Z19sub_group_broadcastcj(i8, i32) local_unnamed_addr #1
+declare spir_func i8 @_Z20sub_group_reduce_addc(i8) local_unnamed_addr #1
+declare spir_func i8 @_Z20sub_group_reduce_minc(i8) local_unnamed_addr #1
+declare spir_func i8 @_Z20sub_group_reduce_maxc(i8) local_unnamed_addr #1
 
 ; Function Attrs: convergent nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
