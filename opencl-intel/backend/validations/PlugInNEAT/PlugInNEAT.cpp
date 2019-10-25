@@ -1483,9 +1483,9 @@ APInt BitcastIntVectorToIntScalar(GenericValue& vec, unsigned int resBitLen, uns
     unsigned int ShiftAmt = isLittleEndian ? 0 : vecElementBitWidth*(vecLen-1);
     for (unsigned int i = 0; i < vecLen; ++i) {
         APInt Tmp;
-        Tmp.zext(vecElementBitWidth);
+        (void) Tmp.zext(vecElementBitWidth);
         Tmp = vec.AggregateVal[i].IntVal;
-        Tmp.zext(resBitLen);
+        (void) Tmp.zext(resBitLen);
         Tmp = Tmp.shl(ShiftAmt);
         ShiftAmt += isLittleEndian ? vecElementBitWidth : -vecElementBitWidth;
         result |= Tmp;
@@ -1675,9 +1675,9 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                             unsigned int ShiftAmt = isLittleEndian ? 0 : srcBitWidth*(ratio-1);
                             for (unsigned int j = 0; j < ratio; ++j) {
                                 APInt Tmp;
-                                Tmp.zext(srcBitWidth);
+                                (void) Tmp.zext(srcBitWidth);
                                 Tmp = GV.AggregateVal[i*ratio + j].IntVal;
-                                Tmp.zext(32);
+                                (void) Tmp.zext(32);
                                 Tmp = Tmp.shl(ShiftAmt);
                                 ShiftAmt += isLittleEndian ? srcBitWidth : -srcBitWidth;
                                 intToBitcast |= Tmp;
@@ -1702,9 +1702,9 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                             unsigned int ShiftAmt = isLittleEndian ? 0 : srcBitWidth*(ratio-1);
                             for (unsigned int j = 0; j < ratio; ++j) {
                                 APInt Tmp;
-                                Tmp.zext(srcBitWidth);
+                                (void) Tmp.zext(srcBitWidth);
                                 Tmp = GV.AggregateVal[i*ratio + j].IntVal;
-                                Tmp.zext(64);
+                                (void) Tmp.zext(64);
                                 Tmp = Tmp.shl(ShiftAmt);
                                 ShiftAmt += isLittleEndian ? srcBitWidth : -srcBitWidth;
                                 intToBitcast |= Tmp;
