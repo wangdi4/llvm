@@ -540,12 +540,10 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
   VPCallbackILV CallbackILV;
-  /*TODO: Necessary in VPO?*/
-  VectorizerValueMap ValMap(BestVF, 1 /*UF*/);
 
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,
                          CallbackILV, Legal, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
