@@ -1411,6 +1411,5 @@ VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
   assert(HLLp && "Expected HLLoop");
   VPLoopRegion *Loop =
       new VPLoopRegionHIR(VPlanUtils::createUniqueName("loop"), VPLp, HLLp);
-  Loop->setReplicator(false /*IsReplicator*/);
   return Loop;
 }

@@ -523,34 +523,11 @@ VPRegionBlock::~VPRegionBlock() {
 void VPRegionBlock::execute(VPTransformState *State) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
 
-  if (!isReplicator()) {
-    // Visit the VPBlocks connected to "this", starting from it.
-    for (VPBlockBase *Block : RPOT) {
-      LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-      Block->execute(State);
-    }
-    return;
+  // Visit the VPBlocks connected to "this", starting from it.
+  for (VPBlockBase *Block : RPOT) {
+    LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+    Block->execute(State);
   }
-
-  assert(!State->Instance && "Replicating a Region with non-null instance.");
-
-  // Enter replicating mode.
-  State->Instance = {0, 0};
-
-  for (unsigned Part = 0, UF = State->UF; Part < UF; ++Part) {
-    State->Instance->Part = Part;
-    for (unsigned Lane = 0, VF = State->VF; Lane < VF; ++Lane) {
-      State->Instance->Lane = Lane;
-      // Visit the VPBlocks connected to \p this, starting from it.
-      for (VPBlockBase *Block : RPOT) {
-        LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-        Block->execute(State);
-      }
-    }
-  }
-
-  // Exit replicating mode.
-  State->Instance.reset();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1585,7 +1562,6 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   bumpIndent(1);
   OS << Indent << "fontname=Courier\n"
      << Indent << "label=\""
-     << DOT::EscapeString(Region->isReplicator() ? "<xVFxUF> " : "<x1> ")
 #if INTEL_CUSTOMIZATION
      << DOT::EscapeString(Region->getName()) << " Size=" << Region->getSize()
      << "\"\n";
