@@ -531,8 +531,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
   auto *DA = Plan.getVPlanDA();
 
-  for (auto &RedPtr : ReductionList) {
-    VPReduction *Reduction = RedPtr.get();
+  for (VPReduction *Reduction : vpreductions()) {
     Builder.setInsertPoint(Preheader);
     VPValue *Identity = getReductionIdentity(Reduction);
     Type *Ty = Reduction->getRecurrenceType();
@@ -597,8 +596,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
     }
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
-  for (auto &IndPtr : InductionList) {
-    VPInduction *Induction = IndPtr.get();
+  for (VPInduction *Induction : vpinductions()) {
     Builder.setInsertPoint(Preheader);
     VPValue *AI = nullptr;
     VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
@@ -646,10 +644,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
   // Process the list of Privates.
   Builder.setInsertPoint(Preheader, Preheader->begin());
-  for (std::unique_ptr<VPPrivate> &Priv : PrivatesList) {
+  for (VPPrivate *Private : vpprivates()) {
     VPValue *AI = nullptr;
-    VPPrivate *PrivPtr = Priv.get();
-    VPValue *PrivateMem = createPrivateMemory(*PrivPtr, Builder, AI);
+    VPValue *PrivateMem = createPrivateMemory(*Private, Builder, AI);
     if (PrivateMem) {
       LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
                         << *PrivateMem << "\n");
@@ -659,7 +656,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
     // Handle aliases in two passes.
     // Insert the aliases into the Loop preheader in the regular order first.
-    for (auto const &ValInstPair : PrivPtr->aliases()) {
+    for (auto const &ValInstPair : Private->aliases()) {
       auto *VPOperand = ValInstPair.first;
       auto *VPInst = ValInstPair.second;
       Builder.insert(VPInst);
@@ -672,7 +669,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
     // Now do the replacement. We first replace all instances of VPOperand with
     // VPInst within the preheader, where all aliases have been inserted. Then
     // replace all instances of VPOperand with VPInst in the loop.
-    for (auto const &ValInstPair : PrivPtr->aliases()) {
+    for (auto const &ValInstPair : Private->aliases()) {
       auto *VPOperand = ValInstPair.first;
       auto *VPInst = ValInstPair.second;
       VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);

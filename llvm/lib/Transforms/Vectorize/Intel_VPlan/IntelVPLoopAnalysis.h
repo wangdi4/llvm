@@ -426,17 +426,6 @@ public:
   using VPInductionMap = DenseMap<const VPValue *, const VPInduction *>;
   using VPPrivateMap = DenseMap<const VPValue *, const VPPrivate *>;
 
-  /// Iterators to iterate through entities lists.
-  VPInductionList::iterator inductionsBegin();
-  VPInductionList::iterator inductionsEnd();
-
-  VPReductionList::const_iterator reductionsBegin() const {
-    return ReductionList.begin();
-  }
-  VPReductionList::const_iterator reductionsEnd() const {
-    return ReductionList.end();
-  }
-
   // Return the iterator-range to the list of privates loop-entities.
   inline decltype(auto) vpprivates() const {
     return map_range(make_range(PrivatesList.begin(), PrivatesList.end()),
