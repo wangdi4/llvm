@@ -31,7 +31,7 @@ class DominatorTree;
 namespace dtrans {
 
 using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
-using MemGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
+using MemGetTLITy = std::function<const TargetLibraryInfo &(const Function &)>;
 
 // Get class type of the given function if there is one.
 inline StructType *getClassType(const Function *F) {
@@ -93,6 +93,7 @@ class MemInitCandidateInfo {
 
 public:
   inline bool isCandidateType(Type *Ty);
+  inline Type *isSimpleDerivedVectorType(Type *STy, int32_t Offset);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
   inline void collectFuncs(SmallSet<Function *, 32> *MemInitCallSites);
   inline void printCandidateInfo(void);
@@ -101,6 +102,9 @@ public:
   using StructMethodSetTy = SmallPtrSet<Function *, MaxNumStructMethods>;
   using VectorMethodSetTy = SmallPtrSet<Function *, MaxNumVectorMethods>;
   using VectorFieldTypeSetTy = SmallPtrSet<Type *, 2>;
+
+  // Returns SType.
+  inline StructType *getStructTy() { return SType; }
 
   // Returns MemInterfaceType.
   inline StructType *getMemInterfaceType() { return MemInterfaceType; }
@@ -125,6 +129,17 @@ public:
   inline iterator_range<m_const_iterator> member_functions(int32_t FI) {
     return make_range(CandidateFieldMemberFuncs[FI].begin(),
                       CandidateFieldMemberFuncs[FI].end());
+  }
+
+  // Member function iterator for struct methods.
+  inline iterator_range<m_const_iterator> struct_functions() {
+    return make_range(StructMethods.begin(), StructMethods.end());
+  }
+
+  // Returns true if F is member function of candidate class
+  // at field position FI.
+  inline bool isMemberFunction(Function *F, int32_t FI) {
+    return CandidateFieldMemberFuncs[FI].count(F);
   }
 
   inline bool isStructMethod(Function *F) { return StructMethods.count(F); }
@@ -165,7 +180,128 @@ private:
   // Mapping between candidate vector field location and type of array
   // element of the vector.
   DenseMap<int32_t, Type *> CandidateFieldElemTy;
+
+  inline StructType *getValidStructTy(Type *Ty);
+  inline Type *getPointeeType(Type *Ty);
+  inline bool isPotentialPaddingField(Type *Ty);
+  inline bool isStructWithNoRealData(Type *Ty);
+  inline Type *getBaseClassOfSimpleDerivedClass(Type *Ty);
+  inline bool isVectorLikeClass(Type *Ty, Type **ElemTy);
+  inline bool collectTypesIfVectorClass(Type *VTy, int32_t pos);
 };
+
+StructType *MemInitCandidateInfo::getValidStructTy(Type *Ty) {
+  StructType *STy = dyn_cast<StructType>(Ty);
+  if (!STy || STy->isLiteral() || !STy->isSized())
+    return nullptr;
+  return STy;
+}
+
+// Returns type of pointee if 'Ty' is pointer.
+Type *MemInitCandidateInfo::getPointeeType(Type *Ty) {
+  if (auto *PTy = dyn_cast_or_null<PointerType>(Ty))
+    return PTy->getElementType();
+  return nullptr;
+}
+
+// Returns true if 'Ty' is potential padding field that
+// is created to fill gaps in structs.
+bool MemInitCandidateInfo::isPotentialPaddingField(Type *Ty) {
+  ArrayType *ATy = dyn_cast<ArrayType>(Ty);
+  if (!ATy || !ATy->getElementType()->isIntegerTy(8))
+    return false;
+  return true;
+}
+
+// Returns true if 'Ty' is a struct that doesn't have any real data
+// except vftable.
+// Ex:
+//      %"MemoryManager" = type { i32 (...)** }
+//
+bool MemInitCandidateInfo::isStructWithNoRealData(Type *Ty) {
+  auto *STy = getValidStructTy(Ty);
+  if (!STy || STy->getNumElements() > 1)
+    return false;
+  if (STy->getNumElements() == 1 && !isPtrToVFTable(STy->getElementType(0)))
+    return false;
+  if (!MemInterfaceType)
+    MemInterfaceType = STy;
+  else if (MemInterfaceType != STy)
+    return false;
+  return true;
+}
+
+// Returns true if 'Ty' is a struct that looks like vector type class.
+//
+// Ex:
+//  %"ValueVectorOf.6" = type { i8, i32, i32, %"IC_Fld"**, %"MemoryManager"* }
+//
+bool MemInitCandidateInfo::isVectorLikeClass(Type *Ty, Type **ElemTy) {
+  auto *STy = getValidStructTy(Ty);
+  if (!STy)
+    return false;
+
+  unsigned NumDataPointers = 0;
+  unsigned NumCounters = 0;
+  unsigned NumFlags = 0;
+  unsigned NumNoDataPointers = 0;
+  unsigned NumVtablePtr = 0;
+  *ElemTy = nullptr;
+  for (auto *ETy : STy->elements()) {
+    if (isPotentialPaddingField(ETy))
+      continue;
+    if (isPtrToVFTable(ETy)) {
+      NumVtablePtr++;
+      continue;
+    }
+    if (ETy->isIntegerTy(8)) {
+      NumFlags++;
+      continue;
+    }
+    if (ETy->isIntegerTy(32)) {
+      NumCounters++;
+      continue;
+    }
+    auto *PTy = getPointeeType(ETy);
+    if (!PTy)
+      return false;
+
+    if (isStructWithNoRealData(PTy)) {
+      NumNoDataPointers++;
+      continue;
+    }
+    // Allow both pointer or struct as "data". Due to SOAToAOS
+    // transformation, it is possible that "pointer to data" will
+    // be converted to "struct that has pointer to data".
+    if (getPointeeType(PTy) || getValidStructTy(PTy)) {
+      NumDataPointers++;
+      *ElemTy = PTy;
+      continue;
+    }
+    return false;
+  }
+  if (NumDataPointers != 1 || NumCounters != 2 || NumFlags != 1 ||
+      NumNoDataPointers != 1 || NumVtablePtr > 1)
+    return false;
+  return true;
+}
+
+// Returns base class type if 'Ty' is derived from the base class and
+// derived class doesn't have its own fields.
+//
+// Ex:
+//  %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
+//
+Type *MemInitCandidateInfo::getBaseClassOfSimpleDerivedClass(Type *Ty) {
+  auto *STy = getValidStructTy(Ty);
+  if (!STy)
+    return nullptr;
+
+  if (STy->getNumElements() != 1)
+    return nullptr;
+
+  return STy->getElementType(0);
+}
 
 // Returns true if given type is candidate for MemInitTrimDown.
 //
@@ -196,123 +332,7 @@ private:
 //
 bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
 
-  auto GetValidStructTy = [](Type *Ty) -> StructType * {
-    StructType *STy = dyn_cast<StructType>(Ty);
-    if (!STy || STy->isLiteral() || !STy->isSized())
-      return nullptr;
-    return STy;
-  };
-
-  // Returns type of pointee if 'Ty' is pointer.
-  auto GetPointeeType = [](Type *Ty) -> Type * {
-    if (auto *PTy = dyn_cast_or_null<PointerType>(Ty))
-      return PTy->getElementType();
-    return nullptr;
-  };
-
-  // Returns true if 'Ty' is potential padding field that
-  // is created to fill gaps in structs.
-  auto IsPotentialPaddingField = [](Type *Ty) -> bool {
-    ArrayType *ATy = dyn_cast<ArrayType>(Ty);
-    if (!ATy || !ATy->getElementType()->isIntegerTy(8))
-      return false;
-    return true;
-  };
-
-  // Returns true if 'Ty' is a struct that doesn't have any real data
-  // except vftable.
-  // Ex:
-  //      %"MemoryManager" = type { i32 (...)** }
-  //
-  auto IsStructWithNoRealData = [this, &GetValidStructTy](Type *Ty) -> bool {
-    auto *STy = GetValidStructTy(Ty);
-    if (!STy || STy->getNumElements() > 1)
-      return false;
-    if (STy->getNumElements() == 1 && !isPtrToVFTable(STy->getElementType(0)))
-      return false;
-    if (!MemInterfaceType)
-      MemInterfaceType = STy;
-    else if (MemInterfaceType != STy)
-      return false;
-    return true;
-  };
-
-  // Returns true if 'Ty' is a struct that looks like vector type class.
-  //
-  // Ex:
-  //  %"ValueVectorOf.6" = type { i8, i32, i32, %"IC_Fld"**, %"MemoryManager"* }
-  //
-  auto IsVectorLikeClass =
-      [&GetValidStructTy, &IsPotentialPaddingField, &GetPointeeType,
-       &IsStructWithNoRealData](Type *Ty, Type **ElemTy) -> bool {
-    auto *STy = GetValidStructTy(Ty);
-    if (!STy)
-      return false;
-
-    unsigned NumDataPointers = 0;
-    unsigned NumCounters = 0;
-    unsigned NumFlags = 0;
-    unsigned NumNoDataPointers = 0;
-    unsigned NumVtablePtr = 0;
-    *ElemTy = nullptr;
-    for (auto *ETy : STy->elements()) {
-      if (IsPotentialPaddingField(ETy))
-        continue;
-      if (isPtrToVFTable(ETy)) {
-        NumVtablePtr++;
-        continue;
-      }
-      if (ETy->isIntegerTy(8)) {
-        NumFlags++;
-        continue;
-      }
-      if (ETy->isIntegerTy(32)) {
-        NumCounters++;
-        continue;
-      }
-      auto *PTy = GetPointeeType(ETy);
-      if (!PTy)
-        return false;
-
-      if (IsStructWithNoRealData(PTy)) {
-        NumNoDataPointers++;
-        continue;
-      }
-      // Allow both pointer or struct as "data". Due to SOAToAOS
-      // transformation, it is possible that "pointer to data" will
-      // be converted to "struct that has pointer to data".
-      if (GetPointeeType(PTy) || GetValidStructTy(PTy)) {
-        NumDataPointers++;
-        *ElemTy = PTy;
-        continue;
-      }
-      return false;
-    }
-    if (NumDataPointers != 1 || NumCounters != 2 || NumFlags != 1 ||
-        NumNoDataPointers != 1 || NumVtablePtr > 1)
-      return false;
-    return true;
-  };
-
-  // Returns base class type if 'Ty' is derived from the base class and
-  // derived class doesn't have its own fields.
-  //
-  // Ex:
-  //  %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
-  //
-  auto GetBaseClassOfSimpleDerivedClass =
-      [&GetValidStructTy](Type *Ty) -> Type * {
-    auto *STy = GetValidStructTy(Ty);
-    if (!STy)
-      return nullptr;
-
-    if (STy->getNumElements() != 1)
-      return nullptr;
-
-    return STy->getElementType(0);
-  };
-
-  auto STy = GetValidStructTy(Ty);
+  auto STy = getValidStructTy(Ty);
   if (!STy)
     return false;
 
@@ -326,43 +346,22 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
     Pos++;
     // Ignore potential padding added to fill gaps in structs.
     // Later at LTO, check that it doesn't have any uses.
-    if (IsPotentialPaddingField(FTy))
+    if (isPotentialPaddingField(FTy))
       continue;
 
     // Expect all other fields are pointers.
-    auto *VTy = GetPointeeType(FTy);
+    auto *VTy = getPointeeType(FTy);
     if (!VTy)
       return false;
 
     // Ignore if it is pointer to a struct that doesn't have any real
     // data except vtable.
-    if (IsStructWithNoRealData(VTy)) {
+    if (isStructWithNoRealData(VTy)) {
       NumNoDataPointers++;
       continue;
     }
-
-    // Check if it is simple derived class that doesn't have its own
-    // fields.
-    //
-    // Ex:
-    //  Derived: %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
-    //
-    //  Base: %"BaseRefVectorOf.5" = type { i32 (...)**, i8, i32, i32,
-    //                                      i16**, %"MemoryManager"* }
-    auto *DerivedTy = VTy;
-    if (auto *BaseTy = GetBaseClassOfSimpleDerivedClass(VTy)) {
-      VTy = BaseTy;
-    }
-    Type *VecElemTy;
-    if (!IsVectorLikeClass(VTy, &VecElemTy))
+    if (!collectTypesIfVectorClass(VTy, Pos))
       return false;
-
-    CandidateFieldPositions.push_back(Pos);
-    CandidateFieldTypeSets[Pos].insert(DerivedTy);
-    CandidateFieldDerivedTy.insert(DerivedTy);
-    CandidateFieldElemTy[Pos] = VecElemTy;
-    if (VTy != DerivedTy)
-      CandidateFieldTypeSets[Pos].insert(VTy);
   }
   if (CandidateFieldPositions.size() < MinNumCandidateVectors) {
     DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
@@ -378,6 +377,58 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
   }
   SType = STy;
   return true;
+}
+
+// Collects the element type of VTy at Pos if element type is a pointer
+// to vector class.
+bool MemInitCandidateInfo::collectTypesIfVectorClass(Type *VTy, int32_t Pos) {
+  // Check if it is simple derived class that doesn't have its own
+  // fields.
+  //
+  // Ex:
+  //  Derived: %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
+  //
+  //  Base: %"BaseRefVectorOf.5" = type { i32 (...)**, i8, i32, i32,
+  //                                      i16**, %"MemoryManager"* }
+  auto *DerivedTy = VTy;
+  if (auto *BaseTy = getBaseClassOfSimpleDerivedClass(VTy)) {
+    VTy = BaseTy;
+  }
+  Type *VecElemTy;
+  if (!isVectorLikeClass(VTy, &VecElemTy))
+    return false;
+
+  CandidateFieldPositions.push_back(Pos);
+  CandidateFieldTypeSets[Pos].insert(DerivedTy);
+  CandidateFieldDerivedTy.insert(DerivedTy);
+  CandidateFieldElemTy[Pos] = VecElemTy;
+  if (VTy != DerivedTy)
+    CandidateFieldTypeSets[Pos].insert(VTy);
+  return true;
+}
+
+// If element type of Ty at Offset is a simple derived class of vector base
+// class, it returns the derived class. Otherwise, returns nullptr.
+// Ex:
+//  Derived: %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
+//
+//  Base: %"BaseRefVectorOf.5" = type { i32 (...)**, i8, i32, i32,
+//                                      i16**, %"MemoryManager"* }
+Type *MemInitCandidateInfo::isSimpleDerivedVectorType(Type *Ty,
+                                                      int32_t Offset) {
+  auto STy = getValidStructTy(Ty);
+  if (!STy)
+    return nullptr;
+  auto *FTy = STy->getElementType(Offset);
+  auto *VTy = getPointeeType(FTy);
+  if (!VTy)
+    return nullptr;
+  if (!getBaseClassOfSimpleDerivedClass(VTy))
+    return nullptr;
+  if (!collectTypesIfVectorClass(VTy, Offset))
+    return nullptr;
+  SType = STy;
+  return VTy;
 }
 
 // Collect member functions of candidate struct and member functions of
