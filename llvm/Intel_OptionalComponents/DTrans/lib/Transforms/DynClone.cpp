@@ -3417,9 +3417,10 @@ void DynCloneImpl::transformIR(void) {
 
     Value *SrcOp = SI->getPointerOperand();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
-    Instruction *NewSI = new StoreInst(
-        NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlignment(NewTy),
-        SI->getOrdering(), SI->getSyncScopeID(), SI);
+    Instruction *NewSI =
+        new StoreInst(NewVal, NewSrcOp, SI->isVolatile(),
+                      MaybeAlign(DL.getABITypeAlignment(NewTy)),
+                      SI->getOrdering(), SI->getSyncScopeID(), SI);
 
     if (AATags)
       NewSI->setAAMetadata(AATags);
