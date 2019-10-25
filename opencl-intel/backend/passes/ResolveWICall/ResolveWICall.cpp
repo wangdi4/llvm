@@ -406,7 +406,7 @@ namespace intel {
       // store argument into address. Alignment forced to 1 to make vector
       // stores safe.
       //
-      (void) new StoreInst(arg, cast_instr, false, 1, pCall);
+      (void) new StoreInst(arg, cast_instr, false, Align(1), pCall);
 
       // This argument occupied some space in the buffer.
       // Advance the buffer pointer offset by its size to know where the next

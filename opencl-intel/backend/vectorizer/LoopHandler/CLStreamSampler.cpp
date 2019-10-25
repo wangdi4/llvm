@@ -373,8 +373,9 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
     // Load from the buffer.
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
-    Value *transpValueLoad = new LoadInst(colorPointer,
-               "load.trnsp.val", false, FLOAT_X_WIDTH__ALIGNMENT, attr.m_call);
+    Value *transpValueLoad = new LoadInst(colorPointer, "load.trnsp.val", false,
+                                          MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
+                                          attr.m_call);
     LI->replaceAllUsesWith(transpValueLoad);
     LI->eraseFromParent();
   }
@@ -569,7 +570,7 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     new StoreInst(attr.m_colors[i], colorPointer, false,
-                  FLOAT_X_WIDTH__ALIGNMENT, attr.m_call);
+                  MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
   }
 
   // Prepare arguments for calling the stream sampler.

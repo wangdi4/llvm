@@ -259,7 +259,8 @@ namespace intel {
       case Instruction::Load : {
         LoadInst *pLoadInstr = cast<LoadInst>(pInstr);
         LoadInst *pNewLoad = new LoadInst(pNewValue, pLoadInstr->getName(),
-                                    pLoadInstr->isVolatile(),  pLoadInstr->getAlignment(),
+                                    pLoadInstr->isVolatile(),
+                                    MaybeAlign(pLoadInstr->getAlignment()),
                                     pLoadInstr->getOrdering(), pLoadInstr->getSyncScopeID(),
                                     pLoadInstr);
         pNewInstr = pNewLoad;
@@ -268,7 +269,8 @@ namespace intel {
       case Instruction::Store : {
         StoreInst *pStoreInstr = cast<StoreInst>(pInstr);
         StoreInst *pNewStore = new StoreInst(pStoreInstr->getValueOperand(), pNewValue,
-                                    pStoreInstr->isVolatile(),  pStoreInstr->getAlignment(),
+                                    pStoreInstr->isVolatile(),
+                                    MaybeAlign(pStoreInstr->getAlignment()),
                                     pStoreInstr->getOrdering(), pStoreInstr->getSyncScopeID(),
                                     pStoreInstr);
         pNewInstr = pNewStore;
