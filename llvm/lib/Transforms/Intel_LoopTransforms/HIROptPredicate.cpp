@@ -209,6 +209,78 @@ struct HoistCandidate {
 #endif
 };
 
+template <typename IterT>
+static void updateDefLevels(HLDDNode *Node, IterT Begin, IterT End) {
+  unsigned Level = Node->getNodeLevel();
+
+  // Update Node's refs.
+  for (auto Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+    Ref->updateDefLevel(Level);
+  }
+
+  // Keep the set of Refs whose BlobDDRefs were updated.
+  SmallPtrSet<RegDDRef *, 16> RefsToUpdate;
+
+  // handle each loop clone separately.
+  ForEach<HLLoop>::visitRange<false>(Begin, End, [&](HLLoop *Loop) {
+    SmallSet<unsigned, 32> DefSymbases;
+    SmallSet<unsigned, 32> UseSymbases;
+
+    SmallVector<DDRef *, 32> Refs;
+    DDRefGatherer<DDRef, TerminalRefs | BlobRefs>::gather(Loop, Refs);
+
+    for (DDRef *Ref : Refs) {
+      auto Symbase = Ref->getSymbase();
+
+      // Skip non-temps. Also skip non-livein references as their level may not
+      // be changed by the predicate optimization.
+      if ((Ref->isRval() && !Ref->isSelfBlob()) || !Loop->isLiveIn(Symbase)) {
+        continue;
+      }
+
+      if (Ref->isLval()) {
+        DefSymbases.insert(Symbase);
+      } else if (Ref->getDefinedAtLevel() > Level) {
+        // Account only non-linear @ Level references.
+        UseSymbases.insert(Symbase);
+      }
+    }
+
+    // Remove symbases that have definitions inside the loop. They should
+    // preserve their non-linear definition level.
+    for (unsigned Symbase : DefSymbases) {
+      UseSymbases.erase(Symbase);
+    }
+
+    if (UseSymbases.empty()) {
+      // Nothing to update.
+      return;
+    }
+
+    for (auto *Ref : Refs) {
+      // Update only the refs with linear uses inside the loop.
+      if (!UseSymbases.count(Ref->getSymbase())) {
+        continue;
+      }
+
+      if (auto *BRef = dyn_cast<BlobDDRef>(Ref)) {
+        BRef->setDefinedAtLevel(Level);
+        RefsToUpdate.insert(BRef->getParentDDRef());
+      } else {
+        RegDDRef *RRef = cast<RegDDRef>(Ref);
+        if (RRef->isSelfBlob()) {
+          RRef->getSingleCanonExpr()->setDefinedAtLevel(Level);
+        }
+      }
+    }
+  });
+
+  // Update RegDDRefs those BlobDDRefs were updated.
+  for (auto *Ref : RefsToUpdate) {
+    Ref->updateDefLevel();
+  }
+}
+
 // The following map is used to store children nodes of switches and ifs,
 // indexed by a case or a branch.
 //
@@ -1084,7 +1156,8 @@ void HIROptPredicate::transformSwitch(
   }
 
   HLNodeUtils::replace(Marker, OuterSwitch);
-  OuterSwitch->getConditionDDRef()->updateDefLevel();
+  updateDefLevels(OuterSwitch, OuterSwitch->child_begin(),
+                  OuterSwitch->child_end());
 }
 
 void HIROptPredicate::transformIf(
@@ -1221,6 +1294,8 @@ void HIROptPredicate::transformIf(
 
   NewCandidates.append(CloneMapper.getNewCandidates().begin(),
                        CloneMapper.getNewCandidates().end());
+
+  updateDefLevels(PivotIf, PivotIf->child_begin(), PivotIf->child_end());
 }
 
 // transformLoop - Perform the OptPredicate transformation for the given loop.
@@ -1384,13 +1459,6 @@ void HIROptPredicate::hoistIf(HLIf *&If, HLLoop *OrigLoop) {
 
   // Hoist the If outside the loop.
   HLNodeUtils::moveBefore(OrigLoop, If);
-
-  unsigned Level = OrigLoop->getNestingLevel();
-
-  // Update the DDRefs inside the HLIf.
-  for (auto Ref : make_range(If->ddref_begin(), If->ddref_end())) {
-    Ref->updateDefLevel(Level - 1);
-  }
 }
 
 void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
