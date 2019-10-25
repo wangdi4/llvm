@@ -289,8 +289,12 @@ static bool isParOrTargetDirective(Instruction *Inst,
     case DIR_OMP_PARALLEL_LOOP:
     case DIR_OMP_PARALLEL_SECTIONS:
     case DIR_OMP_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_TEAMS:
     case DIR_OMP_SIMD:
+      // DIR_OMP_TEAMS used to be here, but it prevented guarding
+      // instructions with side effects inside OpenMP teams regions.
+      // We may want to get it back here, so that we insert barriers
+      // around OpenMP teams region. This is currently not required,
+      // since there may not be any code between "target" and "teams".
       return true;
   }
 
@@ -383,12 +387,24 @@ void VPOParoptTransform::guardSideEffectStatements(
   SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
   SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
 
+  auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
+    LLVMContext &C = InsertPt->getContext();
+
+    VPOParoptUtils::genOCLGenericCall(
+        "_Z18work_group_barrierj", Type::getVoidTy(C),
+        { ConstantInt::get(Type::getInt32Ty(C), 1) },
+        InsertPt);
+  };
+
   // Find the parallel region begin and end directives,
   // and add barriers at the entry and exit of parallel region.
   for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
        I != E; ++I) {
 
-    if (isParOrTargetDirective(&*I)) {
+    if (isParOrTargetDirective(&*I) &&
+        // Barriers must not be inserted around SIMD loops.
+        // SIMD directives must not be removed either.
+        !isParOrTargetDirective(&*I, false, true)) {
 
       ParDirectiveBegin = &*I;
       ParDirectiveExit =
@@ -399,13 +415,12 @@ void VPOParoptTransform::guardSideEffectStatements(
       GeneralUtils::collectBBSet(ParDirectiveBegin->getParent(),
                                  ParDirectiveExit->getParent(), TempParBBVec);
       ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
+
       InsertBarrierAt.insert(ParDirectiveBegin);
 
       InsertBarrierAt.insert(ParDirectiveExit);
 
-      //Remove the directive only if it is not SIMD
-      if (!isParOrTargetDirective(&*I, false, true))
-        ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
+      ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
 
       LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
                         << "\n and after ::" << *ParDirectiveExit);
@@ -481,6 +496,10 @@ void VPOParoptTransform::guardSideEffectStatements(
     BasicBlock *ThisBB = InsertPt->getParent();
 
     // If BB already guarded continue
+    // FIXME: since we are splitting blocks, when we insert
+    //        the guards, an instruction following the already guarded
+    //        instruction originally from the same block will look
+    //        like beloning to a different block.
     if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
       continue;
 
@@ -516,6 +535,13 @@ void VPOParoptTransform::guardSideEffectStatements(
     // Add the new split basic block, since it is already guarded
     //SideEffectBasicBlocks.insert(InsertPt->getParent());
 
+    // Insert group barrier at the merge point.
+    // We cannot just put TailBlock->getFirstNonPHI() into
+    // InsertBarrierAt, because this will not work if two side-effect
+    // instructions are consecutive - the barrier for the first guard
+    // will be inserted in the "then" block for the second instruction.
+    InsertWorkGroupBarrier(TailBlock->getFirstNonPHI());
+
     SideEffectBasicBlocks.insert(InsertPt->getParent());
     LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
   }
@@ -523,13 +549,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   if (!SideEffectInstructions.empty()){
     for (auto InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
-      IRBuilder<> Builder(InsertPt);
-      SmallVector<Value *, 3> Arg;
-      // TODO: select dimension of thread_id,
-      initArgArray(&Arg, 0);
-      VPOParoptUtils::genOCLGenericCall("_Z18work_group_barrierj",
-                                        Builder.getVoidTy(), Arg,
-                                        InsertPt);
+      InsertWorkGroupBarrier(InsertPt);
     }
   }
 
