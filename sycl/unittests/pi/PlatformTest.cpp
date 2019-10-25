@@ -29,17 +29,8 @@ protected:
 
     pi_uint32 platform_count = 0u;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (platformCount < 1u)
-    return;
-#else // INTEL_CUSTOMIZATION
-  ASSERT_GT(platformCount, 0u) << "piPlatformsGet found 0 platforms.\n";
-#endif // INTEL_CUSTOMIZATION
-=======
     // Initialize the logged number of platforms before the following assertion.
     RecordProperty(platform_count_key, platform_count);
->>>>>>> 637a178b7a0fe9ef59665cd330ebfa2e8a97de09
 
     ASSERT_EQ(RT::piPlatformsGet(0, 0, &platform_count), PI_SUCCESS);
 
