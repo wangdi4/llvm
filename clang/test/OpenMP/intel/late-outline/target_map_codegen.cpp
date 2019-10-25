@@ -1,3 +1,4 @@
+// INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -55,4 +56,4 @@ int test_complex_class() {
   AOO *obj = new AOO(1000);
   return 0;
 }
-
+// end INTEL_COLLAB

@@ -1073,11 +1073,18 @@ void DSAStackTy::addDSA(const ValueDecl *D, const Expr *E, OpenMPClauseKind A,
     Data.PrivateCopy = nullptr;
   } else {
     DSAInfo &Data = getTopOfStack().SharingMap[D];
+#if INTEL_COLLAB
     assert(Data.Attributes == OMPC_unknown || (A == Data.Attributes) ||
-           Data.Attributes == OMPC_map || //INTEL
+           Data.Attributes == OMPC_map ||
            (A == OMPC_firstprivate && Data.Attributes == OMPC_lastprivate) ||
            (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) ||
            (isLoopControlVariable(D).first && A == OMPC_private));
+#else
+    assert(Data.Attributes == OMPC_unknown || (A == Data.Attributes) ||
+           (A == OMPC_firstprivate && Data.Attributes == OMPC_lastprivate) ||
+           (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) ||
+           (isLoopControlVariable(D).first && A == OMPC_private));
+#endif // INTEL_COLLAB
     if (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) {
       Data.RefExpr.setInt(/*IntVal=*/true);
       return;
@@ -1979,11 +1986,11 @@ VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
       return VD ? VD : Info.second;
     DSAStackTy::DSAVarData DVarPrivate =
         DSAStack->getTopDSA(D, DSAStack->isClauseParsingMode());
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     if (getLangOpts().OpenMPLateOutline && isa<FieldDecl>(D) &&
         DVarPrivate.CKind == OMPC_map)
       return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     if (DVarPrivate.CKind != OMPC_unknown && isOpenMPPrivate(DVarPrivate.CKind))
       return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
     // Threadprivate variables must not be captured.
@@ -15484,9 +15491,7 @@ OMPClause *Sema::ActOnOpenMPMapClause(
     ++Count;
   }
 
-#if INTEL_CUSTOMIZATION
-  // This is temporary support for field inside member function.
-  // Captured field expression in member function only
+#if INTEL_COLLAB
   SmallVector<Expr *, 8> NewVarList;
   if (this->getLangOpts().OpenMPLateOutline) {
     for (Expr *RefExpr : VarList) {
@@ -15513,7 +15518,9 @@ OMPClause *Sema::ActOnOpenMPMapClause(
     }
   }
   MappableVarListInfo MVLI(NewVarList.empty() ? VarList : NewVarList);
-#endif // INTEL_CUSTOMIZATION
+#else
+  MappableVarListInfo MVLI(VarList);
+#endif // INTEL_COLLAB
   checkMappableExpressionList(*this, DSAStack, OMPC_map, MVLI, Locs.StartLoc,
                               MapperIdScopeSpec, MapperId, UnresolvedMappers,
                               MapType, IsMapTypeImplicit);
