@@ -17612,8 +17612,20 @@ static SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG,
   }
 
   unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
-  if (IdxVal == 0) // the operation is legal
+#if INTEL_CUSTOMIZATION
+  if (IdxVal == 0) { // the operation is legal
+    // Widen v2i1/v4i1 to v8i1 to match the codegen we get for bitcasts from
+    // v2i1/v4i1 to i4/i2.
+    if (VecVT == MVT::v2i1 || VecVT == MVT::v4i1) {
+      Vec = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                        DAG.getUNDEF(MVT::v8i1), Vec,
+                        DAG.getIntPtrConstant(0, dl));
+      return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, Op.getValueType(),
+                         Vec, DAG.getIntPtrConstant(0, dl));
+    }
     return Op;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Extend to natively supported kshift.
   unsigned NumElems = VecVT.getVectorNumElements();
@@ -37913,6 +37925,45 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
       }
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  auto OnlyFlagUsers = [](SDNode *N) {
+    for (SDNode::use_iterator UI = N->use_begin(), UE = N->use_end();
+           UI != UE; ++UI) {
+      switch (UI->getOpcode()) {
+      default:
+        return false;
+      case ISD::SELECT:
+        if (UI.getOperandNo() != 0)
+          return false;
+        break;
+      case ISD::BRCOND:
+        break;
+      }
+    }
+
+    return true;
+  };
+
+  // Improve lowering of i1 extracts that are only used by flag consuming
+  // operations. We can move the k-register into the GPR domain and do a test.
+  // The default behavior would have been to use a kshift, a copy, and a
+  // scalar and. NOTE: We don't do this from extracts of bit 0 due to an
+  // infinite loop.
+  if (CIdx && SrcVT.getScalarType() == MVT::i1 && Subtarget.hasAVX512() &&
+      !CIdx->isNullValue() && OnlyFlagUsers(N)) {
+    unsigned NumSrcElts = SrcVT.getVectorNumElements();
+    EVT BCVT = EVT::getIntegerVT(*DAG.getContext(), NumSrcElts);
+    SDValue BC = DAG.getBitcast(BCVT, InputVector);
+
+    // extractelement vXi1 X, MaskIdx --> ((movmsk X) & Mask) == Mask
+    unsigned MaskIdx = N->getConstantOperandVal(1);
+    APInt MaskBit = APInt::getOneBitSet(NumSrcElts, MaskIdx);
+    SDValue Mask = DAG.getConstant(MaskBit, dl, BCVT);
+    SDValue Res = DAG.getNode(ISD::AND, dl, BCVT, BC, Mask);
+    return DAG.getSetCC(dl, MVT::i1, Res, Mask, ISD::SETEQ);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return SDValue();
 }

@@ -2225,13 +2225,13 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512-NEXT:    andb $1, %bl
 ; AVX512-NEXT:    negb %bl
 ; AVX512-NEXT:    kshiftrw $1, %k0, %k2
-; AVX512-NEXT:    kmovd %k2, %esi
-; AVX512-NEXT:    andb $1, %sil
-; AVX512-NEXT:    negb %sil
-; AVX512-NEXT:    kshiftrw $1, %k1, %k2
 ; AVX512-NEXT:    kmovd %k2, %edx
 ; AVX512-NEXT:    andb $1, %dl
 ; AVX512-NEXT:    negb %dl
+; AVX512-NEXT:    kshiftrw $1, %k1, %k2 ;INTEL
+; AVX512-NEXT:    kmovd %k2, %esi ;INTEL
+; AVX512-NEXT:    andb $1, %sil ;INTEL
+; AVX512-NEXT:    negb %sil ;INTEL
 ; AVX512-NEXT:    kmovd %k1, %eax
 ; AVX512-NEXT:    andb $1, %al
 ; AVX512-NEXT:    negb %al
@@ -2253,14 +2253,14 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512-NEXT:    kshiftlw $15, %k0, %k0
 ; AVX512-NEXT:    kshiftrw $15, %k0, %k1
 ; AVX512-NEXT:    kshiftlw $2, %k0, %k0
-; AVX512-NEXT:    movl %edx, %eax
-; AVX512-NEXT:    imulb %sil
-; AVX512-NEXT:    movl %eax, %edx
+; AVX512-NEXT:    movl %esi, %eax ;INTEL
+; AVX512-NEXT:    imulb %dl ;INTEL
+; AVX512-NEXT:    movl %eax, %esi ;INTEL
 ; AVX512-NEXT:    seto %al
-; AVX512-NEXT:    movl %edx, %ecx
+; AVX512-NEXT:    movl %esi, %ecx ;INTEL
 ; AVX512-NEXT:    andb $1, %cl
 ; AVX512-NEXT:    negb %cl
-; AVX512-NEXT:    cmpb %dl, %cl
+; AVX512-NEXT:    cmpb %sil, %cl ;INTEL
 ; AVX512-NEXT:    setne %cl
 ; AVX512-NEXT:    orb %al, %cl
 ; AVX512-NEXT:    setne %al
@@ -2273,12 +2273,12 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512-NEXT:    kshiftlw $3, %k0, %k2
 ; AVX512-NEXT:    movl %r11d, %eax
 ; AVX512-NEXT:    imulb %bl
-; AVX512-NEXT:    movl %eax, %esi
+; AVX512-NEXT:    movl %eax, %edx ;INTEL
 ; AVX512-NEXT:    seto %al
-; AVX512-NEXT:    movl %esi, %ecx
+; AVX512-NEXT:    movl %edx, %ecx ;INTEL
 ; AVX512-NEXT:    andb $1, %cl
 ; AVX512-NEXT:    negb %cl
-; AVX512-NEXT:    cmpb %sil, %cl
+; AVX512-NEXT:    cmpb %dl, %cl ;INTEL
 ; AVX512-NEXT:    setne %cl
 ; AVX512-NEXT:    orb %al, %cl
 ; AVX512-NEXT:    setne %al
@@ -2307,7 +2307,7 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512-NEXT:    kmovd %r8d, %k1
 ; AVX512-NEXT:    kshiftlw $15, %k1, %k1
 ; AVX512-NEXT:    kshiftrw $15, %k1, %k1
-; AVX512-NEXT:    kmovd %edx, %k2
+; AVX512-NEXT:    kmovd %esi, %k2 ;INTEL
 ; AVX512-NEXT:    kshiftlw $15, %k2, %k2
 ; AVX512-NEXT:    kshiftrw $14, %k2, %k2
 ; AVX512-NEXT:    korw %k2, %k0, %k0
@@ -2316,7 +2316,7 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512-NEXT:    kshiftlw $3, %k1, %k1
 ; AVX512-NEXT:    kshiftlw $14, %k0, %k0
 ; AVX512-NEXT:    kshiftrw $14, %k0, %k0
-; AVX512-NEXT:    kmovd %esi, %k2
+; AVX512-NEXT:    kmovd %edx, %k2 ;INTEL
 ; AVX512-NEXT:    kshiftlw $15, %k2, %k2
 ; AVX512-NEXT:    kshiftrw $13, %k2, %k2
 ; AVX512-NEXT:    korw %k2, %k1, %k1

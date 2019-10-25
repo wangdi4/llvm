@@ -31,8 +31,8 @@ define i1 @bitcast_v2i64_to_v2i1(<2 x i64> %a0) nounwind {
 ; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; AVX512-NEXT:    vpcmpgtq %xmm0, %xmm1, %k0
 ; AVX512-NEXT:    kshiftrw $1, %k0, %k1
-; AVX512-NEXT:    kmovd %k1, %ecx
-; AVX512-NEXT:    kmovd %k0, %eax
+; AVX512-NEXT:    kmovd %k0, %ecx ;INTEL
+; AVX512-NEXT:    kmovd %k1, %eax ;INTEL
 ; AVX512-NEXT:    addb %cl, %al
 ; AVX512-NEXT:    # kill: def $al killed $al killed $eax
 ; AVX512-NEXT:    retq
