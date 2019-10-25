@@ -20,6 +20,7 @@
 // CHECK-NEXT: ArbPrecInt (SubjectMatchRule_type_alias)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: ArcWeakrefUnavailable (SubjectMatchRule_objc_interface)
+// CHECK-NEXT: ArmMveAlias (SubjectMatchRule_function)
 // CHECK-NEXT: AssumeAligned (SubjectMatchRule_objc_method, SubjectMatchRule_function)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: Autorun (SubjectMatchRule_function)
