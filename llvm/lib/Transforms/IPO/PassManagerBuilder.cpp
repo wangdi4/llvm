@@ -1860,6 +1860,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     if (SizeLevel == 0) {
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
+        PM.add(createHIRMVForVariableStridePass());
         PM.add(createHIROptVarPredicatePass());
         PM.add(createHIROptPredicatePass(OptLevel == 3, false));
       }
