@@ -47,6 +47,20 @@ function(add_sycl_rt_library LIB_NAME)
     endif()
 
   endif()
+
+# INTEL_CUSTOMIZATION CORC-4868
+#
+# Try to prevent use of deprecated interface warning
+# and do not treat warnings as error unless it fixed upstream
+#
+target_compile_definitions (${LIB_NAME} PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
+target_compile_options (${LIB_NAME} PRIVATE
+    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error>
+    $<$<CXX_COMPILER_ID:MSVC>:/WX->
+)
+#end INTEL_CUSTOMIZATION
+
+
 endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES
@@ -104,18 +118,6 @@ set(SYCL_SOURCES
 )
 
 add_sycl_rt_library(sycl ${SYCL_SOURCES})
-
-# INTEL_CUSTOMIZATION CORC-4868
-#
-# Try to prevent use of deprecated interface warning
-# and do not treat warnings as error unless it fixed upstream
-#
-target_compile_definitions (sycl PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
-target_compile_options (sycl PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error>
-    $<$<CXX_COMPILER_ID:MSVC>:/WX->
-)
-#end INTEL_CUSTOMIZATION
 
 if (MSVC)
   # MSVC provides two incompatible build variants for its CRT: release and debug
