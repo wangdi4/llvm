@@ -5,16 +5,13 @@
 ; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=4 -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo(
-; TODO: The order of insertion of widened allocas for the privates below seems to be non-deterministic.
-; Needs to be addressed in VPLoopAnalysis where allocate-private instructions are added to VPlan.
-; Check CMPLRLLVM-10636.
 ; CHECK-NEXT:  entry:
-; CHECK-DAG:    [[PRIVATE_MEM1:%.*]] = alloca <4 x i32>, align 16
-; CHECK-DAG:    [[PRIVATE_MEM1_BC:%.*]] = bitcast <4 x i32>* [[PRIVATE_MEM1]] to i32*
-; CHECK-DAG:    [[PRIVATE_MEM1_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIVATE_MEM1_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-DAG:    [[PRIVATE_MEM:%.*]] = alloca [4 x [1024 x i32]], align 4
-; CHECK-DAG:    [[PRIVATE_MEM_BC:%.*]] = bitcast [4 x [1024 x i32]]* [[PRIVATE_MEM]] to [1024 x i32]*
-; CHECK-DAG:    [[PRIVATE_MEM_BASE_ADDR:%.*]] = getelementptr [1024 x i32], [1024 x i32]* [[PRIVATE_MEM_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PRIVATE_MEM:%.*]] = alloca [4 x [1024 x i32]], align 4
+; CHECK-NEXT:    [[PRIVATE_MEM_BC:%.*]] = bitcast [4 x [1024 x i32]]* [[PRIVATE_MEM]] to [1024 x i32]*
+; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR:%.*]] = getelementptr [1024 x i32], [1024 x i32]* [[PRIVATE_MEM_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PRIVATE_MEM1:%.*]] = alloca <4 x i32>, align 16
+; CHECK-NEXT:    [[PRIVATE_MEM1_BC:%.*]] = bitcast <4 x i32>* [[PRIVATE_MEM1]] to i32*
+; CHECK-NEXT:    [[PRIVATE_MEM1_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIVATE_MEM1_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 
 ; CHECK:       vector.body:
 ; CHECK:         [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[PRIVATE_MEM1_BASE_ADDR]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
