@@ -79,29 +79,6 @@ def Named : DeclNode<Decl, "named declarations", 1>;
     def ObjCProtocol : DeclNode<ObjCContainer, "Objective-C protocols">;
     def ObjCInterface : DeclNode<ObjCContainer, "Objective-C interfaces">;
     def ObjCImpl
-<<<<<<< HEAD
-        : DDecl<ObjCContainer, "Objective-C implementation declarations", 1>;
-      def ObjCCategoryImpl : DDecl<ObjCImpl>;
-      def ObjCImplementation : DDecl<ObjCImpl>;
-  def ObjCProperty : DDecl<Named, "Objective-C properties">;
-  def ObjCCompatibleAlias : DDecl<Named>;
-def LinkageSpec : Decl, DeclContext;
-def Export : Decl, DeclContext;
-def ObjCPropertyImpl : Decl;
-def FileScopeAsm : Decl;
-def AccessSpec : Decl;
-def Friend : Decl;
-def FriendTemplate : Decl;
-def StaticAssert : Decl;
-def Block : Decl<"blocks">, DeclContext;
-def Captured : Decl, DeclContext;
-def ClassScopeFunctionSpecialization : Decl;
-def Import : Decl;
-def OMPThreadPrivate : Decl;
-def OMPAllocate : Decl;
-def OMPRequires : Decl;
-def Empty : Decl;
-=======
         : DeclNode<ObjCContainer, "Objective-C implementation declarations", 1>;
       def ObjCCategoryImpl : DeclNode<ObjCImpl>;
       def ObjCImplementation : DeclNode<ObjCImpl>;
@@ -124,4 +101,3 @@ def OMPAllocate : DeclNode<Decl>;
 def OMPRequires : DeclNode<Decl>;
 def Empty : DeclNode<Decl>;
 
->>>>>>> baf91d02da6e68c4ee6723ef68911fcd80ece6a5

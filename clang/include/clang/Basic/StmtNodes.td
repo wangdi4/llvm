@@ -207,64 +207,6 @@ def SEHLeaveStmt : StmtNode<Stmt>;
 def MSDependentExistsStmt : StmtNode<Stmt>;
 
 // OpenCL Extensions.
-<<<<<<< HEAD
-def AsTypeExpr : DStmt<Expr>;
-// OpenMP Directives.
-def OMPExecutableDirective : Stmt<1>;
-def OMPLoopDirective : DStmt<OMPExecutableDirective, 1>;
-def OMPParallelDirective : DStmt<OMPExecutableDirective>;
-def OMPSimdDirective : DStmt<OMPLoopDirective>;
-def OMPForDirective : DStmt<OMPLoopDirective>;
-def OMPForSimdDirective : DStmt<OMPLoopDirective>;
-def OMPSectionsDirective : DStmt<OMPExecutableDirective>;
-def OMPSectionDirective : DStmt<OMPExecutableDirective>;
-def OMPSingleDirective : DStmt<OMPExecutableDirective>;
-def OMPMasterDirective : DStmt<OMPExecutableDirective>;
-def OMPCriticalDirective : DStmt<OMPExecutableDirective>;
-def OMPParallelForDirective : DStmt<OMPLoopDirective>;
-def OMPParallelForSimdDirective : DStmt<OMPLoopDirective>;
-def OMPParallelSectionsDirective : DStmt<OMPExecutableDirective>;
-def OMPTaskDirective : DStmt<OMPExecutableDirective>;
-def OMPTaskyieldDirective : DStmt<OMPExecutableDirective>;
-def OMPBarrierDirective : DStmt<OMPExecutableDirective>;
-def OMPTaskwaitDirective : DStmt<OMPExecutableDirective>;
-def OMPTaskgroupDirective : DStmt<OMPExecutableDirective>;
-def OMPFlushDirective : DStmt<OMPExecutableDirective>;
-def OMPOrderedDirective : DStmt<OMPExecutableDirective>;
-def OMPAtomicDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetDataDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetEnterDataDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetExitDataDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetParallelDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetParallelForDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetUpdateDirective : DStmt<OMPExecutableDirective>;
-def OMPTeamsDirective : DStmt<OMPExecutableDirective>;
-def OMPCancellationPointDirective : DStmt<OMPExecutableDirective>;
-def OMPCancelDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetVariantDispatchDirective : DStmt<OMPExecutableDirective>; //INTEL
-
-def OMPTaskLoopDirective : DStmt<OMPLoopDirective>;
-def OMPTaskLoopSimdDirective : DStmt<OMPLoopDirective>;
-def OMPMasterTaskLoopDirective : DStmt<OMPLoopDirective>;
-def OMPMasterTaskLoopSimdDirective : DStmt<OMPLoopDirective>;
-def OMPParallelMasterTaskLoopDirective : DStmt<OMPLoopDirective>;
-def OMPDistributeDirective : DStmt<OMPLoopDirective>;
-def OMPDistributeParallelForDirective : DStmt<OMPLoopDirective>;
-def OMPDistributeParallelForSimdDirective : DStmt<OMPLoopDirective>;
-def OMPDistributeSimdDirective : DStmt<OMPLoopDirective>;
-def OMPTargetParallelForSimdDirective : DStmt<OMPLoopDirective>;
-def OMPTargetSimdDirective : DStmt<OMPLoopDirective>;
-def OMPTeamsDistributeDirective : DStmt<OMPLoopDirective>;
-def OMPTeamsDistributeSimdDirective : DStmt<OMPLoopDirective>;
-def OMPTeamsDistributeParallelForSimdDirective : DStmt<OMPLoopDirective>;
-def OMPTeamsDistributeParallelForDirective : DStmt<OMPLoopDirective>;
-def OMPTargetTeamsDirective : DStmt<OMPExecutableDirective>;
-def OMPTargetTeamsDistributeDirective : DStmt<OMPLoopDirective>;
-def OMPTargetTeamsDistributeParallelForDirective : DStmt<OMPLoopDirective>;
-def OMPTargetTeamsDistributeParallelForSimdDirective : DStmt<OMPLoopDirective>;
-def OMPTargetTeamsDistributeSimdDirective : DStmt<OMPLoopDirective>;
-=======
 def AsTypeExpr : StmtNode<Expr>;
 
 // OpenMP Directives.
@@ -300,6 +242,7 @@ def OMPTargetUpdateDirective : StmtNode<OMPExecutableDirective>;
 def OMPTeamsDirective : StmtNode<OMPExecutableDirective>;
 def OMPCancellationPointDirective : StmtNode<OMPExecutableDirective>;
 def OMPCancelDirective : StmtNode<OMPExecutableDirective>;
+def OMPTargetVariantDispatchDirective : StmtNode<OMPExecutableDirective>; //INTEL
 def OMPTaskLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTaskLoopSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPMasterTaskLoopDirective : StmtNode<OMPLoopDirective>;
@@ -320,4 +263,3 @@ def OMPTargetTeamsDistributeDirective : StmtNode<OMPLoopDirective>;
 def OMPTargetTeamsDistributeParallelForDirective : StmtNode<OMPLoopDirective>;
 def OMPTargetTeamsDistributeParallelForSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPTargetTeamsDistributeSimdDirective : StmtNode<OMPLoopDirective>;
->>>>>>> baf91d02da6e68c4ee6723ef68911fcd80ece6a5
