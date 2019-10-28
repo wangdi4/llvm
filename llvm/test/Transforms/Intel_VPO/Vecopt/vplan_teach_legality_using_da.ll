@@ -12,7 +12,7 @@
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32* [[UNI_GEP:%vp.*]] = getelementptr inbounds i32* [[OUTER_GEP:%vp.*]] i64 [[PHI]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[UNI_LOAD:%vp.*]] = load i32* [[UNI_GEP]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[LOAD_USER:%vp.*]] = add i32 [[UNI_LOAD]] i32 42
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[UNIT_STRIDE_GEP:%vp.*]] = getelementptr inbounds i32* [[OUTER_GEP]] i64 [[OUTER_IV:%vp.*]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[UNIT_STRIDE_GEP:%vp.*]] = getelementptr inbounds i32* [[OUTER_GEP]] i64 [[OUTER_IV:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[UNIT_STRIDE_LOAD:%vp.*]] = load i32* [[UNIT_STRIDE_GEP]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[UNIT_STRIDE_LOAD]] i32* [[UNIT_STRIDE_GEP]]
 

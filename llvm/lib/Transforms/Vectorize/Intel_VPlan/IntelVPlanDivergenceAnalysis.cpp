@@ -62,71 +62,64 @@ extern cl::opt<bool> EnableVPValueCodegen;
 
 #define Uni VPVectorShape::Uni
 #define Seq VPVectorShape::Seq
-#define Ptr VPVectorShape::Ptr
 #define Str VPVectorShape::Str
 #define Rnd VPVectorShape::Rnd
 #define Undef VPVectorShape::Undef
 
 const VPVectorShape::VPShapeDescriptor
 AddConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /*           Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
-  /* Uni   */ {Uni,   Seq,   Ptr,   Str,   Rnd,   Undef},
-  /* Seq   */ {Seq,   Str,   Str,   Str,   Rnd,   Undef},
-  /* Ptr   */ {Ptr,   Str,   Str,   Str,   Rnd,   Undef},
-  /* Str   */ {Str,   Str,   Str,   Str,   Rnd,   Undef},
-  /* Rnd   */ {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */ {Undef, Undef, Undef, Undef, Undef, Undef}
+  /*           Uni,   Seq,   Str,   Rnd,   Undef */
+  /* Uni   */ {Uni,   Seq,   Str,   Rnd,   Undef},
+  /* Seq   */ {Seq,   Str,   Str,   Rnd,   Undef},
+  /* Str   */ {Str,   Str,   Str,   Rnd,   Undef},
+  /* Rnd   */ {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */ {Undef, Undef, Undef, Undef, Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
 SubConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /*           Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
-  /* Uni   */ {Uni,   Str,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Seq   */ {Seq,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Ptr   */ {Ptr,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Str   */ {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Rnd   */ {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */ {Undef, Undef, Undef, Undef, Undef, Undef}
+  /*           Uni,   Seq,   Str,   Rnd,   Undef */
+  /* Uni   */ {Uni,   Str,   Rnd,   Rnd,   Undef},
+  /* Seq   */ {Seq,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Str   */ {Str,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Rnd   */ {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */ {Undef, Undef, Undef, Undef, Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
 MulConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /*            Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
-  /* Uni   */  {Uni,   Str,   Str,   Str,   Rnd,   Undef},
-  /* Seq   */  {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Ptr   */  {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Str   */  {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */  {Undef, Undef, Undef, Undef, Undef, Undef}
+  /*            Uni,   Seq,   Str,   Rnd,   Undef */
+  /* Uni   */  {Uni,   Str,   Str,   Rnd,   Undef},
+  /* Seq   */  {Str,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Str   */  {Str,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */  {Undef, Undef, Undef, Undef, Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
 GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /* ptr\index   Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
-  /* Uni   */   {Uni,   Ptr,   Rnd,   Str,   Rnd,   Undef},
-  /* Seq   */   {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Ptr   */   {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Str   */   {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Rnd   */   {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */   {Undef, Undef, Undef, Undef, Undef, Undef}
+  /* ptr\index   Uni,   Seq,   Str,   Rnd,   Undef */
+  /* Uni   */   {Uni,   Str,   Str,   Rnd,   Undef},
+  /* Seq   */   {Str,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Str   */   {Str,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Rnd   */   {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */   {Undef, Undef, Undef, Undef, Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
 SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /*            Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
-  /* Uni   */  {Uni,   Str,   Str,   Str,   Rnd,   Undef},
-  /* Seq   */  {Str,   Seq,   Str,   Str,   Rnd,   Undef},
-  /* Ptr   */  {Str,   Str,   Ptr,   Str,   Rnd,   Undef},
-  /* Str   */  {Str,   Str,   Str,   Str,   Rnd,   Undef},
-  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */  {Undef, Undef, Undef, Undef, Undef, Undef}
+  /*            Uni,   Seq,   Str,   Rnd,   Undef */
+  /* Uni   */  {Uni,   Str,   Str,   Rnd,   Undef},
+  /* Seq   */  {Str,   Seq,   Str,   Rnd,   Undef},
+  /* Str   */  {Str,   Str,   Str,   Rnd,   Undef},
+  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */  {Undef, Undef, Undef, Undef, Undef}
 };
 
 // Undefine the defines used in table initialization. Code below is
 // expected to use values from VPVectorShape directly.
 #undef Uni
 #undef Seq
-#undef Ptr
 #undef Str
 #undef Rnd
 #undef Undef
@@ -147,6 +140,27 @@ void VPlanDivergenceAnalysis::markNonDivergent(const VPValue *DivVal) {
 
 void VPlanDivergenceAnalysis::addUniformOverride(const VPValue &UniVal) {
   UniformOverrides.insert(&UniVal);
+}
+
+unsigned VPlanDivergenceAnalysis::getTypeSizeInBytes(Type *Ty) const {
+  assert(Ty && "Expected a non-null value for argument type.");
+  return Plan->getDataLayout()->getTypeSizeInBits(Ty) >> 3;
+}
+
+bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
+
+  assert(isa<PointerType>(Ptr->getType()) &&
+         "Expect argument of isUnitStridePtr to be of PointerType.");
+  // Compute the pointee-size in bytes.
+  unsigned PtrNumBytes =
+      getTypeSizeInBytes(Ptr->getType()->getPointerElementType());
+
+  auto *VectorShape = getVectorShape(Ptr);
+
+  // Compare that the absolute value of stride is equal to the pointee-size
+  // in bytes.
+  return VectorShape->isStrided() && VectorShape->hasKnownStride() &&
+         std::abs(VectorShape->getStrideVal()) == PtrNumBytes;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -943,8 +957,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
     //           [3000 x [3000 x i32]]* -> i32,
     //           <4 x i32>* -> <4 x i32>
     Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
-    uint64_t PointedToTySize =
-        Plan->getDataLayout()->getTypeSizeInBits(PointedToTy) >> 3;
+    uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep should result in 0 stride (i.e., pointer and idx are
     //    uniform).
@@ -955,17 +968,15 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
     if (PtrShape->hasKnownStride() && IdxShape->hasKnownStride()) {
       VPValue *PtrStride = PtrShape->getStride();
       VPValue *IdxStride = IdxShape->getStride();
-      // It's possible that the ptr value is represented as an integer that has
-      // a non-ptr stride. i.e., shape is unit stride or strided and not
-      // represented in bytes. And, the gep index is uniform. To get the stride
-      // in bytes for these cases, we can simply swap the shapes of the ptr and
-      // index.
-      if (IdxShape->isUniform() && PtrShape->isAnyStridedNonPtr())
-        std::swap(PtrStride, IdxStride);
+
       uint64_t PtrStrideVal =
           cast<ConstantInt>(PtrStride->getUnderlyingValue())->getSExtValue();
       uint64_t IdxStrideVal =
           cast<ConstantInt>(IdxStride->getUnderlyingValue())->getSExtValue();
+
+      assert((PtrStrideVal == 0 || IdxStrideVal == 0) &&
+             "Expect one of PtrStrideVal or IdxStrideVal to be 0.");
+
       NewStride = getConstantInt(PtrStrideVal + PointedToTySize * IdxStrideVal);
 
       // See if we can refine a strided pointer to a unit-strided pointer by
@@ -974,7 +985,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
           cast<ConstantInt>(NewStride->getUnderlyingValue())->getValue();
       uint64_t NewStrideValAbs = NewStrideVal.abs().getZExtValue();
       if (NewDesc == VPVectorShape::Str && PointedToTySize == NewStrideValAbs)
-        NewDesc = VPVectorShape::Ptr;
+        NewDesc = VPVectorShape::Str;
     }
   }
   return new VPVectorShape(NewDesc, NewStride);
@@ -1206,19 +1217,29 @@ void VPlanDivergenceAnalysis::initializeShapes(
     VPVectorShape *NewShape = nullptr;
     if (const VPInduction *Ind = RegionLoopEntities->getInduction(Phi)) {
       const VPValue *Step = Ind->getStep();
-      // Default StepInt is 0 to account for variable step IV cases.
       int StepInt = 0;
-      if (auto *StepConst = dyn_cast<VPConstant>(Step))
+      if (auto *StepConst = dyn_cast<VPConstant>(Step)) {
         if (StepConst->isConstantInt())
-          StepInt = StepConst->getZExtValue();
+          // If this is a pointer induction, compute the step-size in terms of
+          // bytes, using the size of the pointee.
+          if (isa<PointerType>(Phi->getType())) {
+            unsigned TypeSizeInBytes =
+                getTypeSizeInBytes(Phi->getType()->getPointerElementType());
+            StepInt = TypeSizeInBytes * StepConst->getZExtValue();
+          } else
+            StepInt = StepConst->getZExtValue();
 
-      // IV's vector shape is determined based on its step value. For variable
-      // step IVs, we choose Strided (unknown stride value).
-      VPVectorShape::VPShapeDescriptor IVShape = (StepInt == 1 || StepInt == -1)
-                                                     ? VPVectorShape::Seq
-                                                     : VPVectorShape::Str;
-
-      NewShape = new VPVectorShape(IVShape, const_cast<VPValue *>(Step));
+        // IV's vector shape is determined based on its step value. For variable
+        // step IVs, we choose Strided (unknown stride value).
+        NewShape = (StepInt == 1 || StepInt == -1)
+                       ? new VPVectorShape(VPVectorShape::Seq,
+                                           const_cast<VPValue *>(Step))
+                       : getStridedVectorShape(StepInt);
+      } else
+        // This could be a VPExternalDef (a non-constant value), i.e., a
+        // variable step IV. We should set the shape to be random if we
+        // cannot infer the step-size.
+        NewShape = getRandomVectorShape();
     } else
       // To be conservative, we mark phi nodes with random shape unless we
       // know the phi is an induction. This matches the divergent property
@@ -1281,7 +1302,7 @@ void VPlanDivergenceAnalysis::markEntitiesAsDivergent(
     Type *PointeeTy =
         cast<PointerType>(AllocaInst->getType())->getPointerElementType();
     // We set the stride in terms of bytes.
-    uint64_t Stride = Plan->getDataLayout()->getTypeSizeInBits(PointeeTy) >> 3;
+    uint64_t Stride = getTypeSizeInBytes(PointeeTy);
     updateVectorShape(AllocaInst, getStridedVectorShape(Stride));
 
     // Currently, we only deal with aliases for loop-privates. Array-reductions

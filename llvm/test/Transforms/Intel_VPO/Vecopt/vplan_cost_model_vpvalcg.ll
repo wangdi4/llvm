@@ -1950,19 +1950,19 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_revectorize':
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY0:%.*]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDEX0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[VECTOR_BODY0]] ]
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 2, i64 4, i64 6>, [[ENTRY0]] ], [ [[TMP0:%.*]], [[VECTOR_BODY0]] ]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 2, i64 4, i64 6>, [[ENTRY0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> <[1024 x i32]* @arr.i32.1, [1024 x i32]* undef, [1024 x i32]* undef, [1024 x i32]* undef>, <4 x i64> <i64 0, i64 undef, i64 undef, i64 undef>, <4 x i64> [[VEC_PHI0]]
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP0]] to <4 x <8 x i32>*>
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[GROUPPTR:%.*]] = extractelement <4 x <8 x i32>*> [[BC]], i64 0
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[GROUPLOAD:%.*]] = load <8 x i32>, <8 x i32>* [[GROUPPTR]], align 8
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC0:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP0]] to <4 x <8 x i32>*>
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP0:%.*]] = extractelement <4 x <8 x i32>*> [[BC0]], i32 0
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD0:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 8
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[MM_VECTORGEP10:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> <[1024 x i32]* @arr.i32.3, [1024 x i32]* undef, [1024 x i32]* undef, [1024 x i32]* undef>, <4 x i64> <i64 0, i64 undef, i64 undef, i64 undef>, <4 x i64> [[VEC_PHI0]]
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC4:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP10]] to <4 x <8 x i32>*>
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[GROUPPTR3:%.*]] = extractelement <4 x <8 x i32>*> [[BC4]], i64 0
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <8 x i32> [[GROUPLOAD]], <8 x i32>* [[GROUPPTR3]], align 8
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP0]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8>
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC40:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP10]] to <4 x <8 x i32>*>
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP1:%.*]] = extractelement <4 x <8 x i32>*> [[BC40]], i32 0
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <8 x i32> [[WIDE_LOAD0]], <8 x i32>* [[TMP1]], align 8
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDEX_NEXT0]] = add i64 [[INDEX0]], 4
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP1:%.*]] = icmp eq i64 [[INDEX_NEXT0]], 512
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP1]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP3:%.*]] = icmp eq i64 [[INDEX_NEXT0]], 512
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP3]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_revectorize':

@@ -9,11 +9,11 @@
 ; CHECK-LABEL: Printing Divergence info for Loop at depth 1
 ; CHECK: Basic Block: [[HEADER:BB.*]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER:BB.*]] ],  [ i64 [[IV_ADD:%.*]], [[HEADER]] ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[SRC_GEP_0:%vp.*]] = getelementptr inbounds [1024 x i32]* %src i64 0 i64 [[IV_PHI]]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[SRC_GEP_1:%vp.*]] = getelementptr inbounds [1024 x i32]* %src i64 1 i64 [[IV_PHI]]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[SRC_SELECT:%vp.*]] = select i1 %cond i32* [[SRC_GEP_0]] i32* [[SRC_GEP_1]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[SRC_GEP_0:%vp.*]] = getelementptr inbounds [1024 x i32]* %src i64 0 i64 [[IV_PHI]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[SRC_GEP_1:%vp.*]] = getelementptr inbounds [1024 x i32]* %src i64 1 i64 [[IV_PHI]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[SRC_SELECT:%vp.*]] = select i1 %cond i32* [[SRC_GEP_0]] i32* [[SRC_GEP_1]]
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[SRC_LOAD:%vp.*]] = load i32* [[SRC_SELECT]]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[DEST_GEP_0:%vp.*]] = getelementptr inbounds [1024 x i32]* %dest i64 0 i64 [[IV_PHI]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[DEST_GEP_0:%vp.*]] = getelementptr inbounds [1024 x i32]* %dest i64 0 i64 [[IV_PHI]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 2] i64 [[IV_STRIDED:%vp.*]] = mul i64 [[IV_PHI]] i64 2
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[DEST_GEP_1:%vp.*]] = getelementptr inbounds [1024 x i32]* %dest i64 1 i64 [[IV_STRIDED]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: ?] i32* [[DEST_SELECT:%vp.*]] = select i1 %cond i32* [[DEST_GEP_0]] i32* [[DEST_GEP_1]]

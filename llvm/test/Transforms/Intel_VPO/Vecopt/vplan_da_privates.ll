@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI2:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK: Uniform: [Shape: Uniform] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT1:%.*]] = sext i32 [[PHI1]] to i64
-; CHECK-NEXT: Divergent: [Shape: Random] i32* [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT1]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT1]]
 ; CHECK: Divergent: [Shape: Random] i8* [[IV_IDX:%.*]] = bitcast i32* %inv.arrayidx
 ; CHECK-NEXT: Divergent: [Shape: Random] i8 [[BC1:%.*]] = load i8* %bc.1
 ; CHECK-NEXT: Divergent: [Shape: Random] i82 [[BC2:%.*]] = load i82* %bc.2
@@ -41,7 +41,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Divergent: [Shape: Random] i64 [[L_BC4:%.*]] = load i64* %bc.gep
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[JVAL:%.*]] = load i32* @j
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT3:%.*]] = sext i32 [[JVAL]] to i64
-; CHECK-NEXT: Divergent: [Shape: Random] i32* [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
 
 ; CHECK: After predication and linearization

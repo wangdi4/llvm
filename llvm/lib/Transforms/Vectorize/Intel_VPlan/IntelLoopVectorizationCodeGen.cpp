@@ -2847,17 +2847,15 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         }
 
         // Check for GEPs producing unit-stride pointers.
-        VPVectorShape *VPPtrShape = DA->getVectorShape(VPInst);
-        if (all_of(VPInst->users(),
-                   [](const VPUser *U) -> bool {
-                     if (auto *UserInst = dyn_cast<VPInstruction>(U))
-                       if (!UserInst->isUnderlyingIRValid())
-                         return false;
+        if (DA->isUnitStridePtr(VPInst) &&
+            all_of(VPInst->users(), [](const VPUser *U) -> bool {
+              if (auto *UserInst = dyn_cast<VPInstruction>(U))
+                if (!UserInst->isUnderlyingIRValid())
+                  return false;
 
-                     return true;
-                   }) &&
-            VPPtrShape->isUnitStridePtr()) {
-          int StrideInBytes = VPPtrShape->getStrideVal();
+              return true;
+            })) {
+          int StrideInBytes = DA->getVectorShape(VPInst)->getStrideVal();
           Legal->addPtrStride(Inst, StrideInBytes > 0 ? 1 : -1);
         }
       }
