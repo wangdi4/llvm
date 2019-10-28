@@ -619,7 +619,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
       m_header->getParent()->getEntryBlock().getFirstNonPHI();
   for (unsigned i = 0; i < 4; ++i) {
     AllocaInst *AI = new AllocaInst(
-      arrTy, m_DL->getAllocaAddrSpace(), nullptr, FLOAT_X_WIDTH__ALIGNMENT,
+      arrTy, m_DL->getAllocaAddrSpace(), nullptr, MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
       "stream.read.alloca", loc);
     Instruction *ptr =
         GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);

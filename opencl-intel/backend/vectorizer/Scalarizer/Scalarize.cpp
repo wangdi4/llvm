@@ -923,7 +923,7 @@ void ScalarizeFunction::scalarizeInstruction(AllocaInst *AI) {
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
       newScalarizedInsts[dup] = new AllocaInst(
-        allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, AI->getName(), AI);
+        allocaType, m_pDL->getAllocaAddrSpace(), 0, MaybeAlign(alignment), AI->getName(), AI);
     }
 
     // Add new value/s to SCM

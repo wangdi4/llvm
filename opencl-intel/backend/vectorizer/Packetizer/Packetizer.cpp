@@ -2819,7 +2819,7 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
     unsigned int alignment = AI->getAlignment() * m_packetWidth;
 
     AllocaInst* newAlloca = new AllocaInst(
-      allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, "PackedAlloca", AI);
+      allocaType, m_pDL->getAllocaAddrSpace(), 0, MaybeAlign(alignment), "PackedAlloca", AI);
 
     Instruction *duplicateInsts[MAX_PACKET_WIDTH];
     // Set the new SOA-alloca instruction as scalar multi instructions
