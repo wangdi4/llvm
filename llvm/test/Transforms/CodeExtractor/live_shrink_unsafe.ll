@@ -70,6 +70,9 @@ bb:
 
 ; CHECK-LABEL define internal void @_Z3foo_unknown_calli.1_bb3
 ; CHECK: newFuncRoot:
+; CHECK-NEXT: %tmp.addr = alloca                                         ;INTEL
+; CHECK-NEXT: store{{.*}} %tmp.addr                                      ;INTEL
+; CHECK-NEXT: %0 = load{{.*}} %tmp.addr                                  ;INTEL
 ; CHECK-NEXT: br label %bb3
 
 ; CHECK: bb4.exitStub:

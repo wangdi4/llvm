@@ -36,6 +36,11 @@
 ; CHECK: ret void
 
 
+; The variables X and Y used below are loaded from their homed location.
+
+; CHECK: [[X:[0-9]+]] = load %class.foo*, %class.foo** %x
+; CHECK: [[Y:[0-9]+]] = load %class.foo*, %class.foo** %y
+
 ; The kmp_task_t thunk is allocated with the "9" flag which indicates that
 ; the destructor thunk should be called.
 
@@ -51,9 +56,9 @@
 ; task setup code.
 
 ; CHECK: [[PRIVXX:%[^ ]+]] = getelementptr{{.*}}struct.kmp_privates.t
-; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[PRIVXX]]{{.*}}%x
+; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[PRIVXX]]{{.*}}[[X]]
 ; CHECK: [[PRIVXY:%[^ ]+]] = getelementptr{{.*}}struct.kmp_privates.t
-; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[PRIVXY]]{{.*}}%y
+; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[PRIVXY]]{{.*}}[[Y]]
 
 ; The copy-thunk is passed to kmpc_taskloop.
 

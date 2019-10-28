@@ -15,8 +15,8 @@ target triple = "aarch64"
 ; CHECK: declare {{.*}}@llvm.assume
 ; CHECK: define {{.*}}@f.cold.1(i64 %0)
 ; CHECK-LABEL: newFuncRoot:
-; CHECK: %1 = icmp eq i64 %0, 0
-; CHECK: call void @llvm.assume(i1 %1)
+; CHECK: %2 = icmp eq i64 %1, 0                                          ;INTEL
+; CHECK: call void @llvm.assume(i1 %2)                                   ;INTEL
 
 define void @f() {
 entry:

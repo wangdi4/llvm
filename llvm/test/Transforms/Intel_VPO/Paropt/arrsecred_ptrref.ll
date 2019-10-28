@@ -84,7 +84,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 ; Start and end of original reduction array section for finalization.
 ; CHECK-DAG: %[[ORIG_LOAD_LOAD_PLUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i64, i64* %[[ORIG_LOAD_LOAD:[a-zA-Z._0-9]+]], i64 2
 ; CHECK-DAG: %[[ORIG_LOAD_LOAD]] = load i64*, i64** %[[ORIG_LOAD:[a-zA-Z._0-9]+]]
-; CHECK-DAG: %[[ORIG_LOAD]] = load i64**, i64*** %y_byrefarg_ptr.addr
+; CHECK-DAG: %[[ORIG_LOAD_ADDR:[a-zA-Z._0-9]+]] = load i64***, i64**** %y_byrefarg_ptr.addr
+; CHECK-DAG: %[[ORIG_LOAD]] = load i64**, i64*** %[[ORIG_LOAD_ADDR]]
 ; CHECK-DAG: %[[ORIG_END:[a-zA-Z._0-9]+]] = getelementptr i64, i64* %[[ORIG_LOAD_LOAD_PLUS_OFFSET]], i64 1
 ; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i64* %[[ORIG_LOAD_LOAD_PLUS_OFFSET]], %[[ORIG_END]]
 

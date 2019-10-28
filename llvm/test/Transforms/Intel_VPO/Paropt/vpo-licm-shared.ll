@@ -15,14 +15,18 @@
 
 ;  outlined function definition
 ; CHECK: define{{.*}}split
+; CHECK: %[[C0_ADDR_ADDR:[^ ]+]] = alloca float*
+; CHECK: store float* %c0.addr, float** %[[C0_ADDR_ADDR]]
+; CHECK: %[[C0_ADDR:[0-9]+]] = load float*, float** %[[C0_ADDR_ADDR]]
 
 ;  c0 should be loaded in the pre-header of the loop
 ; CHECK: .ph:
-; CHECK: load{{.*}}%c0.addr
+; CHECK: load{{.*}}%[[C0_ADDR]]
 
 ;  c0 should not be loaded in the body
 ; CHECK: for.body{{.*}}:
 ; CHECK-NOT: load{{.*}}%c0.addr
+; CHECK-NOT: load{{.*}}%[[C0_ADDR]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

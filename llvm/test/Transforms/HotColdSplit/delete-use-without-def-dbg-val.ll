@@ -7,7 +7,10 @@ target triple = "x86_64-apple-macosx10.14.0"
 ; CHECK-NOT: call {{.*}}llvm.dbg.value
 
 ; CHECK-LABEL: define {{.*}}@foo.cold
-; CHECK-NOT: call {{.*}}llvm.dbg.value
+; CHECK: call void @llvm.dbg.value(metadata i32 %var, metadata [[VAR:![0-9]+]], metadata !DIExpression()), !dbg [[LOC:![0-9]+]]                         ;INTEL
+; CHECK: [[FOO_COLD:![0-9]+]] = distinct !DISubprogram(name: "foo.cold.1" ;INTEL
+; CHECK: [[LOC]] = !DILocation(line: 1, column: 1, scope: [[FOO_COLD]])  ;INTEL
+; CHECK: [[VAR]] = !DILocalVariable(name: "1", scope: [[FOO_COLD]]       ;INTEL
 
 define void @foo() !dbg !6 {
 entry:
@@ -23,8 +26,8 @@ if.end:                                           ; preds = %entry
   br label %cleanup
 
 cleanup:
-  ; This dbg.value should be deleted after outlining, otherwise the verifier
-  ; complains about function-local metadata being used outside of a function.
+  ; INTEL
+  ; The llvm.dbg.value should be moved into foo.cold with the alloca for 'var'.
   call void @llvm.dbg.value(metadata i32 %var, metadata !9, metadata !DIExpression()), !dbg !11
   ret void
 }

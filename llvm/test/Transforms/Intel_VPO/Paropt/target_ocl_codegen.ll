@@ -15,8 +15,11 @@
 ; }
 ;
 
-; CHECK: store i32 %{{.*}}, i32 addrspace(1)* %{{.*}}
-; CHECK:  !spirv.Source = !{!{{.*}}}
+; CHECK: %[[HOME:.+]] = alloca i32 addrspace(1)*
+; CHECK: store i32 addrspace(1)* %0, i32 addrspace(1)** %[[HOME]]
+; CHECK: %[[LOAD:.+]] = load i32 addrspace(1)*, i32 addrspace(1)** %[[HOME]]
+; CHECK: store i32 %{{.*}}, i32 addrspace(1)* %[[LOAD]]
+; CHECK: !spirv.Source = !{!{{.*}}}
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

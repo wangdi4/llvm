@@ -13,6 +13,9 @@ add_llvm_component_library(LLVMTransformUtils
   CodeMoverUtils.cpp
   CtorUtils.cpp
   Debugify.cpp
+# INTEL_CUSTOMIZATION
+  DebugInfoTransform.cpp
+# end INTEL_CUSTOMIZATION
   DemoteRegToStack.cpp
   EntryExitInstrumenter.cpp
   EscapeEnumerator.cpp
