@@ -1197,23 +1197,11 @@ static uint64_t genMask(uint64_t Mask, uint32_t shiftcount,
   return Mask;
 }
 
-static void printMask(OVLSostream &OS, uint64_t Mask) {
+static void printMask(OVLSostream &OS, const APInt &Mask) {
   // Convert int AccessMask to binary
-  char SRMask[MAX_VECTOR_LENGTH + 1], *MaskPtr;
-  SRMask[0] = '\0';
-  MaskPtr = &SRMask[1];
-  while (Mask) {
-    if (Mask & 1)
-      *MaskPtr++ = '1';
-    else
-      *MaskPtr++ = '0';
-
-    Mask >>= 1;
-  }
-  // print the mask reverse
-  while (*(--MaskPtr) != '\0') {
-    OS << *MaskPtr;
-  }
+  int Width = Mask.getBitWidth();
+  for (int i = 0; i < Width; ++i)
+    OS << (Mask[i] ? '1' : '0');
 }
 
 // Form OptVLSgroups for each set of adjacent memrefs in the MemrefSetVec
@@ -1243,14 +1231,10 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
 
       int64_t Dist = AdjMemrefSetIt->second;
 
-      uint64_t AccMask = CurrGrp->getNByteAccessMask();
-
-      // Adjust mask and distance if the new memref precedes all the previously
-      // seen memrefs.
-      if (Dist < GrpFirstMDist) {
-        AccMask <<= GrpFirstMDist - Dist;
+      // Adjust distance if the new memref precedes all the previously seen
+      // memrefs.
+      if (Dist < GrpFirstMDist)
         GrpFirstMDist = Dist;
-      }
 
       // FIXME: We assume that the first memory reference in AdjMemrefSet is the
       //        best InsertPoint to form a new group. Here we only check if it
@@ -1271,12 +1255,9 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
 
         // Reset GrpFirstMDist
         GrpFirstMDist = Dist;
-        // Generate AccessMask
-        AccMask = OptVLS::genMask(0, ElemSize, Dist - GrpFirstMDist);
-      } else
-        AccMask = OptVLS::genMask(AccMask, ElemSize, Dist - GrpFirstMDist);
+      }
 
-      CurrGrp->insert(Memref, AccMask);
+      CurrGrp->insert(Memref);
       if (MemrefToGroupMap)
         (*MemrefToGroupMap)
             .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp));
@@ -1400,15 +1381,14 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
 
 // Returns true if this acceess-mask has contiguous accesses means no 0s
 // between 1s
-static bool hasContiguousAccesses(uint64_t ByteAccessMask,
-                                  uint64_t TotalBytes) {
+static bool hasContiguousAccesses(APInt ByteAccessMask, uint64_t TotalBytes) {
   // All bytes are set to 1
   if ((((uint64_t)1 << TotalBytes) - 1) == ByteAccessMask)
     return true;
 
   // Look for the first zero in the mask.
   while ((ByteAccessMask & 0x1) == 1)
-    ByteAccessMask = ByteAccessMask >> 1;
+    ByteAccessMask.lshrInPlace(1);
 
   // mask value (starting from the first zero in the mask)is zero,
   // that means there are no more accesses after a gap.
@@ -1435,7 +1415,7 @@ static bool isSupported(const OVLSGroup &Group) {
 
   // Currently, AOS with heterogeneous members or adjacent memrefs with gaps
   // in between the accesses are not supported.
-  if (!OptVLS::hasContiguousAccesses(Group.getNByteAccessMask(),
+  if (!OptVLS::hasContiguousAccesses(Group.computeByteAccessMask(),
                                      Group.getVectorLength())) {
     OVLSDebug(OVLSdbgs() << "Cost analysis is only supported for a group of"
                             " contiguous ith accesses!!!\n");
@@ -1443,10 +1423,10 @@ static bool isSupported(const OVLSGroup &Group) {
   }
 
   // Compute the number of bytes in the i-th elements of the memrefs
-  uint64_t NBMask = Group.getNByteAccessMask();
+  auto NBMask = Group.computeByteAccessMask();
   int32_t UsedBytes = 0;
   while (NBMask != 0) {
-    NBMask = NBMask >> 1;
+    NBMask.lshrInPlace(1);
     UsedBytes++;
   }
 
@@ -1563,8 +1543,8 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
   }
 
   // Access mask of the group in bytes.
-  uint64_t AccessMask = Group.getNByteAccessMask();
-  uint64_t AMask = AccessMask;
+  auto AccessMask = Group.computeByteAccessMask();
+  auto AMask = AccessMask;
 
   // The number of elements in each gather.
   uint32_t NumElems = Group.getNumElems();
@@ -1698,7 +1678,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
       // Update AccessMask
       uint32_t AMaskCounter = ElemSize;
       while (AMaskCounter-- != 0)
-        AMask = AMask >> 1;
+        AMask.lshrInPlace(1);
 
       // If we have hit the end of the AccessMask, reset it.
       if (AMask == 0) {
@@ -1712,7 +1692,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
       } else {
         // Account any physical gap existing between the memrefs.
         while ((AMask & 0x1) == 0) {
-          AMask = AMask >> 1;
+          AMask.lshrInPlace(1);
           GapSize++;
         }
       }
@@ -1734,6 +1714,23 @@ bool OVLSGroup::isSafeToInsert(OVLSMemref &Mrf) const {
   llvm_unreachable("Unknown AccessKind");
 }
 
+APInt OVLSGroup::computeByteAccessMask() const {
+  assert(!empty() && "Group cannot be empty");
+  OVLSMemref *FirstMrf = *MemrefVec.begin();
+  OVLSMemref *LastMrf = *MemrefVec.rbegin();
+  auto NBytes = *LastMrf->getConstDistanceFrom(*FirstMrf) +
+                LastMrf->getType().getElementSize() / 8;
+
+  auto Mask = APInt::getNullValue(NBytes);
+  for (OVLSMemref *Mrf : MemrefVec) {
+    auto MrfSize = Mrf->getType().getElementSize() / 8;
+    Optional<int64_t> MrfOffset = Mrf->getConstDistanceFrom(*FirstMrf);
+    Mask.setBits(*MrfOffset, *MrfOffset + MrfSize);
+  }
+
+  return Mask;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 
@@ -1745,8 +1742,7 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   // Print result mask
   OS << "\n    AccessMask(per byte, R to L): ";
-  uint64_t AMask = getNByteAccessMask();
-  OptVLS::printMask(OS, AMask);
+  OptVLS::printMask(OS, computeByteAccessMask());
   OS << "\n";
 
   // Print vector of memrefs that belong to this group.
@@ -1775,7 +1771,7 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << " (";
   Src.print(OS, 0);
   OS << ", ";
-  OptVLS::printMask(OS, getMask());
+  OptVLS::printMask(OS, APInt(64, getMask()));
   OS << ")";
 }
 
@@ -1792,7 +1788,7 @@ void OVLSStore::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
   Dst.print(OS, 0);
   OS << ", ";
-  OptVLS::printMask(OS, getMask());
+  OptVLS::printMask(OS, APInt(64, getMask()));
   OS << ")";
 }
 
@@ -2515,7 +2511,7 @@ bool OptVLSInterface::getSequencePredefined(
       // TODO: add utility function that checks for all ones using compare mask
       // of size stride instead of hard-coded 65535. See other uses of
       // getNByteAccessMask.
-      Group.getNByteAccessMask() == 65535 &&
+      Group.computeByteAccessMask() == 65535 &&
       Group.getAccessKind() == OVLSAccessKind::SLoad) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi32(Group, InstVector, MemrefToInstMap);
@@ -2550,7 +2546,7 @@ bool OptVLSInterface::getSequencePredefined(
   // No target specific information is needed here. The sequence is target
   // independent for now.
   if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 16 &&
-      Group.getNByteAccessMask() == 65535 &&
+      Group.computeByteAccessMask() == 65535 &&
       Group.getAccessKind() == OVLSAccessKind::SLoad) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi16(Group, InstVector, MemrefToInstMap);
@@ -2580,7 +2576,7 @@ bool OptVLSInterface::getSequencePredefined(
   // No target specific information is needed here. The sequence is target
   // independent for now.
   if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 32 &&
-      Group.getNByteAccessMask() == 65535 &&
+      Group.computeByteAccessMask() == 65535 &&
       Group.getAccessKind() == OVLSAccessKind::SStore) {
     // Sequence can be safely generated.
     return genSeqStoreStride16Packed8xi32(Group, InstVector);
