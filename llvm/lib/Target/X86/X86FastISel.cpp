@@ -3273,6 +3273,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
   case CallingConv::X86_ThisCall:
   case CallingConv::Win64:
   case CallingConv::X86_64_SysV:
+  case CallingConv::CFGuard_Check:
     break;
   }
 

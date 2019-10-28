@@ -211,6 +211,7 @@ protected:
   MCSection *XDataSection;
   MCSection *SXDataSection;
   MCSection *GFIDsSection;
+  MCSection *GLJMPSection;
 
 #if INTEL_CUSTOMIZATION
   MCSection *OptReportSection = nullptr;
@@ -383,6 +384,7 @@ public:
   MCSection *getXDataSection() const { return XDataSection; }
   MCSection *getSXDataSection() const { return SXDataSection; }
   MCSection *getGFIDsSection() const { return GFIDsSection; }
+  MCSection *getGLJMPSection() const { return GLJMPSection; }
 
   MCSection *getEHFrameSection() {
     return EHFrameSection;
