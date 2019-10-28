@@ -4,12 +4,6 @@
 // RUN: env SYCL_PI_TRACE=1 %GPU_RUN_PLACEHOLDER %t.out 2>&1 %GPU_CHECK_PLACEHOLDER
 // TODO: For now PI checks are skipped for ACC device. To decide if it's good.
 // RUN: env %ACC_RUN_PLACEHOLDER %t.out
-//
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
-
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
 
 //==-------------- image_access.cpp - SYCL image accessors test  -----------==//
 //

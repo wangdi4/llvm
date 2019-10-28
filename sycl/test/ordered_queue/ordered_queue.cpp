@@ -1,9 +1,6 @@
 // RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 
-// INTEL_CUTOMIZATION
-// XFAIL: windows
-
 //==---------- ordered_queue.cpp - SYCL ordered queue test -----------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

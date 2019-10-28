@@ -1,7 +1,5 @@
 // RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %t.out
-// TODO: SYCL specific fail - analyze and enable
-// XFAIL: windows
 
 //==------------------- GetWaitList.cpp ----------------------------==//
 //
