@@ -11,21 +11,14 @@
 #include "options.hpp"
 
 #include <gtest/gtest.h>
+#include "common_utils.h"
 
 bool gCaptureMode = false;
 
 int main(int argc, char** argv) {
-  char* pEnvDevice;
-  pEnvDevice = getenv("CL_CONFIG_DEVICES");
-  if (nullptr == pEnvDevice) {
-    std::cout << "No CL_CONFIG_DEVICES specified, considering device as CPU."
-              << std::endl;
-
-    return 0;
-  }
-  else if ("fpga-emu" != std::string(pEnvDevice)) return 0;
-
   CommandLineOption<bool> captureOption("--capture");
+  // Pretend to be FPGA emulator anyway
+  SETENV("CL_CONFIG_DEVICES", "fpga-emu");
 
   for (int i = 1 ; i < argc ; i++) {
     if (captureOption.isMatch(argv[i])) {
