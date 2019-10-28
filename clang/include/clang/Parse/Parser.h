@@ -1799,15 +1799,24 @@ private:
                                   bool EnteringContext, IdentifierInfo &II,
                                   CXXScopeSpec &SS);
 
+<<<<<<< HEAD
 public:   //***INTEL
   bool ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
                                       ParsedType ObjectType,
+=======
+  bool ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS, ParsedType ObjectType,
+>>>>>>> d9971d0b2e34a6a5ca182089d019c9f079f528af
                                       bool EnteringContext,
                                       bool *MayBePseudoDestructor = nullptr,
                                       bool IsTypename = false,
                                       IdentifierInfo **LastII = nullptr,
+<<<<<<< HEAD
                                       bool OnlyNamespace = false);
 private:  //***INTEL
+=======
+                                      bool OnlyNamespace = false,
+                                      bool InUsingDeclaration = false);
+>>>>>>> d9971d0b2e34a6a5ca182089d019c9f079f528af
 
   //===--------------------------------------------------------------------===//
   // C++11 5.1.2: Lambda expressions
