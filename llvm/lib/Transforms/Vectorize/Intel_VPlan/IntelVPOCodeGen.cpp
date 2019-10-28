@@ -548,11 +548,10 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   const VPInstruction *Leader =
       cast<VPVLSClientMemref>(InsertPoint)->getInstruction();
 
-  Type *GroupType =
-      getWidenedType(getLoadStoreType(Leader), VF * Group->size());
+  Type *SingleAccessType = getLoadStoreType(Leader);
+  Type *GroupType = getWidenedType(SingleAccessType, VF * Group->size());
 
   Value *GatherAddress = getVectorValue(Leader->getOperand(0));
-  assert(!MaskValue && "Scalar address may be invalid (masked out)");
   Value *ScalarAddress = Builder.CreateExtractElement(
       GatherAddress, (uint64_t)0, GatherAddress->getName() + "_0");
 
@@ -568,8 +567,20 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   Value *GroupPtr = Builder.CreateBitCast(
       ScalarAddress, GroupType->getPointerTo(AddressSpace), "groupPtr");
   unsigned Align = getOriginalLoadStoreAlignment(Leader);
-  LoadInst *GroupLoad =
-      Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
+
+  Instruction *GroupLoad;
+  if (MaskValue) {
+    auto OriginalVL = SingleAccessType->isVectorTy()
+                          ? SingleAccessType->getVectorNumElements()
+                          : 1;
+    Value *LoadMask = replicateVectorElts(MaskValue, OriginalVL * Group->size(),
+                                          Builder, "groupLoadMask");
+    GroupLoad = Builder.CreateMaskedLoad(GroupPtr, Align, LoadMask, nullptr,
+                                         "groupLoad");
+  } else {
+    GroupLoad =
+        Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
+  }
 
   VLSGroupLoadMap.insert(std::make_pair(Group, GroupLoad));
   return GroupLoad;
@@ -679,9 +690,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   }
 
   // Try to do GATHER-to-SHUFFLE optimization.
-  // TODO: VLS optimization is disabled in masked basic blocks so far. It
-  // should be enabled for uniform masks, though.
-  OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+  OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
   if (Group && Group->size() > 1) {
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
@@ -764,7 +773,6 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   const VPInstruction *Leader =
       cast<VPVLSClientMemref>(MemRef)->getInstruction();
   Value *ScatterAddress = getVectorValue(Leader->getOperand(1));
-  assert(!MaskValue && "Scalar address may be invalid (masked out)");
   Value *ScalarAddress = Builder.CreateExtractElement(
       ScatterAddress, (uint64_t)0, ScatterAddress->getName() + "_0");
   auto AddressSpace =
@@ -775,7 +783,13 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
 
   // Create the wide store.
   unsigned Align = getOriginalLoadStoreAlignment(VPStore);
-  Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
+  if (MaskValue) {
+    Value *StoreMask = replicateVectorElts(
+        MaskValue, OriginalVL * Group->size(), Builder, "groupStoreMask");
+    Builder.CreateMaskedStore(StoredValue, GroupPtr, Align, StoreMask);
+  } else {
+    Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
+  }
 }
 
 void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
@@ -840,9 +854,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   }
 
   // Try to do SCATTER-to-SHUFFLE optimization.
-  // TODO: VLS optimization is disabled in masked basic blocks so far. It
-  // should be enabled for uniform masks, though.
-  OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+  OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
   if (Group && Group->size() > 1) {
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
