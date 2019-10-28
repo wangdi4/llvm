@@ -537,7 +537,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,
-                         CallbackILV, Legal, Plan->getVPLoopInfo());
+                         CallbackILV, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
 #if INTEL_CUSTOMIZATION
