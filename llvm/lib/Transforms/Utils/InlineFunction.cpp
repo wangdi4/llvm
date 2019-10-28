@@ -1393,19 +1393,25 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   }
 
   // Create the alloca.  If we have DataLayout, use nice alignment.
-  unsigned Align = DL.getPrefTypeAlignment(AggTy);
+  Align Alignment(DL.getPrefTypeAlignment(AggTy));
 
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
   // pointer inside the callee).
-  Align = std::max(Align, ByValAlignment);
+  Alignment = max(Alignment, MaybeAlign(ByValAlignment));
 
+<<<<<<< HEAD
   Value *NewAlloca = new AllocaInst(
       AggTy, DL.getAllocaAddrSpace(), nullptr, Align, Arg->getName(),
 #if INTEL_COLLAB
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
 #endif // INTEL_COLLAB
                                                &*Caller->begin()->begin());
+=======
+  Value *NewAlloca =
+      new AllocaInst(AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment,
+                     Arg->getName(), &*Caller->begin()->begin());
+>>>>>>> e8a0a0904b2b144929312ac424626b3e026bf9fb
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
