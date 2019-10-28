@@ -2233,20 +2233,16 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
   W->populateBBSet();
 
-  if (W->getBBSetSize() != 3) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Expected 3 BBs in Target Variant Dispatch\n");
-    return false;
-  }
-
   // The first and last BasicBlocks contain the region.entry/exit calls.
-  // The middle one has the base function call we're interested in.
-  BasicBlock *BB = *(W->bbset_begin() + 1);
+  // The first call instruction found in the remaining BBs is the
+  // base function call. All other instructions in the region are ignored.
 
   CallInst *BaseCall = nullptr;
-  for (Instruction &I : *BB)
-    if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
-      break;
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1))
+    for (Instruction &I : *BB) {
+      if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
+        break;
+    }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)
