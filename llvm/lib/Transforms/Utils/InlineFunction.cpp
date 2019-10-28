@@ -1400,18 +1400,12 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   // pointer inside the callee).
   Alignment = max(Alignment, MaybeAlign(ByValAlignment));
 
-<<<<<<< HEAD
   Value *NewAlloca = new AllocaInst(
-      AggTy, DL.getAllocaAddrSpace(), nullptr, Align, Arg->getName(),
+      AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
 #if INTEL_COLLAB
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
 #endif // INTEL_COLLAB
                                                &*Caller->begin()->begin());
-=======
-  Value *NewAlloca =
-      new AllocaInst(AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment,
-                     Arg->getName(), &*Caller->begin()->begin());
->>>>>>> e8a0a0904b2b144929312ac424626b3e026bf9fb
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
