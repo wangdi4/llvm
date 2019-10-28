@@ -75,7 +75,7 @@ ProgramService::ProgramService(cl_int devId,
 
 ProgramService::~ProgramService()
 {
-    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CPUDevice: Program Service - Distructed"));
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CPUDevice: Program Service - Destructed"));
 
     if (0 != m_iLogHandle)
     {
