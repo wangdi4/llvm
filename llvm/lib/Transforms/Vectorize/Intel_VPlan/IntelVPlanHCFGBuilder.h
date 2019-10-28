@@ -116,7 +116,6 @@ protected:
   bool isBreakingSSA(VPLoop *VPL);
 
   void buildLoopRegions();
-  virtual void collectUniforms(VPRegionBlock *Region);
   void buildNonLoopRegions(VPRegionBlock *ParentRegion);
 
   // Utility functions.

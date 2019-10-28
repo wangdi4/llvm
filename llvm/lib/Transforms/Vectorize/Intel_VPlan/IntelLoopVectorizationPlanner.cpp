@@ -545,9 +545,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV->setTransformState(&State);
 #endif // INTEL_CUSTOMIZATION
 
-  // TODO: This should be removed once we get proper divergence analysis
-  State.UniformCBVs = &Plan->UniformCBVs;
-
   ILV->collectUniformsAndScalars(BestVF);
 
   Plan->execute(&State);

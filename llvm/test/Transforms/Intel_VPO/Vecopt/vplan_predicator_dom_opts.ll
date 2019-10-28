@@ -186,7 +186,7 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %if.end0 ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 0
+  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %iv
   %0 = load i32, i32* %arrayidx, align 4
   %cmp0 = icmp sgt i64 %iv, 0
   br i1 %cmp0, label %if.then0, label %if.end0
