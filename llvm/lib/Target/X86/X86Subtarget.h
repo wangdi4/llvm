@@ -494,6 +494,9 @@ protected:
   /// Indicates target prefers 256 bit instructions.
   bool Prefer256Bit = false;
 
+  /// Indicates target prefers AVX512 mask registers.
+  bool PreferMaskRegisters = false;
+
   /// Threeway branch is profitable in this subtarget.
   bool ThreewayBranchProfitable = false;
 
@@ -819,6 +822,7 @@ public:
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
+  bool preferMaskRegisters() const { return PreferMaskRegisters; }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }
   unsigned getRequiredVectorWidth() const { return RequiredVectorWidth; }
