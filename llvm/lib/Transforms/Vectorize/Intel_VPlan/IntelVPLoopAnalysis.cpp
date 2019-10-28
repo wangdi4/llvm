@@ -513,29 +513,26 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
   linkValue(&E, &Final);
 }
 
-void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
-  if (!VPlanUseVPEntityInstructions)
-    return;
-  VPBlockBase *BB = Loop.getUniqueExitBlock();
-  // If the loop is multi-exit then the code gen for it is done using underlying
-  // IR and we don't need to emit anything here
-  if (!BB)
-    return;
-  VPBasicBlock *PostExit = cast<VPBasicBlock>(BB);
-  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+// Insert VPInstructions related to VPReductions.
+void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
+                                                     VPBasicBlock *Preheader,
+                                                     VPBasicBlock *PostExit) {
 
-  VPBuilder::InsertPointGuard Guard(Builder);
+  assert(Preheader && "Expect valid Preheader to be passed as input argument.");
+  assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
   DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
       RedFinalMap;
 
-  auto *DA = Plan.getVPlanDA();
+  // Set the insert-guard-point.
+  VPBuilder::InsertPointGuard Guard(Builder);
 
+  // Process the list of Reductions.
   for (VPReduction *Reduction : vpreductions()) {
+    VPValue *AI = nullptr;
     Builder.setInsertPoint(Preheader);
     VPValue *Identity = getReductionIdentity(Reduction);
     Type *Ty = Reduction->getRecurrenceType();
-    VPValue *AI = nullptr;
     VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
     if (Reduction->getIsMemOnly())
       if (!isa<VPConstant>(Identity))
@@ -543,8 +540,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
         Identity = Builder.createNaryOp(Instruction::Load, Ty, {AI});
 
     // We can initialize reduction either with broadcasted identity only or
-    // inserting additionally the initial value into 0th element. In the second
-    // case we don't need an additional instruction when reducing.
+    // inserting additionally the initial value into 0th element. In the
+    // second case we don't need an additional instruction when reducing.
     // Currently, we use broadcast-only for FP data types and min/max
     // reductions. For integers and pointers we use the broadcast-and-insert
     // method.
@@ -556,9 +553,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             : Builder.createReductionInit(Identity);
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
-    DA->markDivergent(*Init);
+    Plan.getVPlanDA()->markDivergent(*Init);
 
-    // Create instruction for last value
+    // Create instruction for last value.
     Builder.setInsertPoint(PostExit);
     VPInstruction *Exit = cast<VPInstruction>(
         Reduction->getIsMemOnly()
@@ -579,7 +576,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
         Final =
             Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit);
       } else {
-        // Create a load for Start value if it's a pointer
+        // Create a load for Start value if it's a pointer.
         VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
         if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
           assert(isa<PointerType>(FinalStartValue->getType()) &&
@@ -596,9 +593,23 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
     }
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
+}
+
+// Insert VPInstructions related to VPInductions.
+void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
+                                                     VPBasicBlock *Preheader,
+                                                     VPBasicBlock *PostExit) {
+
+  assert(Preheader && "Expect valid Preheader to be passed as input argument.");
+  assert(PostExit && "Expect valid PostExit to be passed as input argument.");
+
+  // Set the insert-guard-point.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  // Process the list of Inductions.
   for (VPInduction *Induction : vpinductions()) {
-    Builder.setInsertPoint(Preheader);
     VPValue *AI = nullptr;
+    Builder.setInsertPoint(Preheader);
     VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
@@ -609,9 +620,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
     VPInstruction *Init =
         Builder.createInductionInit(Start, Induction->getStep(), Opc);
-    DA->markDivergent(*Init);
-    processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty,
-                     *Start);
+    Plan.getVPlanDA()->markDivergent(*Init);
+    processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
     VPInstruction *InitStep =
         Builder.createInductionInitStep(Induction->getStep(), Opc);
     if (!Induction->needCloseForm()) {
@@ -641,9 +651,22 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             : Builder.createInductionFinal(Start, Induction->getStep(), Opc);
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
+}
+
+// Insert VPInstructions related to VPPrivates.
+void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
+                                                   VPBasicBlock *Preheader) {
+
+  assert(Preheader && "Expect valid Preheader to be passed as input argument.");
+
+  auto *DA = Plan.getVPlanDA();
+
+  // Set the insert-guard-point.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  Builder.setInsertPoint(Preheader, Preheader->begin());
 
   // Process the list of Privates.
-  Builder.setInsertPoint(Preheader, Preheader->begin());
   for (VPPrivate *Private : vpprivates()) {
     VPValue *AI = nullptr;
     VPValue *PrivateMem = createPrivateMemory(*Private, Builder, AI);
@@ -666,9 +689,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
       DA->updateVectorShape(VPInst, VectorShape->clone());
     }
 
-    // Now do the replacement. We first replace all instances of VPOperand with
-    // VPInst within the preheader, where all aliases have been inserted. Then
-    // replace all instances of VPOperand with VPInst in the loop.
+    // Now do the replacement. We first replace all instances of VPOperand
+    // with VPInst within the preheader, where all aliases have been inserted.
+    // Then replace all instances of VPOperand with VPInst in the loop.
     for (auto const &ValInstPair : Private->aliases()) {
       auto *VPOperand = ValInstPair.first;
       auto *VPInst = ValInstPair.second;
@@ -677,23 +700,51 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
     }
 
     if (PrivateMem) {
-      // The uses of this allocate-private could also be instruction outside the
-      // loop. We have to replace instances which are in the pre-header, along
-      // with the ones in the loop.
+      // The uses of this allocate-private could also be instruction outside
+      // the loop. We have to replace instances which are in the pre-header,
+      // along with the ones in the loop.
       AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
       AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
     }
     // Add special handling for 'Cond' and 'Last' - privates
   }
+  LLVM_DEBUG(
+      dbgs()
+      << "After replacement of private and aliases within the preheader.\n");
+  LLVM_DEBUG(Preheader->dump());
+}
+
+// Insert VPInstructions corresponding to the VPLoopEntities like
+// VPInductions, VPReductions and VPPrivates.
+void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
+
+  // If the generation of VPEntityInstructions is not enabled, just return
+  // early.
+  if (!VPlanUseVPEntityInstructions)
+    return;
+
+  // If the loop is multi-exit then the code gen for it is done using
+  // underlying IR and we don't need to emit anything here.
+  if (!Loop.getUniqueExitBlock())
+    return;
+
+  VPBasicBlock *PostExit = cast<VPBasicBlock>(Loop.getUniqueExitBlock());
+  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+
+  // Insert VPInstructions related to VPReductions.
+  insertReductionVPInstructions(Builder, Preheader, PostExit);
+
+  // Insert VPInstructions related to VPInductions.
+  insertInductionVPInstructions(Builder, Preheader, PostExit);
+
+  // Insert VPInstructions related to VPPrivates.
+  insertPrivateVPInstructions(Builder, Preheader);
+
   // If DA is run again after this point, this function-call will make sure
   // that it would not mark the original memory-ptr of the Loop Entities as
   // divergent. So, instructions which load data from the original memory
   // pointer are not converted into 'gathers'.
   Plan.setLoopEntitiesPrivatizationDone(true);
-  LLVM_DEBUG(
-      dbgs()
-      << "After replacement of private and aliases within the preheader.\n");
-  LLVM_DEBUG(Preheader->dump());
 }
 
 // Create so called "close-form calculation" for induction. The close-form
