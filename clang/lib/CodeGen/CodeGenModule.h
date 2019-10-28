@@ -1128,17 +1128,6 @@ public:
   llvm::FunctionCallee
   CreateRuntimeFunction(llvm::FunctionType *Ty, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-<<<<<<< HEAD
-                        bool Local = false);
-#if INTEL_CUSTOMIZATION
-  llvm::FunctionCallee
-  CreateSVMLFunction(llvm::FunctionType *Ty, StringRef Name,
-                     llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-                     bool Local = false);
-
-  void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
-#endif // INTEL_CUSTOMIZATION
-=======
                         bool Local = false, bool AssumeConvergent = false);
 
   /// Create or return a runtime function declaration with the specified type
@@ -1150,7 +1139,15 @@ public:
       bool Local = false) {
     return CreateRuntimeFunction(Ty, Name, ExtraAttrs, Local, true);
   }
->>>>>>> 40ab8ae9fb70f1550815bf0f867148b5101a4f66
+
+#if INTEL_CUSTOMIZATION
+  llvm::FunctionCallee
+  CreateSVMLFunction(llvm::FunctionType *Ty, StringRef Name,
+                     llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
+                     bool Local = false);
+
+  void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
+#endif // INTEL_CUSTOMIZATION
 
   /// Create a new runtime global variable with the specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
