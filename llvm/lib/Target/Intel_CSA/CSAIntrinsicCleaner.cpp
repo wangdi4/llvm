@@ -176,11 +176,13 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
         }
         else if(dyn_cast<SelectInst>(user)) {
           errs() << "!! ERROR: LIC streams are used by a select instruction\n";
-          errs() << " Add the option -mllvm -disable-hir-opt-var-predicate \n";
+          errs() << " Add the option -mllvm -simplifycfg-sink-common=0 \n";
         }
         else if(dyn_cast<StoreInst>(user)) {
           errs() << "!! ERROR: LIC streams are used by a store instruction\n";
           errs() << " Add the option -mllvm -hir-complete-unroll-loop-trip-threshold=256 \n";
+          errs() << " If the option is already there, make sure unrolling actually happened \n";
+          errs() << " using the option -qopt-report=3 \n";
         }
         errorMessage("LIC streams can only have writes/reads !!\n",
                      "\n The illegal use for stream:\n",
