@@ -359,46 +359,82 @@ private:
   static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements,
                           unsigned &AddrSpace);
 
-  /// Generate an optionally addrspacecast'ed AllocaInst for an array
+  /// Generate an optionally addrspacecast'ed pointer Value for an array
   /// of Type \p ElementType, size \p NumElements, name \p VarName.
   /// \p NumElements can be null for one element.
-  /// The generated Instruction is inserted before \p InsertPt
-  /// and returned as a result.
-  /// If \p AddrSpace does not match 0 (default llvm addrspace),
-  /// then the generated AllocaInst will be immediately addrspacecast'ed
-  /// and the generated AddrSpaceCastInst will be returned as a result.
-  static Instruction *genPrivatizationAlloca(Type *ElementType,
-                                             Value *NumElements,
-                                             Instruction *InsertPt,
-                                             const Twine &VarName = "",
-                                             unsigned AddrSpace = 0);
+  /// If new instructions need to be generated, they will be inserted
+  /// before \p InsertPt.
+  /// \p AllocaAddrSpace specifies address space in which the memory
+  /// for the privatized variable needs to be allocated. If it is
+  /// llvm::None, then the address space matches the default alloca's
+  /// address space, as specified by DataLayout. Note that some address
+  /// spaces may require allocating the private version of the variable
+  /// as a GlobalVariable, not as an AllocaInst.
+  /// If \p ValueAddrSpace does not match llvm::None,
+  /// then the generated Value will be immediately addrspacecast'ed
+  /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
+  /// expression will be returned as a result.
+  static Value *genPrivatizationAlloca(
+      Type *ElementType, Value *NumElements,
+      Instruction *InsertPt, const Twine &VarName = "",
+      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
 
-  /// Generate an optionally addrspacecast'ed AllocaInst for the local copy
+  /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
-  /// The AllocaInst is inserted before \p InsertPt.
-  /// If \p ForceDefaultAddressSpace is true, then the generated AllocaInst
-  /// will not be addrspacecast'ed to match the addrspace of the \p OrigValue.
-  //  FIXME: get rid of ForceDefaultAddressSpace, when PromoteMemToReg
+  /// If new instructions need to be generated, they will be inserted
+  /// before \p InsertPt.
+  /// \p AllocaAddrSpace specifies address space in which the memory
+  /// for the privatized variable needs to be allocated. If it is
+  /// llvm::None, then the address space matches the default alloca's
+  /// address space, as specified by DataLayout. Note that some address
+  /// spaces may require allocating the private version of the variable
+  /// as a GlobalVariable, not as an AllocaInst.
+  /// If \p PreserveAddressSpace is true, then the generated Value
+  /// will be addrspacecast'ed to match the addrspace of the \p OrigValue,
+  /// otherwise, the generated Value will have the addrspace, as specified
+  /// by \p AllocaAddrSpace.
+  //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Instruction *genPrivatizationAlloca(
+  static Value *genPrivatizationAlloca(
       Value *OrigValue,
       Instruction *InsertPt,
       const Twine &NameSuffix = "",
-      bool ForceDefaultAddressSpace = false);
+      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      bool PreserveAddressSpace = true);
 
-  /// Generate an optionally addrspacecast'ed AllocaInst for the local copy
+  /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
   /// firstprivate, lastprivate, reduction, linear.
   /// \p NameSuffix is appended at the end of the generated
-  /// Instruction's name. The AllocaInst is inserted before \p InsertPt.
-  /// If \p ForceDefaultAddressSpace is true, then the generated AllocaInst
-  /// will not be addrspacecast'ed to match the addrspace of the \p OrigValue.
-  //  FIXME: get rid of ForceDefaultAddressSpace, when PromoteMemToReg
+  /// Instruction's name.
+  /// If new instructions need to be generated, they will be inserted
+  /// before \p InsertPt.
+  /// \p AllocaAddrSpace specifies address space in which the memory
+  /// for the privatized variable needs to be allocated. If it is
+  /// llvm::None, then the address space matches the default alloca's
+  /// address space, as specified by DataLayout. Note that some address
+  /// spaces may require allocating the private version of the variable
+  /// as a GlobalVariable, not as an AllocaInst.
+  /// If \p PreserveAddressSpace is true, then the generated Value
+  /// will be addrspacecast'ed to match the addrspace of the \p OrigValue,
+  /// otherwise, the generated Value will have the addrspace, as specified
+  /// by \p AllocaAddrSpace.
+  //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Instruction *genPrivatizationAlloca(
+  static Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
-      bool ForceDefaultAddressSpace = false);
+      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      bool PreserveAddressSpace = true);
+
+  /// Returns address space that should be used for privatizing variables
+  /// referenced in PRIVATE clauses of the given region \p W.
+  /// If the return value is llvm::None, then the address space
+  /// should be equal to default alloca address space, as defined
+  /// by DataLayout.
+  llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
+      const WRegionNode *W) const;
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,

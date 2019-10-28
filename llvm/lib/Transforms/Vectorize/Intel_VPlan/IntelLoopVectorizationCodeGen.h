@@ -138,6 +138,7 @@ public:
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
   Value *getVectorPrivatePtrs(Value *ScalarPrivate);
+  Value *createVectorPrivatePtrs(VPAllocatePrivate *V);
 
   /// Return a value in the new loop corresponding to \p V from the original
   /// loop at vector index \p Lane. If the value has
@@ -573,6 +574,26 @@ private:
   // Map of widened private values. Unlike WidenMap, this is
   // pointer-to-pointer map.
   std::map<Value *, Value *> LoopPrivateWidenMap;
+  // Map to track widened alloca created for a private memory entity introduced
+  // by VPlan. VPScalarMap cannot be reused for this since we want to track the
+  // base pointer to widened memory that was allocated during CG. The scalar map
+  // will contain corresponding pointer for each lane. Some motivating usecases
+  // where base pointer to widened alloca is needed include unit-stride
+  // load/store and OpenCL sincos vectorization. An example -
+  //
+  // Incoming IR - "QUAL.OMP.PRIVATE"(i32* %priv)
+  // VPlan private memory - i32* %vp0 = allocate-private i32*
+  //
+  // Data structures status in CG for VF=4 -
+  // LoopPrivateVPWidenMap[%vp0] ---> %ptr = alloca <4 x i32>
+  // VPWidenMap[%vp0] ---> %vptr = <i32* ptr0, i32* ptr1, i32* ptr2, i32* ptr3>
+  // VPScalarMap[%vp0][0] ---> extract %vptr, 0
+  //
+  // Suppose there is a user of %priv in incoming IR like -
+  // %call = non_vectorizable_call(i32* %priv)
+  // Then to serialize this call, we need i32* parameters from VPScalarMap. The
+  // generated %ptr alloca above will be <4 x i32>*.
+  DenseMap<VPValue *, Value *> LoopPrivateVPWidenMap;
 
   // Keeps last non-zero mask
   std::map<Value *, Value *> LoopPrivateLastMask;
@@ -701,6 +722,7 @@ private:
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
   void vectorizeOpenCLSinCos(CallInst *Call, bool isMasked);
+  void vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked);
 
   // Vectorize the write channel source argument for an OpenCL write channel
   // call. The source is the data that will be written to the channel.

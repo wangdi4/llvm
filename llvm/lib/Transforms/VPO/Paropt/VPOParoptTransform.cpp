@@ -171,7 +171,7 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
 
   if ((IsDistParLoop || IsDistForLoop) &&
       // No team partitioning for SPMD mode.
-      !VPOParoptUtils::useSPMDMode(W)) {
+      (IsDistForLoop || !VPOParoptUtils::useSPMDMode(W))) {
     TeamLowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.lb");
 
     TeamUpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.ub");
@@ -253,10 +253,10 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     WRNScheduleKind &DistSchedKind, Instruction *&TeamLB, Instruction *&TeamUB,
     Instruction *&TeamST) {
   if (!W->getIsDistribute() ||
-      // Each iteration of the original loop is executed by a single WI,
-      // and we rely on OpenCL paritioning of WIs across WGs.
+      // Each iteration of the original distribute parallel loop is executed
+      // by a single WI, and we rely on OpenCL paritioning of WIs across WGs.
       // Thus, there is no need to compute the team bounds.
-      VPOParoptUtils::useSPMDMode(W))
+      (isa<WRNDistributeParLoopNode>(W) && VPOParoptUtils::useSPMDMode(W)))
     return;
   assert(W->getIsOmpLoop() &&
          "genOCLDistParLoopBoundUpdateCode: W is not a loop-type WRN");
@@ -1177,6 +1177,9 @@ bool VPOParoptTransform::paroptTransforms() {
 
             RemoveDirectives = true;
           } else {
+            if (isa<WRNTeamsNode>(W))
+              Changed |= genPrivatizationCode(W);
+
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
@@ -3361,13 +3364,13 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
 
-// Generate an AllocaInst for an array of Type ElementType, size NumElements,
-// and name VarName.
-Instruction *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
-                                                        Value *NumElements,
-                                                        Instruction *InsertPt,
-                                                        const Twine &VarName,
-                                                        unsigned AddrSpace) {
+// Generate a private variable version for an array of Type ElementType,
+// size NumElements, and name VarName.
+Value *VPOParoptTransform::genPrivatizationAlloca(
+    Type *ElementType, Value *NumElements,
+    Instruction *InsertPt, const Twine &VarName,
+    llvm::Optional<unsigned> AllocaAddrSpace,
+    llvm::Optional<unsigned> ValueAddrSpace) {
   assert(ElementType && "Null element type.");
   assert(InsertPt && "Null insertion anchor.");
 
@@ -3375,15 +3378,46 @@ Instruction *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
   const DataLayout &DL = M->getDataLayout();
   IRBuilder<> Builder(InsertPt);
 
-  auto AI = Builder.CreateAlloca(ElementType, DL.getAllocaAddrSpace(),
-                                 NumElements, VarName);
+  assert((!AllocaAddrSpace ||
+          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
+          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) &&
+         "Address space of an alloca may be either local or private.");
+  assert(DL.getAllocaAddrSpace() == vpo::ADDRESS_SPACE_PRIVATE &&
+         "Default alloca address space does not match "
+         "vpo::ADDRESS_SPACE_PRIVATE.");
 
-  if (AddrSpace == 0)
+  if (AllocaAddrSpace &&
+      AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) {
+    // OpenCL __local variables are globalized even when declared
+    // inside a kernel.
+    SmallString<64> GlobalName;
+    (VarName + Twine(".__local")).toStringRef(GlobalName);
+    GlobalVariable *GV =
+       new GlobalVariable(*M, ElementType, false, GlobalValue::InternalLinkage,
+                          Constant::getNullValue(ElementType), GlobalName,
+                          nullptr,
+                          GlobalValue::ThreadLocalMode::NotThreadLocal,
+                          vpo::ADDRESS_SPACE_LOCAL);
+
+    auto *ASCI = Builder.CreateAddrSpaceCast(
+        GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
+        GV->getName() + ".ascast");
+
+    return ASCI;
+  }
+
+  auto *AI = Builder.CreateAlloca(
+      ElementType,
+      AllocaAddrSpace ?
+          AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
+      NumElements, VarName);
+
+  if (!ValueAddrSpace)
     return AI;
 
   auto *ASCI = dyn_cast<Instruction>(
       Builder.CreateAddrSpaceCast(
-          AI, AI->getAllocatedType()->getPointerTo(AddrSpace),
+          AI, AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue()),
           AI->getName() + ".ascast"));
 
   assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
@@ -3439,10 +3473,11 @@ void VPOParoptTransform::getItemInfo(Item *I,
              } dbgs() << "\n");
 }
 
-// Generate an AllocaInst for the local copy of OrigValue.
-Instruction *VPOParoptTransform::genPrivatizationAlloca(
+// Generate a private variable version for the local copy of OrigValue.
+Value *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix,
-    bool ForceDefaultAddressSpace) {
+    llvm::Optional<unsigned> AllocaAddrSpace,
+    bool PreserveAddressSpace) {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
 
@@ -3453,7 +3488,9 @@ Instruction *VPOParoptTransform::genPrivatizationAlloca(
   getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
   auto *NewVal = genPrivatizationAlloca(
       ElementType, NumElements, InsertPt, OrigValue->getName() + NameSuffix,
-      ForceDefaultAddressSpace ? 0 : AddrSpace);
+      AllocaAddrSpace,
+      !PreserveAddressSpace ?
+          llvm::None : llvm::Optional<unsigned>(AddrSpace));
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
@@ -3462,12 +3499,13 @@ Instruction *VPOParoptTransform::genPrivatizationAlloca(
   return NewVal;
 }
 
-// Generate an AllocaInst for the local copy of ClauseItem I for various
+// Generate a private variable version for a ClauseItem I for various
 // data-sharing clauses.
-Instruction *VPOParoptTransform::genPrivatizationAlloca(
+Value *VPOParoptTransform::genPrivatizationAlloca(
     Item *I, Instruction *InsertPt,
     const Twine &NameSuffix,
-    bool ForceDefaultAddressSpace) {
+    llvm::Optional<unsigned> AllocaAddrSpace,
+    bool PreserveAddressSpace) {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
@@ -3482,7 +3520,9 @@ Instruction *VPOParoptTransform::genPrivatizationAlloca(
 
   auto *NewVal = genPrivatizationAlloca(
       ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix,
-      ForceDefaultAddressSpace ? 0 : AddrSpace);
+      AllocaAddrSpace,
+      !PreserveAddressSpace ?
+          llvm::None : llvm::Optional<unsigned>(AddrSpace));
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
@@ -4264,11 +4304,12 @@ Value *VPOParoptTransform::genRegionPrivateValue(
   // but did not succeed.  In the current use cases the generated
   // alloca will be removed by PromoteMemToReg, so it is currently
   // not a problem.
-  // FIXME: we have to set ForceDefaultAddressSpace to true,
+  // FIXME: we have to set PreserveAddressSpace to false,
   //        because otherwise PromoteMemToReg will not be able
   //        to promote the new AllocaInst. This should be fixed
   //        in PromoteMemToReg.
-  auto *NewAlloca = genPrivatizationAlloca(&FprivI, InsertPt, ".local", true);
+  auto *NewAlloca =
+      genPrivatizationAlloca(&FprivI, InsertPt, ".local", llvm::None, false);
   FprivI.setNew(NewAlloca);
 
   // Replace all uses of the original alloca's result with the new alloca
@@ -4854,6 +4895,18 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
   return true;
 }
 
+llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
+    const WRegionNode *W) const {
+  if (!isTargetSPIRV())
+    return llvm::None;
+
+  if (isa<WRNDistributeNode>(W) ||
+      isa<WRNTeamsNode>(W))
+    return vpo::ADDRESS_SPACE_LOCAL;
+
+  return vpo::ADDRESS_SPACE_PRIVATE;
+}
+
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
@@ -4934,7 +4987,9 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // directly in the task body.
 #endif // INTEL_CUSTOMIZATION
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
+        auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W);
+        NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv",
+                                             AllocaAddrSpace);
         PrivI->setNew(NewPrivInst);
         Value *ReplacementVal =
             getClauseItemReplacementValue(PrivI, AllocaInsertPt);
