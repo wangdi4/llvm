@@ -449,7 +449,7 @@ public:
     return 1;
   }
 
-  unsigned getMemoryOpCost(unsigned Opcode, Type *Src, unsigned Alignment,
+  unsigned getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,
                            unsigned AddressSpace, const Instruction *I) {
     return 1;
   }

@@ -877,8 +877,9 @@ public:
     return LT.first;
   }
 
-  unsigned getMemoryOpCost(unsigned Opcode, Type *Src, unsigned Alignment,
-                       unsigned AddressSpace, const Instruction *I = nullptr) {
+  unsigned getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,
+                           unsigned AddressSpace,
+                           const Instruction *I = nullptr) {
     assert(!Src->isVoidTy() && "Invalid type");
     std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(DL, Src);
 
@@ -929,8 +930,8 @@ public:
       Cost = static_cast<T *>(this)->getMaskedMemoryOpCost(
           Opcode, VecTy, Alignment, AddressSpace);
     else
-      Cost = static_cast<T *>(this)->getMemoryOpCost(Opcode, VecTy, Alignment,
-                                                     AddressSpace);
+      Cost = static_cast<T *>(this)->getMemoryOpCost(
+          Opcode, VecTy, MaybeAlign(Alignment), AddressSpace);
 
     // Legalize the vector type, and get the legalized and unlegalized type
     // sizes.
