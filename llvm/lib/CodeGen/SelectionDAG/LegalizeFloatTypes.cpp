@@ -68,14 +68,11 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FMINNUM:     R = SoftenFloatRes_FMINNUM(N); break;
     case ISD::FMAXNUM:     R = SoftenFloatRes_FMAXNUM(N); break;
     case ISD::FADD:        R = SoftenFloatRes_FADD(N); break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case ISD::FATAN:       R = SoftenFloatRes_FATAN(N); break;
     case ISD::FATAN2:      R = SoftenFloatRes_FATAN2(N); break;
 #endif
-=======
     case ISD::FCBRT:       R = SoftenFloatRes_FCBRT(N); break;
->>>>>>> ba2c62553109e324a203aa46c2217cf5f28ab694
     case ISD::FCEIL:       R = SoftenFloatRes_FCEIL(N); break;
     case ISD::FCOPYSIGN:   R = SoftenFloatRes_FCOPYSIGN(N); break;
     case ISD::FCOS:        R = SoftenFloatRes_FCOS(N); break;
@@ -235,7 +232,6 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FADD(SDNode *N) {
                          NVT, Ops, CallOptions, SDLoc(N)).first;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 SDValue DAGTypeLegalizer::SoftenFloatRes_FATAN(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
@@ -265,7 +261,6 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FATAN2(SDNode *N) {
 }
 #endif
 
-=======
 SDValue DAGTypeLegalizer::SoftenFloatRes_FCBRT(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue Op = GetSoftenedFloat(N->getOperand(0));
@@ -281,7 +276,6 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FCBRT(SDNode *N) {
                          NVT, Op, CallOptions, SDLoc(N)).first;
 }
 
->>>>>>> ba2c62553109e324a203aa46c2217cf5f28ab694
 SDValue DAGTypeLegalizer::SoftenFloatRes_FCEIL(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue Op = GetSoftenedFloat(N->getOperand(0));
@@ -1198,14 +1192,11 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
   case ISD::FMINNUM:    ExpandFloatRes_FMINNUM(N, Lo, Hi); break;
   case ISD::FMAXNUM:    ExpandFloatRes_FMAXNUM(N, Lo, Hi); break;
   case ISD::FADD:       ExpandFloatRes_FADD(N, Lo, Hi); break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case ISD::FATAN:      ExpandFloatRes_FATAN(N, Lo, Hi); break;
   case ISD::FATAN2:     ExpandFloatRes_FATAN2(N, Lo, Hi); break;
 #endif
-=======
   case ISD::FCBRT:      ExpandFloatRes_FCBRT(N, Lo, Hi); break;
->>>>>>> ba2c62553109e324a203aa46c2217cf5f28ab694
   case ISD::FCEIL:      ExpandFloatRes_FCEIL(N, Lo, Hi); break;
   case ISD::FCOPYSIGN:  ExpandFloatRes_FCOPYSIGN(N, Lo, Hi); break;
   case ISD::FCOS:       ExpandFloatRes_FCOS(N, Lo, Hi); break;
@@ -1302,7 +1293,6 @@ void DAGTypeLegalizer::ExpandFloatRes_FADD(SDNode *N, SDValue &Lo,
   GetPairElements(Call, Lo, Hi);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void DAGTypeLegalizer::ExpandFloatRes_FATAN(SDNode *N,
                                            SDValue &Lo, SDValue &Hi) {
@@ -1310,18 +1300,10 @@ void DAGTypeLegalizer::ExpandFloatRes_FATAN(SDNode *N,
                                          RTLIB::ATAN_F32, RTLIB::ATAN_F64,
                                          RTLIB::ATAN_F80, RTLIB::ATAN_F128,
                                          RTLIB::ATAN_PPCF128),
-=======
-void DAGTypeLegalizer::ExpandFloatRes_FCBRT(SDNode *N, SDValue &Lo,
-                                            SDValue &Hi) {
-  SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0), RTLIB::CBRT_F32,
-                                         RTLIB::CBRT_F64, RTLIB::CBRT_F80,
-                                         RTLIB::CBRT_F128, RTLIB::CBRT_PPCF128),
->>>>>>> ba2c62553109e324a203aa46c2217cf5f28ab694
                             N, false);
   GetPairElements(Call, Lo, Hi);
 }
 
-<<<<<<< HEAD
 void DAGTypeLegalizer::ExpandFloatRes_FATAN2(SDNode *N,
                                            SDValue &Lo, SDValue &Hi) {
   SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0),
@@ -1333,8 +1315,15 @@ void DAGTypeLegalizer::ExpandFloatRes_FATAN2(SDNode *N,
 }
 #endif
 
-=======
->>>>>>> ba2c62553109e324a203aa46c2217cf5f28ab694
+void DAGTypeLegalizer::ExpandFloatRes_FCBRT(SDNode *N, SDValue &Lo,
+                                            SDValue &Hi) {
+  SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0), RTLIB::CBRT_F32,
+                                         RTLIB::CBRT_F64, RTLIB::CBRT_F80,
+                                         RTLIB::CBRT_F128, RTLIB::CBRT_PPCF128),
+                            N, false);
+  GetPairElements(Call, Lo, Hi);
+}
+
 void DAGTypeLegalizer::ExpandFloatRes_FCEIL(SDNode *N,
                                             SDValue &Lo, SDValue &Hi) {
   SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0),
@@ -2155,13 +2144,10 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
 
     // Unary FP Operations
     case ISD::FABS:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case ISD::FATAN:
 #endif
-=======
     case ISD::FCBRT:
->>>>>>> ba2c62553109e324a203aa46c2217cf5f28ab694
     case ISD::FCEIL:
     case ISD::FCOS:
     case ISD::FEXP:
