@@ -611,13 +611,11 @@ public:
 
     // Read content of the section representing the bundle
     Expected<StringRef> Content =
-<<<<<<< HEAD
-      CurBundle->second->BundleSection->getContents();
-    if (!Content) {
-      consumeError(Content.takeError());
-      return;
-    }
+        CurBundle->second->BundleSection->getContents();
+    if (!Content)
+      return Content.takeError();
 
+#if INTEL_CUSTOMIZATION
     // Backwards compatibility adjustment: object files created with older
     // versions of clang-offload-bundler (before support for partially-linked
     // objects) do not contain a sizes section and rightfully so because such a
@@ -628,12 +626,8 @@ public:
     if (CurBundle->second->ObjectSizes.empty() && FilesType == "o") {
       CurBundle->second->ObjectSizes.push_back(Content->size());
     }
+#endif // INTEL_CUSTOMIZATION
 
-=======
-        CurBundle->second->BundleSection->getContents();
-    if (!Content)
-      return Content.takeError();
->>>>>>> e4eba774b5cc90aa308ffde5fade9f18df89122c
     const char *ObjData = Content->data();
     // Determine the number of "device objects" (or individual bundles
     // concatenated by partial linkage) in the bundle:
