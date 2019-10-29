@@ -834,6 +834,14 @@ let RenderMethod = "addTILEPairOperands" in {
 def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
   let ParserMatchClass = VTILEPairAsmOperand;
 }
+
+let RenderMethod = "addZMM16TuplesOperands" in {
+  def ZMM16TuplesAsmOperand : AsmOperandClass { let Name = "ZMM16Tuples"; }
+}
+
+def ZMM16Tuples : RegisterOperand<VR512> {
+  let ParserMatchClass = ZMM16TuplesAsmOperand;
+}
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
@@ -1019,7 +1027,7 @@ def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
-def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXTELEMENT()">;
+def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
 def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
 def HasAMXFORMAT    : Predicate<"Subtarget->hasAMXFORMAT()">;
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;

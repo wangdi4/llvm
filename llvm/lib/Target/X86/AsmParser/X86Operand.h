@@ -587,8 +587,19 @@ struct X86Operand final : public MCParsedAsmOperand {
     Inst.addOperand(MCOperand::createReg(Reg));
   }
 
+  bool isZMM16Tuples() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VR512RegClassID].contains(getReg());
+  }
+
+  void addZMM16TuplesOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = (((getReg() - X86::ZMM0) / 16) * 16) + X86::ZMM0;
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
+
   void addMemOperands(MCInst &Inst, unsigned N) const {
     assert((N == 5) && "Invalid number of operands!");
     Inst.addOperand(MCOperand::createReg(getMemBaseReg()));

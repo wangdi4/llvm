@@ -25,18 +25,20 @@
 // CHECK: encoding: [0x62,0x83,0x7d,0x48,0x07,0xf6,0x7b]
                tilemovrowe zmm22, tmm30, 123
 
-// CHECK:      tile16move tmm6, zmm23
-// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xf7]
+// When tile16move's 2nd operand is from zmm16 to zmm31, it will choose
+// zmm16_zmm17_...zmm31 and use zmm16 represent it.
+// CHECK:      tile16move tmm6, zmm16
+// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xf0]
                tile16move tmm6, zmm23
 
-// CHECK:      tile16move tmm3, zmm23
-// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xdf]
+// CHECK:      tile16move tmm3, zmm16
+// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xd8]
                tile16move tmm3, zmm23
 
-// CHECK:      tile16move tmm22, zmm23
-// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xf7]
+// CHECK:      tile16move tmm22, zmm16
+// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xf0]
                tile16move tmm22, zmm23
 
-// CHECK:      tile16move tmm19, zmm23
-// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xdf]
+// CHECK:      tile16move tmm19, zmm16
+// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xd8]
                tile16move tmm19, zmm23

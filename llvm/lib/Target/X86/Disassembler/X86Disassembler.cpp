@@ -717,6 +717,7 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
   case TYPE_TMM_PAIR:
+  case TYPE_ZMM16_TUPLES:
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
   case TYPE_VK_PAIR:

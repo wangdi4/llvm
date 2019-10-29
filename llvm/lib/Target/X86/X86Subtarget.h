@@ -813,6 +813,7 @@ public:
   bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXMEMORY() const { return HasAMXMEMORY; }
   bool hasAMXAVX512() const { return HasAMXAVX512; }
+  bool hasAMXFP16() const { return HasAMXFP16; }
   bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
   bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
   bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
