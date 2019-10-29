@@ -1,4 +1,6 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s
+
+; TODO: Enable the test for VPValue-based codegen as soon as CMPLRLLVM-10738 is fixed.
 
 ; CHECK-LABEL: foo1
 ; CHECK: entry:
