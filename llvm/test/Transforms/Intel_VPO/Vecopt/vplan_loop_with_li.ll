@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s 
+; RUN: opt %s -VPlanDriver -disable-vplan-predicator -disable-vplan-codegen -debug -vplan-force-vf=2 2>&1 | FileCheck %s
 
 ; Verify the divergence information for the single loop for.body.
 

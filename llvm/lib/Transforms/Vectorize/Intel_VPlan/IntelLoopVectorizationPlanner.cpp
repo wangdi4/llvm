@@ -127,33 +127,23 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     unsigned MinWidthInBits, MaxWidthInBits;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
     const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
-    // FIXME: Cannot simply call TTI->getRegisterBitWidth(true), because by
-    // default it returns 32 regardless to Vector argument.
-    // Hardcode register size to 512.
-    const unsigned MaxVectorWidth =
-        std::max(512u, TTI->getRegisterBitWidth(true) /* Vector */);
-    // FIXME: Currently limits MaxVF by 32.
-    MaxVF = std::min(MaxVectorWidth / MinWidthInBits, 32u);
+    const unsigned MaxVectorWidth = TTI->getRegisterBitWidth(true /* Vector */);
+    MaxVF = MaxVectorWidth / MinWidthInBits;
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
-#if INTEL_CUSTOMIZATION
+
+    // FIXME: Why is this?
+    MaxVF = std::min(MaxVF, 32u);
+    MinVF = std::min(MinVF, 32u);
+
     LLVM_DEBUG(dbgs() << "LVP: Orig MinVF: " << MinVF
                       << " Orig MaxVF: " << MaxVF << "\n");
+
     // Maximum allowed VF specified by user is Safelen
+    Safelen = (unsigned)PowerOf2Floor(Safelen);
     MaxVF = std::min(MaxVF, Safelen);
-
-    // If the minimum VF in the search space is greater than Safelen specified
-    // by user, then we reduce the minimum VF to nearest power of 2 less than
-    // or equal to Safelen
-    MinVF = std::min(MinVF, (unsigned)PowerOf2Floor(Safelen));
-
-    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
-    // return 512, 1024 or higher values.
-    assert(MinVF <= MaxVF && "Invalid range of VFs");
-#else
-    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
-    // return 512, 1024 or higher values.
-    assert(MinVF < MaxVF && "Invalid range of VFs");
-#endif // INTEL_CUSTOMIZATION
+    // We won't be able to fill the entire register, but it
+    // still might be profitable.
+    MinVF = std::min(MinVF, Safelen);
   }
 
 #if INTEL_CUSTOMIZATION

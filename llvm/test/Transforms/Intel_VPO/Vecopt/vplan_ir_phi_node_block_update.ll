@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -vplan-print-after-simplify-cfg -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-print-after-simplify-cfg -S -disable-output -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ; Test to check that the incoming blocks for a VPPHINode are correctly updated after simplifyPlainCFG. The incoming blocks are strictly predecessors of the VPPHINode's parent VPBasicBlock.
 ; The test checks for the block entires of a VPPHINode based on the HCFG structure which is also verified.
