@@ -42,6 +42,11 @@ VecThreshold("vec-threshold",
              cl::desc("sets a threshold for the vectorization on the probability"
                       "of profitable execution of the vectorized loop in parallel."),
              cl::init(100));
+
+static cl::opt<bool>
+    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
+                             cl::Hidden,
+                             cl::desc("Enable New VPlan predicator."));
 #else
 cl::opt<unsigned>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
@@ -347,7 +352,7 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    if (UseNewPredicator) {
+    if (EnableNewVPlanPredicator) {
       NewVPlanPredicator VPP(*VPlan);
       VPP.predicate();
     } else {

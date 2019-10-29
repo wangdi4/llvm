@@ -65,8 +65,6 @@ public:
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
         LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
   }
-
-  void setUseNewPredicator() { UseNewPredicator = true; }
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -201,9 +199,6 @@ private:
 #if INTEL_CUSTOMIZATION
   /// VPlan VLS Analysis.
   VPlanVLSAnalysis *VLSA;
-
-  /// Use new predicator
-  bool UseNewPredicator = false;
 #endif // INTEL_CUSTOMIZATION
 
   /// The profitablity analysis.

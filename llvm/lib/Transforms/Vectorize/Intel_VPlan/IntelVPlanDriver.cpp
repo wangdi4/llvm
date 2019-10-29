@@ -79,13 +79,6 @@ static cl::opt<bool>
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
                    cl::desc("Print plain dump after initial VPlan generated"));
-
-// New predicator is used in the LLVM IR path when this flag is true. This flag
-// is currently NFC for the HIR path.
-static cl::opt<bool>
-    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
-                             cl::Hidden,
-                             cl::desc("Enable New VPlan predicator."));
 #endif //INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> VPlanVectCand(
@@ -449,11 +442,6 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
-  // Setup the use of new predicator in the planner if user has not disabled
-  // the same.
-  if (EnableNewVPlanPredicator)
-    LVP.setUseNewPredicator();
-
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
@@ -755,11 +743,6 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // Find any DDRefs in loop pre-header that are aliases to the descriptor
   // variables
   HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);
-
-  // Setup the use of new predicator in the planner if user has not disabled
-  // the same.
-  if (EnableNewVPlanPredicator)
-    LVP.setUseNewPredicator();
 
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
