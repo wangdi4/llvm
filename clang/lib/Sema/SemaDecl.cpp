@@ -9746,30 +9746,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
-<<<<<<< HEAD
-  // Diagnose no_builtin attribute on function declaration that are not a
-  // definition.
-  // FIXME: We should really be doing this in
-  // SemaDeclAttr.cpp::handleNoBuiltinAttr, unfortunately we only have access to
-  // the FunctionDecl and at this point of the code
-  // FunctionDecl::isThisDeclarationADefinition() which always returns `false`
-  // because Sema::ActOnStartOfFunctionDef has not been called yet.
-  if (const auto *NBA = NewFD->getAttr<NoBuiltinAttr>())
-    switch (D.getFunctionDefinitionKind()) {
-    case FDK_Defaulted:
-    case FDK_Deleted:
-      Diag(NBA->getLocation(),
-           diag::err_attribute_no_builtin_on_defaulted_deleted_function)
-          << NBA->getSpelling();
-      break;
-    case FDK_Declaration:
-      Diag(NBA->getLocation(), diag::err_attribute_no_builtin_on_non_definition)
-          << NBA->getSpelling();
-      break;
-    case FDK_Definition:
-      break;
-    }
-
 #if INTEL_CUSTOMIZATION
   // Local memory size attribute can only be used for arguments of a kernel
   // function.
@@ -9786,8 +9762,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> ad531fff81a2a266ffed1d7da3333778cb59c983
   return NewFD;
 }
 
