@@ -9746,6 +9746,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
+<<<<<<< HEAD
   // Diagnose no_builtin attribute on function declaration that are not a
   // definition.
   // FIXME: We should really be doing this in
@@ -9785,6 +9786,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> ad531fff81a2a266ffed1d7da3333778cb59c983
   return NewFD;
 }
 
