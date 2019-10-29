@@ -118,7 +118,7 @@ private:
                                          SmallVectorImpl<Value *> &NewArgs,
                                          Instruction *InsertPt);
 
-  /// \brief Extracts \p NumElems from vector register \p Vector and returns an 
+  /// \brief Extracts \p NumElems from vector register \p Vector and returns an
   /// extract instruction.
   Instruction *extractElemsFromVector(Value *Vector, unsigned StartPos,
                                       unsigned NumElems);
@@ -140,8 +140,9 @@ private:
   void scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
                            unsigned LogicalVL, Type *ElemType);
 
-  /// \brief Returns true if \p FuncName refers to a sincos call.
-  bool isSinCosCall(StringRef FuncName);
+  /// \brief Returns true if \p FuncName and \p FT refer to an SVML 3-argument
+  /// sincos call.
+  bool isSincosRefArg(StringRef FuncName, FunctionType *FT);
 
 public:
   static char ID;

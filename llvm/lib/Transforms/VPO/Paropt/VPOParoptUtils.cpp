@@ -3430,6 +3430,38 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
   return true;
 }
 
+// Find the first directive that dominates "PosInst" and which supports
+// the private clause, and add a private clause for "I" into that directive.
+// Return false if no directive was found. Intended to be called outside paropt,
+// where region information is unavailable.
+// "I" should not be previously used in a llvm.directive.region.entry
+// (this is checked by assertion)
+bool VPOParoptUtils::addPrivateToEnclosingRegion(Instruction *I,
+                                                 Instruction *PosInst,
+                                                 DominatorTree &DT) {
+#if !defined(NDEBUG)
+  for (User *UseI : I->users()) {
+    if (auto *IntrInst = dyn_cast<IntrinsicInst>(UseI))
+      if (IntrInst->getIntrinsicID() == Intrinsic::directive_region_entry)
+        llvm_unreachable("Value to privatize is already in a region clause.");
+  }
+#endif // NDEBUG
+
+  // Search upwards through the dominator tree until we find a block
+  // that supports the private clause.
+  auto *IDom = DT[PosInst->getParent()]->getIDom();
+  while (IDom) {
+    auto *IDomBlock = IDom->getBlock();
+    if (VPOAnalysisUtils::supportsPrivateClause(IDomBlock)) {
+      CallInst *CI = cast<CallInst>(&(IDomBlock->front()));
+      VPOParoptUtils::addOperandBundlesInCall(CI, {{"QUAL.OMP.PRIVATE", {I}}});
+      return true;
+    }
+    IDom = DT[IDomBlock]->getIDom();
+  }
+  return false;
+}
+
 // Clones the load instruction and inserts before the InsertPt.
 Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
   if (isa<Constant>(V))

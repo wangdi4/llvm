@@ -634,4 +634,42 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
   }
   return 2; //everything else
 }
+
+// True if the directive supports the private clause.
+bool VPOAnalysisUtils::supportsPrivateClause(int DirID) {
+  switch (DirID) {
+  case DIR_OMP_PARALLEL:
+  case DIR_OMP_LOOP:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_SECTIONS:
+  case DIR_OMP_PARALLEL_SECTIONS:
+  case DIR_OMP_PARALLEL_WORKSHARE:
+  case DIR_OMP_SINGLE:
+  case DIR_OMP_TASK:
+  case DIR_OMP_SIMD:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_TARGET:
+  case DIR_OMP_TEAMS:
+  case DIR_OMP_DISTRIBUTE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_GENERICLOOP:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::supportsPrivateClause(StringRef DirString) {
+  return VPOAnalysisUtils::supportsPrivateClause(
+      VPOAnalysisUtils::getDirectiveID(DirString));
+}
+
+bool VPOAnalysisUtils::supportsPrivateClause(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::supportsPrivateClause(DirID);
+}
+
+bool VPOAnalysisUtils::supportsPrivateClause(BasicBlock *BB) {
+  return VPOAnalysisUtils::supportsPrivateClause(&(BB->front()));
+}
+
 #endif // INTEL_COLLAB

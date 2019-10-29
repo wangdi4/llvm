@@ -253,6 +253,12 @@ public:
     static bool isStandAloneEndDirective(Instruction *I);
     static bool isStandAloneEndDirective(BasicBlock *BB);
 
+    /// Return true if this directive supports the private clause.
+    static bool supportsPrivateClause(int DirID);
+    static bool supportsPrivateClause(StringRef DirString);
+    static bool supportsPrivateClause(Instruction *I);
+    static bool supportsPrivateClause(BasicBlock *BB);
+
     /// Given an instruction for a region.begin directive, return its
     /// corresponding region.end directive instruction or BB
     static Instruction *getEndRegionDir(Instruction *BeginDir);
