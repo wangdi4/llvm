@@ -83,8 +83,6 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL) {
-  collectDeadInstructions();
-
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
 
@@ -556,9 +554,4 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   ILV->finalizeLoop();
-}
-
-void LoopVectorizationPlanner::collectDeadInstructions() {
-  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
-                                               DeadInstructions);
 }

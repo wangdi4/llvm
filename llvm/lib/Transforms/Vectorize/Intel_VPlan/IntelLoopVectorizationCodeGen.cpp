@@ -3399,31 +3399,6 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
   return VectorTripCount;
 }
 
-void VPOCodeGen::collectTriviallyDeadInstructions(
-    Loop *OrigLoop, VPOVectorizationLegality *Legal,
-    SmallPtrSetImpl<Instruction *> &DeadInstructions) {
-  BasicBlock *Latch = OrigLoop->getLoopLatch();
-
-  // We create new control-flow for the vectorized loop, so the original
-  // condition will be dead after vectorization if it's only used by the
-  // branch.
-  auto *Cmp = dyn_cast<Instruction>(Latch->getTerminator()->getOperand(0));
-  if (Cmp && Cmp->hasOneUse())
-    DeadInstructions.insert(Cmp);
-
-  // We create new "steps" for induction variable updates to which the original
-  // induction variables map. An original update instruction will be dead if
-  // all its users except the induction variable are dead.
-  for (auto &Induction : *Legal->getInductionVars()) {
-    PHINode *Ind = Induction.first;
-    auto *IndUpdate = cast<Instruction>(Ind->getIncomingValueForBlock(Latch));
-    if (all_of(IndUpdate->users(), [&](User *U) -> bool {
-      return U == Ind || DeadInstructions.count(cast<Instruction>(U));
-    }))
-      DeadInstructions.insert(IndUpdate);
-  }
-}
-
 uint64_t VPOCodeGen::getConstTripCount() const {
   if (auto *C = dyn_cast<ConstantInt>(TripCount))
     return C->getZExtValue();
