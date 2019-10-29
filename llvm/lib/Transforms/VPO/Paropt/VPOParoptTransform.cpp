@@ -1053,19 +1053,19 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+  if (isTargetSPIRV() && (Mode & ParPrepare))
+    RoutineChanged |= renameAndReplaceLibatomicCallsForSPIRV(F);
+
   if (WI->WRGraphIsEmpty()) {
     LLVM_DEBUG(
         dbgs() << "\n... No WRegion Candidates for Parallelization ...\n\n");
     return RoutineChanged;
   }
 
-  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-                       hasOffloadCompilation();
   bool NeedTID, NeedBID;
 
-  LLVM_DEBUG(dbgs()<<"\n In transform "<<IsTargetSPIRV <<" Dump the function ::"<<*F);
-  if (IsTargetSPIRV && (Mode & ParPrepare))
-    RoutineChanged |= renameAndReplaceLibatomicCallsForSPIRV(F);
+  LLVM_DEBUG(dbgs() << "\n In transform (IsTargetSPIRV: " <<
+             isTargetSPIRV() << ") Dump the function ::" << *F);
 
   // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
   // to true/false depending on whether it finds a WRN that needs the TID or
@@ -1162,7 +1162,7 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          if (!IsTargetSPIRV) {
+          if (!isTargetSPIRV()) {
 #if INTEL_CUSTOMIZATION
             improveAliasForOutlinedFunc(W);
 #endif  // INTEL_CUSTOMIZATION
@@ -1246,7 +1246,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_CUSTOMIZATION
           // The compiler does not need to generate the outlined function
           // for omp parallel for loop.
-          if (IsTargetSPIRV) {
+          if (isTargetSPIRV()) {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
             Changed |= genReductionCode(W);
@@ -1298,7 +1298,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
 
-          if (IsTargetSPIRV) {
+          if (isTargetSPIRV()) {
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
@@ -1539,10 +1539,10 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNAtomic:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          if (IsTargetSPIRV)
+          if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
           Changed = VPOParoptAtomics::handleAtomic(
-              cast<WRNAtomicNode>(W), IdentTy, TidPtrHolder, IsTargetSPIRV);
+              cast<WRNAtomicNode>(W), IdentTy, TidPtrHolder, isTargetSPIRV());
           RemoveDirectives = true;
         }
         break;
@@ -1592,7 +1592,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_CUSTOMIZATION
           Changed |= constructNDRangeInfo(W);
 
-          if (IsTargetSPIRV) {
+          if (isTargetSPIRV()) {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
             if (!W->getIsDistribute())
@@ -1652,7 +1652,7 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          if (IsTargetSPIRV)
+          if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
 
           AllocaInst *IsSingleThread = nullptr;
@@ -1678,9 +1678,9 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          if (IsTargetSPIRV)
+          if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
-          Changed = genMasterThreadCode(W, IsTargetSPIRV);
+          Changed = genMasterThreadCode(W, isTargetSPIRV());
           RemoveDirectives = true;
         }
         break;
@@ -1715,9 +1715,9 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          if (IsTargetSPIRV)
+          if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
-          Changed = genBarrier(W, true, IsTargetSPIRV);
+          Changed = genBarrier(W, true, isTargetSPIRV());
           RemoveDirectives = true;
         }
         break;

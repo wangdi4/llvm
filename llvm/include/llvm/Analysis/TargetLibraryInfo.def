@@ -889,6 +889,9 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_compare_exchange")
 /// void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int32_t order);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_load)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_load")
+/// void __kmpc_atomic_store(size_t size, void *ptr, void *val, int32_t order);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_store)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_store")
 /// void __kmpc_barrier(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_barrier)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_barrier")
