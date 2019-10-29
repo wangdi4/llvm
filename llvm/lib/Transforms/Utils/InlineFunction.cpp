@@ -2207,6 +2207,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       // Scan for the block of allocas that we can move over, and move them
       // all at once.
       while (isa<AllocaInst>(I) &&
+             !cast<AllocaInst>(I)->use_empty() &&
              allocaWouldBeStaticInEntry(cast<AllocaInst>(I))) {
         IFI.StaticAllocas.push_back(cast<AllocaInst>(I));
         ++I;
