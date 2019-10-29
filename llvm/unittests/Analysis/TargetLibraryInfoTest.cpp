@@ -621,6 +621,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @__isinf(double)\n"
       "declare i32 @__isnan(double)\n"
       "declare i32 @__isnanf(float)\n"
+#endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+      "declare i1 @__kmpc_atomic_compare_exchange(i64, i8*, i8*, i8*, i32, i32)\n"
+      "declare void @__kmpc_atomic_load(i64, i8*, i8*, i32)\n"
       "declare void @__kmpc_barrier(i8*, i32)\n"
       "declare void @__kmpc_critical(i8*, i32, i8*)\n"
       "declare void @__kmpc_dispatch_init_4(i8*, i32, i32, i32, i32, i32, i32)\n"
@@ -640,6 +644,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_end_single(i8*, i32)\n"
       "declare i32 @__kmpc_master(i8*, i32)\n"
       "declare void @__kmpc_end_master(i8*, i32)\n"
+#endif  // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       "declare i64* @__local_stdio_printf_options()\n"
       "declare i64* @__local_stdio_scanf_options()\n"
       "declare i32 @__lxstat(i32, i8*, i8*)\n"

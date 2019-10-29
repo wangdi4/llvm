@@ -881,7 +881,14 @@ TLI_DEFINE_STRING_INTERNAL("__isoc99_scanf")
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_sscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_sscanf")
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+/// bool __kmpc_atomic_compare_exchange(size_t size, void *ptr, void *expected,
+///     void *desired, int32_t success_order, int32_t failure_order);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_compare_exchange)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_compare_exchange")
+/// void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int32_t order);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_load)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_load")
 /// void __kmpc_barrier(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_barrier)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_barrier")
@@ -939,13 +946,16 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_serialized_parallel")
 /// int32_t __kmpc_single(kmp_Indent *loc, int32_t global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_single)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_single")
+#endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
 /// i64* __local_stdio_printf_options();
 TLI_DEFINE_ENUM_INTERNAL(local_stdio_printf_options)
 TLI_DEFINE_STRING_INTERNAL("__local_stdio_printf_options")
 /// i64* __local_stdio_scanf_options();
 TLI_DEFINE_ENUM_INTERNAL(local_stdio_scanf_options)
 TLI_DEFINE_STRING_INTERNAL("__local_stdio_scanf_options")
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_CUSTOMIZATION
 
 /// double __log10_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(log10_finite)
