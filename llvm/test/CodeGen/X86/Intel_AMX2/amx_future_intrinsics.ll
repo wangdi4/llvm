@@ -83,9 +83,9 @@
 ; CHECK:    tfnmsubps       (%{{.*}}), %tmm2, %tmm7
 ; CHECK:    tcmpps  $1, (%{{.*}}), %tmm3, %tmm6
 ; CHECK:    tbroadcastrowd  (%{{.*}}), %tmm4
-; CHECK:    tileloadde (%{{.*}},%{{.*}}), %TMM2_TMM3
-; CHECK:    tileloaddt1e (%{{.*}},%{{.*}}), %TMM2_TMM3
-; CHECK:    tilestorede %TMM2_TMM3, (%{{.*}},%{{.*}})
+; CHECK:    tileloadde (%{{.*}},%{{.*}}), %tmm3
+; CHECK:    tileloaddt1e (%{{.*}},%{{.*}}), %tmm3
+; CHECK:    tilestorede %tmm3, (%{{.*}},%{{.*}})
 ; CHECK:    tilezeroe %tmm3
 ; CHECK:    tdpbssde %tmm7, %tmm4, %tmm3
 ; CHECK:    tdpbsude %tmm7, %tmm4, %tmm3
