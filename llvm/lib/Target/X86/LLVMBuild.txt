@@ -30,9 +30,5 @@ has_jit = 1
 type = Library
 name = X86CodeGen
 parent = X86
-<<<<<<< HEAD
-required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info X86Utils GlobalISel ProfileData Scalar
-=======
-required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info X86Utils GlobalISel ProfileData CFGuard
->>>>>>> d157a9bc8ba1085cc4808c6941412322a7fd884e
+required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info X86Utils GlobalISel ProfileData CFGuard Scalar
 add_to_library_groups = X86
