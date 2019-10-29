@@ -4,9 +4,6 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
-
 #include <CL/sycl.hpp>
 
 #include <cassert>

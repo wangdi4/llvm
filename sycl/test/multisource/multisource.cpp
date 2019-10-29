@@ -24,9 +24,6 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.fat
 // RUN: %GPU_RUN_PLACEHOLDER %t.fat
 // RUN: %ACC_RUN_PLACEHOLDER %t.fat
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
-
 
 #include <CL/sycl.hpp>
 

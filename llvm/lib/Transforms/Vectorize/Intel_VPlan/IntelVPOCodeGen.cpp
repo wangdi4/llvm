@@ -1773,10 +1773,10 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     assert(F && "Unexpected null called function");
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
-    bool isMasked = (MaskValue != nullptr) ? true : false;
-    if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        ((matchVectorVariant(UnderlyingCI, isMasked) ||
-          (!isMasked && matchVectorVariant(UnderlyingCI, true)))) ||
+    bool IsMasked = (MaskValue != nullptr) ? true : false;
+    if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
+        ((matchVectorVariant(UnderlyingCI, IsMasked) ||
+          (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||
         (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(VPInst);
     } else {

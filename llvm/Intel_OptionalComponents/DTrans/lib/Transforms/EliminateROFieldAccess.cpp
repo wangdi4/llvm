@@ -146,7 +146,8 @@ bool EliminateROFieldAccessImpl::checkSecondIfBB(BasicBlock *SecondIfBB,
                                                  Value *BaseOp) {
   ICmpInst::Predicate Pred;
   Instruction *LoadAddr, *Load, *ICmp;
-  BasicBlock *TrueBB, *FalseBB;
+  BasicBlock *TrueBB = nullptr;
+  BasicBlock *FalseBB = nullptr;
 
   if (!match(SecondIfBB->getTerminator(),
              m_Br(m_Instruction(ICmp), TrueBB, FalseBB))) {

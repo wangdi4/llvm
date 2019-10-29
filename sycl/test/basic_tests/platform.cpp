@@ -1,7 +1,5 @@
 // RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 //==--------------- platform.cpp - SYCL platform test ----------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
