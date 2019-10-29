@@ -2624,9 +2624,6 @@ protected:
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
 #endif // INTEL_CUSTOMIZATION
 
-  /// Holds the VFs applicable to this VPlan.
-  SmallSet<unsigned, 2> VFs;
-
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 
@@ -2774,10 +2771,6 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #endif // INTEL_CUSTOMIZATION
-
-  void addVF(unsigned VF) { VFs.insert(VF); }
-
-  bool hasVF(unsigned VF) { return VFs.count(VF); }
 
   const std::string &getName() const { return Name; }
 
