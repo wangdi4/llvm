@@ -168,11 +168,6 @@ static cl::opt<bool>
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
-static cl::opt<bool> EnableRemarksSection(
-    "remarks-section",
-    cl::desc("Emit a section containing remark diagnostics metadata"),
-    cl::init(false));
-
 char AsmPrinter::ID = 0;
 
 using gcp_map_type = DenseMap<GCStrategy *, std::unique_ptr<GCMetadataPrinter>>;
@@ -1425,14 +1420,14 @@ void AsmPrinter::emitGlobalIndirectSymbol(Module &M,
   }
 }
 
-void AsmPrinter::emitRemarksSection(Module &M) {
-  RemarkStreamer *RS = M.getContext().getRemarkStreamer();
-  if (!RS)
+void AsmPrinter::emitRemarksSection(RemarkStreamer &RS) {
+  if (!RS.needsSection())
     return;
-  remarks::RemarkSerializer &RemarkSerializer = RS->getSerializer();
+
+  remarks::RemarkSerializer &RemarkSerializer = RS.getSerializer();
 
   Optional<SmallString<128>> Filename;
-  if (Optional<StringRef> FilenameRef = RS->getFilename()) {
+  if (Optional<StringRef> FilenameRef = RS.getFilename()) {
     Filename = *FilenameRef;
     sys::fs::make_absolute(*Filename);
     assert(!Filename->empty() && "The filename can't be empty.");
@@ -1445,7 +1440,7 @@ void AsmPrinter::emitRemarksSection(Module &M) {
                : RemarkSerializer.metaSerializer(OS);
   MetaSerializer->emit();
 
-  // Switch to the right section: .remarks/__remarks.
+  // Switch to the remarks section.
   MCSection *RemarksSection =
       OutContext.getObjectFileInfo()->getRemarksSection();
   OutStreamer->SwitchSection(RemarksSection);
@@ -1487,8 +1482,8 @@ bool AsmPrinter::doFinalization(Module &M) {
   // Emit the remarks section contents.
   // FIXME: Figure out when is the safest time to emit this section. It should
   // not come after debug info.
-  if (EnableRemarksSection)
-    emitRemarksSection(M);
+  if (RemarkStreamer *RS = M.getContext().getRemarkStreamer())
+    emitRemarksSection(*RS);
 
   const TargetLoweringObjectFile &TLOF = getObjFileLowering();
 
