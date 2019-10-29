@@ -625,6 +625,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 #if INTEL_COLLAB
       "declare i1 @__kmpc_atomic_compare_exchange(i64, i8*, i8*, i8*, i32, i32)\n"
       "declare void @__kmpc_atomic_load(i64, i8*, i8*, i32)\n"
+      "declare void @__kmpc_atomic_store(i64, i8*, i8*, i32)\n"
       "declare void @__kmpc_barrier(i8*, i32)\n"
       "declare void @__kmpc_critical(i8*, i32, i8*)\n"
       "declare void @__kmpc_dispatch_init_4(i8*, i32, i32, i32, i32, i32, i32)\n"
