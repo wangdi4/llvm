@@ -72,7 +72,17 @@ __attribute__((max_replicates(2))) constant int global_const16 = 1;
 //CHECK: SimpleDualPortAttr
 __attribute__((simple_dual_port)) constant int global_const17 = 1;
 
+//CHECK: VarDecl {{.*}}global_const18
+//CHECK: IntegerLiteral{{.*}}1{{$}}
+//CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+//CHECK: MemoryLayoutAttr{{.*}}"compact"
+__attribute__((__memory_layout__("compact"))) constant int global_const18 = 1;
 
+//CHECK: VarDecl{{.*}}global_const19
+//CHECK: IntegerLiteral{{.*}}1{{$}}
+//CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+//CHECK: MemoryLayoutAttr{{.*}}"padded"
+__attribute__((__memory_layout__("padded"))) constant int global_const19 = 1;
 
 //CHECK: FunctionDecl{{.*}}foo1
 void foo1()
@@ -211,6 +221,16 @@ void foo1()
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: SimpleDualPortAttr
   int __attribute__((simple_dual_port)) H;
+
+  //CHECK: VarDecl{{.*}}v_eighteen
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: MemoryLayoutAttr{{.*}}"padded"
+  __attribute__((__memory_layout__("padded"))) unsigned int v_eighteen[64];
+
+  //CHECK: VarDecl{{.*}}v_nineteen
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: MemoryLayoutAttr{{.*}}"compact"
+  __attribute__((__memory_layout__("compact"))) unsigned int v_nineteen[64];
 
   // diagnostics
 
@@ -541,6 +561,22 @@ void foo1()
   //expected-error@+1{{requires integer constant between 1 and 1048576}}
   __attribute__((bank_bits(-1)))
   unsigned int bb_ten[4];
+
+  // memory_layout
+  // expected-error@+1{{'__memory_layout__' attribute argument must be 'compact', or 'padded'}}
+  __attribute__((__memory_layout__("blah"))) unsigned int ml_one[4];
+
+  //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}
+  //expected-note@+1{{conflicting attribute is here}}
+   __attribute__((__register__)) __attribute__((__memory__("padded")))
+  unsigned int ml_two[4];
+
+   //expected-warning@+1{{attribute 'memory_layout' is already applied}}
+   __attribute__((__memory_layout__("compact"))) __attribute__((__memory_layout__("padded"))) unsigned int ml_three[4];
+
+   //expected-warning@+1{{attribute 'memory_layout' is already applied}}
+   __attribute__((__memory_layout__("padded"))) __attribute__((__memory_layout__("compact"))) unsigned int ml_four[4];
+
 }
 
 //CHECK: FunctionDecl{{.*}}foo2
@@ -564,6 +600,8 @@ kernel void foo2(
   __constant int __attribute__((memory)) local_const11 = 1;
   __constant int __attribute__((internal_max_block_ram_depth(32))) local_const12 = 1;
   __constant int __attribute__((bank_bits(2, 3, 4, 5))) local_const15 = 1;
+  __constant int __attribute__((__memory_layout__("compact"))) local_const16 = 1;
+   __constant int __attribute__((__memory_layout__("padded"))) local_const17 = 1;
 }
 
 //expected-error@+1{{applies to functions and local non-const variables}}
@@ -683,5 +721,17 @@ struct foo {
   //CHECK: InternalMaxBlockRamDepthAttr
   //CHECK: IntegerLiteral{{.*}}32{{$}}
   int __attribute__((internal_max_block_ram_depth(32))) G0;
+
+
+  //CHECK: FieldDecl{{.*}}v_fourteen
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: MemoryLayoutAttr{{.*}}"padded"
+  __attribute__((__memory_layout__("padded"))) unsigned int v_fourteen[64];
+
+
+  //CHECK: FieldDecl{{.*}}v_fifteen
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: MemoryLayoutAttr{{.*}}"compact"
+  __attribute__((__memory_layout__("compact"))) unsigned int v_fifteen[64];
 
 };

@@ -150,6 +150,8 @@ def err_hls_readwrite_arg_invalid : Error<
   "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
 def err_readwritememory_attribute_invalid : Error<
   "%0 attribute only applies to slave memory arguments">;
+def err_hls_memorylayout_arg_invalid : Error<
+  "%0 attribute argument must be 'compact', or 'padded'">;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<

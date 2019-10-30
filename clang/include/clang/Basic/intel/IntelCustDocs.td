@@ -2459,6 +2459,94 @@ IR:
    }];
 }
 
+def MemoryLayoutDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
+  let BugTracker = "CMPLRLLVM-10365";
+  let RegressionTest = "";
+  let Owner = "zahiraam";
+  let Content = [{
+The 'memory_layout' attribute is applied to a variable in OpenCl and HSL. It
+takes a mandatory argument "type" which values are either "compact" or
+"padded".
+This attribute infers the 'memory' attribute, and it is illegal to apply it
+to the attribute 'register'.
+Syntax:
+
+.. code-block:: text
+
+   Type ::= 'compact' | 'padded';
+   __attribute__((memory_layout(<Type>)));
+
+Example:
+
+.. code-block:: c++
+
+   const int __attribute__((__memory_layout__("compact"))) gc = 0;
+
+   void foo ()
+   {
+     int __attribute__((__memory_layout__("padded"))) lc;
+   }
+
+   struct st {
+     int __attribute__((__memory_layout__("compact"))) f1;
+   };
+
+   static st s1;
+   void bar() {
+     s1.f1 = 0;
+   }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump.cpp t.cpp
+
+.. code-block:: text
+
+   -VarDecl 0xf278e70 <t2.cpp:1:1, col:62> col:57 gc 'const int' cinit
+    -IntegerLiteral 0xf278f88 <col:62> 'int' 0
+    -IntelFPGAMemoryAttr 0x10661ed8 <<invalid sloc>> Implicit Default
+    `-MemoryLayoutAttr 0xf278ed8 <col:26, col:53> "compact"
+
+    `-VarDecl 0xf2791a0 <col:6, col:55> col:55 lc 'int'
+    -IntelFPGAMemoryAttr 0x10662238 <<invalid sloc>> Implicit Default
+    `-MemoryLayoutAttr 0xf279208 <col:25, col:51> "padded"
+
+    -FieldDecl 0xf279480 <line:9:6, col:56> col:56 referenced f1 'int'
+    -IntelFPGAMemoryAttr 0x10662530 <<invalid sloc>> Implicit Default
+    `-MemoryLayoutAttr 0xf2794d0 <col:25, col:52> "compact"
+
+
+IR:
+
+.. code-block:: console
+
+  $ clang -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [24 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}\00"
+   @.str.2 = private unnamed_addr constant [23 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}\00"
+
+   define dso_local void @_Z3foov() #0 {
+   entry:
+     %lc = alloca i32, align 4
+     %lc1 = bitcast i32* %lc to i8*
+     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([51 x i8], [51 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 5)
+     ret void
+   }
+
+   define dso_local void @_Z3barv() #0 {
+   entry:
+     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([52 x i8], [52 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 9)
+  store i32 0, i32* %0, align 4
+     ret void
+   }
+   }];
+}
+
 def HLSIIDocs : Documentation {
   let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
