@@ -8676,82 +8676,55 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
   if (!isPowerOf2_32(Sz) || !isPowerOf2_32(VF) || VF < 2 || VF < MinVF)
     return false;
 
-<<<<<<< HEAD
-  bool Changed = false;
-  // Look for profitable vectorizable trees at all offsets, starting at zero.
-  for (unsigned i = 0, e = ChainLen; i + VF <= e; ++i) {
-
-    ArrayRef<Value *> Operands = Chain.slice(i, VF);
-    // Check that a previous iteration of this loop did not delete the Value.
-    if (llvm::any_of(Operands, [&R](Value *V) {
-          auto *I = dyn_cast<Instruction>(V);
-          return I && R.isDeleted(I);
-        }))
-      continue;
-
-    LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << i
-                      << "\n");
-
-#if INTEL_CUSTOMIZATION
-    R.PSLPInit();
-#endif // INTEL_CUSTOMIZATION
-
-    R.buildTree(Operands);
-#if !INTEL_CUSTOMIZATION
-    if (R.isTreeTinyAndNotFullyVectorizable())
-      continue;
-#endif // INTEL_CUSTOMIZATION
-=======
   LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << Idx
                     << "\n");
->>>>>>> f228b5371647f471853c5fb3e6719823a42fe451
+
+#if INTEL_CUSTOMIZATION
+  R.PSLPInit();
+#endif // INTEL_CUSTOMIZATION
 
   R.buildTree(Chain);
+#if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   R.computeMinimumValueSizes();
 
-<<<<<<< HEAD
+  int Cost = R.getTreeCost();
+
 #if INTEL_CUSTOMIZATION
-    // If we found a PSLP candidate, try with PSLP enabled.
-    if (R.FoundPSLPCandidate) {
+  // If we found a PSLP candidate, try with PSLP enabled.
+  if (R.FoundPSLPCandidate) {
+    R.undoMultiNodeReordering();
+
+    R.deleteTree();
+    // Try with PSLP enabled.
+    R.DoPSLP = true;
+    R.buildTree(Chain);
+    int PSLPCost = R.getTreeCost();
+    R.DoPSLP = false;
+
+    // If PSLP is worse, then rebuild the tree with plain SLP.
+    if (PSLPCost > Cost) {
       R.undoMultiNodeReordering();
+      R.PSLPFailureCleanup();
 
       R.deleteTree();
-      // Try with PSLP enabled.
-      R.DoPSLP = true;
-      R.buildTree(Operands);
-      int PSLPCost = R.getTreeCost();
-      R.DoPSLP = false;
 
-      // If PSLP is worse, then rebuild the tree with plain SLP.
-      if (PSLPCost > Cost) {
-        R.undoMultiNodeReordering();
-        R.PSLPFailureCleanup();
-
-        R.deleteTree();
-
-        R.buildTree(Operands);
-        int SLPCost = R.getTreeCost();
-        assert(SLPCost == Cost && "Should be equal to original cost");
-        Cost = SLPCost;
-      } else {
-        Cost = PSLPCost;
-        R.PSLPSuccess = true;
-      }
+      R.buildTree(Chain);
+      int SLPCost = R.getTreeCost();
+      assert(SLPCost == Cost && "Should be equal to original cost");
+      Cost = SLPCost;
+    } else {
+      Cost = PSLPCost;
+      R.PSLPSuccess = true;
     }
+  }
 #endif // INTEL_CUSTOMIZATION
 
-    LLVM_DEBUG(dbgs() << "SLP: Found cost=" << Cost << " for VF=" << VF
-                      << "\n");
-    if (Cost < -SLPCostThreshold) {
-      LLVM_DEBUG(dbgs() << "SLP: Decided to vectorize cost=" << Cost << "\n");
-=======
-  int Cost = R.getTreeCost();
->>>>>>> f228b5371647f471853c5fb3e6719823a42fe451
-
   LLVM_DEBUG(dbgs() << "SLP: Found cost=" << Cost << " for VF=" << VF << "\n");
+
   if (Cost < -SLPCostThreshold) {
     LLVM_DEBUG(dbgs() << "SLP: Decided to vectorize cost=" << Cost << "\n");
 
@@ -8763,23 +8736,17 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
                      << " and with tree size "
                      << NV("TreeSize", R.getTreeSize()));
 
-<<<<<<< HEAD
-      // Move to the next bundle.
-      i += VF - 1;
-      Changed = true;
-#if INTEL_CUSTOMIZATION
-      R.cleanupMultiNodeReordering();
-      R.PSLPSuccessCleanup();
-    } else {
-      R.undoMultiNodeReordering();
-      R.PSLPFailureCleanup();
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
     R.vectorizeTree();
+
+#if INTEL_CUSTOMIZATION
+    R.cleanupMultiNodeReordering();
+    R.PSLPSuccessCleanup();
     return true;
->>>>>>> f228b5371647f471853c5fb3e6719823a42fe451
+  } else {
+    R.undoMultiNodeReordering();
+    R.PSLPFailureCleanup();
   }
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
