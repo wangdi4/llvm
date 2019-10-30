@@ -208,14 +208,9 @@ static bool combineSinCos(CallInst *Call, StringRef OCLSinCosName,
   // The rest of the sincos code will be inserted above the most dominating
   // candidate.
   IRBuilder<> B(DominantI);
+
   // gen sincos call
-
-  // Sincos should have the nounwind function attribute, with the parameter
-  // attributes of the original call(s).
   AttributeList NoUnwind = getNoUnwindAttr(M->getContext());
-  for (auto Attr : Call->getAttributes().getParamAttributes(0))
-    NoUnwind.addParamAttribute(M->getContext(), {0, 1}, Attr);
-
   FunctionCallee Callee = M->getOrInsertFunction(
       OCLSinCosName, NoUnwind, AngleType, AngleType, CosTmp->getType());
   auto *SinVal = B.CreateCall(Callee, {Angle, CosTmp}, ""); // void rettype
@@ -275,9 +270,6 @@ static bool splitSinCosCall(CallInst *Call) {
     CosCall->setFast(true);
   } else {
     AttributeList NoUnwind = getNoUnwindAttr(M->getContext());
-    // Copy any param attributes from the sincos angle parameter.
-    for (auto Attr : Call->getAttributes().getParamAttributes(0))
-      NoUnwind.addParamAttribute(M->getContext(), {0}, Attr);
 
     // TODO: double
     FunctionCallee SinCallee =
