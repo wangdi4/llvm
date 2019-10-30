@@ -3,7 +3,8 @@
 ; gathers/scatters are not generated for vector code.
 
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -disable-vplan-predicator -debug-only=vplan-divergence-analysis -vplan-force-vf=16 -S 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-predicator -debug-only=vplan-divergence-analysis \
+; RUN: -vplan-force-vf=16 -S -enable-vp-value-codegen=false %s 2>&1 | FileCheck %s
 
 ; Check that DA identified inner loop loads as uniform or unit-stride.
 ; CHECK-LABEL: Basic Block: BB4

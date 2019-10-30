@@ -1,4 +1,5 @@
 ;RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+;RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen -S %s | FileCheck --check-prefix=VPVCHECK %s
 
 ; CHECK:   %min.vec = alloca <4 x i32>
 ; CHECK: vector.ph: 
@@ -20,6 +21,24 @@
 ; CHECK:  scalar.ph: 
 ; CHECK:    %bc.merge.rdx = phi i32 {{.*}}, [ %[[RES]], %middle.block ]
 
+; VPVCHECK-LABEL: @foo(
+; VPVCHECK:       [[PRIVATE_MEM:%.*]] = alloca <4 x i32>, align 16
+; VPVCHECK-NEXT:  [[MIN:%.*]] = alloca i32, align 4
+; VPVCHECK:       [[DOTPRE:%.*]] = load i32, i32* [[MIN]], align 4
+; VPVCHECK:     vector.ph:
+; VPVCHECK-NEXT:  [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> undef, i32 [[DOTPRE]], i32 0
+; VPVCHECK-NEXT:  [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> undef, <4 x i32> zeroinitializer
+; VPVCHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT]], <4 x i32>* [[PRIVATE_MEM]], align 16
+; VPVCHECK:     vector.body:
+; VPVCHECK:       [[VEC_PHI:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT]], [[VECTOR_PH:%.*]] ], [ [[PREDPHI:%.*]], [[VECTOR_BODY:%.*]] ]
+; VPVCHECK:       [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2:%.*]], align 4
+; VPVCHECK-NEXT:  [[TMP3:%.*]] = icmp sgt <4 x i32> [[VEC_PHI]], [[WIDE_LOAD]]
+; VPVCHECK-NEXT:  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD]], <4 x i32>* [[PRIVATE_MEM]], i32 16, <4 x i1> [[TMP3]])
+; VPVCHECK-NEXT:  [[PREDPHI]] = select <4 x i1> [[TMP3]], <4 x i32> [[WIDE_LOAD]], <4 x i32> [[VEC_PHI]]
+; VPVCHECK:     VPlannedBB:
+; VPVCHECK-NEXT:  [[TMP9:%.*]] = call i32 @llvm.experimental.vector.reduce.smin.v4i32(<4 x i32> [[PREDPHI]])
+; VPVCHECK-NEXT:  store i32 [[TMP9]], i32* [[MIN]]
+;
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -488,6 +488,11 @@ public:
   /// Return VPPHINode that corresponds to a recurrent entity.
   VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
 
+  /// Return true if the \p VPhi is recurrence Phi of a reduction.
+  /// Recurrence phi is phi that resides in loop header and merges
+  /// initial value and value coming from loop latch.
+  bool isReductionPhi(const VPPHINode* VPhi) const;
+
 private:
   VPlan &Plan;
   VPLoop &Loop;

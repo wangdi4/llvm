@@ -37,9 +37,6 @@ public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
 
-  /// Container-class for storing the different types of Privates
-  using PrivatesListTy = DenseSet<Value *>;
-
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize();
 
@@ -53,25 +50,26 @@ public:
     return !isa<Instruction>(V) || UniformForAnyVF.count(cast<Instruction>(V));
   }
 
+  /// Container-class for storing the different types of Privates
+  using PrivatesListTy = SetVector<Value *>;
+
   /// ReductionList contains the reduction descriptors for all
   /// of the reductions that were found in the loop.
-  typedef DenseMap<PHINode *, RecurrenceDescriptor> ReductionList;
+  using ReductionList = MapVector<PHINode *, RecurrenceDescriptor>;
 
   /// The list of explicit reduction variables.
-  typedef DenseMap<PHINode *, std::pair<RecurrenceDescriptor, AllocaInst *>>
-      ExplicitReductionList;
-  typedef DenseMap<AllocaInst *,
+  using ExplicitReductionList = MapVector<PHINode *, std::pair<RecurrenceDescriptor, AllocaInst *>>;
+  using InMemoryReductionList = MapVector<AllocaInst *,
                    std::pair<RecurrenceDescriptor::RecurrenceKind,
-                             RecurrenceDescriptor::MinMaxRecurrenceKind>>
-      InMemoryReductionList;
+                             RecurrenceDescriptor::MinMaxRecurrenceKind>>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
-  typedef MapVector<PHINode *, InductionDescriptor> InductionList;
+  using InductionList = MapVector<PHINode *, InductionDescriptor>;
 
   /// Linear list contains explicit linear specifications, mapping linear values
   /// and their strides.
-  typedef DenseMap<Value *, int> LinearListTy;
+  using LinearListTy = MapVector<Value *, int>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }

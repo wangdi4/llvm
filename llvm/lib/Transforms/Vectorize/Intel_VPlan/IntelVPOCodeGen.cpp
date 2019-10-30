@@ -1977,7 +1977,7 @@ void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   assert(EnableVPValueCodegen && "This call is unexpected");
 
-  if (VPEntities && VPEntities->getReduction(VPPhi))
+  if (VPEntities && VPEntities->isReductionPhi(VPPhi))
     // Handle reductions.
     vectorizeReductionPHI(VPPhi);
   else

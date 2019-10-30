@@ -870,6 +870,12 @@ VPPHINode *VPLoopEntityList::getRecurrentVPHINode(const VPLoopEntity &E) const {
   return nullptr;
 }
 
+bool VPLoopEntityList::isReductionPhi(const VPPHINode *VPhi) const {
+  if (const VPReduction *Reduction = getReduction(VPhi))
+    return getRecurrentVPHINode(*Reduction) == VPhi;
+  return false;
+}
+
 static bool checkInstructionInLoop(const VPValue *V, const VPlan *Plan,
                                    const VPLoop *Loop) {
   // Check for null and VPInstruction here to avoid these checks at caller(s)
