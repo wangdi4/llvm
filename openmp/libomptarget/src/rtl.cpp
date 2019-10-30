@@ -33,11 +33,9 @@
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
 #if INTEL_CUSTOMIZATION
-    /* Nios II target */ "libomptarget.rtl.nios2.so",
 #if INTEL_FEATURE_CSA
     /* CSA target     */ "libomptarget.rtl.csa.so",
 #endif  // INTEL_FEATURE_CSA
-    /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if _WIN32
