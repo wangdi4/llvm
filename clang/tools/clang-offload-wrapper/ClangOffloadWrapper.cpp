@@ -548,7 +548,7 @@ private:
             Twine(OffloadKindTag) + Twine("entries_begin"));
         auto *EntriesBObj = cast<GlobalObject>(EntriesB);
         EntriesBObj->setAlignment(32);
-        EntriesBObj->setSection(".omp_offloading.entries$A");
+        EntriesBObj->setSection("omp_offloading_entries$A");
         EntriesBObj->setVisibility(GlobalValue::HiddenVisibility);
         EntriesBObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
         EntriesB = ConstantExpr::getBitCast(EntriesB, getEntryPtrTy());
@@ -563,7 +563,7 @@ private:
         // entries_end points to the end of 32-byte aligned chunk,
         // otherwise libomptarget may read past the section.
         EntriesEObj->setAlignment(32);
-        EntriesEObj->setSection(".omp_offloading.entries$C");
+        EntriesEObj->setSection("omp_offloading_entries$C");
         EntriesEObj->setVisibility(GlobalValue::HiddenVisibility);
         EntriesEObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
         EntriesE = ConstantExpr::getBitCast(EntriesE, getEntryPtrTy());

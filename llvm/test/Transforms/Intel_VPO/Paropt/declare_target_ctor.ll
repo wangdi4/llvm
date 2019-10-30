@@ -26,8 +26,8 @@ $_ZN1SC2Ev = comdat any
 @llvm.used = appending global [1 x i8*] [i8* @__omp_offloading__32_d79701d5_Var_l5_ctor], section "llvm.metadata"
 
 ; Check that paropt creates offload entry for the Var and its constructor.
-; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* getelementptr inbounds (%struct.S, %struct.S* @Var, i32 0, i32 0), i8* {{.*}}, i32 0, i32 0), i64 1, i32 0, i32 0 }, section ".omp_offloading.entries"
-; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* @__omp_offloading__32_d79701d5_Var_l5_ctor, i8* {{.*}}, i32 0, i32 0), i64 0, i32 2, i32 0 }, section ".omp_offloading.entries"
+; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* getelementptr inbounds (%struct.S, %struct.S* @Var, i32 0, i32 0), i8* {{.*}}, i32 0, i32 0), i64 1, i32 0, i32 0 }, section "omp_offloading_entries"
+; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* @__omp_offloading__32_d79701d5_Var_l5_ctor, i8* {{.*}}, i32 0, i32 0), i64 0, i32 2, i32 0 }, section "omp_offloading_entries"
 
 define internal void @__cxx_global_var_init() section ".text.startup" {
 entry:
