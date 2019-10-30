@@ -41159,60 +41159,6 @@ static SDValue combineOrShiftToFunnelShift(SDNode *N, SelectionDAG &DAG,
   SDValue N1 = N->getOperand(1);
   EVT VT = N->getValueType(0);
 
-<<<<<<< HEAD
-  // If this is SSE1 only convert to FOR to avoid scalarization.
-  if (Subtarget.hasSSE1() && !Subtarget.hasSSE2() && VT == MVT::v4i32) {
-    return DAG.getBitcast(MVT::v4i32,
-                          DAG.getNode(X86ISD::FOR, SDLoc(N), MVT::v4f32,
-                                      DAG.getBitcast(MVT::v4f32, N0),
-                                      DAG.getBitcast(MVT::v4f32, N1)));
-  }
-
-  // Match any-of bool scalar reductions into a bitcast/movmsk + cmp.
-  // TODO: Support multiple SrcOps.
-  if (VT == MVT::i1) {
-    SmallVector<SDValue, 2> SrcOps;
-    if (matchScalarReduction(SDValue(N, 0), ISD::OR, SrcOps) &&
-        SrcOps.size() == 1) {
-      SDLoc dl(N);
-      unsigned NumElts = SrcOps[0].getValueType().getVectorNumElements();
-      EVT MaskVT = EVT::getIntegerVT(*DAG.getContext(), NumElts);
-#if INTEL_CUSTOMIZATION
-      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget,
-                                        /*UserIsSetcc*/ true);
-#endif // INTEL_CUSTOMIZATION
-      if (Mask) {
-        APInt AllBits = APInt::getNullValue(NumElts);
-        return DAG.getSetCC(dl, MVT::i1, Mask,
-                            DAG.getConstant(AllBits, dl, MaskVT), ISD::SETNE);
-      }
-    }
-  }
-
-  if (DCI.isBeforeLegalizeOps())
-    return SDValue();
-
-  if (SDValue R = combineCompareEqual(N, DAG, DCI, Subtarget))
-    return R;
-
-  if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, Subtarget))
-    return FPLogic;
-
-  if (SDValue R = canonicalizeBitSelect(N, DAG, Subtarget))
-    return R;
-
-  if (SDValue R = combineLogicBlendIntoPBLENDV(N, DAG, Subtarget))
-    return R;
-
-  // Attempt to recursively combine an OR of shuffles.
-  if (VT.isVector() && (VT.getScalarSizeInBits() % 8) == 0) {
-    SDValue Op(N, 0);
-    if (SDValue Res = combineX86ShufflesRecursively(Op, DAG, Subtarget))
-      return Res;
-  }
-
-=======
->>>>>>> 501cf25839f37392b44441533ffd2005ebe46f98
   if (VT != MVT::i16 && VT != MVT::i32 && VT != MVT::i64)
     return SDValue();
 
@@ -41359,7 +41305,10 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
       SDLoc dl(N);
       unsigned NumElts = SrcOps[0].getValueType().getVectorNumElements();
       EVT MaskVT = EVT::getIntegerVT(*DAG.getContext(), NumElts);
-      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget);
+#if INTEL_CUSTOMIZATION
+      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget,
+                                        /*UserIsSetcc*/ true);
+#endif // INTEL_CUSTOMIZATION
       if (Mask) {
         APInt AllBits = APInt::getNullValue(NumElts);
         return DAG.getSetCC(dl, MVT::i1, Mask,
