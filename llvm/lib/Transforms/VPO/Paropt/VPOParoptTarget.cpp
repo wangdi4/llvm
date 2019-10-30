@@ -693,6 +693,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     Builder.CreateStore(
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
         OffloadError);
+    if (isa<WRNTargetDataNode>(W)) {
+      // For target data directive, if the "if" clause is evaluated to false,
+      // device is host, and the outlined function is called without mapping
+      // data.
+      SmallVector<Value *, 4> FnArgs(NewCall->arg_operands());
+      Builder.CreateCall(NewF, FnArgs, "");
+    }
   } else
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
 
