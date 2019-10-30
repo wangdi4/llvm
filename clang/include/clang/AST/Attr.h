@@ -32,18 +32,6 @@
 #include <cassert>
 
 namespace clang {
-<<<<<<< HEAD
-  class ASTContext;
-  class AttributeCommonInfo;
-  class IdentifierInfo;
-  class ObjCInterfaceDecl;
-  class Expr;
-  class QualType;
-  class FunctionDecl;
-  class TypeSourceInfo;
-  class Sema;           //***INTEL
-
-=======
 class ASTContext;
 class AttributeCommonInfo;
 class IdentifierInfo;
@@ -52,7 +40,6 @@ class Expr;
 class QualType;
 class FunctionDecl;
 class TypeSourceInfo;
->>>>>>> 9ecd3225d134541bdfde18a6648edb8b9e048035
 
 /// Attr - This represents one attribute.
 class Attr : public AttributeCommonInfo {
