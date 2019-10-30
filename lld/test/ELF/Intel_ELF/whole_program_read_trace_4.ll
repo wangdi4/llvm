@@ -1,26 +1,19 @@
 ; REQUIRES: assert
-; This test checks that the trace for whole program read prints
-; the correct solution when there is no main.
+; This test checks that whole program wasn't achieved since
+; there is no main.
 
-; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
-; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
-; RUN:    2>&1 | FileCheck %s
+; RUN: opt %s -o %t.bc
+; RUN: ld.lld -e main --lto-O2 \
+; RUN:     -mllvm -debug-only=whole-program-analysis \
+; RUN:     -mllvm -whole-program-read-trace %t.bc -o %t \
+; RUN:     2>&1 | FileCheck %s
 
-; Check that foo is resolved by linker since it is not
-; marked as internal
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
 ; CHECK: SYMBOL NAME: foo
-; CHECK: RESULT: RESOLVED BY LINKER
+; CHECK:  RESULT: RESOLVED BY LINKER
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 1
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-
-; Check that whole program read is not achieved because
-; there is no main
-; CHECK: WHOLE PROGRAM NOT DETECTED
 ; CHECK: whole program not read
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

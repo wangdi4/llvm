@@ -45,6 +45,10 @@ static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",
 static cl::opt<bool> WholeProgramTraceVisibility(
     "whole-program-trace-visibility", cl::init(false), cl::ReallyHidden);
 
+// Flag for printing the symbols resolution found by the linker
+static cl::opt<bool> WholeProgramReadTrace(
+    "whole-program-read-trace", cl::init(false), cl::ReallyHidden);
+
 // Flag asserts that whole program will be detected.
 static cl::opt<bool> WholeProgramAssert("whole-program-assert",
                                         cl::init(false), cl::ReallyHidden);
@@ -149,10 +153,16 @@ WholeProgramInfo::~WholeProgramInfo() {}
 //                        -mllvm -debug-only=whole-program-analysis
 //                        -mllvm -whole-program-trace-visibility
 //
+//   Whole Program Read: just print the result from the whole program read
+//                       analysis
+//                       -mllvm -debug-only=whole-program-analysis
+//                       -mllvm -whole-program-read-trace
+//
 //   Full: Print all
 //         -mllvm -debug-only=whole-program-analysis
 //         -mllvm -whole-program-trace-libfuncs
 //         -mllvm -whole-program-trace-visibility
+//         -mllvm -whole-program-read-trace
 void WholeProgramInfo::printWholeProgramTrace() {
 
     auto PrintAliases = [this](void) {
@@ -200,9 +210,11 @@ void WholeProgramInfo::printWholeProgramTrace() {
     };
 
     bool Simple = !WholeProgramTraceLibFuncs &&
-                  !WholeProgramTraceVisibility;
+                  !WholeProgramTraceVisibility &&
+                  !WholeProgramReadTrace;
 
-    bool Full = (WholeProgramTraceLibFuncs && WholeProgramTraceVisibility);
+    bool Full = (WholeProgramTraceLibFuncs && WholeProgramTraceVisibility &&
+                 WholeProgramReadTrace);
 
     dbgs() << "\nWHOLE-PROGRAM-ANALYSIS: ";
 
@@ -221,6 +233,9 @@ void WholeProgramInfo::printWholeProgramTrace() {
     // Print the functions that weren't internalized
     else if (WholeProgramTraceVisibility)
       dbgs() << "EXTERNAL FUNCTIONS TRACE";
+
+    else if (WholeProgramReadTrace)
+      dbgs() << "WHOLE PROGRAM READ\n";
 
     dbgs() << "\n\n";
 
@@ -244,6 +259,9 @@ void WholeProgramInfo::printWholeProgramTrace() {
 
     if (Simple || Full || WholeProgramTraceVisibility)
       PrintVisibility();
+
+    if (Full || WholeProgramReadTrace)
+      WPUtils.PrintSymbolsResolution();
 
     PrintWPResult();
 }
@@ -661,6 +679,22 @@ bool WholeProgramInfo::isWholeProgramRead() {
 // assumption flag for executable was turned on.
 bool WholeProgramInfo::isLinkedAsExecutable() {
   return WPUtils.getLinkingExecutable() || AssumeWholeProgramExecutable;
+}
+
+// Return the Function* that points to "main" or any of its forms,
+// else return nullptr
+Function* WholeProgramInfo::getMainFunction(Module &M) {
+
+  Function *Main = nullptr;
+
+  for (auto Name : WPUtils.getMainNames()) {
+    Main = M.getFunction(Name);
+
+    if (Main)
+      break;
+  }
+
+  return Main;
 }
 
 char WholeProgramAnalysis::PassID;

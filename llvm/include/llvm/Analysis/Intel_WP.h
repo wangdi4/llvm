@@ -130,6 +130,9 @@ public:
   bool resolveCalledValue(
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
       const Value *Arg, const Function *Caller);
+
+  // Return the Function* that points to main
+  Function* getMainFunction(Module &M);
 };
 
 // Analysis pass providing a never-invalidated whole program analysis result.
