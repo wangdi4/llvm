@@ -2665,35 +2665,17 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
       return;
     }
 
-    // Sort incoming blocks according to their order in the linearized control
-    // flow. After linearization, the HCFG coming to the codegen might be
-    // something like this:
-    //
-    //   bb0:
-    //     %def0 =
-    //   bb1:
-    //     predicate %cond0
-    //     %def1 =
-    //   bb2:
-    //     predicate %cond1    ; %cond1 = %cond0 && %something
-    //     %def2 =
-    //   bb3:
-    //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
-    //
-    // We need to generate
-    //
-    //  %sel = select %cond0, %def1, %def0
-    //  %blend = select %cond1 %def2, %sel
-    //
-    // Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
-    // for such CFG.
-    SmallVector<VPBasicBlock *, 4> SortedBlocks;
-    sortBlendPhiIncomingBlocks(VPPhi, SortedBlocks);
+    // FIXME: Ugly hack - should probably have a single VPlan-to-VPlan pass
+    // doing this and possible other preparations. Not UB because we always
+    // create non-const instructions in PlainCFGBuilder.
+    const_cast<VPPHINode *>(VPPhi)->sortIncomingBlocksForBlend();
 
     // Generate a sequence of selects.
     RegDDRef *BlendVal = nullptr;
-    for (auto *Block : SortedBlocks) {
-      auto *IncomingVecVal = widenRef(VPPhi->getIncomingValue(Block), getVF());
+    for (unsigned Idx = 0, End = VPPhi->getNumIncomingValues(); Idx < End;
+         ++Idx) {
+      VPBasicBlock *Block = VPPhi->getIncomingBlock(Idx);
+      auto *IncomingVecVal = widenRef(VPPhi->getIncomingValue(Idx), getVF());
       if (!BlendVal) {
         BlendVal = IncomingVecVal;
         continue;

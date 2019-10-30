@@ -1033,6 +1033,18 @@ private:
 public:
   void setBlend(bool B) { Blend = B; }
   bool getBlend() const { return Blend; }
+  /// Sort the incoming blocks of the blend phi according to their execution
+  /// order in the linearized CFG. Required to be performed prior to code
+  /// generation for the blend phis.
+  ///
+  /// \p BlockIndexInRPOTOrNull is an optional parameter with the mapping of the
+  /// blocks in \p this phi's parent region to that blocks' RPOT numbers. If not
+  /// provided, it will be calculated inside the method.
+  //
+  // TODO: As an optimization, the sorting can be done once per block, but that
+  // should be done at the caller side complicating the code.
+  void sortIncomingBlocksForBlend(
+      DenseMap<VPBlockBase *, int> *BlockIndexInRPOTOrNull = nullptr);
 
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
   using const_vpblock_iterator =
