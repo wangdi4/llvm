@@ -9746,23 +9746,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // Local memory size attribute can only be used for arguments of a kernel
-  // function.
-  if (getLangOpts().OpenCL &&
-      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
-      !NewFD->hasAttr<OpenCLKernelAttr>()) {
-    for (const ParmVarDecl *Param : NewFD->parameters()) {
-      if (const auto *LocalMemAttr = Param->getAttr<OpenCLLocalMemSizeAttr>()) {
-        Diag(Param->getLocation(), diag::err_opencl_kernel_attr)
-            << LocalMemAttr;
-        NewFD->setInvalidDecl();
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
   // Diagnose no_builtin attribute on function declaration that are not a
   // definition.
   // FIXME: We should really be doing this in
@@ -9785,7 +9768,22 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     case FDK_Definition:
       break;
     }
->>>>>>> 98f3151a7dded8838fafcb5f46e6c8358def96b8
+
+#if INTEL_CUSTOMIZATION
+  // Local memory size attribute can only be used for arguments of a kernel
+  // function.
+  if (getLangOpts().OpenCL &&
+      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      !NewFD->hasAttr<OpenCLKernelAttr>()) {
+    for (const ParmVarDecl *Param : NewFD->parameters()) {
+      if (const auto *LocalMemAttr = Param->getAttr<OpenCLLocalMemSizeAttr>()) {
+        Diag(Param->getLocation(), diag::err_opencl_kernel_attr)
+            << LocalMemAttr;
+        NewFD->setInvalidDecl();
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return NewFD;
 }
