@@ -32282,16 +32282,20 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    if (Opc == X86::PTILESTORED)
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
-    else
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    unsigned CurOp = 0;
+    if (Opc != X86::TILESTORED)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()),
+                 RegState::Define);
 
-    MIB.add(MI.getOperand(1)); // base
-    MIB.add(MI.getOperand(2)); // scale
-    MIB.add(MI.getOperand(3)); // index -- stride
-    MIB.add(MI.getOperand(4)); // displacement
-    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(CurOp++)); // base
+    MIB.add(MI.getOperand(CurOp++)); // scale
+    MIB.add(MI.getOperand(CurOp++)); // index -- stride
+    MIB.add(MI.getOperand(CurOp++)); // displacement
+    MIB.add(MI.getOperand(CurOp++)); // segment
+
+    if (Opc == X86::TILESTORED)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()));
+
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
@@ -32756,16 +32760,20 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    if (Opc == X86::TILESTOREDE)
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
-    else
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    unsigned CurOp = 0;
+    if (Opc != X86::TILESTOREDE)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()),
+                 RegState::Define);
 
-    MIB.add(MI.getOperand(1)); // base
-    MIB.add(MI.getOperand(2)); // scale
-    MIB.add(MI.getOperand(3)); // index
-    MIB.add(MI.getOperand(4)); // displacement
-    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(CurOp++)); // base
+    MIB.add(MI.getOperand(CurOp++)); // scale
+    MIB.add(MI.getOperand(CurOp++)); // index -- stride
+    MIB.add(MI.getOperand(CurOp++)); // displacement
+    MIB.add(MI.getOperand(CurOp++)); // segment
+
+    if (Opc == X86::TILESTOREDE)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()));
+
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }

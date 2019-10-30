@@ -29,19 +29,19 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
     def STTILECFG : I <0x49, MRM0m, (outs), (ins i512mem:$src),
                        "sttilecfg\t$src",
                        [(int_x86_sttilecfg addr:$src)]>, VEX, T8PD;
-    def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs),
-                      (ins VTILE:$src1, i8mem:$src2),
-                      "tileloadd\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
+                      (ins i8mem:$src),
+                      "tileloadd\t{$src, $dst|$dst, $src}", []>,
                       VEX, T8XD;
-    def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs),
-                        (ins VTILE:$src1, i8mem:$src2),
-                        "tileloaddt1\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
+                        (ins i8mem:$src),
+                        "tileloaddt1\t{$src, $dst|$dst, $src}", []>,
                         VEX, T8PD;
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
-    def TILESTORED : I<0x4b, MRMSrcMemFSIB, (outs),
-                       (ins VTILE:$src1, i8mem:$src2),
-                       "tilestored\t{$src1, $src2|$src2, $src1}", []>,
+    def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
+                       (ins i8mem:$dst, VTILE:$src),
+                       "tilestored\t{$src, $dst|$src, $dst}", []>,
                        VEX, T8XS;
     def TILEZERO : I<0x49, MRMr0, (outs), (ins VTILE:$src),
                      "tilezero\t$src", []>,
@@ -52,7 +52,7 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
       // To be translated to the actual instructions in X86ISelLowering.cpp
       def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
       def PTILELOADDT1 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILESTORED : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILESTORED : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
       def PTILEZERO : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezero imm:$src)]>;
     }
@@ -929,17 +929,17 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 
 let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs),
-                      (ins VTILEX:$src1, i8mem:$src2),
-                      "tileloadde\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs VTILEX:$dst),
+                      (ins i8mem:$src),
+                      "tileloadde\t{$src, $dst|$dst, $src}", []>,
                       EVEX, T8XD;
-    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs),
-                        (ins VTILEX:$src1, i8mem:$src2),
-                        "tileloaddt1e\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs VTILEX:$dst),
+                        (ins i8mem:$src),
+                        "tileloaddt1e\t{$src, $dst|$dst, $src}", []>,
                         EVEX, T8PD;
-    def TILESTOREDE : I<0x4b, MRMSrcMemFSIB, (outs),
-                       (ins VTILEX:$src1, i8mem:$src2),
-                       "tilestorede\t{$src1, $src2|$src2, $src1}", []>,
+    def TILESTOREDE : I<0x4b, MRMDestMemFSIB, (outs),
+                       (ins i8mem:$dst, VTILEX:$src),
+                       "tilestorede\t{$src, $dst|$dst, $src}", []>,
                        EVEX, T8XS;
     def TILEZEROE : I<0x49, MRMr0, (outs), (ins VTILEX:$src),
                      "tilezeroe\t$src", []>,
@@ -949,7 +949,7 @@ let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
       // To be translated to the actual instructions in X86ISelLowering.cpp
       def PTILELOADDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
       def PTILELOADDT1E : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILESTOREDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILESTOREDE : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
       def PTILEZEROE : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezeroe timm:$src)]>;
     }
