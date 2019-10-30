@@ -1668,7 +1668,11 @@ bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
 
 void HLNodeUtils::removeInternal(HLContainerTy &Container,
                                  HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last, bool Erase) {
+                                 HLContainerTy::iterator Last,
+                                 HLContainerTy *MoveContainer, bool Erase) {
+  assert(!(MoveContainer && Erase) &&
+         "Caller wants to move and erase nodes at the same time!");
+
   HLNode *Node;
 
   for (auto I = First, Next = I, E = Last; I != E; I = Next) {
@@ -1676,7 +1680,9 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
     Next++;
     Node = &*I;
 
-    Container.remove(*Node);
+    if (!MoveContainer) {
+      Container.remove(*Node);
+    }
 
     if (Erase) {
       Node->getHLNodeUtils().destroy(Node);
@@ -1686,11 +1692,17 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
       Node->setParent(nullptr);
     }
   }
+
+  if (MoveContainer) {
+    MoveContainer->splice(MoveContainer->end(), Container, First, Last);
+  }
 }
 
 void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
                              HLContainerTy::iterator Last,
                              HLContainerTy *MoveContainer, bool Erase) {
+  assert(!(MoveContainer && Erase) &&
+         "Caller wants to move and erase nodes at the same time!");
 
   // Empty range should be handled before we decide to dereference 'First' as it
   // might be invalid.
@@ -1755,11 +1767,9 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
   }
 
   if (Erase) {
-    removeInternal(*OrigContainer, First, Last, true);
-  } else if (!MoveContainer) {
-    removeInternal(*OrigContainer, First, Last, false);
+    removeInternal(*OrigContainer, First, Last, nullptr, true);
   } else {
-    MoveContainer->splice(MoveContainer->end(), *OrigContainer, First, Last);
+    removeInternal(*OrigContainer, First, Last, MoveContainer, false);
   }
 
   if (UpdateInnermostFlag &&
