@@ -1139,9 +1139,9 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
       // the entries contribute into sections with suffix $B,
       // the entries_begin symbol is in the section with suffix $A,
       // the entries_end symbol is in the section suffix $C.
-      Entry->setSection(".omp_offloading.entries$B");
+      Entry->setSection("omp_offloading_entries$B");
     } else {
-      Entry->setSection(".omp_offloading.entries");
+      Entry->setSection("omp_offloading_entries");
     }
 
     if (IsTargetSPIRV &&

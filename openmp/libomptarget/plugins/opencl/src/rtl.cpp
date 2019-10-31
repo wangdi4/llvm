@@ -179,7 +179,7 @@ static const char *getCLErrorName(int error) {
 #define INVOKE_CL_RET_FAIL(fn, ...) INVOKE_CL_RET(OFFLOAD_FAIL, fn, __VA_ARGS__)
 #define INVOKE_CL_RET_NULL(fn, ...) INVOKE_CL_RET(NULL, fn, __VA_ARGS__)
 
-#define OFFLOADSECTIONNAME ".omp_offloading.entries"
+#define OFFLOADSECTIONNAME "omp_offloading_entries"
 #ifdef _WIN32
 #define DEVICE_RTL_NAME "..\\lib\\libomptarget-opencl.spv"
 #else

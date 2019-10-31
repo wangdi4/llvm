@@ -626,6 +626,7 @@ private:
             M, LabelTy, /*isConstant*/ true, GlobalValue::ExternalLinkage,
             ConstantAggregateZero::get(LabelTy),
             Twine(OffloadKindTag) + Twine("entries_begin"));
+<<<<<<< HEAD
         EntriesStart->setAlignment(MaybeAlign(32));
         EntriesStart->setSection(".omp_offloading.entries$A");
         EntriesStart->setVisibility(GlobalValue::HiddenVisibility);
@@ -634,6 +635,16 @@ private:
 
         EntriesStop = new GlobalVariable(
             M, LabelTy, /*isConstant*/ true, GlobalValue::ExternalLinkage,
+=======
+        auto *EntriesBObj = cast<GlobalObject>(EntriesB);
+        EntriesBObj->setAlignment(32);
+        EntriesBObj->setSection("omp_offloading_entries$A");
+        EntriesBObj->setVisibility(GlobalValue::HiddenVisibility);
+        EntriesBObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
+        EntriesB = ConstantExpr::getBitCast(EntriesB, getEntryPtrTy());
+        EntriesE = new GlobalVariable(
+            M, LabelTy, true, GlobalValue::ExternalLinkage,
+>>>>>>> f0b9206475c0620e5275082bc7c2c5140176ba59
             ConstantAggregateZero::get(LabelTy),
             Twine(OffloadKindTag) + Twine("entries_end"));
         // Set 32-byte alignment so that (entries_end - entries_begin) % 32 == 0
@@ -641,6 +652,7 @@ private:
         // in the middle of the section, and we want to make sure
         // entries_end points to the end of 32-byte aligned chunk,
         // otherwise libomptarget may read past the section.
+<<<<<<< HEAD
         EntriesStop->setAlignment(MaybeAlign(32));
         EntriesStop->setSection(".omp_offloading.entries$C");
         EntriesStop->setVisibility(GlobalValue::HiddenVisibility);
@@ -672,6 +684,24 @@ private:
 
         EntriesB = EntriesStart;
         EntriesE = EntriesStop;
+=======
+        EntriesEObj->setAlignment(32);
+        EntriesEObj->setSection("omp_offloading_entries$C");
+        EntriesEObj->setVisibility(GlobalValue::HiddenVisibility);
+        EntriesEObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
+        EntriesE = ConstantExpr::getBitCast(EntriesE, getEntryPtrTy());
+      }
+
+      if (!EntriesB) {
+#endif // INTEL_COLLAB
+      EntriesB = new GlobalVariable(
+          M, getEntryTy(), true, GlobalValue::ExternalLinkage, nullptr,
+          Twine(OffloadKindTag) + Twine("entries_begin"));
+      EntriesE = new GlobalVariable(
+          M, getEntryTy(), true, GlobalValue::ExternalLinkage, nullptr,
+          Twine(OffloadKindTag) + Twine("entries_end"));
+#if INTEL_COLLAB
+>>>>>>> f0b9206475c0620e5275082bc7c2c5140176ba59
       }
 #endif  // INTEL_COLLAB
 
