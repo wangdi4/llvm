@@ -395,8 +395,12 @@ public:
       return true;
     case Instruction::PHI:
     case Instruction::Select:
-    case Instruction::Call:
-      return V->getType()->isFPOrFPVectorTy();
+    case Instruction::Call: {
+      Type *Ty = V->getType();
+      while (ArrayType *ArrTy = dyn_cast<ArrayType>(Ty))
+        Ty = ArrTy->getElementType();
+      return Ty->isFPOrFPVectorTy();
+    }
     default:
       return false;
     }
