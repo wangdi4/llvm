@@ -35,13 +35,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
     std::string pluginPath = "";
 #ifdef _WIN32
     // envString = "currentpath\PLUGIN_DLL_NAME"
-    envString = get_exe_dir();
-#ifndef NDEBUG
-    envString += "Debug\\";
-#else
-    envString += "Release\\";
-#endif
-    envString += PLUGIN_DLL_NAME;
+    envString = get_exe_dir() + PLUGIN_DLL_NAME;
     pluginPath = envString;
     ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
