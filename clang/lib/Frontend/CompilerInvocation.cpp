@@ -690,6 +690,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.DisableIntelProprietaryOpts = Args.hasArg(
     OPT_disable_intel_proprietary_opts);
+  Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
 #endif // INTEL_CUSTOMIZATION
 
   // At O0 we want to fully disable inlining outside of cases marked with
@@ -2604,7 +2605,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.HLS = Args.hasArg(OPT_fhls);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
-  Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
 
   if (Opts.isIntelCompat(LangOptions::IMFAttributes)) {
     for (StringRef IMFAttrs : Args.getAllArgValues(OPT_fintel_imf_attr_EQ)) {
