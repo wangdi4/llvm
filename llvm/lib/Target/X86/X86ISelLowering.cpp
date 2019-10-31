@@ -17641,8 +17641,20 @@ static SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG,
   }
 
   unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
-  if (IdxVal == 0) // the operation is legal
+#if INTEL_CUSTOMIZATION
+  if (IdxVal == 0) { // the operation is legal
+    // Widen v2i1/v4i1 to v8i1 to match the codegen we get for bitcasts from
+    // v2i1/v4i1 to i4/i2.
+    if (VecVT == MVT::v2i1 || VecVT == MVT::v4i1) {
+      Vec = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                        DAG.getUNDEF(MVT::v8i1), Vec,
+                        DAG.getIntPtrConstant(0, dl));
+      return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, Op.getValueType(),
+                         Vec, DAG.getIntPtrConstant(0, dl));
+    }
     return Op;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Extend to natively supported kshift.
   unsigned NumElems = VecVT.getVectorNumElements();
@@ -32278,6 +32290,66 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case X86::PTDPBSSD:
+  case X86::PTDPBSUD:
+  case X86::PTDPBUSD:
+  case X86::PTDPBUUD:
+  case X86::PTDPBF16PS: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    case X86::PTDPBSSD: Opc = X86::TDPBSSD; break;
+    case X86::PTDPBSUD: Opc = X86::TDPBSUD; break;
+    case X86::PTDPBUSD: Opc = X86::TDPBUSD; break;
+    case X86::PTDPBUUD: Opc = X86::TDPBUUD; break;
+    case X86::PTDPBF16PS: Opc = X86::TDPBF16PS; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILEZERO: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Imm = MI.getOperand(0).getImm();
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(X86::TILEZERO));
+    MIB.addReg(TMMImmToTMMReg(Imm));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILELOADD:
+  case X86::PTILELOADDT1:
+  case X86::PTILESTORED: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    case X86::PTILELOADD:   Opc = X86::TILELOADD;   break;
+    case X86::PTILELOADDT1: Opc = X86::TILELOADDT1; break;
+    case X86::PTILESTORED:  Opc = X86::TILESTORED;  break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    if (Opc == X86::PTILESTORED)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    else
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index -- stride
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
   case X86::PT2RPNTLVW:
   case X86::PT2RPNTLVWT1:
@@ -32725,29 +32797,23 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTILELOADDE64:
-  case X86::PTILELOADDT1E64:
-  case X86::PTILESTOREDE64: {
+  case X86::PTILELOADDE:
+  case X86::PTILELOADDT1E:
+  case X86::PTILESTOREDE: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTILELOADDE64:
-      Opc = X86::TILELOADDE;
-      break;
-    case X86::PTILELOADDT1E64:
-      Opc = X86::TILELOADDT1E;
-      break;
-    case X86::PTILESTOREDE64:
-      Opc = X86::TILESTOREDE;
-      break;
+    case X86::PTILELOADDE:   Opc = X86::TILELOADDE;   break;
+    case X86::PTILELOADDT1E: Opc = X86::TILELOADDT1E; break;
+    case X86::PTILESTOREDE:  Opc = X86::TILESTOREDE;  break;
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     if (Opc == X86::TILESTOREDE)
-      MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()));
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
     else
-      MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
 
     MIB.add(MI.getOperand(1)); // base
     MIB.add(MI.getOperand(2)); // scale
@@ -37928,6 +37994,45 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
       }
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  auto OnlyFlagUsers = [](SDNode *N) {
+    for (SDNode::use_iterator UI = N->use_begin(), UE = N->use_end();
+           UI != UE; ++UI) {
+      switch (UI->getOpcode()) {
+      default:
+        return false;
+      case ISD::SELECT:
+        if (UI.getOperandNo() != 0)
+          return false;
+        break;
+      case ISD::BRCOND:
+        break;
+      }
+    }
+
+    return true;
+  };
+
+  // Improve lowering of i1 extracts that are only used by flag consuming
+  // operations. We can move the k-register into the GPR domain and do a test.
+  // The default behavior would have been to use a kshift, a copy, and a
+  // scalar and. NOTE: We don't do this from extracts of bit 0 due to an
+  // infinite loop.
+  if (CIdx && SrcVT.getScalarType() == MVT::i1 && Subtarget.hasAVX512() &&
+      !CIdx->isNullValue() && OnlyFlagUsers(N)) {
+    unsigned NumSrcElts = SrcVT.getVectorNumElements();
+    EVT BCVT = EVT::getIntegerVT(*DAG.getContext(), NumSrcElts);
+    SDValue BC = DAG.getBitcast(BCVT, InputVector);
+
+    // extractelement vXi1 X, MaskIdx --> ((movmsk X) & Mask) == Mask
+    unsigned MaskIdx = N->getConstantOperandVal(1);
+    APInt MaskBit = APInt::getOneBitSet(NumSrcElts, MaskIdx);
+    SDValue Mask = DAG.getConstant(MaskBit, dl, BCVT);
+    SDValue Res = DAG.getNode(ISD::AND, dl, BCVT, BC, Mask);
+    return DAG.getSetCC(dl, MVT::i1, Res, Mask, ISD::SETEQ);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return SDValue();
 }

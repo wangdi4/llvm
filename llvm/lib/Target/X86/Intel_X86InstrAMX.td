@@ -39,13 +39,23 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
                         VEX, T8PD;
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
-    def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
-                       (ins i8mem:$src1, VTILE:$src2),
-                       "tilestored\t{$src2, $src1|$src1, $src2}", []>,
+    def TILESTORED : I<0x4b, MRMSrcMemFSIB, (outs),
+                       (ins VTILE:$src1, i8mem:$src2),
+                       "tilestored\t{$src1, $src2|$src2, $src1}", []>,
                        VEX, T8XS;
     def TILEZERO : I<0x49, MRMr0, (outs), (ins VTILE:$src),
                      "tilezero\t$src", []>,
                      VEX, T8XD;
+
+    let usesCustomInserter = 1 in {
+      // Pseudo instructions, using immediates instead of tile registers.
+      // To be translated to the actual instructions in X86ISelLowering.cpp
+      def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILELOADDT1 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILESTORED : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILEZERO : PseudoI<(outs), (ins u8imm:$src),
+                              [(int_x86_tilezero imm:$src)]>;
+    }
   } // SchedRW
 } // HasAMXTILE
 
@@ -68,8 +78,29 @@ let Predicates = [HasAMXINT8, In64BitMode] in {
                     (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
                     "tdpbuud\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
                     VEX_4V, T8PS;
+
+    let usesCustomInserter = 1 in {
+      // Pseudo instructions, using immediates instead of tile registers.
+      // To be translated to the actual instructions in X86ISelLowering.cpp
+      def PTDPBSSD : PseudoI<(outs), (ins u8imm:$src1,
+                             u8imm:$src2, u8imm:$src3),
+                             [(int_x86_tdpbssd imm:$src1,
+                               imm:$src2, imm:$src3)]>;
+      def PTDPBSUD : PseudoI<(outs), (ins u8imm:$src1,
+                             u8imm:$src2, u8imm:$src3),
+                             [(int_x86_tdpbsud imm:$src1,
+                               imm:$src2, imm:$src3)]>;
+      def PTDPBUSD : PseudoI<(outs), (ins u8imm:$src1,
+                             u8imm:$src2, u8imm:$src3),
+                             [(int_x86_tdpbusd imm:$src1,
+                               imm:$src2, imm:$src3)]>;
+      def PTDPBUUD : PseudoI<(outs), (ins u8imm:$src1,
+                             u8imm:$src2, u8imm:$src3),
+                             [(int_x86_tdpbuud imm:$src1,
+                               imm:$src2, imm:$src3)]>;
+    }
   }
-} // HasAMXTILE, HasAMXINT8
+} // HasAMXTILE, HasAMXTMUL
 
 let Predicates = [HasAMXBF16, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
@@ -77,10 +108,19 @@ let Predicates = [HasAMXBF16, In64BitMode] in {
                       (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
                       "tdpbf16ps\t{$src1, $src2, $src3|$src3, $src2, $src1}",
                       []>, VEX_4V, T8XS;
+
+    let usesCustomInserter = 1 in {
+      // Pseudo instructions, using immediates instead of tile registers.
+      // To be translated to the actual instructions in X86ISelLowering.cpp
+      def PTDPBF16PS : PseudoI<(outs), (ins u8imm:$src1,
+                               u8imm:$src2, u8imm:$src3),
+                               [(int_x86_tdpbf16ps imm:$src1,
+                                 imm:$src2, imm:$src3)]>;
+    }
   }
 } // HasAMXTILE, HasAMXBF16
-// end INTEL_FEATURE_ISA_AMX
 
+// end INTEL_FEATURE_ISA_AMX
 // INTEL_FEATURE_ISA_AMX2
 // TDPFP16PS
 let Predicates = [HasAMXFP16, In64BitMode] in {
@@ -135,7 +175,7 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXTRANSPOSE
 
-// TAPPDS check tmemrow
+// TADDPS check tmemrow
 multiclass m_tadds {
   let Predicates = [HasAMXELEMENT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
@@ -907,9 +947,9 @@ let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
       // To be translated to the actual instructions in X86ISelLowering.cpp
-      def PTILELOADDE64 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILELOADDT1E64 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILESTOREDE64 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILELOADDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILELOADDT1E : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILESTOREDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
       def PTILEZEROE : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezeroe timm:$src)]>;
     }

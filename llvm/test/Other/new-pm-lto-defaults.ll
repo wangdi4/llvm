@@ -115,6 +115,7 @@
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-O2-NEXT: Running pass: PartialInlinerPass
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: IPCloningPass ;INTEL

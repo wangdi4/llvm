@@ -4477,8 +4477,8 @@ define i1 @movmsk_and_v2i64(<2 x i64> %x, <2 x i64> %y) {
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vpcmpneqq %zmm1, %zmm0, %k0
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
-; KNL-NEXT:    kmovw %k1, %ecx
-; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    kmovw %k0, %ecx ;INTEL
+; KNL-NEXT:    kmovw %k1, %eax ;INTEL
 ; KNL-NEXT:    andb %cl, %al
 ; KNL-NEXT:    # kill: def $al killed $al killed $eax
 ; KNL-NEXT:    vzeroupper
@@ -4488,8 +4488,8 @@ define i1 @movmsk_and_v2i64(<2 x i64> %x, <2 x i64> %y) {
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vpcmpneqq %xmm1, %xmm0, %k0
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
-; SKX-NEXT:    kmovd %k1, %ecx
-; SKX-NEXT:    kmovd %k0, %eax
+; SKX-NEXT:    kmovd %k0, %ecx ;INTEL
+; SKX-NEXT:    kmovd %k1, %eax ;INTEL
 ; SKX-NEXT:    andb %cl, %al
 ; SKX-NEXT:    # kill: def $al killed $al killed $eax
 ; SKX-NEXT:    retq
@@ -4630,8 +4630,8 @@ define i1 @movmsk_and_v2f64(<2 x double> %x, <2 x double> %y) {
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vcmplepd %zmm0, %zmm1, %k0
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
-; KNL-NEXT:    kmovw %k1, %ecx
-; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    kmovw %k0, %ecx ;INTEL
+; KNL-NEXT:    kmovw %k1, %eax ;INTEL
 ; KNL-NEXT:    andb %cl, %al
 ; KNL-NEXT:    # kill: def $al killed $al killed $eax
 ; KNL-NEXT:    vzeroupper
@@ -4641,8 +4641,8 @@ define i1 @movmsk_and_v2f64(<2 x double> %x, <2 x double> %y) {
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vcmplepd %xmm0, %xmm1, %k0
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
-; SKX-NEXT:    kmovd %k1, %ecx
-; SKX-NEXT:    kmovd %k0, %eax
+; SKX-NEXT:    kmovd %k0, %ecx ;INTEL
+; SKX-NEXT:    kmovd %k1, %eax ;INTEL
 ; SKX-NEXT:    andb %cl, %al
 ; SKX-NEXT:    # kill: def $al killed $al killed $eax
 ; SKX-NEXT:    retq
@@ -4725,10 +4725,8 @@ define i32 @PR39665_c_ray(<2 x double> %x, <2 x double> %y) {
 ; KNL-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vcmpltpd %zmm0, %zmm1, %k0
-; KNL-NEXT:    kshiftrw $1, %k0, %k1
-; KNL-NEXT:    kmovw %k1, %eax
 ; KNL-NEXT:    kmovw %k0, %ecx
-; KNL-NEXT:    testb $1, %al
+; KNL-NEXT:    testb $2, %cl ;INTEL
 ; KNL-NEXT:    movl $42, %eax
 ; KNL-NEXT:    movl $99, %edx
 ; KNL-NEXT:    cmovel %edx, %eax
@@ -4740,10 +4738,8 @@ define i32 @PR39665_c_ray(<2 x double> %x, <2 x double> %y) {
 ; SKX-LABEL: PR39665_c_ray:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vcmpltpd %xmm0, %xmm1, %k0
-; SKX-NEXT:    kshiftrb $1, %k0, %k1
-; SKX-NEXT:    kmovd %k1, %eax
 ; SKX-NEXT:    kmovd %k0, %ecx
-; SKX-NEXT:    testb $1, %al
+; SKX-NEXT:    testb $2, %cl ;INTEL
 ; SKX-NEXT:    movl $42, %eax
 ; SKX-NEXT:    movl $99, %edx
 ; SKX-NEXT:    cmovel %edx, %eax

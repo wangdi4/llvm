@@ -1,9 +1,10 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=false < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=true < %s | FileCheck %s
 
 ; CHECK: vector.body:
-; CHECK: VPlannedBB:{{.*}} preds = %VPlannedBB, %vector.body
+; CHECK: [[INNER_LOOP_HEADER:VPlannedBB.*]]:{{.*}} preds = %[[INNER_LOOP_HEADER]], %vector.body
 ; CHECK: store <4 x i32>
-; CHECK: VPlannedBB1:{{.*}} preds = %VPlannedBB
+; CHECK: [[INNER_LOOP_EXIT:VPlannedBB.*]]:{{.*}} preds = %[[INNER_LOOP_HEADER]]
 ; CHECK: middle.block:
 
 ; ModuleID = 'krtest.c'

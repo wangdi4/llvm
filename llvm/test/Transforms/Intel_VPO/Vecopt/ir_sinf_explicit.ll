@@ -1,4 +1,4 @@
-; RUN: opt -vector-library=SVML -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -vector-library=SVML -VPlanDriver -enable-vp-value-codegen=false -S %s | FileCheck %s
 ; CHECK: call fast svml_cc <4 x float> @__svml_sinf4
 
 ; TODO: Fast-math flags are not represented in VPValue yet. Update check when feature is implemented.

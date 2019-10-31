@@ -877,21 +877,19 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     // unless -fintelfpga is supplied, which uses SPIR-V with fpga AOT.
     if (HasValidSYCLRuntime) {
       llvm::Triple TT(TargetTriple);
-      if (SYCLfpga) {
+      // TODO: Use 'unknown' for OS as devices do not have any OS.
+      TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
+      TT.setVendor(llvm::Triple::UnknownVendor);
+      TT.setEnvironment(llvm::Triple::SYCLDevice);
+
+      if (IsCLMode())
+        TT.setObjectFormat(llvm::Triple::COFF);
+      if (SYCLfpga)
         // Triple for -fintelfpga is spir64_fpga-unknown-<os>-sycldevice.
-        // TODO: Use 'unknown' for OS as devices do not have any OS.
         TT.setArchName("spir64_fpga");
-        TT.setVendor(llvm::Triple::UnknownVendor);
-        TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
-        TT.setEnvironment(llvm::Triple::SYCLDevice);
-      } else {
+      else
         TT.setArch(llvm::Triple::spir64);
-        TT.setVendor(llvm::Triple::UnknownVendor);
-        TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
-        TT.setEnvironment(llvm::Triple::SYCLDevice);
-        if (IsCLMode())
-          TT.setObjectFormat(llvm::Triple::COFF);
-      }
+
       UniqueSYCLTriplesVec.push_back(TT);
     }
   }
@@ -3562,15 +3560,6 @@ class OffloadingActionBuilder final {
       Arg *SYCLAddTargets = Args.getLastArg(options::OPT_fsycl_add_targets_EQ);
       bool HasValidSYCLRuntime = C.getInputArgs().hasFlag(options::OPT_fsycl,
                                               options::OPT_fno_sycl, false);
-
-      // Add additional check for -fintelfpga, which if set will add the fpga
-      // specific target triple.  There is a check done earlier for the setting
-      // of both options, so we can freely just check argument contents.
-      if (!SYCLTargets && C.getInputArgs().hasArg(options::OPT_fintelfpga)) {
-        SYCLTargets = Args.MakeJoinedArg(nullptr,
-            C.getDriver().getOpts().getOption(options::OPT_fsycl_targets_EQ),
-            Args.MakeArgString("spir64_fpga-unknown-linux-sycldevice"));
-      }
       if (SYCLTargets || SYCLAddTargets) {
         if (SYCLTargets) {
           llvm::StringMap<StringRef> FoundNormalizedTriples;
@@ -3607,7 +3596,11 @@ class OffloadingActionBuilder final {
       } else if (HasValidSYCLRuntime) {
         // Only -fsycl is provided without -fsycl-*targets.
         llvm::Triple TT;
-        TT.setArch(llvm::Triple::spir64);
+        // -fsycl -fintelfpga implies spir64_fpga
+        if (C.getInputArgs().hasArg(options::OPT_fintelfpga))
+          TT.setArchName("spir64_fpga");
+        else
+          TT.setArch(llvm::Triple::spir64);
         TT.setVendor(llvm::Triple::UnknownVendor);
         TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
         TT.setEnvironment(llvm::Triple::SYCLDevice);
@@ -3879,7 +3872,12 @@ public:
     }
 
     // Do not use unbundler if the Host does not depend on device action.
-    if (OffloadKind == Action::OFK_None && CanUseBundler)
+    // Now that we have unbundled the object, when doing -fsycl-link we
+    // want to continue the host link with the input object
+    if ((OffloadKind == Action::OFK_None && CanUseBundler) ||
+        (Args.hasArg(options::OPT_fintelfpga) &&
+         Args.hasArg(options::OPT_fsycl_link_EQ) &&
+         HostAction->getType() == types::TY_Object))
       if (auto *UA = dyn_cast<OffloadUnbundlingJobAction>(HostAction))
         HostAction = UA->getInputs().back();
 
@@ -5153,6 +5151,13 @@ InputInfo Driver::BuildJobsForActionNoCache(
         if (UI.DependentOffloadKind == Action::OFK_Host &&
             JA->getType() == types::TY_Archive && IsMSVCEnv)
           continue;
+        // Host part of the unbundled object when -fintelfpga -fsycl-link is
+        // enabled is not used
+        if (UI.DependentOffloadKind == Action::OFK_Host &&
+            JA->getType() == types::TY_Object &&
+            C.getInputArgs().hasArg(options::OPT_fintelfpga) &&
+            C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ))
+          continue;
         std::string TmpFileName =
            C.getDriver().GetTemporaryPath(llvm::sys::path::stem(BaseInput),
                                           "txt");
@@ -5188,6 +5193,13 @@ InputInfo Driver::BuildJobsForActionNoCache(
                         C.addTempFile(C.getArgs().MakeArgString(TmpFileName));
         CurI = InputInfo(TI, TmpFile, TmpFile);
       } else {
+        // Host part of the unbundled object when -fintelfpga -fsycl-link is
+        // enabled is not used
+        if (UI.DependentOffloadKind == Action::OFK_Host &&
+            JA->getType() == types::TY_Object &&
+            C.getInputArgs().hasArg(options::OPT_fintelfpga) &&
+            C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ))
+          continue;
         std::string OffloadingPrefix = Action::GetOffloadingFileNamePrefix(
           UI.DependentOffloadKind,
           UI.DependentToolChain->getTriple().normalize(),

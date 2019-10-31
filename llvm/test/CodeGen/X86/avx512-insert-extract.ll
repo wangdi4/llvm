@@ -259,9 +259,8 @@ define i64 @test14(<8 x i64>%a, <8 x i64>%b, i64 %a1, i64 %b1) {
 ; KNL:       ## %bb.0:
 ; KNL-NEXT:    movq %rdi, %rax
 ; KNL-NEXT:    vpcmpgtq %zmm0, %zmm1, %k0
-; KNL-NEXT:    kshiftrw $4, %k0, %k0
 ; KNL-NEXT:    kmovw %k0, %ecx
-; KNL-NEXT:    testb $1, %cl
+; KNL-NEXT:    testb $16, %cl ;INTEL
 ; KNL-NEXT:    cmoveq %rsi, %rax
 ; KNL-NEXT:    vzeroupper
 ; KNL-NEXT:    retq
@@ -270,9 +269,8 @@ define i64 @test14(<8 x i64>%a, <8 x i64>%b, i64 %a1, i64 %b1) {
 ; SKX:       ## %bb.0:
 ; SKX-NEXT:    movq %rdi, %rax
 ; SKX-NEXT:    vpcmpgtq %zmm0, %zmm1, %k0
-; SKX-NEXT:    kshiftrb $4, %k0, %k0
 ; SKX-NEXT:    kmovd %k0, %ecx
-; SKX-NEXT:    testb $1, %cl
+; SKX-NEXT:    testb $16, %cl ;INTEL
 ; SKX-NEXT:    cmoveq %rsi, %rax
 ; SKX-NEXT:    vzeroupper
 ; SKX-NEXT:    retq

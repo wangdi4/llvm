@@ -1,16 +1,21 @@
-;RUN: opt -VPlanDriver -S %s | FileCheck %s
+;RUN: opt -VPlanDriver -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
+;RUN: opt -VPlanDriver -enable-vp-value-codegen=true -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
 ; CHECK-LABEL: expl_reduction_add
 ; CHECK: vector.body
 ; CHECK: %[[VRES:.*]] = fadd <8 x float>
-; CHECK: middle.block
-; CHECK: shufflevector <8 x float> %[[VRES]]
-; CHECK: fadd <8 x float>
-; CHECK: shufflevector <8 x float>
-; CHECK: fadd <8 x float>
-; CHECK: shufflevector <8 x float>
-; CHECK: fadd <8 x float>
-; CHECK: %[[RES:.*]] = extractelement <8 x float>
+
+; CHECK-VPVAL: VPlannedBB
+; CHECK-VPVAL:  %[[RES:.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float %x.promoted, <8 x float> %[[VRES]])
+
+; CHECK-LLVM: middle.block
+; CHECK-LLVM: shufflevector <8 x float> %[[VRES]]
+; CHECK-LLVM: fadd <8 x float>
+; CHECK-LLVM: shufflevector <8 x float>
+; CHECK-LLVM: fadd <8 x float>
+; CHECK-LLVM: shufflevector <8 x float>
+; CHECK-LLVM: fadd <8 x float>
+; CHECK-LLVM: %[[RES:.*]] = extractelement <8 x float>
 
 ; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %x.promoted, %min.iters.checked ], [ %[[RES]], %middle.block ]
 
@@ -60,14 +65,18 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 ; CHECK-LABEL: expl_reduction_sub
 ; CHECK: vector.body
 ; CHECK: %[[VRES:.*]] = fsub <8 x float>
-; CHECK: middle.block
-; CHECK: shufflevector <8 x float> %[[VRES]]
-; CHECK: fadd <8 x float>
-; CHECK: shufflevector <8 x float>
-; CHECK: fadd <8 x float>
-; CHECK: shufflevector <8 x float>
-; CHECK: fadd <8 x float>
-; CHECK: %[[RES:.*]] = extractelement <8 x float>
+
+; CHECK-VPVAL: VPlannedBB
+; CHECK-VPVAL: %[[RES:.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float %x.promoted, <8 x float> %[[VRES]])
+
+; CHECK-LLVM: middle.block
+; CHECK-LLVM: shufflevector <8 x float> %[[VRES]]
+; CHECK-LLVM: fadd <8 x float>
+; CHECK-LLVM: shufflevector <8 x float>
+; CHECK-LLVM: fadd <8 x float>
+; CHECK-LLVM: shufflevector <8 x float>
+; CHECK-LLVM: fadd <8 x float>
+; CHECK-LLVM: %[[RES:.*]] = extractelement <8 x float>
 
 ; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %x.promoted, %min.iters.checked ], [ %[[RES]], %middle.block ]
 
