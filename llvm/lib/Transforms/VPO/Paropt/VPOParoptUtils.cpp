@@ -3178,6 +3178,68 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
   return Call;
 }
 
+// Generate a private variable version for an array of Type ElementType,
+// size NumElements, and name VarName.
+Value *VPOParoptUtils::genPrivatizationAlloca(
+    Type *ElementType, Value *NumElements,
+    Instruction *InsertPt, const Twine &VarName,
+    llvm::Optional<unsigned> AllocaAddrSpace,
+    llvm::Optional<unsigned> ValueAddrSpace) {
+  assert(ElementType && "Null element type.");
+  assert(InsertPt && "Null insertion anchor.");
+
+  Module *M = InsertPt->getModule();
+  const DataLayout &DL = M->getDataLayout();
+  IRBuilder<> Builder(InsertPt);
+
+  assert((!AllocaAddrSpace ||
+          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
+          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) &&
+         "Address space of an alloca may be either local or private.");
+  assert(DL.getAllocaAddrSpace() == vpo::ADDRESS_SPACE_PRIVATE &&
+         "Default alloca address space does not match "
+         "vpo::ADDRESS_SPACE_PRIVATE.");
+
+  if (AllocaAddrSpace &&
+      AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) {
+    // OpenCL __local variables are globalized even when declared
+    // inside a kernel.
+    SmallString<64> GlobalName;
+    (VarName + Twine(".__local")).toStringRef(GlobalName);
+    GlobalVariable *GV =
+       new GlobalVariable(*M, ElementType, false, GlobalValue::InternalLinkage,
+                          Constant::getNullValue(ElementType), GlobalName,
+                          nullptr,
+                          GlobalValue::ThreadLocalMode::NotThreadLocal,
+                          vpo::ADDRESS_SPACE_LOCAL);
+
+    auto *ASCI = Builder.CreateAddrSpaceCast(
+        GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
+        GV->getName() + ".ascast");
+
+    return ASCI;
+  }
+
+  auto *AI = Builder.CreateAlloca(
+      ElementType,
+      AllocaAddrSpace ?
+          AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
+      NumElements, VarName);
+
+  if (!ValueAddrSpace)
+    return AI;
+
+  auto *ASCI = dyn_cast<Instruction>(
+      Builder.CreateAddrSpaceCast(
+          AI, AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue()),
+          AI->getName() + ".ascast"));
+
+  assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
+         "must be an Instruction.");
+
+  return ASCI;
+}
+
 // Computes the OpenMP loop upper bound so that the iteration space can be
 // closed interval.
 Value *VPOParoptUtils::computeOmpUpperBound(

@@ -10,6 +10,8 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
 # Add custom Intel files below.  Files listed here will be included in
 # the INTEL_CUSTOMIZATION build.
+  ../Intel_VPO/Vecopt/VPODirectiveCleanup.cpp
+  Paropt/Intel_VPOParoptFortranUtils.cpp
   )
 
 # INTEL_FEATURE_CSA
@@ -43,10 +45,6 @@ add_llvm_library(LLVMVPOTransforms
   Utils/ParSecTrans.cpp
 # Utils/IntrinsicUtils.cpp // moved to Transforms/Utils/CMakeLists.txt
 
-# INTEL_CUSTOMIZATION
-  ../Intel_VPO/Vecopt/VPODirectiveCleanup.cpp
-#end INTEL_CUSTOMIZATION
-
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp
   Paropt/VPOParoptModuleTransform.cpp
@@ -55,10 +53,10 @@ add_llvm_library(LLVMVPOTransforms
   Paropt/VPOParoptTarget.cpp
   Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTransform.cpp
+  Paropt/VPOParoptUtils.cpp
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
-  Paropt/VPOParoptUtils.cpp
 )
 
 add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen)

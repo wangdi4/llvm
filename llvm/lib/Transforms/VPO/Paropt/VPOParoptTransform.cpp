@@ -2172,27 +2172,23 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
-  if (RedI->getIsByRef()) {
+  if (RedI->getIsByRef())
     OldV = Builder.CreateLoad(OldV);
-  }
 
-  bool NeedsKmpcCritical = false;
+#if INTEL_CUSTOMIZATION
+  if (RedI->getIsF90DopeVector())
+    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
 
-  if (RedI->getIsArraySection() ||
-      AllocaTy->isArrayTy())
-    NeedsKmpcCritical |=
-        genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
-  else {
-    assert(VPOUtils::canBeRegisterized(
-               AllocaTy, InsertPt->getModule()->getDataLayout()) &&
-           "genReductionFini: Expect incoming scalar type.");
-    Type *ScalarTy = AllocaTy->getScalarType();
+#endif // INTEL_CUSTOMIZATION
+  if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
+    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
 
-    NeedsKmpcCritical |=
-        genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
-  }
+  assert(VPOUtils::canBeRegisterized(AllocaTy,
+                                     InsertPt->getModule()->getDataLayout()) &&
+         "genReductionFini: Expect incoming scalar type.");
+  Type *ScalarTy = AllocaTy->getScalarType();
 
-  return NeedsKmpcCritical;
+  return genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
 }
 
 // Generate the reduction initialization/update for array.
@@ -2377,13 +2373,21 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
 void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                       Instruction *InsertPt) {
   auto *NewV = FprivI->getNew();
+  auto *OldV = FprivI->getOrig();
   // NewV is either AllocaInst, GEP, or an AddrSpaceCastInst of AllocaInst.
   assert((GeneralUtils::isOMPItemLocalVAR(NewV) ||
           isa<GetElementPtrInst>(FprivI->getNew())) &&
          "genFprivInit: Expect valid memory pointer instruction");
-  VPOParoptUtils::genCopyByAddr(NewV, FprivI->getOrig(), InsertPt,
-                                FprivI->getCopyConstructor(),
-                                FprivI->getIsByRef());
+#if INTEL_CUSTOMIZATION
+  if (FprivI->getIsF90DopeVector()) {
+    if (FprivI->getIsByRef())
+      OldV = new LoadInst(OldV, "", InsertPt);
+    VPOParoptUtils::genF90DVFirstprivateCopyCall(NewV, OldV, InsertPt);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+  VPOParoptUtils::genCopyByAddr(
+      NewV, OldV, InsertPt, FprivI->getCopyConstructor(), FprivI->getIsByRef());
 }
 
 // Generate the lastprivate update code. The same mechanism is also applied
@@ -2422,10 +2426,19 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
   if (LprivI->getIsByRef())
     OldV = new LoadInst(OldV, "", InsertPt);
 
-  if (Function *CpAssn = LprivI->getCopyAssign())
+#if INTEL_CUSTOMIZATION
+  if (LprivI->getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt);
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
+  if (Function *CpAssn = LprivI->getCopyAssign()) {
     VPOParoptUtils::genCopyAssignCall(CpAssn, OldV, NewV, InsertPt);
-  else
-    genLprivFini(NewV, OldV, InsertPt);
+    return;
+  }
+
+  genLprivFini(NewV, OldV, InsertPt);
 }
 
 void VPOParoptTransform::collectStoresToLastprivateNewI(
@@ -2850,17 +2863,24 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
       GeneralUtils::getOMPItemLocalVARPointerType(AI)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
 
-  IRBuilder<> Builder(InsertPt);
-  if (RedI->getIsArraySection() ||
-      AllocaTy->isArrayTy())
+#if INTEL_CUSTOMIZATION
+  if (RedI->getIsF90DopeVector()) {
     genRedAggregateInitOrFini(W, RedI, AI, nullptr, InsertPt, true, DT);
-  else {
-    assert(VPOUtils::canBeRegisterized(AllocaTy,
-           InsertPt->getModule()->getDataLayout()) &&
-           "genReductionInit: Expect incoming scalar type.");
-    Value *V = genReductionScalarInit(RedI, ScalarTy);
-    Builder.CreateStore(V, AI);
+    return;
   }
+
+#endif // INTEL_CUSTOMIZATION
+  if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
+    genRedAggregateInitOrFini(W, RedI, AI, nullptr, InsertPt, true, DT);
+    return;
+  }
+
+  IRBuilder<> Builder(InsertPt);
+  assert(VPOUtils::canBeRegisterized(AllocaTy,
+                                     InsertPt->getModule()->getDataLayout()) &&
+         "genReductionInit: Expect incoming scalar type.");
+  Value *V = genReductionScalarInit(RedI, ScalarTy);
+  Builder.CreateStore(V, AI);
 }
 
 // Prepare the empty basic block for the array reduction initialization.
@@ -2949,6 +2969,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       Value *ReplacementVal = getClauseItemReplacementValue(RedI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal);
+#if INTEL_CUSTOMIZATION
+      if (RedI->getIsF90DopeVector())
+        VPOParoptUtils::genF90DVInitCode(RedI);
+#endif // INTEL_CUSTOMIZATION
 
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
@@ -3008,6 +3032,12 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
     DestElementTy = ArrSecInfo.getElementType();
     DestArrayBegin = RedI.getNew();
   } else
+#if INTEL_CUSTOMIZATION
+  if (RedI.getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVRedutionInitDstInfo(
+        &RedI, DestArrayBegin, DestElementTy, NumElements, InsertPt);
+  } else
+#endif // INTEL_CUSTOMIZATION
     NumElements = VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder,
                                                  DestElementTy, DestArrayBegin);
 
@@ -3028,6 +3058,15 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
     Instruction *InsertPt, IRBuilder<> &Builder, Value *&NumElements,
     Value *&SrcArrayBegin, Value *&DestArrayBegin, Type *&DestElementTy) {
 
+#if INTEL_CUSTOMIZATION
+  if (RedI.getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVRedutionFiniSrcDstInfo(
+        &RedI, SrcArrayBegin, DestArrayBegin, DestElementTy, NumElements,
+        InsertPt);
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
   bool IsArraySection = RedI.getIsArraySection();
   Type *SrcElementTy = nullptr;
 
@@ -3364,68 +3403,6 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
 
-// Generate a private variable version for an array of Type ElementType,
-// size NumElements, and name VarName.
-Value *VPOParoptTransform::genPrivatizationAlloca(
-    Type *ElementType, Value *NumElements,
-    Instruction *InsertPt, const Twine &VarName,
-    llvm::Optional<unsigned> AllocaAddrSpace,
-    llvm::Optional<unsigned> ValueAddrSpace) {
-  assert(ElementType && "Null element type.");
-  assert(InsertPt && "Null insertion anchor.");
-
-  Module *M = InsertPt->getModule();
-  const DataLayout &DL = M->getDataLayout();
-  IRBuilder<> Builder(InsertPt);
-
-  assert((!AllocaAddrSpace ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) &&
-         "Address space of an alloca may be either local or private.");
-  assert(DL.getAllocaAddrSpace() == vpo::ADDRESS_SPACE_PRIVATE &&
-         "Default alloca address space does not match "
-         "vpo::ADDRESS_SPACE_PRIVATE.");
-
-  if (AllocaAddrSpace &&
-      AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) {
-    // OpenCL __local variables are globalized even when declared
-    // inside a kernel.
-    SmallString<64> GlobalName;
-    (VarName + Twine(".__local")).toStringRef(GlobalName);
-    GlobalVariable *GV =
-       new GlobalVariable(*M, ElementType, false, GlobalValue::InternalLinkage,
-                          Constant::getNullValue(ElementType), GlobalName,
-                          nullptr,
-                          GlobalValue::ThreadLocalMode::NotThreadLocal,
-                          vpo::ADDRESS_SPACE_LOCAL);
-
-    auto *ASCI = Builder.CreateAddrSpaceCast(
-        GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
-        GV->getName() + ".ascast");
-
-    return ASCI;
-  }
-
-  auto *AI = Builder.CreateAlloca(
-      ElementType,
-      AllocaAddrSpace ?
-          AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
-      NumElements, VarName);
-
-  if (!ValueAddrSpace)
-    return AI;
-
-  auto *ASCI = dyn_cast<Instruction>(
-      Builder.CreateAddrSpaceCast(
-          AI, AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue()),
-          AI->getName() + ".ascast"));
-
-  assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
-         "must be an Instruction.");
-
-  return ASCI;
-}
-
 // Extract the type and size of local Alloca to be created to privatize I.
 void VPOParoptTransform::getItemInfo(Item *I,
                                      Type *&ElementType,    // out
@@ -3486,7 +3463,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   unsigned AddrSpace = 0;
 
   getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
-  auto *NewVal = genPrivatizationAlloca(
+  auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, InsertPt, OrigValue->getName() + NameSuffix,
       AllocaAddrSpace,
       !PreserveAddressSpace ?
@@ -3518,7 +3495,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   getItemInfo(I, ElementType, NumElements, AddrSpace);
   assert(ElementType && "Could not find Type of local element.");
 
-  auto *NewVal = genPrivatizationAlloca(
+  auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix,
       AllocaAddrSpace,
       !PreserveAddressSpace ?
@@ -3814,6 +3791,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
         FprivI->setNew(NewPrivInst);
+#if INTEL_CUSTOMIZATION
+        if (FprivI->getIsF90DopeVector())
+          VPOParoptUtils::genF90DVInitCode(FprivI);
+#endif // INTEL_CUSTOMIZATION
       } else if (!ForTask) { // && LprivI
         // Lastprivate codegen has replaced the original var with the
         // lastprivate new version.
@@ -3968,6 +3949,10 @@ bool VPOParoptTransform::genLastPrivatizationCode(
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal);
+#if INTEL_CUSTOMIZATION
+        if (LprivI->getIsF90DopeVector())
+          VPOParoptUtils::genF90DVInitCode(LprivI);
+#endif // INTEL_CUSTOMIZATION
 
       // Emit constructor call for lastprivate var if it is not also a
       // firstprivate (in which case the firstprivate init emits a cctor).
@@ -4953,16 +4938,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
       Value *Orig = PrivI->getOrig();
 
       if (isa<GlobalVariable>(Orig) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-          // On CSA we also need to do privatization for function arguments
-          // because parallel region are not getting outlined. Thus we have to
-          // create private instances for function arguments which are
-          // annotated as private to avoid modification of the original
-          // argument.
-          (isa<Argument>(Orig) && isTargetCSA()) ||
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+          (isa<Argument>(Orig) && isa<PointerType>(Orig->getType())) ||
           GeneralUtils::isOMPItemLocalVAR(Orig) ||
           isa<GetElementPtrInst>(Orig) || isa<BitCastInst>(Orig) ||
           (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig))) ||
@@ -4998,6 +4974,10 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // checks for constructor existence
         VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
                                            NewPrivInst);
+#if INTEL_CUSTOMIZATION
+        if (PrivI->getIsF90DopeVector())
+          VPOParoptUtils::genF90DVInitCode(PrivI);
+#endif // INTEL_CUSTOMIZATION
         if (ForTask && PrivI->getDestructor()) {
           // For tasks, call the destructor at the end of the region.
           // For non-tasks, genDestructorCode takes care of this.

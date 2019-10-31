@@ -85,6 +85,14 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
 ///      Modifier = "AGGRHEAD"
 ///      Id = QUAL_OMP_MAP_TOFROM
+#if INTEL_CUSTOMIZATION
+///
+/// 6. F90 Dope Vector operands. Example:
+///      FullName = "QUAL.OMP.PRIVATE:F90_DV"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "F90_DV"
+///      Id = QUAL_OMP_PRIVATE
+#endif // INTEL_CUSTOMIZATION
 ///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
@@ -100,6 +108,9 @@ private:
   bool IsArraySection:1;
   bool IsByRef:1;
   bool IsNonPod:1;
+#if INTEL_CUSTOMIZATION
+  bool IsF90DopeVector:1;
+#endif // INTEL_CUSTOMIZATION
   bool IsUnsigned:1;     // needed by min/max reduction
 
   // Conditional lastprivate
@@ -150,6 +161,10 @@ public:
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
   bool getIsMapAggrHead() const { return IsMapAggrHead; }
   bool getIsMapAggr() const { return IsMapAggr; }
+#if INTEL_CUSTOMIZATION
+  void setIsF90DopeVector() {IsF90DopeVector = true; }
+  bool getIsF90DopeVector() const { return IsF90DopeVector; }
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// This class contains a set of utility functions used by VPO passes.

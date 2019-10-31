@@ -26,6 +26,9 @@ using namespace llvm::vpo;
 
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
+#if INTEL_CUSTOMIZATION
+      IsF90DopeVector(false),
+#endif // INTEL_CUSTOMIZATION
       IsUnsigned(false), IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false) {
@@ -85,6 +88,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsArraySection();
         else if (ModSubString[i] == "BYREF")
           setIsByRef();
+#if INTEL_CUSTOMIZATION
+        else if (ModSubString[i] == "F90_DV")
+          setIsF90DopeVector();
+#endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
         else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
@@ -105,6 +112,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
   LLVM_DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
   LLVM_DEBUG(dbgs() << "  ByRef: " << getIsByRef());
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "  F90_DV: " << getIsF90DopeVector());
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
   LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
   LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());

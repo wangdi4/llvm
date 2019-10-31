@@ -692,6 +692,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
+    if (ClauseInfo.getIsF90DopeVector())
+      C.back()->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
   }
 }
@@ -726,6 +728,10 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     Item->setIsNonPod(true);
     if (IsConditional)
       Item->setIsConditional(true);
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getIsF90DopeVector())
+      Item->setIsF90DopeVector(true);
+#endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else
     for (unsigned I = 0; I < NumArgs; ++I) {
@@ -739,6 +745,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
+    if (ClauseInfo.getIsF90DopeVector())
+      C.back()->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
     }
 }
@@ -928,6 +936,8 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       if (!CurrentBundleDDRefs.empty() &&
           WRegionUtils::supportsRegDDRefs(C.getClauseID()))
         RI->setHOrig(CurrentBundleDDRefs[I]);
+      if (ClauseInfo.getIsF90DopeVector())
+        RI->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
     }
 }

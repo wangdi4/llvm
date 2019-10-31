@@ -725,6 +725,91 @@ public:
                                      Instruction *InsertBeforePt);
   /// @}
 
+  /// Generate an optionally addrspacecast'ed pointer Value for an array
+  /// of Type \p ElementType, size \p NumElements, name \p VarName.
+  /// \p NumElements can be null for one element.
+  /// If new instructions need to be generated, they will be inserted
+  /// before \p InsertPt.
+  /// \p AllocaAddrSpace specifies address space in which the memory
+  /// for the privatized variable needs to be allocated. If it is
+  /// llvm::None, then the address space matches the default alloca's
+  /// address space, as specified by DataLayout. Note that some address
+  /// spaces may require allocating the private version of the variable
+  /// as a GlobalVariable, not as an AllocaInst.
+  /// If \p ValueAddrSpace does not match llvm::None,
+  /// then the generated Value will be immediately addrspacecast'ed
+  /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
+  /// expression will be returned as a result.
+  static Value *genPrivatizationAlloca(
+      Type *ElementType, Value *NumElements,
+      Instruction *InsertPt, const Twine &VarName = "",
+      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
+
+#if INTEL_CUSTOMIZATION
+  /// \name Utilities specific to Fortran dope vectors.
+  /// @{
+
+  /// Emit code to initialize the local copy of \p I, where \p I is an F90 dope
+  /// vector. The code looks like: \code
+  ///   %size = call i64 @_f90_dope_vector_init(NewV, OrigV)
+  ///   %local_data = alloca <element_type>, %size
+  ///   store %local_data, getelementpointer(NewV, 0, 0)
+  ///   %num_elements = udiv %size, <element_size> ; Only for reduction items
+  /// \endcode
+  /// The emitted code is inserted after the alloca NewV, which is the local
+  /// dope vector corresponding to \p I, and OrigV is the original.
+  static void genF90DVInitCode(Item *I);
+
+  /// Emit a call to `_f90_firstprivate_copy(NewV, OrigV)`. The
+  /// call is inserted before \p InsertBefore.
+  static void genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,
+                                           Instruction *InsertBefore);
+  /// Emit a call to `_f90_lastprivate_copy(NewV, OrigV)`. The
+  /// call is inserted before \p InsertBefore.
+  static void genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
+                                          Instruction *InsertBefore);
+
+private:
+  static void genF90DVFirstOrLastprivateCopyCallImpl(StringRef FnName,
+                                                     Value *NewV, Value *OrigV,
+                                                     Instruction *InsertBefore);
+
+public:
+  /// Compute the destination address, number of elements and element type for
+  /// reduction initialization loop for Fortran dope vectors. The function emits
+  /// code to get the data array for the dope vector, which is inserted before
+  /// \p InsertBefore.
+  /// \code
+  ///   %newv.addr0 = getelementpointer (NewV, 0, 0)
+  ///   %dest.arr.begin = load <element_ty>* %addr0
+  /// \endcode
+  /// Where NewV is the local dope vector for I.
+  static void genF90DVRedutionInitDstInfo(const Item *I,
+                                          Value *&DestArrayBeginOut,
+                                          Type *&DestElementTyOut,
+                                          Value *&NumElementsOut,
+                                          Instruction *InsertBefore);
+  /// Compute the destination address, number of elements and element type for
+  /// reduction finalization loop for Fortran dope vectors. The function emits
+  /// code to get the data array for the dope vector, which is inserted before
+  /// \p InsertBefore.
+  /// \code
+  ///   %newv.addr0 = getelementpointer (NewV, 0, 0)
+  ///   %src.arr.begin = load <element_ty>* %newv.addr0
+  ///   %origv.addr0 = getelementpointer (OrigV, 0, 0)
+  ///   %src.arr.begin = load <element_ty>* %origv.addr0
+  /// \endcode
+  /// Where NewV is the local dope vector for I, and OrigV is the original.
+  static void genF90DVRedutionFiniSrcDstInfo(const Item *I,
+                                             Value *&SrcArrayBeginOut,
+                                             Value *&DestArrayBeginOut,
+                                             Type *&DestElementTyOut,
+                                             Value *&NumElementsOut,
+                                             Instruction *InsertBefore);
+  /// @}
+
+#endif // INTEL_CUSTOMIZATION
   /// Copy data from the source address \p To to the destination address
   /// \p From
   /// These must both be pointer types.
