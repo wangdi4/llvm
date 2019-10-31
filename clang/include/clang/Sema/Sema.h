@@ -11637,6 +11637,15 @@ private:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
+  bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
+                                         ArrayRef<int> ArgNums, int Low = 0,
+                                         int High = 15);
+  bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum,
+                                         int Low = 0, int High = 15);
+  bool CheckX86BuiltinTileDuplicate(CallExpr *TheCall, ArrayRef<int> ArgNums);
+  bool CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
+                                            ArrayRef<int> ArgNums, int Low = 0,
+                                            int High = 15);
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);

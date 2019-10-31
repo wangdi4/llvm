@@ -3127,6 +3127,28 @@ def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+def mamx_transpose : Flag<["-"], "mamx-transpose">, Group<m_x86_Features_Group>;
+def mno_amx_transpose : Flag<["-"], "mno-amx-transpose">, Group<m_x86_Features_Group>;
+def mamx_reduce : Flag<["-"], "mamx-reduce">, Group<m_x86_Features_Group>;
+def mno_amx_reduce : Flag<["-"], "mno-amx-reduce">, Group<m_x86_Features_Group>;
+def mamx_memory : Flag<["-"], "mamx-memory">, Group<m_x86_Features_Group>;
+def mno_amx_memory : Flag<["-"], "mno-amx-memory">, Group<m_x86_Features_Group>;
+def mamx_format : Flag<["-"], "mamx-format">, Group<m_x86_Features_Group>;
+def mno_amx_format : Flag<["-"], "mno-amx-format">, Group<m_x86_Features_Group>;
+def mamx_element : Flag<["-"], "mamx-element">, Group<m_x86_Features_Group>;
+def mno_amx_element : Flag<["-"], "mno-amx-element">, Group<m_x86_Features_Group>;
+def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
+def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
+def mamx_avx512 : Flag<["-"], "mamx-avx512">, Group<m_x86_Features_Group>;
+def mno_amx_avx512 : Flag<["-"], "mno-amx-avx512">, Group<m_x86_Features_Group>;
+def mamx_bf16_evex : Flag<["-"], "mamx-bf16-evex">, Group<m_x86_Features_Group>;
+def mno_amx_bf16_evex : Flag<["-"], "mno-amx-bf16-evex">, Group<m_x86_Features_Group>;
+def mamx_int8_evex : Flag<["-"], "mamx-int8-evex">, Group<m_x86_Features_Group>;
+def mno_amx_int8_evex : Flag<["-"], "mno-amx-int8-evex">, Group<m_x86_Features_Group>;
+def mamx_tile_evex : Flag<["-"], "mamx-tile-evex">, Group<m_x86_Features_Group>;
+def mno_amx_tile_evex : Flag<["-"], "mno-amx-tile-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def msse : Flag<["-"], "msse">, Group<m_x86_Features_Group>;
 def mno_sse : Flag<["-"], "mno-sse">, Group<m_x86_Features_Group>;

@@ -95,6 +95,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <bitset>
 
 using namespace clang;
 using namespace sema;
@@ -4037,6 +4038,48 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
+bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
+                                    ArrayRef<int> ArgNums,
+                                    int Low, int High) {
+  for (int ArgNum : ArgNums) {
+    if (SemaBuiltinConstantArgRange(TheCall, ArgNum, Low, High))
+      return true;
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum,
+                                             int Low, int High) {
+  return SemaBuiltinConstantArgRange(TheCall, ArgNum, Low, High);
+}
+
+bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
+                                        ArrayRef<int> ArgNums) {
+  // Because the max number of tile register is 32, so here we use each bit
+  // to represent the usage of them in bitset<32>.
+  std::bitset<32> ArgValues;
+  for (int ArgNum : ArgNums) {
+    llvm::APSInt Arg;
+    SemaBuiltinConstantArg(TheCall, ArgNum, Arg);
+    int ArgExtValue = Arg.getExtValue();
+    assert((ArgExtValue >= 0 || ArgExtValue < 32) &&
+           "Incorrect tile register num.");
+    if (ArgValues.test(ArgExtValue))
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_x86_builtin_tmul_arg_duplicate)
+             << TheCall->getArg(ArgNum)->getSourceRange();
+    ArgValues.set(ArgExtValue);
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
+                                                ArrayRef<int> ArgNums, int Low,
+                                                int High) {
+  return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums, Low, High) ||
+         CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
+}
+
 bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   switch (BuiltinID) {
   default:
@@ -4045,31 +4088,120 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tileloaddt164:
   case X86::BI__builtin_ia32_tilestored64:
   case X86::BI__builtin_ia32_tilezero:
-    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 15);
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
   case X86::BI__builtin_ia32_tdpbssd:
   case X86::BI__builtin_ia32_tdpbsud:
   case X86::BI__builtin_ia32_tdpbusd:
   case X86::BI__builtin_ia32_tdpbuud:
   case X86::BI__builtin_ia32_tdpbf16ps:
-    if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 15) ||
-        SemaBuiltinConstantArgRange(TheCall, 1, 0, 15) ||
-        SemaBuiltinConstantArgRange(TheCall, 2, 0, 15))
-      return true;
-
-    llvm::APSInt Arg0, Arg1, Arg2;
-    SemaBuiltinConstantArg(TheCall, 0, Arg0);
-    SemaBuiltinConstantArg(TheCall, 1, Arg1);
-    SemaBuiltinConstantArg(TheCall, 2, Arg2);
-    Expr *Args = TheCall->getArg(0);
-
-    if ((Arg0.getSExtValue() == Arg1.getSExtValue()) ||
-        (Arg0.getSExtValue() == Arg2.getSExtValue()) ||
-        (Arg1.getSExtValue() == Arg2.getSExtValue()))
-      return Diag(TheCall->getBeginLoc(),
-                  diag::err_x86_builtin_tmul_arg_duplicate)
-             << Args->getSourceRange();
-
-    return false;
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  case X86::BI__builtin_ia32_t2rpntlvw:
+  case X86::BI__builtin_ia32_t2rpntlvwt1:
+  case X86::BI__builtin_ia32_t2transposew:
+  case X86::BI__builtin_ia32_t2transposewt1:
+  case X86::BI__builtin_ia32_tbroadcastrowd:
+  case X86::BI__builtin_ia32_tgatherrowd:
+  case X86::BI__builtin_ia32_tgatherrowdt1:
+  case X86::BI__builtin_ia32_tgatherrowq:
+  case X86::BI__builtin_ia32_tgatherrowqt1:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+  case X86::BI__builtin_ia32_tile16move:
+  case X86::BI__builtin_ia32_tilemovei:
+  case X86::BI__builtin_ia32_tilemovee:
+  case X86::BI__builtin_ia32_tilemovex:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+  case X86::BI__builtin_ia32_tileloadde64:
+  case X86::BI__builtin_ia32_tileloaddt1e64:
+  case X86::BI__builtin_ia32_tilestorede64:
+  case X86::BI__builtin_ia32_tilezeroe:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
+  case X86::BI__builtin_ia32_tcoladdps:
+  case X86::BI__builtin_ia32_tstorerowd:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 1);
+  case X86::BI__builtin_ia32_tcoladdbcastps:
+  case X86::BI__builtin_ia32_tnarrowb:
+  case X86::BI__builtin_ia32_tnarroww:
+  case X86::BI__builtin_ia32_tpermb_mem:
+  case X86::BI__builtin_ia32_tpermd_mem:
+  case X86::BI__builtin_ia32_tpermw_mem:
+  case X86::BI__builtin_ia32_twidenb:
+  case X86::BI__builtin_ia32_twidenw:
+  case X86::BI__builtin_ia32_taddps_mem:
+  case X86::BI__builtin_ia32_tandd_mem:
+  case X86::BI__builtin_ia32_tandnd_mem:
+  case X86::BI__builtin_ia32_tcmpps_mem:
+  case X86::BI__builtin_ia32_tcvtb2ps:
+  case X86::BI__builtin_ia32_tcvtbf162ps:
+  case X86::BI__builtin_ia32_tcvtd2ps:
+  case X86::BI__builtin_ia32_tcvtps2bf16:
+  case X86::BI__builtin_ia32_tcvtps2bs:
+  case X86::BI__builtin_ia32_tcvtps2ubs:
+  case X86::BI__builtin_ia32_tcvtub2ps:
+  case X86::BI__builtin_ia32_tfmaddps_mem:
+  case X86::BI__builtin_ia32_tfmsubps_mem:
+  case X86::BI__builtin_ia32_tfnmaddps_mem:
+  case X86::BI__builtin_ia32_tfnmsubps_mem:
+  case X86::BI__builtin_ia32_tmaxps_mem:
+  case X86::BI__builtin_ia32_tminps_mem:
+  case X86::BI__builtin_ia32_tmulps_mem:
+  case X86::BI__builtin_ia32_tord_mem:
+  case X86::BI__builtin_ia32_trcp14ps:
+  case X86::BI__builtin_ia32_treduceps:
+  case X86::BI__builtin_ia32_tscalefps_mem:
+  case X86::BI__builtin_ia32_tslld:
+  case X86::BI__builtin_ia32_tsrld:
+  case X86::BI__builtin_ia32_tsrlvd_mem:
+  case X86::BI__builtin_ia32_tsubps_mem:
+  case X86::BI__builtin_ia32_txord_mem:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1});
+  case X86::BI__builtin_ia32_tilemove:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);
+  case X86::BI__builtin_ia32_tscatterrowd:
+  case X86::BI__builtin_ia32_tscatterrowdt1:
+  case X86::BI__builtin_ia32_tscatterrowq:
+  case X86::BI__builtin_ia32_tscatterrowqt1:
+  case X86::BI__builtin_ia32_tstorehd:
+  case X86::BI__builtin_ia32_tstorehdt1:
+  case X86::BI__builtin_ia32_tstorentd:
+  case X86::BI__builtin_ia32_tstoreqd:
+  case X86::BI__builtin_ia32_tstoreqdt1:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 2);
+  case X86::BI__builtin_ia32_tblendvd:
+  case X86::BI__builtin_ia32_tinterleaveeb:
+  case X86::BI__builtin_ia32_tinterleaveew:
+  case X86::BI__builtin_ia32_tinterleaveob:
+  case X86::BI__builtin_ia32_tinterleaveow:
+  case X86::BI__builtin_ia32_tpermb_reg:
+  case X86::BI__builtin_ia32_tpermd_reg:
+  case X86::BI__builtin_ia32_tpermw_reg:
+  case X86::BI__builtin_ia32_taddps_reg:
+  case X86::BI__builtin_ia32_tandd_reg:
+  case X86::BI__builtin_ia32_tandnd_reg:
+  case X86::BI__builtin_ia32_tcmpps_reg:
+  case X86::BI__builtin_ia32_tfmaddps_reg:
+  case X86::BI__builtin_ia32_tfmsubps_reg:
+  case X86::BI__builtin_ia32_tfnmaddps_reg:
+  case X86::BI__builtin_ia32_tfnmsubps_reg:
+  case X86::BI__builtin_ia32_tmaxps_reg:
+  case X86::BI__builtin_ia32_tminps_reg:
+  case X86::BI__builtin_ia32_tmulps_reg:
+  case X86::BI__builtin_ia32_tord_reg:
+  case X86::BI__builtin_ia32_tscalefps_reg:
+  case X86::BI__builtin_ia32_tsrlvd_reg:
+  case X86::BI__builtin_ia32_tsubps_reg:
+  case X86::BI__builtin_ia32_txord_reg:
+  case X86::BI__builtin_ia32_tdpfp16ps:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+  case X86::BI__builtin_ia32_tdpbssde:
+  case X86::BI__builtin_ia32_tdpbsude:
+  case X86::BI__builtin_ia32_tdpbusde:
+  case X86::BI__builtin_ia32_tdpbuude:
+  case X86::BI__builtin_ia32_tdpbf16pse:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2}, 0, 31);
+#endif // INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX
   }
 }
 #endif // INTEL_FEATURE_ISA_AMX
