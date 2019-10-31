@@ -5342,6 +5342,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             From = To + 1;
           }
         }
+<<<<<<< HEAD
 
         // Check if the group contains enough loads.
         auto isFullGroupLoad = [&]() {
@@ -5362,6 +5363,31 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             // TODO: We should allow groups of various sizes.
             if (Group.size() != VL.size() / ConsecutiveGroups.size())
               return false;
+=======
+        const SCEV *Scev0 = SE->getSCEV(Ptr0);
+        const SCEV *ScevN = SE->getSCEV(PtrN);
+        const auto *Diff =
+            dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
+        uint64_t Size = DL->getTypeAllocSize(ScalarTy);
+        // Check that the sorted loads are consecutive.
+        if (Diff && Diff->getAPInt() == (VL.size() - 1) * Size) {
+          if (CurrentOrder.empty()) {
+            // Original loads are consecutive and does not require reordering.
+            ++NumOpsWantToKeepOriginalOrder;
+            TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
+                                         UserTreeIdx, ReuseShuffleIndicies);
+            TE->setOperandsInOrder();
+            LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
+          } else {
+            // Need to reorder.
+            auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
+            ++I->getSecond();
+            TreeEntry *TE =
+                newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                             ReuseShuffleIndicies, I->getFirst());
+            TE->setOperandsInOrder();
+            LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
+>>>>>>> d52f5ed01a2a46a81555ee1b655c6b682c4dbd6c
           }
           return true;
         };
