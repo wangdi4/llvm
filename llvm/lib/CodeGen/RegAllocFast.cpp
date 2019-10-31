@@ -159,9 +159,6 @@ namespace {
       spillImpossible = ~0u
     };
 
-    bool isVirtualRegister(unsigned Reg) const {
-      return Register::isVirtualRegister(Reg);
-    }
   public:
     StringRef getPassName() const override { return "Fast Register Allocator"; }
 
@@ -893,11 +890,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
     Register Reg = MO.getReg();
-<<<<<<< HEAD
-    if (!isVirtualRegister(Reg))
-=======
     if (!Reg.isVirtual())
->>>>>>> 0202fa3a47b2eea06d43a6257ebfe5498fb7835b
       continue;
     if (MO.isEarlyClobber() || (MO.isUse() && MO.isTied()) ||
         (MO.getSubReg() && MI.readsVirtualRegister(Reg))) {
@@ -927,7 +920,8 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     Register Reg = MO.getReg();
-    if (!isVirtualRegister(Reg)) continue; // INTEL
+    if (!Register::isVirtualRegister(Reg))
+      continue;
     if (MO.isUse()) {
       if (!MO.isTied()) continue;
       LLVM_DEBUG(dbgs() << "Operand " << I << "(" << MO
@@ -952,7 +946,8 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     Register Reg = MO.getReg();
-    if (!isVirtualRegister(Reg)) continue; // INTEL
+    if (!Register::isVirtualRegister(Reg))
+      continue;
     if (!MO.isEarlyClobber())
       continue;
     // Note: defineVirtReg may invalidate MO.
@@ -1187,16 +1182,13 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
       continue;
     Register Reg = MO.getReg();
 
-<<<<<<< HEAD
-    if (Register::isPhysicalRegister(Reg)) {
+#if INTEL_CUSTOMIZATION
+    if (Reg.isPhysical()) {
       if (!MRI->isAllocatable(Reg)) continue;
       definePhysReg(MI, Reg, MO.isDead() ? regFree : regReserved);
-=======
-    // We have already dealt with phys regs in the previous scan.
-    if (Reg.isPhysical())
->>>>>>> 0202fa3a47b2eea06d43a6257ebfe5498fb7835b
       continue;
     }
+#endif // INTEL_CUSTOMIZATION
     MCPhysReg PhysReg = defineVirtReg(MI, I, Reg, CopySrcReg);
     if (setPhysReg(MI, MI.getOperand(I), PhysReg)) {
       VirtDead.push_back(Reg);
@@ -1333,8 +1325,8 @@ bool RegAllocFast::runOnMachineFunction(MachineFunction &MF) {
 
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers.
-  (void)HasVirtualRegs;
-  assert(!HasVirtualRegs && "Unallocated instruction.");
+  (void)HasVirtualRegs;                                   // INTEL
+  assert(!HasVirtualRegs && "Unallocated instruction.");  // INTEL
   MRI->clearVirtRegs();
 
   StackSlotForVirtReg.clear();
