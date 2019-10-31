@@ -1,4 +1,5 @@
-; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 -S -enable-vp-value-codegen=false %s | FileCheck %s
+; TODO - Update test for VPValue based code generation once we add support for liveout privates.
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>, align 4

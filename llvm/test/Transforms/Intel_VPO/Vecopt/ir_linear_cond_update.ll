@@ -1,4 +1,4 @@
-; RUN: opt -vplan-force-vf=4 -VPlanDriver -enable-new-vplan-predicator=false -disable-vplan-loop-regions=0 -S %s | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -VPlanDriver -enable-vp-value-codegen=false -disable-vplan-loop-regions=0 -S %s | FileCheck %s
 
 ; This test checks for handling of linear values and that we do a unit stride store
 ; CHECK: vector.ph
