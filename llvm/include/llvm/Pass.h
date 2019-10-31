@@ -57,13 +57,11 @@ enum PassManagerType {
   PMT_FunctionPassManager,   ///< FPPassManager
   PMT_LoopPassManager,       ///< LPPassManager
   PMT_RegionPassManager,     ///< RGPassManager
-  PMT_BasicBlockPassManager, ///< BBPassManager
   PMT_Last
 };
 
 // Different types of passes.
 enum PassKind {
-  PT_BasicBlock,
   PT_Region,
   PT_Loop,
   PT_Function,
@@ -313,6 +311,7 @@ protected:
   virtual bool skipFunction(const Function &F) const; // INTEL
 };
 
+<<<<<<< HEAD
 //===----------------------------------------------------------------------===//
 /// Deprecated - do not create new passes as BasicBlockPasses. Use FunctionPass
 /// with a loop over the BasicBlocks instead.
@@ -365,6 +364,8 @@ protected:
   bool skipBasicBlock(const BasicBlock &BB) const;
 };
 
+=======
+>>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 /// If the user specifies the -time-passes argument on an LLVM tool command line
 /// then the value of this boolean will be true, otherwise false.
 /// This is the storage for the -time-passes option.

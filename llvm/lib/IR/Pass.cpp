@@ -182,6 +182,7 @@ bool FunctionPass::skipFunction(const Function &F) const {
   return false;
 }
 
+<<<<<<< HEAD
 //===----------------------------------------------------------------------===//
 // BasicBlockPass Implementation
 //
@@ -229,6 +230,8 @@ PassManagerType BasicBlockPass::getPotentialPassManagerType() const {
   return PMT_BasicBlockPassManager;
 }
 
+=======
+>>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 const PassInfo *Pass::lookupPassInfo(const void *TI) {
   return PassRegistry::getPassRegistry()->getPassInfo(TI);
 }

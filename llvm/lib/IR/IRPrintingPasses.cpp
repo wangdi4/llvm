@@ -117,6 +117,7 @@ public:
   StringRef getPassName() const override { return "Print Function IR"; }
 };
 
+<<<<<<< HEAD
 class PrintBasicBlockPass : public BasicBlockPass {
   raw_ostream &Out;
   std::string Banner;
@@ -141,6 +142,8 @@ public:
   StringRef getPassName() const override { return "Print BasicBlock IR"; }
 };
 
+=======
+>>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 }
 
 char PrintModulePassWrapper::ID = 0;
@@ -149,9 +152,6 @@ INITIALIZE_PASS(PrintModulePassWrapper, "print-module",
 char PrintFunctionPassWrapper::ID = 0;
 INITIALIZE_PASS(PrintFunctionPassWrapper, "print-function",
                 "Print function to stderr", false, true)
-char PrintBasicBlockPass::ID = 0;
-INITIALIZE_PASS(PrintBasicBlockPass, "print-bb", "Print BB to stderr", false,
-                true)
 
 ModulePass *llvm::createPrintModulePass(llvm::raw_ostream &OS,
                                         const std::string &Banner,
@@ -164,15 +164,9 @@ FunctionPass *llvm::createPrintFunctionPass(llvm::raw_ostream &OS,
   return new PrintFunctionPassWrapper(OS, Banner);
 }
 
-BasicBlockPass *llvm::createPrintBasicBlockPass(llvm::raw_ostream &OS,
-                                                const std::string &Banner) {
-  return new PrintBasicBlockPass(OS, Banner);
-}
-
 bool llvm::isIRPrintingPass(Pass *P) {
   const char *PID = (const char*)P->getPassID();
 
-  return (PID == &PrintModulePassWrapper::ID)
-      || (PID == &PrintFunctionPassWrapper::ID)
-      || (PID == &PrintBasicBlockPass::ID);
+  return (PID == &PrintModulePassWrapper::ID) ||
+         (PID == &PrintFunctionPassWrapper::ID);
 }

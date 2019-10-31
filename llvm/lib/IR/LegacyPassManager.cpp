@@ -342,6 +342,7 @@ void PassManagerPrettyStackEntry::print(raw_ostream &OS) const {
   OS << "'\n";
 }
 
+<<<<<<< HEAD
 
 namespace {
 //===----------------------------------------------------------------------===//
@@ -402,6 +403,8 @@ public:
 char BBPassManager::ID = 0;
 } // End anonymous namespace
 
+=======
+>>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 namespace llvm {
 namespace legacy {
 //===----------------------------------------------------------------------===//
@@ -1326,9 +1329,6 @@ void PMDataManager::dumpPassInfo(Pass *P, enum PassDebuggingString S1,
     break;
   }
   switch (S2) {
-  case ON_BASICBLOCK_MSG:
-    dbgs() << "' on BasicBlock '" << Msg << "'...\n";
-    break;
   case ON_FUNCTION_MSG:
     dbgs() << "' on Function '" << Msg << "'...\n";
     break;
@@ -1448,6 +1448,7 @@ Pass *AnalysisResolver::findImplPass(Pass *P, AnalysisID AnalysisPI,
 }
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 // BBPassManager implementation
 
 /// Execute all of the passes scheduled for execution by invoking
@@ -1563,6 +1564,8 @@ bool BBPassManager::doFinalization(Function &F) {
 
 
 //===----------------------------------------------------------------------===//
+=======
+>>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 // FunctionPassManager implementation
 
 /// Create new Function pass manager
@@ -2096,62 +2099,6 @@ void FunctionPass::assignPassManager(PMStack &PMS,
 
   // Assign FPP as the manager of this pass.
   FPP->add(this);
-}
-
-void BasicBlockPass::preparePassManager(PMStack &PMS) {
-  // Find BBPassManager
-  while (!PMS.empty() &&
-         PMS.top()->getPassManagerType() > PMT_BasicBlockPassManager)
-    PMS.pop();
-
-  // If this pass is destroying high level information that is used
-  // by other passes that are managed by BBPM then do not insert
-  // this pass in current BBPM. Use new BBPassManager.
-  if (PMS.top()->getPassManagerType() == PMT_BasicBlockPassManager &&
-      !PMS.top()->preserveHigherLevelAnalysis(this))
-    PMS.pop();
-}
-
-/// Find appropriate Basic Pass Manager or Call Graph Pass Manager
-/// in the PM Stack and add self into that manager.
-void BasicBlockPass::assignPassManager(PMStack &PMS,
-                                       PassManagerType PreferredType) {
-  while (!PMS.empty() &&
-         PMS.top()->getPassManagerType() > PMT_BasicBlockPassManager)
-    PMS.pop();
-
-  BBPassManager *BBP;
-
-  // Basic Pass Manager is a leaf pass manager. It does not handle
-  // any other pass manager.
-  if (!PMS.empty() &&
-      PMS.top()->getPassManagerType() == PMT_BasicBlockPassManager) {
-    BBP = (BBPassManager *)PMS.top();
-  } else {
-    // If leaf manager is not Basic Block Pass manager then create new
-    // basic Block Pass manager.
-    assert(!PMS.empty() && "Unable to create BasicBlock Pass Manager");
-    PMDataManager *PMD = PMS.top();
-
-    // [1] Create new Basic Block Manager
-    BBP = new BBPassManager();
-    BBP->populateInheritedAnalysis(PMS);
-
-    // [2] Set up new manager's top level manager
-    // Basic Block Pass Manager does not live by itself
-    PMTopLevelManager *TPM = PMD->getTopLevelManager();
-    TPM->addIndirectPassManager(BBP);
-
-    // [3] Assign manager to manage this new manager. This may create
-    // and push new managers into PMS
-    BBP->assignPassManager(PMS, PreferredType);
-
-    // [4] Push new manager into PMS
-    PMS.push(BBP);
-  }
-
-  // Assign BBP as the manager of this pass.
-  BBP->add(this);
 }
 
 PassManagerBase::~PassManagerBase() {}
