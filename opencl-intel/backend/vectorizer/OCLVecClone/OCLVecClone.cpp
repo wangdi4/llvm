@@ -67,6 +67,8 @@ namespace intel {
 
 using ContainerTy = std::vector<std::pair<std::string, VectorVariant>>;
 static ContainerTy OCLBuiltinVecInfo();
+using ReturnInfoTy = std::vector<std::pair<std::string, VectorKind>>;
+static ReturnInfoTy PopulateOCLBuiltinReturnInfo();
 
 char OCLVecClone::ID = 0;
 static const char lv_name[] = "OCLVecClone";
@@ -608,29 +610,40 @@ static ContainerTy OCLBuiltinVecInfo() {
 
   addSpecialBuiltins(Info);
 
-  TypeInfo Types[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (TypeInfo &Type : Types) {
+  TypeInfo WorkGroupReductionTypes[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
+  for (TypeInfo &Type : WorkGroupReductionTypes) {
+    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}},
+               {VectorKind::vector(), VectorKind::uniform()}, false);
+    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}},
+               {VectorKind::vector(),
+                  VectorKind::uniform(), VectorKind::uniform()}, false);
+    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}, {'m'}},
+               {VectorKind::vector(),
+                  VectorKind::uniform(), VectorKind::uniform(), VectorKind::uniform()},
+                false);
+    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
+       addEntries(Info, std::string("_Z21work_group_reduce_") + Op, Type,
+                 {VectorKind::vector()}, false);
+       addEntries(Info, std::string("_Z29work_group_scan_exclusive_") + Op, Type,
+                  {VectorKind::vector()}, false);
+       addEntries(Info, std::string("_Z29work_group_scan_inclusive_") + Op, Type,
+                  {VectorKind::vector()}, false);
+    }
+  }
+  TypeInfo SubGroupReductionsTypes[] =
+    {{'c'}, {'h'}, {'s'}, {'t'}, {'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
+  for (TypeInfo &Type : SubGroupReductionsTypes) {
     addEntries(Info, std::string("_Z19sub_group_broadcast"), {Type, {'j'}},
                {VectorKind::vector(), VectorKind::uniform()}, true);
-    addEntries(Info, std::string("_Z20sub_group_reduce_add"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z20sub_group_reduce_max"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z20sub_group_reduce_min"), Type,
-               {VectorKind::vector()}, true);
+    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
+      addEntries(Info, std::string("_Z20sub_group_reduce_") + Op, Type,
+                 {VectorKind::vector()}, true);
 
-    addEntries(Info, std::string("_Z28sub_group_scan_exclusive_add"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z28sub_group_scan_exclusive_max"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z28sub_group_scan_exclusive_min"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z28sub_group_scan_inclusive_add"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z28sub_group_scan_inclusive_max"), Type,
-               {VectorKind::vector()}, true);
-    addEntries(Info, std::string("_Z28sub_group_scan_inclusive_min"), Type,
-               {VectorKind::vector()}, true);
+      addEntries(Info, std::string("_Z28sub_group_scan_exclusive_") + Op, Type,
+                 {VectorKind::vector()}, true);
+      addEntries(Info, std::string("_Z28sub_group_scan_inclusive_") + Op, Type,
+                 {VectorKind::vector()}, true);
+    }
   }
   TypeInfo ShuffleTypes[] = {{'i'}, {'i', 2}, {'i', 4}, {'i', 8}, {'i', 16},
                              {'j'}, {'j', 2}, {'j', 4}, {'j', 8}, {'j', 16},
@@ -656,40 +669,41 @@ static ContainerTy OCLBuiltinVecInfo() {
   return Info;
 }
 
-static std::pair<const char *, VectorKind> OCLBuiltinReturnInfo[] = {
-    // sub_group_get_local_id isn't here due to special processing in VecClone
-    // pass. Void-argument functions returning uniform values are implicitly
-    // known as uniform too.
-    {"_Z13sub_group_alli", VectorKind::uniform()},
-    {"_Z13sub_group_anyi", VectorKind::uniform()},
-    {"_Z14work_group_alli", VectorKind::uniform()},
-    {"_Z14work_group_anyi", VectorKind::uniform()},
-    {"_Z22intel_sub_group_balloti", VectorKind::uniform()},
-    {"_Z19sub_group_broadcastij", VectorKind::uniform()},
-    {"_Z19sub_group_broadcastjj", VectorKind::uniform()},
-    {"_Z19sub_group_broadcastlj", VectorKind::uniform()},
-    {"_Z19sub_group_broadcastmj", VectorKind::uniform()},
-    {"_Z19sub_group_broadcastfj", VectorKind::uniform()},
-    {"_Z19sub_group_broadcastdj", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_addi", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_addj", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_addl", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_addm", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_addf", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_addd", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_maxi", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_maxj", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_maxl", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_maxm", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_maxf", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_maxd", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_mini", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_minj", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_minl", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_minm", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_minf", VectorKind::uniform()},
-    {"_Z20sub_group_reduce_mind", VectorKind::uniform()},
-};
+static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
+  // sub_group_get_local_id isn't here due to special processing in VecClone
+  // pass. Void-argument functions returning uniform values are implicitly
+  // known as uniform too.
+  ReturnInfoTy RetInfo;
+
+  // Work group uniform built-ins
+  RetInfo.push_back({"_Z14work_group_alli", VectorKind::uniform()});
+  RetInfo.push_back({"_Z14work_group_anyi", VectorKind::uniform()});
+  std::string WorkGroupTypes[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
+  for (auto Type : WorkGroupTypes) {
+    RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "m", VectorKind::uniform()});
+    RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mm", VectorKind::uniform()});
+    RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mmm", VectorKind::uniform()});
+
+    for (std::string Op : std::array<std::string, 3>{{"add", "min", "max"}})
+      RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type, VectorKind::uniform()});
+  }
+
+  // Sub group uniform built-ins
+  RetInfo.push_back({std::string("_Z13sub_group_alli"), VectorKind::uniform()});
+  RetInfo.push_back({std::string("_Z13sub_group_anyi"), VectorKind::uniform()});
+
+  RetInfo.push_back({std::string("_Z22intel_sub_group_balloti"), VectorKind::uniform()});
+
+  std::string SubGroupTypes[] =
+    {{'c'}, {'h'}, {'s'}, {'t'}, {'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
+  for (auto Type : SubGroupTypes) {
+    RetInfo.push_back({std::string("_Z19sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
+    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
+      RetInfo.push_back({std::string("_Z20sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
+  }
+
+  return RetInfo;
+}
 
 void OCLVecClone::languageSpecificInitializations(Module &M) {
   OCLPrepareKernelForVecClone PK(CPUId);
@@ -702,6 +716,7 @@ void OCLVecClone::languageSpecificInitializations(Module &M) {
   //   - The attribute doesn't have any other existing meaning so we are free to
   //     choose what is suitable. Not putting too much effort into designing the
   //     attribute due to it being a temporary solution (see FIXME above).
+  static auto OCLBuiltinReturnInfo = PopulateOCLBuiltinReturnInfo();
   for (auto &Entry : OCLBuiltinReturnInfo) {
     StringRef ScalarFnName = Entry.first;
     Function *Fn = M.getFunction(ScalarFnName);
