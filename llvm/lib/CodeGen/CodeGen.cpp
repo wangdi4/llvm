@@ -116,6 +116,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeMachineLoopOptReportEmitterPass(Registry);
   initializeFloat128ExpandPass(Registry);
+  initializeRAReportEmitterPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 }
 
