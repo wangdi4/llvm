@@ -311,61 +311,6 @@ protected:
   virtual bool skipFunction(const Function &F) const; // INTEL
 };
 
-<<<<<<< HEAD
-//===----------------------------------------------------------------------===//
-/// Deprecated - do not create new passes as BasicBlockPasses. Use FunctionPass
-/// with a loop over the BasicBlocks instead.
-//
-/// BasicBlockPass class - This class is used to implement most local
-/// optimizations.  Optimizations should subclass this class if they
-/// meet the following constraints:
-///   1. Optimizations are local, operating on either a basic block or
-///      instruction at a time.
-///   2. Optimizations do not modify the CFG of the contained function, or any
-///      other basic block in the function.
-///   3. Optimizations conform to all of the constraints of FunctionPasses.
-///
-class BasicBlockPass : public Pass {
-public:
-  explicit BasicBlockPass(char &pid) : Pass(PT_BasicBlock, pid) {}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  /// createPrinterPass - Get a basic block printer pass.
-  Pass *createPrinterPass(raw_ostream &OS,
-                          const std::string &Banner) const override;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-
-  using llvm::Pass::doInitialization;
-  using llvm::Pass::doFinalization;
-
-  /// doInitialization - Virtual method overridden by BasicBlockPass subclasses
-  /// to do any necessary per-function initialization.
-  virtual bool doInitialization(Function &);
-
-  /// runOnBasicBlock - Virtual method overriden by subclasses to do the
-  /// per-basicblock processing of the pass.
-  virtual bool runOnBasicBlock(BasicBlock &BB) = 0;
-
-  /// doFinalization - Virtual method overriden by BasicBlockPass subclasses to
-  /// do any post processing needed after all passes have run.
-  virtual bool doFinalization(Function &);
-
-  void preparePassManager(PMStack &PMS) override;
-
-  void assignPassManager(PMStack &PMS, PassManagerType T) override;
-
-  ///  Return what kind of Pass Manager can manage this pass.
-  PassManagerType getPotentialPassManagerType() const override;
-
-protected:
-  /// Optional passes call this function to check whether the pass should be
-  /// skipped. This is the case when Attribute::OptimizeNone is set or when
-  /// optimization bisect is over the limit.
-  bool skipBasicBlock(const BasicBlock &BB) const;
-};
-
-=======
->>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 /// If the user specifies the -time-passes argument on an LLVM tool command line
 /// then the value of this boolean will be true, otherwise false.
 /// This is the storage for the -time-passes option.

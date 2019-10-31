@@ -117,33 +117,6 @@ public:
   StringRef getPassName() const override { return "Print Function IR"; }
 };
 
-<<<<<<< HEAD
-class PrintBasicBlockPass : public BasicBlockPass {
-  raw_ostream &Out;
-  std::string Banner;
-
-public:
-  static char ID;
-  PrintBasicBlockPass() : BasicBlockPass(ID), Out(dbgs()) {}
-  PrintBasicBlockPass(raw_ostream &Out, const std::string &Banner)
-      : BasicBlockPass(ID), Out(Out), Banner(Banner) {}
-
-  bool runOnBasicBlock(BasicBlock &BB) override {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-    Out << Banner << BB;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  StringRef getPassName() const override { return "Print BasicBlock IR"; }
-};
-
-=======
->>>>>>> 9f0ff0b2634bab6a5be8dace005c9eb24d386dd1
 }
 
 char PrintModulePassWrapper::ID = 0;
