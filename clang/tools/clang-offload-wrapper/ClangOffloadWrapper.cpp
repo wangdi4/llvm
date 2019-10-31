@@ -630,7 +630,7 @@ private:
         EntriesStart->setSection(".omp_offloading.entries$A");
         EntriesStart->setVisibility(GlobalValue::HiddenVisibility);
         EntriesStart->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
-        EntriesB = ConstantExpr::getBitCast(EntriesB, getEntryPtrTy());
+        EntriesB = ConstantExpr::getBitCast(EntriesStart, getEntryPtrTy());
 
         EntriesStop = new GlobalVariable(
             M, LabelTy, /*isConstant*/ true, GlobalValue::ExternalLinkage,
@@ -645,7 +645,7 @@ private:
         EntriesStop->setSection(".omp_offloading.entries$C");
         EntriesStop->setVisibility(GlobalValue::HiddenVisibility);
         EntriesStop->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
-        EntriesE = ConstantExpr::getBitCast(EntriesE, getEntryPtrTy());
+        EntriesE = ConstantExpr::getBitCast(EntriesStop, getEntryPtrTy());
       } else {
         // Create external begin/end symbols for the offload entries table.
         EntriesStart = new GlobalVariable(
