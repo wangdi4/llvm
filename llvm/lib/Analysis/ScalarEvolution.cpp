@@ -8133,6 +8133,10 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
         (!PostShiftOpCode.hasValue() || *PostShiftOpCode == OpCodeOut);
   };
 
+#if INTEL_CUSTOMIZATION
+  // For some reason MatchShiftRecurrence overrides LHS.
+  Value *OrigLHS = LHS;
+#endif // INTEL_CUSTOMIZATION
   PHINode *PN;
   Instruction::BinaryOps OpCode;
   if (!MatchShiftRecurrence(LHS, PN, OpCode))
@@ -8156,9 +8160,9 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
       unsigned Log2Limit = RHS->getValue().logBase2();
       unsigned InMSB = Known.getBitWidth() - DefiniteZeros - 1;
       if (Log2Limit > InMSB) {
-        // Need a minus one here since the compare is at the end of the
-        // loop and we would have shifted left by 1 before the compare.
-        unsigned Count = RHS->getValue().logBase2() - InMSB - 1;
+        // Need a minus one here if the comparison is with the shifted IV.
+        bool CmpWithShiftedIV = (OrigLHS != PN);
+        unsigned Count = RHS->getValue().logBase2() - InMSB - CmpWithShiftedIV;
         const SCEV *BECount =
             getConstant(getEffectiveSCEVType(RHS->getType()), Count);
         return ExitLimit(BECount, BECount, false);
@@ -8180,7 +8184,9 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
     if (PossibleZeros == DefiniteZeros && DefiniteZeros < Known.getBitWidth()) {
       unsigned InMSB = Known.getBitWidth() - DefiniteZeros - 1;
       if (InMSB > 0) {
-        unsigned Count = InMSB - 1;
+        // Need a minus one here if the comparison is with the shifted IV.
+        bool CmpWithShiftedIV = (OrigLHS != PN);
+        unsigned Count = InMSB - CmpWithShiftedIV;
         const SCEV *BECount =
             getConstant(getEffectiveSCEVType(RHS->getType()), Count);
         return ExitLimit(BECount, BECount, false);
