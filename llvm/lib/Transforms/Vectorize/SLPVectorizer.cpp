@@ -5631,6 +5631,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // atomic or volatile stores.
       SmallVector<Value *, 4> PointerOps(VL.size());
       ValueList Operands(VL.size());
+      SmallVector<int, 4> OpDirection; // INTEL
       auto POIter = PointerOps.begin();
       auto OIter = Operands.begin();
       for (Value *V : VL) {
@@ -5642,6 +5643,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           LLVM_DEBUG(dbgs() << "SLP: Gathering non-simple stores.\n");
           return;
         }
+        OpDirection.push_back(0); // INTEL
         *POIter = SI->getPointerOperand();
         *OIter = SI->getValueOperand();
         ++POIter;
@@ -5673,7 +5675,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
                                          UserTreeIdx, ReuseShuffleIndicies);
             TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0});
+            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
             LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
           } else {
             // Need to reorder.
@@ -5683,30 +5685,16 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                 newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                              ReuseShuffleIndicies, I->getFirst());
             TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0});
+            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
             LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled stores.\n");
           }
           return;
         }
       }
-
-<<<<<<< HEAD
-      ValueList Operands;
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *V : VL) {
-          Operands.push_back(cast<Instruction>(V)->getOperand(0));
-          OpDirection.push_back(0);
-        }
-#endif // INTEL_CUSTOMIZATION
-      TE->setOperandsInOrder();
-      buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection});
-=======
       BS.cancelScheduling(VL, VL0);
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
->>>>>>> 21d498c9c0f32dcab5bc89ac593aa813b533b43a
       return;
     }
     case Instruction::Call: {
@@ -8758,9 +8746,6 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 #endif // INTEL_CUSTOMIZATION
 
   R.buildTree(Chain);
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-=======
   Optional<ArrayRef<unsigned>> Order = R.bestOrder();
   if (Order) {
     // TODO: reorder tree nodes without tree rebuilding.
@@ -8769,7 +8754,8 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
                     [Chain](const unsigned Idx) { return Chain[Idx]; });
     R.buildTree(ReorderedOps);
   }
->>>>>>> 21d498c9c0f32dcab5bc89ac593aa813b533b43a
+
+#if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
 #endif // INTEL_CUSTOMIZATION
