@@ -349,6 +349,27 @@ def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
   "promote their architectures and make the intrinsic headers included by default">;
 def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[DriverOption]>;
+def ipp_EQ : Joined<["-"], "ipp=">, Flags<[DriverOption]>,
+  Values<"common,crypto,nonpic,nonpic_crypto">,
+  HelpText<"Link commonly used Intel(R) Integrated Performace Primitives "
+  "(Intel(R) IPP) libraries and bring in the associated headers">;
+def ipp : Flag<["-"], "ipp">, Alias<ipp_EQ>, AliasArgs<["common"]>;
+def ipp_link_EQ : Joined<["-"], "ipp-link=">, Flags<[DriverOption]>,
+  Values<"static,dynamic,shared">,
+  HelpText<"Link Intel(R) IPP libraries in requested manner">;
+def mkl_EQ : Joined<["-"], "mkl=">,
+  Values<"parallel,sequential,cluster">,
+  HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
+  "and bring in the associated headers">;
+def mkl : Flag<["-"], "mkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def tbb : Flag<["-"], "tbb">,
+  HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
+  "and bring in the associated headers">;
+def daal_EQ : Joined<["-"], "daal=">,
+  Values<"parallel,sequential">,
+  HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
+  "libraries and bring in the associated headers">;
+def daal : Flag<["-"], "daal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
 #endif // INTEL_CUSTOMIZATION
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,

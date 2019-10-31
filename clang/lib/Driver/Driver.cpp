@@ -401,6 +401,26 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       continue;
     }
 
+#if INTEL_CUSTOMIZATION
+    // Add SYCL specific performance libraries.  The names are considered as
+    // placeholders as we need to manipulate by adding full paths and extensions
+    // based on known performance library locations.
+    if (Args.hasArg(options::OPT_fsycl)) {
+      if (A->getOption().matches(options::OPT_mkl_EQ)) {
+        std::string LibName("libmkl_sycl");
+        DAL->AddJoinedArg(A,
+            Opts.getOption(options::OPT_foffload_static_lib_EQ),
+            Args.MakeArgString(LibName));
+      }
+      if (A->getOption().matches(options::OPT_daal_EQ)) {
+        std::string LibName("libdaal_sycl");
+        DAL->AddJoinedArg(A,
+            Opts.getOption(options::OPT_foffload_static_lib_EQ),
+            Args.MakeArgString(LibName));
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     DAL->append(A);
   }
 
@@ -4355,7 +4375,20 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // link actions and host list is ignored since we are adding
     // offload-static-libs as normal libraries to the host link command.
     for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
-      Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+      SmallString<128> LibName(A->getValue());
+#if INTEL_CUSTOMIZATION
+      // For Performance libraries, we have placeholders which need to be
+      // updated to the proper library name
+      if (A->getValue() == StringRef("libmkl_sycl")) {
+        LibName = C.getDefaultToolChain().GetMKLLibPath();
+        llvm::sys::path::append(LibName, "libmkl_sycl.lib");
+      }
+      if (A->getValue() == StringRef("libdaal_sycl")) {
+        LibName = C.getDefaultToolChain().GetDAALLibPath();
+        llvm::sys::path::append(LibName, "libdaal_sycl.lib");
+      }
+#endif // INTEL_CUSTOMIZATION
+      Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
       Action *Current = C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
       OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
       OffloadBuilder.addDeviceDependencesToHostAction(

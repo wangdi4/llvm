@@ -370,6 +370,31 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-defaultlib:") + A->getValue()));
 
+#if INTEL_CUSTOMIZATION
+  // Add Intel performance libraries. Only add the lib when not in CL-mode as
+  // they have already been added via directive in the compilation
+  if (Args.hasArg(options::OPT_ipp_EQ)) {
+    getToolChain().AddIPPLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddIPPLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Args.hasArg(options::OPT_mkl_EQ)) {
+    getToolChain().AddMKLLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ)) {
+    getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Args.hasArg(options::OPT_daal_EQ)) {
+    getToolChain().AddDAALLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddDAALLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (!llvm::sys::Process::GetEnv("LIB")) {
     // If the VC environment hasn't been configured (perhaps because the user
     // did not run vcvarsall), try to build a consistent link environment.  If
@@ -1298,6 +1323,26 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (DriverArgs.hasArg(options::OPT_nostdlibinc))
     return;
 
+#if INTEL_CUSTOMIZATION
+  // Add Intel performance library headers
+  if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetMKLIncludePathExtra(DriverArgs));
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetMKLIncludePath(DriverArgs));
+  }
+  if (DriverArgs.hasArg(clang::driver::options::OPT_ipp_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetIPPIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_tbb) ||
+      DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetTBBIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetDAALIncludePath(DriverArgs));
+#endif // INTEL_CUSTOMIZATION
+
   // Honor %INCLUDE%. It should know essential search paths with vcvarsall.bat.
   if (llvm::Optional<std::string> cl_include_dir =
           llvm::sys::Process::GetEnv("INCLUDE")) {
@@ -1577,7 +1622,29 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     } else if (A->getOption().matches(options::OPT_D)) {
       // Translate -Dfoo#bar into -Dfoo=bar.
       TranslateDArg(A, *DAL, Opts);
-    } else {
+    }
+#if INTEL_CUSTOMIZATION
+    // Add SYCL specific performance libraries.
+    // These are transformed from the added base library names to the full
+    // path including the library.
+    else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+             A->getValue() == StringRef("libmkl_sycl")) {
+      SmallString<128> MKLPath(GetMKLLibPath());
+      llvm::sys::path::append(MKLPath, "libmkl_sycl.lib");
+      DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
+                        Args.MakeArgString(MKLPath));
+      continue;
+    }
+    else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+             A->getValue() == StringRef("libdaal_sycl")) {
+      SmallString<128> DAALPath(GetDAALLibPath());
+      llvm::sys::path::append(DAALPath, "libdaal_sycl.lib");
+      DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
+                        Args.MakeArgString(DAALPath));
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+    else {
       DAL->append(A);
     }
   }

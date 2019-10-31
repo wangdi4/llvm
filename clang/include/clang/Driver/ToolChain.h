@@ -580,6 +580,69 @@ public:
   virtual void AddCCKextLibArgs(const llvm::opt::ArgList &Args,
                                 llvm::opt::ArgStringList &CmdArgs) const;
 
+#if INTEL_CUSTOMIZATION
+  /// GetIPPIncludePath - return the IPP header search path.
+  std::string GetIPPIncludePath(const llvm::opt::ArgList &Args) const;
+
+  /// AddIPPLibPath - Add the IPP library search path.
+  void AddIPPLibPath(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Opt) const;
+
+  /// GetMKLLibPath - return the MKL library path.
+  std::string GetMKLLibPath(void) const;
+
+  /// GetMKLIncludePath - return the MKL header search path.
+  std::string GetMKLIncludePath(const llvm::opt::ArgList &Args) const;
+
+  /// GetMKLIncludePathExtra - return the Arch specific MKL header search path.
+  std::string GetMKLIncludePathExtra(const llvm::opt::ArgList &Args) const;
+
+  /// AddMKLLibPath - Add the MKL library search path.
+  void AddMKLLibPath(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Opt) const;
+
+  /// GetTBBIncludePath - return the TBB include search path.
+  std::string GetTBBIncludePath(const llvm::opt::ArgList &Args) const;
+
+  /// AddTBBLibPath - Add the TBB library search path.
+  void AddTBBLibPath(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Opt) const;
+
+  /// GetDAALLibPath - return the DAAL library path.
+  std::string GetDAALLibPath(void) const;
+
+  /// GetDAALIncludePath - return the DAAL include search path.
+  std::string GetDAALIncludePath(const llvm::opt::ArgList &Args) const;
+
+  /// AddDAALLibPath - Add the DAAL library search path.
+  void AddDAALLibPath(const llvm::opt::ArgList &Args,
+                      llvm::opt::ArgStringList &CmdArgs,
+                      std::string Opt) const;
+
+  /// AddIPPLibArgs - Add the IPP library arguments.
+  void AddIPPLibArgs(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Prefix) const;
+
+  /// AddMKLLibArgs - Add the MKL library arguments.
+  void AddMKLLibArgs(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Prefix) const;
+
+  /// AddTBBLibArgs - Add the TBB library arguments.
+  void AddTBBLibArgs(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Prefix) const;
+
+  /// AddDAALLibArgs - Add the DAAL library arguments.
+  void AddDAALLibArgs(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs,
+                     std::string Prefix) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// AddFastMathRuntimeIfAvailable - If a runtime library exists that sets
   /// global flags for unsafe floating point math, add it and return true.
   ///

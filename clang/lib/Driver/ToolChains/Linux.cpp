@@ -674,6 +674,23 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
       addSystemInclude(DriverArgs, CC1Args, P);
     }
   }
+  // Add Intel performance library headers
+  if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetMKLIncludePathExtra(DriverArgs));
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetMKLIncludePath(DriverArgs));
+  }
+  if (DriverArgs.hasArg(clang::driver::options::OPT_ipp_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetIPPIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_tbb) ||
+      DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetTBBIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetDAALIncludePath(DriverArgs));
 #endif // INTEL_CUSTOMIZATION
 
   if (!DriverArgs.hasArg(options::OPT_nostdlibinc))
