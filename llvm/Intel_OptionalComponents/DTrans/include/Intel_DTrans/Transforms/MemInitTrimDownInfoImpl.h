@@ -95,7 +95,8 @@ public:
   inline bool isCandidateType(Type *Ty);
   inline Type *isSimpleDerivedVectorType(Type *STy, int32_t Offset);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
-  inline void collectFuncs(SmallSet<Function *, 32> *MemInitCallSites);
+  inline void collectFuncs(Module &M,
+                           SmallSet<Function *, 32> *MemInitCallSites);
   inline void printCandidateInfo(void);
 
   using FieldPositionTy = SmallVector<int32_t, MaxNumElemsInCandidate>;
@@ -544,16 +545,23 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
   return true;
 }
 
-// Collect callsites for all member functions of
+// Collect all member functions of
 //   1. Candidate Struct
-//   2. Candidate array field structs
+//   2. All candidate array field structs (even if member functions are not
+//   called directly)
 void MemInitCandidateInfo::collectFuncs(
-    SmallSet<Function *, 32> *MemInitFuncs) {
-  for (auto *F : StructMethods)
-    MemInitFuncs->insert(F);
+    Module &M, SmallSet<Function *, 32> *MemInitFuncs) {
+  SmallPtrSet<Type *, 4> InterestedClasses;
+
+  InterestedClasses.insert(SType);
   for (auto Loc : CandidateFieldPositions)
-    for (auto *F : CandidateFieldMemberFuncs[Loc])
-      MemInitFuncs->insert(F);
+    for (auto *Ty : CandidateFieldTypeSets[Loc])
+      InterestedClasses.insert(Ty);
+
+  for (auto &F : M)
+    if (auto *CTy = getClassType(&F))
+      if (InterestedClasses.count(CTy))
+        MemInitFuncs->insert(&F);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

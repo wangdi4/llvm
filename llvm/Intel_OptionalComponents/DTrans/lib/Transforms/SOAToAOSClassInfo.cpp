@@ -3251,6 +3251,40 @@ bool ClassInfo::analyzeClassFunctions() {
   return true;
 }
 
+// Returns constructor Wrapper if there is only one.
+// Otherwise, returns nullptr.
+Function *ClassInfo::getCtorWrapper() {
+  Function *CtorWrapper = nullptr;
+
+  for (auto *F : field_member_functions()) {
+    FunctionKind FKind = getFinalFuncKind(F);
+    if (FKind == Constructor) {
+      auto *ClassTy = getClassType(F);
+      Type *BaseClassTy = getMemInitSimpleBaseType(ClassTy);
+      if (BaseClassTy) {
+        if (CtorWrapper)
+          return nullptr;
+        CtorWrapper = F;
+      }
+    }
+  }
+  return CtorWrapper;
+}
+
+// Returns destructor Wrapper if there is only one.
+// Otherwise, returns nullptr.
+Function *ClassInfo::getDtorWrapper() {
+  Function *DtorWrapper = nullptr;
+
+  for (auto *F : field_member_functions())
+    if (getFinalFuncKind(F) == DestructorWrapper) {
+      if (DtorWrapper)
+        return nullptr;
+      DtorWrapper = F;
+    }
+  return DtorWrapper;
+}
+
 } // namespace dtrans
 
 } // namespace llvm
