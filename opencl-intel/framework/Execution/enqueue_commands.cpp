@@ -1649,13 +1649,24 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             SharedPtr<USMBuffer> &buf = nonArgUsmBufs[i];
             cl_unified_shared_memory_type_intel type = buf->GetType();
-            if ((type == CL_MEM_TYPE_HOST_INTEL && (!hostSupported ||
-                 !m_pKernel->IsUsmIndirectHost())) ||
-                (type == CL_MEM_TYPE_DEVICE_INTEL && (!deviceSupported ||
-                 !m_pKernel->IsUsmIndirectDevice())) ||
-                (type == CL_MEM_TYPE_SHARED_INTEL && (!sharedSupported ||
-                 !m_pKernel->IsUsmIndirectShared())))
-                return CL_INVALID_OPERATION;
+            // filter out invalid combinations
+            switch (type)
+            {
+            case CL_MEM_TYPE_HOST_INTEL:
+                if (!hostSupported || !m_pKernel->IsUsmIndirectHost())
+                    return CL_INVALID_OPERATION;
+                break;
+            case CL_MEM_TYPE_DEVICE_INTEL:
+                if (!deviceSupported || !m_pKernel->IsUsmIndirectDevice())
+                    return CL_INVALID_OPERATION;
+                break;
+            case CL_MEM_TYPE_SHARED_INTEL:
+                if (!sharedSupported || !m_pKernel->IsUsmIndirectShared())
+                    return CL_INVALID_OPERATION;
+                break;
+            default:
+                break;
+            }
             AddToMemoryObjectArgList(m_MemOclObjects, buf,
                                      MemoryObject::READ_WRITE);
             res = GetMemObjectDescriptor(buf, &m_nonArgUsmBuffersVec[i]);
@@ -2924,7 +2935,7 @@ MigrateUSMMemCommand::MigrateUSMMemCommand(
     assert(nullptr != contextModule);
 
     memset(&m_migrateCmdParams, 0, sizeof(m_migrateCmdParams));
-    m_migrateCmdParams.flags   = clFlags;
+    m_migrateCmdParams.flags = clFlags;
     m_migrateCmdParams.size = size;
 }
 
@@ -3039,8 +3050,8 @@ cl_err_code AdviseUSMMemCommand::Init()
     SharedPtr<Context> queueContext = m_contextModule->GetContext(
         m_pCommandQueue->GetParentHandle());
 
-    SharedPtr<USMBuffer> memObj = queueContext
-        ->GetUSMBufferContainingAddr(const_cast<void*>(m_ptr));
+    SharedPtr<USMBuffer> memObj =
+        queueContext->GetUSMBufferContainingAddr(const_cast<void*>(m_ptr));
     if (nullptr == memObj.GetPtr() ||
         !memObj->IsContainedInBuffer(m_ptr, m_adviseCmdParams.size))
         return CL_INVALID_VALUE;

@@ -46,14 +46,18 @@ public:
 
   // overriden methods:
 
-  cl_err_code Execute() {
+  cl_err_code Execute() override {
     MEMCPY_S(m_pDstPtr, m_size, m_pSrcPtr, m_size);
     return RuntimeCommand::Execute();
   };
 
-  cl_command_type GetCommandType() const { return CL_COMMAND_MEMCPY_INTEL; }
+  cl_command_type GetCommandType() const override {
+    return CL_COMMAND_MEMCPY_INTEL;
+  }
 
-  const char *GetCommandName() const { return "CL_COMMAND_MEMCPY_INTEL"; }
+  const char *GetCommandName() const override {
+    return "CL_COMMAND_MEMCPY_INTEL";
+  }
 
 private:
   void *const m_pDstPtr;
@@ -88,14 +92,18 @@ public:
 
   // overriden methods:
 
-  cl_err_code Execute() {
+  cl_err_code Execute() override {
     CopyPattern(m_pPattern, m_szPatternSize, m_pUsmPtr, m_size);
     return RuntimeCommand::Execute();
   }
 
-  cl_command_type GetCommandType() const { return CL_COMMAND_MEMSET_INTEL; }
+  cl_command_type GetCommandType() const override {
+    return CL_COMMAND_MEMSET_INTEL;
+  }
 
-  const char *GetCommandName() const { return "CL_COMMAND_MEMSET_INTEL"; }
+  const char *GetCommandName() const override {
+    return "CL_COMMAND_MEMSET_INTEL";
+  }
 
 private:
   void *const m_pUsmPtr;

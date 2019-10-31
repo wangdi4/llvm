@@ -3539,6 +3539,11 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     void* dst_ptr, cl_int value, size_t size, cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
 {
+    if (nullptr == dst_ptr)
+        return CL_INVALID_VALUE;
+    if (0 == size)
+        return CL_SUCCESS;
+
     SharedPtr<IOclCommandQueueBase> queue =
         GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
     if (nullptr == queue.GetPtr())
@@ -3549,15 +3554,10 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     if (CL_FAILED(err))
         return err;
 
-    if (nullptr == dst_ptr)
-        return CL_INVALID_VALUE;
-    if (0 == size)
-        return CL_SUCCESS;
-
-    SharedPtr<USMBuffer> usmBuf = queue->GetContext()->
-        GetUSMBufferContainingAddr(dst_ptr);
+    const SharedPtr<Context> context = queue->GetContext();
+    SharedPtr<USMBuffer> usmBuf = context->GetUSMBufferContainingAddr(dst_ptr);
     if (nullptr != usmBuf.GetPtr() &&
-        (usmBuf->GetContext() != queue->GetContext() ||
+        (usmBuf->GetContext() != context ||
          !usmBuf->IsContainedInBuffer(dst_ptr, size)))
         return CL_INVALID_VALUE;
 
@@ -3682,6 +3682,12 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
 {
+    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
+    // value for ptr and whether 0 is invalid for size.
+    if (nullptr == ptr || 0 == size || (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
+        CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+        return CL_INVALID_VALUE;
+
     SharedPtr<IOclCommandQueueBase> queue =
         GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
     if (nullptr == queue.GetPtr())
@@ -3691,12 +3697,6 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
                                      event_wait_list);
     if (CL_FAILED(err))
         return err;
-
-    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
-    // value for ptr and whether 0 is invalid for size.
-    if (nullptr == ptr || 0 == size || (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
-        CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
-        return CL_INVALID_VALUE;
 
     MigrateUSMMemCommand* migrateCommand = new MigrateUSMMemCommand(
         queue, m_pContextModule, flags, ptr, size );
@@ -3725,6 +3725,11 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     cl_mem_advice_intel advice, cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
 {
+    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
+    // value for ptr and whether 0 is invalid for size.
+    if (nullptr == ptr || 0 == size)
+        return CL_INVALID_VALUE;
+
     SharedPtr<IOclCommandQueueBase> queue =
         GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
     if (nullptr == queue.GetPtr())
@@ -3734,11 +3739,6 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
                                      event_wait_list);
     if (CL_FAILED(err))
         return err;
-
-    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
-    // value for ptr and whether 0 is invalid for size.
-    if (nullptr == ptr || 0 == size)
-        return CL_INVALID_VALUE;
 
     if (advice != CL_MEM_ADVICE_TBD0_INTEL &&
         advice != CL_MEM_ADVICE_TBD1_INTEL &&
