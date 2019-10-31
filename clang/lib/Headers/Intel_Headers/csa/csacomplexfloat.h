@@ -27,7 +27,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <csaintrin.h>
+#include <csa/csaintrin.h>
 #include <cmath>
 #ifndef __CSA__
 #include <iostream>
