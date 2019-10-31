@@ -110,10 +110,6 @@ public:
   bool getNeedRemainderLoop() const { return false; }
   Loop *getRemainderLoop() const { return nullptr; }
 
-  static void collectTriviallyDeadInstructions(
-    Loop *OrigLoop, VPOVectorizationLegality *Legal,
-    SmallPtrSetImpl<Instruction *> &DeadInstructions);
-
   // Get the widened vector value for given value V. If the scalar value
   // has not been widened, we widen it by VF and store it in WidenMap
   // before returning the widened value

@@ -18,9 +18,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopIterator.h"
 #include "IntelVPlanValue.h"
-#include "IntelVPlan.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -134,4 +135,9 @@ TripCountInfo VPLoop::getTripCountInfo() {
   TripCountInfo DefaultTC;
   DefaultTC.calculateEstimatedTripCount();
   return DefaultTC;
+}
+
+void VPLoopInfo::analyze(const VPDominatorTree &DomTree) {
+  assert(begin() == end() && "VPLoopInfo has already been run!");
+  Base::analyze(DomTree);
 }
