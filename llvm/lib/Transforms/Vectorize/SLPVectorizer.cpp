@@ -5629,6 +5629,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
     case Instruction::Store: {
       // Check if the stores are consecutive or if we need to swizzle them.
+<<<<<<< HEAD
       llvm::Type *ScalarTy = cast<StoreInst>(VL0)->getValueOperand()->getType();
       // Make sure all stores in the bundle are simple - we can't vectorize
       // atomic or volatile stores.
@@ -5640,12 +5641,17 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       for (Value *V : VL) {
         auto *SI = cast<StoreInst>(V);
         if (!SI->isSimple()) {
+=======
+      for (unsigned i = 0, e = VL.size() - 1; i < e; ++i)
+        if (!isConsecutiveAccess(VL[i], VL[i + 1], *DL, *SE)) {
+>>>>>>> e65ddcafee547eddb72aa63b1d49f76e46acdd9a
           BS.cancelScheduling(VL, VL0);
           newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                        ReuseShuffleIndicies);
-          LLVM_DEBUG(dbgs() << "SLP: Gathering non-simple stores.\n");
+          LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
           return;
         }
+<<<<<<< HEAD
         OpDirection.push_back(0); // INTEL
         *POIter = SI->getPointerOperand();
         *OIter = SI->getValueOperand();
@@ -5698,6 +5704,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
+=======
+
+      TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                                   ReuseShuffleIndicies);
+      LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
+
+      ValueList Operands;
+      for (Value *V : VL)
+        Operands.push_back(cast<Instruction>(V)->getOperand(0));
+      TE->setOperandsInOrder();
+      buildTree_rec(Operands, Depth + 1, {TE, 0});
+>>>>>>> e65ddcafee547eddb72aa63b1d49f76e46acdd9a
       return;
     }
     case Instruction::Call: {
@@ -6244,23 +6262,15 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
     }
     case Instruction::Store: {
       // We know that we can merge the stores. Calculate the cost.
-      bool IsReorder = !E->ReorderIndices.empty();
-      auto *SI =
-          cast<StoreInst>(IsReorder ? VL[E->ReorderIndices.front()] : VL0);
-      MaybeAlign Alignment(SI->getAlignment());
+      MaybeAlign alignment(cast<StoreInst>(VL0)->getAlignment());
       int ScalarEltCost =
-          TTI->getMemoryOpCost(Instruction::Store, ScalarTy, Alignment, 0, VL0);
+          TTI->getMemoryOpCost(Instruction::Store, ScalarTy, alignment, 0, VL0);
       if (NeedToShuffleReuses) {
         ReuseShuffleCost -= (ReuseShuffleNumbers - VL.size()) * ScalarEltCost;
       }
       int ScalarStCost = VecTy->getNumElements() * ScalarEltCost;
-      int VecStCost = TTI->getMemoryOpCost(Instruction::Store,
-                                           VecTy, Alignment, 0, VL0);
-      if (IsReorder) {
-        // TODO: Merge this shuffle with the ReuseShuffleCost.
-        VecStCost += TTI->getShuffleCost(
-            TargetTransformInfo::SK_PermuteSingleSrc, VecTy);
-      }
+      int VecStCost =
+          TTI->getMemoryOpCost(Instruction::Store, VecTy, alignment, 0, VL0);
       return ReuseShuffleCost + VecStCost - ScalarStCost;
     }
     case Instruction::Call: {
@@ -7230,22 +7240,13 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #endif // INTEL_CUSTOMIZATION
     }
     case Instruction::Store: {
-      bool IsReorder = !E->ReorderIndices.empty();
-      auto *SI = cast<StoreInst>(
-          IsReorder ? E->Scalars[E->ReorderIndices.front()] : VL0);
+      StoreInst *SI = cast<StoreInst>(VL0);
       unsigned Alignment = SI->getAlignment();
       unsigned AS = SI->getPointerAddressSpace();
 
       setInsertPointAfterBundle(E);
 
       Value *VecValue = vectorizeTree(E->getOperand(0));
-      if (IsReorder) {
-        OrdersType Mask;
-        inversePermutation(E->ReorderIndices, Mask);
-        VecValue = Builder.CreateShuffleVector(
-            VecValue, UndefValue::get(VecValue->getType()), E->ReorderIndices,
-            "reorder_shuffle");
-      }
       Value *ScalarPtr = SI->getPointerOperand();
       Value *VecPtr = Builder.CreateBitCast(ScalarPtr, VecTy->getPointerTo(AS));
       StoreInst *ST = Builder.CreateStore(VecValue, VecPtr);
@@ -8749,6 +8750,7 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 #endif // INTEL_CUSTOMIZATION
 
   R.buildTree(Chain);
+<<<<<<< HEAD
   Optional<ArrayRef<unsigned>> Order = R.bestOrder();
   if (Order) {
     // TODO: reorder tree nodes without tree rebuilding.
@@ -8759,6 +8761,8 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
   }
 
 #if !INTEL_CUSTOMIZATION
+=======
+>>>>>>> e65ddcafee547eddb72aa63b1d49f76e46acdd9a
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
 #endif // INTEL_CUSTOMIZATION
