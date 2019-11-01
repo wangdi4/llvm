@@ -1,20 +1,13 @@
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
-; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
-; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
+; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
+; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
 ; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=EITHER,FNATTR-SUBSCRIPT
 ; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=EITHER,FNATTR-SUBSCRIPT
-; RUN: opt -S -convert-to-subscript < %s | opt -attributor -attributor-manifest-internal -attributor-disable=false -S | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
-; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
+; RUN: opt -S -convert-to-subscript < %s | opt -attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
+; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
-=======
-; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER
-; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER
-; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER
-; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER
->>>>>>> c36e2ebf9ff5fa869bd5717616e71a0d406d0306
 
 @g = global i32* null		; <i32**> [#uses=1]
 
@@ -320,7 +313,10 @@ define i1 @captureICmpRev(i32* %x) {
 }
 
 ; FNATTR: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
-; ATTRIBUTOR: define i1 @nocaptureInboundsGEPICmp(i32* nocapture nonnull readnone %x)
+; INTEL_CUSTOMIZATION
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture nonnull readnone %x)
+; ATTRIBUTOR-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
+; end INTEL_CUSTOMIZATION
 define i1 @nocaptureInboundsGEPICmp(i32* %x) {
   %1 = getelementptr inbounds i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -329,7 +325,10 @@ define i1 @nocaptureInboundsGEPICmp(i32* %x) {
 }
 
 ; FNATTR: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
-; ATTRIBUTOR: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture nonnull readnone %x)
+; INTEL_CUSTOMIZATION
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture nonnull readnone %x)
+; ATTRIBUTOR-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
+; end INTEL_CUSTOMIZATION
 define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
   %1 = getelementptr inbounds i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
