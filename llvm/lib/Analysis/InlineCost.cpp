@@ -1657,8 +1657,9 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
 #endif // INTEL_CUSTOMIZATION
 
   unsigned JumpTableSize = 0;
+  BlockFrequencyInfo *BFI = GetBFI ? &((*GetBFI)(F)) : nullptr;
   unsigned NumCaseCluster =
-      TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize);
+      TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize, PSI, BFI);
 
   // If suitable for a jump table, consider the cost for the table size and
   // branch to destination.
