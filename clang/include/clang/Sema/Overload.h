@@ -832,7 +832,9 @@ class Sema;
     CallExpr::ADLCallKind IsADLCandidate : 1;
 
     /// Whether this is a rewritten candidate, and if so, of what kind?
-    OverloadCandidateRewriteKind RewriteKind : 2;
+#if INTEL_CUSTOMIZATION
+    unsigned RewriteKind : 2;
+#endif // INTEL_CUSTOMIZATION
 
     /// FailureKind - The reason why this candidate is not viable.
     /// Actually an OverloadFailureKind.
@@ -851,6 +853,12 @@ class Sema;
       /// of calling the conversion function to the required type.
       StandardConversionSequence FinalConversion;
     };
+
+#if INTEL_CUSTOMIZATION
+    OverloadCandidateRewriteKind getRewriteKind() const {
+      return static_cast<OverloadCandidateRewriteKind>(RewriteKind);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     /// hasAmbiguousConversion - Returns whether this overload
     /// candidate requires an ambiguous conversion or not.
