@@ -6048,6 +6048,9 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     RTOptionID = A->getOption().getID();
 
   StringRef FlagForCRT;
+#if INTEL_CUSTOMIZATION
+  StringRef FlagForIntelMathLib;
+#endif // INTEL_CUSTOMIZATION
   switch (RTOptionID) {
   case options::OPT__SLASH_MD:
     if (Args.hasArg(options::OPT__SLASH_LDd))
@@ -6055,12 +6058,18 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back("-D_MT");
     CmdArgs.push_back("-D_DLL");
     FlagForCRT = "--dependent-lib=msvcrt";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmd";
+#endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MDd:
     CmdArgs.push_back("-D_DEBUG");
     CmdArgs.push_back("-D_MT");
     CmdArgs.push_back("-D_DLL");
     FlagForCRT = "--dependent-lib=msvcrtd";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmdd";
+#endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MT:
     if (Args.hasArg(options::OPT__SLASH_LDd))
@@ -6068,12 +6077,18 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back("-D_MT");
     CmdArgs.push_back("-flto-visibility-public-std");
     FlagForCRT = "--dependent-lib=libcmt";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmt";
+#endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MTd:
     CmdArgs.push_back("-D_DEBUG");
     CmdArgs.push_back("-D_MT");
     CmdArgs.push_back("-flto-visibility-public-std");
     FlagForCRT = "--dependent-lib=libcmtd";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmt";
+#endif // INTEL_CUSTOMIZATION
     break;
   default:
     llvm_unreachable("Unexpected option ID.");
@@ -6083,6 +6098,9 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back("-D_VC_NODEFAULTLIB");
   } else {
     CmdArgs.push_back(FlagForCRT.data());
+#if INTEL_CUSTOMIZATION
+    CmdArgs.push_back(FlagForIntelMathLib.data());
+#endif // INTEL_CUSTOMIZATION
 
     // This provides POSIX compatibility (maps 'open' to '_open'), which most
     // users want.  The /Za flag to cl.exe turns this off, but it's not
