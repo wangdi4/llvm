@@ -83,14 +83,27 @@ define i8* @test5(i1 %c) {
 }
 
 ; Local analysis, but going through a self recursive phi
-define i8* @test6() {
+; ATTRIBUTOR: Function Attrs: noreturn
+; ATTRIBUTOR: define noalias nonnull align 536870912 dereferenceable(4294967295) i8* @test6a()
+define i8* @test6a() {
 entry:
-; BOTH: define nonnull i8* @test6
   %ret = call i8* @ret_nonnull()
   br label %loop
 loop:
   %phi = phi i8* [%ret, %entry], [%phi, %loop]
   br i1 undef, label %loop, label %exit
+exit:
+  ret i8* %phi
+}
+
+; ATTRIBUTOR: define nonnull i8* @test6b(i1 %c)
+define i8* @test6b(i1 %c) {
+entry:
+  %ret = call i8* @ret_nonnull()
+  br label %loop
+loop:
+  %phi = phi i8* [%ret, %entry], [%phi, %loop]
+  br i1 %c, label %loop, label %exit
 exit:
   ret i8* %phi
 }
@@ -594,7 +607,7 @@ declare void @h(i32*) willreturn nounwind
 declare i32 @g(i32*) willreturn nounwind
 define i32 @nonnull_exec_ctx_1(i32* %a, i32 %b) {
 ; FNATTR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_1
-; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #3
+; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; FNATTR-NEXT:  en:
 ; FNATTR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; FNATTR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -609,7 +622,7 @@ define i32 @nonnull_exec_ctx_1(i32* %a, i32 %b) {
 ; FNATTR-NEXT:    br i1 [[TMP9]], label [[EX]], label [[HD]]
 ;
 ; ATTRIBUTOR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_1
-; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #5
+; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; ATTRIBUTOR-NEXT:  en:
 ; ATTRIBUTOR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; ATTRIBUTOR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -641,7 +654,7 @@ hd:
 
 define i32 @nonnull_exec_ctx_1b(i32* %a, i32 %b) {
 ; FNATTR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_1b
-; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #3
+; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; FNATTR-NEXT:  en:
 ; FNATTR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; FNATTR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -658,7 +671,7 @@ define i32 @nonnull_exec_ctx_1b(i32* %a, i32 %b) {
 ; FNATTR-NEXT:    br i1 [[TMP9]], label [[EX]], label [[HD]]
 ;
 ; ATTRIBUTOR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_1b
-; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #5
+; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; ATTRIBUTOR-NEXT:  en:
 ; ATTRIBUTOR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; ATTRIBUTOR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -695,7 +708,7 @@ hd2:
 
 define i32 @nonnull_exec_ctx_2(i32* %a, i32 %b) willreturn nounwind {
 ; FNATTR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_2
-; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #2
+; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; FNATTR-NEXT:  en:
 ; FNATTR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; FNATTR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -710,7 +723,7 @@ define i32 @nonnull_exec_ctx_2(i32* %a, i32 %b) willreturn nounwind {
 ; FNATTR-NEXT:    br i1 [[TMP9]], label [[EX]], label [[HD]]
 ;
 ; ATTRIBUTOR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_2
-; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #3
+; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; ATTRIBUTOR-NEXT:  en:
 ; ATTRIBUTOR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; ATTRIBUTOR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -742,7 +755,7 @@ hd:
 
 define i32 @nonnull_exec_ctx_2b(i32* %a, i32 %b) willreturn nounwind {
 ; FNATTR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_2b
-; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #2
+; FNATTR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; FNATTR-NEXT:  en:
 ; FNATTR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; FNATTR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
@@ -759,7 +772,7 @@ define i32 @nonnull_exec_ctx_2b(i32* %a, i32 %b) willreturn nounwind {
 ; FNATTR-NEXT:    br i1 [[TMP9]], label [[EX]], label [[HD]]
 ;
 ; ATTRIBUTOR-LABEL: define {{[^@]+}}@nonnull_exec_ctx_2b
-; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]]) #3
+; ATTRIBUTOR-SAME: (i32* [[A:%.*]], i32 [[B:%.*]])
 ; ATTRIBUTOR-NEXT:  en:
 ; ATTRIBUTOR-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; ATTRIBUTOR-NEXT:    br i1 [[TMP3]], label [[EX:%.*]], label [[HD:%.*]]
