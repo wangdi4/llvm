@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
 #include "../IntelVPlanIdioms.h"
+#include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -54,18 +55,20 @@ public:
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef)
+                const RegDDRef *SearchLoopPeelArrayRef,
+                const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
+        TripCount(0), VF(0), UF(1), LORBuilder(LORB), WVecNode(WRLp),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()) {
+        HLNodeUtilities(Loop->getHLNodeUtils()),
+        VPInstUnrollPart(VPInstUnrollPart) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -85,7 +88,7 @@ public:
 
   // Setup vector loop to perform the actual loop widening (vectorization) using
   // VF as the vectorization factor.
-  bool initializeVectorLoop(unsigned int VF);
+  bool initializeVectorLoop(unsigned int VF, unsigned int UF);
 
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
@@ -475,6 +478,9 @@ private:
   // to operate on this number of operands.
   unsigned VF;
 
+  // Unroll factor which was applied to VPlan before code generation.
+  unsigned UF;
+
   LoopOptReportBuilder &LORBuilder;
 
   // Map of DDRef symbase and widened ref
@@ -556,6 +562,12 @@ private:
   // Map from a basic block to its starting label.
   SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
 
+  // Mapping of VPInstructions to their unrolled part numbers.
+  const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart;
+
+  // Unrolled part number for the VPInstruction currently being processed.
+  unsigned CurrentVPInstUnrollPart;
+
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
@@ -563,6 +575,7 @@ private:
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }
+  void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
   void insertReductionInit(HLInst *Inst) {
     HLNodeUtils::insertBefore(RedInitInsertPoint, Inst);

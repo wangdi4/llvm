@@ -825,9 +825,11 @@ HLLoop *VPOCodeGenHIR::findRednHoistInsertionPoint(HLLoop *Lp) {
   return Lp;
 }
 
-bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
+bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   assert(VF > 1);
   setVF(VF);
+  assert(UF > 0);
+  setUF(UF);
 
   LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
                     << Fn.getName() << "\n");
@@ -868,14 +870,15 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   }
 
   // We cannot peel any iteration of the loop when the trip count is constant
-  // and lower or equal than VF since we have already made the decision of
-  // vectorizing that loop with such a VF.
+  // and lower or equal than VF * UF since we have already made the decision of
+  // vectorizing that loop with such a VF * UF.
   uint64_t TripCount = 0;
   bool IsTCValidForPeeling =
-      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= VF ? false : true;
+      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= VF * UF ? false
+                                                                    : true;
   if (SearchLoopNeedsPeeling && !IsTCValidForPeeling)
-    LLVM_DEBUG(dbgs() << "Can't peel loop : VF(" << VF << ") >= TC("
-                      << TripCount << ")!\n");
+    LLVM_DEBUG(dbgs() << "Can't peel loop : VF(" << VF << ") * UF(" << UF
+                      << ") >= TC(" << TripCount << ")!\n");
 
   bool NeedPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
   bool NeedRemainderLoop = false;
@@ -891,7 +894,7 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
       NeedPeelLoop && getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
 
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-      OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
+      OrigLoop, VF * UF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
       &PeelLoop, NeedFirstIterationPeelLoop, SearchLoopPeelArrayRef, &RTChecks);
 
   if (!MainLoop) {
@@ -1377,6 +1380,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   }
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
+  if (CurrentVPInstUnrollPart > 0)
+    WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
+
   // For unit stride ref, nothing else to do. We assume unit stride for
   // interleaved access.
   if (isUnitStrideRef(Ref) || InterLeaveAccess)
@@ -1410,7 +1416,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       CE->getIVCoeff(NestingLevel, &BlobCoeff, &ConstCoeff);
 
       for (unsigned i = 0; i < VF; ++i) {
-        CA.push_back(ConstantInt::getSigned(Int64Ty, ConstCoeff * i));
+        CA.push_back(ConstantInt::getSigned(
+            Int64Ty, ConstCoeff * (i + CurrentVPInstUnrollPart * VF)));
       }
       ArrayRef<Constant *> AR(CA);
       auto CV = ConstantVector::get(AR);
@@ -2729,11 +2736,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
            "Main loop IV PHI was not found in WidenMap!");
     assert(cast<VPInstruction>(VPVal)->getOpcode() == Instruction::Add &&
            "Invalid instruction associated with main loop IV.");
-    llvm_unreachable("Cannot have any users of IV update without unroller.");
     RegDDRef *IVRef = generateLoopInductionRef(VPVal->getType());
-    // TODO: When unroller support is added to HIR vectorizer remove the
-    // llvm_unreachable and uncomment below code.
-    // IVRef->shift(OrigLoop->NestingLevel, CurrentVPInstUnrollPart * VF);
+    IVRef->shift(OrigLoop->getNestingLevel(), CurrentVPInstUnrollPart * VF);
     return IVRef;
   }
 
@@ -3475,6 +3479,10 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
                               const OVLSGroup *Grp, int64_t InterleaveFactor,
                               int64_t InterleaveIndex,
                               const HLInst *GrpStartInst) {
+
+  auto It = VPInstUnrollPart.find(VPInst);
+  CurrentVPInstUnrollPart = It == VPInstUnrollPart.end() ? 0 : It->second;
+
   if (EnableVPValueCodegenHIR) {
     widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst);

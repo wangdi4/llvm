@@ -358,10 +358,12 @@ void LoopVectorizationPlanner::predicate() {
   }
 }
 
-void LoopVectorizationPlanner::unroll(VPlan &Plan, unsigned UF) {
+void LoopVectorizationPlanner::unroll(
+    VPlan &Plan, unsigned UF,
+    VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
-    Unroller.run();
+    Unroller.run(VPInstUnrollPart);
   }
 }
 

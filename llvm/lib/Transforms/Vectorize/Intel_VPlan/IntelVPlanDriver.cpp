@@ -89,7 +89,7 @@ static cl::opt<unsigned> VPlanVectCand(
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
-static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(1),
+static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
@@ -933,6 +933,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 
+  unsigned UF = VPlanForceUF;
+  // Unroll factor set as a hint from prior LoopOpt transforms.
+  if (UF == 0)
+    UF = HLoop->getForcedVectorUnrollFactor();
+  if (UF == 0)
+    UF = 1;
+  VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
+  LVP.unroll(*Plan, UF, &VPInstUnrollPart);
+
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     auto *VPLI = Plan->getVPLoopInfo();
@@ -946,7 +955,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            LORBuilder, WRLp, Entities, &HIRVecLegal,
-                           SearchLoopOpcode, PeelArrayRef);
+                           SearchLoopOpcode, PeelArrayRef, VPInstUnrollPart);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
@@ -957,7 +966,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
-      if (LVP.executeBestPlan(&VCodeGen)) {
+      if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
             VPORBuilder, &VCodeGen);

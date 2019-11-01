@@ -105,7 +105,9 @@ public:
   void predicate(void);
 
   /// Perform VPlan loop unrolling if needed
-  void unroll(VPlan &Plan, unsigned UF);
+  void
+  unroll(VPlan &Plan, unsigned UF,
+         VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
   void printCostModelAnalysisIfRequested();
