@@ -578,15 +578,17 @@ private:
   // the above 2 members refer to the following struct type:
   // %struct.ttentry_t = type { [4 x %struct.ttbucket_t] }
   // expect ArrayElemSize: 12 (B), NumArrayElem: 4
+  WholeProgramInfo &WPInfo;
 
 public:
   IPOPrefetcher(Module &M,
                 function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                 function_ref<DominatorTree &(Function &)> LookupDomTree,
-                function_ref<PostDominatorTree &(Function &)> LookupPostDomTree)
+                function_ref<PostDominatorTree &(Function &)> LookupPostDomTree,
+                WholeProgramInfo &WPInfo)
       : M(M), GetTLI(GetTLI), LookupDomTree(LookupDomTree),
         LookupPostDomTree(LookupPostDomTree), ArrayElemSize(0),
-        NumArrayElem(0) {}
+        NumArrayElem(0), WPInfo(WPInfo) {}
 
   bool run(Module &M);
 
@@ -682,6 +684,15 @@ public:
 };
 
 bool IPOPrefetcher::run(Module &M) {
+  // Check if AVX2 is supported.
+  LLVM_DEBUG(dbgs() << "IPO Prefetch: BEGIN\n");
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG(dbgs() << "NOT AVX2\n");
+    LLVM_DEBUG(dbgs() << "IPO Prefetch: END\n");
+    return false;
+  }
+
   // Collect DL-resident function(s) and potential DL-host functions
   if (!doCollection())
     return false;
@@ -1217,7 +1228,6 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
 
 
   // 2 Position Descriptions, each needs precise customization
-  //unsigned NumLoadAdjust = BeLITFriendly ? 2 : 2;
   static PositionDescription PDA[] = {
       PositionDescription(nullptr    /* Function * */,
                           54   /* NumLoad: 54 */,
@@ -1262,24 +1272,7 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
 
 // Search module, find and save the main() function
 bool IPOPrefetcher::identifyMainFunction(void) {
-  static const StringRef MainNames[] = {
-      "main",
-      "MAIN__",
-      "wmain",
-      "WinMain",
-      "wWinMain",
-      "DllMain",
-  };
-
-  for (unsigned I = 0, E = sizeof(MainNames)/sizeof(StringRef); I < E; ++I)
-    if (Function *F = M.getFunction(MainNames[I])) {
-      if (F->isDeclaration())
-        continue;
-      MainF = F;
-      return true;
-    }
-
-  return false;
+  return (MainF = WPInfo.getMainFunction(M));
 }
 
 // Check if a StoreInst is to write into a stack-allocated memory.
@@ -1977,9 +1970,12 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
+
     AU.addPreserved<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<PostDominatorTreeWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
@@ -2000,7 +1996,9 @@ public:
       return false;
     }
 
-    IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree);
+    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+
+    IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
     return Impl.run(M);
   }
 };
@@ -2041,8 +2039,9 @@ PreservedAnalyses IntelIPOPrefetchPass::run(Module &M,
     LLVM_DEBUG(dbgs() << "IPO Prefetch disabled\n";);
     return PreservedAnalyses::all();
   }
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree);
+  IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
   bool Changed = Impl.run(M);
   if (!Changed)
     return PreservedAnalyses::all();
