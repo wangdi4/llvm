@@ -642,7 +642,7 @@ static bool computeDelinearizationValidityConditions(
         if (*Ret) {
           AuxRefs.insert(Loop->getUpperDDRef());
         } else {
-          return DELINEARIZATION_FAILED;
+          return false;
         }
       }
     }
