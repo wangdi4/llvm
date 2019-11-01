@@ -508,7 +508,7 @@ if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
   add_subdirectory (avx512phi)
 endif()
 
-if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/eyeq_builtins")
+if(FALSE) #temporarily disabled
   # Configuring and adding the EyeQ builtins
   set(EYEQ_BUILTINS_ARCHS "x86-64" CACHE STRING "Architecture to compile the eyeq builtins for (-march)")
   set(EYEQ_BUILTINS_TARGETS "eyeqemu")
