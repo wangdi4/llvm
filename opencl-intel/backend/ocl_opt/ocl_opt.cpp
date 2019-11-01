@@ -739,9 +739,6 @@ int main(int argc, char **argv) {
 
       if (AnalyzeOnly) {
         switch (Kind) {
-        case PT_BasicBlock:
-          Passes.add(createBasicBlockPassPrinter(PassInf, Out->os(), Quiet));
-          break;
         case PT_Region:
           Passes.add(createRegionPassPrinter(PassInf, Out->os(), Quiet));
           break;
