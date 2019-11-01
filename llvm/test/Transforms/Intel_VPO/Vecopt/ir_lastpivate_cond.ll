@@ -1,4 +1,5 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -S -enable-vp-value-codegen=false %s | FileCheck %s
+; TODO - Update test for VPValue based code generation once we add support for liveout privates.
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>, align 4
@@ -11,8 +12,8 @@
 ; CHECK:   %[[MASKINT:.*]] = bitcast <4 x i1> %[[MASK]] to i4
 ; CHECK:   %[[NOT_ZERO:.*]] = icmp ne i4 %[[MASKINT]], 0
 ; CHECK: load i4, i4*
-; CHECK: %[[MASKINT2:.*]] = select i1 
-; CHECK: store i4 %[[MASKINT2]], i4* 
+; CHECK: %[[MASKINT2:.*]] = select i1
+; CHECK: store i4 %[[MASKINT2]], i4*
 ; CHECK: middle.block
 ; CHECK: %[[LAST_MASK:.*]] = load i4, i4* %tmp.mask
 ; CHECK: %ctlz = call i4 @llvm.ctlz.i4(i4 %[[LAST_MASK]], i1 true)
@@ -65,7 +66,7 @@ for.end:                                    ; preds = %omp.inner.for.body
 
 DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 
-  %res = load i32, i32 *%tmp 
+  %res = load i32, i32 *%tmp
   ret i32 %res
 }
 

@@ -42,6 +42,9 @@ static const char *RTLNames[] = {
     /* OpenCL target  */ "omptarget.rtl.opencl.dll",
 #else  // !_WIN32
     /* OpenCL target  */ "libomptarget.rtl.opencl.so",
+#if INTEL_CUSTOMIZATION
+    /* Level0 target  */ "libomptarget.rtl.level0.so",
+#endif // INTEL_CUSTOMIZATION
 #endif // !_WIN32
 #endif // INTEL_COLLAB
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
@@ -81,9 +84,51 @@ void RTLsTy::LoadRTLs() {
 
   DP("Loading RTLs...\n");
 
+#if INTEL_COLLAB
+  // Only check a single plugin if specified by user
+  std::vector<const char *> RTLChecked;
+  if (char *envStr = getenv("LIBOMPTARGET_PLUGIN")) {
+    std::string pluginName(envStr);
+    if (pluginName == "OPENCL" || pluginName == "opencl") {
+#if _WIN32
+      RTLChecked.push_back("libomptarget.rtl.opencl.dll");
+#else
+      RTLChecked.push_back("libomptarget.rtl.opencl.so");
+#endif
+#if INTEL_CUSTOMIZATION
+    } else if (pluginName == "LEVEL0" || pluginName == "level0") {
+      RTLChecked.push_back("libomptarget.rtl.level0.so");
+#endif // INTEL_CUSTOMIZATION
+    } else if (pluginName == "CUDA" || pluginName == "cuda") {
+      RTLChecked.push_back("libomptarget.rtl.cuda.so");
+    } else if (pluginName == "X86_64" || pluginName == "x86_64") {
+#if _WIN32
+      RTLChecked.push_back("libomptarget.rtl.x86_64.dll");
+#else
+      RTLChecked.push_back("libomptarget.rtl.x86_64.so");
+#endif
+    } else if (pluginName == "NIOS2" || pluginName == "nios2") {
+      RTLChecked.push_back("libomptarget.rtl.nios2.so");
+    // TODO: any other plugins to be listed here?
+    } else {
+      DP("Unknown plugin name '%s'\n", envStr);
+    }
+  }
+  // Use the whole list by default
+  if (RTLChecked.empty()) {
+    RTLChecked.insert(RTLChecked.begin(), RTLNames,
+                      RTLNames + sizeof(RTLNames) / sizeof(const char *));
+  } else {
+    DP("Checking user-specified plugin '%s'...\n", RTLChecked[0]);
+  }
+
+  for (auto *Name : RTLChecked) {
+#else // !INTEL_COLLAB
+
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
   for (auto *Name : RTLNames) {
+#endif // !INTEL_COLLAB
     DP("Loading library '%s'...\n", Name);
     void *dynlib_handle = dlopen(Name, RTLD_NOW);
 

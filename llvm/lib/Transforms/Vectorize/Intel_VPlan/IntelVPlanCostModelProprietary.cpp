@@ -72,14 +72,9 @@ unsigned
 VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
                                             const bool UseVLSCost) const {
   Type *OpTy = getMemInstValueType(VPInst);
-
-  // FIXME: That should be removed later.
-  if (!OpTy)
-    return UnknownCost;
-
   assert(OpTy && "Can't get type of the load/store instruction!");
-  unsigned Opcode = VPInst->getOpcode();
 
+  unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
 

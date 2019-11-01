@@ -59,6 +59,7 @@ CODEGENOPT(DisableGCov       , 1, 0) ///< Don't run the GCov pass, for testing.
 //                "Intel Proprietary" module flag so that bitcode files can be
 //                emitted without exposing Intel IP.
 CODEGENOPT(DisableIntelProprietaryOpts, 1, 0)
+CODEGENOPT(IntelAdvancedOptim, 1, 0)
 #endif // INTEL_CUSTOMIZATION
 
 CODEGENOPT(DisableLLVMPasses , 1, 0) ///< Don't run any LLVM IR passes to get

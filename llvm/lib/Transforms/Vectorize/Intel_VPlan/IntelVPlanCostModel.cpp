@@ -19,19 +19,6 @@
 
 #define DEBUG_TYPE "vplan-cost-model"
 using namespace loopopt;
-// FIXME: The following helper functions have multiple implementations
-// in the project. They can be effectively organized in a common Load/Store
-// utilities unit. This copy is from the LoopVectorize.cpp.
-
-/// A helper function that returns the type of loaded or stored value.
-static Type *getMemInstValueType(const Value *I) {
-  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
-         "Expected Load or Store instruction");
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getType();
-  return cast<StoreInst>(I)->getValueOperand()->getType();
-}
-
 /// A helper function that returns the alignment of load or store instruction.
 static unsigned getMemInstAlignment(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
@@ -116,35 +103,8 @@ Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
 Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-
-  bool IsLoad = Opcode == Instruction::Load;
-  if (Type *Result = IsLoad ? VPInst->getOperand(0)->getType()
-                            : VPInst->getOperand(1)->getType()) {
-    assert(Result->isPointerTy() && "Expected a pointer type");
-    return Result->getPointerElementType();
-  }
-  // FIXME: This is temporal until decomposition is in place - we might end up
-  // in operand without underlying HIR instruction currently. The code below
-  // workarounds it by accessing the operands of the original load/store which
-  // goes beyond just accessing the type of the underlying IR.
-
-  // This path seems to be covered by the one above.
-  if (const Value *Val = VPInst->getUnderlyingValue())
-    return ::getMemInstValueType(Val);
-
-#if INTEL_CUSTOMIZATION
-  if (!VPInst->HIR.isMaster())
-    return nullptr;
-  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-    return ::getMemInstValueType(Inst);
-
-  const RegDDRef *LvalDDRef = DDNode->getLvalDDRef();
-  // FIXME: Is that correct?
-  return LvalDDRef->getDestType();
-#endif // INTEL_CUSTOMIZATION
-
-  return nullptr;
+  return Opcode == Instruction::Load ?
+    VPInst->getType() : VPInst->getOperand(0)->getType();
 }
 
 unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
@@ -220,23 +180,14 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  if (Type *Ty = getMemInstValueType(VPInst))
-    return DL->getABITypeAlignment(Ty);
-
-  return 0;
+  return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
-  unsigned Opcode = VPInst->getOpcode();
-  assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
-         "Load or Store instruction is expected.");
   Type *OpTy = getMemInstValueType(VPInst);
-
-  // FIXME: That should be removed later.
-  if (!OpTy)
-    return UnknownCost;
-
   assert(OpTy && "Can't get type of the load/store instruction!");
+
+  unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
   // FIXME: Take into account masked case.

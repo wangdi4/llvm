@@ -116,13 +116,6 @@ STATISTIC(NumEntryBlocks, "Number of entry blocks encountered");
 STATISTIC(NumFastIselFailLowerArguments,
           "Number of entry blocks where fast isel failed to lower arguments");
 
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-IntelLibIRCAllowed("intel-libirc-allowed",
-                    cl::desc("Allow the generation of calls to libirc."),
-                    cl::init(false));
-#endif // INTEL_CUSTOMIZATION
-
 static cl::opt<int> EnableFastISelAbort(
     "fast-isel-abort", cl::Hidden,
     cl::desc("Enable abort calls when \"fast\" instruction selection "
@@ -328,7 +321,6 @@ SelectionDAGISel::SelectionDAGISel(TargetMachine &tm,
     initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
     initializeTargetLibraryInfoWrapperPassPass(
         *PassRegistry::getPassRegistry());
-    TM.setIntelLibIRCAllowed(IntelLibIRCAllowed); // INTEL
   }
 
 SelectionDAGISel::~SelectionDAGISel() {

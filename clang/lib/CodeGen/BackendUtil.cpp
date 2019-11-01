@@ -488,7 +488,7 @@ static void initTargetOptions(llvm::TargetOptions &Options,
   Options.NoZerosInBSS = CodeGenOpts.NoZeroInitializedInBSS;
   Options.UnsafeFPMath = CodeGenOpts.UnsafeFPMath;
 #if INTEL_CUSTOMIZATION
-  Options.IntelAdvancedOptim = LangOpts.IntelAdvancedOptim;
+  Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
   Options.StackAlignmentOverride = CodeGenOpts.StackAlignment;
   Options.FunctionSections = CodeGenOpts.FunctionSections;
