@@ -99,9 +99,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:        PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[INTERMEDIATE_BB0]] (BP: NULL) :
-;
-; FIXME: BB7 in phi node should be replaced with CASCADED_IF_BLOCK1
-; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_EXITBB1_PHI:%.*]] = phi  [ i32 1, [[BB5]] ],  [ i32 2, [[BB7]] ]
+; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_EXITBB1_PHI:%.*]] = phi  [ i32 1, [[BB5]] ],  [ i32 2, [[CASCADED_IF_BLOCK1]] ]
 ; CHECK-NEXT:        SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:        PREDECESSORS(2): [[BB5]] [[CASCADED_IF_BLOCK1]]
 ; CHECK-EMPTY:
