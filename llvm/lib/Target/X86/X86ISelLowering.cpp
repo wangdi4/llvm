@@ -40887,12 +40887,19 @@ static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
     if (matchScalarReduction(SDValue(N, 0), ISD::AND, SrcOps) &&
         SrcOps.size() == 1) {
       SDLoc dl(N);
+      const TargetLowering &TLI = DAG.getTargetLoweringInfo();
       unsigned NumElts = SrcOps[0].getValueType().getVectorNumElements();
       EVT MaskVT = EVT::getIntegerVT(*DAG.getContext(), NumElts);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget,
                                         /*UserIsSetcc*/ true);
 #endif // INTEL_CUSTOMIZATION
+=======
+      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget);
+      if (!Mask && TLI.isTypeLegal(SrcOps[0].getValueType()))
+        Mask = DAG.getBitcast(MaskVT, SrcOps[0]);
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
       if (Mask) {
         APInt AllBits = APInt::getAllOnesValue(NumElts);
         return DAG.getSetCC(dl, MVT::i1, Mask,
@@ -41428,12 +41435,19 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
     if (matchScalarReduction(SDValue(N, 0), ISD::OR, SrcOps) &&
         SrcOps.size() == 1) {
       SDLoc dl(N);
+      const TargetLowering &TLI = DAG.getTargetLoweringInfo();
       unsigned NumElts = SrcOps[0].getValueType().getVectorNumElements();
       EVT MaskVT = EVT::getIntegerVT(*DAG.getContext(), NumElts);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget,
                                         /*UserIsSetcc*/ true);
 #endif // INTEL_CUSTOMIZATION
+=======
+      SDValue Mask = combineBitcastvxi1(DAG, MaskVT, SrcOps[0], dl, Subtarget);
+      if (!Mask && TLI.isTypeLegal(SrcOps[0].getValueType()))
+        Mask = DAG.getBitcast(MaskVT, SrcOps[0]);
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
       if (Mask) {
         APInt AllBits = APInt::getNullValue(NumElts);
         return DAG.getSetCC(dl, MVT::i1, Mask,

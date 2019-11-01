@@ -4476,22 +4476,35 @@ define i1 @movmsk_and_v2i64(<2 x i64> %x, <2 x i64> %y) {
 ; KNL-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vpcmpneqq %zmm1, %zmm0, %k0
+<<<<<<< HEAD
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
 ; KNL-NEXT:    kmovw %k0, %ecx ;INTEL
 ; KNL-NEXT:    kmovw %k1, %eax ;INTEL
 ; KNL-NEXT:    andb %cl, %al
 ; KNL-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    andb $3, %al
+; KNL-NEXT:    cmpb $3, %al
+; KNL-NEXT:    sete %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; KNL-NEXT:    vzeroupper
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: movmsk_and_v2i64:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vpcmpneqq %xmm1, %xmm0, %k0
+<<<<<<< HEAD
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
 ; SKX-NEXT:    kmovd %k0, %ecx ;INTEL
 ; SKX-NEXT:    kmovd %k1, %eax ;INTEL
 ; SKX-NEXT:    andb %cl, %al
 ; SKX-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; SKX-NEXT:    kmovd %k0, %eax
+; SKX-NEXT:    cmpb $3, %al
+; SKX-NEXT:    sete %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; SKX-NEXT:    retq
   %cmp = icmp ne <2 x i64> %x, %y
   %e1 = extractelement <2 x i1> %cmp, i32 0
@@ -4524,22 +4537,33 @@ define i1 @movmsk_or_v2i64(<2 x i64> %x, <2 x i64> %y) {
 ; KNL-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vpcmpneqq %zmm1, %zmm0, %k0
+<<<<<<< HEAD
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
 ; KNL-NEXT:    kmovw %k0, %ecx ;INTEL
 ; KNL-NEXT:    kmovw %k1, %eax ;INTEL
 ; KNL-NEXT:    orb %cl, %al
 ; KNL-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    testb $3, %al
+; KNL-NEXT:    setne %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; KNL-NEXT:    vzeroupper
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: movmsk_or_v2i64:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vpcmpneqq %xmm1, %xmm0, %k0
+<<<<<<< HEAD
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
 ; SKX-NEXT:    kmovd %k0, %ecx ;INTEL
 ; SKX-NEXT:    kmovd %k1, %eax ;INTEL
 ; SKX-NEXT:    orb %cl, %al
 ; SKX-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; SKX-NEXT:    kortestb %k0, %k0
+; SKX-NEXT:    setne %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; SKX-NEXT:    retq
   %cmp = icmp ne <2 x i64> %x, %y
   %e1 = extractelement <2 x i1> %cmp, i32 0
@@ -4629,22 +4653,35 @@ define i1 @movmsk_and_v2f64(<2 x double> %x, <2 x double> %y) {
 ; KNL-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vcmplepd %zmm0, %zmm1, %k0
+<<<<<<< HEAD
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
 ; KNL-NEXT:    kmovw %k0, %ecx ;INTEL
 ; KNL-NEXT:    kmovw %k1, %eax ;INTEL
 ; KNL-NEXT:    andb %cl, %al
 ; KNL-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    andb $3, %al
+; KNL-NEXT:    cmpb $3, %al
+; KNL-NEXT:    sete %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; KNL-NEXT:    vzeroupper
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: movmsk_and_v2f64:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vcmplepd %xmm0, %xmm1, %k0
+<<<<<<< HEAD
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
 ; SKX-NEXT:    kmovd %k0, %ecx ;INTEL
 ; SKX-NEXT:    kmovd %k1, %eax ;INTEL
 ; SKX-NEXT:    andb %cl, %al
 ; SKX-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; SKX-NEXT:    kmovd %k0, %eax
+; SKX-NEXT:    cmpb $3, %al
+; SKX-NEXT:    sete %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; SKX-NEXT:    retq
   %cmp = fcmp oge <2 x double> %x, %y
   %e1 = extractelement <2 x i1> %cmp, i32 0
@@ -4675,22 +4712,33 @@ define i1 @movmsk_or_v2f64(<2 x double> %x, <2 x double> %y) {
 ; KNL-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vcmplepd %zmm0, %zmm1, %k0
+<<<<<<< HEAD
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
 ; KNL-NEXT:    kmovw %k0, %ecx ;INTEL
 ; KNL-NEXT:    kmovw %k1, %eax ;INTEL
 ; KNL-NEXT:    orb %cl, %al
 ; KNL-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    testb $3, %al
+; KNL-NEXT:    setne %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; KNL-NEXT:    vzeroupper
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: movmsk_or_v2f64:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vcmplepd %xmm0, %xmm1, %k0
+<<<<<<< HEAD
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
 ; SKX-NEXT:    kmovd %k0, %ecx ;INTEL
 ; SKX-NEXT:    kmovd %k1, %eax ;INTEL
 ; SKX-NEXT:    orb %cl, %al
 ; SKX-NEXT:    # kill: def $al killed $al killed $eax
+=======
+; SKX-NEXT:    kortestb %k0, %k0
+; SKX-NEXT:    setne %al
+>>>>>>> 9b0dfdf5e1939b4129df75cc8e8d57fcf451b786
 ; SKX-NEXT:    retq
   %cmp = fcmp oge <2 x double> %x, %y
   %e1 = extractelement <2 x i1> %cmp, i32 0
