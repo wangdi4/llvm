@@ -413,8 +413,9 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   return LiveValueMap[AtBlock];
 }
 
-static void turnPhisToBlends(VPBlockBase *Block,
-                             DenseMap<VPBlockBase *, int> &BlockIndexInRPOT) {
+static void
+turnPhisToBlends(VPBlockBase *Block,
+                 DenseMap<const VPBlockBase *, int> &BlockIndexInRPOT) {
   for (VPPHINode &Phi : Block->getEntryBasicBlock()->getVPPhis()) {
     Phi.setBlend(true);
     if (SortBlendPhisInPredicator)
@@ -468,7 +469,7 @@ void VPlanPredicator::linearizeRegion(
   assert(RegionRPOT.begin() != RegionRPOT.end() &&
          "RegionRPOT can't be empty!");
 
-  DenseMap<VPBlockBase *, int> BlockIndexInRPOT;
+  DenseMap<const VPBlockBase *, int> BlockIndexInRPOT;
   int CurrBlockRPOTIndex = 0;
   for (auto *Block : RegionRPOT)
     BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;

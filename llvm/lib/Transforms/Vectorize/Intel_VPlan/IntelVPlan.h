@@ -879,7 +879,7 @@ public:
   // TODO: As an optimization, the sorting can be done once per block, but that
   // should be done at the caller side complicating the code.
   void sortIncomingBlocksForBlend(
-      DenseMap<VPBlockBase *, int> *BlockIndexInRPOTOrNull = nullptr);
+      DenseMap<const VPBlockBase *, int> *BlockIndexInRPOTOrNull = nullptr);
 
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
   using const_vpblock_iterator =
