@@ -671,6 +671,9 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     case Instruction::FCmp :
       packetizeInstruction(dyn_cast<CmpInst>(I));
       break;
+    case Instruction::FNeg:
+      packetizeInstruction(dyn_cast<UnaryOperator>(I), false);
+      break;
     case Instruction::Trunc :
     case Instruction::ZExt :
     case Instruction::SExt :
@@ -911,6 +914,44 @@ void PacketizeFunction::packetizeInstruction(BinaryOperator *BI, bool supportsWr
   m_removedInsts.insert(BI);
 }
 
+void PacketizeFunction::packetizeInstruction(UnaryOperator *UI, bool supportsWrap)
+{
+  V_PRINT(packetizer, "\t\tUnaryOp Instruction\n");
+  V_ASSERT(UI && "instruction type dynamic cast failed");
+  V_ASSERT(1 == UI->getNumOperands() && "unary operator with num operands other than 1");
+
+  Type *origInstType = UI->getType();
+
+  // If instruction's return type is not primitive - cannot packetize
+  if (!origInstType->isFloatingPointTy()) {
+    V_PRINT(vectorizer_stat,
+            "<<<<NonPrimitiveCtr("
+                << __FILE__ << ":" << __LINE__
+                << "): " << Instruction::getOpcodeName(UI->getOpcode())
+                << " instruction's return type is not primitive\n");
+    V_STAT(m_nonPrimitiveCtr[UI->getOpcode()]++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
+    return duplicateNonPacketizableInst(UI);
+  }
+
+  bool has_NSW = (supportsWrap ? UI->hasNoSignedWrap() : false);
+  bool has_NUW = (supportsWrap ? UI->hasNoUnsignedWrap() : false);
+
+  // Obtain packetized arguments
+  Value *operand0;
+  obtainVectorizedValue(&operand0, UI->getOperand(0), UI);
+
+  // Generate packetized instruction
+  UnaryOperator *newVectorInst =
+    UnaryOperator::Create(UI->getOpcode(), operand0, UI->getName(), UI);
+  if (has_NSW) newVectorInst->setHasNoSignedWrap();
+  if (has_NUW) newVectorInst->setHasNoUnsignedWrap();
+
+  // Add new value/s to VCM
+  createVCMEntryWithVectorValue(UI, newVectorInst);
+  // Remove original instruction
+  m_removedInsts.insert(UI);
+}
 
 void PacketizeFunction::packetizeInstruction(CastInst * CI)
 {

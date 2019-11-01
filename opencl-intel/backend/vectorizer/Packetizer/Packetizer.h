@@ -128,6 +128,7 @@ private:
   /// @brief Packetize an instruction
   /// @param I Instruction to packetize
   void packetizeInstruction(BinaryOperator *BI, bool supportsWrap);
+  void packetizeInstruction(UnaryOperator *UI, bool supportsWrap);
   void packetizeInstruction(CastInst *CI);
   void packetizeInstruction(CmpInst *CI);
   void packetizeInstruction(CallInst *CI);
