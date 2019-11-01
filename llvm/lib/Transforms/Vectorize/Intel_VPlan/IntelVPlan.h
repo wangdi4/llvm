@@ -3213,18 +3213,6 @@ public:
     return false;
   }
 
-  /// Count and return the number of succesors of \p PredBlock excluding any
-  /// backedges.
-  static unsigned countSuccessorsNoBE(VPBlockBase *PredBlock,
-                                      VPLoopInfo *VPLI) {
-    unsigned Count = 0;
-    for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-      if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
-        Count++;
-    }
-    return Count;
-  }
-
   static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                       VPDominatorTree &DomTree);
 

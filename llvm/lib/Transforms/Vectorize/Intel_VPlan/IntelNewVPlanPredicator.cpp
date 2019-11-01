@@ -628,12 +628,22 @@ void VPlanPredicator::linearizeRegion(
       // , including itself.
       while (PredSucc && BlockIndexInRPOT[PredSucc] < CurrBlockRPOTIndex) {
         LastProcessed = PredSucc;
-        assert(VPBlockUtils::countSuccessorsNoBE(PredSucc, VPLI) <= 1 &&
+        auto EdgeFormsLinearizedChain =
+            [this, &BlockIndexInRPOT, CurrBlockRPOTIndex](
+                const VPBlockBase *From, const VPBlockBase *To) {
+              return !VPBlockUtils::isBackEdge(From, To, VPLI) &&
+                     BlockIndexInRPOT[To] < CurrBlockRPOTIndex;
+            };
+        assert(count_if(PredSucc->getSuccessors(),
+                        [EdgeFormsLinearizedChain,
+                         PredSucc](const VPBlockBase *Succ) {
+                          return EdgeFormsLinearizedChain(PredSucc, Succ);
+                        }) <= 1 &&
                "Broken linearized chain!");
         auto *SavedPtr = PredSucc;
         PredSucc = nullptr;
         for (auto *Succ : SavedPtr->getHierarchicalSuccessors())
-          if (!VPBlockUtils::isBackEdge(SavedPtr, Succ, VPLI)) {
+          if (EdgeFormsLinearizedChain(SavedPtr, Succ)) {
             PredSucc = Succ;
             break;
           }
