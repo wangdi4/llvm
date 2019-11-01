@@ -5629,93 +5629,29 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
     case Instruction::Store: {
       // Check if the stores are consecutive or if we need to swizzle them.
-<<<<<<< HEAD
-      llvm::Type *ScalarTy = cast<StoreInst>(VL0)->getValueOperand()->getType();
-      // Make sure all stores in the bundle are simple - we can't vectorize
-      // atomic or volatile stores.
-      SmallVector<Value *, 4> PointerOps(VL.size());
-      ValueList Operands(VL.size());
-      SmallVector<int, 4> OpDirection; // INTEL
-      auto POIter = PointerOps.begin();
-      auto OIter = Operands.begin();
-      for (Value *V : VL) {
-        auto *SI = cast<StoreInst>(V);
-        if (!SI->isSimple()) {
-=======
       for (unsigned i = 0, e = VL.size() - 1; i < e; ++i)
         if (!isConsecutiveAccess(VL[i], VL[i + 1], *DL, *SE)) {
->>>>>>> e65ddcafee547eddb72aa63b1d49f76e46acdd9a
           BS.cancelScheduling(VL, VL0);
           newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                        ReuseShuffleIndicies);
           LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
           return;
         }
-<<<<<<< HEAD
-        OpDirection.push_back(0); // INTEL
-        *POIter = SI->getPointerOperand();
-        *OIter = SI->getValueOperand();
-        ++POIter;
-        ++OIter;
-      }
-
-      OrdersType CurrentOrder;
-      // Check the order of pointer operands.
-      if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
-        Value *Ptr0;
-        Value *PtrN;
-        if (CurrentOrder.empty()) {
-          Ptr0 = PointerOps.front();
-          PtrN = PointerOps.back();
-        } else {
-          Ptr0 = PointerOps[CurrentOrder.front()];
-          PtrN = PointerOps[CurrentOrder.back()];
-        }
-        const SCEV *Scev0 = SE->getSCEV(Ptr0);
-        const SCEV *ScevN = SE->getSCEV(PtrN);
-        const auto *Diff =
-            dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
-        uint64_t Size = DL->getTypeAllocSize(ScalarTy);
-        // Check that the sorted pointer operands are consecutive.
-        if (Diff && Diff->getAPInt() == (VL.size() - 1) * Size) {
-          if (CurrentOrder.empty()) {
-            // Original stores are consecutive and does not require reordering.
-            ++NumOpsWantToKeepOriginalOrder;
-            TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
-                                         UserTreeIdx, ReuseShuffleIndicies);
-            TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
-            LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
-          } else {
-            // Need to reorder.
-            auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
-            ++(I->getSecond());
-            TreeEntry *TE =
-                newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                             ReuseShuffleIndicies, I->getFirst());
-            TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
-            LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled stores.\n");
-          }
-          return;
-        }
-      }
-      BS.cancelScheduling(VL, VL0);
-      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
-                   ReuseShuffleIndicies);
-      LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
-=======
 
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
 
       ValueList Operands;
-      for (Value *V : VL)
+#if INTEL_CUSTOMIZATION
+      SmallVector<int, 4> OpDirection;
+      for (Value *V : VL) {
         Operands.push_back(cast<Instruction>(V)->getOperand(0));
+        OpDirection.push_back(0);
+      }
+#endif // INTEL_CUSTOMIZATION
       TE->setOperandsInOrder();
       buildTree_rec(Operands, Depth + 1, {TE, 0});
->>>>>>> e65ddcafee547eddb72aa63b1d49f76e46acdd9a
       return;
     }
     case Instruction::Call: {
@@ -8750,19 +8686,8 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 #endif // INTEL_CUSTOMIZATION
 
   R.buildTree(Chain);
-<<<<<<< HEAD
-  Optional<ArrayRef<unsigned>> Order = R.bestOrder();
-  if (Order) {
-    // TODO: reorder tree nodes without tree rebuilding.
-    SmallVector<Value *, 4> ReorderedOps(Chain.rbegin(), Chain.rend());
-    llvm::transform(*Order, ReorderedOps.begin(),
-                    [Chain](const unsigned Idx) { return Chain[Idx]; });
-    R.buildTree(ReorderedOps);
-  }
 
 #if !INTEL_CUSTOMIZATION
-=======
->>>>>>> e65ddcafee547eddb72aa63b1d49f76e46acdd9a
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
 #endif // INTEL_CUSTOMIZATION
