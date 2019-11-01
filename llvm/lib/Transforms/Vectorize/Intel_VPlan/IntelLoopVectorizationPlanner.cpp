@@ -340,6 +340,13 @@ void LoopVectorizationPlanner::predicate() {
   }
 }
 
+void LoopVectorizationPlanner::unroll(VPlan &Plan, unsigned UF) {
+  if (UF > 1) {
+    VPlanLoopUnroller Unroller(Plan, UF);
+    Unroller.run();
+  }
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 template <typename CostModelTy>
 void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
