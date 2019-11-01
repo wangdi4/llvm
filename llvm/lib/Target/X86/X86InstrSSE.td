@@ -1711,21 +1711,12 @@ def : InstAlias<"vcvtpd2psy\t{$src, $dst|$dst, $src}",
 
 def CVTPD2PSrr : PDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                      "cvtpd2ps\t{$src, $dst|$dst, $src}",
-<<<<<<< HEAD
                      [(set VR128:$dst, (v4f32 (X86vfpround (v2f64 VR128:$src))))]>, // INTEL
-                     Sched<[WriteCvtPD2PS]>;
-def CVTPD2PSrm : PDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
-                     "cvtpd2ps\t{$src, $dst|$dst, $src}",
-                     [(set VR128:$dst, (v4f32 (X86vfpround (memopv2f64 addr:$src))))]>, // INTEL
-                     Sched<[WriteCvtPD2PS.Folded]>;
-=======
-                     [(set VR128:$dst, (X86vfpround (v2f64 VR128:$src)))]>,
                      Sched<[WriteCvtPD2PS]>, SIMD_EXC;
 def CVTPD2PSrm : PDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
                      "cvtpd2ps\t{$src, $dst|$dst, $src}",
-                     [(set VR128:$dst, (X86vfpround (memopv2f64 addr:$src)))]>,
+                     [(set VR128:$dst, (v4f32 (X86vfpround (memopv2f64 addr:$src))))]>, // INTEL
                      Sched<[WriteCvtPD2PS.Folded]>, SIMD_EXC;
->>>>>>> 8f48ba993ba32925f37a374f624663da37d96254
 
 let Predicates = [HasAVX, NoVLX] in {
   def : Pat<(v4f32 (fpround (v4f64 VR256:$src))),
