@@ -428,6 +428,7 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
   const CSAInstrInfo *TII =
     static_cast<const CSAInstrInfo *>(TopMF->getSubtarget().getInstrInfo());
   MachineBasicBlock *MBB = EntryInst->getParent();
+  auto LMFI = TopMF->getInfo<CSAMachineFunctionInfo>();
   insertTrampolineStartPseudo(MBB, TII);
   SmallVector<unsigned, 4> select_signals;
   for (auto CallInst : CallInstList) {
@@ -456,6 +457,83 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
       csa_utils::createUseTree(
         MBB, MBB->end(), CSA::ALL0, args, CSA::IGN));
   }
+
+  SmallVector<unsigned, 4> PoolRegs;
+  SmallVector< SmallVector<unsigned, 4>, 4> OutVals;
+  // For each call-site, we generate a PoolReg signal which is set
+  // when ALL its results become available.
+  // This signal is used to gate the input parameters for that call-site
+  // All the results for all cal-sites are stored in OutVals for future use
+  // OutVals[j][i] is the ith result of jth call-site
+  for (auto CallInst : CallInstList) {
+    SmallVector<unsigned, 4> Vals;
+    MachineBasicBlock::iterator I(CallInst);
+    ++I;
+    MachineInstr *ContinueInst = &*I;
+    for (unsigned i = 0; i < ContinueInst->getNumOperands(); ++i) {
+      unsigned ContinueReg = ContinueInst->getOperand(i).getReg();
+      const TargetRegisterClass *TRC = MRI->getRegClass(ContinueReg);
+      Vals.push_back(MRI->createVirtualRegister(TRC));
+      unsigned movOpcode = TII->getMoveOpcode(TRC);
+      BuildMI(MBB, MBB->getLastNonDebugInstr()->getDebugLoc(),
+              TII->get(movOpcode), ContinueInst->getOperand(i).getReg())
+              .addReg(Vals[i])
+              .setMIFlag(MachineInstr::NonSequential);
+      LMFI->setLICDepth(ContinueInst->getOperand(i).getReg(),64);
+    }
+    OutVals.push_back(Vals);
+    unsigned PoolReg = csa_utils::createUseTree(
+        MBB, MBB->end(), CSA::ALL0, Vals, CSA::IGN);
+    PoolRegs.push_back(PoolReg);
+    LMFI->setLICDepth(PoolReg,64);
+    for (int j = 0; j < 64; ++j)
+      BuildMI(*MBB, MBB->end(),
+              DebugLoc(), TII->get(CSA::INIT0), PoolReg)
+             .addImm(0)
+             .setMIFlag(MachineInstr::NonSequential);
+  }
+  if (HasExtEntry) {
+    SmallVector<unsigned, 4> Vals;
+    for (unsigned i = 0; i < NewReturnInst->getNumOperands(); ++i) {
+      unsigned NewReturnReg = NewReturnInst->getOperand(i).getReg();
+      const TargetRegisterClass *TRC = MRI->getRegClass(NewReturnReg);
+      Vals.push_back(MRI->createVirtualRegister(TRC));
+      unsigned movOpcode = TII->getMoveOpcode(TRC);
+      BuildMI(MBB, MBB->getLastNonDebugInstr()->getDebugLoc(),
+              TII->get(movOpcode), NewReturnReg)
+              .addReg(Vals[i])
+              .setMIFlag(MachineInstr::NonSequential);
+      LMFI->setLICDepth(NewReturnReg,64);
+      unsigned PoolReg = csa_utils::createUseTree(
+        MBB, MBB->end(), CSA::ALL0, Vals, CSA::IGN);
+      PoolRegs.push_back(PoolReg);
+      LMFI->setLICDepth(PoolReg,64);
+      for (int j = 0; j < 64; ++j) {
+        BuildMI(*MBB, MBB->end(),
+                DebugLoc(), TII->get(CSA::INIT0), PoolReg)
+               .addImm(0)
+               .setMIFlag(MachineInstr::NonSequential);
+      }
+    }
+    OutVals.push_back(Vals);
+  }
+  SmallVector<unsigned, 4> ReadyRegs;
+  int i = 0;
+  // allow one token through from the pool (new - one static op per caller)
+  // if some parameters are running ahead, they will be blocked at their
+  // corresponding pick operations before they get to the point of
+  // blocking other callsites
+  for (auto Signal : select_signals) {
+    auto ReadyReg = LMFI->allocateLIC(&CSA::CI0RegClass);
+    auto PoolReg = PoolRegs[i++];
+    BuildMI(*MBB, MBB->end(),
+            DebugLoc(), TII->get(TII->makeOpcode(CSA::Generic::GATE, MRI->getRegClass(Signal))), ReadyReg)
+           .addReg(Signal)
+           .addReg(PoolReg)
+           .setMIFlag(MachineInstr::NonSequential);
+    ReadyRegs.push_back(ReadyReg);
+  }
+
   for (unsigned i = 0; i < EntryInst->getNumOperands(); ++i) {
     assert(EntryInst->getOperand(i).isReg());
     unsigned dst = EntryInst->getOperand(i).getReg();
@@ -467,7 +545,7 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
       vals.push_back(NewEntryInst->getOperand(i).getReg());
     unsigned src =
       csa_utils::createPickTree(
-        MBB, MBB->end(), TRC, select_signals, vals, CSA::NA);
+        MBB, MBB->end(), TRC, ReadyRegs, vals, CSA::NA);
     unsigned movOpcode = TII->getMoveOpcode(TRC);
     BuildMI(MBB, MBB->getLastNonDebugInstr()->getDebugLoc(),
             TII->get(movOpcode), dst)
@@ -477,17 +555,14 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
   for (unsigned i = 0; i < ReturnInst->getNumOperands(); ++i) {
     unsigned src = ReturnInst->getOperand(i).getReg();
     const TargetRegisterClass *TRC = MRI->getRegClass(src);
-    SmallVector<unsigned, 4> outvals;
-    for (auto CallInst : CallInstList) {
-      MachineBasicBlock::iterator I(CallInst);
-      ++I;
-      MachineInstr *ContinueInst = &*I;
-      outvals.push_back(ContinueInst->getOperand(i).getReg());
+    SmallVector<unsigned, 4> ResVals;
+    for (unsigned j = 0; j < CallInstList.size(); j++)
+      ResVals.push_back(OutVals[j][i]);
+    if (HasExtEntry) {
+      ResVals.push_back(MRI->createVirtualRegister(MRI->getRegClass(NewReturnInst->getOperand(i).getReg())));
     }
-    if (HasExtEntry)
-      outvals.push_back(NewReturnInst->getOperand(i).getReg());
-    csa_utils::createSwitchTree(MBB, MBB->end(), TRC, select_signals, outvals,
-                                  src, 0, CSA::NA);
+    csa_utils::createSwitchTree(MBB, MBB->end(), TRC, ReadyRegs, ResVals,
+                                src, 0, CSA::NA);
   }
   insertTrampolineEndPseudo(MBB, TII);
   if (HasExtEntry) {
