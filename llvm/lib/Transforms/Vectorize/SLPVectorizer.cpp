@@ -5651,7 +5651,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       }
 #endif // INTEL_CUSTOMIZATION
       TE->setOperandsInOrder();
-      buildTree_rec(Operands, Depth + 1, {TE, 0});
+      buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection});
       return;
     }
     case Instruction::Call: {
