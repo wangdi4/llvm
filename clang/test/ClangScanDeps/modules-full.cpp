@@ -15,6 +15,9 @@
 // RUN:   -mode preprocess-minimized-sources -format experimental-full >> %t.result
 // RUN: cat %t.result | FileCheck --check-prefixes=CHECK %s
 
+// FIXME: Backslash issues.
+// XFAIL: system-windows
+
 #include "header.h"
 
 // CHECK: [[PREFIX:(.*[/\\])+[a-zA-Z0-9.-]+]]
@@ -30,8 +33,8 @@
 // CHECK-NEXT:      ],
 // CHECK-NEXT:      "clang-modulemap-file": "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}module.modulemap",
 // CHECK-NEXT:      "file-deps": [
-// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}module.modulemap",
-// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}header.h"
+// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}header.h",
+// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}module.modulemap"
 // CHECK-NEXT:      ],
 // CHECK-NEXT:      "name": "header1"
 // CHECK-NEXT:    },
@@ -61,8 +64,8 @@
 // CHECK-NEXT:      "clang-module-deps": [],
 // CHECK-NEXT:      "clang-modulemap-file": "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}module.modulemap",
 // CHECK-NEXT:      "file-deps": [
-// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}module.modulemap",
-// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}header.h"
+// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}header.h",
+// CHECK-NEXT:        "[[PREFIX]]{{[/\\]}}Inputs{{[/\\]}}module.modulemap"
 // CHECK-NEXT:      ],
 // CHECK-NEXT:      "name": "header1"
 // CHECK-NEXT:    }

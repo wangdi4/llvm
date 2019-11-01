@@ -10,12 +10,12 @@
 #include "clang/Frontend/Utils.h"
 #include "llvm/Support/JSON.h"
 
-static llvm::json::Array toJSON(const llvm::StringSet<> &Set) {
-  llvm::json::Array Ret;
-  for (auto &&I : Set) {
-    Ret.push_back(std::string(I.getKey()));
-  }
-  return Ret;
+static llvm::json::Array toJSONSorted(const llvm::StringSet<> &Set) {
+  std::vector<llvm::StringRef> Strings;
+  for (auto &&I : Set)
+    Strings.push_back(I.getKey());
+  std::sort(Strings.begin(), Strings.end());
+  return llvm::json::Array(Strings);
 }
 
 namespace clang{
@@ -85,7 +85,7 @@ DependencyScanningTool::getDependencyFile(const std::string &Input,
     }
 
     void handleModuleDependency(ModuleDeps MD) override {
-      ModuleDeps[MD.ContextHash + MD.ModuleName] = std::move(MD);
+      ClangModuleDeps[MD.ContextHash + MD.ModuleName] = std::move(MD);
     }
 
     void handleContextHash(std::string Hash) override {
@@ -95,7 +95,7 @@ DependencyScanningTool::getDependencyFile(const std::string &Input,
     void printDependencies(std::string &S, StringRef MainFile) {
       // Sort the modules by name to get a deterministic order.
       std::vector<StringRef> Modules;
-      for (auto &&Dep : ModuleDeps)
+      for (auto &&Dep : ClangModuleDeps)
         Modules.push_back(Dep.first);
       std::sort(Modules.begin(), Modules.end());
 
@@ -105,18 +105,18 @@ DependencyScanningTool::getDependencyFile(const std::string &Input,
 
       Array Imports;
       for (auto &&ModName : Modules) {
-        auto &MD = ModuleDeps[ModName];
+        auto &MD = ClangModuleDeps[ModName];
         if (MD.ImportedByMainFile)
           Imports.push_back(MD.ModuleName);
       }
 
       Array Mods;
       for (auto &&ModName : Modules) {
-        auto &MD = ModuleDeps[ModName];
+        auto &MD = ClangModuleDeps[ModName];
         Object Mod{
             {"name", MD.ModuleName},
-            {"file-deps", toJSON(MD.FileDeps)},
-            {"clang-module-deps", toJSON(MD.ClangModuleDeps)},
+            {"file-deps", toJSONSorted(MD.FileDeps)},
+            {"clang-module-deps", toJSONSorted(MD.ClangModuleDeps)},
             {"clang-modulemap-file", MD.ClangModuleMapFile},
         };
         Mods.push_back(std::move(Mod));
@@ -136,7 +136,7 @@ DependencyScanningTool::getDependencyFile(const std::string &Input,
 
   private:
     std::vector<std::string> Dependencies;
-    std::unordered_map<std::string, ModuleDeps> ModuleDeps;
+    std::unordered_map<std::string, ModuleDeps> ClangModuleDeps;
     std::string ContextHash;
   };
 
