@@ -37,7 +37,7 @@ static cl::opt<bool>
                          cl::desc("Serialize alloca for private array-types"));
 
 // Force VPValue based code generation path.
-cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false),
+cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(true),
                                    cl::Hidden,
                                    cl::desc("Enable VPValue based codegen"));
 
