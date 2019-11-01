@@ -4531,3 +4531,232 @@ unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
 
   return 0;
 }
+
+Optional<HIRParser::DelinearizedCoeffBlobIndex>
+HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
+                                SmallVectorImpl<BlobTy> &DimSizes) {
+
+  BlobUtils &BU = getBlobUtils();
+  BlobTy Blob = (BlobIndex != InvalidBlobIndex) ? BU.getBlob(BlobIndex)
+                                                : SE.getOne(IndexType);
+
+  SmallVector<BlobTy, MaxLoopNestLevel> Subscripts;
+  SE.computeAccessFunctions(Blob, Subscripts, DimSizes);
+
+  // Failed to compute access functions.
+  if (Subscripts.empty()) {
+    return {};
+  }
+
+  unsigned LastDim = DimSizes.size();
+  assert(Subscripts.size() <= LastDim &&
+      "Subscripts size do not match generated ref");
+
+  for (unsigned DimI = 0, DimE = Subscripts.size(); DimI < DimE; ++DimI) {
+    int64_t NewCoeff = 0;
+    unsigned NewBlobIndex = InvalidBlobIndex;
+    const SCEV *Subscript = Subscripts[DimI];
+
+    if (auto *ConstSubscript = dyn_cast<SCEVConstant>(Subscript)) {
+      NewCoeff = getSCEVConstantValue(ConstSubscript);
+      // Skip empty terms
+      if (NewCoeff == 0) {
+        continue;
+      }
+
+    } else {
+      BlobTy NewBlob;
+      breakConstantMultiplierBlob(Subscript, &NewCoeff, &NewBlob);
+      NewBlobIndex = BU.findOrInsertBlob(NewBlob);
+    }
+
+    return HIRParser::DelinearizedCoeffBlobIndex(LastDim - DimI, NewCoeff,
+                                                 NewBlobIndex);
+  }
+
+  return HIRParser::DelinearizedCoeffBlobIndex();
+}
+
+RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
+                                          SmallVectorImpl<BlobTy> &Strides,
+                                          SmallVectorImpl<BlobTy> &DimSizes) {
+  BlobUtils &BU = getBlobUtils();
+  DDRefUtils &DRU = getDDRefUtils();
+  CanonExprUtils &CEU = getCanonExprUtils();
+
+  const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
+
+  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrBlobIndex(),
+                                      Ref->getBaseCE()->getDefinedAtLevel(),
+                                      Ref->getSymbase());
+
+  Type *IndexType = LinearIndexCE->getSrcType();
+
+  // Add dimensions using Strides.
+  for (BlobTy Stride : Strides) {
+    CanonExpr *CE = CEU.createCanonExpr(LinearIndexCE->getDestType());
+    CE->setSrcType(IndexType);
+
+    CanonExpr *StrideCE = CEU.createCanonExpr(LinearIndexCE->getDestType());
+    if (Stride != nullptr) {
+      StrideCE->setBlobCoeff(BU.findOrInsertBlob(Stride), 1);
+    } else {
+      StrideCE->setConstant(1);
+    }
+
+    Type *DimType = Ref->getBaseCE()->getDestType();
+    NewRef->addDimension(CE, {}, CE->clone(), StrideCE, DimType);
+  }
+
+  // Ref may have innermost struct offset.
+  NewRef->setTrailingStructOffsets(1, Ref->getTrailingStructOffsets(1));
+
+  // Handle IV part
+  unsigned IVLevel = 0;
+  for (auto &IV :
+      make_range(LinearIndexCE->iv_begin(), LinearIndexCE->iv_end())) {
+    ++IVLevel;
+    if (IV.Coeff == 0) {
+      continue;
+    }
+
+    auto NewIndex = delinearizeBlobIndex(IndexType, IV.Index, DimSizes);
+    if (!NewIndex) {
+      return nullptr;
+    }
+
+    // Skip indices with no impact.
+    if (NewIndex->Coeff == 0) {
+      continue;
+    }
+
+    auto *Index = NewRef->getDimensionIndex(NewIndex->DimIndex);
+    Index->addIV(IVLevel, NewIndex->BlobIndex, NewIndex->Coeff * IV.Coeff);
+  }
+
+  // Handle blob part
+  for (auto &BlobCoeff :
+      make_range(LinearIndexCE->blob_begin(), LinearIndexCE->blob_end())) {
+
+    auto NewIndex = delinearizeBlobIndex(IndexType, BlobCoeff.Index, DimSizes);
+    if (!NewIndex) {
+      return nullptr;
+    }
+
+    // Skip indices with no impact.
+    if (NewIndex->Coeff == 0) {
+      continue;
+    }
+
+    auto *Index = NewRef->getDimensionIndex(NewIndex->DimIndex);
+    if (NewIndex->BlobIndex != InvalidBlobIndex) {
+      Index->addBlob(NewIndex->BlobIndex, NewIndex->Coeff * BlobCoeff.Coeff);
+    } else {
+      Index->addConstant(NewIndex->Coeff * BlobCoeff.Coeff, false);
+    }
+  }
+
+  // Handle c0 part
+  NewRef->getDimensionIndex(1)->addConstant(LinearIndexCE->getConstant(),
+                                            false);
+
+  return NewRef;
+}
+
+bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
+                                SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
+                                SmallVectorImpl<BlobTy> *DimSizes) {
+  LLVM_DEBUG(dbgs() << "Refs delinearization\n");
+
+  BlobUtils &BU = getBlobUtils();
+
+  SmallVector<BlobTy, MaxLoopNestLevel> Strides;
+  SmallVector<BlobTy, MaxLoopNestLevel> Sizes;
+
+  // Collect all IV strides from refs.
+  for (auto &Ref : GepRefs) {
+    assert(!Ref->isTerminalRef() && "Expected non-terminal refs only");
+    assert(Ref->getNumDimensions() == 1 && "Expected single dimension refs");
+
+    Type *DimType = Ref->getBaseCE()->getDestType();
+    if (DimType->getPointerElementType()->isAggregateType() ||
+        Ref->getDimensionConstLower(1) != 0 ||
+        Ref->getDimensionConstStride(1) == 0) {
+      return false;
+    }
+
+    const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
+    if (LinearIndexCE->getDenominator() != 1 ||
+        LinearIndexCE->getSrcType() != LinearIndexCE->getDestType()) {
+      return false;
+    }
+
+    for (auto IV :
+         make_range(LinearIndexCE->iv_begin(), LinearIndexCE->iv_end())) {
+      if (IV.Coeff == 0 || IV.Index == InvalidBlobIndex) {
+        continue;
+      }
+
+      Strides.push_back(BU.getBlob(IV.Index));
+    }
+  }
+
+  // No candidates for delinearization.
+  if (Strides.size() < 2) {
+    return false;
+  }
+
+  // Sort and uniq Strides and populate Sizes.
+  SE.findArrayDimensions(Strides, Sizes, SE.getOne(Strides.front()->getType()));
+
+  LLVM_DEBUG(dbgs() << "Strides:\n");
+  LLVM_DEBUG(for (auto &Blob : Strides) { Blob->dump(); });
+
+  if (Sizes.empty()) {
+    LLVM_DEBUG(dbgs() << "Could not compute dimension sizes\n");
+    return false;
+  }
+
+  LLVM_DEBUG(dbgs() << "Sizes:\n");
+  LLVM_DEBUG(for (auto &Blob : Sizes) { Blob->dump(); });
+
+  // Push nullptr to indicate innermost dimension.
+  Strides.push_back(nullptr);
+  assert(Strides.size() == Sizes.size() &&
+         "Strides and Sizes should be equal in size");
+
+  // Use pool for new refs to remove them if it's impossible to delinearize all
+  // of them.
+  SmallVector<std::unique_ptr<RegDDRef>, 8> NewRefs;
+  NewRefs.reserve(GepRefs.size());
+
+  // Create new multi-dimension refs.
+  for (auto &Ref : GepRefs) {
+    auto *NewRef = delinearizeSingleRef(Ref, Strides, Sizes);
+    if (!NewRef) {
+      return false;
+    }
+
+    NewRef->makeConsistent(GepRefs, Ref->getNodeLevel());
+    NewRefs.emplace_back(NewRef);
+  }
+
+  LLVM_DEBUG(dbgs() << "Delinearized refs:\n");
+  LLVM_DEBUG(for (auto Pair : zip(GepRefs, NewRefs)) {
+    std::get<0>(Pair)->dump();
+    dbgs() << " -> ";
+    std::get<1>(Pair)->dump();
+    dbgs() << "\n";
+  });
+
+  // Release refs to OutRefs.
+  OutRefs.resize(NewRefs.size());
+  std::transform(NewRefs.begin(), NewRefs.end(), OutRefs.begin(),
+                 [](std::unique_ptr<RegDDRef> &Ref) { return Ref.release(); });
+
+  if (DimSizes) {
+    DimSizes->swap(Sizes);
+  }
+
+  return true;
+}

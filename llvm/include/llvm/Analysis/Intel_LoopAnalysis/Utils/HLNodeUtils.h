@@ -355,10 +355,13 @@ private:
                          HLContainerTy::iterator Last,
                          HLContainerTy *MoveContainer, bool Erase = false);
 
-  /// Removes [First, Last) from Container. Also destroys them is Erase is set.
+  /// Removes [First, Last) from \p Container and moves them to \p MoveContainer
+  /// if it is nonnull. Nodes are destroyed if \p Erase is set. It is an user
+  /// error to set both MoveContainer and Erase at the same time.
   static void removeInternal(HLContainerTy &Container,
                              HLContainerTy::iterator First,
-                             HLContainerTy::iterator Last, bool Erase);
+                             HLContainerTy::iterator Last,
+                             HLContainerTy *MoveContainer, bool Erase);
 
   /// Unlinks Node from HIR and destroys it.
   /// Note: This function is intentionally private. Transformations are not

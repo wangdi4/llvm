@@ -489,6 +489,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
            "The loop latch should have two successors!");
     LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
                                   : OrigLoopLatch->getSuccessors()[0];
+    ExitExitingBlocksMap[LatchExitBlock] = OrigLoopLatch;
   }
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   // The divergence information is later used to set the new condition bit
@@ -709,11 +710,11 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
             new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
         CascadedIfBlocks.push_back(NextIfBlock);
       } else {
-        // The current NextIfBlock is the LatchExitBlock.
+        // For for-loops, the NextIfBlock is the LatchExitBlock.
         NextIfBlock = cast<VPBasicBlock>(ExitBlockIDPairs[0].first);
-        if (LatchExitBlock && hasVPPhiNode(cast<VPBasicBlock>(LatchExitBlock)))
-          updateBlocksPhiNode(cast<VPBasicBlock>(LatchExitBlock),
-                              cast<VPBasicBlock>(OrigLoopLatch), IfBlock);
+        VPBlockBase *ExitingBlock = ExitExitingBlocksMap[NextIfBlock];
+        updateBlocksPhiNode(cast<VPBasicBlock>(NextIfBlock),
+                            cast<VPBasicBlock>(ExitingBlock), IfBlock);
       }
       // Update the successors of the IfBlock.
       IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock);

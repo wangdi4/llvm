@@ -85,6 +85,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -374,6 +375,8 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
     return;
   }
 
+  HIRInvalidationUtils::invalidateBody(RemainderLoop);
+
   RegDDRef *ConditionRef = RemainderLoop->removeUpperDDRef();
 
   // We can skip ztt because if the trip count is zero, normalized upper bound
@@ -406,10 +409,13 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
 
     HLContainerTy LoopBody;
 
-    // TODO:we should reuse the loop nodes once the HLNodeUtils::remove()
-    // utility is fixed to set the parent field to null
-    HLNodeUtils::cloneSequence(&LoopBody, RemainderLoop->getFirstChild(),
-                               RemainderLoop->getLastChild());
+    if (I == 0) {
+      HLNodeUtils::remove(&LoopBody, RemainderLoop->getFirstChild(),
+                          RemainderLoop->getLastChild());
+    } else {
+      HLNodeUtils::cloneSequence(&LoopBody, RemainderLoop->getFirstChild(),
+                                 RemainderLoop->getLastChild());
+    }
 
     IVUpdater IVUD(I, LoopLevel);
 
