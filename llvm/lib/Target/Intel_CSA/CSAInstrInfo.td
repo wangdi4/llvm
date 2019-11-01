@@ -145,11 +145,12 @@ def RCLi0  : RegImmOperand<i1>;
 def RCLi1  : RegImmOperand<i1>;
 def RCLi8  : RegImmOperand<i8>;
 def RCLi16 : RegImmOperand<i16>;
-def RCLf16 : RegImmOperand<i16>;
+def RCLf16 : RegImmOperand<f16>;
 def RCLi32 : RegImmOperand<i32>;
 def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
+def RCLf16x4 : RegImmOperand<v4f16>;
 def RCLf32x2 : RegImmOperand<v2f32>;
 def RCL32  : RegImmOperandUntyped<i32>;
 def RCL64  : RegImmOperandUntyped<i64>;
@@ -240,6 +241,7 @@ def Ti64 : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
+def Tf16x4 : CSAOpInfo<v4f16, 64, "f16x4", I64, RI64, CI64, RCLf16x4, i64imm, []>;
 def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
 def T32  : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCL32, i32imm, [HasI32]>;
 def T64  : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCL64, i64imm, [HasI64]>;
@@ -289,7 +291,6 @@ multiclass DataflowInst<string asm, dag outs, dag ins, string asmops,
                            !strconcat(asm, "64\t", asmops), pats>;
 }
 
-
 multiclass IntegerInst<string asm, dag outs, dag ins, string asmops,
                        list<dag> pats = []> {
   def "" : GenericOp<asm>;
@@ -303,6 +304,20 @@ multiclass IntegerInst<string asm, dag outs, dag ins, string asmops,
                            !strconcat(asm, "64\t", asmops), pats>;
 }
 
+multiclass BitwiseInst<string asm, dag outs, dag ins, string asmops,
+                       list<dag> pats = []> {
+  def "" : GenericOp<asm>;
+  def "1"  : TemplatedInst<!cast<GenericOp>(NAME), Ti1,  outs, ins,
+                           !strconcat(asm, "1\t",  asmops), pats>;
+  def "8"  : TemplatedInst<!cast<GenericOp>(NAME), Ti8,  outs, ins,
+                           !strconcat(asm, "8\t",  asmops), pats>;
+  def "16" : TemplatedInst<!cast<GenericOp>(NAME), Ti16, outs, ins,
+                           !strconcat(asm, "16\t", asmops), pats>;
+  def "32" : TemplatedInst<!cast<GenericOp>(NAME), T32,  outs, ins,
+                           !strconcat(asm, "32\t", asmops), pats>;
+  def "64" : TemplatedInst<!cast<GenericOp>(NAME), T64,  outs, ins,
+                           !strconcat(asm, "64\t", asmops), pats>;
+}
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
 def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
@@ -437,8 +452,10 @@ def CSA_GETVAL16       : CSAGetValOp<CSA_GETVAL, Ti16,  IIALU>;
 def CSA_GETVAL32       : CSAGetValOp<CSA_GETVAL, Ti32,  IIALU>;
 def CSA_GETVAL64       : CSAGetValOp<CSA_GETVAL, Ti64,  IIALU>;
 
+def : Pat<(f16 (CSAGetVal CI0:$link)), (CSA_GETVAL16 $link)>;
 def : Pat<(f32 (CSAGetVal CI0:$link)), (CSA_GETVAL32 $link)>;
 def : Pat<(f64 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+def : Pat<(v4f16 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 def : Pat<(v2f32 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 
 
@@ -603,10 +620,11 @@ class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // 'fma' is a pattern already defined by LLVM.
-// Create missing equivalents for fms and fmrs.
+// Create missing equivalents for fms, fmrs, and fnms.
 class TriOpFrag<dag res> : PatFrag<(ops node:$LHS, node:$MHS, node:$RHS), res>;
 def fms : TriOpFrag<(fma node:$LHS, node:$MHS, (fneg node:$RHS))>;
 def fmrs: TriOpFrag<(fma (fneg node:$LHS), node:$MHS, node:$RHS)>;
+def fnms: TriOpFrag<(fneg (fma node:$LHS, node:$MHS, node:$RHS))>;
 
 class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
@@ -1006,14 +1024,17 @@ defm NEG : IntegerInst<"neg",
                        [(set RC:$res, (ineg RCL:$op1))]>;
 }
 
+def NEGF16    : UnaryOp< NEG,    fneg,   Tf16, IIALU>;
 def NEGF32    : UnaryOp< NEG,    fneg,   Tf32, IIALU>;
 def NEGF64    : UnaryOp< NEG,    fneg,   Tf64, IIALU>;
 
 def ABS       : GenericOp<"abs">;
+def ABSF16    : UnaryOp< ABS,    fabs,   Tf16, IIALU>;
 def ABSF32    : UnaryOp< ABS,    fabs,   Tf32, IIALU>;
 def ABSF64    : UnaryOp< ABS,    fabs,   Tf64, IIALU>;
 
 def SQRT      : GenericOp<"sqrt", [HasSqrt]>;
+def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
 def SQRTF32   : UnaryOp< SQRT,   fsqrt,  Tf32, IISqrtF32>;
 def SQRTF64   : UnaryOp< SQRT,   fsqrt,  Tf64, IISqrtF64>;
 
@@ -1114,6 +1135,12 @@ defm SEXT : IntegerInst<"sext",
                         "$res, $op1, $op2",
                         []>;
 
+// ternlog for 1, 8, 16, 32, and 64 bits.
+defm TERNLOG : BitwiseInst<"ternlog",
+                        (outs RC:$res), (ins RCL:$op1, RCL:$op2, RCL:$op3, i8imm:$tab),
+                        "$res, $op1, $op2, $op3, $tab",
+                        []>;
+
 // first type in convert name is result, second is source type
 def CVT       : GenericOp<"cvt">;
 def CVTS32F32 : CvtOpR<   CVT, fp_to_sint,Ts32, Tf32, IICvtIF>;
@@ -1143,7 +1170,9 @@ def CVTF32F64 : CvtOpR<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 def CVTF64F32 : CvtOpR<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
 
 def CVTF16F32 : CvtOpR<   CVT, fp_to_f16,  Tf16, Tf32, IICvtFF>;
-def CVTF32F16 : CvtOpR<   CVT, f16_to_fp,  Tf32, Tf16, IICvtFF>;
+
+// TODO: The def for CVTF32F16 should refer to Tf16, not Ti16, but it is broken.
+def CVTF32F16 : CvtOpR<   CVT, f16_to_fp,  Tf32, Ti16, IICvtFF>;
 
 def AND       : GenericOp<"and">;
 let isCommutable = 1 in {
@@ -1207,6 +1236,7 @@ def ADC16     : BinOpC<  ADC,            Ti16, IIALU>;
 def ADC32     : BinOpC<  ADC,            Ti32, IIALU>;
 def ADC64     : BinOpC<  ADC,            Ti64, IIALU>;
 
+def ADDF16    : BinOpR<  ADD,    fadd,   Tf16, IIAddF16>;
 def ADDF32    : BinOpR<  ADD,    fadd,   Tf32, IIAddF32>;
 def ADDF64    : BinOpR<  ADD,    fadd,   Tf64, IIAddF64>;
 
@@ -1224,6 +1254,7 @@ def SBB16     : BinOpC<  SBB,            Ti16, IIALU>;
 def SBB32     : BinOpC<  SBB,            Ti32, IIALU>;
 def SBB64     : BinOpC<  SBB,            Ti64, IIALU>;
 
+def SUBF16    : BinOpR<  SUB,    fsub,   Tf16, IIAddF16>;
 def SUBF32    : BinOpR<  SUB,    fsub,   Tf32, IIAddF32>;
 def SUBF64    : BinOpR<  SUB,    fsub,   Tf64, IIAddF64>;
 
@@ -1235,6 +1266,7 @@ def MUL32     : BinOp<   MUL,    mul,    Ti32, IIMulI32>;
 def MUL64     : BinOp<   MUL,    mul,    Ti64, IIMulI64>;
 }
 
+def MULF16    : BinOpR<  MUL,    fmul,   Tf16, IIMulF16>;
 def MULF32    : BinOpR<  MUL,    fmul,   Tf32, IIMulF32>;
 def MULF64    : BinOpR<  MUL,    fmul,   Tf64, IIMulF64>;
 
@@ -1249,6 +1281,7 @@ def DIVU16    : BinOp<   DIV,    udiv,   Tu16, IIDivI16, [HasIDiv]>;
 def DIVU32    : BinOp<   DIV,    udiv,   Tu32, IIDivI32, [HasIDiv]>;
 def DIVU64    : BinOp<   DIV,    udiv,   Tu64, IIDivI64, [HasIDiv]>;
 
+def DIVF16    : BinOpR<  DIV,    fdiv,   Tf16, IIDivF16, [HasFDiv]>;
 def DIVF32    : BinOpR<  DIV,    fdiv,   Tf32, IIDivF32, [HasFDiv]>;
 def DIVF64    : BinOpR<  DIV,    fdiv,   Tf64, IIDivF64, [HasFDiv]>;
 
@@ -1269,6 +1302,7 @@ def MINU8     : MinMaxOp<MIN,            Tu8,  IIALU>;
 def MINU16    : MinMaxOp<MIN,            Tu16, IIALU>;
 def MINU32    : MinMaxOp<MIN,            Tu32, IIALU>;
 def MINU64    : MinMaxOp<MIN,            Tu64, IIALU>;
+def MINF16    : MinMaxOp<MIN,            Tf16, IIALU>;
 def MINF32    : MinMaxOp<MIN,            Tf32, IIALU>;
 def MINF64    : MinMaxOp<MIN,            Tf64, IIALU>;
 
@@ -1281,6 +1315,7 @@ def MAXU8     : MinMaxOp<MAX,            Tu8,  IIALU>;
 def MAXU16    : MinMaxOp<MAX,            Tu16, IIALU>;
 def MAXU32    : MinMaxOp<MAX,            Tu32, IIALU>;
 def MAXU64    : MinMaxOp<MAX,            Tu64, IIALU>;
+def MAXF16    : MinMaxOp<MAX,            Tf16, IIALU>;
 def MAXF32    : MinMaxOp<MAX,            Tf32, IIALU>;
 def MAXF64    : MinMaxOp<MAX,            Tf64, IIALU>;
 
@@ -1383,16 +1418,24 @@ def SLADD32   : ShAdd<   SLADD,shl,  add,  Ti32, IISAdd>;
 def SLADD64   : ShAdd<   SLADD,shl,  add,  Ti64, IISAdd>;
 
 def FMA       : GenericOp<"fma", [HasFMA]>;
+def FMAF16    : TriOp1<FMA,  fma, Tf16, IIFMAF16>;
 def FMAF32    : TriOp1<FMA,  fma, Tf32, IIFMAF32>;
 def FMAF64    : TriOp1<FMA,  fma, Tf64, IIFMAF64>;
 
 def FMS       : GenericOp<"fms", [HasFMA]>;
+def FMSF16    : TriOp1<FMS,  fms, Tf16, IIFMAF16>;
 def FMSF32    : TriOp1<FMS,  fms, Tf32, IIFMAF32>;
 def FMSF64    : TriOp1<FMS,  fms, Tf64, IIFMAF64>;
 
 def FMRS      : GenericOp<"fmrs", [HasFMA]>;
+def FMRSF16   : TriOp1<FMRS, fmrs, Tf16, IIFMAF16>;
 def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
 def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
+
+def FNMS       : GenericOp<"fnms", [HasFMA]>;
+def FNMSF16    : TriOp1<FNMS,  fnms, Tf16, IIFMAF16>;
+def FNMSF32    : TriOp1<FNMS,  fnms, Tf32, IIFMAF32>;
+def FNMSF64    : TriOp1<FNMS,  fnms, Tf64, IIFMAF64>;
 
 // Unfortunately, "COPY" is already defined...
 defm GCOPY : DataflowInst<"copy", 
@@ -1409,6 +1452,8 @@ defm MERGE : DataflowInst<"merge",
 def : Pat<(f32 (select RCLi1:$sel, RCLf32:$v1, RCLf32:$v0)),
           (MERGE32 $sel, $v0, $v1)>;
 def : Pat<(f64 (select RCLi1:$sel, RCLf64:$v1, RCLf64:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
+def : Pat<(v4f16 (select RCLi1:$sel, RCLf16x4:$v1, RCLf16x4:$v0)),
           (MERGE64 $sel, $v0, $v1)>;
 def : Pat<(v2f32 (select RCLi1:$sel, RCLf32x2:$v1, RCLf32x2:$v0)),
           (MERGE64 $sel, $v0, $v1)>;
@@ -1647,11 +1692,13 @@ def FMREDAF32x2: FMReduceOp<FMREDA, Tf32x2, IIALU>;
 
 // Standard sequenced reductions.
 def REDSUB     : GenericOp<"redsub">;
+def REDSUBF16  : ReduceOpR<REDSUB, Tf16, IIALU>;
 def REDSUBF32  : ReduceOpR<REDSUB, Tf32, IIALU>;
 def REDSUBF64  : ReduceOpR<REDSUB, Tf64, IIALU>;
 def REDSUBF32x2: ReduceOpR<REDSUB, Tf32x2, IIALU>;
 
 def REDADD     : GenericOp<"redadd">;
+def REDADDF16  : ReduceOpR<REDADD, Tf16, IIALU>;
 def REDADDF32  : ReduceOpR<REDADD, Tf32, IIALU>;
 def REDADDF64  : ReduceOpR<REDADD, Tf64, IIALU>;
 def REDADDF32x2: ReduceOpR<REDADD, Tf32x2, IIALU>;
@@ -2147,6 +2194,7 @@ def : Pat<(i1  (trunc  i8:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 // bitconvert (shows up in exp)
 def : Pat<(i64 (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(f64 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(v4f16 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(v2f32 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(i64 (bitconvert v2f32:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 
@@ -2181,16 +2229,16 @@ multiclass SimdOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
         (i8 imm:$swizzle1), (i8 imm:$swizzle2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
                            (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
       (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, imm:$swizzle2)>;
-  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
                            oi.RCL:$op2)),
       (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, 0)>;
-  def : Pat<(v2f32 (opNode oi.RCL:$op1,
+  def : Pat<(oi.VT (opNode oi.RCL:$op1,
                            (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
       (!cast<Instruction>(NAME) $op1, $op2, 0, 0, imm:$swizzle2)>;
-  def : Pat<(v2f32 (opNode oi.RCL:$op1, oi.RCL:$op2)),
+  def : Pat<(oi.VT (opNode oi.RCL:$op1, oi.RCL:$op2)),
       (!cast<Instruction>(NAME) $op1, $op2, 0, 0, 0)>;
 }
 
@@ -2206,18 +2254,18 @@ multiclass SimdTriOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo o
         (i8 imm:$disable), (i8 imm:$swizzle1), (i8 imm:$swizzle2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
                            (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)),
                            oi.RCL:$op3)),
       (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, imm:$swizzle1, imm:$swizzle2)>;
-  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
                            oi.RCL:$op2, oi.RCL:$op3)),
       (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, imm:$swizzle1, 0)>;
-  def : Pat<(v2f32 (opNode oi.RCL:$op1,
+  def : Pat<(oi.VT (opNode oi.RCL:$op1,
                            (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)),
                            oi.RCL:$op3)),
       (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, 0, imm:$swizzle2)>;
-  def : Pat<(v2f32 (opNode oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3)),
+  def : Pat<(oi.VT (opNode oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3)),
       (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, 0, 0)>;
 }
 
@@ -2225,6 +2273,19 @@ def ADDSUB : GenericOp<"addsub">;
 def SUBADD : GenericOp<"subadd">;
 def FMAS : GenericOp<"fmas">;
 def FMSA : GenericOp<"fmsa">;
+
+defm ADDF16X4:    SimdOp<ADD, fadd, int_csa_addf16x4, Tf16x4>;
+defm SUBF16X4:    SimdOp<SUB, fsub, int_csa_subf16x4, Tf16x4>;
+defm ADDSUBF16X4: SimdOp<ADDSUB, CSAAddSub, int_csa_addsubf16x4, Tf16x4>;
+defm SUBADDF16X4: SimdOp<SUBADD, CSASubAdd, int_csa_subaddf16x4, Tf16x4>;
+defm MULF16X4:    SimdOp<MUL, fmul, int_csa_mulf16x4, Tf16x4>;
+
+defm FMAF16X4:  SimdTriOp<FMA,  fma, int_csa_fmaf16x4, Tf16x4>;
+defm FMSF16X4:  SimdTriOp<FMS,  fms, int_csa_fmsf16x4, Tf16x4>;
+defm FMRSF16X4: SimdTriOp<FMRS, fmrs, int_csa_fmrsf16x4, Tf16x4>;
+defm FMASF16X4: SimdTriOp<FMAS, CSAFMAddSub, int_csa_fmasf16x4, Tf16x4>;
+defm FMSAF16X4: SimdTriOp<FMSA, CSAFMSubAdd, int_csa_fmsaf16x4, Tf16x4>;
+defm FNMSF16X4: SimdTriOp<FNMS, fnms, int_csa_fnmsf16x4, Tf16x4>;
 
 defm ADDF32X2:    SimdOp<ADD, fadd, int_csa_addf32x2, Tf32x2>;
 defm SUBF32X2:    SimdOp<SUB, fsub, int_csa_subf32x2, Tf32x2>;
@@ -2278,6 +2339,12 @@ let AddedComplexity = 4 in
 def : Pat<(v2f32 (build_vector RCLf32:$lo, (f32 (undef)))),
     (COPY_TO_REGCLASS $lo, I64)>;
 
+def SHUFI16X4: FMTGEN<?, Tf16x4,
+    (outs I64:$res),
+    (ins RCLf16x4:$op1, RCLf16x4:$op2, i8imm:$sel0, i8imm:$sel1, i8imm:$sel2, i8imm:$sel3),
+    "shufi16x4\t$res, $op1, $op2, $sel0, $sel1, $sel2, $sel3",
+    []>;
+
 def SHUFI32X2: FMTGEN<?, Tf32x2,
     (outs I64:$res),
     (ins RCLf32x2:$op1, RCLf32x2:$op2, i8imm:$sellow, i8imm:$selhigh),
@@ -2320,8 +2387,10 @@ defm : PushPop<   i8, CI8>;
 defm : PushPop<  i16, CI16>;
 defm : PushPop<  i32, CI32>;
 defm : PushPop<  i64, CI64>;
+defm : PushPop<  f16, CI16>;
 defm : PushPop<  f32, CI32>;
 defm : PushPop<  f64, CI64>;
+defm : PushPop<v4f16, CI64>;
 defm : PushPop<v2f32, CI64>;
 
 // Eventually

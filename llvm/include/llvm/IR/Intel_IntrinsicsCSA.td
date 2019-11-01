@@ -94,7 +94,52 @@ def int_csa_pipeline_loop_exit :
 def int_csa_pipelineable_loop_marker :
     Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
-// SIMD intrinsics.
+// SIMD intrinsics (16x4).
+def int_csa_addf16x4 : GCCBuiltin<"__builtin_csa_addf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_subf16x4 : GCCBuiltin<"__builtin_csa_subf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_addsubf16x4 : GCCBuiltin<"__builtin_csa_addsubf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_subaddf16x4 : GCCBuiltin<"__builtin_csa_subaddf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_mulf16x4 : GCCBuiltin<"__builtin_csa_mulf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmaf16x4 : GCCBuiltin<"__builtin_csa_fmaf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmsf16x4 : GCCBuiltin<"__builtin_csa_fmsf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmrsf16x4 : GCCBuiltin<"__builtin_csa_fmrsf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmasf16x4 : GCCBuiltin<"__builtin_csa_fmasf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmsaf16x4 : GCCBuiltin<"__builtin_csa_fmsaf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fnmsf16x4 : GCCBuiltin<"__builtin_csa_fnmsf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+// SIMD intrinsics (32x2).
 def int_csa_addf32x2 : GCCBuiltin<"__builtin_csa_addf32x2">,
     Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
