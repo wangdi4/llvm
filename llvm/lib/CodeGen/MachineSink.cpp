@@ -739,12 +739,6 @@ static void performSink(MachineInstr &MI, MachineBasicBlock &SuccToSinkTo,
   const MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
   const TargetInstrInfo &TII = *MI.getMF()->getSubtarget().getInstrInfo();
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // INTEL - Sinking a machine instruction does not invalidate the source
-  //         correlation, so leave it alone.
-  //
-=======
   // If debug values are provided use those, otherwise call collectDebugValues.
   SmallVector<MachineInstr *, 2> DbgValuesToSink;
   if (DbgVals)
@@ -753,7 +747,10 @@ static void performSink(MachineInstr &MI, MachineBasicBlock &SuccToSinkTo,
   else
     MI.collectDebugValues(DbgValuesToSink);
 
->>>>>>> d382a8a768b3636c5aa1a934977c54d0215633cf
+#if INTEL_CUSTOMIZATION
+  // INTEL - Sinking a machine instruction does not invalidate the source
+  //         correlation, so leave it alone.
+  //
   // If we cannot find a location to use (merge with), then we erase the debug
   // location to prevent debug-info driven tools from potentially reporting
   // wrong location information.
