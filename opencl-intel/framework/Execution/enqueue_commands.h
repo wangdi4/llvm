@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -407,8 +407,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         ReadUsmBufferCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
-            const SharedPtr<MemoryObject>&     pBuffer,
+            ocl_entry_points* pOclEntryPoints,
+            const SharedPtr<MemoryObject>& pBuffer,
             const size_t      pszOffset[MAX_WORK_DIM],
             const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
@@ -627,9 +627,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         WriteUsmBufferCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
+            ocl_entry_points* pOclEntryPoints,
             cl_bool         bBlocking,
-            const SharedPtr<MemoryObject>&   pBuffer,
+            const SharedPtr<MemoryObject>& pBuffer,
             const size_t    pszOffset[MAX_WORK_DIM],
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
@@ -690,9 +690,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         MemsetUsmBufferCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
-            const SharedPtr<MemoryObject>&   pBuffer,
-            const void *pattern,
+            ocl_entry_points* pOclEntryPoints,
+            const SharedPtr<MemoryObject>& pBuffer,
+            const void* pattern,
             size_t pattern_size,
             size_t offset,
             size_t size
@@ -889,9 +889,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         CopyUsmBufferCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
-            const SharedPtr<MemoryObject>&   pSrcBuffer,
-            const SharedPtr<MemoryObject>&   pDstBuffer,
+            ocl_entry_points* pOclEntryPoints,
+            const SharedPtr<MemoryObject>& pSrcBuffer,
+            const SharedPtr<MemoryObject>& pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
