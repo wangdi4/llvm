@@ -1,4 +1,5 @@
-; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core -enable-vp-value-codegen=false < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core -enable-vp-value-codegen=true < %s -S -o - | FileCheck %s
 
 ; ModuleID = '<stdin>'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -33,7 +34,9 @@ entry:
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
   %call2 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
 ; CHECK: [[VECTOR_ALL:%.*]] = call <4 x i32> @_Z13sub_group_allDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = tail call spir_func i32 @_Z16get_sub_group_idv()
+; TODO: VPValue-based CG does not preserve any attributes for serialized Calls.
+; Check JIRA : CMPLRLLVM-10806
+; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = {{call|tail call spir_func}} i32 @_Z16get_sub_group_idv()
 
   %call3 = tail call spir_func i64 @_Z19sub_group_broadcastlj(i64 %3, i32 0) #4
   %call4 = tail call spir_func i32 @_Z19sub_group_broadcastij(i32 %0, i32 0) #4
