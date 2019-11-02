@@ -2891,30 +2891,6 @@ struct AADereferenceableCallSiteReturned final
       AADereferenceable, AADereferenceableImpl>;
   AADereferenceableCallSiteReturned(const IRPosition &IRP) : Base(IRP) {}
 
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    Base::initialize(A);
-    Function *F = getAssociatedFunction();
-    if (!F)
-      indicatePessimisticFixpoint();
-  }
-
-  /// See AbstractAttribute::updateImpl(...).
-  ChangeStatus updateImpl(Attributor &A) override {
-    // TODO: Once we have call site specific value information we can provide
-    //       call site specific liveness information and then it makes
-    //       sense to specialize attributes for call sites arguments instead of
-    //       redirecting requests to the callee argument.
-
-    ChangeStatus Change = Base::updateImpl(A);
-    Function *F = getAssociatedFunction();
-    const IRPosition &FnPos = IRPosition::returned(*F);
-    auto &FnAA = A.getAAFor<AADereferenceable>(*this, FnPos);
-    return Change |
-           clampStateAndIndicateChange(
-               getState(), static_cast<const DerefState &>(FnAA.getState()));
-  }
-
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override {
     STATS_DECLTRACK_CS_ATTR(dereferenceable);
@@ -3156,7 +3132,16 @@ struct AANoCaptureImpl : public AANoCapture {
 
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
-    AANoCapture::initialize(A);
+    if (hasAttr(getAttrKind(), /* IgnoreSubsumingPositions */ true)) {
+      indicateOptimisticFixpoint();
+      return;
+    }
+    Function *AnchorScope = getAnchorScope();
+    if (isFnInterfaceKind() &&
+        (!AnchorScope || !AnchorScope->hasExactDefinition())) {
+      indicatePessimisticFixpoint();
+      return;
+    }
 
     // You cannot "capture" null in the default address space.
     if (isa<ConstantPointerNull>(getAssociatedValue()) &&
@@ -3165,13 +3150,11 @@ struct AANoCaptureImpl : public AANoCapture {
       return;
     }
 
-    const IRPosition &IRP = getIRPosition();
-    const Function *F =
-        getArgNo() >= 0 ? IRP.getAssociatedFunction() : IRP.getAnchorScope();
+    const Function *F = getArgNo() >= 0 ? getAssociatedFunction() : AnchorScope;
 
     // Check what state the associated function can actually capture.
     if (F)
-      determineFunctionCaptureCapabilities(IRP, *F, *this);
+      determineFunctionCaptureCapabilities(getIRPosition(), *F, *this);
     else
       indicatePessimisticFixpoint();
   }
