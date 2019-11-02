@@ -453,9 +453,9 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
     // max value of i gives max estimate for j.
     // Ignore non-sensical values of NonIVVal. These are the result of
     // overly-conservative blob/upper bound values.
-    if ((!HLNodeUtils::getMaxValue(CE, Node, NonIVVal) ||
+    if ((!HLNodeUtils::getExactMaxValue(CE, Node, NonIVVal) ||
          !isInRange(NonIVVal, 0, NumElements)) &&
-        (!HLNodeUtils::getMinValue(CE, Node, NonIVVal) ||
+        (!HLNodeUtils::getExactMinValue(CE, Node, NonIVVal) ||
          !isInRange(NonIVVal, 0, NumElements))) {
       // This gets us the most conservative estimate.
       NonIVVal = 0;
