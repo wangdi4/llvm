@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
@@ -8,6 +9,12 @@
 ; RUN: opt -S -convert-to-subscript < %s | opt -attributor -attributor-manifest-internal -attributor-disable=false -S | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
 ; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER
+; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER
+; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER
+; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER
+>>>>>>> c36e2ebf9ff5fa869bd5717616e71a0d406d0306
 
 @g = global i32* null		; <i32**> [#uses=1]
 
