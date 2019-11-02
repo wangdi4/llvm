@@ -1384,26 +1384,6 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 }
 
 
-// Go through the blocks in Region, collecting uniforms.
-void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
-  for (VPBlockBase *Block :
-       make_range(df_iterator<VPRegionBlock *>::begin(Region),
-                  df_iterator<VPRegionBlock *>::end(Region))) {
-    if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      if (Block->getNumSuccessors() >= 2) {
-        // Multiple successors. Checking uniformity of Condition Bit
-        // Instruction.
-        VPValue *CBV = VPBB->getCondBit();
-        assert(CBV && "Expected condition bit value.");
-
-        bool isUniform = Legal->isUniformForTheLoop(CBV->getUnderlyingValue());
-        if (isUniform)
-          Plan->UniformCBVs.insert(CBV);
-      }
-    }
-  }
-}
-
 static TripCountInfo readIRLoopMetadata(Loop *Lp) {
   TripCountInfo TCInfo;
   MDNode *LoopID = Lp->getLoopID();
@@ -1462,9 +1442,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // Build Top Region enclosing the plain CFG
   Plan->setEntry(buildPlainCFG(CvtVec));
   VPRegionBlock *TopRegion = Plan->getEntry();
-
-  // Collect divergence information
-  collectUniforms(TopRegion);
 
   LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
   LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
@@ -1697,8 +1674,7 @@ bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
       VPValue *CBV = VPBB->getCondBit();
       assert(CBV && "Expected condition bit value.");
 
-      // TODO: Temporal implementation for HIR
-      return !Plan->UniformCBVs.count(CBV);
+      return Plan->getVPlanDA()->isDivergent(*CBV);
     }
   }
 
@@ -1719,8 +1695,6 @@ class PlainCFGBuilder {
   Loop *TheLoop = nullptr;
 
   LoopInfo *LI = nullptr;
-  // TODO: This should be removed together with the UniformCBVs set.
-  LoopVectorizationLegality *Legal;
 
   // Output TopRegion. Owned during the PlainCFG build process, moved
   // afterwards.
@@ -1774,9 +1748,8 @@ class PlainCFGBuilder {
 public:
   friend PrivatesListCvt;
 
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
-                  VPlan *Plan)
-      : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlan *Plan)
+      : TheLoop(Lp), LI(LI), Plan(Plan) {}
 
   std::unique_ptr<VPRegionBlock> buildPlainCFG();
   void
@@ -2568,7 +2541,7 @@ std::unique_ptr<VPRegionBlock> PlainCFGBuilder::buildPlainCFG() {
 
 std::unique_ptr<VPRegionBlock>
 VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
-  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Legal, Plan);
+  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
   // Converting loop enities.
   if (LoopEntityImportEnabled)

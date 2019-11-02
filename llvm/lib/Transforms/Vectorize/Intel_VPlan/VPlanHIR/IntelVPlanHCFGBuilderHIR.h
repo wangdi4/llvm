@@ -332,10 +332,6 @@ private:
 
   void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
 
-  void collectUniforms(VPRegionBlock *Region) override {
-    // Do nothing for now
-  }
-
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
                       HIRVectorizationLegality *Legality, const DDGraph &DDG);
