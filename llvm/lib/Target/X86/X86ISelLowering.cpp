@@ -32319,6 +32319,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
@@ -32330,8 +32331,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Imm = MI.getOperand(0).getImm();
 
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(X86::TILEZERO));
-    MIB.addReg(TMMImmToTMMReg(Imm));
+    BuildMI(*BB, MI, DL, TII->get(X86::TILEZERO), TMMImmToTMMReg(Imm));
 
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
@@ -32348,16 +32348,20 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    if (Opc == X86::PTILESTORED)
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
-    else
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    unsigned CurOp = 0;
+    if (Opc != X86::TILESTORED)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()),
+                 RegState::Define);
 
-    MIB.add(MI.getOperand(1)); // base
-    MIB.add(MI.getOperand(2)); // scale
-    MIB.add(MI.getOperand(3)); // index -- stride
-    MIB.add(MI.getOperand(4)); // displacement
-    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(CurOp++)); // base
+    MIB.add(MI.getOperand(CurOp++)); // scale
+    MIB.add(MI.getOperand(CurOp++)); // index -- stride
+    MIB.add(MI.getOperand(CurOp++)); // displacement
+    MIB.add(MI.getOperand(CurOp++)); // segment
+
+    if (Opc == X86::TILESTORED)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()));
+
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
@@ -32792,6 +32796,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
@@ -32803,8 +32808,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Imm = MI.getOperand(0).getImm();
 
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(X86::TILEZEROE));
-    MIB.addReg(TMMImmToTMMReg(Imm));
+    BuildMI(*BB, MI, DL, TII->get(X86::TILEZEROE), TMMImmToTMMReg(Imm));
 
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
@@ -32822,16 +32826,20 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    if (Opc == X86::TILESTOREDE)
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
-    else
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    unsigned CurOp = 0;
+    if (Opc != X86::TILESTOREDE)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()),
+                 RegState::Define);
 
-    MIB.add(MI.getOperand(1)); // base
-    MIB.add(MI.getOperand(2)); // scale
-    MIB.add(MI.getOperand(3)); // index
-    MIB.add(MI.getOperand(4)); // displacement
-    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(CurOp++)); // base
+    MIB.add(MI.getOperand(CurOp++)); // scale
+    MIB.add(MI.getOperand(CurOp++)); // index -- stride
+    MIB.add(MI.getOperand(CurOp++)); // displacement
+    MIB.add(MI.getOperand(CurOp++)); // segment
+
+    if (Opc == X86::TILESTOREDE)
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(CurOp++).getImm()));
+
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }

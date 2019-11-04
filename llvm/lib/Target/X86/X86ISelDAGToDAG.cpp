@@ -4442,8 +4442,14 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
       SDValue Segment = CurDAG->getRegister(0, MVT::i16);
       SDValue Chain = Node->getOperand(0);
-      SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Chain };
-      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      MachineSDNode *CNode;
+      if (Opc == X86::PTILESTORED) {
+        SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Chain };
+        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      } else {
+        SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Chain };
+        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      }
       ReplaceNode(Node, CNode);
       return;
     }
@@ -4565,8 +4571,14 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
       SDValue Segment = CurDAG->getRegister(0, MVT::i16);
       SDValue Chain = Node->getOperand(0);
-      SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Chain };
-      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      MachineSDNode *CNode;
+      if (Opc == X86::PTILESTOREDE) {
+        SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Chain };
+        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      } else {
+        SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Chain };
+        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      }
       ReplaceNode(Node, CNode);
       return;
     }

@@ -29,22 +29,22 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
     def STTILECFG : I <0x49, MRM0m, (outs), (ins i512mem:$src),
                        "sttilecfg\t$src",
                        [(int_x86_sttilecfg addr:$src)]>, VEX, T8PD;
-    def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs),
-                      (ins VTILE:$src1, i8mem:$src2),
-                      "tileloadd\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
+                      (ins i8mem:$src),
+                      "tileloadd\t{$src, $dst|$dst, $src}", []>,
                       VEX, T8XD;
-    def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs),
-                        (ins VTILE:$src1, i8mem:$src2),
-                        "tileloaddt1\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
+                        (ins i8mem:$src),
+                        "tileloaddt1\t{$src, $dst|$dst, $src}", []>,
                         VEX, T8PD;
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
-    def TILESTORED : I<0x4b, MRMSrcMemFSIB, (outs),
-                       (ins VTILE:$src1, i8mem:$src2),
-                       "tilestored\t{$src1, $src2|$src2, $src1}", []>,
+    def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
+                       (ins i8mem:$dst, VTILE:$src),
+                       "tilestored\t{$src, $dst|$src, $dst}", []>,
                        VEX, T8XS;
-    def TILEZERO : I<0x49, MRMr0, (outs), (ins VTILE:$src),
-                     "tilezero\t$src", []>,
+    def TILEZERO : I<0x49, MRMr0, (outs VTILE:$dst), (ins),
+                     "tilezero\t$dst", []>,
                      VEX, T8XD;
 
     let usesCustomInserter = 1 in {
@@ -52,32 +52,33 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
       // To be translated to the actual instructions in X86ISelLowering.cpp
       def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
       def PTILELOADDT1 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILESTORED : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILESTORED : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
       def PTILEZERO : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezero imm:$src)]>;
     }
   } // SchedRW
 } // HasAMXTILE
 
-// FIXME : Change srcdest operand when fix AMX1 code.
 let Predicates = [HasAMXINT8, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TDPBSSD : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
-                    "tdpbssd\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    VEX_4V, T8XD;
-    def TDPBSUD : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
-                    "tdpbsud\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    VEX_4V, T8XS;
-    def TDPBUSD : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
-                    "tdpbusd\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    VEX_4V, T8PD;
-    def TDPBUUD : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
-                    "tdpbuud\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    VEX_4V, T8PS;
+    let Constraints = "$src1 = $dst" in {
+      def TDPBSSD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                      "tdpbssd\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      VEX_4V, T8XD;
+      def TDPBSUD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                      "tdpbsud\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      VEX_4V, T8XS;
+      def TDPBUSD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                      "tdpbusd\t{$src3, $src2, $dst|$src3, $src2, $src3}", []>,
+                      VEX_4V, T8PD;
+      def TDPBUUD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                      "tdpbuud\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      VEX_4V, T8PS;
+    }
 
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
@@ -104,9 +105,10 @@ let Predicates = [HasAMXINT8, In64BitMode] in {
 
 let Predicates = [HasAMXBF16, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TDPBF16PS : I<0x5c, MRMSrcReg4VOp3, (outs),
-                      (ins VTILE:$src3, VTILE:$src2, VTILE:$src1),
-                      "tdpbf16ps\t{$src1, $src2, $src3|$src3, $src2, $src1}",
+    let Constraints = "$src1 = $dst" in
+    def TDPBF16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                      "tdpbf16ps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                       []>, VEX_4V, T8XS;
 
     let usesCustomInserter = 1 in {
@@ -929,27 +931,27 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 
 let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs),
-                      (ins VTILEX:$src1, i8mem:$src2),
-                      "tileloadde\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs VTILEX:$dst),
+                      (ins i8mem:$src),
+                      "tileloadde\t{$src, $dst|$dst, $src}", []>,
                       EVEX, T8XD;
-    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs),
-                        (ins VTILEX:$src1, i8mem:$src2),
-                        "tileloaddt1e\t{$src2, $src1|$src1, $src2}", []>,
+    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs VTILEX:$dst),
+                        (ins i8mem:$src),
+                        "tileloaddt1e\t{$src, $dst|$dst, $src}", []>,
                         EVEX, T8PD;
-    def TILESTOREDE : I<0x4b, MRMSrcMemFSIB, (outs),
-                       (ins VTILEX:$src1, i8mem:$src2),
-                       "tilestorede\t{$src1, $src2|$src2, $src1}", []>,
+    def TILESTOREDE : I<0x4b, MRMDestMemFSIB, (outs),
+                       (ins i8mem:$dst, VTILEX:$src),
+                       "tilestorede\t{$src, $dst|$dst, $src}", []>,
                        EVEX, T8XS;
-    def TILEZEROE : I<0x49, MRMr0, (outs), (ins VTILEX:$src),
-                     "tilezeroe\t$src", []>,
+    def TILEZEROE : I<0x49, MRMr0, (outs VTILEX:$dst), (ins),
+                     "tilezeroe\t$dst", []>,
                      EVEX, T8XD;
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
       // To be translated to the actual instructions in X86ISelLowering.cpp
       def PTILELOADDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
       def PTILELOADDT1E : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILESTOREDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILESTOREDE : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
       def PTILEZEROE : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezeroe timm:$src)]>;
     }
@@ -958,22 +960,24 @@ let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
 
 let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TDPBSSDE : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
-                    "tdpbssde\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    EVEX_4V, T8XD;
-    def TDPBSUDE : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
-                    "tdpbsude\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    EVEX_4V, T8XS;
-    def TDPBUSDE : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
-                    "tdpbusde\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    EVEX_4V, T8PD;
-    def TDPBUUDE : I<0x5e, MRMSrcReg4VOp3, (outs),
-                    (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
-                    "tdpbuude\t{$src1, $src2, $src3|$src3, $src2, $src1}", []>,
-                    EVEX_4V, T8PS;
+    let Constraints = "$src1 = $dst" in {
+      def TDPBSSDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
+                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+                      "tdpbssde\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      EVEX_4V, T8XD;
+      def TDPBSUDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
+                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+                      "tdpbsude\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      EVEX_4V, T8XS;
+      def TDPBUSDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
+                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+                      "tdpbusde\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      EVEX_4V, T8PD;
+      def TDPBUUDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
+                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+                      "tdpbuude\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
+                      EVEX_4V, T8PS;
+    }
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
       // To be translated to the actual instructions in X86ISelLowering.cpp
@@ -999,9 +1003,10 @@ let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
 
 let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TDPBF16PSE : I<0x5c, MRMSrcReg4VOp3, (outs),
-                      (ins VTILEX:$src3, VTILEX:$src2, VTILEX:$src1),
-                      "tdpbf16pse\t{$src1, $src2, $src3|$src3, $src2, $src1}",
+    let Constraints = "$src1 = $dst" in
+    def TDPBF16PSE : I<0x5c, MRMSrcReg4VOp3, (outs VTILEX:$dst),
+                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+                      "tdpbf16pse\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                       []>, EVEX_4V, T8XS;
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
