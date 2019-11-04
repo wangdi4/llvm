@@ -326,6 +326,7 @@ public:
   int32_t DataTransferMethod;
   int64_t ProfileResolution;
   cl_device_type DeviceType;
+  std::string CompilationOptions;
 
   // Limit for the number of WIs in a WG.
   int32_t OMPThreadLimit = -1;
@@ -405,6 +406,10 @@ public:
         else if (token == "unit_usec" || token == "usec")
           ProfileResolution = 1000000;
       }
+    }
+
+    if (env = std::getenv("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
+      CompilationOptions += env;
     }
   }
 
@@ -718,7 +723,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_int status;
   cl_program program[3];
   cl_uint num_programs = 0;
-  const char *compilation_options = "";
+  std::string compilation_options(DeviceInfo.CompilationOptions);
 #if INTEL_CUSTOMIZATION
   cl_device_type device_type;
 
@@ -729,10 +734,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     // OpenCL CPU compiler complains about unsupported option.
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
-    compilation_options = "-cl-intel-enable-global-relocation";
+    compilation_options += " -cl-intel-enable-global-relocation ";
 #endif // INTEL_CUSTOMIZATION
 
-  DP("OpenCL compilation options: %s\n", compilation_options);
+  DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
   if ((DeviceInfo.flag & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
     std::string device_rtl_path = getDeviceRTLPath();
@@ -759,7 +764,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         return NULL;
       }
 
-      status = clCompileProgram(program[1], 0, nullptr, compilation_options, 0,
+      status = clCompileProgram(program[1], 0, nullptr,
+                                compilation_options.c_str(), 0,
                                 nullptr, nullptr, nullptr, nullptr);
       if (status != CL_SUCCESS) {
         debugPrintBuildLog(program[1], DeviceInfo.deviceIDs[device_id]);
@@ -781,7 +787,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     DP("Error: Failed to create program: %d\n", status);
     return NULL;
   }
-  status = clCompileProgram(program[0], 0, nullptr, compilation_options, 0,
+  status = clCompileProgram(program[0], 0, nullptr,
+                            compilation_options.c_str(), 0,
                             nullptr, nullptr, nullptr, nullptr);
   if (status != CL_SUCCESS) {
     debugPrintBuildLog(program[0], DeviceInfo.deviceIDs[device_id]);
@@ -796,7 +803,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   program[2] = clLinkProgram(
       DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id],
-      compilation_options, num_programs, &program[0], nullptr, nullptr,
+      compilation_options.c_str(), num_programs, &program[0], nullptr, nullptr,
       &status);
   if (status != CL_SUCCESS) {
     debugPrintBuildLog(program[2], DeviceInfo.deviceIDs[device_id]);
