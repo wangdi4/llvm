@@ -4334,6 +4334,8 @@ void CodeGenModule::generateIntelFPGAAnnotation(
   }
   if (D->hasAttr<IntelFPGASimpleDualPortAttr>())
     Out << "{simple_dual_port:1}";
+  if (const auto *MLA = D->getAttr<MemoryLayoutAttr>())
+    Out << '{' << MLA->getSpelling() << ':' << MLA->getType().upper() << '}';
 }
 
 void CodeGenModule::addGlobalIntelFPGAAnnotation(const VarDecl *VD,

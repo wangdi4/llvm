@@ -6062,6 +6062,29 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(S.Context, AL, Kind));
 }
 
+static void handleMemoryLayoutAttr(Sema &S, Decl *D,
+                                   const ParsedAttr &AL) {
+
+  checkForDuplicateAttribute<MemoryLayoutAttr>(S, D, AL);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(AL, 0, Str))
+    return;
+
+  if (Str != "compact"  && Str != "padded") {
+    S.Diag(AL.getLoc(), diag::err_hls_memorylayout_arg_invalid) << AL;
+    return;
+  }
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+             MemoryLayoutAttr(S.Context, AL, Str));
+}
+
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
 static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
@@ -8607,6 +8630,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_MemoryLayout:
+    handleMemoryLayoutAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGARegister:
     handleIntelFPGARegisterAttr(S, D, AL);
