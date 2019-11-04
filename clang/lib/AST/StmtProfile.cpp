@@ -452,6 +452,10 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
+  for (auto *E : C->sizes())
+    Profiler->VisitStmt(E);
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VistOMPClauseWithPreInit(C);

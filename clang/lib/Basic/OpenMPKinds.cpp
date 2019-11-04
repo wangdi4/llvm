@@ -211,6 +211,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
+  case OMPC_tile: // INTEL
   case OMPC_private:
   case OMPC_firstprivate:
   case OMPC_lastprivate:
@@ -419,6 +420,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
+  case OMPC_tile:    // INTEL
   case OMPC_private:
   case OMPC_firstprivate:
   case OMPC_lastprivate:

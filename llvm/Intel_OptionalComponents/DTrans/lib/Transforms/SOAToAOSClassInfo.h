@@ -131,9 +131,17 @@ public:
   // Returns size of AllocsInCtor.
   int32_t getAllocsInCtorSize() { return AllocsInCtor.size(); }
 
+  // Returns field position of vector class.
+  int32_t getFieldIdx() { return FieldIdx; }
+
   // Returns true if F is member function of candidate struct.
   bool isCandidateStructMethod(Function *F) {
     return MICInfo->isStructMethod(F);
+  }
+
+  // Returns true if F is member function of candidate field vector class.
+  bool isCandidateMemberFunction(Function *F) {
+    return MICInfo->isMemberFunction(F, FieldIdx);
   }
 
   // Returns iterator for member functions of field element class.
@@ -149,6 +157,10 @@ public:
   inline iterator_range<a_const_iterator> allocs_in_ctor() {
     return make_range(AllocsInCtor.begin(), AllocsInCtor.end());
   }
+
+  Function *getCtorWrapper();
+
+  Function *getDtorWrapper();
 
 private:
   const DataLayout &DL;

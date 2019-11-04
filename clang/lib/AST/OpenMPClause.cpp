@@ -105,6 +105,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
+  case OMPC_tile:  // INTEL
   case OMPC_private:
   case OMPC_shared:
   case OMPC_aligned:
@@ -220,6 +221,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -1171,6 +1173,45 @@ OMPIsDevicePtrClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPIsDevicePtrClause(Sizes);
 }
 
+#if INTEL_CUSTOMIZATION
+OMPTileClause *OMPTileClause::Create(const ASTContext &C,
+                                     SourceLocation StartLoc,
+                                     SourceLocation LParenLoc,
+                                     SourceLocation EndLoc, ArrayRef<Expr *> EL,
+                                     unsigned NumLoops) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumLoops));
+  auto *Clause =
+      new (Mem) OMPTileClause(StartLoc, LParenLoc, EndLoc, NumLoops);
+  for (unsigned I = 0; I < NumLoops; ++I)
+    Clause->setTile(I, EL[I]);
+  return Clause;
+}
+
+OMPTileClause *OMPTileClause::CreateEmpty(const ASTContext &C,
+                                          unsigned NumLoops) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumLoops));
+  auto *Clause = new (Mem) OMPTileClause(NumLoops);
+  for (unsigned I = 0; I < NumLoops; ++I)
+    Clause->setTile(I, nullptr);
+  return Clause;
+}
+
+void OMPTileClause::setTile(unsigned NumLoop, Expr *E) {
+  assert(NumLoop < NumLoops && "too many loops.");
+  getTrailingObjects<Expr *>()[NumLoop] = E;
+}
+
+Expr *OMPTileClause::getTileData(unsigned NumLoop) {
+  assert(NumLoop < NumLoops && "too many loops.");
+  return getTrailingObjects<Expr *>()[NumLoop];
+}
+
+const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
+  assert(NumLoop < NumLoops && "too many loops.");
+  return getTrailingObjects<Expr *>()[NumLoop];
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods
 //===----------------------------------------------------------------------===//
@@ -1196,6 +1237,17 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
+  bool PrintComma = false;
+  OS << "tile(";
+  for (auto *E : Node->sizes()) {
+    if (PrintComma)
+      OS << ", ";
+    E->printPretty(OS, nullptr, Policy);
+    PrintComma = true;
+  }
+  OS << ")";
+}
 #if INTEL_FEATURE_CSA
 void OMPClausePrinter::VisitOMPDataflowClause(OMPDataflowClause *Node) {
   bool printComma = false;

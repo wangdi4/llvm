@@ -6694,6 +6694,12 @@ void OMPClauseWriter::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClauseWriter::VisitOMPTileClause(OMPTileClause *C) {
+  Record.push_back(C->getNumLoops());
+  for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
+    Record.AddStmt(C->getTileData(I));
+  Record.AddSourceLocation(C->getLParenLoc());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseWriter::VisitOMPDataflowClause(OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

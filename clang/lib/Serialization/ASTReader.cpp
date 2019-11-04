@@ -12352,6 +12352,9 @@ OMPClause *OMPClauseReader::readClause() {
     C = new (Context) OMPNumThreadsClause();
     break;
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
+    C = OMPTileClause::CreateEmpty(Context, Record.readInt());
+    break;
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
     C = new (Context) OMPDataflowClause();
@@ -12589,6 +12592,12 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClauseReader::VisitOMPTileClause(OMPTileClause *C) {
+  for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I) {
+    C->setTile(I, Record.readSubExpr());
+  }
+  C->setLParenLoc(Record.readSourceLocation());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseReader::VisitOMPDataflowClause(OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

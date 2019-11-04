@@ -4138,6 +4138,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_device_type:
   case OMPC_match:
 #if INTEL_CUSTOMIZATION
+  case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -5279,6 +5280,9 @@ bool CodeGenFunction::hasOMPSpirTarget() const {
 }
 
 bool CodeGenFunction::useUncollapsedLoop(const OMPLoopDirective &S) const {
+  if (S.hasClausesOfKind<OMPTileClause>())
+    return true;
+
   return S.getCollapsedNumber() > 1 && hasOMPSpirTarget() &&
          getLangOpts().OpenMPLateOutlineAllowUncollapsedLoops;
 }

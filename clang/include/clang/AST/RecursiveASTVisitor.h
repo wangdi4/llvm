@@ -2966,6 +2966,14 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPTileClause(OMPTileClause *C) {
+  for (auto *E : C->sizes()) {
+    TRY_TO(TraverseStmt(E));
+  }
+  return true;
+}
 #if INTEL_FEATURE_CSA
 template <typename Derived>
 bool

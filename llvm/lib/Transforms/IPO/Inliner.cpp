@@ -632,7 +632,7 @@ static void collectDtransFuncs(Module &M,
     }
     // Collect all member functions of candidate
     // struct and candidate array field structs.
-    MemInfo.collectFuncs(&MemInitFuncs);
+    MemInfo.collectFuncs(M, &MemInitFuncs);
   }
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
