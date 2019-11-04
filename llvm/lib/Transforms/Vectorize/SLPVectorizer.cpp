@@ -2172,14 +2172,23 @@ private:
       for (Value *V : Scalars)
         dbgs().indent(2) << *V << "\n";
       dbgs() << "NeedToGather: " << NeedToGather << "\n";
-      dbgs() << "MainOp: " << *MainOp << "\n";
-      dbgs() << "AltOp: " << *AltOp << "\n";
+#if INTEL_CUSTOMIZATION // https://reviews.llvm.org/D69812
+      dbgs() << "MainOp: ";
+      if (MainOp)
+        dbgs() << *MainOp << "\n";
+      else
+        dbgs() << "NULL\n";
+      dbgs() << "AltOp: ";
+      if (AltOp)
+        dbgs() << *AltOp << "\n";
+      else
+        dbgs() << "NULL\n";
       dbgs() << "VectorizedValue: ";
       if (VectorizedValue)
-        dbgs() << *VectorizedValue;
+        dbgs() << *VectorizedValue << "\n";
       else
-        dbgs() << "NULL";
-      dbgs() << "\n";
+        dbgs() << "NULL\n";
+#endif // INTEL_CUSTOMIZATION
       dbgs() << "ReuseShuffleIndices: ";
       if (ReuseShuffleIndices.empty())
         dbgs() << "Emtpy";
@@ -2362,16 +2371,24 @@ private:
   /// -- Vectorization State --
   /// Holds all of the tree entries.
   TreeEntry::VecTreeTy VectorizableTree;
-#if INTEL_CUSTOMIZATION
-  /// Debug print of the VectorizableTree[]
-  void dumpVectorizableTree(void);
-#endif // INTEL_CUSTOMIZATION
 
 #ifndef NDEBUG
   /// Debug printer.
   LLVM_DUMP_METHOD void dumpVectorizableTree() const {
     for (unsigned Id = 0, IdE = VectorizableTree.size(); Id != IdE; ++Id) {
       VectorizableTree[Id]->dump();
+#if INTEL_CUSTOMIZATION
+      if (EnablePathSteering) {
+        auto it = PreferredOperandMap.find(VectorizableTree[Id]->Scalars[0]);
+        auto ite = PreferredOperandMap.end();
+        dbgs() << "PathSteering: ";
+        if (it == ite)
+          dbgs() << "-";
+        else
+          dbgs() << it->second;
+        dbgs() << "\n";
+      }
+#endif // INTEL_CUSTOMIZATION
       dbgs() << "\n";
     }
   }
@@ -8312,25 +8329,6 @@ LLVM_DUMP_METHOD void BoUpSLP::dumpGroupState(GroupState State,
   default:
     OS << "UNKNOWN";
     break;
-  }
-}
-
-LLVM_DUMP_METHOD void BoUpSLP::dumpVectorizableTree(void) {
-  for (int i = 0, e = VectorizableTree.size(); i != e; ++i) {
-    TreeEntry &TE = *VectorizableTree[i].get();
-    TE.dump();
-
-    if (EnablePathSteering) {
-      auto it = PreferredOperandMap.find(TE.Scalars[0]);
-      auto ite = PreferredOperandMap.end();
-      dbgs() << "PathSteering: ";
-      if (it == ite)
-        dbgs() << "-";
-      else
-        dbgs() << it->second;
-      dbgs() << "\n";
-    }
-    dbgs() << "\n";
   }
 }
 
