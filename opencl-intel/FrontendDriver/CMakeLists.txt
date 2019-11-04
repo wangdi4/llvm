@@ -151,5 +151,9 @@ SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 
 if (NOT OPENCL_INTREE_BUILD)
   copy_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
+elseif (WIN32)
+  add_custom_command( TARGET ${TARGET_NAME}
+                      POST_BUILD
+                      COMMAND  ${CMAKE_COMMAND} -E copy ${COMMON_CLANG_FILES}  ${OCL_OUTPUT_LIBRARY_DIR})
 endif()
 install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-common_clang)
