@@ -29,6 +29,7 @@ add_llvm_library(LLVMipo
   Intel_InlineReportEmitter.cpp # INTEL
   InlineSimple.cpp
   Inliner.cpp
+  Intel_ArgumentAlignment.cpp      # INTEL
   Intel_CallTreeCloning.cpp # INTEL
   Intel_IPCloning.cpp     # INTEL
   Intel_IPOPrefetch.cpp   # INTEL

@@ -101,6 +101,7 @@ MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,             // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
+MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())    // INTEL
 MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
