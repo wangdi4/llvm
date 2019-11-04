@@ -172,6 +172,169 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
   }
 }
 
+// After merge loop exits transformation and while loop canonicalization, a new
+// control-flow path is added between the loop header and the new loop latch.
+//
+// The following example shows why it is needed to preserve SSA. x is defined in
+// BB2 and it is used in BB1. After single-exit while loop transformation, a new
+// edge is added between BB1 and the NEW_LOOP_LATCH. This means that the value
+// of x can end up to the NEW_LOOP_LATCH from multiple paths. For this reason, a
+// new phi node is emitted in the NEW_LOOP_LATCH.
+// -----------------------------------------------------------------------------
+//  BEFORE                                          AFTER
+// -----------------------------------------------------------------------------
+//
+// +->BB1                               +----------->BB1
+// | x_phi1 = [x, BB3], [0, PreHeader]  | x_phi1 = [x_phi2, BB3], [0, PreHeader]
+// | ...=x                              |           ...=x_phi1
+// |   |\                               |             |\
+// |   | \                              |             | \
+// |  BB2 \       =>                    |            BB2 \
+// | x=... \                            |           x=... \
+// |   |    \                           |             |    \
+// |   |     \                          |             |     \
+// |   |     BB4                        |             |      |
+// +--BB3                               |            BB3     |
+//                                      |             |      |
+//                                      |             |      |
+//                                      +--------NEW_LOOP_LATCH
+//                                        x_phi2 = [x, BB3] [undef, BB1]
+//                                                    |
+//                                                    |
+//                                                   BB4
+//
+// Example 2: The following example shows what happens after merge loop exits
+// transformation. The LoopHeader has two live-ins (values "x" and "y") whose
+// definitions are in the loop body. Value "x" is defined in BB5. There is no
+// definition of "x" in the other two paths that lead to NewLoopLatch
+// (BB4-IntermediateBB2-NewLoopLatch and BB3-IntermediateBB1-NewLoopLatch). For
+// this reason, x_phi2 is emitted in the NewLoopLatch. Value "y" is defined in
+// BB2 which dominates NewLoopLatch. Hence, it is not needed to emit a phi node.
+// We should preserve SSA not only for live-ins, but also for live-outs. Thus, a
+// phi node (w_phi2) is emitted in NewLoopLatch.
+//
+// -----------------------------------------------------------------------------
+//  BEFORE                                          AFTER
+// -----------------------------------------------------------------------------
+//
+// +->BB1                           +--------------->BB1
+// | x_phi1=[x,BB6],[0,PreHeader]   | x_phi1=[x_phi2,NewLoopLatch],[0,PreHeader]
+// | y_phi=[y,BB6],[0,PreHeader]    |      y=[y,BB3],[0,PreHeader]
+// | ...=x                          |             ...=x_phi1
+// |   |                            |                 |
+// |  BB2                           |                BB2
+// |  y=...                         |               y=...
+// |   |                            |                 |
+// |  BB3                           |                BB3--------------------+
+// |   |  \                         |                 |                     |
+// |  BB4  EXIT_BB1                 |                BB4--------+   Intermediate
+// | w=...                          |               w=...       |          BB1
+// |   |  \                         |                 |         |           |
+// |   |   \                        |                 |         |           |
+// |  BB5   EXIT_BB2                |                BB5  Intermediate      |
+// | x=...  w_phi1=[w, BB4]         |               x=...      BB2          |
+// |   |    ...=w_phi1              |                 |   w_phi1 = [w, BB4] |
+// |   |                            |                 |         |           |
+// |   |                            |                 |         |           |
+// +--BB6                           |                BB6        |           |
+//     |                            |                 |         |           |
+//     |                            |                 |         |           |
+//  EXIT_BB3                        +-----------------NewLoopLatch<---------+
+//                                  x_phi2=[x,BB6],[undef,IntermediateBB1],
+//                                                 [undef,IntermediateBB2]
+//                                  w_phi2=[undef,BB6],[undef,IntermediateBB1],
+//                                                    [w_phi1,IntermediateBB2]
+//                                                          |
+//                                                          |
+//                                                    CascadedIfBlock1
+//                                                         /  \
+//                                                        /    \
+//                                          CascadedIfBlock2  EXIT_BB1
+//                                                      /  \
+//                                                     /    \
+//                                                EXIT_BB3  EXIT_BB2
+//                                                          ...=w_phi2
+//
+// Emit phi nodes that preserve SSA for the values that are defined in the loop
+// and they are used in loop header or outside of the current loop.
+void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
+                                         VPDominatorTree &VPDomTree) {
+  VPBasicBlock *NewLoopLatch = cast<VPBasicBlock>(VPL->getLoopLatch());
+  for (VPBlockBase *Block : VPL->getBlocks()) {
+    if (!isa<VPBasicBlock>(Block))
+      continue;
+
+    VPBasicBlock *DefBlock = cast<VPBasicBlock>(Block);
+    if (VPDomTree.dominates(DefBlock, NewLoopLatch))
+      continue;
+
+    for (VPInstruction &Def : DefBlock->vpinstructions()) {
+      // Check which definitions have uses in the loop header or outside of the
+      // loop and collect all the uses that need to be updated by the SSA phi
+      // node.
+      SmallVector<VPUser *, 2> UsesToUpdate;
+      llvm::copy_if(
+          Def.users(), std::back_inserter(UsesToUpdate), [VPL](auto &User) {
+            return isa<VPExternalUse>(User) ||
+                   !VPL->contains(cast<VPInstruction>(User)) ||
+                   (isa<VPPHINode>(User) &&
+                    cast<VPPHINode>(User)->getParent() == VPL->getHeader());
+          });
+
+      if (UsesToUpdate.empty())
+        continue;
+
+      // Create the SSA phi node.
+      VPBuilder VPBldr;
+      VPBldr.setInsertPoint(cast<VPInstruction>(&*NewLoopLatch->begin()));
+      VPPHINode *PreserveSSAPhi = VPBldr.createPhiInstruction(
+          Def.getType(), Def.getName() + ".ssa.phi");
+      // Fill-in the phi node with its operands. If the DefBlock is not one of
+      // the predecessors (BB2 in the example below), then we cannot use
+      // DefBlock as the incoming block of the SSA phi (x_phi2). Instead, the
+      // incoming block for this Def is any NewLoopLatch's predecessor that is
+      // dominated by the DefBlock (BB3 in the following example).
+      // ---------------------------------------------------------------------
+      //  BEFORE                                          AFTER
+      // ---------------------------------------------------------------------
+      // +->BB1                         +----------------->BB1
+      // | x_phi1=[x,BB6],              | x_phi1=[x_phi2,NewLoopLatch],
+      // |   |    [0,PreHeader]         |        [0,PreHeader]      |
+      // |   |     \                    |                   |       |
+      // |  BB2   EXIT_BB1              |                  BB2     INTERME-
+      // |  x=...                       |                  x=...   DIATEBB
+      // |   |                          |                   |       |
+      // |   |                          |                   |       |
+      // +--BB3                         |                  BB3      |
+      //     |                          |                   |       |
+      //   EXIT_BB2                     +--------------NewLoopLatch-+
+      //                                     x_phi2=[x, BB3],
+      //                                            [undef,INTERMEDIATEBB]
+      //                                                    |
+      //                                             CascadedIfBlock
+      //                                                  /    \
+      //                                             EXITBB1  EXITBB2
+      for (VPBlockBase *Pred : NewLoopLatch->getPredecessors()) {
+        VPValue *ValueToUse = VPDomTree.dominates(DefBlock, Pred)
+                                  ? &Def
+                                  : cast<VPValue>(Plan->getVPConstant(
+                                        UndefValue::get(Def.getType())));
+        PreserveSSAPhi->addIncoming(ValueToUse, cast<VPBasicBlock>(Pred));
+      }
+
+      // Update DA for PreserveSSAPhi. To update the DA information of a phi
+      // node, the DA algorithm checks the DA info of each of its operands.
+      VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+      if (VPlanDA->isDivergent(Def))
+        VPlanDA->markDivergent(*PreserveSSAPhi);
+
+      // Finally, update the uses of the definition with the SSA phi node.
+      for (auto *Use : UsesToUpdate)
+        Use->replaceUsesOfWith(&Def, PreserveSSAPhi);
+    }
+  }
+}
+
 // The merge loop exit transformation is applied to the inner loops of a loop
 // nest. It consists of the mergeLoopExits function and six support functions
 // (getBlocksExitBlock, updateBlocksPhiNode, moveExitBlocksPhiNode,
@@ -775,81 +938,15 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPDomTree.recalculate(*ParentLoopRegion);
   VPPostDomTree.recalculate(*ParentLoopRegion);
 
+  // Emit phi nodes that will preserve SSA form if it is needed.
+  preserveSSAAfterLoopTransformations(VPL, Plan, VPDomTree);
+
   assert(
       VPL->getExitingBlock() == NewLoopLatch &&
       "Only 1 exiting block is expeted after merge loop exits transformation");
 
   LLVM_DEBUG(dbgs() << "After merge loop exits transformation.\n");
   LLVM_DEBUG(Plan->dump());
-}
-
-// The following example shows why it is needed to preserve SSA. x is defined in
-// BB2 and it is used in BB1. After single-exit while loop transformation, a new
-// edge is added between BB1 and the NEW_LOOP_LATCH. This means that the value
-// of x can end up to the NEW_LOOP_LATCH from multiple paths. For this reason, a
-// new phi node is emitted in the NEW_LOOP_LATCH.
-// -----------------------------------------------------------------------------
-//  BEFORE                                          AFTER
-// -----------------------------------------------------------------------------
-//
-// -->BB1                               ------------>BB1
-// | x_phi1 = [x, BB3], [0, PreHeader]  | x_phi1 = [x_phi2, BB3], [0, PreHeader]
-// | ...=x                              |           ...=x_phi1
-// |   |\                               |             |\
-// |   | \                              |             | \
-// |  BB2 \       =>                    |            BB2 \
-// | x=... \                            |           x=... \
-// |   |    \                           |             |    \
-// |   |     \                          |             |     \
-// |   |     BB4                        |             |      |
-// ---BB3                               |            BB3     |
-//                                      |             |      |
-//                                      |             |      |
-//                                      ---------NEW_LOOP_LATCH
-//                                        x_phi2 = [x, BB3] [undef, BB1]
-//                                                    |
-//                                                    |
-//                                                   BB4
-//
-// TODO: Update preserveSSAForLoopHeader to work with IDF.
-void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
-                                                VPBasicBlock *NewLoopLatch,
-                                                VPBasicBlock *OrigLoopLatch,
-                                                VPBasicBlock *ExitingBlock) {
-  VPBuilder VPBldr;
-  VPBldr.setInsertPoint(NewLoopLatch);
-
-  assert(llvm::is_contained(LoopHeader->getPredecessors(), NewLoopLatch) &&
-         "NewLoopLatch must be LoopHeader's predecessor!");
-
-  for (VPPHINode &VPPhi : LoopHeader->getVPPhis()) {
-    auto *IncomingValue =
-        dyn_cast<VPInstruction>(VPPhi.getIncomingValue(NewLoopLatch));
-    // Check if we have to generate a phi node for the current incoming value at
-    // NewLoopLatch.
-    if (!IncomingValue ||
-        VPDomTree.dominates(IncomingValue->getParent(), ExitingBlock))
-      continue;
-
-    // Create a new phi node in the new loop latch for the values that are used
-    // in the loop header.
-    VPPHINode *PreserveSSAPhi =
-        VPBldr.createPhiInstruction(IncomingValue->getType());
-    // Update the phi nodes of the loop header with the new phi.
-    VPPhi.setIncomingValue(NewLoopLatch, PreserveSSAPhi);
-
-    // Update the new phi node of the new loop latch.
-    PreserveSSAPhi->addIncoming(IncomingValue,
-                                dyn_cast<VPBasicBlock>(OrigLoopLatch));
-    PreserveSSAPhi->addIncoming(
-        Plan->getVPConstant(UndefValue::get(IncomingValue->getType())),
-        cast<VPBasicBlock>(ExitingBlock));
-    VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-    // Update the DA of the SSA phi based on the DA info that the
-    // condition bit has.
-    if (VPlanDA->isDivergent(*IncomingValue))
-      VPlanDA->markDivergent(*PreserveSSAPhi);
-  }
 }
 
 bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
@@ -956,10 +1053,6 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
                       cast<VPBasicBlock>(ExitingBlock), NewLoopLatch);
 
   // Fill-in NewLoopLatch with new instructions.
-  VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
-  // Emit phi nodes that will preserve SSA form if it is needed.
-  preserveSSAForLoopHeader(LoopHeader, NewLoopLatch, OrigLoopLatch,
-                           cast<VPBasicBlock>(ExitingBlock));
   // Emit the backedge condition.
   Type *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
   VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 0));
@@ -968,11 +1061,6 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *TakeBackedgeCond =
       VPBldr.createPhiInstruction(Int1Ty, "TakeBackedgeCond");
-  // TODO: The while-loop canonicalization does not preserve the SSA form. If a
-  // value from the OrigLoopLatch feeds the phi in the BB1, then this value
-  // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
-  // Currently, this is not a problem because the proper dominance will be
-  // restored after CFG linearization by predicator.
   TakeBackedgeCond->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
   TakeBackedgeCond->addIncoming(FalseConst, cast<VPBasicBlock>(ExitingBlock));
   NewLoopLatch->setCondBit(TakeBackedgeCond);
@@ -998,6 +1086,9 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
       cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
   VPDomTree.recalculate(*ParentLoopRegion);
   VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  // Emit phi nodes that will preserve SSA form if it is needed.
+  preserveSSAAfterLoopTransformations(VPL, Plan, VPDomTree);
 
   assert(VPL->getExitingBlock() == NewLoopLatch &&
          "Only 1 exiting block is expeted after single-exit while loop "
