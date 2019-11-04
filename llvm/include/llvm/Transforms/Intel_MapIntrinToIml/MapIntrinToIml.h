@@ -35,16 +35,12 @@ enum LoadStoreMode {
   INDIRECT = 3 // gather/scatter
 };
 
-class MapIntrinToIml : public FunctionPass {
-
-private:
+class MapIntrinToImlImpl {
   /// Parent of Func.
   Module *M;
 
   /// Current function being processed.
   Function *Func;
-
-  bool runOnFunction(Function &F) override;
 
   /// \brief For a given intrinsic \p CI, try to find an equivalent math
   /// library function to replace it with.
@@ -143,6 +139,24 @@ private:
   /// \brief Returns true if \p FuncName and \p FT refer to an SVML 3-argument
   /// sincos call.
   bool isSincosRefArg(StringRef FuncName, FunctionType *FT);
+
+public:
+  // Use TTI to provide information on the legal vector register size for the
+  // target.
+  bool runImpl(Function &F,TargetTransformInfo *TTI);
+};
+
+class MapIntrinToImlPass : public PassInfoMixin<MapIntrinToImlPass> {
+  MapIntrinToImlImpl Impl;
+
+public:
+  MapIntrinToImlPass() {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class MapIntrinToIml : public FunctionPass {
+  MapIntrinToImlImpl Impl;
+  bool runOnFunction(Function &Fn) override;
 
 public:
   static char ID;

@@ -1,6 +1,7 @@
 ; Check to see that __svml_sincosf4 is translated to the high accuracy svml variant.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
+; RUN: opt -passes="map-intrin-to-iml" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: call svml_cc <8 x float> @__svml_sincosf4_ha
