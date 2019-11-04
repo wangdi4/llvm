@@ -279,6 +279,11 @@ static cl::opt<bool>
 EnableIntelAdvancedOpts("enable-intel-advanced-opts",
                         cl::desc("Enable Intel advanced optimizations"),
                         cl::init(false));
+
+static cl::opt<bool>
+EnableFtzDaz("ftz",
+          cl::desc("Enable Flush To Zero and Denormals Are Zero flags in MXCSR"),
+          cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -323,6 +328,8 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
 #if INTEL_CUSTOMIZATION
   if (EnableIntelAdvancedOpts)
     Options.IntelAdvancedOptim = EnableIntelAdvancedOpts;
+  if (EnableFtzDaz)
+    Options.IntelFtzDaz = EnableFtzDaz;
 #endif // INTEL_CUSTOMIZATION
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
   Options.ForceDwarfFrameSection = ForceDwarfFrameSection;
