@@ -5157,14 +5157,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
           continue;
         // Host part of the unbundled object when -fintelfpga -fsycl-link is
         // enabled is not used
-<<<<<<< HEAD
-        if (UI.DependentOffloadKind == Action::OFK_Host &&
-            JA->getType() == types::TY_Object &&
-            C.getInputArgs().hasArg(options::OPT_fintelfpga) &&
-            C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ))
-=======
         if (UI.DependentOffloadKind == Action::OFK_Host && IsFPGAObjLink)
->>>>>>> 16c530a358b6d8731ed6605a1bdf32e01c23c210
           continue;
         std::string TmpFileName =
            C.getDriver().GetTemporaryPath(llvm::sys::path::stem(BaseInput),
@@ -5201,18 +5194,9 @@ InputInfo Driver::BuildJobsForActionNoCache(
                         C.addTempFile(C.getArgs().MakeArgString(TmpFileName));
         CurI = InputInfo(TI, TmpFile, TmpFile);
       } else {
-<<<<<<< HEAD
-        // Host part of the unbundled object when -fintelfpga -fsycl-link is
-        // enabled is not used
-        if (UI.DependentOffloadKind == Action::OFK_Host &&
-            JA->getType() == types::TY_Object &&
-            C.getInputArgs().hasArg(options::OPT_fintelfpga) &&
-            C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ))
-=======
         // Host part of the unbundled object is not used  when -fintelfpga
         // -fsycl-link is enabled
         if (UI.DependentOffloadKind == Action::OFK_Host && IsFPGAObjLink)
->>>>>>> 16c530a358b6d8731ed6605a1bdf32e01c23c210
           continue;
         std::string OffloadingPrefix = Action::GetOffloadingFileNamePrefix(
           UI.DependentOffloadKind,
