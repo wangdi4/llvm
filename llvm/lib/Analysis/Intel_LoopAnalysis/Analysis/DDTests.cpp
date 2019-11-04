@@ -960,22 +960,21 @@ void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
   HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getLexicalParentLoop();
   HLLoop *DstLoop = DstDDRef->getHLDDNode()->getLexicalParentLoop();
 
-  HLLoop *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
+  LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
 
   SrcLevels = SrcLoop ? SrcLoop->getNestingLevel() : 0;
   DstLevels = DstLoop ? DstLoop->getNestingLevel() : 0;
 
-  CommonLevels = LCALoop ? LCALoop->getNestingLevel() : 0;
+  LCALoopLevel = LCALoop ? LCALoop->getNestingLevel() : 0;
 
-  MaxLevels = SrcLevels + DstLevels - CommonLevels;
+  MaxLevels = SrcLevels + DstLevels - LCALoopLevel;
 
   DeepestLoop = (SrcLevels > DstLevels) ? SrcLoop : DstLoop;
 
-  // CommonLevelsForIVDEP is different from CommonLevels.
+  // LCALoopLevel is different from CommonLevels.
   // Refer to code below. Handled differently when IVDEP
   // is not used, for Fusion and refs outside Loops
-  CommonLevelsForIVDEP = CommonLevels;
-  CommonIVDEPLoop = LCALoop;
+  CommonLevels = LCALoopLevel;
 
   if (CommonLevels == 0) {
     // Need DD edge to connect
@@ -4993,13 +4992,12 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
 
 bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
 
-  const HLLoop *Lp = CommonIVDEPLoop;
+  const HLLoop *Lp = LCALoop;
   bool IVDEPFound = false;
   // Looping through parents allows IVDEP for more than 1 level
   // to be supported. But multiple levels vectorization is not
   // currently generated
-  for (unsigned II = CommonLevelsForIVDEP; II >= 1;
-       --II, Lp = Lp->getParentLoop()) {
+  for (unsigned II = LCALoopLevel; II >= 1; --II, Lp = Lp->getParentLoop()) {
     if (Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
@@ -5016,8 +5014,6 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
 }
 
 void DDTest::adjustForInnermostAssumedDeps(Dependences &Result) {
-  HLLoop *LCALoop = CommonIVDEPLoop;
-
   if (!LCALoop) {
     return;
   }
@@ -5036,8 +5032,6 @@ void DDTest::adjustForInnermostAssumedDeps(Dependences &Result) {
 }
 
 void DDTest::adjustForAllAssumedDeps(Dependences &Result) {
-  unsigned LCALoopLevel = CommonLevelsForIVDEP;
-
   for (unsigned II = 1; II <= LCALoopLevel; ++II) {
     DVKind Direction = Result.getDirection(II);
 
