@@ -407,10 +407,12 @@ public:
     return FP;
   }
 
+#if !INTEL_PRODUCT_RELEASE
   void dumpPassStructure(unsigned Offset) override {
     for (unsigned I = 0; I < getNumContainedManagers(); ++I)
       getContainedManager(I)->dumpPassStructure(Offset);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 };
 
 void FunctionPassManagerImpl::anchor() {}
