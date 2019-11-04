@@ -119,9 +119,9 @@ struct VPTransformState {
   VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
                    class DominatorTree *DT, IRBuilder<> &Builder,
                    InnerLoopVectorizer *ILV, VPCallback &Callback,
-                   LoopVectorizationLegality *Legal, VPLoopInfo *VPLI)
+                   VPLoopInfo *VPLI)
       : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder), ILV(ILV),
-        Callback(Callback), Legal(Legal), VPLI(VPLI) {}
+        Callback(Callback), VPLI(VPLI) {}
 
   /// The chosen Vectorization and Unroll Factors of the loop being vectorized.
   unsigned VF;
@@ -200,10 +200,6 @@ struct VPTransformState {
 
   VPCallback &Callback;
 #if INTEL_CUSTOMIZATION
-  /// Hold a pointer to LoopVectorizationLegality to access its
-  /// IsUniformAfterVectorization method.
-  class LoopVectorizationLegality *Legal;
-
   VPLoopInfo *VPLI;
 #endif
 };
