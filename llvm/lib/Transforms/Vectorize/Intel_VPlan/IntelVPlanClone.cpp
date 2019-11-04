@@ -313,8 +313,6 @@ VPRegionBlock *VPCloneUtils::cloneRegion(VPRegionBlock *Region,
     ClonedR = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
         VPlanUtils::createUniqueName(Prefix + Region->getName()));
 
-  ClonedR->setReplicator(Region->isReplicator());
-
   BlockMap.insert({Region, ClonedR});
 
   ClonedR->setEntry(ClonedEntry);

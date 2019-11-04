@@ -2438,11 +2438,6 @@ private:
   /// Hold the Single Exit of the SESE region represented by the VPRegionBlock.
   VPBlockBase *Exit;
 
-  /// A VPRegionBlock can represent either a single instance of its
-  /// VPBlockBases, or multiple (VF * UF) replicated instances. The latter is
-  /// used when the internal SESE region handles a single scalarized lane.
-  bool IsReplicator;
-
 #if INTEL_CUSTOMIZATION
   /// Holds the number of VPBasicBlocks within the region. It is necessary for
   /// dominator tree.
@@ -2467,17 +2462,9 @@ public:
   /// that is actually instantiated. Values of this enumeration are kept in the
   /// VPRegionBlock classes VRID field. They are used for concrete type
   /// identification.
-#if INTEL_CUSTOMIZATION
-  VPRegionBlock(const unsigned char SC, const std::string &Name,
-                bool IsReplicator = false)
-      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr),
-        IsReplicator(IsReplicator), Size(0), IsDivergent(true),
-        RegionDT(nullptr), RegionPDT(nullptr) {}
-#else
-  VPRegionBlock(const std::string &Name, bool IsReplicator = false)
-      : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
-        IsReplicator(IsReplicator) {}
-#endif
+  VPRegionBlock(const unsigned char SC, const std::string &Name)
+      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
+        IsDivergent(true), RegionDT(nullptr), RegionPDT(nullptr) {}
 
   ~VPRegionBlock();
 
@@ -2530,10 +2517,6 @@ public:
   // need to report it.
   VPBlockBase &front() const { return *Entry; }
 #endif
-  /// An indicator if the VPRegionBlock represents single or multiple instances.
-  bool isReplicator() const { return IsReplicator; }
-
-  void setReplicator(bool ToReplicate) { IsReplicator = ToReplicate; }
 
 #if INTEL_CUSTOMIZATION
   /// Getters for Dominator Tree
