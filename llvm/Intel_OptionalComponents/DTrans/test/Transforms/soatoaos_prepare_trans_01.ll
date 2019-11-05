@@ -189,15 +189,18 @@
 ; CHECK:  %call5 = tail call i8* @_Znwm(i64 32)
 ; CHECK:  bitcast i8* %call5 to %_DPRE__REP_struct.RefArr*
 
+; Make sure dead flag argument is moved to the end of arg list and
+; value of flag argument is changed from true to false.
+; CHECK: call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* %2, i32 10, %struct.Mem* null, i1 zeroext false)
+
 ; Check all member function calls are replaced with cloned calls.
-; CHECK: call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}
 ; CHECK: call i16** @_ZN7BaseArrIPsE3getEj{{.*}}{{.*}}
 ; CHECK: call void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}
 ; CHECK: call void @_ZN7BaseArrIPsE3addEPS0_{{.*}}{{.*}}
 ; CHECK: call i32 @_ZN7BaseArrIPsE7getSizeEv{{.*}}{{.*}}
 
-; Make sure Ctor wrapper is not called here
 ; CHECK: call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}
+; Make sure Ctor wrapper is not called here
 ; CHECK-NOT: call void @_ZN6RefArrIPsEC2EjbP3Mem{{.*}}{{.*}}
 
 ; CHECK: call i32 @_ZN7BaseArrIPsE11getCapacityEv{{.*}}{{.*}}
@@ -208,24 +211,29 @@
 ; CHECK-NOT: call void @_ZN6RefArrIPsED0Ev{{.*}}{{.*}}
 
 
-; Make sure VFtable field is not accessed in Ctor.
-; CHECK: define void @_ZN6RefArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
-; CHECK-NEXT: entry:
-; CHECK-NEXT: tail call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}
-; CHECK-NEXT: ret void
+; Make sure Ctor wrapper is deleted.
+; CHECK-NOT: define void @_ZN6RefArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 
 ; Make sure GEPs are fixed correctly in cloned routines.
-; CHECK: define void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; Make sure unused flag argument is moved to the end of arg list.
+; CHECK: define void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture %this, i32 %c, %struct.Mem* %mem, i1 %0)
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %flag = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 0
+; Make sure zero is saved to the %flag field.
+; CHECK-NEXT: store i8 0, i8* %flag
 
 ; Make sure GEPs are fixed correctly in cloned routines.
 ; CHECK: define i16** @_ZN7BaseArrIPsE3getEj{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %size = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 2
 
-; Make sure GEPs are fixed correctly in cloned routines.
 ; CHECK: define void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr
+; Make sure value of flag is replaced by constant 1.
+; CHECK: %tobool = icmp eq i8 1, 0
+; CHECK-NOT:  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 1
+; CHECK-NOT:  %1 = load i8, i8* %flag, align 8
+; CHECK-NOT:  %tobool = icmp eq i8 %1, 0
+; Make sure GEPs are fixed correctly in cloned routines.
 ; CHECK: %base = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 3
 
 ; Checking that original calls in cloned member functions are replaced
@@ -242,12 +250,15 @@
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %capacity = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 1
 
-; Make sure Dtor wrapper is cloned.
-; CHECK: define void @_ZN6RefArrIPsED0Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
-; CHECK-NEXT: entry:
-; CHECK-NEXT: tail call void @_ZN6RefArrIPsED2Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* %this)
+; Make sure Dtor wrapper is deleted.
+; CHECK-NOT: define void @_ZN6RefArrIPsED0Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 
+; Make sure use of flag is replaced by constant 1.
 ; CHECK: define void @_ZN6RefArrIPsED2Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; CHECK:  %tobool = icmp eq i8 1, 0
+; CHECK-NOT:  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %1, i64 0, i32 1
+; CHECK-NOT:  %2 = load i8, i8* %flag
+; CHECK-NOT:  %tobool = icmp eq i8 %2, 0
 
 
 

@@ -108,6 +108,9 @@ public:
   // Analyze each member function to detect functionality.
   bool analyzeClassFunctions();
 
+  // Returns index of "flag" field.
+  int32_t getFlagField() { return FlagField; }
+
   // Returns CtorFunction.
   Function *getCtorFunction() { return CtorFunction; }
 
