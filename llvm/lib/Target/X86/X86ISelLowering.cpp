@@ -38451,7 +38451,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
         // the operands would cause it to handle comparisons between positive
         // and negative zero incorrectly.
         if (!DAG.isKnownNeverNaN(LHS) || !DAG.isKnownNeverNaN(RHS)) {
-          if (!DAG.getTarget().Options.UnsafeFPMath &&
+          if (!DAG.getTarget().Options.NoSignedZerosFPMath &&
               !(DAG.isKnownNeverZeroFloat(LHS) ||
                 DAG.isKnownNeverZeroFloat(RHS)))
             break;
@@ -38462,7 +38462,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
       case ISD::SETOLE:
         // Converting this to a min would handle comparisons between positive
         // and negative zero incorrectly.
-        if (!DAG.getTarget().Options.UnsafeFPMath &&
+        if (!DAG.getTarget().Options.NoSignedZerosFPMath &&
             !DAG.isKnownNeverZeroFloat(LHS) && !DAG.isKnownNeverZeroFloat(RHS))
           break;
         Opcode = X86ISD::FMIN;
@@ -38481,7 +38481,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
       case ISD::SETOGE:
         // Converting this to a max would handle comparisons between positive
         // and negative zero incorrectly.
-        if (!DAG.getTarget().Options.UnsafeFPMath &&
+        if (!DAG.getTarget().Options.NoSignedZerosFPMath &&
             !DAG.isKnownNeverZeroFloat(LHS) && !DAG.isKnownNeverZeroFloat(RHS))
           break;
         Opcode = X86ISD::FMAX;
@@ -38491,7 +38491,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
         // the operands would cause it to handle comparisons between positive
         // and negative zero incorrectly.
         if (!DAG.isKnownNeverNaN(LHS) || !DAG.isKnownNeverNaN(RHS)) {
-          if (!DAG.getTarget().Options.UnsafeFPMath &&
+          if (!DAG.getTarget().Options.NoSignedZerosFPMath &&
               !(DAG.isKnownNeverZeroFloat(LHS) ||
                 DAG.isKnownNeverZeroFloat(RHS)))
             break;
@@ -38519,7 +38519,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
         // Converting this to a min would handle comparisons between positive
         // and negative zero incorrectly, and swapping the operands would
         // cause it to handle NaNs incorrectly.
-        if (!DAG.getTarget().Options.UnsafeFPMath &&
+        if (!DAG.getTarget().Options.NoSignedZerosFPMath &&
             !(DAG.isKnownNeverZeroFloat(LHS) ||
               DAG.isKnownNeverZeroFloat(RHS))) {
           if (!DAG.isKnownNeverNaN(LHS) || !DAG.isKnownNeverNaN(RHS))
@@ -38530,8 +38530,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
         break;
       case ISD::SETUGT:
         // Converting this to a min would handle NaNs incorrectly.
-        if (!DAG.getTarget().Options.UnsafeFPMath &&
-            (!DAG.isKnownNeverNaN(LHS) || !DAG.isKnownNeverNaN(RHS)))
+        if (!DAG.isKnownNeverNaN(LHS) || !DAG.isKnownNeverNaN(RHS))
           break;
         Opcode = X86ISD::FMIN;
         break;
@@ -38556,7 +38555,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
         // Converting this to a max would handle comparisons between positive
         // and negative zero incorrectly, and swapping the operands would
         // cause it to handle NaNs incorrectly.
-        if (!DAG.getTarget().Options.UnsafeFPMath &&
+        if (!DAG.getTarget().Options.NoSignedZerosFPMath &&
             !DAG.isKnownNeverZeroFloat(LHS) &&
             !DAG.isKnownNeverZeroFloat(RHS)) {
           if (!DAG.isKnownNeverNaN(LHS) || !DAG.isKnownNeverNaN(RHS))
