@@ -7051,7 +7051,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
              "Expected canonical for or range-based for loops.");
       CurStmt = cast<CXXForRangeStmt>(CurStmt)->getBody();
     }
-    CurStmt = CurStmt->IgnoreContainers();
+    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(
+        CurStmt, SemaRef.LangOpts.OpenMP >= 50);
   }
   for (unsigned Cnt = NestedLoopCount; Cnt < OrderedLoopCount; ++Cnt) {
     if (checkOpenMPIterationSpace(
@@ -7078,7 +7079,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
              "Expected canonical for or range-based for loops.");
       CurStmt = cast<CXXForRangeStmt>(CurStmt)->getBody();
     }
-    CurStmt = CurStmt->IgnoreContainers();
+    CurStmt = OMPLoopDirective::tryToFindNextInnerLoop(
+        CurStmt, SemaRef.LangOpts.OpenMP >= 50);
   }
 
   Built.clear(/* size */ NestedLoopCount);
