@@ -4889,6 +4889,11 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
       isa<WRNTeamsNode>(W))
     return vpo::ADDRESS_SPACE_LOCAL;
 
+  // Objects declared inside "omp target" must be accessible by all teams,
+  // so they have to be __global.
+  if (isa<WRNTargetNode>(W))
+    return vpo::ADDRESS_SPACE_GLOBAL;
+
   return vpo::ADDRESS_SPACE_PRIVATE;
 }
 
