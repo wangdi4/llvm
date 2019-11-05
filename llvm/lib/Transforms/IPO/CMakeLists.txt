@@ -27,6 +27,7 @@ add_llvm_library(LLVMipo
   Intel_InlineReportSetup.cpp # INTEL
   Intel_InlineReportCommon.cpp   # INTEL
   Intel_InlineReportEmitter.cpp # INTEL
+  Intel_QsortRecognizer.cpp # INTEL
   InlineSimple.cpp
   Inliner.cpp
   Intel_ArgumentAlignment.cpp      # INTEL

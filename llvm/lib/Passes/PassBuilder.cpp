@@ -100,6 +100,7 @@
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -1668,9 +1669,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
-    // Compute the alignment of the arguments
+  if (EnableDTrans) {
     MPM.addPass(IntelArgumentAlignmentPass());
+    MPM.addPass(QsortRecognizerPass());
+  }
 
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
 #else

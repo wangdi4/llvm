@@ -496,6 +496,8 @@ void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 // Pass for transforming __fpga_reg builtin representation
 void initializeTransformFPGARegPass(PassRegistry &);
+// Qsort recognition
+void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);

@@ -63,6 +63,7 @@
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: IntelArgumentAlignmentPass
+; CHECK: Running pass: QsortRecognizerPass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

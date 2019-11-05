@@ -315,6 +315,12 @@ ModulePass* createCallTreeCloningPass();
 /// lower bounds, strides, and extents of dope vectors whose pointers are
 /// formal parameters).
 ModulePass *createDopeVectorConstPropLegacyPass(void);
+
+/// \brief This pass will attempt to recognize each Function as a "qsort".
+/// For those it recognizes as such, it will add the Function attribute
+/// "is-qsort".
+ModulePass *createQsortRecognizerLegacyPass(void);
+
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
