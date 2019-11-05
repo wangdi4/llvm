@@ -720,7 +720,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // needed, an intermediate basic block is created. Otherwise, the exiting
   // blocks are connected with the new loop latch.
   SmallPtrSet<VPBlockBase *, 2> VisitedBlocks;
-  SmallDenseMap<VPBlockBase *, VPBasicBlock *> ExitBlockNewBlockMap;
+  SmallDenseMap<VPBlockBase *, VPBasicBlock *> ExitBlockIntermediateBBMap;
   bool phiIsMovedToNewLoopLatch = false;
   // For each exit block (apart from the new loop latch), a new basic block is
   // created and the ExitID is emitted.
@@ -738,35 +738,35 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     // through back edge. For any other basic block, we just have to redirect
     // the exiting block to the new loop latch.
     if (ExitBlock == LatchExitBlock) {
-      VPBasicBlock *NewExitingBB = nullptr;
+      VPBasicBlock *IntermediateBB = nullptr;
       if (ExitingBlock == LoopHeader) {
-        NewExitingBB =
+        IntermediateBB =
             new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
-        VPL->addBasicBlockToLoop(NewExitingBB, *VPLInfo);
+        VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
         VPRegionBlock *Parent = LoopHeader->getParent();
-        NewExitingBB->setParent(Parent);
+        IntermediateBB->setParent(Parent);
         Parent->setSize(Parent->getSize() + 1);
-        VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, NewExitingBB);
-        NewExitingBB->appendSuccessor(NewLoopLatch);
-        NewLoopLatch->appendPredecessor(NewExitingBB);
+        VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, IntermediateBB);
+        IntermediateBB->appendSuccessor(NewLoopLatch);
+        NewLoopLatch->appendPredecessor(IntermediateBB);
         // Replace the exiting block with the new exiting block in the exit
         // block's phi node.
         if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)) &&
             allPredsInLoop(ExitBlock, VPL))
           updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
-                              cast<VPBasicBlock>(ExitingBlock), NewExitingBB);
+                              cast<VPBasicBlock>(ExitingBlock), IntermediateBB);
       } else {
         VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
-        NewExitingBB = cast<VPBasicBlock>(ExitingBlock);
+        IntermediateBB = cast<VPBasicBlock>(ExitingBlock);
       }
       ExitID++;
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
-      ExitIDVPPhi->addIncoming(ExitIDConst, NewExitingBB);
+      ExitIDVPPhi->addIncoming(ExitIDConst, IntermediateBB);
       // If the backedge is taken under the true condition, then the edge from
       // the exiting block is taken under the false condition.
       NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
-                              NewExitingBB);
+                              IntermediateBB);
 
       // The VPPHINode of the exit block should be moved in the new loop latch
       // if all the predecessors are in the loop. If not, then we remove the
@@ -788,47 +788,47 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
           }
         } else
           updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
-                              cast<VPBasicBlock>(ExitingBlock), NewExitingBB);
+                              cast<VPBasicBlock>(ExitingBlock), IntermediateBB);
       }
     } else {
       // This check ensures that only one Intermediate_BB is created (case 3) in
       // case more than one exiting blocks land on the same exit block.
       if (VisitedBlocks.count(ExitBlock)) {
-        VPBasicBlock *NBB = ExitBlockNewBlockMap[ExitBlock];
-        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NBB);
+        VPBasicBlock *ExistingIntermediateBB = ExitBlockIntermediateBBMap[ExitBlock];
+        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, ExistingIntermediateBB);
         if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)))
           removeBlockFromVPPhiNode(cast<VPBasicBlock>(ExitingBlock),
                                    cast<VPBasicBlock>(ExitBlock));
         continue;
       }
 
-      VPBasicBlock *NewBlock =
+      VPBasicBlock *IntermediateBB =
           new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
       VPRegionBlock *Parent = ExitingBlock->getParent();
-      NewBlock->setParent(Parent);
+      IntermediateBB->setParent(Parent);
       Parent->setSize(Parent->getSize() + 1);
-      VPL->addBasicBlockToLoop(NewBlock, *VPLInfo);
+      VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
       // Remove ExitBlock from ExitingBlock's successors and add a new
       // intermediate block to its successors. ExitBlock's predecessor will be
       // updated after emitting cascaded if blocks.
-      VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewBlock);
-      NewBlock->appendSuccessor(NewLoopLatch);
-      NewLoopLatch->appendPredecessor(NewBlock);
+      VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, IntermediateBB);
+      IntermediateBB->appendSuccessor(NewLoopLatch);
+      NewLoopLatch->appendPredecessor(IntermediateBB);
 
       if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)))
         if (allPredsInLoop(ExitBlock, VPL))
-          moveExitBlocksPhiNode(cast<VPBasicBlock>(ExitBlock), NewBlock);
+          moveExitBlocksPhiNode(cast<VPBasicBlock>(ExitBlock), IntermediateBB);
 
       // Add ExitID and update NewLoopLatch's phi node.
       ExitID++;
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
-      ExitIDVPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
+      ExitIDVPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(IntermediateBB));
       NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
-                              cast<VPBasicBlock>(NewBlock));
+                              cast<VPBasicBlock>(IntermediateBB));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
-      ExitBlockNewBlockMap[ExitBlock] = NewBlock;
+      ExitBlockIntermediateBBMap[ExitBlock] = IntermediateBB;
     }
     VisitedBlocks.insert(ExitBlock);
   }
