@@ -62,14 +62,7 @@ l1:
 @lookup_table = global [2 x i1] [ i1 0, i1 1 ]
 
 ; FNATTR: define i1 @c5(i32* %q, i32 %bitno)
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO_SUBSCRIPT: define i1 @c5(i32* nofree readonly %q, i32 %bitno)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @c5(i32* readonly %q, i32 %bitno)
-; end INTEL_CUSTOMIZATION
-=======
 ; ATTRIBUTOR: define i1 @c5(i32* readonly %q, i32 %bitno)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 define i1 @c5(i32* %q, i32 %bitno) {
 	%tmp = ptrtoint i32* %q to i32
 	%tmp2 = lshr i32 %tmp, %bitno
@@ -104,15 +97,7 @@ define i1* @lookup_bit(i32* %q, i32 %bitno) readnone nounwind {
 	ret i1* %lookup
 }
 
-<<<<<<< HEAD
-; FNATTR: define i1 @c7(i32* readonly %q, i32 %bitno)
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @c7(i32* nofree readonly %q, i32 %bitno)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @c7(i32* readonly %q, i32 %bitno)
-; end INTEL_CUSTOMIZATION
-=======
 ; EITHER: define i1 @c7(i32* readonly %q, i32 %bitno)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 define i1 @c7(i32* %q, i32 %bitno) {
 	%ptr = call i1* @lookup_bit(i32* %q, i32 %bitno)
 	%val = load i1, i1* %ptr
@@ -273,15 +258,7 @@ define void @test_atomicrmw(i32* %p) {
   ret void
 }
 
-<<<<<<< HEAD
-; FNATTR: define void @test_volatile(i32* %x)
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define void @test_volatile(i32* nofree %x)
-; ATTRIBUTOR-SUBSCRIPT: define void @test_volatile(i32* %x)
-; end INTEL_CUSTOMIZATION
-=======
 ; EITHER: define void @test_volatile(i32* %x)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 define void @test_volatile(i32* %x) {
 entry:
   %gep = getelementptr i32, i32* %x, i64 1
@@ -336,14 +313,10 @@ define i1 @captureICmpRev(i32* %x) {
 }
 
 ; FNATTR: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture nofree nonnull readnone %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture nonnull readnone %x)
 ; ATTRIBUTOR-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: define i1 @nocaptureInboundsGEPICmp(i32* nocapture nonnull readnone %x)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 define i1 @nocaptureInboundsGEPICmp(i32* %x) {
   %1 = getelementptr inbounds i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -352,14 +325,10 @@ define i1 @nocaptureInboundsGEPICmp(i32* %x) {
 }
 
 ; FNATTR: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture nofree nonnull readnone %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture nonnull readnone %x)
 ; ATTRIBUTOR-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture nonnull readnone %x)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
   %1 = getelementptr inbounds i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -367,11 +336,10 @@ define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
   ret i1 %3
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* nofree readnone %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
 ; FNATTR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
 ; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
 define i1 @captureGEPICmp(i32* %x) {
@@ -383,7 +351,7 @@ define i1 @captureGEPICmp(i32* %x) {
 
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nofree readnone %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
 ; FNATTR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
 ; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
 define i1 @captureGEPICmpRev(i32* %x) {
@@ -394,11 +362,7 @@ define i1 @captureGEPICmpRev(i32* %x) {
 }
 ; end INTEL_CUSTOMIZATION
 
-; FNATTR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
-; ATTRIBUTOR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture nofree readnone dereferenceable_or_null(4) %x)
-=======
 ; EITHER: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 define i1 @nocaptureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) {
   %1 = bitcast i32* %x to i8*
   %2 = icmp eq i8* %1, null

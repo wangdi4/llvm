@@ -205,14 +205,10 @@ declare nonnull i8* @nonnull()
 
 define internal i32* @f1(i32* %arg) {
 ; FIXME: missing nonnull It should be nonnull @f1(i32* nonnull readonly %arg)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS: define internal nonnull i32* @f1(i32* nofree readonly %arg)
+; ATTRIBUTOR-NO-SS: define internal nonnull i32* @f1(i32* readonly %arg)
 ; ATTRIBUTOR-SS: define internal i32* @f1(i32* readonly %arg)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: define internal nonnull i32* @f1(i32* readonly %arg)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
 
 bb:
   %tmp = icmp eq i32* %arg, null
@@ -225,28 +221,20 @@ bb1:                                              ; preds = %bb
 
 bb4:                                              ; preds = %bb1
   %tmp5 = getelementptr inbounds i32, i32* %arg, i64 1
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS: %tmp5b = tail call nonnull i32* @f3(i32* nofree nonnull %tmp5)
+; ATTRIBUTOR-NO-SS: %tmp5b = tail call nonnull i32* @f3(i32* nonnull %tmp5)
 ; ATTRIBUTOR-SS: %tmp5b = tail call noalias i32* @f3(i32* %tmp5)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: %tmp5b = tail call nonnull i32* @f3(i32* nonnull %tmp5)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
   %tmp5b = tail call i32* @f3(i32* %tmp5)
   %tmp5c = getelementptr inbounds i32, i32* %tmp5b, i64 -1
   br label %bb9
 
 bb6:                                              ; preds = %bb1
 ; FIXME: missing nonnull. It should be @f2(i32* nonnull %arg)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS: %tmp7 = tail call nonnull i32* @f2(i32* nofree %arg)
+; ATTRIBUTOR-NO-SS: %tmp7 = tail call nonnull i32* @f2(i32* %arg)
 ; ATTRIBUTOR-SS: %tmp7 = tail call i32* @f2(i32* %arg)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: %tmp7 = tail call nonnull i32* @f2(i32* %arg)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
   %tmp7 = tail call i32* @f2(i32* %arg)
   ret i32* %tmp7
 
@@ -257,48 +245,33 @@ bb9:                                              ; preds = %bb4, %bb
 
 define internal i32* @f2(i32* %arg) {
 ; FIXME: missing nonnull. It should be nonnull @f2(i32* nonnull %arg)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS: define internal nonnull i32* @f2(i32* nofree readonly %arg)
+; ATTRIBUTOR-NO-SS: define internal nonnull i32* @f2(i32* readonly %arg)
 ; ATTRIBUTOR-SS: define internal i32* @f2(i32* readonly %arg)
 ; end INTEL_CUSTOMIZATION
 bb:
 
 ; FIXME: missing nonnull. It should be @f1(i32* nonnull readonly %arg)
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS:   %tmp = tail call nonnull i32* @f1(i32* nofree %arg)
+; ATTRIBUTOR-NO-SS:   %tmp = tail call nonnull i32* @f1(i32* %arg)
 ; ATTRIBUTOR-SS:   %tmp = tail call i32* @f1(i32* %arg)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: define internal nonnull i32* @f2(i32* readonly %arg)
-bb:
-
-; FIXME: missing nonnull. It should be @f1(i32* nonnull readonly %arg)
-; ATTRIBUTOR:   %tmp = tail call nonnull i32* @f1(i32* %arg)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
   %tmp = tail call i32* @f1(i32* %arg)
   ret i32* %tmp
 }
 
 define dso_local noalias i32* @f3(i32* %arg) {
 ; FIXME: missing nonnull. It should be nonnull @f3(i32* nonnull readonly %arg)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS: define dso_local noalias nonnull i32* @f3(i32* nofree readonly %arg)
+; ATTRIBUTOR-NO-SS: define dso_local noalias nonnull i32* @f3(i32* readonly %arg)
 ; ATTRIBUTOR-SS: define dso_local noalias i32* @f3(i32* readonly %arg)
 ; end INTEL_CUSTOMIZATION
 bb:
 ; FIXME: missing nonnull. It should be @f1(i32* nonnull readonly %arg)
 ; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SS:   %tmp = call nonnull i32* @f1(i32* nofree %arg)
+; ATTRIBUTOR-NO-SS:   %tmp = call nonnull i32* @f1(i32* %arg)
 ; ATTRIBUTOR-SS:   %tmp = call i32* @f1(i32* readonly %arg)
 ; end INTEL_CUSTOMIZATION
-=======
-; ATTRIBUTOR: define dso_local noalias nonnull i32* @f3(i32* readonly %arg)
-bb:
-; FIXME: missing nonnull. It should be @f1(i32* nonnull readonly %arg)
-; ATTRIBUTOR:   %tmp = call nonnull i32* @f1(i32* %arg)
->>>>>>> 5fb17829184045b0451624f572da692f5a8f629b
   %tmp = call i32* @f1(i32* %arg)
   ret i32* %tmp
 }
