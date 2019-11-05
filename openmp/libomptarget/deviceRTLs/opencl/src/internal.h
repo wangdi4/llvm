@@ -49,54 +49,23 @@ INLINE size_t __kmp_get_local_id() {
 
 /// Return linear group id
 INLINE size_t __kmp_get_group_id() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_group_id(0);
-  if (work_dim == 1)
-    return ret;
-  ret += get_num_groups(0) * get_group_id(1);
-  if (work_dim == 2)
-    return ret;
-  ret += get_num_groups(0) * get_num_groups(1) * get_group_id(2);
-  return (work_dim == 3) ? ret : 0;
+  return get_group_id(0) + get_num_groups(0) * get_group_id(1) +
+      get_num_groups(0) * get_num_groups(1) * get_group_id(2);
 }
 
 /// Return global size
 INLINE size_t __kmp_get_global_size() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_global_size(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_global_size(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_global_size(2);
-  return (work_dim == 3) ? ret : 1;
+  return get_global_size(0) * get_global_size(1) * get_global_size(2);
 }
 
 /// Return local size
 INLINE size_t __kmp_get_local_size() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_local_size(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_local_size(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_local_size(2);
-  return (work_dim == 3) ? ret : 1;
+  return get_local_size(0) * get_local_size(1) * get_local_size(2);
 }
 
 /// Return number of groups
 INLINE size_t __kmp_get_num_groups() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_num_groups(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_num_groups(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_num_groups(2);
-  return (work_dim == 3) ? ret : 1;
+  return get_num_groups(0) * get_num_groups(1) * get_num_groups(2);
 }
 
 /// Return the work id for the master thread
