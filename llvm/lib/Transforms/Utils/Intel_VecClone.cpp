@@ -433,9 +433,10 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
 
   if (ReturnInst *Return = dyn_cast<ReturnInst>(SplitPt)) {
 
-    // If the return is from a preceeding load, make sure the load is also put
-    // in the return block. This is the old scalar load that will end up getting
-    // replaced with the vector return and will get cleaned up later.
+    // If the return is from a preceeding load from alloca, make sure the load
+    // is also put in the return block. This is the old scalar load that will
+    // end up getting replaced with the vector return and will get cleaned up
+    // later.
 
     // Make sure this is not a void function before getting the return
     // operand.
@@ -446,7 +447,7 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
 
       for (; UseIt != UseEnd; ++UseIt) {
         LoadInst *RetLoad = dyn_cast<LoadInst>(*UseIt);
-        if (RetLoad) {
+        if (RetLoad && isa<AllocaInst>(RetLoad->getOperand(0))) {
           SplitPt = RetLoad;
         }
       }
@@ -454,7 +455,7 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
   }
 
   BasicBlock *ReturnBlock = nullptr;
-  if (dyn_cast<LoadInst>(SplitPt) || dyn_cast<ReturnInst>(SplitPt)) {
+  if (isa<LoadInst>(SplitPt) || isa<ReturnInst>(SplitPt)) {
     ReturnBlock = LoopBlock->splitBasicBlock(SplitPt, "return");
   } else {
     for (auto &BB : *Clone) {
@@ -724,14 +725,14 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // simply return a value defined by some operation that now exists within the
   // loop. If an alloca was generated already, then the return block will load
   // from it and then return. Thus, we look for a return resulting from a load
-  // in the return block. If found, we have already expanded all alloca
-  // instructions to vector types and the old scalar references have already
-  // been replaced with them. In this case, we only need to pack the results
-  // from the vector alloca into a temp and return the temp. If a vector alloca
-  // was not generated for the return, we need to add one for it because we have
-  // a scalar reference in the loop that needs to be replaced. After creating
-  // the new vector alloca, replace the reference to it in the loop and then
-  // pack the results into a temp and return it.
+  // of an alloca in the return block. If found, we have already expanded all
+  // alloca instructions to vector types and the old scalar references have
+  // already been replaced with them. In this case, we only need to pack the
+  // results from the vector alloca into a temp and return the temp. If a vector
+  // alloca was not generated for the return, we need to add one for it because
+  // we have a scalar reference in the loop that needs to be replaced. After
+  // creating the new vector alloca, replace the reference to it in the loop and
+  // then pack the results into a temp and return it.
   //
   // Example 1: // alloca not generated in entry block
   //
@@ -743,6 +744,14 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // return:
   //   ret i32 %add1
   //
+  // Example 1a: // return is from a load, load operand not an alloca
+  //
+  // loop:
+  //   ... // some set of instructions
+  //   %arrayidx = getelementptr inbounds [4096 x i32], [4096 x i32]* @a,
+  //               i64 0, i64 %idxprom
+  //   %0 = load i32, i32* %arrayidx, align 4
+  //   ret i32 %0
   //
   // Example 2:
   //
@@ -753,7 +762,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   //   br label %loop.exit (loop exit contains br to return block)
   //
   // return:
-  //   %7 = load i32, i32*, %retval // the original scalar alloca 
+  //   %7 = load i32, i32*, %retval // the original scalar alloca
   //   ret i32 %7
   //
 
@@ -761,17 +770,20 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   assert(FuncReturn && "Expected ret instruction to terminate the return\
                         basic block");
 
-  LoadInst *LoadFromAlloca = dyn_cast<LoadInst>(FuncReturn->getOperand(0));
+  LoadInst *Load = dyn_cast<LoadInst>(FuncReturn->getOperand(0));
+  AllocaInst *Alloca = nullptr;
+  if (Load)
+    Alloca = dyn_cast<AllocaInst>(Load->getOperand(0));
 
   // We need to generate a vector alloca for the return vector.
   // Two cases exist, here:
-  // 
+  //
   // 1) For simple functions, the return is a temp defined within the
   //    loop body and the temp is not loaded from an alloca, or the return is
-   //   a constant. (obviously, also not loaded from an alloca)
-  // 
+  //    a constant. (obviously, also not loaded from an alloca)
+  //
   // 2) The return temp traces back to an alloca.
-  // 
+  //
   // For both cases, generate a vector alloca so that we can later load from it
   // and return the vector temp from the function. The alloca is used to load
   // and store from so that the scalar loop contains load/store/gep
@@ -779,7 +791,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // E.g., we don't need to worry about figuring out how to represent
   // insert/extract when building AVR nodes. This keeps consistent with how ICC
   // is operating.
-  // 
+  //
   // Additionally, for case 1 we must generate a gep and store after the
   // instruction that defines the original return temp, so that we can store
   // the result into the proper index of the return vector. For case 2, we must
@@ -789,7 +801,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   Instruction *VecReturn = NULL;
   VectorType *ReturnType = cast<VectorType>(Clone->getReturnType());
 
-  if (!LoadFromAlloca) {
+  if (!Alloca) {
 
     // Case 1
 
@@ -828,7 +840,6 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
 
     // Case 2
 
-    AllocaInst *Alloca = dyn_cast<AllocaInst>(LoadFromAlloca->getOperand(0));
     bool AllocaFound = false;
     unsigned ParmIdx = 0;
 
