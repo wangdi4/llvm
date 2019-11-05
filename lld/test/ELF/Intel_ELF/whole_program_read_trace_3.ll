@@ -4,10 +4,10 @@
 ; NOTE: lld will throw a exit error since the defintion of sub
 ; is not present during link time.
 
-; RUN: llvm-as -o %T/wpt3.bc %s
-; RUN: lld-link /out:%T/wpt3.exe /entry:main %T/wpt3.bc /subsystem:console  \
-; RUN:     /mllvm:-debug-only=whole-program-analysis \
-; RUN:     /mllvm:-whole-program-read-trace /force:unresolved \
+; RUN: opt %s -o %t.bc
+; RUN: not ld.lld -e main --lto-O2 \
+; RUN:     -mllvm -debug-only=whole-program-analysis \
+; RUN:     -mllvm -whole-program-read-trace %t.bc -o %t \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
@@ -19,8 +19,8 @@
 ; CHECK: WHOLE PROGRAM NOT DETECTED
 ; CHECK: whole program not read
 
-target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-windows-msvc"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 define internal i32 @add(i32 %a) {
 entry:
@@ -28,7 +28,7 @@ entry:
   ret i32 %add
 }
 
-declare i32 @sub(i32 %a)
+declare i32 @sub(i32 %a);
 
 define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
 entry:

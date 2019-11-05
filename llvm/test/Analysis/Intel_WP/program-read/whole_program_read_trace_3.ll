@@ -1,9 +1,11 @@
+; REQUIRES: assert
 ; This test checks that the trace for whole program read prints
 ; the correct solution when all symbols aren't internal.
 
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -plugin-opt=O3 \
+; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
@@ -21,7 +23,7 @@
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 3
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-; CHECK: WHOLE PROGRAM READ ACHIEVED
+; CHECK-NOT: whole program not read
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

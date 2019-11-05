@@ -66,12 +66,6 @@ cl::opt<bool> EnableLTOInternalization(
     "enable-lto-internalization", cl::init(true), cl::Hidden,
     cl::desc("Enable global value internalization in LTO"));
 
-#if INTEL_CUSTOMIZATION
-/// Trace the result of whole program read analysis
-cl::opt<bool> WholeProgramReadTrace("whole-program-read-trace",
-    cl::init(false), cl::ReallyHidden);
-#endif // INTEL_CUSTOMIZATION
-
 // Computes a unique hash for the Module considering the current list of
 // export/import and other global analysis results.
 // The hash is produced in \p Key.
@@ -907,12 +901,8 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
   DenseSet<GlobalValue::GUID> GUIDPreservedSymbols;
   DenseMap<GlobalValue::GUID, PrevailingType> GUIDPrevailingResolutions;
 #if INTEL_CUSTOMIZATION
-  if (WholeProgramReadTrace)
-    dbgs() << "WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ\n";
   bool AllResolved = true;
   bool MainFound = false;
-  unsigned SymbolsResolved = 0;
-  unsigned SymbolsUnresolved = 0;
 #endif // INTEL_CUSTOMIZATION
   for (auto &Res : GlobalResolutions) {
     // Normally resolution have IR name of symbol. We can do nothing here
@@ -938,31 +928,24 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     MainFound |= IsMain;
     AllResolved &= Res.second.ResolvedByLinker;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    unsigned SymbolAttributes = 0;
+    bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
 
-    if (WholeProgramReadTrace) {
-      bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
+    if (IsMain)
+      SymbolAttributes |= WholeProgramReadSymbol::AttrMain;
 
-      dbgs() << "SYMBOL NAME: " << SymbolName << "\n";
-      dbgs() << "  RESULT:";
-      dbgs() << (IsMain ? " MAIN |" : "");
-      dbgs() << (IsLinkerAddedSymbol ? " LINKER ADDED SYMBOL |" : "");
-      dbgs() << (Res.second.ResolvedByLinker ? "" : " NOT") <<
-                " RESOLVED BY LINKER \n\n";
+    if (IsLinkerAddedSymbol)
+      SymbolAttributes |= WholeProgramReadSymbol::AttrLinkerAdded;
 
-      if (Res.second.ResolvedByLinker)
-        SymbolsResolved++;
-      else
-        SymbolsUnresolved++;
-    }
+    if (Res.second.ResolvedByLinker)
+      SymbolAttributes |= WholeProgramReadSymbol::AttrResolved;
+
+    WPUtils.AddSymbolResolution(SymbolName, SymbolAttributes);
+#endif // NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
   }
 #if INTEL_CUSTOMIZATION
-  if (WholeProgramReadTrace) {
-    dbgs() << "SYMBOLS RESOLVED BY LINKER: " << SymbolsResolved << "\n";
-    dbgs() << "SYMBOLS NOT RESOLVED BY LINKER: " << SymbolsUnresolved << "\n";
-    dbgs() << "WHOLE PROGRAM READ " << ((AllResolved && MainFound) ?
-              "" : "NOT ") << "ACHIEVED\n";
-  }
   // Whole program read: all symbols were resolved by the linker and main
   //                     was found
   WPUtils.setWholeProgramRead(AllResolved && MainFound);

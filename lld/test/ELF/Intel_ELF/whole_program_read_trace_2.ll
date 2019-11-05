@@ -2,12 +2,12 @@
 ; This test checks that whole program read was achieved even if the
 ; definition of @sub is in another compilation unit.
 
-; RUN: llvm-as -o %T/wpt2.bc %s
-; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %T/wpt2_sub.obj \
+; RUN: opt %s -o %t.bc
+; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t2.o \
 ; RUN:          -filetype=obj
-; RUN: lld-link /out:%T/wpt2.exe /entry:main %T/wpt2.bc %T/wpt2_sub.obj /subsystem:console  \
-; RUN:     /mllvm:-debug-only=whole-program-analysis \
-; RUN:     /mllvm:-whole-program-read-trace \
+; RUN: ld.lld -e main --lto-O2 \
+; RUN:     -mllvm -debug-only=whole-program-analysis \
+; RUN:     -mllvm -whole-program-read-trace %t.bc %t2.o -o %t \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
@@ -21,8 +21,8 @@
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
 ; CHECK-NOT: whole program not read
 
-target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-windows-msvc"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 define internal i32 @add(i32 %a) {
 entry:
@@ -30,7 +30,7 @@ entry:
   ret i32 %add
 }
 
-declare i32 @sub(i32 %a)
+declare i32 @sub(i32 %a);
 
 define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
 entry:
