@@ -57,6 +57,20 @@ public:
   // p is a called a double-pointer argument.
   static unsigned countDoublePtrArgs(const Function &F);
 
+  // Provide a StringRef used as MDNode key to suppress inline report
+  static StringRef getSuppressInlineReportStringRef(void) {
+    return StringRef("InlRpt.Suppress");
+  }
+
+  static bool preserveOrSuppressInlineReport(Instruction *I, Instruction *NI);
+
+  static bool isProdBuild(void) {
+#if defined(NDEBUG)
+    return true;
+#endif
+    return false;
+  }
+
 };
 
 // This helper class is used to find candidates for multiversioning based on
@@ -157,7 +171,7 @@ public:
 
     // Check PtrArgCount matches by NumPtrArgs0 or NumPtrArgs1
     unsigned PtrArgCount = IPOUtils::countPtrArgs(*F);
-    if (std::find(NumPtrArgsV.begin(), NumPtrArgsV.end(), PtrArgCount)==
+    if (std::find(NumPtrArgsV.begin(), NumPtrArgsV.end(), PtrArgCount) ==
         NumPtrArgsV.end())
       return false;
 
@@ -255,7 +269,7 @@ public:
 
   // Check if a given CallBase* is inside a provided Closure
   bool isInClosure(Function *F, FunctionClosureTy &Closure) {
-    return Closure.find(F)!=Closure.end();
+    return Closure.find(F) != Closure.end();
   }
 
   bool InsertUsersIntoClosure(Function *F,

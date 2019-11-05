@@ -117,6 +117,18 @@ unsigned IPOUtils::countDoublePtrArgs(const Function &F) {
   return NumDoublePtrArgs;
 }
 
+// Preserve metadata on "InlRpt.Suppress" tag on an instruction pair.
+// E.g. if I have this metadata, NI will also have it.
+bool IPOUtils::preserveOrSuppressInlineReport(Instruction *I, Instruction *NI) {
+  if (MDNode
+      *MD = I->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
+    LLVM_DEBUG(dbgs() << "CB has InlRpt.Suppress metadata\n";);
+    NI->setMetadata(IPOUtils::getSuppressInlineReportStringRef(), MD);
+    return true;
+  }
+  return false;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 std::string FunctionSignatureMatcher::toString(void) const {
   std::ostringstream S;
@@ -165,7 +177,7 @@ static AllocKind getAllocFnKind(const CallBase *Call,
   if (isNewLikeFn(Call, &TLI))
     return AK_New;
   if (isMallocLikeFn(Call, &TLI))
-    return Call->arg_size()==1 ? AK_Malloc : AK_New;
+    return Call->arg_size() == 1 ? AK_Malloc : AK_New;
   if (isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
   if (isReallocLikeFn(Call, &TLI))
@@ -219,7 +231,7 @@ void AllocFreeAnalyzer::dumpClosureMapper(ClosureMapperTy &ClosureMapper,
 bool AllocFreeAnalyzer::hasFreeCall(BasicBlock &BB,
                                     SmallVectorImpl<CallBase *> &InstVec) {
   bool Result = false;
-  for (auto BI = BB.rbegin(), BE = BB.rend(); BI!=BE;) {
+  for (auto BI = BB.rbegin(), BE = BB.rend(); BI != BE;) {
     Instruction *I = &*BI++;
     if (auto *Call = dyn_cast<CallBase>(I)) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
@@ -237,7 +249,7 @@ bool AllocFreeAnalyzer::hasFreeCall(BasicBlock &BB,
 bool AllocFreeAnalyzer::hasMallocLikeCall(BasicBlock &BB,
                                           SmallVectorImpl<CallBase *> &InstVec) {
   bool Result = false;
-  for (auto BI = BB.rbegin(), BE = BB.rend(); BI!=BE;) {
+  for (auto BI = BB.rbegin(), BE = BB.rend(); BI != BE;) {
     Instruction *I = &*BI++;
     auto *Call = dyn_cast<CallBase>(I);
     if (!Call || !Call->getCalledFunction()) // skip any function pointer
@@ -245,8 +257,8 @@ bool AllocFreeAnalyzer::hasMallocLikeCall(BasicBlock &BB,
 
     const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     auto Kind = getAllocFnKind(Call, TLI);
-    if (Kind==AK_Malloc || Kind==AK_New || Kind==AK_Calloc ||
-        Kind==AK_Realloc) {
+    if (Kind == AK_Malloc || Kind == AK_New || Kind == AK_Calloc ||
+        Kind == AK_Realloc) {
       Result = true;
       InstVec.push_back(Call); // save the CallBase*
     }

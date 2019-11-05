@@ -1,47 +1,48 @@
-; Checks that IPO Prefetch pass can properly identify the prefetch opportunity, generate the prefetch
-; function, and generate 2 calls to prefetch function in 2 host functions: 1 call to prefetch inside
-; each host.
+; Checks that the inline report understands the special situations of IPO Prefetch, and will
+; suppress inline report for IPO Prefetch records.
 ;
 ; [Note]
-; The IPO prefetch pass is a module pass that specifically examines code patterns like those exhibited in
-; cpu2017/531.deepsjeng (531), generate a prefetch function based on one of the existing functions in 531
-; and insert multiple calls to this prefetch function at specific pattern-matched host locations.
+; The IPO prefetch pass is a module pass that specifically examines code patterns like that have heavy delinquent
+; load (DL) behaviors. The mitigation/solution includes: (i) generate a prefetch function based on the one that
+; exhibits DL behaviors, and (2) insert call(s) to the newly generated prefetch function at specific host locations.
 ;
-; The LIT testcase presented here is a vastly simplified version of 531.
-; It takes the following 3 functions after all modules have been linked:
-; - _Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(): an existing function that the prefetch function is based upon;
-; - _Z7qsearchP7state_tiiii(): host function1 where a call to prefetch function will be inserted;
-; - _Z6searchP7state_tiiiii(): host function2 where a call to prefetch function will be inserted;
+; Inline report is aware of the issue IPO Prefetch brings. It will continue to inline calls to the prefetch function.
+; But, it will suppress any inline-report record generation for any call to the prefetch function. It will also
+; suppress the record when the prefetch function itself is being eliminated because all its callers have been inlined.
 ;
-; Only the 3 functions listed above, plus any global data and metadata they use, will appear in this LIT test.
-; All other functions are reduced to declarations only. Their function bodies are purged, so are any global variable
-; or metadata that are not used.
+; This suppression is only available under PROD build. The suppression will not be available under DEBUG build.
+; After IPO Prefetch pass, when meta-data in the following form is generated, such calls will be suppressed
+; from inline report:
+; E.g. call void @Prefetch.Backbone(%struct.state_t* %0), !InlRpt.Suppress !74
+;                                                         ^^^^^^^^^^^^^^^^^^^^^
 ;
 
-; REQUIRES: asserts
+; Run this test under PROD build only, because Inline report suppression ONLY works for PROD builds.
+;
+; UNSUPPORTED: asserts
 
 ; *** Run command section ***
-; RUN: opt < %s -intel-ipoprefetch -ipo-prefetch-be-lit-friendly=1 -ipo-prefetch-suppress-inline-report=0 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-ipoprefetch)' -ipo-prefetch-be-lit-friendly=1 -ipo-prefetch-suppress-inline-report=0 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ipoprefetch -ipo-prefetch-be-lit-friendly=1 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-ipoprefetch)' -ipo-prefetch-be-lit-friendly=1 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
 ;
 
 ; *** Check section 1 ***
 ; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z6searchP7state_tiiiii.
-; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #{{.}} {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0)
+; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #2 {
+; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !InlRpt.Suppress !74
 ;
 
 ; *** Check section 2 ***
 ; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z7qsearchP7state_tiiii.
-; CHECK:define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #{{.}} {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0)
+; CHECK: define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #2 {
+; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !InlRpt.Suppress !74
 ;
 
 ; *** Check section 3 ***
 ; The LLVM-IR check below ensures the prefetch function is generated.
-; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #{{.}} {
+; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #9 !InlRpt.Suppress !74 {
 ;
 
 ; ModuleID = '<stdin>'

@@ -11,15 +11,18 @@
 // This file implements the mechanics of the inlining report.
 //
 //===----------------------------------------------------------------------===//
-
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"
+
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 
 using namespace llvm;
 using namespace InlineReportTypes;
+
+#define DEBUG_TYPE "intel-inlinereport"
 
 //
 // Member functions for class InlineReportCallSite
@@ -74,7 +77,7 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
     // Start with a clean copy, as this is a newly created callsite produced
     // by recursive inlining.
     IRCSk = new InlineReportCallSite(this->IRCallee, false, NinlrNoReason,
-      this->M, nullptr, NI);
+                                     this->M, nullptr, NI);
     IRCSk->Line = this->Line;
     IRCSk->Col = this->Col;
   } else
@@ -245,13 +248,22 @@ InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
     return nullptr;
   if (!F)
     return nullptr;
+
   InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
   if (MapIt != IRFunctionMap.end()) {
     InlineReportFunction *IRF = MapIt->second;
     makeCurrent(M, F);
     return IRF;
   }
-  InlineReportFunction *IRF = new InlineReportFunction(F);
+
+  bool SuppressInlRpt = false;
+  if (F->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
+    LLVM_DEBUG(dbgs() << "Suppress inline report for Function: " << F->getName()
+                      << "() \n";);
+    SuppressInlRpt = true;
+  }
+
+  InlineReportFunction *IRF = new InlineReportFunction(F, SuppressInlRpt);
   IRFunctionMap.insert(std::make_pair(F, IRF));
   IRF->setName(F->getName());
   IRF->setIsDeclaration(F->isDeclaration());
@@ -266,6 +278,14 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
     return nullptr;
   if (!F)
     return nullptr;
+
+  bool SuppressInlRpt = false;
+  if (Instruction *Inst = CS.getInstruction())
+    if (Inst->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
+      LLVM_DEBUG(dbgs() << "Suppress inline report on: \n" << *Inst << "\n";);
+      SuppressInlRpt = true;
+    }
+
   Instruction *I = CS.getInstruction();
   DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
   InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
@@ -279,7 +299,8 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
         MapItC == IRFunctionMap.end() ? addFunction(Callee, M) : MapItC->second;
   }
   InlineReportCallSite *IRCS =
-      new InlineReportCallSite(IRFC, false, NinlrNoReason, M, &DLoc, I);
+      new InlineReportCallSite(IRFC, false, NinlrNoReason, M, &DLoc,
+                               I, SuppressInlRpt);
   IRF->addCallSite(IRCS);
   IRInstructionCallSiteMap.insert(std::make_pair(I, IRCS));
   addCallback(I);
@@ -409,7 +430,7 @@ void InlineReport::inlineCallSite() {
     // to be associated with it, which should not happen because it is
     // deleted.
     Value *OC = ActiveOriginalCalls[I] == ActiveInlineInstruction ?
-      nullptr : ActiveOriginalCalls[I];
+                nullptr : ActiveOriginalCalls[I];
     Value *NC = ActiveInlinedCalls[I];
     IIMap.insert(std::make_pair(OC, NC));
   }
@@ -521,8 +542,11 @@ static void
 printInlineReportCallSiteVector(const InlineReportCallSiteVector &Vector,
                                 unsigned IndentCount, unsigned Level) {
   for (unsigned I = 0, E = Vector.size(); I < E; ++I) {
-    Vector[I]->print(IndentCount, Level);
-    printInlineReportCallSiteVector(Vector[I]->getChildren(), IndentCount + 1,
+    InlineReportCallSite *IRCS = Vector[I];
+    if (IRCS->getSuppressPrint())
+      continue;
+    IRCS->print(IndentCount, Level);
+    printInlineReportCallSiteVector(IRCS->getChildren(), IndentCount + 1,
                                     Level);
   }
 }
@@ -540,10 +564,14 @@ void InlineReport::print(void) const {
   printOptionValues();
   for (unsigned I = 0, E = IRDeadFunctionVector.size(); I < E; ++I) {
     InlineReportFunction *IRF = IRDeadFunctionVector[I];
+    // Suppress inline report on any Function with Suppress mark on
+    if (IRF->getSuppressPrint())
+      continue;
     llvm::errs() << "DEAD STATIC FUNC: ";
     printFunctionLinkage(Level, IRF);
     llvm::errs() << IRF->getName() << "\n\n";
   }
+
   InlineReportFunctionMap::const_iterator Mit, E;
   for (Mit = IRFunctionMap.begin(), E = IRFunctionMap.end(); Mit != E; ++Mit) {
     Function *F = Mit->first;
@@ -551,6 +579,8 @@ void InlineReport::print(void) const {
     // as it may have changed.
     InlineReportFunction *IRF = Mit->second;
     IRF->setLinkageChar(F);
+    if (IRF->getSuppressPrint())
+      continue;
     if (!IRF->getIsDeclaration()) {
       llvm::errs() << "COMPILE FUNC: ";
       printFunctionLinkage(Level, IRF);
@@ -678,7 +708,7 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
     return;
   InlineReportFunction *IRF = IrfIt->second;
   int count = IRFunctionMap.erase(OldFunction);
-  (void)count;
+  (void) count;
   assert(count == 1);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
   IRF->setLinkageChar(NewFunction);
