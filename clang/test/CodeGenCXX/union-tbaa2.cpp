@@ -1,14 +1,10 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // Run this test with -unroll-count=1 to avoid fully unrolling the loop &
 // subverting the intent of the test.
 // Explicitly disabling HIR's complete unroll pass as well.
 //
-// RUN: %clang_cc1 %s -mllvm -disable-hir-complete-unroll -mllvm -unroll-count=1 -O2 -std=c++11 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -target-feature +sse4.2 -target-feature +avx -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -mllvm -disable-hir-complete-unroll -mllvm -unroll-count=1 -O2 -fno-experimental-new-pass-manager -std=c++11 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -target-feature +sse4.2 -target-feature +avx -emit-llvm -o - | FileCheck %s
 // END INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 %s -O2 -fno-experimental-new-pass-manager -std=c++11 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -target-feature +sse4.2 -target-feature +avx -emit-llvm -o - | FileCheck %s
->>>>>>> e0b3a8c991569f8c05a4edb551b8cc2942e37ea1
 
 // Testcase from llvm.org/PR32056
 
