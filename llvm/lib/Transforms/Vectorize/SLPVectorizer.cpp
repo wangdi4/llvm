@@ -2182,7 +2182,10 @@ private:
       for (Value *V : Scalars)
         dbgs().indent(2) << *V << "\n";
       dbgs() << "NeedToGather: " << NeedToGather << "\n";
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION // https://reviews.llvm.org/D69812
+=======
+>>>>>>> 82588e05cc32bb30807e480abd4e689b0dee132a
       dbgs() << "MainOp: ";
       if (MainOp)
         dbgs() << *MainOp << "\n";
@@ -2198,7 +2201,10 @@ private:
         dbgs() << *VectorizedValue << "\n";
       else
         dbgs() << "NULL\n";
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 82588e05cc32bb30807e480abd4e689b0dee132a
       dbgs() << "ReuseShuffleIndices: ";
       if (ReuseShuffleIndices.empty())
         dbgs() << "Emtpy";
