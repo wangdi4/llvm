@@ -2099,17 +2099,14 @@ def gcodeview_ghash : Flag<["-"], "gcodeview-ghash">,
   HelpText<"Emit type record hashes in a .debug$H section">,
   Flags<[CC1Option, CoreOption]>;
 def gno_codeview_ghash : Flag<["-"], "gno-codeview-ghash">, Flags<[CoreOption]>;
-<<<<<<< HEAD
+def ginline_line_tables : Flag<["-"], "ginline-line-tables">, Flags<[CoreOption]>;
+def gno_inline_line_tables : Flag<["-"], "gno-inline-line-tables">,
+  Flags<[CC1Option, CoreOption]>, HelpText<"Don't emit inline line tables">;
 // if INTEL_CUSTOMIZATION
 def gintel_sti : Flag<["-"], "gintel-sti">,
   HelpText<"Generate Intel STI debug information">,
   Flags<[CC1Option]>;
 // endif // INTEL_CUSTOMIZATION
-=======
-def ginline_line_tables : Flag<["-"], "ginline-line-tables">, Flags<[CoreOption]>;
-def gno_inline_line_tables : Flag<["-"], "gno-inline-line-tables">,
-  Flags<[CC1Option, CoreOption]>, HelpText<"Don't emit inline line tables">;
->>>>>>> ab76cfdd200d35177df2042a1c0c7e86868d01bc
 
 def gfull : Flag<["-"], "gfull">, Group<g_Group>;
 def gused : Flag<["-"], "gused">, Group<g_Group>;
