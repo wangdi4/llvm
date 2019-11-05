@@ -2230,6 +2230,7 @@ static void AddPHINodeEntriesForMappedBlock(BasicBlock *PHIBB,
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// We intend to thread an edge into the region across a group of blocks to an
 /// outgoing edge of the region. In order to do this, we have to duplicate all
@@ -2346,6 +2347,52 @@ static BasicBlock* getSubRegionPred(BasicBlock *OldBB,
 /// INTEL_CUSTOMIZATION, because any community changes to this routine will need
 /// to be manually merged.
 ///
+=======
+/// Update the SSA form.  NewBB contains instructions that are copied from BB.
+/// ValueMapping maps old values in BB to new ones in NewBB.
+void JumpThreadingPass::UpdateSSA(
+    BasicBlock *BB, BasicBlock *NewBB,
+    DenseMap<Instruction *, Value *> &ValueMapping) {
+  // If there were values defined in BB that are used outside the block, then we
+  // now have to update all uses of the value to use either the original value,
+  // the cloned value, or some PHI derived value.  This can require arbitrary
+  // PHI insertion, of which we are prepared to do, clean these up now.
+  SSAUpdater SSAUpdate;
+  SmallVector<Use *, 16> UsesToRename;
+
+  for (Instruction &I : *BB) {
+    // Scan all uses of this instruction to see if it is used outside of its
+    // block, and if so, record them in UsesToRename.
+    for (Use &U : I.uses()) {
+      Instruction *User = cast<Instruction>(U.getUser());
+      if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
+        if (UserPN->getIncomingBlock(U) == BB)
+          continue;
+      } else if (User->getParent() == BB)
+        continue;
+
+      UsesToRename.push_back(&U);
+    }
+
+    // If there are no uses outside the block, we're done with this instruction.
+    if (UsesToRename.empty())
+      continue;
+    LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
+
+    // We found a use of I outside of BB.  Rename all uses of I that are outside
+    // its block to be uses of the appropriate PHI node etc.  See ValuesInBlocks
+    // with the two values we know.
+    SSAUpdate.Initialize(I.getType(), I.getName());
+    SSAUpdate.AddAvailableValue(BB, &I);
+    SSAUpdate.AddAvailableValue(NewBB, ValueMapping[&I]);
+
+    while (!UsesToRename.empty())
+      SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
+    LLVM_DEBUG(dbgs() << "\n");
+  }
+}
+
+>>>>>>> 0016c1f40043e67068230208fd8f34657ad44b99
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
 /// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
 /// across a region of blocks.  Transform the IR to reflect this change.
@@ -2675,6 +2722,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     }
 
   // Enqueue required DT updates.
+<<<<<<< HEAD
   DTUpdates.append(
       {{DominatorTree::Insert, BlockMapping[RegionBottom], SuccBB},
        {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
@@ -2735,6 +2783,13 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       LLVM_DEBUG(dbgs() << "\n");
     }
   }
+=======
+  DTU->applyUpdatesPermissive({{DominatorTree::Insert, NewBB, SuccBB},
+                               {DominatorTree::Insert, PredBB, NewBB},
+                               {DominatorTree::Delete, PredBB, BB}});
+
+  UpdateSSA(BB, NewBB, ValueMapping);
+>>>>>>> 0016c1f40043e67068230208fd8f34657ad44b99
 
   // At this point, the IR is fully up to date and consistent.  Do a quick scan
   // over the new instructions and zap any that are constants or dead.  This
@@ -3118,43 +3173,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
   AddPHINodeEntriesForMappedBlock(BBBranch->getSuccessor(1), BB, PredBB,
                                   ValueMapping);
 
-  // If there were values defined in BB that are used outside the block, then we
-  // now have to update all uses of the value to use either the original value,
-  // the cloned value, or some PHI derived value.  This can require arbitrary
-  // PHI insertion, of which we are prepared to do, clean these up now.
-  SSAUpdater SSAUpdate;
-  SmallVector<Use*, 16> UsesToRename;
-  for (Instruction &I : *BB) {
-    // Scan all uses of this instruction to see if it is used outside of its
-    // block, and if so, record them in UsesToRename.
-    for (Use &U : I.uses()) {
-      Instruction *User = cast<Instruction>(U.getUser());
-      if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
-        if (UserPN->getIncomingBlock(U) == BB)
-          continue;
-      } else if (User->getParent() == BB)
-        continue;
-
-      UsesToRename.push_back(&U);
-    }
-
-    // If there are no uses outside the block, we're done with this instruction.
-    if (UsesToRename.empty())
-      continue;
-
-    LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
-
-    // We found a use of I outside of BB.  Rename all uses of I that are outside
-    // its block to be uses of the appropriate PHI node etc.  See ValuesInBlocks
-    // with the two values we know.
-    SSAUpdate.Initialize(I.getType(), I.getName());
-    SSAUpdate.AddAvailableValue(BB, &I);
-    SSAUpdate.AddAvailableValue(PredBB, ValueMapping[&I]);
-
-    while (!UsesToRename.empty())
-      SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
-    LLVM_DEBUG(dbgs() << "\n");
-  }
+  UpdateSSA(BB, PredBB, ValueMapping);
 
   // PredBB no longer jumps to BB, remove entries in the PHI node for the edge
   // that we nuked.

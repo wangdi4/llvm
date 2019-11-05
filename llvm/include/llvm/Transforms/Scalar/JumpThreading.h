@@ -164,8 +164,14 @@ public:
 
   void FindLoopHeaders(Function &F);
   bool ProcessBlock(BasicBlock *BB);
+<<<<<<< HEAD
   bool ThreadEdge(const jumpthreading::ThreadRegionInfo &RegionInfo,  // INTEL
                   const SmallVectorImpl<BasicBlock*> &PredBBs,        // INTEL
+=======
+  void UpdateSSA(BasicBlock *BB, BasicBlock *NewBB,
+                 DenseMap<Instruction *, Value *> &ValueMapping);
+  bool ThreadEdge(BasicBlock *BB, const SmallVectorImpl<BasicBlock *> &PredBBs,
+>>>>>>> 0016c1f40043e67068230208fd8f34657ad44b99
                   BasicBlock *SuccBB);
   bool DuplicateCondBranchOnPHIIntoPred(
       BasicBlock *BB, const SmallVectorImpl<BasicBlock *> &PredBBs);
