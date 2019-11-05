@@ -337,8 +337,8 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef FS,
                            MaybeAlign StackAlignOverride,
                            unsigned PreferVectorWidthOverride,
                            unsigned RequiredVectorWidth)
-    : X86GenSubtargetInfo(TT, CPU, FS), PICStyle(PICStyles::None), TM(TM),
-      TargetTriple(TT), StackAlignOverride(StackAlignOverride),
+    : X86GenSubtargetInfo(TT, CPU, FS), PICStyle(PICStyles::Style::None),
+      TM(TM), TargetTriple(TT), StackAlignOverride(StackAlignOverride),
       PreferVectorWidthOverride(PreferVectorWidthOverride),
       RequiredVectorWidth(RequiredVectorWidth),
 #if INTEL_CUSTOMIZATION
@@ -358,15 +358,15 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef FS,
       FrameLowering(*this, getStackAlignment()) {
   // Determine the PICStyle based on the target selected.
   if (!isPositionIndependent())
-    setPICStyle(PICStyles::None);
+    setPICStyle(PICStyles::Style::None);
   else if (is64Bit())
-    setPICStyle(PICStyles::RIPRel);
+    setPICStyle(PICStyles::Style::RIPRel);
   else if (isTargetCOFF())
-    setPICStyle(PICStyles::None);
+    setPICStyle(PICStyles::Style::None);
   else if (isTargetDarwin())
-    setPICStyle(PICStyles::StubPIC);
+    setPICStyle(PICStyles::Style::StubPIC);
   else if (isTargetELF())
-    setPICStyle(PICStyles::GOT);
+    setPICStyle(PICStyles::Style::GOT);
 
   CallLoweringInfo.reset(new X86CallLowering(*getTargetLowering()));
   Legalizer.reset(new X86LegalizerInfo(*this, TM));
