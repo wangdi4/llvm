@@ -6779,6 +6779,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
                                   const char *LinkingOutput) const {
   // Construct offload-wrapper command.  Also calls llc to generate the
   // object that is fed to the linker from the wrapper generated bc file
+<<<<<<< HEAD
   assert(isa<OffloadWrapperJobAction>(JA) && "Expecting wrapping job!");
 
   Action::OffloadKind OffloadingKind = JA.getOffloadingDeviceKind();
@@ -6820,6 +6821,51 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     }
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
+=======
+  assert(isa<OffloadWrappingJobAction>(JA) && "Expecting wrapping job!");
+
+  // The wrapper command looks like this:
+  // clang-offload-wrapper
+  //   -o=<outputfile>.bc
+  //   -host=x86_64-pc-linux-gnu -kind=sycl
+  //   -format=spirv <inputfile1>.spv <manifest1>(optional)
+  //   -format=spirv <inputfile2>.spv <manifest2>(optional)
+  //  ...
+  ArgStringList WrapperArgs;
+
+  std::string OutTmpName = C.getDriver().GetTemporaryPath("wrapper", "bc");
+  const char * WrapperFileName =
+      C.addTempFile(C.getArgs().MakeArgString(OutTmpName));
+  SmallString<128> OutOpt("-o=");
+  OutOpt += WrapperFileName;
+  WrapperArgs.push_back(C.getArgs().MakeArgString(OutOpt));
+
+  SmallString<128> HostTripleOpt("-host=");
+  HostTripleOpt += getToolChain().getAuxTriple()->str();
+  WrapperArgs.push_back(C.getArgs().MakeArgString(HostTripleOpt));
+
+  llvm::Triple TT = getToolChain().getTriple();
+  SmallString<128> TargetTripleOpt = TT.getArchName();
+  // When wrapping an FPGA device binary, we need to be sure to apply the
+  // appropriate triple that corresponds (fpga_aoc[xr]-intel-<os>-sycldevice)
+  // to the target triple setting.
+  if (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga &&
+      TCArgs.hasArg(options::OPT_fsycl_link_EQ)) {
+    auto *A = C.getInputArgs().getLastArg(options::OPT_fsycl_link_EQ);
+    TT.setArchName((A->getValue() == StringRef("early")) ? "fpga_aocr"
+                                                         : "fpga_aocx");
+    TT.setVendorName("intel");
+    TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
+    TT.setEnvironment(llvm::Triple::SYCLDevice);
+    TargetTripleOpt = TT.str();
+    // When wrapping an FPGA aocx binary to archive, do not emit registration
+    // functions
+    if (A->getValue() == StringRef("image"))
+      WrapperArgs.push_back(C.getArgs().MakeArgString("--emit-reg-funcs=0"));
+  }
+  WrapperArgs.push_back(
+      C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
+>>>>>>> ed4569a549758abbecf30e4a67e31019c0202eaf
 
     // TODO forcing offload kind is a simplification which assumes wrapper used
     // only with SYCL. Device binary format (-format=xxx) option should also
