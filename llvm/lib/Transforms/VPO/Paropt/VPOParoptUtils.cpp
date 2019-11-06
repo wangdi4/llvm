@@ -3194,24 +3194,30 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
 
   assert((!AllocaAddrSpace ||
           AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
+          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_GLOBAL ||
           AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) &&
-         "Address space of an alloca may be either local or private.");
+         "Address space of an alloca may be either global, local or private.");
   assert(DL.getAllocaAddrSpace() == vpo::ADDRESS_SPACE_PRIVATE &&
          "Default alloca address space does not match "
          "vpo::ADDRESS_SPACE_PRIVATE.");
 
   if (AllocaAddrSpace &&
-      AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) {
-    // OpenCL __local variables are globalized even when declared
+      (AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL ||
+       AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_GLOBAL)) {
+    // OpenCL __local/__global variables are globalized even when declared
     // inside a kernel.
     SmallString<64> GlobalName;
-    (VarName + Twine(".__local")).toStringRef(GlobalName);
+    if (AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL)
+      (VarName + Twine(".__local")).toStringRef(GlobalName);
+    else
+      (VarName + Twine(".__global")).toStringRef(GlobalName);
+
     GlobalVariable *GV =
        new GlobalVariable(*M, ElementType, false, GlobalValue::InternalLinkage,
                           Constant::getNullValue(ElementType), GlobalName,
                           nullptr,
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
-                          vpo::ADDRESS_SPACE_LOCAL);
+                          AllocaAddrSpace.getValue());
 
     auto *ASCI = Builder.CreateAddrSpaceCast(
         GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),

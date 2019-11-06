@@ -390,9 +390,16 @@ void VPOParoptTransform::guardSideEffectStatements(
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
 
+    // TODO: we only need global fences for side effect instructions
+    //       inside "omp target" and outside of the enclosed regions.
+    //       Moreover, it probably makes sense to guard such instructions
+    //       with (get_group_id() == 0) vs (get_local_id() == 0).
     VPOParoptUtils::genOCLGenericCall(
         "_Z18work_group_barrierj", Type::getVoidTy(C),
-        { ConstantInt::get(Type::getInt32Ty(C), 1) },
+        // CLK_LOCAL_MEM_FENCE  == 1
+        // CLK_GLOBAL_MEM_FENCE == 2
+        // CLK_IMAGE_MEM_FENCE  == 4
+        { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
         InsertPt);
   };
 
