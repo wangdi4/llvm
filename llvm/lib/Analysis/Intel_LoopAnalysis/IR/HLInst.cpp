@@ -431,16 +431,21 @@ bool HLInst::isInPreheaderPostexitImpl(bool Preheader, HLLoop *ParLoop) const {
     return false;
   }
 
+  auto I = Preheader ? ParLoop->pre_begin() : ParLoop->post_begin();
+  auto E = Preheader ? ParLoop->pre_end() : ParLoop->post_end();
+
+  // Preheader or postexit is empty.
+  if (I == E) {
+    return false;
+  }
+
   // If top sort number is available, use it instead.
   if (unsigned TSNum = getTopSortNum()) {
     assert(isAttached() && "It is illegal to call top sort number dependent "
                            "utility on disconnected node!");
-    return Preheader ? (TSNum < ParLoop->getTopSortNum())
-                     : (TSNum > ParLoop->getLastChild()->getMaxTopSortNum());
+    return Preheader ? (TSNum <= std::prev(E)->getTopSortNum())
+                     : (TSNum >= I->getTopSortNum());
   }
-
-  auto I = Preheader ? ParLoop->pre_begin() : ParLoop->post_begin();
-  auto E = Preheader ? ParLoop->pre_end() : ParLoop->post_end();
 
   for (; I != E; I++) {
     if (cast<HLInst>(I) == this) {
