@@ -15,7 +15,7 @@ if (WIN32)
         set (TBB_BINARIES_OUTPUT_SRC_DIR
             ${CMAKE_CURRENT_SOURCE_DIR}/bin/VS2010${TBB_BINARIES_POSTFIX}/${OS}${ADDR}_${CMAKE_CFG_INTDIR}/)
     endif()
-    set (TBB_BINARIES_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR}/tbb)
+    set (TBB_BINARIES_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 
     # don't try to copy it using copy_to with Visual Studio Generator
     add_custom_target(tbb ALL
