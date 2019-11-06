@@ -788,6 +788,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_atexit);
     TLI.setUnavailable(LibFunc_dunder_CxxFrameHandler3);
     TLI.setUnavailable(LibFunc_dunder_std_terminate);
+    TLI.setUnavailable(LibFunc_FindClose);
+    TLI.setUnavailable(LibFunc_FindFirstFileA);
+    TLI.setUnavailable(LibFunc_FindNextFileA);
+    TLI.setUnavailable(LibFunc_GetFullPathNameA);
+    TLI.setUnavailable(LibFunc_GetModuleHandleA);
+    TLI.setUnavailable(LibFunc_GetProcAddress);
+    TLI.setUnavailable(LibFunc_GlobalMemoryStatus);
     TLI.setUnavailable(LibFunc_islower);
     TLI.setUnavailable(LibFunc_local_stdio_printf_options);
     TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
@@ -1922,6 +1929,40 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_FindClose:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_FindFirstFileA:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_FindNextFileA:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_GetFullPathNameA:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_GetModuleHandleA:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_GetProcAddress:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_GlobalMemoryStatus:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_gxx_personality_v0:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
