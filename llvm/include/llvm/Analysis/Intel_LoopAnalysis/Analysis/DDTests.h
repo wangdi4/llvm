@@ -520,18 +520,18 @@ class DDTest {
     /// out to OS.
     void dump(raw_ostream &OS) const;
   };
-  ///  CommonLevels - levels that need to set DV
+  ///  CommonLevels - it is different than LCALoopLevel in some cases like in
+  ///  fusion mode.
   unsigned CommonLevels = 0;
-  ///  CommonLevelsForIVDEP - levels that affects DV when IVDEP is present
-  unsigned CommonLevelsForIVDEP = 0;
+  unsigned LCALoopLevel = 0;
   unsigned SrcLevels = 0;
   unsigned DstLevels = 0;
   unsigned MaxLevels = 0;
   bool NoCommonNest = false;
 
   HLLoop *DeepestLoop;
-  ///  CommonIVDEPLoop, corrsponding to CommonLevelsForIVDEP
-  HLLoop *CommonIVDEPLoop = nullptr;
+  ///  LCALoop, corrsponding to LCALoopLevel
+  HLLoop *LCALoop = nullptr;
 
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
   /// instructions and establishes their shared loops. Sets the variables
