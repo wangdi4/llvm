@@ -6,6 +6,7 @@
 ; do that here.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
 

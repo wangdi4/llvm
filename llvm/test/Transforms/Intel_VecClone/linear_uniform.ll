@@ -1,6 +1,7 @@
 ; Check if a stack variable is created for linear and uniform parameters and if it is loaded inside the WRN region.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4ul_foo
 ; CHECK: entry:
