@@ -1,5 +1,9 @@
 // RUN: %clang_cc1 -emit-llvm -o - -O0 -triple spir-unknown-unknown -fdeclare-opencl-builtins -finclude-default-header %s | FileCheck %s
 
+// INTEL_CUSTOMIZATION
+typedef float float4 __attribute__((ext_vector_type(4)));
+// end INTEL_CUSTOMIZATION
+
 // Test that Attr.Const from OpenCLBuiltins.td is lowered to a readnone attribute.
 // CHECK-LABEL: @test_const_attr
 // CHECK: call i32 @_Z3maxii({{.*}}) [[ATTR_CONST:#[0-9]]]
