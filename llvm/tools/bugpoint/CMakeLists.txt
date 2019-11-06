@@ -31,9 +31,6 @@ set(LLVM_LINK_COMPONENTS
 # end INTEL_COLLAB
   )
 
-# Support plugins.
-set(LLVM_NO_DEAD_STRIP 1)
-
 add_llvm_tool(bugpoint
   BugDriver.cpp
   CrashDebugger.cpp
@@ -47,6 +44,7 @@ add_llvm_tool(bugpoint
 
   DEPENDS
   intrinsics_gen
+  SUPPORT_PLUGINS
   )
 export_executable_symbols(bugpoint)
 
