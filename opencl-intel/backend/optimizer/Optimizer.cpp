@@ -112,8 +112,7 @@ FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
-llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
-                                  bool EnableVPlanVecForOpenCL);
+llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
@@ -582,7 +581,7 @@ static void populatePassesPostFailCheck(
         PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
 
         // Prepare Function for VecClone and call VecClone
-        PM.add(createOCLVecClonePass(pConfig, UseVplan));
+        PM.add(createOCLVecClonePass(pConfig));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
         // Call VPlan

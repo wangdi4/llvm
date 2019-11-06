@@ -77,14 +77,21 @@ OCL_INITIALIZE_PASS_BEGIN(OCLVecClone, SV_NAME, lv_name,
 OCL_INITIALIZE_PASS_END(OCLVecClone, SV_NAME, lv_name,
                         false /* modififies CFG */, false /* transform pass */)
 
-OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId,
-                         bool EnableVPlanVecForOpenCL)
-    : VecClone(), CPUId(CPUId),
-      EnableVPlanVecForOpenCL(EnableVPlanVecForOpenCL) {
+OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId)
+    : ModulePass(ID), Impl(CPUId) {
+  initializeVecClonePass(*PassRegistry::getPassRegistry());
+}
+
+OCLVecClone::OCLVecClone() : OCLVecClone(nullptr) {}
+
+bool OCLVecClone::runOnModule(Module &M) { return Impl.runImpl(M); }
+
+OCLVecCloneImpl::OCLVecCloneImpl(const Intel::CPUId *CPUId)
+    : VecCloneImpl(), CPUId(CPUId) {
   V_INIT_PRINT;
 }
 
-OCLVecClone::OCLVecClone() : VecClone(), EnableVPlanVecForOpenCL(true) {}
+OCLVecCloneImpl::OCLVecCloneImpl() : VecCloneImpl() {}
 
 // Remove the "ocl_recommended_vector_length" metadata from the original kernel.
 // "ocl_recommened_vector_length" metadata is used only by OCLVecClone. The rest
@@ -251,9 +258,9 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
   LIDTrunc->moveBefore(EntryBlock->getTerminator());
 }
 
-void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
-                                          Function *Clone,
-                                          BasicBlock *EntryBlock) {
+void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
+                                              Function *Clone,
+                                              BasicBlock *EntryBlock) {
   // The FunctionsAndActions array has only the OpenCL function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
@@ -705,7 +712,7 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
   return RetInfo;
 }
 
-void OCLVecClone::languageSpecificInitializations(Module &M) {
+void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
   OCLPrepareKernelForVecClone PK(CPUId);
 
   // FIXME: Longer term plan is to make the return value propery part of
@@ -820,9 +827,8 @@ bool OCLReqdSubGroupSize::runOnModule(Module &M) {
 }
 } // namespace intel
 
-extern "C" Pass *createOCLVecClonePass(const Intel::CPUId *CPUId,
-                                       bool EnableVPlanVecForOpenCL) {
-  return new intel::OCLVecClone(CPUId, EnableVPlanVecForOpenCL);
+extern "C" Pass *createOCLVecClonePass(const Intel::CPUId *CPUId) {
+  return new intel::OCLVecClone(CPUId);
 }
 
 extern "C" Pass *createOCLReqdSubGroupSizePass() {
