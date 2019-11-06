@@ -66,6 +66,7 @@ public:
 class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
 {
 	friend class DispatcherCommand;
+	friend class AffinitizeThreads;
 
 public:
     TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
@@ -175,6 +176,52 @@ protected:
 private:
     TaskDispatcher(const TaskDispatcher&);
     TaskDispatcher& operator=(const TaskDispatcher&);
+};
+
+class AffinitizeThreads : public ITaskSet
+{
+public:
+	
+    PREPARE_SHARED_PTR(AffinitizeThreads)
+
+    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer)
+    {
+        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks, observer)); 
+    }
+
+    virtual ~AffinitizeThreads();
+
+    // ITaskSet interface
+    bool    SetAsSyncPoint()  { return false;}
+    bool    CompleteAndCheckSyncPoint() { return true;}
+    bool    IsCompleted() const { return true;}
+    int     Init(size_t region[], unsigned int &regCount, size_t numberOfThreads);
+    void*   AttachToThread(void* tls, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+    void	  DetachFromThread(void* data);
+    bool	  ExecuteIteration(size_t x, size_t y, size_t z, void* data);
+    bool	  Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
+    long    Release() { return 0;}
+    void    Cancel() { Finish(FINISH_EXECUTION_FAILED); };
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+
+    TASK_PRIORITY	        GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
+    TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    size_t PreferredSequentialItemsPerThread() const override { return 1; }
+
+    void WaitForEndOfTask() const;
+
+protected:
+    unsigned int                        m_numThreads;
+    cl_ulong                            m_timeOut;
+    Intel::OpenCL::Utils::AtomicCounter	m_barrier;
+    volatile bool                       m_failed;
+
+    Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
+
+    IAffinityChangeObserver*            m_pObserver;
+    unsigned int                        m_uiMasterHWId;
+
+    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer);
 };
 
 }}}
