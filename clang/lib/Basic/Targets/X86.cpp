@@ -197,13 +197,6 @@ bool X86TargetInfo::initFeatureMap(
   case CK_Lakemont:
     break;
 
-  case CK_PentiumMMX:
-  case CK_Pentium2:
-  case CK_K6:
-  case CK_WinChipC6:
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
   case CK_Cooperlake:
     // CPX inherits all CLX features plus AVX512BF16
     setFeatureEnabledImpl(Features, "avx512bf16", true);
@@ -333,7 +326,14 @@ SkylakeCommon:
   case CK_Pentium3:
   case CK_C3_2:
     setFeatureEnabledImpl(Features, "sse", true);
+    LLVM_FALLTHROUGH;
+  case CK_Pentium2:
     setFeatureEnabledImpl(Features, "fxsr", true);
+    LLVM_FALLTHROUGH;
+  case CK_PentiumMMX:
+  case CK_K6:
+  case CK_WinChipC6:
+    setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
   case CK_Tremont:
@@ -371,6 +371,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     setFeatureEnabledImpl(Features, "sahf", true);
+    setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
   case CK_KNM:
@@ -405,6 +406,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "xsave", true);
     setFeatureEnabledImpl(Features, "movbe", true);
     setFeatureEnabledImpl(Features, "sahf", true);
+    setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
   case CK_K6_2:
@@ -453,6 +455,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "cx16", true);
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "sahf", true);
+    setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
   case CK_ZNVER2:
@@ -474,6 +477,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "fsgsbase", true);
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "lzcnt", true);
+    setFeatureEnabledImpl(Features, "mmx", true);
     setFeatureEnabledImpl(Features, "mwaitx", true);
     setFeatureEnabledImpl(Features, "movbe", true);
     setFeatureEnabledImpl(Features, "pclmul", true);
@@ -517,6 +521,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "xsave", true);
     setFeatureEnabledImpl(Features, "sahf", true);
+    setFeatureEnabledImpl(Features, "mmx", true);
     break;
   }
   if (!TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec))
