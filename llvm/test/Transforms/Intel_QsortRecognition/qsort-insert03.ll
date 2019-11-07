@@ -2,12 +2,13 @@
 ; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-test-insert=true -qsort-test-pivot=false -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-test-insert=true -qsort-test-pivot=false -disable-output 2>&1 | FileCheck %s
 
-; Check that the insertion sort is not recognized (because the stores in the
-; the swap operation are missing.)
+; Check that the insertion sort is recognized.  This is a variant on
+; qsort-insert01.ll with basic blocks and phi node inputs rearranged and a
+; basic block with only a branch added.
 
 ; CHECK: QsortRec: Checking Insertion Sort Candidate in qsort_insert
-; CHECK-NOT: QsortRec: Insertion Sort Candidate in qsort_insert PASSED Test.
-; ModuleID = 'qsort-insert02.ll'
+; CHECK: QsortRec: Insertion Sort Candidate in qsort_insert PASSED Test.
+; ModuleID = 'qsort-insert03.ll'
 
 %struct.basket = type { %struct.arc*, i64, i64, i64 }
 %struct.arc = type { i32, i64, %struct.node*, %struct.node*, i16, %struct.arc*, %struct.arc*, i64, i64 }
@@ -30,17 +31,14 @@ bb2:                                              ; preds = %bb29, %bb
   %tmp6 = shl i64 %tmp3, 3
   %tmp7 = getelementptr inbounds i8, i8* %tmp4, i64 %tmp6
   %tmp8 = icmp sgt i64 %tmp6, 8
-  br i1 %tmp8, label %bb9, label %bb28
+  br i1 %tmp8, label %bb30, label %bb28
 
-bb9:                                              ; preds = %bb12, %bb2
-  %tmp10 = phi i8* [ %tmp13, %bb12 ], [ %tmp5, %bb2 ]
+bb30: br label %bb9                               ; preds = bb2
+
+bb9:                                              ; preds = %bb12, %bb30
+  %tmp10 = phi i8* [ %tmp5, %bb30 ], [ %tmp13, %bb12 ]
   %tmp11 = icmp ugt i8* %tmp10, %tmp4
   br i1 %tmp11, label %bb15, label %bb12
-
-bb12:                                             ; preds = %bb22, %bb15, %bb9
-  %tmp13 = getelementptr inbounds i8, i8* %tmp10, i64 8
-  %tmp14 = icmp ult i8* %tmp13, %tmp7
-  br i1 %tmp14, label %bb9, label %bb28
 
 bb15:                                             ; preds = %bb22, %bb9
   %tmp16 = phi i8* [ %tmp17, %bb22 ], [ %tmp10, %bb9 ]
@@ -51,11 +49,18 @@ bb15:                                             ; preds = %bb22, %bb9
   %tmp21 = icmp sgt i32 %tmp20, 0
   br i1 %tmp21, label %bb22, label %bb12
 
+bb12:                                             ; preds = %bb22, %bb15, %bb9
+  %tmp13 = getelementptr inbounds i8, i8* %tmp10, i64 8
+  %tmp14 = icmp ult i8* %tmp13, %tmp7
+  br i1 %tmp14, label %bb9, label %bb28
+
 bb22:                                             ; preds = %bb15
   %tmp23 = bitcast i8* %tmp16 to i64*
   %tmp24 = load i64, i64* %tmp23, align 8
   %tmp25 = bitcast i8* %tmp17 to i64*
   %tmp26 = load i64, i64* %tmp25, align 8
+  store i64 %tmp26, i64* %tmp23, align 8
+  store i64 %tmp24, i64* %tmp25, align 8
   %tmp27 = icmp ugt i8* %tmp17, %tmp4
   br i1 %tmp27, label %bb15, label %bb12
 
