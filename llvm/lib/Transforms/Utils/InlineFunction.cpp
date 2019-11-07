@@ -1781,8 +1781,6 @@ void llvm::updateProfileCallee(
   else
     newEntryCount = priorEntryCount + entryDelta;
 
-  Callee->setEntryCount(newEntryCount);
-
   // During inlining ?
   if (VMap) {
     uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
@@ -1798,6 +1796,7 @@ void llvm::updateProfileCallee(
           CI->updateProfWeight(cloneEntryCount, priorEntryCount);
     } // INTEL
   }
+<<<<<<< HEAD
   for (BasicBlock &BB : *Callee)
     // No need to update the callsite if it is pruned during inlining.
     if (!VMap || VMap->count(&BB))
@@ -1810,6 +1809,19 @@ void llvm::updateProfileCallee(
         if (CallInst *CI = dyn_cast<CallInst>(&I))
           CI->updateProfWeight(newEntryCount, priorEntryCount);
       } // INTEL
+=======
+
+  if (entryDelta) {
+    Callee->setEntryCount(newEntryCount);
+
+    for (BasicBlock &BB : *Callee)
+      // No need to update the callsite if it is pruned during inlining.
+      if (!VMap || VMap->count(&BB))
+        for (Instruction &I : BB)
+          if (CallInst *CI = dyn_cast<CallInst>(&I))
+            CI->updateProfWeight(newEntryCount, priorEntryCount);
+  }
+>>>>>>> ba1dfae054b4c9a8b11aabd62fd0dcb792366206
 }
 
 #if INTEL_CUSTOMIZATION
