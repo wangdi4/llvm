@@ -1796,20 +1796,6 @@ void llvm::updateProfileCallee(
           CI->updateProfWeight(cloneEntryCount, priorEntryCount);
     } // INTEL
   }
-<<<<<<< HEAD
-  for (BasicBlock &BB : *Callee)
-    // No need to update the callsite if it is pruned during inlining.
-    if (!VMap || VMap->count(&BB))
-      for (Instruction &I : BB) { // INTEL
-#if INTEL_CUSTOMIZATION
-        // Update intel_profx metadata, which can be on CallInst or InvokeInst
-        if (CallBase *Call = dyn_cast<CallBase>(&I))
-          Call->updateProfxWeight(newEntryCount, priorEntryCount);
-#endif // INTEL_CUSTOMIZATION
-        if (CallInst *CI = dyn_cast<CallInst>(&I))
-          CI->updateProfWeight(newEntryCount, priorEntryCount);
-      } // INTEL
-=======
 
   if (entryDelta) {
     Callee->setEntryCount(newEntryCount);
@@ -1817,11 +1803,17 @@ void llvm::updateProfileCallee(
     for (BasicBlock &BB : *Callee)
       // No need to update the callsite if it is pruned during inlining.
       if (!VMap || VMap->count(&BB))
-        for (Instruction &I : BB)
+        for (Instruction &I : BB) { // INTEL
+#if INTEL_CUSTOMIZATION
+          // Update intel_profx metadata, which can be on CallInst or
+          // InvokeInst
+          if (CallBase *Call = dyn_cast<CallBase>(&I))
+            Call->updateProfxWeight(newEntryCount, priorEntryCount);
+#endif // INTEL_CUSTOMIZATION
           if (CallInst *CI = dyn_cast<CallInst>(&I))
             CI->updateProfWeight(newEntryCount, priorEntryCount);
+        } // INTEL
   }
->>>>>>> ba1dfae054b4c9a8b11aabd62fd0dcb792366206
 }
 
 #if INTEL_CUSTOMIZATION
