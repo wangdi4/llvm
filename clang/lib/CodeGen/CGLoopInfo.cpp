@@ -773,7 +773,6 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
   }
 
   if (!Attrs.IsParallel && Attrs.VectorizeWidth == 0 &&
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       !Attrs.LoopCoalesceEnable &&
       Attrs.LoopCoalesceCount == 0 && Attrs.IICount == 0 &&
@@ -789,12 +788,8 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
-      Attrs.InterleaveCount == 0 && Attrs.SYCLIVDepEnable == false &&
-      Attrs.SYCLIVDepSafelen == 0 && Attrs.SYCLIInterval == 0 &&
-=======
       Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
->>>>>>> d0bfe369595194ee89654153b2413ab0073a17ba
       Attrs.SYCLMaxConcurrencyEnable == false && Attrs.UnrollCount == 0 &&
       Attrs.UnrollAndJamCount == 0 && !Attrs.PipelineDisabled &&
       Attrs.PipelineInitiationInterval == 0 &&
