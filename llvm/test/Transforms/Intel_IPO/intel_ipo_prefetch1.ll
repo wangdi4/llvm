@@ -1,45 +1,29 @@
-; Checks that IPO Prefetch pass can properly identify the prefetch opportunity, generate the prefetch
-; function, and generate 2 calls to prefetch function in 2 host functions: 1 call to prefetch inside
-; each host.
+; Checks that IPO Prefetch pass will NOT trigger without -xCORE-AVX2 flag.
 ;
-; [Note]
-; The IPO prefetch pass is a module pass that specifically examines code patterns like those exhibited in
-; cpu2017/531.deepsjeng (531), generate a prefetch function based on one of the existing functions in 531
-; and insert multiple calls to this prefetch function at specific pattern-matched host locations.
-;
-; The LIT testcase presented here is a vastly simplified version of 531.
-; It takes the following 3 functions after all modules have been linked:
-; - _Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(): an existing function that the prefetch function is based upon;
-; - _Z7qsearchP7state_tiiii(): host function1 where a call to prefetch function will be inserted;
-; - _Z6searchP7state_tiiiii(): host function2 where a call to prefetch function will be inserted;
-;
-; Only the 3 functions listed above, plus any global data and metadata they use, will appear in this LIT test.
-; All other functions are reduced to declarations only. Their function bodies are purged, so are any global variable
-; or metadata that are not used.
 ;
 
 ; *** Run command section ***
-; RUN: opt < %s -intel-ipoprefetch -ipo-prefetch-be-lit-friendly=1 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-ipoprefetch)' -ipo-prefetch-be-lit-friendly=1 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ipoprefetch -ipo-prefetch-be-lit-friendly=1 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-ipoprefetch)' -ipo-prefetch-be-lit-friendly=1 -S 2>&1 | FileCheck %s
 ;
 
 ; *** Check section 1 ***
-; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
+; The LLVM-IR check below ensures that a call to the Prefetch.Backbone function is not inserted inside host
 ; _Z6searchP7state_tiiiii.
-; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #{{.}} {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0)
+; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5)
+; CHECK-NOT: call void @Prefetch.Backbone(%struct.state_t* %0)
 ;
 
 ; *** Check section 2 ***
-; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
+; The LLVM-IR check below ensures that a call to the Prefetch.Backbone function is not inserted inside host
 ; _Z7qsearchP7state_tiiii.
-; CHECK:define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #{{.}} {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0)
+; CHECK:define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4)
+; CHECK-NOT: call void @Prefetch.Backbone(%struct.state_t* %0)
 ;
 
 ; *** Check section 3 ***
-; The LLVM-IR check below ensures the prefetch function is generated.
-; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #{{.}} {
+; The LLVM-IR check below ensures the prefetch function is not generated.
+; CHECK-NOT: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0)
 ;
 
 ; ModuleID = '<stdin>'

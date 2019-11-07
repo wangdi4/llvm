@@ -400,6 +400,15 @@ bool AllocFreeAnalyzer::InsertUsersIntoClosure(Function *F,
 // In this case, TestClosure is already established as the closure for malloc:
 // {g, f, d, c, b, main}.
 //
+// The algorithm decides to insert a call to the prefetch function inside function
+// q (host), because q is the position that satisfies the following 2 conditions
+// simultaneously:
+// i. It is sufficiently far ahead of the use of the delinquent load, leaving
+//    enough latency to allow the memory contents to arrive in cache before the use;
+//
+// ii. It is not too far ahead of the use so that the prefetched cache contents
+//     will have been evicted before the use.
+//
 // Function q is the host function thus FClosure begins with {q}.
 // FClosure grows as new functions are discovered and inserted into it.
 // Each time a new function appears, it is tested against TestClosure for a
