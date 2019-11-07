@@ -2283,6 +2283,7 @@ void JumpThreadingPass::UpdateSSA(
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// We intend to thread an edge into the region across a group of blocks to an
 /// outgoing edge of the region. In order to do this, we have to duplicate all
@@ -2399,6 +2400,50 @@ static BasicBlock* getSubRegionPred(BasicBlock *OldBB,
 /// INTEL_CUSTOMIZATION, because any community changes to this routine will need
 /// to be manually merged.
 ///
+=======
+/// Clone instructions in range [BI, BE) to NewBB.  For PHI nodes, we only clone
+/// arguments that come from PredBB.  Return the map from the variables in the
+/// source basic block to the variables in the newly created basic block.
+DenseMap<Instruction *, Value *>
+JumpThreadingPass::CloneInstructions(BasicBlock::iterator BI,
+                                     BasicBlock::iterator BE, BasicBlock *NewBB,
+                                     BasicBlock *PredBB) {
+  // We are going to have to map operands from the source basic block to the new
+  // copy of the block 'NewBB'.  If there are PHI nodes in the source basic
+  // block, evaluate them to account for entry from PredBB.
+  DenseMap<Instruction *, Value *> ValueMapping;
+
+  // Clone the phi nodes of the source basic block into NewBB.  The resulting
+  // phi nodes are trivial since NewBB only has one predecessor, but SSAUpdater
+  // might need to rewrite the operand of the cloned phi.
+  for (; PHINode *PN = dyn_cast<PHINode>(BI); ++BI) {
+    PHINode *NewPN = PHINode::Create(PN->getType(), 1, PN->getName(), NewBB);
+    NewPN->addIncoming(PN->getIncomingValueForBlock(PredBB), PredBB);
+    ValueMapping[PN] = NewPN;
+  }
+
+  // Clone the non-phi instructions of the source basic block into NewBB,
+  // keeping track of the mapping and using it to remap operands in the cloned
+  // instructions.
+  for (; BI != BE; ++BI) {
+    Instruction *New = BI->clone();
+    New->setName(BI->getName());
+    NewBB->getInstList().push_back(New);
+    ValueMapping[&*BI] = New;
+
+    // Remap operands to patch up intra-block references.
+    for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
+      if (Instruction *Inst = dyn_cast<Instruction>(New->getOperand(i))) {
+        DenseMap<Instruction *, Value *>::iterator I = ValueMapping.find(Inst);
+        if (I != ValueMapping.end())
+          New->setOperand(i, I->second);
+      }
+  }
+
+  return ValueMapping;
+}
+
+>>>>>>> f0f73ed8b004d213a3710b7b850e09c5bbd8e93d
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
 /// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
 /// across a region of blocks.  Transform the IR to reflect this change.
@@ -2545,6 +2590,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   //   to support larger-than-BB thread regions.
   LVI->threadEdge(PredBB, RegionBottom, SuccBB);
 
+<<<<<<< HEAD
   DenseMap<Instruction*, Value*> ValueMapping;
   DenseMap<BasicBlock*, BasicBlock*> BlockMapping;
   SmallVector<DominatorTree::UpdateType, 20> DTUpdates;
@@ -2655,6 +2701,23 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
         }
     }
   }
+=======
+  BasicBlock *NewBB = BasicBlock::Create(BB->getContext(),
+                                         BB->getName()+".thread",
+                                         BB->getParent(), BB);
+  NewBB->moveAfter(PredBB);
+
+  // Set the block frequency of NewBB.
+  if (HasProfileData) {
+    auto NewBBFreq =
+        BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, BB);
+    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+  }
+
+  // Copy all the instructions from BB to NewBB except the terminator.
+  DenseMap<Instruction *, Value *> ValueMapping =
+      CloneInstructions(BB->begin(), std::prev(BB->end()), NewBB, PredBB);
+>>>>>>> f0f73ed8b004d213a3710b7b850e09c5bbd8e93d
 
   // We didn't copy the terminator from RegionBottom over to its NewBB,
   // because there is now an unconditional jump to SuccBB. Insert the
