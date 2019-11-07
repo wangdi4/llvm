@@ -64,7 +64,7 @@ public:
     ITaskExecutor* GetTaskExecutor() { return m_pTaskExecutor; }
 
     // ITaskExecutorObserver
-    virtual void*  OnThreadEntry() 
+    virtual void*  OnThreadEntry(bool /*registerThread*/)
     {
         WGContextBase* pCtx = m_wgContextPool.GetWGContext( m_pTaskExecutor->IsMaster() );
         pCtx->SetThreadId( m_pTaskExecutor->GetPosition() );

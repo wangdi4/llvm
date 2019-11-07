@@ -344,7 +344,14 @@ void TEDevice::DetachMasterThread()
 void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
 {
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
-    TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
+    TBB_PerActiveThreadData* tls = thread_manager.GetCurrentThreadDescriptor();
+    // Indicate if current thread is registered this time.
+    bool registerThread = false;
+    if (nullptr == tls)
+    {
+        registerThread = true;
+        tls = thread_manager.RegisterCurrentThread();
+    }
 
     assert( (nullptr != tls) && "TBB Thread Manager was not able to find free entry" );
 
@@ -418,7 +425,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
             if ((nullptr != m_observer) && (!IsShutdownMode()))
             {
                 // per thread user data recides inside per-thread descriptor
-                tls->user_tls = m_observer->OnThreadEntry();
+                tls->user_tls = m_observer->OnThreadEntry(registerThread);
                 tls->enter_reported = true;
             }
         }

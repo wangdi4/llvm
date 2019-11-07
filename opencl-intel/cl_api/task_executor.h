@@ -478,13 +478,15 @@ public:
     */
 
     /**
-     * Notify about caller thread entry into either ITaskExecutor Root Device or some SubDevice 
+     * Notify about caller thread entry into either ITaskExecutor Root Device or some SubDevice
+     * @param registerThread - Whether current thread is just been registered
+     * in ThreadManager between on_scheduler_entry and OnThreadEntry.
      * @return per-thread data to associate with caller thread. NULL - error
      */
-    virtual void* OnThreadEntry() = 0;
+    virtual void* OnThreadEntry(bool registerThread) = 0;
 
     /**
-     * Notify about caller thread exit from either ITaskExecutor Root Device or some SubDevice 
+     * Notify about caller thread exit from either ITaskExecutor Root Device or some SubDevice
      * @param  currentThreadData - per-thread data currently associated with caller thread
      */
     virtual void  OnThreadExit( void* currentThreadData ) = 0;
