@@ -45,138 +45,74 @@ static cl::opt<bool> QsortTestInsert("qsort-test-insert",
                                      cl::init(true), cl::ReallyHidden);
 
 //
-// Return a PHINode that represents the Argument 'A' in 'BBstart', if there is
-// one.  For example, in BasicBlock 4, %5 represents argument %1, while %6
-// represents argument %0. Note that the PHINode may merge the argument value
-// with some other value.
-//
-// define internal fastcc void @qsort(i8* %0, i64 %1) unnamed_addr #11 {
-//  %3 = icmp ult i64 %1, 7
-//  br i1 %3, label %4, label %30
-// 4:                                                ; preds = %193, %2
-//  %5 = phi i64 [ %1, %2 ], [ %196, %193 ]
-//  %6 = phi i8* [ %0, %2 ], [ %195, %193 ]
-//
-static PHINode *findPHINodeArgument(BasicBlock *BBStart, Argument *A) {
-  for (auto &PHIN : BBStart->phis()) {
-    for (unsigned I = 0; I < PHIN.getNumIncomingValues(); ++I)
-      if (PHIN.getIncomingValue(I) == A)
-        return &PHIN;
-  }
-  return nullptr;
-}
-
-//
-// Return 'true' if 'V' is equal to 8 * N, where N is a PHINode that represents
-// 'ArgSize'.
-//
-static bool isShl3ofArg(Value *V, Argument *ArgSize) {
-  Value *PV = nullptr;
-  ConstantInt *CI = nullptr;
-  if (!match(V, m_Shl(m_Value(PV), m_ConstantInt(CI))) ||
-      CI->getZExtValue() != 3)
-    return false;
-  auto II = dyn_cast<Instruction>(PV);
-  if (!II)
-    return false;
-  PHINode *RV = findPHINodeArgument(II->getParent(), ArgSize);
-  if (!RV)
-    return false;
-  return true;
-}
-
-//
-// Return 'true' if 'BBStart' is the first basic block in an insertion sort of
+// Return 'true' if 'BBOLH' is the first basic block in an insertion sort of
 // the array 'ArgArray' of size 'ArgSize'. The particular insertion sort
-// recognized is a six basic block code fragment of the form:
+// recognized is a five basic block code fragment of the form:
 //
-// 4: (BBStart: Starting Basic Block)                ; preds = %193, %2
-//  %5 = phi i64 [ %1, %2 ], [ %196, %193 ]
-//  %6 = phi i8* [ %0, %2 ], [ %195, %193 ]
-//  %7 = getelementptr inbounds i8, i8* %6, i64 8
-//  %8 = shl i64 %5, 3
-//  %9 = getelementptr inbounds i8, i8* %6, i64 %8
-//  %10 = icmp sgt i64 %8, 8
-//  br i1 %10, label %11, label %198
+//  %12 = getelementptr inbounds i8, i8* %7, i64 8
 //
-// 11: (BBOLH: Basic Block of Outer Loop Header)     ; preds = %4, %14
-//  %12 = phi i8* [ %15, %14 ], [ %7, %4 ]
-//  %13 = icmp ugt i8* %12, %6
-//  br i1 %13, label %17, label %14
+// 13: (BBOLH: Basic Block of Outer Loop Header)     ; preds = %29, %11
+//  %14 = phi i8* [ %12, %11 ], [ %30, %29 ]
+//  %15 = icmp ugt i8* %14, %7
+//  br i1 %15, label %16, label %29
 //
-// 14: (BBOL: Basic Block of Outer Loop)             ; preds = %24, %17, %11
-//  %15 = getelementptr inbounds i8, i8* %12, i64 8
-//  %16 = icmp ult i8* %15, %9
-//  br i1 %16, label %11, label %198
+// 16: (BBILH: Basic Block of Inner Loop Header)     ; preds = %13, %23
+//  %17 = phi i8* [ %18, %23 ], [ %14, %13 ]
+//  %18 = getelementptr inbounds i8, i8* %17, i64 -8
+//  %19 = bitcast i8* %18 to %struct.arc**
+//  %20 = bitcast i8* %17 to %struct.arc**
+//  %21 = tail call i32 @arc_compare(%struct.arc** nonnull %19,
+//                                   %struct.arc** %20) #12
+//  %22 = icmp sgt i32 %21, 0
+//  br i1 %22, label %23, label %29
 //
-// 17: (BBILH: Basic Block of Inner Loop Header)     ; preds = %24, %11
-//  %18 = phi i8* [ %19, %24 ], [ %12, %11 ]
-//  %19 = getelementptr inbounds i8, i8* %18, i64 -8
-//  %20 = bitcast i8* %19 to %struct.arc**
-//  %21 = bitcast i8* %18 to %struct.arc**
-//  %22 = tail call i32 @arc_compare(%struct.arc** nonnull %20,
-//                                   %struct.arc** %21) #13
-//  %23 = icmp sgt i32 %22, 0
-//  br i1 %23, label %24, label %14
+// 23: (BBIL: Basic Block of Inner Loop)             ; preds = %16
+//  %24 = bitcast i8* %17 to i64*
+//  %25 = load i64, i64* %24, align 8, !tbaa !7
+//  %26 = bitcast i8* %18 to i64*
+//  %27 = load i64, i64* %26, align 8, !tbaa !7
+//  store i64 %27, i64* %24, align 8, !tbaa !7
+//  store i64 %25, i64* %26, align 8, !tbaa !7
+//  %28 = icmp ugt i8* %18, %7
+//  br i1 %28, label %16, label %29
 //
-// 24: (BBIL: Basic Block of Inner Loop)             ; preds = %17
-//  %25 = bitcast i8* %18 to i64*
-//  %26 = load i64, i64* %25, align 8
-//  %27 = bitcast i8* %19 to i64*
-//  %28 = load i64, i64* %27, align 8
-//  store i64 %28, i64* %25, align 8
-//  store i64 %26, i64* %27, align 8
-//  %29 = icmp ugt i8* %19, %6
-//  br i1 %29, label %17, label %14
-//
-// ...
-//
-// 198: (BBExit: Exit Basic Block)   ; preds = %191, %144, %139, %14, %4
+// 29: (BBOL: Basic Block of Outer Loop)             ; preds = %23, %16, %13
+//  %30 = getelementptr inbounds i8, i8* %14, i64 8
+//  %31 = icmp ult i8* %30, %9
+//  br i1 %31, label %13, label %321
+//   ...
+// 321: (BBEnd: Exit Basic Block)        ; preds = %313, %252, %234, %29, %5
 //  ret void
-//
+
+
 static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
                             Argument *ArgSize) {
+
+  //
+  // Return 'true' if 'V' represents a PHINode and one of its incoming values
+  // is 'Arg'.
+  //
+  auto IsPHINodeWithArgIncomingValue = [](Value *V, Argument *Arg) -> bool {
+    auto PHIN = dyn_cast<PHINode>(V);
+    if (!PHIN)
+      return false;
+    for (unsigned I = 0; I < PHIN->getNumIncomingValues(); ++I)
+      if (PHIN->getIncomingValue(I) == Arg)
+        return true;
+    return false;
+  };
 
   // The Validate*() lambda functions below all return 'true' if the basic
   // block they are checking is validated (is proved to have the required
   // properties).
 
   //
-  // Validate 'BBStart'. Recognize and assign values to '*BBOLH', its true
-  // successor, and '*BBEnd', its false successor.
-  //
-  auto ValidateBBStart = [&ArgSize](BasicBlock *BBStart, BasicBlock **BBOLH,
-                                    BasicBlock **BBEnd) -> bool {
-    auto BI = dyn_cast<BranchInst>(BBStart->getTerminator());
-    if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
-      return false;
-    auto ICI = dyn_cast<ICmpInst>(BI->getCondition());
-    if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_SGT)
-      return false;
-    auto CIC = dyn_cast<ConstantInt>(ICI->getOperand(1));
-    if (!CIC || CIC->getSExtValue() != 8)
-      return false;
-    if (!isShl3ofArg(ICI->getOperand(0), ArgSize))
-      return false;
-    *BBOLH = BI->getSuccessor(0);
-    *BBEnd = BI->getSuccessor(1);
-    return true;
-  };
-
-  // Validate 'BBEnd', the BasicBlock to which the insertion sort exits.
-  auto ValidateBBEnd = [](BasicBlock *BBEnd) -> bool {
-    if (BBEnd->empty())
-      return false;
-    auto RI = dyn_cast<ReturnInst>(&BBEnd->front());
-    return RI && !RI->getReturnValue();
-  };
-
-  //
-  // Validate 'BBOLH", the outer loop header of the insertion sort. Recognize
+  // Validate 'BBOLH', the outer loop header of the insertion sort. Recognize
   // and assign '*BBILH', its true successor and '*BBOL', its false successor.
   //
-  auto ValidateBBOLH = [&ArgArray](BasicBlock *BBOLH, BasicBlock **BBILH,
-                                   BasicBlock **BBOL) -> bool {
+  auto ValidateBBOLH = [&ArgArray, &IsPHINodeWithArgIncomingValue](
+                           BasicBlock *BBOLH, BasicBlock **BBILH,
+                           BasicBlock **BBOL) -> bool {
     auto BI = dyn_cast<BranchInst>(BBOLH->getTerminator());
     if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
       return false;
@@ -185,79 +121,38 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
     auto ICI = dyn_cast<ICmpInst>(BI->getCondition());
     if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_UGT)
       return false;
-    auto PHIN1 = dyn_cast<PHINode>(ICI->getOperand(1));
-    if (!PHIN1)
+    if (!IsPHINodeWithArgIncomingValue(ICI->getOperand(1), ArgArray))
       return false;
-    PHINode *PN = findPHINodeArgument(PHIN1->getParent(), ArgArray);
-    if (PN != PHIN1)
+    auto PHIN0 = dyn_cast<PHINode>(ICI->getOperand(0));
+    if (!PHIN0 || PHIN0->getNumIncomingValues() != 2)
       return false;
-    auto PHIN2 = dyn_cast<PHINode>(ICI->getOperand(0));
-    if (!PHIN2 || PHIN2->getNumIncomingValues() != 2 ||
-        PHIN2 != &BBOLH->front())
-      return false;
-    auto GEP0 = dyn_cast<GetElementPtrInst>(PHIN2->getIncomingValue(0));
-    if (!GEP0 || GEP0->getParent() != *BBOL ||
-        GEP0->getPointerOperand() != PHIN2)
-      return false;
-    if (GEP0 != &(*BBOL)->front())
-      return false;
-    auto GEP1 = dyn_cast<GetElementPtrInst>(PHIN2->getIncomingValue(1));
-    if (!GEP1 || GEP1->getPointerOperand() != PN)
-      return false;
-    auto CI0 = dyn_cast<ConstantInt>(GEP1->getOperand(1));
-    if (!CI0 || CI0->getSExtValue() != 8)
-      return false;
-    auto CI1 = dyn_cast<ConstantInt>(GEP0->getOperand(1));
-    if (!CI1 || CI1->getSExtValue() != 8)
-      return false;
-    return true;
-  };
-
-  //
-  // Validate 'BBOL', the outer loop block of the insertion sort, whose true
-  // successor should be 'BBOLH' and whose false successor should be 'BBEnd'.
-  //
-  auto ValidateBBOL = [&ArgArray, &ArgSize](BasicBlock *BBOL, BasicBlock *BBOLH,
-                                            BasicBlock *BBEnd) -> bool {
-    auto BI = dyn_cast<BranchInst>(BBOL->getTerminator());
-    if (!BI || BI->getNumSuccessors() != 2)
-      return false;
-    if (BI->getSuccessor(0) != BBOLH)
-      return false;
-    if (BI->getSuccessor(1) != BBEnd)
-      return false;
-    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
-    if (!IC || IC->getPredicate() != ICmpInst::ICMP_ULT)
-      return false;
-    auto GEPIL = dyn_cast<GetElementPtrInst>(IC->getOperand(0));
-    if (!GEPIL || GEPIL->getNumOperands() != 2)
-      return false;
-    auto CI = dyn_cast<ConstantInt>(GEPIL->getOperand(1));
-    if (!CI || CI->getZExtValue() != 8)
-      return false;
-    if (GEPIL->getPointerOperand() != &BBOLH->front())
-      return false;
-    auto GEPIR = dyn_cast<GetElementPtrInst>(IC->getOperand(1));
-    if (!GEPIR || GEPIR->getNumOperands() != 2)
-      return false;
-    auto PHIN = dyn_cast<PHINode>(GEPIR->getPointerOperand());
-    if (!PHIN)
-      return false;
-    PHINode *PNA = findPHINodeArgument(PHIN->getParent(), ArgArray);
-    if (GEPIR->getPointerOperand() != PNA)
-      return false;
-    if (!isShl3ofArg(GEPIR->getOperand(1), ArgSize))
-      return false;
-    return true;
+    bool FoundPHI0 = false;
+    bool FoundPHI1 = false;
+    for (unsigned I = 0; I < 2; ++I) {
+      auto GEP = dyn_cast<GetElementPtrInst>(PHIN0->getIncomingValue(I));
+      if (!GEP || GEP->getNumOperands() != 2)
+        return false;
+      auto CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+      if (!CI || CI->getZExtValue() != 8)
+        return false;
+      Value *V = GEP->getPointerOperand();
+      if (!FoundPHI0 && IsPHINodeWithArgIncomingValue(V, ArgArray))
+        FoundPHI0 = true;
+      else if (!FoundPHI1 && V == PHIN0)
+        FoundPHI1 = true;
+      else
+        return false;
+    }
+    return FoundPHI0 && FoundPHI1;
   };
 
   //
   // Validate 'BBILH', the inner loop header of the insertion sort. Recognize
   // and assign its true successor '*BBIL', and validate that its false
-  // successor is 'BBOL'.
+  // successor is 'BBOL'. 'BBOLH' is the BasicBlock of the outer loop header.
   //
-  auto ValidateBBILH = [](BasicBlock *BBILH, BasicBlock *BBOLH,
-                          BasicBlock **BBIL, BasicBlock *BBOL) -> bool {
+  auto ValidateBBILH = [](BasicBlock *BBILH, BasicBlock **BBIL,
+                          BasicBlock *BBOL, BasicBlock *BBOLH) -> bool {
     auto BI = dyn_cast<BranchInst>(BBILH->getTerminator());
     if (!BI || BI->getNumSuccessors() != 2)
       return false;
@@ -303,8 +198,9 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
   // Validate 'BBIL', the inner loop block of the insertion sort.  Recognize
   // 'BBILH' as its true successor and 'BBOL' as its false successor.
   //
-  auto ValidateBBIL = [&ArgArray](BasicBlock *BBIL, BasicBlock *BBILH,
-                                  BasicBlock *BBOL) -> bool {
+  auto ValidateBBIL = [&ArgArray, &IsPHINodeWithArgIncomingValue](
+                          BasicBlock *BBIL, BasicBlock *BBILH,
+                          BasicBlock *BBOL) -> bool {
     auto BI = dyn_cast<BranchInst>(BBIL->getTerminator());
     if (!BI || BI->getNumSuccessors() != 2)
       return false;
@@ -317,11 +213,7 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
       return false;
     if (IC->getOperand(0) != BBILH->front().getNextNonDebugInstruction())
       return false;
-    auto PN = dyn_cast<PHINode>(IC->getOperand(1));
-    if (!PN)
-      return false;
-    PHINode *PNA = findPHINodeArgument(PN->getParent(), ArgArray);
-    if (PN != PNA)
+    if (!IsPHINodeWithArgIncomingValue(IC->getOperand(1), ArgArray))
       return false;
     auto BC0 = dyn_cast<BitCastInst>(&BBIL->front());
     if (!BC0 || BC0->getOperand(0) != &BBILH->front())
@@ -356,24 +248,71 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
     return true;
   };
 
+  //
+  // Validate 'BBOL', the outer loop block of the insertion sort, whose true
+  // successor should be 'BBOLH' and whose false successor should be recognized
+  // and assigned as '*BBEnd'.
+  //
+  auto ValidateBBOL = [&ArgArray, &ArgSize, &IsPHINodeWithArgIncomingValue](
+                          BasicBlock *BBOL, BasicBlock *BBOLH,
+                          BasicBlock **BBEnd) -> bool {
+    Value *PV = nullptr;
+    ConstantInt *CI = nullptr;
+    auto BI = dyn_cast_or_null<BranchInst>(BBOL->getTerminator());
+    if (!BI || BI->getNumSuccessors() != 2)
+      return false;
+    if (BI->getSuccessor(0) != BBOLH)
+      return false;
+    *BBEnd = BI->getSuccessor(1);
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC || IC->getPredicate() != ICmpInst::ICMP_ULT)
+      return false;
+    auto GEPIL = dyn_cast<GetElementPtrInst>(IC->getOperand(0));
+    if (!GEPIL || GEPIL->getNumOperands() != 2)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPIL->getOperand(1));
+    if (!CI1 || CI1->getZExtValue() != 8)
+      return false;
+    if (GEPIL->getPointerOperand() != &BBOLH->front())
+      return false;
+    auto CIL = dyn_cast<ConstantInt>(GEPIL->getOperand(1));
+    if (!CIL || CIL->getZExtValue() != 8)
+      return false;
+    auto GEPIR = dyn_cast<GetElementPtrInst>(IC->getOperand(1));
+    if (!GEPIR || GEPIR->getNumOperands() != 2)
+      return false;
+    if (!IsPHINodeWithArgIncomingValue(GEPIR->getPointerOperand(), ArgArray))
+      return false;
+    if (!match(GEPIR->getOperand(1), m_Shl(m_Value(PV), m_ConstantInt(CI))) ||
+        CI->getZExtValue() != 3)
+      return false;
+    return IsPHINodeWithArgIncomingValue(PV, ArgSize);
+  };
+
+  // Validate 'BBEnd', the BasicBlock to which the insertion sort exits.
+  auto ValidateBBEnd = [](BasicBlock *BBEnd) -> bool {
+    if (BBEnd->empty())
+      return false;
+    auto RI = dyn_cast<ReturnInst>(&BBEnd->front());
+    return RI && !RI->getReturnValue();
+  };
+
   // Main code for isInsertionSort().
   // Validate each of the six basic blocks in the insertion sort.
-  BasicBlock *BBEnd = nullptr;
-  BasicBlock *BBOLH = nullptr;
-  BasicBlock *BBOL = nullptr;
+  BasicBlock *BBOLH = BBStart;
   BasicBlock *BBILH = nullptr;
+  BasicBlock *BBOL = nullptr;
   BasicBlock *BBIL = nullptr;
-  if (!ValidateBBStart(BBStart, &BBOLH, &BBEnd))
-    return false;
-  if (!ValidateBBEnd(BBEnd))
-    return false;
+  BasicBlock *BBEnd = nullptr;
   if (!ValidateBBOLH(BBOLH, &BBILH, &BBOL))
     return false;
-  if (!ValidateBBOL(BBOL, BBOLH, BBEnd))
-    return false;
-  if (!ValidateBBILH(BBILH, BBOLH, &BBIL, BBOL))
+  if (!ValidateBBILH(BBILH, &BBIL, BBOL, BBOLH))
     return false;
   if (!ValidateBBIL(BBIL, BBILH, BBOL))
+    return false;
+  if (!ValidateBBOL(BBOL, BBOLH, &BBEnd))
+    return false;
+  if (!ValidateBBEnd(BBEnd))
     return false;
   return true;
 }
@@ -385,6 +324,27 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
 //
 static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
                          Argument *ArgSize) {
+  //
+  // Return a PHINode that represents the Argument 'A' in 'BBstart', if there
+  // is one.  For example, in BasicBlock 4, %5 represents argument %1, while %6
+  // represents argument %0. Note that the PHINode may merge the argument value
+  // with some other value.
+  //
+  // define internal fastcc void @qsort(i8* %0, i64 %1) unnamed_addr #11 {
+  //  %3 = icmp ult i64 %1, 7
+  //  br i1 %3, label %4, label %30
+  // 4:                                                ; preds = %193, %2
+  //  %5 = phi i64 [ %1, %2 ], [ %196, %193 ]
+  //  %6 = phi i8* [ %0, %2 ], [ %195, %193 ]
+  //
+  auto FindPHINodeArgument = [](BasicBlock *BBStart, Argument *A) -> PHINode * {
+    for (auto &PHIN : BBStart->phis())
+      for (unsigned I = 0; I < PHIN.getNumIncomingValues(); ++I)
+        if (PHIN.getIncomingValue(I) == A)
+          return &PHIN;
+     return nullptr;
+  };
+
   //
   // Return a PHINode, to be tested as a validate pivot value. As a heuristic,
   // we use the first PHINode following the series of blocks that compute the
@@ -653,12 +613,12 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
   // Find the PHINode that represents 'ArrayArray' in the main loop of the
   // qsort. The qsort has a main loop because tail recursion elimination has
   // been used to eliminate one of its recursive calls.
-  Value *A = findPHINodeArgument(BBStart, ArgArray);
+  Value *A = FindPHINodeArgument(BBStart, ArgArray);
   if (!A)
     return nullptr;
   // Find the PHINode that represents 'ArraySize' in the main loop of the
   // qsort.
-  Value *N = findPHINodeArgument(BBStart, ArgSize);
+  Value *N = FindPHINodeArgument(BBStart, ArgSize);
   if (!N)
     return nullptr;
   // Find a candidate for the pivot in the qsort.
@@ -752,10 +712,10 @@ static bool isQsort(Function *F) {
                              unsigned SmallSize, BasicBlock **BBSmallSort,
                              BasicBlock **BBLargeSort) -> bool {
     BasicBlock &BBEntry = F->getEntryBlock();
-    if (BBEntry.size() != 2)
+    auto BI = dyn_cast_or_null<BranchInst>(BBEntry.getTerminator());
+    if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
       return false;
-    Instruction *ICompare = &*(BBEntry.begin());
-    auto ICmp = dyn_cast<ICmpInst>(ICompare);
+    auto ICmp = dyn_cast<ICmpInst>(BI->getCondition());
     if (!ICmp || ICmp->getPredicate() != ICmpInst::ICMP_ULT)
       return false;
     if (ICmp->getOperand(0) != ArgSize)
@@ -763,13 +723,8 @@ static bool isQsort(Function *F) {
     auto CI = dyn_cast<ConstantInt>(ICmp->getOperand(1));
     if (!CI || CI->getZExtValue() != SmallSize)
       return false;
-    Instruction *ITest = &*(++BBEntry.begin());
-    auto IB = dyn_cast<BranchInst>(ITest);
-    if (!IB || IB->isUnconditional() || IB->getNumSuccessors() != 2 ||
-        IB->getCondition() != ICmp)
-      return false;
-    *BBSmallSort = IB->getSuccessor(0);
-    *BBLargeSort = IB->getSuccessor(1);
+    *BBSmallSort = BI->getSuccessor(0);
+    *BBLargeSort = BI->getSuccessor(1);
     LLVM_DEBUG(dbgs() << "QsortRec: " << F->getName()
                       << ": Found small test\n");
     return true;
@@ -801,39 +756,45 @@ static bool isQsort(Function *F) {
   };
 
   //
-  // Return 'true' if 'BBTest' is a good heuristic candidate for the first
-  // BasicBlock in an insertion sort. (A good candidate is one where the size
-  // of the array being sorted is smaller than 'SmallSize'.)
+  // Using 'BBTest' as a starting point, return a good heuristic candidate
+  // for the first BasicBlock in an insertion sort, if 'BBTest' was a good
+  // starting point for finding one. (A good heuristic candidate is one where
+  // the size of the array being sorted is smaller than 'SmallSize'.)
   //
-  auto IsInsertionSortCandidate = [](BasicBlock *BBTest,
-                                     unsigned SmallSize) -> bool {
+  auto FindInsertionSortCandidate = [](BasicBlock *BBTest,
+                                     unsigned SmallSize) -> BasicBlock * {
     auto BI = dyn_cast_or_null<BranchInst>(BBTest->getTerminator());
     if (!BI || BI->isUnconditional())
-      return false;
+      return nullptr;
     auto IC = dyn_cast<ICmpInst>(BI->getCondition());
     if (!IC || IC->getPredicate() != ICmpInst::ICMP_SGT)
-      return false;
+      return nullptr;
     auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
     if (!CI || CI->getZExtValue() != SmallSize+1)
-      return false;
-    return true;
+      return nullptr;
+    BasicBlock *BBS = BI->getSuccessor(0);
+    auto BIT = dyn_cast_or_null<BranchInst>(BBS->getTerminator());
+    if (!BIT)
+      return nullptr;
+    return BIT->isUnconditional() ? BIT->getSuccessor(0) : BBS;
   };
 
   // Return the number of insertion sorts recognized
-  auto CountInsertionSorts = [&IsInsertionSortCandidate](Function *F,
-                                                         Argument *ArgArray,
-                                                         Argument *ArgSize,
-                                                         unsigned SmallSize)
-                                                         -> unsigned {
+  auto CountInsertionSorts = [&FindInsertionSortCandidate](Function *F,
+                                                           Argument *ArgArray,
+                                                           Argument *ArgSize,
+                                                           unsigned SmallSize)
+                                                           -> unsigned {
     unsigned InsertionCount = 0;
-    for (auto &BB : *F)
-      if (IsInsertionSortCandidate(&BB, SmallSize)) {
+    for (auto &BBTest : *F) {
+      BasicBlock *BBStart = FindInsertionSortCandidate(&BBTest, SmallSize);
+      if (BBStart) {
         LLVM_DEBUG({
           dbgs() << "QsortRec: Checking Insertion Sort Candidate in "
                  << F->getName() << "\n";
-          BB.dump();
+          BBStart->dump();
         });
-        if (!isInsertionSort(&BB, ArgArray, ArgSize)) {
+        if (!isInsertionSort(BBStart, ArgArray, ArgSize)) {
           LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                             << F->getName() << " FAILED Test.\n");
           return false;
@@ -843,6 +804,7 @@ static bool isQsort(Function *F) {
         if (++InsertionCount > 2)
           return false;
       }
+    }
     return InsertionCount;
   };
 
