@@ -5648,93 +5648,29 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
     case Instruction::Store: {
       // Check if the stores are consecutive or if we need to swizzle them.
-<<<<<<< HEAD
-      llvm::Type *ScalarTy = cast<StoreInst>(VL0)->getValueOperand()->getType();
-      // Make sure all stores in the bundle are simple - we can't vectorize
-      // atomic or volatile stores.
-      SmallVector<Value *, 4> PointerOps(VL.size());
-      ValueList Operands(VL.size());
-      SmallVector<int, 4> OpDirection; // INTEL
-      auto POIter = PointerOps.begin();
-      auto OIter = Operands.begin();
-      for (Value *V : VL) {
-        auto *SI = cast<StoreInst>(V);
-        if (!SI->isSimple()) {
-=======
       for (unsigned i = 0, e = VL.size() - 1; i < e; ++i)
         if (!isConsecutiveAccess(VL[i], VL[i + 1], *DL, *SE)) {
->>>>>>> e511c4b0dff1692c267addf17dce3cebe8f97faa
           BS.cancelScheduling(VL, VL0);
           newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                        ReuseShuffleIndicies);
           LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
           return;
         }
-<<<<<<< HEAD
-        OpDirection.push_back(0); // INTEL
-        *POIter = SI->getPointerOperand();
-        *OIter = SI->getValueOperand();
-        ++POIter;
-        ++OIter;
-      }
-
-      OrdersType CurrentOrder;
-      // Check the order of pointer operands.
-      if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
-        Value *Ptr0;
-        Value *PtrN;
-        if (CurrentOrder.empty()) {
-          Ptr0 = PointerOps.front();
-          PtrN = PointerOps.back();
-        } else {
-          Ptr0 = PointerOps[CurrentOrder.front()];
-          PtrN = PointerOps[CurrentOrder.back()];
-        }
-        const SCEV *Scev0 = SE->getSCEV(Ptr0);
-        const SCEV *ScevN = SE->getSCEV(PtrN);
-        const auto *Diff =
-            dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
-        uint64_t Size = DL->getTypeAllocSize(ScalarTy);
-        // Check that the sorted pointer operands are consecutive.
-        if (Diff && Diff->getAPInt() == (VL.size() - 1) * Size) {
-          if (CurrentOrder.empty()) {
-            // Original stores are consecutive and does not require reordering.
-            ++NumOpsWantToKeepOriginalOrder;
-            TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
-                                         UserTreeIdx, ReuseShuffleIndicies);
-            TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
-            LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
-          } else {
-            // Need to reorder.
-            auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
-            ++(I->getSecond());
-            TreeEntry *TE =
-                newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                             ReuseShuffleIndicies, I->getFirst());
-            TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
-            LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled stores.\n");
-          }
-          return;
-        }
-      }
-      BS.cancelScheduling(VL, VL0);
-      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
-                   ReuseShuffleIndicies);
-      LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
-=======
 
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
 
       ValueList Operands;
-      for (Value *V : VL)
-        Operands.push_back(cast<Instruction>(V)->getOperand(0));
+#if INTEL_CUSTOMIZATION
+        SmallVector<int, 4> OpDirection;
+        for (Value *V : VL) {
+          Operands.push_back(cast<Instruction>(V)->getOperand(0));
+          OpDirection.push_back(0);
+        }
+#endif // INTEL_CUSTOMIZATION
       TE->setOperandsInOrder();
-      buildTree_rec(Operands, Depth + 1, {TE, 0});
->>>>>>> e511c4b0dff1692c267addf17dce3cebe8f97faa
+      buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection});
       return;
     }
     case Instruction::Call: {
@@ -8769,83 +8705,52 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
         }))
       continue;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  R.PSLPInit();
-#endif // INTEL_CUSTOMIZATION
-
-  R.buildTree(Chain);
-  Optional<ArrayRef<unsigned>> Order = R.bestOrder();
-  // TODO: Handle orders of size less than number of elements in the vector.
-  if (Order && Order->size() == Chain.size()) {
-    // TODO: reorder tree nodes without tree rebuilding.
-    SmallVector<Value *, 4> ReorderedOps(Chain.rbegin(), Chain.rend());
-    llvm::transform(*Order, ReorderedOps.begin(),
-                    [Chain](const unsigned Idx) { return Chain[Idx]; });
-    R.buildTree(ReorderedOps);
-  }
-
-#if !INTEL_CUSTOMIZATION
-  if (R.isTreeTinyAndNotFullyVectorizable())
-    return false;
-#endif // INTEL_CUSTOMIZATION
-=======
     LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << i
                       << "\n");
->>>>>>> e511c4b0dff1692c267addf17dce3cebe8f97faa
+
+#if INTEL_CUSTOMIZATION
+    R.PSLPInit();
+#endif // INTEL_CUSTOMIZATION
 
     R.buildTree(Operands);
+#if !INTEL_CUSTOMIZATION
     if (R.isTreeTinyAndNotFullyVectorizable())
       continue;
+#endif // INTEL_CUSTOMIZATION
 
     R.computeMinimumValueSizes();
 
-<<<<<<< HEAD
+    int Cost = R.getTreeCost();
+
 #if INTEL_CUSTOMIZATION
-  // If we found a PSLP candidate, try with PSLP enabled.
-  if (R.FoundPSLPCandidate) {
-    R.undoMultiNodeReordering();
-
-    R.deleteTree();
-    // Try with PSLP enabled.
-    R.DoPSLP = true;
-    R.buildTree(Chain);
-    int PSLPCost = R.getTreeCost();
-    R.DoPSLP = false;
-
-    // If PSLP is worse, then rebuild the tree with plain SLP.
-    if (PSLPCost > Cost) {
+    // If we found a PSLP candidate, try with PSLP enabled.
+    if (R.FoundPSLPCandidate) {
       R.undoMultiNodeReordering();
-      R.PSLPFailureCleanup();
 
       R.deleteTree();
+      // Try with PSLP enabled.
+      R.DoPSLP = true;
+      R.buildTree(Operands);
+      int PSLPCost = R.getTreeCost();
+      R.DoPSLP = false;
 
-      // TODO: Handle orders of size less than number of elements in the vector.
-      if (Order && Order->size() == Chain.size()) {
-        SmallVector<Value *, 4> ReorderedOps(Chain.rbegin(), Chain.rend());
-        llvm::transform(*Order, ReorderedOps.begin(),
-                        [Chain](const unsigned Idx) { return Chain[Idx]; });
-        R.buildTree(ReorderedOps);
-      } else
-        R.buildTree(Chain);
+      // If PSLP is worse, then rebuild the tree with plain SLP.
+      if (PSLPCost > Cost) {
+        R.undoMultiNodeReordering();
+        R.PSLPFailureCleanup();
 
-      int SLPCost = R.getTreeCost();
-      assert(SLPCost == Cost && "Should be equal to original cost");
-      Cost = SLPCost;
-    } else {
-      Cost = PSLPCost;
-      R.PSLPSuccess = true;
+        R.deleteTree();
+
+        R.buildTree(Operands);
+        int SLPCost = R.getTreeCost();
+        assert(SLPCost == Cost && "Should be equal to original cost");
+        Cost = SLPCost;
+      } else {
+        Cost = PSLPCost;
+        R.PSLPSuccess = true;
+      }
     }
-  }
 #endif // INTEL_CUSTOMIZATION
-
-  LLVM_DEBUG(dbgs() << "SLP: Found cost=" << Cost << " for VF=" << VF << "\n");
-
-  if (Cost < -SLPCostThreshold) {
-    LLVM_DEBUG(dbgs() << "SLP: Decided to vectorize cost=" << Cost << "\n");
-=======
-    int Cost = R.getTreeCost();
->>>>>>> e511c4b0dff1692c267addf17dce3cebe8f97faa
 
     LLVM_DEBUG(dbgs() << "SLP: Found cost=" << Cost << " for VF=" << VF
                       << "\n");
@@ -8854,17 +8759,6 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 
       using namespace ore;
 
-<<<<<<< HEAD
-    R.vectorizeTree();
-
-#if INTEL_CUSTOMIZATION
-    R.cleanupMultiNodeReordering();
-    R.PSLPSuccessCleanup();
-    return true;
-  } else {
-    R.undoMultiNodeReordering();
-    R.PSLPFailureCleanup();
-=======
       R.getORE()->emit(OptimizationRemark(SV_NAME, "StoresVectorized",
                                           cast<StoreInst>(Chain[i]))
                        << "Stores SLP vectorized with cost " << NV("Cost", Cost)
@@ -8876,8 +8770,14 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
       // Move to the next bundle.
       i += VF - 1;
       Changed = true;
+#if INTEL_CUSTOMIZATION
+      R.cleanupMultiNodeReordering();
+      R.PSLPSuccessCleanup();
+    } else {
+      R.undoMultiNodeReordering();
+      R.PSLPFailureCleanup();
     }
->>>>>>> e511c4b0dff1692c267addf17dce3cebe8f97faa
+#endif // INTEL_CUSTOMIZATION
   }
 #endif // INTEL_CUSTOMIZATION
 
