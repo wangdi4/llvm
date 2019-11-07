@@ -603,7 +603,7 @@ bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
 }
 
 void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
-    CallInst *CI, FunctionType *FT, unsigned TargetVL,
+    ArrayRef<Value *> Args, ArrayRef<Type *> NewArgTypes, unsigned TargetVL,
     SmallVectorImpl<Value *> &NewArgs, Instruction *InsertPt) {
 
   // This function builds a new argument list for the svml function call by
@@ -611,16 +611,16 @@ void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
   // low order elements into the upper part of a new vector register. If the
   // argument type is already legal, then just insert it as is in the arg list.
 
-  for (unsigned I = 0; I < FT->getNumParams(); ++I) {
+  for (unsigned I = 0; I < NewArgTypes.size(); ++I) {
 
     // Type of the parameter on the math lib call, which can be driven by the
     // user specifying an explicit vectorlength.
-    Value *NewArg = CI->getArgOperand(I);
+    Value *NewArg = Args[I];
     VectorType *VecArgType = cast<VectorType>(NewArg->getType());
 
     // The type of the parameter if using the full register specified through
     // legalization.
-    VectorType *LegalVecArgType = cast<VectorType>(FT->getParamType(I));
+    VectorType *LegalVecArgType = cast<VectorType>(NewArgTypes[I]);
 
     unsigned NumElems = VecArgType->getNumElements();
     unsigned LegalNumElems = LegalVecArgType->getNumElements();
@@ -649,8 +649,8 @@ void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
       // instruction as the new svml call argument.
       Value *Undef = UndefValue::get(VecArgType);
       Value *Mask = ConstantVector::get(Splat);
-      ShuffleVectorInst *ShuffleInst = new ShuffleVectorInst(
-          CI->getArgOperand(I), Undef, Mask, "shuffle.dup");
+      ShuffleVectorInst *ShuffleInst =
+          new ShuffleVectorInst(NewArg, Undef, Mask, "shuffle.dup");
       ShuffleInst->insertBefore(InsertPt);
       NewArg = ShuffleInst;
     }
@@ -900,6 +900,163 @@ static Instruction *findExtract(Instruction *I, unsigned Idx) {
   return nullptr;
 }
 
+/// Build function name for SVML integer div/rem from opcode, scalar type and
+/// vector length information. Requires input to be legal.
+static std::string getSVMLIDivOrRemFuncName(Instruction::BinaryOps Opcode,
+                                            VectorType *Ty) {
+  unsigned ScalarSize = Ty->getScalarSizeInBits();
+
+  assert((ScalarSize == 8 || ScalarSize == 16 || ScalarSize == 32 ||
+          ScalarSize == 64) &&
+         "integer must be 8/16/32/64 wide");
+  assert((Opcode == Instruction::UDiv || Opcode == Instruction::URem ||
+          Opcode == Instruction::SDiv || Opcode == Instruction::SRem) &&
+         "Opcode must be udiv/urem/sdiv/srem");
+
+  std::string Result = "__svml_";
+
+  Result +=
+      (Opcode == Instruction::UDiv || Opcode == Instruction::URem) ? 'u' : 'i';
+
+  if (ScalarSize != 32)
+    Result += std::to_string(ScalarSize);
+
+  Result += (Opcode == Instruction::UDiv || Opcode == Instruction::SDiv)
+                ? "div"
+                : "rem";
+
+  Result += std::to_string(Ty->getNumElements());
+  return Result;
+}
+
+CallInst *
+MapIntrinToImlImpl::generateSVMLIDivOrRemCall(Instruction::BinaryOps Opcode,
+                                          Value *V0, Value *V1) {
+  Type *Ty = V0->getType();
+
+  assert(Ty->isVectorTy() && Ty->getVectorElementType()->isIntegerTy() &&
+         "SVML integer div/rem only works for integer vectors");
+  assert(V0->getType() == V1->getType() &&
+         "operands of div/rem must have the same type");
+
+  std::string FuncName = getSVMLIDivOrRemFuncName(Opcode, cast<VectorType>(Ty));
+  FunctionCallee F = M->getOrInsertFunction(FuncName, Ty, Ty, Ty);
+  CallInst *CI = CallInst::Create(F, {V0, V1});
+  CI->setCallingConv(CallingConv::SVML);
+
+  return CI;
+}
+
+bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
+    TargetTransformInfo *TTI, Function &F) {
+  bool Dirty = false; // LLVM IR not yet modified
+  // Will be populated with the integer div/rem instructions that will be
+  // replaced with legalized/refined svml calls.
+  SmallVector<Instruction *, 4> InstToRemove;
+
+  for (auto &I : instructions(F)) {
+    auto Opcode = I.getOpcode();
+    // Only int8/16/32/64 vector udiv/sdiv/urem/srem instructions are converted
+    // to SVML call
+    if (Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
+        Opcode == Instruction::URem || Opcode == Instruction::SRem) {
+      VectorType *VecTy = dyn_cast<VectorType>(I.getType());
+      unsigned ScalarBitWidth = I.getType()->getScalarSizeInBits();
+      if (!(VecTy && (ScalarBitWidth == 8 || ScalarBitWidth == 16 ||
+                      ScalarBitWidth == 32 || ScalarBitWidth == 64)))
+        continue;
+
+      unsigned LogicalVL = VecTy->getNumElements();
+      // Currently we cannot handle non-power-of-2 vectors
+      if (!isPowerOf2_32(LogicalVL) || LogicalVL <= 2)
+        continue;
+
+      BinaryOperator *const BinOp = cast<BinaryOperator>(&I);
+      if (isa<Constant>(BinOp->getOperand(1)))
+        continue;
+
+      // Get the number of library calls that will be required, indicated by
+      // NumRet.
+      unsigned TargetVL = 0;
+      unsigned NumRet =
+          calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
+
+      Instruction *Result = BinOp;
+      SmallVector<Value *, 2> Args(BinOp->operands());
+
+      if (NumRet > 1) {
+        // NumRet > 1 means that multiple library calls are required to
+        // support the vector length of the integer division instruction.
+
+        // NewArgs contains the type legalized operands that are split in
+        // splitArgs(). These are the results of shuffle instructions.
+        SmallVector<SmallVector<Value *, 8>, 8> NewArgs;
+        splitArgs(Args, NewArgs, NumRet, TargetVL);
+
+        // Generate SVML call for each part of the split operands
+        SmallVector<Instruction *, 8> WorkList;
+        for (unsigned I = 0; I < NumRet; I++) {
+          for (unsigned J = 0; J < NewArgs[I].size(); J++) {
+            Instruction *ArgInst = dyn_cast<Instruction>(NewArgs[I][J]);
+            assert(ArgInst &&
+                   "Expected arg to be associated with an instruction");
+            ArgInst->insertBefore(BinOp);
+          }
+          CallInst *NewInst = generateSVMLIDivOrRemCall(
+              BinOp->getOpcode(), NewArgs[I][0], NewArgs[I][1]);
+          NewInst->insertBefore(BinOp);
+          WorkList.push_back(NewInst);
+        }
+
+        Instruction *InsertPt = BinOp;
+        Result = combineCallResults(NumRet, WorkList, &InsertPt);
+      } else {
+        VectorType *LegalVecType =
+            VectorType::get(VecTy->getScalarType(), TargetVL);
+        // Type legalization needs to happen for NumRet = 1 when dealing with
+        // less than full vector cases.
+        if (isLessThanFullVector(VecTy, LegalVecType)) {
+          // generateNewArgsFromPartialVectors() duplicates the low elements
+          // into the upper part of the vector so the math library call operates
+          // on safe values. But, the duplicate results are not needed, so
+          // shuffle out the ones we want and then replace the users of the
+          // function call with the shuffle. This work is done via
+          // extractElemsFromVector().
+          SmallVector<Type *, 2> NewArgTypes{LegalVecType, LegalVecType};
+          SmallVector<Value *, 2> NewArgs;
+          generateNewArgsFromPartialVectors(Args, NewArgTypes, TargetVL,
+                                            NewArgs, BinOp);
+          Result = generateSVMLIDivOrRemCall(BinOp->getOpcode(), NewArgs[0],
+                                             NewArgs[1]);
+          Result->insertBefore(BinOp);
+          // Extract the number of elements specified by the partial vector
+          // return type of the call (indicated by LogicalVL). The type of
+          // Result will indicate the size of the vector extracted from.
+          // Start extracting from position 0.
+          Result = extractElemsFromVector(Result, 0, LogicalVL);
+        } else {
+          // The disvision is operating on full vector, so just create a call
+          // directly from its operands
+          Result =
+              generateSVMLIDivOrRemCall(BinOp->getOpcode(), Args[0], Args[1]);
+        }
+        Result->insertBefore(BinOp);
+      }
+
+      BinOp->replaceAllUsesWith(Result);
+      InstToRemove.push_back(BinOp);
+      Dirty = true;
+    }
+  }
+
+  // Remove the old integer divisions since they have been replaced with the
+  // legalized library calls.
+  for (auto *Inst : InstToRemove)
+    Inst->eraseFromParent();
+
+  return Dirty;
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
@@ -949,6 +1106,17 @@ bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI) {
   // 2) A candidate vector math call is found, is not replaced by an svml
   //    variant, but is scalarized.
   bool Dirty = false; // LLVM IR not yet modified
+
+  // First convert some of vector integer divisions to SVML calls (otherwise
+  // they'll likely be serialized and it hurts performance)
+  // OpenCL CPU RT uses an alternative version of SVML and is incompatible
+  // with the interface we're assuming, so vector idiv transformation is
+  // disabled when generating code for OpenCL.
+  // FIXME: Currently only SVML is supported for vector idiv transformation.
+  // It should only be done when using SVML.
+  bool isOCL = M->getNamedMetadata("opencl.ocl.version") != nullptr;
+  if (!isOCL)
+    Dirty |= replaceVectorIDivAndRemWithSVMLCall(TTI, F);
 
   // Begin searching for calls that are candidates for legalization and/or
   // refinement based on IMF attributes attached to the call.
@@ -1185,7 +1353,8 @@ bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI) {
         // %3 = bitcast float* %2 to <2 x float>*
         // store <2 x float> %part, <2 x float>* %3, align 4
         SmallVector<Value *, 8> NewArgs;
-        generateNewArgsFromPartialVectors(CI, FT, TargetVL, NewArgs,
+        SmallVector<Value *, 8> Args(CI->args());
+        generateNewArgsFromPartialVectors(Args, FT->params(), TargetVL, NewArgs,
                                           InsertPt);
 
         CallInst *NewCI = CallInst::Create(FCache, NewArgs, "vcall");
