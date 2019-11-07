@@ -2801,6 +2801,473 @@ _mm256_mask_permutexvar_epi16 (__m256i __W, __mmask16 __M, __m256i __A,
                                   (__v16hi)_mm256_dbsad_epu8((A), (B), (imm)), \
                                   (__v16hi)_mm256_setzero_si256())
 
+/* INTEL_CUSTOMIZATION */
+/* Vector-reduction arithmetic accepts vectors as inputs and produces scalars as
+ * outputs. This class of vector operation forms the basis of many scientific
+ * computations. In vector-reduction arithmetic, the evaluation off is
+ * independent of the order of the input elements of V.
+
+ * Used bisection method. At each step, we partition the vector with previous
+ * step in half, and the operation is performed on its two halves.
+ * This takes log2(n) steps where n is the number of elements in the vector.
+ */
+
+#define _mm_mask_reduce_operator(op) \
+  __v8hu __t1 = (__v8hu)__W; \
+  __v8hu __t2 = __builtin_shufflevector(__t1, __t1, 4, 5, 6, 7, 4, 5, 6, 7); \
+  __v8hu __t3 = __t1 op __t2; \
+  __v8hu __t4 = __builtin_shufflevector(__t3, __t3, 2, 3, 2, 3, 4, 5, 6, 7); \
+  __v8hu __t5 = __t3 op __t4; \
+  __v8hu __t6 = __builtin_shufflevector(__t5, __t5, 1, 1, 2, 3, 4, 5, 6, 7); \
+  __v8hu __t7 = __t5 op __t6; \
+  return __t7[0]
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_reduce_add_epi16(__m128i __W) {
+  _mm_mask_reduce_operator(+);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_reduce_mul_epi16(__m128i __W) {
+  _mm_mask_reduce_operator(*);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_reduce_and_epi16(__m128i __W) {
+  _mm_mask_reduce_operator(&);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_reduce_or_epi16(__m128i __W) {
+  _mm_mask_reduce_operator(|);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_add_epi16( __mmask8 __M, __m128i __W) {
+  __W = _mm_maskz_mov_epi16(__M, __W);
+  _mm_mask_reduce_operator(+);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_mul_epi16( __mmask8 __M, __m128i __W) {
+  __W = _mm_mask_mov_epi16(_mm_set1_epi16(1), __M, __W);
+  _mm_mask_reduce_operator(*);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_and_epi16( __mmask8 __M, __m128i __W) {
+  __W = _mm_mask_mov_epi16(_mm_set1_epi16(-1), __M, __W);
+  _mm_mask_reduce_operator(&);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_or_epi16(__mmask8 __M, __m128i __W) {
+  __W = _mm_maskz_mov_epi16(__M, __W);
+  _mm_mask_reduce_operator(|);
+}
+#undef _mm_mask_reduce_operator
+
+#define _mm_mask_reduce_operator(op) \
+  __m128i __t1 = (__m128i)__builtin_shufflevector((__v8hi)__V, (__v8hi)__V, 4, 5, 6, 7, 4, 5, 6, 7); \
+  __m128i __t2 = _mm_##op(__V, __t1); \
+  __m128i __t3 = (__m128i)__builtin_shufflevector((__v8hi)__t2, (__v8hi)__t2, 2, 3, 2, 3, 4, 5, 6, 7); \
+  __m128i __t4 = _mm_##op(__t2, __t3); \
+  __m128i __t5 = (__m128i)__builtin_shufflevector((__v8hi)__t4, (__v8hi)__t4, 1, 1, 2, 3, 4, 5, 6, 7); \
+  __v8hi __t6 = (__v8hi)_mm_##op(__t4, __t5); \
+  return __t6[0]
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_reduce_max_epi16(__m128i __V) {
+  _mm_mask_reduce_operator(max_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS128
+_mm_reduce_max_epu16(__m128i __V) {
+  _mm_mask_reduce_operator(max_epu16);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_reduce_min_epi16(__m128i __V) {
+  _mm_mask_reduce_operator(min_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS128
+_mm_reduce_min_epu16(__m128i __V) {
+  _mm_mask_reduce_operator(min_epu16);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_max_epi16(__mmask16 __M, __m128i __V) {
+  __V = _mm_mask_mov_epi16(_mm_set1_epi16(-32767-1), __M, __V);
+  _mm_mask_reduce_operator(max_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_max_epu16(__mmask16 __M, __m128i __V) {
+  __V = _mm_maskz_mov_epi16(__M, __V);
+  _mm_mask_reduce_operator(max_epu16);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_min_epi16(__mmask16 __M, __m128i __V) {
+  __V = _mm_mask_mov_epi16(_mm_set1_epi16(32767), __M, __V);
+  _mm_mask_reduce_operator(min_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_min_epu16(__mmask16 __M, __m128i __V) {
+  __V = _mm_mask_mov_epi16(_mm_set1_epi16(-1), __M, __V);
+  _mm_mask_reduce_operator(min_epu16);
+}
+#undef _mm_mask_reduce_operator
+
+#define _mm256_mask_reduce_operator(op) \
+  __v8hu __t1 = (__v8hu)_mm256_extracti128_si256(__W, 0); \
+  __v8hu __t2 = (__v8hu)_mm256_extracti128_si256(__W, 1); \
+  __v8hu __t3 = __t1 op __t2; \
+  __v8hu __t4 = __builtin_shufflevector(__t1, __t1, 4, 5, 6, 7, 4, 5, 6, 7); \
+  __v8hu __t5 = __t3 op __t4; \
+  __v8hu __t6 = __builtin_shufflevector(__t3, __t3, 2, 3, 2, 3, 4, 5, 6, 7); \
+  __v8hu __t7 = __t5 op __t6; \
+  __v8hu __t8 = __builtin_shufflevector(__t5, __t5, 1, 1, 2, 3, 4, 5, 6, 7); \
+  __v8hu __t9 = __t7 op __t8; \
+  return __t9[0]
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_reduce_add_epi16(__m256i __W) {
+  _mm256_mask_reduce_operator(+);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_reduce_mul_epi16(__m256i __W) {
+  _mm256_mask_reduce_operator(*);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_reduce_and_epi16(__m256i __W) {
+  _mm256_mask_reduce_operator(&);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_reduce_or_epi16(__m256i __W) {
+  _mm256_mask_reduce_operator(|);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_add_epi16( __mmask16 __M, __m256i __W) {
+  __W = _mm256_maskz_mov_epi16(__M, __W);
+  _mm256_mask_reduce_operator(+);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_mul_epi16( __mmask16 __M, __m256i __W) {
+  __W = _mm256_mask_mov_epi16(_mm256_set1_epi16(1), __M, __W);
+  _mm256_mask_reduce_operator(*);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_and_epi16( __mmask16 __M, __m256i __W) {
+  __W = _mm256_mask_mov_epi16(_mm256_set1_epi16(-1), __M, __W);
+  _mm256_mask_reduce_operator(&);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_or_epi16(__mmask16 __M, __m256i __W) {
+  __W = _mm256_maskz_mov_epi16(__M, __W);
+  _mm256_mask_reduce_operator(|);
+}
+#undef _mm256_mask_reduce_operator
+
+#define _mm256_mask_reduce_operator(op) \
+  __m128i __t1 = _mm256_extracti128_si256(__V, 0); \
+  __m128i __t2 = _mm256_extracti128_si256(__V, 1); \
+  __m128i __t3 = _mm_##op(__t1, __t2); \
+  __m128i __t4 = (__m128i)__builtin_shufflevector((__v8hi)__t3, (__v8hi)__t3, 4, 5, 6, 7, 4, 5, 6, 7); \
+  __m128i __t5 = _mm_##op(__t3, __t4); \
+  __m128i __t6 = (__m128i)__builtin_shufflevector((__v8hi)__t5, (__v8hi)__t5, 2, 3, 2, 3, 4, 5, 6, 7); \
+  __m128i __t7 = _mm_##op(__t5, __t6); \
+  __m128i __t8 = (__m128i)__builtin_shufflevector((__v8hi)__t7, (__v8hi)__t7, 1, 1, 2, 3, 4, 5, 6, 7); \
+  __v8hi __t9 = (__v8hi)_mm_##op(__t7, __t8); \
+  return __t9[0]
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_reduce_max_epi16(__m256i __V) {
+  _mm256_mask_reduce_operator(max_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS256
+_mm256_reduce_max_epu16(__m256i __V) {
+  _mm256_mask_reduce_operator(max_epu16);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_reduce_min_epi16(__m256i __V) {
+  _mm256_mask_reduce_operator(min_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS256
+_mm256_reduce_min_epu16(__m256i __V) {
+  _mm256_mask_reduce_operator(min_epu16);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_max_epi16(__mmask16 __M, __m256i __V) {
+  __V = _mm256_mask_mov_epi16(_mm256_set1_epi16(-32767-1), __M, __V);
+  _mm256_mask_reduce_operator(max_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_max_epu16(__mmask16 __M, __m256i __V) {
+  __V = _mm256_maskz_mov_epi16(__M, __V);
+  _mm256_mask_reduce_operator(max_epu16);
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_min_epi16(__mmask16 __M, __m256i __V) {
+  __V = _mm256_mask_mov_epi16(_mm256_set1_epi16(32767), __M, __V);
+  _mm256_mask_reduce_operator(min_epi16);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_min_epu16(__mmask16 __M, __m256i __V) {
+  __V = _mm256_mask_mov_epi16(_mm256_set1_epi16(-1), __M, __V);
+  _mm256_mask_reduce_operator(min_epu16);
+}
+#undef _mm256_mask_reduce_operator
+
+#define _mm_mask_reduce_operator(op) \
+  __v16qu __t1 = (__v16qu)__W; \
+  __v16qu __t2 = __builtin_shufflevector(__t1, __t1, 8, 9, 10, 11, 12, 13, 14, 15, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t3 = __t1 op __t2; \
+  __v16qu __t4 = __builtin_shufflevector(__t3, __t3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t5 = __t3 op __t4; \
+  __v16qu __t6 = __builtin_shufflevector(__t5, __t5, 2, 3, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t7 = __t5 op __t6; \
+  __v16qu __t8 = __builtin_shufflevector(__t5, __t5, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t9 = __t7 op __t8; \
+  return __t9[0]
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_reduce_add_epi8(__m128i __W) {
+  _mm_mask_reduce_operator(+);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_reduce_mul_epi8(__m128i __W) {
+  _mm_mask_reduce_operator(*);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_reduce_and_epi8(__m128i __W) {
+  _mm_mask_reduce_operator(&);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_reduce_or_epi8(__m128i __W) {
+  _mm_mask_reduce_operator(|);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_add_epi8( __mmask16 __M, __m128i __W) {
+  __W = _mm_maskz_mov_epi8(__M, __W);
+  _mm_mask_reduce_operator(+);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_mul_epi8( __mmask16 __M, __m128i __W) {
+  __W = _mm_mask_mov_epi8(_mm_set1_epi8(1), __M, __W);
+  _mm_mask_reduce_operator(*);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_and_epi8( __mmask16 __M, __m128i __W) {
+  __W = _mm_mask_mov_epi8(_mm_set1_epi8(-1), __M, __W);
+  _mm_mask_reduce_operator(&);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_or_epi8(__mmask16 __M, __m128i __W) {
+  __W = _mm_maskz_mov_epi8(__M, __W);
+  _mm_mask_reduce_operator(|);
+}
+#undef _mm_mask_reduce_operator
+
+#define _mm_mask_reduce_operator(op) \
+  __m128i __t1 = (__m128i)__builtin_shufflevector((__v16qi)__V, (__v16qi)__V, 8, 9, 10, 11, 12, 13, 14, 15, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __m128i __t2 = _mm_##op(__V, __t1); \
+  __m128i __t3 = (__m128i)__builtin_shufflevector((__v16qi)__t2, (__v16qi)__t2, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __m128i __t4 = _mm_##op(__t2, __t3); \
+  __m128i __t5 = (__m128i)__builtin_shufflevector((__v16qi)__t4, (__v16qi)__t4, 2, 3, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __m128i __t6 = _mm_##op(__t4, __t5); \
+  __m128i __t7 = (__m128i)__builtin_shufflevector((__v16qi)__t6, (__v16qi)__t6, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qi __t8 = (__v16qi)_mm_##op(__t6, __t7); \
+  return __t8[0]
+
+static __inline__ signed char __DEFAULT_FN_ATTRS128
+_mm_reduce_max_epi8(__m128i __V) {
+  _mm_mask_reduce_operator(max_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS128
+_mm_reduce_max_epu8(__m128i __V) {
+  _mm_mask_reduce_operator(max_epu8);
+}
+
+static __inline__ signed char __DEFAULT_FN_ATTRS128
+_mm_reduce_min_epi8(__m128i __V) {
+  _mm_mask_reduce_operator(min_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS128
+_mm_reduce_min_epu8(__m128i __V) {
+  _mm_mask_reduce_operator(min_epu8);
+}
+
+static __inline__ signed char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_max_epi8(__mmask16 __M, __m128i __V) {
+  __V = _mm_mask_mov_epi8(_mm_set1_epi8(-127-1), __M, __V);
+  _mm_mask_reduce_operator(max_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_max_epu8(__mmask16 __M, __m128i __V) {
+  __V = _mm_maskz_mov_epi8(__M, __V);
+  _mm_mask_reduce_operator(max_epu8);
+}
+
+static __inline__ signed char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_min_epi8(__mmask16 __M, __m128i __V) {
+  __V = _mm_mask_mov_epi8(_mm_set1_epi8(127), __M, __V);
+  _mm_mask_reduce_operator(min_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS128
+_mm_mask_reduce_min_epu8(__mmask16 __M, __m128i __V) {
+  __V = _mm_mask_mov_epi8(_mm_set1_epi8(-1), __M, __V);
+  _mm_mask_reduce_operator(min_epu8);
+}
+#undef _mm_mask_reduce_operator
+
+#define _mm256_mask_reduce_operator(op) \
+  __v16qu __t1 = (__v16qu)_mm256_extracti128_si256(__W, 0); \
+  __v16qu __t2 = (__v16qu)_mm256_extracti128_si256(__W, 1); \
+  __v16qu __t3 = __t1 op __t2; \
+  __v16qu __t4 = __builtin_shufflevector(__t3, __t3, 8, 9, 10, 11, 12, 13, 14, 15, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t5 = __t3 op __t4; \
+  __v16qu __t6 = __builtin_shufflevector(__t5, __t5, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t7 = __t5 op __t6; \
+  __v16qu __t8 = __builtin_shufflevector(__t7, __t7, 2, 3, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t9 = __t7 op __t8; \
+  __v16qu __t10 = __builtin_shufflevector(__t9, __t9, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t11 = __t9 op __t10; \
+  return __t11[0]
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_reduce_add_epi8(__m256i __W) {
+  _mm256_mask_reduce_operator(+);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_reduce_mul_epi8(__m256i __W) {
+  _mm256_mask_reduce_operator(*);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_reduce_and_epi8(__m256i __W) {
+  _mm256_mask_reduce_operator(&);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_reduce_or_epi8(__m256i __W) {
+  _mm256_mask_reduce_operator(|);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_add_epi8( __mmask32 __M, __m256i __W) {
+  __W = _mm256_maskz_mov_epi8(__M, __W);
+  _mm256_mask_reduce_operator(+);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_mul_epi8( __mmask32 __M, __m256i __W) {
+  __W = _mm256_mask_mov_epi8(_mm256_set1_epi8(1), __M, __W);
+  _mm256_mask_reduce_operator(*);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_and_epi8( __mmask32 __M, __m256i __W) {
+  __W = _mm256_mask_mov_epi8(_mm256_set1_epi8(-1), __M, __W);
+  _mm256_mask_reduce_operator(&);
+}
+
+static __inline__ char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_or_epi8(__mmask32 __M, __m256i __W) {
+  __W = _mm256_maskz_mov_epi8(__M, __W);
+  _mm256_mask_reduce_operator(|);
+}
+#undef _mm256_mask_reduce_operator
+
+#define _mm256_mask_reduce_operator(op) \
+  __m128i __t1 = _mm256_extracti128_si256(__V, 0); \
+  __m128i __t2 = _mm256_extracti128_si256(__V, 1); \
+  __m128i __t3 = _mm_##op(__t1, __t2); \
+  __m128i __t4 = (__m128i)__builtin_shufflevector((__v16qi)__t3, (__v16qi)__t3, 8, 9, 10, 11, 12, 13, 14, 15, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __m128i __t5 = _mm_##op(__t3, __t4); \
+  __m128i __t6 = (__m128i)__builtin_shufflevector((__v16qi)__t5, (__v16qi)__t5, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __m128i __t7 = _mm_##op(__t5, __t6); \
+  __m128i __t8 = (__m128i)__builtin_shufflevector((__v16qi)__t7, (__v16qi)__t5, 2, 3, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __m128i __t9 = _mm_##op(__t7, __t8); \
+  __m128i __t10 = (__m128i)__builtin_shufflevector((__v16qi)__t9, (__v16qi)__t9, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qi __t11 = (__v16qi)_mm_##op(__t9, __t10); \
+  return __t11[0]
+
+static __inline__ signed char __DEFAULT_FN_ATTRS256
+_mm256_reduce_max_epi8(__m256i __V) {
+  _mm256_mask_reduce_operator(max_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS256
+_mm256_reduce_max_epu8(__m256i __V) {
+  _mm256_mask_reduce_operator(max_epu8);
+}
+
+static __inline__ signed char __DEFAULT_FN_ATTRS256
+_mm256_reduce_min_epi8(__m256i __V) {
+  _mm256_mask_reduce_operator(min_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS256
+_mm256_reduce_min_epu8(__m256i __V) {
+  _mm256_mask_reduce_operator(min_epu8);
+}
+
+static __inline__ signed char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_max_epi8(__mmask32 __M, __m256i __V) {
+  __V = _mm256_mask_mov_epi8(_mm256_set1_epi8(-127-1), __M, __V);
+  _mm256_mask_reduce_operator(max_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_max_epu8(__mmask32 __M, __m256i __V) {
+  __V = _mm256_maskz_mov_epi8(__M, __V);
+  _mm256_mask_reduce_operator(max_epu8);
+}
+
+static __inline__ signed char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_min_epi8(__mmask32 __M, __m256i __V) {
+  __V = _mm256_mask_mov_epi8(_mm256_set1_epi8(127), __M, __V);
+  _mm256_mask_reduce_operator(min_epi8);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS256
+_mm256_mask_reduce_min_epu8(__mmask32 __M, __m256i __V) {
+  __V = _mm256_mask_mov_epi8(_mm256_set1_epi8(-1), __M, __V);
+  _mm256_mask_reduce_operator(min_epu8);
+}
+#undef _mm256_mask_reduce_operator
+
+/* end INTEL_CUSTOMIZATION */
+
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 

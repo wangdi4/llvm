@@ -9,7 +9,6 @@
 ; CHECK: call{{.*}}omp.destr{{.*}}class.c
 
 ; CHECK: define{{.*}}DIR.OMP.TASK.
-; CHECK: c1.priv = alloca
 ; CHECK: call{{.*}}def_con{{.*}}class.c
 ; CHECK: OMP.END.TASK.
 ; CHECK: call{{.*}}omp.destr{{.*}}class.c

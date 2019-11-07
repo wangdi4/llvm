@@ -473,7 +473,9 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
         // Convert to a directed edge if there is a directed path.
         Neighbors[NodeV].erase(NodeW);
         Neighbors[NodeW].erase(NodeV);
+
         Successors[NodeV].insert(NodeW);
+        Predecessors[NodeW].insert(NodeV);
       }
 
       Heap.push(NodeV, NodeW, getFuseEdge(NodeV, NodeW).Weight);
@@ -638,7 +640,7 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
   // V - the vertex into which merging is taking place.
   // X - the vertex currently being merged.
 
-  // Update all predecossors of NodeX currently being merged.
+  // Update all predecessors of NodeX currently being merged.
   for (unsigned NodeY : Predecessors[NodeX]) {
     if (Range.count(NodeY)) {
       continue;
