@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32* nocapture %ary) {
 ;  for (i = 0; i < 1024; i += 1) {
-;    t0 = ary[i + 0] + 7;
+;    ary[i + 0] += 7;
 ;  }
 ;
 ; CHECK:       Printing Groups- Total Groups 2
@@ -22,9 +22,15 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:   #2 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP:%.*]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER]], <i32 7, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP0]], <4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
+; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
+; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <4 x i32>*
+; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[GROUPPTR]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i32> [[GROUPLOAD]], <i32 7, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[MM_VECTORGEP_01:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
+; CHECK-NEXT:    [[GROUPPTR2:%.*]] = bitcast i32* [[MM_VECTORGEP_01]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[TMP0]], <4 x i32>* [[GROUPPTR2]], align 4
+; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

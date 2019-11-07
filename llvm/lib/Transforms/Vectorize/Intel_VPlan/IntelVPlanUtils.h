@@ -73,7 +73,7 @@ inline MemoryLocation getLocation(Instruction *I) {
   return MemoryLocation();
 }
 
-/// \returns true if the instruction is not a volatile or atomic load/store.
+/// \returns true if the instruction is a volatile or atomic load/store.
 inline bool isVolatileOrAtomic(Instruction *I) {
   if (LoadInst *LI = dyn_cast<LoadInst>(I))
     return !LI->isSimple();
@@ -81,7 +81,7 @@ inline bool isVolatileOrAtomic(Instruction *I) {
     return !SI->isSimple();
   if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I))
     return MI->isVolatile();
-  return true;
+  return false;
 }
 
 /// \returns true if it is a memory RAW or WAR dependence. This is handy for

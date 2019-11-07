@@ -382,15 +382,26 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   unsigned Count = 0;
 
+  auto getDataTypeForItemInPrivateThunk = [](Item *I) -> Type * {
+    Type *ElementTy = nullptr;
+    Value *NumElements = nullptr;
+    unsigned AddrSpace = 0;
+    getItemInfo(I, ElementTy, NumElements, AddrSpace);
+    if (!NumElements)
+      return ElementTy;
+
+    assert(isa<ConstantInt>(NumElements) &&
+           "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");
+    uint64_t NE = cast<ConstantInt>(NumElements)->getZExtValue();
+    return ArrayType::get(ElementTy, NE);
+  };
+
   FirstprivateClause &FprivClause = W->getFpriv();
   if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-      Value *Orig = FprivI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect first private "
-                   "pointer argument");
-      KmpPrivatesIndices.push_back(PT->getElementType());
-      SharedIndices.push_back(PT->getElementType());
+      Type *LocalDataType = getDataTypeForItemInPrivateThunk(FprivI);
+      KmpPrivatesIndices.push_back(LocalDataType);
+      SharedIndices.push_back(LocalDataType);
       FprivI->setThunkIdx(Count++);
     }
   }
@@ -399,22 +410,12 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
-        Value *Orig = LprivI->getOrig();
-        Type *ElementTy = nullptr;
-        Value *NumElements = nullptr;
-        unsigned AddrSpace = 0;
-        getItemInfo(LprivI, ElementTy, NumElements, AddrSpace);
-        if (NumElements) {
-          assert(isa<ConstantInt>(NumElements) &&
-                 "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");
-          uint64_t NE = cast<ConstantInt>(NumElements)->getZExtValue();
-          ElementTy = ArrayType::get(ElementTy, NE);
-        }
+        Type *LocalDataType = getDataTypeForItemInPrivateThunk(LprivI);
+        KmpPrivatesIndices.push_back(LocalDataType);
 
-        auto PT = dyn_cast<PointerType>(Orig->getType());
+        auto PT = dyn_cast<PointerType>(LprivI->getOrig()->getType());
         assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
                      "pointer argument");
-        KmpPrivatesIndices.push_back(ElementTy);
         SharedIndices.push_back(PT);
         LprivI->setThunkIdx(Count++);
       }
@@ -425,12 +426,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   PrivateClause &PrivClause = W->getPriv();
   if (!PrivClause.empty()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
-      Value *Orig = PrivI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(
-          PT &&
-          "genKmpTaskTWithPrivatesRecordDecl: Expect private pointer argument");
-      KmpPrivatesIndices.push_back(PT->getElementType());
+      Type *LocalDataType = getDataTypeForItemInPrivateThunk(PrivI);
+      KmpPrivatesIndices.push_back(LocalDataType);
       PrivI->setThunkIdx(Count++);
     }
   }

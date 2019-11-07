@@ -116,8 +116,6 @@ class Item
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
                      // the offset into the thunk for the new var
     VAR   OrigGEP;   // TASK only: offset in thunk for the addr of orig var
-    VAR   NewOnTaskStack;  // TASK only: stack copy of a privatized var; this
-                           // is for optimization and may be null if unused
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
@@ -135,15 +133,14 @@ class Item
 #else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
-          NewOnTaskStack(nullptr), IsByRef(false), IsNonPod(false),
-          IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
-          NoAlias(nullptr), Kind(K) {}
+          IsByRef(false), IsNonPod(false), IsVla(false), VlaSize(nullptr),
+          ThunkIdx(-1), AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
+    }
     virtual ~Item() = default;
 
     void setOrig(VAR V)           { OrigItem = V;       }
     void setNew(VAR V)            { NewItem = V;        }
     void setOrigGEP(VAR V)        { OrigGEP = V;        }
-    void setNewOnTaskStack(VAR V) { NewOnTaskStack = V; }
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
@@ -155,7 +152,6 @@ class Item
     VAR getOrig()           const { return OrigItem;       }
     VAR getNew()            const { return NewItem;        }
     VAR getOrigGEP()        const { return OrigGEP;        }
-    VAR getNewOnTaskStack() const { return NewOnTaskStack; }
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
     bool getIsVla()         const { return IsVla;          }

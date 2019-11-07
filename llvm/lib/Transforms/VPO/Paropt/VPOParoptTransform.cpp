@@ -3283,8 +3283,6 @@ VPOParoptTransform::getClauseItemReplacementValue(Item *ClauseI,
   if (IsArraySection)
     ReplacementVal = VPOParoptTransform::getArrSecReductionItemReplacementValue(
         *(cast<ReductionItem>(ClauseI)), InsertPt);
-  else if (ClauseI->getNewOnTaskStack())
-    ReplacementVal = ClauseI->getNewOnTaskStack();
   else
     ReplacementVal = ClauseI->getNew();
 
@@ -3783,14 +3781,16 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // If the item was lastprivate, we should use the lastprivate
         // new version as the item's storage.
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
-        if (!ForTask) {
+        if (!ForTask)
           NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
-          FprivI->setNewOnTaskStack(NewPrivInst);
-        } else
+        else {
           NewPrivInst = FprivI->getNew(); // Use the task thunk directly
+          InsertPt =
+              cast<Instruction>(NewPrivInst)->getParent()->getTerminator();
+        }
+        FprivI->setNew(NewPrivInst);
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
-        FprivI->setNew(NewPrivInst);
 #if INTEL_CUSTOMIZATION
         if (FprivI->getIsF90DopeVector())
           VPOParoptUtils::genF90DVInitCode(FprivI);
@@ -3861,10 +3861,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // data to the lastprivate new version, which is the version used
         // inside the taskloop.
         createEmptyPrvInitBB(W, PrivInitEntryBB);
-        VPOParoptUtils::genCopyByAddr(LprivI->getNew(), FprivI->getNew(),
-                                      PrivInitEntryBB->getTerminator(),
-                                      nullptr,
-                                      FprivI->getIsByRef());
+        VPOParoptUtils::genCopyByAddr(
+            LprivI->getNew(), FprivI->getNew(),
+            PrivInitEntryBB->getTerminator(), nullptr,
+            false); // Not Byref. Local copies for both firstprivate and
+                    // lastprivate clauses have the same data type.
       }
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
@@ -4951,29 +4952,22 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
-        // Note: do not hoist the following AllocaInsertPt computation out of
-        // this for-loop. AllocaInsertPt may be a clause directive that is
+        // Note: do not hoist the following InsertPt computation out of
+        // this for-loop. InsertPt may be a clause directive that is
         // removed by genPrivatizationReplacement(), so we need to recompute
-        // AllocaInsertPt at every iteration of this for-loop.
-
-#if INTEL_CUSTOMIZATION
-        // For now, back out this change to AllocaInsertPt until we figure
-        // out why it causes an assert in VPOCodeGen::getVectorPrivateBase
-        // when running run_gf_channels (gridfusion4.3_tuned_channels).
-        //
-        //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
-
-        // TODO: Restructure this code so that the alloca is only done for
-        // non-tasks. We could just use the thunk's private space pointer
-        // directly in the task body.
-#endif // INTEL_CUSTOMIZATION
-        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W);
-        NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv",
-                                             AllocaAddrSpace);
+        // InsertPt at every iteration of this for-loop.
+        Instruction *InsertPt = EntryBB->getFirstNonPHI();
+        if (!ForTask) {
+          auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W);
+          NewPrivInst =
+              genPrivatizationAlloca(PrivI, InsertPt, ".priv", AllocaAddrSpace);
+        } else {
+          NewPrivInst = PrivI->getNew();
+          InsertPt =
+              cast<Instruction>(NewPrivInst)->getParent()->getTerminator();
+        }
         PrivI->setNew(NewPrivInst);
-        Value *ReplacementVal =
-            getClauseItemReplacementValue(PrivI, AllocaInsertPt);
+        Value *ReplacementVal = getClauseItemReplacementValue(PrivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 
         // checks for constructor existence

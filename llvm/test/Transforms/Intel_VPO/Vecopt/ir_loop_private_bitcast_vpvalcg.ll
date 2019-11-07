@@ -6,7 +6,7 @@
 ; private). The test also checks for appropriate arguments to serialized calls using the
 ; privates as arguments and that we do not attempt to setup last value out for the privates.
 ; TODO - The scatters can be replaced with wide stores. This functionality will be added
-; later. We also need to generate a wide load for load from accumulate_grid(DA for bitcasts)
+; later.
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -43,9 +43,11 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[WIDE_LOAD]], <4 x i32*> [[PRIVATE_MEM2_BASE_ADDR]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds float, <4 x float*> [[BROADCAST_SPLAT]], <4 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x float*> [[MM_VECTORGEP]] to <4 x i32*>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP3]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[WIDE_MASKED_GATHER]], <4 x i32*> [[TMP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i32> [[WIDE_MASKED_GATHER]] to <4 x float>
+; CHECK-NEXT:    [[_0:%.*]] = extractelement <4 x i32*> [[TMP3]], i64 0
+; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[_0]] to <4 x i32>*
+; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[GROUPPTR]], align 4
+; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[GROUPLOAD]], <4 x i32*> [[TMP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i32> [[GROUPLOAD]] to <4 x float>
 ; CHECK-NEXT:    [[DOTEXTRACT_3_:%.*]] = extractelement <4 x float> [[TMP4]], i32 3
 ; CHECK-NEXT:    [[DOTEXTRACT_2_:%.*]] = extractelement <4 x float> [[TMP4]], i32 2
 ; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <4 x float> [[TMP4]], i32 1
