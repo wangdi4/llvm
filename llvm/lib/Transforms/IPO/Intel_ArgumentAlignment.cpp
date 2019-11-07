@@ -124,6 +124,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -136,6 +137,9 @@ using namespace llvm;
 // Specify the size of the alignment we are looking for
 static cl::opt<unsigned> IntelArgAlignmentSize("intel-argument-alignment-size",
                                                cl::init(8), cl::ReallyHidden);
+
+// Utilities to handle the argument's analysis
+static IntelArgumentAlignmentUtils ArgUtils;
 
 // Helper class to store the arguments that will be aligned
 class AlignedArgument {
@@ -284,75 +288,6 @@ static bool isValidCompare(Instruction *Inst) {
   return true;
 }
 
-// Return true if traversing from the input value Val we land in
-// the input argument Arg. The traversals between the input Val
-// and Arg are composed only of GEPs and PHI Nodes. All the paths
-// between Val and the arguments must end in Arg, else return false.
-static bool valueRefersToArg(Value *Val, Value *Arg) {
-
-  if (!Val || !Arg)
-    return false;
-
-  Value *CurrVal = Val;
-  std::queue<Value *> ValueQueue;
-  SetVector<Value *> UsedValues;
-
-  UsedValues.insert(CurrVal);
-  ValueQueue.push(CurrVal);
-  bool ArgFound = false;
-
-  while (!ValueQueue.empty()) {
-
-    Value *NewVal = ValueQueue.front();
-    ValueQueue.pop();
-
-    // If we reach a different argument then return false.
-    if (isa<Argument>(NewVal)) {
-      if (NewVal == Arg) {
-        ArgFound = true;
-        continue;
-      }
-      return false;
-    }
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(NewVal)) {
-
-      if (GEP->getNumOperands() != 2)
-        return false;
-
-      // The GEP must be an multiple of 8
-      Type *SourceTy = GEP->getSourceElementType();
-      if (!SourceTy->isIntegerTy(8))
-        return false;
-
-      // We are using an i64 to access the next element
-      Type *EntryTy = GEP->getOperand(1)->getType();
-      if (!EntryTy->isIntegerTy(64))
-        return false;
-
-      Value *Operand = GEP->getOperand(0);
-      if (UsedValues.insert(Operand))
-        ValueQueue.push(Operand);
-    }
-
-    // All the values in a PHI Node must land at the input argument
-    else if (PHINode *PhiInst = dyn_cast<PHINode>(NewVal)) {
-
-      unsigned NumIncomingVals = PhiInst->getNumIncomingValues();
-      for (unsigned Entry = 0; Entry < NumIncomingVals; Entry++) {
-
-        Value *PhiVal = PhiInst->getIncomingValue(Entry);
-        if (PhiVal != CurrVal && UsedValues.insert(PhiVal))
-          ValueQueue.push(PhiVal);
-      }
-    } else {
-      return false;
-    }
-  }
-
-  return ArgFound;
-}
-
 // Return true if the pointer in the input instruction refers to the input
 // argument. Else return false. This function anlayses the following:
 //
@@ -381,7 +316,7 @@ static bool pointerRefersToArg(PtrToIntInst *Inst, Value *Arg) {
 
   Value *CurrVal = Inst->getOperand(0);
 
-  return valueRefersToArg(CurrVal, Arg);
+  return ArgUtils.valueRefersToArg(CurrVal, Arg);
 }
 
 // Traverse through the input Value to check if there is a MOD operation,
@@ -740,7 +675,7 @@ static bool checkRecursiveCall(CallBase *CallSite, Function *Func,
   int ArgNo = Arg->getArgNo();
   Value *CurrVal = CallSite->getArgOperand(ArgNo);
 
-  return valueRefersToArg(CurrVal, Arg);
+  return ArgUtils.valueRefersToArg(CurrVal, Arg);
 }
 
 // Return true if there is a Store instruction that could modify the input

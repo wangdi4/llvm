@@ -18,6 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -30,7 +31,9 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 #include <set>
+#include <queue>
 
 using namespace llvm;
 using namespace PatternMatch;
@@ -47,6 +50,18 @@ static cl::opt<bool> QsortTestInsert("qsort-test-insert",
 
 static cl::opt<bool> QsortTestPivotMovers("qsort-test-pivot-movers",
                                           cl::init(true), cl::ReallyHidden);
+
+static cl::opt<bool> QsortTestMin("qsort-test-min",
+                                   cl::init(true), cl::ReallyHidden);
+
+static cl::opt<bool> QsortTestSwap("qsort-test-swap",
+                                    cl::init(true), cl::ReallyHidden);
+
+static cl::opt<bool> QsortTestRecursion("qsort-test-recursion",
+                                         cl::init(true), cl::ReallyHidden);
+
+// Utilities to handle the argument's analysis
+static IntelArgumentAlignmentUtils ArgUtil;
 
 //
 // Return 'true' if 'V' represents a PHINode and one of its incoming values
@@ -320,33 +335,33 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
 }
 
 //
+// Return a PHINode that represents the Argument 'A' in 'BBstart', if there
+// is one.  For example, in BasicBlock 4, %5 represents argument %1, while %6
+// represents argument %0. Note that the PHINode may merge the argument value
+// with some other value.
+//
+// define internal fastcc void @qsort(i8* %0, i64 %1) unnamed_addr #11 {
+//  %3 = icmp ult i64 %1, 7
+//  br i1 %3, label %4, label %30
+// 4:                                                ; preds = %193, %2
+//  %5 = phi i64 [ %1, %2 ], [ %196, %193 ]
+//  %6 = phi i8* [ %0, %2 ], [ %195, %193 ]
+//
+static Value *findPHINodeArgument(BasicBlock *BBStart, Argument *A) {
+   for (auto &PHIN : BBStart->phis())
+    for (unsigned I = 0; I < PHIN.getNumIncomingValues(); ++I)
+      if (PHIN.getIncomingValue(I) == A)
+        return &PHIN;
+   return nullptr;
+}
+
+//
 // Return the pivot value of the Qsort. The pivot computation begins at
 // 'BBStart'. It must be a pointer to an element of the array whose base is
 // 'ArgArray' and whose size is 'ArgSize'.
 //
 static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
                          Argument *ArgSize) {
-  //
-  // Return a PHINode that represents the Argument 'A' in 'BBstart', if there
-  // is one.  For example, in BasicBlock 4, %5 represents argument %1, while %6
-  // represents argument %0. Note that the PHINode may merge the argument value
-  // with some other value.
-  //
-  // define internal fastcc void @qsort(i8* %0, i64 %1) unnamed_addr #11 {
-  //  %3 = icmp ult i64 %1, 7
-  //  br i1 %3, label %4, label %30
-  // 4:                                                ; preds = %193, %2
-  //  %5 = phi i64 [ %1, %2 ], [ %196, %193 ]
-  //  %6 = phi i8* [ %0, %2 ], [ %195, %193 ]
-  //
-  auto FindPHINodeArgument = [](BasicBlock *BBStart, Argument *A) -> PHINode * {
-    for (auto &PHIN : BBStart->phis())
-      for (unsigned I = 0; I < PHIN.getNumIncomingValues(); ++I)
-        if (PHIN.getIncomingValue(I) == A)
-          return &PHIN;
-     return nullptr;
-  };
-
   //
   // Return a PHINode, to be tested as a validate pivot value. As a heuristic,
   // we use the first PHINode following the series of blocks that compute the
@@ -615,12 +630,12 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
   // Find the PHINode that represents 'ArrayArray' in the main loop of the
   // qsort. The qsort has a main loop because tail recursion elimination has
   // been used to eliminate one of its recursive calls.
-  Value *A = FindPHINodeArgument(BBStart, ArgArray);
+  Value *A = findPHINodeArgument(BBStart, ArgArray);
   if (!A)
     return nullptr;
   // Find the PHINode that represents 'ArraySize' in the main loop of the
   // qsort.
-  Value *N = FindPHINodeArgument(BBStart, ArgSize);
+  Value *N = findPHINodeArgument(BBStart, ArgSize);
   if (!N)
     return nullptr;
   // Find a candidate for the pivot in the qsort.
@@ -689,6 +704,757 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
   LLVM_DEBUG(dbgs() << "QsortRec: " << BBStart->getParent()->getName()
                     << " passed pivot test\n");
   return PivotBase;
+}
+
+// Return the number of MIN operations computed in the input function.
+// This function is looking for the following:
+//
+//    %282 = ptrtoint i8* %229 to i64
+//    %283 = ptrtoint i8* %230 to i64
+//    %284 = sub i64 %282, %283
+//    %285 = ptrtoint i8* %233 to i64
+//    %286 = sub i64 %285, %282
+//    %287 = add i64 %286, -8
+//    %288 = icmp slt i64 %284, %287
+//    %289 = select i1 %288, i64 %284, i64 %287
+//    %290 = icmp eq i64 %289, 0
+//
+// It will look for the Select instruction (%289) and will identify the
+// source PtrToInt instructions for the operands %284 and %287. These are
+// %282, %283 and %285. Then it will check that these instructions actually
+// point to the input ArgArray and they use the ArgSize to access an
+// element in a GEP.
+//
+// The input vector (SizesVector) will be used to store the operands of the
+// Select instructions found. We are going to use them later in the process
+// that counts the recursions. This is because the operands in the Select
+// instructions represent the new sizes that will be used in the recursions.
+static unsigned countMinComputations(Function *F, Argument *ArgArray,
+                             SetVector<Value *> &PointersToArgs,
+                             SmallVector<Value*, 2> &SizesVect) {
+
+  if (!F)
+    return 0;
+
+  // Go through the input basic block and find the Select instruction.
+  // The Block must have one select instruction, else return nullptr.
+  auto FindSelectInst = [](BasicBlock &BB) {
+    SelectInst *SelInst = nullptr;
+
+    for (auto &Inst : BB) {
+      SelectInst *TempSelInst = dyn_cast<SelectInst>(&Inst);
+      if (TempSelInst) {
+        if (SelInst) {
+          SelInst = nullptr;
+          break;
+        }
+        else {
+          SelInst = TempSelInst;
+        }
+      }
+    }
+    return SelInst;
+  };
+
+  // Check that the Select instruction comes from comparing a "less than"
+  // operation between the two operands. For example:
+  //
+  //   %288 = icmp slt i64 %284, %287
+  //   %289 = select i1 %288, i64 %284, i64 %287
+  //   %290 = icmp eq i64 %289, 0
+  //
+  // The input select instruction will be %289. The following function will
+  // check if the operands of the select instruction (%284 and %287) are
+  // used in the same icmp instruction of %288. This basically means a
+  // computation of minimum (if %284 is lower than %287 than choose it,
+  // else take %287). Then, check if the selected instruction is compared
+  // against 0 (%290).
+  auto IsValidSelect = [](SelectInst *SelInst) {
+
+    // Check that the operand 0 is compared using an ICmp whose predicate
+    // is "less than" (%288)
+    ICmpInst *Cmpr = dyn_cast<ICmpInst>(SelInst->getOperand(0));
+    if (!Cmpr || Cmpr->getPredicate() != ICmpInst::ICMP_SLT)
+      return false;
+
+    // The operands of the ICmp (%288) must be the same as the
+    // Select instruction (%284 and %287)
+    if (Cmpr->getOperand(0) != SelInst->getOperand(1) &&
+        Cmpr->getOperand(1) != SelInst->getOperand(2))
+      return false;
+
+    // The next instruction is an ICmp checking if the selected
+    // value is 0 (%290)
+    Instruction *CmpSel = dyn_cast_or_null<Instruction>(
+        SelInst->getNextNonDebugInstruction());
+    if (!CmpSel)
+      return false;
+
+    ICmpInst::Predicate Pred;
+    Value *ICmpLHS = nullptr;
+    if (!match(CmpSel, m_ICmp(Pred, m_Value(ICmpLHS), m_Zero())))
+      return false;
+
+    return ICmpLHS == SelInst;
+  };
+
+  // TODO: For now this function is for testing only. It should be removed
+  // or replaced once the analysis to collect PointersToArgs is done.
+  //
+  // Check that all the operands in the Select instruction are
+  // pointer arithmetic. Also, collect the PtrToInt instructions
+  // related to the pointer arithmetic, later we will prove
+  // that they refer to the array that is being sorted.
+  // Basically, we are looking for this:
+  //
+  //   %282 = ptrtoint i8* %229 to i64
+  //   %283 = ptrtoint i8* %230 to i64
+  //   %284 = sub i64 %282, %283
+  //   %285 = ptrtoint i8* %233 to i64
+  //   %286 = sub i64 %285, %282
+  //   %287 = add i64 %286, -8
+  //   %288 = icmp slt i64 %284, %287
+  //   %289 = select i1 %288, i64 %284, i64 %287
+  //
+  // The operands 1 and 2 in %289 are %284 and %287. %284 is pointer
+  // arithmetic between %282 and %283. Then %287 is an add, but %286 is
+  // another pointer arithmetic between %285 and %282. SetPtr will
+  // collect %282, %283 and %285.
+  auto CollectPtrsToArgs = [](SelectInst *SelInst,
+                              SetVector<PtrToIntInst *> &SetPtr) {
+
+    unsigned NumOperands = SelInst->getNumOperands();
+
+    for (unsigned CurrOperand = 1; CurrOperand < NumOperands; CurrOperand++) {
+      Instruction *Inst =
+          dyn_cast<Instruction>(SelInst->getOperand(CurrOperand));
+
+      if (!Inst) {
+        SetPtr.clear();
+        return;
+      }
+
+      // The add is just basically moving the pointer calculated
+      if (Inst->getOpcode() == Instruction::Add) {
+        // Check that we are moving -8 (the -8 comes from the argument
+        // alignment)
+        ConstantInt *Const = dyn_cast<ConstantInt>(Inst->getOperand(1));
+        if (!Const || Const->getSExtValue() != -8) {
+          SetPtr.clear();
+          return;
+        }
+
+        Inst = dyn_cast<Instruction>(Inst->getOperand(0));
+        if (!Inst) {
+          SetPtr.clear();
+          return;
+        }
+      }
+
+      // Check the subtraction. All the operands must be PtrToInt, or
+      // a PHINode where the incoming values are PtrToInt instructions.
+      if (Inst->getOpcode() == Instruction::Sub) {
+        // Binary operations has only 2 operands
+        for (unsigned Operand = 0; Operand < 2; Operand++) {
+          if (PtrToIntInst *CurrPtr =
+              dyn_cast<PtrToIntInst>(Inst->getOperand(Operand))) {
+            SetPtr.insert(CurrPtr);
+          }
+
+          else if (PHINode *PHI =
+              dyn_cast<PHINode>(Inst->getOperand(Operand))) {
+
+            unsigned NumIncomingValues = PHI->getNumIncomingValues();
+            for (unsigned Entry = 0; Entry < NumIncomingValues; Entry++) {
+              PtrToIntInst *CurrPtr =
+                  dyn_cast<PtrToIntInst>(PHI->getIncomingValue(Entry));
+              if (!CurrPtr) {
+                SetPtr.clear();
+                return;
+              }
+              SetPtr.insert(CurrPtr);
+            }
+          } else {
+            SetPtr.clear();
+            return;
+          }
+        }
+      }
+      // Something else is going on.
+      else {
+        SetPtr.clear();
+        return;
+      }
+    }
+  };
+
+  // TODO: For now this function is for testing only. It should be removed
+  // once we implement the process to identify the pointers to arg.
+  // All PtrToIntInst used in the SelectInst must refer to the beginning of
+  // the array that we are sorting and must use the size to refer data in
+  // the array. Basically, it will use the array and the size to compute
+  // the MIN.
+  auto PtrToIntInstRefersToArgs = [ArgArray](
+      SetVector<PtrToIntInst *> &SetPtr) {
+    if (SetPtr.empty())
+      return false;
+
+    Value *ArgArrValue = cast<Value>(ArgArray);
+
+    for (auto PtrInst : SetPtr) {
+      // If the pointer points directly to the argument then it must be
+      // the array.
+      if (Argument *Arg = dyn_cast<Argument>(PtrInst->getOperand(0))) {
+        if (Arg != ArgArray)
+          return false;
+      }
+
+      // Else, the pointer must get information from the array at position
+      // size
+      else if (!ArgUtil.valueRefersToArg(PtrInst, ArgArrValue))
+        return false;
+    }
+
+    return true;
+  };
+
+  // Return true if the input value is used in a direct call to F.
+  // We will finalize the analysis during the process that count the
+  // numbers of recursive call
+  auto CheckForDirectCall = [F](Value *Operand) {
+    if (!Operand)
+      return false;
+
+    // There is only one user for Operand in this case
+    if (!Operand->hasOneUse())
+      return false;
+
+    CallBase *RecCall = dyn_cast<CallBase>(Operand->user_back());
+
+    if (!RecCall || RecCall->getCalledFunction() != F)
+      return false;
+
+    return true;
+  };
+
+  // Return true if the User of the Value will be a PHINode.
+  // We will finalize the analysis during the process that counts the
+  // number of recursive calls.
+  auto CheckForTailRecursion = [F](Value *Operand) {
+    if (!Operand)
+      return false;
+
+    for (User *User : Operand->users())
+      if (isa<PHINode>(User))
+        return true;
+
+    return false;
+  };
+
+  // Return 0 if the input operand will be used in a the direct recursive call.
+  // Return 1 if the input operand will be used in a PHI Node (tail recursion).
+  // Return -1 if nothing was found.
+  auto OperandUsedInRecursion =
+      [CheckForDirectCall, CheckForTailRecursion](Value *Operand) {
+    if (!Operand)
+      return -1;
+
+    for (User *User : Operand->users()) {
+
+      Value *Val = cast<Value>(User);
+      Value *TempOperand = nullptr;
+      ConstantInt *Const = nullptr;
+      if (!match(Val, m_LShr(m_Value(TempOperand), m_ConstantInt(Const))) ||
+        Const->getZExtValue() != 3)
+        continue;
+
+      if (CheckForDirectCall(Val))
+        return 0;
+
+      if (CheckForTailRecursion(Val))
+        return 1;
+    }
+
+    return -1;
+  };
+
+  unsigned MINCounter = 0;
+
+  // TODO: This is only for testing process. Once the whole qsort
+  // identifier is completed, this part needs to be removed since
+  // PointersToArgs must not be an empty set. The following part
+  // will identify the pointers used in the Select instruction found.
+  bool TestingEnabled = PointersToArgs.size() == 0 && QsortTestMin;
+  if (PointersToArgs.size() == 0 && !TestingEnabled)
+    return false;
+
+  Value *DirectRecCallSize = nullptr;
+  Value *TailRecCallSize = nullptr;
+
+  // Go through each of the basic blocks in the function and check
+  // if there is a computation of MIN
+  for (auto &BB : *F) {
+
+    if (!isa<PtrToIntInst>(BB.getFirstNonPHIOrDbg()))
+      continue;
+
+    if (SelectInst *SelInst = FindSelectInst(BB)) {
+      if (IsValidSelect(SelInst)) {
+
+        SetVector<PtrToIntInst *> SetPtr;
+
+        // TODO: This is only for testing process. This part should
+        // be removed and must be replaced with an analysis which proves
+        // that the operands of the Select instructions come from a pointer
+        // arithmetic operation that uses the Values in PointersToArg.
+        if (TestingEnabled) {
+          CollectPtrsToArgs(SelInst, SetPtr);
+
+          if (SetPtr.empty())
+            continue;
+        } else {
+          return 0;
+        }
+
+        LLVM_DEBUG({
+          dbgs() << "QsortRec: Checking computation of MIN in "
+                 << F->getName() <<"\n";
+          BB.dump();
+        });
+
+        // TODO: This function will be removed once we implement the process
+        // that collects all the pointers to the arg. For now it is just used
+        // as a testing mechanisim to make sure we collected the correct
+        // values in the test case.
+        // All the pointers must refer to the array that is being sorted
+        if (!PtrToIntInstRefersToArgs(SetPtr)) {
+          LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                            << F->getName() << " FAILED Test.\n");
+          continue;
+        }
+
+        // If we need to catch the recursive calls then collect the possible
+        // sizes
+        if (QsortTestRecursion) {
+
+          int Op1Result = OperandUsedInRecursion(SelInst->getOperand(1));
+          int Op2Result = OperandUsedInRecursion(SelInst->getOperand(2));
+
+          // We shouldn't be able to catch any other size used in a recursive
+          // call once all sizes are set
+          if (((Op1Result == 0 || Op2Result == 0) && DirectRecCallSize) ||
+              ((Op1Result == 1 || Op2Result == 1) && TailRecCallSize)) {
+            LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                              << F->getName() << " FAILED Test.\n");
+            return 0;
+          }
+
+          // Direct call site gets the size from operand 2
+          if (!DirectRecCallSize && Op2Result == 0)
+              DirectRecCallSize = SelInst->getOperand(2);
+
+          // Tail recursion gets the size from operand 1
+          else if (!TailRecCallSize && Op1Result == 1)
+              TailRecCallSize = SelInst->getOperand(1);
+
+          if (!DirectRecCallSize && !TailRecCallSize) {
+            LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                              << F->getName() << " FAILED Test.\n");
+            continue;
+          }
+        }
+        LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                          << F->getName() << " PASSED Test.\n");
+
+        MINCounter++;
+      }
+    }
+
+    if (MINCounter > 2)
+      return 0;
+  }
+
+  if (QsortTestRecursion) {
+    if (!DirectRecCallSize || !TailRecCallSize) {
+      LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                        << F->getName() << " FAILED Test.\n");
+      return 0;
+    }
+
+    SizesVect.push_back(DirectRecCallSize);
+    SizesVect.push_back(TailRecCallSize);
+  }
+
+  return MINCounter;
+}
+
+// Return the number of data swaps that are occurring. This function
+// looks for the following:
+//
+//   %300 = phi i64* [ %298, %291 ], [ %306, %299 ]
+//   %301 = phi i64* [ %297, %291 ], [ %305, %299 ]
+//   %303 = load i64, i64* %301, align 8, !tbaa !29
+//   %304 = load i64, i64* %300, align 8, !tbaa !29
+//   store i64 %304, i64* %301, align 8, !tbaa !29
+//   store i64 %303, i64* %300, align 8, !tbaa !29
+//
+// %303 loads from %301 and %304 loads from %300. Then %303 is stored
+// in %300 and %304 is stored in %301. Basically there is a data swap
+// between %300 and %301. Also, it checks that %304 and %303 come from
+// the argument (Arg).
+static unsigned countSwapComputations(Function *F, Argument *Arg) {
+
+  if (!F || !Arg)
+    return false;
+
+  // Collect the stores that are doing the swapping
+  auto FindSwapStores = [](SmallVector<StoreInst *, 2> &StoresVect,
+                           BasicBlock &BB) {
+
+    SmallVector<LoadInst *, 2> LoadsVect;
+
+    // Find the loads
+    for (auto &Inst : BB) {
+
+      // All loads must happen before the stores
+      if (LoadsVect.size() < 2 && isa<StoreInst>(Inst))
+        return false;
+
+      LoadInst *LdInst = dyn_cast<LoadInst>(&Inst);
+
+      // The only user for the load will be a store
+      if (!LdInst)
+        continue;
+
+      if (!LdInst->hasOneUse())
+        return false;
+
+      StoreInst *StrInst = dyn_cast<StoreInst>(LdInst->user_back());
+
+      if (!StrInst)
+        continue;
+
+      if (LoadsVect.size() == 2 || StoresVect.size() == 2)
+        return false;
+
+      LoadsVect.push_back(LdInst);
+      StoresVect.push_back(StrInst);
+    }
+
+    if (LoadsVect.size() != 2 || StoresVect.size() != 2)
+      return false;
+
+    Value *FirstPtr = LoadsVect[0]->getOperand(0);
+    Value *SecondPtr = LoadsVect[1]->getOperand(0);
+
+    // The values in the loads come from a PHINode used in the iteration
+    if (!isa<PHINode>(FirstPtr) || !isa<PHINode>(SecondPtr))
+      return false;
+
+    // Data is being swapped
+    return (StoresVect[0]->getOperand(1) == SecondPtr &&
+            StoresVect[1]->getOperand(1) == FirstPtr);
+  };
+
+  unsigned SwapCounter = 0;
+  Value *ArgValue = cast<Value>(Arg);
+
+  // Go through each of the basic blocks in the function and check
+  // if there is a swap
+  for (auto &BB : *F) {
+
+    if (!isa<PHINode>(&(BB.front())))
+      continue;
+
+    SmallVector<StoreInst *, 2> StoreVect;
+
+    if (!FindSwapStores(StoreVect, BB))
+      continue;
+
+    LLVM_DEBUG({
+      dbgs() << "QsortRec: Checking computation of swap in "
+             << F->getName() <<"\n";
+      BB.dump();
+    });
+
+    // The values that are swapped must come from the same argument
+    Value *FirstVal = StoreVect[0]->getOperand(0);
+    Value *SecondVal = StoreVect[1]->getOperand(0);
+
+    if (ArgUtil.valueRefersToArg(FirstVal, ArgValue) &&
+        ArgUtil.valueRefersToArg(SecondVal, ArgValue)) {
+      SwapCounter++;
+
+      LLVM_DEBUG(dbgs() << "QsortRec: Computation of swap in "
+                 << F->getName() << " PASSED Test.\n");
+    }
+    else {
+      LLVM_DEBUG(dbgs() << "QsortRec: Computation of swap in "
+                        << F->getName() << " FAILED Test.\n");
+    }
+  }
+
+  return SwapCounter;
+}
+
+// Return the number of recursions that could happen in the
+// input function. This function checks both forms of recursion:
+// direct call and implicit recursion. The direct call is found
+// when the function calls itself and uses the same formal
+// argument as an actual argument in the call site. The implicit
+// recursion happens when there is a basic block that jumps to
+// the same block as the entry block, and moves the data in the
+// input argument. The recursions will use the new sizes (SizesVector)
+// as actual arguments. We already proved that these new sizes are
+// related to the array argument and size argument during the computaion
+// of MIN operations.
+static unsigned countRecursions(Function *F, Argument *ArgArr,
+                                Argument *ArgSize,
+                                SmallVector<Value *, 2> &SizesVector) {
+
+  if (!F || !ArgArr || SizesVector.size() != 2)
+    return 0;
+
+  // The new size is a lshr operation over one of the Values we computed
+  // before. Return true if the input Value is one of these sizes.
+  auto IsNewInputSize = [SizesVector](Value *Val, bool IsDirectCall) {
+    if (!Val)
+      return false;
+
+    Value *NewSize = nullptr;
+    ConstantInt *Const = nullptr;
+    if (!match(Val, m_LShr(m_Value(NewSize), m_ConstantInt(Const))) ||
+        Const->getZExtValue() != 3)
+      return false;
+
+    // If it is a direct call, then the recursion must match entry 0
+    if (IsDirectCall)
+      return NewSize == SizesVector[0];
+
+    return NewSize == SizesVector[1];
+
+  };
+
+  // Return the call site that produces the recursive call
+  auto FindRecursiveCall = [F, ArgArr]() {
+    CallBase *RecursiveCall = nullptr;
+
+    for (User *User : F->users()) {
+      CallBase *CurrCall = dyn_cast<CallBase>(User);
+
+      if (!CurrCall)
+        continue;
+
+      Function *Caller = CurrCall->getCaller();
+      // There should be only one recursive call
+      if (F == Caller) {
+        if (RecursiveCall) {
+          RecursiveCall = nullptr;
+          break;
+        }
+        RecursiveCall = CurrCall;
+      }
+    }
+
+    return RecursiveCall;
+  };
+
+  // Return the incoming Value from a PHI Node that is the opposite
+  // of the input Argument. For example:
+  //
+  //   Input: %1
+  //   PHINode: %6 = phi i64 [ %1, %2 ], [ %318, %315 ]
+  //
+  //   Return: %318
+  auto GetIncomingValueFromPHI = [](PHINode *PHI, Argument *Arg) {
+
+    Value *IncomingVal = nullptr;
+
+    if (!Arg)
+      return IncomingVal;
+
+    if (PHI->getNumIncomingValues() != 2)
+      return IncomingVal;
+
+    Value *ArgVal = cast<Value>(Arg);
+
+    if (PHI->getIncomingValue(0) != ArgVal)
+      IncomingVal = PHI->getIncomingValue(0);
+
+    else if (PHI->getIncomingValue(1) != ArgVal)
+      IncomingVal = PHI->getIncomingValue(1);
+
+    return IncomingVal;
+  };
+
+  // Find the instructions that represent the actual arguments in the
+  // tail recursion
+  auto FindTailRecursion = [F, ArgArr, ArgSize, GetIncomingValueFromPHI](
+                           SmallVector<Value *, 2> &ArgsCollected) {
+
+    // Actual arguments
+    Value *ActualArgArr = nullptr;
+    Value *ActualArgSize = nullptr;
+
+    // Find the entry basic block
+    BasicBlock &EntryBB = F->getEntryBlock();
+    BranchInst *EntryBranch =
+      dyn_cast_or_null<BranchInst>(EntryBB.getTerminator());
+
+    if (!EntryBranch)
+      return;
+
+    // All successors to the entry basic block will have the
+    // same predecessors: the entry block and the block that
+    // produces the new arguments for the tail recursion
+    for (auto SuccBB : EntryBranch->successors()) {
+      if (!SuccBB->hasNPredecessors(2))
+        return;
+
+      PHINode *PHIArgArr =
+          dyn_cast<PHINode>(findPHINodeArgument(SuccBB, ArgArr));
+
+      if (!PHIArgArr)
+        return;
+
+      PHINode *PHIArgSize =
+          dyn_cast<PHINode>(findPHINodeArgument(SuccBB, ArgSize));
+
+      if (!PHIArgSize)
+        return;
+
+      // The values for the array and the size are in a PHI node
+      Value *TempActualArr = GetIncomingValueFromPHI(PHIArgArr, ArgArr);
+      Value *TempActualSize = GetIncomingValueFromPHI(PHIArgSize, ArgSize);
+
+      // Nothing was found
+      if (!TempActualArr || !TempActualSize)
+        return;
+
+      // The temporary actual array must be the same as the actual array
+      if (ActualArgArr && ActualArgArr != TempActualArr)
+        return;
+
+      // The temporary actual size must be the same as the actual array
+      if (ActualArgSize && ActualArgSize != TempActualSize)
+        return;
+
+      ActualArgSize = TempActualSize;
+      ActualArgArr = TempActualArr;
+    }
+
+    if (!ActualArgSize || !ActualArgArr)
+      return;
+
+    Instruction *ArrInst = dyn_cast<Instruction>(ActualArgArr);
+    Instruction *SizeInst = dyn_cast<Instruction>(ActualArgSize);
+
+    if (!ArrInst || !SizeInst)
+      return;
+
+    // Basic block that produces the tail recursion
+    BasicBlock *TailBlock = ArrInst->getParent();
+
+    // Both actual arguments must come from the same basic block
+    if (TailBlock != SizeInst->getParent())
+      return;
+
+    BranchInst *TailBranch = dyn_cast<BranchInst>(TailBlock->getTerminator());
+
+    // The block that produces the tail recursion must have the same number
+    // of successors as the entry block
+    if (!TailBranch ||
+        TailBranch->getNumSuccessors() != EntryBranch->getNumSuccessors())
+      return;
+
+    // All successors of the tail branch must be the same as the
+    // entry block
+    for (auto TailSucc : TailBranch->successors())
+      if (TailSucc != EntryBranch->getSuccessor(0) &&
+          TailSucc != EntryBranch->getSuccessor(1))
+        return;
+
+    ArgsCollected.push_back(ActualArgArr);
+    ArgsCollected.push_back(ActualArgSize);
+  };
+
+  BasicBlock &EntryBB = F->getEntryBlock();
+  BranchInst *EntryBranch =
+      dyn_cast_or_null<BranchInst>(EntryBB.getTerminator());
+
+  if (!EntryBranch || EntryBranch->getNumSuccessors() != 2)
+    return 0;
+
+  // One recursion is in form of callsite
+  CallBase *RecursiveCall = FindRecursiveCall();
+
+  if (!RecursiveCall)
+    return 0;
+
+  unsigned ArgArrNo = ArgArr->getArgNo();
+  unsigned ArgSizeNo = ArgSize->getArgNo();
+  unsigned NumRecursions = 0;
+
+  // The actual arguments for the recursive call site must point to the
+  // formal arguments.
+  Value *ActualArgArr = RecursiveCall->getArgOperand(ArgArrNo);
+  Value *ActualArgSize = RecursiveCall->getArgOperand(ArgSizeNo);
+  Value *ArgValue = cast<Value>(ArgArr);
+
+  LLVM_DEBUG({
+    dbgs() << "QsortRec: Recursion candidate in " << F->getName() << "\n\n"
+           << *RecursiveCall << "\n\n";
+  });
+
+  // Check the formal argument against the actual
+  if (!ArgUtil.valueRefersToArg(ActualArgArr, ArgValue) ||
+      !IsNewInputSize(ActualArgSize, true /* IsDirectCall */)) {
+    LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+                      << F->getName() << " FAILED Test.\n");
+    return 0;
+  }
+
+  LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+                    << F->getName() << " PASSED Test.\n");
+
+  NumRecursions++;
+
+  ActualArgArr = nullptr;
+  ActualArgSize = nullptr;
+
+  SmallVector<Value *, 2> ArgsCollected;
+
+  FindTailRecursion(ArgsCollected);
+
+  if (ArgsCollected.size() != 2)
+    return NumRecursions;
+
+  ActualArgArr = ArgsCollected[0];
+  ActualArgSize = ArgsCollected[1];
+
+  if (ActualArgArr && ActualArgSize) {
+
+    LLVM_DEBUG({
+        dbgs() << "QsortRec: Recursion candidate in " << F->getName();
+        Instruction *ArgInst = cast<Instruction>(ActualArgArr);
+        ArgInst->getParent()->dump();
+    });
+
+    // ActualArgArr must point to the input array and
+    // ActualArgSize must be one of the new sizes
+    if (ArgUtil.valueRefersToArg(ActualArgArr, ArgValue) &&
+        IsNewInputSize(ActualArgSize, false /* IsDirectCall */)) {
+      LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+                        << F->getName() << " PASSED Test.\n");
+      NumRecursions++;
+    }
+    else {
+      LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+                        << F->getName() << " FAILED Test.\n");
+    }
+  }
+
+  return NumRecursions;
 }
 
 //
@@ -1184,6 +1950,13 @@ static bool isQsort(Function *F) {
   Argument *ArgSize = F->getArg(1);
   BasicBlock *BBSmallSort = nullptr;
   BasicBlock *BBLargeSort = nullptr;
+
+  // This vector will hold the new sizes for the recursion. Entry 0
+  // represents the size used in the direct recursion and entry 1
+  // represents the size used in the tail recursion.
+  SmallVector<Value *, 2> NewSizesVector;
+  SetVector<Value *> PointersToArg;
+
   // Validate that the code branches to special case (insertion sort) for
   // sufficiently small arrays.
   if (!IsSmallCountTest(F, ArgSize, SmallSize, &BBSmallSort, &BBLargeSort))
@@ -1208,6 +1981,30 @@ static bool isQsort(Function *F) {
     if (PMCount < 2)
       return false;
   }
+
+  // TODO: We need to add an analysis that collects all the pointers to
+  // ArgArray before calling the MIN counter. Basically, we need to proof that
+  // the Values used to compute MIN are ArgArray, or ArgArray + (something
+  // between 8 to ArgSize).
+  if (QsortTestMin) {
+    unsigned MINCount = countMinComputations(F, ArgArray, PointersToArg,
+                                             NewSizesVector);
+    if (MINCount < 2)
+      return false;
+  }
+
+  if (QsortTestSwap) {
+    unsigned SwapCount = countSwapComputations(F, ArgArray);
+    if (SwapCount < 2)
+      return false;
+  }
+
+  if (QsortTestRecursion) {
+    unsigned RecCount = countRecursions(F, ArgArray, ArgSize, NewSizesVector);
+    if (RecCount < 2)
+      return false;
+  }
+
   return true;
 }
 
