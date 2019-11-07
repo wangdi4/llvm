@@ -93,7 +93,8 @@ class MemInitCandidateInfo {
 
 public:
   inline bool isCandidateType(Type *Ty);
-  inline Type *isSimpleDerivedVectorType(Type *STy, int32_t Offset);
+  inline Type *isSimpleVectorType(Type *STy, int32_t Offset,
+                                  bool AllowOnlyDerived);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
   inline void collectFuncs(Module &M,
                            SmallSet<Function *, 32> *MemInitCallSites);
@@ -408,15 +409,17 @@ bool MemInitCandidateInfo::collectTypesIfVectorClass(Type *VTy, int32_t Pos) {
   return true;
 }
 
-// If element type of Ty at Offset is a simple derived class of vector base
-// class, it returns the derived class. Otherwise, returns nullptr.
-// Ex:
+// AllowOnlyDerived is true: If element type of Ty at Offset is a simple derived
+// class of vector base class, it returns the derived class. Otherwise, returns
+// nullptr. AllowOnlyDerived is false: If element type of Ty at Offset is a
+// simple vector class, it returns type of the vector class. Otherwise, it
+// returns nullptr. Ex:
 //  Derived: %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
 //
 //  Base: %"BaseRefVectorOf.5" = type { i32 (...)**, i8, i32, i32,
 //                                      i16**, %"MemoryManager"* }
-Type *MemInitCandidateInfo::isSimpleDerivedVectorType(Type *Ty,
-                                                      int32_t Offset) {
+Type *MemInitCandidateInfo::isSimpleVectorType(Type *Ty, int32_t Offset,
+                                               bool AllowOnlyDerived) {
   auto STy = getValidStructTy(Ty);
   if (!STy)
     return nullptr;
@@ -424,7 +427,7 @@ Type *MemInitCandidateInfo::isSimpleDerivedVectorType(Type *Ty,
   auto *VTy = getPointeeType(FTy);
   if (!VTy)
     return nullptr;
-  if (!getBaseClassOfSimpleDerivedClass(VTy))
+  if (AllowOnlyDerived && !getBaseClassOfSimpleDerivedClass(VTy))
     return nullptr;
   if (!collectTypesIfVectorClass(VTy, Offset))
     return nullptr;

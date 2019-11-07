@@ -88,7 +88,64 @@
 //
 //  Ex: Derived class Constructor just calls base class constructor.
 //
+//  4th transformation: Apply multiple transformations on constructor. Since
+//  the constructor is now localized to %class.FieldValueMap_1, new
+//  transformations like constant propagation can be applied. The main reason to
+//  do the below transformations is to make constructor calls (and the
+//  definition) look like constructor calls of other vector classes in the
+//  candidate structure. These transformations help SOAToAOS to compare
+//  constructor calls of all three vectors easily. Currently, no heuristics are
+//  used to do these transformations. If needed, we could apply these
+//  transformations based on constructor calls of other vector classes in the
+//  candidate struct.
+//
+//   Ex: After CtorWrapper is inlined, the code will look like below.
+//
+//    Ctor(ptr1, 0, true, Mem); // Call 1
+//    Ctor(ptr2, C, true, Mem); // Call 2
+//
+//   Callee (After constant propagation):
+//    Ctor(%0, int %1, bool %2, Mem* %3) {
+//     ...
+//     store true, %flag_field;  // Value is propagated.
+//     ...
+//    }
+//
+//    Now, We know the value of flag (i.e true). Propagate the value
+//    wherever the flag is used in all member functions of vector class.
+//
+//    Once value of the flag is propagated, there is no real use of
+//    the flag any more. It doesn't matter even if we change the value
+//    of flag since there are no uses.
+//
+//    Change the value of the flag from true to false.
+//
+//    Ctor(ptr1, 0, false, Mem); // Call 1
+//    Ctor(ptr2, C, false, Mem); // Call 2
+//
+//    Ctor(%0, int %1, bool %2, Mem* %3) {
+//      ...
+//      store false, %flag_field;  // Value changed from true to false
+//      ...
+//    }
+//
+//    2nd argument of Ctor is dead. Move this dead argument to the end
+//    of the argument list by doing Cloning and then fix callsites.
+//
+//    Ctor(ptr1, 0, Mem, false); // Call 1
+//    Ctor(ptr2, C, Mem, false); // Call 2
+//
+//    Ctor(%0, int %1, Mem* %2, bool %3) {
+//      ...
+//      store false, %flag_field;  // Value changed from true to false
+//      ...
+//    }
+//
+//
 // TODO: Add more examples later.
+//
+// TODO: Need to investigate how the debug info is impacted by this
+// transformation and then fix it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -133,6 +190,10 @@ public:
       delete CandI;
     if (ClassI)
       delete ClassI;
+    if (NewClassI)
+      delete NewClassI;
+    if (NewCandI)
+      delete NewCandI;
   }
   bool isCandidateField(Type *, unsigned);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -166,6 +227,8 @@ public:
   void populateTypes(LLVMContext &, SmallVector<Type *, 6> &);
   void processFunction(Function &);
   void postprocessFunction(Function &, Function &);
+  bool computeUpdatedCandidateInfo();
+  void applyCtorTransformations();
 
 private:
   Module &M;
@@ -177,8 +240,18 @@ private:
   // ClassInfo for the candidate field class.
   ClassInfo *ClassI = nullptr;
 
+  // This ClassInfo is recomputed for the candidate field after 3rd
+  // transformation is done since layout of the types are completely
+  // changed.
+  ClassInfo *NewClassI = nullptr;
+
   // Info of candidate Struct.
   MemInitCandidateInfo *CandI = nullptr;
+
+  // Candidate Struct info is also recomputed for the candidate field after
+  // 3rd transformation is done since layout of the types are completely
+  // changed.
+  MemInitCandidateInfo *NewCandI = nullptr;
 
   // Candidate field class which is derived from BaseTy.
   StructType *DerivedTy = nullptr;
@@ -239,7 +312,7 @@ bool SOAToAOSPrepCandidateInfo::isCandidateField(Type *Ty, unsigned Offset) {
   std::unique_ptr<MemInitCandidateInfo> CandD(new MemInitCandidateInfo());
 
   // Check if it is a candidate field.
-  Type *DTy = CandD->isSimpleDerivedVectorType(Ty, Offset);
+  Type *DTy = CandD->isSimpleVectorType(Ty, Offset, /*AllowOnlyDerived*/ true);
   if (!DTy)
     return false;
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
@@ -553,6 +626,10 @@ void SOAToAOSPrepCandidateInfo::simplifyCalls() {
 
   InlineFunction(NewCtorWrapper);
   InlineFunction(NewDtorWrapper);
+
+  // Remove NewCtorWrapper and NewDtorWrapper that are not used anymore.
+  NewCtorWrapper->eraseFromParent();
+  NewDtorWrapper->eraseFromParent();
 }
 
 // Delete unnecessary BitCastInst. This helps downstream ClassInfo
@@ -839,6 +916,325 @@ void SOAToAOSPrepCandidateInfo::postprocessFunction(Function &F,
   cleanupClonedFunctions(F);
 }
 
+// Compute Candidate/Class Info (NewCandI and  NewClassI)  after applying
+// initial transformations to types and member functions. NewStructTy is
+// used as candidate struct.
+bool SOAToAOSPrepCandidateInfo::computeUpdatedCandidateInfo() {
+
+  int32_t Off = getCandidateField();
+  std::unique_ptr<MemInitCandidateInfo> NewCandD(new MemInitCandidateInfo());
+  if (!NewCandD->isSimpleVectorType(NewStructTy, Off,
+                                    /*AllowOnlyDerived*/ false))
+    return false;
+
+  if (!NewCandD->collectMemberFunctions(M))
+    return false;
+
+  NewCandI = NewCandD.release();
+  std::unique_ptr<ClassInfo> NewClassD(new ClassInfo(
+      DL, DTInfo, GetTLI, GetDT, NewCandI, Off, /*RecognizeAll*/ false));
+
+  if (!NewClassD->analyzeClassFunctions()) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "  2nd time functionality analysis failed.\n";
+    });
+    return false;
+  }
+  NewClassI = NewClassD.release();
+  return true;
+}
+
+// Apply multiple transformations for Ctor.
+void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
+
+  // Returns true if "G" is valid GEP that accesses "FlagField"
+  auto IsFlagGEP = [this](GetElementPtrInst *G, int32_t FlagField) {
+    if (!G || G->getSourceElementType() != NewElemTy)
+      return false;
+    if (G->getNumIndices() != 2)
+      return false;
+    int32_t Idx = cast<ConstantInt>(G->getOperand(2))->getLimitedValue();
+    if (FlagField != Idx)
+      return false;
+    return true;
+  };
+
+  // Returns the store instruction that writes data to Flag field in "F", which
+  // is expected to be a constructor. Only one store instruction to the flag
+  // field is expected.
+  auto GetFlagFieldStoreInstInCtor =
+      [IsFlagGEP](Function *F, int32_t FlagField) -> StoreInst * {
+    StoreInst *SI = nullptr;
+
+    for (Instruction &I : instructions(*F)) {
+      auto *G = dyn_cast<GetElementPtrInst>(&I);
+      if (!IsFlagGEP(G, FlagField))
+        continue;
+      if (!G->hasOneUse())
+        return nullptr;
+      if (SI)
+        return nullptr;
+      SI = dyn_cast<StoreInst>(G->user_back());
+      if (!SI || SI->getPointerOperand() != G)
+        return nullptr;
+    }
+    return SI;
+  };
+
+  // Collect all uses of flag field in all member functions of vector
+  // class except constructor. In constructor, we already proved that
+  // there are no accesses to flag field except the store instruction
+  // to the flag field. Returns false if any other instructions except
+  // reading value of the flag field is noticed in any member function.
+  //
+  auto CollectAllFlagFieldUses =
+      [this, IsFlagGEP](SmallPtrSetImpl<LoadInst *> &FlagUseSet,
+                        int32_t FlagField) {
+        Function *CtorF = NewClassI->getCtorFunction();
+        for (auto *F : NewClassI->field_member_functions()) {
+          if (F == CtorF)
+            continue;
+          for (Instruction &I : instructions(F)) {
+            auto *G = dyn_cast<GetElementPtrInst>(&I);
+            if (!IsFlagGEP(G, FlagField))
+              continue;
+            for (auto *U : G->users()) {
+              auto *LI = dyn_cast<LoadInst>(U);
+              if (!LI)
+                return false;
+              FlagUseSet.insert(LI);
+            }
+          }
+        }
+        return true;
+      };
+
+  // Moves the argument of "F" at "UnusedArgPos" to the end of
+  // argument list. It also fixes all callsites accordingly.
+  //
+  //  Ex:
+  //    Before:
+  //    Ctor(ptr1, 0, false, Mem); // Call 1
+  //    Ctor(ptr2, C, false, Mem); // Call 2
+  //
+  //    Ctor(%0, int %1, Mem* %2, bool %3) {
+  //      ...
+  //      store false, %flag_field;
+  //      ...
+  //    }
+  //
+  //    After:
+  //    Ctor(ptr1, 0, Mem, false); // Call 1
+  //    Ctor(ptr2, C, Mem, false); // Call 2
+  //
+  //    Ctor(%0, int %1, Mem* %2, bool %3) {
+  //      ...
+  //      store false, %flag_field;
+  //      ...
+  //    }
+  //
+  auto CreateNewFunctionWithUnusedArgAsLast = [](Function *F,
+                                                 unsigned UnusedArgPos) {
+    std::vector<Type *> Params;
+    SmallVector<AttributeSet, 8> ArgAttrVec;
+    FunctionType *FTy = F->getFunctionType();
+    const AttributeList &ParamAL = F->getAttributes();
+
+    // Collect Param/Attr for all arguments except for the argument at
+    // UnusedArgPos.
+    unsigned Pos = 0;
+    for (Argument &I : F->args()) {
+      if (UnusedArgPos != Pos) {
+        Params.push_back(I.getType());
+        ArgAttrVec.push_back(ParamAL.getParamAttributes(Pos));
+      }
+      Pos++;
+    }
+    // Place the UnusedArg at the end of the list.
+    Argument *UnusedArg = F->getArg(UnusedArgPos);
+    Params.push_back(UnusedArg->getType());
+    ArgAttrVec.push_back(ParamAL.getParamAttributes(UnusedArgPos));
+
+    // Create New function with the new params/Atts.
+    AttributeList NewParamAL =
+        AttributeList::get(F->getContext(), ParamAL.getFnAttributes(),
+                           ParamAL.getRetAttributes(), ArgAttrVec);
+    FunctionType *NFTy =
+        FunctionType::get(FTy->getReturnType(), Params, FTy->isVarArg());
+    Function *NF =
+        Function::Create(NFTy, F->getLinkage(), F->getAddressSpace());
+    NF->copyAttributesFrom(F);
+    NF->setComdat(F->getComdat());
+    NF->setAttributes(NewParamAL);
+    F->getParent()->getFunctionList().insert(F->getIterator(), NF);
+    NF->takeName(F);
+
+    // Fix callsites accordingly
+    std::vector<Value *> Args;
+    for (auto *U : F->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      assert(CB && "Expected function call");
+      ArgAttrVec.clear();
+      const AttributeList &CallParamAL = CB->getAttributes();
+      // Build Args/Attr list for the call.
+      auto *I = CB->arg_begin();
+      Pos = 0;
+      for (unsigned e = FTy->getNumParams(); Pos != e; ++I, ++Pos) {
+        if (UnusedArgPos != Pos) {
+          Args.push_back(*I);
+          AttributeSet Attrs = CallParamAL.getParamAttributes(Pos);
+          ArgAttrVec.push_back(Attrs);
+        }
+      }
+      // Place the UnusedArg at the end of the list.
+      Args.push_back(CB->getArgOperand(UnusedArgPos));
+      ArgAttrVec.push_back(CallParamAL.getParamAttributes(UnusedArgPos));
+
+      AttributeList NewCallParamAL =
+          AttributeList::get(F->getContext(), CallParamAL.getFnAttributes(),
+                             CallParamAL.getRetAttributes(), ArgAttrVec);
+
+      CallBase *NewCB;
+
+      if (InvokeInst *II = dyn_cast<InvokeInst>(CB)) {
+        NewCB = InvokeInst::Create(NF, II->getNormalDest(), II->getUnwindDest(),
+                                   Args, None, "", CB->getParent());
+      } else {
+        NewCB = CallInst::Create(NFTy, NF, Args, None, "", CB);
+        cast<CallInst>(NewCB)->setTailCallKind(
+            cast<CallInst>(CB)->getTailCallKind());
+      }
+      NewCB->setCallingConv(CB->getCallingConv());
+      NewCB->setAttributes(NewCallParamAL);
+      NewCB->setDebugLoc(CB->getDebugLoc());
+
+      Args.clear();
+      ArgAttrVec.clear();
+
+      // Since the function is constructor, there will be no normal uses
+      // for the call. But, just keep this code if it is used by others
+      // like Metadata.
+      if (!CB->use_empty() || CB->isUsedByMetadata()) {
+        CB->replaceAllUsesWith(NewCB);
+        NewCB->takeName(CB);
+      }
+      CB->eraseFromParent();
+    }
+
+    // Get function body for NF.
+    NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+
+    // Fix argument usages since dead arg is moved at the end of param list,
+    Pos = 0;
+    for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(),
+                                I2 = NF->arg_begin();
+         I != E; ++I, ++Pos) {
+      if (UnusedArgPos != Pos) {
+        I->replaceAllUsesWith(&*I2);
+        I2->takeName(&*I);
+        ++I2;
+      }
+    }
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "  After all Ctor transformations: \n";
+      dbgs() << "   New Ctor:  " << *NF << "\n";
+      dbgs() << "      Callsites of New Ctor: \n";
+      for (auto *U : NF->users())
+        dbgs() << "      " << *U << "\n";
+    });
+  };
+
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                  { dbgs() << "  Transformations 4: \n"; });
+  assert(NewClassI && NewCandI && "Expected updated class info");
+  Function *CtorF = NewClassI->getCtorFunction();
+  assert(CtorF && "Expected valid Ctor");
+  int32_t FlagFI = NewClassI->getFlagField();
+  assert(FlagFI != -1 && "Unexpected Flag field");
+
+  StoreInst *FlagSI = GetFlagFieldStoreInstInCtor(CtorF, FlagFI);
+  assert(FlagSI && "Expected Store for flag field");
+
+  // If non-constant value is stored to flag field, there is nothing
+  // we can do.
+  auto *FlagConst = dyn_cast<Constant>(FlagSI->getValueOperand());
+  if (!FlagConst) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "    Non-Constant value is stored to flag field.\n";
+    });
+    return;
+  }
+
+  // Check if flag field is not modified anywhere except constructor.
+  // Copy-Constructor is not handled for now.
+  SmallPtrSet<LoadInst *, 8> FlagUseSet;
+  if (!CollectAllFlagFieldUses(FlagUseSet, FlagFI)) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "   Not able to handle all uses of flag field\n";
+    });
+    return;
+  }
+  // Replace all uses of flag field with the constant.
+  for (auto *LI : FlagUseSet) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << "  Replacing use of flag: " << *LI << "\n"; });
+    LI->replaceAllUsesWith(FlagConst);
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << "  with constant: " << *FlagConst << "\n"; });
+  }
+  // Delete dead load instructions.
+  // TODO: After replacing uses of load with constant, we have opportunities
+  // to do constant-folding.
+  for (auto *LI : FlagUseSet) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << " Deleting dead uses: " << *LI << "\n"; });
+    RecursivelyDeleteTriviallyDeadInstructions(LI);
+  }
+
+  // Since there are no real uses of the flag field anymore, store zero
+  // value to the flag field.
+  Value *ZeroValue = ConstantInt::get(FlagSI->getOperand(0)->getType(), 0);
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+    dbgs() << "  Flag Store Inst in Ctor before: " << *FlagSI << "\n";
+  });
+  FlagSI->setOperand(0, ZeroValue);
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+    dbgs() << "  Flag Store Inst in Ctor after: " << *FlagSI << "\n";
+  });
+
+  // Detect unused flag fields after constant propagation.
+  unsigned UnusedArgCount = 0;
+  unsigned UnusedArgPos = 0;
+  unsigned Pos = 0;
+  for (auto &Arg : CtorF->args()) {
+    if (Arg.use_empty() && Arg.getType()->isIntegerTy(1)) {
+      UnusedArgPos = Pos;
+      UnusedArgCount++;
+    }
+    Pos++;
+  }
+  if (UnusedArgCount != 1) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << " No unused args found \n"; });
+    return;
+  }
+
+  Value *FalseValue = ConstantInt::getFalse(FlagSI->getContext());
+  for (auto *U : CtorF->users()) {
+    auto *CB = dyn_cast<CallBase>(U);
+    assert(CB && "Unexpected Call");
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << "  Ctor call before: " << *CB << "\n"; });
+    CB->setArgOperand(UnusedArgPos, FalseValue);
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << "  Ctor call after: " << *CB << "\n"; });
+  }
+
+  CreateNewFunctionWithUnusedArgAsLast(CtorF, UnusedArgPos);
+
+  CtorF->eraseFromParent();
+}
+
 class SOAToAOSPrepareTransImpl : public DTransOptBase {
 public:
   SOAToAOSPrepareTransImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
@@ -1005,6 +1401,18 @@ bool SOAToAOSPrepareImpl::run(void) {
 
   // 3rd transform: Inline CtorWrapper and DtorWrapper calls
   Candidate->simplifyCalls();
+
+  // After transforming types and member functions, Candidate/Class Info
+  // is not valid. So, recompute the info again to do more transformations.
+  if (!Candidate->computeUpdatedCandidateInfo()) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "SOAToAOSPrepare failed in the middle: Updated class Info.\n";
+    });
+    return false;
+  }
+
+  // 4th transform: Apply Ctor transformations.
+  Candidate->applyCtorTransformations();
 
   // TODO: Add more code here.
 
