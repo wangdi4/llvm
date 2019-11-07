@@ -599,11 +599,17 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
 
   auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
   auto InterleaveFactor = computeInterleaveFactor(Memref);
+  assert(InterleaveIndex < InterleaveFactor &&
+         "InterleaveIndex must be less than InterleaveFactor");
 
   assert((Group->getInsertPoint() == Memref ||
           VLSGroupLoadMap.find(Group) != VLSGroupLoadMap.end()) &&
          "Wide load must be emitted at the group insertion point");
   Value *GroupLoad = getOrCreateWideLoadForGroup(Group);
+
+  // No shuffling is needed for unit-stride loads.
+  if (InterleaveFactor == 1)
+    return GroupLoad;
 
   // Extract a proper widened value from the wide load. A bit more sophisticated
   // shuffle mask is required if the input type is itself a vector type.
@@ -692,8 +698,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   }
 
   // Try to do GATHER-to-SHUFFLE optimization.
-  OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
-  if (Group && Group->size() > 1) {
+  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst)) {
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
     // Groups with gaps are not supported either.
@@ -758,18 +763,27 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
 
-  // Concatenate all the values being stored into a single wide vector.
-  Value *ConcatValue = concatenateVectors(Builder, GrpValues);
+  Type *SingleAccessType = VPStore->getOperand(0)->getType();
+  unsigned OriginalVL = SingleAccessType->isVectorTy()
+                            ? SingleAccessType->getVectorNumElements()
+                            : 1;
 
-  // Shuffle values into the correct order. A bit more sophisticated shuffle
-  // mask is required if the original type is itself a vector type.
-  Type *Ty = VPStore->getOperand(0)->getType();
-  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
-  Constant *ShuffleMask =
-      createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
-  Value *StoredValue = Builder.CreateShuffleVector(
-      ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
-      "groupShuffle");
+  Value *StoredValue;
+  if (InterleaveFactor != 1) {
+    // Concatenate all the values being stored into a single wide vector.
+    Value *ConcatValue = concatenateVectors(Builder, GrpValues);
+
+    // Shuffle values into the correct order. A bit more sophisticated shuffle
+    // mask is required if the original type is itself a vector type.
+    Constant *ShuffleMask =
+        createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
+    StoredValue = Builder.CreateShuffleVector(
+        ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
+        "groupShuffle");
+  } else {
+    // No shuffling is needed for unit-stride stores.
+    StoredValue = GrpValues[0];
+  }
 
   // Compute address for the wide store.
   const VPInstruction *Leader =
@@ -827,6 +841,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
 
   // Handle vectorization of a linear value store.
   if (isVPValueLinear(Ptr)) {
@@ -837,10 +852,28 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 #endif
   }
 
+  // Stores to uniform pointers can be optimally generated as a scalar store in
+  // vectorized code.
+  // TODO: Extend the optimization for masked uniform stores too. Will need
+  // all-zero check (like masked uniform load) and functionality to find out
+  // last unmasked lane for divergent data operand. This optimization is also
+  // disabled for volatile/atomic stores.
+  bool IsSimpleStore = true;
+  if (Instruction *I = VPInst->getInstruction())
+    IsSimpleStore = cast<StoreInst>(I)->isSimple();
+
+  if (isVPValueUniform(Ptr, Plan) && !MaskValue && IsSimpleStore) {
+    Value *ScalarPtr = getScalarValue(Ptr, 0);
+    VPValue *DataOp = VPInst->getOperand(0);
+    // Extract last lane of data operand to generate scalar store. For uniform
+    // data operand, the same value is present on all lanes.
+    Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1), ScalarPtr,
+                               Alignment);
+    return;
+  }
+
   unsigned OriginalVL =
       StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
-
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
 
   // Try to handle consecutive stores without VLS.
@@ -856,8 +889,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   }
 
   // Try to do SCATTER-to-SHUFFLE optimization.
-  OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
-  if (Group && Group->size() > 1) {
+  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst)) {
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
     // Groups with gaps are not supported either.
