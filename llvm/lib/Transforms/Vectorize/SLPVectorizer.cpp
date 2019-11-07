@@ -8779,7 +8779,6 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
     }
 #endif // INTEL_CUSTOMIZATION
   }
-#endif // INTEL_CUSTOMIZATION
 
   return Changed;
 }
