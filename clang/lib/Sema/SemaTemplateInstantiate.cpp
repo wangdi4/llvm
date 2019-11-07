@@ -950,6 +950,8 @@ namespace {
                           bool AllowInjectedClassName = false);
 
     const LoopHintAttr *TransformLoopHintAttr(const LoopHintAttr *LH);
+    const SYCLIntelFPGAIVDepAttr *
+    TransformSYCLIntelFPGAIVDepAttr(const SYCLIntelFPGAIVDepAttr *IV);
 
 #if INTEL_CUSTOMIZATION
     const IntelBlockLoopAttr *
@@ -1424,6 +1426,20 @@ const IntelBlockLoopAttr *TemplateInstantiator::TransformIntelBlockLoopAttr(
   return NewBL;
 }
 #endif // INTEL_CUSTOMIZATION
+
+const SYCLIntelFPGAIVDepAttr *
+TemplateInstantiator::TransformSYCLIntelFPGAIVDepAttr(
+    const SYCLIntelFPGAIVDepAttr *IVDep) {
+
+  Expr *Expr1 = IVDep->getSafelenExpr()
+                    ? getDerived().TransformExpr(IVDep->getSafelenExpr()).get()
+                    : nullptr;
+  Expr *Expr2 = IVDep->getArrayExpr()
+                    ? getDerived().TransformExpr(IVDep->getArrayExpr()).get()
+                    : nullptr;
+
+  return getSema().BuildSYCLIntelFPGAIVDepAttr(*IVDep, Expr1, Expr2);
+}
 
 ExprResult TemplateInstantiator::transformNonTypeTemplateParmRef(
                                                  NonTypeTemplateParmDecl *parm,

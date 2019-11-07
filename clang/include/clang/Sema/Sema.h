@@ -1748,6 +1748,9 @@ public:
   /// Same as above, but constructs the AddressSpace index if not provided.
   QualType BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
                                  SourceLocation AttrLoc);
+  SYCLIntelFPGAIVDepAttr *
+  BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
+                              Expr *Expr2);
 
   bool CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc);
 
@@ -4357,6 +4360,7 @@ public:
   StmtResult ActOnAttributedStmt(SourceLocation AttrLoc,
                                  ArrayRef<const Attr*> Attrs,
                                  Stmt *SubStmt);
+  bool CheckRebuiltAttributedStmtAttributes(ArrayRef<const Attr *> Attrs);
 
   class ConditionResult;
   StmtResult ActOnIfStmt(SourceLocation IfLoc, bool IsConstexpr,
