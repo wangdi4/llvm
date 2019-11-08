@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlannerHIR.h"
+#include "../IntelVPlanCallVecDecisions.h"
 #include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
@@ -54,6 +55,18 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
     return false;
+
+  // Run CallVecDecisions analysis for final VPlan which will be used by CG.
+  VPlanCallVecDecisions CallVecDecisions(*Plan);
+  CallVecDecisions.run(BestVF, TLI, TTI);
+  std::string Label("CallVecDecisions analysis for VF=" +
+                    std::to_string(BestVF));
+  VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
+  // Compute SVA results for final VPlan which will be used by CG.
+  Plan->runSVA(BestVF, TLI);
+  VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
+
   Plan->executeHIR(CG);
   CG->finalizeVectorLoop();
   return true;

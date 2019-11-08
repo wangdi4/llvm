@@ -43,6 +43,7 @@
 #include "IntelVPlanAlignmentAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanValueTracking.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -837,6 +838,24 @@ public:
 
   bool mayHaveSideEffects() const;
 
+  bool isSimpleLoadStore() const {
+    if (getOpcode() != Instruction::Load && getOpcode() != Instruction::Store)
+      return false;
+
+    // TODO: First-class representation for volatile/atomic property inside
+    // VPInstruction.
+    if (auto *Underlying = getUnderlyingValue()) {
+      if (isa<LoadInst>(Underlying))
+        return cast<LoadInst>(Underlying)->isSimple();
+      else
+        return cast<StoreInst>(Underlying)->isSimple();
+    }
+
+    // Load/store without underlying IR or coming from HIR are known to be
+    // simple.
+    return true;
+  }
+
   const DebugLoc getDebugLocation() const { return DbgLoc; }
   void setDebugLocation(const DebugLoc &Loc) { DbgLoc = Loc; }
 
@@ -930,11 +949,15 @@ public:
   virtual void executeHIR(VPOCodeGenHIR *CG);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
-  void dump(raw_ostream &O) const override { dump(O, nullptr); };
-  void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA) const;
+  void dump(raw_ostream &O) const override { dump(O, nullptr, nullptr); };
+  void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
+            const VPlanScalVecAnalysis *SVA) const;
 
   void dump() const override { dump(errs()); }
-  void dump(const VPlanDivergenceAnalysis *DA) const { dump(dbgs(), DA); }
+  void dump(const VPlanDivergenceAnalysis *DA,
+            const VPlanScalVecAnalysis *SVA) const {
+    dump(dbgs(), DA, SVA);
+  }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -943,7 +966,8 @@ public:
   virtual void print(raw_ostream &O, const Twine &Indent) const;
 
   /// Print the VPInstruction.
-  void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr) const;
+  void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr,
+             const VPlanScalVecAnalysis *SVA = nullptr) const;
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -2414,6 +2438,7 @@ private:
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   std::unique_ptr<VPlanScalarEvolution> VPSE;
   std::unique_ptr<VPlanValueTracking> VPVT;
+  std::unique_ptr<VPlanScalVecAnalysis> VPlanSVA;
   const DataLayout *DL = nullptr;
 
   /// Holds Plan's VPBasicBlocks.
@@ -2518,6 +2543,15 @@ public:
   LLVMContext *getLLVMContext(void) const { return Context; }
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
+
+  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysis> VPSVA) {
+    VPlanSVA = std::move(VPSVA);
+  }
+
+  VPlanScalVecAnalysis *getVPlanSVA() const { return VPlanSVA.get(); }
+
+  // Compute SVA results for this VPlan.
+  void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
 
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
@@ -2629,9 +2663,9 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print (in text format) VPlan blocks in order based on dominator tree.
-  void dump(raw_ostream &OS, bool DumpDA = false) const;
+  void dump(raw_ostream &OS) const;
   void dump() const;
-  void print(raw_ostream &OS, unsigned Indent, bool DumpDA) const;
+  void print(raw_ostream &OS, unsigned Indent) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   const std::string &getName() const { return Name; }
@@ -3001,7 +3035,7 @@ public:
 inline void VPLAN_DUMP(bool Cond, const VPlan &Plan) {
   if (!Cond)
     return;
-  Plan.dump(outs(), true);
+  Plan.dump(outs());
   outs().flush();
 }
 inline void VPLAN_DUMP(bool Cond, const VPlan *Plan) {
@@ -3012,7 +3046,7 @@ inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan &Plan) {
   if (!Cond)
     return;
   outs() << "VPlan after " << Transformation << ":\n";
-  Plan.dump(outs(), true);
+  Plan.dump(outs());
   outs().flush();
 }
 inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
