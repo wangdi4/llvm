@@ -396,6 +396,53 @@ public:
   /// information.
   static WRNScheduleKind getDistLoopScheduleKind(WRegionNode *W);
 
+  /// int __kmpc_master_sub_group_leader();
+  static CallInst *genMasterSubGroup(WRegionNode *W, Instruction *InsertPt,
+                                     bool LeaderFlag);
+
+  /// void __kmpc_get_shared_variables(void ***shareds);
+  static CallInst *genGetSharingVariables(WRegionNode *W, Instruction *InsertPt,
+                                          Value *Shareds);
+
+  /// void __kmpc_begin_sharing_variables(void ***shareds, size_t num_shareds);
+  static CallInst *genBeginSharingVariables(WRegionNode *W,
+                                            Instruction *InsertPt,
+                                            Value *Shareds, Value *NumShareds);
+
+  /// void __kmpc_init_sharing_variables(void);
+  /// void __kmpc_end_sharing_variables(void);
+  static CallInst *genInitEndSharingVariables(Instruction *InsertPt, bool End);
+
+  /// void __kmpc_spmd_kernel_init(int thread_limit, short needs_rtl,
+  //                                    short needs_data_sharing);
+  static CallInst *genSpmdKernelInit(WRegionNode *W, Instruction *InsertPt,
+                                     Value *ThreadLimit, Value *NeedsRtl,
+                                     Value *NeedsDataSharing);
+
+  // void __kmpc_kernel_init(int thread_limit, short needs_rtl);
+  static CallInst *genKernelInit(WRegionNode *W, Instruction *InsertPt,
+                                 Value *ThreadLimit, Value *NeedsRtl);
+
+  /// void __kmpc_kernel_fini(short is_rtl_initialized);
+  static CallInst *genKernelFini(WRegionNode *W, Instruction *InsertPt,
+                                 Value *NeedsRtl);
+
+  /// void __kmpc_spmd_kernel_fini(short needs_rtl);
+  static CallInst *genSpmdKernelFini(WRegionNode *W, Instruction *InsertPt,
+                                     Value *NeedsRtl);
+
+  /// void __kmpc_kernel_end_parallel(void);
+  static CallInst *genKernelEndParallel(Instruction *InsertPt);
+
+  /// EXTERN void __kmpc_kernel_prepare_parallel(void *work_fn,
+  ///                                           short is_rtl_initialized);
+  /// EXTERN bool __kmpc_kernel_parallel(void **work_fn, short
+  /// is_rtl_initialized);
+  static CallInst *genKernelParallel(WRegionNode *W, Instruction *InsertPt,
+                                     Value *WorkFn, Value *IsRtlInitialized,
+                                     bool Prepare);
+
+
   /// Generate source location information for \b explicit barrier.
   static GlobalVariable *genKmpcLocforExplicitBarrier(Instruction *InsertPt,
                                                       StructType *IdentTy,

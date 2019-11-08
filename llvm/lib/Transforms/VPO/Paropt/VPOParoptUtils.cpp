@@ -2147,6 +2147,259 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
   return BarrierCall;
 }
 
+// Check if the current work item belongs to the master sub group
+// EXTERN int __kmpc_master_sub_group();
+//
+// Check if the current work item is the leader of the master sub group
+// EXTERN int __kmpc_master_sub_group_leader();
+CallInst *VPOParoptUtils::genMasterSubGroup(WRegionNode *W,
+                                            Instruction *InsertPt,
+                                            bool LeaderFlag) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getInt32Ty(C);
+  StringRef FnName =
+      LeaderFlag ? "__kmpc_master_sub_group_leader" : "__kmpc_master_sub_group";
+  CallInst *Call = genEmptyCall(M, FnName, RetTy, InsertPt);
+  return Call;
+}
+
+// Initialize a SPMD kernel execution
+// EXTERN void __kmpc_spmd_kernel_init(int thread_limit, short needs_rtl,
+//                                     short needs_data_sharing);
+CallInst *VPOParoptUtils::genSpmdKernelInit(WRegionNode *W,
+                                            Instruction *InsertPt,
+                                            Value *ThreadLimit,
+                                            Value *NeedsRtl,
+                                            Value *NeedsDataSharing) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt16Ty(C),
+                        Type::getInt16Ty(C)};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {ThreadLimit, NeedsRtl, NeedsDataSharing};
+  StringRef FnName = "__kmpc_spmd_kernel_init";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
+/// Finalize a SPMD kernel execution
+/// EXTERN void __kmpc_spmd_kernel_fini(short needs_rtl);
+CallInst *VPOParoptUtils::genSpmdKernelFini(WRegionNode *W,
+                                            Instruction *InsertPt,
+                                            Value *NeedsRtl) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getInt16Ty(C)};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {NeedsRtl};
+  StringRef FnName = "__kmpc_spmd_kernel_fini";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
+// Initialize a kernel execution
+// EXTERN void __kmpc_kernel_init(int thread_limit, short needs_rtl);
+CallInst *VPOParoptUtils::genKernelInit(WRegionNode *W, Instruction *InsertPt,
+                                        Value *ThreadLimit, Value *NeedsRtl) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt16Ty(C)};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {ThreadLimit, NeedsRtl};
+  StringRef FnName = "__kmpc_kernel_init";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
+// Finalize a kernel execution
+// EXTERN void __kmpc_kernel_fini(short needs_rtl);
+CallInst *VPOParoptUtils::genKernelFini(WRegionNode *W, Instruction *InsertPt,
+                                        Value *NeedsRtl) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getInt16Ty(C)};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {NeedsRtl};
+  StringRef FnName = "__kmpc_kernel_fini";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
+// Return the list of shared variables
+// EXTERN void __kmpc_get_shared_variables(void ***shareds);
+CallInst *VPOParoptUtils::genGetSharingVariables(WRegionNode *W,
+                                                 Instruction *InsertPt,
+                                                 Value *Shareds) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getInt8PtrTy(C)->getPointerTo()->getPointerTo()};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {Builder.CreateLoad(Shareds)};
+  StringRef FnName = "__kmpc_get_shared_variables";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
+// Finalize a parallel region -- called by workers
+// EXTERN void __kmpc_kernel_end_parallel(void);
+CallInst *VPOParoptUtils::genKernelEndParallel(Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = Type::getVoidTy(C);
+  StringRef FnName = "__kmpc_kernel_end_parallel";
+
+  CallInst *Call = genEmptyCall(M, FnName, RetTy, InsertPt);
+  return Call;
+}
+
+// Prepare a parallel region -- called by master
+// EXTERN void __kmpc_kernel_prepare_parallel(void *work_fn,
+//                                           short is_rtl_initialized);
+// Initialize a parallel region -- called by workers
+// EXTERN bool __kmpc_kernel_parallel(void **work_fn, short
+// is_rtl_initialized);
+CallInst *VPOParoptUtils::genKernelParallel(WRegionNode *W,
+                                            Instruction *InsertPt,
+                                            Value *WorkFn,
+                                            Value *IsRtlInitialized,
+                                            bool Prepare) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getVoidTy(C)->getPointerTo(), Type::getInt16Ty(C)};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {Builder.CreateLoad(WorkFn), IsRtlInitialized};
+  StringRef FnName =
+      Prepare ? "__kmpc_kernel_prepare_parallel" : "__kmpc_kernel_parallel";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
+// Init sharing variables
+// EXTERN void __kmpc_init_sharing_variables(void);
+// End sharing variables
+// EXTERN void __kmpc_end_sharing_variables(void);
+CallInst *VPOParoptUtils::genInitEndSharingVariables(Instruction *InsertPt,
+                                                     bool End) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = Type::getVoidTy(C);
+  StringRef FnName =
+      End ? "__kmpc_end_sharing_variables" : "__kmpc_init_sharing_variables";
+
+  CallInst *Call = genEmptyCall(M, FnName, RetTy, InsertPt);
+  return Call;
+}
+
+// Begin sharing variables
+// EXTERN void __kmpc_begin_sharing_variables(void ***shareds, size_t num_shareds);
+CallInst *VPOParoptUtils::genBeginSharingVariables(WRegionNode *W,
+                                                   Instruction *InsertPt,
+                                                   Value *Shareds,
+                                                   Value *NumShareds) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  Type *RetTy = Type::getVoidTy(C);
+  Type *TypeParams[] = {Type::getInt8PtrTy(C)->getPointerTo()->getPointerTo(),
+                        GeneralUtils::getSizeTTy(F)};
+  IRBuilder<> Builder(InsertPt);
+  Value *Args[] = {Builder.CreateLoad(Shareds), NumShareds};
+  StringRef FnName = "__kmpc_begin_sharing_variables";
+  Function *Fn = M->getFunction(FnName);
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  return Call;
+}
+
 // Insert kmpc_[cancel_]barrier(...) call before InsertPt.
 CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     WRegionNode *W, Value *Tid, Instruction *InsertPt, StructType *IdentTy,
