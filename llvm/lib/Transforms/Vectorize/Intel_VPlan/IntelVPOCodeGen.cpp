@@ -41,10 +41,51 @@ static cl::opt<bool> VPlanUseDAForUnitStride(
 
 ///////// VPValue version of common vectorizer legality utilities /////////
 
+// TODO: Consolidate and move this function to a IntelVPlanUtils.h
+static bool isScalarPointeeTy(const VPValue *Val) {
+  assert(isa<PointerType>(Val->getType()) &&
+         "Expect a pointer-type argument to isScalarPointeeTy function.");
+  Type *PointeeTy = Val->getType()->getPointerElementType();
+  return (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
+            PointeeTy->isPointerTy()));
+}
+
+/// Helper function to check if VPValue is a private memory pointer that was
+/// allocated by VPlan. The implementation also checks for any aliases obtained
+/// via casts and gep instructions.
+// TODO: Check if this utility is still relevant after data layout
+// representation is finalized in VPlan.
+static const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
+  if (isa<VPAllocatePrivate>(V))
+    return V;
+  // Check that it is a valid transform of private memory's address, by
+  // recurring into operand.
+  if (auto *VPI = dyn_cast<VPInstruction>(V))
+    if (VPI->isCast() || isa<VPGEPInstruction>(VPI))
+      return getVPValuePrivateMemoryPtr(VPI->getOperand(0));
+
+  // All checks failed.
+  return nullptr;
+}
+
 /// Helper function to check if given VPValue has consecutive pointer stride and
 /// return the stride value.
 static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
                                                     const VPlan *Plan) {
+  // TODO: Direct access to Private ptr, i.e., without an intermediate GEP would
+  // trip DA. DA would report the shape as 'Undef'. We have to copy over the
+  // shape when we 'createPrivateMemory'.
+
+  // This checks if we are dealing with a scalar-private. Return the stride-size
+  // in that case.
+  if (auto *Private = getVPValuePrivateMemoryPtr(Ptr)) {
+    if (isScalarPointeeTy(Private))
+      return Plan->getDataLayout()->getTypeSizeInBits(
+                 Private->getType()->getPointerElementType()) >>
+             3;
+    return None;
+  }
+
   VPVectorShape *PtrShape = Plan->getVPlanDA()->getVectorShape(Ptr);
   if (PtrShape->isUnitStridePtr())
     return PtrShape->getStrideVal();
@@ -75,24 +116,6 @@ static bool isVPValueUnitStepLinear(VPValue *V, int *Step = nullptr,
     *Step = 0;
   if (NewScalarV)
     *NewScalarV = nullptr;
-  return false;
-}
-
-/// Helper function to check if VPValue is a private memory pointer that was
-/// allocated by VPlan. The implementation also checks for any aliases obtained
-/// via casts and gep instructions.
-// TODO: Check if this utility is still relevant after data layout
-// representation is finalized in VPlan.
-static bool isVPValuePrivateMemoryPtr(VPValue *V) {
-  if (isa<VPAllocatePrivate>(V))
-    return true;
-  // Check that it is a valid transform of private memory's address, by
-  // recurring into operand.
-  if (auto *VPI = dyn_cast<VPInstruction>(V))
-    if (VPI->isCast() || isa<VPGEPInstruction>(VPI))
-      return isVPValuePrivateMemoryPtr(VPI->getOperand(0));
-
-  // All checks failed.
   return false;
 }
 
@@ -689,7 +712,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   if (VPlanUseDAForUnitStride) {
     Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
     if (ConsecutiveStride) {
-      bool IsPvtPtr = isVPValuePrivateMemoryPtr(Ptr);
+      bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
       NewLI = vectorizeUnitStrideLoad(VPInst, ConsecutiveStride.getValue(),
                                       IsPvtPtr);
       VPWidenMap[VPInst] = NewLI;
@@ -882,7 +905,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     if (ConsecutiveStride) {
       // TODO: VPVALCG: Special handling for mask value is also needed for
       // conditional last privates.
-      bool IsPvtPtr = isVPValuePrivateMemoryPtr(Ptr);
+      bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
       vectorizeUnitStrideStore(VPInst, ConsecutiveStride.getValue(), IsPvtPtr);
       return;
     }

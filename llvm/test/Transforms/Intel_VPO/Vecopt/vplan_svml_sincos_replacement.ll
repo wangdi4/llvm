@@ -49,8 +49,8 @@
 ; CHECK-LABEL: vector.body
 ; CHECK:       {{.*}} = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]], <8 x float>* [[SINPTR_VEC]])
 ; CHECK:       {{.*}} = load <8 x float>, <8 x float>* [[SINPTR_VEC]]
-; CHECK-LLVM:  {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
-; CHECK-VPVAL: {{.*}} = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[COSPTR_GEP]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+; CHECK:       {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
