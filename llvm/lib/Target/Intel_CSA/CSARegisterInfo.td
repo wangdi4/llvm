@@ -43,7 +43,7 @@ let CopyCost = -1 in {
   def CI8  : RegisterClass<"CSA", [i8],      8, (add ANYC)> { let Size=8;  }
   def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add ANYC)> { let Size=16; }
   def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add ANYC)> { let Size=32; }
-  def CI64 : RegisterClass<"CSA", [i64,f64,v4f16,v2f32], 64, (add ANYC)> { let Size=64; }
+  def CI64 : RegisterClass<"CSA", [i64,f64,v8i8,v4i16,v4f16,v2f32], 64, (add ANYC)> { let Size=64; }
 }
 
 //// Registers in main sequential unit
@@ -100,7 +100,7 @@ def RI1  : RegisterClass<"CSA", [i1],      8, (add RI0)> { let Size = 8; }
 def RI8  : RegisterClass<"CSA", [i8],      8, (add RI0)>;
 def RI16 : RegisterClass<"CSA", [i16,f16], 16, (add RI0)>;
 def RI32 : RegisterClass<"CSA", [i32,f32], 32, (add RI0)>;
-def RI64 : RegisterClass<"CSA", [i64,f64,v4f16,v2f32], 64, (add RI0)>;
+def RI64 : RegisterClass<"CSA", [i64,f64,v8i8,v4i16,v4f16,v2f32], 64, (add RI0)>;
 
 // The following classes can be used in the instruction information to refer to
 // either register or LICs. These classes necessarily contain CI* register
@@ -113,5 +113,5 @@ let AltOrders=[(add RI0)], AltOrderSelect = [{ return 1; }] in {
   def I8  : RegisterClass<"CSA", [i8],      8,  (add RI8 , CI8 )>;
   def I16 : RegisterClass<"CSA", [i16,f16], 16, (add RI16, CI16)>;
   def I32 : RegisterClass<"CSA", [i32,f32], 32, (add RI32, CI32)>;
-  def I64 : RegisterClass<"CSA", [i64,f64,v4f16,v2f32], 64, (add RI64, CI64)>;
+  def I64 : RegisterClass<"CSA", [i64,f64,v8i8,v4i16,v4f16,v2f32], 64, (add RI64, CI64)>;
 }

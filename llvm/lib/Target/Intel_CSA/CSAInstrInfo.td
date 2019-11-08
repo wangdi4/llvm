@@ -150,10 +150,13 @@ def RCLi32 : RegImmOperand<i32>;
 def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
-def RCLf16x4 : RegImmOperand<v4f16>;
-def RCLf32x2 : RegImmOperand<v2f32>;
 def RCL32  : RegImmOperandUntyped<i32>;
 def RCL64  : RegImmOperandUntyped<i64>;
+
+def RCLi8x8  : RegImmOperand<v8i8>;
+def RCLi16x4 : RegImmOperand<v4i16>;
+def RCLf16x4 : RegImmOperand<v4f16>;
+def RCLf32x2 : RegImmOperand<v2f32>;
 
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
@@ -241,10 +244,17 @@ def Ti64 : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
-def Tf16x4 : CSAOpInfo<v4f16, 64, "f16x4", I64, RI64, CI64, RCLf16x4, i64imm, []>;
-def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
 def T32  : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCL32, i32imm, [HasI32]>;
 def T64  : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCL64, i64imm, [HasI64]>;
+
+def Ti8x8  : CSAOpInfo<v8i8,  64,   "8x8", I64, RI64, CI64,  RCLi8x8, i64imm, []>;
+def Ts8x8  : CSAOpInfo<v8i8,  64,  "s8x8", I64, RI64, CI64,  RCLi8x8, i64imm, []>;
+def Tu8x8  : CSAOpInfo<v8i8,  64,  "u8x8", I64, RI64, CI64,  RCLi8x8, i64imm, []>;
+def Ti16x4 : CSAOpInfo<v4i16, 64,  "16x4", I64, RI64, CI64, RCLi16x4, i64imm, []>;
+def Ts16x4 : CSAOpInfo<v4i16, 64, "s16x4", I64, RI64, CI64, RCLi16x4, i64imm, []>;
+def Tu16x4 : CSAOpInfo<v4i16, 64, "u16x4", I64, RI64, CI64, RCLi16x4, i64imm, []>;
+def Tf16x4 : CSAOpInfo<v4f16, 64, "f16x4", I64, RI64, CI64, RCLf16x4, i64imm, []>;
+def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
 
 class subst;
 def LICRC : subst;
@@ -455,6 +465,8 @@ def CSA_GETVAL64       : CSAGetValOp<CSA_GETVAL, Ti64,  IIALU>;
 def : Pat<(f16 (CSAGetVal CI0:$link)), (CSA_GETVAL16 $link)>;
 def : Pat<(f32 (CSAGetVal CI0:$link)), (CSA_GETVAL32 $link)>;
 def : Pat<(f64 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+def : Pat<(v8i8  (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+def : Pat<(v4i16 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 def : Pat<(v4f16 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 def : Pat<(v2f32 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 
@@ -563,7 +575,7 @@ class BinOpC<GenericOp gen, CSAOpInfo oi,
     [],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-// Min/max operations have an extra sel output.
+// Min/max operations that have an extra sel output.
 class MinMaxOp<GenericOp gen, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -695,12 +707,31 @@ class StrideOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
+// For integer reduction (including min and max)
+class ReduceOp<GenericOp gen, CSAOpInfo oi,
+               InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.LICRC:$result),
+    (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $init, $inval, $ctl"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
+
+// For floating point reduction (other than min and max)
 class ReduceOpR<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.LICRC:$result),
     (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $init, $inval, $ctl, $rm"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
+
+// For floating point min and max reduction
+class ReduceOpC<GenericOp gen, CSAOpInfo oi,
+                InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.LICRC:$result),
+    (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl, FPOrderedOperand:$ord, FPSignalingOperand:$sig),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $init, $inval, $ctl, $ord, $sig"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 class FMReduceOp<GenericOp gen, CSAOpInfo oi,
@@ -1033,6 +1064,9 @@ def ABSF16    : UnaryOp< ABS,    fabs,   Tf16, IIALU>;
 def ABSF32    : UnaryOp< ABS,    fabs,   Tf32, IIALU>;
 def ABSF64    : UnaryOp< ABS,    fabs,   Tf64, IIALU>;
 
+def ABS8X8    : UnaryOp< ABS,    abs,   Ti8x8, IIALU>;
+def ABS16X4   : UnaryOp< ABS,    abs,  Ti16x4, IIALU>;
+
 def SQRT      : GenericOp<"sqrt", [HasSqrt]>;
 def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
 def SQRTF32   : UnaryOp< SQRT,   fsqrt,  Tf32, IISqrtF32>;
@@ -1230,6 +1264,14 @@ def ADD32     : BinOp<   ADD,    add,    Ti32, IIALU>;
 def ADD64     : BinOp<   ADD,    add,    Ti64, IIALU>;
 }
 
+def ADDS      : GenericOp<"adds">;
+let isCommutable = 1 in {
+def ADDSS8X8  : BinOp<   ADDS,    saddsat,    Ts8x8, IIALU>;
+def ADDSU8X8  : BinOp<   ADDS,    uaddsat,    Tu8x8, IIALU>;
+def ADDSS16X4 : BinOp<   ADDS,    saddsat,   Ts16x4, IIALU>;
+def ADDSU16X4 : BinOp<   ADDS,    uaddsat,   Tu16x4, IIALU>;
+}
+
 def ADC       : GenericOp<"adc">;
 def ADC8      : BinOpC<  ADC,            Ti8,  IIALU>;
 def ADC16     : BinOpC<  ADC,            Ti16, IIALU>;
@@ -1247,6 +1289,12 @@ def SUB8      : BinOp<   SUB,    sub,    Ti8,  IIALU>;
 def SUB16     : BinOp<   SUB,    sub,    Ti16, IIALU>;
 def SUB32     : BinOp<   SUB,    sub,    Ti32, IIALU>;
 def SUB64     : BinOp<   SUB,    sub,    Ti64, IIALU>;
+
+def SUBS      : GenericOp<"subs">;
+def SUBSS8X8  : BinOp<   SUBS,    ssubsat,    Ts8x8, IIALU>;
+def SUBSU8X8  : BinOp<   SUBS,    usubsat,    Tu8x8, IIALU>;
+def SUBSS16X4 : BinOp<   SUBS,    ssubsat,   Ts16x4, IIALU>;
+def SUBSU16X4 : BinOp<   SUBS,    usubsat,   Tu16x4, IIALU>;
 
 def SBB       : GenericOp<"sbb">;
 def SBB8      : BinOpC<  SBB,            Ti8,  IIALU>;
@@ -1319,6 +1367,20 @@ def MAXF16    : MinMaxOp<MAX,            Tf16, IIALU>;
 def MAXF32    : MinMaxOp<MAX,            Tf32, IIALU>;
 def MAXF64    : MinMaxOp<MAX,            Tf64, IIALU>;
 
+let isCommutable = 1 in {
+def MINS8X8   : BinOp<  MIN,    smin,    Ts8x8,  IIALU>;
+def MINS16X4  : BinOp<  MIN,    smin,   Ts16x4,  IIALU>;
+def MINU8X8   : BinOp<  MIN,    umin,    Tu8x8,  IIALU>;
+def MINU16X4  : BinOp<  MIN,    umin,   Tu16x4,  IIALU>;
+}
+
+let isCommutable = 1 in {
+def MAXS8X8   : BinOp<  MAX,    smax,    Ts8x8,  IIALU>;
+def MAXS16X4  : BinOp<  MAX,    smax,   Ts16x4,  IIALU>;
+def MAXU8X8   : BinOp<  MAX,    umax,    Tu8x8,  IIALU>;
+def MAXU16X4  : BinOp<  MAX,    umax,   Tu16x4,  IIALU>;
+}
+
 multiclass SignedCmp<GenericOp generic, PatFrag frag> {
   def S8  : CmpOp<generic, frag, Ts8,  IIALU>;
   def S16 : CmpOp<generic, frag, Ts16, IIALU>;
@@ -1332,6 +1394,7 @@ multiclass UnsignedCmp<GenericOp generic, PatFrag frag> {
   def U64 : CmpOp<generic, frag, Tu64, IIALU>;
 }
 multiclass FloatCmp<GenericOp generic, PatFrag frag, string floatFlags> {
+  def F16 : FloatCmpOp<generic, frag, Tf16, IICmpF, floatFlags>;
   def F32 : FloatCmpOp<generic, frag, Tf32, IICmpF, floatFlags>;
   def F64 : FloatCmpOp<generic, frag, Tf64, IICmpF, floatFlags>;
 }
@@ -1403,12 +1466,21 @@ def CMPEQ16   : CmpOp<   CMPEQ,  seteq,  Ti16, IIALU>;
 def CMPEQ32   : CmpOp<   CMPEQ,  seteq,  Ti32, IIALU>;
 def CMPEQ64   : CmpOp<   CMPEQ,  seteq,  Ti64, IIALU>;
 
+def CMPEQ8X8  : CmpOp<   CMPEQ,  seteq,  Ti8x8, IIALU>;
+def CMPEQ16X4 : CmpOp<   CMPEQ,  seteq, Ti16x4, IIALU>;
+
 def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
 def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
 def CMPNE8    : CmpOp<   CMPNE,  setne,  Ti8,  IIALU>;
 def CMPNE16   : CmpOp<   CMPNE,  setne,  Ti16, IIALU>;
 def CMPNE32   : CmpOp<   CMPNE,  setne,  Ti32, IIALU>;
 def CMPNE64   : CmpOp<   CMPNE,  setne,  Ti64, IIALU>;
+
+def CMPGTS8X8 : CmpOp<   CMPGT,  setgt,  Ts8x8,  IIALU>;
+def CMPGTU8X8 : CmpOp<   CMPGT,  setgt,  Tu8x8,  IIALU>;
+
+def CMPGTS16X4: CmpOp<   CMPGT,  setugt,  Ts16x4,  IIALU>;
+def CMPGTU16X4: CmpOp<   CMPGT,  setugt,  Tu16x4,  IIALU>;
 
 // Shift/add - itinerary depends on constant small shift amt - else IShft...
 def SLADD     : GenericOp<"sladd", [HasShAdd]>;
@@ -1692,21 +1764,96 @@ def FMREDAF32x2: FMReduceOp<FMREDA, Tf32x2, IIALU>;
 
 // Standard sequenced reductions.
 def REDSUB     : GenericOp<"redsub">;
+def REDSUB8    : ReduceOp<REDSUB, Ti8, IIALU>;
+def REDSUB16   : ReduceOp<REDSUB, Ti16, IIALU>;
+def REDSUB32   : ReduceOp<REDSUB, Ti32, IIALU>;
+def REDSUB64   : ReduceOp<REDSUB, Ti64, IIALU>;
+def REDSUB8x8  : ReduceOp<REDSUB, Ti8x8, IIALU>;
+def REDSUB16x4 : ReduceOp<REDSUB, Ti16x4, IIALU>;
+
 def REDSUBF16  : ReduceOpR<REDSUB, Tf16, IIALU>;
 def REDSUBF32  : ReduceOpR<REDSUB, Tf32, IIALU>;
 def REDSUBF64  : ReduceOpR<REDSUB, Tf64, IIALU>;
 def REDSUBF32x2: ReduceOpR<REDSUB, Tf32x2, IIALU>;
 
 def REDADD     : GenericOp<"redadd">;
+def REDADD8    : ReduceOp<REDADD, Ti8, IIALU>;
+def REDADD16   : ReduceOp<REDADD, Ti16, IIALU>;
+def REDADD32   : ReduceOp<REDADD, Ti32, IIALU>;
+def REDADD64   : ReduceOp<REDADD, Ti64, IIALU>;
+def REDADD8x8  : ReduceOp<REDADD, Ti8x8, IIALU>;
+def REDADD16x4 : ReduceOp<REDADD, Ti16x4, IIALU>;
+
 def REDADDF16  : ReduceOpR<REDADD, Tf16, IIALU>;
 def REDADDF32  : ReduceOpR<REDADD, Tf32, IIALU>;
 def REDADDF64  : ReduceOpR<REDADD, Tf64, IIALU>;
 def REDADDF32x2: ReduceOpR<REDADD, Tf32x2, IIALU>;
 
 def REDMUL     : GenericOp<"redmul">;
+def REDMULF16  : ReduceOpR<REDMUL, Tf16, IIALU>;
 def REDMULF32  : ReduceOpR<REDMUL, Tf32, IIALU>;
 def REDMULF64  : ReduceOpR<REDMUL, Tf64, IIALU>;
 def REDMULF32x2: ReduceOpR<REDMUL, Tf32x2, IIALU>;
+
+def REDMIN      : GenericOp<"redmin">;
+def REDMINS8    : ReduceOp<REDMIN, Ts8, IIALU>;
+def REDMINS16   : ReduceOp<REDMIN, Ts16, IIALU>;
+def REDMINS32   : ReduceOp<REDMIN, Ts32, IIALU>;
+def REDMINS64   : ReduceOp<REDMIN, Ts64, IIALU>;
+def REDMINS8x8  : ReduceOp<REDMIN, Ts8x8, IIALU>;
+def REDMINS16x4 : ReduceOp<REDMIN, Ts16x4, IIALU>;
+
+def REDMINU8    : ReduceOp<REDMIN, Tu8, IIALU>;
+def REDMINU16   : ReduceOp<REDMIN, Tu16, IIALU>;
+def REDMINU32   : ReduceOp<REDMIN, Tu32, IIALU>;
+def REDMINU64   : ReduceOp<REDMIN, Tu64, IIALU>;
+def REDMINU8x8  : ReduceOp<REDMIN, Tu8x8, IIALU>;
+def REDMINU16x4 : ReduceOp<REDMIN, Tu16x4, IIALU>;
+
+def REDMINF16   : ReduceOpC<REDMIN, Tf16, IIALU>;
+def REDMINF32   : ReduceOpC<REDMIN, Tf32, IIALU>;
+def REDMINF64   : ReduceOpC<REDMIN, Tf64, IIALU>;
+def REDMINF16x4 : ReduceOpC<REDMIN, Tf16x4, IIALU>;
+def REDMINF32x2 : ReduceOpC<REDMIN, Tf32x2, IIALU>;
+
+def REDMAX      : GenericOp<"redmax">;
+def REDMAXS8    : ReduceOp<REDMAX, Ts8, IIALU>;
+def REDMAXS16   : ReduceOp<REDMAX, Ts16, IIALU>;
+def REDMAXS32   : ReduceOp<REDMAX, Ts32, IIALU>;
+def REDMAXS64   : ReduceOp<REDMAX, Ts64, IIALU>;
+def REDMAXS8x8  : ReduceOp<REDMAX, Ts8x8, IIALU>;
+def REDMAXS16x4 : ReduceOp<REDMAX, Ts16x4, IIALU>;
+
+def REDMAXU8    : ReduceOp<REDMAX, Tu8, IIALU>;
+def REDMAXU16   : ReduceOp<REDMAX, Tu16, IIALU>;
+def REDMAXU32   : ReduceOp<REDMAX, Tu32, IIALU>;
+def REDMAXU64   : ReduceOp<REDMAX, Tu64, IIALU>;
+def REDMAXU8x8  : ReduceOp<REDMAX, Tu8x8, IIALU>;
+def REDMAXU16x4 : ReduceOp<REDMAX, Tu16x4, IIALU>;
+
+def REDMAXF16   : ReduceOpC<REDMAX, Tf16, IIALU>;
+def REDMAXF32   : ReduceOpC<REDMAX, Tf32, IIALU>;
+def REDMAXF64   : ReduceOpC<REDMAX, Tf64, IIALU>;
+def REDMAXF16x4 : ReduceOpC<REDMAX, Tf16x4, IIALU>;
+def REDMAXF32x2 : ReduceOpC<REDMAX, Tf32x2, IIALU>;
+
+def REDAND     : GenericOp<"redand">;
+def REDAND8    : ReduceOp<REDAND, Ti8, IIALU>;
+def REDAND16   : ReduceOp<REDAND, Ti16, IIALU>;
+def REDAND32   : ReduceOp<REDAND, Ti32, IIALU>;
+def REDAND64   : ReduceOp<REDAND, Ti64, IIALU>;
+
+def REDOR     : GenericOp<"redor">;
+def REDOR8    : ReduceOp<REDOR, Ti8, IIALU>;
+def REDOR16   : ReduceOp<REDOR, Ti16, IIALU>;
+def REDOR32   : ReduceOp<REDOR, Ti32, IIALU>;
+def REDOR64   : ReduceOp<REDOR, Ti64, IIALU>;
+
+def REDXOR     : GenericOp<"xor">;
+def REDXOR8    : ReduceOp<REDXOR, Ti8, IIALU>;
+def REDXOR16   : ReduceOp<REDXOR, Ti16, IIALU>;
+def REDXOR32   : ReduceOp<REDXOR, Ti32, IIALU>;
+def REDXOR64   : ReduceOp<REDXOR, Ti64, IIALU>;
 
 // TODO: new itinerary class for this one?
 def COMPLETION   : GenericOp<"completion">;
@@ -2113,10 +2260,10 @@ def : Pat<(i64 imm:$imm),   (MOV64 imm:$imm)>;
 def : Pat<(f64 fpimm:$imm), (MOV64 fpimm:$imm)>;
 
 // sext/zext
-def : Pat<(i64 (sext i32:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), 32)>;
-def : Pat<(i64 (sext i16:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), 16)>;
-def : Pat<(i64 (sext  i8:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64),  8)>;
-def : Pat<(i64 (sext  i1:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64),  1)>;
+def : Pat<(i64 (sext i32:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), (i64 32))>;
+def : Pat<(i64 (sext i16:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), (i64 16))>;
+def : Pat<(i64 (sext  i8:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), (i64 8))>;
+def : Pat<(i64 (sext  i1:$op1)),  (SEXT64 (COPY_TO_REGCLASS $op1,I64), (i64 1))>;
 
 def : Pat<(i32 (sext i16:$op1)),  (SEXT32 (COPY_TO_REGCLASS $op1,I64), 16)>;
 def : Pat<(i32 (sext  i8:$op1)),  (SEXT32 (COPY_TO_REGCLASS $op1,I64),  8)>;
@@ -2128,10 +2275,10 @@ def : Pat<(i16 (sext  i1:$op1)),  (SEXT16 (COPY_TO_REGCLASS $op1,I64),  1)>;
 def : Pat<(i8  (sext  i1:$op1)),  (SEXT8  (COPY_TO_REGCLASS $op1,I64),  1)>;
 
 // sext_inreg are the same
-def : Pat<(i64 (sext_inreg i64:$op1, i32)),  (SEXT64 $op1, 32)>;
-def : Pat<(i64 (sext_inreg i64:$op1, i16)),  (SEXT64 $op1, 16)>;
-def : Pat<(i64 (sext_inreg i64:$op1,  i8)),  (SEXT64 $op1,  8)>;
-def : Pat<(i64 (sext_inreg i64:$op1,  i1)),  (SEXT64 $op1,  1)>;
+def : Pat<(i64 (sext_inreg i64:$op1, i32)),  (SEXT64 $op1, (i64 32))>;
+def : Pat<(i64 (sext_inreg i64:$op1, i16)),  (SEXT64 $op1, (i64 16))>;
+def : Pat<(i64 (sext_inreg i64:$op1,  i8)),  (SEXT64 $op1, (i64 8))>;
+def : Pat<(i64 (sext_inreg i64:$op1,  i1)),  (SEXT64 $op1, (i64 1))>;
 
 def : Pat<(i32 (sext_inreg i32:$op1, i16)),  (SEXT32 $op1, 16)>;
 def : Pat<(i32 (sext_inreg i32:$op1,  i8)),  (SEXT32 $op1,  8)>;
@@ -2192,14 +2339,22 @@ def : Pat<(i1  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 def : Pat<(i1  (trunc  i8:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 
 // bitconvert (shows up in exp)
-def : Pat<(i64 (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(f64 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(v4f16 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(v2f32 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (bitconvert v2f32:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-
 def : Pat<(i32 (bitconvert f32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(f32 (bitconvert i32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
+
+def : Pat<(i64 (bitconvert f64:$op1)),   (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (bitconvert v4f16:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (bitconvert v2f32:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+
+def : Pat<(f64   (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(v4f16 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(v2f32 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+
+def : Pat<(f64   (bitconvert v8i8:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(f64   (bitconvert v4i16:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+
+def : Pat<(v8i8  (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(v4i16 (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 
 // The debugprint instruction
 let hasSideEffects = 1 in {
@@ -2269,6 +2424,33 @@ multiclass SimdTriOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo o
       (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, 0, 0)>;
 }
 
+// Floating-point simd compare instructions
+multiclass SimdCmpOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
+  def "" : FMTGEN<gen, oi,
+    (outs oi.RC:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, i8imm:$disable, i8imm:$swizzle1,
+         i8imm:$swizzle2, FPOrderedOperand:$ord, FPSignalingOperand:$sig),
+    !strconcat(gen.AsmString, oi.InstrSuffix,
+        "\t$dst, $op1, $op2, $disable, $swizzle1, $swizzle2, $ord, $sig"),
+    [],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+  /*
+  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, imm:$swizzle2)>;
+  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+                           oi.RCL:$op2)),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, 0)>;
+  def : Pat<(oi.VT (opNode oi.RCL:$op1,
+                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, 0, imm:$swizzle2)>;
+  def : Pat<(oi.VT (opNode oi.RCL:$op1, oi.RCL:$op2)),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, 0, 0)>;
+  */
+}
+
 def ADDSUB : GenericOp<"addsub">;
 def SUBADD : GenericOp<"subadd">;
 def FMAS : GenericOp<"fmas">;
@@ -2298,6 +2480,29 @@ defm FMSF32X2:  SimdTriOp<FMS,  fms, int_csa_fmsf32x2, Tf32x2>;
 defm FMRSF32X2: SimdTriOp<FMRS, fmrs, int_csa_fmrsf32x2, Tf32x2>;
 defm FMASF32X2: SimdTriOp<FMAS, CSAFMAddSub, int_csa_fmasf32x2, Tf32x2>;
 defm FMSAF32X2: SimdTriOp<FMSA, CSAFMSubAdd, int_csa_fmsaf32x2, Tf32x2>;
+
+defm CMPLTF16X4: SimdCmpOp<CMPLT, Tf16x4>;
+defm CMPLEF16X4: SimdCmpOp<CMPLE, Tf16x4>;
+defm CMPEQF16X4: SimdCmpOp<CMPEQ, Tf16x4>;
+defm CMPGTF16X4: SimdCmpOp<CMPGT, Tf16x4>;
+defm CMPGEF16X4: SimdCmpOp<CMPGE, Tf16x4>;
+defm CMPNEF16X4: SimdCmpOp<CMPNE, Tf16x4>;
+defm CMPOF16X4:  SimdCmpOp<CMPO,  Tf16x4>;
+defm CMPUOF16X4: SimdCmpOp<CMPUO, Tf16x4>;
+
+defm CMPLTF32X2: SimdCmpOp<CMPLT, Tf32x2>;
+defm CMPLEF32X2: SimdCmpOp<CMPLE, Tf32x2>;
+defm CMPEQF32X2: SimdCmpOp<CMPEQ, Tf32x2>;
+defm CMPGTF32X2: SimdCmpOp<CMPGT, Tf32x2>;
+defm CMPGEF32X2: SimdCmpOp<CMPGE, Tf32x2>;
+defm CMPNEF32X2: SimdCmpOp<CMPNE, Tf32x2>;
+defm CMPOF32X2:  SimdCmpOp<CMPO,  Tf32x2>;
+defm CMPUOF32X2: SimdCmpOp<CMPUO, Tf32x2>;
+
+defm MINF16X4  : SimdCmpOp<MIN, Tf16x4>;
+defm MINF32X2  : SimdCmpOp<MIN, Tf32x2>;
+defm MAXF16X4  : SimdCmpOp<MAX, Tf16x4>;
+defm MAXF32X2  : SimdCmpOp<MAX, Tf32x2>;
 
 // Pack, unpack
 def PACK: GenericOp<"pack">;
@@ -2338,6 +2543,18 @@ def UNPACK64_32 : FMTGEN<UNPACK, Ti32,
 let AddedComplexity = 4 in
 def : Pat<(v2f32 (build_vector RCLf32:$lo, (f32 (undef)))),
     (COPY_TO_REGCLASS $lo, I64)>;
+
+def MOVMSK8X8: FMTGEN<?, Ti8x8,
+    (outs I8:$res),
+    (ins RCLi8x8:$op1),
+    "movmsk8x8\t$res, $op1",
+    []>;
+
+def MOVMSK16X4: FMTGEN<?, Ti16x4,
+    (outs I8:$res),
+    (ins RCLi16x4:$op1),
+    "movmsk16x4\t$res, $op1",
+    []>;
 
 def SHUFI16X4: FMTGEN<?, Tf16x4,
     (outs I64:$res),
@@ -2390,6 +2607,8 @@ defm : PushPop<  i64, CI64>;
 defm : PushPop<  f16, CI16>;
 defm : PushPop<  f32, CI32>;
 defm : PushPop<  f64, CI64>;
+defm : PushPop< v8i8, CI64>;
+defm : PushPop<v4i16, CI64>;
 defm : PushPop<v4f16, CI64>;
 defm : PushPop<v2f32, CI64>;
 

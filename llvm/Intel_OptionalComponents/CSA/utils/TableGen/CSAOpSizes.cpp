@@ -97,18 +97,28 @@ void CSAOpSizes::run(raw_ostream &OS) {
       unsigned Size = opInfo->getValueAsInt("OpBitSize");
       unsigned Classification;
       auto suffixStr = opInfo->getValueAsString("InstrSuffix");
-      if (suffixStr == "f16x4")
+      if (suffixStr == "i8x8")
+        Classification = 7;
+      else if (suffixStr == "i16x4")
+        Classification = 6;
+      else if (suffixStr == "f16x4")
         Classification = 5;
       else if (suffixStr == "f32x2")
         Classification = 4;
-      else if (suffixStr[0] == 's')
-        Classification = 2;
       else if (suffixStr[0] == 'u')
         Classification = 3;
+      else if (suffixStr[0] == 's')
+        Classification = 2;
       else if (suffixStr[0] == 'f')
         Classification = 1;
       else
         Classification = 0;
+
+      if (suffixStr.endswith("8x8"))
+         Classification |= (1 << 3);
+      else if (suffixStr.endswith("16x4"))
+         Classification |= (2 << 3);
+
       ReverseMap.emplace_back(
         std::find(GenericOps.begin(), GenericOps.end(), GenOp) - GenericOps.begin(),
         Size, Classification, II);

@@ -196,11 +196,16 @@ bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
 }
 
 bool CSAReassocReduc::isEligibleReduction(const MachineInstr &MI) const {
-  const bool IsReduction        = TII->isReduction(&MI);
-  const CSA::Generic GenericOpC = TII->getGenericOpcode(MI.getOpcode());
+  const bool IsReduction         = TII->isReduction(&MI);
+  const CSA::OpcodeClass OpClass = TII->getOpcodeClass(MI.getOpcode());
+  const CSA::Generic GenericOpC  = TII->getGenericOpcode(MI.getOpcode());
   const bool IsAdd =
     GenericOpC == CSA::Generic::REDADD or GenericOpC == CSA::Generic::REDSUB;
-  return IsReduction and not(HWReducerExperiment and IsAdd);
+
+  if (OpClass != CSA::VARIANT_FLOAT and OpClass != CSA::VARIANT_SIMD)
+    return false;
+  else
+    return IsReduction and not(HWReducerExperiment and IsAdd);
 }
 
 // Creates a value containing n ones in its lowest n bits.
