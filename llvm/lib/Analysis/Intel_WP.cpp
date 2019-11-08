@@ -13,7 +13,6 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -75,7 +74,6 @@ INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
@@ -103,25 +101,13 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
       getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
 
-  // NOTE: The old pass manager uses two variables to represent the
-  // optimization levels:
-  //
-  //   - OptLevel: stores the optimization level
-  //               0 = -O0, 1 = -O1, 2 = -O2, 3 = -O3
-  //
-  //   - SizeLevel: stores if we are optimizing for size
-  //               0 = no, 1 = Os, 2 = Oz
-  //
-  // The values of OptLevel can be 0, 1, 2 or 3.
-  unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
-
   auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
   Result.reset(new WholeProgramInfo(
                WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
-               CG, OptLevel)));
+               CG)));
 
   return false;
 }
@@ -267,63 +253,15 @@ void WholeProgramInfo::printWholeProgramTrace() {
 }
 #endif // NDEBUG || LLVM_ENABLE_DUMP
 
-// Traverse through the IR and replace the calls to the intrinsic
-// llvm.intel.wholeprogramsafe with true if whole program safe was
-// detected. Else, replace the calls with a false. The intrinsic
-// llvm.intel.wholeprogramsafe should be removed completely after
-// this process since it won't be lowered. See the language reference
-// manual for more information.
-void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M,
-                                                     unsigned OptLevel) {
-
-  Function *WhPrIntrin = M.getFunction("llvm.intel.wholeprogramsafe");
-
-  if (!WhPrIntrin)
-    return;
-
-  LLVMContext &Context = M.getContext();
-
-  // If the optimization level is 0 then we are going to take the path
-  // when whole program is not safe. This means that any optimization
-  // wrapped in the intrinsic llvm.intel.wholeprogramsafe won't be
-  // applied (e.g. devirtualization).
-  ConstantInt *InitVal = ((isWholeProgramSafe() && OptLevel > 0) ?
-                          ConstantInt::getTrue(Context) :
-                          ConstantInt::getFalse(Context));
-
-  while (!WhPrIntrin->use_empty()){
-    // The intrinsic llvm.intel.wholeprogramsafe is only supported for
-    // CallInst instructions. The only intrinsics that are allowed in
-    // InvokeInst are: donothing, patchpoint, statepoint, coro_resume
-    // and coro_destroy.
-    CallInst *IntrinCall = cast<CallInst>(WhPrIntrin->user_back());
-    IntrinCall->replaceAllUsesWith(InitVal);
-    IntrinCall->eraseFromParent();
-  }
-
-  assert(WhPrIntrin->use_empty() && "Whole Program Analysis: intrinsic"
-          " llvm.intel.wholeprogramsafe wasn't removed correctly.");
-
-  WhPrIntrin->eraseFromParent();
-
-  assert(!M.getFunction("llvm.intel.wholeprogramsafe") &&
-          "Whole Program Analysis: intrinsic llvm.intel.wholeprogramsafe"
-          " wasn't removed correctly.");
-}
-
 WholeProgramInfo WholeProgramInfo::analyzeModule(
     Module &M,
     std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG,
-    unsigned OptLevel) {
+    function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG) {
 
   WholeProgramInfo Result;
 
   Result.wholeProgramAllExternsAreIntrins(M, GetTLI);
 
-  // Remove the uses of the intrinsic
-  // llvm.intel.wholeprogramsafe
-  Result.foldIntrinsicWholeProgramSafe(M, OptLevel);
   Result.computeIsAdvancedOptEnabled(M, GTTI);
 
   return Result;
@@ -335,7 +273,6 @@ void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addRequired<XmainOptLevelWrapperPass>();
 }
 
 // This function takes Value that is an operand to call or invoke instruction
@@ -710,30 +647,10 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
     return FAM.getResult<TargetIRAnalysis>(F);
   };
 
-  // NOTE: The new pass manager uses an enum to represent the
-  // optimization levels:
-  //
-  //   - PassBuilder::OptimizationLevel
-  //
-  //     PassBuilder::OptimizationLevel::O0 = -O0
-  //     PassBuilder::OptimizationLevel::O1 = -O1
-  //     PassBuilder::OptimizationLevel::O2 = -O2
-  //     PassBuilder::OptimizationLevel::O3 = -O3
-  //     PassBuilder::OptimizationLevel::Os = -Os
-  //     PassBuilder::OptimizationLevel::Oz = -Oz
-  //
-  // The values of OptLevel can be 0, 1, 2, 3, 4 or 5. The options -Os and
-  // -Oz are optimization level but for size. The compiler will treat these
-  // two levels as -O2 but without increasing the size of the code. The main
-  // difference between -Os and -Oz is that the second one does more aggressive
-  // optimizations related to size.
-  unsigned OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
-
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
   return WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
-                                  AM.getCachedResult<CallGraphAnalysis>(M),
-                                  OptLevel);
+                                  AM.getCachedResult<CallGraphAnalysis>(M));
 }

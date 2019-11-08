@@ -232,6 +232,7 @@ void initializeIntelAdvancedFastCallWrapperPassPass(PassRegistry &); // INTEL
 void initializeIntelIPOPrefetchWrapperPassPass(PassRegistry &); // INTEL
 void initializeIntelPartialInlineLegacyPassPass(PassRegistry &); // INTEL
 void initializeIntelArgumentAlignmentLegacyPassPass(PassRegistry &); // INTEL
+void initializeIntelFoldWPIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeInterleavedAccessPass(PassRegistry&);
 void initializeInterleavedLoadCombinePass(PassRegistry &);
 void initializeInternalizeLegacyPassPass(PassRegistry&);

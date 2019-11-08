@@ -281,6 +281,10 @@ ModulePass *createIntelIPOPrefetchWrapperPass();
 /// the memory alignment is being computed.
 ModulePass *createIntelArgumentAlignmentLegacyPass();
 
+/// \brief This pass folds the intrinsic llvm.intel.wholeprogramsafe using the
+/// results from the whole program analysis.
+ModulePass *createIntelFoldWPIntrinsicLegacyPass();
+
 /// \brief This pass implements a simple partial inlining for small functions.
 /// This partial inliner will take care of small functions that the compiler
 /// will like to fully inline. The difference between this partial inliner and

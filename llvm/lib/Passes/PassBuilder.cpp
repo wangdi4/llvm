@@ -93,6 +93,7 @@
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
@@ -1442,6 +1443,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
       // Set the optimization level
       MPM.addPass(XmainOptLevelAnalysisInit(Level));
       MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+      MPM.addPass(IntelFoldWPIntrinsicPass());
     }
 #endif // INTEL_CUSTOMIZATION
     // The WPD and LowerTypeTest passes need to run at -O0 to lower type
@@ -1477,6 +1479,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
   if (EnableWPA) {
     MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+    MPM.addPass(IntelFoldWPIntrinsicPass());
     // If whole-program-assume is enabled then we are going to call
     // the internalization pass.
     if (AssumeWholeProgram) {
