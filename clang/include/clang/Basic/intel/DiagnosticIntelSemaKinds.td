@@ -73,10 +73,6 @@ def warn_return_missing_expr_no_err : Warning<
 def warn_arg_invalid_range_low_assumed : Warning<
   "expected a value between %0 and %1, defaults to %0">,
   InGroup<IntelCompat>;
-// CQ#371340
-def warn_non_asm_stmt_in_naked_function : Warning<
-  "attribute 'naked' ignored on function with non-ASM statements">,
-  InGroup<IgnoredAttributes>;
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
 
