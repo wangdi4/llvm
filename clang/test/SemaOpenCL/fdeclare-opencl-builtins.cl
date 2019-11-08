@@ -20,15 +20,33 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #endif
 
+<<<<<<< HEAD
+=======
+// Provide typedefs when invoking clang without -finclude-default-header.
+#ifdef NO_HEADER
+typedef unsigned char uchar;
+typedef unsigned int uint;
+typedef unsigned long ulong;
+typedef unsigned short ushort;
+typedef __SIZE_TYPE__ size_t;
+typedef char char2 __attribute__((ext_vector_type(2)));
+typedef char char4 __attribute__((ext_vector_type(4)));
+typedef uchar uchar4 __attribute__((ext_vector_type(4)));
+>>>>>>> 0e70c350943f1a927f481529717c4f98a465777b
 typedef float float4 __attribute__((ext_vector_type(4)));
 typedef half half4 __attribute__((ext_vector_type(4)));
 typedef int int4 __attribute__((ext_vector_type(4)));
+<<<<<<< HEAD
 typedef int int2 __attribute__((ext_vector_type(2)));
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
 typedef unsigned short ushort;
 typedef __SIZE_TYPE__ size_t;
+=======
+typedef long long2 __attribute__((ext_vector_type(2)));
+#endif
+>>>>>>> 0e70c350943f1a927f481529717c4f98a465777b
 
 kernel void test_pointers(volatile global void *global_p, global const int4 *a) {
   int i;
@@ -44,8 +62,17 @@ kernel void basic_conversion(global float4 *buf, global int4 *res) {
   res[0] = convert_int4(buf[0]);
 }
 
+<<<<<<< HEAD
 kernel void basic_readonly_image_type(__read_only image2d_t img, int2 coord, global float4 *out) {
   out[0] = read_imagef(img, coord);
+=======
+char4 test_int(char c, char4 c4) {
+  char m = max(c, c);
+  char4 m4 = max(c4, c4);
+  uchar4 abs1 = abs(c4);
+  uchar4 abs2 = abs(abs1);
+  return max(c4, c);
+>>>>>>> 0e70c350943f1a927f481529717c4f98a465777b
 }
 
 kernel void basic_image_readonly(read_only image2d_t image_read_only_image2d) {
