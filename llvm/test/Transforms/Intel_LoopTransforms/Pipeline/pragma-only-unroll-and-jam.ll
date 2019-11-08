@@ -1,5 +1,10 @@
 ; RUN: opt -disable-loop-unrolling -loopopt  -O2 -S -disable-hir-vec-dir-insert < %s | FileCheck %s
 
+; XFAIL: *
+; CMPLRLLVM-10624: Value propagation pass converts sext to zext affecting ztt
+; recognition and disabling unroll & jam.
+
+
 ; Check that disabling of automatic unrolling in the pass builder is honored.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -119,6 +119,11 @@ static Value *generateSerialInstruction(IRBuilder<> &Builder,
     SerialInst = Builder.CreateBinOp(
         static_cast<Instruction::BinaryOps>(VPInst->getOpcode()), Ops[0],
         Ops[1]);
+  } else if (Instruction::isUnaryOp(VPInst->getOpcode())) {
+    assert(ScalarOperands.size() == 1 &&
+           "Unop VPInstruction has incorrect number of operands.");
+    SerialInst = Builder.CreateUnOp(
+        static_cast<Instruction::UnaryOps>(VPInst->getOpcode()), Ops[0]);
   } else if (VPInst->getOpcode() == Instruction::Load) {
     assert(ScalarOperands.size() == 1 &&
            "Load VPInstruction has incorrect number of operands.");
@@ -514,24 +519,21 @@ VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   assert((VPInst->getOpcode() == Instruction::Load ||
           VPInst->getOpcode() == Instruction::Store) &&
          "Alignment helper called on non load/store instruction.");
-  unsigned Alignment = 1;
   // TODO: Peeking at underlying Value for alignment info.
-  if (auto *UV = VPInst->getUnderlyingValue())
-    Alignment = getLoadStoreAlignment(UV);
+  auto *UV = VPInst->getUnderlyingValue();
+  if (!UV)
+    return 1;
 
-  if (!Alignment) {
-    // An alignment of 0 means target abi alignment. We need to use the scalar's
-    // target abi alignment in such a case.
-    const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-    // For store instructions alignment is determined by type of value operand.
-    Type *OrigTy = VPInst->getOpcode() == Instruction::Load
-                       ? VPInst->getType()
-                       : VPInst->getOperand(0)->getType();
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  // For store instructions alignment is determined by type of value operand.
+  Type *OrigTy = VPInst->getOpcode() == Instruction::Load
+                     ? VPInst->getType()
+                     : VPInst->getOperand(0)->getType();
 
-    Alignment = DL.getABITypeAlignment(OrigTy);
-  }
-
-  return Alignment;
+ // Absence of alignment means target abi alignment. We need to use the scalar's
+ // target abi alignment in such a case.
+  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy)
+      .value();
 }
 
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
@@ -1692,6 +1694,29 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
       addUnitStepLinear(Inst, ScalCast, LinStep);
 #endif
     }
+    return;
+  }
+
+  case Instruction::FNeg: {
+    if (isVPValueUniform(VPInst, Plan)) {
+      serializeInstruction(VPInst);
+      return;
+    }
+    // Widen operand.
+    Value *Src = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    auto UnOpCode = static_cast<Instruction::UnaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateUnOp(UnOpCode, Src);
+
+    // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
+    // flags). Use underlying IR flags if any
+    if (auto *IRValue = VPInst->getUnderlyingValue()) {
+      UnaryOperator *UnOp = cast<UnaryOperator>(IRValue);
+      UnaryOperator *VecOp = cast<UnaryOperator>(V);
+      VecOp->copyIRFlags(UnOp);
+    }
+    VPWidenMap[VPInst] = V;
     return;
   }
 

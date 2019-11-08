@@ -1111,7 +1111,7 @@ X86GlobalFMA::generateMachineOperandForFMATerm(FMATerm *Term,
 
   // 2. Generate a load instruction.
   SmallVector<MachineOperand, X86::AddrNumOperands> AddrOps;
-  unsigned NumOperands = MI->getNumOperands();
+  unsigned NumOperands = MI->getNumExplicitOperands();
   for (unsigned I = NumOperands - X86::AddrNumOperands; I != NumOperands; I++) {
     MachineOperand Op = MI->getOperand(I);
     AddrOps.push_back(Op);

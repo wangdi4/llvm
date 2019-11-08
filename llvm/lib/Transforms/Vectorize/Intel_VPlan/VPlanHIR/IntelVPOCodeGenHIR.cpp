@@ -2376,6 +2376,10 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     WideInst = INode->getHLNodeUtils().createBinaryHLInst(
         BOp->getOpcode(), WideOps[1], WideOps[2], CurInst->getName() + ".vec",
         WideOps[0], BOp);
+  } else if (auto UOp = dyn_cast<UnaryOperator>(CurInst)) {
+    WideInst = INode->getHLNodeUtils().createUnaryHLInst(
+        UOp->getOpcode(), WideOps[1], CurInst->getName() + ".vec", WideOps[0],
+        nullptr, UOp);
   } else if (isa<LoadInst>(CurInst)) {
     WideInst = INode->getHLNodeUtils().createLoad(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
@@ -2920,6 +2924,10 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   switch (VPInst->getOpcode()) {
+  case Instruction::FNeg:
+    WInst = HNU.createFNeg(WideOps[0], ".vec");
+    break;
+
   case Instruction::UDiv:
   case Instruction::SDiv:
   case Instruction::SRem:

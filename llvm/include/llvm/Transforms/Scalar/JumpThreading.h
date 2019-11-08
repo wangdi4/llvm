@@ -164,6 +164,9 @@ public:
 
   void FindLoopHeaders(Function &F);
   bool ProcessBlock(BasicBlock *BB);
+  bool MaybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB);
+  void UpdateSSA(BasicBlock *BB, BasicBlock *NewBB,
+                 DenseMap<Instruction *, Value *> &ValueMapping);
   bool ThreadEdge(const jumpthreading::ThreadRegionInfo &RegionInfo,  // INTEL
                   const SmallVectorImpl<BasicBlock*> &PredBBs,        // INTEL
                   BasicBlock *SuccBB);

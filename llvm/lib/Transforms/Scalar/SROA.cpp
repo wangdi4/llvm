@@ -967,14 +967,16 @@ private:
       std::tie(UsedI, I) = Uses.pop_back_val();
 
       if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
-        Size = std::max(Size, DL.getTypeStoreSize(LI->getType()));
+        Size = std::max(Size,
+                        DL.getTypeStoreSize(LI->getType()).getFixedSize());
         continue;
       }
       if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
         Value *Op = SI->getOperand(0);
         if (Op == UsedI)
           return SI;
-        Size = std::max(Size, DL.getTypeStoreSize(Op->getType()));
+        Size = std::max(Size,
+                        DL.getTypeStoreSize(Op->getType()).getFixedSize());
         continue;
       }
 
@@ -1187,7 +1189,7 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
 ///  - And, there are no stores between PN and Inst.
 static bool isLiveAtPHI(const Instruction * Inst,
                         const PHINode &PN,
-                        unsigned &MaxAlign, APInt &MaxSize) {
+                        MaybeAlign &MaxAlign, APInt &MaxSize) {
   if (!Inst || Inst->getParent() != PN.getParent())
     return false;
 
@@ -1211,7 +1213,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
 
     uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
     uint64_t Size = DL.getTypeStoreSize(LI->getType());
-    MaxAlign = std::max(MaxAlign, LI->getAlignment());
+    MaxAlign = std::max(MaxAlign, MaybeAlign(LI->getAlignment()));
     MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
     return true;
@@ -1264,7 +1266,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
 #if INTEL_CUSTOMIZATION
   // For now, we can only do this promotion if the load is in the same block
   // as the PHI, and if there are no stores between the phi and load.
-  unsigned MaxAlign = 0;
+  MaybeAlign MaxAlign;
   uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
   APInt MaxSize(APWidth, 0);
   bool HasLoad = false;
@@ -1498,11 +1500,11 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
     // Both operands to the select need to be dereferenceable, either
     // absolutely (e.g. allocas) or at this point because we can see other
     // accesses to it.
-    if (!isSafeToLoadUnconditionally(TValue, LI->getType(), LI->getAlignment(),
-                                     DL, LI))
+    if (!isSafeToLoadUnconditionally(TValue, LI->getType(),
+                                     MaybeAlign(LI->getAlignment()), DL, LI))
       return false;
-    if (!isSafeToLoadUnconditionally(FValue, LI->getType(), LI->getAlignment(),
-                                     DL, LI))
+    if (!isSafeToLoadUnconditionally(FValue, LI->getType(),
+                                     MaybeAlign(LI->getAlignment()), DL, LI))
       return false;
   }
 
@@ -4337,20 +4339,19 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
     // FIXME: We might want to defer PHI speculation until after here.
     // FIXME: return nullptr;
   } else {
-    unsigned Alignment = AI.getAlignment();
-    if (!Alignment) {
-      // The minimum alignment which users can rely on when the explicit
-      // alignment is omitted or zero is that required by the ABI for this
-      // type.
-      Alignment = DL.getABITypeAlignment(AI.getAllocatedType());
-    }
-    Alignment = MinAlign(Alignment, P.beginOffset());
+    // If alignment is unspecified we fallback on the one required by the ABI
+    // for this type. We also make sure the alignment is compatible with
+    // P.beginOffset().
+    const Align Alignment = commonAlignment(
+        DL.getValueOrABITypeAlignment(MaybeAlign(AI.getAlignment()),
+                                      AI.getAllocatedType()),
+        P.beginOffset());
     // If we will get at least this much alignment from the type alone, leave
     // the alloca's alignment unconstrained.
-    if (Alignment <= DL.getABITypeAlignment(SliceTy))
-      Alignment = 0;
+    const bool IsUnconstrained = Alignment <= DL.getABITypeAlignment(SliceTy);
     NewAI = new AllocaInst(
-      SliceTy, AI.getType()->getAddressSpace(), nullptr, Alignment,
+        SliceTy, AI.getType()->getAddressSpace(), nullptr,
+        IsUnconstrained ? MaybeAlign() : Alignment,
         AI.getName() + ".sroa." + Twine(P.begin() - AS.begin()), &AI);
     // Copy the old AI debug location over to the new one.
     NewAI->setDebugLoc(AI.getDebugLoc());

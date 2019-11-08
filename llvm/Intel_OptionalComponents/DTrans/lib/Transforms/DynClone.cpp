@@ -3349,9 +3349,10 @@ void DynCloneImpl::transformIR(void) {
     Type *NewTy = NewSt->getElementType(NewIdx);
     Type *PNewTy = NewTy->getPointerTo();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
-    Instruction *NewLI = new LoadInst(
-        NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlignment(NewTy),
-        LI->getOrdering(), LI->getSyncScopeID(), LI);
+    Instruction *NewLI =
+        new LoadInst(NewSrcOp, "", LI->isVolatile(),
+                     MaybeAlign(DL.getABITypeAlignment(NewTy)),
+                     LI->getOrdering(), LI->getSyncScopeID(), LI);
     // ZExt is used for AOSToSOA index field to avoid unnecessary "mov"
     // instructions (in generated code) since AOSTOSOA transformation
     // uses ZExt for the AOSToSOA index.
@@ -3416,9 +3417,10 @@ void DynCloneImpl::transformIR(void) {
 
     Value *SrcOp = SI->getPointerOperand();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
-    Instruction *NewSI = new StoreInst(
-        NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlignment(NewTy),
-        SI->getOrdering(), SI->getSyncScopeID(), SI);
+    Instruction *NewSI =
+        new StoreInst(NewVal, NewSrcOp, SI->isVolatile(),
+                      MaybeAlign(DL.getABITypeAlignment(NewTy)),
+                      SI->getOrdering(), SI->getSyncScopeID(), SI);
 
     if (AATags)
       NewSI->setAAMetadata(AATags);

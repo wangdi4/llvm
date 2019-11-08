@@ -343,6 +343,7 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
 
   // Standard unary operators...
   case FNeg: return "fneg";
+  case Freeze: return "freeze";
 
   // Standard binary operators...
   case Add: return "add";
@@ -560,7 +561,7 @@ bool Instruction::mayReadFromMemory() const {
   case Instruction::Call:
   case Instruction::Invoke:
   case Instruction::CallBr:
-    return !cast<CallBase>(this)->doesNotAccessMemory();
+    return !cast<CallBase>(this)->doesNotReadMemory();
   case Instruction::Store:
     return !cast<StoreInst>(this)->isUnordered();
   }

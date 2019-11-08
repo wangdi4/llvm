@@ -590,6 +590,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(ccc);
   KEYWORD(fastcc);
   KEYWORD(coldcc);
+  KEYWORD(cfguard_checkcc);
   KEYWORD(x86_stdcallcc);
   KEYWORD(x86_fastcallcc);
   KEYWORD(x86_thiscallcc);
@@ -630,6 +631,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(amdgpu_ps);
   KEYWORD(amdgpu_cs);
   KEYWORD(amdgpu_kernel);
+  KEYWORD(tailcc);
 
   KEYWORD(cc);
   KEYWORD(c);
@@ -847,6 +849,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   } while (false)
 
   INSTKEYWORD(fneg,  FNeg);
+  INSTKEYWORD(freeze, Freeze);
 
   INSTKEYWORD(add,   Add);  INSTKEYWORD(fadd,   FAdd);
   INSTKEYWORD(sub,   Sub);  INSTKEYWORD(fsub,   FSub);

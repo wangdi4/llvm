@@ -46,11 +46,17 @@
 // RUN:   | FileCheck -check-prefix=CHK-NO-FSYCL %s
 // CHK-NO-FSYCL: error: The option -fsycl-targets must be used in conjunction with -fsycl to enable offloading.
 // RUN:   %clang -### -fsycl-link-targets=spir64-unknown-linux-sycldevice  %s 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHK-NO-FSYCL-LINK %s
-// CHK-NO-FSYCL-LINK: error: The option -fsycl-link-targets must be used in conjunction with -fsycl to enable offloading.
+// RUN:   | FileCheck -check-prefix=CHK-NO-FSYCL-LINK-TGTS %s
+// CHK-NO-FSYCL-LINK-TGTS: error: The option -fsycl-link-targets must be used in conjunction with -fsycl to enable offloading.
 // RUN:   %clang -### -fsycl-add-targets=spir64-unknown-linux-sycldevice  %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-NO-FSYCL-ADD %s
 // CHK-NO-FSYCL-ADD: error: The option -fsycl-add-targets must be used in conjunction with -fsycl to enable offloading.
+// RUN:   %clang -### -fsycl-link  %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-NO-FSYCL-LINK %s
+// CHK-NO-FSYCL-LINK: error: The option -fsycl-link must be used in conjunction with -fsycl to enable offloading.
+// RUN:   %clang -### -fintelfpga  %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-NO-FSYCL-FINTELFPGA %s
+// CHK-NO-FSYCL-FINTELFPGA: error: The option -fintelfpga must be used in conjunction with -fsycl to enable offloading.
 
 /// ###########################################################################
 
@@ -238,9 +244,13 @@
 /// Check separate compilation with offloading - unbundling actions
 // RUN:   touch %t.o
 // RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -o %t.out -lsomelib -fsycl-targets=spir64-unknown-linux-sycldevice %t.o 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHK-UBACTIONS %s
+// RUN:   | FileCheck -DINPUT=%t.o -check-prefix=CHK-UBACTIONS %s
+// RUN:   mkdir -p %t_dir
+// RUN:   touch %t_dir/dummy
+// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -o %t.out -lsomelib -fsycl-targets=spir64-unknown-linux-sycldevice %t_dir/dummy 2>&1 \
+// RUN:   | FileCheck -DINPUT=%t_dir/dummy -check-prefix=CHK-UBACTIONS %s
 // CHK-UBACTIONS: 0: input, "somelib", object, (host-sycl)
-// CHK-UBACTIONS: 1: input, "[[INPUT:.+\.o]]", object, (host-sycl)
+// CHK-UBACTIONS: 1: input, "[[INPUT]]", object, (host-sycl)
 // CHK-UBACTIONS: 2: clang-offload-unbundler, {1}, object, (host-sycl)
 // CHK-UBACTIONS: 3: linker, {0, 2}, image, (host-sycl)
 // CHK-UBACTIONS: 4: linker, {2}, spirv, (device-sycl)
@@ -572,6 +582,16 @@
 // FOFFLOAD_STATIC_LIB_SRC3: clang-offload-bundler{{.*}} "-type=oo"
 // FOFFLOAD_STATIC_LIB_SRC3: llvm-link{{.*}} "@{{.*}}"
 // FOFFLOAD_STATIC_LIB_SRC3: {{ld|link}}{{(.exe)?}}" {{.*}}{{"-o" "output_name"|"-out:output_name"}} {{.*}}{{"-lOpenCL"|"OpenCL.lib"}}
+
+/// ###########################################################################
+
+// RUN: touch %t.a
+// RUN: %clang -fsycl -foffload-static-lib=%t.a -o output_name -lstdc++ -z relro -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC4
+// FOFFLOAD_STATIC_LIB_SRC4: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUT:.+\.a]]"
+// FOFFLOAD_STATIC_LIB_SRC4: clang-offload-bundler{{.*}} "-type=oo"
+// FOFFLOAD_STATIC_LIB_SRC4: llvm-link{{.*}} "@{{.*}}"
+// FOFFLOAD_STATIC_LIB_SRC4: ld{{(.exe)?}}" {{.*}} "-o" "output_name" {{.*}} "-lstdc++" "-z" "relro"
 
 /// ###########################################################################
 

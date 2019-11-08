@@ -1211,4 +1211,4 @@ define <4 x float> @stack_fold_fcmaddccsh_maskz(<4 x float> %a0, <4 x float> %a1
 declare <4 x float> @llvm.x86.avx512fp16.maskz.vfcmaddcc.sh(<4 x float>, <4 x float>, <4 x float>, i8, i32)
 
 attributes #0 = { "unsafe-fp-math"="false" }
-attributes #1 = { "unsafe-fp-math"="true" }
+attributes #1 = { "unsafe-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" }

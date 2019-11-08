@@ -117,30 +117,6 @@ public:
   StringRef getPassName() const override { return "Print Function IR"; }
 };
 
-class PrintBasicBlockPass : public BasicBlockPass {
-  raw_ostream &Out;
-  std::string Banner;
-
-public:
-  static char ID;
-  PrintBasicBlockPass() : BasicBlockPass(ID), Out(dbgs()) {}
-  PrintBasicBlockPass(raw_ostream &Out, const std::string &Banner)
-      : BasicBlockPass(ID), Out(Out), Banner(Banner) {}
-
-  bool runOnBasicBlock(BasicBlock &BB) override {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-    Out << Banner << BB;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  StringRef getPassName() const override { return "Print BasicBlock IR"; }
-};
-
 }
 
 char PrintModulePassWrapper::ID = 0;
@@ -149,9 +125,6 @@ INITIALIZE_PASS(PrintModulePassWrapper, "print-module",
 char PrintFunctionPassWrapper::ID = 0;
 INITIALIZE_PASS(PrintFunctionPassWrapper, "print-function",
                 "Print function to stderr", false, true)
-char PrintBasicBlockPass::ID = 0;
-INITIALIZE_PASS(PrintBasicBlockPass, "print-bb", "Print BB to stderr", false,
-                true)
 
 ModulePass *llvm::createPrintModulePass(llvm::raw_ostream &OS,
                                         const std::string &Banner,
@@ -164,15 +137,9 @@ FunctionPass *llvm::createPrintFunctionPass(llvm::raw_ostream &OS,
   return new PrintFunctionPassWrapper(OS, Banner);
 }
 
-BasicBlockPass *llvm::createPrintBasicBlockPass(llvm::raw_ostream &OS,
-                                                const std::string &Banner) {
-  return new PrintBasicBlockPass(OS, Banner);
-}
-
 bool llvm::isIRPrintingPass(Pass *P) {
   const char *PID = (const char*)P->getPassID();
 
-  return (PID == &PrintModulePassWrapper::ID)
-      || (PID == &PrintFunctionPassWrapper::ID)
-      || (PID == &PrintBasicBlockPass::ID);
+  return (PID == &PrintModulePassWrapper::ID) ||
+         (PID == &PrintFunctionPassWrapper::ID);
 }

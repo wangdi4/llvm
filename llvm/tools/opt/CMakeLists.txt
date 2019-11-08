@@ -36,9 +36,6 @@ set(LLVM_LINK_COMPONENTS
   ASFixer
   )
 
-# Support plugins.
-set(LLVM_NO_DEAD_STRIP 1)
-
 add_llvm_tool(opt
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
@@ -51,6 +48,7 @@ add_llvm_tool(opt
 
   DEPENDS
   intrinsics_gen
+  SUPPORT_PLUGINS
   )
 export_executable_symbols(opt)
 

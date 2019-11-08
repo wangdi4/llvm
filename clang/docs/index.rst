@@ -54,6 +54,7 @@ Using Clang as a Compiler
    SourceBasedCodeCoverage
    Modules
    MSVCCompatibility
+   OpenCLSupport
    OpenMPSupport
    ThinLTO
    CommandGuide/index

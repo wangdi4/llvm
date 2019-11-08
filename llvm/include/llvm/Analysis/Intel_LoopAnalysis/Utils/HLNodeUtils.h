@@ -231,8 +231,9 @@ private:
   HLInst *createNonLvalHLInst(Instruction *Inst);
 
   /// Creates a unary instruction.
-  HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
-                            const Twine &Name, RegDDRef *LvalRef, Type *DestTy);
+  HLInst *createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
+                                const Twine &Name, RegDDRef *LvalRef,
+                                Type *DestTy, MDNode *FPMathTag);
 
   /// Creates a binary instruction.
   HLInst *createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
@@ -709,6 +710,17 @@ public:
   HLInst *createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
                               const Twine &Name = "cast",
                               RegDDRef *LvalRef = nullptr);
+
+  /// Creates a new FNeg instruction.
+  HLInst *createFNeg(RegDDRef *RvalRef, const Twine &Name = "fneg",
+                     RegDDRef *LvalRef = nullptr, MDNode *FPMathTag = nullptr);
+
+  /// Creates a unary instruction with specified opcode. If OrigUnInst is not
+  /// null, copy IR flags from OrigUnInst to the newly created instruction.
+  HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
+                            const Twine &Name, RegDDRef *LvalRef = nullptr,
+                            Type *DestTy = nullptr,
+                            const UnaryInstruction *OrigUnInst = nullptr);
 
   /// Creates a new BinaryOperator with specified opcode. If OrigBinOp is not
   /// null, copy IR flags from OrigBinOp to the newly create instruction.

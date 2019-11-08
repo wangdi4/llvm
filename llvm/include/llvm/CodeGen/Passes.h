@@ -459,6 +459,10 @@ namespace llvm {
   /// Creates CFI Instruction Inserter pass. \see CFIInstrInserter.cpp
   FunctionPass *createCFIInstrInserter();
 
+  /// Creates CFGuard longjmp target identification pass.
+  /// \see CFGuardLongjmp.cpp
+  FunctionPass *createCFGuardLongjmpPass();
+
   /// Create Hardware Loop pass. \see HardwareLoops.cpp
   FunctionPass *createHardwareLoopsPass();
 

@@ -18,9 +18,6 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#if !INTEL_CUSTOMIZATION
-#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
-#endif // !INTEL_CUSTOMIZATION
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"
@@ -56,6 +53,13 @@ class MCSymbolRefExpr;
 class MCSubtargetInfo;
 class raw_ostream;
 class Twine;
+
+namespace codeview {
+struct DefRangeRegisterRelHeader;
+struct DefRangeSubfieldRegisterHeader;
+struct DefRangeRegisterHeader;
+struct DefRangeFramePointerRelHeader;
+}
 
 using MCSectionSubPair = std::pair<MCSection *, const MCExpr *>;
 
@@ -904,19 +908,19 @@ public:
 
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      codeview::DefRangeRegisterRelSym::Header DRHdr);
+      codeview::DefRangeRegisterRelHeader DRHdr);
 
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      codeview::DefRangeSubfieldRegisterSym::Header DRHdr);
+      codeview::DefRangeSubfieldRegisterHeader DRHdr);
 
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      codeview::DefRangeRegisterSym::Header DRHdr);
+      codeview::DefRangeRegisterHeader DRHdr);
 
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      codeview::DefRangeFramePointerRelSym::Header DRHdr);
+      codeview::DefRangeFramePointerRelHeader DRHdr);
 
 #endif // INTEL_CUSTOMIZATION
 

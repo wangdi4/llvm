@@ -258,7 +258,9 @@ def C11NoReturnDocs : Documentation {
   let Content = [{
 A function declared as ``_Noreturn`` shall not return to its caller. The
 compiler will generate a diagnostic for a function declared as ``_Noreturn``
-that appears to be capable of returning to its caller.
+that appears to be capable of returning to its caller. Despite being a type
+specifier, the ``_Noreturn`` attribute cannot be specified on a function
+pointer type.
   }];
 }
 
@@ -1832,6 +1834,43 @@ This attribute may be attached to a variable or struct member declaration and
 instructs the backend to implement the variable or struct member in a memory
 with simple dual port configuration (no memory port services both stores and
 loads).
+  }];
+}
+
+def SYCLIntelKernelArgsRestrictDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "kernel_args_restrict";
+  let Content = [{
+The attribute ``intel::kernel_args_restrict`` is legal on device functions, and
+can be ignored on non-device functions. When applied to a function, lambda, or
+function call operator (of a function object), the attribute is a hint to the
+compiler equivalent to specifying the C99 restrict attribute on all pointer
+arguments or the pointer member of any accessors, which are a function argument,
+lambda capture, or function object member, of the callable to which the
+attribute was applied. This effect is equivalent to annotating restrict on
+**all** kernel pointer arguments in an OpenCL or SPIR-V kernel.
+
+If ``intel::kernel_args_restrict`` is applied to a function called from a device
+kernel, the attribute is ignored and it is not propagated to a kernel.
+
+The attribute forms an unchecked assertion, in that implementations
+do not need to check/confirm the pre-condition in any way. If a user applies
+``intel::_kernel_args_restrict`` to a kernel, but there is in fact aliasing
+between kernel pointer arguments at runtime, the behavior is undefined.
+
+The attribute-token ``intel::kernel_args_restrict`` shall appear at most once in
+each attribute-list and no attribute-argument-clause shall be present. The
+attribute may be applied to the function-type in a function declaration. The
+first declaration of a function shall specify the
+``intel::kernel_args_restrict`` attribute if any declaration of that function
+specifies the ``intel::kernel_args_restrict`` attribute. If a function is
+declared with the ``intel::kernel_args_restrict`` attribute in one translation
+unit and the same function is declared without the
+``intel::kernel_args_restrict`` attribute in another translation unit, the
+program is ill-formed and no diagnostic is required.
+
+The ``intel::kernel_args_restrict`` attribute has an effect when applied to a
+function, and no effect otherwise.
   }];
 }
 
@@ -4597,4 +4636,63 @@ When the Owner's lifetime ends, it will consider the Pointer to be dangling.
   }
 
 }];
+}
+
+def ArmMveAliasDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+This attribute is used in the implementation of the ACLE intrinsics
+for the Arm MVE instruction set. It allows the intrinsic functions to
+be declared using the names defined in ACLE, and still be recognized
+as clang builtins equivalent to the underlying name. For example,
+``arm_mve.h`` declares the function ``vaddq_u32`` with
+``__attribute__((__clang_arm_mve_alias(__builtin_arm_mve_vaddq_u32)))``,
+and similarly, one of the type-overloaded declarations of ``vaddq``
+will have the same attribute. This ensures that both functions are
+recognized as that clang builtin, and in the latter case, the choice
+of which builtin to identify the function as can be deferred until
+after overload resolution.
+
+This attribute can only be used to set up the aliases for the MVE
+intrinsic functions; it is intended for use only inside ``arm_mve.h``,
+and is not a general mechanism for declaring arbitrary aliases for
+clang builtin functions.
+  }];
+}
+
+def NoBuiltinDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+.. Note:: This attribute is not yet fully implemented, it is validated but has
+no effect on the generated code.
+
+The ``__attribute__((no_builtin))`` is similar to the ``-fno-builtin`` flag
+except it is specific to the body of a function. The attribute may also be
+applied to a virtual function but has no effect on the behavior of overriding
+functions in a derived class.
+
+It accepts one or more strings corresponding to the specific names of the
+builtins to disable (e.g. "memcpy", "memset").
+If the attribute is used without parameters it will disable all buitins at
+once.
+
+.. code-block:: c++
+
+  // The compiler is not allowed to add any builtin to foo's body.
+  void foo(char* data, size_t count) __attribute__((no_builtin)) {
+    // The compiler is not allowed to convert the loop into
+    // `__builtin_memset(data, 0xFE, count);`.
+    for (size_t i = 0; i < count; ++i)
+      data[i] = 0xFE;
+  }
+
+  // The compiler is not allowed to add the `memcpy` builtin to bar's body.
+  void bar(char* data, size_t count) __attribute__((no_builtin("memcpy"))) {
+    // The compiler is allowed to convert the loop into
+    // `__builtin_memset(data, 0xFE, count);` but cannot generate any
+    // `__builtin_memcpy`
+    for (size_t i = 0; i < count; ++i)
+      data[i] = 0xFE;
+  }
+  }];
 }

@@ -291,6 +291,11 @@ static cl::opt<bool>
                            cl::desc("Emit debug info about parameter's entry values"),
                            cl::init(false));
 
+static cl::opt<bool>
+    ForceDwarfFrameSection("force-dwarf-frame-section",
+                           cl::desc("Always emit a debug frame section."),
+                           cl::init(false));
+
 // Common utility function tightly tied to the options listed here. Initializes
 // a TargetOptions object with CodeGen flags and returns it.
 static TargetOptions InitTargetOptionsFromCodeGenFlags() {
@@ -327,6 +332,7 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
     Options.IntelFtzDaz = EnableFtzDaz;
 #endif // INTEL_CUSTOMIZATION
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
+  Options.ForceDwarfFrameSection = ForceDwarfFrameSection;
 
   Options.MCOptions = InitMCTargetOptionsFromFlags();
 

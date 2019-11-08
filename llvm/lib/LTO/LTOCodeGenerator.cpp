@@ -170,7 +170,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
 void LTOCodeGenerator::setAsmUndefinedRefs(LTOModule *Mod) {
   const std::vector<StringRef> &undefs = Mod->getAsmUndefinedRefs();
   for (int i = 0, e = undefs.size(); i != e; ++i)
-    AsmUndefinedRefs[undefs[i]] = 1;
+    AsmUndefinedRefs.insert(undefs[i]);
 }
 
 bool LTOCodeGenerator::addModule(LTOModule *Mod) {
@@ -481,6 +481,8 @@ void LTOCodeGenerator::applyScopeRestrictions() {
   updateCompilerUsed(*MergedModule, *TargetMach, AsmUndefinedRefs);
 
   internalizeModule(*MergedModule, mustPreserveGV);
+
+  MergedModule->addModuleFlag(Module::Error, "LTOPostLink", 1);
 
   ScopeRestrictionsDone = true;
 }

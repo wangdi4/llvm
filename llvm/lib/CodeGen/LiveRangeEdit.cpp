@@ -233,7 +233,7 @@ bool LiveRangeEdit::foldAsLoad(LiveInterval *LI,
   LLVM_DEBUG(dbgs() << "                folded: " << *FoldMI);
   LIS.ReplaceMachineInstrInMaps(*UseMI, *FoldMI);
   if (UseMI->isCall())
-    UseMI->getMF()->updateCallSiteInfo(UseMI, FoldMI);
+    UseMI->getMF()->moveCallSiteInfo(UseMI, FoldMI);
   UseMI->eraseFromParent();
   DefMI->addRegisterDead(LI->reg, nullptr);
   Dead.push_back(DefMI);

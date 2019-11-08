@@ -160,6 +160,9 @@ void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM);
 void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM);
 #endif // INTEL_CUSTOMIZATION
 
+/** See llvm::createLowerConstantIntrinsicsPass function */
+void LLVMAddLowerConstantIntrinsicsPass(LLVMPassManagerRef PM);
+
 /** See llvm::createTypeBasedAliasAnalysisPass function */
 void LLVMAddTypeBasedAliasAnalysisPass(LLVMPassManagerRef PM);
 

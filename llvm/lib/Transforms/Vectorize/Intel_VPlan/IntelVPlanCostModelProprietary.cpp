@@ -86,7 +86,7 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
   // must be added.
   unsigned Cost =
       IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                    Alignment, AddrSpace)
+                                    MaybeAlign(Alignment), AddrSpace)
              : VPlanCostModel::getLoadStoreCost(VPInst);
 
   if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)

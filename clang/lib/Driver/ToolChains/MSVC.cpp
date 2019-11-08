@@ -380,6 +380,11 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         TC.getSubDirectoryPath(
             toolchains::MSVCToolChain::SubDirectoryType::Lib)));
 
+    CmdArgs.push_back(Args.MakeArgString(
+        Twine("-libpath:") +
+        TC.getSubDirectoryPath(toolchains::MSVCToolChain::SubDirectoryType::Lib,
+                               "atlmfc")));
+
     if (TC.useUniversalCRT()) {
       std::string UniversalCRTLibPath;
       if (TC.getUniversalCRTLibraryPath(UniversalCRTLibPath))
@@ -465,6 +470,17 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
+
+  // Control Flow Guard checks
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
+    StringRef GuardArgs = A->getValue();
+    if (GuardArgs.equals_lower("cf") || GuardArgs.equals_lower("cf,nochecks")) {
+      // MSVC doesn't yet support the "nochecks" modifier.
+      CmdArgs.push_back("-guard:cf");
+    } else if (GuardArgs.equals_lower("cf-")) {
+      CmdArgs.push_back("-guard:cf-");
+    }
+  }
 
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                    options::OPT_fno_openmp, false)) {
@@ -604,7 +620,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
               EnvVar.substr(0, PrefixLen) +
               TC.getSubDirectoryPath(SubDirectoryType::Bin) +
               llvm::Twine(llvm::sys::EnvPathSeparator) +
-              TC.getSubDirectoryPath(SubDirectoryType::Bin, HostArch) +
+              TC.getSubDirectoryPath(SubDirectoryType::Bin, "", HostArch) +
               (EnvVar.size() > PrefixLen
                    ? llvm::Twine(llvm::sys::EnvPathSeparator) +
                          EnvVar.substr(PrefixLen)
@@ -728,6 +744,17 @@ std::unique_ptr<Command> visualstudio::Compiler::GetCommand(
     CmdArgs.push_back(A->getOption().getID() == options::OPT_fthreadsafe_statics
                           ? "/Zc:threadSafeInit"
                           : "/Zc:threadSafeInit-");
+  }
+
+  // Control Flow Guard checks
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
+    StringRef GuardArgs = A->getValue();
+    if (GuardArgs.equals_lower("cf") || GuardArgs.equals_lower("cf,nochecks")) {
+      // MSVC doesn't yet support the "nochecks" modifier.
+      CmdArgs.push_back("/guard:cf");
+    } else if (GuardArgs.equals_lower("cf-")) {
+      CmdArgs.push_back("/guard:cf-");
+    }
   }
 
   // Pass through all unknown arguments so that the fallback command can see
@@ -880,6 +907,7 @@ static const char *llvmArchToDevDivInternalArch(llvm::Triple::ArchType Arch) {
 // of hardcoding paths.
 std::string
 MSVCToolChain::getSubDirectoryPath(SubDirectoryType Type,
+                                   llvm::StringRef SubdirParent,
                                    llvm::Triple::ArchType TargetArch) const {
   const char *SubdirName;
   const char *IncludeName;
@@ -899,6 +927,9 @@ MSVCToolChain::getSubDirectoryPath(SubDirectoryType Type,
   }
 
   llvm::SmallString<256> Path(VCToolChainPath);
+  if (!SubdirParent.empty())
+    llvm::sys::path::append(Path, SubdirParent);
+
   switch (Type) {
   case SubDirectoryType::Bin:
     if (VSLayout == ToolsetLayout::VS2017OrNewer) {
@@ -1284,6 +1315,8 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (!VCToolChainPath.empty()) {
     addSystemInclude(DriverArgs, CC1Args,
                      getSubDirectoryPath(SubDirectoryType::Include));
+    addSystemInclude(DriverArgs, CC1Args,
+                     getSubDirectoryPath(SubDirectoryType::Include, "atlmfc"));
 
     if (useUniversalCRT()) {
       std::string UniversalCRTSdkPath;

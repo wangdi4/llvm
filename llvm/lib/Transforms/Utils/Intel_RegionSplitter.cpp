@@ -160,7 +160,8 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
 // Returns the new function, if successful, otherwise nullptr.
 Function *RegionSplitter::doSplit(const SplinterRegionT &Region) {
   CodeExtractor Extractor(Region.getArrayRef(), &DT, false, &BFI, &BPI);
-  Function *NewF = Extractor.extractCodeRegion();
+  CodeExtractorAnalysisCache CEAC(*Region.front()->getParent());
+  Function *NewF = Extractor.extractCodeRegion(CEAC);
   if (NewF == nullptr)
     return nullptr;
 
@@ -177,7 +178,8 @@ Function *RegionSplitter::doSplit(Loop &L) {
   if (!Extractor.isEligible())
     return nullptr;
 
-  Function *NewF = Extractor.extractCodeRegion();
+  CodeExtractorAnalysisCache CEAC(*L.getBlocks().front()->getParent());
+  Function *NewF = Extractor.extractCodeRegion(CEAC);
   if (NewF == nullptr)
     return nullptr;
 

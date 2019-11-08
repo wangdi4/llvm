@@ -50,8 +50,6 @@
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
-#include <sys/stat.h>
-#include <system_error>
 #include <time.h>
 #include <utility>
 
@@ -86,6 +84,16 @@ bool CompilerInstance::shouldBuildGlobalModuleIndex() const {
 
 void CompilerInstance::setDiagnostics(DiagnosticsEngine *Value) {
   Diagnostics = Value;
+}
+
+void CompilerInstance::setVerboseOutputStream(raw_ostream &Value) {
+  OwnedVerboseOutputStream.release();
+  VerboseOutputStream = &Value;
+}
+
+void CompilerInstance::setVerboseOutputStream(std::unique_ptr<raw_ostream> Value) {
+  OwnedVerboseOutputStream.swap(Value);
+  VerboseOutputStream = OwnedVerboseOutputStream.get();
 }
 
 void CompilerInstance::setTarget(TargetInfo *Value) { Target = Value; }
@@ -512,7 +520,8 @@ IntrusiveRefCntPtr<ASTReader> CompilerInstance::createPCHExternalASTSource(
       PP, ModuleCache, &Context, PCHContainerRdr, Extensions,
       Sysroot.empty() ? "" : Sysroot.data(), DisablePCHValidation,
       AllowPCHWithCompilerErrors, /*AllowConfigurationMismatch*/ false,
-      HSOpts.ModulesValidateSystemHeaders, UseGlobalModuleIndex));
+      HSOpts.ModulesValidateSystemHeaders, HSOpts.ValidateASTInputFilesContent,
+      UseGlobalModuleIndex));
 
   // We need the external source to be set up before we read the AST, because
   // eagerly-deserialized declarations may use it.
@@ -899,9 +908,7 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
   // DesiredStackSpace available.
   noteBottomOfStack();
 
-  // FIXME: Take this as an argument, once all the APIs we used have moved to
-  // taking it as an input instead of hard-coding llvm::errs.
-  raw_ostream &OS = llvm::errs();
+  raw_ostream &OS = getVerboseOutputStream();
 
   if (!Act.PrepareToExecute(*this))
     return false;
@@ -1391,16 +1398,16 @@ static void writeTimestampFile(StringRef TimestampFile) {
 /// Prune the module cache of modules that haven't been accessed in
 /// a long time.
 static void pruneModuleCache(const HeaderSearchOptions &HSOpts) {
-  struct stat StatBuf;
+  llvm::sys::fs::file_status StatBuf;
   llvm::SmallString<128> TimestampFile;
   TimestampFile = HSOpts.ModuleCachePath;
   assert(!TimestampFile.empty());
   llvm::sys::path::append(TimestampFile, "modules.timestamp");
 
   // Try to stat() the timestamp file.
-  if (::stat(TimestampFile.c_str(), &StatBuf)) {
+  if (std::error_code EC = llvm::sys::fs::status(TimestampFile, StatBuf)) {
     // If the timestamp file wasn't there, create one now.
-    if (errno == ENOENT) {
+    if (EC == std::errc::no_such_file_or_directory) {
       writeTimestampFile(TimestampFile);
     }
     return;
@@ -1408,7 +1415,8 @@ static void pruneModuleCache(const HeaderSearchOptions &HSOpts) {
 
   // Check whether the time stamp is older than our pruning interval.
   // If not, do nothing.
-  time_t TimeStampModTime = StatBuf.st_mtime;
+  time_t TimeStampModTime =
+      llvm::sys::toTimeT(StatBuf.getLastModificationTime());
   time_t CurrentTime = time(nullptr);
   if (CurrentTime - TimeStampModTime <= time_t(HSOpts.ModuleCachePruneInterval))
     return;
@@ -1440,11 +1448,11 @@ static void pruneModuleCache(const HeaderSearchOptions &HSOpts) {
 
       // Look at this file. If we can't stat it, there's nothing interesting
       // there.
-      if (::stat(File->path().c_str(), &StatBuf))
+      if (llvm::sys::fs::status(File->path(), StatBuf))
         continue;
 
       // If the file has been used recently enough, leave it there.
-      time_t FileAccessTime = StatBuf.st_atime;
+      time_t FileAccessTime = llvm::sys::toTimeT(StatBuf.getLastAccessedTime());
       if (CurrentTime - FileAccessTime <=
               time_t(HSOpts.ModuleCachePruneAfter)) {
         continue;
@@ -1495,6 +1503,7 @@ void CompilerInstance::createModuleManager() {
         /*AllowASTWithCompilerErrors=*/false,
         /*AllowConfigurationMismatch=*/false,
         HSOpts.ModulesValidateSystemHeaders,
+        HSOpts.ValidateASTInputFilesContent,
         getFrontendOpts().UseGlobalModuleIndex, std::move(ReadTimer));
     if (hasASTConsumer()) {
       ModuleManager->setDeserializationListener(
@@ -1535,12 +1544,9 @@ bool CompilerInstance::loadModuleFile(StringRef FileName) {
     }
 
     void registerAll() {
-      for (auto *II : LoadedModules) {
-        CI.KnownModules[II] = CI.getPreprocessor()
-                                  .getHeaderSearchInfo()
-                                  .getModuleMap()
-                                  .findModule(II->getName());
-      }
+      ModuleMap &MM = CI.getPreprocessor().getHeaderSearchInfo().getModuleMap();
+      for (auto *II : LoadedModules)
+        MM.cacheModuleLoad(*II, MM.findModule(II->getName()));
       LoadedModules.clear();
     }
 
@@ -1629,14 +1635,12 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
     return LastModuleImportResult;
   }
 
-  clang::Module *Module = nullptr;
-
   // If we don't already have information on this module, load the module now.
-  llvm::DenseMap<const IdentifierInfo *, clang::Module *>::iterator Known
-    = KnownModules.find(Path[0].first);
-  if (Known != KnownModules.end()) {
-    // Retrieve the cached top-level module.
-    Module = Known->second;
+  Module *Module = nullptr;
+  ModuleMap &MM = getPreprocessor().getHeaderSearchInfo().getModuleMap();
+  if (auto MaybeModule = MM.getCachedModuleLoad(*Path[0].first)) {
+    // Use the cached result, which may be nullptr.
+    Module = *MaybeModule;
   } else if (ModuleName == getLangOpts().CurrentModule) {
     // This is the module we're building.
     Module = PP->getHeaderSearchInfo().lookupModule(
@@ -1650,7 +1654,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
     //  ModuleBuildFailed = true;
     //  return ModuleLoadResult();
     //}
-    Known = KnownModules.insert(std::make_pair(Path[0].first, Module)).first;
+    MM.cacheModuleLoad(*Path[0].first, Module);
   } else {
     // Search for a module with the given name.
     Module = PP->getHeaderSearchInfo().lookupModule(ModuleName, true,
@@ -1744,7 +1748,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
           getDiagnostics().Report(ModuleNameLoc, diag::err_module_prebuilt)
               << ModuleName;
           ModuleBuildFailed = true;
-          KnownModules[Path[0].first] = nullptr;
+          MM.cacheModuleLoad(*Path[0].first, nullptr);
           return ModuleLoadResult();
         }
       }
@@ -1758,7 +1762,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
         // necessarily even have a module map. Since ReadAST already produces
         // diagnostics for these two cases, we simply error out here.
         ModuleBuildFailed = true;
-        KnownModules[Path[0].first] = nullptr;
+        MM.cacheModuleLoad(*Path[0].first, nullptr);
         return ModuleLoadResult();
       }
 
@@ -1803,7 +1807,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
                "undiagnosed error in compileAndLoadModule");
         if (getPreprocessorOpts().FailedModules)
           getPreprocessorOpts().FailedModules->addFailed(ModuleName);
-        KnownModules[Path[0].first] = nullptr;
+        MM.cacheModuleLoad(*Path[0].first, nullptr);
         ModuleBuildFailed = true;
         return ModuleLoadResult();
       }
@@ -1826,19 +1830,19 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
       ModuleLoader::HadFatalFailure = true;
       // FIXME: The ASTReader will already have complained, but can we shoehorn
       // that diagnostic information into a more useful form?
-      KnownModules[Path[0].first] = nullptr;
+      MM.cacheModuleLoad(*Path[0].first, nullptr);
       return ModuleLoadResult();
 
     case ASTReader::Failure:
       ModuleLoader::HadFatalFailure = true;
       // Already complained, but note now that we failed.
-      KnownModules[Path[0].first] = nullptr;
+      MM.cacheModuleLoad(*Path[0].first, nullptr);
       ModuleBuildFailed = true;
       return ModuleLoadResult();
     }
 
     // Cache the result of this top-level module lookup for later.
-    Known = KnownModules.insert(std::make_pair(Path[0].first, Module)).first;
+    MM.cacheModuleLoad(*Path[0].first, Module);
   }
 
   // If we never found the module, fail.

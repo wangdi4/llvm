@@ -17,9 +17,9 @@
 [common]
 ; INTEL_COLLAB
 ; INTEL_CUSTOMIZATION
-subdirectories = AggressiveInstCombine Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_LoopTransforms Intel_MapIntrinToIml VPO Intel_OpenCLTransforms
+subdirectories = AggressiveInstCombine Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC CFGuard Intel_LoopTransforms Intel_MapIntrinToIml VPO Intel_OpenCLTransforms
 ; else
-;UNCOMMENT;subdirectories = AggressiveInstCombine Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC VPO
+;UNCOMMENT;subdirectories = AggressiveInstCombine Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC CFGuard VPO
 ; end INTEL_CUSTOMIZATION
 ; end INTEL_COLLAB
 

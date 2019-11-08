@@ -3,6 +3,8 @@ import os.path
 import threading
 import socket
 import lldb
+import binascii
+import traceback
 from lldbsuite.support import seven
 from lldbsuite.test.lldbtest import *
 from lldbsuite.test import lldbtest_config
@@ -177,7 +179,7 @@ class MockGDBServerResponder:
         return "E04"
 
     def qfProcessInfo(self, packet):
-        raise "E04"
+        return "E04"
 
     def qGetWorkingDir(self):
         return "2f"
@@ -321,7 +323,7 @@ class MockGDBServer:
         try:
             # accept() is stubborn and won't fail even when the socket is
             # shutdown, so we'll use a timeout
-            self._socket.settimeout(2.0)
+            self._socket.settimeout(20.0)
             client, client_addr = self._socket.accept()
             self._client = client
             # The connected client inherits its timeout from self._socket,
@@ -340,6 +342,8 @@ class MockGDBServer:
                     break
                 self._receive(data)
             except Exception as e:
+                print("An exception happened when receiving the response from the gdb server. Closing the client...")
+                traceback.print_exc()
                 self._client.close()
                 break
 
