@@ -811,7 +811,11 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
   bool TransformCurrentLoop = true;
 
-  if (!DisableCostModel && !Loop->isInnermost()) {
+  // Handle innermost loops and outer loops, but only if unswitching can make
+  // the loopnest perfectly nested. In this case the loop will have only one
+  // child.
+  if (!DisableCostModel && !Loop->isInnermost() &&
+      Loop->getNumChildren() != 1) {
     TransformCurrentLoop = false;
   }
 
