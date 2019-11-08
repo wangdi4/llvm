@@ -31,6 +31,7 @@
 #ifndef INCLUDE_FLAG_TEST
 #include <x.h>
 #endif
+<<<<<<< HEAD
 
 // RUN: echo "fun:foo" > %t.blacklist1
 // RUN: echo "fun:foo" > %t.blacklist2
@@ -48,3 +49,5 @@
 // RUN: %clang -MMD -MF - %s -fsyntax-only -resource-dir=%S/Inputs/resource_dir_with_cfi_blacklist -fsanitize=cfi-vcall -flto -fvisibility=hidden -I ./ | FileCheck -check-prefix=ONLY-USER-DEPS %s
 // ONLY-USER-DEPS: dependency-gen.o:
 // NOT-ONLY-USER-DEPS: cfi_blacklist.txt
+=======
+>>>>>>> 6b45e1bc11e91ea7b57a6ab1c19461a86dba33f8
