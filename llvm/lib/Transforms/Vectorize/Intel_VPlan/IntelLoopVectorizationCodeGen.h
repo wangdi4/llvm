@@ -198,11 +198,6 @@ private:
   /// used in vector context after vectorization.
   bool needVectorCode(VPValue *V) { return true; }
 
-  /// Emit blocks of vector loop
-  /// Emit a bypass check to see if we have enough iterations \p Count to
-  /// execute one vector loop.
-  void  emitMinimumIterationCountCheck(Loop *L, Value *Count);
-
   /// Compute the transformed value of Index at offset StartValue using step
   /// StepValue.
   /// For integer induction, returns StartValue + Index * StepValue.

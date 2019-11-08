@@ -17,7 +17,7 @@
 ; CHECK-LLVM: fadd <8 x float>
 ; CHECK-LLVM: %[[RES:.*]] = extractelement <8 x float>
 
-; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %x.promoted, %min.iters.checked ], [ %[[RES]], %middle.block ]
+; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %[[RES]], %middle.block ]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -78,7 +78,7 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 ; CHECK-LLVM: fadd <8 x float>
 ; CHECK-LLVM: %[[RES:.*]] = extractelement <8 x float>
 
-; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %x.promoted, %min.iters.checked ], [ %[[RES]], %middle.block ]
+; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %[[RES]], %middle.block ]
 
 define float @expl_reduction_sub(float* nocapture %a) {
 entry:

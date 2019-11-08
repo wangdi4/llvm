@@ -203,33 +203,6 @@ void VPOCodeGen::emitResume(Value *CountRoundDown) {
   }
 }
 
-void VPOCodeGen::emitMinimumIterationCountCheck(Loop *L, Value *Count) {
-
-  BasicBlock *VLoopFirstBB = L->getLoopPreheader();
-  assert(VLoopFirstBB && "Loop does not have a preheader block.");
-  IRBuilder<> Builder(VLoopFirstBB->getTerminator());
-
-  // Generate code to check that the loop's trip count that we computed by
-  // adding one to the backedge-taken count will not overflow.
-  Value *CheckMinIters = Builder.CreateICmpULT(
-      Count, ConstantInt::get(Count->getType(), VF), "min.iters.check");
-
-  BasicBlock *NewBB =
-    VLoopFirstBB->splitBasicBlock(VLoopFirstBB->getTerminator(),
-                                 "min.iters.checked");
-  // Update dominator tree immediately if the generated block is a
-  // LoopBypassBlock because SCEV expansions to generate loop bypass
-  // checks may query it before the current function is finished.
-  DT->addNewBlock(NewBB, VLoopFirstBB);
-  addBlockToParentLoop(L, NewBB, *LI);
-
-  BranchInst *Branch = BranchInst::Create(LoopScalarPreHeader, NewBB,
-                                          CheckMinIters);
-  ReplaceInstWithInst(VLoopFirstBB->getTerminator(), Branch);
-
-  LoopBypassBlocks.push_back(VLoopFirstBB);
-}
-
 Value *VPOCodeGen::emitTransformedIndex(IRBuilder<> &B, Value *Index,
                                         ScalarEvolution *SE,
                                         const DataLayout &DL,
@@ -450,8 +423,6 @@ void VPOCodeGen::createEmptyLoop() {
   // Find the loop boundaries.
   Value *Count = getOrCreateTripCount(Lp);
 
-  emitMinimumIterationCountCheck(Lp, Count);
-
   // Now, compare the new count to zero. If it is zero skip the vector loop and
   // jump to the scalar loop.
   emitVectorLoopEnteredCheck(Lp, LoopScalarPreHeader);
@@ -640,7 +611,7 @@ void VPOCodeGen::fixReductionInReg(PHINode *Phi,
   // To do so, we need to generate the 'identity' vector and override
   // one of the elements with the incoming scalar reduction. We need
   // to do it in the vector-loop preheader.
-  Builder.SetInsertPoint(LoopBypassBlocks[1]->getTerminator());
+  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
 
   // This is the vector-clone of the value that leaves the loop.
   Value *VecExit = getVectorValue(LoopExitInst);

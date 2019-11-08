@@ -8,7 +8,7 @@
 
 define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo(
-; CHECK:       min.iters.checked:
+; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[ZEXT_TRIP_CNT:%.*]], 4
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 [[ZEXT_TRIP_CNT]], [[N_MOD_VF]]
 ; CHECK-NEXT:    [[CMP_ZERO:%.*]] = icmp eq i64 [[N_VEC]], 0
@@ -28,13 +28,13 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK:       scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC]], [[MIDDLE_BLOCK:%.*]] ], [ 0, [[FOR_BODY_PREHEADER:%.*]] ], [ 0, [[MIN_ITERS_CHECKED:%.*]] ]
+; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC]], [[MIDDLE_BLOCK:%.*]] ], [ 0, [[FOR_BODY_PREHEADER:%.*]] ]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
 ;
 ; CHECK-VPCG-LABEL: @foo(
-; CHECK-VPCG:       min.iters.checked:
+; CHECK-VPCG:       for.body.preheader:
 ; CHECK-VPCG-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[ZEXT_TRIP_CNT:%.*]], 4
 ; CHECK-VPCG-NEXT:    [[N_VEC:%.*]] = sub i64 [[ZEXT_TRIP_CNT]], [[N_MOD_VF]]
 ; CHECK-VPCG-NEXT:    [[CMP_ZERO:%.*]] = icmp eq i64 [[N_VEC]], 0
@@ -55,7 +55,7 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-VPCG-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; CHECK-VPCG-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK-VPCG:       scalar.ph:
-; CHECK-VPCG-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER:%.*]] ], [ 0, [[MIN_ITERS_CHECKED:%.*]] ], [ [[TMP8:%.*]], [[MIDDLE_BLOCK:%.*]] ]
+; CHECK-VPCG-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER:%.*]] ], [ [[TMP7:%.*]], [[MIDDLE_BLOCK:%.*]] ]
 ; CHECK-VPCG-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK-VPCG:       for.body:
 ; CHECK-VPCG-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
