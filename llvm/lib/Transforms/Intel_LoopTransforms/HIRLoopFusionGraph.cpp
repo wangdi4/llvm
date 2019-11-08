@@ -410,11 +410,9 @@ void FuseGraph::initGraphHelpers() {
     unsigned Y = Edge.first.second;
 
     if (Edge.second.IsUndirected) {
-      Neighbors[X].insert(Y);
-      Neighbors[Y].insert(X);
+      addNeighborEdgeInternal(X, Y);
     } else {
-      Successors[X].insert(Y);
-      Predecessors[Y].insert(X);
+      addDirectedEdgeInternal(X, Y);
     }
   }
 }
@@ -471,11 +469,8 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
     for (unsigned NodeW : Neighbors[NodeV]) {
       if (PathFromV.count(NodeW)) {
         // Convert to a directed edge if there is a directed path.
-        Neighbors[NodeV].erase(NodeW);
-        Neighbors[NodeW].erase(NodeV);
-
-        Successors[NodeV].insert(NodeW);
-        Predecessors[NodeW].insert(NodeV);
+        eraseNeighborEdgeInternal(NodeV, NodeW);
+        addDirectedEdgeInternal(NodeV, NodeW);
       }
 
       Heap.push(NodeV, NodeW, getFuseEdge(NodeV, NodeW).Weight);
@@ -608,8 +603,7 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
       Heap.remove(NodeX, NodeY);
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
-      Successors[NodeV].insert(NodeY);
-      Predecessors[NodeY].insert(NodeV);
+      addDirectedEdgeInternal(NodeV, NodeY);
 
       auto &Edge = getFuseEdge(NodeV, NodeY);
       Edge.merge(getFuseEdge(NodeX, NodeY));
@@ -618,12 +612,10 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
       Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
 
-      Neighbors[NodeV].erase(NodeY);
-      Neighbors[NodeY].erase(NodeV);
+      eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
       // No existing relationship, need to create a new edge.
-      Successors[NodeV].insert(NodeY);
-      Predecessors[NodeY].insert(NodeV);
+      addDirectedEdgeInternal(NodeV, NodeY);
 
       getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
       Heap.replaceEdge(NodeX, NodeY, NodeV, NodeY);
@@ -655,8 +647,7 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
       Heap.remove(NodeY, NodeX);
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
-      Predecessors[NodeV].insert(NodeY);
-      Successors[NodeY].insert(NodeV);
+      addDirectedEdgeInternal(NodeY, NodeV);
 
       auto &Edge = getFuseEdge(NodeY, NodeV);
       Edge.merge(getFuseEdge(NodeY, NodeX));
@@ -665,12 +656,10 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
       Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
       Heap.remove(NodeY, NodeX);
 
-      Neighbors[NodeV].erase(NodeY);
-      Neighbors[NodeY].erase(NodeV);
+      eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
       // No existing relationship, need to create a new edge.
-      Predecessors[NodeV].insert(NodeY);
-      Successors[NodeY].insert(NodeV);
+      addDirectedEdgeInternal(NodeY, NodeV);
 
       getOrCreateFuseEdge(NodeY, NodeV) = getFuseEdge(NodeY, NodeX);
       Heap.replaceEdge(NodeY, NodeX, NodeY, NodeV);
@@ -707,7 +696,7 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
         Heap.replaceEdge(NodeX, NodeY, NodeV, NodeY);
 
-        Successors[NodeV].insert(NodeY);
+        addDirectedEdgeInternal(NodeV, NodeY);
       }
     } else if (PathFrom[NodeY].count(NodeV)) {
       // There is a directed path from Y to V. Make Y a predecessor of V.
@@ -724,7 +713,7 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         getOrCreateFuseEdge(NodeY, NodeV) = getFuseEdge(NodeY, NodeX);
         Heap.replaceEdge(NodeX, NodeY, NodeY, NodeV);
 
-        Predecessors[NodeV].insert(NodeY);
+        addDirectedEdgeInternal(NodeY, NodeV);
       }
     } else if (Neighbors[NodeV].count(NodeY)) {
       // V and Y are already neighbors, merge edges.
@@ -737,16 +726,14 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
     } else {
       // No existing relationship, make Y a neighbor of V.
 
-      Neighbors[NodeV].insert(NodeY);
-      Neighbors[NodeY].insert(NodeV);
+      addNeighborEdgeInternal(NodeV, NodeY);
 
       getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
       Heap.replaceEdge(NodeX, NodeY, NodeV, NodeY);
     }
 
     // Remove Y-X neighbor relationship.
-    Neighbors[NodeY].erase(NodeX);
-    Neighbors[NodeX].erase(NodeY);
+    eraseNeighborEdgeInternal(NodeY, NodeX);
   }
 }
 
@@ -1130,6 +1117,8 @@ void FuseGraph::weightedFusion() {
   LLVM_DEBUG(dbgs() << "\nFuse Graph before optimization\n");
   LLVM_DEBUG(dump());
 
+  verify(true);
+
   LLVM_DEBUG(dbgs() << "Processing edges from heap:\n");
 
   while (!Heap.empty()) {
@@ -1195,6 +1184,8 @@ void FuseGraph::weightedFusion() {
 
     DEBUG_FG(dbgs() << "Fuse graph debug:\n");
     DEBUG_FG(dump());
+
+    verify(false);
   }
 }
 
@@ -1376,4 +1367,49 @@ void FuseGraph::topologicalSort(
       }
     }
   }
+}
+
+void FuseGraph::verifyDependentMaps(StringRef Title, const NodeMapTy &BaseMap,
+                                    const NodeMapTy &CheckMap,
+                                    bool ReverseEdges,
+                                    bool IgnoreRemovedNodes) const {
+  for (auto &Pair : BaseMap) {
+    auto SrcNode = Pair.first;
+
+    if (IgnoreRemovedNodes && Vertex[SrcNode].isRemoved()) {
+      continue;
+    }
+
+    for (auto DstNode : Pair.second) {
+      if (IgnoreRemovedNodes && Vertex[DstNode].isRemoved()) {
+        continue;
+      }
+
+      auto CheckSrc = ReverseEdges ? DstNode : SrcNode;
+      auto CheckDst = ReverseEdges ? SrcNode : DstNode;
+
+      auto FoundI = CheckMap.find(CheckSrc);
+      if (FoundI == CheckMap.end() || FoundI->second.count(CheckDst) == 0) {
+        dbgs() << Title << " edge (" << CheckSrc << "->" << CheckDst
+               << ") not found in the counterpart map\n";
+        llvm_unreachable("Fusion graph internal inconsistency");
+      }
+    }
+  }
+}
+
+void FuseGraph::verify(bool InitialState) const {
+#ifndef NDEBUG
+  verifyDependentMaps("Successor", Successors, Predecessors, true, false);
+  verifyDependentMaps("Predecessor", Predecessors, Successors, true, false);
+  verifyDependentMaps("Neighbor", Neighbors, Neighbors, true, false);
+  verifyDependentMaps("PathFrom", PathFrom, PathTo, true, !InitialState);
+  verifyDependentMaps("BadPathFrom", BadPathFrom, BadPathTo, true,
+                      !InitialState);
+  verifyDependentMaps("PathTo", PathTo, PathFrom, true, !InitialState);
+  verifyDependentMaps("BadPathTo", BadPathTo, BadPathFrom, true, !InitialState);
+
+  // Verify that Successors are in sync with PathFrom maps.
+  verifyDependentMaps("Succ/PathFrom", Successors, PathFrom, false, false);
+#endif // NDEBUG
 }
