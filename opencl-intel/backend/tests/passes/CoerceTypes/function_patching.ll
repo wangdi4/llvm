@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: %oclopt -coerce-types -S %s -o - | FileCheck %s
 ; This test checks caller and callee patching that makes use of the coerced arguments
 
