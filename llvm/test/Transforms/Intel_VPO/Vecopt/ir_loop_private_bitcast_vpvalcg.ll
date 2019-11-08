@@ -43,7 +43,7 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD]], <4 x i32>* [[PRIVATE_MEM2]], align 4
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds float, <4 x float*> [[BROADCAST_SPLAT]], <4 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x float*> [[MM_VECTORGEP]] to <4 x i32*>
-; CHECK-NEXT:    [[_0:%.*]] = extractelement <4 x i32*> [[TMP3]], i64 0
+; CHECK-NEXT:    [[_0:%.*]] = extractelement <4 x i32*> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[_0]] to <4 x i32>*
 ; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[GROUPPTR]], align 4
 ; CHECK-NEXT:    [[E1:%.*]] = bitcast i32* [[PRIV_BASE]] to <4 x i32>*

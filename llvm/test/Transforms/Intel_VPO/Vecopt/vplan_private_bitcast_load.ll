@@ -31,7 +31,7 @@
 ; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, <4 x double addrspace(1)*> {{.*}}, <4 x i64> {{.*}}
 ; CHECK-NEXT: [[BC2:%.*]] = bitcast <4 x double addrspace(1)*> [[GEP2]] to <4 x i64 addrspace(1)*>
 ; CHECK-LLVM-NEXT: call void @llvm.masked.scatter.v4i64.v4p1i64(<4 x i64> [[GATHER2]], <4 x i64 addrspace(1)*> [[BC2]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-VPVAL-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i64 0
+; CHECK-VPVAL-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
 ; CHECK-VPVAL-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
 ; CHECK-VPVAL-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
 ; CHECK-LLVM-NEXT:  call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR4]])
