@@ -80,6 +80,7 @@ private:
   /// @brief Scalarize an instruction
   /// @param I Instruction to scalarize
   void scalarizeInstruction(BinaryOperator *BI, bool supportsWrap);
+  void scalarizeInstruction(UnaryOperator *UI);
   void scalarizeInstruction(CmpInst *CI);
   void scalarizeInstruction(CastInst *CI);
   void scalarizeInstruction(PHINode *CI);

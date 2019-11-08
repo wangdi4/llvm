@@ -51,6 +51,7 @@
 // nothing is cached before exit.
 
 #include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
 namespace intel {
 

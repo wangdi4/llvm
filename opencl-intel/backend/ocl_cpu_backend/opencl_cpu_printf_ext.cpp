@@ -12,6 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#define NOMINMAX
+
 #include "ExecutionContext.h"
 #include "ICLDevBackendServiceFactory.h"
 #include "exceptions.h"

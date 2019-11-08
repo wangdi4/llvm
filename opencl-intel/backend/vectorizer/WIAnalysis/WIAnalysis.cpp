@@ -335,6 +335,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
   // TODO: to make things faster we may want to sort the list below according
   // to the order of their probability of appearance.
   if      (const BinaryOperator *BI = dyn_cast<BinaryOperator>(inst))          dep = calculate_dep(BI);
+  else if (const UnaryOperator *UI = dyn_cast<UnaryOperator>(inst))            dep = calculate_dep(UI);
   else if (const CallInst *CI = dyn_cast<CallInst>(inst))                      dep = calculate_dep(CI);
   else if (const CmpInst* CI = dyn_cast<CmpInst>(inst))                        dep = calculate_dep_simple(CI);
   else if (const ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(inst)) dep = calculate_dep_simple(EEI);
@@ -734,6 +735,13 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
     return WIAnalysis::RANDOM;
   }
   return WIAnalysis::RANDOM;
+}
+
+WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const UnaryOperator* inst) {
+  // Calculate the dependency type for the operand
+  Value *op0 = inst->getOperand(0);
+
+  return getDependency(op0);
 }
 
 using namespace Intel::OpenCL::DeviceBackend;

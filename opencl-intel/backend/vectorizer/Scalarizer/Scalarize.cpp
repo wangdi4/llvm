@@ -201,6 +201,9 @@ void ScalarizeFunction::dispatchInstructionToScalarize(Instruction *I)
     case Instruction::Xor :
       scalarizeInstruction(dyn_cast<BinaryOperator>(I), false);
       break;
+    case Instruction::FNeg :
+      scalarizeInstruction(dyn_cast<UnaryOperator>(I));
+      break;
     case Instruction::ICmp :
     case Instruction::FCmp :
       scalarizeInstruction(dyn_cast<CmpInst>(I));
@@ -343,6 +346,48 @@ void ScalarizeFunction::scalarizeInstruction(BinaryOperator *BI, bool supportsWr
   m_removedInsts.insert(BI);
 }
 
+void ScalarizeFunction::scalarizeInstruction(UnaryOperator *UI)
+{
+  V_PRINT(scalarizer, "\t\tUnary instruction\n");
+  V_ASSERT(UI && "instruction type dynamic cast failed");
+  VectorType *instType = dyn_cast<VectorType>(UI->getType());
+  // Only need handling for vector unary ops
+  if (!instType) return;
+
+  // Prepare empty SCM entry for the instruction
+  SCMEntry *newEntry = getSCMEntry(UI);
+
+  // Get additional info from instruction
+  unsigned numElements = instType->getNumElements();
+  V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH &&
+           "Inst vector width larger than supported");
+
+  // Obtain scalarized arguments
+  Value *operand0[MAX_INPUT_VECTOR_WIDTH];
+  bool op0IsConst;
+  obtainScalarizedValues(operand0, &op0IsConst, UI->getOperand(0), UI);
+
+  // If the argument is constant, don't bother Scalarizing inst
+  if (op0IsConst) return;
+
+  // Generate new (scalar) instructions
+  Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
+  for (unsigned dup = 0; dup < numElements; dup++)
+  {
+    newScalarizedInsts[dup] = UnaryOperator::Create(
+      UI->getOpcode(),
+      operand0[dup],
+      UI->getName(),
+      UI
+      );
+  }
+
+  // Add new value/s to SCM
+  updateSCMEntryWithValues(newEntry, newScalarizedInsts, UI, true);
+
+  // Remove original instruction
+  m_removedInsts.insert(UI);
+}
 
 void ScalarizeFunction::scalarizeInstruction(CmpInst *CI)
 {
@@ -923,7 +968,7 @@ void ScalarizeFunction::scalarizeInstruction(AllocaInst *AI) {
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
       newScalarizedInsts[dup] = new AllocaInst(
-        allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, AI->getName(), AI);
+        allocaType, m_pDL->getAllocaAddrSpace(), 0, MaybeAlign(alignment), AI->getName(), AI);
     }
 
     // Add new value/s to SCM
