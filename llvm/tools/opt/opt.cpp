@@ -55,7 +55,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-<<<<<<< HEAD
+#include "llvm/Transforms/Utils/Debugify.h"
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
@@ -63,9 +63,6 @@
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
-#include "llvm/Transforms/Utils/Debugify.h"
->>>>>>> 25ee861372f1b6f512fb1fc7c938267670cf0cab
 #include <algorithm>
 #include <memory>
 using namespace llvm;
