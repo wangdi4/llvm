@@ -393,11 +393,7 @@
 // CHK-ADD-TARGETS-UB: 2: linker, {1}, image, (host-sycl)
 // CHK-ADD-TARGETS-UB: 3: input, "dummy.spv", sycl-fatbin, (device-sycl)
 // CHK-ADD-TARGETS-UB: 4: clang-offload-wrapper, {3}, object, (device-sycl)
-<<<<<<< HEAD
-// CHK-ADD-TARGETS-UB: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {4}, image
-=======
 // CHK-ADD-TARGETS-UB: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, image
->>>>>>> 4d65e2d3196f3684874909d0214a12f03a71075e
 
 /// ###########################################################################
 
@@ -555,11 +551,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 2: input, "[[INPUT]]", c, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 3: preprocessor, {2}, cpp-output, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 4: compiler, {3}, sycl-header, (device-sycl)
-<<<<<<< HEAD
-// FOFFLOAD_STATIC_LIB_SRC: 5: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {1}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {4}, cpp-output
-=======
-// FOFFLOAD_STATIC_LIB_SRC: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, cpp-output
->>>>>>> 4d65e2d3196f3684874909d0214a12f03a71075e
+// FOFFLOAD_STATIC_LIB_SRC: 5: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, cpp-output
 // FOFFLOAD_STATIC_LIB_SRC: 6: compiler, {5}, ir, (host-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 7: backend, {6}, assembler, (host-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 8: assembler, {7}, object, (host-sycl)
@@ -570,11 +562,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 13: assembler, {12}, object, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 14: linker, {13, 9}, spirv, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 15: clang-offload-wrapper, {14}, object, (device-sycl)
-<<<<<<< HEAD
-// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {10}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {15}, image
-=======
-// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "host-sycl (x86_64-unknown-linux-gnu)" {10}, "device-sycl (spir64-unknown-unknown-sycldevice)" {15}, image
->>>>>>> 4d65e2d3196f3684874909d0214a12f03a71075e
+// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {10}, "device-sycl (spir64-unknown-unknown-sycldevice)" {15}, image
 
 /// ###########################################################################
 
