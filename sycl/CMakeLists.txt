@@ -200,10 +200,43 @@ if (MSVC)
   list(APPEND SYCL_RT_LIBS sycld)
 endif()
 
+# This function allows building multiple libraries with the same options.
+# Currently used by sycl and plugins library.
+# Currently handles linking with libcxx support and gcc workaround
+function( add_common_options LIB_NAME)
+  if (SYCL_USE_LIBCXX)
+      if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
+          (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+          target_compile_options(${LIB_NAME} PRIVATE -nostdinc++)
+          if ((NOT (DEFINED SYCL_LIBCXX_INCLUDE_PATH)) OR (NOT (DEFINED SYCL_LIBCXX_LIBRARY_PATH)))
+              message(FATAL_ERROR "When building with libc++ SYCL_LIBCXX_INCLUDE_PATHS and"
+                                  "SYCL_LIBCXX_LIBRARY_PATH should be set")
+          endif()
+          target_include_directories(${LIB_NAME} PRIVATE "${SYCL_LIBCXX_INCLUDE_PATH}")
+          target_link_libraries(${LIB_NAME} PRIVATE "-L${SYCL_LIBCXX_LIBRARY_PATH}" -nodefaultlibs -lc++ -lc++abi -lm -lc -lgcc_s -lgcc)
+      else()
+          message(FATAL_ERROR "Build with libc++ is not yet supported for this compiler")
+      endif()
+  else()
+
+# Workaround for bug in GCC version 5 and higher.
+# More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+        CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+    target_link_libraries(${LIB_NAME} PRIVATE gcc_s gcc)
+    endif()
+
+  endif()
+endfunction(add_common_options)
+
 # SYCL runtime library
+<<<<<<< HEAD
 add_subdirectory(source)
 # TODO: remove me when support plugins in open-source   # INTEL_CUSTOMIZATION
 add_subdirectory(plugins)                               # INTEL_CUSTOMIZATION
+=======
+add_subdirectory( source )
+>>>>>>> c4eafeac69c8f029e164b4dd2869db3ced7ffcc8
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
@@ -224,9 +257,33 @@ add_custom_target( sycl-toolchain
   COMMENT "Building SYCL compiler toolchain..."
 )
 
+<<<<<<< HEAD
 add_subdirectory( test )
 add_subdirectory( unittests )
 add_subdirectory( tools )
+=======
+if (NOT DEFINED LLVM_INCLUDE_TESTS)
+  set(LLVM_INCLUDE_TESTS ON)
+endif()
+
+option(SYCL_INCLUDE_TESTS
+  "Generate build targets for the SYCL unit tests."
+  ${LLVM_INCLUDE_TESTS})
+
+
+# Plugin Library
+add_subdirectory( plugins )
+
+add_subdirectory(tools)
+
+if(SYCL_INCLUDE_TESTS)
+  if(EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include/gtest/gtest.h)
+    add_subdirectory(unittests)
+    list(APPEND SYCL_TEST_DEPS SYCLUnitTests)
+  endif()
+  add_subdirectory(test)
+endif()
+>>>>>>> c4eafeac69c8f029e164b4dd2869db3ced7ffcc8
 
 # Package deploy support
 # Listed here are component names contributing the package
