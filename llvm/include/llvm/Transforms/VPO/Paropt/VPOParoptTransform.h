@@ -631,15 +631,27 @@ private:
                    Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
                    Instruction *InsertPt, bool IsTaskWait);
 
-  /// Set up the mapping between the variables (firstprivate,
-  /// lastprivate, reduction and shared) and the counterparts in the thunk.
-  AllocaInst *genTaskPrivateMapping(WRegionNode *W, StructType *KmpSharedTy);
+  /// Create a struct to contain all shared data for the task. This is allocated
+  /// in the caller of the task, and is populated with pointers to shared
+  /// variables, reduction variables, and lastprivate variables.
+  /// This is redundant in a way, but only contains pointers, so it isn't too
+  /// bad for now. We can clean this further later by directly initializing the
+  /// thunk.
+  AllocaInst *genAndPopulateTaskSharedStruct(WRegionNode *W,
+                                             StructType *KmpSharedTy);
 
-  /// Initialize the data in the shared data area inside the thunk
-  void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
-                                StructType *KmpSharedTy,
-                                StructType *KmpTaskTTWithPrivatesTy,
-                                Function *DestrThunk, Instruction *InsertPt);
+  /// Copy the data contained in the shared struct on the task's caller, to the
+  /// task's thunk.
+  void copySharedStructToTaskThunk(WRegionNode *W, AllocaInst *Src, Value *Dst,
+                                   StructType *KmpSharedTy,
+                                   StructType *KmpTaskTTWithPrivatesTy,
+                                   Function *DestrThunk, Instruction *InsertPt);
+
+  /// Initialize the local copies of firstprivate variables in the task thunk,
+  /// using the originals. This is done before executing the task region.
+  void genFprivInitForTask(WRegionNode *W, Value *KmpTaskTTWithPrivates,
+                           StructType *KmpTaskTTWithPrivatesTy,
+                           Instruction *InsertPt);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop

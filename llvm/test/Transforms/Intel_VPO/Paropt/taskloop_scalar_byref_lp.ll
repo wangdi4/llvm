@@ -32,9 +32,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: %__struct.kmp_privates.t = type { i64, i32, i32 }
 
 ; Check shared thunk for space allocated for pointer to the original %a.addr for lastprivate copyout.
-; i64 - %.omp.lb  (redundant. remove eventually)
 ; i32** - %a.addr
-; CHECK: %__struct.shared.t = type { i64, i32** }
+; CHECK: %__struct.shared.t = type { i32** }
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @_Z3fooRi(i32* dereferenceable(4) %a) #0 {
@@ -55,8 +54,8 @@ entry:
 ; copy for '%a.addr' is stored to an i32**, and then that is used instead of
 ; '%a.addr' in the region.
 ; CHECK: define internal void @{{.*}}DIR.OMP.TASK{{.*}}
-; CHECK: [[A_PRIVATE:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %4, i32 0, i32 1
-; CHECK: [[A_SHR_ADDR:%[^ ]+]] = getelementptr inbounds %__struct.shared.t, %__struct.shared.t* %3, i32 0, i32 1
+; CHECK: [[A_PRIVATE:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* {{[^ ]+}}, i32 0, i32 1
+; CHECK: [[A_SHR_ADDR:%[^ ]+]] = getelementptr inbounds %__struct.shared.t, %__struct.shared.t* {{[^ ]+}}, i32 0, i32 0
 ; CHECK: [[A_SHR:%[^ ]+]] = load i32**, i32*** [[A_SHR_ADDR]]
 ; CHECK: store i32* [[A_PRIVATE]], i32** {{[^ ]+}}
 
