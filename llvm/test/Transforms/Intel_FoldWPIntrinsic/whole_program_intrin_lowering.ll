@@ -1,8 +1,9 @@
 ; Tests if the intrinsic llvm.intel.wholeprogramsafe was lowered correctly
-; into false since the whole program analysis didn't ran. Also, the intrinsic
+; into false since the whole program analysis didn't run. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed.
 
 ; RUN: opt < %s -pre-isel-intrinsic-lowering -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='pre-isel-intrinsic-lowering' -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 

@@ -39,6 +39,7 @@
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
+; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK-O-NEXT: Running pass: IPCloningPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass

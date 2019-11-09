@@ -32,6 +32,7 @@ add_llvm_library(LLVMipo
   Inliner.cpp
   Intel_ArgumentAlignment.cpp      # INTEL
   Intel_CallTreeCloning.cpp # INTEL
+  Intel_FoldWPIntrinsic.cpp         # INTEL
   Intel_IPCloning.cpp     # INTEL
   Intel_IPOPrefetch.cpp   # INTEL
   Utils/Intel_IPOUtils.cpp # INTEL

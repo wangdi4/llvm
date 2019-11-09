@@ -1,10 +1,10 @@
 ; Tests if the intrinsic llvm.intel.wholeprogramsafe was converted correctly
-; into false since the optimization levele is O0. Also, the intrinsic
+; into true since there is whole program safe. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed.
 
-; RUN: opt < %s -xmain-opt-level=0 -wholeprogramanalysis -whole-program-assume -S 2>&1 | FileCheck %s
 
-; RUN: opt < %s -xmain-opt-level=0 -passes='require<wholeprogram>' -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-fold-wp-intrinsic -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic)' -whole-program-assume -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 
@@ -31,6 +31,6 @@ if.end:
 
 ; CHECK:       %x = alloca i32, align 4
 ; CHECK-NEXT:  store i32 0, i32* %x, align 4
-; CHECK-NEXT:  br i1 false, label %if.whpr, label %if.nowhpr
+; CHECK-NEXT:  br i1 true, label %if.whpr, label %if.nowhpr
 
 ; CHECK-NOT: @llvm.intel.wholeprogramsafe()

@@ -100,12 +100,7 @@ public:
   static WholeProgramInfo analyzeModule(
       Module &M,
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
-      function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG,
-      unsigned OptLevel);
-
-  // Fold the intrinsic llvm.intel.wholeprogramsafe
-  // into true or false depending on the result of the analysis
-  void foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel);
+      function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG);
 
   // Return true if the input GlobName is a form of main,
   // else return false.
