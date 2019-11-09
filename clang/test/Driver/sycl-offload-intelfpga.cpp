@@ -84,11 +84,7 @@
 // RUN:  echo "Dummy AOCX image" > %t.aocx
 // RUN:  echo "void foo() {}" > %t.c
 // RUN:  %clang -c %t.c
-<<<<<<< HEAD
-// RUN:  clang-offload-wrapper -o %t-aocx.bc -host=x86_64-unknown-linux-gnu -kind=sycl -target=fpga_aocx-intel-linux-sycldevice %t.aocx
-=======
 // RUN:  clang-offload-wrapper -o %t-aocx.bc -host=x86_64-unknown-linux-gnu -kind=sycl -target=fpga_aocx-intel-unknown-sycldevice %t.aocx
->>>>>>> ec738f2d5509fdc202c8b6f6d823aa24996e2b23
 // RUN:  llc -filetype=obj -o %t-aocx.o %t-aocx.bc
 // RUN:  llvm-ar crv %t_aocx.a %t.o %t-aocx.o
 // RUN:  %clang++ -target x86_64-unknown-linux-gnu -fsycl -fintelfpga %t_aocx.a -ccc-print-phases 2>&1 \
