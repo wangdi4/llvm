@@ -355,7 +355,7 @@ try a different SPMDization strategy instead.
       } else if (spmd_approach == SPMD_BLOCKING)
         TransformLoopInitandBound(NewLoop, SE, PE, NPEs);
 
-      if (min_iterations < PE) {
+      if (min_iterations - 1 < PE) {
         AddZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
         // flat vs. nested: The main difference between flat and nested here is
         // that the loop preheader (the zero trip check block) should branch to
@@ -1943,7 +1943,12 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
   }
 
   NewCondOp1 = NewInitV;
-  NewCondOp0 = TripCount;
+  //do not use the one in cond if the loop is ZT in Blocking because it does
+  //reflect loop count anymore
+  if(spmd_approach == SPMD_BLOCKING)
+    NewCondOp0 = UpperBound;
+  else
+    NewCondOp0 = TripCount;
 
   if (CmpCond->getPredicate() == CmpInst::ICMP_EQ ||
       CmpCond->getPredicate() == CmpInst::ICMP_NE) {
