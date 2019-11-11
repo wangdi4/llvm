@@ -92,7 +92,7 @@ OclBuiltinImpl sub_group_shuffle_avxv16uif32 = OclBuiltinImpl<sub_group_shuffle_
 
 OclBuiltinImpl sub_group_shuffle_avxv32uif32 = OclBuiltinImpl<sub_group_shuffle_avx, [v32u32, v32i32, v32f32], 0,
   [{
-    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_4x8($Arg0VarName);
+    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x4($Arg0VarName);
     $Arg0BaseType#4 t1 = $Arg0VarName.lo.lo.lo;
     $Arg0BaseType#4 t2 = $Arg0VarName.lo.lo.hi;
     $Arg0BaseType#4 t3 = $Arg0VarName.lo.hi.lo;
@@ -110,13 +110,13 @@ OclBuiltinImpl sub_group_shuffle_avxv32uif32 = OclBuiltinImpl<sub_group_shuffle_
     res.hi.lo.hi = intel_sub_group_shuffle(t6, $Arg1VarName, $Arg2VarName);
     res.hi.hi.lo = intel_sub_group_shuffle(t7, $Arg1VarName, $Arg2VarName);
     res.hi.hi.hi = intel_sub_group_shuffle(t8, $Arg1VarName, $Arg2VarName);
-    res = __ocl_shuffle_transpose_$Arg0BaseType_8x4($Arg0VarName);
+    res = __ocl_shuffle_transpose_$Arg0BaseType_4x8(res);
     return res;
   }]>;
 
 OclBuiltinImpl sub_group_shuffle_avxv64uif32 = OclBuiltinImpl<sub_group_shuffle_avx, [v64u32, v64i32, v64f32], 0,
   [{
-    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_4x16($Arg0VarName);
+    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x4($Arg0VarName);
     $Arg0BaseType#4 t1  = $Arg0VarName.lo.lo.lo.lo;
     $Arg0BaseType#4 t2  = $Arg0VarName.lo.lo.lo.hi;
     $Arg0BaseType#4 t3  = $Arg0VarName.lo.lo.hi.lo;
@@ -150,7 +150,7 @@ OclBuiltinImpl sub_group_shuffle_avxv64uif32 = OclBuiltinImpl<sub_group_shuffle_
     res.hi.hi.lo.hi = intel_sub_group_shuffle(t14, $Arg1VarName, $Arg2VarName);
     res.hi.hi.hi.lo = intel_sub_group_shuffle(t15, $Arg1VarName, $Arg2VarName);
     res.hi.hi.hi.hi = intel_sub_group_shuffle(t16, $Arg1VarName, $Arg2VarName);
-    res = __ocl_shuffle_transpose_$Arg0BaseType_16x4($Arg0VarName);
+    res = __ocl_shuffle_transpose_$Arg0BaseType_4x16(res);
     return res;
   }]>;
 
