@@ -334,6 +334,10 @@ public:
   // Analyze the given Instruction*, update relevant counters for
   // certain types of instructions.
   void analyze(Instruction *I) {
+    // Skip any DebugInfo Intrinsic: don't count it
+    if (isa<DbgInfoIntrinsic>(I))
+      return;
+
     if (isa<LoadInst>(I))  // Count LoadInst
       ++NumLoad;
     else if (isa<StoreInst>(I))   // Count StoreInst
@@ -351,20 +355,20 @@ public:
   // Analyze the current Function using PositionDescription info, and
   // obtain the target Instruction * at a precise location in F.
   void analyze(void) {
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I!=E; ++I) {
+    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
       LLVM_DEBUG(dbgs() << *I << "\n";);
       analyze(&*I);
     }
   }
 
   bool compare(PositionDescription &PosDes) {
-    return (F==PosDes.F)
-        && (NumLoad==PosDes.NumLoad)
-        && (NumStore==PosDes.NumStore)
-        && (NumBranch==PosDes.NumBranch)
-        && (NumCmp==PosDes.NumCmp)
-        && (NumIntrinsic==PosDes.NumIntrinsic)
-        && (NumCall==PosDes.NumCall);
+    return (F == PosDes.F)
+        && (NumLoad == PosDes.NumLoad)
+        && (NumStore == PosDes.NumStore)
+        && (NumBranch == PosDes.NumBranch)
+        && (NumCmp == PosDes.NumCmp)
+        && (NumIntrinsic == PosDes.NumIntrinsic)
+        && (NumCall == PosDes.NumCall);
   }
 
   bool operator==(PositionDescription &PD) {
@@ -382,10 +386,10 @@ public:
     assert(F && "Expect a valid Function F");
     this->F = F;
     PositionDescription Pos(F);
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I!=E; ++I) {
+    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
       Instruction *Ins = &*I;
-      Pos.analyze(Ins);
       LLVM_DEBUG(dbgs() << *Ins << "\n";);
+      Pos.analyze(Ins);
       if (Pos.compare(*this)) {
         PreciseInst = &*I;        // mark current inst
         InsertPosition = &*(++I); // save next inst to allow insert before
@@ -479,12 +483,12 @@ public:
 
   bool matchStructType(StructType *StructT, unsigned NumFields,
                        SmallVectorImpl<unsigned> &FieldTypeIdxVec) {
-    if (NumFields!=StructT->getNumElements())
+    if (NumFields != StructT->getNumElements())
       return false;
     for (unsigned I = 0, E = StructT->getNumElements(); I < E; ++I) {
       Type *Ty = StructT->getElementType(I);
       IntegerType *IntT = dyn_cast<IntegerType>(Ty);
-      if (!IntT || IntT!=IntegerTypeVec[FieldTypeIdxVec[I]])
+      if (!IntT || IntT != IntegerTypeVec[FieldTypeIdxVec[I]])
         return false;
     }
     return true;
@@ -535,13 +539,13 @@ public:
   bool matchStructType(StructType *StructT, unsigned NumFields,
                        unsigned ArraySize, StructType *ArrayElemTy) {
     // Check: number of fields
-    if (NumFields!=StructT->getNumElements())
+    if (NumFields != StructT->getNumElements())
       return false;
     // Check: the only ArrayType field
     Type *Ty = StructT->getElementType(0);
     ArrayType *ArrTy = dyn_cast<ArrayType>(Ty);
-    if (!ArrTy || (ArrTy->getArrayNumElements()!=ArraySize)
-        || (ArrTy->getArrayElementType()!=ArrayElemTy))
+    if (!ArrTy || (ArrTy->getArrayNumElements() != ArraySize)
+        || (ArrTy->getArrayElementType() != ArrayElemTy))
       return false;
     return true;
   }
@@ -873,7 +877,7 @@ static bool getStructArgIndex(Function *F, unsigned &ArgIdx) {
   }
 
   // return true if only 1 struct-type arg is available.
-  if (StructTypeArgIdxVec.size()!=1)
+  if (StructTypeArgIdxVec.size() != 1)
     return false;
 
   ArgIdx = StructTypeArgIdxVec[0];
@@ -1143,7 +1147,19 @@ bool IPOPrefetcher::identifyDLFunctions(void) {
 
   LLVM_DEBUG({ dumpDLCandidate(); });
 
-  return (DLCandidates.size()==ExpectedNumDLFunctions);
+  // Sorting DLCandidates vector puts its contents in a predictable order.
+  // This will simplify later matching.
+  llvm::sort(DLCandidates.begin(), DLCandidates.end(),
+            [&](const Function *F0, const Function *F1) -> bool {
+              return F0->arg_size() > F1->arg_size();
+            });
+
+  LLVM_DEBUG({
+               dbgs() << " Check collected Function order\n";
+               dumpDLCandidate();
+             });
+
+  return (DLCandidates.size() == ExpectedNumDLFunctions);
 }
 
 //
@@ -1197,7 +1213,7 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
   struct CompareFunctionPtr :
       public std::binary_function<Function *, Function *, bool> {
     bool operator()(const Function *lhs, const Function *rhs) const {
-      if (lhs==nullptr || rhs==nullptr)
+      if (lhs == nullptr || rhs == nullptr)
         return lhs < rhs;
       return lhs->arg_size() < rhs->arg_size();
     }
@@ -1267,7 +1283,7 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
     }
   }
 
-  return (PrefetchPositions.size()==ExpectedNumPrefetchInsertPositions);
+  return (PrefetchPositions.size() == ExpectedNumPrefetchInsertPositions);
 }
 
 // Search module, find and save the main() function
@@ -1325,7 +1341,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   // attribute, since that belongs to the return value.
   unsigned i = 0;
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
-       I!=E; ++I, ++i) {
+       I != E; ++I, ++i) {
     if (I->getNumUses()) {
       Params.push_back(I->getType());
       ArgAlive[i] = true;
@@ -1363,7 +1379,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
       F->getContext(), Attribute::AllocSize);
 
   // Reconstruct the AttributesList based on the vector we constructed.
-  assert(ArgAttrVec.size()==Params.size());
+  assert(ArgAttrVec.size() == Params.size());
   AttributeList NewPAL =
       AttributeList::get(F->getContext(), FnAttrs, RetAttrs, ArgAttrVec);
 
@@ -1371,7 +1387,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   FunctionType *NFTy = FunctionType::get(NRetTy, Params, FTy->isVarArg());
 
   // No change?
-  if (NFTy==FTy)
+  if (NFTy == FTy)
     return false;
 
   // Create the new function body and insert it into the module...
@@ -1393,7 +1409,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   // the new arguments, also transferring over the names as well.
   i = 0;
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(),
-           I2 = NF->arg_begin(); I!=E; ++I, ++i)
+           I2 = NF->arg_begin(); I != E; ++I, ++i)
     if (ArgAlive[i]) {
       // If this is a live argument, move the name and users over to the new
       // version.
@@ -1409,7 +1425,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
 
   // If we need to change the return value of the function, we must rewrite any
   // return instructions.
-  if (F->getReturnType()!=NF->getReturnType())
+  if (F->getReturnType() != NF->getReturnType())
     for (BasicBlock &BB : *NF)
       if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
         // Replace the return instruction with one returning the new return
@@ -1521,7 +1537,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     Clone->setCallingConv(F->getCallingConv());
 
     auto NewI = Clone->arg_begin();
-    for (auto I = F->arg_begin(); I!=F->arg_end(); ++I) {
+    for (auto I = F->arg_begin(); I != F->arg_end(); ++I) {
       NewI->setName(I->getName());
       Old2New[&*I] = &*NewI;
       ++NewI;
@@ -1663,7 +1679,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     // Remove all stores into non-local memory:
     // - these are stores into globals or function arguments.
     SmallVector<Instruction *, 4> NonLocalStoreV;
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I!=E; ++I) {
+    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
       Instruction *Inst = &*I;
       if (isa<StoreInst>(Inst) && !IsLocalStore(Inst))
         NonLocalStoreV.push_back(Inst);
@@ -1766,7 +1782,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     // insert a bitcast from address to i8*
     BasicBlock::iterator It(DLInst);
     ++It; // After this line, It refers to the instruction after DLLoad
-    if (It==DLInst->getParent()->end())
+    if (It == DLInst->getParent()->end())
       assert(0 && "reached end of BB");
 
     Builder.SetInsertPoint(&*It);
@@ -1861,7 +1877,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
   // sequence of optimizations until it is fully optimized and becomes the final
   // prefetch function.
   //
-  assert(DLCandidates.size()==1 && "Expect Single DL Function");
+  assert(DLCandidates.size() == 1 && "Expect Single DL Function");
   Function *DLFunction = DLCandidates[0];
   LLVM_DEBUG(dbgs() << "DLFunction: " << DLFunction->getName() << "()\n";);
   PrefetchFunction = CloneDLFunction(DLFunction);
@@ -1934,7 +1950,7 @@ bool IPOPrefetcher::insertPrefetchFunction(void) {
       unsigned ArgCount = 0;
       for (Argument &Arg : Caller->args()) {
         Args.push_back(&Arg);
-        if (++ArgCount==NumArgs)
+        if (++ArgCount == NumArgs)
           break;
       }
 
