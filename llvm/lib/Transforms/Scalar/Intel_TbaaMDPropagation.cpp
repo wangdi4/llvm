@@ -74,6 +74,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/IR/CFG.h"
 
 using namespace llvm;
 
@@ -182,8 +184,8 @@ void TbaaMDPropagationImpl::visitStore(StoreInst &SI) {
 
 bool runTbaaMDPropagation(Function &F) {
   TbaaMDPropagationImpl impl;
-  for (BasicBlock &BB : F) {
-    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+  for (BasicBlock *BB : depth_first(&F.getEntryBlock())) {
+    for (auto II = BB->begin(), IE = BB->end(); II != IE;) {
       // Because we might be erasing the instruction, we need to get the
       // instruction reference first and then increment the iterator before
       // visiting the instruction.
@@ -240,8 +242,8 @@ PreservedAnalyses TbaaMDPropagationPass::run(Function &F,
 }
 
 static bool runCleanupFakeLoads(Function &F) {
-  for (BasicBlock &BB : F) {
-    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+  for (BasicBlock *BB : depth_first(&F.getEntryBlock())) {
+    for (auto II = BB->begin(), IE = BB->end(); II != IE;) {
       // Because we might be erasing the instruction, we need to get the
       // instruction reference first and then increment the iterator before
       // processing the instruction.
