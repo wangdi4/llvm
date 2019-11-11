@@ -644,7 +644,7 @@ void CSACreateSelfContainedGraph::processForOffloadCompile(Module &M) {
     StringRef name = F.getName();
     MachineFunction *MF = MMI->getMachineFunction(F);
     avoidParamsResultsOverlap(MF);
-    if (name.startswith("__omp_offloading"))
+    if (name.startswith("__omp_offloading") && !F.hasInternalLinkage())
       OffloadRegionRoots.insert(MF);
   }
   for (auto MF: OffloadRegionRoots) {
