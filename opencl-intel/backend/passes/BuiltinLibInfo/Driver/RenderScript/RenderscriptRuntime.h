@@ -206,6 +206,10 @@ protected:
   ///        foo(<2 x float> %a) --> foo4(<8 x float>)
   bool needsConcatenatedVectorParams(StringRef) const override { return false; }
 
+  /// @brief returns true iff spec guarantees that all work items hit
+  ///        a memory function, so predication is redundant
+  bool allowsUnpredicatedMemoryAccess(StringRef) const override { return false; }
+
   RenderscriptRuntime(); // Do not implement
 
   /// @brief initiate the scalar selects set from array of names

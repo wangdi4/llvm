@@ -287,6 +287,13 @@ bool OpenclRuntime::needsConcatenatedVectorParams(StringRef name) const {
   return needsConcatenatedVectorReturn(name);
 }
 
+bool OpenclRuntime::allowsUnpredicatedMemoryAccess(StringRef name) const {
+  // Per spec all work-items must hit this function
+  if (name.contains("intel_sub_group_block_"))
+    return true;
+  return false;
+}
+
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
   if (CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||
