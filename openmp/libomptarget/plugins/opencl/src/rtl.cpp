@@ -1414,34 +1414,52 @@ static inline int32_t run_target_team_nd_region(
   }
 
   int64_t *loop_levels = loop_desc ? (int64_t *)loop_desc : nullptr;
+  size_t optimal_work_size = local_work_size_max;
+
   if (loop_levels && thread_limit <= 0 &&
       (DeviceInfo.OMPThreadLimit <= 0 ||
        // omp_get_thread_limit() would return INT_MAX by default.
        // NOTE: Windows.h defines max() macro, so we have to guard
        //       the call with parentheses.
        DeviceInfo.OMPThreadLimit == (std::numeric_limits<int32_t>::max)()) &&
-      local_work_size_max > 16)
+      optimal_work_size > 16)
     // Default to 16 WIs per WG for ND-range paritioning.
     // This size seems to provide the best results for steam and nbody
     // benchmarks. Users may use more WIs/WG by using thread_limit clause
     // and OMP_THREAD_LIMIT, but the number may not exceed OpenCL limits.
-    local_work_size_max = 16;
+    optimal_work_size = 16;
 
   // TODO: we may want to reshape local work if necessary.
-  size_t local_work_size[3] = {local_work_size_max, 1, 1};
-  size_t num_work_groups[3] = {num_work_groups_max, 1, 1};
-  cl_uint work_dim = 1;
+  size_t local_work_size[3] = { 1, 1, 1 };
+  size_t num_work_groups[3] = { 1, 1, 1 };
+  int32_t work_dim = 1;
+
+  if (loop_levels) {
+    work_dim = (int32_t)*loop_levels;
+    assert(work_dim > 0 && work_dim <= 3 &&
+           "ND-range parallelization requested "
+           "with invalid number of dimensions.");
+    if (work_dim == 1)
+      // Keep the current local_size default for 1D cases.
+      local_work_size[work_dim - 1] = optimal_work_size;
+    else
+      // TODO: we should take into account the global size,
+      //       e.g. if the 3rd dimension is 32, it may make
+      //       sense to use (1, 8, 32) instead of (1, 1, 32).
+      local_work_size[work_dim - 1] = local_work_size_max;
+  }
+  else {
+    local_work_size[0] = optimal_work_size;
+    num_work_groups[0] = num_work_groups_max;
+  }
 
   // Compute num_work_groups using the loop descriptor.
   if (loop_levels) {
-    assert(*loop_levels > 0 && *loop_levels <= 3 &&
-           "ND-range parallelization requested "
-           "with invalid number of dimensions.");
     assert(num_teams <= 0 &&
            "ND-range parallelization requested with num_teams.");
     TgtLoopDescTy *level = (TgtLoopDescTy *)(loop_levels + 1);
 
-    for (int32_t i = 0; i < *loop_levels; ++i) {
+    for (int32_t i = 0; i < work_dim; ++i) {
       assert(level[i].ub >= level[i].lb && level[i].stride > 0);
       DP("NDrange[dim=%d]: (lb=%" PRId64 ", ub=%" PRId64
          ", stride=%" PRId64 ")\n",
@@ -1453,7 +1471,6 @@ static inline int32_t run_target_team_nd_region(
 
       num_work_groups[i] = (trip + local_work_size[i] - 1) / local_work_size[i];
     }
-    work_dim = *loop_levels;
   }
 
   size_t global_work_size[3];
@@ -1468,7 +1485,7 @@ static inline int32_t run_target_team_nd_region(
      global_work_size[1], global_work_size[2]);
   DP("Local work size = (%zu, %zu, %zu)\n", local_work_size[0],
      local_work_size[1], local_work_size[2]);
-  DP("Work dimension = %u\n", work_dim);
+  DP("Work dimension = %d\n", work_dim);
 
   // Protect thread-unsafe OpenCL API calls
   DeviceInfo.Mutexes[device_id].lock();
@@ -1507,7 +1524,7 @@ static inline int32_t run_target_team_nd_region(
 
   cl_event event;
   INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
-                     *kernel, work_dim, nullptr, global_work_size,
+                     *kernel, (cl_uint)work_dim, nullptr, global_work_size,
                      local_work_size, 0, nullptr, &event);
 
   DeviceInfo.Mutexes[device_id].unlock();

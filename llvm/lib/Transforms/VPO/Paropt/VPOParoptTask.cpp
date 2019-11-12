@@ -604,7 +604,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     if (UpperBoundLd->getType()->getIntegerBitWidth() !=
         IndValTy->getIntegerBitWidth())
       UpperBoundLd = Builder.CreateSExtOrTrunc(UpperBoundLd, IndValTy);
-    VPOParoptUtils::updateOmpPredicateAndUpperBound(W, UpperBoundLd,
+    VPOParoptUtils::updateOmpPredicateAndUpperBound(W, 0, UpperBoundLd,
                                                     &*Builder.GetInsertPoint());
   }
   PrivateClause &PrivClause = W->getPriv();
@@ -922,7 +922,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
 
   AllocaInst *UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
   Value *UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator(),
+      VPOParoptUtils::computeOmpUpperBound(W, 0, EntryBB->getTerminator(),
                                            ".for.taskloop.init");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=

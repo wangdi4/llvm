@@ -870,13 +870,18 @@ public:
   /// be closed interval.
   static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
 
-  /// Return the predicate which includes equal for the zero trip test.
-  static Value *computeOmpUpperBound(WRegionNode *W, Instruction *InsertPt,
+  /// Return the predicate which includes equal for the zero trip test
+  /// of the loop identified by \p Idx.
+  static Value *computeOmpUpperBound(WRegionNode *W, unsigned Idx,
+                                     Instruction *InsertPt,
                                      const Twine &Name = "");
 
-  /// Update the bottom test predicate to include equal predicate.
+  /// Update the bottom test predicate to include equal predicate
+  /// for the loop identified by \p Idx.
   /// It also updates the loop upper bound.
-  static void updateOmpPredicateAndUpperBound(WRegionNode *W, Value *Load,
+  static void updateOmpPredicateAndUpperBound(WRegionNode *W,
+                                              unsigned Idx,
+                                              Value *Load,
                                               Instruction *InsertPt);
 
   /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new

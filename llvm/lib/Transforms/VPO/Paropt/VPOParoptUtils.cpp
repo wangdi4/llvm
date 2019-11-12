@@ -3502,20 +3502,14 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
 // Computes the OpenMP loop upper bound so that the iteration space can be
 // closed interval.
 Value *VPOParoptUtils::computeOmpUpperBound(
-    WRegionNode *W, Instruction* InsertPt, const Twine &Name) {
+    WRegionNode *W, unsigned Idx, Instruction* InsertPt, const Twine &Name) {
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
   IRBuilder<> Builder(InsertPt);
   auto &RegionInfo = W->getWRNLoopInfo();
-  auto *NormUB = RegionInfo.getNormUB();
-  // FIXME: this routine may be called for an OpenCL parallel loop
-  //        with multiple normalized upper bounds.  We have to have
-  //        the loop index to get the right normalized upper bound
-  //        from the list.
-  assert(NormUB && RegionInfo.getNormUBSize() == 1 &&
-         "NORMALIZED.UB clause must specify exactly one upper bound.");
+  auto *NormUB = RegionInfo.getNormUB(Idx);
 
-  assert(GeneralUtils::isOMPItemLocalVAR(NormUB) &&
+  assert(NormUB && GeneralUtils::isOMPItemLocalVAR(NormUB) &&
          "NORMALIZED.UB clause must specify an AllocaInst or"
          " AddrSpaceCastInst.");
 
@@ -3541,12 +3535,13 @@ CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
 
 // Updates the bottom test predicate to include equal predicate.
 void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
+                                                     unsigned Idx,
                                                      Value *UB,
                                                      Instruction* InsertPt) {
 
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
-  Loop *L = W->getWRNLoopInfo().getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
