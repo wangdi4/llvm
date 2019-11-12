@@ -477,4 +477,88 @@ EXTERN char *__tgt_get_device_rtl_name(
   buffer[buffer_max_size - 1] = '\0';
   return buffer;
 }
+
+EXTERN void __tgt_offload_proxy_task_complete_ooo(void *async_obj) {
+  // TODO
+}
+
+EXTERN void *__tgt_create_interop_obj(
+    int64_t device_id, bool is_async, void *async_obj) {
+  DP("Call to __tgt_create_interop_obj with device_id %" PRId64 ", is_async %s"
+     ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
+     DPxPTR(async_obj));
+
+  if (IsOffloadDisabled()) {
+    return NULL;
+  }
+
+  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
+    device_id = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_id);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  DeviceTy &Device = Devices[device_id];
+
+  __tgt_interop_obj *obj =
+      (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
+
+  obj->device_id = device_id;
+  obj->is_async = is_async;
+  obj->async_obj = async_obj;
+  obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
+  obj->pipe = Device.get_offload_pipe();
+
+  return obj;
+}
+
+EXTERN int __tgt_release_interop_obj(void *interop_obj) {
+  DP("Call to __tgt_release_interop_obj with interop_obj " DPxMOD "\n",
+     DPxPTR(interop_obj));
+
+  if (IsOffloadDisabled())
+    return OFFLOAD_FAIL;
+
+  free(interop_obj);
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int __tgt_get_interop_property(
+    void *interop_obj, int32_t property_id, void **property_value) {
+  DP("Call to __tgt_get_interop_property with interop_obj " DPxMOD
+     ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
+
+  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+    return OFFLOAD_FAIL;
+  }
+
+  __tgt_interop_obj *interop = (__tgt_interop_obj *)interop_obj;
+  switch (property_id) {
+  case INTEROP_DEVICE_ID:
+    *property_value = (void *)interop->device_id;
+    break;
+  case INTEROP_IS_ASYNC:
+    *property_value = (void *)interop->is_async;
+    break;
+  case INTEROP_ASYNC_OBJ:
+    *property_value = interop->async_obj;
+    break;
+  case INTEROP_ASYNC_CALLBACK:
+    *property_value = (void *)interop->async_handler;
+    break;
+  case INTEROP_OFFLOAD_PIPE:
+    *property_value = interop->pipe;
+    break;
+  default:
+    DP("Invalid interop property name " PRId32 "\n");
+    return OFFLOAD_FAIL;
+  }
+
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_COLLAB

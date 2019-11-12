@@ -1042,6 +1042,10 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN void *__tgt_rtl_get_offload_pipe(int32_t device_id) {
+  return (void *)DeviceInfo.Queues[device_id];
+}
+
 static inline
 void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
                                   void *hst_ptr, void *hst_base,
