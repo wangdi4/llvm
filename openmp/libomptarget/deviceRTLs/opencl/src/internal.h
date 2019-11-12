@@ -328,7 +328,8 @@ INLINE int __kmp_get_omp_thread_id(bool is_spmd_mode) {
     ret = __kmp_get_local_id();
   } else {
     kmp_thread_state_t *thread_state = __kmp_get_thread_state();
-    kmp_task_state_t *task = thread_state->top_level_task[tid];
+    kmp_task_state_t *task =
+        (kmp_task_state_t *)thread_state->top_level_task[tid];
     KMP_ASSERT(task,
                "Invalid task descriptor while retrieving thread ID");
     ret = task->task_data.thread_id;
@@ -342,7 +343,7 @@ INLINE int __kmp_get_omp_thread_id(bool is_spmd_mode) {
 ///
 
 INLINE void __kmp_init_thread_state(kmp_thread_state_t *thread_state, int tid) {
-  thread_state->top_level_task[tid] = NULL;
+  thread_state->top_level_task[tid] = (kmp_task_state_t *)NULL;
   thread_state->next_region.num_threads[tid] = 0;
 }
 
