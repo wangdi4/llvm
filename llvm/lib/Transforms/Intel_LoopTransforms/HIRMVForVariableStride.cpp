@@ -450,6 +450,9 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
 
   // Actual MV of OuterLoop
   if (OuterLoopToMV->hasPreheader()) {
+    // Extract ztt explicitly to give the same order of checks regardless of the
+    // existence of preheader/postexit
+    OuterLoopToMV->extractZtt();
     OuterLoopToMV->extractPreheaderAndPostexit();
   }
 
