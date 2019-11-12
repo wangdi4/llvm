@@ -916,16 +916,19 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
         cast<VPBasicBlock>(CurrentCascadedIfBlock->getSuccessors()[0]));
     VPLoop *Succ1Loop = VPLInfo->getLoopFor(
         cast<VPBasicBlock>(CurrentCascadedIfBlock->getSuccessors()[1]));
-    unsigned LoopDepthOfSucc0 = Succ0Loop->getLoopDepth();
-    unsigned LoopDepthOfSucc1 = Succ1Loop->getLoopDepth();
+    // It's possible that successor blocks of CurrentCascadedIfBlock may fall
+    // outside of any loopnest. If so, loop depth is set to 0.
     // The bigger the loop depth the deeper the loop is in the loop nest.
+    unsigned LoopDepthOfSucc0 = Succ0Loop ? Succ0Loop->getLoopDepth() : 0;
+    unsigned LoopDepthOfSucc1 = Succ1Loop ? Succ1Loop->getLoopDepth() : 0;
     VPLoop *CascadedIfBlockParentLoop =
         LoopDepthOfSucc0 >= LoopDepthOfSucc1 ? Succ0Loop : Succ1Loop;
+    if (CascadedIfBlockParentLoop)
+      CascadedIfBlockParentLoop->addBasicBlockToLoop(CurrentCascadedIfBlock,
+                                                     *VPLInfo);
     VPRegionBlock *ParentRegion = NewLoopLatch->getParent();
     CurrentCascadedIfBlock->setParent(ParentRegion);
     ParentRegion->setSize(ParentRegion->getSize() + 1);
-    CascadedIfBlockParentLoop->addBasicBlockToLoop(CurrentCascadedIfBlock,
-                                                   *VPLInfo);
   }
 
   VPRegionBlock *CurrentLoopRegion =
