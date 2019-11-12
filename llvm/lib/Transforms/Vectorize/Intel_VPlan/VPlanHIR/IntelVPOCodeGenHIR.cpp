@@ -2688,6 +2688,11 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
         continue;
       }
 
+      // We are trying to blend same wide ref here, so select is not needed.
+      // Leave BlendVal untouched.
+      if (DDU.areEqual(IncomingVecVal, BlendVal))
+        continue;
+
       RegDDRef *Cond = widenRef(Block->getPredicate(), getVF());
       Type *CondTy = Cond->getDestType();
       Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
@@ -3184,9 +3189,66 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   if (!Mask)
     Mask = CurMaskValue;
 
+  // Special handling of PHI nodes to support mixed codegen.
+  if (VPInst->isUnderlyingIRValid() && isa<VPPHINode>(VPInst)) {
+    // Case 1: Decomposed PHI
+    // It is possible to have the same PHI node being part of multiple master
+    // instructions. In such scenarios if any of the user master instruction is
+    // invalidated, then widened code should be generated for this PHI since the
+    // invalidated instruction uses it. Example pseduo HIR -
+    // if (cond) {
+    //   %1 = abc
+    // } else {
+    //   %1 = xyz
+    // }
+    // a[i1] = %1
+    // b[i1] = %1
+    //
+    // Decomposed pseduo HCFG for this code -
+    // VPBB.if.then:
+    //   ...
+    //   %vp1 = ...
+    //
+    // VPBB.if.else:
+    //   ...
+    //   %vp2 = ...
+    //
+    // VPBB.if.end:
+    //   %phi = phi [%vp1, VPBB.if.then], [%vp2, VPBB.if.else]
+    //   %a.gep = gep
+    //   store %phi, %a.gep
+    //   %b.gep = gep
+    //   store %phi, %b.gep       ==> Invalidated instruction
+    //
+    // In above example scenario, in order to generate code for the invalidated
+    // store explicit wide code must be emitted for %phi.
+    //
+    // Case 2: Master PHI (happens only for loop IV)
+    // It is possible that instructions using the loop IV PHI maybe invalidated.
+    // Widened code for PHI should be generated to ensure that mixed codegen for
+    // such users works.
+    //
+    auto *VPPhi = cast<VPPHINode>(VPInst);
+    for (auto *U : VPPhi->users()) {
+      auto *UserInst = dyn_cast<VPInstruction>(U);
+      if (!UserInst)
+        continue;
+      if (!UserInst->isUnderlyingIRValid()) {
+        LLVM_DEBUG(dbgs() << "VPPHINode with valid HIR has an "
+                             "invalid master user instruction:"
+                          << "\n"
+                          << *VPPhi << "\n"
+                          << *UserInst << "\n");
+        widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                      GrpStartInst);
+        return;
+      }
+    }
+  }
+
   if (HIR.isDecomposed() && VPInst->isUnderlyingIRValid()) {
-    // Skip decomposed VPInstruction with valid HIR. This will be codegen'ed by
-    // its master VPInstruction.
+    // Skip decomposed non-PHI VPInstruction with valid HIR. This will be
+    // codegen'ed by its master VPInstruction.
     LLVM_DEBUG(dbgs() << "Skipping decomposed VPInstruction with valid HIR:"
                       << *VPInst << "\n");
     return;
