@@ -818,13 +818,24 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
   OverloadedOperatorKind OOK =
       Cl->getNameInfo().getName().getCXXOverloadedOperator();
   auto I = Cl->reduction_ops().begin();
+  auto IPriv = Cl->privates().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
+    auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
     assert(PVD && "expected VarDecl in reduction clause");
     addExplicit(PVD);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
-    assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
+    llvm::Value *InitFn = nullptr, *CombinerFn  = nullptr;
+    if (const OMPDeclareReductionDecl *DRD =
+            CGOpenMPRuntime::getRedInit(*I)) {
+      std::pair<llvm::Function *, llvm::Function *> InitCombiner;
+      InitCombiner =
+          CGF.CGM.getOpenMPRuntime().getUserDefinedReduction(DRD);
+      CombinerFn = InitCombiner.first;
+      InitFn = InitCombiner.second;
+    }
+    assert(CombinerFn || isa<BinaryOperator>((*I)->IgnoreImpCasts()));
     ClauseEmissionHelper CEH(*this, Cl->getClauseKind(), "QUAL.OMP.");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     CSB.add(QualName);
@@ -894,7 +905,9 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     case NUM_OVERLOADED_OPERATORS:
       llvm_unreachable("Unexpected reduction identifier");
     case OO_None:
-      if (auto II = Cl->getNameInfo().getName().getAsIdentifierInfo()) {
+      if (CombinerFn) {
+        CSB.add("UDR");
+      } else if (auto II = Cl->getNameInfo().getName().getAsIdentifierInfo()) {
         if (II->isStr("max"))
           CSB.add("MAX");
         else if (II->isStr("min"))
@@ -918,7 +931,23 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       CSB.setArrSect();
     addArg(CSB.getString());
     addArg(E, IsRef);
+    if (CombinerFn) {
+      llvm::Value *Cons = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+      llvm::Value *Des = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+      llvm::Value *Init =
+          InitFn ? InitFn : llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+      if (Private->getInit() || Private->getType().isDestructedType()) {
+        if (!InitFn)
+          Cons = emitOpenMPDefaultConstructor(*IPriv);
+        Des = emitOpenMPDestructor(Private->getType());
+      }
+      addArg(Cons);
+      addArg(Des);
+      addArg(CombinerFn);
+      addArg(Init);
+    }
     ++I;
+    ++IPriv;
   }
 }
 

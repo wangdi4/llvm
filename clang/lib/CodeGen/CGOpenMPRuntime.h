@@ -1445,6 +1445,10 @@ public:
 
 
 #if INTEL_COLLAB
+  /// Check if the combiner is a call to UDR combiner and if it is so return the
+  /// UDR decl used for reduction.
+  static const OMPDeclareReductionDecl *getRedInit(const Expr *ReductionOp);
+
   /// Register target region in the offload entry manager. Return entry's index.
   virtual int registerTargetRegion(const OMPExecutableDirective &D,
                                    StringRef ParentName);

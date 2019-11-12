@@ -6505,6 +6505,11 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
 }
 
 #if INTEL_COLLAB
+const OMPDeclareReductionDecl *
+CGOpenMPRuntime::getRedInit(const Expr *ReductionOp) {
+  return getReductionInit(ReductionOp);
+}
+
 int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
                                           StringRef ParentName) {
 
