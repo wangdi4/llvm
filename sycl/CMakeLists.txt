@@ -230,17 +230,12 @@ function( add_common_options LIB_NAME)
 endfunction(add_common_options)
 
 # SYCL runtime library
-<<<<<<< HEAD
-add_subdirectory(source)
-# TODO: remove me when support plugins in open-source   # INTEL_CUSTOMIZATION
-add_subdirectory(plugins)                               # INTEL_CUSTOMIZATION
-=======
 add_subdirectory( source )
->>>>>>> c4eafeac69c8f029e164b4dd2869db3ced7ffcc8
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
   DEPENDS ${SYCL_RT_LIBS}
+          pi_opencl
           clang
           clang-offload-wrapper
           clang-offload-bundler
@@ -257,33 +252,17 @@ add_custom_target( sycl-toolchain
   COMMENT "Building SYCL compiler toolchain..."
 )
 
-<<<<<<< HEAD
+# INTEL_CUSTOMIZATION
+if (CMAKE_SYCL_USE_LEVEL0)
+  add_dependencies(sycl-toolchain pi_level0)
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_subdirectory( test )
 add_subdirectory( unittests )
 add_subdirectory( tools )
-=======
-if (NOT DEFINED LLVM_INCLUDE_TESTS)
-  set(LLVM_INCLUDE_TESTS ON)
-endif()
-
-option(SYCL_INCLUDE_TESTS
-  "Generate build targets for the SYCL unit tests."
-  ${LLVM_INCLUDE_TESTS})
-
-
 # Plugin Library
 add_subdirectory( plugins )
-
-add_subdirectory(tools)
-
-if(SYCL_INCLUDE_TESTS)
-  if(EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include/gtest/gtest.h)
-    add_subdirectory(unittests)
-    list(APPEND SYCL_TEST_DEPS SYCLUnitTests)
-  endif()
-  add_subdirectory(test)
-endif()
->>>>>>> c4eafeac69c8f029e164b4dd2869db3ced7ffcc8
 
 # Package deploy support
 # Listed here are component names contributing the package
@@ -305,7 +284,14 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      opencl-headers
      sycl-headers
      sycl
+     pi_opencl
 )
+
+# INTEL_CUSTOMIZATION
+if (CMAKE_SYCL_USE_LEVEL0)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
+endif()
+# end INTEL_CUSTOMIZATION
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

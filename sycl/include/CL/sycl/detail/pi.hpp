@@ -34,12 +34,6 @@ namespace pi {
 //
 enum Backend { SYCL_BE_PI_OPENCL, SYCL_BE_PI_OTHER };
 
-#ifdef SYCL_RT_OS_WINDOWS
-#define PLUGIN_NAME "pi_opencl.dll"
-#else
-#define PLUGIN_NAME "libpi_opencl.so"
-#endif
-
 // Check for manually selected BE at run-time.
 bool useBackend(Backend Backend);
 

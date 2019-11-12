@@ -29,24 +29,6 @@ function(add_sycl_rt_library LIB_NAME)
 
   add_common_options(${LIB_NAME})
 
-<<<<<<< HEAD
-  endif()
-
-# INTEL_CUSTOMIZATION CORC-4868
-#
-# Try to prevent use of deprecated interface warning
-# and do not treat warnings as error unless it fixed upstream
-#
-target_compile_definitions (${LIB_NAME} PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
-target_compile_options (${LIB_NAME} PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error>
-    $<$<CXX_COMPILER_ID:MSVC>:/WX->
-)
-#end INTEL_CUSTOMIZATION
-
-
-=======
->>>>>>> c4eafeac69c8f029e164b4dd2869db3ced7ffcc8
 endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES
@@ -158,14 +140,6 @@ else()
   endif()
 
 endif()
-
-# INTEL_CUSTOMIZATION
-# TODO: remove when PI plugins are implemented.
-if (CMAKE_SYCL_USE_LEVEL0)
-  add_definitions(-DSYCL_USE_LEVEL0=1)
-  target_link_libraries(sycl PRIVATE pi_level0)
-endif()
-# end INTEL_CUSTOMIZATION
 
 install(TARGETS ${SYCL_RT_LIBS}
     ARCHIVE DESTINATION "lib" COMPONENT sycl

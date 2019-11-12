@@ -86,7 +86,7 @@ void _pi_event::deleteL0EventList(
 }
 
 // Convinience macro makes source code search easier
-#define L0(pi_api) other_##pi_api
+#define L0(pi_api) pi_api##OclPtr
 
 // Forward declararitons
 decltype(piEventCreate) L0(piEventCreate);
@@ -1196,6 +1196,10 @@ pi_result L0(piEnqueueMemImageCopy)()   {   pi_throw("piEnqueueMemImageCopy: not
 pi_result L0(piEnqueueMemImageFill)()   {   pi_throw("piEnqueueMemImageFill: not implemented"); }
 pi_result L0(piMemBufferPartition)()    {   pi_throw("piMemBufferPartition: not implemented"); }
 pi_result L0(piEnqueueNativeKernel)()   {   pi_throw("piEnqueueNativeKernel: not implemented"); }
+
+pi_result L0(piextGetDeviceFunctionPointer)() {
+  pi_throw("piextGetDeviceFunctionPointer: not implemented");
+}
 
 #define _PI_API(api) \
   typedef decltype(::api) __type##api; \

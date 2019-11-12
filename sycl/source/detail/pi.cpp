@@ -12,13 +12,6 @@
 #include <map>
 #include <string>
 
-#if INTEL_CUSTOMIZATION
-// TODO: remove this when true plugins are added
-#define _PI_API(api) \
-  extern "C" decltype(::api) * api##OtherPtr;
-#include <CL/sycl/detail/pi.def>
-#endif // INTEL_CUSTOMIZATION
-
 namespace cl {
 namespace sycl {
 namespace detail {
@@ -61,11 +54,28 @@ bool useBackend(Backend TheBackend) {
 // Find the plugin at the appropriate location and return the location.
 // TODO: Change the function appropriately when there are multiple plugins.
 std::string findPlugin() {
+#if INTEL_CUSTOMIZATION
+  // TODO: Update public version to handle OpenCL plugin in the same way.
   // TODO: Based on final design discussions, change the location where the
   // plugin must be searched; how to identify the plugins etc. Currently the
-  // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
-  // env only.
-  return PLUGIN_NAME;
+  // search is done in LD_LIBRARY_PATH for names hardcoded here.
+
+  if (useBackend(SYCL_BE_PI_OPENCL)) {
+#ifdef SYCL_RT_OS_WINDOWS
+    return "pi_opencl.dll";
+#else
+    return "libpi_opencl.so";
+#endif
+  }
+  else if (useBackend(SYCL_BE_PI_OTHER)) {
+#ifdef SYCL_RT_OS_WINDOWS
+    return "pi_level0.dll";
+#else
+    return "libpi_level0.so";
+#endif
+  }
+  die("Unknown SYCL_BE");
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Load the Plugin by calling the OS dependent library loading call.
@@ -105,27 +115,6 @@ void initialize() {
   if (Initialized) {
     return;
   }
-#if INTEL_CUSTOMIZATION
-// TODO: remove this when true plugins are added
-  if (useBackend(SYCL_BE_PI_OPENCL)) {
-    #define _PI_API(api)                          \
-      extern decltype(::api) * api##OclPtr;       \
-      api = api##OclPtr;
-    #include <CL/sycl/detail/pi.def>
-  }
-#ifdef SYCL_USE_LEVEL0
-  else if (useBackend(SYCL_BE_PI_OTHER)) {
-    #define _PI_API(api)                          \
-      api = api##OtherPtr;
-    #include <CL/sycl/detail/pi.def>
-  }
-#endif // SYCL_USE_LEVEL0
-  else {
-    die("Unknown SYCL_BE");
-  }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
 
   std::string PluginPath = findPlugin();
   if (PluginPath.empty())
@@ -143,7 +132,6 @@ void initialize() {
     die(Message.c_str());
   }
 
->>>>>>> c4eafeac69c8f029e164b4dd2869db3ced7ffcc8
   Initialized = true;
 }
 

@@ -20,9 +20,12 @@ add_library(pi_level0 SHARED
   "${CMAKE_CURRENT_SOURCE_DIR}/pi_level0.hpp"
 )
 
+add_common_options(pi_level0)
+
 # Built in the path to L0 RT
 set_target_properties(pi_level0 PROPERTIES
   INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 install(TARGETS pi_level0
-  LIBRARY DESTINATION "lib" COMPONENT pi_level0)
+  LIBRARY DESTINATION "lib" COMPONENT pi_level0
+  RUNTIME DESTINATION "bin" COMPONENT pi_level0)
