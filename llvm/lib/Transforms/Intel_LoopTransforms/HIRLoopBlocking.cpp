@@ -622,17 +622,11 @@ public:
     bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
         Loop, &ConstInnermostLoop, false, &IsNearPerfect);
     if (!IsPerfectNest && !IsNearPerfect) {
+      LLVM_DEBUG(dbgs() << "Failed: Neither perfect nor near-perfect loop\n");
       return;
     }
 
     HLLoop *InnermostLoop = const_cast<HLLoop *>(ConstInnermostLoop);
-
-    if (!IsPerfectNest && !IsNearPerfect) {
-      LLVM_DEBUG(dbgs() << "Neither perfect nor near-perfect loop\n");
-      SkipNode = Loop;
-      return;
-    }
-
     if (HLS.getTotalLoopStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       SkipNode = Loop;
@@ -664,8 +658,8 @@ public:
       unsigned LoopDepth =
           InnermostLoop->getNestingLevel() - Loop->getNestingLevel() + 1;
       if (LoopDepth <= MaxDimension) {
-        LLVM_DEBUG(dbgs() << "Failed MaxDimension < LoopDepth " << MaxDimension
-                          << "," << LoopDepth << "\n");
+        LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < LoopDepth "
+                          << MaxDimension << "," << LoopDepth << "\n");
         SkipNode = Loop;
         return;
       }
@@ -685,7 +679,7 @@ public:
     // The loop depth is refined so that TC of a participating loop
     // is at least a TCThreshold.
     if (ConsecutiveDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed MaxDimension < ConsecutiveDepth "
+      LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
                         << MaxDimension << "," << ConsecutiveDepth << "\n");
       // Choose not to block. Stop here.
       SkipNode = Loop;
@@ -704,7 +698,7 @@ public:
         determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
                                          ToStripmines, LoopToBS, ToStripLevels);
     if (!IsToStripmine) {
-      LLVM_DEBUG(dbgs() << "Failed determineProfitableStipmineLoop\n";);
+      LLVM_DEBUG(dbgs() << "Failed: at determineProfitableStipmineLoop\n";);
       SkipNode = Loop;
       return;
     }
@@ -715,7 +709,7 @@ public:
       InterchangeIgnorableSymbasesTy IgnorableSymbases;
       if (!DDUtils::enablePerfectLoopNest(InnermostLoop, DDG,
                                           IgnorableSymbases)) {
-        LLVM_DEBUG(dbgs() << "Failed enabling a perfect loop nest\n";);
+        LLVM_DEBUG(dbgs() << "Failed: at enabling a perfect loop nest\n";);
         SkipNode = Loop;
         return;
       }
@@ -724,11 +718,14 @@ public:
     if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
                                          InnermostLoop, DDA, SRA, false)) {
       OutermostToStrips.emplace_back(NewOutermost, InnermostLoop, ToStripmines);
+      // Done with this loopnest. We are going to work on this loopnest.
+      SkipNode = Loop;
     } else {
-      LLVM_DEBUG(dbgs() << "Failed isLegalToStripmineAndInterchange\n";);
+      LLVM_DEBUG(dbgs() << "Failed: at isLegalToStripmineAndInterchange\n";);
+      // Inner loop nests will have second chances
+      // because it was invalid with respected to this outer loop.
     }
 
-    SkipNode = Loop;
     return;
   }
 
