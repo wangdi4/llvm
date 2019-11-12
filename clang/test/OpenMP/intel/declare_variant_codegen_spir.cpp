@@ -76,14 +76,28 @@ void caller2(int n, float* x, int dnum)
     float *a, *b, *c;
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET.DATA"()
     //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
-    //TARGET-SAME: "QUAL.OMP.USE_DEVICE_PTR"(float addrspace(4)* addrspace(4)* %a{{.*}}, float addrspace(4)* addrspace(4)* %b{{.*}}, float addrspace(4)* addrspace(4)* %c) ]
-    //HOST-SAME: "QUAL.OMP.USE_DEVICE_PTR"(float** %a{{.*}}, float** %b{{.*}}, float** %c) ]
-    #pragma omp target data map(tofrom:c[0:sizec]) map(to:a[0:sizea]) map(to:b[0:sizeb])
-    #pragma omp target variant dispatch  use_device_ptr(a,b,c)
-    //ALL: call{{.*}}foo_base
-    foo_base(a, m);
-    //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
-    //ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET.DATA"
+    //TARGET-SAME: "QUAL.OMP.USE_DEVICE_PTR"
+    //TARGET-SAME: (float addrspace(4)* addrspace(4)* %a
+    //TARGET-SAME: float addrspace(4)* addrspace(4)* %b
+    //TARGET-SAME: float addrspace(4)* addrspace(4)* %c) ]
+    //HOST-SAME: "QUAL.OMP.USE_DEVICE_PTR"(float** %a
+    //HOST-SAME: float** %b{{.*}}, float** %c) ]
+    #pragma omp target data map(tofrom:c[0:sizec]) map(to:a[0:sizea]) \
+                            map(to:b[0:sizeb])
+    {
+      #pragma omp target variant dispatch  use_device_ptr(a,b,c)
+      //ALL: call{{.*}}foo_base
+      foo_base(a, m);
+      //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
+
+      //ALL: [[T2:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
+      //ALL-SAME: QUAL.OMP.NOWAIT
+      #pragma omp target variant dispatch use_device_ptr(a,b,c) nowait
+      //ALL: call{{.*}}foo_base
+      foo_base(a, m);
+      //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
+      //ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET.DATA"
+    }
   }
 }
 #endif // HEADER

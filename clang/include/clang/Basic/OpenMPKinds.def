@@ -639,6 +639,7 @@ OPENMP_ALLOCATE_CLAUSE(allocator)
 // Clauses allowed for OpenMP directive 'target variant dispatch'.
 OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(device)
 OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(use_device_ptr)
+OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(nowait)
 #endif // INTEL_CUSTOMIZATION
 
 // Modifiers for 'atomic_default_mem_order' clause.
