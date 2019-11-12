@@ -46,6 +46,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "llvm/ADT/SmallSet.h"
 
 using namespace llvm;
 
@@ -118,7 +119,7 @@ class CSAAsmPrinter : public AsmPrinter {
   DebugLoc prevDebugLoc;
   bool ignoreLoc(const MachineInstr &);
   LineReader *reader;
-  // To record filename to ID mapping
+  bool isFirstFunc; // flag to specify if first function is being compiled
   bool doInitialization(Module &M) override;
   bool doFinalization(Module &M) override;
   void emitLineNumberAsDotLoc(const MachineInstr &);
@@ -143,7 +144,10 @@ class CSAAsmPrinter : public AsmPrinter {
 
 public:
   CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
-      : AsmPrinter(TM, std::move(Streamer)), reader() { resultReg = 0; }
+      : AsmPrinter(TM, std::move(Streamer)), reader() {
+        resultReg = 0;
+        isFirstFunc = true;
+      }
 
   StringRef getPassName() const override { return "CSA: Assembly Printer"; }
 
@@ -200,6 +204,7 @@ bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
 
   if (csa_utils::createSCG()) {
     OutStreamer->EmitRawText(".endmodule");
+    isFirstFunc = false;
   }
   return false;
 }
@@ -358,6 +363,67 @@ bool CSAAsmPrinter::doFinalization(Module &M) {
   }
   bool result = AsmPrinter::doFinalization(M);
   return result;
+}
+// Copied from lib/MC/MCAsmStreamer.cpp
+static inline char toOctal(int X) { return (X&7)+'0'; }
+
+// Copied from lib/MC/MCAsmStreamer.cpp
+static void PrintQuotedString(StringRef Data, raw_ostream &OS) {
+  OS << '"';
+
+  for (unsigned i = 0, e = Data.size(); i != e; ++i) {
+    unsigned char C = Data[i];
+    if (C == '"' || C == '\\') {
+      OS << '\\' << (char)C;
+      continue;
+    }
+
+    if (isPrint((unsigned char)C)) {
+      OS << (char)C;
+      continue;
+    }
+
+    switch (C) {
+      case '\b': OS << "\\b"; break;
+      case '\f': OS << "\\f"; break;
+      case '\n': OS << "\\n"; break;
+      case '\r': OS << "\\r"; break;
+      case '\t': OS << "\\t"; break;
+      default:
+        OS << '\\';
+        OS << toOctal(C >> 6);
+        OS << toOctal(C >> 3);
+        OS << toOctal(C >> 0);
+        break;
+    }
+  }
+
+  OS << '"';
+}
+
+// Copied from lib/MC/MCAsmStreamer.cpp
+static void printDwarfFileDirective(unsigned FileNo, StringRef Directory,
+                                    StringRef Filename,
+                                    raw_svector_ostream &OS) {
+  SmallString<128> FullPathName;
+
+  if (!Directory.empty()) {
+    if (sys::path::is_absolute(Filename))
+      Directory = "";
+    else {
+      FullPathName = Directory;
+      sys::path::append(FullPathName, Filename);
+      Directory = "";
+      Filename = FullPathName;
+    }
+  }
+
+  OS << "\t.file\t" << FileNo << ' ';
+  if (!Directory.empty()) {
+    PrintQuotedString(Directory, OS);
+    OS << ' ';
+  }
+  PrintQuotedString(Filename, OS);
 }
 
 void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
@@ -791,8 +857,38 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       }
     }
   }
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
+  // For each CSA module, we forcibly emit the .file directive
+  // Each .file directive (one for each source file) is added
+  // exactly once at the beginning of the body of the CSA module
+  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
     OutStreamer->EmitRawText("{");
+    DebugLoc curLoc;
+    // Set used to hold FileNos to avoid .file beign emitted twice
+    SmallSet<unsigned, 32> FileNos;
+    // We have already emitted the .file directives for the first file
+    if (!isFirstFunc) {
+      for (auto &MBB : *MF) {
+        for (auto &MI : MBB) {
+          curLoc = MI.getDebugLoc();
+          if (!curLoc)
+            continue;
+          auto *Scope = cast_or_null<DIScope>(curLoc.getScope());
+          if (!Scope)
+            continue;
+          StringRef fileName(Scope->getFilename());
+          StringRef dirName(Scope->getDirectory());
+          unsigned FileNo = OutStreamer->EmitDwarfFileDirective(0, dirName, fileName);
+          if (FileNos.count(FileNo) == 0) {
+            SmallString<128> Str;
+            raw_svector_ostream O(Str);
+            printDwarfFileDirective(FileNo, dirName, fileName, O);
+            OutStreamer->EmitRawText(O.str());
+            FileNos.insert(FileNo);
+          }
+        }
+      }
+    }
+  }
 }
 
 void CSAAsmPrinter::EmitFunctionBodyEnd() {
