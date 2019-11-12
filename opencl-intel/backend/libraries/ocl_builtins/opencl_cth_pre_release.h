@@ -565,6 +565,62 @@ ulong2  __attribute__((overloadable)) intel_sub_group_block_read_ul2(read_only i
 ulong4  __attribute__((overloadable)) intel_sub_group_block_read_ul4(read_only image2d_t image, int2 coord);
 ulong8  __attribute__((overloadable)) intel_sub_group_block_read_ul8(read_only image2d_t image, int2 coord);
 
+long    __attribute__((overloadable)) intel_sub_group_shuffle(long   x, uint c);
+long2   __attribute__((overloadable)) intel_sub_group_shuffle(long2  x, uint c);
+long3   __attribute__((overloadable)) intel_sub_group_shuffle(long3  x, uint c);
+long4   __attribute__((overloadable)) intel_sub_group_shuffle(long4  x, uint c);
+long8   __attribute__((overloadable)) intel_sub_group_shuffle(long8  x, uint c);
+long16  __attribute__((overloadable)) intel_sub_group_shuffle(long16 x, uint c);
+
+ulong   __attribute__((overloadable)) intel_sub_group_shuffle(ulong   x, uint c);
+ulong2  __attribute__((overloadable)) intel_sub_group_shuffle(ulong2  x, uint c);
+ulong3  __attribute__((overloadable)) intel_sub_group_shuffle(ulong3  x, uint c);
+ulong4  __attribute__((overloadable)) intel_sub_group_shuffle(ulong4  x, uint c);
+ulong8  __attribute__((overloadable)) intel_sub_group_shuffle(ulong8  x, uint c);
+ulong16 __attribute__((overloadable)) intel_sub_group_shuffle(ulong16 x, uint c);
+
+long    __attribute__((overloadable)) intel_sub_group_shuffle_down(long   cur, long   next, uint c);
+long2   __attribute__((overloadable)) intel_sub_group_shuffle_down(long2  cur, long2  next, uint c);
+long3   __attribute__((overloadable)) intel_sub_group_shuffle_down(long3  cur, long3  next, uint c);
+long4   __attribute__((overloadable)) intel_sub_group_shuffle_down(long4  cur, long4  next, uint c);
+long8   __attribute__((overloadable)) intel_sub_group_shuffle_down(long8  cur, long8  next, uint c);
+long16  __attribute__((overloadable)) intel_sub_group_shuffle_down(long16 cur, long16 next, uint c);
+
+ulong   __attribute__((overloadable)) intel_sub_group_shuffle_down(ulong   cur, ulong   next, uint c);
+ulong2  __attribute__((overloadable)) intel_sub_group_shuffle_down(ulong2  cur, ulong2  next, uint c);
+ulong3  __attribute__((overloadable)) intel_sub_group_shuffle_down(ulong3  cur, ulong3  next, uint c);
+ulong4  __attribute__((overloadable)) intel_sub_group_shuffle_down(ulong4  cur, ulong4  next, uint c);
+ulong8  __attribute__((overloadable)) intel_sub_group_shuffle_down(ulong8  cur, ulong8  next, uint c);
+ulong16 __attribute__((overloadable)) intel_sub_group_shuffle_down(ulong16 cur, ulong16 next, uint c);
+
+long    __attribute__((overloadable)) intel_sub_group_shuffle_up(long   cur, long   next, uint c);
+long2   __attribute__((overloadable)) intel_sub_group_shuffle_up(long2  cur, long2  next, uint c);
+long3   __attribute__((overloadable)) intel_sub_group_shuffle_up(long3  cur, long3  next, uint c);
+long4   __attribute__((overloadable)) intel_sub_group_shuffle_up(long4  cur, long4  next, uint c);
+long8   __attribute__((overloadable)) intel_sub_group_shuffle_up(long8  cur, long8  next, uint c);
+long16  __attribute__((overloadable)) intel_sub_group_shuffle_up(long16 cur, long16 next, uint c);
+
+ulong   __attribute__((overloadable)) intel_sub_group_shuffle_up(ulong   cur, ulong   next, uint c);
+ulong2  __attribute__((overloadable)) intel_sub_group_shuffle_up(ulong2  cur, ulong2  next, uint c);
+ulong3  __attribute__((overloadable)) intel_sub_group_shuffle_up(ulong3  cur, ulong3  next, uint c);
+ulong4  __attribute__((overloadable)) intel_sub_group_shuffle_up(ulong4  cur, ulong4  next, uint c);
+ulong8  __attribute__((overloadable)) intel_sub_group_shuffle_up(ulong8  cur, ulong8  next, uint c);
+ulong16 __attribute__((overloadable)) intel_sub_group_shuffle_up(ulong16 cur, ulong16 next, uint c);
+
+long    __attribute__((overloadable)) intel_sub_group_shuffle_xor(long   x, uint c);
+long2   __attribute__((overloadable)) intel_sub_group_shuffle_xor(long2  x, uint c);
+long3   __attribute__((overloadable)) intel_sub_group_shuffle_xor(long3  x, uint c);
+long4   __attribute__((overloadable)) intel_sub_group_shuffle_xor(long4  x, uint c);
+long8   __attribute__((overloadable)) intel_sub_group_shuffle_xor(long8  x, uint c);
+long16  __attribute__((overloadable)) intel_sub_group_shuffle_xor(long16 x, uint c);
+
+ulong   __attribute__((overloadable)) intel_sub_group_shuffle_xor(ulong   x, uint c);
+ulong2  __attribute__((overloadable)) intel_sub_group_shuffle_xor(ulong2  x, uint c);
+ulong3  __attribute__((overloadable)) intel_sub_group_shuffle_xor(ulong3  x, uint c);
+ulong4  __attribute__((overloadable)) intel_sub_group_shuffle_xor(ulong4  x, uint c);
+ulong8  __attribute__((overloadable)) intel_sub_group_shuffle_xor(ulong8  x, uint c);
+ulong16 __attribute__((overloadable)) intel_sub_group_shuffle_xor(ulong16 x, uint c);
+
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 ulong   __attribute__((overloadable)) intel_sub_group_block_read_ul(read_write image2d_t image, int2 coord);
 ulong2  __attribute__((overloadable)) intel_sub_group_block_read_ul2(read_write image2d_t image, int2 coord);
