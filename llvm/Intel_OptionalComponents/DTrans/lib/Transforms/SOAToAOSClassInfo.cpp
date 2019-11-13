@@ -3271,18 +3271,18 @@ Function *ClassInfo::getCtorWrapper() {
   return CtorWrapper;
 }
 
-// Returns destructor Wrapper if there is only one.
+// Returns member function of type "FKind" if there is only one.
 // Otherwise, returns nullptr.
-Function *ClassInfo::getDtorWrapper() {
-  Function *DtorWrapper = nullptr;
+Function *ClassInfo::getSingleMemberFunction(FunctionKind FKind) {
+  Function *Func = nullptr;
 
   for (auto *F : field_member_functions())
-    if (getFinalFuncKind(F) == DestructorWrapper) {
-      if (DtorWrapper)
+    if (getFinalFuncKind(F) == FKind) {
+      if (Func)
         return nullptr;
-      DtorWrapper = F;
+      Func = F;
     }
-  return DtorWrapper;
+  return Func;
 }
 
 } // namespace dtrans

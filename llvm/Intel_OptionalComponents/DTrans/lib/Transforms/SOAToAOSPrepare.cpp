@@ -141,8 +141,64 @@
 //      ...
 //    }
 //
+//  5th transformation: If the vector class doesn't have CCtor member
+//  function, detect if there is any code that is semantically equivalent
+//  to cctor. If it finds one, creates CCtor/SimpleSetElem functions and
+//  just replaces the code with CCtor/SimpleSetElem calls. This
+//  transformation helps to combine the CCtor call with CCtor calls of
+//  other vectors.
 //
-// TODO: Add more examples later.
+//  Ex:
+//  Before: This is sematically equivalent to CCtor.
+//     size = Src->size();
+//     Ctor(Dest, capacity, flag, Mem);
+//     for (i = 0; i < size; i++) {
+//       Elem = GetElem(Src, i);
+//       AppendElem(Dest, Elem);
+//     }
+//
+//  We could create complete CCtor constructor that copies all fields and
+//  array elements from Src object to Dest object. But, decided to go
+//  with another approach like below due to implementation complexity.
+//  Two new functions will be created.
+//   1. Simple CCtor function: Just copies all fields from Src to Dest.
+//   It doesn't copy array element from Src to Dest. Replace Ctor call
+//   with CCtor call. This CCtor call will be combined with CCtor calls
+//   of other vectors.
+//   2. Simple SetElem function. It just sets given element at given
+//   index. This is not expected to be combined with other vector calls.
+//   AppendElem call will be replaced with this simple SetElem.
+//
+//  After:
+//     size = Src->size();
+//     CCtor(Dest, Src);
+//     for (i = 0; i < size; i++) {
+//       Elem = GetElem(Src, i);
+//       SimpleSetElem(Dest, Elem, i);
+//     }
+//
+//  6th transformation: Reverse argument promotion for AppendFunc by
+//  converting pointer argument to pointer-to-pointer argument and then
+//  fix callsite. The main reason for the transformation is to make
+//  it similar to AppendFunc of other vector classes in the candidate
+//
+//  Ex:
+//  Before:
+//     AppendElem(this, I16* elem);
+//
+//     AppendElem(this, I16* el) {
+//       (this + i) = el;
+//     }
+//
+//  After:
+//     %a = alloca I16*
+//      ...
+//     store elem, %a
+//     AppendElem(this, I16** %a);
+//
+//     AppendElem(this, I16** el) {
+//       (this + i) = *el;
+//     }
 //
 // TODO: Need to investigate how the debug info is impacted by this
 // transformation and then fix it.
@@ -160,6 +216,7 @@
 #include "SOAToAOSClassInfo.h"
 
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -228,7 +285,9 @@ public:
   void processFunction(Function &);
   void postprocessFunction(Function &, Function &);
   bool computeUpdatedCandidateInfo();
-  void applyCtorTransformations();
+  Function *applyCtorTransformations();
+  void convertCtorToCCtor(Function *);
+  void reverseArgPromote();
 
 private:
   Module &M;
@@ -295,6 +354,14 @@ private:
   // New wrapper for Dtor after complete TypeRemap
   Function *NewDtorWrapper = nullptr;
 
+  // Indicate that constant prop is applied and flag field
+  // is constant.
+  bool ConstantPropApplied = false;
+
+  bool isSafeCallForAppend(Function *);
+  void updateCallBase(CallBase *, AttributeList, Function *,
+                      std::vector<Value *> &);
+  void removeDeadInsts(Function *);
   void replicateTypes();
   void replicateMemberFunctions();
   void removeUsers(Value *);
@@ -345,7 +412,7 @@ bool SOAToAOSPrepCandidateInfo::isCandidateField(Type *Ty, unsigned Offset) {
 
   // Makes sure it has valid CtorWrapper and DtorWrapper.
   CtorWrapper = ClassD->getCtorWrapper();
-  DtorWrapper = ClassD->getDtorWrapper();
+  DtorWrapper = ClassD->getSingleMemberFunction(DestructorWrapper);
   if (!CtorWrapper || !DtorWrapper) {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "  Candidate failed due to missing ctor/dtor.\n";
@@ -363,25 +430,55 @@ void SOAToAOSPrepCandidateInfo::printCandidateInfo() {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+void SOAToAOSPrepCandidateInfo::updateCallBase(CallBase *CB,
+                                               AttributeList NewPAL,
+                                               Function *NewF,
+                                               std::vector<Value *> &NewArgs) {
+  FunctionType *NFTy = NewF->getFunctionType();
+  CallBase *NewCB;
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                  { dbgs() << "  Before CB: " << *CB << "\n"; });
+  if (InvokeInst *II = dyn_cast<InvokeInst>(CB)) {
+    NewCB = InvokeInst::Create(NewF, II->getNormalDest(), II->getUnwindDest(),
+                               NewArgs, None, "", CB->getParent());
+  } else {
+    NewCB = CallInst::Create(NFTy, NewF, NewArgs, None, "", CB);
+    cast<CallInst>(NewCB)->setTailCallKind(
+        cast<CallInst>(CB)->getTailCallKind());
+  }
+  NewCB->setCallingConv(CB->getCallingConv());
+  NewCB->setDebugLoc(CB->getDebugLoc());
+  NewCB->setAttributes(NewPAL);
+  if (!CB->use_empty() || CB->isUsedByMetadata()) {
+    CB->replaceAllUsesWith(NewCB);
+  }
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                  { dbgs() << "  After CB: " << *NewCB << "\n"; });
+  CB->eraseFromParent();
+}
+
+void SOAToAOSPrepCandidateInfo::removeDeadInsts(Function *F) {
+  SmallVector<Instruction *, 4> DeadInsts;
+
+  for (auto &I : instructions(F))
+    if (isInstructionTriviallyDead(&I)) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                      { dbgs() << "    Recursively Delete " << I << "\n"; });
+      DeadInsts.push_back(&I);
+    }
+  if (!DeadInsts.empty())
+    RecursivelyDeleteTriviallyDeadInstructions(DeadInsts);
+}
+
 // Remove dead instructions if there are any. There may be load/bitcast/
 // getelementptr dead instructions due to Devirt.
 void SOAToAOSPrepCandidateInfo::removeDevirtTraces() {
-  SmallVector<Instruction *, 4> DeadInsts;
-
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
                   { dbgs() << "  Transformations 0: \n"; });
 
   // Collect dead instructions.
-  for (auto *StructF : CandI->struct_functions()) {
-    for (auto &I : instructions(StructF))
-      if (isInstructionTriviallyDead(&I)) {
-        DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
-                        { dbgs() << "    Recursively Delete " << I << "\n"; });
-        DeadInsts.push_back(&I);
-      }
-    if (!DeadInsts.empty())
-      RecursivelyDeleteTriviallyDeadInstructions(DeadInsts);
-  }
+  for (auto *StructF : CandI->struct_functions())
+    removeDeadInsts(StructF);
 }
 
 // Remove all users of "V" and then "V".
@@ -945,7 +1042,7 @@ bool SOAToAOSPrepCandidateInfo::computeUpdatedCandidateInfo() {
 }
 
 // Apply multiple transformations for Ctor.
-void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
+Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
 
   // Returns true if "G" is valid GEP that accesses "FlagField"
   auto IsFlagGEP = [this](GetElementPtrInst *G, int32_t FlagField) {
@@ -1142,6 +1239,7 @@ void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
       for (auto *U : NF->users())
         dbgs() << "      " << *U << "\n";
     });
+    return NF;
   };
 
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
@@ -1162,7 +1260,7 @@ void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "    Non-Constant value is stored to flag field.\n";
     });
-    return;
+    return CtorF;
   }
 
   // Check if flag field is not modified anywhere except constructor.
@@ -1172,7 +1270,7 @@ void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "   Not able to handle all uses of flag field\n";
     });
-    return;
+    return CtorF;
   }
   // Replace all uses of flag field with the constant.
   for (auto *LI : FlagUseSet) {
@@ -1216,7 +1314,7 @@ void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
   if (UnusedArgCount != 1) {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
                     { dbgs() << " No unused args found \n"; });
-    return;
+    return CtorF;
   }
 
   Value *FalseValue = ConstantInt::getFalse(FlagSI->getContext());
@@ -1230,9 +1328,904 @@ void SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
                     { dbgs() << "  Ctor call after: " << *CB << "\n"; });
   }
 
-  CreateNewFunctionWithUnusedArgAsLast(CtorF, UnusedArgPos);
+  Function *NewCtor = CreateNewFunctionWithUnusedArgAsLast(CtorF, UnusedArgPos);
 
   CtorF->eraseFromParent();
+
+  // Indicate that constant prop is applied.
+  ConstantPropApplied = true;
+
+  return NewCtor;
+}
+
+// Verifies that function "F" is safe to apply transformations
+// on member functions of vector class. We basically need to
+// prove that the function doesn't change fields of vector class.
+// Return false if F have any instruction that may write to memory
+// (like Store etc) except:
+//   1. Alloc instructions
+//   2. MemCpy if first argument is allocated memory in the routine.
+//
+bool SOAToAOSPrepCandidateInfo::isSafeCallForAppend(Function *F) {
+
+  // Returns true if "I" is Alloc instruction.
+  auto IsAllocCall = [this](Instruction *I) {
+    auto *CB = dyn_cast_or_null<CallBase>(I);
+    if (!CB)
+      return false;
+    if (isDummyFuncWithThisAndIntArgs(CB, GetTLI(*CB->getFunction())))
+      return true;
+    auto *CallInfo = DTInfo.getCallInfo(CB);
+    if (CallInfo && CallInfo->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc)
+      return true;
+    return false;
+  };
+
+  // Returns true if "V" is return value of any alloc call.
+  auto IsAllocPtr = [&IsAllocCall](Value *V) {
+    auto *PN = dyn_cast<PHINode>(V);
+    if (!PN)
+      return IsAllocCall(PN);
+    for (unsigned I = 0, E = PN->getNumIncomingValues(); I < E; I++) {
+      if (!IsAllocCall(dyn_cast<Instruction>(PN->getIncomingValue(I))))
+        return false;
+    }
+    return true;
+  };
+
+  for (Instruction &I : instructions(F)) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    if (IsAllocCall(&I))
+      continue;
+    auto *Memcpy = dyn_cast<MemCpyInst>(&I);
+    // Just check 1st argument is coming from alloc call. No need
+    // to check for size.
+    if (Memcpy && IsAllocPtr(Memcpy->getArgOperand(0)))
+      continue;
+    if (I.mayWriteToMemory())
+      return false;
+  }
+  return true;
+}
+
+// This detects if any part of code that is semantically doing
+// copy-ctor functionality, just replace the code with CCtor/SetElem
+// calls.
+//
+// Ex:
+//    unsigned int valuesSize = other.fValues->size();
+//    fValues = RefArray_Ctor(Capacity, true, fMemoryManager);
+//    for (unsigned int i=0; i<valuesSize; i++) {
+//      fValues->addElement(replicate(other.fValues->elementAt(i)),
+//                          fMemoryManager));
+//    }
+//
+//    Here, new RefArray_Ctor constructor is created and then add all
+//    elements of "other" vector in a loop after doing processing of
+//    the elements by calling "replicate" function.
+//    This is basically the functionality of copy-ctor.
+//
+//    The above will be converted as below. Two new member functions
+//    will be created.
+//    1. Simple CCtor: Copies all fields except array elements. Replace
+//    RefArray_Ctor call with the newly created CCtor.
+//    2. Simple SetElem: Set element at given location Replace addElement
+//    call with the newly created SetElem.
+//
+//    After:
+//    unsigned int valuesSize = other.fValues->size();
+//    fValues = RefArray_CCtor(Capacity, other.fValues);
+//    for (unsigned int i=0; i<valuesSize; i++) {
+//      fValues->SimpleSetElem(replicate(other.fValues->elementAt(i)),
+//                          fMemoryManager), i);
+//    }
+//
+//
+//
+void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
+
+  // Check Loop "L" has zero trip count test. Return loop count
+  // if it has valid zero trip count test.
+  // Ex:
+  //     store %"RefArray"* %35, %"RefArray"** %5
+  //     %40 = icmp eq i32 %18, 0
+  //     br i1 %40, label %93, label %LoopPreHead
+  //
+  // LoopPreHead:
+  //
+  // Returns %18 for above example.
+  //
+  auto GetLoopCountFromZeroTripCheck = [](Loop *L) -> Value * {
+    BasicBlock *PH = L->getLoopPreheader();
+    if (!PH)
+      return nullptr;
+    auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
+    if (!EntryBI || EntryBI->isConditional() ||
+        EntryBI != PH->getFirstNonPHIOrDbg())
+      return nullptr;
+
+    auto *PreCondBB = PH->getSinglePredecessor();
+    if (!PreCondBB)
+      return nullptr;
+    auto *BI = dyn_cast<BranchInst>(PreCondBB->getTerminator());
+    if (!BI || !BI->isConditional())
+      return nullptr;
+
+    ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!Cond)
+      return nullptr;
+
+    ConstantInt *CmpZero = dyn_cast<ConstantInt>(Cond->getOperand(1));
+    if (!CmpZero || !CmpZero->isZero())
+      return nullptr;
+
+    ICmpInst::Predicate Pred = Cond->getPredicate();
+    if (Pred != ICmpInst::ICMP_EQ ||
+        BI->getSuccessor(1) != L->getLoopPreheader())
+      return nullptr;
+    return Cond->getOperand(0);
+  };
+
+  // Returns loop count if the given "L" is simple loop like below.
+  // Otherwise, returns nullptr. "Phi" represents loop index (i.e %60).
+  //
+  // Ex:
+  //    59:                                               ; preds = %68, %41
+  //      %60 = phi i32 [ 0, %41 ], [ %69, %68 ]
+  //
+  //      Loop ...
+  //
+  //    68:                                               ; preds = %67
+  //      %69 = add nuw i32 %60, 1
+  //      %70 = icmp eq i32 %69, %18
+  //      br i1 %70, label %93, label %59
+  //
+  // Returns %18 for the example.
+  //
+  auto GetLoopCountFromLoopLatch =
+      [&GetLoopCountFromZeroTripCheck](Value *Phi, Loop *L) -> Value * {
+    auto *PN = dyn_cast<PHINode>(Phi);
+    if (!PN || PN->getNumIncomingValues() != 2)
+      return nullptr;
+    BasicBlock *Latch = L->getLoopLatch();
+    BasicBlock *PreHead = L->getLoopPreheader();
+    if (!PreHead || !Latch)
+      return nullptr;
+    Value *V1 = PN->getIncomingValueForBlock(PreHead);
+    Value *V2 = PN->getIncomingValueForBlock(Latch);
+    ConstantInt *Init = dyn_cast<ConstantInt>(V1);
+    if (!Init || !Init->isZero())
+      return nullptr;
+    BranchInst *BI = dyn_cast<BranchInst>(Latch->getTerminator());
+    if (!BI || !BI->isConditional())
+      return nullptr;
+
+    ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!Cond)
+      return nullptr;
+    ICmpInst::Predicate Pred = Cond->getPredicate();
+    if (Pred != ICmpInst::ICMP_EQ || BI->getSuccessor(1) != L->getHeader())
+      return nullptr;
+    Value *CmpOp0 = Cond->getOperand(0);
+    Value *CmpOp1 = Cond->getOperand(1);
+    if (V2 != CmpOp0)
+      return nullptr;
+    auto *AddI = dyn_cast<Instruction>(CmpOp0);
+    if (!AddI || AddI->getOpcode() != Instruction::Add)
+      return nullptr;
+    if (AddI->getOperand(0) != PN)
+      return nullptr;
+    ConstantInt *Inc = dyn_cast<ConstantInt>(AddI->getOperand(1));
+    if (!Inc || !Inc->isOne())
+      return nullptr;
+    Value *LoopCount = GetLoopCountFromZeroTripCheck(L);
+    if (!LoopCount || LoopCount != CmpOp1)
+      return nullptr;
+    return CmpOp1;
+  };
+
+  // Make sure GEP is accessing a field from function argument at "ArgNo".
+  auto IsValidGEPFromArg = [](GetElementPtrInst *GEP, unsigned ArgNo) {
+    if (GEP->getNumIndices() != 2)
+      return false;
+    Function *F = GEP->getFunction();
+    if (GEP->getPointerOperand() != F->getArg(ArgNo))
+      return false;
+    if (!isa<ConstantInt>(GEP->getOperand(2)))
+      return false;
+    return true;
+  };
+
+  // Detect copy-ctor functionality for given call of AppendElem (CB)
+  // function.
+  //
+  // Ex:
+  //    %18 = GetSize(%15)   // Get size of source vector
+  //    Invoke Ctor(%35, ...);
+  // 39:
+  //    store  %"RefArray"* %35, %"RefArray"** %5
+  //    %40 = icmp eq i32 %18, 0
+  //    br i1 %40, label %93, label %41
+  // 41:
+  //   br label %59
+  // 59:
+  //   %60 = phi i32 [ 0, %41 ], [ %69, %68 ]
+  //   %61 = load %"RefArray"*, %"RefArray"** %5
+  //   %62 = load %"RefArray"*, %"RefArray"** %15
+  //   %63 = GetElem(%62, %60)    // Get element from source vector
+  //   %66 = replicate(%63)
+  //   AppendElem(%61, %66)    // Append element to dest vector
+  //   %69 = add nuw i32 %60, 1
+  //   %70 = icmp eq i32 %69, %18
+  //    br i1 %70, label %93, label %59
+  //
+  // Also, Detect and set SrcGEPPtr, LoopIdxPtr, CtorCBPtr.
+  //
+  auto CheckCopyCtor = [this, &GetLoopCountFromLoopLatch,
+                        &IsValidGEPFromArg](CallBase *CB, Value **LoopIdxPtr,
+                                            GetElementPtrInst **SrcGEPPtr,
+                                            CallBase **CtorCBPtr) {
+    Function *Caller = CB->getCaller();
+    // Check if caller is potential copy-ctor.
+    if (Caller->arg_size() != 2 || CB->arg_size() != 2)
+      return false;
+    Argument *FromArg = Caller->getArg(1);
+    Argument *ToArg = Caller->getArg(0);
+    if (ToArg->getType() != FromArg->getType())
+      return false;
+
+    // Make sure the call is in loop.
+    LoopInfo LI((GetDT)(*Caller));
+    Loop *L = LI.getLoopFor(CB->getParent());
+    if (!L)
+      return false;
+
+    SmallPtrSet<CallBase *, 4> CallsInLoop;
+    CallsInLoop.insert(CB);
+
+    // Get dest vector and element from Append call.
+    Value *DstPtr = CB->getArgOperand(0);
+    Value *Elem = CB->getArgOperand(1);
+    auto *DstPtrLd = dyn_cast<LoadInst>(DstPtr);
+    if (!DstPtrLd)
+      return false;
+    auto *DstGEP = dyn_cast<GetElementPtrInst>(DstPtrLd->getPointerOperand());
+    if (!DstGEP || !IsValidGEPFromArg(DstGEP, 0))
+      return false;
+
+    // Check if element is processed by some auxiliary safe function.
+    auto *AuxCB = dyn_cast<CallBase>(Elem);
+    if (AuxCB) {
+      Function *AuxF = getCalledFunction(*AuxCB);
+      if (!AuxF)
+        return false;
+      if (!NewClassI->isCandidateMemberFunction(AuxF)) {
+        if (!isSafeCallForAppend(AuxF))
+          return false;
+        Elem = AuxCB->getArgOperand(0);
+        CallsInLoop.insert(AuxCB);
+      }
+    }
+
+    // Check where the element is coming from GetElem of other
+    // vector.
+    auto *GetElemCB = dyn_cast<CallBase>(Elem);
+    if (!GetElemCB)
+      return false;
+    CallsInLoop.insert(GetElemCB);
+    Function *GetElemF = getCalledFunction(*GetElemCB);
+    if (!GetElemF)
+      return false;
+    if (NewClassI->getFinalFuncKind(GetElemF) != GetElem)
+      return false;
+    Value *GetArg0 = GetElemCB->getArgOperand(0);
+    Value *GetArg1 = GetElemCB->getArgOperand(1);
+    auto *SrcPtrLd = dyn_cast<LoadInst>(GetArg0);
+    if (!SrcPtrLd)
+      return false;
+    auto *SrcGEP = dyn_cast<GetElementPtrInst>(SrcPtrLd->getPointerOperand());
+    if (!SrcGEP || !IsValidGEPFromArg(SrcGEP, 1))
+      return false;
+    // Make sure 2nd argument of GetElem call is loop counter.
+    Value *LatchCount = GetLoopCountFromLoopLatch(GetArg1, L);
+    auto *SizeCB = dyn_cast_or_null<CallBase>(LatchCount);
+    if (!SizeCB)
+      return false;
+    // Make sure loop counter is size of source vector.
+    Function *SizeF = getCalledFunction(*SizeCB);
+    if (!SizeF)
+      return false;
+    if (NewClassI->getFinalFuncKind(SizeF) != GetSize)
+      return false;
+    Value *SizeArg0 = SizeCB->getArgOperand(0);
+    auto *SizeLd = dyn_cast<LoadInst>(SizeArg0);
+    if (!SizeLd)
+      return false;
+    // Make sure all elements of source vector are copied to dest vector.
+    auto SizeGEP = dyn_cast<GetElementPtrInst>(SizeLd->getPointerOperand());
+    if (!SizeGEP)
+      return false;
+    if (SizeGEP != SrcGEP)
+      return false;
+
+    // Try to find instructions related Ctor just before the loop.
+    BasicBlock *PH = L->getLoopPreheader();
+    BasicBlock *PreCondBB = PH->getSinglePredecessor();
+    assert(PreCondBB && " Expected valid SinglePredecessor");
+    Instruction *TInst = PreCondBB->getTerminator();
+    assert(TInst && "Expected Terminator");
+    Instruction *CInst = TInst->getPrevNonDebugInstruction();
+    if (!CInst || !isa<ICmpInst>(CInst))
+      return false;
+    auto *SI = dyn_cast_or_null<StoreInst>(CInst->getPrevNonDebugInstruction());
+    if (!SI || PreCondBB->getFirstNonPHIOrDbg() != SI)
+      return false;
+    // Make sure the store is instruction that saves newly constructed
+    // dest vector.
+    Value *StoreValue = SI->getValueOperand();
+    Value *StorePtr = SI->getPointerOperand();
+    if (StorePtr != DstGEP)
+      return false;
+    CallBase *CtorCB = nullptr;
+    for (auto *U : StoreValue->users()) {
+      if (U == SI)
+        continue;
+      // Make sure dest vector doesn't have any other uses except CtorCB
+      // and the store instruction.
+      if (CtorCB)
+        return false;
+      CtorCB = dyn_cast<CallBase>(U);
+      if (!CtorCB)
+        return false;
+    }
+    if (!CtorCB)
+      return false;
+    if (CtorCB->getArgOperand(0) != StoreValue)
+      return false;
+
+    // Make sure there are no other instructions between constructor
+    // call and the loop.
+    BasicBlock *PredBB = PreCondBB->getSinglePredecessor();
+    if (!PredBB)
+      return false;
+    auto *BIt = dyn_cast_or_null<BranchInst>(PredBB->getFirstNonPHIOrDbg());
+    if (BIt && BIt->isUnconditional())
+      PredBB = PredBB->getSinglePredecessor();
+    if (!PredBB || CtorCB->getParent() != PredBB)
+      return false;
+    // Walk back PredBB to make sure there are no side effects between
+    // CtorCB and the loop.
+    Instruction *FrontI = &PredBB->front();
+    for (Instruction *Inst = PredBB->getTerminator(); Inst != FrontI;
+         Inst = Inst->getPrevNode()) {
+      if (Inst == CtorCB)
+        break;
+      if (Inst->mayWriteToMemory())
+        return false;
+    }
+
+    // Make sure there are no other stores/calls etc in loop.
+    BasicBlock *Latch = L->getLoopLatch();
+    for (auto *BB : L->blocks()) {
+      for (auto &II : *BB) {
+        auto *LCB = dyn_cast<CallBase>(&II);
+        // Ignore calls already processed.
+        if (LCB && CallsInLoop.count(LCB))
+          continue;
+        if (II.mayWriteToMemory())
+          return false;
+      }
+      // Make sure CFG is linear.
+      if (Latch == BB)
+        continue;
+      Instruction *II = BB->getTerminator();
+      if (!II || !isa<InvokeInst>(II))
+        return false;
+    }
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << "Transformations 5: \n"; });
+    *SrcGEPPtr = SrcGEP;
+    *CtorCBPtr = CtorCB;
+    *LoopIdxPtr = GetArg1;
+    return true;
+  };
+
+  // Create simple SetElem function.
+  //   SimpleSetElem(Thisptr, Elem, Idx) {
+  //     *(ThisPtr->baseptr + Idx) = Elem
+  //     return;
+  //   }
+  //
+  // Note that it doesn't check for "Idx < Size" as we know this is
+  // always true since this routine will be used to replace AppendElem.
+  //
+  auto CreateSimpleSetElementFunction = [this](Function *SetFunc) {
+    // Create New function with same signature as SetFunc.
+    FunctionType *FTy = SetFunc->getFunctionType();
+    Function *NF = Function::Create(FTy, SetFunc->getLinkage(),
+                                    SetFunc->getName(), SetFunc->getParent());
+    NF->setAttributes(SetFunc->getAttributes());
+    NF->setCallingConv(SetFunc->getCallingConv());
+
+    // Add instructions to set an element at given position.
+    //
+    //   (ThisPtr->baseptr + Idx) = Elem
+    //
+    BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", NF);
+    IRBuilder<> IRB(BB);
+
+    Value *ThisPtr = NF->getArg(0);
+    Value *Elem = NF->getArg(1);
+    Value *Idx = NF->getArg(2);
+    int32_t BaseArrayIdx = NewClassI->getArrayField();
+    assert(BaseArrayIdx != -1 && "Expected valid Array Index");
+    SmallVector<Value *, 2> Indices;
+    Indices.push_back(IRB.getInt64(0));
+    Indices.push_back(IRB.getInt32(BaseArrayIdx));
+    // Load base array of vector
+    Value *GEP = IRB.CreateInBoundsGEP(NewElemTy, ThisPtr, Indices, "");
+    unsigned Align = DL.getABITypeAlignment(Elem->getType());
+    LoadInst *Load =
+        IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
+    Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
+    // Store Elem into base array at Idx.
+    Indices.clear();
+    Indices.push_back(NewIdx);
+    Value *ElemGEP = IRB.CreateInBoundsGEP(Elem->getType(), Load, Indices, "");
+    IRB.CreateAlignedStore(Elem, ElemGEP, Align);
+    IRB.CreateRetVoid();
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "  New simple SetElem function created: \n";
+      NF->dump();
+    });
+    return NF;
+  };
+
+  // Replace AppendElem call with simple SetElem call.
+  //
+  //   Before:
+  //        AppendElem(ThisPtr, Elem);
+  //   After:
+  //        SimpleSetElem(ThisPtr, Elem, LoopCounter);
+  //
+  auto ReplaceAppendElemWithSetElemCall =
+      [this](Function *SimpleSetElem, CallBase *AppendCB, Value *LoopCounter) {
+        std::vector<Value *> NewArgs;
+        auto NFPAL = SimpleSetElem->getAttributes();
+        AttributeList Attrs = AppendCB->getAttributes();
+        SmallVector<AttributeSet, 4> NewArgAttrs;
+        auto *E = AppendCB->arg_end();
+        auto *I = AppendCB->arg_begin();
+        unsigned ArgIdx = 0;
+        for (; I != E; I++) {
+          NewArgs.push_back(*I);
+          NewArgAttrs.push_back(NFPAL.getParamAttributes(ArgIdx));
+          ArgIdx++;
+        }
+        NewArgAttrs.push_back(NFPAL.getParamAttributes(ArgIdx));
+        NewArgs.push_back(LoopCounter);
+        FunctionType *NFTy = SimpleSetElem->getFunctionType();
+        AttributeList NewPAL =
+            AttributeList::get(NFTy->getContext(), Attrs.getFnAttributes(),
+                               Attrs.getRetAttributes(), NewArgAttrs);
+
+        DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+          dbgs() << "  Replacing Append call with SetElemcall: \n";
+        });
+        updateCallBase(AppendCB, NewPAL, SimpleSetElem, NewArgs);
+      };
+
+  // Create simple CCtor using Ctor function body.
+  //   Before:
+  //     Ctor(This, c, flag ..) {
+  //       capacity = c;
+  //       size = 0;
+  //       ...
+  //       base = (S**)malloc(capacity * sizeof(S*));
+  //       memset(base, 0, capacity * sizeof(S*));
+  //     }
+  //
+  //   After:
+  //     CCtor(Dest, Src) {  // Newly created function. No change to the Ctor.
+  //       Dest.capacity = Src.capacity;
+  //       Dest.size = Src.size;
+  //       ...
+  //       base = (S**)malloc(Src.capacity * sizeof(S*));
+  //       memset(base, 0, Src.capacity * sizeof(S*));
+  //
+  //       // Note that no array elements are copied here.
+  //     }
+  //
+  //  This transformation is implemented by cloning Ctor two times like
+  //  below.
+  //
+  //    1st time clone: Just add "SrcPtr" argument and map other
+  //    argument to the original arguments of Ctor.
+  //       Ctor1(This, SrcPtr, c, flag...) {
+  //       }
+  //
+  //   For each Store instruction in cloned routine (except base array field)
+  //   is converted as copy instruction.
+  //   Ex:
+  //     Ctor1(this, SrcPtr, c, flag...) {
+  //      ...
+  //      this->capacity = c;
+  //      ...
+  //     }
+  //
+  //     to
+  //
+  //     Ctor1(this, SrcPtr, c, flag...) {
+  //      ...
+  //      this->capacity = SrcPtr->capacity;
+  //      ...
+  //     }
+  //  Array base store instruction (nullptr and memory allocation) are not
+  //  changed.
+  //
+  //  2nd time cloning: Now, clone Ctor1 again to remove all dead arguments.
+  //  Ctor1 will be deleted.
+  //     Ctor2(this, SrcPtr) {
+  //      ...
+  //      this->capacity = SrcPtr->capacity;
+  //      ...
+  //     }
+  //
+  auto CreateSimpleCCtorFunction = [this](Function *CtorF) {
+    FunctionType *CtorFTy = CtorF->getFunctionType();
+    std::vector<Type *> NewParams;
+    // Add new argument for SrcPtr
+    Type *ArgType = CtorF->getArg(0)->getType();
+    NewParams.push_back(ArgType);
+    for (auto I = CtorF->arg_begin(), E = CtorF->arg_end(); I != E; ++I) {
+      Argument *A = &*I;
+      NewParams.push_back(A->getType());
+    }
+    // 1st time cloning.
+    FunctionType *NewFTy = FunctionType::get(Type::getVoidTy(M.getContext()),
+                                             NewParams, CtorFTy->isVarArg());
+    Function *NewF =
+        Function::Create(NewFTy, CtorF->getLinkage(), CtorF->getName(), &M);
+    ValueToValueMapTy VMap1;
+    auto A = CtorF->arg_begin();
+    unsigned Pos = 0;
+    for (auto I = NewF->arg_begin(); I != NewF->arg_end(); ++I, Pos++) {
+      if (Pos == 1) {
+        continue;
+      }
+      VMap1[&*A] = &*I;
+      A++;
+    }
+    SmallVector<ReturnInst *, 8> Rets;
+    CloneFunctionInto(NewF, CtorF, VMap1, true, Rets);
+
+    // Fix store instructions in the cloned routines.
+    Argument *CopyArg = NewF->getArg(1);
+    for (Instruction &I : instructions(NewF)) {
+      auto *SI = dyn_cast<StoreInst>(&I);
+      if (!SI)
+        continue;
+      auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+      assert(GEP && "Expected GEP");
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "  Processing : " << *GEP << "\n";
+        dbgs() << "             " << *SI << "\n";
+      });
+      auto *CInt = dyn_cast<ConstantInt>(GEP->getOperand(2));
+      assert(CInt && "Expected constant GEP index");
+      int32_t Idx = CInt->getLimitedValue();
+      // Ignore base array field stores.
+      if (NewClassI->getArrayField() == Idx)
+        continue;
+      SmallVector<Value *, 8> Indices;
+      Indices.append(GEP->idx_begin(), GEP->idx_end());
+      auto *NewGEP = GetElementPtrInst::Create(GEP->getSourceElementType(),
+                                               CopyArg, Indices, "", GEP);
+      auto *Ld = new LoadInst(NewGEP, "", GEP);
+      if (isa<Argument>(SI->getOperand(0))) {
+        Value *V = SI->getValueOperand();
+        V->replaceAllUsesWith(Ld);
+      } else {
+        SI->setOperand(0, Ld);
+      }
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "  Transformed to : " << *NewGEP << "\n";
+        dbgs() << "                   " << *Ld << "\n";
+        dbgs() << "                   " << *SI << "\n";
+      });
+    }
+
+    // 2nd time cloning
+    ValueToValueMapTy VMap2;
+    // Delete all arguments except the first two.
+    for (unsigned I = 2, E = NewF->arg_size(); I < E; I++) {
+      Argument *A = NewF->getArg(I);
+      VMap2[A] = Constant::getNullValue(A->getType());
+    }
+    Function *CCtorF = CloneFunction(NewF, VMap2);
+    NewF->eraseFromParent();
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "  New simple CCtor function created: \n";
+      CCtorF->dump();
+    });
+    return CCtorF;
+  };
+
+  // Replace Ctor call with simple CCtor call.
+  //
+  // Before:
+  //    Ctor(DestPtr, ...);
+  //
+  // After:
+  //    %G = GetElementPtrInst  //  Address of
+  //    SrcPtr = Load %G
+  //    NewCCtor(DestPtr, SrcPtr);
+  //
+  auto FixCtorFunctionCall = [this](Function *NewCCtor, CallBase *CtorCB,
+                                    GetElementPtrInst *GEP) {
+    GetElementPtrInst *NewGEP = cast<GetElementPtrInst>(GEP->clone());
+    NewGEP->insertBefore(CtorCB);
+    LoadInst *NewLd = new LoadInst(NewGEP, "", CtorCB);
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+      dbgs() << "  Replacing Ctor call with CCtor call: \n";
+      dbgs() << " GEP: " << *NewGEP << "\n";
+      dbgs() << " Load: " << *NewLd << "\n";
+    });
+    std::vector<Value *> NewArgs;
+    auto NFPAL = NewCCtor->getAttributes();
+    AttributeList Attrs = CtorCB->getAttributes();
+    SmallVector<AttributeSet, 4> NewArgAttrs;
+    auto *I = CtorCB->arg_begin();
+    NewArgs.push_back(*I);
+    NewArgAttrs.push_back(NFPAL.getParamAttributes(0));
+    NewArgs.push_back(NewLd);
+    NewArgAttrs.push_back(NFPAL.getParamAttributes(1));
+    FunctionType *NFTy = NewCCtor->getFunctionType();
+    AttributeList NewPAL =
+        AttributeList::get(NFTy->getContext(), Attrs.getFnAttributes(),
+                           Attrs.getRetAttributes(), NewArgAttrs);
+    updateCallBase(CtorCB, NewPAL, NewCCtor, NewArgs);
+  };
+
+  // Get the position of MemInterfaceTy for "CtorF".
+  auto GetMemInterArgumentPos = [this](Function *CtorF) {
+    StructType *MemInterTy = NewCandI->getMemInterfaceType();
+    int32_t Pos = 0;
+    for (auto &Arg : CtorF->args()) {
+      auto *PTy = dyn_cast<PointerType>(Arg.getType());
+      if (PTy && PTy->getElementType() == MemInterTy)
+        return Pos;
+      Pos++;
+    }
+    return -1;
+  };
+
+  // Returns true if the same candidate struct field value is
+  // passed as MemInterface argument to all callsites of CtorF.
+  auto IsMemInterFieldSame = [this, &GetMemInterArgumentPos](Function *CtorF) {
+    int32_t Pos = GetMemInterArgumentPos(CtorF);
+    if (Pos == -1)
+      return false;
+    for (auto *U : CtorF->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      assert(CB && " Expected valid call");
+      Value *Arg = CB->getArgOperand(Pos);
+      auto *Ld = dyn_cast<LoadInst>(Arg);
+      if (!Ld)
+        return false;
+      auto *GEP = dyn_cast<GetElementPtrInst>(Ld->getPointerOperand());
+      if (!GEP)
+        return false;
+      // We know there is only one MemInterfaceType field in the candidate
+      // struct. So, no need to check the field index.
+      if (GEP->getSourceElementType() != getNewStructTy())
+        return false;
+      // TODO: Member function analysis proves that MemInterfaceType field
+      // in vector class is not modified. Need to check if SOAToAOS is
+      // proving that MemInterfaceType field is not modified in the candidate
+      // struct.
+    }
+    return true;
+  };
+
+  // First, make sure the class doesn't have its own CCtor
+  if (NewClassI->getSingleMemberFunction(CopyConstructor))
+    return;
+  assert(NewCtor && "Expected valid Ctor");
+  // Check if AppendElem and SetElem are defined for the vector class.
+  Function *AppendFunc = NewClassI->getSingleMemberFunction(AppendElem);
+  Function *SetFunc = NewClassI->getSingleMemberFunction(SetElem);
+  if (!AppendFunc || !SetFunc)
+    return;
+
+  // Check it is okay to convert Ctor to CCtor. Make sure there is
+  // no change in values. Check flag field is same. Okay Size field
+  // since AppendElem function is called in the immediate loop. Capacity
+  // field can be ignored as it only impacts memory allocation.
+  if (!ConstantPropApplied)
+    return;
+  if (!IsMemInterFieldSame(NewCtor))
+    return;
+
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                  { dbgs() << "Transformations 5: \n"; });
+  Value *LoopCounter = nullptr;
+  GetElementPtrInst *SrcGEP = nullptr;
+  CallBase *AppendCB = nullptr;
+  CallBase *CtorCB = nullptr;
+  // Detect if any callsite of AppendElem function can be converted to
+  // CCtor.
+  for (auto *U : AppendFunc->users()) {
+    auto *CB = dyn_cast<CallBase>(U);
+    assert(CB && "Expected call");
+    if (!CheckCopyCtor(CB, &LoopCounter, &SrcGEP, &CtorCB)) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "  CopyCtor detection failed: " << *CB << "\n";
+      });
+      continue;
+    }
+    if (AppendCB) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                      { dbgs() << "  More than one CopyCtor detected \n"; });
+      return;
+    }
+    AppendCB = CB;
+  }
+  if (!AppendCB)
+    return;
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                  { dbgs() << "  CopyCtor detected: " << *AppendCB << "\n"; });
+  assert(SetFunc->arg_size() == 3 && "Unexpected SetElem function");
+  // Make sure types of the loop counter and 3rd argument of SetElem
+  // are same.
+  // Expects last argument of SetFunc as integer argument.
+  Type *SetFunIntArgTy = SetFunc->getArg(2)->getType();
+  if (!SetFunIntArgTy->isIntegerTy() ||
+      SetFunIntArgTy != LoopCounter->getType())
+    return;
+
+  // Create new simple SetElem function and replace AppendElem call
+  // with the simple SetElem call.
+  Function *CallerF = AppendCB->getFunction();
+  Function *SimpleSetElem = CreateSimpleSetElementFunction(SetFunc);
+  ReplaceAppendElemWithSetElemCall(SimpleSetElem, AppendCB, LoopCounter);
+
+  // Create new simple CCtor function and replace Ctor call with
+  // the simple CCtor call.
+  Function *SimpleCCtor = CreateSimpleCCtorFunction(NewCtor);
+  FixCtorFunctionCall(SimpleCCtor, CtorCB, SrcGEP);
+  // Remove dead instructions.
+  removeDeadInsts(CallerF);
+}
+
+// Reverse argument promotion for AppendFunc by converting pointer
+// argument to pointer-to-pointer argument and then fix callsite.
+//
+//  Ex:
+//  Before:
+//     {
+//       ...
+//       AppendElem(this, %56);
+//       ...
+//     }
+//
+//     AppendElem(this, i16* %1) {
+//      ...
+//      store i16* %1, i16** %8
+//      ...
+//     }
+//
+//  After:
+//     {
+//       %5 = alloca i16*
+//      ...
+//       store i16* %56, i16** %5
+//       AppendElem(this, i16** %5);
+//     }
+//
+//     AppendElem(this, i16** %1) {
+//      ...
+//      %9 = load i16*, i16** %1
+//      store i16* %9, i16** %8
+//      ...
+//     }
+//
+void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
+  auto IsReverseArgPromoteEligible = [](Function *F, unsigned Pos) {
+    Argument *Arg = F->getArg(Pos);
+    if (!Arg->hasOneUse())
+      return false;
+    auto *SI = dyn_cast<StoreInst>(Arg->user_back());
+    if (!SI)
+      return false;
+    if (Arg != SI->getOperand(0))
+      return false;
+    return true;
+  };
+
+  Function *AppendFunc = NewClassI->getSingleMemberFunction(AppendElem);
+  if (!AppendFunc || !AppendFunc->hasOneUse())
+    return;
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                  { dbgs() << "Transformations 6: \n"; });
+  assert(AppendFunc->arg_size() == 2 && "Unexpected Append function");
+  auto *CB = dyn_cast<CallBase>(AppendFunc->user_back());
+  if (!CB || !IsReverseArgPromoteEligible(AppendFunc, 1)) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
+                    { dbgs() << " AppendFunc is not eligible \n"; });
+    return;
+  }
+
+  std::vector<Type *> Params;
+  FunctionType *FTy = AppendFunc->getFunctionType();
+
+  // No Change in 1st arg.
+  Params.push_back(AppendFunc->getArg(0)->getType());
+  // Make 2nd argument as pointer to the original arg type.
+  Params.push_back(AppendFunc->getArg(1)->getType()->getPointerTo());
+  FunctionType *NFTy =
+      FunctionType::get(FTy->getReturnType(), Params, FTy->isVarArg());
+  Function *NF = Function::Create(NFTy, AppendFunc->getLinkage(),
+                                  AppendFunc->getAddressSpace());
+  NF->copyAttributesFrom(AppendFunc);
+  NF->setComdat(AppendFunc->getComdat());
+  AppendFunc->getParent()->getFunctionList().insert(AppendFunc->getIterator(),
+                                                    NF);
+  NF->takeName(AppendFunc);
+
+  // Fix CallBase by passing address of original param.
+  Function *CallerF = CB->getParent()->getParent();
+  std::vector<Value *> NewArgs;
+  auto NFPAL = NF->getAttributes();
+  AttributeList Attrs = CB->getAttributes();
+  SmallVector<AttributeSet, 4> NewArgAttrs;
+  auto *I = CB->arg_begin();
+  NewArgs.push_back(*I);
+  NewArgAttrs.push_back(NFPAL.getParamAttributes(0));
+  AllocaInst *Alloca =
+      new AllocaInst(AppendFunc->getArg(1)->getType(), 0, nullptr, "",
+                     &*(CallerF->getEntryBlock().getFirstInsertionPt()));
+  StoreInst *StoreI = new StoreInst(CB->getArgOperand(1), Alloca, CB);
+  (void)StoreI;
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+    dbgs() << "  Created Alloca: " << *Alloca << "\n";
+    dbgs() << "  Created Store: " << *StoreI << "\n";
+  });
+  NewArgs.push_back(Alloca);
+  NewArgAttrs.push_back(NFPAL.getParamAttributes(1));
+
+  AttributeList NewPAL =
+      AttributeList::get(AppendFunc->getContext(), Attrs.getFnAttributes(),
+                         Attrs.getRetAttributes(), NewArgAttrs);
+
+  updateCallBase(CB, NewPAL, NF, NewArgs);
+
+  NF->getBasicBlockList().splice(NF->begin(), AppendFunc->getBasicBlockList());
+
+  // Update argument uses.
+  unsigned Pos = 0;
+  for (Function::arg_iterator I = AppendFunc->arg_begin(),
+                              E = AppendFunc->arg_end(), I2 = NF->arg_begin();
+       I != E; ++I) {
+    if (Pos == 1) {
+      // Generate load instruction to get element.
+      Argument *Arg = &*I;
+      auto *SI = cast<StoreInst>(Arg->user_back());
+      Value *LI = new LoadInst(&*I2, "", SI);
+      SI->setOperand(0, LI);
+    } else {
+      I->replaceAllUsesWith(&*I2);
+    }
+    I2->takeName(&*I);
+    ++I2;
+    Pos++;
+  }
+  AppendFunc->eraseFromParent();
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+    dbgs() << "  Updated AppendFunc: \n";
+    NF->dump();
+  });
 }
 
 class SOAToAOSPrepareTransImpl : public DTransOptBase {
@@ -1412,9 +2405,13 @@ bool SOAToAOSPrepareImpl::run(void) {
   }
 
   // 4th transform: Apply Ctor transformations.
-  Candidate->applyCtorTransformations();
+  Function *NewCtor = Candidate->applyCtorTransformations();
 
-  // TODO: Add more code here.
+  // 5th transform: Create CopyCtor from combination of "Ctor" and "add".
+  Candidate->convertCtorToCCtor(NewCtor);
+
+  // 6th transform: Reverse arg promotion for AppendFunc.
+  Candidate->reverseArgPromote();
 
   return true;
 }
