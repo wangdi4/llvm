@@ -297,7 +297,7 @@ public:
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                   bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
-      : HIRF(HIRF), DDA(DDA),
+      : HIRF(HIRF), DDA(DDA), BU(HIRF.getBlobUtils()),
         EnablePartialUnswitch(EnablePartialUnswitch && !DisablePartialUnswitch),
         KeepLoopnestPerfect(KeepLoopnestPerfect || KeepLoopnestPerfectOption) {}
 
@@ -306,6 +306,7 @@ public:
 private:
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
+  BlobUtils &BU;
 
   bool EnablePartialUnswitch;
   bool KeepLoopnestPerfect;
@@ -351,9 +352,12 @@ private:
   unsigned getPossibleDefLevel(const HLDDNode *Node, const RegDDRef *Ref,
                                PUContext &PUC);
 
-  /// Returns the possible level where CE is defined. NonLinearBlob is set true
-  /// whenever CE contains a non-linear blob.
-  unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob);
+  /// Returns the possible level where CE is defined.
+  ///
+  /// NonLinearBlob is set true whenever CE contains a non-linear blob.
+  /// UDivBlob is set to true whenever CE contains a non-constant division.
+  unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob,
+                               bool &UDivBlob);
 
   void transformSwitch(HLLoop *TargetLoop,
                        iterator_range<HoistCandidate *> SwitchCandidates,
@@ -874,7 +878,8 @@ bool HIROptPredicate::run() {
 }
 
 unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
-                                              bool &NonLinearBlob) {
+                                              bool &NonLinearBlob,
+                                              bool &UDivBlob) {
   unsigned IVMaxLevel = 0;
   unsigned IVLevel = 0;
   for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
@@ -885,6 +890,19 @@ unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
     IVLevel++;
     if (CE->getIVConstCoeff(I)) {
       IVMaxLevel = IVLevel;
+    }
+
+    if (I->Index != InvalidBlobIndex &&
+        BlobUtils::mayContainUDivByZero(BU.getBlob(I->Index))) {
+      UDivBlob = true;
+    }
+  }
+
+  for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E && !UDivBlob;
+       ++I) {
+    if (I->Index != InvalidBlobIndex &&
+        BlobUtils::mayContainUDivByZero(BU.getBlob(I->Index))) {
+      UDivBlob = true;
     }
   }
 
@@ -903,38 +921,46 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLDDNode *Node,
                                               PUContext &PUC) {
   unsigned Level = 0;
   bool NonLinearRef = false;
+  bool UDivBlob = false;
   bool HasGEPInfo = Ref->hasGEPInfo();
 
   if (HasGEPInfo) {
-    Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef);
+    Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef, UDivBlob);
   }
 
   for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
-    Level = std::max(
-        Level, getPossibleDefLevel(Ref->getDimensionIndex(I), NonLinearRef));
+    Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionIndex(I),
+                                                NonLinearRef, UDivBlob));
 
     if (HasGEPInfo) {
-      Level = std::max(
-          Level, getPossibleDefLevel(Ref->getDimensionLower(I), NonLinearRef));
-      Level = std::max(
-          Level, getPossibleDefLevel(Ref->getDimensionStride(I), NonLinearRef));
+      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionLower(I),
+                                                  NonLinearRef, UDivBlob));
+      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionStride(I),
+                                                  NonLinearRef, UDivBlob));
     }
   }
 
-  if (Node->getNodeLevel() == Level) {
+  unsigned NodeLevel = Node->getNodeLevel();
+
+  if (NodeLevel == Level) {
     // Reference is dependent on If's nesting level. Ex.: a[i1] or i1 + %b
     return Level;
   }
 
+  if (UDivBlob) {
+    // Allow only one level unswitching in case of UDivBlob.
+    Level = NodeLevel - 1;
+  }
+
   if (NonLinearRef || Ref->isMemRef()) {
     // Return current level of attachment.
-    Level = Node->getNodeLevel();
+    Level = NodeLevel;
 
     const HLIf *If = dyn_cast<HLIf>(Node);
+
+    // May hoist one level up only.
     if (If && isPUCandidate(If, Ref, PUC)) {
       PUC.setPURequired();
-
-      // May hoist one level up only.
       Level -= 1;
     }
   }

@@ -253,6 +253,9 @@ public:
   /// Returns true if Blob contains SubBlob or if Blob == SubBlob.
   bool contains(BlobTy Blob, BlobTy SubBlob) const;
 
+  /// Return true if Blob contains a division by a possibly zero blob.
+  static bool mayContainUDivByZero(BlobTy Blob);
+
   /// Returns all the temp blobs present in Blob via TempBlobs vector.
   void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs) const;
 

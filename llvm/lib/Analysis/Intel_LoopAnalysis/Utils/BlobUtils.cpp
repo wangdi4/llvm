@@ -335,6 +335,23 @@ bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) const {
   return getHIRParser().contains(Blob, SubBlob);
 }
 
+bool BlobUtils::mayContainUDivByZero(BlobTy Blob) {
+  bool ContainsUDiv = SCEVExprContains(Blob, [](const SCEV *S) {
+    // TODO: May allow divisions if proven to be non-zero.
+    // with ScalarEvolution::isKnownNonZero()
+
+    auto *UDiv = dyn_cast<SCEVUDivExpr>(S);
+    if (!UDiv) {
+      return false;
+    }
+
+    auto *RHS = dyn_cast<SCEVConstant>(UDiv->getRHS());
+    return !RHS || RHS->isZero();
+  });
+
+  return ContainsUDiv;
+}
+
 void BlobUtils::collectTempBlobs(BlobTy Blob,
                                  SmallVectorImpl<BlobTy> &TempBlobs) const {
   getHIRParser().collectTempBlobs(Blob, TempBlobs);
