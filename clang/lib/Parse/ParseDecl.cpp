@@ -3942,6 +3942,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       }
       isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
       break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case tok::kw_channel:
       isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
@@ -3952,6 +3953,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         // __pipe keyword is defined only for SYCL kernel language
         isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
       break;
+=======
+>>>>>>> ce67a5bfaccd94741447336c16bbea4ab6a1d488
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -5107,8 +5110,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   default: return false;
 
   case tok::kw_pipe:
-  case tok::kw___pipe:
     return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
+<<<<<<< HEAD
             getLangOpts().OpenCLCPlusPlus || getLangOpts().SYCLIsDevice;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
@@ -5116,6 +5119,10 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
       getTargetInfo().getSupportedOpenCLOpts().
          isEnabled("cl_intel_channels");
 #endif // INTEL_CUSTOMIZATION
+=======
+           getLangOpts().OpenCLCPlusPlus;
+
+>>>>>>> ce67a5bfaccd94741447336c16bbea4ab6a1d488
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
     if (getLangOpts().ObjC && NextToken().is(tok::period))
@@ -5621,9 +5628,8 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
-  if ((Kind == tok::kw_pipe || Kind == tok::kw___pipe) &&
-      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus ||
-       Lang.SYCLIsDevice))
+  if ((Kind == tok::kw_pipe) &&
+      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
