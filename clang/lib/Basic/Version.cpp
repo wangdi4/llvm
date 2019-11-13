@@ -127,6 +127,7 @@ std::string getClangFullCPPVersion() {
   return OS.str();
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 std::string getICXVersionString() {
   // XMAIN_BUILD_DATE_STAMP_STR is expected to be 8 characters of YYYYMMDD.
@@ -151,6 +152,8 @@ std::string getDPCPPVersionString() {
   StringRef Q(DPCPP_VERSION_QUALITY);
   if (!Q.empty())
     OS << "-" << Q;
+=======
+>>>>>>> 51adeae1c90c966f5ae7eb1aa8a380fcc7cd4806
   return OS.str();
 }
 
