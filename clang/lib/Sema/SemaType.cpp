@@ -6245,8 +6245,8 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
   }
 }
 
-static void HandleIntelFPGAPipeAttribute(QualType &Type, const ParsedAttr &Attr,
-                                         TypeProcessingState &State) {
+static void HandleSYCLFPGAPipeAttribute(QualType &Type, const ParsedAttr &Attr,
+                                        TypeProcessingState &State) {
   Sema &S = State.getSema();
   ASTContext &Ctx = S.Context;
 
@@ -6286,7 +6286,7 @@ static void HandleIntelFPGAPipeAttribute(QualType &Type, const ParsedAttr &Attr,
     return;
   }
 
-  auto *PipeAttr = ::new (Ctx) IntelFPGAPipeAttr(Ctx, Attr, Str);
+  auto *PipeAttr = ::new (Ctx) SYCLFPGAPipeAttr(Ctx, Attr, Str);
 
   // Apply pipe qualifiers just to the equivalent type, as the expression is not
   // value dependent (not templated).
@@ -7932,8 +7932,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       HandleOpenCLAccessAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
-    case ParsedAttr::AT_IntelFPGAPipe:
-      HandleIntelFPGAPipeAttribute(type, attr, state);
+    case ParsedAttr::AT_SYCLFPGAPipe:
+      HandleSYCLFPGAPipeAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();
       break;
     case ParsedAttr::AT_LifetimeBound:
