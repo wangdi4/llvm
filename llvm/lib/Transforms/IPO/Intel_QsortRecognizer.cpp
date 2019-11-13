@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -43,6 +44,24 @@ static cl::opt<bool> QsortTestPivot("qsort-test-pivot",
 
 static cl::opt<bool> QsortTestInsert("qsort-test-insert",
                                      cl::init(true), cl::ReallyHidden);
+
+static cl::opt<bool> QsortTestPivotMovers("qsort-test-pivot-movers",
+                                          cl::init(true), cl::ReallyHidden);
+
+//
+// Return 'true' if 'V' represents a PHINode and one of its incoming values
+// is 'Arg'.
+//
+static bool isPHINodeWithArgIncomingValue(Value *V, Argument *Arg) {
+  auto PHIN = dyn_cast<PHINode>(V);
+  if (!PHIN)
+    return false;
+  auto Num = PHIN->getNumIncomingValues();
+  for (unsigned I = 0; I < Num; ++I)
+    if (PHIN->getIncomingValue(I) == Arg)
+      return true;
+  return false;
+}
 
 //
 // Return 'true' if 'BBOLH' is the first basic block in an insertion sort of
@@ -84,23 +103,8 @@ static cl::opt<bool> QsortTestInsert("qsort-test-insert",
 // 321: (BBEnd: Exit Basic Block)        ; preds = %313, %252, %234, %29, %5
 //  ret void
 
-
 static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
                             Argument *ArgSize) {
-
-  //
-  // Return 'true' if 'V' represents a PHINode and one of its incoming values
-  // is 'Arg'.
-  //
-  auto IsPHINodeWithArgIncomingValue = [](Value *V, Argument *Arg) -> bool {
-    auto PHIN = dyn_cast<PHINode>(V);
-    if (!PHIN)
-      return false;
-    for (unsigned I = 0; I < PHIN->getNumIncomingValues(); ++I)
-      if (PHIN->getIncomingValue(I) == Arg)
-        return true;
-    return false;
-  };
 
   // The Validate*() lambda functions below all return 'true' if the basic
   // block they are checking is validated (is proved to have the required
@@ -110,9 +114,8 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
   // Validate 'BBOLH', the outer loop header of the insertion sort. Recognize
   // and assign '*BBILH', its true successor and '*BBOL', its false successor.
   //
-  auto ValidateBBOLH = [&ArgArray, &IsPHINodeWithArgIncomingValue](
-                           BasicBlock *BBOLH, BasicBlock **BBILH,
-                           BasicBlock **BBOL) -> bool {
+  auto ValidateBBOLH = [&ArgArray](BasicBlock *BBOLH, BasicBlock **BBILH,
+                                   BasicBlock **BBOL) -> bool {
     auto BI = dyn_cast<BranchInst>(BBOLH->getTerminator());
     if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
       return false;
@@ -121,7 +124,7 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
     auto ICI = dyn_cast<ICmpInst>(BI->getCondition());
     if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_UGT)
       return false;
-    if (!IsPHINodeWithArgIncomingValue(ICI->getOperand(1), ArgArray))
+    if (!isPHINodeWithArgIncomingValue(ICI->getOperand(1), ArgArray))
       return false;
     auto PHIN0 = dyn_cast<PHINode>(ICI->getOperand(0));
     if (!PHIN0 || PHIN0->getNumIncomingValues() != 2)
@@ -136,7 +139,7 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
       if (!CI || CI->getZExtValue() != 8)
         return false;
       Value *V = GEP->getPointerOperand();
-      if (!FoundPHI0 && IsPHINodeWithArgIncomingValue(V, ArgArray))
+      if (!FoundPHI0 && isPHINodeWithArgIncomingValue(V, ArgArray))
         FoundPHI0 = true;
       else if (!FoundPHI1 && V == PHIN0)
         FoundPHI1 = true;
@@ -198,9 +201,8 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
   // Validate 'BBIL', the inner loop block of the insertion sort.  Recognize
   // 'BBILH' as its true successor and 'BBOL' as its false successor.
   //
-  auto ValidateBBIL = [&ArgArray, &IsPHINodeWithArgIncomingValue](
-                          BasicBlock *BBIL, BasicBlock *BBILH,
-                          BasicBlock *BBOL) -> bool {
+  auto ValidateBBIL = [&ArgArray](BasicBlock *BBIL, BasicBlock *BBILH,
+                                  BasicBlock *BBOL) -> bool {
     auto BI = dyn_cast<BranchInst>(BBIL->getTerminator());
     if (!BI || BI->getNumSuccessors() != 2)
       return false;
@@ -213,7 +215,7 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
       return false;
     if (IC->getOperand(0) != BBILH->front().getNextNonDebugInstruction())
       return false;
-    if (!IsPHINodeWithArgIncomingValue(IC->getOperand(1), ArgArray))
+    if (!isPHINodeWithArgIncomingValue(IC->getOperand(1), ArgArray))
       return false;
     auto BC0 = dyn_cast<BitCastInst>(&BBIL->front());
     if (!BC0 || BC0->getOperand(0) != &BBILH->front())
@@ -253,9 +255,9 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
   // successor should be 'BBOLH' and whose false successor should be recognized
   // and assigned as '*BBEnd'.
   //
-  auto ValidateBBOL = [&ArgArray, &ArgSize, &IsPHINodeWithArgIncomingValue](
-                          BasicBlock *BBOL, BasicBlock *BBOLH,
-                          BasicBlock **BBEnd) -> bool {
+  auto ValidateBBOL = [&ArgArray, &ArgSize](BasicBlock *BBOL,
+                                            BasicBlock *BBOLH,
+                                            BasicBlock **BBEnd) -> bool {
     Value *PV = nullptr;
     ConstantInt *CI = nullptr;
     auto BI = dyn_cast_or_null<BranchInst>(BBOL->getTerminator());
@@ -281,12 +283,12 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
     auto GEPIR = dyn_cast<GetElementPtrInst>(IC->getOperand(1));
     if (!GEPIR || GEPIR->getNumOperands() != 2)
       return false;
-    if (!IsPHINodeWithArgIncomingValue(GEPIR->getPointerOperand(), ArgArray))
+    if (!isPHINodeWithArgIncomingValue(GEPIR->getPointerOperand(), ArgArray))
       return false;
     if (!match(GEPIR->getOperand(1), m_Shl(m_Value(PV), m_ConstantInt(CI))) ||
         CI->getZExtValue() != 3)
       return false;
-    return IsPHINodeWithArgIncomingValue(PV, ArgSize);
+    return isPHINodeWithArgIncomingValue(PV, ArgSize);
   };
 
   // Validate 'BBEnd', the BasicBlock to which the insertion sort exits.
@@ -690,6 +692,294 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
 }
 
 //
+// Return 'true' if 'BBStart' begins a series of BasicBlocks which move the
+// elements of the array 'ArgArray' on the left or right side of the pivot.
+// There are two such "pivot movers" in qsort, (1) one that increments a
+// pointer as it adds elements with value less than the pivot to the left,
+// and (2) one that decrements a pointer as it adds elements with a value
+// greater than the pivot to the right. 'IsUp' is 'true for (1) and 'false'
+// for (2).
+//
+// For example, the code for the type (2) pivot mover looks like:
+//
+// 194: (BBStart: Initial BasicBlock)                ; preds = %189, %173, %166
+//  %195 = phi i32 [ %167, %166 ], [ %176, %173 ], [ %190, %189 ]
+//  %196 = phi i8* [ %170, %166 ], [ %175, %173 ], [ %192, %189 ]
+//  %197 = phi i8* [ %171, %166 ], [ %174, %173 ], [ %191, %189 ]
+//  %198 = icmp ugt i8* %196, %169
+//     NOTE: %169 is the "LimitPHI" value, which does not change in the loop
+//  br i1 %198, label %227, label %199
+//
+// 199: (BBLHeader: Loop Header)                     ; preds = %194, %215
+//  %200 = phi i8* [ %218, %215 ], [ %169, %194 ]
+//  %201 = phi i8* [ %217, %215 ], [ %168, %194 ]
+//  %202 = phi i32 [ %216, %215 ], [ %195, %194 ]
+//  %203 = bitcast i8* %200 to %struct.arc**
+//  %204 = bitcast i8* %34 to %struct.arc**
+//  %205 = tail call i32 @arc_compare.54.83.112(struct.arc** %203,
+//     %struct.arc** %204) #12
+//  %206 = icmp sgt i32 %205, -1
+//  br i1 %206, label %207, label %220
+//
+// 207: (BBLTest: Loop Test)                         ; preds = %199
+//  %208 = icmp eq i32 %205, 0
+//  br i1 %208, label %209, label %215
+//
+// 209: (BBLSwap: Loop Swap of Array Elements)       ; preds = %207
+//  %210 = bitcast i8* %200 to i64*
+//  %211 = load i64, i64* %210, align 8, !tbaa !7
+//  %212 = bitcast i8* %201 to i64*
+//  %213 = load i64, i64* %212, align 8, !tbaa !7
+//  store i64 %213, i64* %210, align 8, !tbaa !7
+//  store i64 %211, i64* %212, align 8, !tbaa !7
+//  %214 = getelementptr inbounds i8, i8* %201, i64 -8, !intel-tbaa !4
+//    NOTE: %201 is the "InnerPHI" value
+//  br label %215
+//
+// 215: (BBLLatch: Loop Latch)                       ; preds = %209, %207
+//  %216 = phi i32 [ 1, %209 ], [ %202, %207 ]
+//  %217 = phi i8* [ %214, %209 ], [ %201, %207 ]
+//  %218 = getelementptr inbounds i8, i8* %200, i64 -8, !intel-tbaa !4
+//    NOTE: %200 is the "OuterPHI" value
+//  %219 = icmp ugt i8* %196, %218
+//  br i1 %219, label %227, label %199
+//    ...
+// 220: (BBInnerExit: Inner Exit from the Pivit Mover)
+//    ...
+// 227: (BBOuterExit: Outer Exit from the Pivit Mover)
+//    ...
+//
+static bool isPivotMover(BasicBlock *BBStart, Argument *ArgArray, bool IsUp) {
+
+  //
+  // Validate 'BBStart', the initial BasicBlock which tests '*OuterPHI'
+  // against '*LimitPHI'. Recognize and set '*OuterPHI', '*LimitPHI',
+  // and the true and false successors of 'BBStart', which are '**BBOuterExit'
+  // and '**BBLHeader'.
+  //
+  auto ValidateBBStart = [](BasicBlock *BBStart, bool IsUp,
+                            PHINode **OuterPHI, PHINode **LimitPHI,
+                            BasicBlock **BBOuterExit,
+                            BasicBlock **BBLHeader) -> bool {
+    auto BI = dyn_cast_or_null<BranchInst>(BBStart->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    *BBOuterExit = BI->getSuccessor(0);
+    *BBLHeader = BI->getSuccessor(1);
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC || IC->getPredicate() != CmpInst::ICMP_UGT)
+      return false;
+    auto PHIN0 = dyn_cast<PHINode>(IC->getOperand(0));
+    if (!PHIN0)
+      return false;
+    auto PHIN1 = dyn_cast<PHINode>(IC->getOperand(1));
+    if (!PHIN1)
+      return false;
+    *LimitPHI = IsUp ? PHIN1 : PHIN0;
+    PHINode *OuterPHIBase = IsUp ? PHIN0 : PHIN1;
+    *OuterPHI = nullptr;
+    for (User *U : OuterPHIBase->users()) {
+      auto PHIT = dyn_cast<PHINode>(U);
+      if (!PHIT || PHIT->getParent() != *BBLHeader)
+        continue;
+      if (*OuterPHI)
+        return false;
+      *OuterPHI = PHIT;
+    }
+    if (!*OuterPHI)
+      return false;
+    return true;
+  };
+
+  //
+  // Validate 'BBLHeader', which is loop header for the pivot mover loop.
+  // Here the values of the elements at 'OuterPHI' and 'ArgArray' are
+  // compared using the '*CIOut' comparison function, which is set. The
+  // true and false successors of 'BBLHeader' which are '*BBLTest' and
+  // '*BBInnerExit' are also recognized and set. (Note that the pivot
+  // element is the beginning of 'ArgArray' at this point in time.)
+  //
+  auto ValidateBBLHeader = [](BasicBlock *BBLHeader, bool IsUp,
+                              PHINode *OuterPHI, Argument *ArgArray,
+                              BasicBlock **BBLTest, BasicBlock **BBInnerExit,
+                              CallInst **CIOut) -> bool {
+    auto BI = dyn_cast_or_null<BranchInst>(BBLHeader->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    *BBLTest = BI->getSuccessor(0);
+    *BBInnerExit = BI->getSuccessor(1);
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    auto CP = IsUp ? CmpInst::ICMP_SLT : CmpInst::ICMP_SGT;
+    if (!IC || IC->getPredicate() != CP)
+      return false;
+    int64_t CV = IsUp ? 1 : -1;
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI || CI->getSExtValue() != CV)
+      return false;
+    auto CB = dyn_cast<CallInst>(IC->getOperand(0));
+    if (!CB || CB->getNumArgOperands() != 2)
+      return false;
+    auto BC0 = dyn_cast<BitCastInst>(CB->getArgOperand(0));
+    if (!BC0 || BC0->getOperand(0) != OuterPHI)
+      return false;
+    auto BC1 = dyn_cast<BitCastInst>(CB->getArgOperand(1));
+    if (!BC1)
+      return false;
+    if (!isPHINodeWithArgIncomingValue(BC1->getOperand(0), ArgArray))
+      return false;
+    *CIOut = CB;
+    return true;
+  };
+
+  //
+  // Validate 'BBLTest', the test block of the pivot mover loop, which
+  // tests whether the array elements should be swapped. 'CIIn' the result
+  // of the comparison of the array elements. The true and false successors
+  // of 'BBLTest' are recognized and set as '*BBLSwap' and '*BBLLatch'.
+  //
+  auto ValidateBBLTest = [](BasicBlock *BBLTest, CallInst *CIIn,
+                            BasicBlock **BBLSwap, BasicBlock **BBLLatch)
+                            -> bool {
+    auto BI = dyn_cast_or_null<BranchInst>(BBLTest->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    *BBLSwap = BI->getSuccessor(0);
+    *BBLLatch = BI->getSuccessor(1);
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC || IC->getPredicate() != CmpInst::ICMP_EQ)
+      return false;
+    if (IC->getOperand(0) != CIIn)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI || !CI->isZero())
+      return false;
+    return true;
+  };
+
+  //
+  // Validate 'ValidateBBLSwap', the block which swaps the array elements
+  // in the pivot mover loop. Recognize that its single successor is
+  // 'BBLLatch' and that it swaps the pivot and the array element at
+  // 'OuterPHI' while advancing '*InnerPHI', which is recognized and set.
+  //
+  auto ValidateBBLSwap = [](BasicBlock *BBLSwap, BasicBlock *BBLLatch,
+                            bool IsUp, PHINode *OuterPHI, PHINode **InnerPHI)
+                            -> bool {
+    auto BI = dyn_cast_or_null<BranchInst>(BBLSwap->getTerminator());
+    if (!BI || !BI->isUnconditional())
+      return false;
+    if (BI->getSuccessor(0) != BBLLatch)
+      return false;
+    auto BC0 = dyn_cast<BitCastInst>(&BBLSwap->front());
+    if (!BC0)
+      return false;
+    auto PHIN0 = dyn_cast<PHINode>(BC0->getOperand(0));
+    if (!PHIN0)
+      return false;
+    auto L0 = dyn_cast_or_null<LoadInst>(BC0->getNextNonDebugInstruction());
+    if (!L0 || L0->getPointerOperand() != BC0)
+      return false;
+    auto BC1 = dyn_cast_or_null<BitCastInst>(L0->getNextNonDebugInstruction());
+    if (!BC1)
+      return false;
+    auto PHIN1 = dyn_cast<PHINode>(BC1->getOperand(0));
+    if (!PHIN1)
+      return false;
+    auto L1 = dyn_cast_or_null<LoadInst>(BC1->getNextNonDebugInstruction());
+    if (!L1 || L1->getPointerOperand() != BC1)
+      return false;
+    if (IsUp) {
+      if (PHIN1 != OuterPHI)
+        return false;
+      *InnerPHI = PHIN0;
+    } else {
+      if (PHIN0 != OuterPHI)
+        return false;
+      *InnerPHI = PHIN1;
+    }
+    auto S0 = dyn_cast<StoreInst>(L1->getNextNonDebugInstruction());
+    if (!S0 || S0->getPointerOperand() != BC0 || S0->getValueOperand() != L1)
+      return false;
+    auto S1 = dyn_cast<StoreInst>(S0->getNextNonDebugInstruction());
+    if (!S1 || S1->getPointerOperand() != BC1 || S1->getValueOperand() != L0)
+      return false;
+    auto GEP = dyn_cast<GetElementPtrInst>(S1->getNextNonDebugInstruction());
+    if (!GEP || GEP->getNumOperands() != 2)
+      return false;
+    auto PHIN2 = dyn_cast<PHINode>(GEP->getOperand(0));
+    if (!PHIN2 || PHIN2 != *InnerPHI)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    auto CP = IsUp ? 8 : -8;
+    if (!CI || CI->getSExtValue() != CP)
+      return false;
+    return true;
+  };
+
+  //
+  // Validate 'ValidateBBLLatch', which is the loop latch block of the pivot
+  // mover loop. Recognize that its true and false successors are 'BBOuterExit'
+  // and 'BBLHeader' and that it advances 'InnerPHI', while testing it against
+  // 'LimitPHI'.
+  //
+  auto ValidateBBLLatch = [](BasicBlock *BBLLatch, BasicBlock *BBOuterExit,
+                             BasicBlock *BBLHeader, bool IsUp,
+                             PHINode *OuterPHI, PHINode *LimitPHI) -> bool {
+    auto BI = dyn_cast_or_null<BranchInst>(BBLLatch->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    if (BI->getSuccessor(0) != BBOuterExit)
+      return false;
+    if (BI->getSuccessor(1) != BBLHeader)
+      return false;
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC || IC->getPredicate() != CmpInst::ICMP_UGT)
+      return false;
+    auto GEPIndex = IsUp ? 0 : 1;
+    auto PHIIndex = IsUp ? 1 : 0;
+    auto CP = IsUp ? 8 : -8;
+    auto GEP = dyn_cast<GetElementPtrInst>(IC->getOperand(GEPIndex));
+    if (!GEP || GEP->getNumOperands() != 2)
+      return false;
+    if (GEP->getPointerOperand() != OuterPHI)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    if (!CI || CI->getSExtValue() != CP)
+      return false;
+    if (IC->getOperand(PHIIndex) != LimitPHI)
+      return false;
+    return true;
+  };
+
+  // Main code for isPivotMover().
+  BasicBlock *BBLHeader = nullptr;
+  BasicBlock *BBLTest = nullptr;
+  BasicBlock *BBLSwap = nullptr;
+  BasicBlock *BBLLatch = nullptr;
+  BasicBlock *BBOuterExit = nullptr;
+  BasicBlock *BBInnerExit = nullptr;
+  CallInst *CI = nullptr;
+  PHINode *OuterPHI = nullptr;
+  PHINode *InnerPHI = nullptr;
+  PHINode *LimitPHI = nullptr;
+  // Validate each of the five basic blocks in the pivot mover.
+  if (!ValidateBBStart(BBStart, IsUp, &OuterPHI, &LimitPHI, &BBOuterExit,
+      &BBLHeader))
+    return false;
+  if (!ValidateBBLHeader(BBLHeader, IsUp, OuterPHI, ArgArray, &BBLTest,
+      &BBInnerExit, &CI))
+    return false;
+  if (!ValidateBBLTest(BBLTest, CI, &BBLSwap, &BBLLatch))
+    return false;
+  if (!ValidateBBLSwap(BBLSwap, BBLLatch, IsUp, OuterPHI, &InnerPHI))
+    return false;
+  if (!ValidateBBLLatch(BBLLatch, BBOuterExit, BBLHeader, IsUp, OuterPHI,
+      LimitPHI))
+    return false;
+  return true;
+}
+
+//
 // Return 'true' if 'F' is recognized as a qsort like the one that appears in
 // standard C library.
 //
@@ -779,7 +1069,7 @@ static bool isQsort(Function *F) {
     return BIT->isUnconditional() ? BIT->getSuccessor(0) : BBS;
   };
 
-  // Return the number of insertion sorts recognized
+  // Return the number of insertion sorts recognized.
   auto CountInsertionSorts = [&FindInsertionSortCandidate](Function *F,
                                                            Argument *ArgArray,
                                                            Argument *ArgSize,
@@ -797,15 +1087,93 @@ static bool isQsort(Function *F) {
         if (!isInsertionSort(BBStart, ArgArray, ArgSize)) {
           LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                             << F->getName() << " FAILED Test.\n");
-          return false;
+          return 0;
         }
         LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                           << F->getName() << " PASSED Test.\n");
         if (++InsertionCount > 2)
-          return false;
+          return 0;
       }
     }
     return InsertionCount;
+  };
+
+  //
+  // Using 'BBTest' as a starting point, return a good heuristic candidate
+  // for the first BasicBlock of a pivot mover loop, if 'BBTest' was a good
+  // starting point for finding one.
+  //
+  auto FindPivotMoverCandidate = [](BasicBlock *BBTest, bool IsUp)
+                                    -> BasicBlock * {
+    // Find the BasicBlock from which to look for the candidate.
+    auto BI = dyn_cast_or_null<BranchInst>(BBTest->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return nullptr;
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC)
+      return nullptr;
+    auto CP = IsUp ? CmpInst::ICMP_SLT : CmpInst::ICMP_SGT;
+    if (IC->getPredicate() != CP)
+      return nullptr;
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI)
+      return nullptr;
+    auto CV = IsUp ? 1 : -1;
+    if (!CI || CI->getSExtValue() != CV)
+      return nullptr;
+    // Return the first predecessor whose first non-PHI instruction is
+    // an ICmpInst.
+    for (BasicBlock *BB : predecessors(BBTest)) {
+      auto BI = dyn_cast<BranchInst>(BB->getTerminator());
+      if (!BI || !isa<ICmpInst>(BB->getFirstNonPHI()))
+        continue;
+      return BB;
+    }
+    return nullptr;
+  };
+
+  //
+  // Return the number of valid pivot movers recognized. We expect to
+  // see one of type (1) [IsUp == true] and one of type (2) [IsUp == false].
+  // If we see more than one of each, we return 0. If all goes well,
+  // this function returns 2.
+  //
+  auto CountPivotMovers = [&FindPivotMoverCandidate](Function *F,
+                                                     Argument *ArgArray)
+                                                     -> unsigned {
+    unsigned UpCount = 0;
+    unsigned DownCount = 0;
+    for (auto &BBTest : *F) {
+      BasicBlock *BBStartUp = FindPivotMoverCandidate(&BBTest, true);
+      BasicBlock *BBStartDown = FindPivotMoverCandidate(&BBTest, false);
+      assert((!BBStartUp || !BBStartDown) && "Expecting only one candidate");
+      if (!BBStartUp && !BBStartDown)
+        continue;
+      BasicBlock *BBStart = BBStartUp ? BBStartUp : BBStartDown;
+      bool IsUp = BBStartUp;
+      if (BBStart) {
+        LLVM_DEBUG({
+          dbgs() << "QsortRec: Checking Pivot Mover Candidate in "
+                 << F->getName() << "\n";
+          BBStart->dump();
+        });
+        if (!isPivotMover(BBStart, ArgArray, IsUp)) {
+          LLVM_DEBUG(dbgs() << "QsortRec: Pivot Mover Candidate in "
+                            << F->getName() << " FAILED Test.\n");
+          return 0;
+        }
+        if (IsUp)
+          UpCount++;
+        else
+          DownCount++;
+        LLVM_DEBUG(dbgs() << "QsortRec: Pivot Mover Candidate in "
+                          << F->getName() << " PASSED Test "
+                          << (IsUp ? "(UP)" : "(DOWN)") << "\n");
+        if (UpCount > 1 || DownCount > 1)
+          return 0;
+      }
+    }
+    return UpCount + DownCount;
   };
 
   // Main code for isQsort().
@@ -831,6 +1199,13 @@ static bool isQsort(Function *F) {
   if (QsortTestInsert) {
     unsigned ISCount = CountInsertionSorts(F, ArgArray, ArgSize, SmallSize);
     if (ISCount < 2)
+      return false;
+  }
+  // The logic is not complete. For now, just look for two pivot mover loops,
+  // one for each direction (IsUp and !IsUp).
+  if (QsortTestPivotMovers) {
+    unsigned PMCount = CountPivotMovers(F, ArgArray);
+    if (PMCount < 2)
       return false;
   }
   return true;

@@ -91,11 +91,4 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !5 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 42, i32 0, i32 0}
 
 ; CHECK:  @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 33, i64 34]
-; CHECK:  @.omp_offloading.img_start.x86_64-mic
-; CHECK:  @.omp_offloading.img_end.x86_64-mic
-; CHECK:  @.omp_offloading.img_start.i386-pc-linux-gnu
-; CHECK:  @.omp_offloading.img_end.i386-pc-linux-gnu
 ; CHECK:  call i32 @__tgt_target({{.*}})
-; CHECK:  call i32 @__tgt_unregister_lib({{.*}})
-; CHECK:  call i32 @__tgt_register_lib({{.*}})
-; CHECK:  call i32 @__cxa_atexit({{.*}})

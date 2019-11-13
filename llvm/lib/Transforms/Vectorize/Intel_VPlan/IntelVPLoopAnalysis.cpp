@@ -926,18 +926,44 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       return;
     Exit = getLoopExitVPInstr(Loop);
   }
-  if (StartPhi == nullptr && Exit != nullptr)
-    for (auto User : Exit->users())
-      if (auto Instr = dyn_cast<VPInstruction>(User))
-        if (isa<VPPHINode>(Instr) &&
-            checkInstructionInLoop(Instr, Plan, Loop) &&
-            hasLiveInOrConstOperand(Instr, *Loop)) {
-          StartPhi = Instr;
-          break;
-        }
+  if (StartPhi == nullptr && Exit != nullptr) {
+    SetVector<VPPHINode *> Worklist;
+    auto AddPHIUsersToWorklist = [&Worklist](VPInstruction *VPI) -> void {
+      for (auto *U : VPI->users()) {
+        if (auto *PhiUser = dyn_cast<VPPHINode>(U))
+          Worklist.insert(PhiUser);
+      }
+    };
+    AddPHIUsersToWorklist(Exit);
+
+    while (!Worklist.empty()) {
+      VPPHINode *CurrPHI = Worklist.pop_back_val();
+      // Reduction's StartPhi will be in loop's header block and blends a
+      // live-in or const operand.
+      if (checkInstructionInLoop(CurrPHI, Plan, Loop) &&
+          CurrPHI->getParent() == Loop->getHeader() &&
+          hasLiveInOrConstOperand(CurrPHI, *Loop)) {
+        StartPhi = CurrPHI;
+        break;
+      }
+
+      // CurrPHI doesn't match StartPhi requirements, recurse on its PHI users.
+      Exit = CurrPHI;
+      // TODO: Enable the assert below when Decomposer is updated to set
+      // live-out property of PHI nodes. Check JIRA CMPLRLLVM-10836.
+      // assert(Loop->isLiveOut(Exit) && "Reduction exit should be live-out.");
+      AddPHIUsersToWorklist(Exit);
+    }
+
+    if (StartPhi) {
+      LLVM_DEBUG(dbgs() << "StartPhi: "; StartPhi->dump(); dbgs() << "Exit: ";
+                 Exit->dump());
+    }
+  }
   if (StartPhi == nullptr) {
     // The start PHI could potentially be associated with one of the
     // LinkedVPVals of the reduction descriptor
+    // TODO: Need a LIT test for this.
     assert(Start &&
            "Start is not available to check for PHIs via LinkedVPValues.");
     for (auto *LVPV : LinkedVPVals) {

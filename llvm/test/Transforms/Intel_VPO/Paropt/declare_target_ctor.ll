@@ -40,10 +40,6 @@ entry:
   ret void
 }
 
-; Host compilation should create offload registration code.
-; CHECK-DAG: call i32 @__tgt_register_lib
-; CHECK-DAG: call i32 @__tgt_unregister_lib
-
 ; Check that offload metadata is removed after outlining.
 ; CHECK-NOT: !omp_offload.info
 !omp_offload.info = !{!0, !1}

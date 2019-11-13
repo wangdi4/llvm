@@ -16,7 +16,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; The vectorized loop with scalar remainder
 
 ; CHECK-LABEL: var_tripcount
-; CHECK: min.iters.checked
 ; CHECK: vector.body
 ; CHECK: %index = phi i64 [ 0,
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
@@ -25,8 +24,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-VPCG: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK: middle.block
 ; CHECK: scalar.ph
-; CHECK-IRCG: %bc.resume.val = phi i64 [ %n.vec, %middle.block ], [ 0, %for.body.preheader ], [ 0, %min.iters.checked ]
-; CHECK-VPCG: %bc.resume.val = phi i64 [ 0, %for.body.preheader ], [ 0, %min.iters.checked ], [ %{{.*}}, %middle.block ]
+; CHECK-IRCG: %bc.resume.val = phi i64 [ %n.vec, %middle.block ], [ 0, %for.body.preheader ]
+; CHECK-VPCG: %bc.resume.val = phi i64 [ 0, %for.body.preheader ], [ %{{.*}}, %middle.block ]
 ; CHECK: for.body:
 ; CHECK: %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ %bc.resume.val, %scalar.ph ]
 

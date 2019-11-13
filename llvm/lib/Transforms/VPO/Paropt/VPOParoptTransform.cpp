@@ -186,7 +186,7 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
   Builder.CreateStore(InitVal, LowerBnd);
 
   UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, InsertPt, ".for.update");
+      VPOParoptUtils::computeOmpUpperBound(W, Idx, InsertPt, ".for.update");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -516,7 +516,7 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
   ICmpInst *CompInst =
       new ICmpInst(InsertPt, ICmpInst::ICMP_SLE, LoadLB, LoadUB, "");
 
-  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, InsertPt);
+  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, Idx, LoadUB, InsertPt);
 
   BranchInst *PreHdrInst = cast<BranchInst>(InsertPt);
   assert(PreHdrInst->getNumSuccessors() == 1 &&
@@ -5439,7 +5439,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   PHBuilder.CreateAlignedStore(LBInitVal, LowerBnd, 4);
 
   Value *UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, PHTerm, ".for.scheduling");
+      VPOParoptUtils::computeOmpUpperBound(W, 0, PHTerm, ".for.scheduling");
   assert(UpperBndVal &&
          "genLoopSchedulingCode: Expect non-empty loop upper bound");
   PHBuilder.SetInsertPoint(PHTerm);
@@ -5663,7 +5663,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   // Update the loop's predicate to use LoadUB value for the upper
   // bound.
-  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, PHTerm);
+  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, 0, LoadUB, PHTerm);
 
   // Split the loop's exit block to simplify further CFG manipulations.
   BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);

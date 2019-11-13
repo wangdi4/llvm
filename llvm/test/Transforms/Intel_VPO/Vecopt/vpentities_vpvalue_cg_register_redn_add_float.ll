@@ -41,7 +41,7 @@
 ; CHECK-LLVMIR-LABEL: VPlannedBB:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(float 0.000000e+00, <4 x float> [[RED_ADD]])
 ; CHECK-LLVMIR-LABEL: scalar.ph:
-; CHECK-LLVMIR: [[MERGE_RED_PHI:%.*]] = phi float [ 0.000000e+00, %DIR.OMP.SIMD.2 ], [ 0.000000e+00, %min.iters.checked ], [ [[RED_LVC]], %middle.block ]
+; CHECK-LLVMIR: [[MERGE_RED_PHI:%.*]] = phi float [ 0.000000e+00, %DIR.OMP.SIMD.2 ], [ [[RED_LVC]], %middle.block ]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

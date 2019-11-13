@@ -253,6 +253,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStride.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"

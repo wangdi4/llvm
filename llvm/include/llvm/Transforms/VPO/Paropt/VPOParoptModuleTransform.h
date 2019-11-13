@@ -323,28 +323,8 @@ private:
   /// false - otherwise.
   bool genOffloadEntries();
 
-  /// Register the offloading binary descriptors.
-  void genOffloadingBinaryDescriptorRegistration();
-
   /// Return/Create the struct type __tgt_offload_entry.
   StructType *getTgOffloadEntryTy();
-
-  /// Return/Create the struct type __tgt_device_image.
-  StructType *getTgDeviceImageTy();
-
-  /// Return/Create the struct type __tgt_bin_desc.
-  StructType *getTgBinaryDescriptorTy();
-
-  /// Return/Create a variable that binds the atexit to this shared
-  /// object.
-  GlobalVariable *getDsoHandle();
-
-  /// Create the function .omp_offloading.descriptor_reg
-  Function *createTgDescRegisterLib(Function *TgDescUnregFn,
-                                    GlobalVariable *Desc);
-
-  /// Create the function .omp_offloading.descriptor_unreg
-  Function *createTgDescUnregisterLib(GlobalVariable *Desc);
 };
 
 } /// namespace vpo

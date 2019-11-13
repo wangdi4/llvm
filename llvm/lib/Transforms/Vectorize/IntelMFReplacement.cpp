@@ -308,7 +308,7 @@ static bool splitSinCosCall(CallInst *Call) {
 // =>
 // %1 = call _Z6sincosfPf(angle, cosPtr)
 // store %1, sinPtr
-static bool LowerOCLSinCosCall(CallInst *Call, StringRef OCLSinCosName) {
+static bool SinCosCallToOCL(CallInst *Call, StringRef OCLSinCosName) {
   // Don't assert these because the sincos call is from the user and
   // may be nonstandard.
   if (Call->getNumOperands() != 4)
@@ -324,8 +324,9 @@ static bool LowerOCLSinCosCall(CallInst *Call, StringRef OCLSinCosName) {
   if (!AngleType->isFloatTy())
     return false; // TODO: double
 
-  // We don't check -ffast-math here as SVML sincos seems to have the
-  // same precision as libc. This is not true for sin/cos.
+  // without this check, we fail exact-precision library tests
+  if (!funcHasUnsafeFPAttr(Call->getFunction()))
+    return false;
 
   // gen OCL sincos call
   auto *M = Call->getModule();
@@ -334,6 +335,7 @@ static bool LowerOCLSinCosCall(CallInst *Call, StringRef OCLSinCosName) {
   FunctionCallee Callee = M->getOrInsertFunction(
       OCLSinCosName, NoUnwind, AngleType, AngleType, CosPtr->getType());
   auto *SinVal = B.CreateCall(Callee, {Angle, CosPtr}, ""); // void rettype
+  SinVal->setFast(true);
 
   // store the sine result back to the pointer from the original sincos call
   B.CreateStore(SinVal, SinPtr);
@@ -435,7 +437,7 @@ private:
 public:
   MathLibraryFunctionsReplacement(DominatorTree &DT) : DT(DT) {}
   static DivRemFnMap DivRemInstFnMap;
-  bool run(Function &F, bool isOCL) {
+  bool run(Function &F, bool isOCL, bool cleanSinCosOnly) {
     bool Changed = false;
 
     // -mf-x86-target option
@@ -446,15 +448,18 @@ public:
     // vectors.
     collectMathInstructions(F);
 
+    if (cleanSinCosOnly)
+      return lowerOCLSinCos();
+
     if (isOCL)
-      transformDivRem(F.getParent());
+      Changed |= transformDivRem(F.getParent());
     else {
       // If we saw any OCL sincos and this is not an OCL target, we must have
       // run this pass already. Split instead of combining.
       if (!LowerSinCosInsts.empty())
-        lowerOCLSinCos();
+        Changed |= lowerOCLSinCos();
       else
-        genOCLSinCos();
+        Changed |= genOCLSinCos();
     }
     return Changed;
   }
@@ -493,7 +498,7 @@ bool MathLibraryFunctionsReplacement::genOCLSinCos() {
   for (CallInst *Call : GenSinCosInsts) {
     Function *Func = Call->getCalledFunction();
     if (Func && Func->getName() == SinCosName) {
-      LowerOCLSinCosCall(Call, OCLSinCosName);
+      SinCosCallToOCL(Call, OCLSinCosName);
       NumConverted++;
     } else if (combineSinCos(Call, OCLSinCosName, DT))
       NumConverted++;
@@ -577,14 +582,18 @@ public:
     if (DisableMFReplacement)
       return false;
 
-    if (skipFunction(F))
-      return false;
-
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
     MathLibraryFunctionsReplacement G(DT);
     NumInstConverted = 0;
-    return G.run(F, isOCL);
+
+    // Disabled by opt-bisect. We still need to clean up OCL sincos on x86,
+    // otherwise a link error will occur.
+    bool cleanSinCosOnly = skipFunction(F);
+    if (isOCL && cleanSinCosOnly)
+      return false;
+
+    return G.run(F, isOCL, cleanSinCosOnly);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -612,7 +621,8 @@ MathLibraryFunctionsReplacementPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   MathLibraryFunctionsReplacement G(DT);
-  if (!G.run(F, isOCL))
+  // Update the last parameter if the new PM is enabled with bisection.
+  if (!G.run(F, isOCL, false))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;

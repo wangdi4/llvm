@@ -17,7 +17,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: @fp_iv_loop(
-; CHECK:       min.iters.checked:
 ; CHECK:       vector.ph:
 ; CHECK:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[INIT:%.*]], i32 0
 ; CHECK:    [[DOTSPLAT:%.*]] = shufflevector <4 x float> [[DOTSPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer

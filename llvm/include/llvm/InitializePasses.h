@@ -539,6 +539,7 @@ void initializeHIRCodeGenWrapperPassPass(PassRegistry&);
 void initializeHIROptVarPredicateLegacyPassPass(PassRegistry&);
 void initializeHIRIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRMVForConstUBLegacyPassPass(PassRegistry&);
+void initializeHIRMVForVariableStrideLegacyPassPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
 void initializeHIRAosToSoaLegacyPassPass(PassRegistry&);

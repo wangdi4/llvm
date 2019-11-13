@@ -73,11 +73,11 @@ DIR.OMP.END.SIMD.417:                             ; preds = %DIR.OMP.END.SIMD.3
 
 ; call void @sincosf(float %div, float* nonnull %s.priv, float* nonnull %c.priv) #0
 ; =>
-; %6 = call float @_Z6sincosfPf(float %div, float* %c.priv)
+; %6 = call fast float @_Z6sincosfPf(float %div, float* %c.priv)
 ; store float %6, float* %s.priv
 
 ; CHECK-NOT: @sincosf
-; CHECK: [[SINVAL:%[a-z0-9.]+]] = call float @_Z6sincosfPf
+; CHECK: [[SINVAL:%[a-z0-9.]+]] = call fast float @_Z6sincosfPf
 ; CHECK: store float [[SINVAL]], float* %s.priv
 
 ; Function Attrs: noinline nounwind uwtable

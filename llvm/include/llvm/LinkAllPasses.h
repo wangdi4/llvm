@@ -340,6 +340,7 @@ namespace {
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
+      (void) llvm::createHIRMVForVariableStridePass();
       (void) llvm::createHIRLoopConcatenationPass();
       (void) llvm::createHIRArrayTransposePass();
       (void) llvm::createHIRAosToSoaPass();
