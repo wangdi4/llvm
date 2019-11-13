@@ -832,13 +832,7 @@ class Sema;
     CallExpr::ADLCallKind IsADLCandidate : 1;
 
     /// Whether this is a rewritten candidate, and if so, of what kind?
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
     unsigned RewriteKind : 2;
-#endif // INTEL_CUSTOMIZATION
-=======
-    unsigned RewriteKind : 2;
->>>>>>> 56b5eab12970e540c629e9b9a8a95256c116a547
 
     /// FailureKind - The reason why this candidate is not viable.
     /// Actually an OverloadFailureKind.
@@ -858,19 +852,11 @@ class Sema;
       StandardConversionSequence FinalConversion;
     };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    OverloadCandidateRewriteKind getRewriteKind() const {
-      return static_cast<OverloadCandidateRewriteKind>(RewriteKind);
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
     /// Get RewriteKind value in OverloadCandidateRewriteKind type (This
     /// function is to workaround the spurious GCC bitfield enum warning)
     OverloadCandidateRewriteKind getRewriteKind() const {
       return static_cast<OverloadCandidateRewriteKind>(RewriteKind);
     }
->>>>>>> 56b5eab12970e540c629e9b9a8a95256c116a547
 
     /// hasAmbiguousConversion - Returns whether this overload
     /// candidate requires an ambiguous conversion or not.
