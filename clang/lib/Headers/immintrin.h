@@ -612,7 +612,7 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_TSXLDTRK */
 
 /* INTEL_FEATURE_ISA_AMX */
-#if defined(__AMXTILE_SUPPORTED__) || defined(__AMXINT8_SUPPORTED__) || defined(__AMXBF16_SUPPORTED__)
+#if defined(__AMX_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxintrin.h>
 #endif
@@ -620,9 +620,11 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX */
 
 /* INTEL_FEATURE_ISA_AMX2 */
-#if defined(__AMX2TILE_SUPPORTED__) || defined(__AMXINT8_SUPPORTED__) || defined(__AMXBF16_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX2TILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
-// TODO: when AMX2 clang part is finished, fix here.
+#if defined(__AMX2_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTRANSPOSE__) || defined(__AMXREDUCE__) ||   \
+    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||                           \
+    defined(__AMXFP16__) || defined(__AMXAVX512__) || defined(__AMXBF16EVEX__) ||                            \
+    defined(__AMXINT8EVEX__) || defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amx2intrin.h>
 #endif
 #endif

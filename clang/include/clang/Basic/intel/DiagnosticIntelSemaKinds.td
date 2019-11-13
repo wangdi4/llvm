@@ -48,14 +48,6 @@ def err_recursive_attribute_expected : Error<
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
-  // CQ#366309 - allow arrays with incomplete element type in IntelCompat mode.
-def ext_intel_array_incomplete_type : Extension<
-  "array with incomplete element type %0 is an Intel extension">,
-  InGroup<IntelCompat>;
-  // CQ#380872 - Arrays with incomplete (unknown) size
-def warn_intel_array_incomplete_size : Warning<
-  "array with incomplete (unknown) size element %0">,
-  InGroup<IntelCompat>;
 // CQ#366312
 def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
   "assignment to lvalue cast that does not lengthen the size of "
@@ -73,10 +65,6 @@ def warn_return_missing_expr_no_err : Warning<
 def warn_arg_invalid_range_low_assumed : Warning<
   "expected a value between %0 and %1, defaults to %0">,
   InGroup<IntelCompat>;
-// CQ#371340
-def warn_non_asm_stmt_in_naked_function : Warning<
-  "attribute 'naked' ignored on function with non-ASM statements">,
-  InGroup<IgnoredAttributes>;
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
 

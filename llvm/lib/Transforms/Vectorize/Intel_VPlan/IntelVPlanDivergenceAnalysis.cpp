@@ -878,6 +878,26 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
     case Instruction::AddrSpaceCast:
       return new VPVectorShape(Shape0->getShapeDescriptor(),
                                Shape0->getStride());
+    case Instruction::BitCast: {
+      PointerType *SrcPtrTy =
+          dyn_cast<PointerType>(I->getOperand(0)->getType());
+      if (SrcPtrTy || (I->getOperand(0)->getType() == I->getType())) {
+        // Case 1: %Y = bitcast i32* %x to sint*          ; yields sint*:%x
+        // Case 2: %Y = bitcast i32* %x to <3 x i32>*     ; yields <3 x i32>*:%x
+        // Case 3: %Z = bitcast i32 %x to i32             ; yields i32: %x
+        // Case 3, is commonly seen when doing codegen along HIR-path, where
+        // as part of decomposition, temporary copy-assigments are generated.
+        return new VPVectorShape(Shape0->getShapeDescriptor(),
+                                 Shape0->getStride());
+      }
+      // For the following cases,
+      // Case 1: %Z = bitcast <2 x int> %V to i64;        ; yields i64: %V
+      // Case 2: %Z = bitcast <2 x i32*> %V to <2 x i64*> ; yields <2 x i64*>
+      // Case 3: %X = bitcast i8 255 to i8                ; yields i8 :-1
+      // Case 4: %BC = bitcast i64 %V to <2 x i32>        ; yields <2 x i32> :-1
+      // there is a 'value'-cast. The returned shape has to be random.
+      return getRandomVectorShape();
+    }
     default:
       return getRandomVectorShape();
   }

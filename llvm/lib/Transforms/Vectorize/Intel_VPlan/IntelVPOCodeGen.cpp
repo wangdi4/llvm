@@ -1857,6 +1857,12 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     CallInst *UnderlyingCI = dyn_cast<CallInst>(VPInst->getUnderlyingValue());
     assert(UnderlyingCI &&
            "VPVALCG: Need underlying CallInst for call-site attributes.");
+
+    // Ignore dbg intrinsics. This might change after discussion on
+    // CMPLRLLVM-10839.
+    if (isa<DbgInfoIntrinsic>(UnderlyingCI))
+      return;
+
     Function *F = getCalledFunction(VPInst);
 
     if (!F) {

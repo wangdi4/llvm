@@ -2284,16 +2284,6 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   } else {
     // C99 6.7.5.2p1: If the element type is an incomplete or function type,
     // reject it (e.g. void ary[7], struct foo ary[7], void ary[7]())
-#if INTEL_CUSTOMIZATION
-    // CQ#366309 - allow arrays with incomplete element type as Intel extension.
-    if (getLangOpts().IntelCompat && !T->isIncompleteArrayType() &&
-        !T->isVoidType())
-      (void)RequireCompleteType(Loc, T, diag::ext_intel_array_incomplete_type);
-    // CQ380872: Arrays with incomplete (unknown) size
-    else if (getLangOpts().IntelCompat && T->isIncompleteArrayType())
-      (void)RequireCompleteType(Loc, T, diag::warn_intel_array_incomplete_size);
-    else
-#endif // INTEL_CUSTOMIZATION
     if (RequireCompleteType(Loc, T,
                             diag::err_illegal_decl_array_incomplete_type))
       return QualType();

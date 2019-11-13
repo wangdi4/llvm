@@ -6274,6 +6274,18 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back("--dependent-lib=oldnames");
   }
 
+#if INTEL_CUSTOMIZATION
+  // Add Intel performance libraries
+  if (Args.hasArg(options::OPT_ipp_EQ))
+    getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
+  if (Args.hasArg(options::OPT_mkl_EQ))
+    getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
+  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+    getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
+  if (Args.hasArg(options::OPT_daal_EQ))
+    getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
+#endif // INTEL_CUSTOMIZATION
+
   Args.AddLastArg(CmdArgs, options::OPT_show_includes);
 
   // This controls whether or not we emit RTTI data for polymorphic types.

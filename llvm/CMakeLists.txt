@@ -1384,6 +1384,93 @@ if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
 endif()
 
 if (INTEL_CUSTOMIZATION)
+  if (INTEL_CMAKE_DEPLOY)
+
+    # The code below defines a set of CMake components that will
+    # be put into the resulting deploy structure, which is used
+    # by the product team for creating various Intel software products.
+    #
+    # If you have any concerns or questions about adding your new
+    # component to one or more products, please contact ICLProcessTeam@intel.com
+    set(INTEL_DEPLOY_COMPONENTS_LIST
+      # LLVM components
+      clang lld llc llvm-link llvm-profdata llvm-spirv
+      clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
+      clang-resource-headers
+      # XDEV components
+      xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom
+      xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
+      xdev-support-scripts
+      # OpenMP components
+      llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
+      llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
+      # SYCL components
+      opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
+    )
+
+    if (WIN32)
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+        # XDEV components
+        xdev-xilib xdev-xilink
+      )
+    else()
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+        # LLVM components
+        llvm-ar llvm-ranlib LLVMgold
+        # XDEV components
+        xdev-icpx
+        # SYCL components
+        pi_level0
+        # CXX components
+        cxx cxxabi cxx-headers
+      )
+    endif()
+
+    set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
+      # OpenCL components
+      ocl-common_clang ocl-builtins ocl-builtins-shared
+      ocl-config ocl-cl_logger ocl-tbb-ext ocl-OpenCL
+      ocl-svml ocl-gdb-plugin ocl-eyeq-builtins
+      ocl-clang_compiler ocl-clang_compiler32 ocl-clang_compiler64
+      ocl-intelocl ocl-intelocl32 ocl-intelocl64
+      ocl-cpu_device ocl-cpu_device32 ocl-cpu_device64
+      ocl-task_executor ocl-task_executor32 ocl-task_executor64
+      ocl-OclCpuBackEnd ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd64
+    )
+
+    if (WIN32)
+      list(APPEND INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
+        # OpenCL components
+        ocl-OclCpuDebugging7
+      )
+    endif(WIN32)
+
+    if (INTEL_OPENCL_STANDALONE_PRODUCT)
+      # For standalone OpenCL product we must only deploy OpenCL components
+      # and nothing else.
+      set(INTEL_DEPLOY_COMPONENTS_LIST)
+    endif()
+
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      ${INTEL_OPENCL_DEPLOY_COMPONENTS_LIST}
+    )
+
+    # FIXME: temporary verification before we remove INTEL_DEPLOY_COMPONENTS
+    #        setup in VRD files.
+    if (DEFINED INTEL_DEPLOY_COMPONENTS)
+      foreach (comp ${INTEL_DEPLOY_COMPONENTS})
+        list(FIND INTEL_DEPLOY_COMPONENTS_LIST ${comp} idx)
+        if (idx LESS 0)
+          message(FATAL_ERROR "CMake component (${comp}) is present in "
+            "INTEL_DEPLOY_COMPONENTS but not in "
+            "INTEL_DEPLOY_COMPONENTS_LIST.")
+        endif()
+      endforeach(comp)
+    endif()
+
+    set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS_LIST})
+  endif()
+
   # This command is used for creating a fake dependency in order to force
   # another command(s) to execute.
   # Its output is never produced as a result thus each other

@@ -944,6 +944,277 @@ void ToolChain::AddCCKextLibArgs(const ArgList &Args,
   CmdArgs.push_back("-lcc_kext");
 }
 
+#if INTEL_CUSTOMIZATION
+static const std::string getIntelBasePath(const std::string DriverDir) {
+  // Perf libs are located in different locations depending on the package
+  // being used.  This is PSXE vs oneAPI installations.
+  //  oneAPI: <install>/compiler/<ver>/<os>/bin
+  //  PSXE: <install>/compiler/<os>/bin
+  // FIXME - The path returned is based on oneAPI.  Additional checks need to
+  // be added to properly enable for PSXE.
+  const std::string BasePath(DriverDir);
+  return BasePath + "/../../../../";
+}
+
+static std::string getIPPBasePath(const ArgList &Args,
+                                  const std::string DriverDir) {
+  const char * IPPRoot = getenv("IPPROOT");
+  bool IsCrypto = false;
+  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ)) {
+    if (A->getValue() == StringRef("crypto") ||
+        A->getValue() == StringRef("nonpic_crypto")) {
+      IsCrypto = true;
+      IPPRoot = getenv("IPPCRYPTOROOT");
+    }
+  }
+  SmallString<128> P;
+  if (IPPRoot)
+    P.append(IPPRoot);
+  else {
+    P.append(getIntelBasePath(DriverDir) + "ipp");
+    if (IsCrypto)
+      P.append("cp");
+    llvm::sys::path::append(P, "latest");
+  }
+  return P.str();
+}
+
+std::string ToolChain::GetIPPIncludePath(const ArgList &Args) const {
+  SmallString<128> P(getIPPBasePath(Args, getDriver().Dir));
+  llvm::sys::path::append(P, "include");
+  return P.str();
+}
+
+// Add IPP specific performance library search path.  The different IPP libs
+// that are brought in are differentiated by directory.
+void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Opt) const {
+  bool IsNonPIC = false;
+  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ))
+    if (A->getValue() == StringRef("nonpic_crypto") ||
+        A->getValue() == StringRef("nonpic"))
+      IsNonPIC = true;
+  SmallString<128> P(Opt);
+  P.append(getIPPBasePath(Args, getDriver().Dir));
+  if (getTriple().getArch() == llvm::Triple::x86_64)
+    llvm::sys::path::append(P, "lib/intel64");
+  else
+    llvm::sys::path::append(P, "lib/ia32");
+  const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ);
+  if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
+    llvm::sys::path::append(P, "nonpic");
+  CmdArgs.push_back(Args.MakeArgString(P));
+}
+
+static std::string getMKLBasePath(const std::string DriverDir) {
+  const char * MKLRoot = getenv("MKLROOT");
+  SmallString<128> P;
+  if (MKLRoot)
+    P.append(MKLRoot);
+  else {
+    P.append(getIntelBasePath(DriverDir) + "mkl");
+    llvm::sys::path::append(P, "latest");
+  }
+  return P.str();
+}
+
+std::string ToolChain::GetMKLIncludePath(const ArgList &Args) const {
+  SmallString<128> P(getMKLBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "include");
+  return P.str();
+}
+
+std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
+  SmallString<128> P(GetMKLIncludePath(Args));
+  if (getTriple().getArch() == llvm::Triple::x86_64)
+    llvm::sys::path::append(P, "intel64/lp64");
+  else
+    llvm::sys::path::append(P, "ia32");
+  return P.str();
+}
+
+std::string ToolChain::GetMKLLibPath(void) const {
+  SmallString<128> P(getMKLBasePath(getDriver().Dir));
+  if (getTriple().getArch() == llvm::Triple::x86_64)
+    llvm::sys::path::append(P, "lib/intel64");
+  else
+    llvm::sys::path::append(P, "lib/ia32");
+  return P.str();
+}
+
+// Add MKL specific performance library search path
+void ToolChain::AddMKLLibPath(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Opt) const {
+  CmdArgs.push_back(Args.MakeArgString(Opt + GetMKLLibPath()));
+}
+
+static std::string getTBBBasePath(const std::string DriverDir) {
+  const char * TBBRoot = getenv("TBBROOT");
+  SmallString<128> P;
+  if (TBBRoot)
+    P.append(TBBRoot);
+  else {
+    P.append(getIntelBasePath(DriverDir) + "tbb");
+    llvm::sys::path::append(P, "latest");
+  }
+  return P.str();
+}
+
+std::string ToolChain::GetTBBIncludePath(const ArgList &Args) const {
+  SmallString<128> P(getTBBBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "include");
+  return P.str();
+}
+
+// Add TBB specific performance library search path
+void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Opt) const {
+  SmallString<128> P(Opt);
+  P.append(getTBBBasePath(getDriver().Dir));
+  if (getTriple().getArch() == llvm::Triple::x86_64)
+    llvm::sys::path::append(P, "lib/intel64");
+  else
+    llvm::sys::path::append(P, "lib/ia32");
+  // FIXME - this only handles Linux and Windows for now
+  if (getTriple().isWindowsMSVCEnvironment())
+    llvm::sys::path::append(P, "vc14");
+  else
+    llvm::sys::path::append(P, "gcc4.8");
+  CmdArgs.push_back(Args.MakeArgString(P));
+}
+
+static std::string getDAALBasePath(const std::string DriverDir) {
+  const char * DAALRoot = getenv("DAALROOT");
+  SmallString<128> P;
+  if (DAALRoot)
+    P.append(DAALRoot);
+  else {
+    P.append(getIntelBasePath(DriverDir) + "daal");
+    llvm::sys::path::append(P, "latest");
+  }
+  return P.str();
+}
+
+std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
+  SmallString<128> P(getDAALBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "include");
+  return P.str();
+}
+
+std::string ToolChain::GetDAALLibPath(void) const {
+  SmallString<128> P(getDAALBasePath(getDriver().Dir));
+  if (getTriple().getArch() == llvm::Triple::x86_64)
+    llvm::sys::path::append(P, "lib/intel64");
+  else
+    llvm::sys::path::append(P, "lib/ia32");
+  return P.str();
+}
+
+// Add DAAL specific performance library search path
+void ToolChain::AddDAALLibPath(const ArgList &Args, ArgStringList &CmdArgs,
+                               std::string Opt) const {
+  CmdArgs.push_back(Args.MakeArgString(Opt + GetDAALLibPath()));
+}
+
+void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Prefix) const {
+  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ)) {
+    SmallVector<StringRef, 8> IPPLibs;
+    if (A->getValue() == StringRef("crypto") ||
+        A->getValue() == StringRef("nonpic_crypto"))
+      IPPLibs.push_back("ippcp");
+    else {
+      IPPLibs.push_back("ippcv");
+      IPPLibs.push_back("ippch");
+      IPPLibs.push_back("ippcc");
+      IPPLibs.push_back("ippdc");
+      IPPLibs.push_back("ippi");
+      IPPLibs.push_back("ipps");
+      IPPLibs.push_back("ippvm");
+      IPPLibs.push_back("ippcore");
+    }
+    for (const auto &Lib : IPPLibs) {
+      std::string LibName(Lib);
+      if (Prefix.size() > 0)
+        LibName.insert(0, Prefix);
+      CmdArgs.push_back(Args.MakeArgString(LibName));
+    }
+  }
+}
+
+void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Prefix) const {
+  if (const Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
+    // MKL Cluster library additions not supported for DPC++
+    // MKL Parallel not supported with OpenMP and DPC++
+    if (Args.hasArg(options::OPT_fsycl) &&
+        (A->getValue() == StringRef("cluster") ||
+         (A->getValue() == StringRef("parallel") &&
+          Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+                       options::OPT_fno_openmp, false))))
+      return;
+    auto addMKLExt = [](std::string LN, const llvm::Triple &Triple) {
+      std::string LibName(LN);
+      if (Triple.getArch() == llvm::Triple::x86_64)
+        LibName.append("_lp64");
+      return LibName;
+    };
+    SmallVector<StringRef, 8> MKLLibs;
+    MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
+    if (A->getValue() == StringRef("parallel")) {
+      if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+                       options::OPT_fno_openmp, false))
+        MKLLibs.push_back("mkl_intel_thread");
+      else if (Args.hasArg(options::OPT_tbb))
+        MKLLibs.push_back("mkl_tbb_thread");
+    }
+    if (A->getValue() == StringRef("cluster")) {
+      MKLLibs.push_back("mkl_cdft_core");
+      MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_scalapack",
+                        getTriple())));
+      MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_blacs_intelmpi",
+                        getTriple())));
+    }
+    if (A->getValue() == StringRef("sequential") ||
+        A->getValue() == StringRef("cluster"))
+      MKLLibs.push_back("mkl_sequential");
+    MKLLibs.push_back("mkl_core");
+    for (const auto &Lib : MKLLibs) {
+      std::string LibName(Lib);
+      if (Prefix.size() > 0)
+        LibName.insert(0, Prefix);
+      CmdArgs.push_back(Args.MakeArgString(LibName));
+    }
+  }
+}
+
+void ToolChain::AddTBBLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Prefix) const {
+  std::string TBBLib("tbb");
+  if (Prefix.size() > 0)
+    TBBLib.insert(0, Prefix);
+  CmdArgs.push_back(Args.MakeArgString(TBBLib));
+}
+
+void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Prefix) const {
+  if (const Arg *A = Args.getLastArg(options::OPT_daal_EQ)) {
+    SmallVector<StringRef, 4> DAALLibs;
+    DAALLibs.push_back("daal_core");
+    if (A->getValue() == StringRef("parallel"))
+      DAALLibs.push_back("daal_thread");
+    if (A->getValue() == StringRef("sequential"))
+      DAALLibs.push_back("daal_sequential");
+    for (const auto &Lib : DAALLibs) {
+      std::string LibName(Lib);
+      if (Prefix.size() > 0)
+        LibName.insert(0, Prefix);
+      CmdArgs.push_back(Args.MakeArgString(LibName));
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool ToolChain::AddFastMathRuntimeIfAvailable(const ArgList &Args,
                                               ArgStringList &CmdArgs) const {
   // Do not check for -fno-fast-math or -fno-unsafe-math when -Ofast passed

@@ -14314,21 +14314,9 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
         if (RegisterVariables)
           continue;
         if (!isa<AsmStmt>(S) && !isa<NullStmt>(S)) {
-#if INTEL_CUSTOMIZATION
-          // CQ#371340 - ignore 'naked' attribute on functions with non-ASM
-          // statements in IntelCompat mode.
-          if (getLangOpts().IntelCompat) {
-            Diag(FD->getAttr<NakedAttr>()->getLocation(),
-                 diag::warn_non_asm_stmt_in_naked_function);
-            FD->dropAttr<NakedAttr>();
-          } else {
-#endif // INTEL_CUSTOMIZATION
           Diag(S->getBeginLoc(), diag::err_non_asm_stmt_in_naked_function);
           Diag(FD->getAttr<NakedAttr>()->getLocation(), diag::note_attribute);
           FD->setInvalidDecl();
-#if INTEL_CUSTOMIZATION
-          }
-#endif // INTEL_CUSTOMIZATION
           break;
         }
       }

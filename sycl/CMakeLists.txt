@@ -266,6 +266,13 @@ add_subdirectory( plugins )
 
 # Package deploy support
 # Listed here are component names contributing the package
+# INTEL_CUSTOMIZATION
+# WARNING: the components list below does not affect creation
+# WARNING: of official Intel software products. Please use
+# WARNING: llvm/CMakeLists.txt to define components that
+# WARNING: must appear in the official releases
+# WARNING: (look for INTEL_CMAKE_DEPLOY).
+# end INTEL_CUSTOMIZATION
 set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      clang
      clang-offload-wrapper
