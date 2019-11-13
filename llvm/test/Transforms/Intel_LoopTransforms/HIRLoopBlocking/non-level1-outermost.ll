@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking -enable-hir-loop-blocking-nonconst-trip-count=false < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -enable-hir-loop-blocking-nonconst-trip-count=false 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
 
 ;typedef long long a[1];
 ;typedef a b[9];
@@ -15,8 +15,6 @@
 ;}
 
 ; This test makes sure, the outermost loop of blocking can be a loop at level larger than 1.
-; Compile option "-enable-hir-loop-blocking-trip-count=false" is given, so that
-; the original i1 loop is not involved in loop blocking.
 
 ; DEFAULT:Function: h
 
