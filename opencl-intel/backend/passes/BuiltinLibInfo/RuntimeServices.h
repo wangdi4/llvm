@@ -110,6 +110,10 @@ public:
   ///        for the packetized version:
   ///        foo(<2 x float> %a) --> foo4(<8 x float>)
   virtual bool needsConcatenatedVectorParams(StringRef) const = 0;
+
+  /// @brief returns true iff spec guarantees that all work items hit
+  ///        a memory function, so predication is redundant
+  virtual bool allowsUnpredicatedMemoryAccess(StringRef) const = 0;
 };
 
 } // Namespace
