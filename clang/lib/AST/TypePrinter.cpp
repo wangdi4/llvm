@@ -1543,6 +1543,10 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
     // AttributedType nodes for them.
     break;
 
+  case attr::IntelFPGAPipe:
+    OS << "pipe";
+    break;
+
   case attr::LifetimeBound:
   case attr::TypeNonNull:
   case attr::TypeNullable:
