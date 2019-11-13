@@ -3942,19 +3942,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       }
       isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
       break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case tok::kw_channel:
       isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
       break;
 #endif // INTEL_CUSTOMIZATION
-    case tok::kw___pipe:
-      if (getLangOpts().SYCLIsDevice)
-        // __pipe keyword is defined only for SYCL kernel language
-        isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
-      break;
-=======
->>>>>>> ce67a5bfaccd94741447336c16bbea4ab6a1d488
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -5111,18 +5103,14 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   case tok::kw_pipe:
     return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
-<<<<<<< HEAD
-            getLangOpts().OpenCLCPlusPlus || getLangOpts().SYCLIsDevice;
+            getLangOpts().OpenCLCPlusPlus;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
       getTargetInfo().getSupportedOpenCLOpts().
          isEnabled("cl_intel_channels");
 #endif // INTEL_CUSTOMIZATION
-=======
-           getLangOpts().OpenCLCPlusPlus;
 
->>>>>>> ce67a5bfaccd94741447336c16bbea4ab6a1d488
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
     if (getLangOpts().ObjC && NextToken().is(tok::period))
