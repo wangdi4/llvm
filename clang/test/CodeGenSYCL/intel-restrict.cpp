@@ -53,7 +53,11 @@ int foo(int X) {
       cgh.single_task<class kernel_restrict_struct>(f);
     });
 
+<<<<<<< HEAD
     // CHECK: define {{.*}} spir_kernel {{.*}}kernel_restrict_other_params{{.*}}(i32 addrspace(1)* noalias %{{.*}} i32 addrspace(1)* noalias %{{.*}}, i32 %{{.*}})
+=======
+    // CHECK: define {{.*}} spir_kernel {{.*}}kernel_restrict_other_params{{.*}}(i32 addrspace(1)* noalias %{{.*}} i32 addrspace(1)* noalias %{{.*}}, i32 %{{[^,]*}})
+>>>>>>> fc7a1c3523417c82aa096ca0241e297b7604db4d
     int num = 42;
     Q.submit([&](cl::sycl::handler& cgh) {
       auto AccA = BufA.get_access<sycl_read_write, sycl_global_buffer>(cgh);
