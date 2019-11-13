@@ -1573,7 +1573,7 @@ struct AANoFreeFloating : AANoFreeImpl {
         if (!CB->isArgOperand(U))
           continue;
 
-        unsigned ArgNo = U - CB->arg_begin();
+        unsigned ArgNo = CB->getArgOperandNo(U);
 
         const auto &NoFreeArg = A.getAAFor<AANoFree>(
             *this, IRPosition::callsite_argument(*CB, ArgNo));
@@ -4145,7 +4145,7 @@ ChangeStatus AAHeapToStackImpl::updateImpl(Attributor &A) {
         const auto &NoFreeAA =
             A.getAAFor<AANoFree>(*this, IRPosition::callsite_function(*CB));
 
-        unsigned ArgNo = U - CB->arg_begin();
+        unsigned ArgNo = CB->getArgOperandNo(U);
         const auto &NoCaptureAA = A.getAAFor<AANoCapture>(
             *this, IRPosition::callsite_argument(*CB, ArgNo));
 
