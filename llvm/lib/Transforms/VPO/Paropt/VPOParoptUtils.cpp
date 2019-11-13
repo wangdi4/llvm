@@ -1153,6 +1153,12 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Instruction *InsertPt, bool UseTbb,
                                           Function *FnTaskDup) {
   IRBuilder<> Builder(InsertPt);
+  Value *Zero = Builder.getInt32(0);
+  Type *Int64Ty = Builder.getInt64Ty();
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  PointerType *Int64PtrTy = PointerType::getUnqual(Int64Ty);
+
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
   Function *F = B->getParent();
@@ -1163,44 +1169,41 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   Value *Cast = Builder.CreateBitCast(
-      TaskAlloc, PointerType::getUnqual(KmpTaskTTWithPrivatesTy));
+      TaskAlloc, PointerType::getUnqual(KmpTaskTTWithPrivatesTy),
+      ".taskt.with.privates");
 
-  SmallVector<Value *, 4> Indices;
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(0));
-  Value *TaskTTyGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
+  Value *TaskTTyGep = Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast,
+                                                {Zero, Zero}, ".taskt");
 
   assert(isa<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0)) &&
          "TaskT is not Struct Type.");
   StructType *KmpTaskTTy =
       cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
 
-  Indices.pop_back();
-  Indices.push_back(Builder.getInt32(5));
-  Value *LBGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
-  Value *LBVal = Builder.CreateLoad(LBPtr);
+  Value *LBGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(5)}, ".lb.gep");
+  Value *LBVal = Builder.CreateLoad(LBPtr, ".lb");
   if (LBVal->getType() != KmpTaskTTy->getElementType(5))
-    LBVal = Builder.CreateSExtOrTrunc(LBVal, KmpTaskTTy->getElementType(5));
+    LBVal = Builder.CreateSExtOrTrunc(LBVal, KmpTaskTTy->getElementType(5),
+                                      ".lb.cast");
 
   Builder.CreateStore(LBVal, LBGep);
 
-  Indices.pop_back();
-  Indices.push_back(Builder.getInt32(6));
-  Value *UBGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
-  Value *UBVal = Builder.CreateLoad(UBPtr);
+  Value *UBGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(6)}, ".ub.gep");
+  Value *UBVal = Builder.CreateLoad(UBPtr, ".ub");
   if (UBVal->getType() != KmpTaskTTy->getElementType(6))
-    UBVal = Builder.CreateSExtOrTrunc(UBVal, KmpTaskTTy->getElementType(6));
+    UBVal = Builder.CreateSExtOrTrunc(UBVal, KmpTaskTTy->getElementType(6),
+                                      ".ub.cast");
   Builder.CreateStore(UBVal, UBGep);
 
-  Indices.pop_back();
-  Indices.push_back(Builder.getInt32(7));
-  Value *STGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
-  Value *STVal = Builder.CreateLoad(STPtr);
+  Value *STGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(7)}, ".stride.gep");
+  Value *STVal = Builder.CreateLoad(STPtr, ".stride");
   if (STVal->getType() != KmpTaskTTy->getElementType(7))
-    STVal = Builder.CreateSExtOrTrunc(STVal, KmpTaskTTy->getElementType(7));
+    STVal = Builder.CreateSExtOrTrunc(STVal, KmpTaskTTy->getElementType(7),
+                                      ".stride.cast");
   Builder.CreateStore(STVal, STGep);
-  Value *STLoad = Builder.CreateLoad(STGep);
 
   Value *GrainSizeV = nullptr;
   switch (W->getSchedCode()) {
@@ -1208,12 +1211,10 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
     GrainSizeV = Builder.getInt64(0);
     break;
   case 1:
-    GrainSizeV =
-        Builder.CreateSExtOrTrunc(W->getGrainsize(), Type::getInt64Ty(C));
+    GrainSizeV = Builder.CreateSExtOrTrunc(W->getGrainsize(), Int64Ty);
     break;
   case 2:
-    GrainSizeV =
-        Builder.CreateSExtOrTrunc(W->getNumTasks(), Type::getInt64Ty(C));
+    GrainSizeV = Builder.CreateSExtOrTrunc(W->getNumTasks(), Int64Ty);
     break;
   default:
     llvm_unreachable("genKmpcTaskLoop: unexpected SchedCode");
@@ -1224,27 +1225,18 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
       Builder.CreateLoad(TidPtr),
       TaskAlloc,
       Cmp == nullptr ? Builder.getInt32(1)
-                     : Builder.CreateSExtOrTrunc(Cmp, Type::getInt32Ty(C)),
+                     : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
       LBGep,
       UBGep,
-      STLoad,
-      Builder.getInt32(0),
+      STVal,
+      Zero,
       Builder.getInt32(W->getSchedCode()),
       GrainSizeV,
-      (FnTaskDup == nullptr)
-          ? ConstantPointerNull::get(Type::getInt8PtrTy(C))
-          : Builder.CreateBitCast(FnTaskDup, Type::getInt8PtrTy(C))};
-  Type *TypeParams[] = {Loc->getType(),
-                        Type::getInt32Ty(C),
-                        Type::getInt8PtrTy(C),
-                        Type::getInt32Ty(C),
-                        PointerType::getUnqual(Type::getInt64Ty(C)),
-                        PointerType::getUnqual(Type::getInt64Ty(C)),
-                        Type::getInt64Ty(C),
-                        Type::getInt32Ty(C),
-                        Type::getInt32Ty(C),
-                        Type::getInt64Ty(C),
-                        Type::getInt8PtrTy(C)};
+      (FnTaskDup == nullptr) ? ConstantPointerNull::get(Int8PtrTy)
+                             : Builder.CreateBitCast(FnTaskDup, Int8PtrTy)};
+  Type *TypeParams[] = {Loc->getType(), Int32Ty,    Int8PtrTy, Int32Ty,
+                        Int64PtrTy,     Int64PtrTy, Int64Ty,   Int32Ty,
+                        Int32Ty,        Int64Ty,    Int8PtrTy};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
@@ -3409,8 +3401,7 @@ void VPOParoptUtils::genCopyByAddr(Value *To, Value *From,
     genCopyConstructorCall(Cctor, To, From, InsertPt);
   else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
            (AI && AI->isArrayAllocation())) {
-    unsigned Alignment =
-        AI ? AI->getAlignment() : DL.getABITypeAlignment(To->getType());
+    unsigned Alignment = DL.getABITypeAlignment(ObjType);
     VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
   } else
     Builder.CreateStore(Builder.CreateLoad(From), To);

@@ -42,7 +42,7 @@ bb2:                                              ; preds = %alloca
 
 ; CHECK: [[A_PRIV_CAST:%[^ ]+]] = bitcast [10 x float]* [[A_PRIV]] to i8*
 ; CHECK: [[A_CAST:%[^ ]+]] = bitcast [10 x float]* %foo.A.cast to i8*
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[A_PRIV_CAST]], i8* [[A_CAST]], i64 40, i1 false)
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8*{{.*}}[[A_PRIV_CAST]], i8*{{.*}}[[A_CAST]], i64 40, i1 false)
 
   %foo.A = bitcast [10 x float]* %foo.A.cast to float*
   %1 = getelementptr inbounds float, float* %foo.A, i64 1

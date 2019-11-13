@@ -120,7 +120,8 @@ class Item
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
-    int   ThunkIdx;  // used for task/taskloop codegen
+    int PrivateThunkIdx; // index for the var in task/taskloop's private thunk
+    int SharedThunkIdx;  // index for the var in task/taskloop's shared thunk
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
     const ItemKind Kind; // Item kind for LLVM's RTTI
@@ -134,7 +135,8 @@ class Item
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
           IsByRef(false), IsNonPod(false), IsVla(false), VlaSize(nullptr),
-          ThunkIdx(-1), AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
+          PrivateThunkIdx(-1), SharedThunkIdx(-1), AliasScope(nullptr),
+          NoAlias(nullptr), Kind(K) {
     }
     virtual ~Item() = default;
 
@@ -145,7 +147,8 @@ class Item
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
     void setVlaSize(EXPR Size)    { VlaSize = Size;     }
-    void setThunkIdx(int I)       { ThunkIdx = I;       }
+    void setPrivateThunkIdx(int I) { PrivateThunkIdx = I; }
+    void setSharedThunkIdx(int I) { SharedThunkIdx = I; }
     void setAliasScope(MDNode *M) { AliasScope = M;     }
     void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
@@ -156,7 +159,8 @@ class Item
     bool getIsNonPod()      const { return IsNonPod;       }
     bool getIsVla()         const { return IsVla;          }
     EXPR getVlaSize()       const { return VlaSize;        }
-    int getThunkIdx()       const { return ThunkIdx;       }
+    int getPrivateThunkIdx() const { return PrivateThunkIdx; }
+    int getSharedThunkIdx() const { return SharedThunkIdx; }
     MDNode *getAliasScope() const { return AliasScope;     }
     MDNode *getNoAlias()    const { return NoAlias;        }
     ItemKind getKind()      const { return Kind;           }

@@ -102,4 +102,7 @@ attributes #3 = { inaccessiblememonly nounwind speculatable }
 !8 = !{!9, !7, i64 0}
 !9 = !{!"array@_ZTSA10_i", !7, i64 0}
 
-; CHECK:  call void @llvm.memcpy.p0i8.p0i8.i64({{.*}})
+; Check that private thunk has space for firstprivate %omp.lb,
+; private @_Z5sivar and private %i.
+; CHECK: %__struct.kmp_privates.t = type { i64, [10 x i32], i32 }
+

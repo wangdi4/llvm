@@ -3,18 +3,14 @@
 ; Test with both firstprivate and lastprivate.
 ; Checks for two things:
 ; barrier is not emitted (this should only be in parallel-for)
-; Inside the task, the firstprivate data is copied to the lastprivate data.
-; The lastprivate data values represent the var inside the task.
 ;
 ; %x.gep = getelementptr ... kmp_privates ... [0][0]
-; %x.gep22 = getelementptr ... kmp_privates ... [0][2]
 ; ...
 ; %1 = load %x.gep
 ; store %1, %x.gep22
 ;
 ; CHECK: define{{.*}}OMP.TASKLOOP
-; CHECK: %x.gep = getelementptr{{.*}}struct.kmp_privates{{.*}}i32 0, i32 0
-; CHECK: [[LASTX:%x.gep[0-9]+]] = getelementptr{{.*}}struct.kmp_privates{{.*}}i32 0, i32 2
+; CHECK: [[LASTX:%x.gep[0-9]*]] = getelementptr{{.*}}struct.kmp_privates{{.*}}i32 0, i32 0
 ; CHECK-NOT: barrier
 ; CHECK: DIR.OMP.TASKLOOP{{.*}}:
 ; CHECK: [[XVAL:%[0-9]+]] = load i32{{.*}}%x.gep
