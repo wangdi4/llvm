@@ -1890,7 +1890,7 @@ void VPBranchInst::print(raw_ostream &O) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPPHINode::sortIncomingBlocksForBlend(
-    DenseMap<VPBlockBase *, int> *BlockIndexInRPOTOrNull) {
+    DenseMap<const VPBlockBase *, int> *BlockIndexInRPOTOrNull) {
   // Sort incoming blocks according to their order in the linearized control
   // flow. After linearization, the HCFG coming to the codegen might be
   // something like this:
@@ -1916,8 +1916,8 @@ void VPPHINode::sortIncomingBlocksForBlend(
 
   // FIXME: Once we get rid of hierarchical CFG, we would be able to use
   // dominance as the comparator.
-  DenseMap<VPBlockBase *, int> LocalBlockIndexInRPOT;
-  DenseMap<VPBlockBase *, int> &BlockIndexInRPOT =
+  DenseMap<const VPBlockBase *, int> LocalBlockIndexInRPOT;
+  DenseMap<const VPBlockBase *, int> &BlockIndexInRPOT =
       BlockIndexInRPOTOrNull ? *BlockIndexInRPOTOrNull : LocalBlockIndexInRPOT;
   if (!BlockIndexInRPOTOrNull) {
     int CurrBlockRPOTIndex = 0;
