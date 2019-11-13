@@ -18,11 +18,9 @@ add_library(pi_level0 SHARED
   "${CMAKE_CURRENT_SOURCE_DIR}/pi_level0.hpp"
 )
 
-<<<<<<< HEAD
-add_common_options(pi_level0)
-=======
 target_link_libraries(pi_level0 PRIVATE "${L0_LIBRARY}")
->>>>>>> a7af944f968c3a6d9007f719ee8590d9f53694c7
+
+add_common_options(pi_level0)
 
 # Built in the path to L0 RT
 set_target_properties(pi_level0 PROPERTIES
