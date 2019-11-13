@@ -5517,8 +5517,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     for (const Arg *A : Args.filtered(options::OPT_mllvm)) {
       StringRef Str(A->getValue(0));
-      if (Str.startswith("-paropt=")) {
-        paropt = &Str.str()[Str.find('=', 0) + 1];
+      if (Str.consume_front("-paropt=")) {
+        paropt = Str;
         paroptSeen = true;
       }
       // FIXME: adds overriding -paropt value instead of replacing
