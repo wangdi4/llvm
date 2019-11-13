@@ -12,7 +12,7 @@
 ; CHECK-NEXT: Uniform: [Shape: Uniform] float [[VAL6:%vp.*]] = sitofp i32 [[VAL5:%vp.*]]
 ; CHECK-LABEL: Basic Block: BB5
 ; CHECK-NEXT: Uniform: [Shape: Uniform] float [[VAL7:%vp.*]] = phi [ float [[VAL6:%vp.*]], BB4 ], [ float 4.200000e+01, BB3 ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] float* [[VAL8:%vp.*]] = getelementptr inbounds float* [[VAL9:%ptr]] i64 [[VAL1:%vp.*]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] float* [[VAL8:%vp.*]] = getelementptr inbounds float* [[VAL9:%ptr]] i64 [[VAL1:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL7:%vp.*]] float* [[VAL8:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL9:%vp.*]] = add i64 [[VAL1:%vp.*]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL10:%vp.*]] = icmp i64 [[VAL9:%vp.*]] i64 [[VAL4:%n]]

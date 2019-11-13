@@ -16,7 +16,7 @@
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[UNI_MUL:%vp.*]] = mul i64 [[INNER_IV]] i64 %uni.call2
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[UNIT_ADD2:%vp.*]] = add i64 [[UNI_MUL]] i64 [[UNIT_ADD]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[OVERFLOW_CHK:%vp.*]] = and i64 [[UNIT_ADD2]] i64 4294967295
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] float* [[UNIT_GEP:%vp.*]] = getelementptr inbounds float* [[UNI_GEP2]] i64 [[OVERFLOW_CHK]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] float* [[UNIT_GEP:%vp.*]] = getelementptr inbounds float* [[UNI_GEP2]] i64 [[OVERFLOW_CHK]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[UNIT_LOAD:%vp.*]] = load float* [[UNIT_GEP]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[INNER_IV_ADD]] = add i64 [[INNER_IV]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[INNER_IV_CMP:%vp.*]] = icmp i64 [[INNER_IV_ADD]] i64 %n

@@ -7,14 +7,14 @@
 
 ; CHECK: Printing Divergence info for Loop
 ; CHECK: Basic Block: {{.*}}
-; CHECK_NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[IV_ADD:%vp.*]], {{.*}} ]
-; CHECK_NEXT: Divergent: [Shape: Strided, Stride: i64 -1] i64 [[IV_SUB:%vp.*]] = sub i64 1023 i64 [[IV]]
-; CHECK_NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 -4] i32* [[SRC_GEP:%vp.*]] = getelementptr inbounds i32* %src i64 [[IV_SUB]]
-; CHECK_NEXT: Divergent: [Shape: Random] i32 [[LOAD:%vp.*]] = load i32* [[SRC_GEP]]
-; CHECK_NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 -4] i32* [[DEST_GEP:%vp.*]] = getelementptr inbounds i32* %dest i64 [[IV_SUB]]
-; CHECK_NEXT: Divergent: [Shape: Random] store i32 [[LOAD]] i32* [[DEST_GEP]]
-; CHECK_NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV_ADD]] = add i64 [[IV]] i64 1
-; CHECK_NEXT: Uniform: [Shape: Uniform] i1 [[IV_CMP:%vp.*]] = icmp i64 [[IV_ADD]] i64 1024
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[IV_ADD:%vp.*]], {{.*}} ]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 -1] i64 [[IV_SUB:%vp.*]] = sub i64 1023 i64 [[IV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 -4] i32* [[SRC_GEP:%vp.*]] = getelementptr inbounds i32* %src i64 [[IV_SUB]]
+; CHECK-NEXT: Divergent: [Shape: Random] i32 [[LOAD:%vp.*]] = load i32* [[SRC_GEP]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 -4] i32* [[DEST_GEP:%vp.*]] = getelementptr inbounds i32* %dest i64 [[IV_SUB]]
+; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[LOAD]] i32* [[DEST_GEP]]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV_ADD]] = add i64 [[IV]] i64 1
+; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[IV_CMP:%vp.*]] = icmp i64 [[IV_ADD]] i64 1024
 
 define void @reverse(i32* %src, i32* %dest) {
 ; CHECK:       vector.body:

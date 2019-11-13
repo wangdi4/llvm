@@ -92,6 +92,9 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
+  /// Return \p true if the given pointer is unit-stride.
+  bool isUnitStridePtr(const VPValue *Ptr) const;
+
 private:
   /// Whether \p BB is part of the region.
   bool inRegion(const VPBlockBase &BB) const;
@@ -167,6 +170,9 @@ private:
   ///
   /// \param ExitingLoop is a divergent loop.
   void propagateLoopDivergence(const VPLoop &ExitingLoop);
+
+  /// Return the type size in bytes.
+  unsigned getTypeSizeInBytes(Type *Ty) const;
 
 #if INTEL_CUSTOMIZATION
   /// Initialize shapes before propagation.

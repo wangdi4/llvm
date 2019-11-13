@@ -86,9 +86,8 @@ static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
     return None;
   }
 
-  VPVectorShape *PtrShape = Plan->getVPlanDA()->getVectorShape(Ptr);
-  if (PtrShape->isUnitStridePtr())
-    return PtrShape->getStrideVal();
+  if (Plan->getVPlanDA()->isUnitStridePtr(Ptr))
+    return Plan->getVPlanDA()->getVectorShape(Ptr)->getStrideVal();
 
   return None;
 }

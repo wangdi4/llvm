@@ -30,11 +30,10 @@ public:
   enum VPShapeDescriptor {
     Uni      = 0, // All elements in a vector are the same
     Seq      = 1, // Elements are consecutive
-    Ptr      = 2, // Elements are pointers which are consecutive - needed?
-    Str      = 3, // Elements are in strides
-    Rnd      = 4, // Unknown or non-consecutive order
-    Undef    = 5, // Undefined shape
-    NumDescs = 6
+    Str      = 2, // Elements are in strides
+    Rnd      = 3, // Unknown or non-consecutive order
+    Undef    = 4, // Undefined shape
+    NumDescs = 5
   };
 
   // describes how the contents of a vector vary with the vectorized dimension
@@ -50,7 +49,8 @@ public:
   VPValue *getStride() const { return Stride; }
   void setStride(VPValue *S) { Stride = S; }
 
-  uint64_t getStrideVal() const {
+  // The stride-value can be negative.
+  int64_t getStrideVal() const {
     assert(hasKnownStride() && "Stride val is not known");
     ConstantInt *CInt = cast<ConstantInt>(Stride->getUnderlyingValue());
     return CInt->getSExtValue();
@@ -70,10 +70,6 @@ public:
     return (Desc == VPShapeDescriptor::Seq);
   }
 
-  bool isUnitStridePtr() const {
-    return (Desc == VPShapeDescriptor::Ptr);
-  }
-
   bool isStrided() const {
     return (Desc == VPShapeDescriptor::Str);
   }
@@ -86,9 +82,7 @@ public:
   bool isAnyStrided() const { return isAnyStrided(Desc); }
 
   static bool isAnyStrided(VPShapeDescriptor Desc) {
-    return (Desc == VPShapeDescriptor::Seq ||
-            Desc == VPShapeDescriptor::Ptr ||
-            Desc == VPShapeDescriptor::Str);
+    return (Desc == VPShapeDescriptor::Seq || Desc == VPShapeDescriptor::Str);
   }
 
   bool isRandom() const {
@@ -109,8 +103,6 @@ public:
       return VPShapeDescriptor::Uni;
     if (isUnitStride())
       return VPShapeDescriptor::Seq;
-    if (isUnitStridePtr())
-      return VPShapeDescriptor::Ptr;
     if (isStrided())
       return VPShapeDescriptor::Str;
     if (isRandom())
@@ -125,8 +117,6 @@ public:
       return "Uniform";
     if (isUnitStride())
       return "Unit Stride";
-    if (isUnitStridePtr())
-      return "Unit Stride Pointer";
     if (isStrided())
       return "Strided";
     if (isRandom())
@@ -142,8 +132,6 @@ public:
         return "Uniform";
       case VPShapeDescriptor::Seq:
         return "Unit Stride";
-      case VPShapeDescriptor::Ptr:
-        return "Unit Stride Pointer";
       case VPShapeDescriptor::Str:
         return "Strided";
       case VPShapeDescriptor::Rnd:

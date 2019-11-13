@@ -49,7 +49,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB5]]
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL28:%vp.*]] = phi  [ i32 1, [[BB1]] ],  [ i32 [[VAL27]], [[BB4]] ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[VAL29:%vp.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 %indvars.iv39 i64 [[VAL1]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL29:%vp.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 %indvars.iv39 i64 [[VAL1]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL28]] i32* [[VAL29]]
 ; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8

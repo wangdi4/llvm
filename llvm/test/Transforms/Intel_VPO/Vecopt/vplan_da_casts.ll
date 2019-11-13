@@ -14,22 +14,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[ADD1:%.*]] = add i64 [[SEXT]] i64 1
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[ADD2:%.*]] = add i64 [[SEXT]] i64 2
 ; CHECK: Uniform: [Shape: Uniform] i32* [[GEP1:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 1
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[GEP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 [[SEXT]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i32* [[GEP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 [[SEXT]]
 
 ;; Check that the divergence and shape information for copy (via assignment) which can be generated along the HIR path
 ;; is correctly propagated.
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI_COPY:%.*]] = bitcast i32 [[PHI]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[GEP3:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 [[ADD1]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[GEP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 [[ADD2]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 8] i64* [[GEP6:%.*]] = getelementptr inbounds [1024 x i64]* @arr1 i64 0 i64 [[SEXT]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i32* [[GEP3:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 [[ADD1]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i32* [[GEP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr2 i64 0 i64 [[ADD2]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i64* [[GEP6:%.*]] = getelementptr inbounds [1024 x i64]* @arr1 i64 0 i64 [[SEXT]]
 ; CHECK: Divergent: [Shape: Random] <3 x i32*> [[VEC_PTR:%.*]] = insertelement <3 x i32*> {{.*}} i32* {{.*}}  i32 2
 ; CHECK: Uniform: [Shape: Uniform] i8* {{.*}} = bitcast i32* [[GEP1]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i8* {{.*}} = bitcast i32* [[GEP2]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i64* {{.*}} = bitcast i32* [[GEP2]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] <3 x i32>* {{.*}} = bitcast i32* [[GEP2]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i8* {{.*}} = bitcast i32* [[GEP2]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i64* {{.*}} = bitcast i32* [[GEP2]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] <3 x i32>* {{.*}} = bitcast i32* [[GEP2]]
 ; CHECK: Divergent: [Shape: Random] <3 x i64*> {{.*}} = bitcast <3 x i32*> [[VEC_PTR]]
 ; CHECK: Divergent: [Shape: Random] float {{.*}} = bitcast i32 [[IV:%.*]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 8] double* {{.*}} = bitcast i64* [[GEP6]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] double* {{.*}} = bitcast i64* [[GEP6]]
 
 ;; Check that the divergence and shape information for copy (via assignment) which can be generated along the HIR path
 ;; is correctly propagated.

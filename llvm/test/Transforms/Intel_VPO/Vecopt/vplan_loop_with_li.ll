@@ -6,7 +6,7 @@
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header><latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi [ i64 0, BB2 ], [ i64 [[VAL2:%vp.*]], BB3 ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] float* [[VAL3:%vp.*]] = getelementptr inbounds float* [[VAL4:%A]] i64 [[VAL1:%vp.*]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] float* [[VAL3:%vp.*]] = getelementptr inbounds float* [[VAL4:%A]] i64 [[VAL1:%vp.*]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[VAL5:%vp.*]] = trunc i64 [[VAL6:%n]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] float [[VAL7:%vp.*]] = sitofp i32 [[VAL5:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL7:%vp.*]] float* [[VAL3:%vp.*]]
