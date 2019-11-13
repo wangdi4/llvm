@@ -222,7 +222,6 @@ static cl::opt<bool>
                          cl::init(true),
                          cl::desc("Enable splitting large offset of GEP."));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> EnableSwitchCriticalEdgeSplit(
     "cgp-split-switch-critical-edge", cl::Hidden, cl::init(true),
@@ -232,11 +231,10 @@ static cl::opt<bool> DontSplitColdCriticalEdge(
     "cgp-dont-split-cold-critical-edge", cl::Hidden, cl::init(true),
     cl::desc("Don't split a cold critical edge from an indirectbr/switch."));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static cl::opt<bool> EnableICMP_EQToICMP_ST(
     "cgp-icmp-eq2icmp-st", cl::Hidden, cl::init(false),
     cl::desc("Enable ICMP_EQ to ICMP_S(L|G)T conversion."));
->>>>>>> 6bbfafd03782a4bf9522edeaf4860470946ecfd0
 
 namespace {
 
