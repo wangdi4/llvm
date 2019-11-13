@@ -932,7 +932,7 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
       break;
     }
     break;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
     switch (CKind) {
 #define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)                            \
@@ -943,7 +943,7 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
       break;
     }
     break;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   case OMPD_allocate:
     switch (CKind) {
 #define OPENMP_ALLOCATE_CLAUSE(Name)                                           \
@@ -1206,7 +1206,9 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_atomic:
   case OMPD_target_data:
   case OMPD_distribute_simd:
-  case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     CaptureRegions.push_back(OMPD_unknown);
     break;
   case OMPD_threadprivate:

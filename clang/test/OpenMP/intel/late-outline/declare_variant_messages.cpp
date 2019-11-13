@@ -1,3 +1,4 @@
+// INTEL_COLLAB
 //RUN: %clang_cc1 -triple=x86_64-pc-win32 -verify -fopenmp \
 //RUN:   -fopenmp-late-outline -x c++ -std=c++11 -fms-extensions \
 //RUN:   -Wno-pragma-pack %s
@@ -103,3 +104,4 @@ namespace N {
 // expected-error@+1 {{function declaration is expected after 'declare variant' directive}}
 #pragma omp declare variant
 
+// end INTEL_COLLAB

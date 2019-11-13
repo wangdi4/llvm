@@ -59,23 +59,6 @@ def warn_pragma_omp_ignored_for_target : Warning<
   "OpenMP directive '%0' ignored for target '%1'">,
   InGroup<SourceUsesOpenMP>, DefaultIgnore;
 
-def err_omp_decl_in_declare_variant : Error<
-  "function declaration is expected after 'declare variant' directive">;
-def err_omp_declare_variant_not_found : Error<
-  "variant function not found">;
-def err_omp_declare_variant_not_a_function : Error<
-  "variant must be a function">;
-def err_omp_declare_variant_func_id_expected : Error<
-  "variant must be the name of a function or a template-id">;
-def err_omp_missing_match_clause : Error<
-  "omp declare variant requires a match clause">;
-def err_omp_bad_context_selector_set : Error<
-  "unknown or unsupported context selector set, expecting %0">;
-def err_omp_bad_context_selector : Error<
-  "unknown or unsupported '%0' context selector, expecting %1">;
-def err_omp_bad_device_selector : Error<
- "unknown or unsupported '%0' selector, expecting %1">;
-
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
 def err_expected_ellipsis : Error<"expected '...' after "

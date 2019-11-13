@@ -1959,7 +1959,7 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
       F->addTypeMetadata(0, llvm::ConstantAsMetadata::get(CrossDsoTypeId));
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 /// For functions with related 'omp declare variant' functions, create
 /// metadata on the base function for each variant. The format is:
 ///
@@ -2003,7 +2003,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
   if (!S.empty())
     F->addFnAttr("openmp-variant", S);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                           bool IsIncompleteFunction,
@@ -2081,12 +2081,10 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline)
     addDeclareVariantAttributes(*this, FD, F);
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
       inTargetRegion())
     F->addFnAttr("openmp-target-declare","true");

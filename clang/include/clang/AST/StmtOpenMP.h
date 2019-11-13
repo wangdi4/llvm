@@ -1661,7 +1661,7 @@ public:
   }
 };
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 /// This represents '#pragma omp target variant dispatch' directive.
 ///
 /// \code
@@ -1720,7 +1720,7 @@ public:
     return T->getStmtClass() == OMPTargetVariantDispatchDirectiveClass;
   }
 };
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 /// This represents '#pragma omp single' directive.
 ///

@@ -220,11 +220,11 @@
 #define OPENMP_MATCH_KIND(Name)
 #endif
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
 #define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)
 #endif
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 // OpenMP directives.
 OPENMP_DIRECTIVE(threadprivate)
@@ -288,9 +288,11 @@ OPENMP_DIRECTIVE_EXT(parallel_master_taskloop, "parallel master taskloop")
 OPENMP_DIRECTIVE_EXT(master_taskloop_simd, "master taskloop simd")
 OPENMP_DIRECTIVE_EXT(parallel_master_taskloop_simd, "parallel master taskloop simd")
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 OPENMP_DIRECTIVE_EXT(target_variant_dispatch, "target variant dispatch")
+#endif // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
 // OpenMP directives in the -qopenmp-simd subset
 #ifndef OPENMP_DIRECTIVE_SIMD_SUBSET
 #define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)
@@ -635,12 +637,12 @@ OPENMP_REQUIRES_CLAUSE(atomic_default_mem_order)
 // Clauses allowed for OpenMP directive 'allocate'.
 OPENMP_ALLOCATE_CLAUSE(allocator)
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 // Clauses allowed for OpenMP directive 'target variant dispatch'.
 OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(device)
 OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(use_device_ptr)
 OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(nowait)
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 // Modifiers for 'atomic_default_mem_order' clause.
 OPENMP_ATOMIC_DEFAULT_MEM_ORDER_KIND(seq_cst)
@@ -1194,7 +1196,9 @@ OPENMP_MATCH_KIND(implementation)
 
 #undef OPENMP_MATCH_KIND
 #undef OPENMP_DECLARE_VARIANT_CLAUSE
-#undef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE //INTEL
+#if INTEL_COLLAB
+#undef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
+#endif // INTEL_COLLAB
 #undef OPENMP_DEVICE_TYPE_KIND
 #undef OPENMP_ALLOCATE_CLAUSE
 #undef OPENMP_DECLARE_MAPPER_CLAUSE
