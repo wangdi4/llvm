@@ -22,10 +22,10 @@ namespace X86 {
 typedef uint64_t ISAVecElementTy;
 // Get the feature bit map with the feature strings.
 std::array<ISAVecElementTy, 2>
-getCpuFeatureBitmap(const ArrayRef<StringRef> CpuFeatures);
+getCpuFeatureBitmap(ArrayRef<StringRef> CpuFeatures);
 
 // Return true if the cpu feature is valid
-bool isCpuFeatureValid(const StringRef CpuFeature);
+bool isCpuFeatureValid(StringRef CpuFeature);
 } // namespace X86
 
 } // namespace llvm
