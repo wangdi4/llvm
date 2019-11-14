@@ -1985,20 +1985,37 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
     GlobalDecl GD(AFD);
     S += "name:";
     S += CGM.getMangledName(GD);
-    S += ";construct:";
+
+    SmallString<256> Constructs;
+    SmallString<256> Devices;
     unsigned NumConstructs = 0;
-    for (const auto &C : Attr->construct()) {
-      if (NumConstructs++ != 0)
-        S += ',';
-      S += OMPDeclareVariantAttr::ConvertConstructTyToStr(C);
-    }
-    S += ";arch:";
     unsigned NumDevices = 0;
-    for (const auto &D : Attr->device()) {
-      if (NumDevices++ != 0)
-        S += ',';
-      S += OMPDeclareVariantAttr::ConvertDeviceTyToStr(D);
+
+    for (unsigned I = 0, E = Attr->scores_size(); I < E; ++I) {
+      auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
+        *std::next(Attr->ctxSelectorSets_begin(), I));
+      auto Ctx = static_cast<OpenMPContextSelectorKind>(
+        *std::next(Attr->ctxSelectors_begin(), I));
+      if (CtxSet != OMP_CTX_SET_construct && CtxSet != OMP_CTX_SET_device)
+        continue;
+
+      if (CtxSet == OMP_CTX_SET_construct) {
+        if (NumConstructs++ != 0)
+          Constructs += ',';
+        assert(Ctx == OMP_CTX_target_variant_dispatch &&
+               "unimplemented construct");
+        Constructs += "target_variant_dispatch";
+      } else {
+        // OMP_CTX_SET_device
+        if (NumDevices++ != 0)
+          Devices += ',';
+        Devices += *Attr->implVendors_begin();
+      }
     }
+    S += ";construct:";
+    S += Constructs;
+    S += ";arch:";
+    S += Devices;
   }
   if (!S.empty())
     F->addFnAttr("openmp-variant", S);

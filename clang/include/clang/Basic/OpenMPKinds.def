@@ -228,9 +228,13 @@
 
 // OpenMP context selector sets.
 OPENMP_CONTEXT_SELECTOR_SET(implementation)
+OPENMP_CONTEXT_SELECTOR_SET(construct) // INTEL
+OPENMP_CONTEXT_SELECTOR_SET(device)    // INTEL
 
 // OpenMP context selectors.
 OPENMP_CONTEXT_SELECTOR(vendor)
+OPENMP_CONTEXT_SELECTOR(target_variant_dispatch) // INTEL
+OPENMP_CONTEXT_SELECTOR(arch)                    // INTEL
 
 #if INTEL_CUSTOMIZATION
 #ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE

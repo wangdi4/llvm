@@ -3732,30 +3732,9 @@ def OMPDeclareVariant : InheritableAttr {
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
     ExprArgument<"VariantFuncRef">,
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-    VariadicEnumArgument<"Construct", "ConstructTy",
-       ["", "target", "teams", "parallel", "for", "simd",
-        "target_variant_dispatch"],
-       ["Construct_None", "Construct_Target", "Construct_Teams",
-        "Construct_Parallel", "Construct_For", "Construct_Simd",
-        "Construct_Target_Variant_Dispatch"]>,
-    VariadicEnumArgument<"Device", "DeviceTy",
-       ["", "gen"], ["Device_None", "Device_Arch_Gen"]>,
-// end INTEL_CUSTOMIZATION
-    ExprArgument<"Score">,
-    EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
-                 [ "", "implementation"
-                 ],
-                 [
-                   "CtxSetUnknown", "CtxSetImplementation"
-                 ]>,
-    EnumArgument<"CtxSelector", "CtxSelectorType",
-                 [ "", "vendor"
-                 ],
-                 [
-                   "CtxUnknown", "CtxVendor"
-                 ]>,
+    VariadicExprArgument<"Scores">,
+    VariadicUnsignedArgument<"CtxSelectorSets">,
+    VariadicUnsignedArgument<"CtxSelectors">,
     VariadicStringArgument<"ImplVendors">
   ];
   let AdditionalMembers = [{
@@ -3773,18 +3752,8 @@ def OMPDeclareVariant : InheritableAttr {
       return "'gen'";
     }
 // end INTEL_CUSTOMIZATION
-    void printScore(raw_ostream & OS, const PrintingPolicy &Policy) const {
-      if (const Expr *E = getScore()) {
-=======
-    VariadicExprArgument<"Scores">,
-    VariadicUnsignedArgument<"CtxSelectorSets">,
-    VariadicUnsignedArgument<"CtxSelectors">,
-    VariadicStringArgument<"ImplVendors">
-  ];
-  let AdditionalMembers = [{
     void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
       if (const Expr *E = *std::next(scores_begin(), I)) {
->>>>>>> fde11e9f23a3bf6c78ec0bcfa92e9759ee8b5054
         OS << "score(";
         E->printPretty(OS, nullptr, Policy);
         OS << "):";
@@ -3820,11 +3789,40 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
+          case OMP_CTX_arch:                    // INTEL
+          case OMP_CTX_target_variant_dispatch: // INTEL
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
           OS << "}";
           break;
+// INTEL_CUSTOMIZATION
+        case OMP_CTX_SET_construct:
+          OS << "implementation={";
+          OS << "target variant dispatch";
+          OS << "}";
+          break;
+        case OMP_CTX_SET_device:
+          OS << "device={";
+          switch (Ctx) {
+          case OMP_CTX_arch:
+            OS << "arch(";
+            printScore(OS, Policy, I);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+          case OMP_CTX_vendor:
+          case OMP_CTX_target_variant_dispatch:
+          case OMP_CTX_unknown:
+            llvm_unreachable("Unknown context selector.");
+          }
+          OS << "}";
+          break;
+// end INTEL_CUSTOMIZATION
         case OMP_CTX_SET_unknown:
           llvm_unreachable("Unknown context selector set.");
         }

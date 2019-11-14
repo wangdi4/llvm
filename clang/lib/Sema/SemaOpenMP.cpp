@@ -5258,19 +5258,8 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 
 void Sema::ActOnOpenMPDeclareVariantDirective(
     FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-#endif // INTEL_CUSTOMIZATION
-    const Sema::OpenMPDeclareVariantCtsSelectorData &Data) {
-  if (Constructs.empty() && Devices.empty()) // INTEL
-  if (Data.CtxSet == OMPDeclareVariantAttr::CtxSetUnknown ||
-      Data.Ctx == OMPDeclareVariantAttr::CtxUnknown)
-=======
     ArrayRef<OMPCtxSelectorData> Data) {
   if (Data.empty())
->>>>>>> fde11e9f23a3bf6c78ec0bcfa92e9759ee8b5054
     return;
   SmallVector<Expr *, 4> CtxScores;
   SmallVector<unsigned, 4> CtxSets;
@@ -5303,10 +5292,27 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       case OMP_CTX_vendor:
         ImplVendors.append(D.Names.begin(), D.Names.end());
         break;
+      case OMP_CTX_arch:                    // INTEL
+      case OMP_CTX_target_variant_dispatch: // INTEL
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
       }
       break;
+#if INTEL_CUSTOMIZATION
+    case OMP_CTX_SET_device:
+      switch (Ctx) {
+      case OMP_CTX_arch:
+        ImplVendors.append(D.Names.begin(), D.Names.end());
+        break;
+      case OMP_CTX_vendor:
+      case OMP_CTX_target_variant_dispatch:
+      case OMP_CTX_unknown:
+        llvm_unreachable("Unexpected context selector kind.");
+      }
+      break;
+    case OMP_CTX_SET_construct:
+      break;
+#endif // INTEL_CUSTOMIZATION
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
     }
@@ -5322,16 +5328,6 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
         ImplVendors.begin(), ImplVendors.size(), SR);
     FD->addAttr(NewAttr);
   }
-<<<<<<< HEAD
-  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-#if INTEL_CUSTOMIZATION
-      Context, VariantRef, Constructs.data(), Constructs.size(), Devices.data(),
-      Devices.size(), Score, Data.CtxSet, Data.Ctx, Data.ImplVendors.begin(),
-      Data.ImplVendors.size(), SR);
-#endif // INTEL_CUSTOMIZATION
-  FD->addAttr(NewAttr);
-=======
->>>>>>> fde11e9f23a3bf6c78ec0bcfa92e9759ee8b5054
 }
 
 void Sema::markOpenMPDeclareVariantFuncsReferenced(SourceLocation Loc,

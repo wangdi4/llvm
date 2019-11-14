@@ -457,22 +457,6 @@ static void instantiateOMPDeclareVariantAttr(
   if (Expr *E = Attr.getVariantFuncRef())
     VariantFuncRef = Subst(E);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  SmallVector<OMPDeclareVariantAttr::ConstructTy, 4> Constructs;
-  SmallVector<OMPDeclareVariantAttr::DeviceTy, 4> Devices;
-  for (auto C : Attr.construct())
-    Constructs.push_back(C);
-  for (auto D : Attr.device())
-    Devices.push_back(D);
-#endif // INTEL_CUSTOMIZATION
-
-  ExprResult Score;
-  if (Expr *E = Attr.getScore())
-    Score = Subst(E);
-
-=======
->>>>>>> fde11e9f23a3bf6c78ec0bcfa92e9759ee8b5054
   // Check function/variant ref.
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(
@@ -495,20 +479,25 @@ static void instantiateOMPDeclareVariantAttr(
       case OMP_CTX_vendor:
         Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
         break;
+      case OMP_CTX_arch:                    // INTEL
+      case OMP_CTX_target_variant_dispatch: // INTEL
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
       }
       break;
+#if INTEL_CUSTOMIZATION
+    case OMP_CTX_SET_device:
+    case OMP_CTX_SET_construct:
+      Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
+      break;
+#endif // INTEL_CUSTOMIZATION
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
     }
   }
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
                                        DeclVarData.getValue().second,
-#if INTEL_CUSTOMIZATION
-                                       Attr.getRange(), Constructs, Devices,
-                                       Data);
-#endif // INTEL_CUSTOMIZATION
+                                       Attr.getRange(), Data);
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(

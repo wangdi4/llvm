@@ -10102,19 +10102,9 @@ public:
   /// must be used instead of the original one, specified in \p DG.
   /// \param Data Set of context-specific data for the specified context
   /// selector.
-<<<<<<< HEAD
-  void ActOnOpenMPDeclareVariantDirective(
-      FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
-#if INTEL_CUSTOMIZATION
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-#endif // INTEL_CUSTOMIZATION
-      const Sema::OpenMPDeclareVariantCtsSelectorData &Data);
-=======
   void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
                                           SourceRange SR,
                                           ArrayRef<OMPCtxSelectorData> Data);
->>>>>>> fde11e9f23a3bf6c78ec0bcfa92e9759ee8b5054
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

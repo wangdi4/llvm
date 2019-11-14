@@ -59,7 +59,7 @@ void bar();
 #pragma omp declare variant(42) match(construct={target variant dispatch})
 void bar();
 
-// expected-error@+1 {{unknown or unsupported context selector set, expecting 'construct' or 'device'}}
+// Community code does not diagnose unknown selector set, so we won't for now
 #pragma omp declare variant(foo) match(onstruct={target variant dispatch})
 void bar(int);
 
@@ -67,7 +67,7 @@ void bar(int);
 #pragma omp declare variant(foo) match(construct={arget})
 void bar(int);
 
-// expected-error@+1 {{unknown or unsupported 'device' context selector, expecting 'arch'}}
+// expected-warning@+1 {{unknown context selector in 'device' context selector set of 'omp declare variant' directive, ignored}}
 #pragma omp declare variant(foo) match(construct={target variant dispatch},device={rch(gen)})
 void bar(int);
 
@@ -88,7 +88,7 @@ void testit() {
 // expected-error@+3 {{unknown or unsupported 'arch' selector, expecting 'gen'}}
 #pragma omp declare variant(foo) match(\
    construct={arget},\
-   device={arch(gen),arch(foobar)})
+   device={arch(gen,foobar)})
 void bar(int);
 
 namespace N {
