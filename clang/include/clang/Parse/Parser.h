@@ -2952,6 +2952,7 @@ private:
                                             SourceLocation Loc);
   /// Parses OpenMP context selectors and calls \p Callback for each
   /// successfully parsed context selector.
+<<<<<<< HEAD
   bool parseOpenMPContextSelectors(
       SourceLocation Loc,
 #if INTEL_CUSTOMIZATION
@@ -2960,6 +2961,11 @@ private:
           llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::DeviceTy> &,
           const Sema::OpenMPDeclareVariantCtsSelectorData &)> Callback);
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool
+  parseOpenMPContextSelectors(SourceLocation Loc,
+                              SmallVectorImpl<Sema::OMPCtxSelectorData> &Data);
+>>>>>>> fde11e9f23a3bf6c78ec0bcfa92e9759ee8b5054
 
   /// Parse clauses for '#pragma omp declare variant'.
   void ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr, CachedTokens &Toks,
