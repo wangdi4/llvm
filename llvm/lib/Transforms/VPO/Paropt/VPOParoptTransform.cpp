@@ -3532,6 +3532,12 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     }
   }
 
+  if (W->getIsTask())
+    // For tasks, NewPrivInst is not an alloca, but a GEP computed inside the
+    // region, after entry directive. So its uses in the entry directive would
+    // cause a use-before-def. We need to remove it from the directive.
+    resetValueInOmpClauseGeneric(W, NewPrivValue);
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replaced uses of '";
              PrivValue->printAsOperand(dbgs()); dbgs() << "' with '";
              NewPrivValue->printAsOperand(dbgs()); dbgs() << "'\n");
@@ -3854,18 +3860,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           FprivI->setOrig(Load);
           FprivI->setIsPointer(true);
         }
-      }
-      else if (LprivI) { // && ForTask
-        // For taskloop, the firstprivate new version already contains
-        // the correct data (it points to the task thunk). Copy the
-        // data to the lastprivate new version, which is the version used
-        // inside the taskloop.
-        createEmptyPrvInitBB(W, PrivInitEntryBB);
-        VPOParoptUtils::genCopyByAddr(
-            LprivI->getNew(), FprivI->getNew(),
-            PrivInitEntryBB->getTerminator(), nullptr,
-            false); // Not Byref. Local copies for both firstprivate and
-                    // lastprivate clauses have the same data type.
       }
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";

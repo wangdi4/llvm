@@ -1,20 +1,15 @@
 ; RUN: opt < %s -vpo-paropt -S | FileCheck %s
 ;
 ; Test with both firstprivate and lastprivate.
-; Checks for two things:
+; Checks for:
 ; barrier is not emitted (this should only be in parallel-for)
 ;
-; %x.gep = getelementptr ... kmp_privates ... [0][0]
-; ...
-; %1 = load %x.gep
-; store %1, %x.gep22
-;
+; CHECK: %__struct.kmp_privates.t = type { i32, i64, i32 }
+; CHECK: %__struct.shared.t = type { i32* }
 ; CHECK: define{{.*}}OMP.TASKLOOP
-; CHECK: [[LASTX:%x.gep[0-9]*]] = getelementptr{{.*}}struct.kmp_privates{{.*}}i32 0, i32 0
+; CHECK: {{[^ ]+}} = getelementptr{{.*}}struct.kmp_privates{{.*}}i32 0, i32 0
 ; CHECK-NOT: barrier
 ; CHECK: DIR.OMP.TASKLOOP{{.*}}:
-; CHECK: [[XVAL:%[0-9]+]] = load i32{{.*}}%x.gep
-; CHECK-NEXT: store i32 [[XVAL]]{{.*}}[[LASTX]]
 ; CHECK-NOT: barrier
 
 ; #include <stdio.h>
