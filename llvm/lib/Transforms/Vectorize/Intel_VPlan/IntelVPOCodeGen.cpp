@@ -1346,7 +1346,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
   // %res1 = extractelement <8 x float> %input.vec, i32 %offset1
   // %wide.extract1 = insertelement <2 x float> undef, float %res1, i64 0
   // %varidx2 = extractelement <2 x i32> %varidx.vec, i64 1
-  // %offset2 = add i32 2, %varidx2
+  // %offset2 = add i32 4, %varidx2
   // %res2 = extractelement <8 x float> %input.vec, i32 %offset2
   // %final = insertelement <2 x float> %wide.extract1, float %res2, i64 1
   if (!isa<VPConstant>(OrigIndexVal) ||
@@ -1354,10 +1354,15 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     Value *WideExtract =
         UndefValue::get(VectorType::get(VPInst->getType(), VF));
     Value *IndexValVec = getVectorValue(OrigIndexVal);
+
+    Type *VecTy = VPInst->getOperand(0)->getType();
+    assert(isa<VectorType>(VecTy) && "Vector type expected");
+    unsigned NumElements = VecTy->getVectorNumElements();
+
     for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
       Value *IndexVal = Builder.CreateExtractElement(IndexValVec, VIdx);
       Value *VectorIdx = Builder.CreateAdd(
-          ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+          ConstantInt::get(IndexVal->getType(), VIdx * NumElements), IndexVal);
       WideExtract = Builder.CreateInsertElement(
           WideExtract, Builder.CreateExtractElement(ExtrFrom, VectorIdx), VIdx);
     }
@@ -1397,10 +1402,16 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
                          "index is not supported.");
     Value *WideInsert = InsertTo;
     Value *IndexValVec = getVectorValue(OrigIndexVal);
+
+    Type *VecTy = VPInst->getOperand(0)->getType();
+    assert(isa<VectorType>(VecTy) && "Vector type expected");
+    unsigned NumElements = VecTy->getVectorNumElements();
+
     for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
       Value *IndexVal = Builder.CreateExtractElement(IndexValVec, VIdx);
       Value *VectorIdx = Builder.CreateAdd(
-          ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+          ConstantInt::get(IndexVal->getType(), VIdx * NumElements), IndexVal);
+
       // Insert the scalar value of second operand which can be vectorized
       // earlier.
       WideInsert = Builder.CreateInsertElement(
