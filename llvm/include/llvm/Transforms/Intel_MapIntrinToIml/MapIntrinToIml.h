@@ -157,7 +157,7 @@ class MapIntrinToImlImpl {
 public:
   // Use TTI to provide information on the legal vector register size for the
   // target.
-  bool runImpl(Function &F,TargetTransformInfo *TTI);
+  bool runImpl(Function &F, TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
 };
 
 class MapIntrinToImlPass : public PassInfoMixin<MapIntrinToImlPass> {
