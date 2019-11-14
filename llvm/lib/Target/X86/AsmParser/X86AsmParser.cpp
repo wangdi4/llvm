@@ -3050,7 +3050,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
   case X86::TPERMBrr:
   case X86::TPERMWrr:
@@ -3093,7 +3093,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                             "registers should be distinct");
     break;
   }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_FP16
   case X86::VFCMADDCPHZ128m:
   case X86::VFCMADDCPHZ256m:

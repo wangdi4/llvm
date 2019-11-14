@@ -384,7 +384,7 @@ void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
 void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &OS) {
   switch (MI->getOperand(OpNo).getReg()) {
@@ -415,5 +415,5 @@ void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
   }
   llvm_unreachable("Unknown tile pair register name");
 }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION

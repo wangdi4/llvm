@@ -2662,9 +2662,7 @@ X86
 .. option:: -mamx-tile, -mno-amx-tile
 
 .. end INTEL_FEATURE_ISA_AMX
-.. INTEL_FEATURE_ISA_AMX2
-.. option:: -mamx-transpose, -mno-amx-transpose
-
+.. INTEL_FEATURE_ISA_AMX_FUTURE
 .. option:: -mamx-reduce, -mno-amx-reduce
 
 .. option:: -mamx-memory, -mno-amx-memory
@@ -2672,6 +2670,10 @@ X86
 .. option:: -mamx-format, -mno-amx-format
 
 .. option:: -mamx-element, -mno-amx-element
+
+.. end INTEL_FEATURE_ISA_AMX_FUTURE
+.. INTEL_FEATURE_ISA_AMX_LNC
+.. option:: -mamx-transpose, -mno-amx-transpose
 
 .. option:: -mamx-fp16, -mno-amx-fp16
 
@@ -2683,7 +2685,7 @@ X86
 
 .. option:: -mamx-tile-evex, -mno-amx-tile-evex
 
-.. end INTEL_FEATURE_ISA_AMX2
+.. end INTEL_FEATURE_ISA_AMX_LNC
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 

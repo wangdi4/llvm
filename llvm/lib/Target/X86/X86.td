@@ -281,7 +281,7 @@ def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
                                       "Support AMX amx-bf16 instructions",
                                       [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
 def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
                                       "Support AMX amx-element instructions",
                                       [FeatureAMXTILE]>;
@@ -291,12 +291,15 @@ def FeatureAMXREDUCE     : SubtargetFeature<"amx-reduce", "HasAMXREDUCE", "true"
 def FeatureAMXFORMAT     : SubtargetFeature<"amx-format", "HasAMXFORMAT", "true",
                                       "Support AMX amx-format instructions",
                                       [FeatureAMXTILE]>;
-def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE", "true",
-                                      "Support AMX amx-transpose instructions",
-                                      [FeatureAMXTILE]>;
 def FeatureAMXMEMORY     : SubtargetFeature<"amx-memory", "HasAMXMEMORY", "true",
                                       "Support AMX amx-memory instructions",
                                       [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE", "true",
+                                      "Support AMX amx-transpose instructions",
+                                      [FeatureAMXTILE]>;
+
 def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
                                       "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
@@ -316,7 +319,8 @@ def FeatureAMXINT8EVEX     : SubtargetFeature<"amx-int8-evex", "HasAMXINT8EVEX",
 def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX", "true",
                                       "Support AMX amx-bf16-evex instructions",
                                       [FeatureAMXTILE]>;
-#endif // INTEL_FEATURE_ISA_AMX2
+
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
