@@ -1406,6 +1406,7 @@ if (INTEL_CUSTOMIZATION)
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
       # SYCL components
       opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
+      pi_opencl
     )
 
     if (WIN32)
