@@ -66,6 +66,9 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::f64, &CSA::I64RegClass);
   addRegisterClass(MVT::v2f32, &CSA::I64RegClass);
 
+  // V2 register classes
+  addRegisterClass(MVT::f16, &CSA::I16RegClass);
+
   // always lower memset, memcpy, and memmove intrinsics to load/store
   // instructions, rather
   // then generating calls to memset, mempcy or memmove.
@@ -105,15 +108,26 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
   // Provide all sorts of operation actions
 
+  for (MVT VT : MVT::all_valuetypes()) {
+    // Memory operations: all of these are custom lowering, assuming they're
+    // supported in the first place.
+    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Custom);
+    setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
+    setOperationAction(ISD::ATOMIC_STORE, VT, Custom);
+    setOperationAction(ISD::LOAD, VT, Custom);
+    setOperationAction(ISD::STORE, VT, Custom);
+
+    // We don't have fused condition codes--expand these into SETCC.
+    setOperationAction(ISD::BR_CC, VT, Expand);
+    setOperationAction(ISD::SELECT_CC, VT, Expand);
+  }
+
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
     // If this type is generally supported
     bool isTypeSupported =
       ((VT == MVT::i8 && ST.hasI8()) || (VT == MVT::i16 && ST.hasI16()) ||
        (VT == MVT::i32 && ST.hasI32()) || (VT == MVT::i64 && ST.hasI64()));
-
-    setOperationAction(ISD::BR_CC, VT, Expand);
-    setOperationAction(ISD::SELECT_CC, VT, Expand);
 
     setOperationAction(ISD::SIGN_EXTEND, VT, Expand);
 
@@ -146,11 +160,11 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::SRA_PARTS, VT, Expand);
 
     // Bit manipulation
-    setOperationAction(ISD::ROTL, VT, Expand);
-    setOperationAction(ISD::ROTR, VT, Expand);
     setOperationAction(ISD::BSWAP, VT, Expand);
 
     LegalizeAction action = (isTypeSupported && ST.hasBitOp()) ? Legal : Expand;
+    setOperationAction(ISD::ROTL, VT, action);
+    setOperationAction(ISD::ROTR, VT, action);
     setOperationAction(ISD::CTPOP, VT, action);
     setOperationAction(ISD::CTTZ, VT, action);
     setOperationAction(ISD::CTTZ_ZERO_UNDEF, VT, Expand);
@@ -167,13 +181,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Custom);
       setOperationAction(ISD::ATOMIC_SWAP, VT, Custom);
     }
-    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Custom);
-
-    setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
-    setOperationAction(ISD::ATOMIC_STORE, VT, Custom);
-
-    setOperationAction(ISD::LOAD, VT, Custom);
-    setOperationAction(ISD::STORE, VT, Custom);
 
     setOperationAction(ISD::DYNAMIC_STACKALLOC, VT, Expand);
   }
@@ -182,10 +189,41 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
 
   for (MVT VT : MVT::fp_valuetypes()) {
-    setOperationAction(ISD::BR_CC, VT, Expand);
-    setOperationAction(ISD::SELECT_CC, VT, Expand);
     setTruncStoreAction(VT, MVT::f16, Expand);
     setLoadExtAction(ISD::EXTLOAD, VT, MVT::f16, Expand);
+
+    // Allow full FP literals
+    setOperationAction(ISD::ConstantFP, VT, Legal);
+
+    // Math ops: fcopysign is a trivial expansion for abs/neg.
+    setOperationAction(ISD::FCOPYSIGN, VT, Expand);
+    setOperationAction(ISD::FABS, VT, Legal);
+    LegalizeAction Math0Action = LibCall;
+    if (VT == MVT::f16)
+      Math0Action = Promote;
+    else if (ST.hasMath0())
+      Math0Action = Legal;
+
+    setOperationAction(ISD::FSIN, VT, Math0Action);
+    setOperationAction(ISD::FCOS, VT, Math0Action);
+    setOperationAction(ISD::FTAN, VT, Math0Action);
+    setOperationAction(ISD::FATAN, VT, Math0Action);
+    setOperationAction(ISD::FATAN2, VT, Math0Action);
+    setOperationAction(ISD::FPOW, VT, Math0Action);
+    setOperationAction(ISD::FLOG, VT, Math0Action);
+    setOperationAction(ISD::FLOG2, VT, Math0Action);
+    setOperationAction(ISD::FEXP, VT, Math0Action);
+    setOperationAction(ISD::FEXP2, VT, Math0Action);
+    setOperationAction(ISD::FCEIL, VT, Math0Action);
+    setOperationAction(ISD::FTRUNC, VT, Math0Action);
+    setOperationAction(ISD::FROUND, VT, Math0Action);
+    setOperationAction(ISD::FFLOOR, VT, Math0Action);
+    setOperationAction(ISD::FSINCOS, VT, Math0Action);
+
+    // These don't have math0 operations, so convert to libcalls (unless f16).
+    setOperationAction(ISD::FLOG10,VT, VT == MVT::f16 ? Promote : LibCall);
+    setOperationAction(ISD::FRINT, VT, VT == MVT::f16 ? Promote : Expand);
+    setOperationAction(ISD::FNEARBYINT, VT, VT == MVT::f16 ? Promote : Expand);
   }
 
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
@@ -215,56 +253,31 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setTruncStoreAction(VT, MVT::i1, Expand);
   }
 
-  // Load and store floats as equivalently-sized integers.
-  setOperationPromotedToType(ISD::LOAD, MVT::f32, MVT::i32);
-  setOperationPromotedToType(ISD::LOAD, MVT::f64, MVT::i64);
-  setOperationPromotedToType(ISD::STORE, MVT::f32, MVT::i32);
-  setOperationPromotedToType(ISD::STORE, MVT::f64, MVT::i64);
-
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
 
-  // Vector loads and stores should be handled in custom expansion.
-  setOperationAction(ISD::LOAD, MVT::v2f32, Custom);
-  setOperationAction(ISD::STORE, MVT::v2f32, Custom);
-  setOperationAction(ISD::ATOMIC_LOAD, MVT::v2f32, Custom);
-  setOperationAction(ISD::ATOMIC_STORE, MVT::v2f32, Custom);
-  setOperationAction(ISD::ATOMIC_CMP_SWAP, MVT::v2f32, Custom);
-
-  // SETOEQ and SETUNE require checking two conditions.
-  /*
-  setCondCodeAction(ISD::SETOEQ, MVT::f32, Expand);
-  setCondCodeAction(ISD::SETOEQ, MVT::f64, Expand);
-  setCondCodeAction(ISD::SETOEQ, MVT::f80, Expand);
-  setCondCodeAction(ISD::SETUNE, MVT::f32, Expand);
-  setCondCodeAction(ISD::SETUNE, MVT::f64, Expand);
-  setCondCodeAction(ISD::SETUNE, MVT::f80, Expand);
-  */
-
-  // No direct conversions to/from small integers and floating point
-  setOperationAction(ISD::UINT_TO_FP, MVT::i1, Promote);
-  setOperationAction(ISD::UINT_TO_FP, MVT::i8, Promote);
-  setOperationAction(ISD::UINT_TO_FP, MVT::i16, Promote);
-
-  setOperationAction(ISD::SINT_TO_FP, MVT::i1, Promote);
-  setOperationAction(ISD::SINT_TO_FP, MVT::i8, Promote);
-  setOperationAction(ISD::SINT_TO_FP, MVT::i16, Promote);
-
-  setOperationAction(ISD::FP_TO_UINT, MVT::i1, Promote);
-  setOperationAction(ISD::FP_TO_UINT, MVT::i8, Promote);
-  setOperationAction(ISD::FP_TO_UINT, MVT::i16, Promote);
-
-  setOperationAction(ISD::FP_TO_SINT, MVT::i1, Promote);
-  setOperationAction(ISD::FP_TO_SINT, MVT::i8, Promote);
-  setOperationAction(ISD::FP_TO_SINT, MVT::i16, Promote);
+  // Conversions: we support the full gamut of conversions between i32, f32,
+  // i64, and f64. We also support f16<->f32 conversions, but no other f16
+  // conversions. Legalization of integer<->fp conversions is based on the
+  // integer type, whereas the floating point conversions are based on the
+  // destination type. Essentially, this means we need custom loweing for most
+  // conversions.
+  LegalizeAction CustomF16 = Custom;
+  setOperationAction(ISD::FP_ROUND, MVT::f16, Custom);
+  setOperationAction(ISD::FP_EXTEND, MVT::f32, Legal);
+  setOperationAction(ISD::FP_EXTEND, MVT::f64, CustomF16);
+  for (MVT VT : {MVT::i1, MVT::i8, MVT::i16, MVT::i32, MVT::i64}) {
+    bool HasConversion = VT == MVT::i32 || VT == MVT::i64;
+    LegalizeAction SemiLegal = HasConversion ? CustomF16 : Promote;
+    setOperationAction(ISD::UINT_TO_FP, VT, SemiLegal);
+    setOperationAction(ISD::SINT_TO_FP, VT, SemiLegal);
+    setOperationAction(ISD::FP_TO_UINT, VT, SemiLegal);
+    setOperationAction(ISD::FP_TO_SINT, VT, SemiLegal);
+  }
 
   setOperationAction(ISD::FP16_TO_FP, MVT::f32, Legal);
   setOperationAction(ISD::FP_TO_FP16, MVT::f32, Legal);
-
-  // Allow full FP literals
-  setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
-  setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
 
   // SIMD ops--we have to mark what is not legal.
   setOperationAction(ISD::FNEG, MVT::v2f32, Expand);
@@ -272,105 +285,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::FREM, MVT::v2f32, Expand);
   setOperationAction(ISD::FP_ROUND, MVT::v2f32, Expand);
   setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v2f32, Custom);
-
-  /*  These are to enable as CG work is done
-    // Short float
-    setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
-    setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
-  */
-
-  setOperationAction(ISD::FNEG, MVT::f32, Legal);
-  setOperationAction(ISD::FNEG, MVT::f64, Legal);
-  setOperationAction(ISD::FABS, MVT::f32, Legal);
-  setOperationAction(ISD::FABS, MVT::f64, Legal);
-
-  // Allow various FP operations (temporarily.)
-  // The intent is these will be provided via a math library
-  if (ST.hasMath0()) {
-    // Order from ISDOpcodes.h
-    // setOperationAction(ISD::FREM,  MVT::f32, Legal);
-    // setOperationAction(ISD::FREM,  MVT::f64, Legal);
-    setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
-    setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
-    setOperationAction(ISD::FSQRT, MVT::f32, Legal);
-    setOperationAction(ISD::FSQRT, MVT::f64, Legal);
-    setOperationAction(ISD::FSIN, MVT::f32, Legal);
-    setOperationAction(ISD::FSIN, MVT::f64, Legal);
-    setOperationAction(ISD::FCOS, MVT::f32, Legal);
-    setOperationAction(ISD::FCOS, MVT::f64, Legal);
-    setOperationAction(ISD::FTAN, MVT::f32, Legal);
-    setOperationAction(ISD::FTAN, MVT::f64, Legal);
-    setOperationAction(ISD::FATAN, MVT::f32, Legal);
-    setOperationAction(ISD::FATAN, MVT::f64, Legal);
-    setOperationAction(ISD::FATAN2, MVT::f32, Legal);
-    setOperationAction(ISD::FATAN2, MVT::f64, Legal);
-    // setOperationAction(ISD::FPOWI, MVT::f32, Legal);
-    // setOperationAction(ISD::FPOWI, MVT::f64, Legal);
-    setOperationAction(ISD::FPOW, MVT::f32, Legal);
-    setOperationAction(ISD::FPOW, MVT::f64, Legal);
-    setOperationAction(ISD::FLOG, MVT::f32, Legal);
-    setOperationAction(ISD::FLOG, MVT::f64, Legal);
-    setOperationAction(ISD::FLOG2, MVT::f32, Legal);
-    setOperationAction(ISD::FLOG2, MVT::f64, Legal);
-    // setOperationAction(ISD::FLOG10,MVT::f32, Legal);
-    // setOperationAction(ISD::FLOG10,MVT::f64, Legal);
-    setOperationAction(ISD::FEXP, MVT::f32, Legal);
-    setOperationAction(ISD::FEXP, MVT::f64, Legal);
-    setOperationAction(ISD::FEXP2, MVT::f32, Legal);
-    setOperationAction(ISD::FEXP2, MVT::f64, Legal);
-    setOperationAction(ISD::FCEIL, MVT::f32, Legal);
-    setOperationAction(ISD::FCEIL, MVT::f64, Legal);
-    setOperationAction(ISD::FTRUNC, MVT::f32, Legal);
-    setOperationAction(ISD::FTRUNC, MVT::f64, Legal);
-    // setOperationAction(ISD::FRINT, MVT::f32, Legal);
-    // setOperationAction(ISD::FRINT, MVT::f64, Legal);
-    // setOperationAction(ISD::FNEARBYINT,MVT::f32, Legal);
-    // setOperationAction(ISD::FNEARBYINT,MVT::f64, Legal);
-    setOperationAction(ISD::FROUND, MVT::f32, Legal);
-    setOperationAction(ISD::FROUND, MVT::f64, Legal);
-    setOperationAction(ISD::FFLOOR, MVT::f32, Legal);
-    setOperationAction(ISD::FFLOOR, MVT::f64, Legal);
-    // setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
-    // setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
-  } else {
-    // Order from ISDOpcodes.h
-    // Same as hasMath0. May be changed when div/sqrt support is added
-    setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
-    setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
-    setOperationAction(ISD::FSQRT, MVT::f32, Legal);
-    setOperationAction(ISD::FSQRT, MVT::f64, Legal);
-    
-    setOperationAction(ISD::FSIN, MVT::f32, LibCall);
-    setOperationAction(ISD::FSIN, MVT::f64, LibCall);
-    setOperationAction(ISD::FCOS, MVT::f32, LibCall);
-    setOperationAction(ISD::FCOS, MVT::f64, LibCall);
-    setOperationAction(ISD::FTAN, MVT::f32, LibCall);
-    setOperationAction(ISD::FTAN, MVT::f64, LibCall);
-    setOperationAction(ISD::FATAN, MVT::f32, LibCall);
-    setOperationAction(ISD::FATAN, MVT::f64, LibCall);
-    setOperationAction(ISD::FATAN2, MVT::f32, LibCall);
-    setOperationAction(ISD::FATAN2, MVT::f64, LibCall);
-    setOperationAction(ISD::FPOW, MVT::f32, LibCall);
-    setOperationAction(ISD::FPOW, MVT::f64, LibCall);
-    setOperationAction(ISD::FLOG, MVT::f32, LibCall);
-    setOperationAction(ISD::FLOG, MVT::f64, LibCall);
-    setOperationAction(ISD::FLOG2, MVT::f32, LibCall);
-    setOperationAction(ISD::FLOG2, MVT::f64, LibCall);
-    setOperationAction(ISD::FLOG10,MVT::f32, LibCall);
-    setOperationAction(ISD::FLOG10,MVT::f64, LibCall);
-    setOperationAction(ISD::FEXP, MVT::f32, LibCall);
-    setOperationAction(ISD::FEXP, MVT::f64, LibCall);
-    setOperationAction(ISD::FEXP2, MVT::f32, LibCall);
-    setOperationAction(ISD::FEXP2, MVT::f64, LibCall);
-    setOperationAction(ISD::FCEIL, MVT::f32, LibCall);
-    setOperationAction(ISD::FCEIL, MVT::f64, LibCall);
-    setOperationAction(ISD::FTRUNC, MVT::f32, LibCall);
-    setOperationAction(ISD::FTRUNC, MVT::f64, LibCall);
-    setOperationAction(ISD::FROUND, MVT::f32, LibCall);
-    setOperationAction(ISD::FROUND, MVT::f64, LibCall);
-    setOperationAction(ISD::FFLOOR, MVT::f32, LibCall);
-    setOperationAction(ISD::FFLOOR, MVT::f64, LibCall);
-  }
 
   setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
   setOperationAction(ISD::ExternalSymbol, MVT::i64, Custom);
@@ -462,6 +376,16 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::INTRINSIC_VOID:
   case ISD::INTRINSIC_WO_CHAIN:
     return LowerIntrinsic(Op, DAG);
+  case ISD::FP_ROUND:
+  case ISD::STRICT_FP_ROUND:
+  case ISD::FP_EXTEND:
+  case ISD::FP_TO_UINT:
+  case ISD::STRICT_FP_TO_UINT:
+  case ISD::FP_TO_SINT:
+  case ISD::STRICT_FP_TO_SINT:
+  case ISD::UINT_TO_FP:
+  case ISD::SINT_TO_FP:
+    return LowerConversion(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -1138,6 +1062,27 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   if (Outs.size() == 1)
     return Outs.front();
   return DAG.getMergeValues(Outs, DL);
+}
+
+SDValue CSATargetLowering::LowerConversion(SDValue Op, SelectionDAG &DAG) const {
+  SDValue In = Op.getOperand(0);
+  MVT SrcTy = In.getSimpleValueType();
+  MVT DestTy = Op.getSimpleValueType();
+  SDLoc DL(Op);
+  SDNode *Node = Op.getNode();
+
+  // f16 conversions must go through f32.
+  // TODO: Fix any double-rounding issues that might occur.
+  if (SrcTy == MVT::f16 && DestTy != MVT::f32) {
+    SDValue Via32 = DAG.getFPExtendOrRound(In, DL, MVT::f32);
+    DAG.UpdateNodeOperands(Node, Via32);
+  } else if (DestTy == MVT::f16 && SrcTy != MVT::f32) {
+    SDValue Via32 = DAG.getNode(Node->getOpcode(), DL, MVT::f32, Node->ops());
+    return DAG.getFPExtendOrRound(Via32, DL, MVT::f16);
+  }
+
+  // Otherwise, the original operation is already legal.
+  return Op;
 }
 
 static bool isCallOrGluedToCall(SDValue Op) {

@@ -150,6 +150,7 @@ def RCLi32 : RegImmOperand<i32>;
 def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
+def RCL16  : RegImmOperandUntyped<i16>;
 def RCL32  : RegImmOperandUntyped<i32>;
 def RCL64  : RegImmOperandUntyped<i64>;
 
@@ -244,6 +245,7 @@ def Ti64 : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
+def T16  : CSAOpInfo<i16, 16,  "16", I16, RI16, CI16, RCL16, i16imm, [HasI16]>;
 def T32  : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCL32, i32imm, [HasI32]>;
 def T64  : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCL64, i64imm, [HasI64]>;
 
@@ -293,7 +295,7 @@ multiclass DataflowInst<string asm, dag outs, dag ins, string asmops,
                            !strconcat(asm, "1\t",  asmops), pats>;
   def "8"  : TemplatedInst<!cast<GenericOp>(NAME), Ti8,  outs, ins,
                            !strconcat(asm, "8\t",  asmops), pats>;
-  def "16" : TemplatedInst<!cast<GenericOp>(NAME), Ti16, outs, ins,
+  def "16" : TemplatedInst<!cast<GenericOp>(NAME), T16, outs, ins,
                            !strconcat(asm, "16\t", asmops), pats>;
   def "32" : TemplatedInst<!cast<GenericOp>(NAME), T32,  outs, ins,
                            !strconcat(asm, "32\t", asmops), pats>;
@@ -308,9 +310,9 @@ multiclass IntegerInst<string asm, dag outs, dag ins, string asmops,
                            !strconcat(asm, "8\t",  asmops), pats>;
   def "16" : TemplatedInst<!cast<GenericOp>(NAME), Ti16, outs, ins,
                            !strconcat(asm, "16\t", asmops), pats>;
-  def "32" : TemplatedInst<!cast<GenericOp>(NAME), T32,  outs, ins,
+  def "32" : TemplatedInst<!cast<GenericOp>(NAME), Ti32, outs, ins,
                            !strconcat(asm, "32\t", asmops), pats>;
-  def "64" : TemplatedInst<!cast<GenericOp>(NAME), T64,  outs, ins,
+  def "64" : TemplatedInst<!cast<GenericOp>(NAME), Ti64, outs, ins,
                            !strconcat(asm, "64\t", asmops), pats>;
 }
 
@@ -323,9 +325,9 @@ multiclass BitwiseInst<string asm, dag outs, dag ins, string asmops,
                            !strconcat(asm, "8\t",  asmops), pats>;
   def "16" : TemplatedInst<!cast<GenericOp>(NAME), Ti16, outs, ins,
                            !strconcat(asm, "16\t", asmops), pats>;
-  def "32" : TemplatedInst<!cast<GenericOp>(NAME), T32,  outs, ins,
+  def "32" : TemplatedInst<!cast<GenericOp>(NAME), Ti32, outs, ins,
                            !strconcat(asm, "32\t", asmops), pats>;
-  def "64" : TemplatedInst<!cast<GenericOp>(NAME), T64,  outs, ins,
+  def "64" : TemplatedInst<!cast<GenericOp>(NAME), Ti64, outs, ins,
                            !strconcat(asm, "64\t", asmops), pats>;
 }
 
@@ -1203,10 +1205,8 @@ def CVTF32F64 : CvtOpR<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 
 def CVTF64F32 : CvtOpR<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
 
-def CVTF16F32 : CvtOpR<   CVT, fp_to_f16,  Tf16, Tf32, IICvtFF>;
-
-// TODO: The def for CVTF32F16 should refer to Tf16, not Ti16, but it is broken.
-def CVTF32F16 : CvtOpR<   CVT, f16_to_fp,  Tf32, Ti16, IICvtFF>;
+def CVTF16F32 : CvtOpR<   CVT, fpround,   Tf16, Tf32, IICvtFF>;
+def CVTF32F16 : CvtOpR<   CVT, fpextend,  Tf32, Tf16, IICvtFF>;
 
 def AND       : GenericOp<"and">;
 let isCommutable = 1 in {
@@ -1441,6 +1441,12 @@ defm CMPUNE:   FloatCmp<CMPUNE, setune, "FLT_UNORDERED">;
 
 // These are the flags for we-don't-care-about-NaNs. When the architecture
 // finalizes NaN support, these should map into the cheaper ones.
+def : Pat<(i1 (setlt f16:$op1, f16:$op2)), (CMPOLTF16 $op1, $op2)>;
+def : Pat<(i1 (setle f16:$op1, f16:$op2)), (CMPOLEF16 $op1, $op2)>;
+def : Pat<(i1 (setgt f16:$op1, f16:$op2)), (CMPOGTF16 $op1, $op2)>;
+def : Pat<(i1 (setge f16:$op1, f16:$op2)), (CMPOGEF16 $op1, $op2)>;
+def : Pat<(i1 (seteq f16:$op1, f16:$op2)), (CMPOEQF16 $op1, $op2)>;
+def : Pat<(i1 (setne f16:$op1, f16:$op2)), (CMPONEF16 $op1, $op2)>;
 def : Pat<(i1 (setlt f32:$op1, f32:$op2)), (CMPOLTF32 $op1, $op2)>;
 def : Pat<(i1 (setle f32:$op1, f32:$op2)), (CMPOLEF32 $op1, $op2)>;
 def : Pat<(i1 (setgt f32:$op1, f32:$op2)), (CMPOGTF32 $op1, $op2)>;
@@ -1521,9 +1527,15 @@ defm MERGE : DataflowInst<"merge",
                           "$dst, $sel, $v0, $v1",
                         [(set VT:$dst, (select RCLi1:$sel, RCL:$v1, RCL:$v0))]>;
 
+def : Pat<(f16 (select RCLi1:$sel, RCLf16:$v1, RCLf16:$v0)),
+          (MERGE16 $sel, $v0, $v1)>;
 def : Pat<(f32 (select RCLi1:$sel, RCLf32:$v1, RCLf32:$v0)),
           (MERGE32 $sel, $v0, $v1)>;
 def : Pat<(f64 (select RCLi1:$sel, RCLf64:$v1, RCLf64:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
+def : Pat<(v8i8 (select RCLi1:$sel, RCLi8x8:$v1, RCLi8x8:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
+def : Pat<(v4i16 (select RCLi1:$sel, RCLi16x4:$v1, RCLi16x4:$v0)),
           (MERGE64 $sel, $v0, $v1)>;
 def : Pat<(v4f16 (select RCLi1:$sel, RCLf16x4:$v1, RCLf16x4:$v0)),
           (MERGE64 $sel, $v0, $v1)>;
@@ -2254,6 +2266,7 @@ def CSA_PIPELINE_DEPTH_TOKEN_RETURN : PseudoInstCSA<
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;
 def : Pat<(i8 imm:$imm),    (MOV8 imm:$imm)>;
 def : Pat<(i16 imm:$imm),   (MOV16 imm:$imm)>;
+def : Pat<(f16 fpimm:$imm), (MOV16 fpimm:$imm)>;
 def : Pat<(i32 imm:$imm),   (MOV32 imm:$imm)>;
 def : Pat<(f32 fpimm:$imm), (MOV32 fpimm:$imm)>;
 def : Pat<(i64 imm:$imm),   (MOV64 imm:$imm)>;
@@ -2337,24 +2350,6 @@ def : Pat<(i8  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1,  I8)>;
 def : Pat<(i1  (trunc i16:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 
 def : Pat<(i1  (trunc  i8:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
-
-// bitconvert (shows up in exp)
-def : Pat<(i32 (bitconvert f32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
-def : Pat<(f32 (bitconvert i32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
-
-def : Pat<(i64 (bitconvert f64:$op1)),   (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (bitconvert v4f16:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(i64 (bitconvert v2f32:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-
-def : Pat<(f64   (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(v4f16 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(v2f32 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-
-def : Pat<(f64   (bitconvert v8i8:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(f64   (bitconvert v4i16:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-
-def : Pat<(v8i8  (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
-def : Pat<(v4i16 (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 
 // The debugprint instruction
 let hasSideEffects = 1 in {

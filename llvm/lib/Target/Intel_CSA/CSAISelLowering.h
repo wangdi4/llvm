@@ -112,6 +112,7 @@ public:
   SDValue LowerExtractElement(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerMemop(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerConversion(SDValue Op, SelectionDAG &DAG) const;
 
   bool isTruncateFree(EVT VT1, EVT VT2) const override;
   bool isTruncateFree(Type *Ty1, Type *Ty2) const override;

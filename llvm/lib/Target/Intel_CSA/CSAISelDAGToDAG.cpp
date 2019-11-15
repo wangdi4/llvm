@@ -190,6 +190,13 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
 
   // Custom selection
   switch (Node->getOpcode()) {
+  case ISD::BITCAST: {
+    // All types of the same size are forced into the same register classes
+    // anyways, so drop the bitcast entirely.
+    ReplaceUses(SDValue(Node, 0), Node->getOperand(0));
+    CurDAG->RemoveDeadNode(Node);
+    return;
+  }
   default:
     break;
   case ISD::FrameIndex: {
