@@ -848,6 +848,7 @@ def Most : DiagGroup<"most", [
     SizeofArrayArgument,
     SizeofArrayDecay,
     StringPlusInt,
+    TautologicalCompare,
     Trigraphs,
     Uninitialized,
     UnknownPragmas,

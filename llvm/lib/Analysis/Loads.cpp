@@ -386,10 +386,6 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
     MaxInstsToScan = ~0U;
 
   const DataLayout &DL = ScanBB->getModule()->getDataLayout();
-
-  // Try to get the store size for the type.
-  auto AccessSize = LocationSize::precise(DL.getTypeStoreSize(AccessTy));
-
   Value *StrippedPtr = Ptr->stripPointerCasts();
 
   while (ScanFrom != ScanBB->begin()) {
@@ -427,6 +423,9 @@ Value *llvm::FindAvailablePtrLoadStore(Value *Ptr, Type *AccessTy,
             *IsLoadCSE = true;
         return LI;
       }
+
+    // Try to get the store size for the type.
+    auto AccessSize = LocationSize::precise(DL.getTypeStoreSize(AccessTy));
 
     if (StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
       Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
