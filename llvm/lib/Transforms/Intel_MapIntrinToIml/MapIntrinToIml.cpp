@@ -1061,18 +1061,21 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return Impl.runImpl(F, TTI);
+  auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  return Impl.runImpl(F, TTI, TLI);
 }
 
 PreservedAnalyses MapIntrinToImlPass::run(Function &F,
                                           FunctionAnalysisManager &AM) {
   auto *TTI = &AM.getResult<TargetIRAnalysis>(F);
-  if (!Impl.runImpl(F, TTI))
+  auto *TLI = &AM.getResult<TargetLibraryAnalysis>(F);
+  if (!Impl.runImpl(F, TTI, TLI))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
 
-bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI) {
+bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI,
+                                 TargetLibraryInfo *TLI) {
   LLVM_DEBUG(dbgs() << "\nExecuting MapIntrinToIml ...\n\n");
   if (RunSvmlStressMode) {
     LLVM_DEBUG(dbgs() << "Stress Testing Mode Invoked - svml calls will be "
@@ -1112,10 +1115,9 @@ bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI) {
   // OpenCL CPU RT uses an alternative version of SVML and is incompatible
   // with the interface we're assuming, so vector idiv transformation is
   // disabled when generating code for OpenCL.
-  // FIXME: Currently only SVML is supported for vector idiv transformation.
-  // It should only be done when using SVML.
+  // FIXME: The "acosf" is a hack to proxy for SVML being enabled.
   bool isOCL = M->getNamedMetadata("opencl.ocl.version") != nullptr;
-  if (!isOCL)
+  if (!isOCL && TLI->isFunctionVectorizable("acosf", 2, false))
     Dirty |= replaceVectorIDivAndRemWithSVMLCall(TTI, F);
 
   // Begin searching for calls that are candidates for legalization and/or

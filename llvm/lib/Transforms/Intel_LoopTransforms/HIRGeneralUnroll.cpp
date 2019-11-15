@@ -429,6 +429,17 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
   HLNodeUtils::replace(RemainderLoop, Switch);
 }
 
+static void markDoNotUnroll(HLLoop *Lp) {
+  Lp->markDoNotUnroll();
+
+  // Mark the underlying llvm loop as do not unroll if the region is not set to
+  // modified. We also mark the HLLoop in case the region gets modified
+  // afterwards.
+  if (!Lp->getParentRegion()->shouldGenCode()) {
+    Lp->markLLVMLoopDoNotUnroll();
+  }
+}
+
 unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
                                                bool HasEnablingPragma) const {
 
@@ -486,6 +497,12 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   } else if ((IsConstTripLoop ||
               (TripCount = HLoop->getMaxTripCountEstimate())) &&
              (TripCount < MinTripCountThreshold)) {
+
+    // This is a hack to prevent LLVM unroller from unrolling this loop.
+    if (!IsConstTripLoop) {
+      markDoNotUnroll(const_cast<HLLoop *>(HLoop));
+    }
+
     LLVM_DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
     return 0;
   }

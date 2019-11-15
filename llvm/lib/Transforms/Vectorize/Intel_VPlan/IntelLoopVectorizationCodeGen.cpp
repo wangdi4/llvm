@@ -3405,12 +3405,6 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
   return VectorTripCount;
 }
 
-uint64_t VPOCodeGen::getConstTripCount() const {
-  if (auto *C = dyn_cast<ConstantInt>(TripCount))
-    return C->getZExtValue();
-  return 0;
-}
-
 Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
   if (TripCount)
     return TripCount;

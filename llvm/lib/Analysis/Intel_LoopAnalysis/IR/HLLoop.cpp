@@ -1171,7 +1171,8 @@ bool HLLoop::isTriangularLoop() const {
 }
 
 void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
-                                       StringRef RemoveID) {
+                                       StringRef RemoveID,
+                                       MDNode **ExternalLoopMetadata) {
   assert((MDs.empty() || RemoveID.empty()) &&
          "Simultaneous addition and removal not expected!");
 
@@ -1183,7 +1184,8 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
   bool IsAddition = !MDs.empty();
   bool FoundRemoveID = false;
 
-  MDNode *ExistingLoopMD = getLoopMetadata();
+  MDNode *ExistingLoopMD =
+      ExternalLoopMetadata ? *ExternalLoopMetadata : getLoopMetadata();
 
   if (ExistingLoopMD) {
     // TODO: add tests for this part of code after enabling generation of HIR
@@ -1247,7 +1249,12 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 
   MDNode *NewLoopMD = MDNode::get(Context, NewMDs);
   NewLoopMD->replaceOperandWith(0, NewLoopMD);
-  setLoopMetadata(NewLoopMD);
+
+  if (ExternalLoopMetadata) {
+    *ExternalLoopMetadata = NewLoopMD;
+  } else {
+    setLoopMetadata(NewLoopMD);
+  }
 }
 
 void HLLoop::markDoNotVectorize() {
@@ -1274,6 +1281,20 @@ void HLLoop::markDoNotUnroll() {
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
   addLoopMetadata(
       MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
+}
+
+void HLLoop::markLLVMLoopDoNotUnroll() {
+  auto *LoopMD = OrigLoop->getLoopID();
+
+  removeLoopMetadata("llvm.loop.unroll.enable", &LoopMD);
+  removeLoopMetadata("llvm.loop.unroll.count", &LoopMD);
+
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
+  addLoopMetadata(
+      MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")),
+      &LoopMD);
+
+  OrigLoop->setLoopID(LoopMD);
 }
 
 void HLLoop::markDoNotUnrollAndJam() {

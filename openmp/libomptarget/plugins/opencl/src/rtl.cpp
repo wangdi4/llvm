@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include <CL/cl.h>
 #include <cassert>
 #include <cctype>
@@ -1496,14 +1497,31 @@ static inline int32_t run_target_team_nd_region(
 
   // Set implicit kernel args
   std::vector<void *> implicit_args;
+
+  // Array sections of zero size may result in nullptr target pointer,
+  // which will not be accepted by clSetKernelExecInfo, so we should
+  // avoid manifesting them.
+
+  // Reserve space in implicit_args to speed up the back_inserter.
+  size_t num_implicit_args = 0;
+  if (DeviceInfo.ImplicitArgs[device_id].count(*kernel) > 0) {
+    num_implicit_args += DeviceInfo.ImplicitArgs[device_id][*kernel].size();
+  }
+
+  implicit_args.reserve(num_implicit_args);
+
   if (DeviceInfo.ImplicitArgs[device_id].count(*kernel) > 0) {
     // kernel-dependent arguments
-    implicit_args.insert(implicit_args.end(),
-        DeviceInfo.ImplicitArgs[device_id][*kernel].begin(),
-        DeviceInfo.ImplicitArgs[device_id][*kernel].end());
+    std::copy_if(DeviceInfo.ImplicitArgs[device_id][*kernel].begin(),
+                 DeviceInfo.ImplicitArgs[device_id][*kernel].end(),
+                 std::back_inserter(implicit_args),
+                 [] (void *ptr) {
+                   return ptr != nullptr;
+                 });
   }
   if (DeviceInfo.ImplicitArgs[device_id].count(0) > 0) {
     // kernel-independent arguments
+    // Note that these pointers may not be nullptr.
     implicit_args.insert(implicit_args.end(),
         DeviceInfo.ImplicitArgs[device_id][0].begin(),
         DeviceInfo.ImplicitArgs[device_id][0].end());

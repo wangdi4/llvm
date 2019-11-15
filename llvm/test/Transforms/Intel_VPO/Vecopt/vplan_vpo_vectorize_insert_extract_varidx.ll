@@ -52,7 +52,7 @@
 ; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
 ; CHECK-VF2-NEXT:  [[RES1:%.*]] = insertelement <8 x float> [[VEC:%.*]], float [[E1:%.*]], i32 [[OFF1]]
 ; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
-; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 2, [[VARIDX2]]
+; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
 ; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E2:%.*]], i32 [[OFF2]]
 
 ; Check the correct sequence for 'insertelement' with non-const index and loop variant scalar value to be inserted
@@ -64,7 +64,7 @@
 ; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
 ; CHECK-VF2-NEXT:  [[RES1:%.*]] = insertelement <8 x float> [[VEC:%.*]], float [[E2]], i32 [[OFF1]]
 ; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
-; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 2, [[VARIDX2]]
+; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
 ; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E1]], i32 [[OFF2]]
 
 ; Check the correct sequence for 'extractelement' with non-const index
@@ -74,7 +74,7 @@
 ; CHECK-VF2-NEXT:  [[RES1:%.*]] = extractelement <8 x float> [[VEC:%.*]], i32 [[OFF1]]
 ; CHECK-VF2-NEXT:  [[WIDE_EXTRACT1:%.*]] = insertelement <2 x float> {{.*}}, float [[RES1]], i64 0
 ; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
-; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 2, [[VARIDX2]]
+; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
 ; CHECK-VF2-NEXT:  [[RES2:%.*]] = extractelement <8 x float> [[VEC]], i32 [[OFF2]]
 ; CHECK-VF2-NEXT:  [[WIDE_EXTRACT2:%.*]] = insertelement <2 x float> [[WIDE_EXTRACT1]], float [[RES2]], i64 1
 

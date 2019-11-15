@@ -192,7 +192,8 @@ static bool hasDeterministicResult(const VPInstruction &I) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-#if !INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#else
 // This is used in the community version because br instructions are explicit.
 // We will do the same for VPlan once supported.
 bool DivergenceAnalysis::updateTerminator(const TerminatorInst &Term) const {
@@ -213,7 +214,7 @@ bool DivergenceAnalysis::updateTerminator(const TerminatorInst &Term) const {
 
   llvm_unreachable("unexpected terminator");
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 bool VPlanDivergenceAnalysis::updateNormalInstruction(
     const VPInstruction &I) const {
@@ -361,7 +362,7 @@ void VPlanDivergenceAnalysis::pushPHINodes(const VPBlockBase &Block,
   getPhis(&Block, PhiNodes);
   for (const auto *Phi : PhiNodes) {
     if (isDivergent(*Phi) && !PushAll)
-#endif
+#endif // INTEL_CUSTOMIZATION
       continue;
     Worklist.push_back(Phi);
   }
@@ -410,7 +411,7 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
 // condition of the branch to determine if the branch is divergent. Not a big
 // deal, but we should be able to easily match the community code once VPlan
 // is updated.
-#endif
+#endif // INTEL_CUSTOMIZATION
 void VPlanDivergenceAnalysis::propagateBranchDivergence(const VPValue &Cond) {
   const VPInstruction *CondInst = cast<VPInstruction>(&Cond);
   LLVM_DEBUG(dbgs() << "propBranchDiv " << CondInst->getParent()->getName()
@@ -493,7 +494,7 @@ bool VPlanDivergenceAnalysis::pushMissingOperands(const VPInstruction &I) {
   }
   return MissingOp;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::computeImpl() {
 
@@ -588,7 +589,7 @@ bool VPlanDivergenceAnalysis::isUniformLoopEntity(const VPValue *V) const {
     return true;
   return false;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   if (DivergentLoopEntities.count(&V))
@@ -726,7 +727,7 @@ void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#if INTEL_CUSTOMIZATION
+
 // print function differs from the community version because VPlan is VPLoop
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
@@ -748,7 +749,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 VPConstant* VPlanDivergenceAnalysis::getConstantInt(int64_t Val) {
@@ -1343,7 +1344,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   SmallVector<const VPInstruction *, 2> PhiNodes;
   getPhis(CandidateLoop->getHeader(), PhiNodes);
   for (const auto *Phi : PhiNodes) {
-#endif
+#endif // INTEL_CUSTOMIZATION
     markDivergent(*Phi);
   }
 
@@ -1368,7 +1369,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
     // Mark induction entities as divergent.
     markEntitiesAsDivergent(RegionLoopEntities->vpinductions());
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Collect instructions that may possibly have non-deterministic result.
   for (auto *B : CandidateLoop->getBlocks())
@@ -1395,7 +1396,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // Propagate linearity - start at vector loop candidate header phi nodes.
   UndefShape = std::make_unique<VPVectorShape>(VPVectorShape::Undef);
   initializeShapes(PhiNodes);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   computeImpl();
 
@@ -1406,7 +1407,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // set for all instructions for consistency.
   setVectorShapesForUniforms(CandidateLoop);
   //verifyVectorShapes(CandidateLoop);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Mark the Loop-entities which we had marked as divergent, as uniform again.
@@ -1417,7 +1418,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
     }
     DivergentLoopEntities.clear();
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(print(dbgs(), CandidateLoop));
 }

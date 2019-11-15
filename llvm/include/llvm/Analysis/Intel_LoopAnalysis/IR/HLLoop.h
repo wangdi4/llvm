@@ -199,7 +199,8 @@ protected:
 
   void printDirectives(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID);
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID,
+                                 MDNode **ExternalLoopMetadata);
 
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
@@ -794,12 +795,18 @@ public:
   /// Add a list of metadata \p MDs to loops !llvm.loop MDNode.
   ///
   /// The MDNode should have the format !{!"string-identifier", Args...}
-  void addLoopMetadata(ArrayRef<MDNode *> MDs) {
-    addRemoveLoopMetadataImpl(MDs, "");
+  /// Function operates on \p ExternalLoopMetadata, if provided.
+  void addLoopMetadata(ArrayRef<MDNode *> MDs,
+                       MDNode **ExternalLoopMetadata = nullptr) {
+    addRemoveLoopMetadataImpl(MDs, "", ExternalLoopMetadata);
   }
 
   /// Remove !llvm.loop metadata that starts with \p ID.
-  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, ID); }
+  /// Function operates on \p ExternalLoopMetadata, if provided.
+  void removeLoopMetadata(StringRef ID,
+                          MDNode **ExternalLoopMetadata = nullptr) {
+    addRemoveLoopMetadataImpl({}, ID, ExternalLoopMetadata);
+  }
 
   /// Returns loop metadata corresponding to \p Name. Returns null if not found.
   MDNode *getLoopStringMetadata(StringRef Name) const;
@@ -1055,6 +1062,9 @@ public:
 
   /// Marks loop to do not unroll.
   void markDoNotUnroll();
+
+  // Add unroll disabling metadata to underlying LLVM loop.
+  void markLLVMLoopDoNotUnroll();
 
   /// Marks loop to do not unroll & jam.
   void markDoNotUnrollAndJam();

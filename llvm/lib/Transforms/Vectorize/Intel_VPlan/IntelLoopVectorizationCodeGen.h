@@ -221,10 +221,6 @@ private:
   /// remainder.
   void emitEndOfVectorLoop(Value *Count, Value *CountRoundDown);
 
-  // Return the trip count for the scalar loop. Returns 0 for non-constant trip
-  // count loops.
-  uint64_t getConstTripCount() const;
-
   // Return the trip count for the scalar loop.
   Value *getTripCount() const { return TripCount; }
 
