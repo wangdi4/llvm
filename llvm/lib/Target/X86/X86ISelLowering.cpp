@@ -18813,21 +18813,17 @@ SDValue X86TargetLowering::LowerSINT_TO_FP(SDValue Op,
 
   if (SDValue V = LowerI64IntToFP_AVX512DQ(Op, DAG, Subtarget))
     return V;
-
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   if (SDValue V = LowerI64IntToFP16(Op, DAG, Subtarget))
     return V;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-=======
   // SSE doesn't have an i16 conversion so we need to promote.
   if (SrcVT == MVT::i16 && isScalarFPTypeInSSEReg(VT)) {
     SDValue Ext = DAG.getNode(ISD::SIGN_EXTEND, dl, MVT::i32, Src);
     return DAG.getNode(ISD::SINT_TO_FP, dl, VT, Ext);
   }
->>>>>>> f7e9d81a8e222f3c9d4f57e0817f19bbb795e5b6
 
   SDValue ValueToStore = Op.getOperand(0);
   if (SrcVT == MVT::i64 && isScalarFPTypeInSSEReg(VT) &&
