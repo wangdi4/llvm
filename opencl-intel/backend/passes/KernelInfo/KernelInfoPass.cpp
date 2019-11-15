@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,6 +19,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/InitializePasses.h"
 #include <string>
 #include <math.h>
 
@@ -28,6 +29,10 @@ using namespace Intel::MetadataAPI;
 namespace intel {
 
   char KernelInfoPass::ID = 0;
+
+  KernelInfoPass::KernelInfoPass() : FunctionPass(ID) {
+    initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
+  }
 
   bool KernelInfoPass::runOnFunction(Function &Func) {
     auto kernelInfo = KernelInternalMetadataAPI(&Func);
