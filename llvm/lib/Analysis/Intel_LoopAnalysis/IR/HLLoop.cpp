@@ -292,7 +292,7 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
   if (ParTraits != nullptr)
     OS << " <parallel>";
 
-  if (isSIMD()) {
+  if (isAttached() && isSIMD()) {
     OS << " <simd>";
   }
 

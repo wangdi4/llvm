@@ -1,5 +1,8 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s -check-prefix=TFORM
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S < %s | FileCheck %s -check-prefix=DBG
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S < %s  | FileCheck %s -check-prefix=DBG
 ;
 ; Test src:
 ;
@@ -17,15 +20,18 @@
 ; data directly from the thunk.
 
 ; Caller side
-; CHECK: [[BPRIV:%[^ ]+]] = getelementptr {{.*}}struct.kmp_privates.t*{{.*}}i32 0, i32 0
-; CHECK: [[BPRIVCAST:%.+]] = bitcast [1000000 x i32]* [[BPRIV]] to i8*
-; CHECK: [[BCAST:%.+]] = bitcast {{.*}} %B to i8*
-; CHECK: call void @llvm.memcpy{{.*}}align 4 [[BPRIVCAST]], i8* align 4 [[BCAST]], i64 4000000
+; TFORM: [[BPRIV:%[^ ]+]] = getelementptr {{.*}}struct.kmp_privates.t*{{.*}}i32 0, i32 0
+; TFORM: [[BPRIVCAST:%.+]] = bitcast [1000000 x i32]* [[BPRIV]] to i8*
+; TFORM: [[BCAST:%.+]] = bitcast {{.*}} %B to i8*
+; TFORM: call void @llvm.memcpy{{.*}}align 4 [[BPRIVCAST]], i8* align 4 [[BCAST]], i64 4000000
+
+; Make sure that IR verification doesn't fail with -debug.
+; DBG-NOT: verification of{{.*}}failed!
 
 ; Task side
-; CHECK: define{{.*}}TASK
-; CHECK-NOT: fpriv
-; CHECK-NOT: call{{.*}}memcpy
+; TFORM: define{{.*}}TASK
+; TFORM-NOT: fpriv
+; TFORM-NOT: call{{.*}}memcpy
 
 ; ModuleID = 'intel-task-array.c'
 source_filename = "intel-task-array.c"

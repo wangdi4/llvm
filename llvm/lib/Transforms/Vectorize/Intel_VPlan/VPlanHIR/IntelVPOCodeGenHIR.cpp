@@ -639,16 +639,6 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
       FieldAccessSeen = true;
 
     MemRefSeen = true;
-
-    auto BaseCE = RegDD->getBaseCE();
-
-    if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
-      LLVM_DEBUG(
-          dbgs()
-          << "VPLAN_OPTREPORT: Loop not handled - BaseCE not invariant\n");
-      IsHandled = false;
-      return;
-    }
   }
 }
 
@@ -1325,12 +1315,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
     if (WideRef->isAddressOf()) {
       WideRef->setBitCastDestType(VecRefDestTy);
-
-      // There is nothing more to do for opaque types as they can only occur in
-      // this form: &p[0].
-      if (Ref->isOpaqueAddressOf()) {
-        return WideRef;
-      }
     } else {
       WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
       setRefAlignment(RefDestTy, WideRef);
@@ -1344,10 +1328,19 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     return WideRef;
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
+  RegDDRef::CanonExprsTy WideRefCEs;
+  if (WideRef->hasGEPInfo()) {
+    // If the base CE of this memref is loop variant then add it to the list
+    // of CEs to be updated for widening.
+    if (!WideRef->getBaseCE()->isInvariantAtLevel(NestingLevel)) {
+      WideRefCEs.push_back(WideRef->getBaseCE());
+    }
+  }
+  WideRefCEs.append(WideRef->canon_begin(), WideRef->canon_end());
+
   // For cases other than unit stride refs, we need to widen the induction
   // variable and replace blobs in Canon Expr with widened equivalents.
-  for (auto I = WideRef->canon_begin(), E = WideRef->canon_end(); I != E; ++I) {
-    auto CE = *I;
+  for (auto CE : WideRefCEs) {
 
     // Collect blob indices in canon expr before we start changing the same.
     SmallVector<unsigned, 8> BlobIndices;

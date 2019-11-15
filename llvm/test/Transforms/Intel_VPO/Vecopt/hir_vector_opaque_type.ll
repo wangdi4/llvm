@@ -1,6 +1,6 @@
-; The test verifies that vec codegen does not convert 0 index of opaque references into a vector type.
+; The test verifies that HIR vec codegen can handle memrefs with opaque types.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; BEGIN REGION { }
@@ -9,8 +9,12 @@
 ;   + END LOOP
 ; END REGION
 
-; Verify that 0 index is left as a scalar type.
-; CHECK: <RVAL-REG> &((<2 x %struct.OType*>)(LINEAR %struct.OType* %b)[i64 0])  
+; Verify that memref with opaque type is vectorized.
+; CHECK: <RVAL-REG> &((<2 x %struct.OType*>)(LINEAR %struct.OType* %b)[<2 x i64> 0])
+
+; Check broadcast pattern is generated for the opaque type memref after HIR-CG.
+; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x %struct.OType*> undef, %struct.OType* %b, i32 0
+; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x %struct.OType*> [[SPLATINSERT]], <2 x %struct.OType*> undef, <2 x i32> zeroinitializer
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

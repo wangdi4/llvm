@@ -466,9 +466,9 @@ public:
   bool isStandAloneUndefBlob() const;
 
   /// return true if the CanonExpr is zero
-  bool isZero() const {
+  bool isZero(bool HandleSplat = false) const {
     int64_t Val;
-    if (isIntConstant(&Val) && Val == 0) {
+    if (isIntConstantImpl(&Val, HandleSplat) && Val == 0) {
       return true;
     }
     return false;

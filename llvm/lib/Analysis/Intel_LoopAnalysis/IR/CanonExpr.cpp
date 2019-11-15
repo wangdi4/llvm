@@ -248,7 +248,6 @@ bool CanonExpr::isIntConstantImpl(int64_t *Val, bool HandleSplat) const {
   auto TSrcTy = getSrcType();
 
   if (HandleSplat) {
-    assert(TSrcTy->isVectorTy() && "Vector type expected!");
     TSrcTy = TSrcTy->getScalarType();
   }
 

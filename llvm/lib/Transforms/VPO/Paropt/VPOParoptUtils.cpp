@@ -1287,8 +1287,8 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
     FnTaskRedInit->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskRedInitCall =
-      CallInst::Create(FnTaskRedInit, TaskRedInitArgs, "", InsertPt);
+  CallInst *TaskRedInitCall = CallInst::Create(FnTaskRedInit, TaskRedInitArgs,
+                                               "task.reduction.init", InsertPt);
   TaskRedInitCall->setCallingConv(CallingConv::C);
   TaskRedInitCall->setTailCall(false);
 

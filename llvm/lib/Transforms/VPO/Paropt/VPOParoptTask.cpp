@@ -289,13 +289,12 @@ void VPOParoptTransform::genTaskTRedType() {
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
   IntegerType *Int64Ty = Type::getInt64Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  Type *TaskTRedTyArgs[] = {Type::getInt8PtrTy(C), Int64Ty,
-                            Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                            Type::getInt8PtrTy(C), Int32Ty};
 
   KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
-      F, "__struct.kmp_task_t_red_item", TaskTRedTyArgs);
+      F, "__struct.kmp_task_t_red_item",
+      {Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
 }
 
 // internal structure for dependInfo
@@ -488,6 +487,9 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
                                       KmpTaksTWithPrivatesTyArgs.end()),
                          "__struct.kmp_task_t_with_privates", false);
 
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Task thunk type for privates: '"
+                    << *KmpPrivatesTy << "', shareds: '" << *KmpSharedTy
+                    << "'.\n");
   return KmpTaskTTWithPrivatesTy;
 }
 
@@ -627,7 +629,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
             {Zero, Builder.getInt32(LprivI->getSharedThunkIdx())},
             OrigName + ".shr.gep");
         Value *ThunkSharedVal =
-            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
+            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
         // Parm is used to record the address of last private in the compiler
         // shared variables in the thunk.
         LprivI->setOrigGEP(ThunkSharedVal);
@@ -647,7 +649,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
             {Zero, Builder.getInt32(RedI->getSharedThunkIdx())},
             OrigName + ".shr.gep");
         Value *ThunkSharedVal =
-            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
+            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
         Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
             Mode & OmpTbb);
@@ -678,7 +680,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
           {Zero, Builder.getInt32(ShaI->getSharedThunkIdx())},
           OrigName + ".shr.gep");
       Value *ThunkSharedVal =
-          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
+          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
       ShaI->setNew(ThunkSharedVal);
     }
   }
@@ -1195,10 +1197,11 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
 
   StructType *KmpTaskTTRedRecTy = StructType::create(
-      C, makeArrayRef(KmpTaskTRedRecTyArgs.begin(), KmpTaskTRedRecTyArgs.end()),
-      "__struct.kmp_task_t_red_rec", false);
+      C, KmpTaskTRedRecTyArgs, "__struct.kmp_task_t_red_rec", false);
 
   IRBuilder<> Builder(InsertBefore);
+  Value *Zero = Builder.getInt32(0);
+
   AllocaInst *DummyTaskTRedRec =
       Builder.CreateAlloca(KmpTaskTTRedRecTy, nullptr, "taskt.red.rec");
 
@@ -1206,18 +1209,20 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   unsigned Count = 0;
   for (ReductionItem *RedI : RedClause.items()) {
 
-    Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
-        KmpTaskTTRedRecTy, DummyTaskTRedRec,
-        {Builder.getInt32(0), Builder.getInt32(Count++)});
+    StringRef NamePrefix = RedI->getOrig()->getName();
 
-    Value *Gep =
-        Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                  {Builder.getInt32(0), Builder.getInt32(0)});
+    Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
+        KmpTaskTTRedRecTy, DummyTaskTRedRec, {Zero, Builder.getInt32(Count++)},
+        NamePrefix + ".red.struct");
+
+    Value *Gep = Builder.CreateInBoundsGEP(
+        KmpTaskTRedTy, BaseTaskTRedGep, {Zero, Zero}, NamePrefix + ".red.item");
     Builder.CreateStore(
         Builder.CreateBitCast(RedI->getOrig(), Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(1)});
+                                    {Zero, Builder.getInt32(1)},
+                                    NamePrefix + ".red.size");
     Builder.CreateStore(
         Builder.getInt64(DL.getTypeAllocSize(
             RedI->getOrig()->getType()->getPointerElementType())),
@@ -1225,22 +1230,26 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
     Function *RedInitFunc = genTaskLoopRedInitFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(2)});
+                                    {Zero, Builder.getInt32(2)},
+                                    NamePrefix + ".red.init");
     Builder.CreateStore(
         Builder.CreateBitCast(RedInitFunc, Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(3)});
+                                    {Zero, Builder.getInt32(3)},
+                                    NamePrefix + ".red.fini");
     Builder.CreateStore(ConstantPointerNull::get(Type::getInt8PtrTy(C)), Gep);
 
     Function *RedCombFunc = genTaskLoopRedCombFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(4)});
+                                    {Zero, Builder.getInt32(4)},
+                                    NamePrefix + ".red.comb");
     Builder.CreateStore(
         Builder.CreateBitCast(RedCombFunc, Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(5)});
+                                    {Zero, Builder.getInt32(5)},
+                                    NamePrefix + ".red.flags");
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }
   VPOParoptUtils::genKmpcTaskReductionInit(
