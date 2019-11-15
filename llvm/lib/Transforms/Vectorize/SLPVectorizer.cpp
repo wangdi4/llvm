@@ -254,7 +254,10 @@ static cl::opt<unsigned> MinTreeSize(
     "slp-min-tree-size", cl::init(3), cl::Hidden,
     cl::desc("Only vectorize small trees if they are fully vectorizable"));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
 // The maximum depth that the look-ahead score heuristic will explore.
 // The higher this value, the higher the compilation time overhead.
 static cl::opt<int> LookAheadMaxDepth(
@@ -269,7 +272,10 @@ static cl::opt<unsigned> LookAheadUsersBudget(
     cl::desc("The maximum number of users to visit while visiting the "
              "predecessors. This prevents compilation time increase."));
 
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
 static cl::opt<bool>
     ViewSLPTree("view-slp-tree", cl::Hidden,
                 cl::desc("Display the SLP trees with Graphviz"));
@@ -957,7 +963,11 @@ public:
 
     const DataLayout &DL;
     ScalarEvolution &SE;
+<<<<<<< HEAD
     const BoUpSLP &R; // INTEL
+=======
+    const BoUpSLP &R;
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
 
     /// \returns the operand data at \p OpIdx and \p Lane.
     OperandData &getData(unsigned OpIdx, unsigned Lane) {
@@ -983,7 +993,10 @@ public:
       std::swap(OpsVec[OpIdx1][Lane], OpsVec[OpIdx2][Lane]);
     }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
     // The hard-coded scores listed here are not very important. When computing
     // the scores of matching one sub-tree with another, we are basically
     // counting the number of values that are matching. So even if all scores
@@ -994,6 +1007,11 @@ public:
 
     /// Loads from consecutive memory addresses, e.g. load(A[i]), load(A[i+1]).
     static const int ScoreConsecutiveLoads = 3;
+<<<<<<< HEAD
+=======
+    /// ExtractElementInst from same vector and consecutive indexes.
+    static const int ScoreConsecutiveExtracts = 3;
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
     /// Constants.
     static const int ScoreConstants = 2;
     /// Instructions with the same opcode.
@@ -1026,6 +1044,19 @@ public:
       if (C1 && C2)
         return VLOperands::ScoreConstants;
 
+<<<<<<< HEAD
+=======
+      // Extracts from consecutive indexes of the same vector better score as
+      // the extracts could be optimized away.
+      auto *Ex1 = dyn_cast<ExtractElementInst>(V1);
+      auto *Ex2 = dyn_cast<ExtractElementInst>(V2);
+      if (Ex1 && Ex2 && Ex1->getVectorOperand() == Ex2->getVectorOperand() &&
+          cast<ConstantInt>(Ex1->getIndexOperand())->getZExtValue() + 1 ==
+              cast<ConstantInt>(Ex2->getIndexOperand())->getZExtValue()) {
+        return VLOperands::ScoreConsecutiveExtracts;
+      }
+
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
       auto *I1 = dyn_cast<Instruction>(V1);
       auto *I2 = dyn_cast<Instruction>(V2);
       if (I1 && I2) {
@@ -1193,7 +1224,10 @@ public:
       return getScoreAtLevelRec(LHS, RHS, 1, LookAheadMaxDepth);
     }
 
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
     // Search all operands in Ops[*][Lane] for the one that matches best
     // Ops[OpIdx][LastLane] and return its opreand index.
     // If no good match can be found, return None.
@@ -1239,6 +1273,7 @@ public:
         // Look for an operand that matches the current mode.
         switch (RMode) {
         case ReorderingMode::Load:
+<<<<<<< HEAD
         case ReorderingMode::Constant:  // INTEL
         case ReorderingMode::Opcode: {  // INTEL
           bool LeftToRight = Lane > LastLane;
@@ -1246,6 +1281,15 @@ public:
           Value *OpRight = (LeftToRight) ? Op : OpLastLane;
           unsigned Score =                                            // INTEL
               getLookAheadScore({OpLeft, LastLane}, {OpRight, Lane}); // INTEL
+=======
+        case ReorderingMode::Constant:
+        case ReorderingMode::Opcode: {
+          bool LeftToRight = Lane > LastLane;
+          Value *OpLeft = (LeftToRight) ? OpLastLane : Op;
+          Value *OpRight = (LeftToRight) ? Op : OpLastLane;
+          unsigned Score =
+              getLookAheadScore({OpLeft, LastLane}, {OpRight, Lane});
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
           if (Score > BestOp.Score) {
             BestOp.Idx = Idx;
             BestOp.Score = Score;
@@ -1382,8 +1426,13 @@ public:
   public:
     /// Initialize with all the operands of the instruction vector \p RootVL.
     VLOperands(ArrayRef<Value *> RootVL, const DataLayout &DL,
+<<<<<<< HEAD
                ScalarEvolution &SE, const BoUpSLP &R)  // INTEL
         : DL(DL), SE(SE), R(R) {                       // INTEL
+=======
+               ScalarEvolution &SE, const BoUpSLP &R)
+        : DL(DL), SE(SE), R(R) {
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
       // Append all the operands of RootVL.
       appendOperandsOfVL(RootVL);
     }
@@ -1971,12 +2020,16 @@ private:
                                              SmallVectorImpl<Value *> &Right,
                                              const DataLayout &DL,
                                              ScalarEvolution &SE,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                                              SmallVectorImpl<int> &OpDirLeft,
                                              SmallVectorImpl<int> &OpDirRight,
                                              const BoUpSLP &R
 #endif // INTEL_CUSTOMIZATION
                                              );
+=======
+                                             const BoUpSLP &R);
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
   struct TreeEntry {
     using VecTreeTy = SmallVector<std::unique_ptr<TreeEntry>, 8>;
     TreeEntry(VecTreeTy &Container) : Container(Container) {}
@@ -5478,8 +5531,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         // Commutative predicate - collect + sort operands of the instructions
         // so that each side is more likely to have the same opcode.
         assert(P0 == SwapP0 && "Commutative Predicate mismatch");
+<<<<<<< HEAD
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight, *this); // INTEL
+=======
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
       } else {
         for (Value *V : VL) {
           auto *Cmp = cast<CmpInst>(V);
@@ -5533,6 +5590,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // have the same opcode.
       if (isa<BinaryOperator>(VL0) && VL0->isCommutative()) {
         ValueList Left, Right;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         SmallVector<int, 4> OpDirLeft, OpDirRight;
         // Workaround for reducing the number of shuffles. Don't reorder
@@ -5553,6 +5611,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
               SelectRightOperand = true;
           }
         }
+=======
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         if (SelectRightOperand) {
@@ -5773,8 +5834,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (isa<BinaryOperator>(VL0)) {
         SmallVector<int, 4> OpDirLeft, OpDirRight;
         ValueList Left, Right;
+<<<<<<< HEAD
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight, *this);
+=======
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, *this);
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
@@ -6584,6 +6649,7 @@ int BoUpSLP::getGatherCost(ArrayRef<Value *> VL) const {
 #if INTEL_CUSTOMIZATION
 // Perform operand reordering on the instructions in VL and return the reordered
 // operands in Left and Right.
+<<<<<<< HEAD
 void BoUpSLP::reorderInputsAccordingToOpcode(
     ArrayRef<Value *> VL, SmallVectorImpl<Value *> &Left,
     SmallVectorImpl<Value *> &Right, const DataLayout &DL,
@@ -6600,6 +6666,17 @@ void BoUpSLP::reorderInputsAccordingToOpcode(
   VLOperands Ops(VL, DL, SE, R);
   SmallVector<Value *, 4> OrigLeft;
   OrigLeft = Ops.getVL(0);
+=======
+void BoUpSLP::reorderInputsAccordingToOpcode(ArrayRef<Value *> VL,
+                                             SmallVectorImpl<Value *> &Left,
+                                             SmallVectorImpl<Value *> &Right,
+                                             const DataLayout &DL,
+                                             ScalarEvolution &SE,
+                                             const BoUpSLP &R) {
+  if (VL.empty())
+    return;
+  VLOperands Ops(VL, DL, SE, R);
+>>>>>>> 6a18a9548761b266b28a49f705a568677c24b59b
   // Reorder the operands in place.
   Ops.reorder();
   Left = Ops.getVL(0);
