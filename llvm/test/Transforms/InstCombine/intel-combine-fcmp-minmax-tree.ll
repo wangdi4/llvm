@@ -152,3 +152,16 @@ entry:
   %res = or i1 %or.cond39, %cmp3
   ret i1 %res
 }
+
+; Check that fcmp min/max idiom check won't crash compilation in case if one
+; of operands is evaluated to constant value.
+define zeroext i1 @no_fcmp_minmax_crash(float %x) {
+; CHECK-LABEL: @no_fcmp_minmax_crash(
+; CHECK-NEXT:    [[FCMP:%.*]] = fcmp {{oeq|une}} float [[X:%.*]], 1.000000e+01
+; CHECK-NEXT:    [[OR:%.*]] = or i1 [[FCMP]], or (i1 icmp ne (i64 addrspace(3)* addrspacecast (i64 addrspace(4)* null to i64 addrspace(3)*), i64 addrspace(3)* null), i1 icmp ne (i64* addrspacecast (i64 addrspace(4)* null to i64*), i64* null))
+; CHECK-NEXT:    ret i1 [[OR]]
+;
+  %cmp = fcmp une float %x, 1.000000e+01
+  %or.cond1 = or i1 %cmp, or (i1 icmp ne (i64 addrspace(3)* addrspacecast (i64 addrspace(4)* null to i64 addrspace(3)*), i64 addrspace(3)* null), i1 icmp ne (i64* addrspacecast (i64 addrspace(4)* null to i64*), i64* null))
+  ret i1 %or.cond1
+}

@@ -3488,10 +3488,10 @@ bool InstCombiner::hoistFcmpAndExchangeUses(Instruction *I1, Value *Op,
 Instruction *InstCombiner::combineAndOrTreeToFcmpMinMax(BinaryOperator &I) {
   auto combineNestedLogicalOps = [&I, this](Value *OpBin,
                                             Value *OpFcmp) -> Instruction * {
-    BinaryOperator *NestedBinOp = cast<BinaryOperator>(OpBin);
+    BinaryOperator *NestedBinOp = dyn_cast<BinaryOperator>(OpBin);
     // nested binary operator should be exactly the same,
     // i.e. (A | B) & C is skipped
-    if (NestedBinOp->getOpcode() == I.getOpcode()) {
+    if (NestedBinOp && NestedBinOp->getOpcode() == I.getOpcode()) {
       Instruction *IFcmp = cast<Instruction>(OpFcmp);
       Value *Op0 = NestedBinOp->getOperand(0);
       Value *Op1 = NestedBinOp->getOperand(1);
