@@ -111,6 +111,9 @@ public:
   // Returns index of "flag" field.
   int32_t getFlagField() { return FlagField; }
 
+  // Returns index of "array" field.
+  int32_t getArrayField() { return ArrayField; }
+
   // Returns CtorFunction.
   Function *getCtorFunction() { return CtorFunction; }
 
@@ -163,7 +166,7 @@ public:
 
   Function *getCtorWrapper();
 
-  Function *getDtorWrapper();
+  Function *getSingleMemberFunction(FunctionKind);
 
 private:
   const DataLayout &DL;
