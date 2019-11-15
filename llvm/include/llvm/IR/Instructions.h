@@ -5290,7 +5290,6 @@ inline unsigned getLoadStoreAddressSpace(Value *I) {
   return cast<StoreInst>(I)->getPointerAddressSpace();
 }
 
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 /// \returns the correct type of the operand based on whether it is a Load
@@ -5305,7 +5304,6 @@ inline Type *getLoadStoreType(Instruction *I) {
 }
 
 #endif //INTEL_CUSTOMIZATION
-=======
 //===----------------------------------------------------------------------===//
 //                              FreezeInst Class
 //===----------------------------------------------------------------------===//
@@ -5334,7 +5332,6 @@ public:
     return isa<Instruction>(V) && classof(cast<Instruction>(V));
   }
 };
->>>>>>> e87d71668e10f51abe4b2f1f3c44591aca783750
 
 } // end namespace llvm
 
