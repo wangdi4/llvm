@@ -814,7 +814,6 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
-<<<<<<< HEAD
 /// Parse optional 'score' '(' <expr> ')' ':'.
 static ExprResult parseContextScore(Parser &P) {
   ExprResult ScoreExpr;
@@ -915,10 +914,6 @@ parseImplementationSelector(Parser &P, SourceLocation Loc,
 
 #if INTEL_CUSTOMIZATION
 /// Parse context selector for 'construct' selector set.
-=======
-#if INTEL_COLLAB
-/// Parses the 'construct' part of the match clause.
->>>>>>> 545569c12a629f62af83be227ee8f29f46f4d898
 ///
 /// The 5.0 spec allows: target;teams;parallel;for;simd
 ///
@@ -995,71 +990,10 @@ parseConstructSelector(Parser &P, SourceLocation Loc,
 ///
 /// We currently support only 'arch'.
 ///
-<<<<<<< HEAD
 static void
 parseDeviceSelector(Parser &P, SourceLocation Loc,
                     llvm::StringMap<SourceLocation> &UsedCtx,
                     SmallVectorImpl<Sema::OMPCtxSelectorData> &Data) {
-=======
-static bool parseMatchDevices(Parser &P,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
-  const Token &Tok = P.getCurToken();
-  bool IsError = false;
-  while (Tok.is(tok::identifier)) {
-    IdentifierInfo *II = Tok.getIdentifierInfo();
-    StringRef SetSelectorName = II->getName();
-    if (SetSelectorName == "arch") {
-      IsError = parseMatchDeviceArchs(P, Devices);
-    } else {
-      P.Diag(Tok, diag::err_omp_bad_context_selector)
-          << "device" << OMPDeclareVariantAttr::getSupportedDevices();
-      while (!P.SkipUntil(tok::r_brace, tok::r_paren,
-                          tok::annot_pragma_openmp_end,
-                          Parser::StopBeforeMatch))
-        ;
-      return true;
-    }
-    // Skip ',' if any.
-    if (Tok.is(tok::comma))
-      P.ConsumeToken();
-  }
-  return IsError;
-}
-#endif // INTEL_COLLAB
-
-/// Parse optional 'score' '(' <expr> ')' ':'.
-static ExprResult parseContextScore(Parser &P) {
-  ExprResult ScoreExpr;
-  SmallString<16> Buffer;
-  StringRef SelectorName =
-      P.getPreprocessor().getSpelling(P.getCurToken(), Buffer);
-  if (!SelectorName.equals("score"))
-    return ScoreExpr;
-  (void)P.ConsumeToken();
-  SourceLocation RLoc;
-  ScoreExpr = P.ParseOpenMPParensExpr(SelectorName, RLoc);
-  // Parse ':'
-  if (P.getCurToken().is(tok::colon))
-    (void)P.ConsumeAnyToken();
-  else
-    P.Diag(P.getCurToken(), diag::warn_pragma_expected_colon)
-        << "context selector score clause";
-  return ScoreExpr;
-}
-
-/// Parse context selector for 'implementation' selector set:
-/// 'vendor' '(' [ 'score' '(' <score _expr> ')' ':' ] <vendor> { ',' <vendor> }
-/// ')'
-static void parseImplementationSelector(
-    Parser &P, SourceLocation Loc, llvm::StringMap<SourceLocation> &UsedCtx,
-    llvm::function_ref<void(SourceRange,
-#if INTEL_CUSTOMIZATION
-             SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &,
-             SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &,
-#endif // INTEL_CUSTOMIZATION
-                            const Sema::OpenMPDeclareVariantCtsSelectorData &)>
-        Callback) {
->>>>>>> 545569c12a629f62af83be227ee8f29f46f4d898
   const Token &Tok = P.getCurToken();
   // Parse inner context selector set name, if any.
   if (!Tok.is(tok::identifier)) {
