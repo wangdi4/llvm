@@ -64,6 +64,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
 #define OPT_SWITCH "hir-aos-to-soa"

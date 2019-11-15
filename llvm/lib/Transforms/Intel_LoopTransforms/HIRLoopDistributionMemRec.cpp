@@ -12,6 +12,7 @@
 //
 
 #include "HIRLoopDistributionImpl.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
 
 using namespace llvm;

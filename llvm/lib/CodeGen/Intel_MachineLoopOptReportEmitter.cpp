@@ -1,6 +1,6 @@
 //===- MachineLoopOptReportEmitter.cpp - Prints Loop Optimization reports -------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"

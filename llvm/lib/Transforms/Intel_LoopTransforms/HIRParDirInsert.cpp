@@ -21,6 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ParVecDirectiveInsertion.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "parvec-transform"

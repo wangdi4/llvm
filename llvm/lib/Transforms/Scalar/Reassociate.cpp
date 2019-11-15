@@ -30,11 +30,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Transforms/Utils/Local.h"
-=======
->>>>>>> 05da2fe52162c80dfa18aedf70cf73cb11201811
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"

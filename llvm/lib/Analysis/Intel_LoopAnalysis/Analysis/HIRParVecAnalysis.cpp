@@ -35,6 +35,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VectorUtils.h"
 
+#include "llvm/InitializePasses.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -199,7 +201,14 @@ void ParVecVisitor::visit(HLInst *Node) {
 FunctionPass *llvm::createHIRParVecAnalysisPass() {
   return new HIRParVecAnalysisWrapperPass();
 }
+
 char HIRParVecAnalysisWrapperPass::ID = 0;
+
+HIRParVecAnalysisWrapperPass::HIRParVecAnalysisWrapperPass()
+    : FunctionPass(ID) {
+  initializeHIRParVecAnalysisWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)

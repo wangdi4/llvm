@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Function.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"

@@ -81,11 +81,8 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
-<<<<<<< HEAD
 #include "llvm/IR/Verifier.h" // INTEL
-=======
 #include "llvm/InitializePasses.h"
->>>>>>> 05da2fe52162c80dfa18aedf70cf73cb11201811
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/PassSupport.h"

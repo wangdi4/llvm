@@ -25,6 +25,7 @@
 #include "HIRLastValueComputationImpl.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define OPT_SWITCH "hir-last-value-computation"

@@ -40,6 +40,7 @@
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"

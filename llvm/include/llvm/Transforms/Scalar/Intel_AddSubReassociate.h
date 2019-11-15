@@ -473,9 +473,7 @@ class AddSubReassociateLegacyPass : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  AddSubReassociateLegacyPass() : FunctionPass(ID) {
-    initializeAddSubReassociateLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
+  AddSubReassociateLegacyPass();
 
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;

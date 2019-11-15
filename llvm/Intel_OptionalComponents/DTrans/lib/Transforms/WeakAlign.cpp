@@ -22,6 +22,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
 using namespace llvm;

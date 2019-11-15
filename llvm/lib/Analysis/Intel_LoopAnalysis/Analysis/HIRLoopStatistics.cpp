@@ -16,6 +16,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/InitializePasses.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"

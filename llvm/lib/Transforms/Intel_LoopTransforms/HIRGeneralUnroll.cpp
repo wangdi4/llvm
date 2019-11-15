@@ -74,6 +74,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/InitializePasses.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"

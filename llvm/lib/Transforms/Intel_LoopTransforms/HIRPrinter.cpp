@@ -16,6 +16,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Function.h"
+#include "llvm/InitializePasses.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"

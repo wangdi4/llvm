@@ -25,6 +25,7 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 

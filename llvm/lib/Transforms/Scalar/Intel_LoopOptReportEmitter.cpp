@@ -16,6 +16,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/FormattedStream.h"
 

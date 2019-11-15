@@ -17,6 +17,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 
+#include "llvm/InitializePasses.h"
+
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/AliasAnalysis.h"

@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;

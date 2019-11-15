@@ -47,6 +47,7 @@
 #include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 using namespace PatternMatch;

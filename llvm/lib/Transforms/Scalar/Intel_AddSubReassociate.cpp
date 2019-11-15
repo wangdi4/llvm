@@ -151,6 +151,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
@@ -1943,6 +1944,10 @@ PreservedAnalyses AddSubReassociatePass::run(Function &F,
 }
 
 char AddSubReassociateLegacyPass::ID = 0;
+
+AddSubReassociateLegacyPass::AddSubReassociateLegacyPass() : FunctionPass(ID) {
+  initializeAddSubReassociateLegacyPassPass(*PassRegistry::getPassRegistry());
+}
 
 bool AddSubReassociateLegacyPass::runOnFunction(Function &F) {
   if (skipFunction(F))

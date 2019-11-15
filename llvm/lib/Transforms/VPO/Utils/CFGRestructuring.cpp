@@ -27,6 +27,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/ADT/Twine.h"
 
 using namespace llvm;

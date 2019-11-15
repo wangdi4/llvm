@@ -21,6 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ParVecDirectiveInsertion.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
 
