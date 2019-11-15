@@ -10630,7 +10630,7 @@ void SelectionDAGBuilder::visitSwitch(const SwitchInst &SI) {
   }
 }
 
-void SelectionDAGBuilder::visitFreeze(const User &I) {
+void SelectionDAGBuilder::visitFreeze(const FreezeInst &I) {
   SDValue N = getValue(I.getOperand(0));
   setValue(&I, N);
 }

@@ -851,7 +851,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   } while (false)
 
   INSTKEYWORD(fneg,  FNeg);
-  INSTKEYWORD(freeze, Freeze);
 
   INSTKEYWORD(add,   Add);  INSTKEYWORD(fadd,   FAdd);
   INSTKEYWORD(sub,   Sub);  INSTKEYWORD(fsub,   FSub);
@@ -907,6 +906,8 @@ lltok::Kind LLLexer::LexIdentifier() {
   INSTKEYWORD(catchswitch,  CatchSwitch);
   INSTKEYWORD(catchpad,     CatchPad);
   INSTKEYWORD(cleanuppad,   CleanupPad);
+
+  INSTKEYWORD(freeze,       Freeze);
 
 #undef INSTKEYWORD
 
