@@ -625,8 +625,9 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
   if (!E.getIsMemOnly()) {
     auto &LinkedVals = E.getLinkedVPValues();
     for (auto *Val : LinkedVals)
-      if (auto *Instr = dyn_cast<VPInstruction>(Val))
-        Instr->replaceUsesOfWith(&Start, &Init);
+      if (auto *Phi = dyn_cast<VPPHINode>(Val))
+        if (Loop.getHeader() == Phi->getParent())
+          Phi->replaceUsesOfWith(&Start, &Init);
   }
   linkValue(&E, &Init);
 }
@@ -787,11 +788,12 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
         Induction->getStep(), Opc, Name + ".ind.init.step");
 
     if (!Induction->needCloseForm()) {
-      auto &LinkedVals = Induction->getLinkedVPValues();
-      for (auto *Val : LinkedVals)
-        if (auto *Instr = dyn_cast<VPInstruction>(Val))
-          if (!isa<VPInductionInit>(Instr))
-            Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+      if (auto *Instr = Induction->getInductionBinOp())
+        // This is the only instruction to replace step in induction
+        // calculation, no other instruction should be affected. That is
+        // important in case the step is used in other instructions linked
+        // with induction.
+        Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
     } else {
       createInductionCloseForm(Induction, Builder, *Init, *InitStep,
                                *PrivateMem);
