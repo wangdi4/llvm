@@ -912,6 +912,17 @@ void CHR::checkScopeHoistable(CHRScope *Scope) {
       DenseMap<Instruction *, bool> Visited;
       bool IsHoistable = checkHoistValue(SI->getCondition(), InsertPoint,
                                          DT, Unhoistables, nullptr, Visited);
+#if INTEL_CUSTOMIZATION
+      auto NewFreq =
+          BFI.getBlockProfileCount(InsertPoint->getParent());
+      auto OldFreq = BFI.getBlockProfileCount(SI->getParent());
+
+      // If insert point is hotter than current block,
+      // drop it.
+      if (NewFreq && OldFreq &&
+          NewFreq.getValue() > OldFreq.getValue()*2)
+        IsHoistable = false;
+#endif // INTEL_CUSTOMIZATION
       if (!IsHoistable) {
         CHR_DEBUG(dbgs() << "Dropping select " << *SI << "\n");
         ORE.emit([&]() {
@@ -933,6 +944,17 @@ void CHR::checkScopeHoistable(CHRScope *Scope) {
       DenseMap<Instruction *, bool> Visited;
       bool IsHoistable = checkHoistValue(Branch->getCondition(), InsertPoint,
                                          DT, Unhoistables, nullptr, Visited);
+#if INTEL_CUSTOMIZATION
+      auto NewFreq =
+          BFI.getBlockProfileCount(InsertPoint->getParent());
+      auto OldFreq = BFI.getBlockProfileCount(Branch->getParent());
+
+      // If insert point is hotter than current block,
+      // drop it.
+      if (NewFreq && OldFreq &&
+          NewFreq.getValue() > OldFreq.getValue()*2)
+        IsHoistable = false;
+#endif // INTEL_CUSTOMIZATION
       if (!IsHoistable) {
         // If the branch isn't hoistable, drop the selects in the entry
         // block, preferring the branch, which makes the branch the hoist
