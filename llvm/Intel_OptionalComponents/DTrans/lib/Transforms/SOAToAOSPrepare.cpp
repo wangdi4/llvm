@@ -216,11 +216,8 @@
 #include "SOAToAOSClassInfo.h"
 
 #include "llvm/Analysis/Intel_WP.h"
-<<<<<<< HEAD
-#include "llvm/InitializePasses.h"
-=======
 #include "llvm/IR/IRBuilder.h"
->>>>>>> 99df7bb2efc1bbb15db6eccf1946bcb5f4760cfc
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
