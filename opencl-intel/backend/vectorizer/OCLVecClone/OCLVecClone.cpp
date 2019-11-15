@@ -511,43 +511,99 @@ static void addEntries(ContainerTy &Info, std::string ScalarBaseName,
 static void addSpecialBuiltins(ContainerTy &Info) {
   // Scalar -> [VF4, VF8, VF16]
   using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
+  using BuiltinInfoList = std::vector<BuiltinInfo>;
 
-  BuiltinInfo ReadBuiltins[] = {
-      {"_Z26intel_sub_group_block_readPU3AS1Kj",
-       {"_Z29intel_sub_group_block_read1_4PU3AS1Kj",
-        "_Z29intel_sub_group_block_read1_8PU3AS1Kj",
-        "_Z30intel_sub_group_block_read1_16PU3AS1Kj"}},
-      {"_Z27intel_sub_group_block_read2PU3AS1Kj",
-       {"_Z29intel_sub_group_block_read2_4PU3AS1Kj",
-        "_Z29intel_sub_group_block_read2_8PU3AS1Kj",
-        "_Z30intel_sub_group_block_read2_16PU3AS1Kj"}},
-      {"_Z27intel_sub_group_block_read4PU3AS1Kj",
-       {"_Z29intel_sub_group_block_read4_4PU3AS1Kj",
-        "_Z29intel_sub_group_block_read4_8PU3AS1Kj",
-        "_Z30intel_sub_group_block_read4_16PU3AS1Kj"}},
-      {"_Z27intel_sub_group_block_read8PU3AS1Kj",
-       {"_Z29intel_sub_group_block_read8_4PU3AS1Kj",
-        "_Z29intel_sub_group_block_read8_8PU3AS1Kj",
-        "_Z30intel_sub_group_block_read8_16PU3AS1Kj"}},
+  const std::string BlockReadBaseName("intel_sub_group_block_read");
+  const std::string BlockWriteBaseName("intel_sub_group_block_write");
+
+  llvm::StringMap<std::string> SuffixMap{
+      {{"", "j"}, {"_ul", "m"}, {"_ui", "j"}, {"_us", "t"}, {"_uc", "h"}}};
+
+  std::array<std::string, 5> BlockReadWriteSuffixes{
+      {"", "_ul", "_ui", "_us", "_uc"}};
+  std::array<unsigned, 4> BlockReadWriteVecLengths{{1, 2, 4, 8}};
+
+  // Example:
+  // "intel_sub_group_block_read", "", 1 -> "intel_sub_group_block_read"
+  // "intel_sub_group_block_read", "_us", "2" ->
+  // "intel_sub_group_block_read_us2"
+  auto ConstructBaseName = [](const std::string &BaseName,
+                              const std::string &Suffix, unsigned OrigTypeVL) {
+    std::string OrigTypeVLStr = OrigTypeVL == 1 ? "" : std::to_string(OrigTypeVL);
+    return BaseName + Suffix + OrigTypeVLStr;
   };
-  BuiltinInfo WriteBuiltins[] = {
-      {"_Z27intel_sub_group_block_writePU3AS1jj",
-       {"_Z30intel_sub_group_block_write1_4PU3AS1jDv4_j",
-        "_Z30intel_sub_group_block_write1_8PU3AS1jDv8_j",
-        "_Z31intel_sub_group_block_write1_16PU3AS1jDv16_j"}},
-      {"_Z28intel_sub_group_block_write2PU3AS1jDv2_j",
-       {"_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j",
-        "_Z30intel_sub_group_block_write2_8PU3AS1jDv16_j",
-        "_Z31intel_sub_group_block_write2_16PU3AS1jDv32_j"}},
-      {"_Z28intel_sub_group_block_write4PU3AS1jDv4_j",
-       {"_Z30intel_sub_group_block_write4_4PU3AS1jDv16_j",
-        "_Z30intel_sub_group_block_write4_8PU3AS1jDv32_j",
-        "_Z31intel_sub_group_block_write4_16PU3AS1jDv64_j"}},
-      {"_Z28intel_sub_group_block_write8PU3AS1jDv8_j",
-       {"_Z30intel_sub_group_block_write8_4PU3AS1jDv32_j",
-        "_Z30intel_sub_group_block_write8_8PU3AS1jDv64_j",
-        "_Z31intel_sub_group_block_write8_16PU3AS1jDv128_j"}},
+
+  // Example:
+  // "intel_sub_group_block_read", "", "4" ->
+  //   "intel_sub_group_block_read1_4"
+  // "intel_sub_group_block_read", "_us", "2", "4" ->
+  //   "intel_sub_group_block_read_us2_4"
+  auto ConstructVFName = [](const std::string &BaseName,
+                            const std::string &Suffix, unsigned OrigTypeVL,
+                            unsigned VF) {
+    std::string OrigTypeVLStr = std::to_string(OrigTypeVL);
+    return BaseName + Suffix + OrigTypeVLStr + "_" + std::to_string(VF);
   };
+
+  // Example:
+  // "intel_sub_group_block_read", "" ->
+  //   "_Z26intel_sub_group_block_readPU3AS1Kj"
+  // "intel_sub_group_block_read",
+  //   "_us" -> "_Z29intel_sub_group_block_read_usPU3AS1Kt"
+  auto ConstructReadMangledName = [&SuffixMap](const std::string &BaseName,
+                                               const std::string &Suffix) {
+    return "_Z" + std::to_string(BaseName.length()) + BaseName + "PU3AS1K" +
+           SuffixMap[Suffix];
+  };
+
+  // Example:
+  // "intel_sub_group_block_write1_4, "", 1, 4 ->
+  // "_Z30intel_sub_group_block_write1_4PU3AS1jDv4_j"
+  // "intel_sub_group_block_write_us2_4", "_us", 2, 4 ->
+  // "_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_t"
+  auto ConstructWriteMangledName =
+      [&SuffixMap](const std::string &BaseName, const std::string &Suffix,
+                   unsigned OrigTypeVL, unsigned VF) {
+    return "_Z" + std::to_string(BaseName.length()) + BaseName + "PU3AS1" +
+           SuffixMap[Suffix] +
+           TypeInfo(SuffixMap[Suffix][0], OrigTypeVL * VF).str();
+  };
+
+  BuiltinInfoList ReadBuiltins;
+  BuiltinInfoList WriteBuiltins;
+  for (auto Suffix : BlockReadWriteSuffixes) {
+    for (auto OrigTypeVL : BlockReadWriteVecLengths) {
+      const std::string BlockReadBaseName("intel_sub_group_block_read");
+      std::string ReadBaseName =
+          ConstructBaseName(BlockReadBaseName, Suffix, OrigTypeVL);
+      std::string ReadVF4Name =
+          ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 4);
+      std::string ReadVF8Name =
+          ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 8);
+      std::string ReadVF16Name =
+          ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 16);
+      ReadBuiltins.push_back({ConstructReadMangledName(ReadBaseName, Suffix),
+                              {ConstructReadMangledName(ReadVF4Name, Suffix),
+                               ConstructReadMangledName(ReadVF8Name, Suffix),
+                               ConstructReadMangledName(ReadVF16Name, Suffix)}});
+
+      const std::string BlockWriteBaseName("intel_sub_group_block_write");
+      std::string WriteBaseName =
+          ConstructBaseName(BlockWriteBaseName, Suffix, OrigTypeVL);
+      std::string WriteVF4Name =
+          ConstructVFName(BlockWriteBaseName, Suffix, OrigTypeVL, 4);
+      std::string WriteVF8Name =
+          ConstructVFName(BlockWriteBaseName, Suffix, OrigTypeVL, 8);
+      std::string WriteVF16Name =
+          ConstructVFName(BlockWriteBaseName, Suffix, OrigTypeVL, 16);
+      WriteBuiltins.push_back(
+          {ConstructWriteMangledName(WriteBaseName, Suffix, OrigTypeVL, 1),
+           {ConstructWriteMangledName(WriteVF4Name, Suffix, OrigTypeVL, 4),
+            ConstructWriteMangledName(WriteVF8Name, Suffix, OrigTypeVL, 8),
+            ConstructWriteMangledName(WriteVF16Name, Suffix, OrigTypeVL, 16)}});
+    }
+  }
+
   // Handle unmangled ballot variant
   BuiltinInfo BallotBuiltins[] = {
       {"intel_sub_group_ballot",
@@ -652,10 +708,15 @@ static ContainerTy OCLBuiltinVecInfo() {
                  {VectorKind::vector()}, true);
     }
   }
-  TypeInfo ShuffleTypes[] = {{'i'}, {'i', 2}, {'i', 4}, {'i', 8}, {'i', 16},
-                             {'j'}, {'j', 2}, {'j', 4}, {'j', 8}, {'j', 16},
-                             {'f'}, {'f', 2}, {'f', 4}, {'f', 8}, {'f', 16},
-                             {'l'}, {'m'},    {'d'}};
+  TypeInfo ShuffleTypes[] = {
+      {'c'}, {'c', 2}, {'c', 3}, {'c', 4}, {'c', 8}, {'c', 16},
+      {'h'}, {'h', 2}, {'h', 3}, {'h', 4}, {'h', 8}, {'h', 16},
+      {'s'}, {'s', 2}, {'s', 3}, {'s', 4}, {'s', 8}, {'s', 16},
+      {'t'}, {'t', 2}, {'t', 3}, {'t', 4}, {'t', 8}, {'t', 16},
+      {'i'}, {'i', 2}, {'i', 3}, {'i', 4}, {'i', 8}, {'i', 16},
+      {'j'}, {'j', 2}, {'j', 3}, {'j', 4}, {'j', 8}, {'j', 16},
+      {'f'}, {'f', 2}, {'f', 3}, {'f', 4}, {'f', 8}, {'f', 16},
+      {'l'}, {'m'},    {'d'}};
   for (TypeInfo &Type : ShuffleTypes) {
     addEntries(Info, std::string("_Z23intel_sub_group_shuffle"), {Type, {'j'}},
                {VectorKind::vector(), VectorKind::vector()}, true);
