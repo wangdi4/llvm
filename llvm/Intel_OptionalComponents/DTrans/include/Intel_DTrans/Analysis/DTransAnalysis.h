@@ -1,6 +1,6 @@
 //===----------------- DTransAnalysis.h - DTrans Analysis -----------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -33,6 +33,7 @@ class BinaryOperator;
 class BlockFrequencyInfo;
 class TargetLibraryInfo;
 class GetElementPtrInst;
+class DTransImmutableInfo;
 
 class DTransAnalysisInfo {
 public:
@@ -88,11 +89,12 @@ public:
 
   DTransAnalysisInfo &operator=(DTransAnalysisInfo &&);
 
-  bool
-  analyzeModule(Module &M,
-                std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-                WholeProgramInfo &WPInfo,
-                function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
+  bool analyzeModule(
+      Module &M,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      WholeProgramInfo &WPInfo,
+      function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+      DTransImmutableInfo &DTImmutInfo);
   /// Parse command line option and create an internal map of
   /// <transform> -> <list_of_type_names>.
   void parseIgnoreList();

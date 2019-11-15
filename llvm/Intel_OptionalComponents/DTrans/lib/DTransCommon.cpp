@@ -14,6 +14,7 @@
 
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
@@ -166,6 +167,7 @@ constexpr bool EnableResolveTypes = true;
 
 void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
+  initializeDTransImmutableAnalysisWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
   initializeDTransResolveTypesWrapperPass(PR);
@@ -323,6 +325,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
+  (void)llvm::createDTransImmutableAnalysisWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
   (void)llvm::createDTransWeakAlignWrapperPass();
   (void)llvm::createDTransMemInitTrimDownWrapperPass();

@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -76,6 +77,10 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
+
+static cl::opt<bool>
+    DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
+                                      cl::ReallyHidden);
 // BlockFrequencyInfo is ignored while computing field frequency info
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
@@ -9747,6 +9752,7 @@ INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -9814,9 +9820,12 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
+  auto &DTImmutInfo = getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
+
   Invalidated = false;
   return Result.analyzeModule(
-      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
+      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI,
+      DTImmutInfo);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
@@ -10071,7 +10080,8 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
 
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
-    function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+    DTransImmutableInfo &DTImmutInfo) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
@@ -10195,11 +10205,26 @@ bool DTransAnalysisInfo::analyzeModule(
     dbgs().flush();
   }
 
+  // Copy type info which can be passed to downstream passes without worrying
+  // about invalidation into the immutable pass.
+  for (auto *TypeInfo : type_info_entries()) {
+    if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TypeInfo))
+      for (unsigned I = 0, E = StructInfo->getNumFields(); I != E; ++I) {
+        DTImmutInfo.addStructFieldInfo(
+            cast<StructType>(StructInfo->getLLVMType()), I,
+            StructInfo->getField(I).values(),
+            StructInfo->getField(I).iavalues());
+      }
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls) {
     printCallInfo(dbgs());
     dbgs().flush();
   }
+
+  if (DTransPrintImmutableAnalyzedTypes)
+    DTImmutInfo.print(dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;
@@ -10477,6 +10502,7 @@ void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
   AU.addRequired<WholeProgramWrapperPass>();
+  AU.addRequired<DTransImmutableAnalysisWrapper>();
 }
 
 char DTransAnalysis::PassID;
@@ -10493,8 +10519,9 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
   };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  auto &DTImmutInfo = AM.getResult<DTransImmutableAnalysis>(M);
 
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI, DTImmutInfo);
   return DTResult;
 }
