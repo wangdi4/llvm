@@ -272,10 +272,6 @@ InGroup<DiagGroup<"intrinsic-promote">>;
 def note_intrinsic_promote : Note<"Intrinsic called here">;
 
 // OpenMP
-def err_omp_single_decl_in_declare_variant : Error<
-  "single declaration is expected after 'declare variant' directive">;
-def err_omp_function_expected_variant : Error<
-  "'#pragma omp declare variant' can only be applied to functions">;
 def warn_omp_simdlen_in_target_spir: Warning<
   "simdlen clause is not supported for this target">,
   InGroup<SimdUnsupported>;

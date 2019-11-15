@@ -423,7 +423,7 @@ OMPSectionDirective *OMPSectionDirective::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPSectionDirective();
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 OMPTargetVariantDispatchDirective *OMPTargetVariantDispatchDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
@@ -448,7 +448,7 @@ OMPTargetVariantDispatchDirective::CreateEmpty(const ASTContext &C,
       C.Allocate(Size + sizeof(OMPClause *) * NumClauses + sizeof(Stmt *));
   return new (Mem) OMPTargetVariantDispatchDirective(NumClauses);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,
                                                SourceLocation StartLoc,

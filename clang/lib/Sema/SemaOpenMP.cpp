@@ -3232,7 +3232,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_distribute_simd:
   case OMPD_ordered:
   case OMPD_atomic:
-  case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
   case OMPD_target_data: {
     Sema::CapturedParamNameType Params[] = {
         std::make_pair(StringRef(), QualType()) // __context with shared vars
@@ -4481,12 +4483,12 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPAtomicDirective(ClausesWithImplicit, AStmt, StartLoc,
                                      EndLoc);
     break;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
     Res = ActOnOpenMPTargetVariantDispatchDirective(ClausesWithImplicit, AStmt,
                                                     StartLoc, EndLoc);
     break;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   case OMPD_teams:
     Res =
         ActOnOpenMPTeamsDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc);
@@ -8067,7 +8069,7 @@ StmtResult Sema::ActOnOpenMPSectionDirective(Stmt *AStmt,
                                      DSAStack->isCancelRegion());
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
     SourceLocation EndLoc) {
@@ -8081,7 +8083,7 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
   return OMPTargetVariantDispatchDirective::Create(Context, StartLoc, EndLoc,
                                                    Clauses, AStmt);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 StmtResult Sema::ActOnOpenMPSingleDirective(ArrayRef<OMPClause *> Clauses,
                                             Stmt *AStmt,
@@ -10750,7 +10752,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_teams:
     case OMPD_simd:
     case OMPD_for:
@@ -10824,7 +10828,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_teams:
     case OMPD_simd:
     case OMPD_for:
@@ -10899,7 +10905,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:
@@ -10971,7 +10979,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:
@@ -11044,7 +11054,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_simd:
     case OMPD_sections:
     case OMPD_section:
@@ -11116,7 +11128,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:
@@ -11153,7 +11167,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
       CaptureRegion = OMPD_task;
       break;
     case OMPD_target_data:
-    case OMPD_target_variant_dispatch:  // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
       // Do not capture device-clause expressions.
       break;
     case OMPD_teams_distribute_parallel_for:
@@ -11333,7 +11349,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:

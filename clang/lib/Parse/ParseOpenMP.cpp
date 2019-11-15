@@ -16,7 +16,6 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/Scope.h"
-#include "clang/Sema/Lookup.h" // INTEL
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/UniqueVector.h"
 
@@ -40,8 +39,10 @@ enum OpenMPDirectiveKindEx {
   OMPD_target_enter,
   OMPD_target_exit,
   OMPD_update,
-  OMPD_dispatch,       // INTEL
-  OMPD_target_variant, // INTEL
+#if INTEL_COLLAB
+  OMPD_dispatch,
+  OMPD_target_variant,
+#endif // INTEL_COLLAB
   OMPD_distribute_parallel,
   OMPD_teams_distribute_parallel,
   OMPD_target_teams_distribute_parallel,
@@ -87,7 +88,9 @@ static unsigned getOpenMPDirectiveKindEx(StringRef S) {
       .Case("update", OMPD_update)
       .Case("mapper", OMPD_mapper)
       .Case("variant", OMPD_variant)
-      .Case("dispatch", OMPD_dispatch) // INTEL
+#if INTEL_COLLAB
+      .Case("dispatch", OMPD_dispatch)
+#endif // INTEL_COLLAB
       .Default(OMPD_unknown);
 }
 
@@ -113,10 +116,14 @@ static OpenMPDirectiveKind parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_target, OMPD_enter, OMPD_target_enter},
       {OMPD_target, OMPD_exit, OMPD_target_exit},
       {OMPD_target, OMPD_update, OMPD_target_update},
-      {OMPD_target, OMPD_variant, OMPD_target_variant}, // INTEL
+#if INTEL_COLLAB
+      {OMPD_target, OMPD_variant, OMPD_target_variant},
+#endif // INTEL_COLLAB
       {OMPD_target_enter, OMPD_data, OMPD_target_enter_data},
       {OMPD_target_exit, OMPD_data, OMPD_target_exit_data},
-      {OMPD_target_variant, OMPD_dispatch, OMPD_target_variant_dispatch},//INTEL
+#if INTEL_COLLAB
+      {OMPD_target_variant, OMPD_dispatch, OMPD_target_variant_dispatch},
+#endif // INTEL_COLLAB
       {OMPD_for, OMPD_simd, OMPD_for_simd},
       {OMPD_parallel, OMPD_for, OMPD_parallel_for},
       {OMPD_parallel_for, OMPD_simd, OMPD_parallel_for_simd},
@@ -175,13 +182,13 @@ static OpenMPDirectiveKind parseOpenMPDirectiveKind(Parser &P) {
       DKind = F[I][2];
     }
   }
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // If not late-outlining, don't accept unsupported directives.
   if (!P.getLangOpts().OpenMPLateOutline &&
       DKind == OMPD_target_variant_dispatch) {
     DKind = OMPD_unknown;
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   return DKind < OMPD_unknown ? static_cast<OpenMPDirectiveKind>(DKind)
                               : OMPD_unknown;
 }
@@ -807,6 +814,7 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
+<<<<<<< HEAD
 /// Parse optional 'score' '(' <expr> ')' ':'.
 static ExprResult parseContextScore(Parser &P) {
   ExprResult ScoreExpr;
@@ -907,6 +915,10 @@ parseImplementationSelector(Parser &P, SourceLocation Loc,
 
 #if INTEL_CUSTOMIZATION
 /// Parse context selector for 'construct' selector set.
+=======
+#if INTEL_COLLAB
+/// Parses the 'construct' part of the match clause.
+>>>>>>> 545569c12a629f62af83be227ee8f29f46f4d898
 ///
 /// The 5.0 spec allows: target;teams;parallel;for;simd
 ///
@@ -983,10 +995,71 @@ parseConstructSelector(Parser &P, SourceLocation Loc,
 ///
 /// We currently support only 'arch'.
 ///
+<<<<<<< HEAD
 static void
 parseDeviceSelector(Parser &P, SourceLocation Loc,
                     llvm::StringMap<SourceLocation> &UsedCtx,
                     SmallVectorImpl<Sema::OMPCtxSelectorData> &Data) {
+=======
+static bool parseMatchDevices(Parser &P,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
+  const Token &Tok = P.getCurToken();
+  bool IsError = false;
+  while (Tok.is(tok::identifier)) {
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+    StringRef SetSelectorName = II->getName();
+    if (SetSelectorName == "arch") {
+      IsError = parseMatchDeviceArchs(P, Devices);
+    } else {
+      P.Diag(Tok, diag::err_omp_bad_context_selector)
+          << "device" << OMPDeclareVariantAttr::getSupportedDevices();
+      while (!P.SkipUntil(tok::r_brace, tok::r_paren,
+                          tok::annot_pragma_openmp_end,
+                          Parser::StopBeforeMatch))
+        ;
+      return true;
+    }
+    // Skip ',' if any.
+    if (Tok.is(tok::comma))
+      P.ConsumeToken();
+  }
+  return IsError;
+}
+#endif // INTEL_COLLAB
+
+/// Parse optional 'score' '(' <expr> ')' ':'.
+static ExprResult parseContextScore(Parser &P) {
+  ExprResult ScoreExpr;
+  SmallString<16> Buffer;
+  StringRef SelectorName =
+      P.getPreprocessor().getSpelling(P.getCurToken(), Buffer);
+  if (!SelectorName.equals("score"))
+    return ScoreExpr;
+  (void)P.ConsumeToken();
+  SourceLocation RLoc;
+  ScoreExpr = P.ParseOpenMPParensExpr(SelectorName, RLoc);
+  // Parse ':'
+  if (P.getCurToken().is(tok::colon))
+    (void)P.ConsumeAnyToken();
+  else
+    P.Diag(P.getCurToken(), diag::warn_pragma_expected_colon)
+        << "context selector score clause";
+  return ScoreExpr;
+}
+
+/// Parse context selector for 'implementation' selector set:
+/// 'vendor' '(' [ 'score' '(' <score _expr> ')' ':' ] <vendor> { ',' <vendor> }
+/// ')'
+static void parseImplementationSelector(
+    Parser &P, SourceLocation Loc, llvm::StringMap<SourceLocation> &UsedCtx,
+    llvm::function_ref<void(SourceRange,
+#if INTEL_CUSTOMIZATION
+             SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &,
+             SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &,
+#endif // INTEL_CUSTOMIZATION
+                            const Sema::OpenMPDeclareVariantCtsSelectorData &)>
+        Callback) {
+>>>>>>> 545569c12a629f62af83be227ee8f29f46f4d898
   const Token &Tok = P.getCurToken();
   // Parse inner context selector set name, if any.
   if (!Tok.is(tok::identifier)) {
@@ -1677,7 +1750,9 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_distribute_simd:
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
-  case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for_simd:
@@ -1983,7 +2058,9 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
-  case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:

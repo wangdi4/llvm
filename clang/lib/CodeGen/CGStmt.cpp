@@ -413,10 +413,10 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     EmitOMPTargetTeamsDistributeSimdDirective(
         cast<OMPTargetTeamsDistributeSimdDirective>(*S));
     break;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   }
 }
 

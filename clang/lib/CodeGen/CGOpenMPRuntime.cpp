@@ -6775,7 +6775,9 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
@@ -7086,7 +7088,9 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
@@ -8936,7 +8940,9 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_declare_mapper:
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
@@ -9713,7 +9719,9 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -10373,7 +10381,9 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_taskloop:

@@ -9833,13 +9833,13 @@ public:
   /// associated statement.
   StmtResult ActOnOpenMPSectionDirective(Stmt *AStmt, SourceLocation StartLoc,
                                          SourceLocation EndLoc);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   /// Called on well-formed '\#pragma omp target variant dispatch' after
   /// parsing of the associated statement.
   StmtResult ActOnOpenMPTargetVariantDispatchDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   /// Called on well-formed '\#pragma omp single' after parsing of the
   /// associated statement.

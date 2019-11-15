@@ -2152,7 +2152,7 @@ void ASTStmtReader::VisitOMPSectionDirective(OMPSectionDirective *D) {
   D->setHasCancel(Record.readInt());
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   VisitStmt(D);
@@ -2160,7 +2160,7 @@ void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
   Record.skipInts(1);
   VisitOMPExecutableDirective(D);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void ASTStmtReader::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);
@@ -2999,12 +2999,12 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = OMPSectionDirective::CreateEmpty(Context, Empty);
       break;
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     case STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE:
       S = OMPTargetVariantDispatchDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
     case STMT_OMP_SINGLE_DIRECTIVE:
       S = OMPSingleDirective::CreateEmpty(

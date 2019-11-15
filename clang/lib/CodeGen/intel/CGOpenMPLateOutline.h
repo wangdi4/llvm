@@ -325,7 +325,7 @@ public:
   void emitOMPParallelSectionsDirective();
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
-  void emitOMPTargetVariantDispatchDirective(); // INTEL
+  void emitOMPTargetVariantDispatchDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       VSMH.EmitVLAExpressions();
@@ -462,12 +462,10 @@ public:
   void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
-#if INTEL_CUSTOMIZATION
-  bool isLateOutlinedRegion() { return true; }
   bool inTargetVariantDispatchRegion() {
     return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
   }
-#endif // INTEL_CUSTOMIZATION
+  bool isLateOutlinedRegion() { return true; } // INTEL
 
 private:
   /// CodeGen info about outer OpenMP region.

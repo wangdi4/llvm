@@ -2571,11 +2571,13 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelMasterTaskLoopSimdDirective      = 284,
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 285,
 
   CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
-#endif /* INTEL_CUSTOMIZATION */
+#else /* INTEL_COLLAB */
+  CXCursor_LastStmt = CXCursor_OMPParallelMasterTaskLoopSimdDirective,
+#endif /* INTEL_COLLAB */
 
   /**
    * Cursor that represents the translation unit itself.

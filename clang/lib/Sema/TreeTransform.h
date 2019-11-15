@@ -8127,7 +8127,7 @@ TreeTransform<Derived>::TransformOMPSectionDirective(OMPSectionDirective *D) {
   return Res;
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 template <typename Derived>
 StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
@@ -8138,7 +8138,7 @@ StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 template <typename Derived>
 StmtResult

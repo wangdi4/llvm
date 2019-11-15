@@ -1227,6 +1227,14 @@ def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modi
 def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+// INTEL_COLLAB
+def err_omp_bad_context_selector_set : Error<
+  "unknown or unsupported context selector set, expecting %0">;
+def err_omp_bad_context_selector : Error<
+  "unknown or unsupported '%0' context selector, expecting %1">;
+def err_omp_bad_device_selector : Error<
+ "unknown or unsupported '%0' selector, expecting %1">;
+// end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<

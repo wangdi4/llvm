@@ -828,12 +828,12 @@ void StmtProfiler::VisitOMPSectionDirective(const OMPSectionDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
     const OMPTargetVariantDispatchDirective *S) {
   VisitOMPExecutableDirective(S);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {
   VisitOMPExecutableDirective(S);
