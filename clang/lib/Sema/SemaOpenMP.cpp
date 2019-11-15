@@ -5294,13 +5294,15 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       case OMP_CTX_vendor:
         ImplVendors.append(D.Names.begin(), D.Names.end());
         break;
-      case OMP_CTX_arch:                    // INTEL
-      case OMP_CTX_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
       }
       break;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     case OMP_CTX_SET_device:
       switch (Ctx) {
       case OMP_CTX_arch:
@@ -5314,7 +5316,7 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       break;
     case OMP_CTX_SET_construct:
       break;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
     }

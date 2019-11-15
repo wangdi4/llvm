@@ -11289,14 +11289,18 @@ bool matchesContext(const CompleteOMPContextSelectorData &ContextData) {
         if (!checkContext<OMP_CTX_SET_implementation, OMP_CTX_vendor>(Data))
           return false;
         break;
-      case OMP_CTX_arch:                    // INTEL
-      case OMP_CTX_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
       }
       break;
-    case OMP_CTX_SET_construct: // INTEL
-    case OMP_CTX_SET_device:    // INTEL
+#if INTEL_COLLAB
+    case OMP_CTX_SET_construct:
+    case OMP_CTX_SET_device:
+#endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
     }
@@ -11325,14 +11329,18 @@ translateAttrToContextSelectorData(ASTContext &C,
         Data.back().Names =
             llvm::makeArrayRef(A->implVendors_begin(), A->implVendors_end());
         break;
-      case OMP_CTX_arch:                    // INTEL
-      case OMP_CTX_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
       }
       break;
-    case OMP_CTX_SET_construct: // INTEL
-    case OMP_CTX_SET_device:    // INTEL
+#if INTEL_COLLAB
+    case OMP_CTX_SET_construct:
+    case OMP_CTX_SET_device:
+#endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
     }

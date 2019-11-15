@@ -894,8 +894,10 @@ parseImplementationSelector(Parser &P, SourceLocation Loc,
       Data.emplace_back(OMP_CTX_SET_implementation, CSKind, Score, Vendors);
     break;
   }
-  case OMP_CTX_arch:                    // INTEL
-  case OMP_CTX_target_variant_dispatch: // INTEL
+#if INTEL_COLLAB
+  case OMP_CTX_arch:
+  case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
   case OMP_CTX_unknown:
     P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
         << "implementation";
@@ -907,7 +909,7 @@ parseImplementationSelector(Parser &P, SourceLocation Loc,
   }
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 /// Parse context selector for 'construct' selector set.
 ///
 /// The 5.0 spec allows: target;teams;parallel;for;simd
@@ -1061,7 +1063,7 @@ parseDeviceSelector(Parser &P, SourceLocation Loc,
     return;
   }
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 /// Parses clauses for 'declare variant' directive.
 /// clause:
@@ -1113,14 +1115,14 @@ bool Parser::parseOpenMPContextSelectors(
         case OMP_CTX_SET_implementation:
           parseImplementationSelector(*this, Loc, UsedCtx, Data);
           break;
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
         case OMP_CTX_SET_construct:
           parseConstructSelector(*this, Loc, UsedCtx, Data);
           break;
         case OMP_CTX_SET_device:
           parseDeviceSelector(*this, Loc, UsedCtx, Data);
           break;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
         case OMP_CTX_SET_unknown:
           // Skip until either '}', ')', or end of directive.
           while (!SkipUntil(tok::r_brace, tok::r_paren,

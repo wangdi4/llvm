@@ -3797,14 +3797,16 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
-          case OMP_CTX_arch:                    // INTEL
-          case OMP_CTX_target_variant_dispatch: // INTEL
+// INTEL_COLLAB
+          case OMP_CTX_arch:
+          case OMP_CTX_target_variant_dispatch:
+// end INTEL_COLLAB
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
           OS << "}";
           break;
-// INTEL_CUSTOMIZATION
+// INTEL_COLLAB
         case OMP_CTX_SET_construct:
           OS << "implementation={";
           OS << "target variant dispatch";
@@ -3830,7 +3832,7 @@ def OMPDeclareVariant : InheritableAttr {
           }
           OS << "}";
           break;
-// end INTEL_CUSTOMIZATION
+// end INTEL_COLLAB
         case OMP_CTX_SET_unknown:
           llvm_unreachable("Unknown context selector set.");
         }
