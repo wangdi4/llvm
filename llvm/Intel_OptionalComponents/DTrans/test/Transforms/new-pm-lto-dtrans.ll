@@ -43,18 +43,18 @@
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
 ; CHECK-NOT: Running analysis: DTransAnalysis
 ; CHECK: Running pass: dtrans::TransposePass
+; CHECK: Running pass: dtrans::MemInitTrimDownPass
+; CHECK: Running analysis: DTransAnalysis
 ; CHECK: Running pass: dtrans::SOAToAOSPass
 ; The ordering of the analysis passes seems not to be deterministic so we
 ; don't check them all here. The check below guarantees that WeakAlignPass
 ; is the next non-analysis pass to run.
-; CHECK: Running analysis: DTransAnalysis
 ; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
-; CHECK-NEXT: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass

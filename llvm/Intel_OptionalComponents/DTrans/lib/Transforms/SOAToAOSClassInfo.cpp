@@ -37,14 +37,20 @@ namespace dtrans {
 // This case usually occurs when SOAToAOS transformation is applied
 // on multiple vector class fields. So, treat all fields of struct
 // as data elements of vector class if array element is struct type.
-// This routine collects actual data elements of array.
+// This routine collects types of data elements and pointer to data
+// elements of array.
 void ClassInfo::collectElementDataTypes() {
   Type *ElemTy = getElementTy();
-  if (auto *STy = dyn_cast<StructType>(ElemTy))
+  if (auto *STy = dyn_cast<StructType>(ElemTy)) {
+    // TODO: For now, not supporting all possible types when element is
+    // struct. Not interested any more to support struct as element since
+    // MemInitTrimDown is running before SOAToAOS.
     for (auto *ETy : STy->elements())
       ElemDataTypes.insert(ETy->getPointerTo());
-  else
+  } else {
     ElemDataTypes.insert(ElemTy);
+    ElemDataAddrTypes.insert(ElemTy->getPointerTo());
+  }
 }
 
 // Returns true if D dominates U.
@@ -65,17 +71,18 @@ bool ClassInfo::checkDominatorInfo(Instruction *D, Instruction *U) {
 //
 // Destructor: No return type. Only one class type argument.
 //
-// GetElem: Element type is returned. One class type argument and one
-//          integer argument to indicate position.
+// GetElem: Element type or pointer to element type is returned. One class type
+// argument and one integer argument to indicate position.
 //
 // GetSizeOrCapacity: Integer type is returned. Only one class type argument.
 //
-// SetElem: No return type. Only one class type argument and at least one
-//          element type as argument. One integer argument to indicate
-//          position.
+// SetElem: No return type. Only one class type argument and only one
+//          element type or pointer to element type as argument. One integer
+//          argument to indicate position.
 //
-// AddElem: No return type. Only one class type argument and at least one
-//          element type as argument. No integer argument.
+// AddElem: No return type. Only one class type argument and only one
+//          element type or pointer to element type as argument. No integer
+//          argument.
 //
 // Resize: No return type. Only one class type argument and one integer
 //         argument.
@@ -102,7 +109,7 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
     break;
 
   case Type::PointerTyID:
-    if (ElemDataTypes.count(RTy))
+    if (ElemDataTypes.count(RTy) || ElemDataAddrTypes.count(RTy))
       ElemReturn = true;
     else
       return UnKnown;
@@ -126,7 +133,7 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
         MemInterfaceArgs++;
       else if (PTy->getElementType() == ClassTy)
         ClassArgs++;
-      else if (ElemDataTypes.count(PTy))
+      else if (ElemDataTypes.count(PTy) || ElemDataAddrTypes.count(PTy))
         ElemArgs++;
       else
         return UnKnown;
@@ -151,9 +158,11 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
     return GetElem;
   else if (IntReturn && ClassArgs == 1 && ArgsSize == 1)
     return GetSizeOrCapacity;
-  else if (NoReturn && ClassArgs == 1 && ElemArgs >= 1 && IntArgs == 1)
+  else if (NoReturn && ClassArgs == 1 && ElemArgs == 1 && IntArgs == 1 &&
+           ArgsSize == 3)
     return SetElem;
-  else if (NoReturn && ClassArgs == 1 && ElemArgs >= 1 && IntArgs == 0)
+  else if (NoReturn && ClassArgs == 1 && ElemArgs == 1 && IntArgs == 0 &&
+           ArgsSize == 2)
     return AppendElem;
   else if (NoReturn && ClassArgs == 1 && IntArgs == 1 && ArgsSize == 2)
     return Resize;
@@ -1435,6 +1444,23 @@ Value *ClassInfo::isLoadOfArg(Value *Val) {
   return nullptr;
 }
 
+// Check if ValOp is either argument or dereference of argument.
+// Return the argument if ValOp is either argument or dereference of argument.
+// Otherwise, it returns nullptr.
+Value *ClassInfo::isValidArgumentSave(Value *ValOp) {
+  if (isa<Argument>(ValOp)) {
+    if (ElemDataTypes.count(ValOp->getType()))
+      return ValOp;
+  } else {
+    // Check if it is load of argument.
+    Value *ArgVal = isLoadOfArg(ValOp);
+    if (ArgVal &&
+        isa<Argument>(ArgVal) && ElemDataAddrTypes.count(ArgVal->getType()))
+      return ArgVal;
+  }
+  return nullptr;
+}
+
 // Skip BitCastInst/ZExtInst instructions.
 const Value *ClassInfo::skipCasts(const Value *V) {
   while (isa<BitCastInst>(V) || isa<ZExtInst>(V)) {
@@ -1843,10 +1869,17 @@ FunctionKind ClassInfo::recognizeGetElem(Function *Fn) {
   // Check if it is returning array element.
   Type *ElemTy = getElementTy();
   Value *AtLoc;
-  if (isa<StructType>(ElemTy))
+  if (isa<StructType>(ElemTy)) {
     AtLoc = isArrayElementAddressAt(RI->getReturnValue(), ElemTy, ThisObj);
-  else
-    AtLoc = isArrayElementLoadAt(RI->getReturnValue(), ThisObj);
+  } else {
+    // Either data element or address of data element is allowed
+    // as return value.
+    Type *RTy = Fn->getReturnType();
+    if (ElemDataAddrTypes.count(RTy))
+      AtLoc = isArrayElementAt(RI->getReturnValue(), ThisObj);
+    else
+      AtLoc = isArrayElementLoadAt(RI->getReturnValue(), ThisObj);
+  }
   if (!AtLoc)
     return UnKnown;
 
@@ -1909,7 +1942,10 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
       return UnKnown;
   } else {
     SetAtLoc = isArrayElementAt(SI->getPointerOperand(), ThisObj);
-    if (!SetAtLoc || !isa<Argument>(SI->getValueOperand()))
+    if (!SetAtLoc)
+      return UnKnown;
+    Value *ArgVal = isValidArgumentSave(SI->getValueOperand());
+    if (!ArgVal)
       return UnKnown;
   }
 
@@ -2509,9 +2545,12 @@ FunctionKind ClassInfo::recognizeAppendElem(Function *Fn) {
         //   %arrayidx = getelementptr float**, float*** %0, i64 %1
         //   store float** %val, float*** %arrayidx, align 8, !tbaa !25
         SetAtLoc = isArrayElementAt(PtrOp, ThisObj, false);
-        if (!SetAtLoc || !isa<Argument>(ValOp))
+        if (!SetAtLoc)
           return UnKnown;
-        ArgValueSet.insert(ValOp);
+        Value *ArgVal = isValidArgumentSave(ValOp);
+        if (!ArgVal)
+          return UnKnown;
+        ArgValueSet.insert(ArgVal);
       }
       if (!checkFieldOfArgClassLoad(SetAtLoc, ThisObj, SizeField))
         return UnKnown;

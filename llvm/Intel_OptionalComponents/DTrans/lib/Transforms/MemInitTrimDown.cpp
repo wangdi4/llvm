@@ -671,7 +671,13 @@ bool MemInitTrimDownImpl::gatherCandidateInfo(void) {
     dbgs() << "MemInitTrimDown transformation:";
     dbgs() << "\n";
   });
-  // TODO: Consider only SOAToAOS candidates for MemInitTrimDown.
+  // TODO: Since MemInitTrimDown now runs before SOAToAOS, we can't limit
+  // MemInitTrimDown transformation to only the structs that are transformed
+  // by SOAToAOS.
+  // Add more checks that are done by SOAToAOS like populateCFGInformation,
+  // populateSideEffects etc to limit the number of possible candidates (
+  // also to be on the safe side).
+  //
   for (TypeInfo *TI : DTInfo.type_info_entries()) {
     std::unique_ptr<MemInitCandidateInfo> CInfo(new MemInitCandidateInfo());
 
@@ -694,8 +700,21 @@ bool MemInitTrimDownImpl::gatherCandidateInfo(void) {
       });
       continue;
     }
-
-    // TODO: Check SafetyData for candidate field array structs also.
+    // Check SafetyData for candidate field array structs.
+    bool FieldSafetyCheck = true;
+    for (auto Loc : CInfo->candidate_fields()) {
+      auto *FInfo = DTInfo.getTypeInfo(CInfo->getFieldElemTy(Loc));
+      if (!FInfo || DTInfo.testSafetyData(FInfo, dtrans::DT_MemInitTrimDown)) {
+        FieldSafetyCheck = false;
+        break;
+      }
+    }
+    if (!FieldSafetyCheck) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Failed: safety test for field array struct.\n";
+      });
+      continue;
+    }
 
     if (!CInfo->collectMemberFunctions(M)) {
       DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
@@ -779,7 +798,7 @@ PreservedAnalyses MemInitTrimDownPass::run(Module &M,
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
 
   if (!runImpl(M, DTransInfo, GetTLI, WPInfo, GetDT))

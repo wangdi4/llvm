@@ -208,6 +208,9 @@ private:
   // data elements.
   SmallPtrSet<Type *, 4> ElemDataTypes;
 
+  // Pointer types of data elements
+  SmallPtrSet<Type *, 4> ElemDataAddrTypes;
+
   // While recognizing functionality of member functions, this is used
   // to maintain all processed instructions.
   SmallPtrSet<const Instruction *, 32> Visited;
@@ -277,6 +280,7 @@ private:
   bool checkCapacityIncrementPattern(Value *, Argument *);
   bool isControlledUnderCapacityField(BasicBlock *, Value *, Value *);
   Value *isLoadOfArg(Value *);
+  Value *isValidArgumentSave(Value *);
   const Value *skipCasts(const Value *V);
   FunctionKind recognizeConstructor(Function *);
   FunctionKind recognizeDerivedConstructor(Function *, Type *, Type *);
