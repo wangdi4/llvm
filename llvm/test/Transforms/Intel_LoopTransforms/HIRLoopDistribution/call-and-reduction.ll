@@ -1,5 +1,5 @@
-; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -hir-loop-distribute-max-mem=2 -print-after=hir-loop-distribute-memrec -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -hir-loop-distribute-max-mem=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -print-after=hir-loop-distribute-memrec -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that the loop with a user call may be distributed if another chunk contains no mem refs.
 

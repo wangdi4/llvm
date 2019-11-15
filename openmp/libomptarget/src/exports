@@ -21,6 +21,10 @@ VERS1.0 {
     __tgt_release_buffer;
     __tgt_get_device_name;
     __tgt_get_device_rtl_name;
+    __tgt_create_interop_obj;
+    __tgt_release_interop_obj;
+    __tgt_get_interop_property;
+    __tgt_offload_proxy_task_complete_ooo;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;

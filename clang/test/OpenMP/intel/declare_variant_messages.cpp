@@ -82,6 +82,9 @@ void testit() {
 // expected-error@+1 {{cannot contain more than one 'device' clause}}
   #pragma omp target variant dispatch device(dnum) device(3)
   disp_call();
+// expected-error@+1 {{cannot contain more than one 'nowait' clause}}
+  #pragma omp target variant dispatch nowait device(dnum) nowait
+  disp_call();
 }
 
 // expected-error@+3 {{unknown or unsupported 'construct' context selector, expecting 'target variant dispatch'}}

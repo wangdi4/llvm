@@ -1,29 +1,32 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s
-
-; TODO: Enable the test for VPValue-based codegen as soon as CMPLRLLVM-10738 is fixed.
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-IRCG
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen -S %s | FileCheck %s  --check-prefixes=CHECK,CHECK-VPCG
 
 ; CHECK-LABEL: foo1
 ; CHECK: entry:
 ; CHECK: [[PTR:%.*]] = load <2 x i32>*, <2 x i32>** {{.*}}, align 8
 
-; CHECK: vector.body:
-; CHECK: [[IDX:%.*]] = phi i64
-; CHECK: [[GEP1:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[IDX]]
-; CHECK: [[BC_1:%.*]] = bitcast <2 x i32>* [[GEP1]] to <8 x i32>*
-; CHECK: [[REP_MASK_1:%.*]] = shufflevector <4 x i1> [[MASK:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:  [[WIDE_LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[BC_1]], i32 4, <8 x i1> [[REP_MASK_1]], <8 x i32> undef)
-; CHECK:  %[[ADD:.*]] = add <8 x i32> [[WIDE_LOAD]], <i32 5, i32 6, i32 5, i32 6, i32 5, i32 6, i32 5, i32 6>
-; CHECK:  bitcast <8 x i32> {{.*}} to <4 x i64>
-; CHECK:  [[BC:.*]] = bitcast
-; CHECK:  [[BC_2:%.*]] = bitcast <2 x i32>* [[GEP1]] to <8 x i32>*
-; CHECK: [[REP_MASK_2:%.*]] = shufflevector <4 x i1> [[MASK:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:  call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> {{.*}}, <8 x i32>* {{.*}}, i32 4, <8 x i1> [[REP_MASK_2]]
-; CHECK:  %[[GEP3:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[IDX]]
-; CHECK:  %[[ADDR:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
-; CHECK:  %[[LOAD:.*]] = load <8 x i32>, <8 x i32>* %[[ADDR]], align 4
-; CHECK:  %[[ADD2:.*]] = add <8 x i32> %[[LOAD]], <i32 7, i32 8, i32 7, i32 8, i32 7, i32 8, i32 7, i32 8>
-; CHECK:  %[[ADDR2:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
-; CHECK:  store <8 x i32> %[[ADD2]], <8 x i32>* %[[ADDR2]], align 4
+; CHECK:      vector.body:
+; CHECK:        [[IDX:%.*]] = phi i64
+; CHECK-VPCG:   [[UNI_PHI:%.*]] = phi i64 [ 0, %vector.ph ], [ [[UNI_PHI_LOOP:%.*]], %vector.body ]
+; CHECK-IRCG:   [[GEP1:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[IDX]]
+; CHECK-VPCG:   [[GEP1:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[UNI_PHI]]
+; CHECK:        [[BC_1:%.*]] = bitcast <2 x i32>* [[GEP1]] to <8 x i32>*
+; CHECK:        [[REP_MASK_1:%.*]] = shufflevector <4 x i1> [[MASK:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK:        [[WIDE_LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[BC_1]], i32 4, <8 x i1> [[REP_MASK_1]], <8 x i32> undef)
+; CHECK:        %[[ADD:.*]] = add <8 x i32> [[WIDE_LOAD]], <i32 5, i32 6, i32 5, i32 6, i32 5, i32 6, i32 5, i32 6>
+; CHECK:        bitcast <8 x i32> {{.*}} to <4 x i64>
+; CHECK:        [[BC:.*]] = bitcast
+; CHECK:        [[BC_2:%.*]] = bitcast <2 x i32>* [[GEP1]] to <8 x i32>*
+; CHECK:        [[REP_MASK_2:%.*]] = shufflevector <4 x i1> [[MASK:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK:        call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> {{.*}}, <8 x i32>* {{.*}}, i32 4, <8 x i1> [[REP_MASK_2]]
+; CHECK-IRCG:   %[[GEP3:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[IDX]]
+; CHECK-VPCG:   %[[GEP3:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[UNI_PHI]]
+; CHECK:        %[[ADDR:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
+; CHECK:        %[[LOAD:.*]] = load <8 x i32>, <8 x i32>* %[[ADDR]], align 4
+; CHECK:        %[[ADD2:.*]] = add <8 x i32> %[[LOAD]], <i32 7, i32 8, i32 7, i32 8, i32 7, i32 8, i32 7, i32 8>
+; CHECK:        %[[ADDR2:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
+; CHECK:        store <8 x i32> %[[ADD2]], <8 x i32>* %[[ADDR2]], align 4
+; CHECK-VPCG:   [[UNI_PHI_LOOP]] = add nuw nsw i64 [[UNI_PHI]], 4
 
 
 @arr2p = external global <2 x i32>*, align 8

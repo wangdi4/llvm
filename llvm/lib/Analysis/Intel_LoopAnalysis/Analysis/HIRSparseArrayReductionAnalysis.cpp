@@ -723,7 +723,6 @@ void HIRSparseArrayReductionAnalysis::print(
   }
 
   for (auto &SARI : *SARCL) {
-    Loop->indent(OS, Depth);
     printAChain(OS, Depth, SARI.Chain);
   }
 }

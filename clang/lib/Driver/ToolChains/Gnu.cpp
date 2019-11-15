@@ -405,8 +405,8 @@ static void addIPPLibs(ArgStringList &CmdArgs,
 // Add MKL libraries
 static void addMKLLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
-  // default link type is statically link
-  bool linkStatic = true;
+  // default link type is dynamically link
+  bool linkStatic = false;
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -428,8 +428,8 @@ static void addMKLLibs(ArgStringList &CmdArgs,
 // Add TBB libraries
 static void addTBBLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
-  // default link type is statically link
-  bool linkStatic = true;
+  // default link type is dynamically link
+  bool linkStatic = false;
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -449,8 +449,8 @@ static void addTBBLibs(ArgStringList &CmdArgs,
 // Add DAAL libraries
 static void addDAALLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
-  // default link type is statically link
-  bool linkStatic = true;
+  // default link type is dynamically link
+  bool linkStatic = false;
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link

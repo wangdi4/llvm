@@ -131,10 +131,6 @@ if( DEFINED ICD_LOADER_SRC_DIR )
         DESTINATION .
         COMPONENT khronos-icd-loader
     )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/bin/OpenCL.dll
-        DESTINATION .
-        COMPONENT khronos-icd-loader
-    )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")

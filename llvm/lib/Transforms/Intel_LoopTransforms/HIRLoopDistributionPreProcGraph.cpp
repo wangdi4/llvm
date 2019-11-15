@@ -281,11 +281,12 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
         !SARA->isSparseArrayReduction(SrcInst)) {
 
       // Do not create back edge for sparse array reduction terms (%add) but
-      // create them for the index (%idx):
-      //   %t = %p[%idx]
-      //   %p[%idx] = %t + %add
-      auto *SinkDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
-      if (!SinkDDRef || SinkDDRef->getParentDDRef()->isTerminalRef()) {
+      // create them for the index (%idx) 2->1, 3->1:
+      //   <1> %idx =
+      //   <2> %t = %p[%idx]
+      //   <3> %p[%idx] = %t + %add
+      auto *SinkBlobDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
+      if (!SinkBlobDDRef || SinkBlobDDRef->getParentDDRef()->isTerminalRef()) {
         return false;
       }
     }

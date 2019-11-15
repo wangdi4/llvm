@@ -38,7 +38,7 @@ ProgramManager &ProgramManager::getInstance() {
 }
 
 static RT::PiDevice getFirstDevice(RT::PiContext Context) {
-  cl_uint NumDevices = 0;
+  pi_uint32 NumDevices = 0;
   PI_CALL(RT::piContextGetInfo(Context, PI_CONTEXT_INFO_NUM_DEVICES,
                                sizeof(NumDevices), &NumDevices,
                                /*param_value_size_ret=*/nullptr));
@@ -47,10 +47,11 @@ static RT::PiDevice getFirstDevice(RT::PiContext Context) {
   vector_class<RT::PiDevice> Devices(NumDevices);
   size_t ParamValueSize = 0;
   PI_CALL(RT::piContextGetInfo(Context, PI_CONTEXT_INFO_DEVICES,
-                               sizeof(cl_device_id) * NumDevices, &Devices[0],
+                               sizeof(RT::PiDevice) * NumDevices, &Devices[0],
                                &ParamValueSize));
-  assert(ParamValueSize == sizeof(cl_device_id) * NumDevices &&
-         "Number of CL_CONTEXT_DEVICES should match CL_CONTEXT_NUM_DEVICES.");
+  assert(ParamValueSize == sizeof(RT::PiDevice) * NumDevices &&
+         "Number of PI_CONTEXT_INFO_DEVICES should match "
+         "PI_CONTEXT_INFO_NUM_DEVICES.");
   return Devices[0];
 }
 

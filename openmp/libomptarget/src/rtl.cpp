@@ -220,6 +220,9 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
               dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
+    if ((*((void **)&R.get_offload_pipe) =
+              dlsym(dynlib_handle, "__tgt_rtl_get_offload_pipe")))
+      DP("Optional interface: __tgt_rtl_get_offload_pipe\n");
 #endif // INTEL_COLLAB
 
     // Optional functions

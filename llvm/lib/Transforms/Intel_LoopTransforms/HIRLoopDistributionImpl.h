@@ -96,7 +96,7 @@ private:
   // Returns true if this edge contains dd edge with (<) at loop level
   // Such an edge would be eliminated by distributing the src sink piblocks
   // into separate loops
-  bool piEdgeIsRecurrence(const HLLoop *Lp, const PiGraphEdge &PiEdge) const;
+  bool piEdgeIsMemRecurrence(const HLLoop *Lp, const PiGraphEdge &PiEdge) const;
 
   // Loop may be discarded prior to any analysis by some heuristics.
   // For example, the costmodel may consider only innermost loops, no need

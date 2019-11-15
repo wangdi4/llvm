@@ -96,11 +96,11 @@
 // CHECK-MKL-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core"
 // CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core"
 // CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_lp64" "--dependent-lib=mkl_blacs_intelmpi_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core"
-// CHECK-MKL-LIN-PARALLEL: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group" "-Bdynamic"
-// CHECK-MKL-LIN-PARALLEL-OMP: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group" "-Bdynamic"
-// CHECK-MKL-LIN-TBB: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group" "-Bdynamic"
-// CHECK-MKL-LIN-SEQUENTIAL: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group" "-Bdynamic"
-// CHECK-MKL-LIN-CLUSTER: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_cdft_core" "-lmkl_scalapack_lp64" "-lmkl_blacs_intelmpi_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group" "-Bdynamic"
+// CHECK-MKL-LIN-PARALLEL: "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group"
+// CHECK-MKL-LIN-PARALLEL-OMP: "--start-group" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
+// CHECK-MKL-LIN-TBB: "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group"
+// CHECK-MKL-LIN-SEQUENTIAL: "--start-group" "-lmkl_intel_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
+// CHECK-MKL-LIN-CLUSTER: "--start-group" "-lmkl_intel_lp64" "-lmkl_cdft_core" "-lmkl_scalapack_lp64" "-lmkl_blacs_intelmpi_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
 // CHECK-MKL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}mkli{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.lib"
 // CHECK-MKL-WIN: "-libpath:{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64"
 
@@ -112,7 +112,7 @@
 // RUN: %clang_cl -Qtbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-WIN %s
 // CHECK-TBB: clang{{.*}} "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include"
-// CHECK-TBB-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" {{.*}} "-Bstatic" "-ltbb" "-Bdynamic"
+// CHECK-TBB-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" {{.*}} "-ltbb"
 // CHECK-TBB-WIN: link{{.*}} "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14"
 
 // DAAL tests
@@ -150,7 +150,7 @@
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-DAAL-SYCL: llc{{.*}}
 // CHECK-DAAL-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" "-L{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
-// CHECK-DAAL-LIN-PARALLEL: "-Bstatic" "--start-group" "-ldaal_core" "-ldaal_thread" "--end-group" "-Bdynamic" "-Bstatic" "-ltbb" "-Bdynamic"
-// CHECK-DAAL-LIN-SEQUENTIAL: "-Bstatic" "--start-group" "-ldaal_core" "-ldaal_sequential" "--end-group" "-Bdynamic" "-Bstatic" "-ltbb" "-Bdynamic"
+// CHECK-DAAL-LIN-PARALLEL: "--start-group" "-ldaal_core" "-ldaal_thread" "--end-group" "-ltbb"
+// CHECK-DAAL-LIN-SEQUENTIAL: "--start-group" "-ldaal_core" "-ldaal_sequential" "--end-group" "-ltbb"
 // CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libdaal_sycl.lib"
 // CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"

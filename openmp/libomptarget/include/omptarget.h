@@ -84,6 +84,24 @@ enum OpenMPOffloadingRequiresDirFlags {
   OMP_REQ_DYNAMIC_ALLOCATORS      = 0x010
 };
 
+#if INTEL_COLLAB
+enum InteropPropertyTy : int32_t {
+  INTEROP_DEVICE_ID = 1,
+  INTEROP_IS_ASYNC,
+  INTEROP_ASYNC_OBJ,
+  INTEROP_ASYNC_CALLBACK,
+  INTEROP_OFFLOAD_PIPE
+};
+
+struct __tgt_interop_obj {
+  int64_t device_id; // OpenMP device id
+  bool is_async; // Whether it is for asynchronous operation
+  void *async_obj; // Pointer to the asynchronous object
+  void (*async_handler)(void *); // Callback function for asynchronous operation
+  void *pipe; // Opaque handle to device-dependent offload pipe
+};
+#endif // INTEL_COLLAB
+
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero
 struct __tgt_offload_entry {
@@ -317,8 +335,21 @@ EXTERN char *__tgt_get_device_name(
 // returns a '\0' terminated C string (pointer to Buffer).
 EXTERN char *__tgt_get_device_rtl_name(
     int64_t device_num, char *buffer, size_t buffer_max_size);
-#endif // INTEL_COLLAB
 
+// Callback function for asynchronous offloading
+EXTERN void __tgt_offload_proxy_task_complete_ooo(void *);
+
+// Creates an interop object.
+EXTERN void * __tgt_create_interop_obj(
+    int64_t device_id, bool is_async, void *async_obj);
+
+// Releases an interop object.
+EXTERN int __tgt_release_interop_obj(void *interop_obj);
+
+// Returns an interop property from the given interop object.
+EXTERN int __tgt_get_interop_property(
+    void *interop_obj, int32_t property_id, void **property_value);
+#endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
 #endif
