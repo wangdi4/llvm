@@ -433,7 +433,7 @@ void DistPPGraph::constructUnknownSideEffectEdges(
   // N is a node with memory reference, and
   // Ul, Ur are left and right unsafe nodes.
   for (auto *Node : make_range(node_begin(), node_end())) {
-    if (Node == *UnsafeI) {
+    if (UnsafeI != UnsafeE && Node == *UnsafeI) {
       if (UnsafeL) {
         addCycle(UnsafeL, Node);
       }
