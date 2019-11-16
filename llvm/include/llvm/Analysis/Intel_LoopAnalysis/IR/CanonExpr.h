@@ -465,10 +465,10 @@ public:
 
   bool isStandAloneUndefBlob() const;
 
-  /// return true if the CanonExpr is zero
-  bool isZero(bool HandleSplat = false) const {
+  /// return true if the CanonExpr is scalar/vector zero.
+  bool isZero() const {
     int64_t Val;
-    if (isIntConstantImpl(&Val, HandleSplat) && Val == 0) {
+    if (isIntConstantImpl(&Val, true) && Val == 0) {
       return true;
     }
     return false;
