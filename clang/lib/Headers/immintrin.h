@@ -815,6 +815,25 @@ __cpuidex(int __info[4], int __level, int __ecx) {
 }
 #endif
 
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+__readmsr(unsigned int __register) {
+  // Loads the contents of a 64-bit model specific register (MSR) specified in
+  // the ECX register into registers EDX:EAX. The EDX register is loaded with
+  // the high-order 32 bits of the MSR and the EAX register is loaded with the
+  // low-order 32 bits. If less than 64 bits are implemented in the MSR being
+  // read, the values returned to EDX:EAX in unimplemented bit locations are
+  // undefined.
+  unsigned int __edx;
+  unsigned int __eax;
+  __asm__ ("rdmsr" : "=d"(__edx), "=a"(__eax) : "c"(__register));
+  return (((unsigned long long)__edx) << 32) | (unsigned long long)__eax;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+__writemsr(unsigned int __register, unsigned long long __data) {
+  __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
+}
+
 #endif /* !defined(_MSC_VER) && __has_extension(gnu_asm) */
 
 #undef __DEFAULT_FN_ATTRS

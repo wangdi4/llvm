@@ -140,7 +140,8 @@ void __writefsbyte(unsigned long, unsigned char);
 void __writefsdword(unsigned long, unsigned long);
 void __writefsqword(unsigned long, unsigned __int64);
 void __writefsword(unsigned long, unsigned short);
-void __writemsr(unsigned long, unsigned __int64);
+static __inline__ /* INTEL */
+void __writemsr(unsigned long, unsigned __int64); /* INTEL */
 static __inline__
 void *_AddressOfReturnAddress(void);
 static __inline__
@@ -565,6 +566,13 @@ __readmsr(unsigned long __register) {
   __asm__ ("rdmsr" : "=d"(__edx), "=a"(__eax) : "c"(__register));
   return (((unsigned __int64)__edx) << 32) | (unsigned __int64)__eax;
 }
+
+/* INTEL_CUSTOMIZATION */
+static __inline__ void __DEFAULT_FN_ATTRS
+__writemsr(unsigned long __register, unsigned __int64 __data) {
+  __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
+}
+/* end INTEL_CUSTOMIZATION */
 
 static __inline__ unsigned long __DEFAULT_FN_ATTRS
 __readcr3(void) {
