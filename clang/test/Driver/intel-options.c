@@ -58,3 +58,10 @@
 // RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
 // LIBMMT: "-defaultlib:libmmt"
 
+// --dpcpp -fopenmp not supported
+// When running the 'dpcpp' driver, the --dpcpp option is used to signify the
+// source of how the compiler is invoked.
+// RUN: %clang -### -c --dpcpp -fopenmp %s 2>&1 | FileCheck -check-prefix CHECK-DPCPP-FOPENMP %s
+// RUN: %clang -### -c --dpcpp -fopenmp=libiomp5 %s 2>&1 | FileCheck -check-prefix CHECK-DPCPP-FOPENMP-ARG %s
+// CHECK-DPCPP-FOPENMP: error: unsupported option '-fopenmp'
+// CHECK-DPCPP-FOPENMP-ARG: error: unsupported option '-fopenmp=libiomp5'

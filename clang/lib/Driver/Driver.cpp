@@ -4227,6 +4227,15 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Arg *A = Args.getLastArg(options::OPT_fopenmp_EQ, options::OPT_fopenmp))
+    // -fopenmp is not supported with the DPC++ compiler (from dpcpp driver)
+    if (A && Args.hasArg(options::OPT_dpcpp))
+      Diag(diag::err_drv_unsupported_opt) << A->getAsString(Args);
+  // Go ahead and claim usage of --dpcpp
+  Args.ClaimAllArgs(options::OPT_dpcpp);
+#endif // INTEL_CUSTOMIZATION
+
   handleArguments(C, Args, Inputs, Actions);
 
   // Builder to be used to build offloading actions.
