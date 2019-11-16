@@ -192,7 +192,7 @@ std::string LLDJIT::emitObject(Module *M) {
   llvm::legacy::PassManager PM;
   TM->addPassesToEmitFile(PM, ObjFile.OS(),
                           /*raw_pwrite_stream*/ nullptr,
-                          TargetMachine::CGFT_ObjectFile,
+                          CGFT_ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.

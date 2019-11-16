@@ -57,8 +57,8 @@ public:
     void *GetExecutionEngine() override { return m_pExecEngine; }
 
     void DumpJIT( llvm::Module* pModule, const std::string& filename,
-                  llvm::TargetMachine::CodeGenFileType genType =
-                  llvm::TargetMachine::CGFT_AssemblyFile) const;
+                  llvm::CodeGenFileType genType =
+                  llvm::CGFT_AssemblyFile) const;
     void SetObjectCache(ObjectCodeCache* pCache) override;
 
     void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;
