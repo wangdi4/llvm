@@ -1980,6 +1980,14 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
                      getNode(AI.getValOperand()));
 }
 
+// Only known UnaryOperators:
+//  FNeg: FPOrFPVectorTy
+//  Freeze: Any type
+//
+void AndersensAAResult::visitUnaryOperator(UnaryOperator &AI) {
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
+}
+
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
   if (isAggregateOrVecType(AI.getType())) {
     CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
