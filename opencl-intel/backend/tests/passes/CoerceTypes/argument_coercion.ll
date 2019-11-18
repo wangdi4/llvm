@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: %oclopt -coerce-types -S %s -o - | FileCheck %s
 ; This test checks function argument type coercion
 
