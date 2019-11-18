@@ -264,6 +264,11 @@ def rsp_quoting : Joined<["--"], "rsp-quoting=">, Group<internal_driver_Group>,
 def ccc_gcc_name : Separate<["-"], "ccc-gcc-name">, InternalDriverOpt,
   HelpText<"Name for native GCC compiler">,
   MetaVarName<"<gcc-path>">;
+#if INTEL_CUSTOMIZATION
+def dpcpp : Flag<["--"], "dpcpp">, Group<internal_driver_Group>,
+  Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enable specific DPC++ driver behaviors">;
+#endif // INTEL_CUSTOMIZATION
 
 class InternalDebugOpt : Group<internal_debug_Group>,
   Flags<[DriverOption, HelpHidden, CoreOption]>;

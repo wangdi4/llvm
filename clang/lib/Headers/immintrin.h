@@ -748,8 +748,33 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 
 #include <svmlintrin.h>
 
-#if !defined(_MSC_VER) && __has_extension(gnu_asm)
+#if __has_extension(gnu_asm)
+
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_clac(void) {
+  __asm__ __volatile__ ("clac" : : : "memory");
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_stac(void) {
+  __asm__ __volatile__ ("stac" : : : "memory");
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_lgdt(void *__ptr) {
+  __asm__ __volatile__("lgdt %0" : : "m"(*(short *)(__ptr)) : "memory");
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_sgdt(void *__ptr) {
+  __asm__ __volatile__("sgdt %0" : "=m"(*(short *)(__ptr)) : : "memory");
+}
+
+#endif /* __has_extension(gnu_asm) */
+
+#if !defined(_MSC_VER) && __has_extension(gnu_asm)
 
 #if __i386__
 /* __cpuid might already be a macro defined from cpuid.h */
@@ -790,9 +815,9 @@ __cpuidex(int __info[4], int __level, int __ecx) {
 }
 #endif
 
-#undef __DEFAULT_FN_ATTRS
-
 #endif /* !defined(_MSC_VER) && __has_extension(gnu_asm) */
+
+#undef __DEFAULT_FN_ATTRS
 
 /* Definitions of feature list to be used by feature select intrinsics */
 #define _FEATURE_GENERIC_IA32        (1ULL     )

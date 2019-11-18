@@ -5786,9 +5786,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // along to tell the frontend that it is generating code for a device, so that
   // only the relevant declarations are emitted.
   if (IsOpenMPDevice) {
-#if INTEL_COLLAB
-    if (!Args.hasArg(options::OPT_fiopenmp))
-#endif // INTEL_COLLAB
     CmdArgs.push_back("-fopenmp-is-device");
     if (OpenMPDeviceInput) {
       CmdArgs.push_back("-fopenmp-host-ir-file-path");

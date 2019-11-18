@@ -43,7 +43,6 @@
 // CHECK2-CC1-OPENMP: "-fopenmp-late-outline"
 // CHECK2-CC1-OPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK2-CC1-OPENMP: "-fopenmp"
-// CHECK2-CC1-OPENMP-NOT: "-fopenmp-is-device"
 //
 // CHECK2-PAR-DEFAULT: "-mllvm" "-paropt=31"
 // CHECK2-PAR-DEFAULT: "-mllvm" "-paropt=63"

@@ -1,7 +1,6 @@
 ; This test checks if we correctly widen the insertelement/extractelement
 ; instruction that have a non-const index
 
-
 ; Run the following command and intercept the function and print module
 ; before VPlanDriver is invoked on a function
 ;
@@ -42,10 +41,15 @@
 ;}
 ; =======================================================================
 
-
 ; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver \
 ; RUN: -vplan-force-vf=2 | FileCheck %s --check-prefix=CHECK-VF2
 
+source_filename = "tt2.cpp"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nounwind uwtable
+define dso_local void @_Z10setElementPU8__vectorffi(<4 x float>* nocapture %vec, float %val, i32 %i) local_unnamed_addr #0 {
 ; Check the correct sequence for 'insertelement' with non-const index
 ; CHECK-LABEL:@_Z10setElementPU8__vectorffi
 ; CHECK-VF2:       [[VARIDX1:%.*]] = extractelement <2 x i32> [[VARIDXVEC:%.*]], i64 0
@@ -54,37 +58,6 @@
 ; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
 ; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
 ; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E2:%.*]], i32 [[OFF2]]
-
-; Check the correct sequence for 'insertelement' with non-const index and loop variant scalar value to be inserted
-; CHECK-LABEL:@setElement2
-; CHECK-VF2:       [[INSERTVAL:%.*]] = sitofp <2 x i32> [[IV:%.*]] to <2 x float>
-; CHECK-VF2-NEXT:  [[E1:%.*]] = extractelement <2 x float> [[INSERTVAL]], i32 1
-; CHECK-VF2-NEXT:  [[E2:%.*]] = extractelement <2 x float> [[INSERTVAL]], i32 0
-; CHECK-VF2:       [[VARIDX1:%.*]] = extractelement <2 x i32> [[VARIDXVEC:%.*]], i64 0
-; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
-; CHECK-VF2-NEXT:  [[RES1:%.*]] = insertelement <8 x float> [[VEC:%.*]], float [[E2]], i32 [[OFF1]]
-; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
-; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
-; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E1]], i32 [[OFF2]]
-
-; Check the correct sequence for 'extractelement' with non-const index
-; CHECK-LABEL:@_Z10getElementPDv4_ffi
-; CHECK-VF2:       [[VARIDX1:%.*]] = extractelement <2 x i32> [[VARIDXVEC:%.*]], i64 0
-; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
-; CHECK-VF2-NEXT:  [[RES1:%.*]] = extractelement <8 x float> [[VEC:%.*]], i32 [[OFF1]]
-; CHECK-VF2-NEXT:  [[WIDE_EXTRACT1:%.*]] = insertelement <2 x float> {{.*}}, float [[RES1]], i64 0
-; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
-; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
-; CHECK-VF2-NEXT:  [[RES2:%.*]] = extractelement <8 x float> [[VEC]], i32 [[OFF2]]
-; CHECK-VF2-NEXT:  [[WIDE_EXTRACT2:%.*]] = insertelement <2 x float> [[WIDE_EXTRACT1]], float [[RES2]], i64 1
-
-
-source_filename = "tt2.cpp"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-; Function Attrs: nounwind uwtable
-define dso_local void @_Z10setElementPU8__vectorffi(<4 x float>* nocapture %vec, float %val, i32 %i) local_unnamed_addr #0 {
 entry:
   %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
@@ -159,6 +132,17 @@ declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @setElement2(<4 x float>* nocapture %vec, float %val, i32 %i) local_unnamed_addr #0 {
+; Check the correct sequence for 'insertelement' with non-const index and loop variant scalar value to be inserted
+; CHECK-LABEL:@setElement2
+; CHECK-VF2:       [[INSERTVAL:%.*]] = sitofp <2 x i32> [[IV:%.*]] to <2 x float>
+; CHECK-VF2-NEXT:  [[E1:%.*]] = extractelement <2 x float> [[INSERTVAL]], i32 1
+; CHECK-VF2-NEXT:  [[E2:%.*]] = extractelement <2 x float> [[INSERTVAL]], i32 0
+; CHECK-VF2:       [[VARIDX1:%.*]] = extractelement <2 x i32> [[VARIDXVEC:%.*]], i64 0
+; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
+; CHECK-VF2-NEXT:  [[RES1:%.*]] = insertelement <8 x float> [[VEC:%.*]], float [[E2]], i32 [[OFF1]]
+; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
+; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
+; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E1]], i32 [[OFF2]]
 omp.inner.for.body.lr.ph:
   %conv = fptosi float %val to i32
   %t.priv = alloca <4 x float>, align 16
@@ -197,6 +181,16 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 
 ; Function Attrs: nounwind uwtable
 define dso_local float @_Z10getElementPDv4_ffi(<4 x float>* nocapture readonly %vec, float %val, i32 %i) local_unnamed_addr #0 {
+; Check the correct sequence for 'extractelement' with non-const index
+; CHECK-LABEL:@_Z10getElementPDv4_ffi
+; CHECK-VF2:       [[VARIDX1:%.*]] = extractelement <2 x i32> [[VARIDXVEC:%.*]], i64 0
+; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
+; CHECK-VF2-NEXT:  [[RES1:%.*]] = extractelement <8 x float> [[VEC:%.*]], i32 [[OFF1]]
+; CHECK-VF2-NEXT:  [[WIDE_EXTRACT1:%.*]] = insertelement <2 x float> {{.*}}, float [[RES1]], i64 0
+; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
+; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 4, [[VARIDX2]]
+; CHECK-VF2-NEXT:  [[RES2:%.*]] = extractelement <8 x float> [[VEC]], i32 [[OFF2]]
+; CHECK-VF2-NEXT:  [[WIDE_EXTRACT2:%.*]] = insertelement <2 x float> [[WIDE_EXTRACT1]], float [[RES2]], i64 1
 entry:
   %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
