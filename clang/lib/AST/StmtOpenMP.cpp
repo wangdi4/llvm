@@ -1377,7 +1377,7 @@ OMPParallelMasterTaskLoopSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-#endif
+#endif //INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);

@@ -23,7 +23,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
@@ -38,7 +38,7 @@ class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
 class VPLoopEntityList;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 using VPDominatorTree = DomTreeBase<VPBlockBase>;
 using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
@@ -286,7 +286,7 @@ private:
   // Undefined shapes are not stored in VectorShapes, but we need a singleton
   // object to compare against other shapes.
   std::unique_ptr<VPVectorShape> UndefShape;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Internal worklist for divergence propagation.
   SmallVector<const VPInstruction *, 8> Worklist;
@@ -306,7 +306,7 @@ private:
   // Mark all relevant loop-entities as Divergent.
   template <typename EntitiesRange>
   void markEntitiesAsDivergent(const EntitiesRange &Range);
-#endif
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace vpo
