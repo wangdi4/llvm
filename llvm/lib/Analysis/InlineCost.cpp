@@ -41,12 +41,9 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
-<<<<<<< HEAD
-#include "llvm/Support/GenericDomTree.h"            // INTEL
-=======
 #include "llvm/Support/CommandLine.h"
->>>>>>> 4c1a1d3cf97e1ede466e2ad318f2811283ca0fb1
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 #include <algorithm>                                // INTEL
