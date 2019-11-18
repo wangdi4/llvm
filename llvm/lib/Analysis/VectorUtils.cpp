@@ -1611,6 +1611,9 @@ void VFABI::getVectorVariantNames(
   const StringRef S =
       CI.getAttribute(AttributeList::FunctionIndex, VFABI::MappingsAttrName)
           .getValueAsString();
+  if (S.empty())
+    return;
+
   SmallVector<StringRef, 8> ListAttr;
   S.split(ListAttr, ",");
 
