@@ -48,9 +48,11 @@ class VPPHINode;
 class VPBlockBase;
 class VPBasicBlock;
 class VPBuilder;
+class VPAllocatePrivate;
 
 extern bool LoopEntityImportEnabled;
 extern bool VPlanUseVPEntityInstructions;
+extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Base class for loop entities
 class VPLoopEntity {
@@ -284,14 +286,6 @@ public:
   /// load/store inside the loop and storing just last value.
   bool canRegisterize() const { return CanRegisterize; }
 
-  /// Return true if memory is safe for SOA, i.e. all uses inside the loop
-  /// are known and there are no layout-casts.
-  bool isSafeSOA() const { return SafeSOA; }
-
-  /// Return true if it's profitable to make SOA transformation, i.e. there
-  /// is at least one unit-stride load/store to that memory (in case of
-  /// private array), or the memory is a scalar structure.
-  bool isProfitableSOA() const { return ProfitableSOA; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const;
 #endif
@@ -305,15 +299,12 @@ private:
 
   // Interface for analyzer to set the bits.
   void setCanRegisterize(bool Val) { CanRegisterize = Val; }
-  void setSafeSOA(bool Val) { SafeSOA = Val; }
-  void setProfitableSOA(bool Val) { ProfitableSOA = Val; }
 
   // Allocation instruction.
   VPValue *MemoryPtr;
 
   bool CanRegisterize = false;
-  bool SafeSOA = false;
-  bool ProfitableSOA = false;
+
 };
 
 /// Class to hold/analyze VPLoop enitites - reductions, inductions, and
@@ -482,8 +473,15 @@ public:
   // removed from HCFG.
   void replaceDuplicateInductionPHIs();
 
-  // Do Escape analysis on loop-privates.
-  void doEscapeAnalysis();
+  // Do SOA-analysis on loop-entities.
+  void doSOAAnalysis() {
+    VPSOAAnalysis VPSOAA(Plan, getLoop());
+    VPSOAA.doSOAAnalysis();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (VPlanDisplaySOAAnalysisInformation)
+      dump(dbgs());
+#endif
+  }
 
   /// Return VPPHINode that corresponds to a recurrent entity.
   VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
@@ -492,6 +490,80 @@ public:
   /// Recurrence phi is phi that resides in loop header and merges
   /// initial value and value coming from loop latch.
   bool isReductionPhi(const VPPHINode* VPhi) const;
+
+  /// Class for SOA-datalayout transformation analysis for loop-privates.
+
+  // This class uses the rules listed in
+  // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules to identify
+  // pointer-aliasing instructions that we would encounter.
+  class VPSOAAnalysis {
+
+    // The 'UseInst' input argument-name to the functions in the class represent
+    // the 'use'-instruction and 'CurrentI' represents the instruction of which
+    // 'UseInst' is an use.
+
+  public:
+    /// Do SOA-analysis for all VPAllocatePrivates in the entry-block.
+    void doSOAAnalysis();
+
+    VPSOAAnalysis(const VPlan &Plan, const VPLoop &Loop)
+        : Plan(Plan), Loop(Loop) {}
+
+  private:
+    using WorkList = SetVector<const VPInstruction *>;
+
+    // The running worklist of all the instructions which we want to track.
+    WorkList WL;
+
+    // The list of potentially unsafe instructions. The users of these
+    // instructions have to be analyzed for any unsafe behavior.
+    DenseSet<const VPValue *> PotentiallyUnsafeInsts;
+
+    // VPlan object.
+    const VPlan &Plan;
+
+    // VPLoop object.
+    const VPLoop &Loop;
+
+    /// \returns true if \p UseInst is a safe operation. This would evaluate
+    /// to see if \p UseInst is a trivial pointer aliasing instruction, a safe
+    /// function-call or a safe load/store as determined by
+    /// \link VPSOAAnalysis::isSafeInstruction \endlink.
+    bool isSafeUse(const VPInstruction *UseInst, const VPInstruction *CurrentI);
+
+    /// \returns true if \p UseInst is a safe instruction. Load/Stores are
+    /// tested for various constraints to determine safety and every other
+    /// instruction is considered unsafe.
+    bool isSafeLoadStore(const VPInstruction *UseInst,
+                         const VPInstruction *CurrentI);
+
+    /// Determine if the memory pointed to be the Alloca escapes.
+    bool memoryEscapes(const VPAllocatePrivate *Alloca);
+
+    /// \return true if \p UseInst is a known safe bitcast instruction.
+    bool isPotentiallyUnsafeSafeBitCast(const VPInstruction *UseInst);
+
+    /// \ return true if \p UseInst has any potentially-unsafe operands.
+    bool hasPotentiallyUnsafeOperands(const VPInstruction *UseInst);
+
+    /// \returns true if \p UseInst is any function call that we know is a
+    /// safe-function, i.e., passing a private-pointer would not result in
+    /// change of data-layout on the pointee.
+    bool isSafePointerEscapeFunction(const VPInstruction *UseInst);
+
+    /// \returns true if \p Val's pointee-type is a scalar.
+    bool isSOASupportedTy(Type *Ty);
+
+    /// \returns true if \p Val's pointee-type is a scalar.
+    bool isScalarTy(Type *Ty);
+
+    /// \return true if the incoming instruction is in the relevant scope.
+    /// Specifically, we check if the instruction is non-null pointer and
+    /// either
+    /// a) In the loop-preheader, or,
+    /// b) In the loop.
+    bool isInstructionInRelevantScope(const VPInstruction *UseInst);
+  };
 
 private:
   VPlan &Plan;

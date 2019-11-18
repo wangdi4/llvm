@@ -162,8 +162,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       // Loop entities may be not created in some cases.
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
       VPBuilder VPIRBuilder;
-      LE->doEscapeAnalysis();
       LE->insertVPInstructions(VPIRBuilder);
+      LE->doSOAAnalysis();
       LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
                  dbgs() << *Plan;);
     }
