@@ -546,9 +546,11 @@ struct DivergencePropagator {
              "cannot determine def for missing loop header");
       const auto *HeaderDefBlock = DefMap[ParentLoopHeader];
       LLVM_DEBUG(printDefs(dbgs()));
-#if !INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+//The collab tool only supports #if/#else and not !INTEL_CUSTOMIZATION
+#else
       assert(HeaderDefBlock && "no definition in header of carrying loop");
-#endif
+#endif //INTEL_CUSTOMIZATION
 
       for (const auto *ExitBlock : ReachedLoopExits) {
         auto ItExitDef = DefMap.find(ExitBlock);
@@ -606,7 +608,7 @@ struct DivergencePropagator {
         // be propagated to BB165 and the def at BB165 would be different than
         // the def at BB169 anyway. In any case, it is safe to assume the block
         // is divergent and will be marked as such by insertion into JoinBlocks.
-#endif
+#endif //INTEL_CUSTOMIZATION
         if (!HeaderDefBlock || ItExitDef->second != HeaderDefBlock) // INTEL
           JoinBlocks->insert(ExitBlock);
       }
