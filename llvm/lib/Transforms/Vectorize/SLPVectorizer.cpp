@@ -5702,13 +5702,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         uint64_t Size = DL->getTypeAllocSize(ScalarTy);
         // Check that the sorted pointer operands are consecutive.
         if (Diff && Diff->getAPInt() == (VL.size() - 1) * Size) {
+          SmallVector<int, 4> OpDirection(VL.size(), 0); // INTEL
           if (CurrentOrder.empty()) {
             // Original stores are consecutive and does not require reordering.
             ++NumOpsWantToKeepOriginalOrder;
             TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
                                          UserTreeIdx, ReuseShuffleIndicies);
             TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0});
+            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
             LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
           } else {
             // Need to reorder.
@@ -5718,30 +5719,17 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                 newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                              ReuseShuffleIndicies, I->getFirst());
             TE->setOperandsInOrder();
-            buildTree_rec(Operands, Depth + 1, {TE, 0});
+            buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection}); // INTEL
             LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled stores.\n");
           }
           return;
         }
       }
 
-<<<<<<< HEAD
-      ValueList Operands;
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *V : VL) {
-          Operands.push_back(cast<Instruction>(V)->getOperand(0));
-          OpDirection.push_back(0);
-        }
-#endif // INTEL_CUSTOMIZATION
-      TE->setOperandsInOrder();
-      buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection});
-=======
       BS.cancelScheduling(VL, VL0);
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: Non-consecutive store.\n");
->>>>>>> bfa32573bf2d0ab587f9a5d933ea2144a382cf3c
       return;
     }
     case Instruction::Call: {
@@ -8781,89 +8769,66 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
   if (!isPowerOf2_32(Sz) || !isPowerOf2_32(VF) || VF < 2 || VF < MinVF)
     return false;
 
-<<<<<<< HEAD
-  bool Changed = false;
-  // Look for profitable vectorizable trees at all offsets, starting at zero.
-  for (unsigned i = 0, e = ChainLen; i + VF <= e; ++i) {
-
-    ArrayRef<Value *> Operands = Chain.slice(i, VF);
-    // Check that a previous iteration of this loop did not delete the Value.
-    if (llvm::any_of(Operands, [&R](Value *V) {
-          auto *I = dyn_cast<Instruction>(V);
-          return I && R.isDeleted(I);
-        }))
-      continue;
-
-    LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << i
-                      << "\n");
-
-#if INTEL_CUSTOMIZATION
-    R.PSLPInit();
-#endif // INTEL_CUSTOMIZATION
-
-    R.buildTree(Operands);
-#if !INTEL_CUSTOMIZATION
-    if (R.isTreeTinyAndNotFullyVectorizable())
-      continue;
-#endif // INTEL_CUSTOMIZATION
-=======
   LLVM_DEBUG(dbgs() << "SLP: Analyzing " << VF << " stores at offset " << Idx
                     << "\n");
->>>>>>> bfa32573bf2d0ab587f9a5d933ea2144a382cf3c
+
+#if INTEL_CUSTOMIZATION
+  R.PSLPInit();
+#endif // INTEL_CUSTOMIZATION
 
   R.buildTree(Chain);
+  SmallVector<Value *, 4> ReorderedOps(Chain.begin(), Chain.end()); // INTEL
   Optional<ArrayRef<unsigned>> Order = R.bestOrder();
   // TODO: Handle orders of size less than number of elements in the vector.
   if (Order && Order->size() == Chain.size()) {
     // TODO: reorder tree nodes without tree rebuilding.
+#if !INTEL_CUSTOMIZATION
+    // INTEL: Moved to outer scope due to repeated uses (and initialized in
+    // direct order).
     SmallVector<Value *, 4> ReorderedOps(Chain.rbegin(), Chain.rend());
+#endif // INTEL_CUSTOMIZATION
     llvm::transform(*Order, ReorderedOps.begin(),
                     [Chain](const unsigned Idx) { return Chain[Idx]; });
     R.buildTree(ReorderedOps);
   }
+
+#if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   R.computeMinimumValueSizes();
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    // If we found a PSLP candidate, try with PSLP enabled.
-    if (R.FoundPSLPCandidate) {
-      R.undoMultiNodeReordering();
-
-      R.deleteTree();
-      // Try with PSLP enabled.
-      R.DoPSLP = true;
-      R.buildTree(Operands);
-      int PSLPCost = R.getTreeCost();
-      R.DoPSLP = false;
-
-      // If PSLP is worse, then rebuild the tree with plain SLP.
-      if (PSLPCost > Cost) {
-        R.undoMultiNodeReordering();
-        R.PSLPFailureCleanup();
-
-        R.deleteTree();
-
-        R.buildTree(Operands);
-        int SLPCost = R.getTreeCost();
-        assert(SLPCost == Cost && "Should be equal to original cost");
-        Cost = SLPCost;
-      } else {
-        Cost = PSLPCost;
-        R.PSLPSuccess = true;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
-    LLVM_DEBUG(dbgs() << "SLP: Found cost=" << Cost << " for VF=" << VF
-                      << "\n");
-    if (Cost < -SLPCostThreshold) {
-      LLVM_DEBUG(dbgs() << "SLP: Decided to vectorize cost=" << Cost << "\n");
-=======
   int Cost = R.getTreeCost();
->>>>>>> bfa32573bf2d0ab587f9a5d933ea2144a382cf3c
+
+#if INTEL_CUSTOMIZATION
+  // If we found a PSLP candidate, try with PSLP enabled.
+  if (R.FoundPSLPCandidate) {
+    R.undoMultiNodeReordering();
+
+    R.deleteTree();
+    // Try with PSLP enabled.
+    R.DoPSLP = true;
+    R.buildTree(ReorderedOps);
+    int PSLPCost = R.getTreeCost();
+    R.DoPSLP = false;
+
+    // If PSLP is worse, then rebuild the tree with plain SLP.
+    if (PSLPCost > Cost) {
+      R.undoMultiNodeReordering();
+      R.PSLPFailureCleanup();
+      R.deleteTree();
+
+      R.buildTree(ReorderedOps);
+      int SLPCost = R.getTreeCost();
+      assert(SLPCost == Cost && "Should be equal to original cost");
+      Cost = SLPCost;
+    } else {
+      Cost = PSLPCost;
+      R.PSLPSuccess = true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "SLP: Found cost=" << Cost << " for VF=" << VF << "\n");
   if (Cost < -SLPCostThreshold) {
@@ -8877,23 +8842,17 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
                      << " and with tree size "
                      << NV("TreeSize", R.getTreeSize()));
 
-<<<<<<< HEAD
-      // Move to the next bundle.
-      i += VF - 1;
-      Changed = true;
-#if INTEL_CUSTOMIZATION
-      R.cleanupMultiNodeReordering();
-      R.PSLPSuccessCleanup();
-    } else {
-      R.undoMultiNodeReordering();
-      R.PSLPFailureCleanup();
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
     R.vectorizeTree();
+
+#if INTEL_CUSTOMIZATION
+    R.cleanupMultiNodeReordering();
+    R.PSLPSuccessCleanup();
     return true;
->>>>>>> bfa32573bf2d0ab587f9a5d933ea2144a382cf3c
+  } else {
+    R.undoMultiNodeReordering();
+    R.PSLPFailureCleanup();
   }
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
