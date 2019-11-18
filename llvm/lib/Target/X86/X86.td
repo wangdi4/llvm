@@ -176,9 +176,6 @@ def FeatureVNNI    : SubtargetFeature<"avx512vnni", "HasVNNI", "true",
                                       [FeatureAVX512]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
-def FeatureVNNIVL     : SubtargetFeature<"vnnivl", "HasAnyVNNIVL", "true",
-                           "Dummy feature to track if either avx512vnni "
-                           "or avxvnni is enabled. Needed by clang.">;
 def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
                            "Support AVX_VNNI encoding",
                                       [FeatureAVX2]>;

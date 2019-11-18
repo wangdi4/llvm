@@ -441,7 +441,6 @@ protected:
 #endif // INTEL_FEATURE_ISA_AMX2
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
-  bool HasAnyVNNIVL = false;
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION

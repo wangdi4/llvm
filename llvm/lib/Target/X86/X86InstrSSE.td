@@ -7158,11 +7158,7 @@ defm VMASKMOVPD : avx_movmask_rm<0x2D, 0x2F, "vmaskmovpd",
 //===----------------------------------------------------------------------===//
 // AVX_VNNI
 //===----------------------------------------------------------------------===//
-// FIXME: Bump the complexity to give priority over the EVEX version. It's
-// difficult to prefer VEX for unmasked and EVEX for masked when both are
-// enabled due to the multiclass structure over in X86InstrAVX512.td
-let Predicates = [HasAVXVNNI], Constraints = "$src1 = $dst",
-    AddedComplexity = 5 in
+let Predicates = [HasAVXVNNI], Constraints = "$src1 = $dst" in
 multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
   def rr  : AVX8I<opc, MRMSrcReg, (outs VR128:$dst),
              (ins VR128:$src1, VR128:$src2, VR128:$src3),
@@ -7193,10 +7189,10 @@ multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
              VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.XMM]>;
 }
 
-defm VPDPBUSD   : avx_vnni_rm<0x50, "vpdpbusd", X86Vpdpbusd>;
-defm VPDPBUSDS  : avx_vnni_rm<0x51, "vpdpbusds", X86Vpdpbusds>;
-defm VPDPWSSD   : avx_vnni_rm<0x52, "vpdpwssd", X86Vpdpwssd>;
-defm VPDPWSSDS  : avx_vnni_rm<0x53, "vpdpwssds", X86Vpdpwssds>;
+defm VPDPBUSDVEX   : avx_vnni_rm<0x50, "vpdpbusd", X86VpdpbusdVex>;
+defm VPDPBUSDSVEX  : avx_vnni_rm<0x51, "vpdpbusds", X86VpdpbusdsVex>;
+defm VPDPWSSDVEX   : avx_vnni_rm<0x52, "vpdpwssd", X86VpdpwssdVex>;
+defm VPDPWSSDSVEX  : avx_vnni_rm<0x53, "vpdpwssds", X86VpdpwssdsVex>;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 

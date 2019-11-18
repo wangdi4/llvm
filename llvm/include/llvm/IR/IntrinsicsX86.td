@@ -1896,6 +1896,43 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
               GCCBuiltin<"__builtin_ia32_vpdpwssds512">,
               Intrinsic<[llvm_v16i32_ty], [llvm_v16i32_ty, llvm_v16i32_ty,
                          llvm_v16i32_ty], [IntrNoMem]>;
+
+  //vnni must vex-encoding
+  def int_x86_avx_vpdpbusd_128 :
+              GCCBuiltin<"__builtin_ia32_vpdpbusdvex128">,
+              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
+                         llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx_vpdpbusd_256 :
+              GCCBuiltin<"__builtin_ia32_vpdpbusdvex256">,
+              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
+                         llvm_v8i32_ty], [IntrNoMem]>;
+
+  def int_x86_avx_vpdpbusds_128 :
+              GCCBuiltin<"__builtin_ia32_vpdpbusdsvex128">,
+              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
+                         llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx_vpdpbusds_256 :
+              GCCBuiltin<"__builtin_ia32_vpdpbusdsvex256">,
+              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
+                         llvm_v8i32_ty], [IntrNoMem]>;
+
+  def int_x86_avx_vpdpwssd_128 :
+              GCCBuiltin<"__builtin_ia32_vpdpwssdvex128">,
+              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
+                         llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx_vpdpwssd_256 :
+              GCCBuiltin<"__builtin_ia32_vpdpwssdvex256">,
+              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
+                         llvm_v8i32_ty], [IntrNoMem]>;
+
+  def int_x86_avx_vpdpwssds_128 :
+              GCCBuiltin<"__builtin_ia32_vpdpwssdsvex128">,
+              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty,
+                         llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx_vpdpwssds_256 :
+              GCCBuiltin<"__builtin_ia32_vpdpwssdsvex256">,
+              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
+                         llvm_v8i32_ty], [IntrNoMem]>;
 }
 
 //===----------------------------------------------------------------------===//
