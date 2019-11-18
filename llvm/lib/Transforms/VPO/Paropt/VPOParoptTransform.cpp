@@ -1821,12 +1821,25 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
   switch (RedI->getType()) {
   case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
-    V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 0)
-                                       : ConstantFP::get(ScalarTy, 0.0);
+    if (RedI->getIsComplex()) {
+      Constant *ValueZero =
+          ConstantFP::get(ScalarTy->getStructElementType(0), 0.0);
+      V = ConstantStruct::get(cast<StructType>(ScalarTy),
+                              {ValueZero, ValueZero});
+    } else {
+      V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 0)
+                                         : ConstantFP::get(ScalarTy, 0.0);
+    }
     break;
   case ReductionItem::WRNReductionMult:
-    V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 1)
-                                       : ConstantFP::get(ScalarTy, 1.0);
+    if (RedI->getIsComplex()) {
+      Constant *ValueOne =
+          ConstantFP::get(ScalarTy->getStructElementType(0), 1.0);
+      V = ConstantStruct::get(cast<StructType>(ScalarTy), {ValueOne, ValueOne});
+    } else {
+      V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 1)
+                                         : ConstantFP::get(ScalarTy, 1.0);
+    }
     break;
   case ReductionItem::WRNReductionAnd:
     V = ConstantInt::get(ScalarTy, 1);
@@ -2026,12 +2039,42 @@ bool VPOParoptTransform::genReductionScalarFini(
   switch (RedI->getType()) {
   case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
-    Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
-                                         : Builder.CreateFAdd(Rhs1, Rhs2);
+    if (RedI->getIsComplex()) {
+      Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
+      Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
+      Value *ResReal = Builder.CreateFAdd(Rhs1Real, Rhs2Real, "add");
+      Value *Rhs1Img = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
+      Value *Rhs2Img = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
+      Value *ResImaginary = Builder.CreateFAdd(Rhs1Img, Rhs2Img, "add");
+      Res = ConstantAggregateZero::get(Rhs1->getType());
+      Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
+      Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
+    } else {
+      Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
+                                           : Builder.CreateFAdd(Rhs1, Rhs2);
+    }
     break;
   case ReductionItem::WRNReductionMult:
-    Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateMul(Rhs1, Rhs2)
-                                         : Builder.CreateFMul(Rhs1, Rhs2);
+    if (RedI->getIsComplex()) {
+      // multiply two complex variables (N1=a+bi, N2=c+di) is equal to:
+      //   N1*N2 = (ac-bd) + (ad+cb)i
+      Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
+      Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
+      Value *Rhs1Imaginary = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
+      Value *Rhs2Imaginary = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
+      Value *Mult00 = Builder.CreateFMul(Rhs1Real, Rhs2Real, "mul");
+      Value *Mult11 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Imaginary, "mul");
+      Value *Mult01 = Builder.CreateFMul(Rhs1Real, Rhs2Imaginary, "mul");
+      Value *Mult10 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Real, "mul");
+      Value *ResReal = Builder.CreateFSub(Mult00, Mult11, "sub");
+      Value *ResImaginary = Builder.CreateFAdd(Mult01, Mult10, "add");
+      Res = ConstantAggregateZero::get(Rhs1->getType());
+      Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
+      Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
+    } else {
+      Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateMul(Rhs1, Rhs2)
+                                           : Builder.CreateFMul(Rhs1, Rhs2);
+    }
     break;
   case ReductionItem::WRNReductionBand:
     Res = Builder.CreateAnd(Rhs1, Rhs2);

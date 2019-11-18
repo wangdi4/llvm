@@ -907,10 +907,17 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                            bool IsInReduction) {
   C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
   bool IsUnsigned = ClauseInfo.getIsUnsigned();
-  if (IsUnsigned)
-    assert((ReductionKind==ReductionItem::WRNReductionMax ||
-            ReductionKind==ReductionItem::WRNReductionMin) &&
-            "The UNSIGNED modifier is for MIN/MAX reduction only");
+  assert((!IsUnsigned ||
+          (ReductionKind == ReductionItem::WRNReductionMax ||
+           ReductionKind == ReductionItem::WRNReductionMin)) &&
+         "The UNSIGNED modifier is for MIN/MAX reduction only");
+
+  bool IsComplex = ClauseInfo.getIsComplex();
+  assert((!IsComplex ||
+          (ReductionKind == ReductionItem::WRNReductionAdd ||
+           ReductionKind == ReductionItem::WRNReductionSub ||
+           ReductionKind == ReductionItem::WRNReductionMult)) &&
+         "The COMPLEX modifier is for ADD/SUB/MUL reduction only");
 
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
@@ -918,6 +925,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     ReductionItem *RI = C.back();
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
     RI->setIsUnsigned(IsUnsigned);
+    RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
@@ -930,6 +938,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
+      RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
 #if INTEL_CUSTOMIZATION

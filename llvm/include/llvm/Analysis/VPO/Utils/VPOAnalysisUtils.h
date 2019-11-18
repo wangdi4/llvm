@@ -112,6 +112,7 @@ private:
   bool IsF90DopeVector:1;
 #endif // INTEL_CUSTOMIZATION
   bool IsUnsigned:1;     // needed by min/max reduction
+  bool IsComplex:1;
 
   // Conditional lastprivate
   bool IsConditional:1;
@@ -145,6 +146,7 @@ public:
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
+  void setIsComplex()              { IsComplex = true; }
 
   // Getters
   StringRef getFullName() const { return FullName; }
@@ -165,6 +167,7 @@ public:
   void setIsF90DopeVector() {IsF90DopeVector = true; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
 #endif // INTEL_CUSTOMIZATION
+  bool getIsComplex() const { return IsComplex; }
 };
 
 /// This class contains a set of utility functions used by VPO passes.
