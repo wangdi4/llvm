@@ -490,12 +490,14 @@ bool RegDDRef::isFakeRval() const {
   return HNode->isFakeRval(this);
 }
 
-bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
+bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
+                                              bool IgnoreInnerIVs) const {
 
   bool HasGEPInfo = hasGEPInfo();
 
   // Check the Base CE.
-  if (HasGEPInfo && !getBaseCE()->isInvariantAtLevel(LoopLevel)) {
+  if (HasGEPInfo &&
+      !getBaseCE()->isInvariantAtLevel(LoopLevel, IgnoreInnerIVs)) {
     return false;
   }
 
@@ -504,12 +506,15 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
 
     // Check if CanonExpr is invariant i.e. IV is not present in any form inside
     // the canon expr.
-    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel)) {
+    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel,
+                                                  IgnoreInnerIVs)) {
       return false;
     }
 
-    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(LoopLevel) ||
-                       !getDimensionStride(I)->isInvariantAtLevel(LoopLevel))) {
+    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(
+                           LoopLevel, IgnoreInnerIVs) ||
+                       !getDimensionStride(I)->isInvariantAtLevel(
+                           LoopLevel, IgnoreInnerIVs))) {
       return false;
     }
   }

@@ -675,7 +675,7 @@ unsigned HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
 
   for (auto &Refs : MemRefMap) {
     for (auto Ref : Refs.second) {
-      if (Ref->isStructurallyInvariantAtLevel(Level)) {
+      if (Ref->isStructurallyInvariantAtLevel(Level, true)) {
         if (CheckPresence) {
           return 1;
         }
@@ -712,7 +712,8 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
   for (auto &RefVec : RefGroups) {
     auto PrevRef = RefVec.front();
 
-    bool IsInv = !ReuseOnly && PrevRef->isStructurallyInvariantAtLevel(Level);
+    bool IsInv =
+        !ReuseOnly && PrevRef->isStructurallyInvariantAtLevel(Level, true);
     auto Size = RefVec.size();
 
     if (CheckPresence && (IsInv || (Size > 1))) {
