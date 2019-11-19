@@ -3390,11 +3390,33 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+       // Call can feed OrigValue.  Was encountered in miniqmc
+       //
+       // Below is an encounter of OrigValue %287
+       //
+       // #pragma omp target map(to : i)
+       // {
+       //    einsplines_ptr[i]        = tile_ptr;
+       //    einsplines_ptr[i]->coefs = coefs_ptr;
+       //  }
+       //
+       // %287 = call %struct.multi_UBspline_3d_d**
+       //        @llvm.intel.fakeload.p0p0s_struct.multi_UBspline_3d_ds
+       //       (%struct.multi_UBspline_3d_d** %arrayidx.i37, metadata !176) #9
+       // ....
+       // %293 = call token @llvm.directive.region.entry() [
+       //        "DIR.OMP.TARGET.ENTER.DATA"(), "QUAL.OMP.MAP.TO:AGGRHEAD"(
+       //        %struct.multi_UBspline_3d_d** %287, %struct.multi_UBspline_3d_d**
+       //        %287, i64 8), "QUAL.OMP.MAP.TO:AGGR"(%struct.multi_UBspline_3d_d**
+       //        %287, %struct.multi_UBspline_3d_d* %292, i64 248) ]
+#endif // INTEL_CUSTOMIZATION
+
   assert(
       (isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
        isa<LoadInst>(OrigValue) || isa<BitCastInst>(OrigValue) ||
        GeneralUtils::isOMPItemLocalVAR(OrigValue) ||
-       (isa<CallInst>(OrigValue) && isFenceCall(cast<CallInst>(OrigValue)))) &&
+       isa<CallInst>(OrigValue)) &&
       "unsupported input Value");
 
   ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
