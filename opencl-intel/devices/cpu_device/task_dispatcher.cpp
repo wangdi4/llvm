@@ -308,8 +308,9 @@ cl_dev_err_code TaskDispatcher::init()
     }
 
     //Pin threads
+    cl_ulong timeOut = 8000000ULL * m_uiNumThreads; // in nanoseconds
     SharedPtr<AffinitizeThreads> pAffinitizeThreads =
-       AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
+       AffinitizeThreads::Allocate(m_uiNumThreads, timeOut);
     if (0 == pAffinitizeThreads)
     {
         //Todo
@@ -547,7 +548,7 @@ bool TaskDispatcher::TaskFailureNotification::Shoot(cl_dev_err_code err)
     return true;
 }
 
-void* TaskDispatcher::OnThreadEntry()
+void* TaskDispatcher::OnThreadEntry(bool registerThread)
 {
     unsigned int   position_in_device = m_pTaskExecutor->GetPosition();
 
@@ -557,19 +558,28 @@ void* TaskDispatcher::OnThreadEntry()
         if ( isThreadAffinityRequired() )
         {
             // Only enter if affinity, in general, is required (OS-dependent)
-            bool bNeedToNotify = false;
+
             //We notify only for sub-devices by NAMES - in other cases, the user is not interested which cores to use
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
-            if (nullptr != pSubDevID)
-            {
-                bNeedToNotify = (nullptr != pSubDevID->legal_core_ids);
-            }
-
-            if (bNeedToNotify)
+            if (nullptr != pSubDevID && nullptr != pSubDevID->legal_core_ids)
             {
                 assert((nullptr != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
                 m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
             }
+            else if (registerThread)
+            {
+                // Each thread is registered once in the lifetime of OpenCL
+                // context. If current thread is just been registered in
+                // ThreadManager, it is not pinned to any CPU core yet and there
+                // is no need to relocate in NotifyAffinity.
+                m_pObserver->NotifyAffinity(clMyThreadId(), position_in_device);
+            }
+        }
+
+        if (registerThread && isDestributedAllocationRequired())
+        {
+            // Set NUMA node
+            clNUMASetLocalNodeAlloc();
         }
     }
 
@@ -595,8 +605,9 @@ TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer) :
-    m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer), m_uiMasterHWId(0)
+AffinitizeThreads::AffinitizeThreads(unsigned int numThreads,
+                                     cl_ulong timeOutInTicks) :
+    m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false)
 {
 }
 
@@ -614,7 +625,6 @@ void AffinitizeThreads::WaitForEndOfTask() const
 
 int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
 {
-    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
     // copy execution parameters
     unsigned int i;
     for (i = 1; i < MAX_WORK_DIM; ++i)
@@ -624,6 +634,7 @@ int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount, size_t numb
     dimCount = 1;
     region[0] = m_numThreads;
     m_barrier = m_numThreads;
+    m_startTime = Intel::OpenCL::Utils::HostTime();
 
     return CL_DEV_SUCCESS;
 }
@@ -643,36 +654,22 @@ void AffinitizeThreads::DetachFromThread(void* pWgContext)
 bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
     if (m_failed)
-    {
-      return false;
-    }
-
-    ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgContext);
-
-    unsigned int   uiPositionInDevice = pTaskExecutor->GetPosition();
-    // If the target cpuid (uiPositionInDevice) is same as master thread's
-    // cpuid, will not set affinity.
-    if ( !pTaskExecutor->IsMaster() && (uiPositionInDevice != m_uiMasterHWId) )
-    {
-      m_pObserver->NotifyAffinity(clMyThreadId() , uiPositionInDevice);
-      // Set NUMA node
-      clNUMASetLocalNodeAlloc();
-    }
+      return true;
 
     m_barrier--;
-    cl_ulong start = Intel::OpenCL::Utils::HostTime();
-    while ((m_barrier > 0) && (!m_failed))
-    {
-        if (m_timeOut > 0)
-        {
-          cl_ulong now = Intel::OpenCL::Utils::HostTime();
-          if (now - start > m_timeOut)
-          {
-            m_failed = true;
-            return false;
-          }
+
+    if (m_timeOut > 0) {
+        while ((m_barrier > 0) && (!m_failed)) {
+            unsigned long long now = Intel::OpenCL::Utils::HostTime();
+            if (now - m_startTime > m_timeOut) {
+                m_failed = true;
+                break;
+            }
+            hw_pause();
         }
-        hw_pause();
+    } else {
+        while (m_barrier > 0)
+            hw_pause();
     }
 
     return true;
