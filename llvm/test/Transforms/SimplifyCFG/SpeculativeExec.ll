@@ -37,15 +37,12 @@ define float @spec_select_fp1(float %a, float %b, float %c) {
 ; CHECK-LABEL: @spec_select_fp1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
-; CHECK-NEXT:    br i1 [[T1]], label [[BB1:%.*]], label [[BB3:%.*]]
-; CHECK:       bb1:
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
-; CHECK-NEXT:    br i1 [[T2]], label [[BB2:%.*]], label [[BB3]]
-; CHECK:       bb2:
 ; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A:%.*]], 1.000000e+00
-; CHECK-NEXT:    br label [[BB3]]
-; CHECK:       bb3:
-; CHECK-NEXT:    [[T4:%.*]] = phi ninf float [ [[B]], [[ENTRY:%.*]] ], [ [[A]], [[BB1]] ], [ [[T3]], [[BB2]] ]
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select ninf i1 [[T2]], float [[T3]], float %a
+; CHECK-NEXT:    [[T4:%.*]] = select ninf i1 [[T1]], float [[SPEC_SELECT]], float %b
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[T5:%.*]] = fsub float [[T4]], 1.000000e+00
 ; CHECK-NEXT:    ret float [[T5]]
 ;
@@ -153,14 +150,11 @@ define float @spec_select_fp5(float %a, float %b, float %c) {
 ; CHECK-LABEL: @spec_select_fp5(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
-; CHECK-NEXT:    br i1 [[T1]], label [[BB1:%.*]], label [[BB3:%.*]]
-; CHECK:       bb1:
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
-; CHECK-NEXT:    br i1 [[T2]], label [[BB2:%.*]], label [[BB3]]
-; CHECK:       bb2:
-; CHECK-NEXT:    br label [[BB3]]
-; CHECK:       bb3:
-; CHECK-NEXT:    [[T4:%.*]] = phi nsz float [ [[A:%.*]], [[ENTRY:%.*]] ], [ [[B]], [[BB1]] ], [ [[C]], [[BB2]] ]
+; CHECK-NEXT:    [[T3:%.*]] = select nsz i1 [[T2]], float %c, float %b
+; CHECK-NEXT:    [[T4:%.*]] = select nsz i1 [[T1]], float [[T3]], float %a
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret float [[T4]]
 ;
 entry:
