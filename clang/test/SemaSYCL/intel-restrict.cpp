@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang %s -fsyntax-only --sycl -DCHECKDIAG -Xclang -verify
 // RUN: %clang %s -fsyntax-only -Xclang -ast-dump --sycl | FileCheck %s
 

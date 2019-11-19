@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 /// Covers the Intel performance library options for IPP, MKL, TBB, DAAL
 
 // IPP tests

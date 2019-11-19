@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl
 // RUN: %clang %s -S -emit-llvm --sycl -o - | FileCheck %s
 
 #include "CL/sycl.hpp"
