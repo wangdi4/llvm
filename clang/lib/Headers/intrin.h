@@ -571,20 +571,16 @@ __readmsr(unsigned long __register) {
   __asm__ ("rdmsr" : "=d"(__edx), "=a"(__eax) : "c"(__register));
   return (((unsigned __int64)__edx) << 32) | (unsigned __int64)__eax;
 }
-#endif
 
-<<<<<<< HEAD
-static __inline__ unsigned __LPTRINT_TYPE__ __DEFAULT_FN_ATTRS
-=======
 /* INTEL_CUSTOMIZATION */
 static __inline__ void __DEFAULT_FN_ATTRS
 __writemsr(unsigned long __register, unsigned __int64 __data) {
   __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
 }
 /* end INTEL_CUSTOMIZATION */
+#endif
 
-static __inline__ unsigned long __DEFAULT_FN_ATTRS
->>>>>>> 9f3721329dfe81fbaaac3f65c264f9d59d85c37a
+static __inline__ unsigned __LPTRINT_TYPE__ __DEFAULT_FN_ATTRS
 __readcr3(void) {
   unsigned __LPTRINT_TYPE__ __cr3_val;
   __asm__ __volatile__ ("mov %%cr3, %0" : "=r"(__cr3_val) : : "memory");
