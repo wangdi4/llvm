@@ -284,6 +284,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
