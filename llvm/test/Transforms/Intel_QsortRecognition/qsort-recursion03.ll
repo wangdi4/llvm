@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-test-insert=false -qsort-test-pivot=false -qsort-test-pivot-movers=false -qsort-test-min=true -qsort-test-swap=false -qsort-test-recursion=true -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-test-insert=false -qsort-test-pivot=false -qsort-test-pivot-movers=false -qsort-test-min=true -qsort-test-swap=false -qsort-test-recursion=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-min -qsort-test-recursion -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-min -qsort-test-recursion -disable-output 2>&1 | FileCheck %s
 
 ; Check that the direct recursion is recognized, but the tail recursion
 ; is not in the IR. The computation of MIN will pass for the direct recursive
