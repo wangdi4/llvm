@@ -301,6 +301,12 @@ private:
 
 };
 
+// Helper class to handle the shared utilities for argument alignment
+class IntelArgumentAlignmentUtils {
+public:
+  bool valueRefersToArg(Value *Val, Value *ArgArray);
+}; // end IntelArgumentAlignmentUtils
+
 } // End namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_UTIILTY_H

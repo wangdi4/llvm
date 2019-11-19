@@ -1,4 +1,4 @@
-//===----  Intel_IPOUtils.h - IPO Utility Functions   --------===//
+//===----  Intel_IPOUtils.cpp - IPO Utility Functions   --------===//
 //
 // Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
@@ -15,6 +15,7 @@
 
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -26,6 +27,7 @@
 #include "llvm/Support/Debug.h"
 
 #include <sstream>
+#include <queue>
 
 using namespace llvm;
 
@@ -684,3 +686,89 @@ bool AllocFreeAnalyzer::analyzeForFree(Function *F) {
 }
 
 // End of member functions for class AllocFreeAnalyzer
+
+// Return true if traversing from the input value Val we land on
+// the input argument Arg. The traversals between the input Val
+// and Arg are composed only of GEPs and PHI Nodes. All the paths
+// between Val and the arguments must end on Arg, else return false.
+bool IntelArgumentAlignmentUtils::valueRefersToArg(Value *Val, Value *Arg) {
+
+  if (!Val || !Arg)
+    return false;
+
+  Value *CurrVal = Val;
+  std::queue<Value *> ValueQueue;
+  SetVector<Value *> UsedValues;
+
+  auto InsertInQueue = [&ValueQueue, &UsedValues](Value *Val) {
+    if (UsedValues.insert(Val))
+      ValueQueue.push(Val);
+  };
+
+  InsertInQueue(CurrVal);
+  bool ArgFound = false;
+
+  while (!ValueQueue.empty()) {
+
+    Value *NewVal = ValueQueue.front();
+    ValueQueue.pop();
+
+    // If we reach a different argument then return false.
+    if (isa<Argument>(NewVal)) {
+      if (NewVal == Arg) {
+        ArgFound = true;
+        continue;
+      }
+      return false;
+    }
+
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(NewVal)) {
+
+      if (GEP->getNumOperands() != 2)
+        return false;
+
+      // The GEP must be an multiple of 8
+      Type *SourceTy = GEP->getSourceElementType();
+      if (!SourceTy->isIntegerTy(8) && !SourceTy->isIntegerTy(64))
+        return false;
+
+      // We are using an i64 to access the next element
+      Type *EntryTy = GEP->getOperand(1)->getType();
+      if (!EntryTy->isIntegerTy(64))
+        return false;
+
+      Value *Operand = GEP->getOperand(0);
+      InsertInQueue(Operand);
+    }
+
+    // All the values in a PHI Node must land at the input argument
+    else if (PHINode *PhiInst = dyn_cast<PHINode>(NewVal)) {
+
+      unsigned NumIncomingVals = PhiInst->getNumIncomingValues();
+      for (unsigned Entry = 0; Entry < NumIncomingVals; Entry++) {
+
+        Value *PhiVal = PhiInst->getIncomingValue(Entry);
+        if (PhiVal != CurrVal)
+          InsertInQueue(PhiVal);
+      }
+    }
+
+    // Collect the pointer from a PtrToIntInst
+    else if (PtrToIntInst *Ptr = dyn_cast<PtrToIntInst>(NewVal)) {
+      InsertInQueue(Ptr->getOperand(0));
+    }
+
+    // It the instruction is a Load or a BitCast then get the first operator
+    else if (isa<BitCastInst>(NewVal) || isa<LoadInst>(NewVal)) {
+      Instruction *TempInst = cast<Instruction>(NewVal);
+      Value *Operand = TempInst->getOperand(0);
+      InsertInQueue(Operand);
+    } else {
+      return false;
+    }
+  }
+
+  return ArgFound;
+}
+
+// End of member functions for class IntelArgumentAlignmentUtils
