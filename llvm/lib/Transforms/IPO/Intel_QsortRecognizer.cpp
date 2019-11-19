@@ -75,6 +75,11 @@ static cl::opt<bool> QsortTestSwap("qsort-test-swap",
 static cl::opt<bool> QsortTestRecursion("qsort-test-recursion",
                                          cl::init(false), cl::ReallyHidden);
 
+static cl::opt<bool> QsortTestCompareFunc("qsort-test-compare-func",
+                                         cl::init(false), cl::ReallyHidden);
+
+static cl::opt<bool> QsortTestStoreSwaps("qsort-test-store-swaps",
+                                         cl::init(false), cl::ReallyHidden);
 // Utilities to handle the argument's analysis
 static IntelArgumentAlignmentUtils ArgUtil;
 
@@ -88,13 +93,12 @@ static Instruction *firstNonDbgInst(BasicBlock *BB) {
   return &*I;
 }
 
-
 //
 // Return 'true' if 'V' represents a PHINode and one of its incoming values
 // is 'Arg'.
 //
 static bool isPHINodeWithArgIncomingValue(Value *V, Argument *Arg) {
-  auto PHIN = dyn_cast<PHINode>(V);
+  auto PHIN = dyn_cast_or_null<PHINode>(V);
   if (!PHIN)
     return false;
   auto Num = PHIN->getNumIncomingValues();
@@ -102,6 +106,375 @@ static bool isPHINodeWithArgIncomingValue(Value *V, Argument *Arg) {
     if (PHIN->getIncomingValue(I) == Arg)
       return true;
   return false;
+}
+
+// Return true if the input function is a compare function. A compare function
+// has two inputs with the same type and two pointers that load from each
+// input. Then, a Value is collected from the loaded pointer through a GEP.
+// These loaded Values from the GEPs are compared against each other with a
+// signed "lower than" (SLT) or signed "greater than" (SGT) operations. The
+// function must return 1 or -1, or the result from a select instruction that
+// choose between -1 or 1.
+static bool isCompareFunction(Function *CompareFunc) {
+  if (!CompareFunc)
+    return false;
+
+  Argument *Arg0 = CompareFunc->getArg(0);
+  Argument *Arg1 = CompareFunc->getArg(1);
+  if (Arg0->getType() != Arg1->getType())
+    return false;
+
+  // Return the operand 0 from the input Value if:
+  //  * Val is a Load instruction and the operand is a GEP, BitCast or Argument
+  //  * Val is a BitCast and operand is a Load
+  //  * Val is a GEP, the operand 0 is a Load, and the operands 1 and 2 are
+  //    constants
+  // Else return nullptr.
+  auto GetOperand = [](Value *Val) -> Value * {
+    Value *RetVal = nullptr;
+    if (!Val)
+      return nullptr;
+
+    // A load must come from a BitCast, a GEP or the argument itself
+    if (LoadInst *Load = dyn_cast<LoadInst>(Val)) {
+      RetVal = Load->getOperand(0);
+      if (!isa<GetElementPtrInst>(RetVal) && !isa<Argument>(RetVal) &&
+          !isa<BitCastInst>(RetVal))
+        return nullptr;
+    }
+
+    // A BitCast must come from a load
+    else if (BitCastInst *BitCast = dyn_cast<BitCastInst>(Val)) {
+      RetVal = BitCast->getOperand(0);
+      if (!isa<LoadInst>(RetVal))
+        return nullptr;
+    }
+
+    // Check the GEP
+    else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Val)) {
+      // Collecting from a structure and GEPPos must not be set
+      if (GEP->getNumOperands() != 3)
+        return nullptr;
+
+      ConstantInt *Pos = dyn_cast<ConstantInt>(GEP->getOperand(2));
+      ConstantInt *PosStruct = dyn_cast<ConstantInt>(GEP->getOperand(1));
+
+      // GEP is not constant
+      if (!Pos || !PosStruct)
+          return nullptr;
+
+      RetVal = GEP->getOperand(0);
+      if (!isa<LoadInst>(RetVal))
+        return nullptr;
+    }
+
+    return RetVal;
+  };
+
+  // Return true if tracing from the input Value Val0 reaches the Arg0, and
+  // tracing Val1 reaches Arg1. Also, each collected instruction during the
+  // traversal must match the type. If the instructions are GEPs then
+  // operands 1 and 2 must be the same constants.
+  auto CheckValuesWithArguments = [GetOperand](Value *Val0, Argument *Arg0,
+                                               Value *Val1, Argument *Arg1) {
+
+    if (!Val0 || !Val1 || !Arg0 || !Arg1)
+      return false;
+
+    Value *CurrVal0 = Val0;
+    Value *CurrVal1 = Val1;
+
+    while (CurrVal0 && CurrVal1) {
+
+      if (CurrVal0->getType() != CurrVal1->getType())
+        return false;
+
+      if (CurrVal0 == cast<Value>(Arg0) && CurrVal1 == cast<Value>(Arg1))
+        return true;
+
+      if (isa<GetElementPtrInst>(CurrVal0) &&
+          isa<GetElementPtrInst>(CurrVal1)) {
+        GetElementPtrInst *GEP0 = cast<GetElementPtrInst>(CurrVal0);
+        GetElementPtrInst *GEP1 = cast<GetElementPtrInst>(CurrVal1);
+
+        // Collecting from a structure and GEPPos must not be set
+        if (GEP0->getNumOperands() != 3 || GEP1->getNumOperands() != 3)
+          return false;
+
+        // Operand 1 and 2 in GEP0 must be constant values
+        if (!isa<ConstantInt>(GEP0->getOperand(1)) ||
+            !isa<ConstantInt>(GEP0->getOperand(2)))
+          return false;
+
+        // Operand 1 and 2 in GEP1 must be constant values
+        if (!isa<ConstantInt>(GEP1->getOperand(1)) ||
+            !isa<ConstantInt>(GEP1->getOperand(2)))
+          return false;
+
+        if ((GEP0->getOperand(1) != GEP1->getOperand(1)) ||
+            (GEP0->getOperand(2) != GEP1->getOperand(2)))
+          return false;
+
+        CurrVal0 = GetOperand(CurrVal0);
+        CurrVal1 = GetOperand(CurrVal1);
+      }
+
+      else if ((isa<LoadInst>(CurrVal0) && isa<LoadInst>(CurrVal1)) ||
+          (isa<BitCastInst>(CurrVal0) && isa<BitCastInst>(CurrVal1))) {
+        CurrVal0 = GetOperand(CurrVal0);
+        CurrVal1 = GetOperand(CurrVal1);
+      } else {
+        return false;
+      }
+    }
+
+    return false;
+  };
+
+  // Return true if the input Value compares the entries of the arguments.
+  // For example:
+  //
+  // define internal i32 @compare(%some.structure** %0, %some.structure** %1) {
+  //   %3 = load %some.structure*, %some.structure** %0
+  //   %4 = getelementptr inbounds %some.structure, %some.structure* %3, i64 0,
+  //        i32 2
+  //   %5 = load i64, i64* %4
+  //   %6 = load %some.structure*, %some.structure** %1
+  //   %7 = getelementptr inbounds %some.structure, %some.structure* %6, i64 0,
+  //        i32 2
+  //   %8 = load i64, i64* %7
+  //   %9 = icmp slt i64 %5, %8
+  //
+  // Consider that Cond is %9 from the example above, Arg0 is %0 and Arg is %1.
+  // The following function will check that is a "less than" or "greater than"
+  // compare from Values loaded from these arguments. Also, both Values
+  // must be loaded from the same entry, this means that the GEP must use
+  // the same constant operands (second operand in %4 and %7).
+  auto IsValidCompare = [CheckValuesWithArguments](Value *Cond, Argument *Arg0,
+                                                   Argument *Arg1,
+                                                   unsigned *MaxSgt,
+                                                   unsigned *MaxSlt) {
+
+    if (!Cond || !Arg0 || !Arg1)
+      return false;
+
+    Value *LVal = nullptr;
+    Value *RVal = nullptr;
+    ICmpInst::Predicate Pred;
+
+    if (!match(Cond, m_ICmp(Pred, m_Value(LVal), m_Value(RVal))))
+      return false;
+
+    // Is a "less than" or "greater than" operation.
+    if (Pred == ICmpInst::ICMP_SLT) {
+      (*MaxSlt)++;
+      if (*MaxSlt > 2)
+        return false;
+    }
+
+    else if (Pred == ICmpInst::ICMP_SGT) {
+      (*MaxSgt)++;
+      if (*MaxSgt > 2)
+        return false;
+    } else {
+      return false;
+    }
+
+    if (!CheckValuesWithArguments(LVal, Arg0, RVal, Arg1))
+      return false;
+
+    return true;
+  };
+
+  // Collect the 1 or -1 from a ConstantInt and return it, else
+  // return 0
+  auto GetConstantOne = [](Value *Val) {
+    if (!Val)
+      return 0;
+
+    ConstantInt *Const = dyn_cast<ConstantInt>(Val);
+
+    if (!Const)
+      return 0;
+
+    int SignedOne = Const->getSExtValue();
+
+    if (SignedOne == 1 || SignedOne == -1)
+      return SignedOne;
+
+    return 0;
+  };
+
+  // There will be one use for each argument
+  if (!Arg0->hasOneUse() || !Arg1->hasOneUse())
+    return false;
+
+  unsigned MaxSgt = 0;
+  unsigned MaxSlt = 0;
+
+  for (auto &BB : *CompareFunc) {
+    Instruction *Terminator = BB.getTerminator();
+
+    // Check the branch
+    if (BranchInst *Branch = dyn_cast<BranchInst>(Terminator)) {
+      // Unconditional branch should lead to the exit block
+      if (Branch->isUnconditional()) {
+        BasicBlock *ExitBB = Terminator->getSuccessor(0);
+        // Deal with the return later
+        if (!isa<ReturnInst>(ExitBB->getTerminator()))
+          return false;
+        continue;
+      }
+
+      // A conditional branch is comparing two Values that come
+      // from the input arguments
+      Value *Cond = Branch->getCondition();
+      if (!IsValidCompare(Cond, Arg0, Arg1, &MaxSgt, &MaxSlt)) {
+        return false;
+      }
+    }
+
+    else if (ReturnInst *Ret = dyn_cast<ReturnInst>(Terminator)) {
+
+      // The Value returned comes from a PHI Node that checks for
+      // 1, -1 or a Select instruction. For example:
+      //
+      //     %21 = icmp sgt i32 %16, %20
+      //     %22 = select i1 %21, i32 1, i32 -1
+      //     br label %23
+      //
+      //   23:
+      //     %24 = phi i32 [ 1, %2 ], [ -1, %10 ], [ %22, %12 ]
+      //     ret i32 %24
+      PHINode *RetPHI = dyn_cast_or_null<PHINode>(Ret->getReturnValue());
+
+      if (!RetPHI)
+        return false;
+
+      unsigned NumIncomingValues = RetPHI->getNumIncomingValues();
+
+      if (NumIncomingValues != 3)
+        return false;
+
+      bool FoundOne = false;
+      bool FoundMinusOne = false;
+      bool FoundSelect = false;
+      for (unsigned Entry = 0; Entry < NumIncomingValues; Entry++) {
+
+        if (!FoundOne &&
+            GetConstantOne(RetPHI->getIncomingValue(Entry)) == 1) {
+          FoundOne = true;
+        }
+        else if (!FoundMinusOne &&
+            GetConstantOne(RetPHI->getIncomingValue(Entry)) == -1) {
+          FoundMinusOne = true;
+        }
+
+        // Entry in the PHI Node is a Select instructions (%22 from the
+        // above example).
+        else if (!FoundSelect &&
+            isa<SelectInst>(RetPHI->getIncomingValue(Entry))) {
+
+          SelectInst *SelInst =
+              cast<SelectInst>(RetPHI->getIncomingValue(Entry));
+
+          int FalseConst = GetConstantOne(SelInst->getFalseValue());
+          int TrueConst = GetConstantOne(SelInst->getTrueValue());
+
+          // One of the sides is not -1
+          if (FalseConst == 0 || TrueConst == 0)
+            return false;
+
+          // Both sides are the same
+          if (FalseConst == TrueConst)
+            return false;
+
+          // The condition must use values pointing to the arguments
+          Value *Cond = SelInst->getCondition();
+
+          if (!IsValidCompare(Cond, Arg0, Arg1, &MaxSgt, &MaxSlt))
+            return false;
+
+          FoundSelect = true;
+        } else {
+           return false;
+        }
+      }
+
+      if (!FoundOne || !FoundMinusOne || !FoundSelect)
+        return false;
+
+    } else {
+      return false;
+    }
+  }
+
+  // Make sure that we found the correct number of "less than" and "greater
+  // than" operations.
+  if (MaxSgt == 2 && MaxSlt == 1)
+    return true;
+  else if (MaxSlt == 2 && MaxSgt == 1)
+    return true;
+
+  // Compare function not found.
+  return false;
+}
+
+// Return true if at least there is call site to a compare function, and
+// the compare function is the only function called across F (except the
+// recursive call). Else return false.
+static bool findCompareFunction(Function *F) {
+  if (!F)
+    return false;
+
+  // Compare function (there is only one across the whole qsort)
+  Function *CompareFunction = nullptr;
+
+  for (auto &I : instructions(F)) {
+    CallBase *Call = dyn_cast<CallBase>(&I);
+    if (!Call)
+      continue;
+
+    // All calls must be a direct call
+    if (Call->isIndirectCall()) {
+      CompareFunction = nullptr;
+      break;
+    }
+
+    Function *CalledFunc = Call->getCalledFunction();
+    if (CalledFunc == F)
+      continue;
+
+    // If the compare function is set then check with the
+    // current called function
+    if (CompareFunction) {
+      if (CalledFunc != CompareFunction) {
+        CompareFunction = nullptr;
+        break;
+      }
+      continue;
+    }
+
+    // Else check that is a compare function
+    if (!isCompareFunction(CalledFunc)) {
+      CompareFunction = nullptr;
+      break;
+    }
+
+    CompareFunction = CalledFunc;
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "QsortRec: Compare Function"
+           << (CompareFunction ? " " : " NOT ") << "found";
+
+    if (CompareFunction)
+      dbgs() << ": " << CompareFunction->getName();
+
+    dbgs() << "\n";
+  });
+
+  return CompareFunction;
 }
 
 //
@@ -119,32 +492,35 @@ static bool isPHINodeWithArgIncomingValue(Value *V, Argument *Arg) {
 // %174 and %175.) Set '*NI' to the Instruction following the sequence.
 //
 static bool isSwapSequence(Instruction *I, Value **V0, Value **V1,
-                           Instruction **NI) {
-// TODO: Axel asked that I put a comment here saying that all swap
-// sequences come from a compare function, which will simplify the
-// implementation.
-    auto BC0 = dyn_cast_or_null<BitCastInst>(I);
-    if (!BC0)
-      return false;
-    *V0 = BC0->getOperand(0);
-    auto L0 = dyn_cast_or_null<LoadInst>(BC0->getNextNonDebugInstruction());
-    if (!L0 || L0->getPointerOperand() != BC0)
-      return false;
-    auto BC1 = dyn_cast_or_null<BitCastInst>(L0->getNextNonDebugInstruction());
-    if (!BC1)
-      return false;
-    *V1 = BC1->getOperand(0);
-    auto L1 = dyn_cast_or_null<LoadInst>(BC1->getNextNonDebugInstruction());
-    if (!L1 || L1->getPointerOperand() != BC1)
-      return false;
-    auto S0 = dyn_cast<StoreInst>(L1->getNextNonDebugInstruction());
-    if (!S0 || S0->getPointerOperand() != BC0 || S0->getValueOperand() != L1)
-      return false;
-    auto S1 = dyn_cast<StoreInst>(S0->getNextNonDebugInstruction());
-    if (!S1 || S1->getPointerOperand() != BC1 || S1->getValueOperand() != L0)
-      return false;
-    *NI = S1->getNextNonDebugInstruction();
-    return true;
+                           Instruction **NI,
+                           SetVector<StoreInst *> &StoreInstructions) {
+
+  auto BC0 = dyn_cast_or_null<BitCastInst>(I);
+  if (!BC0)
+    return false;
+  *V0 = BC0->getOperand(0);
+  auto L0 = dyn_cast_or_null<LoadInst>(BC0->getNextNonDebugInstruction());
+  if (!L0 || L0->getPointerOperand() != BC0)
+    return false;
+  auto BC1 = dyn_cast_or_null<BitCastInst>(L0->getNextNonDebugInstruction());
+  if (!BC1)
+    return false;
+  *V1 = BC1->getOperand(0);
+  auto L1 = dyn_cast_or_null<LoadInst>(BC1->getNextNonDebugInstruction());
+  if (!L1 || L1->getPointerOperand() != BC1)
+    return false;
+  auto S0 = dyn_cast<StoreInst>(L1->getNextNonDebugInstruction());
+  if (!S0 || S0->getPointerOperand() != BC0 || S0->getValueOperand() != L1)
+    return false;
+  auto S1 = dyn_cast<StoreInst>(S0->getNextNonDebugInstruction());
+  if (!S1 || S1->getPointerOperand() != BC1 || S1->getValueOperand() != L0)
+    return false;
+  *NI = S1->getNextNonDebugInstruction();
+
+  StoreInstructions.insert(S0);
+  StoreInstructions.insert(S1);
+
+  return true;
 }
 
 //
@@ -188,7 +564,8 @@ static bool isSwapSequence(Instruction *I, Value **V0, Value **V1,
 //  ret void
 
 static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
-                            Argument *ArgSize) {
+                            Argument *ArgSize,
+                            SetVector<StoreInst *> &StoreInstructions) {
 
   // The Validate*() lambda functions below all return 'true' if the basic
   // block they are checking is validated (is proved to have the required
@@ -285,8 +662,9 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
   // Validate 'BBIL', the inner loop block of the insertion sort.  Recognize
   // 'BBILH' as its true successor and 'BBOL' as its false successor.
   //
-  auto ValidateBBIL = [&ArgArray](BasicBlock *BBIL, BasicBlock *BBILH,
-                                  BasicBlock *BBOL) -> bool {
+  auto ValidateBBIL = [&ArgArray, &StoreInstructions](BasicBlock *BBIL,
+                                                      BasicBlock *BBILH,
+                                   BasicBlock *BBOL) -> bool {
     auto BI = dyn_cast<BranchInst>(BBIL->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
@@ -305,7 +683,8 @@ static bool isInsertionSort(BasicBlock *BBStart, Argument *ArgArray,
     Instruction *NI = nullptr;
     if (!isPHINodeWithArgIncomingValue(IC->getOperand(1), ArgArray))
       return false;
-    if (!isSwapSequence(firstNonDbgInst(BBIL), &V0, &V1, &NI))
+    if (!isSwapSequence(firstNonDbgInst(BBIL), &V0, &V1, &NI,
+                        StoreInstructions))
       return false;
     if (V0 != &BBILH->front())
       return false;
@@ -505,43 +884,6 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
       };
 
   //
-  // Return 'true' if no Instruction in 'F' may write to memory.
-  //
-  auto IsNoStoreFunction = [](Function *F) -> bool {
-    for (auto &I : instructions(F))
-      if (I.mayWriteToMemory())
-        return false;
-    return true;
-  };
-
-  //
-  // Return 'true' if no BasicBlock in 'BBPivotSet' assigns to memory. (This
-  // is used to ensure that the computation of the pivot value is a "pure"
-  // computation.
-  //
-  auto ValidateBBsForPivots =
-      [&IsNoStoreFunction](SmallPtrSetImpl<BasicBlock *> *BBPivotSet) -> bool {
-    SmallPtrSet<Function *, 8> NoStoreFunctions;
-    for (BasicBlock *BB : *BBPivotSet)
-      for (auto &I : BB->instructionsWithoutDebug()) {
-        if (isa<StoreInst>(&I))
-          return false;
-        auto CB = dyn_cast<CallBase>(&I);
-        if (CB) {
-          Function *CF = CB->getCalledFunction();
-          if (!CF)
-            return false;
-          if (NoStoreFunctions.find(CF) != NoStoreFunctions.end())
-            continue;
-          if (!IsNoStoreFunction(CF))
-            return false;
-          NoStoreFunctions.insert(CF);
-        }
-      }
-    return true;
-  };
-
-  //
   // Return 'true' if 'V' represents the offset into "middle" of an array of
   // of length 'N'.
   //
@@ -694,10 +1036,7 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
   // Trace PHINodes and SelectInsts to find pivot values to test.  Each pivot
   // value must be the address of an element in the array beeing sorted.
   MakePivotList(A, PivotBase, &PivotSet, &JoinSet, &BBPivotSet);
-  // Make sure that the basic blocks in which the pivot elements appear do not
-  // store to memory.  This ensures that the pivot value computation is "pure".
-  if (!ValidateBBsForPivots(&BBPivotSet))
-    return nullptr;
+
   // Iterate through the pivot values, checking that each represents a valid
   // array address.
   Value *MidBase = nullptr;
@@ -753,6 +1092,32 @@ static Value *qsortPivot(BasicBlock *BBStart, Argument *ArgArray,
   LLVM_DEBUG(dbgs() << "QsortRec: " << BBStart->getParent()->getName()
                     << " passed pivot test\n");
   return PivotBase;
+}
+
+// Return true if all store instructions in the input function are in the
+// SetVector StoreInstructions. If so then it means that all StoreInst are
+// used for swapping values.
+static bool allStoresAreSwaps(Function *F,
+                              SetVector<StoreInst*> &StoreInstructions) {
+
+  if (!F || StoreInstructions.empty())
+    return false;
+
+  for (auto &Inst: instructions(F)) {
+    StoreInst *Store = dyn_cast<StoreInst>(&Inst);
+    if (!Store)
+      continue;
+
+    if (StoreInstructions.count(Store) == 0) {
+      LLVM_DEBUG(dbgs() << "QsortRec: All store instructions"
+                        << " are NOT swaps\n");
+      return false;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "QsortRec: All store instructions"
+                    << " are swaps\n");
+  return true;
 }
 
 // Return the number of MIN operations computed in the input function.
@@ -1151,14 +1516,16 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
 // in %300 and %304 is stored in %301. Basically there is a data swap
 // between %300 and %301. Also, it checks that %304 and %303 come from
 // the argument (Arg).
-static unsigned countSwapComputations(Function *F, Argument *Arg) {
+static unsigned countSwapComputations(Function *F, Argument *Arg,
+    SetVector<StoreInst *> &StoreInstructions) {
 
   if (!F || !Arg)
     return false;
 
   // Collect the stores that are doing the swapping
-  auto FindSwapStores = [](SmallVector<StoreInst *, 2> &StoresVect,
-                           BasicBlock &BB) {
+  auto FindSwapStores = [&StoreInstructions](
+                            SmallVector<StoreInst *, 2> &StoresVect,
+                            BasicBlock &BB) {
 
     SmallVector<LoadInst *, 2> LoadsVect;
 
@@ -1188,6 +1555,7 @@ static unsigned countSwapComputations(Function *F, Argument *Arg) {
 
       LoadsVect.push_back(LdInst);
       StoresVect.push_back(StrInst);
+      StoreInstructions.insert(StrInst);
     }
 
     if (LoadsVect.size() != 2 || StoresVect.size() != 2)
@@ -1582,7 +1950,8 @@ static bool isPivotMover(BasicBlock *BBStart, Argument *ArgArray, bool IsUp,
                          BasicBlock **BBOE, BasicBlock **BBIE,
                          PHINode **OPHIIn, PHINode **IPHIIn,
                          PHINode **OPHIOut, PHINode **IPHIOut,
-                         PHINode **OPHIMid, PHINode **LPHI) {
+                         PHINode **OPHIMid, PHINode **LPHI,
+                         SetVector<StoreInst *> &StoreInstructions) {
   //
   // Return the first GetElementPtrInst in 'BB'.
   //
@@ -1834,13 +2203,15 @@ static bool isPivotMover(BasicBlock *BBStart, Argument *ArgArray, bool IsUp,
   // element at 'OuterPHIMid' while advancing '*InnerPHIMid', which is
   // recognized and set.
   //
-  auto ValidateBBLSwap = [](BasicBlock *BBLSwap, bool IsUp,
-                            PHINode *OuterPHIMid, PHINode *InnerPHIMid)
-                            -> bool {
+  auto ValidateBBLSwap = [&StoreInstructions](BasicBlock *BBLSwap, bool IsUp,
+                                              PHINode *OuterPHIMid,
+                                              PHINode *InnerPHIMid)
+                                              -> bool {
     Value *VPHIN0 = nullptr;
     Value *VPHIN1 = nullptr;
     Instruction *NI = nullptr;
-    if (!isSwapSequence(firstNonDbgInst(BBLSwap), &VPHIN0, &VPHIN1, &NI))
+    if (!isSwapSequence(firstNonDbgInst(BBLSwap), &VPHIN0, &VPHIN1, &NI,
+                        StoreInstructions))
       return false;
     auto PHIN0 = dyn_cast<PHINode>(VPHIN0);
     if (!PHIN0)
@@ -1989,13 +2360,15 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
                           Argument *ArgSize, Value *Pivot,
                           BasicBlock **BBSmallSort, BasicBlock **BBLargeSort,
                           PHINode **PHIpa, PHINode **PHIpb, PHINode **PHIpc,
-                          PHINode **PHIpd) {
+                          PHINode **PHIpd,
+                          SetVector<StoreInst *> &StoreInstructions) {
   //
   // Validate 'BBStart', the preheader of the pivot sorter loop, and set
   // '*BBForwardPH', the preheader of the forward pivot mover loop.
   //
-  auto ValidateBBStart = [](BasicBlock *BBStart, Argument *ArgArray,
-                            Value *Pivot, BasicBlock **BBForwardPH) -> bool {
+  auto ValidateBBStart = [&StoreInstructions](BasicBlock *BBStart,
+                            Argument *ArgArray, Value *Pivot,
+                            BasicBlock **BBForwardPH) -> bool {
     auto BI = dyn_cast<BranchInst>(BBStart->getTerminator());
     if (!BI || !BI->isUnconditional())
       return false;
@@ -2006,7 +2379,7 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
     Value *V0 = nullptr;
     Value *V1 = nullptr;
     Instruction *N1 = nullptr;
-    if (!isSwapSequence(SSI, &V0, &V1, &N1))
+    if (!isSwapSequence(SSI, &V0, &V1, &N1, StoreInstructions))
       return false;
     if (!isPHINodeWithArgIncomingValue(V0, ArgArray))
       return false;
@@ -2067,11 +2440,11 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
   //   PHIpaOut, PHIpbOut, PHIpcOut: Values of 'pa', 'pb', and 'pc' on exit
   // to the forward pivot mover loop.
   //
-  auto ValidateBBForwardPH = [&IsGEPForLowInit, &IsGEPForHighInit](
-                                 BasicBlock *BBForwardPH, Argument *ArgArray,
-                                 Argument *ArgSize, BasicBlock *BBInit,
-                                 BasicBlock **BBLH, BasicBlock **BBLL,
-                                 BasicBlock **BBBackwardPH,
+  auto ValidateBBForwardPH = [&IsGEPForLowInit, &IsGEPForHighInit,
+                              &StoreInstructions](BasicBlock *BBForwardPH,
+                                 Argument *ArgArray, Argument *ArgSize,
+                                 BasicBlock *BBInit, BasicBlock **BBLH,
+                                 BasicBlock **BBLL, BasicBlock **BBBackwardPH,
                                  PHINode **PHIpaOut, PHINode **PHIpbOut,
                                  PHINode **PHIpcOut)
                                  -> bool {
@@ -2088,7 +2461,8 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
     // Check that a pivot mover loop starts here.
     if (!isPivotMover(BBForwardPH, ArgArray, true, &LocalBBLH,
         &LocalBBLL, &BBOuterExit, &BBInnerExit, &LocalPHIpbIn, &LocalPHIpaIn,
-        &LocalPHIpbOut, &LocalPHIpaOut, &LocalPHIpbMid, &LocalPHIpc)) {
+        &LocalPHIpbOut, &LocalPHIpaOut, &LocalPHIpbMid, &LocalPHIpc,
+        StoreInstructions)) {
       LLVM_DEBUG(dbgs() << "QsortRec: Pivot Mover Candidate FAILED Test.\n");
       return false;
     }
@@ -2130,7 +2504,7 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
   //   PHIpaOut, PHIpbOut, PHIpcOut: Values of 'pa', 'pb', and 'pc' on exit
   // to the forward pivot mover loop.
   //
-  auto ValidateBBBackwardPH = [&IsGEPForHighInit](
+  auto ValidateBBBackwardPH = [&IsGEPForHighInit, &StoreInstructions](
                                   BasicBlock *BBBackwardPH,
                                   Argument *ArgArray, Argument *ArgSize,
                                   BasicBlock *BBInit, PHINode *PHIpb,
@@ -2152,7 +2526,8 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
     // Check that a pivot mover loop starts here.
     if (!isPivotMover(BBBackwardPH, ArgArray, false, &LocalBBLH,
         &LocalBBLL, &BBOuterExit, &BBInnerExit, &LocalPHIpcIn, &LocalPHIpdIn,
-        &LocalPHIpcOut, &LocalPHIpdOut, &LocalPHIpcMid, &LocalPHIpb)) {
+        &LocalPHIpcOut, &LocalPHIpdOut, &LocalPHIpcMid, &LocalPHIpb,
+        StoreInstructions)) {
       LLVM_DEBUG(dbgs() << "QsortRec: Pivot Mover Candidate FAILED Test.\n");
       return false;
     }
@@ -2180,9 +2555,10 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
   // and increments/decrements their values. Also verify that 'BBForwardPH' is
   // the unique successor of 'BBLoopBack'.
   //
-  auto ValidateBBLoopBack = [](BasicBlock *BBLoopBack,
-                               BasicBlock *BBForwardPH,
-                               PHINode *PHIpb, PHINode *PHIpc) -> bool {
+  auto ValidateBBLoopBack = [&ArgArray, &ArgSize, &StoreInstructions]
+                                (BasicBlock *BBLoopBack,
+                                BasicBlock *BBForwardPH,
+                                PHINode *PHIpb, PHINode *PHIpc) -> bool {
     auto BI = dyn_cast<BranchInst>(BBLoopBack->getTerminator());
     if (!BI || !BI->isUnconditional() || BI->getSuccessor(0) != BBForwardPH)
       return false;
@@ -2190,7 +2566,8 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
     Value *V0 = nullptr;
     Value *V1 = nullptr;
     Instruction *NI = nullptr;
-    if (!isSwapSequence(firstNonDbgInst(BBLoopBack), &V0, &V1, &NI))
+    if (!isSwapSequence(firstNonDbgInst(BBLoopBack), &V0, &V1, &NI,
+        StoreInstructions))
       return false;
     // Check the increment of 'pb' and the decrement of 'pc'.
     auto PHIN0 = dyn_cast<PHINode>(V0);
@@ -2352,6 +2729,7 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
   return true;
 }
 
+
 //
 // Return 'true' if 'F' is recognized as a qsort like the one that appears in
 // standard C library.
@@ -2485,10 +2863,10 @@ static bool isQsort(Function *F) {
 
   // Return the number of insertion sorts recognized.
   auto CountInsertionSorts = [&FindInsertionSortCandidate](Function *F,
-                                                           Argument *ArgArray,
-                                                           Argument *ArgSize,
-                                                           unsigned SmallSize)
-                                                           -> unsigned {
+                                 Argument *ArgArray, Argument *ArgSize,
+                                 unsigned SmallSize,
+                                 SetVector<StoreInst*> &StoreInstructions)
+                                                              -> unsigned {
     unsigned InsertionCount = 0;
     for (auto &BBTest : *F) {
       BasicBlock *BBStart = FindInsertionSortCandidate(&BBTest, SmallSize);
@@ -2498,7 +2876,7 @@ static bool isQsort(Function *F) {
                  << F->getName() << "\n";
           BBStart->dump();
         });
-        if (!isInsertionSort(BBStart, ArgArray, ArgSize)) {
+        if (!isInsertionSort(BBStart, ArgArray, ArgSize, StoreInstructions)) {
           LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                             << F->getName() << " FAILED Test.\n");
           return 0;
@@ -2553,8 +2931,9 @@ static bool isQsort(Function *F) {
   // this function returns 2.
   //
   auto CountPivotMovers = [&FindPivotMoverCandidate](Function *F,
-                                                     Argument *ArgArray)
-                                                     -> unsigned {
+                               Argument *ArgArray, Argument *ArgSize,
+                               SetVector<StoreInst *> &StoreInstructions)
+                               -> unsigned {
     unsigned UpCount = 0;
     unsigned DownCount = 0;
     for (auto &BBTest : *F) {
@@ -2584,7 +2963,7 @@ static bool isQsort(Function *F) {
         if (!isPivotMover(BBStart, ArgArray, IsUp, &LocalBBLH,
             &LocalBBLL, &BBOuterExit, &BBInnerExit, &LocalPHIpcIn,
             &LocalPHIpdIn, &LocalPHIpcOut, &LocalPHIpdOut, &LocalPHIpcMid,
-            &LocalPHIpb)) {
+            &LocalPHIpb, StoreInstructions)) {
           LLVM_DEBUG(dbgs() << "QsortRec: Pivot Mover Candidate in "
                             << F->getName() << " FAILED Test.\n");
           return 0;
@@ -2620,6 +2999,8 @@ static bool isQsort(Function *F) {
   SmallVector<Value *, 2> NewSizesVector;
   SetVector<Value *> PointersToArg;
 
+  SetVector<StoreInst *> StoreInstructions;
+
   BasicBlock *BBReturn = nullptr;
   // Check that all PHINodes that include the arguments are equivalent.
   if (!AllPHINodesEquivalent(ArgArray) || !AllPHINodesEquivalent(ArgSize)) {
@@ -2637,17 +3018,19 @@ static bool isQsort(Function *F) {
   // Unit tests for various pieces of qsort recognition
   if (QsortUnitTest) {
     bool SawFailure = false;
-    if (QsortTestInsert) {
-      unsigned ISCount = CountInsertionSorts(F, ArgArray, ArgSize, SmallSize);
+    if (QsortTestInsert || QsortTestStoreSwaps) {
+      unsigned ISCount = CountInsertionSorts(F, ArgArray, ArgSize, SmallSize,
+                                             StoreInstructions);
       SawFailure |= ISCount < 2;
     }
     if (QsortTestPivot)
       SawFailure |= !qsortPivot(BBLargeSort, ArgArray, ArgSize);
-    if (QsortTestPivotMovers) {
-      unsigned PMCount = CountPivotMovers(F, ArgArray);
+    if (QsortTestPivotMovers || QsortTestStoreSwaps) {
+      unsigned PMCount = CountPivotMovers(F, ArgArray, ArgSize,
+                                          StoreInstructions);
       SawFailure |= PMCount < 2;
     }
-    if (QsortTestPivotSorter) {
+    if (QsortTestPivotSorter || QsortTestStoreSwaps) {
       Value *Pivot = qsortPivot(BBLargeSort, ArgArray, ArgSize);
       BasicBlock *BBStart = cast<Instruction>(Pivot)->getParent();
       BasicBlock *BBSmallTest = nullptr;
@@ -2657,7 +3040,8 @@ static bool isQsort(Function *F) {
       PHINode *PHIpc = nullptr;
       PHINode *PHIpd = nullptr;
       bool NewFailure = !isPivotSorter(BBStart, ArgArray, ArgSize, Pivot,
-        &BBSmallTest, &BBLargeSort, &PHIpa, &PHIpb, &PHIpc, &PHIpd);
+        &BBSmallTest, &BBLargeSort, &PHIpa, &PHIpb, &PHIpc, &PHIpd,
+        StoreInstructions);
       SawFailure |= NewFailure;
       LLVM_DEBUG({
         if (NewFailure)
@@ -2673,14 +3057,25 @@ static bool isQsort(Function *F) {
                                                NewSizesVector);
       SawFailure |= MINCount < 2;
     }
-    if (QsortTestSwap) {
-      unsigned SwapCount = countSwapComputations(F, ArgArray);
+    if (QsortTestSwap || QsortTestStoreSwaps) {
+      unsigned SwapCount = countSwapComputations(F, ArgArray,
+                                                 StoreInstructions);
       SawFailure |= SwapCount < 2;
+    }
+    // Note: The store instructions are collected during the swaps, therefore
+    // we need to enable the tests for the insertion sort, pivot movers,
+    // pivot sorter and the vect swaps to compute the store instructions.
+    // TODO: This check will be added in the regular process after enabling
+    // the check for vect swaps in the regular process.
+    if (QsortTestStoreSwaps) {
+      SawFailure |= !allStoresAreSwaps(F, StoreInstructions);
     }
     if (QsortTestRecursion) {
       unsigned RecCount = countRecursions(F, ArgArray, ArgSize, NewSizesVector);
       SawFailure |= RecCount < 2;
     }
+    if (QsortTestCompareFunc)
+      SawFailure |= !findCompareFunction(F);
     LLVM_DEBUG({
       if (SawFailure)
         dbgs() << "FAILED QSORT RECOGNITION UNIT TESTS\n";
@@ -2695,7 +3090,7 @@ static bool isQsort(Function *F) {
     return false;
   }
   // Check that when array is small enough, an insertion sort is performed.
-  if (!isInsertionSort(BBSmallSort, ArgArray, ArgSize)) {
+  if (!isInsertionSort(BBSmallSort, ArgArray, ArgSize, StoreInstructions)) {
     LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                       << F->getName() << " FAILED Test.\n");
     return false;
@@ -2710,7 +3105,7 @@ static bool isQsort(Function *F) {
   PHINode *PHIpc = nullptr;
   PHINode *PHIpd = nullptr;
   if (!isPivotSorter(BBStart, ArgArray, ArgSize, Pivot, &BBSmallTest,
-      &BBLargeSort, &PHIpa, &PHIpb, &PHIpc, &PHIpd)) {
+      &BBLargeSort, &PHIpa, &PHIpb, &PHIpc, &PHIpd, StoreInstructions)) {
     LLVM_DEBUG(dbgs() << "QsortRec: PivotSorter in "
                       << F->getName() << " FAILED Test.\n");
     return false;
@@ -2722,12 +3117,16 @@ static bool isQsort(Function *F) {
                       << F->getName() << "\n");
     return false;
   }
-  if (!isInsertionSort(BBSmallSort, ArgArray, ArgSize)) {
+  if (!isInsertionSort(BBSmallSort, ArgArray, ArgSize, StoreInstructions)) {
     LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                     << F->getName() << " FAILED Test.\n");
     return false;
   }
-
+  if (!findCompareFunction(F)) {
+    LLVM_DEBUG(dbgs() << "QsortRec: Compare Function in "
+                    << F->getName() << " FAILED Test.\n");
+    return false;
+  }
   LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                     << F->getName() << " PASSED Test.\n");
   // The logic is not complete. We still need to add code to test for the
