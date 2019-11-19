@@ -2254,25 +2254,20 @@ private:
   };
 
 #if INTEL_CUSTOMIZATION
-  // Returns true if 'V' is a good value for a Multi-Node.
-  static bool isMultiNodeCompatibleValue(Value *V) {
-    Instruction *I = dyn_cast<Instruction>(V);
-    if (!I)
-      return false;
-    switch (I->getOpcode()) {
-    case Instruction::Add:
-    case Instruction::Sub:
-      return true;
-    }
-    return false;
-  }
-
-  // Return true if the instructions in VL are compatible with the Multi-Node.
+  // Return true if all VL are instructions compatible with Multi-Node.
   static bool areMultiNodeCompatibleOpcodes(ArrayRef<Value *> VL) {
-    for (Value *V : VL)
-      if (!isMultiNodeCompatibleValue(V))
+    auto isMultiNodeCompatibleValue = [](Value *V) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (!I)
         return false;
-    return true;
+      switch (I->getOpcode()) {
+      case Instruction::Add:
+      case Instruction::Sub:
+        return true;
+      }
+      return false;
+    };
+    return llvm::all_of(VL, isMultiNodeCompatibleValue);
   }
 
   // Add VL as a leaf node of the Multi-Node currently under construction.
@@ -2951,11 +2946,9 @@ private:
   void rebuildBSStateUntil(int currIdx,
                            Optional<ScheduleData *> &BundleToUpdate);
 
-  /// Returns true if \p VL was emitted by PSLP.
-  bool isEmittedByPSLP(ArrayRef<Value *> VL);
-
-  /// Returns true if \p VL has been part of a previous Multi-Node.
-  bool isInPreviousMultiNode(ArrayRef<Value *> VL);
+  /// Returns true if all legality checks passed to begin building a
+  /// Multi-Node.
+  bool isLegalToBuildMultiNode(ArrayRef<Value *> VL);
 
   /// Builds the TreeEntries for a Multi-Node.
   void buildTreeMultiNode_rec(const InstructionsState &S,
@@ -2998,10 +2991,6 @@ private:
   /// \returns true if /p V is not a trunk value.
   bool isLeafValue(Value *V);
 
-  /// \returns the number of operands of the frontier node of /p OD that are not
-  /// trunk nodes of the Multi-Node.
-  size_t getNumFrontierLeaves(OperandData *OD);
-
   /// \returns a high score if \p LHS and \p RHS are consecutive instructions
   /// and good for vectorization.
   int getLookAheadScore(Value *LHS, Value *RHS);
@@ -3015,14 +3004,6 @@ private:
 
   /// \returns true if v1 and v2 could be combined into a vector.
   int areConsecutive(Value *v1, Value *v2) const;
-
-  /// Fills in ExternalOperands with all operands of FrontierI that are external
-  /// to the Multi-Node.
-  void getExternalOperands(Instruction *FrontierI,
-                           SmallVector<Value *, 2> &ExternalOperands);
-
-  /// \returns true if 'I' is a frontier instruction.
-  bool isFrontierI(Instruction *I);
 
   /// Replace Op's frontier with opcode with the 'effective' one.
   void replaceFrontierOpcodeWithEffective(OperandData *Op);
@@ -3117,10 +3098,6 @@ private:
   /// Path steering.
   void steerPath(SteerTowardsData &SteerTowards);
 
-  /// Perform Multi-Node operand reordering. Returns true if we should proceed
-  /// with code generation.
-  bool reorderMultiNodeOperands();
-
   /// Perform operand reordering for the Multi-Node. Note: Updates \p VL and
   /// also updates the instructions in \p Bundle if needed.
   void reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
@@ -3132,10 +3109,6 @@ private:
   /// \returns the TreeEntry where I is in. It does not need to be a
   /// vectorizable tree entry. \returns nullptr if not found.
   TreeEntry *getTreeEntryForI(Instruction *I);
-
-  /// \returns the tree cost without caring about VL opcodes matching.
-  int getTreeCostSafe();
-
 #endif // INTEL_CUSTOMIZATION
 
   /// Attaches the BlockScheduling structures to basic blocks.
@@ -3588,11 +3561,14 @@ void BoUpSLP::PSLPFailureCleanup() {
        it != SelectsEmittedByPSLP.end();) {
     auto nextIt = it;
     ++nextIt;
-    SelectInst *Select = *it;
+    auto *Select = *it;
+
+    Value *SelectedOperand = Select->getTrueValue();
+    Value *NonSelectedOperand = Select->getFalseValue();
+    if (Select->getCondition() != Builder.getTrue())
+      std::swap(SelectedOperand, NonSelectedOperand);
+
     // 1. Remove the non-selected operand.
-    Value *NonSelectedOperand = (Select->getCondition() == Builder.getTrue())
-                                    ? Select->getFalseValue()
-                                    : Select->getTrueValue();
     // We normally expect an Instruction here, expect if it has already been
     // transformed into an undef from a previous run of step 1.
     if (Instruction *NonSelectedI = dyn_cast<Instruction>(NonSelectedOperand)) {
@@ -3603,9 +3579,6 @@ void BoUpSLP::PSLPFailureCleanup() {
     }
 
     // 2. Connect the selected operand with the Select's users.
-    Value *SelectedOperand = (Select->getCondition() == Builder.getTrue())
-                                 ? Select->getTrueValue()
-                                 : Select->getFalseValue();
     Select->replaceAllUsesWith(SelectedOperand);
     Select->eraseFromParent();
 
@@ -3876,21 +3849,31 @@ void BoUpSLP::rebuildBSStateUntil(int UntilIdx,
   replaySchedulerStateUpTo(UntilIdx, BundleToUpdate, BundleToUpdateVL);
 }
 
-bool BoUpSLP::isEmittedByPSLP(ArrayRef<Value *> VL) {
-  auto isVEmittedByPSLP = [&](Value *V) {
-    auto *I = dyn_cast<Instruction>(V);
-    auto *SI = dyn_cast<SelectInst>(V);
-    return I && (PaddedInstrsEmittedByPSLP.count(I) ||
-                 (SI && SelectsEmittedByPSLP.count(SI)));
-  };
-  return std::any_of(VL.begin(), VL.end(), isVEmittedByPSLP);
-}
-
-bool BoUpSLP::isInPreviousMultiNode(ArrayRef<Value *> VL) {
-  for (Value *V : VL)
-    if (AllMultiNodeValues.count(V))
-      return true;
-  return false;
+bool BoUpSLP::isLegalToBuildMultiNode(ArrayRef<Value *> VL)
+{
+  return areMultiNodeCompatibleOpcodes(VL) &&
+         // Don't allow opcodes of different families at the root.
+         // For example don't allow [MUL, ADD]
+         !areOperandsInExistingMultiNode(VL) &&
+         // TODO: For now we disable Multi-Node generation if VL is emitted
+         // by PSLP because we have trouble cleaning up the code upon
+         // failure. The problem is that padding might happen either before
+         // or after the Multi-Node creation, so it is not easy to clean
+         // things up one by one.
+         !llvm::any_of(VL,
+                       [this](Value *V) {
+                         auto *I = dyn_cast<Instruction>(V);
+                         auto *SI = dyn_cast<SelectInst>(V);
+                         return I && (PaddedInstrsEmittedByPSLP.count(I) ||
+                                      (SI && SelectsEmittedByPSLP.count(SI)));
+                       }) &&
+         // Disable overlapping Multi-Nodes
+         !llvm::any_of(
+             VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
+         // Allow no more than this many multi-nodes per tree.
+         // TODO: This is a workaround for the broken save/undo
+         // instruction scheduling.
+         MultiNodes.size() < MaxNumOfMultiNodesPerTree;
 }
 
 /// We move all Multi-Node trunk (frontier) instructions to the root, so that
@@ -5089,22 +5072,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       return;
     }
     // No Multi-Node is being built, try to see if we can build one.
-    else if (areMultiNodeCompatibleOpcodes(VL) &&
-             // Don't allow opcodes of different families at the root.
-             // For example don't allow [MUL, ADD]
-             !areOperandsInExistingMultiNode(VL) &&
-             // TODO: For now we disable Multi-Node generation if VL is emitted
-             // by PSLP because we have trouble cleaning up the code upon
-             // failure. The problem is that padding might happen either before
-             // or after the Multi-Node creation, so it is not easy to clean
-             // things up one by one.
-             !isEmittedByPSLP(VL) &&
-             // Disable overlapping Multi-Nodes
-             !isInPreviousMultiNode(VL) &&
-             // Allow no more than this many multi-nodes per tree.
-             // TODO: This is a workaround for the broken save/undo instruction
-             // scheduling.
-             MultiNodes.size() < MaxNumOfMultiNodesPerTree) {
+    else if (isLegalToBuildMultiNode(VL)) {
       // Allocate space for the new CurrentMultiNode.
       MultiNodes.resize(MultiNodes.size() + 1);
       CurrentMultiNode = &MultiNodes.back();
@@ -5557,18 +5525,19 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         else
           reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                          OpDirRight, *this);
-        // Path steering.
-        bool SelectRightOperand = false;
-        if (EnablePathSteering) {
-          auto it = PreferredOperandMap.find(VL[0]);
+
+        auto SelectRightOperand = [this](Value *V) {
+          auto it = PreferredOperandMap.find(V);
           if (it != PreferredOperandMap.end()) {
-            if (it->second == 1)
-              SelectRightOperand = true;
+            return it->second == 1;
           }
-        }
+          return false;
+        };
+
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
-        if (SelectRightOperand) {
+        // Path steering.
+        if (EnablePathSteering && SelectRightOperand(VL[0])) {
           buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
           buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
         } else {

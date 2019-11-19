@@ -874,6 +874,7 @@ __cpuidex(int __info[4], int __level, int __ecx) {
 #define _FEATURE_SGX                 (1ULL << 53)
 #define _FEATURE_WBNOINVD            (1ULL << 54)
 #define _FEATURE_PCONFIG             (1ULL << 55)
+#define _FEATURE_AXV512_VP2INTERSECT (1ULL << 56)
 /* end INTEL_CUSTOMIZATION */
 
 #endif /* __IMMINTRIN_H */
