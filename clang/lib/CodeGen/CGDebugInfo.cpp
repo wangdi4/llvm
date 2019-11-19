@@ -1140,7 +1140,8 @@ llvm::DIType *CGDebugInfo::CreateType(const TemplateSpecializationType *Ty,
   SourceLocation Loc = AliasDecl->getLocation();
   return DBuilder.createTypedef(Src, OS.str(), getOrCreateFile(Loc),
                                 getLineNumber(Loc),
-                                getDeclContextDescriptor(AliasDecl));
+                                getDeclContextDescriptor(AliasDecl),
+                                /* Alignment */ None);
 }
 
 llvm::DIType *CGDebugInfo::CreateType(const TypedefType *Ty,
@@ -1156,9 +1157,10 @@ llvm::DIType *CGDebugInfo::CreateType(const TypedefType *Ty,
   SourceLocation Loc = Ty->getDecl()->getLocation();
 
   // Typedefs are derived from some other type.
-  return DBuilder.createTypedef(Underlying, Ty->getDecl()->getName(),
-                                getOrCreateFile(Loc), getLineNumber(Loc),
-                                getDeclContextDescriptor(Ty->getDecl()));
+  return DBuilder.createTypedef(
+      Underlying, Ty->getDecl()->getName(), getOrCreateFile(Loc),
+      getLineNumber(Loc), getDeclContextDescriptor(Ty->getDecl()),
+      getDeclAlignIfRequired(Ty->getDecl(), CGM.getContext()));
 }
 
 static unsigned getDwarfCC(CallingConv CC) {
@@ -2352,7 +2354,8 @@ llvm::DIType *CGDebugInfo::CreateType(const ObjCTypeParamType *Ty,
   return DBuilder.createTypedef(
       getOrCreateType(Ty->getDecl()->getUnderlyingType(), Unit),
       Ty->getDecl()->getName(), getOrCreateFile(Loc), getLineNumber(Loc),
-      getDeclContextDescriptor(Ty->getDecl()));
+      getDeclContextDescriptor(Ty->getDecl()),
+      /* Alignment */ None);
 }
 
 /// \return true if Getter has the default name for the property PD.
