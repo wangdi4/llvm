@@ -1301,7 +1301,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
 //    size_t, size_t, i32 (i32, i8*)*)
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
-                                           int KmpTaskTTWithPrivatesTySz,
+                                           Value *KmpTaskTTWithPrivatesTySz,
                                            int KmpSharedTySz,
                                            PointerType *KmpRoutineEntryPtrTy,
                                            Function *MicroTaskFn,
@@ -1315,20 +1315,20 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
+  IRBuilder<> Builder(InsertPt);
+  Type *SizeTTy = GeneralUtils::getSizeTTy(F);
+  Type *Int32Ty = Builder.getInt32Ty();
+
   auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
-      ConstantInt::get(GeneralUtils::getSizeTTy(F),
-                       KmpTaskTTWithPrivatesTySz);
-  auto *SharedsSize =
-      ConstantInt::get(GeneralUtils::getSizeTTy(F), KmpSharedTySz);
-  IRBuilder<> Builder(InsertPt);
+      Builder.CreateZExtOrTrunc(KmpTaskTTWithPrivatesTySz, SizeTTy);
+  auto *SharedsSize = ConstantInt::get(SizeTTy, KmpSharedTySz);
   Value *AllocArgs[] = {
       Loc,         Builder.CreateLoad(TidPtr),
       TaskFlags,   KmpTaskTWithPrivatesTySize,
       SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
-  Type *TypeParams[] = {Loc->getType(),      Type::getInt32Ty(C),
-                        Type::getInt32Ty(C), GeneralUtils::getSizeTTy(F),
-                        GeneralUtils::getSizeTTy(F), KmpRoutineEntryPtrTy};
+  Type *TypeParams[] = {Loc->getType(), Int32Ty, Int32Ty,
+                        SizeTTy,        SizeTTy, KmpRoutineEntryPtrTy};
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 

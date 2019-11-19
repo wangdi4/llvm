@@ -923,7 +923,7 @@ public:
   /// \endcode
   static CallInst *
   genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
-                   int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
+                   Value *KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
                    PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
                    Instruction *InsertPt, bool UseTbb);
 
