@@ -66,6 +66,7 @@
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #define OPT_SWITCH "hir-aos-to-soa"
 #define OPT_DESC "HIR AOS to SOA"

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanVerifier.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-verifier"
 

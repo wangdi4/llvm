@@ -22,6 +22,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include <queue>
 
 using namespace llvm;

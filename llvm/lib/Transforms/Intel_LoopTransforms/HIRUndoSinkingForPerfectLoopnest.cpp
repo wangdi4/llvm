@@ -64,6 +64,7 @@
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #define OPT_SWITCH "hir-undo-sinking-for-perfect-loopnest"
 #define OPT_DESC "HIR Undo Sinking For Perfect Loopnest"

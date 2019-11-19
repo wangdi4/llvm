@@ -16,6 +16,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Support/CommandLine.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"

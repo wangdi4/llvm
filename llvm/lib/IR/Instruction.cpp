@@ -19,6 +19,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION

@@ -31,6 +31,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -45,8 +46,10 @@ static cl::opt<bool> DisableLoopRegions(
     "disable-vplan-loop-regions", cl::init(true), cl::Hidden,
     cl::desc("Disable construction of loop regions in VPlan"));
 
-cl::opt<bool> LoopMassagingEnabled(
-    "vplan-enable-loop-massaging", cl::init(true), cl::Hidden,
+bool LoopMassagingEnabled = true;
+static cl::opt<bool, true> LoopMassagingEnabledOpt(
+    "vplan-enable-loop-massaging", cl::location(LoopMassagingEnabled),
+    cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
 static cl::opt<bool> VPlanPrintAfterLoopMassaging(

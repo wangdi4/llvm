@@ -20,6 +20,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"

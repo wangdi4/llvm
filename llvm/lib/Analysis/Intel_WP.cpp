@@ -21,6 +21,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -32,10 +33,13 @@ namespace llvm {
 namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
-cl::opt<bool> AssumeWholeProgram("whole-program-assume",
-                                 cl::init(false), cl::ReallyHidden);
+bool AssumeWholeProgram = false;
 } // llvm_intel_wp_analysis
 } // llvm
+
+static cl::opt<bool, true>
+    AssumeWholeProgramOpt("whole-program-assume",
+                          cl::ReallyHidden, cl::location(AssumeWholeProgram));
 
 // Flag to print the libfuncs found by whole program analysis.
 static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",

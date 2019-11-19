@@ -55,6 +55,7 @@
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #define OPT_SWITCH "hir-sinking-for-perfect-loopnest"
 #define OPT_DESC "HIR Sinking For Perfect Loopnest"

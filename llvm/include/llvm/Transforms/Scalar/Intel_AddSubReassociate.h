@@ -20,6 +20,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/PassManager.h"
+#include <atomic>
 #include <memory>
 #include <unordered_set>
 

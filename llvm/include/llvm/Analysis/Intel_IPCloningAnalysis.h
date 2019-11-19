@@ -19,7 +19,7 @@
 namespace llvm {
 namespace llvm_cloning_analysis {
 
-extern cl::opt<bool> IPCloningTrace;
+extern bool IPCloningTrace;
 
 extern bool isPointerToCharArray(Type* PTy);
 

@@ -21,6 +21,7 @@
 #include "VPlanHIR/IntelVPlanVLSClientHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 

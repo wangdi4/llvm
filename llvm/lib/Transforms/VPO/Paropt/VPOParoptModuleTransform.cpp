@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
 
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"

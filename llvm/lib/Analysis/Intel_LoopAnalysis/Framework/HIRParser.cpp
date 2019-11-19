@@ -44,6 +44,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #include "HIRCreation.h"
 #include "HIRLoopFormation.h"
 #include "HIRScalarSymbaseAssignment.h"
