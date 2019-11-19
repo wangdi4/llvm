@@ -478,8 +478,30 @@ EXTERN char *__tgt_get_device_rtl_name(
   return buffer;
 }
 
-EXTERN void __tgt_offload_proxy_task_complete_ooo(void *async_obj) {
-  // TODO
+
+EXTERN void __tgt_offload_proxy_task_complete_ooo(void *interop_obj) {
+
+// The 1st 3 fields of this structure is same as kmp_task_t defined in omp.h
+// The last field is private and it is used to represent number
+// of buffers for async variant offload.
+typedef struct {
+  void *shareds;   // pointer to block of pointers to shared vars
+  void * routine;  // not used
+  int part_id;     // not used
+  int num_buffers;
+}async_t;
+
+  DP("Call to __tgt_offload_proxy_task_complete_ooo interop obj " DPxMOD "\n",
+      DPxPTR(interop_obj));
+  __tgt_interop_obj *tgt_interop_obj = (__tgt_interop_obj *) interop_obj;
+  async_t *async_obj =  (async_t *) tgt_interop_obj->async_obj;
+  int64_t device_num = tgt_interop_obj->device_id;
+  int num_buffers = async_obj->num_buffers;
+  void **device_buffers = (void **) async_obj->shareds;
+  for (int i=0; i<num_buffers; ++i) {
+    __tgt_release_buffer(device_num, device_buffers[i]);
+  }
+  __kmpc_proxy_task_completed_ooo(async_obj);
 }
 
 EXTERN void *__tgt_create_interop_obj(
@@ -506,6 +528,10 @@ EXTERN void *__tgt_create_interop_obj(
 
   __tgt_interop_obj *obj =
       (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
+  if (!obj) {
+    DP("Failed to malloc memory for interop object\n");
+    return NULL;
+  }
 
   obj->device_id = device_id;
   obj->is_async = is_async;
@@ -520,6 +546,8 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
   DP("Call to __tgt_release_interop_obj with interop_obj " DPxMOD "\n",
      DPxPTR(interop_obj));
 
+  assert(!IsOffloadDisabled() &&
+          "Freeing interop object with Offload Disabled.");
   if (IsOffloadDisabled())
     return OFFLOAD_FAIL;
 
