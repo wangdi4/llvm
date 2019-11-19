@@ -2550,6 +2550,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       }
     }
 
+<<<<<<< HEAD
     // At this point, IfBlock1 and IfBlock2 are both empty, so our if
     // statement has been flattened.  Change CondBlock to jump directly to BB
     // to avoid other simplifycfg's kicking in on the diamond.
@@ -2557,6 +2558,17 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     Builder.SetInsertPoint(OldTI);
     Builder.CreateBr(BB);
     OldTI->eraseFromParent();
+=======
+  // Propagate fast-math-flags from phi nodes to replacement selects.
+  IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
+  while (PHINode *PN = dyn_cast<PHINode>(BB->begin())) {
+    if (isa<FPMathOperator>(PN))
+      Builder.setFastMathFlags(PN->getFastMathFlags());
+
+    // Change the PHI node into a select instruction.
+    Value *TrueVal = PN->getIncomingValue(PN->getIncomingBlock(0) == IfFalse);
+    Value *FalseVal = PN->getIncomingValue(PN->getIncomingBlock(0) == IfTrue);
+>>>>>>> ebf9bf2cbc8fa68d536e481e370c4ba40ce61a8a
 
     Changed = true;
   }
