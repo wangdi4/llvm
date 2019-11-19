@@ -145,7 +145,8 @@ void __writefsbyte(unsigned long, unsigned char);
 void __writefsdword(unsigned long, unsigned long);
 void __writefsqword(unsigned long, unsigned __int64);
 void __writefsword(unsigned long, unsigned short);
-void __writemsr(unsigned long, unsigned __int64);
+static __inline__ /* INTEL */
+void __writemsr(unsigned long, unsigned __int64); /* INTEL */
 static __inline__
 void *_AddressOfReturnAddress(void);
 static __inline__
@@ -572,7 +573,18 @@ __readmsr(unsigned long __register) {
 }
 #endif
 
+<<<<<<< HEAD
 static __inline__ unsigned __LPTRINT_TYPE__ __DEFAULT_FN_ATTRS
+=======
+/* INTEL_CUSTOMIZATION */
+static __inline__ void __DEFAULT_FN_ATTRS
+__writemsr(unsigned long __register, unsigned __int64 __data) {
+  __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
+}
+/* end INTEL_CUSTOMIZATION */
+
+static __inline__ unsigned long __DEFAULT_FN_ATTRS
+>>>>>>> 9f3721329dfe81fbaaac3f65c264f9d59d85c37a
 __readcr3(void) {
   unsigned __LPTRINT_TYPE__ __cr3_val;
   __asm__ __volatile__ ("mov %%cr3, %0" : "=r"(__cr3_val) : : "memory");
