@@ -1,15 +1,9 @@
-; RUN: not opt -verify -S -o - < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LL
-; RUN: not opt -verify -f -o - < %s 2>&1 | FileCheck %s -check-prefix=CHECK-BC
-; RUN: not llc -print-after-all < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LL
-; RUN: not llc -print-before-all < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LL
+; RUN: not opt -verify -f -o - < %s 2>&1 | FileCheck %s
 
 ; This test verifies that an error is reported if any attempt is made to write
 ; IR or bitcode when the "Intel Proprietary" module flag is set.
 
-; CHECK-LL: LLVM ERROR: IR output disabled because proprietary optimizations have been performed.
-; CHECK-LL-NOT: define i32 @main
-
-; CHECK-BC: LLVM ERROR: Bitcode output disabled because proprietary optimizations have been performed.
+; CHECK: LLVM ERROR: Bitcode output disabled because proprietary optimizations have been performed.
 
 ; Function Attrs: nounwind uwtable
 define i32 @main(i32 %argc, i8** nocapture readnone %argv) {

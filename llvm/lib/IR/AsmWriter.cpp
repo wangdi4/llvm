@@ -2593,14 +2593,6 @@ void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
 }
 
 void AssemblyWriter::printModule(const Module *M) {
-#if INTEL_CUSTOMIZATION
-  if (M->isIntelProprietary()) {
-    report_fatal_error("IR output disabled because proprietary optimizations "
-                       "have been performed.");
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   Machine.initializeIfNeeded();
 
   if (ShouldPreserveUseListOrder)
@@ -3436,14 +3428,6 @@ void AssemblyWriter::printTypeIdentities() {
 
 /// printFunction - Print all aspects of a function.
 void AssemblyWriter::printFunction(const Function *F) {
-#if INTEL_CUSTOMIZATION
-  if (F->getParent()->isIntelProprietary()) {
-    report_fatal_error("IR output disabled because proprietary optimizations "
-                       "have been performed.");
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // Print out the return type and name.
   Out << '\n';
 
