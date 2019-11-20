@@ -3017,9 +3017,9 @@ Address CGOpenMPRuntime::getAddrOfArtificialThreadPrivate(CodeGenFunction &CGF,
       CGM.getPointerAlign());
 }
 
-void CGOpenMPRuntime::emitOMPIfClause(CodeGenFunction &CGF, const Expr *Cond,
-                                      const RegionCodeGenTy &ThenGen,
-                                      const RegionCodeGenTy &ElseGen) {
+void CGOpenMPRuntime::emitIfClause(CodeGenFunction &CGF, const Expr *Cond,
+                                   const RegionCodeGenTy &ThenGen,
+                                   const RegionCodeGenTy &ElseGen) {
   CodeGenFunction::LexicalScope ConditionScope(CGF, Cond->getSourceRange());
 
   // If the condition constant folds and can be elided, try to avoid emitting
@@ -3109,7 +3109,7 @@ void CGOpenMPRuntime::emitParallelCall(CodeGenFunction &CGF, SourceLocation Loc,
         EndArgs);
   };
   if (IfCond) {
-    emitOMPIfClause(CGF, IfCond, ThenGen, ElseGen);
+    emitIfClause(CGF, IfCond, ThenGen, ElseGen);
   } else {
     RegionCodeGenTy ThenRCG(ThenGen);
     ThenRCG(CGF);
@@ -5410,7 +5410,7 @@ void CGOpenMPRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
   };
 
   if (IfCond) {
-    emitOMPIfClause(CGF, IfCond, ThenCodeGen, ElseCodeGen);
+    emitIfClause(CGF, IfCond, ThenCodeGen, ElseCodeGen);
   } else {
     RegionCodeGenTy ThenRCG(ThenCodeGen);
     ThenRCG(CGF);
@@ -6493,8 +6493,8 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
       CGF.EmitBlock(ContBB, /*IsFinished=*/true);
     };
     if (IfCond) {
-      emitOMPIfClause(CGF, IfCond, ThenGen,
-                      [](CodeGenFunction &, PrePostActionTy &) {});
+      emitIfClause(CGF, IfCond, ThenGen,
+                   [](CodeGenFunction &, PrePostActionTy &) {});
     } else {
       RegionCodeGenTy ThenRCG(ThenGen);
       ThenRCG(CGF);
@@ -9584,7 +9584,7 @@ void CGOpenMPRuntime::emitTargetCall(
   // specify target triples.
   if (OutlinedFnID) {
     if (IfCond) {
-      emitOMPIfClause(CGF, IfCond, TargetThenGen, TargetElseGen);
+      emitIfClause(CGF, IfCond, TargetThenGen, TargetElseGen);
     } else {
       RegionCodeGenTy ThenRCG(TargetThenGen);
       ThenRCG(CGF);
@@ -10271,7 +10271,7 @@ void CGOpenMPRuntime::emitTargetDataCalls(
   auto &&EndElseGen = [](CodeGenFunction &CGF, PrePostActionTy &) {};
 
   if (IfCond) {
-    emitOMPIfClause(CGF, IfCond, BeginThenGen, BeginElseGen);
+    emitIfClause(CGF, IfCond, BeginThenGen, BeginElseGen);
   } else {
     RegionCodeGenTy RCG(BeginThenGen);
     RCG(CGF);
@@ -10285,7 +10285,7 @@ void CGOpenMPRuntime::emitTargetDataCalls(
   }
 
   if (IfCond) {
-    emitOMPIfClause(CGF, IfCond, EndThenGen, EndElseGen);
+    emitIfClause(CGF, IfCond, EndThenGen, EndElseGen);
   } else {
     RegionCodeGenTy RCG(EndThenGen);
     RCG(CGF);
@@ -10445,8 +10445,8 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
   };
 
   if (IfCond) {
-    emitOMPIfClause(CGF, IfCond, TargetThenGen,
-                    [](CodeGenFunction &CGF, PrePostActionTy &) {});
+    emitIfClause(CGF, IfCond, TargetThenGen,
+                 [](CodeGenFunction &CGF, PrePostActionTy &) {});
   } else {
     RegionCodeGenTy ThenRCG(TargetThenGen);
     ThenRCG(CGF);
