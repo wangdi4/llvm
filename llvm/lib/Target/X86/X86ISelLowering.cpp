@@ -36578,6 +36578,7 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
       Op, DemandedBits, DemandedElts, DAG, Depth);
 }
 
+<<<<<<< HEAD
 /// Check if a vector extract from a target-specific shuffle of a load can be
 /// folded into a single element load.
 /// Similar handling for VECTOR_SHUFFLE is performed by DAGCombiner, but
@@ -36712,6 +36713,8 @@ bool isBitcastUsedBySetcc(SDNode *BitCast) {
   return false;
 }
 #endif
+=======
+>>>>>>> bbf4af3109d1958d69c3c1f2af78870207928f4b
 // Helper to peek through bitops/setcc to determine size of source vector.
 // Allows combineBitcastvxi1 to determine what size vector generated a <X x i1>.
 static bool checkBitcastSrcVectorSize(SDValue Src, unsigned Size) {
@@ -37989,13 +37992,10 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
     }
 
     // TODO - Remove this once we can handle the implicit zero-extension of
-    // X86ISD::PEXTRW/X86ISD::PEXTRB in XFormVExtractWithShuffleIntoLoad,
-    // combineHorizontalPredicateResult and combineBasicSADPattern.
+    // X86ISD::PEXTRW/X86ISD::PEXTRB in combineHorizontalPredicateResult and
+    // combineBasicSADPattern.
     return SDValue();
   }
-
-  if (SDValue NewOp = XFormVExtractWithShuffleIntoLoad(N, DAG, DCI))
-    return NewOp;
 
   // Detect mmx extraction of all bits as a i64. It works better as a bitcast.
   if (InputVector.getOpcode() == ISD::BITCAST && InputVector.hasOneUse() &&
