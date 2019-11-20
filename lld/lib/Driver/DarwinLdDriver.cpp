@@ -239,7 +239,7 @@ static std::error_code parseOrderFile(StringRef orderFilePath,
      sym = prefixAndSym.first;
     if (!sym.empty()) {
       ctx.appendOrderedSymbol(sym, prefix);
-      // lld::errs() << sym << ", prefix=" << prefix << "\n";
+      // llvm::errs() << sym << ", prefix=" << prefix << "\n";
     }
   }
   return std::error_code();
@@ -389,7 +389,7 @@ bool parse(llvm::ArrayRef<const char *> args, MachOLinkingContext &ctx) {
         !parsedArgs.getLastArg(OPT_test_file_usage)) {
       // If no -arch and no options at all, print usage message.
       if (parsedArgs.size() == 0) {
-        table.PrintHelp(lld::outs(),
+        table.PrintHelp(llvm::outs(),
                         (std::string(args[0]) + " [options] file...").c_str(),
                         "LLVM Linker", false);
       } else {
