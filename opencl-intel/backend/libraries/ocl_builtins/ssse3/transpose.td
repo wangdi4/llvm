@@ -559,3 +559,52 @@ OclBuiltinImpl __ocl_shuffle_transpose16x16_sse3 = OclBuiltinImpl<__ocl_shuffle_
             14, 30, 46, 62, 78, 94, 110, 126, 142, 158, 174, 190, 206, 222, 238, 254,
             15, 31, 47, 63, 79, 95, 111, 127, 143, 159, 175, 191, 207, 223, 239, 255);
 }]>;
+
+list<OclType> __ocl_shuffle_transpose_v48_types = [ v48i64, v48u64,
+                                                    v48i32, v48u32, v48f32,
+                                                    v48i16, v48u16,
+                                                    v48i8,  v48u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose3x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_3x16, __ocl_shuffle_transpose_v48_types, 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+            0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45,
+            1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46,
+            2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47);
+}]>;
+
+OclBuiltinImpl __ocl_shuffle_transpose16x3_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_16x3, __ocl_shuffle_transpose_v48_types, 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+            0, 16, 32, 1, 17, 33, 2, 18, 34, 3, 19, 35, 4, 20, 36, 5, 21, 37, 6, 22, 38, 7, 23, 39,
+            8, 24, 40, 9, 25, 41, 10, 26, 42, 11, 27, 43, 12, 28, 44, 13, 29, 45, 14, 30, 46, 15, 31, 47);
+}]>;
+
+list<OclType> __ocl_shuffle_transpose_v24_types = [ v24i64, v24u64,
+                                                    v24i32, v24u32, v24f32,
+                                                    v24i16, v24u16,
+                                                    v24i8,  v24u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose3x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_3x8, __ocl_shuffle_transpose_v24_types, 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+            0, 3, 6, 9, 12, 15, 18, 21,
+            1, 4, 7, 10, 13, 16, 19, 22,
+            2, 5, 8, 11, 14, 17, 20, 23);
+}]>;
+
+OclBuiltinImpl __ocl_shuffle_transpose8x3_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x3, __ocl_shuffle_transpose_v24_types, 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+            0, 8, 16, 1, 9, 17, 2, 10, 18, 3, 11, 19,
+            4, 12, 20, 5, 13, 21, 6, 14, 22, 7, 15, 23);
+}]>;
+
+list<OclType> __ocl_shuffle_transpose_v12_types = [ v12i64, v12u64,
+                                                    v12i32, v12u32, v12f32,
+                                                    v12i16, v12u16,
+                                                    v12i8,  v12u8 ];
+
+OclBuiltinImpl __ocl_shuffle_transpose3x4_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_3x4, __ocl_shuffle_transpose_v12_types, 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName, 0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8, 11);
+}]>;
+
+OclBuiltinImpl __ocl_shuffle_transpose4x3_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x3, __ocl_shuffle_transpose_v12_types, 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName, 0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11);
+}]>;

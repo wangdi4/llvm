@@ -5,15 +5,15 @@ list<OclType> sub_group_types_broadcast_scalar = [v1i32, v1u32, v1i64, v1u64, v1
 list<OclType> sub_group_types_reduce_scan_scalar = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 
 list<OclType> sub_group_types_suffle_scalar = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
-                                         v2i32, v4i32, v8i32, v16i32,
-                                         v2u32, v4u32, v8u32, v16u32,
-                                         v2f32, v4f32, v8f32, v16f32,
-                                         v2i8 , v4i8 , v8i8 , v16i8 ,
-                                         v2u8 , v4u8 , v8u8 , v16u8 ,
-                                         v2i16, v4i16, v8i16, v16i16,
-                                         v2u16, v4u16, v8u16, v16u16,
-                                         v2i64, v4i64, v8i64, v16i64,
-                                         v2u64, v4u64, v8u64, v16u64];
+                                         v2i32, v3i32, v4i32, v8i32, v16i32,
+                                         v2u32, v3u32, v4u32, v8u32, v16u32,
+                                         v2f32, v3f32, v4f32, v8f32, v16f32,
+                                         v2i8 , v3i8 , v4i8 , v8i8 , v16i8 ,
+                                         v2u8 , v3u8 , v4u8 , v8u8 , v16u8 ,
+                                         v2i16, v3i16, v4i16, v8i16, v16i16,
+                                         v2u16, v3u16, v4u16, v8u16, v16u16,
+                                         v2i64, v3i64, v4i64, v8i64, v16i64,
+                                         v2u64, v3u64, v4u64, v8u64, v16u64];
 
 list<OclType> sub_group_types_block_read_write_scalar = [v1u32];
 
@@ -78,6 +78,23 @@ OclBuiltinImpl sub_group_shuffle_vec_type_fake = OclBuiltinImpl<sub_group_shuffl
 OclBuiltinImpl sub_group_shuffle_xor_vec_type_fake = OclBuiltinImpl<sub_group_shuffle_xor, sub_group_types_suffle_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_shuffle_up_vec_type_fake = OclBuiltinImpl<sub_group_shuffle_up, sub_group_types_suffle_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_shuffle_down_vec_type_fake = OclBuiltinImpl<sub_group_shuffle_down, sub_group_types_suffle_scalar, 0, DummyReturn>;
+
+
+OclBuiltinImpl sub_group_shuffle_avx_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_avx, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_avx2_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_avx2, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_avx512_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_avx512, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, DummyReturn>;
+
+OclBuiltinImpl sub_group_shuffle_up_avx_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_up_avx, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_up_avx2_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_up_avx2, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, DummyReturn>;
+
+OclBuiltinImpl sub_group_shuffle_down_avx_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_down_avx, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_down_avx2_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_down_avx2, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_down_avx512_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, DummyReturn>;
+
+OclBuiltinImpl sub_group_shuffle_xor_avx_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_xor_avx, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_xor_avx2_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_xor_avx2, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, DummyReturn>;
+OclBuiltinImpl sub_group_shuffle_xor_avx512_scalar_type_fake = OclBuiltinImpl<sub_group_shuffle_xor_avx512, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, DummyReturn>;
 
 ///
 /// Block read
