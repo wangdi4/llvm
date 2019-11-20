@@ -149,7 +149,7 @@ void TypeFinder::incorporateValue(const Value *V) {
 /// find types hiding within.
 void TypeFinder::incorporateMDNode(const MDNode *V) {
   // Already visited?
-  if (!VisitedMetadata.insert(V).second)
+  if (!V || !VisitedMetadata.insert(V).second) // INTEL
     return;
 
   // Look in operands for types.

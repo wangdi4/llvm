@@ -1647,6 +1647,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
                          AnnotStr, D.getLocation());
     }
   }
+
+  AssignAliasScope(emission);
 #endif // INTEL_CUSTOMIZATION
 
   // Emit Intel FPGA attribute annotation for a local variable.
@@ -1831,6 +1833,51 @@ void CodeGenFunction::emitZeroOrPatternForAutoVarInit(QualType type,
   } break;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::AssignAliasScope(
+    const CodeGenFunction::AutoVarEmission &emission) {
+  assert(emission.Variable && "emission was not valid!");
+
+  // Don't emit noalias intrinsics unless we're optimizing.
+  if (CGM.getCodeGenOpts().OptimizationLevel == 0)
+    return;
+
+  const VarDecl &Decl = *emission.Variable;
+  QualType DeclTy = Decl.getType();
+
+  // Emit a noalias intrinsic for restrict-qualified variables.
+  if (!DeclTy.isRestrictQualified())
+    return;
+
+  llvm::MDBuilder MDB(CurFn->getContext());
+  if (!NoAliasDomain)
+    NoAliasDomain = MDB.createAnonymousAliasScopeDomain(CurFn->getName());
+
+  llvm::SmallString<128> Name = CurFn->getName();
+  Name += ": ";
+  Name += Decl.getName();
+
+  llvm::MDNode *Scope =
+      MDB.createAnonymousAliasScope(NoAliasDomain, Name);
+  getCurNoAliasScope().addNoAliasScope(Scope);
+
+  SmallVector<llvm::Metadata *, 8> ScopeListEntries(1, Scope);
+  llvm::MDNode *ScopeList =
+      llvm::MDNode::get(CurFn->getContext(), ScopeListEntries);
+
+  // Check whether this is a byref variable that's potentially
+  // captured and moved by its own initializer.  If so, we'll need to
+  // emit the initializer first, then copy into the variable.
+  bool CapturedByInit =
+      emission.IsEscapingByRef && isCapturedBy(Decl, Decl.getInit());
+
+  Address Loc =
+      CapturedByInit ? emission.Addr : emission.getObjectAddress(*this);
+
+  NoAliasSlotMap[Loc.getPointer()] = ScopeList;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   assert(emission.Variable && "emission was not valid!");

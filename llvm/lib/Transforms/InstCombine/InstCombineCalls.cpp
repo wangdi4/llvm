@@ -203,9 +203,18 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
     STDest = Builder.CreateStore(LDSrc, GEPDest);
     STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
     STDest->setAlignment(MaybeAlign(DL.getABITypeAlignment(ElemTy)));
+
+    // Propagate alias.scope and noalias metadata to load and store.
+    for (Instruction *I : {static_cast<Instruction *>(LDSrc),
+                           static_cast<Instruction *>(STDest)}) {
+      I->setMetadata(LLVMContext::MD_alias_scope,
+                     MI->getMetadata(LLVMContext::MD_alias_scope));
+      I->setMetadata(LLVMContext::MD_noalias,
+                     MI->getMetadata(LLVMContext::MD_noalias));
+    }
   }
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// Return a constant boolean vector that has true elements in all positions
 /// where the input constant data vector has an element with the sign bit set.

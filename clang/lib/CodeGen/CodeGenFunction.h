@@ -823,10 +823,73 @@ public:
   EHScopeStack::stable_iterator CurrentCleanupScopeDepth =
       EHScopeStack::stable_end();
 
+#if INTEL_CUSTOMIZATION
+  class NoAliasScope {
+    SmallVector<llvm::Instruction *, 32> MemoryInsts;
+    SmallVector<llvm::Metadata *, 32> NoAliasScopes;
+
+  public:
+    NoAliasScope() {}
+    NoAliasScope(const NoAliasScope &ParentScope)
+        : NoAliasScopes(ParentScope.NoAliasScopes) {}
+
+    void addNoAliasScope(llvm::Metadata *Scope) {
+      NoAliasScopes.push_back(Scope);
+    }
+
+    void addMemInst(llvm::Instruction *MemInst) {
+      MemoryInsts.push_back(MemInst);
+    }
+
+    void addMemCpyInst(llvm::Instruction *MemCallInst) {
+      assert(isa<llvm::MemTransferInst>(MemCallInst) && "Memcpy call expected");
+      MemoryInsts.push_back(MemCallInst);
+    }
+
+    llvm::MDNode *intersectScopes(llvm::LLVMContext &Ctx,
+                                  llvm::Metadata *SelfScope) {
+      llvm::SmallVector<llvm::Metadata *, 32> NewNoAliasScopes;
+      llvm::SmallPtrSet<llvm::Metadata *, 8> BSet;
+
+      BSet.insert(SelfScope);
+      if (auto *MD = dyn_cast<llvm::MDNode>(SelfScope)) {
+        BSet.insert(MD->op_begin(), MD->op_end());
+      }
+
+      NewNoAliasScopes.reserve(NoAliasScopes.size());
+      std::copy_if(NoAliasScopes.begin(), NoAliasScopes.end(),
+                   std::back_inserter(NewNoAliasScopes),
+                   [&BSet](llvm::Metadata *MD) { return BSet.count(MD) == 0; });
+
+      return llvm::MDNode::get(Ctx, NewNoAliasScopes);
+    }
+
+    ~NoAliasScope() {
+      if (MemoryInsts.empty() || NoAliasScopes.empty()) {
+        return;
+      }
+
+      for (auto &I : MemoryInsts) {
+        auto *SelfScope = I->getMetadata(llvm::LLVMContext::MD_alias_scope);
+        llvm::MDNode *NewScopeList = intersectScopes(
+            MemoryInsts.front()->getParent()->getContext(), SelfScope);
+
+        I->setMetadata(
+            llvm::LLVMContext::MD_noalias,
+            llvm::MDNode::concatenate(
+                I->getMetadata(llvm::LLVMContext::MD_noalias), NewScopeList));
+      }
+    }
+  };
+
+  void recordNoAliasPtr(llvm::Value *BasePtr, llvm::Value *Ptr);
+#endif // INTEL_CUSTOMIZATION
+
   class LexicalScope : public RunCleanupsScope {
     SourceRange Range;
     SmallVector<const LabelDecl*, 4> Labels;
     LexicalScope *ParentScope;
+    NoAliasScope CurNoAliasScope; // INTEL
 
     LexicalScope(const LexicalScope &) = delete;
     void operator=(const LexicalScope &) = delete;
@@ -834,7 +897,9 @@ public:
   public:
     /// Enter a new cleanup scope.
     explicit LexicalScope(CodeGenFunction &CGF, SourceRange Range)
-      : RunCleanupsScope(CGF), Range(Range), ParentScope(CGF.CurLexicalScope) {
+        : RunCleanupsScope(CGF), Range(Range),        // INTEL
+          ParentScope(CGF.CurLexicalScope),              // INTEL
+          CurNoAliasScope(CGF.getCurNoAliasScope()) {    // INTEL
       CGF.CurLexicalScope = this;
       if (CGDebugInfo *DI = CGF.getDebugInfo())
         DI->EmitLexicalBlockStart(CGF.Builder, Range.getBegin());
@@ -844,6 +909,12 @@ public:
       assert(PerformCleanup && "adding label to dead scope?");
       Labels.push_back(label);
     }
+
+#if INTEL_CUSTOMIZATION
+    NoAliasScope &getNoAliasScope() {
+      return CurNoAliasScope;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     /// Exit this cleanup scope, emitting any accumulated
     /// cleanups.
@@ -1779,6 +1850,16 @@ private:
 
 #if INTEL_CUSTOMIZATION
   bool StdContainerOptKindDetermined = false;
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+  NoAliasScope RootNoAliasScope;
+
+  NoAliasScope &getCurNoAliasScope() {
+    if (CurLexicalScope)
+      return CurLexicalScope->getNoAliasScope();
+    return RootNoAliasScope;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// The current lexical scope.
@@ -4324,6 +4405,11 @@ public:
 
   RValue EmitAtomicExpr(AtomicExpr *E);
 
+#if INTEL_CUSTOMIZATION
+  /// Create alias.scope for the restrict qualified variable.
+  void AssignAliasScope(const CodeGenFunction::AutoVarEmission &emission);
+#endif // INTEL_CUSTOMIZATION
+
   //===--------------------------------------------------------------------===//
   //                         Annotations Emission
   //===--------------------------------------------------------------------===//
@@ -4399,6 +4485,16 @@ public:
   /// An enumeration which makes it easier to specify whether or not an
   /// operation is a subtraction.
   enum { NotSubtraction = false, IsSubtraction = true };
+
+#if INTEL_CUSTOMIZATION
+  /// The noalias domain metadata for this function.
+  llvm::MDNode *NoAliasDomain = nullptr;
+
+  /// A map between the addresses of local restrict-qualified variables and
+  /// their alias.scope.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasPtrMap;
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasSlotMap;
+#endif // INTEL_CUSTOMIZATION
 
   /// Same as IRBuilder::CreateInBoundsGEP, but additionally emits a check to
   /// detect undefined behavior when the pointer overflow sanitizer is enabled.
