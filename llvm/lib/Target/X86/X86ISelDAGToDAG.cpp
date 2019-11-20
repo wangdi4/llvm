@@ -4418,6 +4418,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         ReplaceNode(Node, CNode);
         return;
       }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       break;
 #endif //INTEL_CUSTOMIZATION
@@ -4584,6 +4585,10 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       }
       ReplaceNode(Node, CNode);
       return;
+=======
+
+      break;
+>>>>>>> fffcd3e48ecf3f66d97c3b4daf624b3b2f9d74bf
     }
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
