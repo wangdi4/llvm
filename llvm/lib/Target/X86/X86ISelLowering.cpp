@@ -29052,7 +29052,6 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
       return;
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     if (Subtarget.hasFP16() && VT == MVT::i64 && SrcVT == MVT::f16) {
@@ -29071,11 +29070,8 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-    if (SDValue V = FP_TO_INTHelper(SDValue(N, 0), DAG, IsSigned))
-=======
     SDValue Chain;
     if (SDValue V = FP_TO_INTHelper(SDValue(N, 0), DAG, IsSigned, Chain)) {
->>>>>>> 85589f8077a229a6fbc7c245ae28bec06b88c5fb
       Results.push_back(V);
       if (IsStrict)
         Results.push_back(Chain);
