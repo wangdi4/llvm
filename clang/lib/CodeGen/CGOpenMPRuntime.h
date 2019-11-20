@@ -821,7 +821,6 @@ public:
   virtual ~CGOpenMPRuntime() {}
   virtual void clear();
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   struct MapInfo {
     llvm::Value *Base;
@@ -833,7 +832,7 @@ public:
                            CodeGenFunction &CGF, const OMPMapClause *C,
                            const Expr *E, SmallVector<MapInfo, 4> &Info);
 #endif // INTEL_COLLAB
-=======
+
   /// Emits code for OpenMP 'if' clause using specified \a CodeGen
   /// function. Here is the logic:
   /// if (Cond) {
@@ -845,7 +844,6 @@ public:
                     const RegionCodeGenTy &ThenGen,
                     const RegionCodeGenTy &ElseGen);
 
->>>>>>> d08c056695a59fb1cfc7ccc9a2784bb9a6514551
   /// Checks if the \p Body is the \a CompoundStmt and returns its child
   /// statement iff there is only one that is not evaluatable at the compile
   /// time.

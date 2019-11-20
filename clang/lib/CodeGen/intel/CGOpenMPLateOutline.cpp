@@ -441,14 +441,15 @@ void OpenMPLateOutliner::getApplicableDirectives(
     case OMPC_reduction:
       // Prevent reduction on target which is being allowed by
       // isAllowedClauseForDirective.
-      if (D.DKind != OMPD_target && isAllowedClauseForDirective(D.DKind, CK))
+      if (D.DKind != OMPD_target &&
+          isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP))
         Dirs.push_back(&D);
       break;
     case OMPC_unknown:
       Dirs.push_back(&D);
       break;
     default:
-      if (isAllowedClauseForDirective(D.DKind, CK))
+      if (isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP))
         Dirs.push_back(&D);
     }
   }
@@ -602,7 +603,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
         // An alloca inserted inside the region cannot be used on a clause.
         continue;
       } else if (VD->getStorageDuration() == SD_Static) {
-        if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared))
+        if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
+                                        CGF.getLangOpts().OpenMP))
           emitImplicit(VD, ICK_shared);
       } else {
         emitImplicit(VD, ICK_private);
@@ -615,7 +617,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
         emitImplicit(VD, ICK_firstprivate);
     } else if (isImplicitTask(OMPD_task)) {
       emitImplicit(VD, ICK_firstprivate);
-    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared)) {
+    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
+                                           CGF.getLangOpts().OpenMP)) {
       // Referenced but not defined in the region: shared
       emitImplicit(VD, ICK_shared);
     }
@@ -652,7 +655,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
         addArg("QUAL.OMP.FIRSTPRIVATE");
         addArg(V, /*Handled=*/true);
       }
-    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared)) {
+    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
+                                           CGF.getLangOpts().OpenMP)) {
       // Referenced but not defined in the region: shared
       if (!alreadyHandled(V)) {
         ClauseEmissionHelper CEH(*this, OMPC_shared);
@@ -1828,13 +1832,16 @@ void OpenMPLateOutliner::emitOMPCancellationPointDirective(
 bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
   if (isImplicitTask(OMPD_target)) {
     return Kind == OMPC_depend ||
-           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
+           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
+                                        CGF.getLangOpts().OpenMP);
   }
   if (isImplicitTask(OMPD_task)) {
     return Kind != OMPC_map &&
-           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
+           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
+                                        CGF.getLangOpts().OpenMP);
   }
-  return !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
+  return !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
+                                      CGF.getLangOpts().OpenMP);
 }
 
 void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
