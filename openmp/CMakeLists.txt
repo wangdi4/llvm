@@ -83,15 +83,16 @@ if (OPENMP_ENABLE_LIBOMPTARGET)
   add_subdirectory(libomptarget)
 endif()
 
-<<<<<<< HEAD
 if (INTEL_COLLAB)
   if (WIN32 AND NOT OPENMP_ENABLE_LIBOMPTARGET)
     set_directory_properties(PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
     add_subdirectory(libomptarget)
   endif()
 endif(INTEL_COLLAB)
-=======
-set(ENABLE_OMPT_TOOLS ON)
+
+# INTEL_CUSTOMIZATION
+set(ENABLE_OMPT_TOOLS OFF)
+# end INTEL_CUSTOMIZATION
 # Currently tools are not tested well on Windows or MacOS X.
 if (APPLE OR WIN32)
   set(ENABLE_OMPT_TOOLS OFF)
@@ -102,7 +103,6 @@ option(OPENMP_ENABLE_OMPT_TOOLS "Enable building ompt based tools for OpenMP."
 if (OPENMP_ENABLE_OMPT_TOOLS)
   add_subdirectory(tools)
 endif()
->>>>>>> 2b8115b10b03013b9f8ae0aa56b0cd6a6a6dd4fd
 
 # Now that we have seen all testuites, create the check-openmp target.
 construct_check_openmp_target()
