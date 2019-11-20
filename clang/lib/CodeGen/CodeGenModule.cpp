@@ -2008,6 +2008,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
           Constructs += ',';
         assert(Ctx == OMP_CTX_target_variant_dispatch &&
                "unimplemented construct");
+        (void)Ctx;
         Constructs += "target_variant_dispatch";
       } else {
         // OMP_CTX_SET_device
