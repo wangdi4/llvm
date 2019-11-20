@@ -39,6 +39,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   const std::string CompilationUtils::WG_BOUND_PREFIX = "WG.boundaries.";
 
+  const std::string CompilationUtils::ATTR_KERNEL_CALL_ONCE = "kernel-call-once";
+  const std::string CompilationUtils::ATTR_KERNEL_UNIFORM_CALL = "kernel-uniform-call";
+  const std::string CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL = "kernel-convergent-call";
+
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
   const std::string CompilationUtils::NAME_GET_LID = "get_local_id";
@@ -76,6 +80,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "__sub_group_commit_read_pipe";
   const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "__sub_group_reserve_write_pipe";
   const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "__sub_group_commit_write_pipe";
+
+  // KMP acquire/release
+  const std::string CompilationUtils::NAME_IB_KMP_ACQUIRE_LOCK = "__builtin_IB_kmp_acquire_lock";
+  const std::string CompilationUtils::NAME_IB_KMP_RELEASE_LOCK = "__builtin_IB_kmp_release_lock";
 
   // atomic fence functions
   const std::string CompilationUtils::NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
@@ -309,8 +317,30 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if (F.isDeclaration()) {
       llvm::StringRef func_name = F.getName();
       if (func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
-          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE))
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
+          CompilationUtils::isKMPAcquireReleaseLock(func_name))
         functionSet.insert(&F);
+      }
+  }
+
+  void CompilationUtils::getAllSyncBuiltinsDclsForKernelUniformCallAttr(
+    FunctionSet &functionSet, Module *pModule) {
+    //Clear old collected data!
+    functionSet.clear();
+
+    for (auto &F : pModule->functions())
+      if (F.isDeclaration()) {
+        llvm::StringRef func_name = F.getName();
+        if (
+          func_name == CompilationUtils::mangledBarrier() ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
+          CompilationUtils::isKMPAcquireReleaseLock(func_name) ||
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(func_name, pModule)) {
+            functionSet.insert(&F);
+        }
       }
   }
 
@@ -885,6 +915,14 @@ std::string CompilationUtils::mangledMemFence() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_MEM_FENCE.c_str());
 }
 
+std::string CompilationUtils::mangledReadMemFence() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_READ_MEM_FENCE.c_str());
+}
+
+std::string CompilationUtils::mangledWriteMemFence() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_WRITE_MEM_FENCE.c_str());
+}
+
 std::string CompilationUtils::mangledAtomicWorkItemFence() {
   reflection::TypePrimitiveEnum Params[] = {
     reflection::PRIMITIVE_UINT,
@@ -1096,6 +1134,10 @@ bool CompilationUtils::isGlobalOffset(const std::string& S){
 
 bool CompilationUtils::isAsyncWorkGroupCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
+}
+
+bool CompilationUtils::isKMPAcquireReleaseLock(const std::string& S){
+  return (S == NAME_IB_KMP_ACQUIRE_LOCK) || (S == NAME_IB_KMP_RELEASE_LOCK);
 }
 
 bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){

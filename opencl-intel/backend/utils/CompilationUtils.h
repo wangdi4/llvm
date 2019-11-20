@@ -183,7 +183,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief collect built-ins declared in the module that require
     //         relaxation of noduplicate attribute to convergent.
+    //         Additionally assigns "kernel-convergent-call" and "kernel-call-once"
+    //         attributes (see LangRef).
     static void getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      FunctionSet &functionSet, Module *pModule);
+
+    /// @brief collect built-ins declared in the module that require
+    //         assigning of "kernel-uniform-call" attribute
+    //         (see LangRef for details).
+    static void getAllSyncBuiltinsDclsForKernelUniformCallAttr(
       FunctionSet &functionSet, Module *pModule);
 
     /// @brief collect built-ins declared in the module and force synchronization.
@@ -251,6 +259,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetEnqueuedNumSubGroups(const std::string&);
     static bool isGetGroupId(const std::string&);
     static bool isGlobalOffset(const std::string&);
+    static bool isKMPAcquireReleaseLock(const std::string&);
     static bool isAsyncWorkGroupCopy(const std::string&);
     static bool isAsyncWorkGroupStridedCopy(const std::string&);
     static bool isWorkGroupReserveReadPipe(const std::string&);
@@ -349,6 +358,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
     static const std::string NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
 
+    static const std::string NAME_IB_KMP_ACQUIRE_LOCK;
+    static const std::string NAME_IB_KMP_RELEASE_LOCK;
+
     static const std::string NAME_ATOMIC_WORK_ITEM_FENCE;
 
     static const std::string NAME_MEM_FENCE;
@@ -415,10 +427,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     static const std::string WG_BOUND_PREFIX;
 
+    // Kernel vectorization attributes strings
+    static const std::string ATTR_KERNEL_CALL_ONCE;
+    static const std::string ATTR_KERNEL_UNIFORM_CALL;
+    static const std::string ATTR_KERNEL_CONVERGENT_CALL;
+
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function mem_fence
     //////////////////////////////////////////////////////////////////
     static std::string mangledMemFence();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function read_mem_fence
+    static std::string mangledReadMemFence();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function write_mem_fence
+    static std::string mangledWriteMemFence();
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function atomic_work_item_fence
     //////////////////////////////////////////////////////////////////

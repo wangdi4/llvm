@@ -389,6 +389,10 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
                          "vector-variants", Variants);
+    // TODO: So far the functions that have their vector variants assigned here
+    // are essentially "kernel-call-once" functions.
+    AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
+                         CompilationUtils::ATTR_KERNEL_CALL_ONCE);
 
     Call->setAttributes(AL);
   }
@@ -817,6 +821,10 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   }
 }
 
+// The functions populated within this function will be marked
+// as "kernel-call-once" (see LangRef for more details).
+// If you wish to add a function that does not adhere to the semantics of
+// this attribute then it makes sense to start populating a different container.
 static ContainerTy OCLBuiltinVecInfo() {
   ContainerTy Info;
 
@@ -947,6 +955,10 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
       RetInfo.push_back({std::string("_Z26intel_sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
   }
 
+  // Pipe functions
+  RetInfo.push_back({std::string("__work_group_reserve_write_pipe"), VectorKind::uniform()});
+  RetInfo.push_back({std::string("__work_group_reserve_read_pipe"), VectorKind::uniform()});
+
   return RetInfo;
 }
 
@@ -970,6 +982,28 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
 
     assert(Entry.second.isUniform() && "Only uniforms are supported by now!");
     Fn->addFnAttr("opencl-vec-uniform-return");
+  }
+  // Process async_work_group copies separately as it is easier to detect
+  // them via unmangling as the number of overloads is high.
+  for (auto &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    if (CompilationUtils::isAsyncWorkGroupCopy(F.getName()) ||
+        CompilationUtils::isAsyncWorkGroupStridedCopy(F.getName()))
+      F.addFnAttr("opencl-vec-uniform-return");
+  }
+
+  // Mark "kernel-uniform-call" (see LangRef for more details).
+  CompilationUtils::FunctionSet oclSyncBuiltins;
+  CompilationUtils::getAllSyncBuiltinsDclsForKernelUniformCallAttr(oclSyncBuiltins, &M);
+  // process call sites
+  for (auto *F : oclSyncBuiltins) {
+    for (auto *U : F->users()) {
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        CI->setAttributes(CI->getAttributes()
+          .addAttribute(CI->getContext(), AttributeList::FunctionIndex, "kernel-uniform-call"));
+      }
+    }
   }
 
   auto Kernels = KernelList(*&M).getList();
