@@ -254,8 +254,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
     // Promote i8 FP_TO_SINT to larger FP_TO_SINTS's, as X86 doesn't have
     // this operation.
-    setOperationAction(ISD::FP_TO_SINT,         MVT::i8,  Promote);
-    // FIXME: setOperationAction(ISD::STRICT_FP_TO_SINT, MVT::i8, Promote);
+    setOperationAction(ISD::FP_TO_SINT,        MVT::i8,  Promote);
+    // FIXME: This doesn't generate invalid exception when it should. PR44019.
+    setOperationAction(ISD::STRICT_FP_TO_SINT, MVT::i8,  Promote);
     setOperationAction(ISD::FP_TO_SINT,        MVT::i16, Custom);
     setOperationAction(ISD::STRICT_FP_TO_SINT, MVT::i16, Custom);
     setOperationAction(ISD::FP_TO_SINT,        MVT::i32, Custom);
@@ -268,9 +269,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     // Handle FP_TO_UINT by promoting the destination to a larger signed
     // conversion.
     setOperationAction(ISD::FP_TO_UINT,        MVT::i8,  Promote);
-    // FIXME: setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::i8,  Promote);
+    // FIXME: This doesn't generate invalid exception when it should. PR44019.
+    setOperationAction(ISD::STRICT_FP_TO_UINT, MVT::i8,  Promote);
     setOperationAction(ISD::FP_TO_UINT,        MVT::i16, Promote);
-    // FIXME: setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::i16, Promote);
+    // FIXME: This doesn't generate invalid exception when it should. PR44019.
+    setOperationAction(ISD::STRICT_FP_TO_UINT, MVT::i16, Promote);
     setOperationAction(ISD::FP_TO_UINT,        MVT::i32, Custom);
     setOperationAction(ISD::STRICT_FP_TO_UINT, MVT::i32, Custom);
     setOperationAction(ISD::FP_TO_UINT,        MVT::i64, Custom);
@@ -3615,8 +3618,8 @@ SDValue X86TargetLowering::LowerFormalArguments(
         FuncInfo->getForwardedMustTailRegParms();
     CCInfo.analyzeMustTailForwardedRegisters(Forwards, RegParmTypes, CC_X86);
 
-    // Conservatively forward AL on x86_64, since it might be used for varargs.
-    if (Is64Bit && !CCInfo.isAllocated(X86::AL)) {
+    // Forward AL for SysV x86_64 targets, since it is used for varargs.
+    if (Is64Bit && !IsWin64 && !CCInfo.isAllocated(X86::AL)) {
       unsigned ALVReg = MF.addLiveIn(X86::AL, &X86::GR8RegClass);
       Forwards.push_back(ForwardedRegister(ALVReg, X86::AL, MVT::i8));
     }
