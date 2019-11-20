@@ -1372,7 +1372,8 @@ namespace llvm {
 
     unsigned getAddressSpace(void) const;
 
-    SDValue FP_TO_INTHelper(SDValue Op, SelectionDAG &DAG, bool isSigned) const;
+    SDValue FP_TO_INTHelper(SDValue Op, SelectionDAG &DAG, bool isSigned,
+                            SDValue &Chain) const;
 
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
