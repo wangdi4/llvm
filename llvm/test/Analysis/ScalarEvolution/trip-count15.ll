@@ -8,8 +8,9 @@ define void @umin_unsigned_check(i64 %n) {
 ; CHECK-NEXT:    --> (4096 umin %n) U: [0,4097) S: [0,4097)
 ; CHECK-NEXT:    %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
 ; CHECK-NEXT:    --> {0,+,1}<%loop> U: [0,4098) S: [0,4098) Exits: (1 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
+; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:    %iv.next = add i64 %iv, 1
-; CHECK-NEXT:    --> {1,+,1}<%loop> U: [1,4099) S: [1,4099) Exits: (2 + (4096 umin %n)) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {1,+,1}<%loop> U: [1,4099) S: [1,4099) Exits: (2 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @umin_unsigned_check
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (1 + (4096 umin %n))<nuw><nsw>
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 4097
@@ -38,8 +39,9 @@ define void @umin_signed_check(i64 %n) {
 ; CHECK-NEXT:    --> (4096 umin %n) U: [0,4097) S: [0,4097)
 ; CHECK-NEXT:    %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
 ; CHECK-NEXT:    --> {0,+,1}<%loop> U: [0,4098) S: [0,4098) Exits: (1 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
+; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:    %iv.next = add i64 %iv, 1
-; CHECK-NEXT:    --> {1,+,1}<%loop> U: [1,4099) S: [1,4099) Exits: (2 + (4096 umin %n)) LoopDispositions: { %loop: Computable }
+; CHECK-NEXT:    --> {1,+,1}<%loop> U: [1,4099) S: [1,4099) Exits: (2 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @umin_signed_check
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (1 + (4096 umin %n))<nuw><nsw>
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 4097

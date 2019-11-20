@@ -55,9 +55,9 @@ define void @coupled_miv_type_mismatch(i32 %n) #0 {
 ; DELIN-LABEL: 'Dependence Analysis' for function 'coupled_miv_type_mismatch'
 entry:
   br label %for.cond
-
-; DELIN: da analyze - input [* *]!
-; DELIN: da analyze - anti [* *|<]!
+; INTEL - SCEV improvements yield stronger DA results here
+; DELIN: da analyze - none!
+; DELIN: da analyze - anti [< >]!
 ; DELIN: da analyze - none!
 for.cond:                                         ; preds = %for.inc11, %entry
   %indvars.iv11 = phi i64 [ %indvars.iv.next12, %for.inc11 ], [ 1, %entry ]

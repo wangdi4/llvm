@@ -221,6 +221,13 @@ static cl::opt<unsigned>
                   cl::desc("Size of the expression which is considered huge"),
                   cl::init(4096));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> NAryOperandStrengthenThreshold(
+     "scalar-evolution-nary-operand-strengthen-threshold", cl::Hidden,
+     cl::desc("Maximum operands to analyze for NoWrap flag strengthening"),
+     cl::init(4));
+#endif //INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //                           SCEV class definitions
 //===----------------------------------------------------------------------===//
@@ -2345,6 +2352,107 @@ CollectAddOperandsWithScales(DenseMap<const SCEV *, APInt> &M,
   return Interesting;
 }
 
+#if INTEL_CUSTOMIZATION
+using OperandSubset = std::multiset<const SCEV*>;
+using OperandPartition = std::multiset<OperandSubset>;
+
+// Enumerate all possible partitions into two multisets for the List in
+// question. Note that the List is an ordered collection, but the enumerated
+// collection is a set of multisets. E.g., {{1}, {2, 3}} and {{3, 2}, {1}} are
+// equivalent partitions, but {{1}, {2}} and {{1, 1}, {2}} are not equivalent.
+static std::set<OperandPartition> enumeratePartitionsOfSizeTwo(const ArrayRef<const SCEV*> List) {
+  unsigned ListSize = List.size();
+  std::set<OperandPartition> Partitions;
+
+  for (unsigned LeftSetSize=1, MaxLeftSetSize=ListSize/2;
+      LeftSetSize<=MaxLeftSetSize; LeftSetSize++){
+    SmallVector<bool,4> LeftSelector(ListSize);
+    std::fill(LeftSelector.end()-LeftSetSize, LeftSelector.end(), true);
+
+    do {
+      OperandSubset LeftSet, RightSet;
+      for (unsigned Idx=0; Idx<ListSize; Idx++)
+        (LeftSelector[Idx] ? LeftSet : RightSet).insert(List[Idx]);
+
+      Partitions.insert({LeftSet, RightSet});
+    } while (std::next_permutation(LeftSelector.begin(), LeftSelector.end()));
+  }
+  return Partitions;
+}
+
+// Given an OperandPartition, try to prove additional NoWrapFlags for operation
+// \p Type assuming that the final binary operation combines the two subsets.
+// No assumptions are made about the order in which the subsets themselves were
+// combined. If no additional flags can be proved, then \p KnownFlags is
+// returned. This is used in StrengthenNoWrapFlags, so only scMulExpr and
+// scAddExpr SCEVTypes are allowed.
+// We can prove that this particular combination of the operands does not wrap
+// if both of two properties hold:
+//   p1) Neither subset is a potentially wrapping instance of the operation
+//   p2) The makeGuaranteedNoWrapRegion test proves that the operation on the
+//   two partitions doesn't wrap
+static SCEV::NoWrapFlags proveNoWrapForBinaryCombination(ScalarEvolution *SE,
+    SCEVTypes Type, const OperandPartition& Partition, SCEV::NoWrapFlags KnownFlags) {
+  using OBO = OverflowingBinaryOperator;
+
+  if ((KnownFlags & SCEV::FlagNSW) && (KnownFlags & SCEV::FlagNUW))
+    return KnownFlags;
+
+  Instruction::BinaryOps Opcode;
+  if (Type == scAddExpr) {
+    Opcode = Instruction::Add;
+  } else {
+    assert(Type == scMulExpr);
+    Opcode = Instruction::Mul;
+  }
+  assert(Partition.size() == 2);
+
+  SCEV::NoWrapFlags Flags = KnownFlags;
+
+  // Get the SCEV of the operation over the two operand subsets.
+  const OperandSubset &LeftSubset = *(Partition.begin());
+  const OperandSubset &RightSubset = *std::next(Partition.begin());
+  SmallVector<const SCEV*, 4> LeftOps(LeftSubset.begin(), LeftSubset.end());
+  SmallVector<const SCEV*, 4> RightOps(RightSubset.begin(), RightSubset.end());
+  const SCEV *LeftTerms, *RightTerms;
+
+  if (Type == scAddExpr) {
+    LeftTerms = SE->getAddExpr(LeftOps, KnownFlags);
+    RightTerms = SE->getAddExpr(RightOps, KnownFlags);
+  } else {
+    assert(Type == scMulExpr);
+    LeftTerms = SE->getMulExpr(LeftOps, KnownFlags);
+    RightTerms = SE->getMulExpr(RightOps, KnownFlags);
+  }
+
+  const SCEVNAryExpr *NLeft = dyn_cast<SCEVNAryExpr>(LeftTerms);
+  const SCEVNAryExpr *NRight = dyn_cast<SCEVNAryExpr>(RightTerms);
+
+  if (!(KnownFlags & SCEV::FlagNSW) &&
+      (!NLeft || NLeft->hasNoSignedWrap()) &&
+      (!NRight || NRight->hasNoSignedWrap())){
+    const ConstantRange RS = SE->getSignedRange(LeftTerms);
+    auto NSWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
+        Opcode, RS, OBO::NoSignedWrap);
+    if (NSWRegion.contains(SE->getSignedRange(RightTerms)))
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
+  }
+
+  if (!(KnownFlags & SCEV::FlagNUW) &&
+      (!NLeft || NLeft->hasNoUnsignedWrap()) &&
+      (!NRight || NRight->hasNoUnsignedWrap())){
+    const ConstantRange RU = SE->getUnsignedRange(LeftTerms);
+    auto NUWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
+        Opcode, RU, OBO::NoUnsignedWrap);
+    if (NUWRegion.contains(SE->getUnsignedRange(RightTerms)))
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
+  }
+
+  return Flags;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 // We're trying to construct a SCEV of type `Type' with `Ops' as operands and
 // `OldFlags' as can't-wrap behavior.  Infer a more aggressive set of
 // can't-overflow flags for the operation if possible.
@@ -2415,7 +2523,41 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
       if (NUWRegion.contains(SE->getUnsignedRange(Ops[1])))
         Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
     }
+#if INTEL_CUSTOMIZATION
+  } else if (SignOrUnsignWrap != SignOrUnsignMask &&
+      (Type == scAddExpr || Type == scMulExpr) &&
+      Ops.size() >= 2 &&
+      Ops.size() <= NAryOperandStrengthenThreshold ) {
+
+    // This is essentially a more generic version of the "if" statement above.
+    // Generate all sets of unique partitions of the operands of size 2. The
+    // operation across all operands can be proven not to wrap if we can prove
+    // the same for all such partitions.
+    bool ProvingNSW=true, ProvingNUW=true;
+
+    if (SignOrUnsignWrap & SCEV::FlagNSW)
+      ProvingNSW = false;
+    if (SignOrUnsignWrap & SCEV::FlagNUW)
+      ProvingNUW = false;
+
+    for (const OperandPartition &Part : enumeratePartitionsOfSizeTwo(Ops)) {
+      SCEV::NoWrapFlags PartFlags =
+        proveNoWrapForBinaryCombination(SE, Type, Part, SignOrUnsignWrap);
+      if (!(PartFlags & SCEV::FlagNSW))
+          ProvingNSW = false;
+      if (!(PartFlags & SCEV::FlagNUW))
+          ProvingNUW = false;
+
+      if (!ProvingNSW && !ProvingNUW)
+        break;
+    }
+
+    if (ProvingNSW)
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
+    if (ProvingNUW)
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
   }
+#endif //INTEL_CUSTOMIZATION
 
   return Flags;
 }
@@ -5977,6 +6119,21 @@ ScalarEvolution::getRangeRef(const SCEV *S,
     // TODO: non-affine addrec
     if (AddRec->isAffine()) {
       const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(AddRec->getLoop());
+#if INTEL_CUSTOMIZATION
+      // Try to reason about widened IVs, too. If we can prove that truncating
+      // a wide MaxBECount preserves the count then we use it to compute a more
+      // accurate range.
+      if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
+              isa<SCEVConstant>(MaxBECount) &&
+              getTypeSizeInBits(MaxBECount->getType()) > BitWidth) {
+          unsigned WideBitWidth = getTypeSizeInBits(MaxBECount->getType());
+          ConstantRange SCR = getSignedRange(MaxBECount);
+          ConstantRange UCR = getUnsignedRange(MaxBECount);
+          if (SCR.truncate(BitWidth).signExtend(WideBitWidth) == SCR &&
+              UCR.truncate(BitWidth).zeroExtend(WideBitWidth) == UCR)
+              MaxBECount = getTruncateExpr(MaxBECount, AddRec->getType());
+      }
+#endif // INTEL_CUSTOMIZATION
       if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
           getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
         auto RangeFromAffine = getRangeForAffineAR(

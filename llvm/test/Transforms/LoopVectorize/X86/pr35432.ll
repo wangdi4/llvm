@@ -38,7 +38,8 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[DOTPROMOTED:%.*]] = load i32, i32* getelementptr inbounds ([192 x [192 x i32]], [192 x [192 x i32]]* @a, i64 0, i64 0, i64 0), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = add i8 [[CONV3]], -1
 ; CHECK-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
-; CHECK-NEXT:    [[TMP5:%.*]] = add i32 [[TMP4]], 1
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i32 [[TMP4]], 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i32 [[TMP2]], [[TMP4]]
 ; CHECK-NEXT:    [[UMAX:%.*]] = select i1 [[TMP6]], i32 [[TMP2]], i32 [[TMP4]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = sub i32 [[TMP5]], [[UMAX]]
