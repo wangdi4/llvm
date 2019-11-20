@@ -812,22 +812,20 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
 
   // -fsycl-targets cannot be used with -fsycl-link-targets
   if (SYCLTargets && SYCLLinkTargets)
-    Diag(clang::diag::err_drv_option_conflict) << SYCLTargets->getSpelling()
-      << SYCLLinkTargets->getSpelling();
+    Diag(clang::diag::err_drv_option_conflict)
+        << SYCLTargets->getSpelling() << SYCLLinkTargets->getSpelling();
   // -fsycl-link-targets and -fsycl-add-targets cannot be used together
   if (SYCLLinkTargets && SYCLAddTargets)
-    Diag(clang::diag::err_drv_option_conflict) << SYCLLinkTargets->getSpelling()
-      << SYCLAddTargets->getSpelling();
+    Diag(clang::diag::err_drv_option_conflict)
+        << SYCLLinkTargets->getSpelling() << SYCLAddTargets->getSpelling();
   // -fsycl-link-targets is not allowed with -fsycl-link
   if (SYCLLinkTargets && SYCLLink)
     Diag(clang::diag::err_drv_option_conflict)
-      << C.getInputArgs().getLastArg(options::OPT_fsycl_link_EQ)->getSpelling()
-      << SYCLLinkTargets->getSpelling();
+        << SYCLLink->getSpelling() << SYCLLinkTargets->getSpelling();
   // -fsycl-targets cannot be used with -fintelfpga
   if (SYCLTargets && SYCLfpga)
     Diag(clang::diag::err_drv_option_conflict)
-      << SYCLTargets->getSpelling()
-      << C.getInputArgs().getLastArg(options::OPT_fintelfpga)->getSpelling();
+        << SYCLTargets->getSpelling() << SYCLfpga->getSpelling();
 
   bool HasSYCLTargetsOption = SYCLTargets || SYCLLinkTargets || SYCLAddTargets;
   llvm::StringMap<StringRef> FoundNormalizedTriples;
@@ -1261,7 +1259,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     TargetTriple = T.str();
   }
   if (Args.hasArg(options::OPT_sycl_device_only)) {
-    // --sycl implies spir arch and SYCL Device
+    // -fsycl-device-only implies spir arch and SYCL Device
     llvm::Triple T(TargetTriple);
     // FIXME: defaults to spir64, should probably have a way to set spir
     // possibly new -sycl-target option
@@ -4575,8 +4573,8 @@ Action *Driver::ConstructPhaseAction(
       if (Args.hasFlag(options::OPT_fsycl_use_bitcode,
                        options::OPT_fno_sycl_use_bitcode, true))
         return C.MakeAction<BackendJobAction>(Input, types::TY_LLVM_BC);
-      // Use of --sycl creates a bitcode file, we need to translate that to
-      // a SPIR-V file with -fno-sycl-use-bitcode
+      // Use of -fsycl-device-only creates a bitcode file, we need to translate
+      // that to a SPIR-V file with -fno-sycl-use-bitcode
       auto *BackendAction =
           C.MakeAction<BackendJobAction>(Input, types::TY_LLVM_BC);
       return C.MakeAction<SPIRVTranslatorJobAction>(BackendAction,
