@@ -19,6 +19,7 @@
 #include "OCLPassSupport.h"
 
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Support/CommandLine.h"
 
 extern "C" {
 /// @brief Creates new AddTLSGlobals module pass
@@ -27,9 +28,13 @@ ModulePass *createAddTLSGlobalsPass() { return new intel::AddTLSGlobals(); }
 }
 
 // Command line option for other passes to use TLS mode
-cl::opt<bool>
-    OptUseTLSGlobals("use-tls-globals", cl::init(false), cl::Hidden,
-                     cl::desc("Use TLS globals instead of implicit arguments"));
+bool OptUseTLSGlobals;
+
+static cl::opt<bool, true> OptUseTLSGlobalsOpt(
+    "use-tls-globals", cl::Hidden,
+    cl::desc("Use TLS globals instead of implicit arguments"),
+    cl::location(OptUseTLSGlobals),
+    cl::init(false));
 
 using namespace Intel::OpenCL::DeviceBackend;
 

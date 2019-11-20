@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-extern cl::opt<bool> OptUseTLSGlobals;
+extern bool OptUseTLSGlobals;
 
 namespace intel {
 

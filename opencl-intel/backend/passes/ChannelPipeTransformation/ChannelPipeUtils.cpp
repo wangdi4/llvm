@@ -19,17 +19,21 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Transforms/Utils/ModuleUtils.h>
 
 #include <CompilationUtils.h>
 #include <MetadataAPI.h>
 
-cl::opt<int> Intel::OpenCL::DeviceBackend::ChannelDepthEmulationMode(
-   "channel-depth-emulation-mode",
-    cl::init(CHANNEL_DEPTH_MODE_STRICT), cl::Hidden,
-    cl::desc("Channel depth emulation mode"));
+int Intel::OpenCL::DeviceBackend::ChannelDepthEmulationMode;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+static cl::opt<int, true> ChannelDepthEmulationModeOpt(
+    "channel-depth-emulation-mode", cl::Hidden,
+    cl::desc("Channel depth emulation mode"),
+    cl::location(Intel::OpenCL::DeviceBackend::ChannelDepthEmulationMode),
+    cl::init(CHANNEL_DEPTH_MODE_STRICT));
 
 // TODO: Using static string can only handle non-parallel compilaton.
 // Need to use better solution for it.
