@@ -239,7 +239,7 @@ static std::error_code parseOrderFile(StringRef orderFilePath,
      sym = prefixAndSym.first;
     if (!sym.empty()) {
       ctx.appendOrderedSymbol(sym, prefix);
-      //llvm::errs() << sym << ", prefix=" << prefix << "\n";
+      // lld::errs() << sym << ", prefix=" << prefix << "\n";
     }
   }
   return std::error_code();
@@ -389,7 +389,7 @@ bool parse(llvm::ArrayRef<const char *> args, MachOLinkingContext &ctx) {
         !parsedArgs.getLastArg(OPT_test_file_usage)) {
       // If no -arch and no options at all, print usage message.
       if (parsedArgs.size() == 0) {
-        table.PrintHelp(llvm::outs(),
+        table.PrintHelp(lld::outs(),
                         (std::string(args[0]) + " [options] file...").c_str(),
                         "LLVM Linker", false);
       } else {
@@ -1159,14 +1159,16 @@ static void createFiles(MachOLinkingContext &ctx, bool Implicit) {
 
 /// This is where the link is actually performed.
 bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
-          raw_ostream &Error) {
+          raw_ostream &StdoutOS, raw_ostream &StderrOS) {
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now (use "
       "'-error-limit 0' to see all errors)";
-  errorHandler().errorOS = &Error;
   errorHandler().exitEarly = CanExitEarly;
-  enableColors(Error.has_colors());
+  enableColors(StderrOS.has_colors());
+
+  lld::stdoutOS = &StdoutOS;
+  lld::stderrOS = &StderrOS;
 
   MachOLinkingContext ctx;
   if (!parse(args, ctx))
@@ -1211,10 +1213,9 @@ bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
   if (auto ec = pm.runOnFile(*merged)) {
     // FIXME: This should be passed to logAllUnhandledErrors but it needs
     // to be passed a Twine instead of a string.
-    *errorHandler().errorOS << "Failed to run passes on file '"
-                            << ctx.outputPath() << "': ";
-    logAllUnhandledErrors(std::move(ec), *errorHandler().errorOS,
-                          std::string());
+    lld::errs() << "Failed to run passes on file '" << ctx.outputPath()
+                << "': ";
+    logAllUnhandledErrors(std::move(ec), lld::errs(), std::string());
     return false;
   }
 
@@ -1225,10 +1226,8 @@ bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
   if (auto ec = ctx.writeFile(*merged)) {
     // FIXME: This should be passed to logAllUnhandledErrors but it needs
     // to be passed a Twine instead of a string.
-    *errorHandler().errorOS << "Failed to write file '" << ctx.outputPath()
-                            << "': ";
-    logAllUnhandledErrors(std::move(ec), *errorHandler().errorOS,
-                          std::string());
+    lld::errs() << "Failed to write file '" << ctx.outputPath() << "': ";
+    logAllUnhandledErrors(std::move(ec), lld::errs(), std::string());
     return false;
   }
 
