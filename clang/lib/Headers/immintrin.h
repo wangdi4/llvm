@@ -734,8 +734,6 @@ _InterlockedCompareExchange64_HLERelease(__int64 volatile *_Destination,
 }
 #endif
 
-extern int _may_i_use_cpu_feature(unsigned __int64);
-
 #ifdef __cplusplus
 }
 #endif

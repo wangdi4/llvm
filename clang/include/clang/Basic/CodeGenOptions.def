@@ -357,6 +357,8 @@ ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
 // Support for Intel customization LangOptions::FArgumentNoalias
 /// No aliasing for all pointer arguments
 CODEGENOPT(NoAliasForPtrArgs, 1, 0)
+
+CODEGENOPT(DisableCpuDispatchIFuncs, 1, 0) ///< -disable-cpudispatch-ifuncs
 #endif // INTEL_CUSTOMIZATION
 
 /// Number of path components to strip when emitting checks. (0 == full

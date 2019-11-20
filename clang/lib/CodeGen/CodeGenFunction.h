@@ -1825,6 +1825,8 @@ private:
   bool IsFakeLoadCand(const Expr *RV);
   bool EmitFakeLoadForRetPtr(const Expr *RV);
   llvm::Value *EmitX86MayIUseCpuFeature(const CallExpr *E);
+  llvm::Value *EmitX86MayIUseCpuFeatureExt(const CallExpr *E);
+  llvm::Value *EmitX86MayIUseCpuFeatureStr(const CallExpr *E);
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -4658,8 +4660,12 @@ public:
   // Emits the body of a multiversion function's resolver. Assumes that the
   // options are already sorted in the proper order, with the 'default' option
   // last (if it exists).
+#if INTEL_CUSTOMIZATION
   void EmitMultiVersionResolver(llvm::Function *Resolver,
-                                ArrayRef<MultiVersionResolverOption> Options);
+                                ArrayRef<MultiVersionResolverOption> Options,
+                                bool IsCpuDispatch);
+  void EmitCpuFeaturesInit();
+#endif // INTEL_CUSTOMIZATION
 
   static uint64_t GetX86CpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
 
@@ -4681,7 +4687,12 @@ private:
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
-  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO);
+#if INTEL_CUSTOMIZATION
+  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO,
+                                     bool IsCpuDispatch);
+  llvm::Value *
+  EmitX86CpuDispatchLibIrcFeaturesTest(ArrayRef<StringRef> FeaturStrs);
+#endif // INTEL_CUSTOMIZATION
 };
 
 inline DominatingLLVMValue::saved_type

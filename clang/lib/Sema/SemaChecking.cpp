@@ -82,11 +82,13 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/Intel_CPU_utils.h" // INTEL
 #include "llvm/Support/Locale.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
+#include <bitset> // INTEL
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -95,7 +97,6 @@
 #include <string>
 #include <tuple>
 #include <utility>
-#include <bitset>
 
 using namespace clang;
 using namespace sema;
@@ -3511,6 +3512,29 @@ static bool SemaBuiltinCpuIs(Sema &S, CallExpr *TheCall) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// Handle the string argument check for _may_i_use_cpu_feature_str.
+static bool SemaBuiltinMayIUseCpuFeatureStr(Sema &S, CallExpr *TheCall) {
+  SmallVector<StringRef, 4> Features;
+
+  for (const auto &Arg : TheCall->arguments()) {
+    // Check if the argument is a string literal.
+    if (!isa<StringLiteral>(Arg->IgnoreParenImpCasts()))
+      return S.Diag(Arg->getExprLoc(), diag::err_expr_not_string_literal)
+             << Arg->getSourceRange();
+
+    // Check the contents of the string.
+    StringRef Feature =
+        cast<StringLiteral>(Arg->IgnoreParenImpCasts())->getString();
+
+    if (!llvm::X86::isCpuFeatureValid(Feature.trim()))
+      return S.Diag(Arg->getExprLoc(), diag::err_invalid_cpu_supports)
+             << Arg->getSourceRange();
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Check if the rounding mode is legal.
 bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   // Indicates if this instruction has rounding control or just SAE.
@@ -4267,6 +4291,13 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   default:
     return false;
 #if INTEL_CUSTOMIZATION
+  case X86::BI_may_i_use_cpu_feature_ext:
+    i = 1;
+    l = 0;
+    u = 1;
+    break;
+  case X86::BI_may_i_use_cpu_feature_str:
+    return SemaBuiltinMayIUseCpuFeatureStr(*this, TheCall);
 #if INTEL_FEATURE_ICECODE
   case X86::BI__builtin_ia32_icecode_nr_read:
     i = 0; l = 0; u = 255;
