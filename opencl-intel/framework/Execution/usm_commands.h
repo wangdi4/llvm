@@ -23,7 +23,7 @@ namespace Framework {
 
 /**
  * This class is responsible for performing the command enqueued by
- * clEnqueueUSMMemcpy in case both destination and source pointers are system
+ * clEnqueueMemcpyINTEL in case both destination and source pointers are system
  * pointers
  */
 class RuntimeUSMMemcpyCommand : public RuntimeCommand {
@@ -67,48 +67,47 @@ private:
 
 /**
  * This class is responsible for performing the command enqueued by
- * clEnqueueUSMMemset in case the USM pointer is a system pointer
+ * clEnqueueMemFillINTEL in case the USM pointer is a system pointer
  */
-class RuntimeUSMMemsetCommand : public RuntimeCommand {
+class RuntimeUSMMemFillCommand : public RuntimeCommand {
 public:
   /**
    * Constructor
-   * @param pUsmPtr a pointer to a memory region that will be set with the
+   * @param usmPtr a pointer to a memory region that will be filled with the
    * pattern
-   * @param pPattern a pointer to the data pattern
-   * @param szPatternSize size in bytes of the pattern
-   * @param size size in bytes of the region being set
+   * @param pattern a pointer to the data pattern
+   * @param patternSize size in bytes of the pattern
+   * @param size size in bytes of the region being filled
    * @param cmdQueue a pointer to the IOclCommandQueueBase on which
    * this command is enqueued
-   * @param bIsDependentOnEvents whether this command is dependent on some
-   * events
+   * @param isDependentOnEvents whether this command is dependent on some events
    */
-  RuntimeUSMMemsetCommand(void *pUsmPtr, const void *pPattern,
-                          size_t szPatternSize, size_t size,
-                          const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-                          bool bIsDependentOnEvents)
-      : RuntimeCommand(cmdQueue, bIsDependentOnEvents), m_pUsmPtr(pUsmPtr),
-        m_pPattern(pPattern), m_szPatternSize(szPatternSize), m_size(size) {}
+  RuntimeUSMMemFillCommand(void *usmPtr, const void *pattern,
+                           size_t patternSize, size_t size,
+                           const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+                           bool isDependentOnEvents)
+      : RuntimeCommand(cmdQueue, isDependentOnEvents), m_usmPtr(usmPtr),
+        m_pattern(pattern), m_patternSize(patternSize), m_size(size) {}
 
   // overriden methods:
 
   cl_err_code Execute() override {
-    CopyPattern(m_pPattern, m_szPatternSize, m_pUsmPtr, m_size);
+    CopyPattern(m_pattern, m_patternSize, m_usmPtr, m_size);
     return RuntimeCommand::Execute();
   }
 
   cl_command_type GetCommandType() const override {
-    return CL_COMMAND_MEMSET_INTEL;
+    return CL_COMMAND_MEMFILL_INTEL;
   }
 
   const char *GetCommandName() const override {
-    return "CL_COMMAND_MEMSET_INTEL";
+    return "CL_COMMAND_MEMFILL_INTEL";
   }
 
 private:
-  void *const m_pUsmPtr;
-  const void *const m_pPattern;
-  const size_t m_szPatternSize;
+  void *const m_usmPtr;
+  const void *const m_pattern;
+  const size_t m_patternSize;
   const size_t m_size;
 };
 

@@ -3563,14 +3563,14 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
 
     // do the work:
     Command* memsetCommand;
-    void *pPattern = &value;
+    void *pattern = &value;
     size_t pattern_size = 1;
     if (nullptr == usmBuf.GetPtr())
-        memsetCommand = new MemsetUsmBufferCommand(queue, m_pOclEntryPoints,
-            usmBuf, pPattern, pattern_size,
+        memsetCommand = new MemFillUsmBufferCommand(queue, m_pOclEntryPoints,
+            usmBuf, pattern, pattern_size,
             (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
     else
-        memsetCommand = new RuntimeUSMMemsetCommand(dst_ptr, pPattern,
+        memsetCommand = new RuntimeUSMMemFillCommand(dst_ptr, pattern,
             pattern_size, size, queue, num_events_in_wait_list > 0);
 
     err = memsetCommand->Init();
@@ -3585,6 +3585,63 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     {
         memsetCommand->CommandDone();
         delete memsetCommand;
+        return err;
+    }
+    return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueUSMMemFill(cl_command_queue command_queue,
+    void* dst_ptr, const void* pattern, size_t pattern_size, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event* event_wait_list,
+    cl_event* event, ApiLogger* api_logger)
+{
+    if (nullptr == dst_ptr || !IS_ALIGNED_ON(dst_ptr, pattern_size) ||
+        nullptr == pattern || (size % pattern_size) != 0)
+        return CL_INVALID_VALUE;
+    if (!IsPowerOf2(pattern_size) || (pattern_size > MAX_PATTERN_SIZE))
+        return CL_INVALID_VALUE;
+    if (0 == size)
+        return CL_SUCCESS;
+
+    SharedPtr<IOclCommandQueueBase> queue =
+        GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+    if (nullptr == queue.GetPtr())
+        return CL_INVALID_COMMAND_QUEUE;
+
+    cl_err_code err = CheckEventList(queue, num_events_in_wait_list,
+                                     event_wait_list);
+    if (CL_FAILED(err))
+        return err;
+
+    const SharedPtr<Context> context = queue->GetContext();
+    SharedPtr<USMBuffer> usmBuf = context->GetUSMBufferContainingAddr(dst_ptr);
+    if (nullptr != usmBuf.GetPtr() &&
+        (usmBuf->GetContext() != context ||
+         !usmBuf->IsContainedInBuffer(dst_ptr, size)))
+        return CL_INVALID_VALUE;
+
+    // do the work:
+    Command* memFillCommand;
+    if (nullptr == usmBuf.GetPtr())
+        memFillCommand = new MemFillUsmBufferCommand(queue, m_pOclEntryPoints,
+            usmBuf, pattern, pattern_size,
+            (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
+    else
+        memFillCommand = new RuntimeUSMMemFillCommand(dst_ptr, pattern,
+            pattern_size, size, queue, num_events_in_wait_list > 0);
+
+    err = memFillCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete memFillCommand;
+        return err;
+    }
+    err = memFillCommand->EnqueueSelf(false, num_events_in_wait_list,
+                                      event_wait_list, event, api_logger);
+    if (CL_FAILED(err))
+    {
+        memFillCommand->CommandDone();
+        delete memFillCommand;
         return err;
     }
     return CL_SUCCESS;

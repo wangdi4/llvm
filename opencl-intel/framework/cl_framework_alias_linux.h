@@ -154,6 +154,7 @@ DECLARE_ALIAS(clMemFreeINTEL);
 DECLARE_ALIAS(clGetMemAllocInfoINTEL);
 DECLARE_ALIAS(clSetKernelArgMemPointerINTEL);
 DECLARE_ALIAS(clEnqueueMemsetINTEL);
+DECLARE_ALIAS(clEnqueueMemFillINTEL);
 DECLARE_ALIAS(clEnqueueMemcpyINTEL);
 DECLARE_ALIAS(clEnqueueMigrateMemINTEL);
 DECLARE_ALIAS(clEnqueueMemAdviseINTEL);

@@ -120,6 +120,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                      cl_uint num_events_in_wait_list,
                                      const cl_event* event_wait_list,
                                      cl_event* event, ApiLogger* api_logger);
+        cl_err_code EnqueueUSMMemFill(cl_command_queue command_queue,
+                                      void* dst_ptr, const void* pattern,
+                                      size_t pattern_size, size_t size,
+                                      cl_uint num_events_in_wait_list,
+                                      const cl_event* event_wait_list,
+                                      cl_event* event, ApiLogger* api_logger);
         cl_err_code EnqueueUSMMemcpy(cl_command_queue command_queue,
                                      cl_bool blocking, void* dst_ptr,
                                      const void* src_ptr, size_t size,

@@ -1699,7 +1699,7 @@ void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlig
     }
     if (0 == uiAlignment)
     {
-        uiAlignment = sizeof(cl_long16);    // this is the default alignment
+        uiAlignment = DEV_MAXIMUM_ALIGN;
     }
 
     SharedPtr<SVMBuffer> pSvmBuf = SVMBuffer::Allocate(this);
@@ -1936,7 +1936,7 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     size_t forceAlignment = 0;
     if (0 != alignment)
     {
-        if (0 != (alignment & (alignment - 1))) // if is not a power of 2
+        if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
             USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
         forceAlignment = alignment;
     }

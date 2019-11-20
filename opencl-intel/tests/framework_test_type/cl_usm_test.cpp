@@ -96,6 +96,10 @@ TEST_F(USMTest, checkExtensions) {
   ASSERT_TRUE(nullptr != ptr);
 
   ptr = clGetExtensionFunctionAddressForPlatform(m_platform,
+                                                 "clEnqueueMemFillINTEL");
+  ASSERT_TRUE(nullptr != ptr);
+
+  ptr = clGetExtensionFunctionAddressForPlatform(m_platform,
                                                  "clEnqueueMemcpyINTEL");
   ASSERT_TRUE(nullptr != ptr);
 
@@ -176,6 +180,15 @@ TEST_F(USMTest, memAlloc) {
     ASSERT_EQ(CL_INVALID_PROPERTY, err);
     ASSERT_TRUE(nullptr == buf);
   }
+
+  // Test wrong alignments
+  int alignments[] = { 7, sizeof(cl_double16) * 8 };
+  for (int alignment : alignments) {
+    void *buf = clDeviceMemAllocINTEL(m_context, m_device, nullptr, size,
+                                      alignment, &err);
+    ASSERT_TRUE(nullptr == buf);
+    ASSERT_EQ(CL_INVALID_VALUE, err);
+  }
 }
 
 TEST_F(USMTest, getMemAllocInfo) {
@@ -213,6 +226,9 @@ TEST_F(USMTest, getMemAllocInfo) {
                                sizeof(flags), &flags, NULL);
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(CL_MEM_ALLOC_WRITE_COMBINED_INTEL, flags);
+
+  err = clMemFreeINTEL(m_context, buffer);
+  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
 }
 
 TEST_F(USMTest, enqueueMemset) {
@@ -241,6 +257,45 @@ TEST_F(USMTest, enqueueMemset) {
       countFillErrors++;
   for (size_t i = num / 2; i < num; i++)
     if (buffer[i] != (char)value1)
+      countFillErrors++;
+  ASSERT_EQ(countFillErrors, 0);
+
+  err = clMemFreeINTEL(m_context, buffer);
+  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+}
+
+TEST_F(USMTest, enqueueMemFill) {
+  cl_int err;
+
+  const char pattern1[4] = {'0', '1', '2', '3'};
+  int pattern1_size = sizeof(pattern1) / sizeof(char);
+  const char pattern2[2] = {'A', 'B'};
+  int pattern2_size = sizeof(pattern2) / sizeof(char);
+
+  // Allocate USM buffers
+  size_t size1 = pattern1_size * 256;
+  size_t size2 = pattern2_size * 256;
+  size_t size = size1 + size2;
+  char *buffer =
+      (char *)clSharedMemAllocINTEL(m_context, m_device, NULL, size, 0, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+
+  err = clEnqueueMemFillINTEL(m_queue, buffer, pattern1, pattern1_size, size1,
+                              0, NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+  err = clEnqueueMemFillINTEL(m_queue, buffer + size1, pattern2, pattern2_size,
+                              size2, 0, NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  int countFillErrors = 0;
+  for (size_t i = 0; i < size1; i += pattern1_size)
+    if (0 != strncmp(&buffer[i], pattern1, pattern1_size))
+      countFillErrors++;
+  for (size_t i = size1; i < size; i += pattern2_size)
+    if (0 != strncmp(&buffer[i], pattern2, pattern2_size))
       countFillErrors++;
   ASSERT_EQ(countFillErrors, 0);
 
@@ -361,7 +416,8 @@ TEST_F(USMTest, enqueueMigrateMem) {
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(m_device, device);
 
-  clMemFreeINTEL(m_context, buffer);
+  err = clMemFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
 }
 
 TEST_F(USMTest, enqueueAdviseMem) {
@@ -380,7 +436,8 @@ TEST_F(USMTest, enqueueAdviseMem) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  clMemFreeINTEL(m_context, buffer);
+  err = clMemFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
 }
 
 TEST_F(USMTest, setKernelArgMemPointer) {
@@ -409,7 +466,7 @@ TEST_F(USMTest, setKernelArgMemPointer) {
                           "}\n"};
   cl_program program;
   cl_kernel kernel;
-  BuildKernel(source, 1, "test", program, kernel);
+  ASSERT_NO_FATAL_FAILURE(BuildKernel(source, 1, "test", program, kernel));
   err = clSetKernelArgMemPointerINTEL(kernel, 1, result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
   for (cl_int i = 0; i < num; i++) {
@@ -433,10 +490,14 @@ TEST_F(USMTest, setKernelArgMemPointer) {
     ASSERT_EQ(*result, 1);
   }
 
-  clMemFreeINTEL(m_context, buffer);
-  clMemFreeINTEL(m_context, result);
-  clReleaseKernel(kernel);
-  clReleaseProgram(program);
+  err = clMemFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemFreeINTEL(m_context, result);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+  err = clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
 TEST_F(USMTest, setKernelExecInfo) {
@@ -482,7 +543,7 @@ TEST_F(USMTest, setKernelExecInfo) {
       "}\n"};
   cl_program program;
   cl_kernel kernel;
-  BuildKernel(source, 1, "test", program, kernel);
+  ASSERT_NO_FATAL_FAILURE(BuildKernel(source, 1, "test", program, kernel));
 
   err = clSetKernelArgMemPointerINTEL(kernel, 0, foo);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
@@ -513,11 +574,16 @@ TEST_F(USMTest, setKernelExecInfo) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  ASSERT_EQ(result, num);
+  EXPECT_EQ(result, num);
 
-  clMemFreeINTEL(m_context, bufA);
-  clMemFreeINTEL(m_context, bufB);
-  clMemFreeINTEL(m_context, foo);
-  clReleaseKernel(kernel);
-  clReleaseProgram(program);
+  err = clMemFreeINTEL(m_context, bufA);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemFreeINTEL(m_context, bufB);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemFreeINTEL(m_context, foo);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+  err = clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }

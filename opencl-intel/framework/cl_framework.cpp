@@ -3275,7 +3275,8 @@ void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
         START_LOG_API(clHostMemAllocINTEL);
         apiLogger << "cl_context context" << context <<
             "const cl_mem_properties_intel* properties" << properties <<
-            "size_t size" << size << "unsigned int alignment" << alignment;
+            "size_t size" << size << "unsigned int alignment" << alignment <<
+            "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*,
             USMHostAlloc(context, properties, size, alignment, errcode_ret));
     }
@@ -3300,7 +3301,8 @@ void* CL_API_CALL clDeviceMemAllocINTEL(cl_context context,
         START_LOG_API(clDeviceMemAllocINTEL);
         apiLogger << "cl_context context" << context <<
             "const cl_mem_properties_intel* properties" << properties <<
-            "size_t size" << size << "unsigned int alignment" << alignment;
+            "size_t size" << size << "unsigned int alignment" << alignment <<
+            "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMDeviceAlloc(
             context, device, properties, size, alignment, errcode_ret));
     }
@@ -3324,8 +3326,10 @@ void* CL_API_CALL clSharedMemAllocINTEL(cl_context context,
     {
         START_LOG_API(clSharedMemAllocINTEL);
         apiLogger << "cl_context context" << context <<
+            "cl_device_id device" << device <<
             "const cl_mem_properties_intel* properties" << properties <<
-            "size_t size" << size << "unsigned int alignment" << alignment;
+            "size_t size" << size << "unsigned int alignment" << alignment <<
+            "cl_int* errcode_ret" << errcode_ret;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, USMSharedAlloc(
             context, device, properties, size, alignment, errcode_ret));
     }
@@ -3419,7 +3423,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemsetINTEL(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMemsetINTEL);
-        apiLogger << "void* dst_ptr" << dst_ptr << "cl_int value" << value <<
+        apiLogger << "cl_command_queue command_queue" << command_queue <<
+            "void* dst_ptr" << dst_ptr << "cl_int value" << value <<
             "size_t size" << size << "cl_uint num_events_in_wait_list" <<
             num_events_in_wait_list << "const cl_event* event_wait_list" <<
             event_wait_list << "cl_event* event" << event;
@@ -3437,6 +3442,40 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemsetINTEL(
 SET_ALIAS(clEnqueueMemsetINTEL);
 REGISTER_EXTENSION_FUNCTION(clEnqueueMemsetINTEL, clEnqueueMemsetINTEL);
 
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemFillINTEL(
+            cl_command_queue command_queue,
+            void* dst_ptr,
+            const void* pattern,
+            size_t pattern_size,
+            size_t size,
+            cl_uint num_events_in_wait_list,
+            const cl_event* event_wait_list,
+            cl_event* event) CL_API_SUFFIX__VERSION_2_1
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clEnqueueMemFillINTEL);
+        apiLogger << "cl_command_queue command_queue" << command_queue <<
+            "void* dst_ptr" << dst_ptr << "const void* pattern" <<
+            pattern << "size_t pattern_size" << pattern_size <<
+            "size_t size" << size << "cl_uint num_events_in_wait_list" <<
+            num_events_in_wait_list << "const cl_event* event_wait_list" <<
+            event_wait_list << "cl_event* event" << event;
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int,
+            EnqueueUSMMemFill(command_queue, dst_ptr, pattern, pattern_size,
+                              size, num_events_in_wait_list, event_wait_list,
+                              event, &apiLogger));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUSMMemFill(
+            command_queue, dst_ptr, pattern, pattern_size, size,
+            num_events_in_wait_list, event_wait_list, event, nullptr));
+    }
+}
+SET_ALIAS(clEnqueueMemFillINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueMemFillINTEL, clEnqueueMemFillINTEL);
+
 CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemcpyINTEL(
             cl_command_queue command_queue,
             cl_bool blocking,
@@ -3450,7 +3489,8 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemcpyINTEL(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMemcpyINTEL);
-        apiLogger << "blocking" << blocking << "void* dst_ptr" << dst_ptr <<
+        apiLogger << "cl_command_queue command_queue" << command_queue <<
+        "cl_bool blocking" << blocking << "void* dst_ptr" << dst_ptr <<
         "const void* src_ptr" << src_ptr << "size_t size" << size <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
@@ -3481,7 +3521,9 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMigrateMemINTEL);
-        apiLogger << "ptr" << ptr << "size" << size << "flags" << flags <<
+        apiLogger << "cl_command_queue command_queue" << command_queue <<
+        "const void* ptr" << ptr << "size_t size" << size <<
+        "cl_mem_migration_flags flags" << flags <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
@@ -3512,7 +3554,9 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMemAdviseINTEL(
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueMemAdviseINTEL);
-        apiLogger << "ptr" << ptr << "size" << size << "advice" << advice <<
+        apiLogger << "cl_command_queue command_queue" << command_queue <<
+        "const void* ptr" << ptr << "size_t size" << size <<
+        "cl_mem_advice_intel advice" << advice <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
