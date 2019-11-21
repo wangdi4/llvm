@@ -1254,6 +1254,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       getWRNLoopInfo().addNormUB(V);
     }
     break;
+    case QUAL_OMP_OFFLOAD_NDRANGE:
+      for (unsigned I = 0; I < NumArgs; ++I) {
+        Value *V = Args[I];
+        addUncollapsedNDRangeDimension(V);
+      }
+      break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -1531,6 +1537,22 @@ bool WRegionNode::canHaveCancellationPoints() const {
   case WRNParallelSections:
     return true;
   }
+  return false;
+}
+
+bool WRegionNode::canHaveCollapse() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNDistribute:
+  case WRNGenericLoop:
+    return true;
+  }
+
   return false;
 }
 

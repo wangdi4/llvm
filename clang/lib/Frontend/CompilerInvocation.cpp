@@ -3248,8 +3248,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
   Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
-  Opts.OpenMPLateOutlineAllowUncollapsedLoops =
-      Args.hasArg(OPT_fintel_openmp_region_late_collapsed_loops) &&
+  if (!Opts.OpenMPLateOutlineAllowUncollapsedLoops)
+    Opts.OpenMPLateOutlineAllowUncollapsedLoops =
+      Args.hasArg(OPT_fintel_openmp_region_late_collapsed_loops);
+  if (Opts.OpenMPLateOutlineAllowUncollapsedLoops)
+    Opts.OpenMPLateOutlineAllowUncollapsedLoops =
       !Args.hasArg(OPT_fintel_openmp_region_early_collapsed_loops);
 #if INTEL_FEATURE_CSA
   Opts.CSAvISA = Args.hasArg(OPT_fcsa_visa);

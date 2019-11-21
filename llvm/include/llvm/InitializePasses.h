@@ -596,6 +596,8 @@ void initializeWRegionInfoWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass
 void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Loop Collapse Pass
+void initializeVPOParoptLoopCollapsePass(PassRegistry&);
 // VPO Paropt Prepare Pass
 void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Pass to restore operands renamed by VPO Paropt Prepare pass

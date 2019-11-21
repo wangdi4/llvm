@@ -488,6 +488,10 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_COLLAB
   if (RunVPOOpt && RunVPOParopt) {
     FPM.add(createVPOCFGRestructuringPass());
+    FPM.add(createVPOParoptLoopCollapsePass());
+    // TODO: maybe we have to make sure loop collapsing preserves
+    //       the restructured CFG.
+    FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt));
     if (OptLevel == 0) {
       // OpenMP also needs CFGSimplify at -O0. For some loops which are proven

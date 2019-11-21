@@ -152,7 +152,7 @@ public:
 
   bool addNormUBsToParents(WRegionNode* W);
 
-  bool isModeOmpNoCollapse() { return Mode & vpo::OmpNoCollapse; }
+  bool isModeOmpNoFECollapse() { return Mode & vpo::OmpNoFECollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
 private:
@@ -1648,6 +1648,8 @@ private:
   /// if it contains "omp critical" or a call that may "invoke"
   /// "omp critical".
   void setMayHaveOMPCritical(WRegionNode *W) const;
+
+  bool collapseOmpLoops(WRegionNode *W);
 };
 
 } /// namespace vpo
