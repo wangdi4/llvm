@@ -18,7 +18,7 @@ using object::SectionedAddress;
 
 namespace {
 
-TEST(DWARFLocationTable, getLocations) {
+TEST(DWARFDie, getLocations) {
   const char *yamldata = R"(
     debug_abbrev:
       - Code:            0x00000001
@@ -50,7 +50,7 @@ TEST(DWARFLocationTable, getLocations) {
               - Value:           25
   )";
   Expected<StringMap<std::unique_ptr<MemoryBuffer>>> Sections =
-      DWARFYAML::EmitDebugSections(StringRef(yamldata),
+      DWARFYAML::EmitDebugSections(StringRef(yamldata), /*ApplyFixups=*/true,
                                    /*IsLittleEndian=*/true);
   ASSERT_THAT_EXPECTED(Sections, Succeeded());
   std::vector<uint8_t> Loclists{
@@ -84,7 +84,8 @@ TEST(DWARFLocationTable, getLocations) {
       "debug_loclists",
       MemoryBuffer::getMemBuffer(toStringRef(Loclists), "debug_loclists",
                                  /*RequiresNullTerminator=*/false));
-  std::unique_ptr<DWARFContext> Ctx = DWARFContext::create(*Sections, 8);
+  std::unique_ptr<DWARFContext> Ctx =
+      DWARFContext::create(*Sections, 4, /*isLittleEndian=*/true);
   DWARFCompileUnit *CU = Ctx->getCompileUnitForOffset(0);
   ASSERT_NE(nullptr, CU);
   DWARFDie Die = CU->getUnitDIE();
