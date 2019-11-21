@@ -436,6 +436,7 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::log10:
   case Intrinsic::fma:
   case Intrinsic::fabs:
+  case Intrinsic::minnum:
   case Intrinsic::maxnum:
   case Intrinsic::minimum:
   case Intrinsic::maximum:
