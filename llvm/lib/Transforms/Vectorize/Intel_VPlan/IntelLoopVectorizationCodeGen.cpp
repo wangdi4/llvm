@@ -2728,7 +2728,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   SmallVector<Type *, 2> VecArgTys;
   Function *CalledFunc = Call->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function");
-  bool IsMasked = (MaskValue != nullptr) ? true : false;
+  bool IsMasked = MaskValue != nullptr;
 
   // Don't attempt vector function matching for SVML or built-in functions.
   std::unique_ptr<VectorVariant> MatchedVariant;
@@ -3347,7 +3347,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     }
 
     StringRef CalledFunc = F->getName();
-    bool IsMasked = (MaskValue != nullptr) ? true : false;
+    bool IsMasked = MaskValue != nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
         ((matchVectorVariant(Call, IsMasked) ||
           (!IsMasked && matchVectorVariant(Call, true)))) ||
