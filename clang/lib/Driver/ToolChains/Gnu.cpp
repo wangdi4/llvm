@@ -2819,6 +2819,7 @@ Tool *Generic_GCC::getTool(Action::ActionClass AC) const {
     if (isTargetSpir())
       return static_cast<tools::gnutools::SYCLLinker *>
           (ToolChain::getTool(AC))->GetSYCLToolChainLinker();
+    return ToolChain::getTool(AC);
 #endif // INTEL_CUSTOMIZATION
   default:
     return ToolChain::getTool(AC);
