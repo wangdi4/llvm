@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-test-insert=true -qsort-test-pivot=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-test-insert=true -qsort-test-pivot=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-insert -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-insert -disable-output 2>&1 | FileCheck %s
 
 ; Check that the insertion sort is recognized.  This is a variant on
 ; qsort-insert01.ll with basic blocks and phi node inputs rearranged and a

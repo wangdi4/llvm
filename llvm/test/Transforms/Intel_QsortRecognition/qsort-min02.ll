@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-test-insert=false -qsort-test-pivot=false -qsort-test-pivot-movers=false -qsort-test-min=true -qsort-test-swap=false -qsort-test-recursion=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-test-insert=false -qsort-test-pivot=false -qsort-test-pivot-movers=false -qsort-test-min=true -qsort-test-swap=false -qsort-test-recursion=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-min -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-min -disable-output 2>&1 | FileCheck %s
 
 ; Check that the computation of MIN is recognized, but didn't pass the test
 ; because there is only one MIN.

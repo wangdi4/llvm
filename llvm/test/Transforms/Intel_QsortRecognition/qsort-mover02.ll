@@ -1,9 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-test-insert=false -qsort-test-pivot=false -qsort-test-pivot-movers=true -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-test-insert=false -qsort-test-pivot=false -qsort-test-pivot-movers=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-pivot-movers -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-pivot-movers -disable-output 2>&1 | FileCheck %s
 
-; Check that the up pivot mover loop is recognized, but that the down pivot mover loop is not recognized, because the
-; test in the loop test block has the wrong constant value.
+; Check that the up pivot mover loop is recognized, but that the down pivot
+; mover loop is not recognized, because the test in the loop test block has
+; the wrong constant value.
 
 ; CHECK: QsortRec: Checking Pivot Mover Candidate in qsort_mover
 ; CHECK: QsortRec: Pivot Mover Candidate in qsort_mover PASSED Test (UP)
@@ -27,6 +28,7 @@ define internal fastcc void @qsort_mover(i8* %arg, i64 %arg1) unnamed_addr {
 bb:
   %tmp = ptrtoint i8* %arg to i64
   %tmp2 = icmp ult i64 %arg1, 7
+  %tmp500 = getelementptr inbounds i8, i8* %arg, i64 0
   br i1 %tmp2, label %bb319, label %bb30
 
 bb30:                                             ; preds = %bb318, %bb
@@ -307,7 +309,8 @@ bb318:
   %tmp403 = icmp ult i64 %tmp400, 7
   br i1 %tmp403, label %bb30, label %bb319
 
-bb319:                                            ; preds = %bb311, %bb250, %bb232, %bb27, %bb3
+bb319:                       ; preds = %bb213, %bb318, %bb192, %bb
+  %tmp404 = phi i8* [ %tmp215, %bb213], [ %tmp401, %bb318 ], [ %tmp195, %bb192 ],  [%tmp500, %bb ]
 
   ret void
 }
