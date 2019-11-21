@@ -10,7 +10,7 @@ static int     afoo_static;
 
 // CHECK-TPL: @afoo {{.*}}thread_private
 // CHECK-NOT: @afoo {{.*}}thread_private
-// CHECK-TPL: afoo_static {{.*}}thread_private
+// CHECK-TPL: afoo_static_{{[0-9a-f]+}} {{.*}}thread_private
 // CHECK-TPL: afoo_local_static {{.*}}thread_private
 // CHECK-LABEL: @main
 int main(int argc, char **argv) {

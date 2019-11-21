@@ -1103,6 +1103,25 @@ static void AppendTargetMangling(const CodeGenModule &CGM,
   }
 }
 
+#if INTEL_COLLAB
+static std::string
+StableMangledName(std::string &MainFileName) {
+  // Create an MD5 of the path and the filename
+  llvm::MD5 Hash;
+  llvm::MD5::MD5Result Result;
+  SmallString<256> CWD;
+  llvm::sys::fs::current_path(CWD);
+  Hash.update(CWD.c_str());
+  Hash.update("/");
+  Hash.update(MainFileName.c_str());
+  Hash.final(Result);
+  SmallString<32> NameStr;
+  Hash.stringifyResult(Result, NameStr);
+
+  return NameStr.str();
+}
+#endif // INTEL_COLLAB
+
 static std::string getMangledNameImpl(const CodeGenModule &CGM, GlobalDecl GD,
                                       const NamedDecl *ND,
                                       bool OmitMultiVersionMangling = false) {
@@ -1130,6 +1149,20 @@ static std::string getMangledNameImpl(const CodeGenModule &CGM, GlobalDecl GD,
       Out << II->getName();
     }
   }
+
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline)
+    if (const auto *VD = dyn_cast<VarDecl>(GD.getDecl())) {
+      SourceManager &SM = CGM.getContext().getSourceManager();
+      if (auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+        std::string MainFileName = MainFile->getName();
+        if (!MainFileName.empty() &&
+            VD->getStorageClass() == SC_Static && VD->hasGlobalStorage() &&
+            !VD->isLocalVarDecl() && !VD->isStaticDataMember())
+          Out << "_" << StableMangledName(MainFileName);
+      }
+    }
+#endif // INTEL_COLLAB
 
   if (const auto *FD = dyn_cast<FunctionDecl>(ND))
     if (FD->isMultiVersion() && !OmitMultiVersionMangling) {
