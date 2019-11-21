@@ -1823,7 +1823,7 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     Value *VecFCmp = Builder.CreateFCmp(FCmp->getPredicate(), A, B);
     // TODO: Copy fast math flags. Currently not represented in VPlan. Use
     // underlying IR flags if any.
-    if (VPInst->getUnderlyingValue()) {
+    if (isa<Instruction>(VecFCmp)  && VPInst->getUnderlyingValue()) {
       FCmpInst *UnderlyingFCmp = cast<FCmpInst>(VPInst->getUnderlyingValue());
       cast<FCmpInst>(VecFCmp)->copyFastMathFlags(UnderlyingFCmp);
     }
