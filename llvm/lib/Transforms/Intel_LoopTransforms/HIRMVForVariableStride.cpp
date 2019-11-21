@@ -449,12 +449,11 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
   HLLoop *OuterLoopToMV = calcOutermostLoopToMV(Loop, StrideAndConstSize);
 
   // Actual MV of OuterLoop
-  if (OuterLoopToMV->hasPreheader()) {
-    // Extract ztt explicitly to give the same order of checks regardless of the
-    // existence of preheader/postexit
-    OuterLoopToMV->extractZtt();
-    OuterLoopToMV->extractPreheaderAndPostexit();
-  }
+
+  // Extract ztt explicitly to give the same order of checks regardless of the
+  // existence of preheader/postexit
+  OuterLoopToMV->extractZtt();
+  OuterLoopToMV->extractPreheaderAndPostexit();
 
   // Multiversioned loop is not the innermost loop
   if (OuterLoopToMV != Loop)
