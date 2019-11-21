@@ -383,8 +383,8 @@ class DDTest {
                               DistanceVector &ForwardDistV,
                               DistanceVector &BackwardDistV, unsigned Levels);
 
-  void adjustDV(Dependences &Result, bool SameBase,
-                const RegDDRef *SrcRegDDRef);
+  void adjustDV(Dependences &Result, bool SameBase, const RegDDRef *SrcRegDDRef,
+                const RegDDRef *DstRegDDRef);
 
   /// When IVDEP directive is present for a level, DV can be adjusted
   /// SameBase indicates if the base pointer of src/dst DD_REF are the same

@@ -7,18 +7,18 @@
 ; Notice that LB and TCs are constant in this test case.
 ;
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s --check-prefix=KANDR
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -hir-loop-blocking-algo=outer -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=OUTER
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s --check-prefix=KANDR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -hir-loop-blocking-algo=outer -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=OUTER
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -print-before=hir-loop-blocking -hir-loop-blocking-blocksize=24 < %s 2>&1 | FileCheck %s --check-prefix=USERBS
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -print-before=hir-loop-blocking -hir-loop-blocking-blocksize=24 < %s 2>&1 | FileCheck %s --check-prefix=USERBS
 
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-algo=outer 2>&1 < %s | FileCheck %s --check-prefix=OUTER
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-blocksize=24 2>&1 < %s | FileCheck %s --check-prefix=USERBS
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-algo=outer 2>&1 < %s | FileCheck %s --check-prefix=OUTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-blocksize=24 2>&1 < %s | FileCheck %s --check-prefix=USERBS
 
 ; for(i=0; i<1024; i++)
 ;   for(j=0; j<1024; j++)
