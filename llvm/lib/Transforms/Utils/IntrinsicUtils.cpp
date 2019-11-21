@@ -126,4 +126,45 @@ bool IntrinsicUtils::isDirective(Instruction *I) {
   }
   return false;
 }
+
+// Creates a clone of CI without the operand bundles matched by Predicate.
+// If different, CI is replaced and the clone is returned.
+CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
+    CallInst *CI,
+    function_ref<bool(const OperandBundleDef &Bundle)> Predicate) {
+  assert(CI && "removeOperandBundlesFromCall: Null CallInst");
+
+  if (!Predicate)
+    return CI;
+
+  SmallVector<OperandBundleDef, 8> OpBundles;
+  SmallVector<OperandBundleDef, 8> OpBundlesUpdated;
+  CI->getOperandBundlesAsDefs(OpBundles);
+
+  // Go over all Bundles in CI, skipping any that matched by Predicate.
+  for (auto &Bundle : OpBundles) {
+    if (Predicate(Bundle))
+      continue;
+    OpBundlesUpdated.push_back(Bundle);
+  }
+
+  if (OpBundles.size() == OpBundlesUpdated.size()) // Nothing removed
+    return CI;
+
+  SmallVector<Value *, 8> Args;
+  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
+    Args.push_back(*AI);
+
+  auto *NewI =
+      CallInst::Create(CI->getCalledValue(), Args, OpBundlesUpdated, "", CI);
+
+  NewI->takeName(CI);
+  NewI->setCallingConv(CI->getCallingConv());
+  NewI->setAttributes(CI->getAttributes());
+  NewI->setDebugLoc(CI->getDebugLoc());
+
+  CI->replaceAllUsesWith(NewI);
+  CI->eraseFromParent();
+  return NewI;
+}
 #endif // INTEL_COLLAB

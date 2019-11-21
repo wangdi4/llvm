@@ -38,6 +38,7 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include <string>
 
 #define DEBUG_TYPE "vpo-paropt-utils"
@@ -3786,42 +3787,12 @@ CallInst *VPOParoptUtils::addOperandBundlesInCall(
 // it, and returns it.
 CallInst *VPOParoptUtils::removeOperandBundlesFromCall(
     CallInst *CI, ArrayRef<StringRef> OpBundlesToRemove) {
-
-  assert(CI && "removeOperandBundlesFromCall: Null CallInst");
-
-  if (OpBundlesToRemove.empty())
-    return CI;
-
-  SmallVector<Value *, 8> Args;
-  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
-    Args.push_back(*AI);
-
-  SmallVector<OperandBundleDef, 8> OpBundles;
-  SmallVector<OperandBundleDef, 8> OpBundlesUpdated;
-  CI->getOperandBundlesAsDefs(OpBundles);
-
-  for (auto &Bundle : OpBundles) {
-    // Go over all Bundles in CI, skipping any that is in OpBundlesToRemove.
-    if (std::any_of(OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
-                    [&Bundle](StringRef S) { return Bundle.getTag() == S; }))
-      continue;
-    OpBundlesUpdated.push_back(Bundle);
-  }
-
-  if (OpBundles.size() == OpBundlesUpdated.size()) // Nothing removed
-    return CI;
-
-  auto *NewI =
-      CallInst::Create(CI->getCalledValue(), Args, OpBundlesUpdated, "", CI);
-
-  NewI->takeName(CI);
-  NewI->setCallingConv(CI->getCallingConv());
-  NewI->setAttributes(CI->getAttributes());
-  NewI->setDebugLoc(CI->getDebugLoc());
-
-  CI->replaceAllUsesWith(NewI);
-  CI->eraseFromParent();
-  return NewI;
+  return IntrinsicUtils::removeOperandBundlesFromCall(
+      CI, [&OpBundlesToRemove](const OperandBundleDef &Bundle) {
+        return std::any_of(
+            OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
+            [&Bundle](StringRef S) { return Bundle.getTag() == S; });
+      });
 }
 
 // Check if the given value may be cloned before the given region.
