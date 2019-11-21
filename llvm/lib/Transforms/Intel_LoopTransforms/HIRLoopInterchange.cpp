@@ -74,11 +74,11 @@ static cl::opt<bool> DisableHIRLoopInterchange("disable-hir-loop-interchange",
                                                cl::init(false), cl::Hidden,
                                                cl::desc("Disable " OPT_DESC));
 
-static cl::opt<unsigned> NearPerfectLoopProfitablityTCThreshold(
-    OPT_SWITCH "-near-perfect-profitability-tc-threshold", cl::init(16),
+static cl::opt<unsigned> SinkedPerfectLoopProfitablityTCThreshold(
+    OPT_SWITCH "-sinked-perfect-profitability-tc-threshold", cl::init(16),
     cl::Hidden,
     cl::desc("TripCount threshold to enable " OPT_DESC
-             " for near-perfect loopnests"));
+             " for sinked perfect loopnests"));
 namespace {
 typedef std::pair<HLLoop *, HLLoop *> CandidateLoopPair;
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
@@ -218,8 +218,8 @@ bool areIVsIncreasingWithOuterDimensions(RegDDRef &Ref) {
   return false; // do not try interchange
 }
 
-bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
-                                          const HLLoop *InnermostLoop) {
+bool isSinkedPerfectLoopProfitableForInterchange(const HLLoop *OutermostLoop,
+                                                 const HLLoop *InnermostLoop) {
   // Same as the existing logic.
   // TODO: Consider replacing the following logic with
   //       areIVsIncreasingWithOuterDimensions(RegDDRef &Ref)
@@ -232,9 +232,6 @@ bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
   //       DO i3
   //          a[i2][i1][i3]
   //  Intention is to interchange ( 1 2 3 ) --> ( 2 1 3 ).
-  if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
-    return true;
-  }
 
   // If a constant TC is too small,
   // avoid aggressive interchange.
@@ -245,7 +242,7 @@ bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
        Lp = Lp->getParentLoop()) {
     uint64_t TripCount = -1;
     if (Lp->isConstTripLoop(&TripCount) &&
-        TripCount < NearPerfectLoopProfitablityTCThreshold) {
+        TripCount < SinkedPerfectLoopProfitablityTCThreshold) {
       return false;
     }
   }
@@ -297,13 +294,10 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     }
     LLVM_DEBUG(dbgs() << "In collect Perfect loopnest\n");
     // Allow Triangular loop, allow Near Perfect loop (and return the result).
-    bool IsNearPerfectLoop = false;
-    bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
-        Loop, &InnermostLoop, false, &IsNearPerfectLoop);
-    assert((!IsPerfectNest || !IsNearPerfectLoop) &&
-           "isPerfectLoopNest is malfunctioning");
+    bool IsPerfectNest =
+        HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false);
 
-    if (!IsPerfectNest && !IsNearPerfectLoop) {
+    if (!IsPerfectNest) {
       // Do not skip recursion.
       // We might find a perfect loop nest starting from an inner loop.
       return;
@@ -330,6 +324,15 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     }
 
     if (IsPerfectNest) {
+      // If the innermost loop is undosinking candidate, it was a near perfect
+      // loop
+      if (InnermostLoop->isUndoSinkingCandidate()) {
+        if (isSinkedPerfectLoopProfitableForInterchange(Loop, InnermostLoop)) {
+          CandidateLoops.push_back(
+              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+          LIP.PerfectLoopsEnabled.push_back(InnermostLoop);
+        }
+      }
 
       LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
 
@@ -345,40 +348,6 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       SkipNode = Loop;
       return;
     }
-
-    if (isInterchangingNearPerfectProfitable(Loop, InnermostLoop)) {
-
-      LLVM_DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
-      LLVM_DEBUG(dbgs(); Loop->dump());
-
-      DDGraph DDG = DDA.getGraph(Loop);
-      LLVM_DEBUG(dbgs() << "DDG's==\n");
-      LLVM_DEBUG(DDG.dump());
-
-      if (DDUtils::enablePerfectLoopNest(
-              const_cast<HLLoop *>(InnermostLoop), DDG,
-              LIP.CandLoopToIgnorableSymBases[Loop])) {
-        CandidateLoops.push_back(
-            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-        LLVM_DEBUG(dbgs() << "Perfect Loopnest enabled\n");
-        LLVM_DEBUG(dbgs(); Loop->dump());
-        // Save & invalidate later to avoid DDRebuild and safe reduction map
-        // released
-        LIP.PerfectLoopsEnabled.push_back(InnermostLoop);
-      }
-      // Nearperfect loops: skip recursion into the nest regardless of
-      // being enabled as perfect loop or not.
-      // Either way, loop interchange is not possible due to unconforming
-      // innermost loop.
-      SkipNode = Loop;
-      return;
-    }
-
-    // NearPerfect Loop, but concluded not to enable a perfect loop nest.
-    // The conclusion could be different for a near perfect loop nest
-    // starting from an inner loop of this nest.
-    // It depends on "isInterchangingNearPerfectProfitable".
-    // Not skipping recursion.
   }
 
   void visit(HLNode *Node) {}

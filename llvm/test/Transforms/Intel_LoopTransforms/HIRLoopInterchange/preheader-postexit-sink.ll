@@ -2,8 +2,8 @@
 ; Also, make sure loop interchange happens.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
 ;
 ;
 ; CHECK: Interchanged: ( 1 2 3 ) --> ( 2 3 1 )
@@ -15,20 +15,19 @@
 ; Function: _Z16gemm_blockedPdS_S_iii
 ;
 ; <0>       BEGIN REGION { }
-; <56>            + DO i1 = 0, sext.i32.i64(%M) + -1, 1   <DO_LOOP>
-; <57>            |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
-; <17>            |   |      %add1850 = (%matC)[i1 + sext.i32.i64(%M) * i2];
-; <58>            |   |   + DO i3 = 0, sext.i32.i64(%K) + -1, 1   <DO_LOOP>
-; <29>            |   |   |   %mul17 = (%matA)[i1 + sext.i32.i64(%M) * i3]  *  (%matB)[sext.i32
-; .i64(%K) * i2 + i3];
-; <30>            |   |   |   %add1850 = %add1850  +  %mul17;
-; <58>            |   |   + END LOOP
-; <38>            |   |      (%matC)[i1 + sext.i32.i64(%M) * i2] = %add1850;
-; <57>            |   + END LOOP
-; <56>            + END LOOP
+; <56>         + DO i1 = 0, sext.i32.i64(%M) + -1, 1   <DO_LOOP>
+; <57>         |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
+; <58>         |   |   + DO i3 = 0, sext.i32.i64(%K) + -1, 1   <DO_LOOP>
+; <17>         |   |   |   %add1850 = (%matC)[i1 + sext.i32.i64(%M) * i2];
+; <29>         |   |   |   %mul17 = (%matA)[i1 + sext.i32.i64(%M) * i3]  *  (%matB)[sext.i32.i64(%K) * i2 + i3];
+; <30>         |   |   |   %add1850 = %add1850  +  %mul17;
+; <38>         |   |   |   (%matC)[i1 + sext.i32.i64(%M) * i2] = %add1850;
+; <58>         |   |   + END LOOP
+; <57>         |   + END LOOP
+; <56>         + END LOOP
 ; <0>       END REGION
 ;
-
+;
 ; *** IR Dump After HIR Loop Interchange ***
 ; Function: _Z16gemm_blockedPdS_S_iii
 ;

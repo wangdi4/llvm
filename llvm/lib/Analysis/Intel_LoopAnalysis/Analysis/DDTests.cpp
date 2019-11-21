@@ -4334,7 +4334,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   //  Number of dimemsion are different or different base: need to bail out,
   //  except for IVDEP
   if (TestingMemRefs && !EqualBaseAndShape) {
-    adjustDV(Result, false, SrcRegDDRef); // SameBase = false
+    adjustDV(Result, false, SrcRegDDRef, DstRegDDRef); // SameBase = false
     return std::make_unique<Dependences>(Result);
   }
 
@@ -4767,7 +4767,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-  adjustDV(Result, true, SrcRegDDRef); // SameBase = true
+  adjustDV(Result, true, SrcRegDDRef, DstRegDDRef); // SameBase = true
 
   //
   //  Reverse DV when needed
@@ -4964,8 +4964,18 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
 }
 
 void DDTest::adjustDV(Dependences &Result, bool SameBase,
-                      const RegDDRef *SrcRegDDRef) {
-  adjustDVforIVDEP(Result, SameBase); // SameBase = true
+                      const RegDDRef *SrcRegDDRef,
+                      const RegDDRef *DstRegDDRef) {
+  const HLInst *SrcInst = dyn_cast<HLInst>(SrcRegDDRef->getHLDDNode());
+  const HLInst *DstInst = dyn_cast<HLInst>(DstRegDDRef->getHLDDNode());
+
+  // Mark the innermost level DV of an edge as (=) when both src and sink refs
+  // belong to 'sinked' instructions.
+  if (SrcInst && DstInst && SrcInst->isSinked() && DstInst->isSinked()) {
+    adjustForInnermostAssumedDeps(Result);
+  }
+
+  adjustDVforIVDEP(Result, SameBase);
 
   if (!SrcRegDDRef->isMemRef()) {
     return;
