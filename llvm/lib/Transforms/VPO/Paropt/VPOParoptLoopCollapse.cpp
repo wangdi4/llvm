@@ -17,6 +17,7 @@
 
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
