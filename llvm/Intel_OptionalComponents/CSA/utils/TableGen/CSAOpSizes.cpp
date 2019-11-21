@@ -114,6 +114,7 @@ void CSAOpSizes::run(raw_ostream &OS) {
       else
         Classification = 0;
 
+      // Use upper bits of Classification to indicate number of elements in the vector.
       if (suffixStr.endswith("8x8"))
          Classification |= (1 << 3);
       else if (suffixStr.endswith("16x4"))

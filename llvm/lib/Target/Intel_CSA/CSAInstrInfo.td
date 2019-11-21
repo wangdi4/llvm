@@ -156,6 +156,7 @@ def RCL64  : RegImmOperandUntyped<i64>;
 
 def RCLi8x8  : RegImmOperand<v8i8>;
 def RCLi16x4 : RegImmOperand<v4i16>;
+
 def RCLf16x4 : RegImmOperand<v4f16>;
 def RCLf32x2 : RegImmOperand<v2f32>;
 
@@ -255,6 +256,7 @@ def Tu8x8  : CSAOpInfo<v8i8,  64,  "u8x8", I64, RI64, CI64,  RCLi8x8, i64imm, []
 def Ti16x4 : CSAOpInfo<v4i16, 64,  "16x4", I64, RI64, CI64, RCLi16x4, i64imm, []>;
 def Ts16x4 : CSAOpInfo<v4i16, 64, "s16x4", I64, RI64, CI64, RCLi16x4, i64imm, []>;
 def Tu16x4 : CSAOpInfo<v4i16, 64, "u16x4", I64, RI64, CI64, RCLi16x4, i64imm, []>;
+
 def Tf16x4 : CSAOpInfo<v4f16, 64, "f16x4", I64, RI64, CI64, RCLf16x4, i64imm, []>;
 def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
 
@@ -467,6 +469,7 @@ def CSA_GETVAL64       : CSAGetValOp<CSA_GETVAL, Ti64,  IIALU>;
 def : Pat<(f16 (CSAGetVal CI0:$link)), (CSA_GETVAL16 $link)>;
 def : Pat<(f32 (CSAGetVal CI0:$link)), (CSA_GETVAL32 $link)>;
 def : Pat<(f64 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+
 def : Pat<(v8i8  (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 def : Pat<(v4i16 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
 def : Pat<(v4f16 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
@@ -1062,12 +1065,17 @@ def NEGF32    : UnaryOp< NEG,    fneg,   Tf32, IIALU>;
 def NEGF64    : UnaryOp< NEG,    fneg,   Tf64, IIALU>;
 
 def ABS       : GenericOp<"abs">;
+def ABS8      : UnaryOp< ABS,    abs,    Ti8,    IIALU>;
+def ABS16     : UnaryOp< ABS,    abs,    Ti16,   IIALU>;
+def ABS32     : UnaryOp< ABS,    abs,    Ti32,   IIALU>;
+def ABS64     : UnaryOp< ABS,    abs,    Ti64,   IIALU>;
+
 def ABSF16    : UnaryOp< ABS,    fabs,   Tf16, IIALU>;
 def ABSF32    : UnaryOp< ABS,    fabs,   Tf32, IIALU>;
 def ABSF64    : UnaryOp< ABS,    fabs,   Tf64, IIALU>;
 
-def ABS8X8    : UnaryOp< ABS,    abs,   Ti8x8, IIALU>;
-def ABS16X4   : UnaryOp< ABS,    abs,  Ti16x4, IIALU>;
+def ABS8X8    : UnaryOp< ABS,    abs,    Ti8x8,  IIALU>;
+def ABS16X4   : UnaryOp< ABS,    abs,    Ti16x4, IIALU>;
 
 def SQRT      : GenericOp<"sqrt", [HasSqrt]>;
 def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
@@ -1176,6 +1184,33 @@ defm TERNLOG : BitwiseInst<"ternlog",
                         (outs RC:$res), (ins RCL:$op1, RCL:$op2, RCL:$op3, i8imm:$tab),
                         "$res, $op1, $op2, $op3, $tab",
                         []>;
+
+// test for 8, 16, 32, and 64 bits.
+defm TEST : IntegerInst<"test",
+                        (outs I1:$res), (ins RCL:$op1, RCL:$op2),
+                        "$res, $op1, $op2",
+                        []>;
+
+// test simd instructions
+def TEST8X8: FMTGEN<TEST, Ti8x8,
+    (outs I8:$res),
+    (ins RCLi8x8:$op1, RCLi8x8: $op2),
+    "test8x8\t$res, $op1, $op2",
+    []>;
+
+def TEST16X4: FMTGEN<TEST, Ti16x4,
+    (outs I8:$res),
+    (ins RCLi16x4:$op1, RCLi16x4:$op2),
+    "test16x4\t$res, $op1, $op2",
+    []>;
+
+// Since there are no real i32x2 operations, we use Tf32x2 for the 32X2 test instruction
+// and not add the i32x2 classes.
+def TEST32X2: FMTGEN<TEST, Tf32x2,
+    (outs I8:$res),
+    (ins RCLf32x2:$op1, RCLf32x2:$op2),
+    "test32x2\t$res, $op1, $op2",
+    []>;
 
 // first type in convert name is result, second is source type
 def CVT       : GenericOp<"cvt">;
@@ -2370,7 +2405,7 @@ let hasSideEffects = 1 in {
     "trap\t$trapcode, $value", [], [], IIVir>;
 }
 
-// Floating-point simd instructions
+// Floating-point simd instructions with two operands
 multiclass SimdOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
   def "" : FMTGEN<gen, oi,
@@ -2396,6 +2431,7 @@ multiclass SimdOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
       (!cast<Instruction>(NAME) $op1, $op2, 0, 0, 0)>;
 }
 
+// Floating-point simd instructions with 3 operands
 multiclass SimdTriOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
   def "" : FMTGEN<gen, oi,
@@ -2479,6 +2515,7 @@ defm FMSF32X2:  SimdTriOp<FMS,  fms, int_csa_fmsf32x2, Tf32x2>;
 defm FMRSF32X2: SimdTriOp<FMRS, fmrs, int_csa_fmrsf32x2, Tf32x2>;
 defm FMASF32X2: SimdTriOp<FMAS, CSAFMAddSub, int_csa_fmasf32x2, Tf32x2>;
 defm FMSAF32X2: SimdTriOp<FMSA, CSAFMSubAdd, int_csa_fmsaf32x2, Tf32x2>;
+defm FNMSF32X2: SimdTriOp<FNMS, fnms, int_csa_fnmsf32x2, Tf32x2>;
 
 defm CMPLTF16X4: SimdCmpOp<CMPLT, Tf16x4>;
 defm CMPLEF16X4: SimdCmpOp<CMPLE, Tf16x4>;
@@ -2572,6 +2609,27 @@ def SHUFI32X2: FMTGEN<?, Tf32x2,
     (outs I64:$res),
     (ins RCLf32x2:$op1, RCLf32x2:$op2, i8imm:$sellow, i8imm:$selhigh),
     "shufi32x2\t$res, $op1, $op2, $sellow, $selhigh",
+    []>;
+
+// blend simd instructions
+def BLEND8X8: FMTGEN<?, Ti8x8,
+    (outs I64:$res),
+    (ins RCLi8:$op1, RCLi8x8: $op2, RCLi8x8: $op3),
+    "blend8x8\t$res, $op1, $op2, $op3",
+    []>;
+
+def BLEND16X4: FMTGEN<?, Ti16x4,
+    (outs I64:$res),
+    (ins RCLi8:$op1, RCLi16x4: $op2, RCLi16x4: $op3),
+    "blend16x4\t$res, $op1, $op2, $op3",
+    []>;
+
+// Since there are no real i32x2 operations, we use Tf32x2 for the 32X2 blend instruction
+// and not add the i32x2 classes.
+def BLEND32X2: FMTGEN<?, Tf32x2,
+    (outs I64:$res),
+    (ins RCLi8:$op1, RCLf32x2: $op2, RCLf32x2: $op3),
+    "blend32x2\t$res, $op1, $op2, $op3",
     []>;
 
 def : Pat<(v2f32 (insertelt RCLf32x2:$vec, f32:$val, 0)),
