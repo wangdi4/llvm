@@ -1,11 +1,6 @@
-<<<<<<< HEAD
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang %s -fsyntax-only -fsycl-device-only -DCHECKDIAG -Xclang -verify
 // RUN: %clang %s -fsyntax-only -Xclang -ast-dump -fsycl-device-only | FileCheck %s
-=======
-// UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang %s -fsyntax-only --sycl -DCHECKDIAG -Xclang -verify
-// RUN: %clang %s -fsyntax-only -Xclang -ast-dump --sycl | FileCheck %s
->>>>>>> b53e0fd964396f29a0c8d3c263a02a96d63be3fb
 
 [[intel::kernel_args_restrict]] // expected-warning{{'kernel_args_restrict' attribute ignored}}
 void func_ignore() {}

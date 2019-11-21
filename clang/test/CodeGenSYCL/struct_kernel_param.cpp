@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-// RUN: %clang -I %S/Inputs -fsycl-device-only -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
-=======
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang -I %S/Inputs --sycl -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
->>>>>>> b53e0fd964396f29a0c8d3c263a02a96d63be3fb
+// RUN: %clang -I %S/Inputs -fsycl-device-only -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
 // RUN: FileCheck -input-file=%t.h %s
 
 // CHECK:     const kernel_param_desc_t kernel_signatures[] = {
