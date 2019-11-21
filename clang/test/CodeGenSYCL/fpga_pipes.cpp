@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl
 // RUN: %clang %s -S -emit-llvm -fsycl-device-only -o - | FileCheck %s
 #include "CL/sycl.hpp"
 // CHECK: %opencl.pipe_wo_t
