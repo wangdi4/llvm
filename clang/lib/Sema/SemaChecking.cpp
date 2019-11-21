@@ -5761,16 +5761,12 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
              Op == AtomicExpr::AO__atomic_exchange_n ||
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
   bool IsAddSub = false;
-<<<<<<< HEAD
-  bool IsMinMax = false;
 #if INTEL_CUSTOMIZATION
   // Used for the Intel versions where we type-coerce the _N values to match
   // the function, rather than erroring on mismatch, so these are used to store
   // that we need to coerce, and what size to coerce to.
   unsigned IntelTypeCoerceSize = IntelTypeCoerceSizeCalc(Op);
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 5cf58768cb3ba31ee37facaf23f7a74f78781590
 
   switch (Op) {
   case AtomicExpr::AO__c11_atomic_init:
@@ -6050,23 +6046,9 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
-<<<<<<< HEAD
     if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (IsMinMax) {
-      const BuiltinType *BT = ValType->getAs<BuiltinType>();
-      if (!BT || (BT->getKind() != BuiltinType::Int &&
-                  BT->getKind() != BuiltinType::UInt)) {
-        Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_int32_or_ptr);
-        return ExprError();
-      }
-    }
-    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (!IsAddSub && !IsMinMax && !ValType->isIntegerType()) {
-      Diag(ExprRange.getBegin(), diag::err_atomic_op_bitwise_needs_atomic_int)
-=======
     if (!IsAddSub && !ValType->isIntegerType()) {
       Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int)
->>>>>>> 5cf58768cb3ba31ee37facaf23f7a74f78781590
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }

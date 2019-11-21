@@ -815,17 +815,6 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   // For __atomic_*_fetch operations, perform the operation again to
   // determine the value which was written.
   llvm::Value *Result = RMWI;
-<<<<<<< HEAD
-  if (PostOp)
-    Result = CGF.Builder.CreateBinOp(PostOp, RMWI, LoadVal1);
-  if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch || // INTEL
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit    || // INTEL  
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_1  || // INTEL
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_2  || // INTEL
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_4  || // INTEL
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_8  || // INTEL
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_16) // INTEL
-=======
   if (PostOpMinMax)
     Result = EmitPostAtomicMinMax(CGF.Builder, E->getOp(),
                                   E->getValueType()->isSignedIntegerType(),
@@ -833,8 +822,13 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   else if (PostOp)
     Result = CGF.Builder.CreateBinOp((llvm::Instruction::BinaryOps)PostOp, RMWI,
                                      LoadVal1);
-  if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch)
->>>>>>> 5cf58768cb3ba31ee37facaf23f7a74f78781590
+  if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit    || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_1  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_2  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_4  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_8  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_16) // INTEL
     Result = CGF.Builder.CreateNot(Result);
   CGF.Builder.CreateStore(Result, Dest);
 }
