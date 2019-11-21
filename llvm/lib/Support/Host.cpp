@@ -1379,22 +1379,17 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // If CPUID indicates support for XSAVE, XRESTORE and AVX, and XGETBV
   // indicates that the AVX registers will be saved and restored on context
   // switch, then we have full AVX support.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool HasXSave = ((ECX >> 27) & 1) && !getX86XCR0(&EAX, &EDX);
   bool HasAVXSave = HasXSave && ((ECX >> 28) & 1) && ((EAX & 0x6) == 0x6);
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  bool HasAVXSave = ((ECX >> 27) & 1) && ((ECX >> 28) & 1) &&
-                    !getX86XCR0(&EAX, &EDX) && ((EAX & 0x6) == 0x6);
 #if defined(__APPLE__)
   // Darwin lazily saves the AVX512 context on first use: trust that the OS will
   // save the AVX512 context if we use AVX512 instructions, even the bit is not
   // set right now.
   bool HasAVX512Save = true;
 #else
->>>>>>> 82921bf2baed96b700f90b090d5dc2530223d9c0
   // AVX512 requires additional context to be saved by the OS.
   bool HasAVX512Save = HasAVXSave && ((EAX & 0xe0) == 0xe0);
 #endif
