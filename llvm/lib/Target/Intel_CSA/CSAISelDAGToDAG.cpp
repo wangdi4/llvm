@@ -223,8 +223,13 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
     default: llvm_unreachable("Unknown swizzle mask for CSA");
     }
     EVT VT = Node->getValueType(0);
+    SmallVector<int, 4> LaneMask = { LoLane, HiLane };
+    if (VT.getVectorNumElements() == 4) {
+      LaneMask.push_back(LoLane + 2);
+      LaneMask.push_back(HiLane + 2);
+    }
     SDValue Shuffle = CurDAG->getVectorShuffle(VT, dl, Node->getOperand(0),
-        CurDAG->getUNDEF(VT), { LoLane, HiLane });
+        CurDAG->getUNDEF(VT), LaneMask);
     ReplaceNode(Node, Shuffle.getNode());
     // Select the UNDEF value first...
     Select(Shuffle->getOperand(1).getNode());
@@ -235,14 +240,23 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
     // We could match this in the tablegen, but the mask parameters aren't
     // operands that are exposed.
     MVT VT = Node->getSimpleValueType(0);
-    assert(VT.getSizeInBits() == 64 && VT.getScalarSizeInBits() == 32 &&
-        "Only supporting <2 x *32> vectors");
+    assert(VT.getSizeInBits() == 64 && "Only supporting 64-bit vectors");
 
     ArrayRef<int> Mask = cast<ShuffleVectorSDNode>(Node)->getMask();
-    CurDAG->SelectNodeTo(Node, CSA::SHUFI32X2, VT,
-        {Node->getOperand(0), Node->getOperand(1),
-        CurDAG->getTargetConstant(Mask[0], dl, MVT::i8),
-        CurDAG->getTargetConstant(Mask[1], dl, MVT::i8)});
+    SmallVector<SDValue, 6> Ops;
+    Ops.push_back(Node->getOperand(0));
+    Ops.push_back(Node->getOperand(1));
+    for (int El : Mask)
+      Ops.push_back(CurDAG->getTargetConstant(El, dl, MVT::i8));
+
+    unsigned Opcode;
+    if (VT.getScalarSizeInBits() == 32)
+      Opcode = CSA::SHUFI32X2;
+    else if (VT.getScalarSizeInBits() == 16)
+      Opcode = CSA::SHUFI16X4;
+    else
+      report_fatal_error("Unsupported vector for shuffle");
+    CurDAG->SelectNodeTo(Node, Opcode, VT, Ops);
     return;
 
   // The shuffle vector instruction is quite literally the parameters of the

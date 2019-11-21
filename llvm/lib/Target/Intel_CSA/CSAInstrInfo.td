@@ -1262,6 +1262,8 @@ def ADD8      : BinOp<   ADD,    add,    Ti8,  IIALU>;
 def ADD16     : BinOp<   ADD,    add,    Ti16, IIALU>;
 def ADD32     : BinOp<   ADD,    add,    Ti32, IIALU>;
 def ADD64     : BinOp<   ADD,    add,    Ti64, IIALU>;
+def ADD8X8    : BinOp<   ADD,    add,   Ti8x8, IIALU>;
+def ADD16X4   : BinOp<   ADD,    add,  Ti16x4, IIALU>;
 }
 
 def ADDS      : GenericOp<"adds">;
@@ -1289,6 +1291,8 @@ def SUB8      : BinOp<   SUB,    sub,    Ti8,  IIALU>;
 def SUB16     : BinOp<   SUB,    sub,    Ti16, IIALU>;
 def SUB32     : BinOp<   SUB,    sub,    Ti32, IIALU>;
 def SUB64     : BinOp<   SUB,    sub,    Ti64, IIALU>;
+def SUB8X8    : BinOp<   SUB,    sub,   Ti8x8, IIALU>;
+def SUB16X4   : BinOp<   SUB,    sub,  Ti16x4, IIALU>;
 
 def SUBS      : GenericOp<"subs">;
 def SUBSS8X8  : BinOp<   SUBS,    ssubsat,    Ts8x8, IIALU>;
@@ -2507,17 +2511,23 @@ def PACK8_64 : FMTGEN<PACK, Ti8,
     (ins RCLi8:$v0, RCLi8:$v1, RCLi8:$v2, RCLi8:$v3,
          RCLi8:$v4, RCLi8:$v5, RCLi8:$v6, RCLi8:$v7),
     "pack8_64\t$dst, $v0, $v1, $v2, $v3, $v4, $v5, $v6, $v7",
-    []>;
+    [(set v8i8:$dst, (build_vector RCLi8:$v0, RCLi8:$v1, RCLi8:$v2, RCLi8:$v3,
+                                   RCLi8:$v4, RCLi8:$v5, RCLi8:$v6, RCLi8:$v7))]>;
 def PACK16_64 : FMTGEN<PACK, Ti16,
     (outs I64:$dst),
-    (ins RCLi16:$v0, RCLi16:$v1, RCLi16:$v2, RCLi16:$v3),
+    (ins RCL16:$v0, RCL16:$v1, RCL16:$v2, RCL16:$v3),
     "pack16_64\t$dst, $v0, $v1, $v2, $v3",
-    []>;
+    [(set v4i16:$dst, (build_vector RCL16:$v0, RCL16:$v1,
+                                    RCL16:$v2, RCL16:$v3))]>;
+def : Pat<(v4f16 (build_vector RCLf16:$v0, RCLf16:$v1, RCLf16:$v2, RCLf16:$v3)),
+          (PACK16_64 $v0, $v1, $v2, $v3)>;
 def PACK32_64 : FMTGEN<PACK, Ti32,
     (outs I64:$dst),
     (ins RCLf32:$lo, RCLf32:$hi),
     "pack32_64\t$dst, $lo, $hi",
     [(set v2f32:$dst, (build_vector RCLf32:$lo, RCLf32:$hi))]>;
+
+
 def UNPACK64_8 : FMTGEN<UNPACK, Ti8,
     (outs I8:$v0, I8:$v1, I8:$v2, I8:$v3,
           I8:$v4, I8:$v5, I8:$v6, I8:$v7),

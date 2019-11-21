@@ -68,6 +68,9 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
   // V2 register classes
   addRegisterClass(MVT::f16, &CSA::I16RegClass);
+  addRegisterClass(MVT::v4f16, &CSA::I64RegClass);
+  addRegisterClass(MVT::v4i16, &CSA::I64RegClass);
+  addRegisterClass(MVT::v8i8,  &CSA::I64RegClass);
 
   // always lower memset, memcpy, and memmove intrinsics to load/store
   // instructions, rather
@@ -280,11 +283,50 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::FP_TO_FP16, MVT::f32, Legal);
 
   // SIMD ops--we have to mark what is not legal.
-  setOperationAction(ISD::FNEG, MVT::v2f32, Expand);
-  setOperationAction(ISD::FDIV, MVT::v2f32, Expand);
-  setOperationAction(ISD::FREM, MVT::v2f32, Expand);
-  setOperationAction(ISD::FP_ROUND, MVT::v2f32, Expand);
-  setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v2f32, Custom);
+  for (MVT VT : MVT::fp_fixedlen_vector_valuetypes()) {
+    setOperationAction(ISD::FNEG, VT, Expand);
+    setOperationAction(ISD::FDIV, VT, Expand);
+    setOperationAction(ISD::FREM, VT, Expand);
+    setOperationAction(ISD::FP_EXTEND, VT, Expand);
+    setOperationAction(ISD::FP_ROUND, VT, Expand);
+    setOperationAction(ISD::FP_TO_SINT, VT, Expand);
+    setOperationAction(ISD::FP_TO_UINT, VT, Expand);
+    setOperationAction(ISD::SINT_TO_FP, VT, Expand);
+    setOperationAction(ISD::UINT_TO_FP, VT, Expand);
+    setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+  }
+
+  for (MVT VT : MVT::integer_fixedlen_vector_valuetypes()) {
+    setOperationAction(ISD::MUL, VT, Expand);
+    setOperationAction(ISD::UDIV, VT, Expand);
+    setOperationAction(ISD::SDIV, VT, Expand);
+    setOperationAction(ISD::UREM, VT, Expand);
+    setOperationAction(ISD::SREM, VT, Expand);
+    setOperationAction(ISD::SHL, VT, Expand);
+    setOperationAction(ISD::SRA, VT, Expand);
+    setOperationAction(ISD::SRL, VT, Expand);
+    setOperationAction(ISD::SIGN_EXTEND, VT, Expand);
+    setOperationAction(ISD::ZERO_EXTEND, VT, Expand);
+    setOperationAction(ISD::ANY_EXTEND, VT, Expand);
+    setOperationAction(ISD::TRUNCATE, VT, Expand);
+    setOperationAction(ISD::FP_TO_SINT, VT, Expand);
+    setOperationAction(ISD::FP_TO_UINT, VT, Expand);
+    setOperationAction(ISD::SINT_TO_FP, VT, Expand);
+    setOperationAction(ISD::UINT_TO_FP, VT, Expand);
+    setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+
+    // AND/OR/XOR: bitcast to integers to do the math.
+    MVT IntegerVT = MVT::getIntegerVT(VT.getSizeInBits());
+    setOperationPromotedToType(ISD::AND, VT, IntegerVT);
+    setOperationPromotedToType(ISD::OR, VT, IntegerVT);
+    setOperationPromotedToType(ISD::XOR, VT, IntegerVT);
+
+    // Saturated--these are expand by default
+    setOperationAction(ISD::SADDSAT, VT, Expand);
+    setOperationAction(ISD::UADDSAT, VT, Expand);
+    setOperationAction(ISD::SSUBSAT, VT, Expand);
+    setOperationAction(ISD::USUBSAT, VT, Expand);
+  }
 
   setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
   setOperationAction(ISD::ExternalSymbol, MVT::i64, Custom);
@@ -648,22 +690,42 @@ SDValue CSATargetLowering::LowerExtractElement(SDValue Op,
   SDValue Src     = Op.getOperand(0);
   SDValue Idx     = Op.getOperand(1);
   MVT VT          = Op.getSimpleValueType();
-  assert(VT.getSizeInBits() == 32 && "Only supporting 64->32 unpack");
+  MVT VecVT       = Src.getSimpleValueType();
+  MVT ScalarVT    = VecVT.getScalarType();
 
-  // Unpack the value into two LICs.
-  SDNode *Unpack = DAG.getMachineNode(CSA::UNPACK64_32, dl,
-      {MVT::f32, MVT::f32}, Src);
+  // If we know which one we're extracting, pull it out of the appropriate
+  // unpack instruction directly.
+  if (isa<ConstantSDNode>(Idx.getNode())) {
+    const CSAInstrInfo *const TII = Subtarget.getInstrInfo();
+    unsigned Opcode = TII->makeOpcode(CSA::Generic::UNPACK,
+        ScalarVT.getSizeInBits());
+    assert(Opcode != CSA::INVALID_OPCODE && "No unpack found for vector size");
 
-  // Create a select to choose the result of the UNPACK. If the condition is
-  // constant, this should be constant-folded away.
-  SDValue Res = DAG.getSelect(dl, MVT::f32, Idx, SDValue(Unpack, 1),
-      SDValue(Unpack, 0));
+    SmallVector<EVT, 8> UnpackTy;
+    for (unsigned i = 0; i < VecVT.getVectorNumElements(); i++)
+      UnpackTy.push_back(ScalarVT);
+    SDNode *Unpack = DAG.getMachineNode(Opcode, dl, UnpackTy, Src);
+    SDValue Res(Unpack, Op->getConstantOperandVal(1));
+    return VT == ScalarVT ? Res : DAG.getAnyExtOrTrunc(Res, dl, VT);
+  }
 
-  // If the type is not right, bitcast it.
-  if (VT != MVT::f32)
-    Res = DAG.getBitcast(VT, Res);
+  // 32-bit: do a select on the unpack instruction directly.
+  if (ScalarVT.getSizeInBits() == 32) {
+    SDNode *Unpack = DAG.getMachineNode(CSA::UNPACK64_32, dl,
+        {ScalarVT, ScalarVT}, Src);
+    SDValue Res = DAG.getSelect(dl, ScalarVT, Idx, SDValue(Unpack, 1),
+        SDValue(Unpack, 0));
+    return VT == ScalarVT ? Res : DAG.getAnyExtOrTrunc(Res, dl, VT);
+  }
 
-  return Res;
+  // 16- or 8-bit dynamic case. This is going to have to be lowered via shifts.
+  MVT IntVT = MVT::getIntegerVT(VecVT.getSizeInBits());
+  SDValue ISrc = DAG.getBitcast(IntVT, Src);
+  SDValue Size = DAG.getConstant(ScalarVT.getSizeInBits(), dl, IntVT);
+  SDValue ShiftAmt = DAG.getNode(ISD::MUL, dl, IntVT, ISrc, Size);
+  SDValue Extract = DAG.getAnyExtOrTrunc(
+    DAG.getNode(ISD::SRL, dl, IntVT, ISrc, ShiftAmt), dl, ScalarVT);
+  return ScalarVT == VT ? Extract : DAG.getAnyExtOrTrunc(Extract, dl, VT);
 }
 
 static SDNode *getSingleUseOfValue(SDValue V) {
@@ -1511,8 +1573,26 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
   }
 }
 
-static SDValue makeSwizzle(SDValue V, int LoIdx, int HiIdx, SelectionDAG &DAG) {
+static SDValue makeSwizzle(SDValue V, ArrayRef<int> Mask, SelectionDAG &DAG) {
   SDLoc DL(V);
+  int LoIdx, HiIdx;
+  if (Mask.size() == 2) {
+    LoIdx = Mask[0];
+    HiIdx = Mask[1];
+  } else if (Mask.size() == 4) {
+    // The swizzles for f16x4 apply the same rules of f32x2, but within each
+    // pair separately. What this means is that (if the swizzle applies), the
+    // indices of the last two values of Mask need to be the same as the first
+    // two, after 2 is added to them.
+    LoIdx = Mask[0];
+    HiIdx = Mask[1];
+    if (Mask[2] != LoIdx + 2 || Mask[3] != HiIdx + 2)
+      return SDValue{};
+  } else {
+    // Can't do anything with this form.
+    return SDValue{};
+  }
+
   // Set the swizzle mask based on the index of the low and high lanes. If the
   // index is not the natural result for the lane (i.e., 0 for the low lane and
   // 1 for the high lane), then we set the appropriate bit for this parameter.
@@ -1535,7 +1615,7 @@ SDValue CSATargetLowering::CombineShuffle(SDNode *N, SelectionDAG &DAG) const {
   // Note that SelectionDAG canonicalization means that we should only ever see
   // this case where all the vector elements come from a single input.
   if (V2.isUndef())
-    return makeSwizzle(V1, VN->getMaskElt(0), VN->getMaskElt(1), DAG);
+    return makeSwizzle(V1, VN->getMask(), DAG);
   assert(!V1.isUndef() && !V2.isUndef() && "SelectionDAG didn't canonicalize?");
 
   // Otherwise, just use regular shuffle instructions.
