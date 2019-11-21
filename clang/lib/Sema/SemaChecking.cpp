@@ -5748,19 +5748,20 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
       && sizeof(NumVals)/sizeof(NumVals[0]) == NumForm,
       "need to update code for modified forms");
   static_assert(AtomicExpr::AO__c11_atomic_init == 0 &&
-                    AtomicExpr::AO__c11_atomic_fetch_xor + 1 ==
+                    AtomicExpr::AO__c11_atomic_fetch_min + 1 ==
                         AtomicExpr::AO__atomic_load,
                 "need to update code for modified C11 atomics");
   bool IsOpenCL = Op >= AtomicExpr::AO__opencl_atomic_init &&
                   Op <= AtomicExpr::AO__opencl_atomic_fetch_max;
   bool IsC11 = (Op >= AtomicExpr::AO__c11_atomic_init &&
-               Op <= AtomicExpr::AO__c11_atomic_fetch_xor) ||
+               Op <= AtomicExpr::AO__c11_atomic_fetch_min) ||
                IsOpenCL;
   bool IsN = Op == AtomicExpr::AO__atomic_load_n ||
              Op == AtomicExpr::AO__atomic_store_n ||
              Op == AtomicExpr::AO__atomic_exchange_n ||
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
   bool IsAddSub = false;
+<<<<<<< HEAD
   bool IsMinMax = false;
 #if INTEL_CUSTOMIZATION
   // Used for the Intel versions where we type-coerce the _N values to match
@@ -5768,6 +5769,8 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   // that we need to coerce, and what size to coerce to.
   unsigned IntelTypeCoerceSize = IntelTypeCoerceSizeCalc(Op);
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 5cf58768cb3ba31ee37facaf23f7a74f78781590
 
   switch (Op) {
   case AtomicExpr::AO__c11_atomic_init:
@@ -5818,12 +5821,12 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   case AtomicExpr::AO__atomic_or_fetch:
   case AtomicExpr::AO__atomic_xor_fetch:
   case AtomicExpr::AO__atomic_nand_fetch:
-    Form = Arithmetic;
-    break;
-
+  case AtomicExpr::AO__c11_atomic_fetch_min:
+  case AtomicExpr::AO__c11_atomic_fetch_max:
+  case AtomicExpr::AO__atomic_min_fetch:
+  case AtomicExpr::AO__atomic_max_fetch:
   case AtomicExpr::AO__atomic_fetch_min:
   case AtomicExpr::AO__atomic_fetch_max:
-    IsMinMax = true;
     Form = Arithmetic;
     break;
 
@@ -6047,6 +6050,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
+<<<<<<< HEAD
     if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
     if (IsMinMax) {
       const BuiltinType *BT = ValType->getAs<BuiltinType>();
@@ -6059,6 +6063,10 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
     if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
     if (!IsAddSub && !IsMinMax && !ValType->isIntegerType()) {
       Diag(ExprRange.getBegin(), diag::err_atomic_op_bitwise_needs_atomic_int)
+=======
+    if (!IsAddSub && !ValType->isIntegerType()) {
+      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int)
+>>>>>>> 5cf58768cb3ba31ee37facaf23f7a74f78781590
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
