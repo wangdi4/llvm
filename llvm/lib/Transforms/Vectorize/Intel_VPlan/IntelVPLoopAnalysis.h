@@ -798,6 +798,7 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+  void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
   void clear() override {
@@ -837,6 +838,10 @@ private:
   /// by analyzing its UpdateVPInsts in light of loop LiveOut analysis. It
   /// returns nullptr for InMemory reduction.
   VPInstruction *getLoopExitVPInstr(const VPLoop *Loop);
+  /// Utility to invalidate underlying IR for all VPInstructions involved in
+  /// current reduction. Currently we invalidate instructions in StartPhi, Exit
+  /// and LinkedVPVals.
+  void invalidateReductionInstructions();
 
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;
