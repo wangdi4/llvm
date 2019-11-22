@@ -587,6 +587,7 @@ void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
+void initializeRAReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

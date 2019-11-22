@@ -64,6 +64,10 @@ static cl::opt<bool>
 IntelLibIRCAllowed("intel-libirc-allowed",
                     cl::desc("Allow the generation of calls to libirc."),
                     cl::init(false));
+
+static cl::opt<bool> EnableRAReport("enable-ra-report",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable register allocation report."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -938,6 +942,13 @@ void TargetPassConfig::addMachinePasses() {
 
   // Run post-ra passes.
   addPostRegAlloc();
+
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  if (EnableRAReport)
+    addPass(&RAReportEmitterID, false);
+#endif  // !INTEL_PRODUCT_RELEASE
+#endif //INTEL_CUSTOMIZATION
 
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
   if (getOptLevel() != CodeGenOpt::None) {
