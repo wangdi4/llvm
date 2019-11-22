@@ -41,6 +41,31 @@
 
 #include "omptargetplugin.h"
 
+#if INTEL_CUSTOMIZATION
+// FIXME: find a way to include cl_usm_ext.h to get these definitions
+//        from there.
+#define CL_MEM_ALLOC_TYPE_INTEL         0x419A
+
+#define CL_MEM_TYPE_UNKNOWN_INTEL       0x4196
+#define CL_MEM_TYPE_HOST_INTEL          0x4197
+#define CL_MEM_TYPE_DEVICE_INTEL        0x4198
+#define CL_MEM_TYPE_SHARED_INTEL        0x4199
+
+#define CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL    0x4201
+#define CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL                  0x4203
+
+typedef cl_uint cl_mem_info_intel;
+typedef cl_uint cl_unified_shared_memory_type_intel;
+typedef cl_int  (CL_API_CALL *clGetMemAllocInfoINTELTy)(
+    cl_context context,
+    const void* ptr,
+    cl_mem_info_intel param_name,
+    size_t param_value_size,
+    void* param_value,
+    size_t* param_value_size_ret);
+
+#endif  // INTEL_CUSTOMIZATION
+
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
@@ -261,6 +286,7 @@ struct ExtensionsTy {
 #if INTEL_CUSTOMIZATION
   // clGetDeviceGlobalVariablePointerINTEL API:
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
+  ExtensionStatusTy GetMemAllocInfoINTELPointer = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
   // Initialize extensions' statuses for the given device.
@@ -328,6 +354,14 @@ public:
   int64_t ProfileResolution;
   cl_device_type DeviceType;
   std::string CompilationOptions;
+
+#if INTEL_CUSTOMIZATION
+  // A pointer to clGetMemAllocInfoINTEL extension API.
+  // It can be used to distinguish SVM and USM pointers.
+  // It is available on the whole platform, so it is not
+  // device-specific within the same platform.
+  clGetMemAllocInfoINTELTy clGetMemAllocInfoINTELFn = nullptr;
+#endif  // INTEL_CUSTOMIZATION
 
   // Limit for the number of WIs in a WG.
   int32_t OMPThreadLimit = -1;
@@ -488,6 +522,13 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
     if (Extensions.find("") != std::string::npos) {
       GetDeviceGlobalVariablePointer = ExtensionStatusEnabled;
       DPI("Extension clGetDeviceGlobalVariablePointerINTEL enabled.\n");
+    }
+
+  if (GetMemAllocInfoINTELPointer == ExtensionStatusUnknown)
+    if (Extensions.find("cl_intel_unified_shared_memory") !=
+        std::string::npos) {
+      GetMemAllocInfoINTELPointer = ExtensionStatusEnabled;
+      DPI("Extension clGetMemAllocInfoINTEL enabled.\n");
     }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -825,6 +866,21 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     DPI("Error: clGetDeviceGlobalVariablePointerINTEL API "
         "is nullptr.  Direct references to declare target variables "
         "will not work properly.\n");
+  }
+
+  if (!DeviceInfo.clGetMemAllocInfoINTELFn &&
+      DeviceInfo.Extensions[device_id].GetMemAllocInfoINTELPointer ==
+      ExtensionStatusEnabled &&
+      DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU) {
+    // TODO: limit this to CPU devices for the time being.
+    DeviceInfo.clGetMemAllocInfoINTELFn =
+        reinterpret_cast<clGetMemAllocInfoINTELTy>(
+            clGetExtensionFunctionAddressForPlatform(DeviceInfo.platformID,
+                                                     "clGetMemAllocInfoINTEL"));
+
+    if (!DeviceInfo.clGetMemAllocInfoINTELFn)
+      DPI("Error: clGetMemAllocInfoINTEL API is nullptr.  Direct references "
+          "to declare target variables will not work properly.\n");
   }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -1485,6 +1541,12 @@ static inline int32_t run_target_team_nd_region(
 
   // Set implicit kernel args
   std::vector<void *> implicit_args;
+#if INTEL_CUSTOMIZATION
+  // Device pointers to global variables returned by
+  // clGetDeviceGlobalVariablePointerINTEL are USM pointers
+  // and they have to be reported to the runtime in a special way.
+  std::vector<void *> implicit_usm_args;
+#endif  // INTEL_CUSTOMIZATION
 
   // Array sections of zero size may result in nullptr target pointer,
   // which will not be accepted by clSetKernelExecInfo, so we should
@@ -1523,14 +1585,66 @@ static inline int32_t run_target_team_nd_region(
     DP("Kernel Arg %d set successfully\n", i);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (DeviceInfo.clGetMemAllocInfoINTELFn) {
+    // Reserve space for USM pointers.
+    implicit_usm_args.reserve(num_implicit_args);
+    // Move USM pointers into a separate list, since they need to be
+    // reported to the runtime using a separate clSetKernelExecInfo call.
+    implicit_args.erase(
+        std::remove_if(implicit_args.begin(),
+                       implicit_args.end(),
+                       [&](void *ptr) {
+                         cl_unified_shared_memory_type_intel type = 0;
+                         INVOKE_CL_RET(false,
+                             DeviceInfo.clGetMemAllocInfoINTELFn,
+                             DeviceInfo.CTX[device_id],
+                             ptr, CL_MEM_ALLOC_TYPE_INTEL,
+                             sizeof(cl_unified_shared_memory_type_intel),
+                             &type, nullptr);
+                         DPI("clGetMemAllocInfoINTEL API returned %d "
+                             "for pointer " DPxMOD "\n", type, DPxPTR(ptr));
+                         // USM pointers are classified as
+                         // CL_MEM_TYPE_DEVICE_INTEL.
+                         // SVM pointers (e.g. returned by clSVMAlloc)
+                         // are classified as CL_MEM_TYPE_UNKNOWN_INTEL.
+                         // We cannot allocate any other pointer type now.
+                         if (type == CL_MEM_TYPE_DEVICE_INTEL) {
+                           implicit_usm_args.push_back(ptr);
+                           return true;
+                         }
+                         return false;
+                       }),
+        implicit_args.end());
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   if (implicit_args.size() > 0) {
-    DP("Calling clSetKernelExecInfo to pass %zu implicit arguments to kernel "
-       DPxMOD "\n", implicit_args.size(), DPxPTR(kernel));
+    DP("Calling clSetKernelExecInfo to pass %zu implicit SVM arguments "
+       "to kernel " DPxMOD "\n", implicit_args.size(), DPxPTR(kernel));
     INVOKE_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
                        CL_KERNEL_EXEC_INFO_SVM_PTRS,
                        sizeof(void *) * implicit_args.size(),
                        implicit_args.data());
   }
+
+#if INTEL_CUSTOMIZATION
+  if (implicit_usm_args.size() > 0) {
+    // Report non-argument USM pointers to the runtime.
+    DP("Calling clSetKernelExecInfo to pass %zu implicit USM arguments "
+       "to kernel " DPxMOD "\n", implicit_usm_args.size(), DPxPTR(kernel));
+    INVOKE_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+                       CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
+                       sizeof(void *) * implicit_usm_args.size(),
+                       implicit_usm_args.data());
+    // Mark the kernel as supporting indirect USM accesses, otherwise,
+    // clEnqueueNDRangeKernel call below will fail.
+    cl_bool KernelSupportsUSM = CL_TRUE;
+    INVOKE_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+                       CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
+                       sizeof(cl_bool), &KernelSupportsUSM);
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   cl_event event;
   INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
