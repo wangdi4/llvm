@@ -36,15 +36,6 @@ return:         ; preds = %bb5
   ret void
 }
 
-<<<<<<< HEAD
-; PR22795
-; INTEL - Note: upstream has "full-set" ranges because %v11 is wider than %iv.
-; CHECK-LABEL: Classifying expressions for: @test2
-; CHECK:   %iv = phi i32 [ -1, %entry ], [ %next.1, %for.inc.1 ]
-; CHECK-NEXT:  -->  {-1,+,2}<%preheader> U: [-1,14) S: [-1,14)             Exits: 13
-
-define i32 @test2() {
-=======
 define i32 @PR22795() {
 ; CHECK-LABEL: 'PR22795'
 ; CHECK-NEXT:  Determining loop execution counts for: @PR22795
@@ -54,7 +45,6 @@ define i32 @PR22795() {
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %preheader: Trip multiple is 8
 ;
->>>>>>> d9426c3360895f265a19e25e2d2bae3348ad9ce8
 entry:
   %bins = alloca [16 x i64], align 16
   %0 = bitcast [16 x i64]* %bins to i8*
