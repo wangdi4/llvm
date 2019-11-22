@@ -102,6 +102,10 @@ static cl::opt<unsigned> TinyTripCountThreshold(
     cl::desc("Don't vectorize loops with a constant "
              "trip count that is smaller than this value."));
 
+static cl::opt<bool> VPlanVectorizeMaskedFabs(
+    "vplan-vectorize-masked-fabs", cl::init(false), cl::Hidden,
+    cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic."));
+
 namespace llvm {
 
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
@@ -559,6 +563,11 @@ void HandledCheck::visit(HLDDNode *Node) {
 
       bool TrivialVectorIntrinsic =
           (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
+      // Prevent vectorization of loop if masked fabs intrinsic vectorization is
+      // disabled.
+      if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
+          !VPlanVectorizeMaskedFabs)
+        TrivialVectorIntrinsic = false;
       if (isa<HLIf>(Inst->getParent()) &&
           (VF > 1 && !TrivialVectorIntrinsic &&
            !TLI->isFunctionVectorizable(CalledFunc, VF))) {
