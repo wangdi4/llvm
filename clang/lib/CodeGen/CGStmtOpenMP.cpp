@@ -5513,8 +5513,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
     auto UncollapsedLowerBounds = S.uncollapsedLowerBounds();
     auto UncollapsedUpperBounds = S.uncollapsedUpperBounds();
     for (unsigned I = 0, E = S.getCollapsedNumber(); I < E; ++I) {
-      if (Kind != OMPD_simd)
-        EmitOMPHelperVar(*this, cast<DeclRefExpr>(UncollapsedLowerBounds[I]));
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(UncollapsedLowerBounds[I]));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(UncollapsedUpperBounds[I]));
     }
     return;

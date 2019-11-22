@@ -296,3 +296,28 @@ void test_three(float *A0, float *A1, int Ni, int Nj, int Nk) {
     }
   }
 }
+
+// Test that a plain simd loop has the same structure as other loops
+// in the uncollapsed form.
+//HOST-LABEL: uncollapsed_simd
+//HOST:[[LB_I:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:[[LB_J:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:[[LB_K:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:[[LB_L:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:store i64 0, i64* [[LB_I]]
+//HOST:store i64 0, i64* [[LB_J]]
+//HOST:store i64 0, i64* [[LB_K]]
+//HOST:store i64 0, i64* [[LB_L]]
+//HOST:"DIR.OMP.SIMD"()
+//HOST:load i64, i64* [[LB_I]]
+//HOST:load i64, i64* [[LB_J]]
+//HOST:load i64, i64* [[LB_K]]
+//HOST:load i64, i64* [[LB_L]]
+//HOST: [ "DIR.OMP.END.SIMD"() ]
+void uncollapsed_simd(int n) {
+#pragma omp simd collapse(4)
+  for (int i = 0; i < n; ++i)
+    for (int j = 0; j < n; ++j)
+      for (int k = 0; k < n; ++k)
+        for (int l = 0; l < n; ++l);
+}
