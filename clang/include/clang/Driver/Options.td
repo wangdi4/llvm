@@ -1907,6 +1907,8 @@ def fsycl_link : Flag<["-"], "fsycl-link">, Alias<fsycl_link_EQ>,
   HelpText<"Generate partially linked device object to be used with the host link">;
 def fsycl_unnamed_lambda : Flag<["-"], "fsycl-unnamed-lambda">,
   Flags<[CC1Option, CoreOption]>, HelpText<"Allow unnamed SYCL lambda kernels">;
+def fno_sycl_unnamed_lambda : Flag<["-"], "fno-sycl-unnamed-lambda">,
+  Flags<[CC1Option, CoreOption]>;
 def fsycl_help_EQ : Joined<["-"], "fsycl-help=">,
   Flags<[DriverOption, CoreOption]>, HelpText<"Emit help information from the related offline compilation tool">, Values<"all,fpga,gen,x86_64">;
 def fsycl_help : Flag<["-"], "fsycl-help">, Alias<fsycl_help_EQ>,
