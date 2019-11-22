@@ -619,11 +619,10 @@ public:
     }
 
     const HLLoop *ConstInnermostLoop = nullptr;
-    bool IsNearPerfect = false;
-    bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
-        Loop, &ConstInnermostLoop, false, &IsNearPerfect);
-    if (!IsPerfectNest && !IsNearPerfect) {
-      LLVM_DEBUG(dbgs() << "Failed: Neither perfect nor near-perfect loop\n");
+    bool IsPerfectNest =
+        HLNodeUtils::isPerfectLoopNest(Loop, &ConstInnermostLoop, false);
+    if (!IsPerfectNest) {
+      LLVM_DEBUG(dbgs() << "Failed: Not a perfect loop\n");
       return;
     }
 
@@ -702,18 +701,6 @@ public:
       LLVM_DEBUG(dbgs() << "Failed: at determineProfitableStipmineLoop\n";);
       SkipNode = Loop;
       return;
-    }
-
-    if (IsNearPerfect) {
-      // It is near-perfect and looks profitable
-      DDGraph DDG = DDA.getGraph(Loop);
-      InterchangeIgnorableSymbasesTy IgnorableSymbases;
-      if (!DDUtils::enablePerfectLoopNest(InnermostLoop, DDG,
-                                          IgnorableSymbases)) {
-        LLVM_DEBUG(dbgs() << "Failed: at enabling a perfect loop nest\n";);
-        SkipNode = Loop;
-        return;
-      }
     }
 
     if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
