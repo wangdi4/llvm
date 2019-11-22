@@ -658,6 +658,17 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set the underlying DDNode for the load instruction since it will be
       // master VPI for this node
       NewVPInst->HIR.setUnderlyingNode(DDNode);
+    } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
+      // For direct calls, the called function should be added as last operand
+      // of the generated VPInstruction.
+      if (!HInst->isIndirectCallInst()) {
+        Function *F = Call->getCalledFunction();
+        assert(F && "Call HLInst does not have called function.");
+        VPValue *VPFunc = Plan->getVPConstant(F);
+        NewVPInst->addOperand(VPFunc);
+      }
     } else
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(

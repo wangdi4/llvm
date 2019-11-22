@@ -17,6 +17,8 @@
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -2998,7 +3000,7 @@ static bool isManyRecCallsCloneCandidate(Function &F,
 }
 
 //
-// Create the clones required for the "may recursive calls" cloning. 'F'
+// Create the clones required for the "many recursive calls" cloning. 'F'
 // is the Function being cloned. 'IfArgs' are the arguments feeding if-tests
 // that will be constant in the clone, 'SwitchArgs' are the arguments that
 // will feed switch-tests, but will be tested for explicitly when calls are
@@ -3187,7 +3189,7 @@ static void createManyRecCallsClone(Function &F,
 
   // Insert code of the following form into the beginning of 'F', so that
   // the clone 'NewF' is called when the actual arguments of 'F' have the
-  // appropriate constnat values:
+  // appropriate constant values:
   // if (Args that are expected to be constant in NewF are constant)
   //   call NewF(Args set to those expected constant values)
   auto InsertOriginalToCloneCall = [&MakeTAndFromMap]
@@ -3200,6 +3202,15 @@ static void createManyRecCallsClone(Function &F,
       Args.push_back(&Arg);
     CallInst *CB = CallInst::Create(NewF->getFunctionType(), NewF, Args,
         ".clone.recmanycalls.reccall", &F->getEntryBlock().front());
+    // CMPLRLLVM-10901: Create debug info, calling convention, and
+    // attributes for new call.
+    if (F->getSubprogram()) {
+      DISubprogram *DIS = F->getSubprogram();
+      DebugLoc CBDbgLoc = DebugLoc::get(DIS->getScopeLine(), 0, DIS);
+      CB->setDebugLoc(CBDbgLoc);
+    }
+    CB->setCallingConv(F->getCallingConv());
+    CB->setAttributes(F->getAttributes());
     BasicBlock *BBofCB = CB->getParent();
     BBofCB->splitBasicBlock(CB);
     BasicBlock *BBPred = BBofCB;
@@ -3441,7 +3452,6 @@ static bool runIPCloning(Module &M, bool AfterInl, bool IFSwitchHeuristic) {
   bool IFSwitchHeuristicOn = IFSwitchHeuristic || ForceIFSwitchHeuristic;
   Change = analysisCallsCloneFunctions(M, AfterInl, IFSwitchHeuristicOn);
   clearAllMaps();
-
   return Change;
 }
 

@@ -1096,7 +1096,7 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
          "VPVALCG: Need underlying CallInst for call-site attributes.");
   Function *CalledFunc = getCalledFunction(VPCall);
   assert(CalledFunc && "Unexpected null called function.");
-  bool IsMasked = (MaskValue != nullptr) ? true : false;
+  bool IsMasked = MaskValue != nullptr;
 
   // Don't attempt vector function matching for SVML or built-in functions.
   std::unique_ptr<VectorVariant> MatchedVariant;
@@ -1884,7 +1884,7 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     assert(F && "Unexpected null called function");
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
-    bool IsMasked = (MaskValue != nullptr) ? true : false;
+    bool IsMasked = MaskValue != nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
         ((matchVectorVariant(UnderlyingCI, IsMasked) ||
           (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||

@@ -514,6 +514,7 @@ public:
   private:
     WRNReductionKind Ty; // reduction operation
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
+    bool  IsComplex;     // complex type
     bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
@@ -524,9 +525,8 @@ public:
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
-        : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false),
+        : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
           IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
-
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -602,11 +602,13 @@ public:
 
     void setType(WRNReductionKind Op) { Ty = Op;             }
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
+    void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
     void setCombiner(Value *Comb)     { Combiner = Comb;     }
     void setInitializer(Value *Init)  { Initializer = Init;  }
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
+    bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
     Value *getCombiner()       const { return Combiner;      }
     Value *getInitializer()    const { return Initializer;   }

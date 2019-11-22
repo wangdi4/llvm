@@ -556,10 +556,13 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
                      *Reduction->getRecurrenceStartValue());
     Plan.getVPlanDA()->markDivergent(*Init);
 
-    // Create instruction for last value.
+    // Create instruction for last value. If a register reduction does not have
+    // a liveout loop exit instruction (store to reduction variable after
+    // update), then last value computation should be done by loading from
+    // private memory created for the reduction.
     Builder.setInsertPoint(PostExit);
     VPInstruction *Exit = cast<VPInstruction>(
-        Reduction->getIsMemOnly()
+        Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
             ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
             : Reduction->getLoopExitInstr());
 

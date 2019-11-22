@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang --sycl -S -emit-llvm -x c++ %s -o - | FileCheck %s
 #include <algorithm>
 

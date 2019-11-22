@@ -5,6 +5,7 @@
 ; CHECK: Live-in and Live-out info:
 ; CHECK-NEXT: External defs:
 ; CHECK-DAG: i64 %ret.promoted
+; CHECK-DAG: i64* %ret
 ; CHECK-DAG: i64 %3
 ; CHECK-DAG: i64* %k
 ; CHECK-DAG: i64* %lb

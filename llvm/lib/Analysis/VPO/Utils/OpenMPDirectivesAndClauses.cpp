@@ -29,9 +29,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
       IsF90DopeVector(false),
 #endif // INTEL_CUSTOMIZATION
-      IsUnsigned(false), IsConditional(false), IsScheduleMonotonic(false),
-      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
-      IsMapAggrHead(false), IsMapAggr(false) {
+      IsUnsigned(false), IsComplex(false), IsConditional(false),
+      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
+      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -96,6 +96,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsNonPod();
         else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
           setIsUnsigned();
+        else if (ModSubString[i] == "CMPLX") // for reduction clause
+          setIsComplex();
         else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD") // map chain head
