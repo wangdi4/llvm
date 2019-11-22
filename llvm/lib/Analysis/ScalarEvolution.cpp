@@ -7895,6 +7895,11 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromCondImpl(
       ExitLimit EL1 = computeExitLimitFromCondCached(
           Cache, L, BO->getOperand(1), ExitIfTrue,
           ControlsExit && !EitherMayExit, AllowPredicates);
+      // Be robust against unsimplified IR for the form "and i1 X, true"
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1)))
+        return CI->isOne() ? EL0 : EL1;
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(0)))
+        return CI->isOne() ? EL1 : EL0;
       const SCEV *BECount = getCouldNotCompute();
       const SCEV *MaxBECount = getCouldNotCompute();
       if (EitherMayExit) {
@@ -7943,6 +7948,11 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromCondImpl(
       ExitLimit EL1 = computeExitLimitFromCondCached(
           Cache, L, BO->getOperand(1), ExitIfTrue,
           ControlsExit && !EitherMayExit, AllowPredicates);
+      // Be robust against unsimplified IR for the form "or i1 X, true"
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1)))
+        return CI->isZero() ? EL0 : EL1;
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(0)))
+        return CI->isZero() ? EL1 : EL0;
       const SCEV *BECount = getCouldNotCompute();
       const SCEV *MaxBECount = getCouldNotCompute();
       if (EitherMayExit) {
