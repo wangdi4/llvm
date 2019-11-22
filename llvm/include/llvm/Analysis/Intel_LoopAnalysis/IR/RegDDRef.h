@@ -662,12 +662,14 @@ public:
   }
 
   /// Returns true if the DDRef is structurally invariant at \p Level.
-  /// Note!: It does not check data-dependences, so there may be cases where
+  /// If \p IgnoreInnerIVs is true, inner loop IVs are ignored.
+  /// Note: It does not check data-dependences, so there may be cases where
   /// the  DDRef is structurally invariant, but not actually invariant. For
   /// example, in the loop below, A[5] is structurally invariant, but not
   /// actually invariant because of the data-dependence:
   /// for (i=0; i<10; i++) { A[i] = A[5] + i;}
-  bool isStructurallyInvariantAtLevel(unsigned Level) const;
+  bool isStructurallyInvariantAtLevel(unsigned Level,
+                                      bool IgnoreInnerIVs = false) const;
 
   /// Returns true if the DDRef is a memory reference
   bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }

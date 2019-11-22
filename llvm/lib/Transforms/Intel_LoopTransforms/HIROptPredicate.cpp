@@ -228,7 +228,8 @@ static void updateDefLevels(HLDDNode *Node, IterT Begin, IterT End) {
     SmallSet<unsigned, 32> UseSymbases;
 
     SmallVector<DDRef *, 32> Refs;
-    DDRefGatherer<DDRef, TerminalRefs | BlobRefs>::gather(Loop, Refs);
+    DDRefGatherer<DDRef, TerminalRefs | BlobRefs>::gatherRange(
+        Loop->child_begin(), Loop->child_end(), Refs);
 
     for (DDRef *Ref : Refs) {
       auto Symbase = Ref->getSymbase();
@@ -1046,7 +1047,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
     // TODO: check if candidate is defined in preheader
     TargetLoop->extractZtt();
-    TargetLoop->extractPreheader();
+    TargetLoop->extractPreheaderAndPostexit();
 
     // TransformLoop and its clones.
     transformCandidate(TargetLoop, Candidate);

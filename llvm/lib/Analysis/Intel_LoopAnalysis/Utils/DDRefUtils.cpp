@@ -388,8 +388,15 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
         FoundDelta = true;
         Delta = CurDelta;
       }
-    } else {
+
+    } else if (CurDelta) {
       int64_t DimStride = Ref1->getDimensionConstStride(I);
+
+      // Bail out for non-constant stride.
+      if (!DimStride) {
+        return false;
+      }
+
       Delta += CurDelta * DimStride;
     }
   }

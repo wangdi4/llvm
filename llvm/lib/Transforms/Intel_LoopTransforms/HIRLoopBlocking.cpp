@@ -343,7 +343,7 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
          make_range(Ref->dim_index_begin(), Ref->dim_index_end())) {
       const CanonExpr *CE = Ref->getDimensionIndex(I);
 
-      if (CE->isInvariantAtLevel(OutermostLoopLevel, false)) {
+      if (CE->isInvariantAtLevel(OutermostLoopLevel)) {
         continue;
       }
       NumVariantDimensions++;
