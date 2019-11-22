@@ -8835,7 +8835,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   while (const auto *ME = dyn_cast<MemberExpr>(E))
     E = ME->getBase()->IgnoreParenImpCasts();
   // For this pointer, no decl for it, set to nullptr.
-  auto *VD = isa<CXXThisExpr>(E) ? nullptr : cast<DeclRefExpr>(E)->getDecl();
+  const ValueDecl *VD =
+      isa<CXXThisExpr>(E)
+          ? nullptr
+          : cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl())->getCanonicalDecl();
   for (auto L : C->decl_component_lists(VD)) {
     assert(L.first == VD && "We got information for the wrong declaration??");
     assert(!L.second.empty() &&
