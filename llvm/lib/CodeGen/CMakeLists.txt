@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
@@ -14,6 +15,9 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_CUSTOMIZATION
 
 add_llvm_library(LLVMCodeGen
+=======
+add_llvm_component_library(LLVMCodeGen
+>>>>>>> ab411801b82783eb7f652701ccfce81b16cf1811
   AggressiveAntiDepBreaker.cpp
   AllocationOrder.cpp
   Analysis.cpp
