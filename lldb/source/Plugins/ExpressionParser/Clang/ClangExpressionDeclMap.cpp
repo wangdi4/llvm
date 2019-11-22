@@ -1099,135 +1099,130 @@ void ClangExpressionDeclMap::LookupLocalVarNamespace(
   }
 }
 
-void ClangExpressionDeclMap::FindExternalVisibleDecls(
-    NameSearchContext &context, lldb::ModuleSP module_sp,
-    CompilerDeclContext &namespace_decl, unsigned int current_id) {
-  assert(m_ast_context);
-
+void ClangExpressionDeclMap::LookupInModulesDeclVendor(
+    NameSearchContext &context, ConstString name, unsigned current_id) {
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
 
-  SymbolContextList sc_list;
+  if (ClangModulesDeclVendor *modules_decl_vendor =
+          m_target->GetClangModulesDeclVendor()) {
+    bool append = false;
+    uint32_t max_matches = 1;
+    std::vector<clang::NamedDecl *> decls;
 
-  const ConstString name(context.m_decl_name.getAsString().c_str());
-  if (IgnoreName(name, false))
-    return;
-
-  // Only look for functions by name out in our symbols if the function doesn't
-  // start with our phony prefix of '$'
-  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
-  StackFrame *frame = m_parser_vars->m_exe_ctx.GetFramePtr();
-  SymbolContext sym_ctx;
-  if (frame != nullptr)
-    sym_ctx = frame->GetSymbolContext(lldb::eSymbolContextFunction |
-                                      lldb::eSymbolContextBlock);
-
-  // Try the persistent decls, which take precedence over all else.
-  if (!namespace_decl)
-    SearchPersistenDecls(context, name, current_id);
-
-  if (name.GetCString()[0] == '$' && !namespace_decl) {
-    static ConstString g_lldb_class_name("$__lldb_class");
-
-    if (name == g_lldb_class_name) {
-      LookUpLldbClass(context, current_id);
-      return;
-    }
-
-    static ConstString g_lldb_objc_class_name("$__lldb_objc_class");
-    if (name == g_lldb_objc_class_name) {
-      LookUpLldbObjCClass(context, current_id);
-      return;
-    }
-    if (name == ConstString(g_lldb_local_vars_namespace_cstr)) {
-      LookupLocalVarNamespace(sym_ctx, context);
-      return;
-    }
-
-    // any other $__lldb names should be weeded out now
-    if (name.GetStringRef().startswith("$__lldb"))
+    if (!modules_decl_vendor->FindDecls(name, append, max_matches, decls))
       return;
 
-    ExpressionVariableSP pvar_sp(
-        m_parser_vars->m_persistent_vars->GetVariable(name));
+    clang::NamedDecl *const decl_from_modules = decls[0];
 
-    if (pvar_sp) {
-      AddOneVariable(context, pvar_sp, current_id);
-      return;
-    }
-
-    const char *reg_name(&name.GetCString()[1]);
-
-    if (m_parser_vars->m_exe_ctx.GetRegisterContext()) {
-      const RegisterInfo *reg_info(
-          m_parser_vars->m_exe_ctx.GetRegisterContext()->GetRegisterInfoByName(
-              reg_name));
-
-      if (reg_info) {
-        LLDB_LOGF(log, "  CEDM::FEVD[%u] Found register %s", current_id,
-                  reg_info->name);
-
-        AddOneRegister(context, reg_info, current_id);
+    if (llvm::isa<clang::FunctionDecl>(decl_from_modules)) {
+      if (log) {
+        LLDB_LOGF(log,
+                  "  CAS::FEVD[%u] Matching function found for "
+                  "\"%s\" in the modules",
+                  current_id, name.GetCString());
       }
+
+      clang::Decl *copied_decl = CopyDecl(decl_from_modules);
+      clang::FunctionDecl *copied_function_decl =
+          copied_decl ? dyn_cast<clang::FunctionDecl>(copied_decl) : nullptr;
+
+      if (!copied_function_decl) {
+        LLDB_LOGF(log,
+                  "  CAS::FEVD[%u] - Couldn't export a function "
+                  "declaration from the modules",
+                  current_id);
+
+        return;
+      }
+
+      MaybeRegisterFunctionBody(copied_function_decl);
+
+      context.AddNamedDecl(copied_function_decl);
+
+      context.m_found.function_with_type_info = true;
+      context.m_found.function = true;
+    } else if (llvm::isa<clang::VarDecl>(decl_from_modules)) {
+      if (log) {
+        LLDB_LOGF(log,
+                  "  CAS::FEVD[%u] Matching variable found for "
+                  "\"%s\" in the modules",
+                  current_id, name.GetCString());
+      }
+
+      clang::Decl *copied_decl = CopyDecl(decl_from_modules);
+      clang::VarDecl *copied_var_decl =
+          copied_decl ? dyn_cast_or_null<clang::VarDecl>(copied_decl) : nullptr;
+
+      if (!copied_var_decl) {
+        LLDB_LOGF(log,
+                  "  CAS::FEVD[%u] - Couldn't export a variable "
+                  "declaration from the modules",
+                  current_id);
+
+        return;
+      }
+
+      context.AddNamedDecl(copied_var_decl);
+
+      context.m_found.variable = true;
     }
-    return;
   }
+}
+
+bool ClangExpressionDeclMap::LookupLocalVariable(
+    NameSearchContext &context, ConstString name, unsigned current_id,
+    SymbolContext &sym_ctx, CompilerDeclContext &namespace_decl) {
   ValueObjectSP valobj;
   VariableSP var;
 
-  bool local_var_lookup =
-      !namespace_decl || (namespace_decl.GetName() ==
-                          ConstString(g_lldb_local_vars_namespace_cstr));
-  if (frame && local_var_lookup) {
-    CompilerDeclContext compiler_decl_context =
-        sym_ctx.block != nullptr ? sym_ctx.block->GetDeclContext()
-                                 : CompilerDeclContext();
+  StackFrame *frame = m_parser_vars->m_exe_ctx.GetFramePtr();
+  CompilerDeclContext compiler_decl_context =
+      sym_ctx.block != nullptr ? sym_ctx.block->GetDeclContext()
+                               : CompilerDeclContext();
 
-    if (compiler_decl_context) {
-      // Make sure that the variables are parsed so that we have the
-      // declarations.
-      VariableListSP vars = frame->GetInScopeVariableList(true);
-      for (size_t i = 0; i < vars->GetSize(); i++)
-        vars->GetVariableAtIndex(i)->GetDecl();
+  if (compiler_decl_context) {
+    // Make sure that the variables are parsed so that we have the
+    // declarations.
+    VariableListSP vars = frame->GetInScopeVariableList(true);
+    for (size_t i = 0; i < vars->GetSize(); i++)
+      vars->GetVariableAtIndex(i)->GetDecl();
 
-      // Search for declarations matching the name. Do not include imported
-      // decls in the search if we are looking for decls in the artificial
-      // namespace $__lldb_local_vars.
-      std::vector<CompilerDecl> found_decls =
-          compiler_decl_context.FindDeclByName(name,
-                                               namespace_decl.IsValid());
+    // Search for declarations matching the name. Do not include imported
+    // decls in the search if we are looking for decls in the artificial
+    // namespace $__lldb_local_vars.
+    std::vector<CompilerDecl> found_decls =
+        compiler_decl_context.FindDeclByName(name, namespace_decl.IsValid());
 
-      bool variable_found = false;
-      for (CompilerDecl decl : found_decls) {
-        for (size_t vi = 0, ve = vars->GetSize(); vi != ve; ++vi) {
-          VariableSP candidate_var = vars->GetVariableAtIndex(vi);
-          if (candidate_var->GetDecl() == decl) {
-            var = candidate_var;
-            break;
-          }
-        }
-
-        if (var && !variable_found) {
-          variable_found = true;
-          valobj = ValueObjectVariable::Create(frame, var);
-          AddOneVariable(context, var, valobj, current_id);
-          context.m_found.variable = true;
+    bool variable_found = false;
+    for (CompilerDecl decl : found_decls) {
+      for (size_t vi = 0, ve = vars->GetSize(); vi != ve; ++vi) {
+        VariableSP candidate_var = vars->GetVariableAtIndex(vi);
+        if (candidate_var->GetDecl() == decl) {
+          var = candidate_var;
+          break;
         }
       }
-      if (variable_found)
-        return;
-    }
-  }
-  if (target) {
-    var = FindGlobalVariable(*target, module_sp, name, &namespace_decl,
-                             nullptr);
 
-    if (var) {
-      valobj = ValueObjectVariable::Create(target, var);
-      AddOneVariable(context, var, valobj, current_id);
-      context.m_found.variable = true;
-      return;
+      if (var && !variable_found) {
+        variable_found = true;
+        valobj = ValueObjectVariable::Create(frame, var);
+        AddOneVariable(context, var, valobj, current_id);
+        context.m_found.variable = true;
+      }
     }
+    if (variable_found)
+      return true;
   }
+  return false;
+}
+
+void ClangExpressionDeclMap::LookupFunction(NameSearchContext &context,
+                                            lldb::ModuleSP module_sp,
+                                            ConstString name,
+                                            CompilerDeclContext &namespace_decl,
+                                            unsigned current_id) {
+
+  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
 
   std::vector<clang::NamedDecl *> decls_from_modules;
 
@@ -1239,7 +1234,7 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
   }
 
   const bool include_inlines = false;
-  sc_list.Clear();
+  SymbolContextList sc_list;
   if (namespace_decl && module_sp) {
     const bool include_symbols = false;
 
@@ -1432,79 +1427,102 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
       }
     }
   }
+}
 
-  if (!context.m_found.function_with_type_info) {
-    // Try the modules next.
+void ClangExpressionDeclMap::FindExternalVisibleDecls(
+    NameSearchContext &context, lldb::ModuleSP module_sp,
+    CompilerDeclContext &namespace_decl, unsigned int current_id) {
+  assert(m_ast_context);
 
-    do {
-      if (ClangModulesDeclVendor *modules_decl_vendor =
-              m_target->GetClangModulesDeclVendor()) {
-        bool append = false;
-        uint32_t max_matches = 1;
-        std::vector<clang::NamedDecl *> decls;
+  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
 
-        if (!modules_decl_vendor->FindDecls(name, append, max_matches, decls))
-          break;
+  const ConstString name(context.m_decl_name.getAsString().c_str());
+  if (IgnoreName(name, false))
+    return;
 
-        clang::NamedDecl *const decl_from_modules = decls[0];
+  // Only look for functions by name out in our symbols if the function doesn't
+  // start with our phony prefix of '$'
+  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
+  StackFrame *frame = m_parser_vars->m_exe_ctx.GetFramePtr();
+  SymbolContext sym_ctx;
+  if (frame != nullptr)
+    sym_ctx = frame->GetSymbolContext(lldb::eSymbolContextFunction |
+                                      lldb::eSymbolContextBlock);
 
-        if (llvm::isa<clang::FunctionDecl>(decl_from_modules)) {
-          if (log) {
-            LLDB_LOGF(log,
-                      "  CAS::FEVD[%u] Matching function found for "
-                      "\"%s\" in the modules",
-                      current_id, name.GetCString());
-          }
+  // Try the persistent decls, which take precedence over all else.
+  if (!namespace_decl)
+    SearchPersistenDecls(context, name, current_id);
 
-          clang::Decl *copied_decl = CopyDecl(decl_from_modules);
-          clang::FunctionDecl *copied_function_decl =
-              copied_decl ? dyn_cast<clang::FunctionDecl>(copied_decl)
-                          : nullptr;
+  if (name.GetStringRef().startswith("$") && !namespace_decl) {
+    if (name == "$__lldb_class") {
+      LookUpLldbClass(context, current_id);
+      return;
+    }
 
-          if (!copied_function_decl) {
-            LLDB_LOGF(log,
-                      "  CAS::FEVD[%u] - Couldn't export a function "
-                      "declaration from the modules",
-                      current_id);
+    if (name == "$__lldb_objc_class") {
+      LookUpLldbObjCClass(context, current_id);
+      return;
+    }
+    if (name == g_lldb_local_vars_namespace_cstr) {
+      LookupLocalVarNamespace(sym_ctx, context);
+      return;
+    }
 
-            break;
-          }
+    // any other $__lldb names should be weeded out now
+    if (name.GetStringRef().startswith("$__lldb"))
+      return;
 
-          MaybeRegisterFunctionBody(copied_function_decl);
+    ExpressionVariableSP pvar_sp(
+        m_parser_vars->m_persistent_vars->GetVariable(name));
 
-          context.AddNamedDecl(copied_function_decl);
+    if (pvar_sp) {
+      AddOneVariable(context, pvar_sp, current_id);
+      return;
+    }
 
-          context.m_found.function_with_type_info = true;
-          context.m_found.function = true;
-        } else if (llvm::isa<clang::VarDecl>(decl_from_modules)) {
-          if (log) {
-            LLDB_LOGF(log,
-                      "  CAS::FEVD[%u] Matching variable found for "
-                      "\"%s\" in the modules",
-                      current_id, name.GetCString());
-          }
+    assert(name.GetStringRef().startswith("$"));
+    llvm::StringRef reg_name = name.GetStringRef().substr(1);
 
-          clang::Decl *copied_decl = CopyDecl(decl_from_modules);
-          clang::VarDecl *copied_var_decl =
-              copied_decl ? dyn_cast_or_null<clang::VarDecl>(copied_decl)
-                          : nullptr;
+    if (m_parser_vars->m_exe_ctx.GetRegisterContext()) {
+      const RegisterInfo *reg_info(
+          m_parser_vars->m_exe_ctx.GetRegisterContext()->GetRegisterInfoByName(
+              reg_name));
 
-          if (!copied_var_decl) {
-            LLDB_LOGF(log,
-                      "  CAS::FEVD[%u] - Couldn't export a variable "
-                      "declaration from the modules",
-                      current_id);
+      if (reg_info) {
+        LLDB_LOGF(log, "  CEDM::FEVD[%u] Found register %s", current_id,
+                  reg_info->name);
 
-            break;
-          }
-
-          context.AddNamedDecl(copied_var_decl);
-
-          context.m_found.variable = true;
-        }
+        AddOneRegister(context, reg_info, current_id);
       }
-    } while (false);
+    }
+    return;
   }
+
+  bool local_var_lookup = !namespace_decl || (namespace_decl.GetName() ==
+                                              g_lldb_local_vars_namespace_cstr);
+  if (frame && local_var_lookup)
+    if (LookupLocalVariable(context, name, current_id, sym_ctx, namespace_decl))
+      return;
+
+  if (target) {
+    ValueObjectSP valobj;
+    VariableSP var;
+    var =
+        FindGlobalVariable(*target, module_sp, name, &namespace_decl, nullptr);
+
+    if (var) {
+      valobj = ValueObjectVariable::Create(target, var);
+      AddOneVariable(context, var, valobj, current_id);
+      context.m_found.variable = true;
+      return;
+    }
+  }
+
+  LookupFunction(context, module_sp, name, namespace_decl, current_id);
+
+  // Try the modules next.
+  if (!context.m_found.function_with_type_info)
+    LookupInModulesDeclVendor(context, name, current_id);
 
   if (target && !context.m_found.variable && !namespace_decl) {
     // We couldn't find a non-symbol variable for this.  Now we'll hunt for a
