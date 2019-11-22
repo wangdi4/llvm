@@ -494,52 +494,30 @@ static Value *isOneOf(const InstructionsState &S, Value *Op) {
 }
 
 #if INTEL_CUSTOMIZATION
-/// \returns true if \p Opcode is one of the ones that are legal to apply PSLP
-/// padding.
-///
-/// Instructions that may generate exceptions are not allowed.
-static bool isPSLPLegalOpcode(unsigned Opcode) {
-  switch (Opcode) {
-  case Instruction::Add:
-  case Instruction::Sub:
-  case Instruction::Mul:
-  case Instruction::Shl:
-  case Instruction::LShr:
-  case Instruction::AShr:
-  case Instruction::And:
-  case Instruction::Or:
-  case Instruction::Xor:
-    return true;
-  default:
-    return false;
-  }
-}
-
-/// \returns true if \p VL only contains legal opcodes to PSLP.
-static bool arePSLPLegalOpcodes(ArrayRef<Value *> VL) {
-  for (Value *V : VL) {
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      if (!isPSLPLegalOpcode(I->getOpcode()))
-        return false;
-    }
-  }
-  return true;
-}
-
-/// \returns true if all values in VL[] are Instructions.
-static bool allInstructions(ArrayRef<Value *> VL) {
-  for (Value *V : VL) {
-    if (!isa<Instruction>(V))
-      return false;
-  }
-  return true;
-}
-
-/// \returns true if it is legal to turn on PSLP for VL.
+/// \return true if it is legal to turn on PSLP for VL.
 static bool isLegalToPSLP(ArrayRef<Value *> VL) {
-  if (allInstructions(VL) && allSameBlock(VL) && arePSLPLegalOpcodes(VL))
-    return true;
-  return false;
+  // it is legal if all values in VL[] are Instructions that belong to the
+  // same block and have supported PSLP-compatible opcodes.
+  // Instructions that may generate exceptions are not allowed.
+  auto isInstructionLegalToPSLP = [](Value *V) {
+    auto *I = dyn_cast<Instruction>(V);
+    if (!I)
+      return false;
+    switch (I->getOpcode()) {
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::Shl:
+    case Instruction::LShr:
+    case Instruction::AShr:
+    case Instruction::And:
+    case Instruction::Or:
+    case Instruction::Xor:
+      return true;
+    }
+    return false;
+  };
+  return allSameBlock(VL) && llvm::all_of(VL, isInstructionLegalToPSLP);
 }
 #endif // INTEL_CUSTOMIZATION
 
