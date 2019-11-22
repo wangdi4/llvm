@@ -52,7 +52,8 @@
 //
 // Here are transformations:
 //  0th transformation: There are some dead instructions after Devirt
-//  transformation. Delete them if there are any.
+//  transformation. Delete them if there are any. Apply peephole
+//  transformations to help DTransAnalysis.
 //
 //  1st transformation: %class.refvector may be used by other parts of
 //  the application in addition to %class.FieldValueMap. So, replicate
@@ -217,6 +218,7 @@
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -226,6 +228,7 @@
 using namespace llvm;
 using namespace dtrans;
 using namespace soatoaos;
+using namespace PatternMatch;
 
 namespace llvm {
 namespace dtrans {
@@ -276,6 +279,7 @@ public:
   int32_t getCandidateField() { return ClassI->getFieldIdx(); }
 
   void removeDevirtTraces();
+  void applyPeepholeTransformations();
   void replicateEntireClass();
   void simplifyCalls();
   void cleanupClonedFunctions(Function &);
@@ -358,7 +362,6 @@ private:
   // is constant.
   bool ConstantPropApplied = false;
 
-  bool isSafeCallForAppend(Function *);
   void updateCallBase(CallBase *, AttributeList, Function *,
                       std::vector<Value *> &);
   void removeDeadInsts(Function *);
@@ -479,6 +482,56 @@ void SOAToAOSPrepCandidateInfo::removeDevirtTraces() {
   // Collect dead instructions.
   for (auto *StructF : CandI->struct_functions())
     removeDeadInsts(StructF);
+}
+
+// Apply the below peephole transformations for vector member functions.
+//
+// Before:
+//    %51 = shl i64 %50, 3
+//    %52 = add i64 %51, 8
+//
+// After:
+//    %51 = add i64 %50, 1
+//    %52 = shl i64 %51, 3
+//
+// This helps DTransAnalysis to detect it as multiple of size of
+// the vector element (which is pointer).
+//
+void SOAToAOSPrepCandidateInfo::applyPeepholeTransformations() {
+  for (auto *F : ClassI->field_member_functions()) {
+    SmallPtrSet<Instruction *, 2> AddSet;
+    for (Instruction &I : instructions(F)) {
+      Instruction *ShlI;
+      Value *Val;
+      const APInt *C1, *C2;
+
+      if (match(&I, m_Add(m_OneUse(m_Instruction(ShlI)), m_APInt(C1))) &&
+          match(ShlI, m_Shl(m_Value(Val), m_APInt(C2))) && *C1 == 8 && *C2 == 3)
+        AddSet.insert(&I);
+    }
+
+    for (auto *I : AddSet) {
+      auto *ShlI = cast<Instruction>(I->getOperand(0));
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "   Peephole before: \n";
+        dbgs() << "         " << *ShlI << "\n";
+        dbgs() << "         " << *I << "\n";
+      });
+      Value *NewAdd = BinaryOperator::CreateAdd(
+          ShlI->getOperand(0), ConstantInt::get(I->getType(), 1), "", ShlI);
+      cast<BinaryOperator>(NewAdd)->setHasNoSignedWrap(I->hasNoSignedWrap());
+      cast<BinaryOperator>(NewAdd)->setHasNoUnsignedWrap(
+          I->hasNoUnsignedWrap());
+      ShlI->setOperand(0, NewAdd);
+      I->replaceAllUsesWith(ShlI);
+      I->eraseFromParent();
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "   After: \n";
+        dbgs() << "         " << *NewAdd << "\n";
+        dbgs() << "         " << *ShlI << "\n";
+      });
+    }
+  }
 }
 
 // Remove all users of "V" and then "V".
@@ -1338,57 +1391,6 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
   return NewCtor;
 }
 
-// Verifies that function "F" is safe to apply transformations
-// on member functions of vector class. We basically need to
-// prove that the function doesn't change fields of vector class.
-// Return false if F have any instruction that may write to memory
-// (like Store etc) except:
-//   1. Alloc instructions
-//   2. MemCpy if first argument is allocated memory in the routine.
-//
-bool SOAToAOSPrepCandidateInfo::isSafeCallForAppend(Function *F) {
-
-  // Returns true if "I" is Alloc instruction.
-  auto IsAllocCall = [this](Instruction *I) {
-    auto *CB = dyn_cast_or_null<CallBase>(I);
-    if (!CB)
-      return false;
-    if (isDummyFuncWithThisAndIntArgs(CB, GetTLI(*CB->getFunction())))
-      return true;
-    auto *CallInfo = DTInfo.getCallInfo(CB);
-    if (CallInfo && CallInfo->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc)
-      return true;
-    return false;
-  };
-
-  // Returns true if "V" is return value of any alloc call.
-  auto IsAllocPtr = [&IsAllocCall](Value *V) {
-    auto *PN = dyn_cast<PHINode>(V);
-    if (!PN)
-      return IsAllocCall(PN);
-    for (unsigned I = 0, E = PN->getNumIncomingValues(); I < E; I++) {
-      if (!IsAllocCall(dyn_cast<Instruction>(PN->getIncomingValue(I))))
-        return false;
-    }
-    return true;
-  };
-
-  for (Instruction &I : instructions(F)) {
-    if (isa<DbgInfoIntrinsic>(&I))
-      continue;
-    if (IsAllocCall(&I))
-      continue;
-    auto *Memcpy = dyn_cast<MemCpyInst>(&I);
-    // Just check 1st argument is coming from alloc call. No need
-    // to check for size.
-    if (Memcpy && IsAllocPtr(Memcpy->getArgOperand(0)))
-      continue;
-    if (I.mayWriteToMemory())
-      return false;
-  }
-  return true;
-}
-
 // This detects if any part of code that is semantically doing
 // copy-ctor functionality, just replace the code with CCtor/SetElem
 // calls.
@@ -1601,7 +1603,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       if (!AuxF)
         return false;
       if (!NewClassI->isCandidateMemberFunction(AuxF)) {
-        if (!isSafeCallForAppend(AuxF))
+        if (!soatoaos::isSafeCallForAppend(AuxF, DTInfo, GetTLI(*AuxF)))
           return false;
         Elem = AuxCB->getArgOperand(0);
         CallsInLoop.insert(AuxCB);
@@ -1944,6 +1946,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       VMap2[A] = Constant::getNullValue(A->getType());
     }
     Function *CCtorF = CloneFunction(NewF, VMap2);
+    CCtorF->addParamAttr(1, Attribute::NoCapture);
+    CCtorF->addParamAttr(1, Attribute::ReadOnly);
     NewF->eraseFromParent();
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "  New simple CCtor function created: \n";
@@ -2097,6 +2101,15 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
   FixCtorFunctionCall(SimpleCCtor, CtorCB, SrcGEP);
   // Remove dead instructions.
   removeDeadInsts(CallerF);
+
+  // Mark newly created member functions to help ClassInfo analysis
+  // and SOAToAOS.
+  auto *ElemTy = SetFunc->getArg(1)->getType();
+  DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
+      *SimpleCCtor, ElemTy);
+  DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
+      *SimpleSetElem, ElemTy);
+
 }
 
 // Reverse argument promotion for AppendFunc by converting pointer
@@ -2173,6 +2186,8 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
   AppendFunc->getParent()->getFunctionList().insert(AppendFunc->getIterator(),
                                                     NF);
   NF->takeName(AppendFunc);
+  NF->addParamAttr(1, Attribute::NoCapture);
+  NF->addParamAttr(1, Attribute::ReadOnly);
 
   // Fix CallBase by passing address of original param.
   Function *CallerF = CB->getParent()->getParent();
@@ -2379,6 +2394,7 @@ bool SOAToAOSPrepareImpl::run(void) {
 
   // 0th transform.
   Candidate->removeDevirtTraces();
+  Candidate->applyPeepholeTransformations();
 
   // 1st transform.
   Candidate->replicateEntireClass();

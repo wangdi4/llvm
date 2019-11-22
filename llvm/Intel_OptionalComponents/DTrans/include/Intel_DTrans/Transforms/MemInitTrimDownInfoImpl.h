@@ -552,6 +552,8 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 //   1. Candidate Struct
 //   2. All candidate array field structs (even if member functions are not
 //   called directly)
+//   3. In struct methods, calls that are passed as arguments to other
+//      direct calls.
 void MemInitCandidateInfo::collectFuncs(
     Module &M, SmallSet<Function *, 32> *MemInitFuncs) {
   SmallPtrSet<Type *, 4> InterestedClasses;
@@ -565,6 +567,22 @@ void MemInitCandidateInfo::collectFuncs(
     if (auto *CTy = getClassType(&F))
       if (InterestedClasses.count(CTy))
         MemInitFuncs->insert(&F);
+
+  for (auto *F : struct_functions())
+    for (Instruction &I : instructions(F)) {
+      auto *CB = dyn_cast<CallBase>(&I);
+      if (!CB)
+        continue;
+      for (auto &A : CB->args()) {
+        auto *ACB = dyn_cast<CallBase>(&A);
+        if (!ACB)
+          continue;
+        auto *Callee = dtrans::getCalledFunction(*ACB);
+        if (!Callee || Callee->isDeclaration())
+          continue;
+        MemInitFuncs->insert(Callee);
+      }
+    }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

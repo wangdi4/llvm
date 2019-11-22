@@ -26,6 +26,7 @@
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
@@ -159,7 +160,7 @@ protected:
     if (D->Kind != Dep::DK_Load)
       return false;
 
-    Type* OutType = nullptr;
+    Type *OutType = nullptr;
     if (!Idioms::isFieldAddr(D->Arg1, S, ArgNo, OutType))
       return false;
 
@@ -637,8 +638,8 @@ public:
                           const SummaryForIdiom &S,
                           const SmallVectorImpl<StructType *> &Arrays,
                           TransformationData &TI)
-      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Arrays(Arrays),
-        TI(TI) {}
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Arrays(Arrays), TI(TI) {
+  }
 
   unsigned getTotal() const { return TI.ArrayInstToTransform.size(); }
 
@@ -767,8 +768,8 @@ public:
         // Memset of structure itself.
         else if (auto *MI = dyn_cast<MemSetInst>(&I)) {
           SeenArrays = true;
-          // Safety checks guarantee (CFG + legality) that constant address does not
-          // refer to array of interest.
+          // Safety checks guarantee (CFG + legality) that constant address does
+          // not refer to array of interest.
           if (isa<Constant>(MI->getDest()))
             // Not related to arrays of interest of interest and not setting
             // Handled = false here.
@@ -846,8 +847,7 @@ class CallSiteComparator : public StructIdioms {
       SOAToAOSLayoutInfo::MaxNumFieldCandidates;
 
 public:
-  using FunctionSet =
-      SmallVector<const Function *, MaxNumFieldCandidates>;
+  using FunctionSet = SmallVector<const Function *, MaxNumFieldCandidates>;
   struct CallSitesInfo {
     FunctionSet Ctors;
     FunctionSet CCtors;
@@ -937,6 +937,7 @@ private:
     if (CSs.size() != Arrays.size())
       return false;
 
+    SmallPtrSet<const Instruction *, 4> KnownInsts;
     auto CallPivot = CSs[0];
     auto OffPivot = Offsets[0];
     for (auto P : zip(make_range(CSs.begin() + 1, CSs.end()),
@@ -961,8 +962,21 @@ private:
         if (std::find_if(CSs.begin(), CSs.end(),
                          [&I](const CallBase *Call) -> bool {
                            return &I == Call;
-                         }) == CSs.end())
+                         }) == CSs.end()) {
+          // Make sure the non-Append call is safe.
+          Function *AuxF = getCalledFunction(cast<CallBase>(I));
+          if (AuxF && isSafeCallForAppend(AuxF, DTInfo, TLI)) {
+
+            if (!I.hasOneUse())
+              break;
+            auto *SI = dyn_cast<StoreInst>(I.user_back());
+            if (!SI || !isa<AllocaInst>(SI->getPointerOperand()))
+              break;
+            KnownInsts.insert(SI);
+            continue;
+          }
           return false;
+        }
         continue;
       case Instruction::BitCast:
       case Instruction::Br:
@@ -971,6 +985,8 @@ private:
       case Instruction::Ret:
         continue;
       default:
+        if (KnownInsts.count(&I))
+          continue;
         if (StartCmp)
           return false;
         continue;
@@ -992,10 +1008,10 @@ private:
   bool checkDirectMemoryInterfaceLoads(const Value *A1, const Value *A2) const {
     unsigned ArgNo1 = -1U;
     unsigned ArgNo2 = -1U;
-    if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1),
-                                                   S, ArgNo1) ||
-        !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2),
-                                                   S, ArgNo2))
+    if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1), S,
+                                                   ArgNo1) ||
+        !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2), S,
+                                                   ArgNo2))
       return false;
 
     A1 = A1->stripPointerCasts();
@@ -1012,7 +1028,7 @@ private:
       return false;
 
     if (ArgNo1 != ArgNo2) {
-      const Instruction* Loads[] = {L1, L2};
+      const Instruction *Loads[] = {L1, L2};
       for (auto *Load : Loads)
         if (Load->getParent() == &S.Method->getEntryBlock())
           // See isMemoryInterfaceSetFromArg/isMemoryInterfaceCopy check in
@@ -1080,6 +1096,211 @@ private:
     return true;
   }
 
+  // Compares EH related BBs of destructors. This basically returns true
+  // if EH related BBs are in any of the below patterns.
+  //
+  // Pattern 1:
+  //  BB:
+  //    %21 = landingpad { i8*, i32 }
+  //          cleanup
+  //   %22 = bitcast %"RefVector"* %17 to i8*
+  //   invoke void @Free(i8* %22)
+  //          to label %BB1 unwind label %BB2
+  //
+  //  BB1:                          ; preds = %BB
+  //    resume { i8*, i32 } %21
+  //
+  //  BB2:                          ; preds = %BB
+  //     %25 = landingpad { i8*, i32 }
+  //         catch i8* null
+  //     %26 = extractvalue { i8*, i32 } %25, 0
+  //     tail call void @__clang_call_terminate(i8* %26) #51
+  //     unreachable
+  //
+  // Pattern 2:
+  //  BB:
+  //    %31 = landingpad { i8*, i32 }
+  //           cleanup
+  //    %32 = extractvalue { i8*, i32 } %31, 0
+  //    %33 = extractvalue { i8*, i32 } %31, 1
+  //    %34 = getelementptr %"ValVector", %"ValVector"* %3, i64 0, i32 0
+  //    invoke void @Free(i8* %34)
+  //             to label %40 unwind label %45
+  //
+  //  BB1:                                               ; preds = %BB,
+  //     %41 = phi i8* [ %37, %35 ], [ %32, %30 ]
+  //     %42 = phi i32 [ %38, %35 ], [ %33, %30 ]
+  //     %43 = insertvalue { i8*, i32 } undef, i8* %41, 0
+  //     %44 = insertvalue { i8*, i32 } %43, i32 %42, 1
+  //     resume { i8*, i32 } %44
+  //
+  //  BB2:                                               ; preds = %BB,
+  //     %46 = landingpad { i8*, i32 }
+  //             catch i8* null
+  //     %47 = extractvalue { i8*, i32 } %46, 0
+  //     tail call void @__clang_call_terminate(i8* %47) #51
+  //     unreachable
+  //
+  // TODO: We could improve SOAToAOSPrepare pass to convert pattern 1 to
+  // pattern 2 if any potential SOAToAOS candidate's destructor has pattern 1
+  // EH code. That will help us to avoid this pattern match.
+  //
+  bool compareDtorBBs(const CallBase *Call1, const CallBase *Call2) const {
+
+    // Check if there are any instructions in BB that are not visited.
+    auto CheckUnVisitedInst = [](BasicBlock *BB,
+                                 SmallPtrSetImpl<Instruction *> &Visited) {
+      for (auto &I : *BB) {
+        if (isa<DbgInfoIntrinsic>(&I) || isa<BitCastInst>(&I) ||
+            isa<GetElementPtrInst>(&I))
+          continue;
+        if (!Visited.count(&I))
+          return false;
+      }
+      return true;
+    };
+
+    // Check this is Unreachable BB.
+    //  Ex:  BB2 in the above example.
+    //
+    auto CheckUnreachableBB = [this, &CheckUnVisitedInst](BasicBlock *BB) {
+      SmallPtrSet<Instruction *, 8> Visited;
+
+      auto *UnR = dyn_cast<UnreachableInst>(BB->getTerminator());
+      if (!UnR)
+        return false;
+
+      auto *CallT =
+          dyn_cast_or_null<CallBase>(UnR->getPrevNonDebugInstruction());
+      if (!CallT)
+        return false;
+      Function *F = dtrans::getCalledFunction(cast<CallBase>(*CallT));
+      LibFunc LibF;
+      if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
+        return false;
+      if (LibF != LibFunc_clang_call_terminate)
+        return false;
+
+      auto *EVI = dyn_cast<ExtractValueInst>(CallT->getArgOperand(0));
+      if (!EVI || EVI->getNumIndices() != 1 || *EVI->idx_begin() != 0)
+        return false;
+      auto *LPI = dyn_cast<LandingPadInst>(EVI->getOperand(0));
+      if (!LPI || LPI->getNumClauses() != 1 || !LPI->isCatch(0))
+        return false;
+
+      Visited.insert(UnR);
+      Visited.insert(CallT);
+      Visited.insert(EVI);
+      Visited.insert(LPI);
+      if (!CheckUnVisitedInst(BB, Visited))
+        return false;
+
+      return true;
+    };
+
+    // Try to find given "Val" is return value of LandingPad instruction.
+    // Return the LandingPad instruction if it finds one.
+    // Ex: BB and BB1 of pattern 2 in the above example.
+    //
+    auto GetLandingPadInstForResumeVal =
+        [](Value *Val, BasicBlock *BB,
+           SmallPtrSetImpl<Instruction *> &Visited) -> LandingPadInst * {
+      auto *IV1 = dyn_cast<InsertValueInst>(Val);
+      if (!IV1 || IV1->getNumIndices() != 1 || *IV1->idx_begin() != 1)
+        return nullptr;
+      auto *PH1 = dyn_cast<PHINode>(IV1->getOperand(1));
+      if (!PH1)
+        return nullptr;
+      auto *IV0 = dyn_cast<InsertValueInst>(IV1->getAggregateOperand());
+      if (!IV0 || IV0->getNumIndices() != 1 || *IV0->idx_begin() != 0)
+        return nullptr;
+      auto *PH0 = dyn_cast<PHINode>(IV0->getOperand(1));
+      if (!PH0)
+        return nullptr;
+      auto *EV0 = dyn_cast<ExtractValueInst>(PH0->getIncomingValueForBlock(BB));
+      if (!EV0 || EV0->getNumIndices() != 1 || *EV0->idx_begin() != 0)
+        return nullptr;
+      auto *EV1 = dyn_cast<ExtractValueInst>(PH1->getIncomingValueForBlock(BB));
+      if (!EV1 || EV1->getNumIndices() != 1 || *EV1->idx_begin() != 1)
+        return nullptr;
+      if (EV0->getAggregateOperand() != EV1->getAggregateOperand())
+        return nullptr;
+      Visited.insert(IV1);
+      Visited.insert(IV0);
+      Visited.insert(PH0);
+      Visited.insert(PH1);
+      Visited.insert(EV0);
+      Visited.insert(EV1);
+      return dyn_cast<LandingPadInst>(EV1->getAggregateOperand());
+    };
+
+    // Parse given LandingPad BB and check it is either in pattern 1 or
+    // pattern 2. "FreePtr" is the pointer that is being passed to
+    // destructor call.
+    auto CheckResume = [this, &CheckUnreachableBB, &CheckUnVisitedInst,
+                        &GetLandingPadInstForResumeVal](BasicBlock *BB,
+                                                        Value *FreePtr) {
+      SmallPtrSet<Instruction *, 16> Visited;
+      auto *Inv = dyn_cast<InvokeInst>(BB->getTerminator());
+      if (!Inv)
+        return false;
+      auto *Info = DTInfo.getCallInfo(Inv);
+      if (!Info || Info->getCallInfoKind() != dtrans::CallInfo::CIK_Free)
+        return false;
+      SmallPtrSet<const Value *, 3> Args;
+      collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), Inv, Args,
+                             TLI);
+      assert(Args.size() == 1 && "Unexpected deallocation function");
+      Value *A = Inv->getArgOperand(0);
+      if (A->stripPointerCasts() != FreePtr->stripPointerCasts())
+        return false;
+
+      BasicBlock *BB1 = Inv->getNormalDest();
+      BasicBlock *BB2 = Inv->getUnwindDest();
+      if (!CheckUnreachableBB(BB2))
+        return false;
+      auto *Res = dyn_cast<ResumeInst>(BB1->getTerminator());
+      if (!Res)
+        return false;
+      Value *Val = Res->getValue();
+      auto *LPI = dyn_cast<LandingPadInst>(Val);
+      if (!LPI)
+        LPI = GetLandingPadInstForResumeVal(Val, BB, Visited);
+
+      if (!LPI || LPI->getNumClauses() != 0 || !LPI->isCleanup())
+        return false;
+
+      Visited.insert(Inv);
+      Visited.insert(Res);
+      Visited.insert(LPI);
+
+      if (!CheckUnVisitedInst(BB, Visited) || !CheckUnVisitedInst(BB1, Visited))
+        return false;
+
+      return true;
+    };
+
+    assert(isa<InvokeInst>(Call1) && isa<InvokeInst>(Call2) &&
+           "Incorrect arguments");
+    auto *FreePtr1 = Call1->getArgOperand(0)->stripPointerCasts();
+    auto *FreePtr2 = Call2->getArgOperand(0)->stripPointerCasts();
+
+    BasicBlock *BB1 = cast<InvokeInst>(Call1)->getUnwindDest();
+    BasicBlock *BB2 = cast<InvokeInst>(Call2)->getUnwindDest();
+    if (pred_size(BB1) != 1 || pred_size(BB2) != 1)
+      return false;
+
+    if (succ_size(BB1) != succ_size(BB2))
+      return false;
+
+    if (succ_size(BB1) > 2)
+      return false;
+    if (!CheckResume(BB1, FreePtr1) || !CheckResume(BB2, FreePtr2))
+      return false;
+
+    return true;
+  }
+
   // BasicBlock in cleanup successor of ctor/dtor may contain:
   //    - landing pad, processing simple processing of caught exception
   //    - (extractvalue) and
@@ -1094,9 +1315,10 @@ private:
   //          to label %resume unwind label %terminate
   //
   // BasicBlocks in normal successor of dtor have subset of instructions above.
-  bool compareCtorDtorBBs(const CallBase *Call1, const CallBase *Call2) const {
+  bool compareCtorBBs(const CallBase *Call1, const CallBase *Call2) const {
 
-    assert(isa<InvokeInst>(Call1) && isa<InvokeInst>(Call2) && "Incorrect arguments");
+    assert(isa<InvokeInst>(Call1) && isa<InvokeInst>(Call2) &&
+           "Incorrect arguments");
     auto *FreePtr1 = Call1->getArgOperand(0)->stripPointerCasts();
     auto *FreePtr2 = Call2->getArgOperand(0)->stripPointerCasts();
 
@@ -1202,7 +1424,7 @@ private:
   // 'this' parameters are from allocation function and non-initialized.
   // Remaining arguments are equal or loads of MemoryInterface.
   //
-  // Cleanup BasicBlock should be equal as in compareCtorDtorBBs.
+  // Cleanup BasicBlock should be equal as in compareCtorBBs.
   bool compareCtorCalls(const CallBase *Call1, const CallBase *Call2,
                         unsigned Off1, unsigned Off2, bool Copy) const {
 
@@ -1225,8 +1447,8 @@ private:
 
       if (ThisArg) {
         ThisArg = false;
-        if (!compareAllocDeallocCalls(cast<CallBase>(A1),
-                                      cast<CallBase>(A2), nullptr, nullptr))
+        if (!compareAllocDeallocCalls(cast<CallBase>(A1), cast<CallBase>(A2),
+                                      nullptr, nullptr))
           return false;
         continue;
       }
@@ -1234,10 +1456,8 @@ private:
       if (Copy) {
         unsigned ArgNo1 = -1U;
         unsigned ArgNo2 = -1U;
-        if (!StructIdioms::isFieldLoad(
-                DM.getApproximation(A1), Off1, ArgNo1) ||
-            !StructIdioms::isFieldLoad(
-                DM.getApproximation(A2), Off2, ArgNo2) ||
+        if (!StructIdioms::isFieldLoad(DM.getApproximation(A1), Off1, ArgNo1) ||
+            !StructIdioms::isFieldLoad(DM.getApproximation(A2), Off2, ArgNo2) ||
             ArgNo1 != 1 || ArgNo2 != 1)
           return false;
 
@@ -1253,7 +1473,7 @@ private:
 
     bool Call1IsInvoke = isa<InvokeInst>(Call1);
     if (Call1IsInvoke != isa<InvokeInst>(Call2) ||
-        (Call1IsInvoke && !compareCtorDtorBBs(Call1, Call2)))
+        (Call1IsInvoke && !compareCtorBBs(Call1, Call2)))
       return false;
 
     return true;
@@ -1316,7 +1536,7 @@ private:
   //
   // Arguments are from the same instance of struct.
   //
-  // Cleanup BasicBlock should be equal as in compareCtorDtorBBs.
+  // Cleanup BasicBlock should be equal as in compareDtorBBs.
   bool compareDtorCalls(const CallBase *Call1, const CallBase *Call2,
                         unsigned Off1, unsigned Off2) const {
 
@@ -1346,7 +1566,7 @@ private:
     // Deallocation on normal path is checked in checkDtorsCallsAreAdjacent.
     bool Call1IsInvoke = isa<InvokeInst>(Call1);
     if (Call1IsInvoke != isa<InvokeInst>(Call2) ||
-        (Call1IsInvoke && !compareCtorDtorBBs(Call1, Call2)))
+        (Call1IsInvoke && !compareDtorBBs(Call1, Call2)))
       return false;
 
     return true;
@@ -1430,12 +1650,12 @@ private:
   // Find first and last basic block in sequence and check all instructions on
   // intermediate BasicBlock during normal execution.
   //
-  // Exception handling of ctors is checked in compareCtorDtorBBs.
+  // Exception handling of ctors is checked in compareCtorBBs.
   bool checkCtorsCallsAreAdjacent(
       const SmallVectorImpl<const CallBase *> &CtorCSs) const {
 
     SmallPtrSet<const BasicBlock *, 2 * MaxNumFieldCandidates> BBs;
-    SmallPtrSet<StructType*, MaxNumFieldCandidates> ArrayTypes;
+    SmallPtrSet<StructType *, MaxNumFieldCandidates> ArrayTypes;
     SmallVector<const CallBase *, MaxNumFieldCandidates> NewCalls;
     const BasicBlock *AllocLandingPad = nullptr;
     // BasicBlock with allocation calls
@@ -1522,7 +1742,7 @@ private:
             // ignored to prove that Ctos can be combined safely. Since
             // I is neither AllocCall nor Ctor in first BB, just ignore
             // instructions till I. For now, just ignoring BitCast/
-            // GetElementPtr/Unrelated Loads.
+            // GetElementPtr/loads as they are before first Alloc call.
             BasicBlock::const_iterator EndIt = I.getIterator();
             BasicBlock::const_iterator It = FL.first->begin();
             for (; It != EndIt; ++It) {
@@ -1530,10 +1750,7 @@ private:
               switch (II.getOpcode()) {
               case Instruction::BitCast:
               case Instruction::GetElementPtr:
-                continue;
               case Instruction::Load:
-                if (StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, II))
-                  return false;
                 continue;
               default:
                 if (isa<DbgInfoIntrinsic>(II))
@@ -1557,7 +1774,13 @@ private:
       }
     }
 
-    if (!ArrayTypes.empty() && LastStoreBB)
+    if (!ArrayTypes.empty() && LastStoreBB) {
+      // Ignore almost empty BB.
+      if (LastStoreBB->size() == 1) {
+        auto *Branch = dyn_cast<BranchInst>(LastStoreBB->getTerminator());
+        if (Branch && Branch->isUnconditional())
+          LastStoreBB = Branch->getSuccessor(0);
+      }
       for (auto &I : *LastStoreBB) {
         if (ArrayTypes.empty())
           break;
@@ -1565,6 +1788,7 @@ private:
         switch (I.getOpcode()) {
         case Instruction::BitCast:
         case Instruction::GetElementPtr:
+        case Instruction::Br:
           continue;
         case Instruction::Store:
           if (auto *ArrType =
@@ -1579,6 +1803,7 @@ private:
           return false;
         }
       }
+    }
 
     // Make sure there is 1-1 correspondence between
     //  - allocation calls,
@@ -1600,7 +1825,7 @@ private:
   //
   // Checks for null are also handled.
   //
-  // Exception handling of dtors is checked in compareCtorDtorBBs.
+  // Exception handling of dtors is checked in compareDtorBBs.
   bool checkDtorsCallsAreAdjacent(
       const SmallVectorImpl<const CallBase *> &DtorCSs) const {
 
@@ -1765,7 +1990,6 @@ private:
     uint64_t MaxOffset = L->getUniqueInteger().getLimitedValue();
     auto *SL = DL.getStructLayout(S.StrType);
 
-
     // Check that all pointers to arrays of interest are zeroed.
     for (auto Off : Offsets)
       if (SL->getElementOffset(Off) + DL.getPointerSize(0) > MaxOffset)
@@ -1897,9 +2121,9 @@ public:
                          }) != CSInfo.Ctors.end())
           Ctors.push_back(MethodCall);
         else if (std::find_if(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
-                         [FCalled](const Function *FCCtor) -> bool {
-                           return FCalled == FCCtor;
-                         }) != CSInfo.CCtors.end())
+                              [FCalled](const Function *FCCtor) -> bool {
+                                return FCalled == FCCtor;
+                              }) != CSInfo.CCtors.end())
           CCtors.push_back(MethodCall);
         else
           return false;
@@ -1961,7 +2185,8 @@ public:
         return false;
     }
     if (MI) {
-      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen nullptr init with memset.\n");
+      DEBUG_WITH_TYPE(DTRANS_SOASTR,
+                      dbgs() << "; Seen nullptr init with memset.\n");
       if (!checkNullptrInits(*MI))
         return false;
     }
@@ -1992,10 +2217,10 @@ public:
 class StructMethodTransformation {
   constexpr static int MaxNumFieldCandidates =
       SOAToAOSLayoutInfo::MaxNumFieldCandidates;
+
 public:
   StructMethodTransformation(
-      const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-      ValueToValueMapTy &VMap,
+      const DataLayout &DL, DTransAnalysisInfo &DTInfo, ValueToValueMapTy &VMap,
       const CallSiteComparator::CallSitesInfo &CSInfo,
       const StructureMethodAnalysis::TransformationData &InstsToTransform,
       LLVMContext &Context)
@@ -2047,7 +2272,7 @@ public:
         llvm_unreachable("Unexpected instruction to transform.");
 
     // Deal with combined call sites.
-    SmallVector<const CallInst*, MaxNumFieldCandidates> OldAppends;
+    SmallVector<const CallInst *, MaxNumFieldCandidates> OldAppends;
     for (auto *I : InstsToTransform.ArrayInstToTransform) {
       auto *NewI = cast_or_null<Instruction>((Value *)VMap[I]);
       // Removed instructions.
@@ -2062,7 +2287,7 @@ public:
                         getSOAArrayType(OldStruct, AOSOff);
 
         if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
-          OldCall->getCalledFunction()) != CSInfo.Appends.end())
+                      OldCall->getCalledFunction()) != CSInfo.Appends.end())
           // See compareAllAppendCallSites, appends should be in a single
           // BasicBlock and CallInst.
           OldAppends.push_back(cast<CallInst>(I));
@@ -2166,8 +2391,7 @@ private:
     auto *OldFunctionTy = SortedAppends[0]->getFunctionType();
     auto *FCalled = SortedAppends[0]->getCalledFunction();
     assert(FCalled && "Expected direct call");
-    auto *ArrType =
-        getStructTypeOfMethod(*FCalled);
+    auto *ArrType = getStructTypeOfMethod(*FCalled);
     assert(ArrType && "Expected class type for array method");
     auto *ElementType = getSOAElementType(ArrType, ElemOffset);
 
@@ -2199,7 +2423,7 @@ private:
     Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
     Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
 
-    for (auto *CI: OldAppends) {
+    for (auto *CI : OldAppends) {
       auto *NewCI = cast<CallInst>((Value *)VMap[CI]);
 
       SmallPtrSet<Instruction *, 5> Ops;
@@ -2208,7 +2432,7 @@ private:
           Ops.insert(OpI);
       salvageDebugInfo(*NewCI);
       NewCI->eraseFromParent();
-      for (auto *OpI: Ops)
+      for (auto *OpI : Ops)
         RecursivelyDeleteTriviallyDeadInstructions(OpI);
     }
   }

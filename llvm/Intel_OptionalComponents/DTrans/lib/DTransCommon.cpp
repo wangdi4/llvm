@@ -36,7 +36,7 @@ static cl::opt<bool> EnableMemInitTrimDown("enable-dtrans-meminittrimdown",
 
 // SOA-to-AOS Prepare transformation.
 static cl::opt<bool> EnableSOAToAOSPrepare("enable-dtrans-soatoaos-prepare",
-                                    cl::init(false), cl::Hidden,
+                                    cl::init(true), cl::Hidden,
                                     cl::desc("Enable DTrans SOAToAOSPrepare"));
 // SOA-to-AOS transformation.
 static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
