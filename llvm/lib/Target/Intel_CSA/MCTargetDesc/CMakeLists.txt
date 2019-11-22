@@ -7,7 +7,7 @@
 #    from the company.
 #
 
-add_llvm_library(LLVMCSADesc
+add_llvm_component_library(LLVMCSADesc
   CSAMCAsmInfo.cpp
   CSAMCTargetDesc.cpp
   CSAMCTargetExpr.cpp

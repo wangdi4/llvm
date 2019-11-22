@@ -11,7 +11,7 @@
 #    Configures build for project.
 #
 
-add_llvm_library(LLVMIntel_LoopOptReportSupport
+add_llvm_component_library(LLVMIntel_LoopOptReportSupport
   LoopOptReportSupport.cpp
 
   DEPENDS

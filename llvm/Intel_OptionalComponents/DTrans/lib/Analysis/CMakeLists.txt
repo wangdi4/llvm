@@ -11,7 +11,7 @@
 #    Configures build for project.
 #
 
-add_llvm_library(LLVMIntel_DTransAnalysis
+add_llvm_component_library(LLVMIntel_DTransAnalysis
   DTransUtils.cpp
   DTransAnalysis.cpp
   DTransAnnotator.cpp
