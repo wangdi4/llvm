@@ -687,6 +687,10 @@ private:
   // vector. Functionality is same as VectorUtils::getSplatValue.
   const VPValue *getOrigSplatVPValue(const VPValue *V);
 
+  /// Adjust arguments passed to SVML functions to handle masks
+  void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<Value *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys);
+
   // Widen call instruction parameters and return. Currently, this is limited
   // to svml function support that is hooked in to TLI. Later, this can be
   // extended to user-defined vector functions.

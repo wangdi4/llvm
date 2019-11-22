@@ -2235,6 +2235,56 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
   return WideInst;
 }
 
+void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
+                                      SmallVectorImpl<RegDDRef *> &VecArgs,
+                                      SmallVectorImpl<Type *> &VecArgTys,
+                                      RegDDRef *MaskValue) {
+  assert(MaskValue && "Expected mask to be present");
+  VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
+
+  if (VecTy->getBitWidth() < 512) {
+    // For 128-bit and 256-bit masked calls, mask value is appended to the
+    // parameter list. For example:
+    //
+    //  %sin.vec = call <4 x float> @__svml_sinf4_mask(<4 x float>, <4 x i32>)
+    VectorType *MaskTyExt =
+        VectorType::get(IntegerType::get(Context, VecTy->getScalarSizeInBits()),
+                        VecTy->getElementCount());
+    HLInst *MaskValueExt =
+        MainLoop->getHLNodeUtils().createSExt(MaskTyExt, MaskValue->clone());
+    addInst(MaskValueExt, nullptr);
+    VecArgTys.push_back(MaskTyExt);
+    VecArgs.push_back(MaskValueExt->getLvalDDRef()->clone());
+  } else {
+    // Compared with 128-bit and 256-bit calls, 512-bit masked calls need extra
+    // pass-through source parameters. We don't care about masked-out lanes, so
+    // just pass undef for that parameter. For example:
+    //
+    // %sin.vec = call { <16 x float>, <16 x float> } @__svml_sinf16_mask(
+    //            <16 x float>, <16 x i1>, <16 x float>)
+    SmallVector<Type *, 1> NewArgTys;
+    SmallVector<RegDDRef *, 1> NewArgs;
+
+    Constant *Undef = UndefValue::get(VecTy);
+    RegDDRef *UndefDDRef =
+        MaskValue->getDDRefUtils().createConstDDRef(Undef);
+
+    NewArgTys.push_back(VecTy);
+    NewArgs.push_back(UndefDDRef);
+
+    CanonExpr *CE = MaskValue->getSingleCanonExpr();
+    NewArgTys.push_back(CE->getDestType());
+    NewArgs.push_back(MaskValue->clone());
+
+    NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
+    for (RegDDRef *Arg : VecArgs)
+      NewArgs.push_back(Arg->clone());
+
+    VecArgTys = std::move(NewArgTys);
+    VecArgs = std::move(NewArgs);
+  }
+}
+
 HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
                                  SmallVectorImpl<RegDDRef *> &WideOps,
                                  RegDDRef *Mask,
@@ -2271,15 +2321,23 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     ArgTys.push_back(WideOps[i]->getDestType());
   }
 
-  bool Masked = false;
   // Masked intrinsics will not have explicit mask parameter. They are handled
   // like other BinOp HLInsts i.e. execute on all lanes and extract active lanes
   // during HIR-CG.
-  if (Mask && ID == Intrinsic::not_intrinsic) {
-    auto CE = Mask->getSingleCanonExpr();
-    ArgTys.push_back(CE->getDestType());
-    CallArgs.push_back(Mask->clone());
-    Masked = true;
+  bool Masked = Mask && ID == Intrinsic::not_intrinsic;
+  if (Masked) {
+    StringRef VecFuncName =
+        TLI->getVectorizedFunction(Fn->getName(), VF, Masked);
+    // Masks of SVML function calls need special treatment, it's different from
+    // the normal case for AVX512.
+    if (!VecFuncName.empty() &&
+        isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
+      addMaskToSVMLCall(Fn, CallArgs, ArgTys, Mask);
+    } else {
+      auto CE = Mask->getSingleCanonExpr();
+      ArgTys.push_back(CE->getDestType());
+      CallArgs.push_back(Mask->clone());
+    }
   }
 
   Function *VectorF =
