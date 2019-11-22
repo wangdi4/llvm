@@ -191,6 +191,9 @@ namespace llvm {
 
   /// Float128Expand - This pass expands fp128 operations to libcalls.
   extern char &Float128ExpandID;
+
+  /// RAReportEmitter - This pass prints register allocation reports.
+  extern char &RAReportEmitterID;
 #endif  // INTEL_CUSTOMIZATION
 
   /// createPostRAHazardRecognizer - This pass runs the post-ra hazard
