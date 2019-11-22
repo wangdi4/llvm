@@ -221,20 +221,17 @@ static cl::opt<unsigned>
                   cl::desc("Size of the expression which is considered huge"),
                   cl::init(4096));
 
-<<<<<<< HEAD
+static cl::opt<bool>
+ClassifyExpressions("scalar-evolution-classify-expressions",
+    cl::Hidden, cl::init(true),
+    cl::desc("When printing analysis, include information on every instruction"));
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<unsigned> NAryOperandStrengthenThreshold(
      "scalar-evolution-nary-operand-strengthen-threshold", cl::Hidden,
      cl::desc("Maximum operands to analyze for NoWrap flag strengthening"),
      cl::init(4));
 #endif //INTEL_CUSTOMIZATION
-=======
-static cl::opt<bool>
-ClassifyExpressions("scalar-evolution-classify-expressions",
-    cl::Hidden, cl::init(true),
-    cl::desc("When printing analysis, include information on every instruction"));
-
->>>>>>> 70d173fb1f7b920c0a56fb5b0b6776985728716e
 
 //===----------------------------------------------------------------------===//
 //                           SCEV class definitions
