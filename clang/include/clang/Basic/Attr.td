@@ -3862,6 +3862,7 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
+          case OMP_CTX_target_variant_dispatch:
 // end INTEL_COLLAB
           case OMP_CTX_vendor:
             llvm_unreachable("Unexpected context selector in device set.");
