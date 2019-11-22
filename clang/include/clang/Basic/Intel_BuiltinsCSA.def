@@ -33,17 +33,22 @@ BUILTIN(__builtin_csa_spmd_worker_num, "i", "n")
 
 BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
 
-// SIMD ops.
+// SIMD ops
 BUILTIN(__builtin_csa_addf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
-BUILTIN(__builtin_csa_subf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
-BUILTIN(__builtin_csa_mulf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_addss8x8,    "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_addsu8x8,    "V8cV8cV8c",          "ncV:64:")
 BUILTIN(__builtin_csa_addsubf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
-BUILTIN(__builtin_csa_subaddf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_fmaf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
-BUILTIN(__builtin_csa_fmsf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
-BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_maxs8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_maxu8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_movmsk8x8,   "UcV8c",              "ncV:64:")
+BUILTIN(__builtin_csa_mulf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subaddf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
 
 // LIC Queues Builtins
 BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
@@ -51,7 +56,6 @@ BUILTIN(__builtin_csa_lic_write, "v.", "nt")
 BUILTIN(__builtin_csa_lic_read, "d.", "nt")
 
 // Data-gated prefetch
-
 BUILTIN(__builtin_csa_gated_prefetch, "v.", "ntc")
 
 #undef BUILTIN

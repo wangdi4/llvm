@@ -180,6 +180,11 @@ def int_csa_fmsaf32x2 : GCCBuiltin<"__builtin_csa_fmsaf32x2">,
     Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
 
+// Create mask from the most significant bit of each 8-bit element in a, and return the result.
+// int __m64_movemask_epi8(__m64i a)
+def int_csa_movmsk8x8 : GCCBuiltin<"__builtin_csa_movmsk8x8">,
+    Intrinsic<[llvm_i8_ty], [llvm_v8i8_ty], [IntrNoMem]>;
+
 // Intrinsics for specifying ordering edges attached to memory references.
 def int_csa_inord  : Intrinsic<[], [llvm_i1_ty], [] /* , "llvm.csa.inord"  */>;
 def int_csa_outord : Intrinsic<[llvm_i1_ty], [], [] /* , "llvm.csa.outord" */>;

@@ -2534,6 +2534,7 @@ def UNPACK64_8 : FMTGEN<UNPACK, Ti8,
     (ins RCLi64:$src),
     "unpack64_8\t$src, $v0, $v1, $v2, $v3, $v4, $v5, $v6, $v7",
     []>;
+
 def UNPACK64_16 : FMTGEN<UNPACK, Ti16,
     (outs I16:$v0, I16:$v1, I16:$v2, I16:$v3),
     (ins RCLi64:$src),
@@ -2553,7 +2554,7 @@ def MOVMSK8X8: FMTGEN<?, Ti8x8,
     (outs I8:$res),
     (ins RCLi8x8:$op1),
     "movmsk8x8\t$res, $op1",
-    []>;
+    [(set I8:$res, (int_csa_movmsk8x8 imm:$op1))]>;
 
 def MOVMSK16X4: FMTGEN<?, Ti16x4,
     (outs I8:$res),

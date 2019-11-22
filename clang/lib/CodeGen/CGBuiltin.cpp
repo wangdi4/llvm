@@ -13715,6 +13715,40 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(F, {Gate, Address, RW, Locality});
   }
 
+  // SIMD saturating integer addition (signed)
+  case CSA::BI__builtin_csa_addss8x8: {
+    Value *const Arg0    = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1    = EmitScalarExpr(E->getArg(1));
+    llvm::Function *F    = CGM.getIntrinsic(Intrinsic::sadd_sat, Arg0->getType());
+    return Builder.CreateCall(F, {Arg0, Arg1});
+  }
+
+  // SIMD saturating integer addition (unsigned)
+  case CSA::BI__builtin_csa_addsu8x8: {
+    Value *const Arg0    = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1    = EmitScalarExpr(E->getArg(1));
+    llvm::Function *F    = CGM.getIntrinsic(Intrinsic::uadd_sat, Arg0->getType());
+    return Builder.CreateCall(F, {Arg0, Arg1});
+  }
+
+  // SIMD max (signed)
+  case CSA::BI__builtin_csa_maxs8x8: {
+     Value *const Arg0    = EmitScalarExpr(E->getArg(0));
+     Value *const Arg1    = EmitScalarExpr(E->getArg(1));
+     Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_SGT, Arg0, Arg1);
+     Value *Res = Builder.CreateSelect(Cmp, Arg0, Arg1);
+     return Res;
+  }
+
+  // SIMD max (unsigned)
+  case CSA::BI__builtin_csa_maxu8x8: {
+     Value *const Arg0    = EmitScalarExpr(E->getArg(0));
+     Value *const Arg1    = EmitScalarExpr(E->getArg(1));
+     Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_UGT, Arg0, Arg1);
+     Value *Res = Builder.CreateSelect(Cmp, Arg0, Arg1);
+     return Res;
+  }
+
   default:
     return nullptr;
   }
