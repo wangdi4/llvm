@@ -90,6 +90,7 @@ int __cdecl omp_get_default_device(void);
 int32_t __cdecl __kmpc_omp_taskwait(void *loc_ref, int32_t gtid);
 int32_t __cdecl __kmpc_global_thread_num(void *);
 int __cdecl __kmpc_get_target_offload(void);
+void __cdecl __kmpc_proxy_task_completed_ooo(void *);
 #else
 // We do not have to make these weak just to be able
 // to have undefined symbols in the shared library.
@@ -99,6 +100,7 @@ int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
+void __kmpc_proxy_task_completed_ooo(void *);
 #endif
 #else  // INTEL_COLLAB
 int omp_get_default_device(void) __attribute__((weak));
