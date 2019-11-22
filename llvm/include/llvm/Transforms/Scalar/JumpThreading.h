@@ -171,8 +171,15 @@ public:
                                                      BasicBlock::iterator BE,
                                                      BasicBlock *NewBB,
                                                      BasicBlock *PredBB);
+<<<<<<< HEAD
   bool ThreadEdge(const jumpthreading::ThreadRegionInfo &RegionInfo,  // INTEL
                   const SmallVectorImpl<BasicBlock*> &PredBBs,        // INTEL
+=======
+  bool TryThreadEdge(BasicBlock *BB,
+                     const SmallVectorImpl<BasicBlock *> &PredBBs,
+                     BasicBlock *SuccBB);
+  void ThreadEdge(BasicBlock *BB, const SmallVectorImpl<BasicBlock *> &PredBBs,
+>>>>>>> 4f5d931c5813a5f89250b427b2d3e8c63e03a0c6
                   BasicBlock *SuccBB);
   bool DuplicateCondBranchOnPHIIntoPred(
       BasicBlock *BB, const SmallVectorImpl<BasicBlock *> &PredBBs);

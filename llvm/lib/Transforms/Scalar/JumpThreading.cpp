@@ -2012,7 +2012,11 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                             getSuccessor(GetBestDestForJumpOnUndef(BB));
 
   // Ok, try to thread it!
+<<<<<<< HEAD
   return ThreadEdge(RegionInfo, PredsToFactor, MostPopularDest);    // INTEL
+=======
+  return TryThreadEdge(BB, PredsToFactor, MostPopularDest);
+>>>>>>> 4f5d931c5813a5f89250b427b2d3e8c63e03a0c6
 }
 
 /// ProcessBranchOnPHI - We have an otherwise unthreadable conditional branch on
@@ -2326,6 +2330,7 @@ JumpThreadingPass::CloneInstructions(BasicBlock::iterator BI,
   return ValueMapping;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// We intend to thread an edge into the region across a group of blocks to an
 /// outgoing edge of the region. In order to do this, we have to duplicate all
@@ -2459,6 +2464,16 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     LLVM_DEBUG(dbgs() << "  Not threading to dest loop header BB '"
                       << SuccBB->getName()
                       << "' - it might create an irreducible loop!\n");
+=======
+/// TryThreadEdge - Thread an edge if it's safe and profitable to do so.
+bool JumpThreadingPass::TryThreadEdge(
+    BasicBlock *BB, const SmallVectorImpl<BasicBlock *> &PredBBs,
+    BasicBlock *SuccBB) {
+  // If threading to the same block as we come from, we would infinite loop.
+  if (SuccBB == BB) {
+    LLVM_DEBUG(dbgs() << "  Not threading across BB '" << BB->getName()
+                      << "' - would thread to self!\n");
+>>>>>>> 4f5d931c5813a5f89250b427b2d3e8c63e03a0c6
     return false;
   }
 
@@ -2536,6 +2551,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     return false;
   }
 
+<<<<<<< HEAD
   if (ConservativeJumpThreading) {
     // Only allow multi-BB thread regions when threading across switches.
     if (RegionBlocks.size() != 1 &&
@@ -2559,6 +2575,22 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       }
     }
   }
+=======
+  ThreadEdge(BB, PredBBs, SuccBB);
+  return true;
+}
+
+/// ThreadEdge - We have decided that it is safe and profitable to factor the
+/// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
+/// across BB.  Transform the IR to reflect this change.
+void JumpThreadingPass::ThreadEdge(BasicBlock *BB,
+                                   const SmallVectorImpl<BasicBlock *> &PredBBs,
+                                   BasicBlock *SuccBB) {
+  assert(SuccBB != BB && "Don't create an infinite loop");
+
+  assert(!LoopHeaders.count(BB) && !LoopHeaders.count(SuccBB) &&
+         "Don't thread across loop headers");
+>>>>>>> 4f5d931c5813a5f89250b427b2d3e8c63e03a0c6
 
   // And finally, do it!  Start by factoring the predecessors if needed.
   BasicBlock *PredBB;
@@ -2572,11 +2604,16 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
 
   // And finally, do it!
   LLVM_DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName()
+<<<<<<< HEAD
                     << "' to '" << SuccBB->getName() << "' with cost: "
                     << JumpThreadCost << ", across blocks:\n    ";
              for (auto BB : RegionBlocks)
                dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
+=======
+                    << "' to '" << SuccBB->getName()
+                    << ", across block:\n    " << *BB << "\n");
+>>>>>>> 4f5d931c5813a5f89250b427b2d3e8c63e03a0c6
 
   if (DTU->hasPendingDomTreeUpdates())
     LVI->disableDT();
@@ -2845,7 +2882,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   // Threaded an edge!
   ++BlockThreadCount[RegionBottom];
   ++NumThreads;
-  return true;
 }
 #endif // INTEL_CUSTOMIZATION
 
