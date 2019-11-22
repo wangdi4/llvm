@@ -1349,8 +1349,11 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   W->populateBBSet();
 
   resetValueInOmpClauseGeneric(W, W->getIf());
-
   resetValueInTaskDependClause(W);
+  if (isa<WRNTaskloopNode>(W)) {
+    resetValueInOmpClauseGeneric(W, W->getNumTasks());
+    resetValueInOmpClauseGeneric(W, W->getGrainsize());
+  }
 
   AllocaInst *SharedAggrStruct = genAndPopulateTaskSharedStruct(W, KmpSharedTy);
 
