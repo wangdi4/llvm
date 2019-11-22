@@ -8628,19 +8628,26 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
   StringRef PrivateString =
     VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+  assert(W->canHavePrivate() && "OpenMP loop region cannot have PRIVATE?");
   EntryCI = VPOParoptUtils::addOperandBundlesInCall(
       EntryCI,
       {
         { IVString, { NewIVPtrDef } },
         { UBString, { NewUBPtrDef } },
-        // We should probably make LB PRIVATE, since we assume that
-        // it is always 0. For the time being make it FIRSTPRIVATE,
-        // just as FE does.
-        { FirstPrivateString, { NewLBPtrDef } },
-        { PrivateString, OldIVPtrDefs },
-        // The old UBs' values are used inside the region
-        // to compute the dimensions.
-        { FirstPrivateString, OldUBPtrDefs } });
+        { PrivateString, OldIVPtrDefs } });
+  if (W->canHaveFirstprivate()) {
+    // SIMD cannot have firstprivate() clause.
+    EntryCI = VPOParoptUtils::addOperandBundlesInCall(
+        EntryCI,
+        {
+          // We should probably make LB PRIVATE, since we assume that
+          // it is always 0. For the time being make it FIRSTPRIVATE,
+          // just as FE does.
+          { FirstPrivateString, { NewLBPtrDef } },
+          // The old UBs' values are used inside the region
+          // to compute the dimensions.
+          { FirstPrivateString, OldUBPtrDefs } });
+  }
   W->setEntryDirective(EntryCI);
 
   WRegionNode *P = W;
