@@ -23,6 +23,7 @@
 // for each pass.
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
@@ -70,6 +71,7 @@ void initializeDTransTransposeWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOptBaseTestWrapperPass(PassRegistry&);
+void initializeDTransTypeMetadataReaderTestWrapperPass(PassRegistry&);
 #endif // !INTEL_PRODUCT_RELEASE
 
 // This is used by ForcePassLinking.

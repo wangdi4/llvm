@@ -9,11 +9,14 @@ DTrans documents
    :hidden:
 
    dtrans-analysis
+   dtrans-opaque-pointers
    dtrans-annotations
    dtrans-transforms
    padded-pointer-annotation
 
 :doc:`DTrans Infrastructure and Analysis <dtrans-analysis>`
+
+:doc:`DTrans Infrastructure and Type Recovery for Opaque Pointers <dtrans-opaque-pointers>`
 
 :doc:`DTrans IR Metadata and Annotation usage <dtrans-annotations>`
 
