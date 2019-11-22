@@ -228,14 +228,14 @@
 
 // OpenMP context selector sets.
 OPENMP_CONTEXT_SELECTOR_SET(implementation)
-<<<<<<< HEAD
+OPENMP_CONTEXT_SELECTOR_SET(device)
 #if INTEL_COLLAB
 OPENMP_CONTEXT_SELECTOR_SET(construct)
-OPENMP_CONTEXT_SELECTOR_SET(device)
 #endif // INTEL_COLLAB
 
 // OpenMP context selectors.
 OPENMP_CONTEXT_SELECTOR(vendor)
+OPENMP_CONTEXT_SELECTOR(kind)
 #if INTEL_COLLAB
 OPENMP_CONTEXT_SELECTOR(target_variant_dispatch)
 OPENMP_CONTEXT_SELECTOR(arch)
@@ -246,13 +246,6 @@ OPENMP_CONTEXT_SELECTOR(arch)
 #define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)
 #endif
 #endif // INTEL_COLLAB
-=======
-OPENMP_CONTEXT_SELECTOR_SET(device)
-
-// OpenMP context selectors.
-OPENMP_CONTEXT_SELECTOR(vendor)
-OPENMP_CONTEXT_SELECTOR(kind)
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
 
 // OpenMP directives.
 OPENMP_DIRECTIVE(threadprivate)

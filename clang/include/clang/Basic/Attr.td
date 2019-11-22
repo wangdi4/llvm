@@ -3821,38 +3821,24 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
-<<<<<<< HEAD
 // INTEL_COLLAB
           case OMP_CTX_arch:
           case OMP_CTX_target_variant_dispatch:
 // end INTEL_COLLAB
-=======
           case OMP_CTX_kind:
             llvm_unreachable("Unexpected context selector in implementation set.");
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
           OS << "}";
           break;
-<<<<<<< HEAD
 // INTEL_COLLAB
         case OMP_CTX_SET_construct:
           OS << "implementation={";
           OS << "target variant dispatch";
           OS << "}";
           break;
-        case OMP_CTX_SET_device:
-          OS << "device={";
-          switch (Ctx) {
-          case OMP_CTX_arch:
-            OS << "arch(";
-            printScore(OS, Policy, I);
-            if (implVendors_size() > 0) {
-              OS << *implVendors(). begin();
-              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
-                OS << ", " << VendorName;
-=======
+// end INTEL_COLLAB
         case OMP_CTX_SET_device:
           OS << "device={";
           switch (Ctx) {
@@ -3862,22 +3848,28 @@ def OMPDeclareVariant : InheritableAttr {
               OS << *deviceKinds().begin();
               for (StringRef KindName : llvm::drop_begin(deviceKinds(), 1))
                 OS << ", " << KindName;
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
             }
             OS << ")";
             break;
+// INTEL_COLLAB
+          case OMP_CTX_arch:
+            OS << "arch(";
+            printScore(OS, Policy, I);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+// end INTEL_COLLAB
           case OMP_CTX_vendor:
-<<<<<<< HEAD
-          case OMP_CTX_target_variant_dispatch:
-=======
             llvm_unreachable("Unexpected context selector in device set.");
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
           OS << "}";
           break;
-// end INTEL_COLLAB
         case OMP_CTX_SET_unknown:
           llvm_unreachable("Unknown context selector set.");
         }

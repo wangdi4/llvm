@@ -11379,14 +11379,11 @@ bool matchesContext(CodeGenModule &CGM,
         if (!checkContext<OMP_CTX_SET_implementation, OMP_CTX_vendor>(Data))
           return false;
         break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
       case OMP_CTX_arch:
       case OMP_CTX_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
       case OMP_CTX_kind:
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
       case OMP_CTX_unknown:
         llvm_unreachable(
             "Unexpected context selector kind in implementation set.");
@@ -11399,6 +11396,10 @@ bool matchesContext(CodeGenModule &CGM,
                 Data, CGM))
           return false;
         break;
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
       case OMP_CTX_vendor:
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind in device set.");
@@ -11406,7 +11407,6 @@ bool matchesContext(CodeGenModule &CGM,
       break;
 #if INTEL_COLLAB
     case OMP_CTX_SET_construct:
-    case OMP_CTX_SET_device:
 #endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
@@ -11436,12 +11436,10 @@ translateAttrToContextSelectorData(ASTContext &C,
         Data.back().Names =
             llvm::makeArrayRef(A->implVendors_begin(), A->implVendors_end());
         break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
       case OMP_CTX_arch:
       case OMP_CTX_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
       case OMP_CTX_kind:
       case OMP_CTX_unknown:
         llvm_unreachable(
@@ -11454,15 +11452,17 @@ translateAttrToContextSelectorData(ASTContext &C,
         Data.back().Names =
             llvm::makeArrayRef(A->deviceKinds_begin(), A->deviceKinds_end());
         break;
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
       case OMP_CTX_vendor:
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind in device set.");
       }
       break;
 #if INTEL_COLLAB
     case OMP_CTX_SET_construct:
-    case OMP_CTX_SET_device:
 #endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");

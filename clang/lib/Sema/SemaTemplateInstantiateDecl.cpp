@@ -479,12 +479,10 @@ static void instantiateOMPDeclareVariantAttr(
       case OMP_CTX_vendor:
         Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
         break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
       case OMP_CTX_arch:
       case OMP_CTX_target_variant_dispatch:
 #endif // INTEL_COLLAB
-=======
       case OMP_CTX_kind:
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
@@ -495,14 +493,18 @@ static void instantiateOMPDeclareVariantAttr(
       case OMP_CTX_kind:
         Data.emplace_back(CtxSet, Ctx, Score, Attr.deviceKinds());
         break;
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+        Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
+        break;
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
       case OMP_CTX_vendor:
->>>>>>> 4e8231b5cf0f5f62c7a51a857e29f5be5cb55734
       case OMP_CTX_unknown:
         llvm_unreachable("Unexpected context selector kind.");
       }
       break;
 #if INTEL_COLLAB
-    case OMP_CTX_SET_device:
     case OMP_CTX_SET_construct:
       Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
       break;
