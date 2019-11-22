@@ -725,18 +725,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_program program[3];
   cl_uint num_programs = 0;
   std::string compilation_options(DeviceInfo.CompilationOptions);
-#if INTEL_CUSTOMIZATION
-  cl_device_type device_type;
-
-  if (clGetDeviceInfo(DeviceInfo.deviceIDs[device_id],
-                      CL_DEVICE_TYPE, sizeof(device_type), &device_type,
-                      nullptr) == CL_SUCCESS &&
-      device_type == CL_DEVICE_TYPE_GPU)
-    // OpenCL CPU compiler complains about unsupported option.
-    // Intel Graphics compilers that do not support that option
-    // silently ignore it.
-    compilation_options += " -cl-intel-enable-global-relocation ";
-#endif // INTEL_CUSTOMIZATION
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 

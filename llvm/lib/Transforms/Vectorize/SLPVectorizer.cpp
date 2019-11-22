@@ -3827,31 +3827,40 @@ void BoUpSLP::rebuildBSStateUntil(int UntilIdx,
   replaySchedulerStateUpTo(UntilIdx, BundleToUpdate, BundleToUpdateVL);
 }
 
-bool BoUpSLP::isLegalToBuildMultiNode(ArrayRef<Value *> VL)
-{
-  return areMultiNodeCompatibleOpcodes(VL) &&
-         // Don't allow opcodes of different families at the root.
-         // For example don't allow [MUL, ADD]
-         !areOperandsInExistingMultiNode(VL) &&
-         // TODO: For now we disable Multi-Node generation if VL is emitted
-         // by PSLP because we have trouble cleaning up the code upon
-         // failure. The problem is that padding might happen either before
-         // or after the Multi-Node creation, so it is not easy to clean
-         // things up one by one.
-         !llvm::any_of(VL,
-                       [this](Value *V) {
-                         auto *I = dyn_cast<Instruction>(V);
-                         auto *SI = dyn_cast<SelectInst>(V);
-                         return I && (PaddedInstrsEmittedByPSLP.count(I) ||
-                                      (SI && SelectsEmittedByPSLP.count(SI)));
-                       }) &&
-         // Disable overlapping Multi-Nodes
-         !llvm::any_of(
-             VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
-         // Allow no more than this many multi-nodes per tree.
-         // TODO: This is a workaround for the broken save/undo
-         // instruction scheduling.
-         MultiNodes.size() < MaxNumOfMultiNodesPerTree;
+bool BoUpSLP::isLegalToBuildMultiNode(ArrayRef<Value *> VL) {
+  if (!areMultiNodeCompatibleOpcodes(VL))
+    return false;
+
+  auto *BB = cast<Instruction>(VL[0])->getParent();
+  // Do not begin building Multi-Node if block is too big.
+  if ((BB->size() - llvm::count_if(DeletedInstructions, [BB](const auto &Pair) {
+         return Pair.getFirst()->getParent() == BB;
+       })) > MaxBBSizeForMultiNodeSLP)
+    return false;
+
+  return
+      // Don't allow opcodes of different families at the root.
+      // For example don't allow [MUL, ADD]
+      !areOperandsInExistingMultiNode(VL) &&
+      // TODO: For now we disable Multi-Node generation if VL is emitted
+      // by PSLP because we have trouble cleaning up the code upon
+      // failure. The problem is that padding might happen either before
+      // or after the Multi-Node creation, so it is not easy to clean
+      // things up one by one.
+      llvm::none_of(VL,
+                    [this](Value *V) {
+                      auto *I = dyn_cast<Instruction>(V);
+                      auto *SI = dyn_cast<SelectInst>(V);
+                      return I && (PaddedInstrsEmittedByPSLP.count(I) ||
+                                   (SI && SelectsEmittedByPSLP.count(SI)));
+                    }) &&
+      // Disable overlapping Multi-Nodes
+      llvm::none_of(VL,
+                    [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
+      // Allow no more than this many multi-nodes per tree.
+      // TODO: This is a workaround for the broken save/undo
+      // instruction scheduling.
+      MultiNodes.size() < MaxNumOfMultiNodesPerTree;
 }
 
 /// We move all Multi-Node trunk (frontier) instructions to the root, so that
@@ -4998,10 +5007,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   LLVM_DEBUG(dbgs() << "SLP: We are able to schedule this bundle.\n");
 
 #if INTEL_CUSTOMIZATION
-  if (EnableMultiNodeSLP &&
-      (BB->size() - llvm::count_if(DeletedInstructions, [BB](const auto &Pair) {
-         return Pair.getFirst()->getParent() == BB;
-       })) < MaxBBSizeForMultiNodeSLP) {
+  if (EnableMultiNodeSLP) {
     // If we are already building a Multi-Node.
     // Try to continue the buildTree recursion in order to grow the Multi-Node.
     if (BuildingMultiNode) {
@@ -5029,6 +5035,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             !hasExternalUsesToMultiNode(VL) &&
             // Should not cross BB
             // TODO: we should remove this restriction in the future.
+            // Note that we likely want to take BB size into account once the
+            // restriction is removed.
             areInSameBB(VL, CurrentMultiNode->getRoot())));
 
       if (!CanExtendMultiNode) {
