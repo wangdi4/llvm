@@ -951,27 +951,39 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
-    auto *L = WL->getWRNLoopInfo().getLoop(I);
-    auto *UpperBoundDef =
-        cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-    if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(
-             UpperBoundDef, W)) {
-      // FIXME: if we stop calling this function for SPIR compilation,
-      //        then the check for isTargetSPIRV() has to be removed below.
-      if (isTargetSPIRV()) {
-        // This code may be executed only for ImplicitSIMDSPMDES mode.
-        OptimizationRemarkMissed R("openmp", "Target", WL->getEntryDirective());
-        R << "Consider using OpenMP combined construct "
-            "with \"target\" to get optimal performance";
-        ORE.emit(R);
+  WRNTargetNode *WT = cast<WRNTargetNode>(W);
+  auto &UncollapsedNDRange = WT->getUncollapsedNDRange();
+  unsigned NumLoops = 0;
+
+  if (UncollapsedNDRange.empty()) {
+    for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
+      auto *L = WL->getWRNLoopInfo().getLoop(I);
+      auto *UpperBoundDef =
+          cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
+      if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(UpperBoundDef, W)) {
+        // FIXME: if we stop calling this function for SPIR compilation,
+        //        then the check for isTargetSPIRV() has to be removed below.
+        if (isTargetSPIRV()) {
+          // This code may be executed only for ImplicitSIMDSPMDES mode.
+          OptimizationRemarkMissed R(
+              "openmp", "Target", WL->getEntryDirective());
+          R << "Consider using OpenMP combined construct "
+              "with \"target\" to get optimal performance";
+          ORE.emit(R);
+        }
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": loop bounds cannot be computed before the enclosing "
+                   "target region.\n");
+        return nullptr;
       }
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": loop bounds cannot be computed before the enclosing "
-                 "target region.\n");
-      return nullptr;
     }
+
+    NumLoops = WL->getWRNLoopInfo().getNormIVSize();
   }
+  else
+    NumLoops = UncollapsedNDRange.size();
+
+  assert(NumLoops != 0 && "Zero loops in loop construct.");
 
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
@@ -979,7 +991,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   IRBuilder<> Builder(InsertPt);
   SmallVector<Type *, 4> CLLoopParameterRecTypeArgs;
   CLLoopParameterRecTypeArgs.push_back(Int64Ty);
-  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+  for (unsigned I = 0; I < NumLoops; I++) {
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
@@ -997,10 +1009,10 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
   Builder.CreateStore(
       Builder.CreateSExtOrTrunc(
-          Builder.getInt32(WL->getWRNLoopInfo().getNormIVSize()), Int64Ty),
+          Builder.getInt32(NumLoops), Int64Ty),
       BaseGep);
 
-  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+  for (unsigned I = 0; I < NumLoops; I++) {
     Loop *L = WL->getWRNLoopInfo().getLoop(I);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
@@ -1010,8 +1022,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     Value *UpperBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
-    Value *CloneUB = VPOParoptUtils::cloneInstructions(
-        WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    Value *CloneUB = nullptr;
+    if (UncollapsedNDRange.empty())
+      CloneUB = VPOParoptUtils::cloneInstructions(
+          WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    else
+      CloneUB = Builder.CreateLoad(UncollapsedNDRange[I]);
+
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
                         UpperBndGep);

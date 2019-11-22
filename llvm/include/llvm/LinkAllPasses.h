@@ -382,6 +382,9 @@ namespace {
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB
+      // VPO Paropt Loop Collapse Pass
+      (void) llvm::createVPOParoptLoopCollapsePass();
+
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 

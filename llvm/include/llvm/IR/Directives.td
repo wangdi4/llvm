@@ -283,7 +283,7 @@ def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
 def "QUAL.OMP.OPERAND.ADDR" : Clause;
 def "QUAL.OMP.JUMP.TO.END.IF" : Clause;
 def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
-
+def "QUAL.OMP.OFFLOAD.NDRANGE" : Clause;
 
 // =====================================================================
 // * Begin Non-OpenMP Clauses

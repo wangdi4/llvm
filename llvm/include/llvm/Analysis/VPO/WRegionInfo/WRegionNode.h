@@ -231,6 +231,7 @@ public:
   bool canHaveAligned() const;
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
+  bool canHaveCollapse() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -393,6 +394,12 @@ public:
   }
   virtual void addDirectlyUsedNonPointerValue(Value *V) {
     WRNERROR("DIRECTLY_USED_NON_POINTER_VALUES");
+  }
+  virtual void addUncollapsedNDRangeDimension(Value *V) {
+    WRNERROR("OFFLOAD_NDRANGE");
+  }
+  virtual const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
+    WRNERROR("OFFLOAD_NDRANGE");
   }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }

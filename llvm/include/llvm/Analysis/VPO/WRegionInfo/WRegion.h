@@ -575,6 +575,7 @@ private:
   bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
+  SmallVector<Value *, 3> UncollapsedNDRange;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -585,6 +586,9 @@ protected:
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
   void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
+  void addUncollapsedNDRangeDimension(Value *V) {
+    UncollapsedNDRange.push_back(V);
+  }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
@@ -607,6 +611,10 @@ public:
   }
   void addDirectlyUsedNonPointerValue(Value *V) {
     DirectlyUsedNonPointerValues.push_back(V);
+  }
+
+  const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
+    return UncollapsedNDRange;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
