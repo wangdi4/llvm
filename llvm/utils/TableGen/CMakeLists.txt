@@ -52,13 +52,18 @@ add_tablegen(llvm-tblgen LLVM
   InstrInfoEmitter.cpp
   InstrDocsEmitter.cpp
   IntrinsicEmitter.cpp
+<<<<<<< HEAD
 # INTEL_COLLAB
   DirectivesEmitter.cpp
 # end INTEL_COLLAB
   Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
   Intel_MAPatternsEmitter.cpp # INTEL_CUSTOMIZATION
   Intel_SVMLEmitter.cpp       # INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+=======
+  OptEmitter.cpp
+>>>>>>> 64ada7accbcccf1ef3ac4910d596e890570c64b2
   OptParserEmitter.cpp
+  OptRSTEmitter.cpp
   PredicateExpander.cpp
   PseudoLoweringEmitter.cpp
   RISCVCompressInstEmitter.cpp
