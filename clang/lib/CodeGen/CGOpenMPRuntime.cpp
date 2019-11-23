@@ -11372,6 +11372,7 @@ bool checkContext<OMP_CTX_SET_device, OMP_CTX_kind, CodeGenModule &>(
 bool matchesContext(CodeGenModule &CGM,
                     const CompleteOMPContextSelectorData &ContextData) {
   for (const OMPContextSelectorData &Data : ContextData) {
+<<<<<<< HEAD
     switch (Data.CtxSet) {
     case OMP_CTX_SET_implementation:
       switch (Data.Ctx) {
@@ -11410,6 +11411,24 @@ bool matchesContext(CodeGenModule &CGM,
 #endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
+=======
+    switch (Data.Ctx) {
+    case OMP_CTX_vendor:
+      assert(Data.CtxSet == OMP_CTX_SET_implementation &&
+             "Expected implementation context selector set.");
+      if (!checkContext<OMP_CTX_SET_implementation, OMP_CTX_vendor>(Data))
+        return false;
+      break;
+    case OMP_CTX_kind:
+      assert(Data.CtxSet == OMP_CTX_SET_device &&
+             "Expected device context selector set.");
+      if (!checkContext<OMP_CTX_SET_device, OMP_CTX_kind, CodeGenModule &>(Data,
+                                                                           CGM))
+        return false;
+      break;
+    case OMP_CTX_unknown:
+      llvm_unreachable("Unknown context selector kind.");
+>>>>>>> 5459a905c23c03fad68e80b2dff23ca1ca3b7c7c
     }
   }
   return true;
@@ -11429,6 +11448,7 @@ translateAttrToContextSelectorData(ASTContext &C,
     Data.back().Ctx = Ctx;
     const Expr *Score = *std::next(A->scores_begin(), I);
     Data.back().Score = Score->EvaluateKnownConstInt(C);
+<<<<<<< HEAD
     switch (CtxSet) {
     case OMP_CTX_SET_implementation:
       switch (Ctx) {
@@ -11466,6 +11486,23 @@ translateAttrToContextSelectorData(ASTContext &C,
 #endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
+=======
+    switch (Ctx) {
+    case OMP_CTX_vendor:
+      assert(CtxSet == OMP_CTX_SET_implementation &&
+             "Expected implementation context selector set.");
+      Data.back().Names =
+          llvm::makeArrayRef(A->implVendors_begin(), A->implVendors_end());
+      break;
+    case OMP_CTX_kind:
+      assert(CtxSet == OMP_CTX_SET_device &&
+             "Expected device context selector set.");
+      Data.back().Names =
+          llvm::makeArrayRef(A->deviceKinds_begin(), A->deviceKinds_end());
+      break;
+    case OMP_CTX_unknown:
+      llvm_unreachable("Unknown context selector kind.");
+>>>>>>> 5459a905c23c03fad68e80b2dff23ca1ca3b7c7c
     }
   }
   return Data;

@@ -5464,6 +5464,7 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       else
         Score = ActOnIntegerConstant(SourceLocation(), 0).get();
     }
+<<<<<<< HEAD
     switch (CtxSet) {
     case OMP_CTX_SET_implementation:
       switch (Ctx) {
@@ -5501,6 +5502,21 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
 #endif // INTEL_COLLAB
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
+=======
+    switch (Ctx) {
+    case OMP_CTX_vendor:
+      assert(CtxSet == OMP_CTX_SET_implementation &&
+             "Expected implementation context selector set.");
+      ImplVendors.append(D.Names.begin(), D.Names.end());
+      break;
+    case OMP_CTX_kind:
+      assert(CtxSet == OMP_CTX_SET_device &&
+             "Expected device context selector set.");
+      DeviceKinds.append(D.Names.begin(), D.Names.end());
+      break;
+    case OMP_CTX_unknown:
+      llvm_unreachable("Unknown context selector kind.");
+>>>>>>> 5459a905c23c03fad68e80b2dff23ca1ca3b7c7c
     }
     IsError = IsError || !Score;
     CtxSets.push_back(CtxSet);
