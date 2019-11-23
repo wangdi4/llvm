@@ -11372,46 +11372,6 @@ bool checkContext<OMP_CTX_SET_device, OMP_CTX_kind, CodeGenModule &>(
 bool matchesContext(CodeGenModule &CGM,
                     const CompleteOMPContextSelectorData &ContextData) {
   for (const OMPContextSelectorData &Data : ContextData) {
-<<<<<<< HEAD
-    switch (Data.CtxSet) {
-    case OMP_CTX_SET_implementation:
-      switch (Data.Ctx) {
-      case OMP_CTX_vendor:
-        if (!checkContext<OMP_CTX_SET_implementation, OMP_CTX_vendor>(Data))
-          return false;
-        break;
-#if INTEL_COLLAB
-      case OMP_CTX_arch:
-      case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-      case OMP_CTX_kind:
-      case OMP_CTX_unknown:
-        llvm_unreachable(
-            "Unexpected context selector kind in implementation set.");
-      }
-      break;
-    case OMP_CTX_SET_device:
-      switch (Data.Ctx) {
-      case OMP_CTX_kind:
-        if (!checkContext<OMP_CTX_SET_device, OMP_CTX_kind, CodeGenModule &>(
-                Data, CGM))
-          return false;
-        break;
-#if INTEL_COLLAB
-      case OMP_CTX_arch:
-      case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-      case OMP_CTX_vendor:
-      case OMP_CTX_unknown:
-        llvm_unreachable("Unexpected context selector kind in device set.");
-      }
-      break;
-#if INTEL_COLLAB
-    case OMP_CTX_SET_construct:
-#endif // INTEL_COLLAB
-    case OMP_CTX_SET_unknown:
-      llvm_unreachable("Unexpected context selector set kind.");
-=======
     switch (Data.Ctx) {
     case OMP_CTX_vendor:
       assert(Data.CtxSet == OMP_CTX_SET_implementation &&
@@ -11426,9 +11386,13 @@ bool matchesContext(CodeGenModule &CGM,
                                                                            CGM))
         return false;
       break;
+#if INTEL_COLLAB
+    case OMP_CTX_arch:
+    case OMP_CTX_target_variant_dispatch:
+      llvm_unreachable("Unexpected context selector kind.");
+#endif // INTEL_COLLAB
     case OMP_CTX_unknown:
       llvm_unreachable("Unknown context selector kind.");
->>>>>>> 5459a905c23c03fad68e80b2dff23ca1ca3b7c7c
     }
   }
   return true;
@@ -11448,45 +11412,6 @@ translateAttrToContextSelectorData(ASTContext &C,
     Data.back().Ctx = Ctx;
     const Expr *Score = *std::next(A->scores_begin(), I);
     Data.back().Score = Score->EvaluateKnownConstInt(C);
-<<<<<<< HEAD
-    switch (CtxSet) {
-    case OMP_CTX_SET_implementation:
-      switch (Ctx) {
-      case OMP_CTX_vendor:
-        Data.back().Names =
-            llvm::makeArrayRef(A->implVendors_begin(), A->implVendors_end());
-        break;
-#if INTEL_COLLAB
-      case OMP_CTX_arch:
-      case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-      case OMP_CTX_kind:
-      case OMP_CTX_unknown:
-        llvm_unreachable(
-            "Unexpected context selector kind in implementation set.");
-      }
-      break;
-    case OMP_CTX_SET_device:
-      switch (Ctx) {
-      case OMP_CTX_kind:
-        Data.back().Names =
-            llvm::makeArrayRef(A->deviceKinds_begin(), A->deviceKinds_end());
-        break;
-#if INTEL_COLLAB
-      case OMP_CTX_arch:
-      case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-      case OMP_CTX_vendor:
-      case OMP_CTX_unknown:
-        llvm_unreachable("Unexpected context selector kind in device set.");
-      }
-      break;
-#if INTEL_COLLAB
-    case OMP_CTX_SET_construct:
-#endif // INTEL_COLLAB
-    case OMP_CTX_SET_unknown:
-      llvm_unreachable("Unexpected context selector set kind.");
-=======
     switch (Ctx) {
     case OMP_CTX_vendor:
       assert(CtxSet == OMP_CTX_SET_implementation &&
@@ -11500,9 +11425,13 @@ translateAttrToContextSelectorData(ASTContext &C,
       Data.back().Names =
           llvm::makeArrayRef(A->deviceKinds_begin(), A->deviceKinds_end());
       break;
+#if INTEL_COLLAB
+    case OMP_CTX_arch:
+    case OMP_CTX_target_variant_dispatch:
+      llvm_unreachable("Expected context selector kind.");
+#endif // INTEL_COLLAB
     case OMP_CTX_unknown:
       llvm_unreachable("Unknown context selector kind.");
->>>>>>> 5459a905c23c03fad68e80b2dff23ca1ca3b7c7c
     }
   }
   return Data;

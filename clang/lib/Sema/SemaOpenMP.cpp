@@ -5464,45 +5464,6 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       else
         Score = ActOnIntegerConstant(SourceLocation(), 0).get();
     }
-<<<<<<< HEAD
-    switch (CtxSet) {
-    case OMP_CTX_SET_implementation:
-      switch (Ctx) {
-      case OMP_CTX_vendor:
-        ImplVendors.append(D.Names.begin(), D.Names.end());
-        break;
-#if INTEL_COLLAB
-      case OMP_CTX_arch:
-      case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-      case OMP_CTX_kind:
-      case OMP_CTX_unknown:
-        llvm_unreachable("Unexpected context selector kind.");
-      }
-      break;
-    case OMP_CTX_SET_device:
-      switch (Ctx) {
-      case OMP_CTX_kind:
-        DeviceKinds.append(D.Names.begin(), D.Names.end());
-        break;
-#if INTEL_COLLAB
-      case OMP_CTX_arch:
-        ImplVendors.append(D.Names.begin(), D.Names.end());
-        break;
-      case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-      case OMP_CTX_vendor:
-      case OMP_CTX_unknown:
-        llvm_unreachable("Unexpected context selector kind.");
-      }
-      break;
-#if INTEL_COLLAB
-    case OMP_CTX_SET_construct:
-      break;
-#endif // INTEL_COLLAB
-    case OMP_CTX_SET_unknown:
-      llvm_unreachable("Unexpected context selector set kind.");
-=======
     switch (Ctx) {
     case OMP_CTX_vendor:
       assert(CtxSet == OMP_CTX_SET_implementation &&
@@ -5514,9 +5475,19 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
              "Expected device context selector set.");
       DeviceKinds.append(D.Names.begin(), D.Names.end());
       break;
+#if INTEL_COLLAB
+    case OMP_CTX_arch:
+      assert(CtxSet == OMP_CTX_SET_device &&
+             "Expected device context selector set.");
+      ImplVendors.append(D.Names.begin(), D.Names.end());
+      break;
+    case OMP_CTX_target_variant_dispatch:
+      assert(CtxSet == OMP_CTX_SET_construct &&
+             "Expected device context selector set.");
+      break;
+#endif // INTEL_COLLAB
     case OMP_CTX_unknown:
       llvm_unreachable("Unknown context selector kind.");
->>>>>>> 5459a905c23c03fad68e80b2dff23ca1ca3b7c7c
     }
     IsError = IsError || !Score;
     CtxSets.push_back(CtxSet);
