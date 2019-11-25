@@ -47,7 +47,11 @@ public:
 
     // Marks a function as having been transformed to use an array of
     // structures in place of a structure of arrays (SOA-to-AOS)
-    DMD_DTransSOAToOAS,
+    DMD_DTransSOAToAOS,
+
+    // Indicates that the function is created by SOAToAOSPrepare to
+    // do vector functionalities like SetElem/CCtor.
+    DMD_DTransSOAToAOSPrepare,
 
     // End of list marker.
     DMD_Last
@@ -96,6 +100,19 @@ public:
   // Remove the SOA-to-AOS transformation annotation marker from the Function.
   // Return 'true' if the metadata is changed.
   static bool removeDTransSOAToAOSTypeAnnotation(Function &F);
+
+  // Annotate a function as having been created by the SOAToAOSPrepare
+  // transformation with the data type used.
+  static void createDTransSOAToAOSPrepareTypeAnnotation(Function &F,
+                                                        llvm::Type *Ty);
+
+  // Get the type for the Function that is created by SOAToAOSPrepare, if one
+  // exists. Otherwise, nullptr.
+  static llvm::Type *lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F);
+
+  // Remove the SOAToAOSPrepare transformation annotation marker from the
+  // Function. Return 'true' if the metadata is changed.
+  static bool removeDTransSOAToAOSPrepareTypeAnnotation(Function &F);
 
   /////////////////////////////////////////////////
   // Annotation intrinsic based annotating routines

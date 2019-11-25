@@ -38,7 +38,8 @@ public:
   bool
   runImpl(Module &M, DTransAnalysisInfo &DTInfo,
           std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-          WholeProgramInfo &WPInfo);
+          WholeProgramInfo &WPInfo,
+          std::function<llvm::DominatorTree&(llvm::Function&)> GetDT);
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -16,6 +16,7 @@
 #include "SOAToAOSClassInfo.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/Analysis/Intel_WP.h"
@@ -673,7 +674,7 @@ bool ClassInfo::checkAllocatedArrayPtr(
         AllocsInCtor.insert(std::make_pair(AllocCall, 1));
       continue;
     }
-    if (!checkAllocCall(Val, ThisObj, NumOfElems))
+    if (!checkAllocCall(Val, ThisObj, NumOfElems, CallFromCtor))
       return false;
     AllocFound = true;
   }
@@ -1280,15 +1281,27 @@ Value *ClassInfo::checkCondition(BasicBlock *BB, BasicBlock *CheckBB) {
 //
 //      BB:
 //
+//    Or
+//
+//      Pred:
+//         %cond = icmp eq i8 1, 0
+//         br i1 %cond, label %some_bb, label %BB
+//
+//      BB:
+//
 bool ClassInfo::checkBBControlledUnderFlagVal(BasicBlock *BB,
                                               Argument *ThisObj) {
   BasicBlock *Pred = BB->getSinglePredecessor();
   if (!Pred)
     return false;
   Value *LValue = checkCondition(Pred, BB);
-  if (!LValue || !checkFieldOfArgClassLoad(LValue, ThisObj, FlagField))
+  if (!LValue)
     return false;
-  return true;
+  ConstantInt *FVal = dyn_cast<ConstantInt>(LValue);
+  if ((FVal && FVal->isOne()) ||
+      checkFieldOfArgClassLoad(LValue, ThisObj, FlagField))
+    return true;
+  return false;
 }
 
 // Returns true if given pre-header PH is controlled under
@@ -1454,8 +1467,8 @@ Value *ClassInfo::isValidArgumentSave(Value *ValOp) {
   } else {
     // Check if it is load of argument.
     Value *ArgVal = isLoadOfArg(ValOp);
-    if (ArgVal &&
-        isa<Argument>(ArgVal) && ElemDataAddrTypes.count(ArgVal->getType()))
+    if (ArgVal && isa<Argument>(ArgVal) &&
+        ElemDataAddrTypes.count(ArgVal->getType()))
       return ArgVal;
   }
   return nullptr;
@@ -1926,6 +1939,9 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
   SmallPtrSet<FreeCallInfo *, 4> FreeList;
   SmallPtrSet<BasicBlock *, 16> IgnoreBBSet;
 
+  if (DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(*Fn))
+    return SetElem;
+
   // Collect Store instructions and Free calls.
   collectStoreInstsFreeCalls(Fn, IgnoreBBSet, SIList, FreeList);
 
@@ -2329,6 +2345,9 @@ FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
     Visited.insert(SI);
     return true;
   };
+
+  if (DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(*Fn))
+    return CopyConstructor;
 
   SmallPtrSet<StoreInst *, 8> SIList;
   Argument *ThisObj = Fn->arg_begin();
@@ -2886,19 +2905,40 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
   //                %51 = shl nuw nsw i64 %50, 3
   // MemsetSize:    %52 = add nuw nsw i64 %51, 8
   //
+  // or
+  //
+  // XorI:          %48 = xor i32 %SVal, -1
+  // RemainSize:    %49 = add i32 %NewCap, %48
+  //                %50 = zext i32 %49 to i64
+  //                %51 = add nuw nsw i64 %50, 1
+  // MemsetSize:    %52 = shl nuw nsw i64 %51, 3
+  //
   auto AllowedMemsetSizePatternOne = [this](Value *MemsetSize, Value *NewCap,
                                             Value *SVal) -> bool {
-    ConstantInt *AddC;
+    const APInt *AddC;
+    Value *ShlI = MemsetSize;
     Value *AddOp;
-    if (!match(MemsetSize, m_Add(m_Value(AddOp), m_ConstantInt(AddC))))
-      return false;
+    bool PtrIncremented = false;
     unsigned ElemSize = getElemTySize();
-    if (AddC->getLimitedValue() != ElemSize)
-      return false;
+    if (match(MemsetSize, m_Add(m_Value(AddOp), m_APInt(AddC))) &&
+        *AddC == ElemSize) {
+      PtrIncremented = true;
+      ShlI = AddOp;
+    }
     int64_t Multiplier = 1;
-    const Value *RemainSize = computeMultiplier(AddOp, &Multiplier);
+    const Value *RemainSize = computeMultiplier(ShlI, &Multiplier);
     if (!RemainSize || Multiplier != ElemSize)
       return false;
+    if (!PtrIncremented) {
+      Instruction *ZExtI;
+      Value *RVal;
+      if (!match(RemainSize, m_Add(m_Instruction(ZExtI), m_APInt(AddC))) ||
+          *AddC != 1 || !match(ZExtI, m_ZExt(m_Value(RVal))))
+        return false;
+      Visited.insert(cast<Instruction>(RemainSize));
+      Visited.insert(cast<Instruction>(ZExtI));
+      RemainSize = RVal;
+    }
     Instruction *XorI;
     if (!match(RemainSize, m_Add(m_Specific(NewCap), m_Instruction(XorI))))
       return false;
@@ -3322,6 +3362,33 @@ Function *ClassInfo::getSingleMemberFunction(FunctionKind FKind) {
       Func = F;
     }
   return Func;
+}
+
+// Returns store instruction that saves flag field.
+StoreInst *ClassInfo::getFlagFieldStoreInstInCtor() {
+  StoreInst *SI = nullptr;
+
+  Function *CtorF = getCtorFunction();
+  int32_t FFI = getFlagField();
+  for (Instruction &I : instructions(*CtorF)) {
+    auto *G = dyn_cast<GetElementPtrInst>(&I);
+
+    if (!G || !isa<StructType>(G->getSourceElementType()) ||
+        G->getNumIndices() != 2)
+      continue;
+    int32_t GIdx = cast<ConstantInt>(G->getOperand(2))->getLimitedValue();
+    if (GIdx != FFI)
+      continue;
+
+    if (!G->hasOneUse())
+      return nullptr;
+    if (SI)
+      return nullptr;
+    SI = dyn_cast<StoreInst>(G->user_back());
+    if (!SI || SI->getPointerOperand() != G)
+      return nullptr;
+  }
+  return SI;
 }
 
 } // namespace dtrans

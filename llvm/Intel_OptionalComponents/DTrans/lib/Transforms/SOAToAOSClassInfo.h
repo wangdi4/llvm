@@ -20,6 +20,8 @@
 #error SOAToAOSClassInfo.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "SOAToAOSCommon.h"
+
 #include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h"
 
 namespace llvm {
@@ -150,6 +152,11 @@ public:
     return MICInfo->isMemberFunction(F, FieldIdx);
   }
 
+  // Returns true if Ty represents address of element.
+  bool isElemDataAddrType(Type *Ty) {
+    return ElemDataAddrTypes.count(Ty);
+  }
+
   // Returns iterator for member functions of field element class.
   using VectorMethodSetTy = SmallPtrSet<Function *, 10>;
   typedef VectorMethodSetTy::const_iterator m_const_iterator;
@@ -167,6 +174,9 @@ public:
   Function *getCtorWrapper();
 
   Function *getSingleMemberFunction(FunctionKind);
+
+  // Returns store instruction that saves flag value.
+  StoreInst *getFlagFieldStoreInstInCtor();
 
 private:
   const DataLayout &DL;
