@@ -18,7 +18,7 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-extern cl::opt<int> ChannelDepthEmulationMode;
+extern int ChannelDepthEmulationMode;
 extern std::string ChannelPipesErrorLog;
 
 GlobalVariable *

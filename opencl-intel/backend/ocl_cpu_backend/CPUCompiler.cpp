@@ -441,7 +441,7 @@ llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
 }
 
 void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename,
-                           TargetMachine::CodeGenFileType genType) const
+                           CodeGenFileType genType) const
 {
     assert(pModule && "pModule parameter should be valid");
 
