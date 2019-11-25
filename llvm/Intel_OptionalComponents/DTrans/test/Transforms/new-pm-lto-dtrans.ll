@@ -45,6 +45,7 @@
 ; CHECK: Running pass: dtrans::TransposePass
 ; CHECK: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK: Running analysis: DTransAnalysis
+; CHECK: Running pass: dtrans::SOAToAOSPreparePass
 ; CHECK: Running pass: dtrans::SOAToAOSPass
 ; The ordering of the analysis passes seems not to be deterministic so we
 ; don't check them all here. The check below guarantees that WeakAlignPass
