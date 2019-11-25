@@ -12431,7 +12431,8 @@ static void diagnoseDeprecatedCopyOperation(Sema &S, CXXMethodDecl *CopyOp) {
 
   // In Microsoft mode, assignment operations don't affect constructors and
   // vice versa.
-  if (RD->hasUserDeclaredDestructor()) {
+  if (RD->hasUserDeclaredDestructor() &&
+      RD->getDestructor()->isUserProvided()) {
     UserDeclaredOperation = RD->getDestructor();
   } else if (!isa<CXXConstructorDecl>(CopyOp) &&
              RD->hasUserDeclaredCopyConstructor() &&
@@ -12457,7 +12458,7 @@ static void diagnoseDeprecatedCopyOperation(Sema &S, CXXMethodDecl *CopyOp) {
     assert(UserDeclaredOperation);
   }
 
-  if (UserDeclaredOperation) {
+  if (UserDeclaredOperation && UserDeclaredOperation->isUserProvided()) {
     S.Diag(UserDeclaredOperation->getLocation(),
            isa<CXXDestructorDecl>(UserDeclaredOperation)
                ? diag::warn_deprecated_copy_dtor_operation
