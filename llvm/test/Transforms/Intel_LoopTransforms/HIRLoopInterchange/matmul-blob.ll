@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -O2 -loopopt -debug-only=hir-loop-interchange  -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-after=hir-loop-interchange  < %s 2>&1 | FileCheck %s
-; RUN: opt -O2 -loopopt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -O2 -loopopt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; CHECK:  Loopnest Interchanged: ( 1 2 3 ) --> ( 3 2 1 )
 ;
 ; Source code:
@@ -18,28 +18,26 @@
 ;}
 
 ;***IR Dump Before HIR Loop Interchange ***
-
-;<40>+ DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-;<41>|   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-;<7>|   |   %1 = (@c)[0][i2][i1];
-;<42>|   |
-;<42>|   |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-;<15>|   |   |   %2 = (@a)[0][i3 + 1][i2];
-;<17>|   |   |   %3 = (@b)[0][i3][i1 + 1];
-;<20>|   |   |   %1 = %1 + 1  +  (%2 * %3);
-;<42>|   |   + END LOOP
-;<42>|   |
-;<27>|   |   (@c)[0][i2][i1] = %1;
-;<41>|   + END LOOP
-;<40>+ END LOOP
-
+;
+;<40>         + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+;<41>         |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+;<42>         |   |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+;<7>          |   |   |   %1 = (@c)[0][i2][i1];
+;<15>         |   |   |   %2 = (@a)[0][i3 + 1][i2];
+;<17>         |   |   |   %3 = (@b)[0][i3][i1 + 1];
+;<20>         |   |   |   %1 = %1 + 1  +  (%2 * %3);
+;<27>         |   |   |   (@c)[0][i2][i1] = %1;
+;<42>         |   |   + END LOOP
+;<41>         |   + END LOOP
+;<40>         + END LOOP
+;
 ;***IR Dump After HIR Loop Interchange ***
-
+;
 ;<0>BEGIN REGION { modified }
 ;<40>+ DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
 ;<41>|   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
 ;<42>|   |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-;<7>|   |   |   %1 = (@c)[0][i2][i3];
+;<7> |   |   |   %1 = (@c)[0][i2][i3];
 ;<15>|   |   |   %2 = (@a)[0][i1 + 1][i2];
 ;<17>|   |   |   %3 = (@b)[0][i1][i3 + 1];
 ;<20>|   |   |   %1 = %1 + 1  +  (%2 * %3);
@@ -48,8 +46,8 @@
 ;<41>|   + END LOOP
 ;<40>+ END LOOP
 ;<0>END REGION
-
-; ;Module Before HIR; ModuleID = 'mt6.c'
+;
+;Module Before HIR; ModuleID = 'mt6.c'
 source_filename = "mt6.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

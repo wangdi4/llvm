@@ -3,27 +3,24 @@
 ; for (j = 0; j < N; j++)
 ; c[i][j] = c[i][j] + a[i][k] * b[k][j];
 
-; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
 ; No refs either in pre/post loop of the innermost or in the innermost loop itself
 ; suggests interchange of loops may help. Subscripts in all dimesions are
 ; well aligned with loopnest. Compare against matmul3.ll.
 ;
-; <37>      + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; <38>      |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; <6>       |   |   %0 = (@a)[0][i1][i2];
-; <39>      |   |
-; <39>      |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; <14>      |   |   |   %mul = %0  *  (@b)[0][i1][i3];
-; <15>      |   |   |   %add = (@c)[0][i2][i3]  +  %mul;
-; <16>      |   |   |   (@c)[0][i2][i3] = %add;
-; <39>      |   |   + END LOOP
-; <38>      |   + END LOOP
-; <37>      + END LOOP
-
-; CHECK: MayInterchange: 0
+; <27>         + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
+; <28>         |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
+; <3>          |   |   %0 = (@a)[0][%k.043][i1];
+; <11>         |   |   %mul = %0  *  (@b)[0][%k.043][i2];
+; <12>         |   |   %add = (@c)[0][i1][i2]  +  %mul;
+; <13>         |   |   (@c)[0][i1][i2] = %add;
+; <28>         |   + END LOOP
+; <27>         + END LOOP
+;
+; CHECK: Interchange Needed=0
 ; CHECK-NOT: Interchanged:
 ;
 ; ModuleID = 'matmul3.c'

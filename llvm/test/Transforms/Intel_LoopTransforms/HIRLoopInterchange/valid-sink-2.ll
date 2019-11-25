@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 
 ; CHECK: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 )
 
@@ -26,17 +26,15 @@
 ; Function: _Z3fooi
 ;
 ; <0>       BEGIN REGION { }
-; <27>            + DO i1 = 0, sext.i32.i64((-1 + %N)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-; <4>             |   %sum.029 = (@a)[0][i1 + 1];
-; <28>            |
-; <28>            |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-; <13>            |   |   %sum.029 = %sum.029 + %0  +  (@b)[0][i2][i1];
-; <28>            |   + END LOOP
-; <28>            |
-; <21>            |   (@a)[0][i1 + 1] = %sum.029;
-; <27>            + END LOOP
+; <27>         + DO i1 = 0, sext.i32.i64((-1 + %N)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+; <28>         |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; <4>          |   |   %sum.029 = (@a)[0][i1 + 1];
+; <13>         |   |   %sum.029 = %sum.029 + %0  +  (@b)[0][i2][i1];
+; <21>         |   |   (@a)[0][i1 + 1] = %sum.029;
+; <28>         |   + END LOOP
+; <27>         + END LOOP
 ; <0>       END REGION
-;
+
 ; DDG's==
 ; 4:13 %sum.029 --> %sum.029 OUTPUT (*) (?)
 ; 4:13 %sum.029 --> %sum.029 FLOW (=) (0)
