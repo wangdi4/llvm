@@ -244,6 +244,13 @@
 
 ; Make sure all member functions are cloned
 ; CHECK: define void @_ZN7BaseArrIPsE6resizeEi{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; Make sure peephole optimization is done by converting
+; from "shl + add" to "add + shl".
+; CHECK:   [[ADD1:%[0-9]*]] = add nuw nsw i64 %8, 1
+; CHECK:  [[SHL1:%[0-9]*]] = shl nuw nsw i64 [[ADD1]], 3
+; CHECK:  call void @llvm.memset.p0i8.i64(i8* nonnull align 8 dereferenceable(1) %scevgep, i8 0, i64 [[SHL1]], i1 false)
+
+; Make sure all member functions are cloned
 ; CHECK: define i32 @_ZN7BaseArrIPsE7getSizeEv{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 
 ; CHECK: define i32 @_ZN7BaseArrIPsE11getCapacityEv{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*

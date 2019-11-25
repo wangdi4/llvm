@@ -26,6 +26,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 
@@ -280,10 +281,28 @@ bool MemInitClassInfo::checkMemberFunctionCalls() {
                                 &FindCapacityArgPos]() {
     Value *ValOp = getCapacityInitInst()->getValueOperand();
 
-    // If constant value saved to capacity value, there is no
-    // need to find CapacityArgPos.
-    if (isa<Constant>(ValOp))
+    if (isa<Constant>(ValOp)) {
+      // Find CapacityArgPos even if constant value saved to capacity value.
+      // We will fix capacity constants at callsite even though it is not
+      // needed.
+      Function *CtorF = getCtorFunction();
+      int32_t IntArgPos = -1;
+      int32_t Pos = 0;
+      // Try to find capacity argument position. It is only the integer
+      // argument with no uses since the value is already propagated.
+      for (Argument &A : CtorF->args()) {
+        if (A.getType()->isIntegerTy(32)) {
+          if (IntArgPos != -1)
+            return false;
+          IntArgPos = Pos;
+        }
+        Pos++;
+      }
+      if (IntArgPos == -1 || !CtorF->getArg(IntArgPos)->use_empty())
+        return false;
+      CapacityArgPos = IntArgPos;
       return VerifyCapacityValueAndAppend(ValOp);
+    }
 
     if (!FindCapacityArgPos(ValOp))
       return false;
@@ -515,9 +534,12 @@ void MemInitClassInfo::trimDowmMemInit() {
     CtorMemsetI->replaceUsesOfWith(MemsetSize, NewVal);
     DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
                     { dbgs() << "  After: " << *CtorMemsetI << "\n"; });
-    return;
   }
-  assert(isa<Argument>(ValOp) && "Expected Argument");
+
+  // If ValOp is constant, there is no need to change capacity value that
+  // is passed at callsites since those constants are already propagated.
+  // But, decided to fix those constants at callsites also to help
+  // SOAToAOS pass later.
 
   for (auto *Call : CtorCallsInStructMethods) {
     Value *CVal = Call->getArgOperand(CapacityArgPos);
@@ -587,6 +609,24 @@ void MemInitTrimDownImpl::transformMemInit(void) {
   assert(ClassInfoSet.size() && "Expected atleast one ClassInfo element");
   for (auto *ClassI : ClassInfoSet)
     ClassI->trimDowmMemInit();
+
+  // After trimdown transformation, some instructions will be
+  // dead. Remove the dead instructions because downstream ClassInfo
+  // analysis can't handle dead instructions.
+  for (auto *ClassI : ClassInfoSet)
+    for (auto *F : ClassI->field_member_functions()) {
+      SmallVector<Instruction *, 4> DeadInsts;
+
+      for (auto &I : instructions(F))
+        if (isInstructionTriviallyDead(&I)) {
+          DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+            dbgs() << "    Recursively Delete " << I << "\n";
+          });
+          DeadInsts.push_back(&I);
+        }
+      if (!DeadInsts.empty())
+        RecursivelyDeleteTriviallyDeadInstructions(DeadInsts);
+    }
 }
 
 // Return true if EP is just position of capacity value that is passed to Ctor
