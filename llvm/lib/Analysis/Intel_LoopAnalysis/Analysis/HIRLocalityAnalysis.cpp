@@ -38,6 +38,7 @@
 // dimensional subscripts like A[i][5] and A[i][t]. The current analysis assumes
 // every element of the array is being accessed.
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"

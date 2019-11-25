@@ -4,6 +4,8 @@ let Command = "target modules dump symtab" in {
   def tm_sort : Option<"sort", "s">, Group<1>,
     Desc<"Supply a sort order when dumping the symbol table.">,
     EnumArg<"SortOrder", "OptionEnumValues(g_sort_option_enumeration)">;
+  def tm_smn : Option<"show-mangled-names", "m">, Group<1>,
+    Desc<"Do not demangle symbol names before showing them.">;
 }
 
 let Command = "help" in {
@@ -427,7 +429,7 @@ let Command = "log" in {
     Desc<"Prepend the names of files and function that generate the logs.">;
 }
 
-let Command = "reproducer" in {
+let Command = "reproducer dump" in {
   def reproducer_provider : Option<"provider", "p">, Group<1>,
     EnumArg<"None", "ReproducerProviderType()">,
     Required, Desc<"The reproducer provider to dump.">;

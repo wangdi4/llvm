@@ -29,6 +29,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 
+#include <atomic>
 #include <list>
 #include <map>
 #include <queue>

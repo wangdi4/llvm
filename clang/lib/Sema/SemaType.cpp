@@ -6245,6 +6245,66 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
   }
 }
 
+static void HandleSYCLFPGAPipeAttribute(QualType &Type, const ParsedAttr &Attr,
+                                        TypeProcessingState &State) {
+  Sema &S = State.getSema();
+  ASTContext &Ctx = S.Context;
+
+  // Check the attribute arguments.
+  if (Attr.getNumArgs() != 1) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+        << Attr << 1;
+    Attr.setInvalid();
+    return;
+  }
+
+  if (!Attr.isArgExpr(0)) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+        << Attr << AANT_ArgumentString;
+    Attr.setInvalid();
+    return;
+  }
+
+  StringRef Str;
+  if (auto *SL = dyn_cast<StringLiteral>(Attr.getArgAsExpr(0))) {
+    Str = SL->getString();
+  } else {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+        << Attr << AANT_ArgumentString;
+    Attr.setInvalid();
+    return;
+  }
+
+  bool isReadOnlyPipe;
+  if (Str == "write_only")
+    isReadOnlyPipe = false;
+  else if (Str == "read_only")
+    isReadOnlyPipe = true;
+  else {
+    S.Diag(Attr.getLoc(), diag::err_pipe_attribute_arg_not_allowed) << Str;
+    Attr.setInvalid();
+    return;
+  }
+
+  auto *PipeAttr = ::new (Ctx) SYCLFPGAPipeAttr(Ctx, Attr, Str);
+
+  // Apply pipe qualifiers just to the equivalent type, as the expression is not
+  // value dependent (not templated).
+  QualType EquivType = isReadOnlyPipe
+                           ? S.BuildReadPipeType(Type, Attr.getLoc())
+                           : S.BuildWritePipeType(Type, Attr.getLoc());
+  if (EquivType.isNull()) {
+    Attr.setInvalid();
+    return;
+  }
+
+  QualType T = State.getAttributedType(PipeAttr, Type, EquivType);
+  if (!T.isNull())
+    Type = T;
+  else
+    Attr.setInvalid();
+}
+
 /// handleObjCOwnershipTypeAttr - Process an objc_ownership
 /// attribute on the specified type.
 ///
@@ -6509,7 +6569,8 @@ namespace {
       Pointer,
       BlockPointer,
       Reference,
-      MemberPointer
+      MemberPointer,
+      MacroQualified,
     };
 
     QualType Original;
@@ -6540,6 +6601,9 @@ namespace {
         } else if (isa<AttributedType>(Ty)) {
           T = cast<AttributedType>(Ty)->getEquivalentType();
           Stack.push_back(Attributed);
+        } else if (isa<MacroQualifiedType>(Ty)) {
+          T = cast<MacroQualifiedType>(Ty)->getUnderlyingType();
+          Stack.push_back(MacroQualified);
         } else {
           const Type *DTy = Ty->getUnqualifiedDesugaredType();
           if (Ty == DTy) {
@@ -6595,6 +6659,9 @@ namespace {
         QualType New = wrap(C, cast<ParenType>(Old)->getInnerType(), I);
         return C.getParenType(New);
       }
+
+      case MacroQualified:
+        return wrap(C, cast<MacroQualifiedType>(Old)->getUnderlyingType(), I);
 
       case Pointer: {
         QualType New = wrap(C, cast<PointerType>(Old)->getPointeeType(), I);
@@ -7449,6 +7516,7 @@ static bool isPermittedNeonBaseType(QualType &Ty,
   // Signed poly is mathematically wrong, but has been baked into some ABIs by
   // now.
   bool IsPolyUnsigned = Triple.getArch() == llvm::Triple::aarch64 ||
+                        Triple.getArch() == llvm::Triple::aarch64_32 ||
                         Triple.getArch() == llvm::Triple::aarch64_be;
   if (VecKind == VectorType::NeonPolyVector) {
     if (IsPolyUnsigned) {
@@ -7466,10 +7534,8 @@ static bool isPermittedNeonBaseType(QualType &Ty,
 
   // Non-polynomial vector types: the usual suspects are allowed, as well as
   // float64_t on AArch64.
-  bool Is64Bit = Triple.getArch() == llvm::Triple::aarch64 ||
-                 Triple.getArch() == llvm::Triple::aarch64_be;
-
-  if (Is64Bit && BTy->getKind() == BuiltinType::Double)
+  if ((Triple.isArch64Bit() || Triple.getArch() == llvm::Triple::aarch64_32) &&
+      BTy->getKind() == BuiltinType::Double)
     return true;
 
   return BTy->getKind() == BuiltinType::SChar ||
@@ -7870,6 +7936,10 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       break;
     case ParsedAttr::AT_OpenCLAccess:
       HandleOpenCLAccessAttr(type, attr, state.getSema());
+      attr.setUsedAsTypeAttr();
+      break;
+    case ParsedAttr::AT_SYCLFPGAPipe:
+      HandleSYCLFPGAPipeAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();
       break;
     case ParsedAttr::AT_LifetimeBound:

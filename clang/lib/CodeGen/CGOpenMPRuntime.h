@@ -244,17 +244,6 @@ protected:
                                                 bool IsOffloadEntry,
                                                 const RegionCodeGenTy &CodeGen);
 
-  /// Emits code for OpenMP 'if' clause using specified \a CodeGen
-  /// function. Here is the logic:
-  /// if (Cond) {
-  ///   ThenGen();
-  /// } else {
-  ///   ElseGen();
-  /// }
-  void emitOMPIfClause(CodeGenFunction &CGF, const Expr *Cond,
-                       const RegionCodeGenTy &ThenGen,
-                       const RegionCodeGenTy &ElseGen);
-
   /// Emits object of ident_t type with info for source location.
   /// \param Flags Flags for OpenMP location.
   ///
@@ -843,6 +832,18 @@ public:
                            CodeGenFunction &CGF, const OMPMapClause *C,
                            const Expr *E, SmallVector<MapInfo, 4> &Info);
 #endif // INTEL_COLLAB
+
+  /// Emits code for OpenMP 'if' clause using specified \a CodeGen
+  /// function. Here is the logic:
+  /// if (Cond) {
+  ///   ThenGen();
+  /// } else {
+  ///   ElseGen();
+  /// }
+  void emitIfClause(CodeGenFunction &CGF, const Expr *Cond,
+                    const RegionCodeGenTy &ThenGen,
+                    const RegionCodeGenTy &ElseGen);
+
   /// Checks if the \p Body is the \a CompoundStmt and returns its child
   /// statement iff there is only one that is not evaluatable at the compile
   /// time.

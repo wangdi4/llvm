@@ -219,6 +219,7 @@ void initializeInferAddressSpacesLegacyPassPass(PassRegistry &);
 void initializeInferAddressSpacesPass(PassRegistry&);
 #endif // INTEL_COLLAB
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
+void initializeInjectTLIMappingsLegacyPass(PassRegistry &);
 void initializeInlineAggressiveWrapperPassPass(PassRegistry&); // INTEL
 void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCountPass(PassRegistry&);

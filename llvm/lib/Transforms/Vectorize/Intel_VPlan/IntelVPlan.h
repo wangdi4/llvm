@@ -36,6 +36,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
+#include <atomic>
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPLoopAnalysis.h"

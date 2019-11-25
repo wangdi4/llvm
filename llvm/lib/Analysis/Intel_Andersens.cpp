@@ -61,6 +61,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"

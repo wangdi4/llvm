@@ -1,6 +1,6 @@
 //===- Intel_GlobalOpt.cpp - Optimize Global Variables --------------------===//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -25,7 +25,9 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"

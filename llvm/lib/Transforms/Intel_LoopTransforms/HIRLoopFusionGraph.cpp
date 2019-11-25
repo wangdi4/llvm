@@ -22,6 +22,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #define DEBUG_TYPE "hir-loop-fusion"
 #define DEBUG_FG(X) DEBUG_WITH_TYPE(DEBUG_TYPE "-fg", X)
 

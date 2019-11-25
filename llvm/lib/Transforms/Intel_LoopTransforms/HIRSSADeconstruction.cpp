@@ -26,6 +26,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/SmallPtrSet.h"

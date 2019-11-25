@@ -10133,10 +10133,8 @@ static void DiagnoseBadConversion(Sema &S, OverloadCandidate *Cand,
 
   std::string FnDesc;
   std::pair<OverloadCandidateKind, OverloadCandidateSelect> FnKindPair =
-#if INTEL_CUSTOMIZATION
       ClassifyOverloadCandidate(S, Cand->FoundDecl, Fn, Cand->getRewriteKind(),
                                 FnDesc);
-#endif // INTEL_CUSTOMIZATION
 
   Expr *FromExpr = Conv.Bad.FromExpr;
   QualType FromTy = Conv.Bad.getFromType();
@@ -10705,10 +10703,8 @@ static void DiagnoseBadTarget(Sema &S, OverloadCandidate *Cand) {
 
   std::string FnDesc;
   std::pair<OverloadCandidateKind, OverloadCandidateSelect> FnKindPair =
-#if INTEL_CUSTOMIZATION
       ClassifyOverloadCandidate(S, Cand->FoundDecl, Callee,
                                 Cand->getRewriteKind(), FnDesc);
-#endif // INTEL_CUSTOMIZATION
 
   S.Diag(Callee->getLocation(), diag::note_ovl_candidate_bad_target)
       << (unsigned)FnKindPair.first << (unsigned)ocs_non_template
@@ -10826,10 +10822,8 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
     if (Fn->isDeleted()) {
       std::string FnDesc;
       std::pair<OverloadCandidateKind, OverloadCandidateSelect> FnKindPair =
-#if INTEL_CUSTOMIZATION
           ClassifyOverloadCandidate(S, Cand->FoundDecl, Fn,
                                     Cand->getRewriteKind(), FnDesc);
-#endif // INTEL_CUSTOMIZATION
 
       S.Diag(Fn->getLocation(), diag::note_ovl_candidate_deleted)
           << (unsigned)FnKindPair.first << (unsigned)FnKindPair.second << FnDesc
@@ -10839,9 +10833,7 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
     }
 
     // We don't really have anything else to say about viable candidates.
-#if INTEL_CUSTOMIZATION
     S.NoteOverloadCandidate(Cand->FoundDecl, Fn, Cand->getRewriteKind());
-#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -10874,9 +10866,7 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
   case ovl_fail_trivial_conversion:
   case ovl_fail_bad_final_conversion:
   case ovl_fail_final_conversion_not_exact:
-#if INTEL_CUSTOMIZATION
     return S.NoteOverloadCandidate(Cand->FoundDecl, Fn, Cand->getRewriteKind());
-#endif // INTEL_CUSTOMIZATION
 
   case ovl_fail_bad_conversion: {
     unsigned I = (Cand->IgnoreObjectArgument ? 1 : 0);
@@ -10887,9 +10877,7 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
     // FIXME: this currently happens when we're called from SemaInit
     // when user-conversion overload fails.  Figure out how to handle
     // those conditions and diagnose them well.
-#if INTEL_CUSTOMIZATION
     return S.NoteOverloadCandidate(Cand->FoundDecl, Fn, Cand->getRewriteKind());
-#endif // INTEL_CUSTOMIZATION
   }
 
   case ovl_fail_bad_target:

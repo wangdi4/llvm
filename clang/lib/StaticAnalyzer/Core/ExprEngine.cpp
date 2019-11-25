@@ -1430,7 +1430,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
 
       bool IsTemporary = false;
       if (const auto *MTE = dyn_cast<MaterializeTemporaryExpr>(ArgE)) {
-        ArgE = MTE->GetTemporaryExpr();
+        ArgE = MTE->getSubExpr();
         IsTemporary = true;
       }
 

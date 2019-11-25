@@ -137,6 +137,8 @@ def err_sycl_loop_attr_duplication : Error<
   "duplicate %select{unroll|Intel FPGA}0 loop attribute '%1'">;
 def err_loop_unroll_compatibility : Error<
   "incompatible loop unroll instructions: '%0' and '%1'">;
+def err_pipe_attribute_arg_not_allowed : Error<
+  "'%0' mode for pipe attribute is not supported. Allowed modes: 'read_only', 'write_only'">;
 
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
@@ -591,21 +593,22 @@ def err_thread_non_global : Error<
 def err_thread_unsupported : Error<
   "thread-local storage is not supported for the current target">;
 
+// FIXME: Combine fallout warnings to just one warning.
 def warn_maybe_falloff_nonvoid_function : Warning<
-  "control may reach end of non-void function">,
+  "non-void function does not return a value in all control paths">,
   InGroup<ReturnType>;
 def warn_falloff_nonvoid_function : Warning<
-  "control reaches end of non-void function">,
+  "non-void function does not return a value">,
   InGroup<ReturnType>;
 def err_maybe_falloff_nonvoid_block : Error<
-  "control may reach end of non-void block">;
+  "non-void block does not return a value in all control paths">;
 def err_falloff_nonvoid_block : Error<
-  "control reaches end of non-void block">;
+  "non-void block does not return a value">;
 def warn_maybe_falloff_nonvoid_coroutine : Warning<
-  "control may reach end of coroutine; which is undefined behavior because the promise type %0 does not declare 'return_void()'">,
+  "non-void coroutine does not return a value in all control paths">,
   InGroup<ReturnType>;
 def warn_falloff_nonvoid_coroutine : Warning<
-  "control reaches end of coroutine; which is undefined behavior because the promise type %0 does not declare 'return_void()'">,
+  "non-void coroutine does not return a value">,
   InGroup<ReturnType>;
 def warn_suggest_noreturn_function : Warning<
   "%select{function|method}0 %1 could be declared with attribute 'noreturn'">,
@@ -1008,6 +1011,22 @@ def warn_objc_boxing_invalid_utf8_string : Warning<
   "string is ill-formed as UTF-8 and will become a null %0 when boxed">,
   InGroup<ObjCBoxing>;
 
+def err_objc_direct_on_protocol : Error<
+  "'objc_direct' attribute cannot be applied to %select{methods|properties}0 "
+  "declared in an Objective-C protocol">;
+def err_objc_direct_missing_on_decl : Error<
+  "direct method implementation was previously declared not direct">;
+def err_objc_direct_on_override : Error<
+  "methods that %select{override superclass methods|implement protocol requirements}0 cannot be direct">;
+def err_objc_override_direct_method : Error<
+  "cannot override a method that is declared direct by a superclass">;
+def warn_objc_direct_ignored : Warning<
+  "%0 attribute isn't implemented by this Objective-C runtime">,
+  InGroup<IgnoredAttributes>;
+def warn_objc_direct_property_ignored : Warning<
+  "direct attribute on property %0 ignored (not implemented by this Objective-C runtime)">,
+  InGroup<IgnoredAttributes>;
+
 def warn_conflicting_overriding_ret_types : Warning<
   "conflicting return type in "
   "declaration of %0%diff{: $ vs $|}1,2">,
@@ -1093,6 +1112,7 @@ def warn_accessor_property_type_mismatch : Warning<
   "type of property %0 does not match type of accessor %1">;
 def note_conv_function_declared_at : Note<"type conversion function declared here">;
 def note_method_declared_at : Note<"method %0 declared here">;
+def note_direct_method_declared_at : Note<"direct method %0 declared here">;
 def note_property_attribute : Note<"property %0 is declared "
   "%select{deprecated|unavailable|partial}1 here">;
 def err_setter_type_void : Error<"type of setter must be void">;
@@ -1328,6 +1348,8 @@ def warn_multiple_selectors: Warning<
   "several methods with selector %0 of mismatched types are found "
   "for the @selector expression">,
   InGroup<SelectorTypeMismatch>, DefaultIgnore;
+def err_direct_selector_expression: Error<
+  "@selector expression formed with direct selector %0">;
 
 def err_objc_kindof_nonobject : Error<
   "'__kindof' specifier cannot be applied to non-object type %0">;
@@ -1341,6 +1363,12 @@ def err_objc_method_unsupported_param_ret_type : Error<
 def warn_messaging_unqualified_id : Warning<
   "messaging unqualified id">, DefaultIgnore,
   InGroup<DiagGroup<"objc-messaging-id">>;
+def err_messaging_unqualified_id_with_direct_method : Error<
+  "messaging unqualified id with a method that is possibly direct">;
+def err_messaging_super_with_direct_method : Error<
+  "messaging super with a direct method">;
+def err_messaging_class_with_direct_method : Error<
+  "messaging a Class with a method that is possibly direct">;
 
 // C++ declarations
 def err_static_assert_expression_is_not_constant : Error<
@@ -2639,6 +2667,8 @@ def warn_attribute_requires_positive_integer : Warning<
  InGroup<IgnoredAttributes>;
 def err_attribute_requires_opencl_version : Error<
   "%0 attribute requires OpenCL version %1%select{| or above}2">;
+def err_invalid_branch_protection_spec : Error<
+  "invalid or misplaced branch protection specification '%0'">;
 def warn_unsupported_target_attribute
     : Warning<"%select{unsupported|duplicate}0%select{| architecture}1 '%2' in"
               " the 'target' attribute string; 'target' attribute ignored">,
@@ -6953,10 +6983,10 @@ let CategoryName = "Lambda Issue" in {
   def err_noreturn_lambda_has_return_expr : Error<
     "lambda declared 'noreturn' should not return">;
   def warn_maybe_falloff_nonvoid_lambda : Warning<
-    "control may reach end of non-void lambda">,
+    "non-void lambda does not return a value in all control paths">,
     InGroup<ReturnType>;
   def warn_falloff_nonvoid_lambda : Warning<
-    "control reaches end of non-void lambda">,
+    "non-void lambda does not return a value">,
     InGroup<ReturnType>;
   def err_access_lambda_capture : Error<
     // The ERRORs represent other special members that aren't constructors, in
@@ -7808,6 +7838,8 @@ let CategoryName = "Inline Assembly Issue" in {
   def err_asm_unknown_register_name : Error<"unknown register name '%0' in asm">;
   def err_asm_invalid_global_var_reg : Error<"register '%0' unsuitable for "
     "global register variables on this target">;
+  def err_asm_missing_fixed_reg_opt : Error<"-ffixed-%0 is required for "
+    "global named register variable declaration">;
   def err_asm_register_size_mismatch : Error<"size of register '%0' does not "
     "match variable size">;
   def err_asm_bad_register_type : Error<"bad type for named register variable">;
@@ -9036,7 +9068,7 @@ def err_unknown_any_function : Error<
   "function %0 with unknown type must be given a function type">;
 
 def err_filter_expression_integral : Error<
-  "filter expression type should be an integral value not %0">;
+  "filter expression has non-integral type %0">;
 
 def err_non_asm_stmt_in_naked_function : Error<
   "non-ASM statement in naked function is not supported">;
@@ -9273,8 +9305,12 @@ def err_omp_threadprivate_incomplete_type : Error<
   "threadprivate variable with incomplete type %0">;
 def err_omp_no_dsa_for_variable : Error<
   "variable %0 must have explicitly specified data sharing attributes">;
+def err_omp_defaultmap_no_attr_for_variable : Error<
+  "variable %0 must have explicitly specified data sharing attributes, data mapping attributes, or in an is_device_ptr clause">;
 def note_omp_default_dsa_none : Note<
   "explicit data sharing attribute requested here">;
+def note_omp_defaultmap_attr_none : Note<
+  "explicit data sharing attribute, data mapping attribute, or is_device_ptr clause requested here">;
 def err_omp_wrong_dsa : Error<
   "%0 variable cannot be %1">;
 def err_omp_variably_modified_type_not_supported : Error<
@@ -9418,7 +9454,7 @@ def err_omp_prohibited_region : Error<
   "; perhaps you forget to enclose 'omp %3' directive into a target region?|"
   "; perhaps you forget to enclose 'omp %3' directive into a teams region?}2">;
 def err_omp_prohibited_region_simd : Error<
-  "OpenMP constructs may not be nested inside a simd region">;
+  "OpenMP constructs may not be nested inside a simd region%select{| except for ordered simd, simd or atomic directive}0">;
 def err_omp_prohibited_region_atomic : Error<
   "OpenMP constructs may not be nested inside an atomic region">;
 def err_omp_prohibited_region_critical_same_name : Error<
@@ -9703,6 +9739,8 @@ def warn_omp_declare_variant_marked_as_declare_variant : Warning<
   "variant function in '#pragma omp declare variant' is itself marked as '#pragma omp declare variant'"
   >, InGroup<SourceUsesOpenMP>;
 def note_omp_marked_declare_variant_here : Note<"marked as 'declare variant' here">;
+def err_omp_one_defaultmap_each_category: Error<
+  "at most one defaultmap clause for each variable-category can appear on the directive">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
@@ -10202,6 +10240,17 @@ def err_sycl_attibute_cannot_be_applied_here
             "|class member function"
             "|function with a raw pointer return type"
             "|function with a raw pointer parameter type}1">;
+def err_ivdep_duplicate_arg : Error<
+  "duplicate argument to 'ivdep'. attribute requires one or both of a safelen "
+  "and array">;
+def err_ivdep_unknown_arg : Error<
+  "unknown argument to 'ivdep'. Expected integer or array variable">;
+def err_ivdep_declrefexpr_arg : Error<
+  "invalid declaration reference argument to 'ivdep'. Expected integer or array"
+  " variable">;
+def warn_ivdep_redundant : Warning <"ignoring redundant Intel FPGA loop "
+  "attribute 'ivdep': safelen %select{INF|%1}0 >= safelen %select{INF|%3}2">,
+  InGroup<IgnoredAttributes>;
 
 def err_preserve_field_info_not_field : Error<
   "__builtin_preserve_field_info argument %0 not a field access">;

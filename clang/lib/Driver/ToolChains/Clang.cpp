@@ -309,6 +309,96 @@ static void ParseMPreferVectorWidth(const Driver &D, const ArgList &Args,
   }
 }
 
+static void getWebAssemblyTargetFeatures(const ArgList &Args,
+                                         std::vector<StringRef> &Features) {
+  handleTargetFeaturesGroup(Args, Features, options::OPT_m_wasm_Features_Group);
+}
+
+static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
+                              const ArgList &Args, ArgStringList &CmdArgs,
+                              bool ForAS) {
+  const Driver &D = TC.getDriver();
+  std::vector<StringRef> Features;
+  switch (Triple.getArch()) {
+  default:
+    break;
+  case llvm::Triple::mips:
+  case llvm::Triple::mipsel:
+  case llvm::Triple::mips64:
+  case llvm::Triple::mips64el:
+    mips::getMIPSTargetFeatures(D, Triple, Args, Features);
+    break;
+
+  case llvm::Triple::arm:
+  case llvm::Triple::armeb:
+  case llvm::Triple::thumb:
+  case llvm::Triple::thumbeb:
+    arm::getARMTargetFeatures(TC, Triple, Args, CmdArgs, Features, ForAS);
+    break;
+
+  case llvm::Triple::ppc:
+  case llvm::Triple::ppc64:
+  case llvm::Triple::ppc64le:
+    ppc::getPPCTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::riscv32:
+  case llvm::Triple::riscv64:
+    riscv::getRISCVTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::systemz:
+    systemz::getSystemZTargetFeatures(Args, Features);
+    break;
+  case llvm::Triple::aarch64:
+  case llvm::Triple::aarch64_32:
+  case llvm::Triple::aarch64_be:
+    aarch64::getAArch64TargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::x86:
+  case llvm::Triple::x86_64:
+    x86::getX86TargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::hexagon:
+    hexagon::getHexagonTargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::wasm32:
+  case llvm::Triple::wasm64:
+    getWebAssemblyTargetFeatures(Args, Features);
+    break;
+  case llvm::Triple::sparc:
+  case llvm::Triple::sparcel:
+  case llvm::Triple::sparcv9:
+    sparc::getSparcTargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::r600:
+  case llvm::Triple::amdgcn:
+    amdgpu::getAMDGPUTargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::msp430:
+    msp430::getMSP430TargetFeatures(D, Args, Features);
+  }
+
+  // Find the last of each feature.
+  llvm::StringMap<unsigned> LastOpt;
+  for (unsigned I = 0, N = Features.size(); I < N; ++I) {
+    StringRef Name = Features[I];
+    assert(Name[0] == '-' || Name[0] == '+');
+    LastOpt[Name.drop_front(1)] = I;
+  }
+
+  for (unsigned I = 0, N = Features.size(); I < N; ++I) {
+    // If this feature was overridden, ignore it.
+    StringRef Name = Features[I];
+    llvm::StringMap<unsigned>::iterator LastI = LastOpt.find(Name.drop_front(1));
+    assert(LastI != LastOpt.end());
+    unsigned Last = LastI->second;
+    if (Last != I)
+      continue;
+
+    CmdArgs.push_back("-target-feature");
+    CmdArgs.push_back(Name.data());
+  }
+}
+
 static bool
 shouldUseExceptionTablesForObjCExceptions(const ObjCRuntime &runtime,
                                           const llvm::Triple &Triple) {
@@ -1274,6 +1364,7 @@ static bool isSignedCharDefault(const llvm::Triple &Triple) {
     return true;
 
   case llvm::Triple::aarch64:
+  case llvm::Triple::aarch64_32:
   case llvm::Triple::aarch64_be:
   case llvm::Triple::arm:
   case llvm::Triple::armeb:
@@ -1396,6 +1487,7 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
     break;
 
   case llvm::Triple::aarch64:
+  case llvm::Triple::aarch64_32:
   case llvm::Triple::aarch64_be:
     AddAArch64TargetArgs(Args, CmdArgs);
     CmdArgs.push_back("-fallow-half-arguments-and-returns");
@@ -1447,56 +1539,6 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
     AddWebAssemblyTargetArgs(Args, CmdArgs);
     break;
   }
-}
-
-// Parse -mbranch-protection=<protection>[+<protection>]* where
-//   <protection> ::= standard | none | [bti,pac-ret[+b-key,+leaf]*]
-// Returns a triple of (return address signing Scope, signing key, require
-// landing pads)
-static std::tuple<StringRef, StringRef, bool>
-ParseAArch64BranchProtection(const Driver &D, const ArgList &Args,
-                             const Arg *A) {
-  StringRef Scope = "none";
-  StringRef Key = "a_key";
-  bool IndirectBranches = false;
-
-  StringRef Value = A->getValue();
-  // This maps onto -mbranch-protection=<scope>+<key>
-
-  if (Value.equals("standard")) {
-    Scope = "non-leaf";
-    Key = "a_key";
-    IndirectBranches = true;
-
-  } else if (!Value.equals("none")) {
-    SmallVector<StringRef, 4> BranchProtection;
-    StringRef(A->getValue()).split(BranchProtection, '+');
-
-    auto Protection = BranchProtection.begin();
-    while (Protection != BranchProtection.end()) {
-      if (Protection->equals("bti"))
-        IndirectBranches = true;
-      else if (Protection->equals("pac-ret")) {
-        Scope = "non-leaf";
-        while (++Protection != BranchProtection.end()) {
-          // Inner loop as "leaf" and "b-key" options must only appear attached
-          // to pac-ret.
-          if (Protection->equals("leaf"))
-            Scope = "all";
-          else if (Protection->equals("b-key"))
-            Key = "b_key";
-          else
-            break;
-        }
-        Protection--;
-      } else
-        D.Diag(diag::err_invalid_branch_protection)
-            << *Protection << A->getAsString(Args);
-      Protection++;
-    }
-  }
-
-  return std::make_tuple(Scope, Key, IndirectBranches);
 }
 
 namespace {
@@ -1570,9 +1612,16 @@ void Clang::AddAArch64TargetArgs(const ArgList &Args,
             << Scope << A->getAsString(Args);
       Key = "a_key";
       IndirectBranches = false;
-    } else
-      std::tie(Scope, Key, IndirectBranches) =
-          ParseAArch64BranchProtection(D, Args, A);
+    } else {
+      StringRef Err;
+      llvm::AArch64::ParsedBranchProtection PBP;
+      if (!llvm::AArch64::parseBranchProtection(A->getValue(), PBP, Err))
+        D.Diag(diag::err_invalid_branch_protection)
+            << Err << A->getAsString(Args);
+      Scope = PBP.Scope;
+      Key = PBP.Key;
+      IndirectBranches = PBP.BranchTargetEnforcement;
+    }
 
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-msign-return-address=") + Scope));
@@ -3162,7 +3211,6 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
   // This avoids having to monkey around further in cc1 other than to disable
   // codeview if not running in a Windows environment. Perhaps even that
   // decision should be made in the driver as well though.
-  unsigned DWARFVersion = 0;
   llvm::DebuggerKind DebuggerTuning = TC.getDefaultDebuggerTuning();
 
   bool SplitDWARFInlining =
@@ -3245,10 +3293,17 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     }
   }
 
+  unsigned DWARFVersion = 0;
+  unsigned DefaultDWARFVersion = ParseDebugDefaultVersion(TC, Args);
   if (EmitDwarf) {
     // Start with the platform default DWARF version
     DWARFVersion = TC.GetDefaultDwarfVersion();
     assert(DWARFVersion && "toolchain default DWARF version must be nonzero");
+
+    // If the user specified a default DWARF version, that takes precedence
+    // over the platform default.
+    if (DefaultDWARFVersion)
+      DWARFVersion = DefaultDWARFVersion;
 
     // Override with a user-specified DWARF version
     if (GDwarfN)
@@ -3570,8 +3625,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
 
     bool IsMSVC = AuxT.isWindowsMSVCEnvironment();
-    if (types::isCXX(Input.getType()))
-      CmdArgs.push_back(IsMSVC ? "-std=c++14" : "-std=c++11");
     if (IsMSVC) {
       CmdArgs.push_back("-fms-extensions");
       CmdArgs.push_back("-fms-compatibility");
@@ -3835,6 +3888,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       RenderARMABI(Triple, Args, CmdArgs);
       break;
     case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_32:
     case llvm::Triple::aarch64_be:
       RenderAArch64ABI(Triple, Args, CmdArgs);
       break;
@@ -5260,6 +5314,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (A) {
       CmdArgs.push_back(A->getValue());
     } else {
+      bool hasMultipleArchs =
+          Triple.isOSDarwin() && // Only supported on Darwin platforms.
+          Args.getAllArgValues(options::OPT_arch).size() > 1;
       SmallString<128> F;
 
       if (Args.hasArg(options::OPT_c) || Args.hasArg(options::OPT_S)) {
@@ -5282,6 +5339,22 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
           F += "-";
           F += JA.getOffloadingArch();
         }
+      }
+
+      // If we're having more than one "-arch", we should name the files
+      // differently so that every cc1 invocation writes to a different file.
+      // We're doing that by appending "-<arch>" with "<arch>" being the arch
+      // name from the triple.
+      if (hasMultipleArchs) {
+        // First, remember the extension.
+        SmallString<64> OldExtension = llvm::sys::path::extension(F);
+        // then, remove it.
+        llvm::sys::path::replace_extension(F, "");
+        // attach -<arch> to it.
+        F += "-";
+        F += Triple.getArchName();
+        // put back the extension.
+        llvm::sys::path::replace_extension(F, OldExtension);
       }
 
       std::string Extension = "opt.";
@@ -5470,12 +5543,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // Host-side SYCL compilation receives the integration header file as
     // Inputs[1].  Include the header with -include
     if (!IsSYCLOffloadDevice && SYCLDeviceInput) {
+      SmallString<128> RealPath;
+      // Fixup the header path name in case there are discrepancies in the
+      // string used for the temporary directory environment variable and
+      // actual path expectations.
+      llvm::sys::fs::real_path(SYCLDeviceInput->getFilename(), RealPath);
       CmdArgs.push_back("-include");
-      CmdArgs.push_back(SYCLDeviceInput->getFilename());
+      CmdArgs.push_back(Args.MakeArgString(RealPath));
       // When creating dependency information, filter out the generated
       // header file.
       CmdArgs.push_back("-dependency-filter");
-      CmdArgs.push_back(SYCLDeviceInput->getFilename());
+      CmdArgs.push_back(Args.MakeArgString(RealPath));
       // Let the FE know we are doing a SYCL offload compilation, but we are
       // doing the host pass.
       CmdArgs.push_back("-fsycl-is-host");
@@ -5569,15 +5647,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         llvm::Triple T(Tgts->getValue(i));
         TargetInfo += T.getTriple();
       }
-    } else {
+    } else
       // Use the default.
-      llvm::Triple TT(Triple);
-      TT.setArch(llvm::Triple::spir64);
-      TT.setVendor(llvm::Triple::UnknownVendor);
-      TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
-      TT.setEnvironment(llvm::Triple::SYCLDevice);
-      TargetInfo += TT.normalize();
-    }
+      TargetInfo += C.getDriver().MakeSYCLDeviceTriple().normalize();
     CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
   }
 
@@ -5687,11 +5759,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // We only support -moutline in AArch64 right now. If we're not compiling
       // for AArch64, emit a warning and ignore the flag. Otherwise, add the
       // proper mllvm flags.
-      if (Triple.getArch() != llvm::Triple::aarch64) {
+      if (Triple.getArch() != llvm::Triple::aarch64 &&
+          Triple.getArch() != llvm::Triple::aarch64_32) {
         D.Diag(diag::warn_drv_moutline_unsupported_opt) << Triple.getArchName();
       } else {
-          CmdArgs.push_back("-mllvm");
-          CmdArgs.push_back("-enable-machine-outliner");
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back("-enable-machine-outliner");
       }
     } else {
       // Disable all outlining behaviour.
@@ -6398,6 +6471,11 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
     if (WantDebug)
       DwarfVersion = DwarfVersionNum(A->getSpelling());
   }
+
+  unsigned DefaultDwarfVersion = ParseDebugDefaultVersion(getToolChain(), Args);
+  if (DwarfVersion == 0)
+    DwarfVersion = DefaultDwarfVersion;
+
   if (DwarfVersion == 0)
     DwarfVersion = getToolChain().GetDefaultDwarfVersion();
 
@@ -6719,7 +6797,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
         TT.setArchName(Input.getType() == types::TY_FPGA_AOCX ? "fpga_aocx"
                                                               : "fpga_aocr");
         TT.setVendorName("intel");
-        TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
+        TT.setOS(getToolChain().getTriple().getOS());
         TT.setEnvironment(llvm::Triple::SYCLDevice);
         Triples += "sycl-";
         Triples += TT.normalize();
@@ -6823,7 +6901,6 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       TT.setArchName((A->getValue() == StringRef("early")) ? "fpga_aocr"
                                                            : "fpga_aocx");
       TT.setVendorName("intel");
-      TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
       TT.setEnvironment(llvm::Triple::SYCLDevice);
       TargetTripleOpt = TT.str();
       // When wrapping an FPGA aocx binary to archive, do not emit registration

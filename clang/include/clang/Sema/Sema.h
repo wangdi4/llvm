@@ -502,9 +502,12 @@ private:
 };
 
 /// Sema - This implements semantic analysis and AST building for C.
-class Sema {
+class Sema final {
   Sema(const Sema &) = delete;
   void operator=(const Sema &) = delete;
+
+  /// A key method to reduce duplicate debug info from Sema.
+  virtual void anchor();
 
   ///Source of additional semantic information.
   ExternalSemaSource *ExternalSource;
@@ -1748,6 +1751,9 @@ public:
   /// Same as above, but constructs the AddressSpace index if not provided.
   QualType BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
                                  SourceLocation AttrLoc);
+  SYCLIntelFPGAIVDepAttr *
+  BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
+                              Expr *Expr2);
 
   bool CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc);
 
@@ -4357,6 +4363,7 @@ public:
   StmtResult ActOnAttributedStmt(SourceLocation AttrLoc,
                                  ArrayRef<const Attr*> Attrs,
                                  Stmt *SubStmt);
+  bool CheckRebuiltAttributedStmtAttributes(ArrayRef<const Attr *> Attrs);
 
   class ConditionResult;
   StmtResult ActOnIfStmt(SourceLocation IfLoc, bool IsConstexpr,
@@ -9178,6 +9185,9 @@ public:
     RTC_Unknown
   };
 
+  void CheckObjCMethodDirectOverrides(ObjCMethodDecl *method,
+                                      ObjCMethodDecl *overridden);
+
   void CheckObjCMethodOverrides(ObjCMethodDecl *ObjCMethod,
                                 ObjCInterfaceDecl *CurrentClass,
                                 ResultTypeCompatibilityKind RTC);
@@ -9609,21 +9619,10 @@ private:
 
 public:
   /// Struct to store the context selectors info for declare variant directive.
-  struct OpenMPDeclareVariantCtsSelectorData {
-    OMPDeclareVariantAttr::CtxSelectorSetType CtxSet =
-        OMPDeclareVariantAttr::CtxSetUnknown;
-    OMPDeclareVariantAttr::CtxSelectorType Ctx =
-        OMPDeclareVariantAttr::CtxUnknown;
-    MutableArrayRef<StringRef> ImplVendors;
-    ExprResult CtxScore;
-    explicit OpenMPDeclareVariantCtsSelectorData() = default;
-    explicit OpenMPDeclareVariantCtsSelectorData(
-        OMPDeclareVariantAttr::CtxSelectorSetType CtxSet,
-        OMPDeclareVariantAttr::CtxSelectorType Ctx,
-        MutableArrayRef<StringRef> ImplVendors, ExprResult CtxScore)
-        : CtxSet(CtxSet), Ctx(Ctx), ImplVendors(ImplVendors),
-          CtxScore(CtxScore) {}
-  };
+  using OMPCtxStringType = SmallString<8>;
+  using OMPCtxSelectorData =
+      OpenMPCtxSelectorData<OMPCtxStringType, SmallVector<OMPCtxStringType, 4>,
+                            ExprResult>;
 
   /// Checks if the variant/multiversion functions are compatible.
   bool areMultiversionVariantFunctionsCompatible(
@@ -10109,13 +10108,9 @@ public:
   /// must be used instead of the original one, specified in \p DG.
   /// \param Data Set of context-specific data for the specified context
   /// selector.
-  void ActOnOpenMPDeclareVariantDirective(
-      FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
-#if INTEL_CUSTOMIZATION
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-#endif // INTEL_CUSTOMIZATION
-      const Sema::OpenMPDeclareVariantCtsSelectorData &Data);
+  void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
+                                          SourceRange SR,
+                                          ArrayRef<OMPCtxSelectorData> Data);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

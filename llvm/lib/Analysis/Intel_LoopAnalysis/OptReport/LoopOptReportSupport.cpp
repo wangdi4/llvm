@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/OptReport/LoopOptReportSupport.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "opt-report-support-utils"
 

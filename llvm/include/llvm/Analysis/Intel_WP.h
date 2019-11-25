@@ -27,7 +27,7 @@ namespace llvm {
 namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
-extern cl::opt<bool> AssumeWholeProgram;
+extern bool AssumeWholeProgram;
 } // llvm_intel_wp_analysis
 
 // It handles actual analysis and results of whole program analysis.

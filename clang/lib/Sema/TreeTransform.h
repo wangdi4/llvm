@@ -373,6 +373,8 @@ public:
 #define ATTR(X)
 #define PRAGMA_SPELLING_ATTR(X)                                                \
   const X##Attr *Transform##X##Attr(const X##Attr *R) { return R; }
+#define DEPENDENT_STMT_ATTR(X)                                                 \
+  const X##Attr *Transform##X##Attr(const X##Attr *R) { return R; }
 #include "clang/Basic/AttrList.inc"
 
   /// Transform the given expression.
@@ -1288,6 +1290,8 @@ public:
   StmtResult RebuildAttributedStmt(SourceLocation AttrLoc,
                                    ArrayRef<const Attr*> Attrs,
                                    Stmt *SubStmt) {
+    if (SemaRef.CheckRebuiltAttributedStmtAttributes(Attrs))
+      return StmtError();
     return SemaRef.ActOnAttributedStmt(AttrLoc, Attrs, SubStmt);
   }
 
@@ -2028,6 +2032,21 @@ public:
   OMPClause *RebuildOMPIsDevicePtrClause(ArrayRef<Expr *> VarList,
                                          const OMPVarListLocTy &Locs) {
     return getSema().ActOnOpenMPIsDevicePtrClause(VarList, Locs);
+  }
+
+  /// Build a new OpenMP 'defaultmap' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPDefaultmapClause(OpenMPDefaultmapClauseModifier M,
+                                        OpenMPDefaultmapClauseKind Kind,
+                                        SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation MLoc,
+                                        SourceLocation KindLoc,
+                                        SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDefaultmapClause(M, Kind, StartLoc, LParenLoc,
+                                                 MLoc, KindLoc, EndLoc);
   }
 
   /// Rebuild the operand to an Objective-C \@synchronized statement.
@@ -3501,7 +3520,7 @@ ExprResult TreeTransform<Derived>::TransformInitializer(Expr *Init,
     Init = AIL->getCommonExpr();
 
   if (MaterializeTemporaryExpr *MTE = dyn_cast<MaterializeTemporaryExpr>(Init))
-    Init = MTE->GetTemporaryExpr();
+    Init = MTE->getSubExpr();
 
   while (CXXBindTemporaryExpr *Binder = dyn_cast<CXXBindTemporaryExpr>(Init))
     Init = Binder->getSubExpr();
@@ -6910,6 +6929,9 @@ const Attr *TreeTransform<Derived>::TransformAttr(const Attr *R) {
 #define PRAGMA_SPELLING_ATTR(X)                                                \
   case attr::X:                                                                \
     return getDerived().Transform##X##Attr(cast<X##Attr>(R));
+#define DEPENDENT_STMT_ATTR(X)                                                 \
+  case attr::X:                                                                \
+    return getDerived().Transform##X##Attr(cast<X##Attr>(R));
 #include "clang/Basic/AttrList.inc"
   default:
     return R;
@@ -9361,7 +9383,15 @@ OMPClause *TreeTransform<Derived>::TransformOMPDistScheduleClause(
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPDefaultmapClause(OMPDefaultmapClause *C) {
-  return C;
+  // Rebuild Defaultmap Clause since we need to invoke the checking of
+  // defaultmap(none:variable-category) after template initialization.
+  return getDerived().RebuildOMPDefaultmapClause(C->getDefaultmapModifier(),
+                                                 C->getDefaultmapKind(),
+                                                 C->getBeginLoc(),
+                                                 C->getLParenLoc(),
+                                                 C->getDefaultmapModifierLoc(),
+                                                 C->getDefaultmapKindLoc(),
+                                                 C->getEndLoc());
 }
 
 template <typename Derived>
@@ -9556,7 +9586,7 @@ TreeTransform<Derived>::TransformGenericSelectionExpr(GenericSelectionExpr *E) {
 
   SmallVector<Expr *, 4> AssocExprs;
   SmallVector<TypeSourceInfo *, 4> AssocTypes;
-  for (const GenericSelectionExpr::Association &Assoc : E->associations()) {
+  for (const GenericSelectionExpr::Association Assoc : E->associations()) {
     TypeSourceInfo *TSI = Assoc.getTypeSourceInfo();
     if (TSI) {
       TypeSourceInfo *AssocType = getDerived().TransformType(TSI);
@@ -12333,7 +12363,7 @@ template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformMaterializeTemporaryExpr(
                                                   MaterializeTemporaryExpr *E) {
-  return getDerived().TransformExpr(E->GetTemporaryExpr());
+  return getDerived().TransformExpr(E->getSubExpr());
 }
 
 template<typename Derived>

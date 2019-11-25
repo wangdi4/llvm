@@ -771,18 +771,63 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
   ClangASTSource::FindExternalVisibleDecls(context);
 }
 
+void ClangExpressionDeclMap::MaybeRegisterFunctionBody(
+    FunctionDecl *copied_function_decl) {
+  if (copied_function_decl->getBody() && m_parser_vars->m_code_gen) {
+    clang::DeclGroupRef decl_group_ref(copied_function_decl);
+    m_parser_vars->m_code_gen->HandleTopLevelDecl(decl_group_ref);
+  }
+}
+
+void ClangExpressionDeclMap::SearchPersistenDecls(NameSearchContext &context,
+                                                  const ConstString name,
+                                                  unsigned int current_id) {
+  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
+  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
+  if (!target)
+    return;
+
+  ClangASTContext *scratch_clang_ast_context =
+      target->GetScratchClangASTContext();
+
+  if (!scratch_clang_ast_context)
+    return;
+
+  ASTContext *scratch_ast_context = scratch_clang_ast_context->getASTContext();
+
+  if (!scratch_ast_context)
+    return;
+
+  NamedDecl *persistent_decl =
+      m_parser_vars->m_persistent_vars->GetPersistentDecl(name);
+
+  if (!persistent_decl)
+    return;
+
+  Decl *parser_persistent_decl = CopyDecl(persistent_decl);
+
+  if (!parser_persistent_decl)
+    return;
+
+  NamedDecl *parser_named_decl = dyn_cast<NamedDecl>(parser_persistent_decl);
+
+  if (!parser_named_decl)
+    return;
+
+  if (clang::FunctionDecl *parser_function_decl =
+          llvm::dyn_cast<clang::FunctionDecl>(parser_named_decl)) {
+    MaybeRegisterFunctionBody(parser_function_decl);
+  }
+
+  LLDB_LOGF(log, "  CEDM::FEVD[%u] Found persistent decl %s", current_id,
+            name.GetCString());
+
+  context.AddNamedDecl(parser_named_decl);
+}
 void ClangExpressionDeclMap::FindExternalVisibleDecls(
     NameSearchContext &context, lldb::ModuleSP module_sp,
     CompilerDeclContext &namespace_decl, unsigned int current_id) {
   assert(m_ast_context);
-
-  std::function<void(clang::FunctionDecl *)> MaybeRegisterFunctionBody =
-      [this](clang::FunctionDecl *copied_function_decl) {
-        if (copied_function_decl->getBody() && m_parser_vars->m_code_gen) {
-          DeclGroupRef decl_group_ref(copied_function_decl);
-          m_parser_vars->m_code_gen->HandleTopLevelDecl(decl_group_ref);
-        }
-      };
 
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
 
@@ -802,51 +847,8 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
                                       lldb::eSymbolContextBlock);
 
   // Try the persistent decls, which take precedence over all else.
-  if (!namespace_decl) {
-    do {
-      if (!target)
-        break;
-
-      ClangASTContext *scratch_clang_ast_context =
-          target->GetScratchClangASTContext();
-
-      if (!scratch_clang_ast_context)
-        break;
-
-      ASTContext *scratch_ast_context =
-          scratch_clang_ast_context->getASTContext();
-
-      if (!scratch_ast_context)
-        break;
-
-      NamedDecl *persistent_decl =
-          m_parser_vars->m_persistent_vars->GetPersistentDecl(name);
-
-      if (!persistent_decl)
-        break;
-
-      Decl *parser_persistent_decl = CopyDecl(persistent_decl);
-
-      if (!parser_persistent_decl)
-        break;
-
-      NamedDecl *parser_named_decl =
-          dyn_cast<NamedDecl>(parser_persistent_decl);
-
-      if (!parser_named_decl)
-        break;
-
-      if (clang::FunctionDecl *parser_function_decl =
-              llvm::dyn_cast<clang::FunctionDecl>(parser_named_decl)) {
-        MaybeRegisterFunctionBody(parser_function_decl);
-      }
-
-      LLDB_LOGF(log, "  CEDM::FEVD[%u] Found persistent decl %s", current_id,
-                name.GetCString());
-
-      context.AddNamedDecl(parser_named_decl);
-    } while (false);
-  }
+  if (!namespace_decl)
+    SearchPersistenDecls(context, name, current_id);
 
   if (name.GetCString()[0] == '$' && !namespace_decl) {
     static ConstString g_lldb_class_name("$__lldb_class");
@@ -1101,13 +1103,15 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
                                    : CompilerDeclContext();
 
       if (frame_decl_context) {
-        ClangASTContext *ast = llvm::dyn_cast_or_null<ClangASTContext>(
+        ClangASTContext *frame_ast = llvm::dyn_cast_or_null<ClangASTContext>(
             frame_decl_context.GetTypeSystem());
 
-        if (ast) {
+        ClangASTContext *map_ast =
+            ClangASTContext::GetASTContext(m_ast_context);
+        if (frame_ast && map_ast) {
           clang::NamespaceDecl *namespace_decl =
-              ClangASTContext::GetUniqueNamespaceDeclaration(
-                  m_ast_context, name.GetCString(), nullptr);
+              map_ast->GetUniqueNamespaceDeclaration(name.GetCString(),
+                                                     nullptr);
           if (namespace_decl) {
             context.AddNamedDecl(namespace_decl);
             clang::DeclContext *clang_decl_ctx =
@@ -1722,17 +1726,15 @@ void ClangExpressionDeclMap::AddOneGenericVariable(NameSearchContext &context,
   if (target == nullptr)
     return;
 
-  ASTContext *scratch_ast_context =
-      target->GetScratchClangASTContext()->getASTContext();
+  ClangASTContext *scratch_ast_context = target->GetScratchClangASTContext();
 
-  TypeFromUser user_type(
-      ClangASTContext::GetBasicType(scratch_ast_context, eBasicTypeVoid)
-          .GetPointerType()
-          .GetLValueReferenceType());
-  TypeFromParser parser_type(
-      ClangASTContext::GetBasicType(m_ast_context, eBasicTypeVoid)
-          .GetPointerType()
-          .GetLValueReferenceType());
+  TypeFromUser user_type(scratch_ast_context->GetBasicType(eBasicTypeVoid)
+                             .GetPointerType()
+                             .GetLValueReferenceType());
+  ClangASTContext *own_context = ClangASTContext::GetASTContext(m_ast_context);
+  TypeFromParser parser_type(own_context->GetBasicType(eBasicTypeVoid)
+                                 .GetPointerType()
+                                 .GetLValueReferenceType());
   NamedDecl *var_decl = context.AddVarDecl(parser_type);
 
   std::string decl_name(context.m_decl_name.getAsString());
@@ -1767,80 +1769,6 @@ void ClangExpressionDeclMap::AddOneGenericVariable(NameSearchContext &context,
     LLDB_LOGF(log, "  CEDM::FEVD[%u] Found variable %s, returned %s",
               current_id, decl_name.c_str(), ast_dumper.GetCString());
   }
-}
-
-bool ClangExpressionDeclMap::ResolveUnknownTypes() {
-  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
-  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
-
-  ClangASTContextForExpressions *scratch_ast_context =
-      static_cast<ClangASTContextForExpressions *>(
-          target->GetScratchClangASTContext());
-
-  for (size_t index = 0, num_entities = m_found_entities.GetSize();
-       index < num_entities; ++index) {
-    ExpressionVariableSP entity = m_found_entities.GetVariableAtIndex(index);
-
-    ClangExpressionVariable::ParserVars *parser_vars =
-        llvm::cast<ClangExpressionVariable>(entity.get())
-            ->GetParserVars(GetParserID());
-
-    if (entity->m_flags & ClangExpressionVariable::EVUnknownType) {
-      const NamedDecl *named_decl = parser_vars->m_named_decl;
-      const VarDecl *var_decl = dyn_cast<VarDecl>(named_decl);
-
-      if (!var_decl) {
-        LLDB_LOGF(log, "Entity of unknown type does not have a VarDecl");
-        return false;
-      }
-
-      if (log) {
-        ASTDumper ast_dumper(const_cast<VarDecl *>(var_decl));
-        LLDB_LOGF(log, "Variable of unknown type now has Decl %s",
-                  ast_dumper.GetCString());
-      }
-
-      QualType var_type = var_decl->getType();
-      TypeFromParser parser_type(
-          var_type.getAsOpaquePtr(),
-          ClangASTContext::GetASTContext(&var_decl->getASTContext()));
-
-      lldb::opaque_compiler_type_t copied_type = nullptr;
-      if (m_ast_importer_sp) {
-        copied_type = m_ast_importer_sp->CopyType(
-            scratch_ast_context->getASTContext(), &var_decl->getASTContext(),
-            var_type.getAsOpaquePtr());
-      } else if (HasMerger()) {
-        copied_type = CopyTypeWithMerger(
-                          var_decl->getASTContext(),
-                          scratch_ast_context->GetMergerUnchecked(), var_type)
-                          .getAsOpaquePtr();
-      } else {
-        lldbassert(0 && "No mechanism to copy a resolved unknown type!");
-        return false;
-      }
-
-      if (!copied_type) {
-        LLDB_LOGF(log, "ClangExpressionDeclMap::ResolveUnknownType - Couldn't "
-                       "import the type for a variable");
-
-        return (bool)lldb::ExpressionVariableSP();
-      }
-
-      TypeFromUser user_type(copied_type, scratch_ast_context);
-
-      //            parser_vars->m_lldb_value.SetContext(Value::eContextTypeClangType,
-      //            user_type.GetOpaqueQualType());
-      parser_vars->m_lldb_value.SetCompilerType(user_type);
-      parser_vars->m_parser_type = parser_type;
-
-      entity->SetCompilerType(user_type);
-
-      entity->m_flags &= ~(ClangExpressionVariable::EVUnknownType);
-    }
-  }
-
-  return true;
 }
 
 void ClangExpressionDeclMap::AddOneRegister(NameSearchContext &context,
@@ -2096,8 +2024,9 @@ void ClangExpressionDeclMap::AddThisType(NameSearchContext &context,
 
   if (copied_clang_type.IsAggregateType() &&
       copied_clang_type.GetCompleteType()) {
-    CompilerType void_clang_type =
-        ClangASTContext::GetBasicType(m_ast_context, eBasicTypeVoid);
+    ClangASTContext *own_context =
+        ClangASTContext::GetASTContext(m_ast_context);
+    CompilerType void_clang_type = own_context->GetBasicType(eBasicTypeVoid);
     CompilerType void_ptr_clang_type = void_clang_type.GetPointerType();
 
     CompilerType method_type = ClangASTContext::CreateFunctionType(

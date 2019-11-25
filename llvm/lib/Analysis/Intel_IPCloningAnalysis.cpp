@@ -24,6 +24,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <sstream>
@@ -36,10 +37,14 @@ using namespace llvm::llvm_cloning_analysis;
 
 namespace llvm {
 namespace llvm_cloning_analysis {
+bool IPCloningTrace = false;
+}
+}
+
 // Option to trace IP Cloning
-cl::opt<bool> IPCloningTrace("print-ip-cloning", cl::ReallyHidden);
-}
-}
+static cl::opt<bool, true> IPCloningTraceOpt("print-ip-cloning",
+                                             cl::ReallyHidden,
+                                             cl::location(IPCloningTrace));
 
 // Enable Loop related heuristic for Cloning.
 static cl::opt<bool> IPCloningLoopHeuristic("ip-cloning-loop-heuristic",

@@ -28,9 +28,6 @@
 
 using namespace llvm;
 
-extern cl::opt<bool> LoopEntityImportEnabled;
-extern cl::opt<bool> VPlanUseVPEntityInstructions;
-
 namespace llvm {
 
 class ScalarEvolution;
@@ -51,6 +48,9 @@ class VPPHINode;
 class VPBlockBase;
 class VPBasicBlock;
 class VPBuilder;
+
+extern bool LoopEntityImportEnabled;
+extern bool VPlanUseVPEntityInstructions;
 
 /// Base class for loop entities
 class VPLoopEntity {

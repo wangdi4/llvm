@@ -22,7 +22,7 @@
 #include "IntelVPlan.h"
 #include "llvm/ADT/SmallVector.h"
 
-extern cl::opt<bool> LoopMassagingEnabled;
+extern bool LoopMassagingEnabled;
 
 namespace llvm {
 class ScalarEvolution;

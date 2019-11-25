@@ -22,7 +22,9 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
@@ -434,6 +436,7 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::log10:
   case Intrinsic::fma:
   case Intrinsic::fabs:
+  case Intrinsic::minnum:
   case Intrinsic::maxnum:
   case Intrinsic::minimum:
   case Intrinsic::maximum:

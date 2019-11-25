@@ -3947,11 +3947,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
       break;
 #endif // INTEL_CUSTOMIZATION
-    case tok::kw___pipe:
-      if (getLangOpts().SYCLIsDevice)
-        // __pipe keyword is defined only for SYCL kernel language
-        isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
-      break;
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -5107,15 +5102,15 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   default: return false;
 
   case tok::kw_pipe:
-  case tok::kw___pipe:
     return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
-            getLangOpts().OpenCLCPlusPlus || getLangOpts().SYCLIsDevice;
+            getLangOpts().OpenCLCPlusPlus;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
       getTargetInfo().getSupportedOpenCLOpts().
          isEnabled("cl_intel_channels");
 #endif // INTEL_CUSTOMIZATION
+
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
     if (getLangOpts().ObjC && NextToken().is(tok::period))
@@ -5621,9 +5616,8 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
-  if ((Kind == tok::kw_pipe || Kind == tok::kw___pipe) &&
-      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus ||
-       Lang.SYCLIsDevice))
+  if ((Kind == tok::kw_pipe) &&
+      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
@@ -6780,6 +6774,19 @@ void Parser::ParseParameterDeclarationClause(
        ParsedAttributes &FirstArgAttrs,
        SmallVectorImpl<DeclaratorChunk::ParamInfo> &ParamInfo,
        SourceLocation &EllipsisLoc) {
+
+  // Avoid exceeding the maximum function scope depth.
+  // See https://bugs.llvm.org/show_bug.cgi?id=19607
+  // Note Sema::ActOnParamDeclarator calls ParmVarDecl::setScopeInfo with
+  // getFunctionPrototypeDepth() - 1.
+  if (getCurScope()->getFunctionPrototypeDepth() - 1 >
+      ParmVarDecl::getMaxFunctionScopeDepth()) {
+    Diag(Tok.getLocation(), diag::err_function_scope_depth_exceeded)
+        << ParmVarDecl::getMaxFunctionScopeDepth();
+    cutOffParsing();
+    return;
+  }
+
   do {
     // FIXME: Issue a diagnostic if we parsed an attribute-specifier-seq
     // before deciding this was a parameter-declaration-clause.

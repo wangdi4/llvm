@@ -592,6 +592,17 @@ static llvm::Triple computeTargetTriple(const Driver &D,
     }
   }
 
+  // If target is RISC-V adjust the target triple according to
+  // provided architecture name
+  A = Args.getLastArg(options::OPT_march_EQ);
+  if (A && Target.isRISCV()) {
+    StringRef ArchName = A->getValue();
+    if (ArchName.startswith_lower("rv32"))
+      Target.setArch(llvm::Triple::riscv32);
+    else if (ArchName.startswith_lower("rv64"))
+      Target.setArch(llvm::Triple::riscv64);
+  }
+
   return Target;
 }
 
@@ -897,21 +908,9 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     // If -fsycl is supplied without -fsycl-*targets we will assume SPIR-V
     // unless -fintelfpga is supplied, which uses SPIR-V with fpga AOT.
     if (HasValidSYCLRuntime) {
-      llvm::Triple TT(TargetTriple);
-      // TODO: Use 'unknown' for OS as devices do not have any OS.
-      TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
-      TT.setVendor(llvm::Triple::UnknownVendor);
-      TT.setEnvironment(llvm::Triple::SYCLDevice);
-
-      if (IsCLMode())
-        TT.setObjectFormat(llvm::Triple::COFF);
-      if (SYCLfpga)
-        // Triple for -fintelfpga is spir64_fpga-unknown-<os>-sycldevice.
-        TT.setArchName("spir64_fpga");
-      else
-        TT.setArch(llvm::Triple::spir64);
-
-      UniqueSYCLTriplesVec.push_back(TT);
+      // Triple for -fintelfpga is spir64_fpga-unknown-unknown-sycldevice.
+      const char *SYCLTargetArch = SYCLfpga ? "spir64_fpga" : "spir64";
+      UniqueSYCLTriplesVec.push_back(MakeSYCLDeviceTriple(SYCLTargetArch));
     }
   }
   // We'll need to use the SYCL and host triples as the key into
@@ -1750,12 +1749,14 @@ void Driver::PrintHelp(bool ShowHidden) const {
                       /*ShowAllAliases=*/false);
 }
 
-llvm::Triple makeDeviceTriple(StringRef subArch) {
+llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
   llvm::Triple TT;
-  TT.setArchName(subArch);
+  TT.setArchName(TargetArch);
   TT.setVendor(llvm::Triple::UnknownVendor);
-  TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
+  TT.setOS(llvm::Triple::UnknownOS);
   TT.setEnvironment(llvm::Triple::SYCLDevice);
+  if (IsCLMode())
+    TT.setObjectFormat(llvm::Triple::COFF);
   return TT;
 }
 
@@ -1768,13 +1769,13 @@ void Driver::PrintSYCLToolHelp(const Compilation &C) const {
     StringRef AV(A->getValue());
     llvm::Triple T;
     if (AV == "gen" || AV == "all")
-      HelpArgs.push_back(std::make_tuple(makeDeviceTriple("spir64_gen"),
+      HelpArgs.push_back(std::make_tuple(MakeSYCLDeviceTriple("spir64_gen"),
                                          "ocloc", "--help"));
     if (AV == "fpga" || AV == "all")
-      HelpArgs.push_back(std::make_tuple(makeDeviceTriple("spir64_fpga"),
-                                         "aoc", "-help"));
+      HelpArgs.push_back(
+          std::make_tuple(MakeSYCLDeviceTriple("spir64_fpga"), "aoc", "-help"));
     if (AV == "x86_64" || AV == "all")
-      HelpArgs.push_back(std::make_tuple(makeDeviceTriple("spir64_x86_64"),
+      HelpArgs.push_back(std::make_tuple(MakeSYCLDeviceTriple("spir64_x86_64"),
                                          "ioc64", "-help"));
     if (HelpArgs.empty()) {
       C.getDriver().Diag(diag::err_drv_unsupported_option_argument)
@@ -3358,6 +3359,11 @@ class OffloadingActionBuilder final {
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
         SYCLDeviceActions.clear();
 
+        // Options that are considered LinkerInput are not valid input actions
+        // to the device tool chain.
+        if (IA->getInputArg().getOption().hasFlag(options::LinkerInput))
+          return ABRT_Inactive;
+
         std::string InputName = IA->getInputArg().getAsString(Args);
         // Objects should already be consumed with -foffload-static-lib
         if (Args.hasArg(options::OPT_foffload_static_lib_EQ) &&
@@ -3378,6 +3384,11 @@ class OffloadingActionBuilder final {
       if (auto *UA = dyn_cast<OffloadUnbundlingJobAction>(HostAction)) {
         SYCLDeviceActions.clear();
         if (auto *IA = dyn_cast<InputAction>(UA->getInputs().back())) {
+          // Options that are considered LinkerInput are not valid input actions
+          // to the device tool chain.
+          if (IA->getInputArg().getOption().hasFlag(options::LinkerInput))
+            return ABRT_Inactive;
+
           std::string FileName = IA->getInputArg().getAsString(Args);
           // Check if the type of the file is the same as the action. Do not
           // unbundle it if it is not. Do not unbundle .so files, for example,
@@ -3463,6 +3474,9 @@ class OffloadingActionBuilder final {
           ++TC;
           continue;
         }
+        if (LI.empty())
+          // Current list is empty, nothing to process.
+          continue;
 
         // Perform a check for device kernels.  This is done for FPGA when an
         // aocx or aocr based file is found.
@@ -3618,19 +3632,12 @@ class OffloadingActionBuilder final {
           }
         }
       } else if (HasValidSYCLRuntime) {
-        // Only -fsycl is provided without -fsycl-*targets.
-        llvm::Triple TT;
+        // -fsycl is provided without -fsycl-*targets.
+        bool SYCLfpga = C.getInputArgs().hasArg(options::OPT_fintelfpga);
         // -fsycl -fintelfpga implies spir64_fpga
-        if (C.getInputArgs().hasArg(options::OPT_fintelfpga))
-          TT.setArchName("spir64_fpga");
-        else
-          TT.setArch(llvm::Triple::spir64);
-        TT.setVendor(llvm::Triple::UnknownVendor);
-        TT.setOS(llvm::Triple(llvm::sys::getProcessTriple()).getOS());
-        TT.setEnvironment(llvm::Triple::SYCLDevice);
-        if (C.getDriver().IsCLMode())
-          TT.setObjectFormat(llvm::Triple::COFF);
-        SYCLTripleList.push_back(TT);
+        const char *SYCLTargetArch = SYCLfpga ? "spir64_fpga" : "spir64";
+        SYCLTripleList.push_back(
+            C.getDriver().MakeSYCLDeviceTriple(SYCLTargetArch));
       }
 
       // Set the FPGA output type based on command line (-fsycl-link).
@@ -3838,6 +3845,7 @@ public:
     // the input is not a bundle.
     if (CanUseBundler && isa<InputAction>(HostAction) &&
         InputArg->getOption().getKind() == llvm::opt::Option::InputClass &&
+        !InputArg->getOption().hasFlag(options::LinkerInput) &&
         !types::isSrcFile(HostAction->getType())) {
       std::string InputName = InputArg->getAsString(Args);
       // Do not create an unbundling action for an object when we know a fat

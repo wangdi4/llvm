@@ -477,6 +477,7 @@ public:
   Instruction *visitLandingPadInst(LandingPadInst &LI);
   Instruction *visitVAStartInst(VAStartInst &I);
   Instruction *visitVACopyInst(VACopyInst &I);
+  Instruction *visitFreeze(FreezeInst &I);
 
   /// Specify what to return for unhandled instructions.
   Instruction *visitInstruction(Instruction &I) { return nullptr; }
@@ -754,7 +755,7 @@ public:
   Instruction *eraseInstFromFunction(Instruction &I) {
     LLVM_DEBUG(dbgs() << "IC: ERASE " << I << '\n');
     assert(I.use_empty() && "Cannot erase instruction that is used!");
-    salvageDebugInfo(I);
+    salvageDebugInfoOrMarkUndef(I);
 
     // Make sure that we reprocess all operands now that we reduced their
     // use counts.

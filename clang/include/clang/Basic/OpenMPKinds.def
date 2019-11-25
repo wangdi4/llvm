@@ -219,6 +219,26 @@
 #ifndef OPENMP_MATCH_KIND
 #define OPENMP_MATCH_KIND(Name)
 #endif
+#ifndef OPENMP_CONTEXT_SELECTOR_SET
+#define OPENMP_CONTEXT_SELECTOR_SET(Name)
+#endif
+#ifndef OPENMP_CONTEXT_SELECTOR
+#define OPENMP_CONTEXT_SELECTOR(Name)
+#endif
+
+// OpenMP context selector sets.
+OPENMP_CONTEXT_SELECTOR_SET(implementation)
+#if INTEL_COLLAB
+OPENMP_CONTEXT_SELECTOR_SET(construct)
+OPENMP_CONTEXT_SELECTOR_SET(device)
+#endif // INTEL_COLLAB
+
+// OpenMP context selectors.
+OPENMP_CONTEXT_SELECTOR(vendor)
+#if INTEL_COLLAB
+OPENMP_CONTEXT_SELECTOR(target_variant_dispatch)
+OPENMP_CONTEXT_SELECTOR(arch)
+#endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
 #ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
@@ -439,6 +459,7 @@ OPENMP_SIMD_CLAUSE(simdlen)
 OPENMP_SIMD_CLAUSE(collapse)
 OPENMP_SIMD_CLAUSE(reduction)
 OPENMP_SIMD_CLAUSE(allocate)
+OPENMP_SIMD_CLAUSE(if)
 
 // Clauses allowed for directive 'omp for'.
 OPENMP_FOR_CLAUSE(private)
@@ -524,9 +545,17 @@ OPENMP_DATAFLOW_MODIFIER(pipeline)
 
 // Static attributes for 'defaultmap' clause.
 OPENMP_DEFAULTMAP_KIND(scalar)
+OPENMP_DEFAULTMAP_KIND(aggregate)
+OPENMP_DEFAULTMAP_KIND(pointer)
 
 // Modifiers for 'defaultmap' clause.
+OPENMP_DEFAULTMAP_MODIFIER(alloc)
+OPENMP_DEFAULTMAP_MODIFIER(to)
+OPENMP_DEFAULTMAP_MODIFIER(from)
 OPENMP_DEFAULTMAP_MODIFIER(tofrom)
+OPENMP_DEFAULTMAP_MODIFIER(firstprivate)
+OPENMP_DEFAULTMAP_MODIFIER(none)
+OPENMP_DEFAULTMAP_MODIFIER(default)
 
 // Static attributes for 'depend' clause.
 OPENMP_DEPEND_KIND(in)
@@ -1194,6 +1223,8 @@ OPENMP_DECLARE_VARIANT_CLAUSE(match)
 // TODO: add other context selectors.
 OPENMP_MATCH_KIND(implementation)
 
+#undef OPENMP_CONTEXT_SELECTOR
+#undef OPENMP_CONTEXT_SELECTOR_SET
 #undef OPENMP_MATCH_KIND
 #undef OPENMP_DECLARE_VARIANT_CLAUSE
 #if INTEL_COLLAB

@@ -36,6 +36,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define OPT_SWITCH "hir-memory-reduction-sinking"

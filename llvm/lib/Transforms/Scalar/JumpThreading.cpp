@@ -60,6 +60,7 @@
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/BranchProbability.h"
@@ -2207,7 +2208,7 @@ bool JumpThreadingPass::MaybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
   LVI->eraseBlock(SinglePred);
   MergeBasicBlockIntoOnlyPred(BB, DTU);
 
-  // Now that BB is merged into SinglePred (i.e. SinglePred Code followed by
+  // Now that BB is merged into SinglePred (i.e. SinglePred code followed by
   // BB code within one basic block `BB`), we need to invalidate the LVI
   // information associated with BB, because the LVI information need not be
   // true for all of BB after the merge. For example,
@@ -2281,6 +2282,48 @@ void JumpThreadingPass::UpdateSSA(
       SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
     LLVM_DEBUG(dbgs() << "\n");
   }
+}
+
+/// Clone instructions in range [BI, BE) to NewBB.  For PHI nodes, we only clone
+/// arguments that come from PredBB.  Return the map from the variables in the
+/// source basic block to the variables in the newly created basic block.
+DenseMap<Instruction *, Value *>
+JumpThreadingPass::CloneInstructions(BasicBlock::iterator BI,
+                                     BasicBlock::iterator BE, BasicBlock *NewBB,
+                                     BasicBlock *PredBB) {
+  // We are going to have to map operands from the source basic block to the new
+  // copy of the block 'NewBB'.  If there are PHI nodes in the source basic
+  // block, evaluate them to account for entry from PredBB.
+  DenseMap<Instruction *, Value *> ValueMapping;
+
+  // Clone the phi nodes of the source basic block into NewBB.  The resulting
+  // phi nodes are trivial since NewBB only has one predecessor, but SSAUpdater
+  // might need to rewrite the operand of the cloned phi.
+  for (; PHINode *PN = dyn_cast<PHINode>(BI); ++BI) {
+    PHINode *NewPN = PHINode::Create(PN->getType(), 1, PN->getName(), NewBB);
+    NewPN->addIncoming(PN->getIncomingValueForBlock(PredBB), PredBB);
+    ValueMapping[PN] = NewPN;
+  }
+
+  // Clone the non-phi instructions of the source basic block into NewBB,
+  // keeping track of the mapping and using it to remap operands in the cloned
+  // instructions.
+  for (; BI != BE; ++BI) {
+    Instruction *New = BI->clone();
+    New->setName(BI->getName());
+    NewBB->getInstList().push_back(New);
+    ValueMapping[&*BI] = New;
+
+    // Remap operands to patch up intra-block references.
+    for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
+      if (Instruction *Inst = dyn_cast<Instruction>(New->getOperand(i))) {
+        DenseMap<Instruction *, Value *>::iterator I = ValueMapping.find(Inst);
+        if (I != ValueMapping.end())
+          New->setOperand(i, I->second);
+      }
+  }
+
+  return ValueMapping;
 }
 
 #if INTEL_CUSTOMIZATION

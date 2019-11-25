@@ -2077,7 +2077,7 @@ bool ShuffleVectorInst::isExtractSubvectorMask(ArrayRef<int> Mask,
     SubIndex = Offset;
   }
 
-  if (0 <= SubIndex) {
+  if (0 <= SubIndex && SubIndex + (int)Mask.size() <= NumSrcElts) {
     Index = SubIndex;
     return true;
   }
@@ -2260,9 +2260,6 @@ void UnaryOperator::AssertOK() {
     assert(getType()->isFPOrFPVectorTy() &&
            "Tried to create a floating-point operation on a "
            "non-floating-point type!");
-    break;
-  case Freeze:
-    // Freeze can take any type as an argument.
     break;
   default: llvm_unreachable("Invalid opcode provided");
   }
@@ -4124,6 +4121,22 @@ void IndirectBrInst::removeDestination(unsigned idx) {
 }
 
 //===----------------------------------------------------------------------===//
+//                            FreezeInst Implementation
+//===----------------------------------------------------------------------===//
+
+FreezeInst::FreezeInst(Value *S,
+                       const Twine &Name, Instruction *InsertBefore)
+    : UnaryInstruction(S->getType(), Freeze, S, InsertBefore) {
+  setName(Name);
+}
+
+FreezeInst::FreezeInst(Value *S,
+                       const Twine &Name, BasicBlock *InsertAtEnd)
+    : UnaryInstruction(S->getType(), Freeze, S, InsertAtEnd) {
+  setName(Name);
+}
+
+//===----------------------------------------------------------------------===//
 //                           cloneImpl() implementations
 //===----------------------------------------------------------------------===//
 
@@ -4338,4 +4351,8 @@ FuncletPadInst *FuncletPadInst::cloneImpl() const {
 UnreachableInst *UnreachableInst::cloneImpl() const {
   LLVMContext &Context = getContext();
   return new UnreachableInst(Context);
+}
+
+FreezeInst *FreezeInst::cloneImpl() const {
+  return new FreezeInst(getOperand(0));
 }

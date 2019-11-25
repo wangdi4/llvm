@@ -18,6 +18,7 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vploop-analysis"
 
@@ -31,13 +32,13 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
 
 // Temporary flag to disable loop entities import until CMPLRLLVM-9026 is
 // fixed.
-cl::opt<bool>
-    LoopEntityImportEnabled("vplan-import-entities", cl::init(true),
-                            cl::Hidden,
-                            cl::desc("Enable VPloop entities import"));
+static cl::opt<bool, true> LoopEntityImportEnabledOpt(
+    "vplan-import-entities", cl::location(LoopEntityImportEnabled), cl::Hidden,
+    cl::desc("Enable VPloop entities import"));
 
-cl::opt<bool> VPlanUseVPEntityInstructions(
-    "vplan-use-entity-instr", cl::init(false), cl::Hidden,
+static cl::opt<bool, true> VPlanUseVPEntityInstructionsOpt(
+    "vplan-use-entity-instr", cl::Hidden,
+    cl::location(VPlanUseVPEntityInstructions),
     cl::desc("Generate VPInstructions for VPEntities"));
 
 extern cl::opt<bool> EnableVPValueCodegen;
@@ -1402,6 +1403,9 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 
 namespace llvm {
 namespace vpo {
+bool LoopEntityImportEnabled = true;
+bool VPlanUseVPEntityInstructions = false;
+
 void VPLoopEntityList::doEscapeAnalysis() {
   if (!VPlanUseVPEntityInstructions || !EnableVPValueCodegen)
     return;

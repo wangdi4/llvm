@@ -28,6 +28,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/WithColor.h"
@@ -344,6 +345,12 @@ INITIALIZE_PASS_END(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                     false, false)
 
 char VPlanDriver::ID = 0;
+
+#if INTEL_CUSTOMIZATION
+VPlanDriver::VPlanDriver() : FunctionPass(ID) {
+  initializeVPlanDriverPass(*PassRegistry::getPassRegistry());
+}
+#endif // INTEL_CUSTOMIZATION
 
 Pass *llvm::createVPlanDriverPass() { return new VPlanDriver(); }
 
@@ -667,6 +674,10 @@ INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
                     "VPlan Vectorization Driver HIR", false, false)
 
 char VPlanDriverHIR::ID = 0;
+
+VPlanDriverHIR::VPlanDriverHIR() : VPlanDriver(ID) {
+  initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
+}
 
 Pass *llvm::createVPlanDriverHIRPass() { return new VPlanDriverHIR(); }
 

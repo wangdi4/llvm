@@ -86,7 +86,7 @@ void _pi_event::deleteL0EventList(
 }
 
 // Convinience macro makes source code search easier
-#define L0(pi_api) other_##pi_api
+#define L0(pi_api) pi_api##OclPtr
 
 // Forward declararitons
 decltype(piEventCreate) L0(piEventCreate);

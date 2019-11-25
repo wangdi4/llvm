@@ -148,6 +148,7 @@ enum Kind {
   kw_arm_aapcscc,
   kw_arm_aapcs_vfpcc,
   kw_aarch64_vector_pcs,
+  kw_aarch64_sve_vector_pcs,
   kw_msp430_intrcc,
   kw_avr_intrcc,
   kw_avr_signalcc,
@@ -287,7 +288,6 @@ enum Kind {
 
   // Instruction Opcodes (Opcode in UIntVal).
   kw_fneg,
-  kw_freeze,
   kw_add,
   kw_fadd,
   kw_sub,
@@ -362,6 +362,8 @@ enum Kind {
   kw_insertvalue,
   kw_blockaddress,
 
+  kw_freeze,
+
   // Metadata types.
   kw_distinct,
 
@@ -390,6 +392,7 @@ enum Kind {
   kw_noRecurse,
   kw_returnDoesNotAlias,
   kw_noInline,
+  kw_alwaysInline,
   kw_calls,
   kw_callee,
   kw_hotness,

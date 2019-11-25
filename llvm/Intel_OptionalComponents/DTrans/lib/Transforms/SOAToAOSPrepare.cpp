@@ -217,6 +217,7 @@
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
