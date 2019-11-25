@@ -431,33 +431,25 @@ public:
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
                ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-<<<<<<< HEAD
                Function &Callee, CallBase &Call,   // INTEL
                TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
                SmallSet<Function *, 20> *FForDTrans, // INTEL
-               const InlineParams &Params)
-=======
-               Function &Callee, CallBase &Call, const InlineParams &Params,
+               const InlineParams &Params,         // INTEL
                bool BoostIndirect = true)
->>>>>>> 854e956219e78cb8d7ef3b021d7be6b5d6b6af04
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCall(Call), Params(Params), Threshold(Params.DefaultThreshold),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         FuncsForDTrans(FForDTrans),
 #endif // INTEL_CUSTOMIZATION
-        EnableLoadElimination(true) {}
-=======
         BoostIndirectCalls(BoostIndirect), EnableLoadElimination(true) {}
->>>>>>> 854e956219e78cb8d7ef3b021d7be6b5d6b6af04
 
   InlineResult analyzeCall(CallBase &Call,                       // INTEL
                            const TargetTransformInfo &CalleeTTI, // INTEL
@@ -1499,23 +1491,6 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
     return false;
   }
 
-<<<<<<< HEAD
-  // If we have a constant that we are calling as a function, we can peer
-  // through it and see the function target. This happens not infrequently
-  // during devirtualization and so we want to give it a hefty bonus for
-  // inlining, but cap that bonus in the event that inlining wouldn't pan
-  // out. Pretend to inline the function, with a custom threshold.
-  auto IndirectCallParams = Params;
-  IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
-                  TLI, ILIC, AI, CallSitesForFusion,   // INTEL
-                  FuncsForDTrans,                  //INTEL
-                  IndirectCallParams);
-  if (CA.analyzeCall(Call, TTI, nullptr)) { // INTEL
-    // We were able to inline the indirect call! Subtract the cost from the
-    // threshold to get the bonus we want to apply, but don't go below zero.
-    Cost -= std::max(0, CA.getThreshold() - CA.getCost());
-=======
   if (TTI.isLoweredToCall(F)) {
     // We account for the average 1 instruction per call argument setup here.
     addCost(Call.arg_size() * InlineConstants::InstrCost);
@@ -1530,8 +1505,10 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
       IndirectCallParams.DefaultThreshold =
           InlineConstants::IndirectCallThreshold;
       CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
+                      TLI, ILIC, AI, CallSitesForFusion,   // INTEL
+                      FuncsForDTrans,                  //INTEL
                       IndirectCallParams, false);
-      if (CA.analyzeCall(Call)) {
+      if (CA.analyzeCall(Call, TTI, nullptr)) { // INTEL
         // We were able to inline the indirect call! Subtract the cost from the
         // threshold to get the bonus we want to apply, but don't go below zero.
         Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -1541,7 +1518,6 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
     } else
       // Otherwise simply add the cost for merely making the call.
       addCost(InlineConstants::CallPenalty);
->>>>>>> 854e956219e78cb8d7ef3b021d7be6b5d6b6af04
   }
 
   if (!Call.onlyReadsMemory() || (IsIndirectCall && !F->onlyReadsMemory()))
