@@ -428,33 +428,24 @@ public:
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
                ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-<<<<<<< HEAD
                Function &Callee, CallBase &Call,   // INTEL
                TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
                SmallSet<Function *, 20> *FForDTrans, // INTEL
-               const InlineParams &Params,         // INTEL
-               bool BoostIndirect = true)
-=======
-               Function &Callee, CallBase &Call, const InlineParams &Params)
->>>>>>> 986d8bf6fb5026a459d1c4980a2b02b554e9eb39
+               const InlineParams &Params)         // INTEL
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCall(Call), Params(Params), Threshold(Params.DefaultThreshold),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         FuncsForDTrans(FForDTrans),
 #endif // INTEL_CUSTOMIZATION
-        BoostIndirectCalls(BoostIndirect), EnableLoadElimination(true) {}
-=======
         EnableLoadElimination(true) {}
->>>>>>> 986d8bf6fb5026a459d1c4980a2b02b554e9eb39
 
   InlineResult analyzeCall(CallBase &Call,                       // INTEL
                            const TargetTransformInfo &CalleeTTI, // INTEL
@@ -1505,35 +1496,6 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
     return Base::visitCallBase(Call);
   }
 
-<<<<<<< HEAD
-  if (TTI.isLoweredToCall(F)) {
-    // We account for the average 1 instruction per call argument setup here.
-    addCost(Call.arg_size() * InlineConstants::InstrCost);
-
-    // If we have a constant that we are calling as a function, we can peer
-    // through it and see the function target. This happens not infrequently
-    // during devirtualization and so we want to give it a hefty bonus for
-    // inlining, but cap that bonus in the event that inlining wouldn't pan out.
-    // Pretend to inline the function, with a custom threshold.
-    if (IsIndirectCall && BoostIndirectCalls) {
-      auto IndirectCallParams = Params;
-      IndirectCallParams.DefaultThreshold =
-          InlineConstants::IndirectCallThreshold;
-      CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
-                      TLI, ILIC, AI, CallSitesForFusion,   // INTEL
-                      FuncsForDTrans,                  //INTEL
-                      IndirectCallParams, false);
-      if (CA.analyzeCall(Call, TTI, nullptr)) { // INTEL
-        // We were able to inline the indirect call! Subtract the cost from the
-        // threshold to get the bonus we want to apply, but don't go below zero.
-        Cost -= std::max(0, CA.getThreshold() - CA.getCost());
-      } else
-        // Otherwise simply add the cost for merely making the call.
-        addCost(InlineConstants::CallPenalty);
-    } else
-      // Otherwise simply add the cost for merely making the call.
-      addCost(InlineConstants::CallPenalty);
-=======
   // If we have a constant that we are calling as a function, we can peer
   // through it and see the function target. This happens not infrequently
   // during devirtualization and so we want to give it a hefty bonus for
@@ -1542,12 +1504,13 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
+                  TLI, ILIC, AI, CallSitesForFusion,   // INTEL
+                  FuncsForDTrans,                  //INTEL
                   IndirectCallParams);
-  if (CA.analyzeCall(Call)) {
+  if (CA.analyzeCall(Call, TTI, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
->>>>>>> 986d8bf6fb5026a459d1c4980a2b02b554e9eb39
   }
 
   if (!F->onlyReadsMemory())
