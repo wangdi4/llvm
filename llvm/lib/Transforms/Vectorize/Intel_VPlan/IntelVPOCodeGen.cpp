@@ -2222,7 +2222,9 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   IRBuilder<>::InsertPointGuard Guard(Builder);
   Function *F = OrigLoop->getHeader()->getParent();
   BasicBlock &FirstBB = F->front();
-  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
+  assert(FirstBB.getTerminator() &&
+         "Expect the 'entry' basic-block to be well-formed.");
+  Builder.SetInsertPoint(FirstBB.getTerminator());
 
   AllocaInst *WidenedPrivArr =
       Builder.CreateAlloca(VecTyForAlloca, nullptr, "private.mem");

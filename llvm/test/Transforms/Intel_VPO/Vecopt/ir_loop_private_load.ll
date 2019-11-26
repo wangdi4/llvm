@@ -7,25 +7,25 @@
 
 define void @foo(i32* nocapture %arr) {
 ; CHECK:       entry:
-; CHECK-NEXT:    [[PRIVATE_MEM:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[PRIVATE_MEM_BC:%.*]] = bitcast <4 x i32>* [[PRIVATE_MEM]] to i32*
-; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIVATE_MEM_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR_EXTRACT_3_:%.*]] = extractelement <4 x i32*> [[PRIVATE_MEM_BASE_ADDR]], i32 3
-; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR_EXTRACT_2_:%.*]] = extractelement <4 x i32*> [[PRIVATE_MEM_BASE_ADDR]], i32 2
-; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <4 x i32*> [[PRIVATE_MEM_BASE_ADDR]], i32 1
-; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[PRIVATE_MEM_BASE_ADDR]], i32 0
+; CHECK:         [[PRIV_VEC:%.*]] = alloca <4 x i32>, align 16
+; CHECK-NEXT:    [[PRIV_VEC_BC:%.*]] = bitcast <4 x i32>* [[PRIV_VEC]] to i32*
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIV_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_3_:%.*]] = extractelement <4 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 3
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_2_:%.*]] = extractelement <4 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 2
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <4 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 1
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX1:%.*]] = phi i32 [ 0, %vector.ph ], [ [[INDEX_NEXT:%.*]], %vector.body ]
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, %vector.ph ], [ [[TMP3:%.*]], %vector.body ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, %vector.ph ], [ [[TMP2:%.*]], %vector.body ]
-; CHECK-NEXT:    call void @baz(i32* [[PRIVATE_MEM_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    call void @baz(i32* [[PRIVATE_MEM_BASE_ADDR_EXTRACT_1_]])
-; CHECK-NEXT:    call void @baz(i32* [[PRIVATE_MEM_BASE_ADDR_EXTRACT_2_]])
-; CHECK-NEXT:    call void @baz(i32* [[PRIVATE_MEM_BASE_ADDR_EXTRACT_3_]])
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[PRIVATE_MEM]], align 4
+; CHECK-NEXT:    call void @baz(i32* [[PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    call void @baz(i32* [[PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    call void @baz(i32* [[PRIV_VEC_BASE_ADDR_EXTRACT_2_]])
+; CHECK-NEXT:    call void @baz(i32* [[PRIV_VEC_BASE_ADDR_EXTRACT_3_]])
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_VEC]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <4 x i32> [[VEC_PHI]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* %arr, i64 [[DOTEXTRACT_0_]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[ARR:%.*]], i64 [[DOTEXTRACT_0_]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD]], <4 x i32>* [[TMP1]], align 4
 ;
