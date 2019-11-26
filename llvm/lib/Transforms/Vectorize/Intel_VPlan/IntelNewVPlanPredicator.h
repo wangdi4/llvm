@@ -35,11 +35,6 @@ namespace llvm {
 
 class VPlanPredicator {
 private:
-  enum class EdgeType {
-    TRUE_EDGE,
-    FALSE_EDGE,
-  };
-
   // VPlan being predicated.
   VPlan &Plan;
 
@@ -52,13 +47,6 @@ private:
 
   // VPlan builder used to generate VPInstructions for block predicates.
   VPBuilder Builder;
-
-#if INTEL_CUSTOMIZATION
-  /// Uniform inner loop regions that need to be fixed up using the loop
-  /// preheader's block predicate
-  SmallVector<VPLoopRegion *, 2> FixupLoopRegions;
-  void fixupUniformInnerLoops(void);
-#endif
 
   // Describe an edge/condition/predicate affecting given block predicate. Final
   // predicate for that block is an OR of all the PredicateTerms affecting the
