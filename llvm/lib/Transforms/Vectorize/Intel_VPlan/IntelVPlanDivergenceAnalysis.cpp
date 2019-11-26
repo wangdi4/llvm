@@ -845,15 +845,29 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       VPValue *NewStride = nullptr;
       uint64_t Op0StrideIntVal;
       uint64_t Op1StrideIntVal;
-      bool Op0StrideIsInt = getConstantIntVal(Shape0->getStride(),
-                                              Op0StrideIntVal);
-      bool Op1StrideIsInt = getConstantIntVal(Shape1->getStride(),
-                                              Op1StrideIntVal);
+      bool Op0StrideIsInt =
+          getConstantIntVal(Shape0->getStride(), Op0StrideIntVal);
+      bool Op1StrideIsInt =
+          getConstantIntVal(Shape1->getStride(), Op1StrideIntVal);
       if (Op0StrideIsInt && Op1StrideIsInt) {
-        uint64_t NewStrideVal = Op0StrideIntVal - Op1StrideIntVal;
-        ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
-                                                     NewStrideVal);
+        int64_t NewStrideVal = Op0StrideIntVal - Op1StrideIntVal;
+        ConstantInt *NewStrideInt =
+            ConstantInt::get(Type::getInt64Ty(C), NewStrideVal);
         NewStride = new VPConstant(NewStrideInt);
+        VPVectorShape::VPShapeDescriptor NewDesc;
+        switch (NewStrideVal) {
+        case 0:
+          NewDesc = VPVectorShape::Uni;
+          break;
+        case 1:
+        case -1:
+          NewDesc = VPVectorShape::Seq;
+          break;
+        default:
+          NewDesc = VPVectorShape::Str;
+          break;
+        }
+        return new VPVectorShape(NewDesc, NewStride);
       }
       VPVectorShape::VPShapeDescriptor NewDesc = SubConversion[Desc0][Desc1];
       return new VPVectorShape(NewDesc, NewStride);
