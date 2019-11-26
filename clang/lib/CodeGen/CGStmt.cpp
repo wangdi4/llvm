@@ -92,11 +92,11 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #else
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION
-    // Combined target directives
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       if (requiresImplicitTask(*Dir))
         return EmitLateOutlineOMPDirective(*Dir, OMPD_task);
 
+    // Combined target directives
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetParallelForSimdDirectiveClass ||
@@ -120,6 +120,19 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
             Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, OMPD_teams);
+    }
+    // Combined master/taskloop directives
+    if (S->getStmtClass() == Stmt::OMPMasterTaskLoopDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPMasterTaskLoopSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_master);
+    }
+    // Combined parallel/master_taskloop directives
+    if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_parallel);
     }
     if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S))
       return EmitLateOutlineOMPLoopDirective(*LoopDir,

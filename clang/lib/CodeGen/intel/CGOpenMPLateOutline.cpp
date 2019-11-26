@@ -1474,7 +1474,10 @@ void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
-  switch (Directive.getDirectiveKind()) {
+  // Check current specific directive rather than directive kind (it can
+  // potentially be a combined directive, and those are broken up into
+  // specific directives).
+  switch (CurrentDirectiveKind) {
   case OMPD_atomic:
   case OMPD_critical:
   case OMPD_single:
@@ -1925,6 +1928,14 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_teams_distribute_parallel_for_simd:
     return Kind == OMPD_teams;
 
+  case OMPD_master_taskloop:
+  case OMPD_master_taskloop_simd:
+    return Kind == OMPD_master;
+
+  case OMPD_parallel_master_taskloop:
+  case OMPD_parallel_master_taskloop_simd:
+    return Kind == OMPD_parallel;
+
   default:
     llvm_unreachable("Base directive kind in isFirstDirectiveInSet");
   }
@@ -2153,6 +2164,35 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
   case OMPD_target_exit_data:
   case OMPD_target_update:
     return OMPD_unknown;
+
+  case OMPD_master_taskloop:
+    // OMPD_master -> OMPD_taskloop
+    if (CurrDirKind == OMPD_master)
+      return OMPD_taskloop;
+    return OMPD_unknown;
+
+  case OMPD_master_taskloop_simd:
+    // OMPD_master -> OMPD_taskloop_simd
+    if (CurrDirKind == OMPD_master)
+      return OMPD_taskloop_simd;
+    return OMPD_unknown;
+
+  case OMPD_parallel_master_taskloop:
+    // OMPD_parallel -> OMPD_master -> OMPD_taskloop
+    if (CurrDirKind == OMPD_parallel)
+      return OMPD_master;
+    if (CurrDirKind == OMPD_master)
+      return OMPD_taskloop;
+    return OMPD_unknown;
+
+  case OMPD_parallel_master_taskloop_simd:
+    // OMPD_parallel -> OMPD_master -> OMPD_taskloop_simd
+    if (CurrDirKind == OMPD_parallel)
+      return OMPD_master;
+    if (CurrDirKind == OMPD_master)
+      return OMPD_taskloop_simd;
+    return OMPD_unknown;
+
   default:
     llvm_unreachable("Unhandled combined directive.");
   }
@@ -2350,6 +2390,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
         case OMPD_parallel:
         case OMPD_teams:
         case OMPD_target:
+        case OMPD_master:
         case OMPD_target_enter_data:
         case OMPD_target_exit_data:
         case OMPD_target_update:
@@ -2361,6 +2402,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
         case OMPD_distribute_simd:
         case OMPD_distribute_parallel_for:
         case OMPD_distribute_parallel_for_simd:
+        case OMPD_taskloop:
+        case OMPD_taskloop_simd:
           return EmitLateOutlineOMPLoopDirective(cast<OMPLoopDirective>(S),
                                                  NextKind);
         case OMPD_unknown:
