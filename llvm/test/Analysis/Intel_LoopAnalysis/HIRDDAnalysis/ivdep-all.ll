@@ -18,7 +18,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=2 -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=2 -disable-output 2>&1 < %s | FileCheck %s
 ;
-; CHECK-DAG: (%c)[1024 * i1 + i2] --> (%c)[1024 * i1 + i2] OUTPUT (= = =) (0 0 0)
+; CHECK-DAG: (%c)[1024 * i1 + i2] --> (%c)[1024 * i1 + i2] OUTPUT (= = *) (0 0 ?)
 ; CHECK-DAG: (%a)[1024 * i1 + i3] --> (%c)[1024 * i1 + i2] ANTI (= = =) (0 0 0)
 ; CHECK-DAG: (%b)[i2 + 1024 * i3] --> (%c)[1024 * i1 + i2] ANTI (= = =) (0 0 0)
 ;
