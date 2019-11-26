@@ -23,25 +23,25 @@
 
 let Predicates = [HasAMXTILE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def LDTILECFG : I <0x49, MRM0m, (outs), (ins i512mem:$src),
+    def LDTILECFG : I <0x49, MRM0m, (outs), (ins opaquemem:$src),
                        "ldtilecfg\t$src",
                        [(int_x86_ldtilecfg addr:$src)]>, VEX, T8PS;
-    def STTILECFG : I <0x49, MRM0m, (outs), (ins i512mem:$src),
+    def STTILECFG : I <0x49, MRM0m, (outs), (ins opaquemem:$src),
                        "sttilecfg\t$src",
                        [(int_x86_sttilecfg addr:$src)]>, VEX, T8PD;
     def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
-                      (ins i8mem:$src),
+                      (ins opaquemem:$src),
                       "tileloadd\t{$src, $dst|$dst, $src}", []>,
                       VEX, T8XD;
     def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
-                        (ins i8mem:$src),
+                        (ins opaquemem:$src),
                         "tileloaddt1\t{$src, $dst|$dst, $src}", []>,
                         VEX, T8PD;
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
     def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
-                       (ins i8mem:$dst, VTILE:$src),
-                       "tilestored\t{$src, $dst|$src, $dst}", []>,
+                       (ins opaquemem:$dst, VTILE:$src),
+                       "tilestored\t{$src, $dst|$dst, $src}", []>,
                        VEX, T8XS;
     def TILEZERO : I<0x49, MRMr0, (outs VTILE:$dst), (ins),
                      "tilezero\t$dst", []>,
@@ -50,8 +50,9 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
       // To be translated to the actual instructions in X86ISelLowering.cpp
-      def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILELOADDT1 : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
+      def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, opaquemem:$src2), []>;
+      def PTILELOADDT1 : PseudoI<(outs), (ins u8imm:$src1,
+                                          opaquemem:$src2), []>;
       def PTILESTORED : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
       def PTILEZERO : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezero imm:$src)]>;
@@ -72,7 +73,7 @@ let Predicates = [HasAMXINT8, In64BitMode] in {
                       VEX_4V, T8XS;
       def TDPBUSD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
-                      "tdpbusd\t{$src3, $src2, $dst|$src3, $src2, $src3}", []>,
+                      "tdpbusd\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       VEX_4V, T8PD;
       def TDPBUUD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
