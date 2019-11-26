@@ -5,8 +5,12 @@
 ; Check that the up and down pivot mover loops are recognized.
 
 ; CHECK: QsortRec: Checking Pivot Mover Candidate in qsort_mover
+; CHECK: *OuterPHIOut IS NOT NULL
+; CHECK: *OuterPHIMid IS NOT NULL
 ; CHECK: QsortRec: Pivot Mover Candidate in qsort_mover PASSED Test (UP)
 ; CHECK: QsortRec: Checking Pivot Mover Candidate in qsort_mover
+; CHECK: *OuterPHIOut IS NULL
+; CHECK: *OuterPHIMid IS NOT NULL
 ; CHECK: QsortRec: Pivot Mover Candidate in qsort_mover PASSED Test (DOWN)
 
 ; ModuleID = 'qsort-mover01.ll'

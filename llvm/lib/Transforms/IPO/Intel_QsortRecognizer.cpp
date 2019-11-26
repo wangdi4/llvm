@@ -2055,7 +2055,13 @@ static bool isPivotMover(BasicBlock *BBStart, Argument *ArgArray, bool IsUp,
       if (*OuterPHIOut && *OuterPHIMid)
         break;
     }
-    if (!*OuterPHIOut && !*OuterPHIMid)
+    // CMPLRLLVM-11027: Add debug info for LIT test of the fix below.
+    // *OuterPHIMid must be non-nullptr, but *OuterPHIOut may be nullptr.
+    LLVM_DEBUG(dbgs() << "*OuterPHIOut "
+                      << (*OuterPHIOut ? "IS NOT NULL\n" : "IS NULL\n"));
+    LLVM_DEBUG(dbgs() << "*OuterPHIMid "
+                      << (*OuterPHIMid ? "IS NOT NULL\n" : "IS NULL\n"));
+    if (!*OuterPHIMid)
       return false;
     Value *V = (*OuterPHIMid)->getIncomingValueForBlock(BBStart);
     auto PHIN2 = dyn_cast<PHINode>(V);
