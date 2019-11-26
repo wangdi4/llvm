@@ -296,7 +296,9 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
     PredicateInstsBB =
         cast<VPBasicBlock>(Block->getExitBasicBlock()->getSingleSuccessor());
   else {
-    PredicateInstsBB = VPBlockUtils::splitExitBlock(Block, VPLI, VPDomTree);
+    auto *BB = cast<VPBasicBlock>(Block);
+    PredicateInstsBB =
+        VPBlockUtils::splitBlockEnd(BB, VPLI, &VPDomTree, nullptr);
     SplitBlocks.insert(Block);
   }
   Builder.setInsertPoint(PredicateInstsBB);

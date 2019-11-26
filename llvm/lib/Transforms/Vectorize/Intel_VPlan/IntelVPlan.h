@@ -593,6 +593,7 @@ public:
   /// \return the VPBasicBlock which this VPInstruction belongs to.
   VPBasicBlock *getParent() { return Parent; }
   const VPBasicBlock *getParent() const { return Parent; }
+  void setParent(VPBasicBlock *NewParent) { Parent = NewParent; }
 
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
@@ -1646,6 +1647,7 @@ public:
 /// rather than through a Terminator branch or through predecessor branches that
 /// "use" the VPBasicBlock.
 class VPBasicBlock : public VPBlockBase {
+  friend class VPBlockUtils;
 public:
   using VPInstructionListTy = iplist<VPInstruction>;
 
@@ -1861,6 +1863,27 @@ public:
   }
 
 private:
+  /// Create an IR BasicBlock to hold the instructions vectorized from this
+  /// VPBasicBlock, and return it. Update the CFGState accordingly.
+  BasicBlock *createEmptyBasicBlock(VPTransformState *State);
+
+  /// Split this block before the VPInstruction pointer by the \p I, or before
+  /// the implicit [conditional] jump represented by the successors.
+  ///
+  /// This routine also updates the CFG accordingly, i.e. moves
+  /// successors/condition bits to the newly created block. If \p I points to a
+  /// VPPHINode, the split happens after the last VPPHINode in the current block
+  /// to preserve correctness.
+  ///
+  /// Block predicate instruction is NOT cloned, if original block contained,
+  /// only one of the blocks will have it.
+  ///
+  /// VPHINodes in the successors of this block are also updated. In case of
+  /// Blends, incoming blocks are updated in such a way that the block
+  /// containing the block-predicate instruction after the split is used.
+  VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
+
+private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
@@ -1872,13 +1895,6 @@ private:
   // something similar to LLVM IR's loop metadata on the backedge branch
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
-#endif
-  /// Create an IR BasicBlock to hold the instructions vectorized from this
-  /// VPBasicBlock, and return it. Update the CFGState accordingly.
-#if INTEL_CUSTOMIZATION
-  BasicBlock *createEmptyBasicBlock(VPTransformState *State);
-#else
-  BasicBlock *createEmptyBasicBlock(VPTransformState::CFGState &CFG);
 #endif
 };
 
@@ -2630,13 +2646,22 @@ public:
     return false;
   }
 
-  static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
-                                      VPDominatorTree &DomTree);
+private:
+  static VPBasicBlock *splitBlock(VPBasicBlock *Block,
+                                  VPBasicBlock::iterator BeforeIt,
+                                  VPLoopInfo *VPLInfo,
+                                  VPDominatorTree *DomTree = nullptr,
+                                  VPPostDominatorTree *PostDomTree = nullptr);
 
-  static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
-                                  VPDominatorTree &DomTree,
-                                  VPPostDominatorTree &PostDomTree);
-
+public:
+  static VPBasicBlock *
+  splitBlockBegin(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                  VPDominatorTree *DomTree = nullptr,
+                  VPPostDominatorTree *PostDomTree = nullptr);
+  static VPBasicBlock *
+  splitBlockEnd(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                VPDominatorTree *DomTree = nullptr,
+                VPPostDominatorTree *PostDomTree = nullptr);
   //===----------------------------------------------------------------------===//
   // VPRegionBlock specific Utilities
   //===----------------------------------------------------------------------===//
