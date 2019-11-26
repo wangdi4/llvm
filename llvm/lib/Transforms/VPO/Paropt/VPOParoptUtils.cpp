@@ -3037,13 +3037,20 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Instruction *InsertPt, WRegionNode *W,
-                                         bool IsTail, bool IsVarArg) {
+                                         bool IsTail) {
   assert(BaseCall && "BaseCall is null");
   Module *M = BaseCall->getModule();
   Type *ReturnTy = BaseCall->getType();
+  FunctionType *BaseFnTy = BaseCall->getFunctionType();
+  bool IsVarArg = BaseFnTy->isVarArg();
+
+  // When IsVarArg==true, we cannot recreate the FnArgTypes from the FnArgs
+  // because there may be more arguments in the call than the formal parameters
+  // in the function declaration. Therefore, we have to use BaseFnTy->params().
   SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
   CallInst *VariantCall =
-      genCall(M, VariantName, ReturnTy, FnArgs, InsertPt, IsTail, IsVarArg);
+      genCall(M, VariantName, ReturnTy, FnArgs, BaseFnTy->params(), InsertPt,
+              IsTail, IsVarArg);
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding TgtBuffer.
