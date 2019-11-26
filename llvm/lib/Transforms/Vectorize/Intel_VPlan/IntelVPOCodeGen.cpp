@@ -2954,7 +2954,7 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   Builder.SetInsertPoint(FirstBB.getTerminator());
 
   AllocaInst *WidenedPrivArr =
-      Builder.CreateAlloca(VecTyForAlloca, nullptr, "private.mem");
+      Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getOrigName() + ".vec");
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   WidenedPrivArr->setAlignment(
       MaybeAlign(DL.getPrefTypeAlignment(VecTyForAlloca)));
