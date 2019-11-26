@@ -1,23 +1,48 @@
-; REQUIRES: asserts
-; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-swap -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-swap -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -qsortrecognizer -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -S 2>&1 | FileCheck %s
 
-; Check that the computation of swap is recognized
+; This test checks that qsort was recognized and the "is-qsort" attribute
+; was inserted correctly. This is the same test as qsort-full-test.ll
 
-; CHECK: QsortRec: Checking computation of swap in qsort_swap
-; CHECK: QsortRec: Computation of swap in qsort_swap PASSED Test.
-; CHECK: QsortRec: Checking computation of swap in qsort_swap
-; CHECK: QsortRec: Computation of swap in qsort_swap PASSED Test.
-; CHECK: FOUND QSORT
+; CHECK: define internal fastcc void @qsort(i8* %0, i64 %1) unnamed_addr #0
+; CHECK: attributes #0 = { "is-qsort" }
 
 %struct.arc = type { i32, i64, %struct.node*, %struct.node*, i16, %struct.arc*, %struct.arc*, i64, i64 }
 %struct.node = type { i64, i32, %struct.node*, %struct.node*, %struct.node*, %struct.node*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, i64, i64, i32, i32 }
 %struct.basket = type { %struct.arc*, i64, i64, i64 }
 
-declare i32 @arc_compare(%struct.arc** nocapture readonly %arg, %struct.arc** nocapture readonly %arg1)
+define internal i32 @arc_compare(%struct.arc** nocapture readonly %arg, %struct.arc** nocapture readonly %arg1) {
+bb:
+  %tmp = load %struct.arc*, %struct.arc** %arg, align 8
+  %tmp2 = getelementptr inbounds %struct.arc, %struct.arc* %tmp, i64 0, i32 7
+  %tmp3 = load i64, i64* %tmp2, align 8
+  %tmp4 = load %struct.arc*, %struct.arc** %arg1, align 8
+  %tmp5 = getelementptr inbounds %struct.arc, %struct.arc* %tmp4, i64 0, i32 7
+  %tmp6 = load i64, i64* %tmp5, align 8
+  %tmp7 = icmp sgt i64 %tmp3, %tmp6
+  br i1 %tmp7, label %bb17, label %bb8
+
+bb8:                                              ; preds = %bb
+  %tmp9 = icmp slt i64 %tmp3, %tmp6
+  br i1 %tmp9, label %bb17, label %bb10
+
+bb10:                                             ; preds = %bb8
+  %tmp11 = getelementptr inbounds %struct.arc, %struct.arc* %tmp, i64 0, i32 0
+  %tmp12 = load i32, i32* %tmp11, align 8
+  %tmp13 = getelementptr inbounds %struct.arc, %struct.arc* %tmp4, i64 0, i32 0
+  %tmp14 = load i32, i32* %tmp13, align 8
+  %tmp15 = icmp slt i32 %tmp12, %tmp14
+  %tmp16 = select i1 %tmp15, i32 -1, i32 1
+  br label %bb17
+
+bb17:                                             ; preds = %bb10, %bb8, %bb
+  %tmp18 = phi i32 [ 1, %bb ], [ -1, %bb8 ], [ %tmp16, %bb10 ]
+  ret i32 %tmp18
+}
+
 
 ; Function Attrs: nounwind uwtable
-define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
+define internal fastcc void @qsort(i8* %0, i64 %1) unnamed_addr {
   %3 = ptrtoint i8* %0 to i64
   %4 = icmp ult i64 %1, 7
   br i1 %4, label %5, label %32
@@ -452,7 +477,7 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
 
 311:                                              ; preds = %309
   %312 = lshr i64 %259, 3
-  tail call fastcc void @qsort_swap(i8* %34, i64 %312)
+  tail call fastcc void @qsort(i8* %34, i64 %312)
   br label %313
 
 313:                                              ; preds = %311, %309
