@@ -685,10 +685,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual const char*     GPA_GetCommandName() const { return "Fill SVM Buffer"; }
     };
 
-    class MemsetUsmBufferCommand : public FillBufferCommand
+    class MemFillUsmBufferCommand : public FillBufferCommand
     {
     public:
-        MemsetUsmBufferCommand(
+        MemFillUsmBufferCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points* pOclEntryPoints,
             const SharedPtr<MemoryObject>& pBuffer,
@@ -700,13 +700,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
                               pattern_size, offset, size) {}
 
         cl_command_type         GetCommandType() const {
-            return CL_COMMAND_MEMSET_INTEL;
+            return CL_COMMAND_MEMFILL_INTEL;
         }
         const char*             GetCommandName() const {
-            return "CL_COMMAND_MEMSET_INTEL";
+            return "CL_COMMAND_MEMFILL_INTEL";
         }
         virtual const char*     GPA_GetCommandName() const {
-            return "Memset USM Buffer";
+            return "MemFill USM Buffer";
         }
     };
 

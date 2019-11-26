@@ -135,6 +135,7 @@ EXPORTS
 	clGetMemAllocInfoINTEL
 	clSetKernelArgMemPointerINTEL
 	clEnqueueMemsetINTEL
+	clEnqueueMemFillINTEL
 	clEnqueueMemcpyINTEL
 	clEnqueueMigrateMemINTEL
 	clEnqueueMemAdviseINTEL
