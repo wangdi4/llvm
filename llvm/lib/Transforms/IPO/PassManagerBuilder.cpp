@@ -605,26 +605,19 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
 
   // Break up aggregate allocas, using SSAUpdater.
-  assert(OptLevel >= 1 && "Calling function optimizer with no optimization level!");
   MPM.add(createSROAPass());
   MPM.add(createEarlyCSEPass(true /* Enable mem-ssa. */)); // Catch trivial redundancies
-
-  if (OptLevel > 1) {
-    if (EnableGVNHoist)
-      MPM.add(createGVNHoistPass());
-    if (EnableGVNSink) {
-      MPM.add(createGVNSinkPass());
-      MPM.add(createCFGSimplificationPass());
-    }
+  if (EnableGVNHoist)
+    MPM.add(createGVNHoistPass());
+  if (EnableGVNSink) {
+    MPM.add(createGVNSinkPass());
+    MPM.add(createCFGSimplificationPass());
   }
 
-  if (OptLevel > 1) {
-    // Speculative execution if the target has divergent branches; otherwise nop.
-    MPM.add(createSpeculativeExecutionIfHasBranchDivergencePass());
-
-    MPM.add(createJumpThreadingPass());         // Thread jumps.
-    MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
-  }
+  // Speculative execution if the target has divergent branches; otherwise nop.
+  MPM.add(createSpeculativeExecutionIfHasBranchDivergencePass());
+  MPM.add(createJumpThreadingPass());         // Thread jumps.
+  MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   // Combine silly seq's
   if (OptLevel > 2)
@@ -638,6 +631,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (SizeLevel == 0)
     MPM.add(createPGOMemOPSizeOptLegacyPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
   bool SkipRecProgression = PrepareForLTO && EnableDTrans;
@@ -650,6 +644,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
                                               // Eliminate tail calls
 #endif // INTEL_CUSTOMIZATION
   MPM.add(createCFGSimplificationPass());      // Merge & remove BBs
+=======
+  MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
+  MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+>>>>>>> c9ddb02659e3ece7a0d9d6b4dac7ceea4ae46e6d
   MPM.add(createReassociatePass());           // Reassociate expressions
 
   // Begin the loop pass pipeline.
@@ -662,7 +660,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
-  // TODO: Investigate promotion cap for O1.
   MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
   if (EnableSimpleLoopUnswitch)
     MPM.add(createSimpleLoopUnswitchLegacyPass());
@@ -724,19 +721,16 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // opened up by them.
   addInstructionCombiningPass(MPM);
   addExtensionsToPM(EP_Peephole, MPM);
-  if (OptLevel > 1) {
-    MPM.add(createJumpThreadingPass());         // Thread jumps
-    MPM.add(createCorrelatedValuePropagationPass());
-    MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
-  }
+  MPM.add(createJumpThreadingPass());         // Thread jumps
+  MPM.add(createCorrelatedValuePropagationPass());
+  MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
+  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
   if (RerollLoops)
     MPM.add(createLoopRerollPass());
 
-  // TODO: Investigate if this is too expensive at O1.
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
   // Clean up after everything.
@@ -1544,8 +1538,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.
-  if (OptLevel > 1)
-    PM.add(createTailCallEliminationPass());
+  PM.add(createTailCallEliminationPass());
 
   // Infer attributes on declarations, call sites, arguments, etc.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
