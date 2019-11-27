@@ -1003,9 +1003,12 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   assert(Br->getParent() == &(m_F->getEntryBlock()) &&
       "expected entry block branch");
   Value *cond = Br->getCondition();
-  Instruction *condInst = dyn_cast<Instruction> (cond);
+  if (isa<ConstantInt>(cond))
+    return false;
+  Instruction *condInst = dyn_cast<Instruction>(cond);
   // Generally we can handle this but this is unexpected.
-  assert(condInst && "i1 are expected only as instructions");
+  assert(condInst &&
+         "i1 are expected only as instructions or constant bool values");
   // Sanity for release.
   if (!condInst) return false;
 
