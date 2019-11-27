@@ -16,6 +16,7 @@
 #include "SOAToAOSClassInfo.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/Analysis/Intel_WP.h"
@@ -37,14 +38,20 @@ namespace dtrans {
 // This case usually occurs when SOAToAOS transformation is applied
 // on multiple vector class fields. So, treat all fields of struct
 // as data elements of vector class if array element is struct type.
-// This routine collects actual data elements of array.
+// This routine collects types of data elements and pointer to data
+// elements of array.
 void ClassInfo::collectElementDataTypes() {
   Type *ElemTy = getElementTy();
-  if (auto *STy = dyn_cast<StructType>(ElemTy))
+  if (auto *STy = dyn_cast<StructType>(ElemTy)) {
+    // TODO: For now, not supporting all possible types when element is
+    // struct. Not interested any more to support struct as element since
+    // MemInitTrimDown is running before SOAToAOS.
     for (auto *ETy : STy->elements())
       ElemDataTypes.insert(ETy->getPointerTo());
-  else
+  } else {
     ElemDataTypes.insert(ElemTy);
+    ElemDataAddrTypes.insert(ElemTy->getPointerTo());
+  }
 }
 
 // Returns true if D dominates U.
@@ -65,17 +72,18 @@ bool ClassInfo::checkDominatorInfo(Instruction *D, Instruction *U) {
 //
 // Destructor: No return type. Only one class type argument.
 //
-// GetElem: Element type is returned. One class type argument and one
-//          integer argument to indicate position.
+// GetElem: Element type or pointer to element type is returned. One class type
+// argument and one integer argument to indicate position.
 //
 // GetSizeOrCapacity: Integer type is returned. Only one class type argument.
 //
-// SetElem: No return type. Only one class type argument and at least one
-//          element type as argument. One integer argument to indicate
-//          position.
+// SetElem: No return type. Only one class type argument and only one
+//          element type or pointer to element type as argument. One integer
+//          argument to indicate position.
 //
-// AddElem: No return type. Only one class type argument and at least one
-//          element type as argument. No integer argument.
+// AddElem: No return type. Only one class type argument and only one
+//          element type or pointer to element type as argument. No integer
+//          argument.
 //
 // Resize: No return type. Only one class type argument and one integer
 //         argument.
@@ -102,7 +110,7 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
     break;
 
   case Type::PointerTyID:
-    if (ElemDataTypes.count(RTy))
+    if (ElemDataTypes.count(RTy) || ElemDataAddrTypes.count(RTy))
       ElemReturn = true;
     else
       return UnKnown;
@@ -126,7 +134,7 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
         MemInterfaceArgs++;
       else if (PTy->getElementType() == ClassTy)
         ClassArgs++;
-      else if (ElemDataTypes.count(PTy))
+      else if (ElemDataTypes.count(PTy) || ElemDataAddrTypes.count(PTy))
         ElemArgs++;
       else
         return UnKnown;
@@ -151,9 +159,11 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
     return GetElem;
   else if (IntReturn && ClassArgs == 1 && ArgsSize == 1)
     return GetSizeOrCapacity;
-  else if (NoReturn && ClassArgs == 1 && ElemArgs >= 1 && IntArgs == 1)
+  else if (NoReturn && ClassArgs == 1 && ElemArgs == 1 && IntArgs == 1 &&
+           ArgsSize == 3)
     return SetElem;
-  else if (NoReturn && ClassArgs == 1 && ElemArgs >= 1 && IntArgs == 0)
+  else if (NoReturn && ClassArgs == 1 && ElemArgs == 1 && IntArgs == 0 &&
+           ArgsSize == 2)
     return AppendElem;
   else if (NoReturn && ClassArgs == 1 && IntArgs == 1 && ArgsSize == 2)
     return Resize;
@@ -664,7 +674,7 @@ bool ClassInfo::checkAllocatedArrayPtr(
         AllocsInCtor.insert(std::make_pair(AllocCall, 1));
       continue;
     }
-    if (!checkAllocCall(Val, ThisObj, NumOfElems))
+    if (!checkAllocCall(Val, ThisObj, NumOfElems, CallFromCtor))
       return false;
     AllocFound = true;
   }
@@ -1271,15 +1281,27 @@ Value *ClassInfo::checkCondition(BasicBlock *BB, BasicBlock *CheckBB) {
 //
 //      BB:
 //
+//    Or
+//
+//      Pred:
+//         %cond = icmp eq i8 1, 0
+//         br i1 %cond, label %some_bb, label %BB
+//
+//      BB:
+//
 bool ClassInfo::checkBBControlledUnderFlagVal(BasicBlock *BB,
                                               Argument *ThisObj) {
   BasicBlock *Pred = BB->getSinglePredecessor();
   if (!Pred)
     return false;
   Value *LValue = checkCondition(Pred, BB);
-  if (!LValue || !checkFieldOfArgClassLoad(LValue, ThisObj, FlagField))
+  if (!LValue)
     return false;
-  return true;
+  ConstantInt *FVal = dyn_cast<ConstantInt>(LValue);
+  if ((FVal && FVal->isOne()) ||
+      checkFieldOfArgClassLoad(LValue, ThisObj, FlagField))
+    return true;
+  return false;
 }
 
 // Returns true if given pre-header PH is controlled under
@@ -1431,6 +1453,23 @@ Value *ClassInfo::isLoadOfArg(Value *Val) {
         Visited.insert(BC);
       return ValOp;
     }
+  }
+  return nullptr;
+}
+
+// Check if ValOp is either argument or dereference of argument.
+// Return the argument if ValOp is either argument or dereference of argument.
+// Otherwise, it returns nullptr.
+Value *ClassInfo::isValidArgumentSave(Value *ValOp) {
+  if (isa<Argument>(ValOp)) {
+    if (ElemDataTypes.count(ValOp->getType()))
+      return ValOp;
+  } else {
+    // Check if it is load of argument.
+    Value *ArgVal = isLoadOfArg(ValOp);
+    if (ArgVal && isa<Argument>(ArgVal) &&
+        ElemDataAddrTypes.count(ArgVal->getType()))
+      return ArgVal;
   }
   return nullptr;
 }
@@ -1843,10 +1882,17 @@ FunctionKind ClassInfo::recognizeGetElem(Function *Fn) {
   // Check if it is returning array element.
   Type *ElemTy = getElementTy();
   Value *AtLoc;
-  if (isa<StructType>(ElemTy))
+  if (isa<StructType>(ElemTy)) {
     AtLoc = isArrayElementAddressAt(RI->getReturnValue(), ElemTy, ThisObj);
-  else
-    AtLoc = isArrayElementLoadAt(RI->getReturnValue(), ThisObj);
+  } else {
+    // Either data element or address of data element is allowed
+    // as return value.
+    Type *RTy = Fn->getReturnType();
+    if (ElemDataAddrTypes.count(RTy))
+      AtLoc = isArrayElementAt(RI->getReturnValue(), ThisObj);
+    else
+      AtLoc = isArrayElementLoadAt(RI->getReturnValue(), ThisObj);
+  }
   if (!AtLoc)
     return UnKnown;
 
@@ -1893,6 +1939,9 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
   SmallPtrSet<FreeCallInfo *, 4> FreeList;
   SmallPtrSet<BasicBlock *, 16> IgnoreBBSet;
 
+  if (DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(*Fn))
+    return SetElem;
+
   // Collect Store instructions and Free calls.
   collectStoreInstsFreeCalls(Fn, IgnoreBBSet, SIList, FreeList);
 
@@ -1909,7 +1958,10 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
       return UnKnown;
   } else {
     SetAtLoc = isArrayElementAt(SI->getPointerOperand(), ThisObj);
-    if (!SetAtLoc || !isa<Argument>(SI->getValueOperand()))
+    if (!SetAtLoc)
+      return UnKnown;
+    Value *ArgVal = isValidArgumentSave(SI->getValueOperand());
+    if (!ArgVal)
       return UnKnown;
   }
 
@@ -2294,6 +2346,9 @@ FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
     return true;
   };
 
+  if (DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(*Fn))
+    return CopyConstructor;
+
   SmallPtrSet<StoreInst *, 8> SIList;
   Argument *ThisObj = Fn->arg_begin();
   Argument *SrcObj = Fn->arg_begin() + 1;
@@ -2509,9 +2564,12 @@ FunctionKind ClassInfo::recognizeAppendElem(Function *Fn) {
         //   %arrayidx = getelementptr float**, float*** %0, i64 %1
         //   store float** %val, float*** %arrayidx, align 8, !tbaa !25
         SetAtLoc = isArrayElementAt(PtrOp, ThisObj, false);
-        if (!SetAtLoc || !isa<Argument>(ValOp))
+        if (!SetAtLoc)
           return UnKnown;
-        ArgValueSet.insert(ValOp);
+        Value *ArgVal = isValidArgumentSave(ValOp);
+        if (!ArgVal)
+          return UnKnown;
+        ArgValueSet.insert(ArgVal);
       }
       if (!checkFieldOfArgClassLoad(SetAtLoc, ThisObj, SizeField))
         return UnKnown;
@@ -2847,19 +2905,40 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
   //                %51 = shl nuw nsw i64 %50, 3
   // MemsetSize:    %52 = add nuw nsw i64 %51, 8
   //
+  // or
+  //
+  // XorI:          %48 = xor i32 %SVal, -1
+  // RemainSize:    %49 = add i32 %NewCap, %48
+  //                %50 = zext i32 %49 to i64
+  //                %51 = add nuw nsw i64 %50, 1
+  // MemsetSize:    %52 = shl nuw nsw i64 %51, 3
+  //
   auto AllowedMemsetSizePatternOne = [this](Value *MemsetSize, Value *NewCap,
                                             Value *SVal) -> bool {
-    ConstantInt *AddC;
+    const APInt *AddC;
+    Value *ShlI = MemsetSize;
     Value *AddOp;
-    if (!match(MemsetSize, m_Add(m_Value(AddOp), m_ConstantInt(AddC))))
-      return false;
+    bool PtrIncremented = false;
     unsigned ElemSize = getElemTySize();
-    if (AddC->getLimitedValue() != ElemSize)
-      return false;
+    if (match(MemsetSize, m_Add(m_Value(AddOp), m_APInt(AddC))) &&
+        *AddC == ElemSize) {
+      PtrIncremented = true;
+      ShlI = AddOp;
+    }
     int64_t Multiplier = 1;
-    const Value *RemainSize = computeMultiplier(AddOp, &Multiplier);
+    const Value *RemainSize = computeMultiplier(ShlI, &Multiplier);
     if (!RemainSize || Multiplier != ElemSize)
       return false;
+    if (!PtrIncremented) {
+      Instruction *ZExtI;
+      Value *RVal;
+      if (!match(RemainSize, m_Add(m_Instruction(ZExtI), m_APInt(AddC))) ||
+          *AddC != 1 || !match(ZExtI, m_ZExt(m_Value(RVal))))
+        return false;
+      Visited.insert(cast<Instruction>(RemainSize));
+      Visited.insert(cast<Instruction>(ZExtI));
+      RemainSize = RVal;
+    }
     Instruction *XorI;
     if (!match(RemainSize, m_Add(m_Specific(NewCap), m_Instruction(XorI))))
       return false;
@@ -3249,6 +3328,67 @@ bool ClassInfo::analyzeClassFunctions() {
     }
 
   return true;
+}
+
+// Returns constructor Wrapper if there is only one.
+// Otherwise, returns nullptr.
+Function *ClassInfo::getCtorWrapper() {
+  Function *CtorWrapper = nullptr;
+
+  for (auto *F : field_member_functions()) {
+    FunctionKind FKind = getFinalFuncKind(F);
+    if (FKind == Constructor) {
+      auto *ClassTy = getClassType(F);
+      Type *BaseClassTy = getMemInitSimpleBaseType(ClassTy);
+      if (BaseClassTy) {
+        if (CtorWrapper)
+          return nullptr;
+        CtorWrapper = F;
+      }
+    }
+  }
+  return CtorWrapper;
+}
+
+// Returns member function of type "FKind" if there is only one.
+// Otherwise, returns nullptr.
+Function *ClassInfo::getSingleMemberFunction(FunctionKind FKind) {
+  Function *Func = nullptr;
+
+  for (auto *F : field_member_functions())
+    if (getFinalFuncKind(F) == FKind) {
+      if (Func)
+        return nullptr;
+      Func = F;
+    }
+  return Func;
+}
+
+// Returns store instruction that saves flag field.
+StoreInst *ClassInfo::getFlagFieldStoreInstInCtor() {
+  StoreInst *SI = nullptr;
+
+  Function *CtorF = getCtorFunction();
+  int32_t FFI = getFlagField();
+  for (Instruction &I : instructions(*CtorF)) {
+    auto *G = dyn_cast<GetElementPtrInst>(&I);
+
+    if (!G || !isa<StructType>(G->getSourceElementType()) ||
+        G->getNumIndices() != 2)
+      continue;
+    int32_t GIdx = cast<ConstantInt>(G->getOperand(2))->getLimitedValue();
+    if (GIdx != FFI)
+      continue;
+
+    if (!G->hasOneUse())
+      return nullptr;
+    if (SI)
+      return nullptr;
+    SI = dyn_cast<StoreInst>(G->user_back());
+    if (!SI || SI->getPointerOperand() != G)
+      return nullptr;
+  }
+  return SI;
 }
 
 } // namespace dtrans

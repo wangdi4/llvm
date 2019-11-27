@@ -1,9 +1,11 @@
+; REQUIRES: assert
 ; This test checks if the __dso_handle was treated as linker added symbol
 ; during whole program read.
 
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -plugin-opt=O3 \
+; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 

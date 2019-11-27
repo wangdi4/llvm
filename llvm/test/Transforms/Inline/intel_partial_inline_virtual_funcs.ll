@@ -170,13 +170,13 @@
 ; The important functions of this test case are Manager::runner, Derived::foo and
 ; Derived2::foo. The test case will go though the following passes:
 ;
-; 1) Whole program analysis: -wholeprogramanalysis -whole-program-assume -internalize
+; 1) Whole program analysis: -wholeprogramanalysis -whole-program-assume -internalize -intel-fold-wp-intrinsic
 ; 2) Simplify call graph: -simplifycfg
 ; 3) Whole program devirtualization: -wholeprogramdevirt -wholeprogramdevirt-multiversion
 ;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
-; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -wholeprogramdevirt-assume-safe -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -wholeprogramdevirt-assume-safe -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"

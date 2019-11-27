@@ -35,16 +35,12 @@ enum LoadStoreMode {
   INDIRECT = 3 // gather/scatter
 };
 
-class MapIntrinToIml : public FunctionPass {
-
-private:
+class MapIntrinToImlImpl {
   /// Parent of Func.
   Module *M;
 
   /// Current function being processed.
   Function *Func;
-
-  bool runOnFunction(Function &F) override;
 
   /// \brief For a given intrinsic \p CI, try to find an equivalent math
   /// library function to replace it with.
@@ -113,12 +109,13 @@ private:
 
   /// \brief Duplicate low order elements of a smaller vector into a larger
   /// vector.
-  void generateNewArgsFromPartialVectors(CallInst *CI, FunctionType *FT,
+  void generateNewArgsFromPartialVectors(ArrayRef<Value *> Args,
+                                         ArrayRef<Type *> NewArgTypes,
                                          unsigned TargetVL,
                                          SmallVectorImpl<Value *> &NewArgs,
                                          Instruction *InsertPt);
 
-  /// \brief Extracts \p NumElems from vector register \p Vector and returns an 
+  /// \brief Extracts \p NumElems from vector register \p Vector and returns an
   /// extract instruction.
   Instruction *extractElemsFromVector(Value *Vector, unsigned StartPos,
                                       unsigned NumElems);
@@ -140,8 +137,40 @@ private:
   void scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
                            unsigned LogicalVL, Type *ElemType);
 
-  /// \brief Returns true if \p FuncName refers to a sincos call.
-  bool isSinCosCall(StringRef FuncName);
+  /// \brief Returns true if \p FuncName and \p FT refer to an SVML 3-argument
+  /// sincos call.
+  bool isSincosRefArg(StringRef FuncName, FunctionType *FT);
+
+  /// Create a single instruction calling SVML for integer division. Opcode must
+  /// be one of sdiv/srem/udiv/urem. V0 and V1 must have the same integer vector
+  /// type, and their vector length need to be legal. Returns the newly created
+  /// call instruction.
+  CallInst *generateSVMLIDivOrRemCall(Instruction::BinaryOps Opcode, Value *V0,
+                                      Value *V1);
+
+  /// Legalize and convert some vector integer divisions in a function to SVML
+  /// call to avoid serialization in the CodeGen. Returns true if the
+  /// function's IR is modified by this function.
+  bool replaceVectorIDivAndRemWithSVMLCall(TargetTransformInfo *TTI,
+                                           Function &F);
+
+public:
+  // Use TTI to provide information on the legal vector register size for the
+  // target.
+  bool runImpl(Function &F, TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+};
+
+class MapIntrinToImlPass : public PassInfoMixin<MapIntrinToImlPass> {
+  MapIntrinToImlImpl Impl;
+
+public:
+  MapIntrinToImlPass() {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class MapIntrinToIml : public FunctionPass {
+  MapIntrinToImlImpl Impl;
+  bool runOnFunction(Function &Fn) override;
 
 public:
   static char ID;

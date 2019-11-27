@@ -84,6 +84,30 @@
 ; CHECK:     DO i3
 ; CHECK:     DO i3
 
+
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-conditional-temp-sinking -print-before=hir-conditional-temp-sinking -print-after=hir-conditional-temp-sinking < %s 2>&1 | FileCheck %s --check-prefix=TEMP-SINKING
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-conditional-temp-sinking,print<hir>" < %s 2>&1 | FileCheck %s --check-prefix=TEMP-SINKING
+
+; Dump Before-
+
+; TEMP-SINKING: |   |      if (%arg15 <u %tmp97)
+; TEMP-SINKING: |   |      {
+; TEMP-SINKING: |   |         %tmp37 = %tmp85;
+; TEMP-SINKING: |   |      }
+; TEMP-SINKING: |   |      else
+; TEMP-SINKING: |   |      {
+; TEMP-SINKING: |   |         %tmp37 = %tmp85;
+; TEMP-SINKING: |   |      }
+     
+
+; Dump After-
+
+; TEMP-SINKING: |   |      if (%arg15 >= %tmp97)
+; TEMP-SINKING: |   |      {
+; TEMP-SINKING: |   |      }
+; TEMP-SINKING: |   |      %tmp37 = %tmp85;
+    
+ 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

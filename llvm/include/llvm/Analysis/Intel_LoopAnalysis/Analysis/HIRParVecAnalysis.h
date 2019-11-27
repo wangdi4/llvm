@@ -274,10 +274,7 @@ class HIRParVecAnalysisWrapperPass : public FunctionPass {
 
 public:
   static char ID;
-  HIRParVecAnalysisWrapperPass() : FunctionPass(ID) {
-    initializeHIRParVecAnalysisWrapperPassPass(
-        *PassRegistry::getPassRegistry());
-  }
+  HIRParVecAnalysisWrapperPass();
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;

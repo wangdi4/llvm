@@ -62,7 +62,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #define OPT_SWITCH "hir-undo-sinking-for-perfect-loopnest"
 #define OPT_DESC "HIR Undo Sinking For Perfect Loopnest"
@@ -165,8 +167,8 @@ struct HIRUndoSinkingForPerfectLoopnest::MatchingStoreFinder final
       if (LvalRef->getSymbase() ==
           SinkedLoadInst->getRvalDDRef()->getSymbase()) {
         IsDone = true;
-        return;
       }
+      return;
     }
 
     if (!HLNodeUtils::strictlyDominates(Node, SinkedLoadInst)) {
@@ -186,6 +188,7 @@ struct HIRUndoSinkingForPerfectLoopnest::MatchingStoreFinder final
     IsDone = true;
   }
 
+  void visit(HLGoto *Goto) { IsDone = true; }
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool isDone() const { return IsDone; }
@@ -265,9 +268,10 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
       continue;
     }
 
+    HLInst *LastPostexitInst = nullptr;
+
     for (auto I = Lp->child_begin(), Next = I, E = Lp->child_end(); I != E;
          I = Next) {
-
       Next++;
 
       HLInst *HInst = dyn_cast<HLInst>(&*I);
@@ -294,7 +298,7 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
         }
 
         if (MatchingStoreInst) {
-          HLNodeUtils::insertAsFirstPreheaderNode(Lp, MatchingStoreInst);
+          HLNodeUtils::insertAsLastPreheaderNode(Lp, MatchingStoreInst);
           Lp->addLiveInTemp(MatchingStoreInst->getLvalDDRef()->getSymbase());
           MatchingStoreInst->getRvalDDRef()->makeConsistent(
               {}, Lp->getNestingLevel() - 1);
@@ -302,13 +306,22 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
         } else {
           HLNodeUtils::moveAsLastPreheaderNode(Lp, HInst);
           Lp->addLiveInTemp(HInst->getLvalDDRef()->getSymbase());
+          HInst->setIsSinked(false);
         }
       } else {
         assert(isa<StoreInst>(Inst) &&
                "Only load/store are expected to be sinked.");
-        HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
+
+        if (!LastPostexitInst) {
+          HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
+        } else {
+          HLNodeUtils::moveAfter(LastPostexitInst, HInst);
+        }
+        LastPostexitInst = HInst;
+
         Lp->addLiveOutTemp(HInst->getRvalDDRef()->getSymbase());
         HInst->getLvalDDRef()->makeConsistent({}, Lp->getNestingLevel() - 1);
+        HInst->setIsSinked(false);
       }
       Result = true;
     }

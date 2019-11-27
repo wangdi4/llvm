@@ -1,6 +1,7 @@
 ; Check to see that the linear parameter i is updated with the correct stride when Mem2Reg is on.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4lu_foo
 ; CHECK: simd.begin.region:

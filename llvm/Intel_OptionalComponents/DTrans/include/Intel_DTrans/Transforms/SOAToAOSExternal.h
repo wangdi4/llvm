@@ -82,7 +82,7 @@ public:
   inline bool populateLayoutInformation(Type *Ty);
 
   constexpr static int MaxNumFieldTotalCandidates = 3;
-  constexpr static int MaxNumFieldCandidates = 2;
+  constexpr static int MaxNumFieldCandidates = 3;
   // There should be at least 'capacity' and 'size' fields.
   // Also permit auxiliary field.
   constexpr static int MaxNumIntFields = 3;

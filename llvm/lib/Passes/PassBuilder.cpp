@@ -66,6 +66,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/SafepointIRVerifier.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Regex.h"
@@ -90,14 +91,18 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -163,6 +168,7 @@
 #include "llvm/Transforms/Scalar/LoopUnrollAndJamPass.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
+#include "llvm/Transforms/Scalar/LowerConstantIntrinsics.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerGuardIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerWidenableCondition.h"
@@ -189,6 +195,7 @@
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
+#include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LCSSA.h"
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
@@ -207,6 +214,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 // Intel Loop Optimization framework
 // Framework passes
@@ -247,6 +255,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStride.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"
@@ -277,6 +286,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
@@ -284,6 +294,7 @@
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #endif //INTEL_CUSTOMIZATION
 using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
@@ -337,6 +348,11 @@ static cl::opt<bool> EnableInlineAggAnalysis(
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+
+// IPO Prefetch
+static cl::opt<bool> EnableIPOPrefetch(
+    "enable-npm-ipo-prefetch", cl::init(true), cl::Hidden,
+    cl::desc("Enable IPO Prefetch"));
 
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
@@ -654,8 +670,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   if ((Phase != ThinLTOPhase::PreLink || !PGOOpt ||
        PGOOpt->Action != PGOOptions::SampleUse) &&
       PTO.LoopUnrolling)
-    LPM2.addPass(
-        LoopFullUnrollPass(Level, false, PTO.ForgetAllSCEVInLoopUnroll));
+    LPM2.addPass(LoopFullUnrollPass(Level, /*OnlyWhenForced=*/false,
+                                    PTO.ForgetAllSCEVInLoopUnroll));
 
   for (auto &C : LoopOptimizerEndEPCallbacks)
     C(LPM2, Level);
@@ -676,6 +692,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // *All* loop passes must preserve it, in order to be able to use it.
   FPM.addPass(createFunctionToLoopPassAdaptor(
       std::move(LPM2), /*UseMemorySSA=*/false, DebugLogging));
+
+  // Delete small array after loop unroll.
+  FPM.addPass(SROA());
 
   // Eliminate redundancies.
   if (Level != O1) {
@@ -1144,6 +1163,8 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
 
   FunctionPassManager OptimizePM(DebugLogging);
   OptimizePM.addPass(Float2IntPass());
+  OptimizePM.addPass(LowerConstantIntrinsicsPass());
+
   // FIXME: We need to run some loop optimizations to re-rotate loops after
   // simplify-cfg and others undo their rotation.
 
@@ -1217,13 +1238,13 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // combiner for cleanup here so that the unrolling and LICM can be pipelined
   // across the loop nests.
   // We do UnrollAndJam in a separate LPM to ensure it happens before unroll
-  if (EnableUnrollAndJam) {
+  if (EnableUnrollAndJam && PTO.LoopUnrolling) {
     OptimizePM.addPass(
         createFunctionToLoopPassAdaptor(LoopUnrollAndJamPass(Level)));
   }
-  if (PTO.LoopUnrolling)
-    OptimizePM.addPass(LoopUnrollPass(
-        LoopUnrollOptions(Level, false, PTO.ForgetAllSCEVInLoopUnroll)));
+  OptimizePM.addPass(LoopUnrollPass(
+      LoopUnrollOptions(Level, /*OnlyWhenForced=*/!PTO.LoopUnrolling,
+                        PTO.ForgetAllSCEVInLoopUnroll)));
   OptimizePM.addPass(WarnMissedTransformationsPass());
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(
@@ -1426,6 +1447,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
       // Set the optimization level
       MPM.addPass(XmainOptLevelAnalysisInit(Level));
       MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+      MPM.addPass(IntelFoldWPIntrinsicPass());
     }
 #endif // INTEL_CUSTOMIZATION
     // The WPD and LowerTypeTest passes need to run at -O0 to lower type
@@ -1461,6 +1483,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
   if (EnableWPA) {
     MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+    MPM.addPass(IntelFoldWPIntrinsicPass());
     // If whole-program-assume is enabled then we are going to call
     // the internalization pass.
     if (AssumeWholeProgram) {
@@ -1654,6 +1677,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    MPM.addPass(IntelArgumentAlignmentPass());
+    MPM.addPass(QsortRecognizerPass());
+  }
+
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
 #else
   bool EnableIntelPartialInlining = false;
@@ -1703,6 +1731,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+  // IPO-based prefetch
+  if (EnableIPOPrefetch)
+    MPM.addPass(IntelIPOPrefetchPass());
+
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
                                    false /*EnableSpecialCases*/));
@@ -1928,7 +1960,7 @@ auto parsePassParameters(ParametersParseCallableT &&Parser, StringRef Name,
   Expected<ParametersT> Result = Parser(Params);
   assert((Result || Result.template errorIsA<StringError>()) &&
          "Pass parameter parser can only return StringErrors.");
-  return std::move(Result);
+  return Result;
 }
 
 /// Parser of parameters for LoopUnroll pass.

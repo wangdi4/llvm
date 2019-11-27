@@ -55,14 +55,6 @@ void test_one(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK:[[K:%k.*]] = alloca i32,
   //CHECK:[[SIZE:%size.*]] = alloca i32,
 
-  //HOST:[[IV_I:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG:[[IV_IA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_I:%.*ascast]] = addrspacecast i64* [[IV_IA]]
-
-  //HOST:[[IV_J:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG:[[IV_JA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_J:%.*ascast]] = addrspacecast i64* [[IV_JA]]
-
   //HOST:[[LB_I:%.omp.uncollapsed.lb.*]] = alloca i64,
   //TARG:[[LB_IA:%.omp.uncollapsed.lb.*]] = alloca i64,
   //TARG-NEXT:[[LB_I:%.*.ascast]] = addrspacecast i64* [[LB_IA]]
@@ -79,13 +71,21 @@ void test_one(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //TARG:[[UB_JA:%.omp.uncollapsed.ub.*]] = alloca i64,
   //TARG-NEXT:[[UB_J:%.*.ascast]] = addrspacecast i64* [[UB_JA]]
 
-  //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: "DIR.OMP.TEAMS"()
+  //HOST:[[IV_I:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[IV_IA:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG-NEXT:[[IV_I:%.*ascast]] = addrspacecast i64* [[IV_IA]]
+
+  //HOST:[[IV_J:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[IV_JA:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG-NEXT:[[IV_J:%.*ascast]] = addrspacecast i64* [[IV_JA]]
+
   // Setup LBs and UBs
   //CHECK: store i64 0, {{.*}}[[LB_I]]
   //CHECK: store {{.*}}[[UB_I]]
   //CHECK: store i64 0, {{.*}}[[LB_J]]
   //CHECK: store {{.*}}[[UB_J]]
+  //CHECK: "DIR.OMP.TARGET"()
+  //CHECK: "DIR.OMP.TEAMS"()
   //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"()
   //CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i64[[AS]]* [[IV_I]], i64[[AS]]* [[IV_J]])
   //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i64[[AS]]* [[UB_I]], i64[[AS]]* [[UB_J]])
@@ -202,8 +202,6 @@ void test_two(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //TARG:[[UB_KA:%.omp.uncollapsed.ub.*]] = alloca i64,
   //TARG-NEXT:[[UB_K:%.*.ascast]] = addrspacecast i64* [[UB_KA]]
 
-  //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: "DIR.OMP.TEAMS"()
   // Setup LBs and UBs
   //CHECK: store i64 0, {{.*}}[[LB_I]]
   //CHECK: store {{.*}}[[UB_I]]
@@ -211,6 +209,8 @@ void test_two(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: store {{.*}}[[UB_J]]
   //CHECK: store i64 0, {{.*}}[[LB_K]]
   //CHECK: store {{.*}}[[UB_K]]
+  //CHECK: "DIR.OMP.TARGET"()
+  //CHECK: "DIR.OMP.TEAMS"()
   //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"()
   //CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i64[[AS]]* [[IV_I]], i64[[AS]]* [[IV_J]], i64[[AS]]* [[IV_K]])
   //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i64[[AS]]* [[UB_I]], i64[[AS]]* [[UB_J]], i64[[AS]]* [[UB_K]])
@@ -295,4 +295,29 @@ void test_three(float *A0, float *A1, int Ni, int Nj, int Nk) {
       }
     }
   }
+}
+
+// Test that a plain simd loop has the same structure as other loops
+// in the uncollapsed form.
+//HOST-LABEL: uncollapsed_simd
+//HOST:[[LB_I:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:[[LB_J:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:[[LB_K:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:[[LB_L:%.omp.uncollapsed.lb.*]] = alloca i64,
+//HOST:store i64 0, i64* [[LB_I]]
+//HOST:store i64 0, i64* [[LB_J]]
+//HOST:store i64 0, i64* [[LB_K]]
+//HOST:store i64 0, i64* [[LB_L]]
+//HOST:"DIR.OMP.SIMD"()
+//HOST:load i64, i64* [[LB_I]]
+//HOST:load i64, i64* [[LB_J]]
+//HOST:load i64, i64* [[LB_K]]
+//HOST:load i64, i64* [[LB_L]]
+//HOST: [ "DIR.OMP.END.SIMD"() ]
+void uncollapsed_simd(int n) {
+#pragma omp simd collapse(4)
+  for (int i = 0; i < n; ++i)
+    for (int j = 0; j < n; ++j)
+      for (int k = 0; k < n; ++k)
+        for (int l = 0; l < n; ++l);
 }

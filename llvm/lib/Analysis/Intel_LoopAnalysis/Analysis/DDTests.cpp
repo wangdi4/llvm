@@ -960,22 +960,21 @@ void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
   HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getLexicalParentLoop();
   HLLoop *DstLoop = DstDDRef->getHLDDNode()->getLexicalParentLoop();
 
-  HLLoop *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
+  LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
 
   SrcLevels = SrcLoop ? SrcLoop->getNestingLevel() : 0;
   DstLevels = DstLoop ? DstLoop->getNestingLevel() : 0;
 
-  CommonLevels = LCALoop ? LCALoop->getNestingLevel() : 0;
+  LCALoopLevel = LCALoop ? LCALoop->getNestingLevel() : 0;
 
-  MaxLevels = SrcLevels + DstLevels - CommonLevels;
+  MaxLevels = SrcLevels + DstLevels - LCALoopLevel;
 
   DeepestLoop = (SrcLevels > DstLevels) ? SrcLoop : DstLoop;
 
-  // CommonLevelsForIVDEP is different from CommonLevels.
+  // LCALoopLevel is different from CommonLevels.
   // Refer to code below. Handled differently when IVDEP
   // is not used, for Fusion and refs outside Loops
-  CommonLevelsForIVDEP = CommonLevels;
-  CommonIVDEPLoop = LCALoop;
+  CommonLevels = LCALoopLevel;
 
   if (CommonLevels == 0) {
     // Need DD edge to connect
@@ -4334,8 +4333,8 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   //  Number of dimemsion are different or different base: need to bail out,
   //  except for IVDEP
-  if (CommonIVDEPLoop && TestingMemRefs && !EqualBaseAndShape &&
-      adjustDVforIVDEP(Result, false)) { // SameBase = false
+  if (TestingMemRefs && !EqualBaseAndShape) {
+    adjustDV(Result, false, SrcRegDDRef, DstRegDDRef); // SameBase = false
     return std::make_unique<Dependences>(Result);
   }
 
@@ -4768,7 +4767,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-  adjustDVforIVDEP(Result, true); // SameBase = true
+  adjustDV(Result, true, SrcRegDDRef, DstRegDDRef); // SameBase = true
 
   //
   //  Reverse DV when needed
@@ -4964,6 +4963,45 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
   }
 }
 
+void DDTest::adjustDV(Dependences &Result, bool SameBase,
+                      const RegDDRef *SrcRegDDRef,
+                      const RegDDRef *DstRegDDRef) {
+  const HLInst *SrcInst = dyn_cast<HLInst>(SrcRegDDRef->getHLDDNode());
+  const HLInst *DstInst = dyn_cast<HLInst>(DstRegDDRef->getHLDDNode());
+
+  // Mark the innermost level DV of an edge as (=) when both src and sink refs
+  // belong to 'sinked' instructions.
+  if (SrcInst && DstInst && SrcInst->isSinked() && DstInst->isSinked()) {
+    adjustForInnermostAssumedDeps(Result);
+  }
+
+  adjustDVforIVDEP(Result, SameBase);
+
+  if (!SrcRegDDRef->isMemRef()) {
+    return;
+  }
+
+  //  DV cannot be overridden to (=) when
+  // -   Src and Dst mem-refs are the same and
+  // -   no IV and
+  // -   Src does not dominate or post dominate the sink
+
+  if (DDRefUtils::areEqual(SrcRegDDRef, DstRegDDRef) &&
+      (!LCALoopLevel ||
+       SrcRegDDRef->isStructurallyInvariantAtLevel(LCALoopLevel)) &&
+      (SrcInst && DstInst &&
+       (!HLNodeUtils::strictlyDominates(SrcInst, DstInst) ||
+        !HLNodeUtils::strictlyPostDominates(SrcInst, DstInst)))) {
+    return;
+  }
+
+  if (AssumeNoLoopCarriedDep == LoopCarriedDepMode::InnermostOnly) {
+    adjustForInnermostAssumedDeps(Result);
+  } else if (AssumeNoLoopCarriedDep == LoopCarriedDepMode::All) {
+    adjustForAllAssumedDeps(Result);
+  }
+}
+
 /// We will treat ivdep back and ivdep the same way.
 /// ivdep loop is for auto-parallel and ivdep back is
 /// for auto-vectorization.  Strictly speaking,
@@ -4978,13 +5016,12 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
 
 bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
 
-  const HLLoop *Lp = CommonIVDEPLoop;
+  const HLLoop *Lp = LCALoop;
   bool IVDEPFound = false;
   // Looping through parents allows IVDEP for more than 1 level
   // to be supported. But multiple levels vectorization is not
   // currently generated
-  for (unsigned II = CommonLevelsForIVDEP; II >= 1;
-       --II, Lp = Lp->getParentLoop()) {
+  for (unsigned II = LCALoopLevel; II >= 1; --II, Lp = Lp->getParentLoop()) {
     if (Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
@@ -4998,6 +5035,34 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
     }
   }
   return IVDEPFound;
+}
+
+void DDTest::adjustForInnermostAssumedDeps(Dependences &Result) {
+  if (!LCALoop) {
+    return;
+  }
+
+  if (!LCALoop->isInnermost()) {
+    return;
+  }
+
+  unsigned InnermostLoopLevel = LCALoop->getNestingLevel();
+
+  DVKind Direction = Result.getDirection(InnermostLoopLevel);
+
+  if (Direction == DVKind::ALL) {
+    Result.setDirection(InnermostLoopLevel, DVKind::EQ);
+  }
+}
+
+void DDTest::adjustForAllAssumedDeps(Dependences &Result) {
+  for (unsigned II = 1; II <= LCALoopLevel; ++II) {
+    DVKind Direction = Result.getDirection(II);
+
+    if (Direction == DVKind::ALL) {
+      Result.setDirection(II, DVKind::EQ);
+    }
+  }
 }
 
 void DDTest::setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
@@ -5190,6 +5255,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   bool IsTemp = SrcDDRef->isTerminalRef();
+
   if (IsTemp) {
 
     // DV for Scalar temps could be refined. Calls to DA.depends

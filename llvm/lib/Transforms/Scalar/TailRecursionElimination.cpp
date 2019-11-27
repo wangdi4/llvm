@@ -78,6 +78,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -352,7 +353,7 @@ static bool canMoveAboveCall(Instruction *I, CallInst *CI, AliasAnalysis *AA) {
       const DataLayout &DL = L->getModule()->getDataLayout();
       if (isModSet(AA->getModRefInfo(CI, MemoryLocation::get(L))) ||
           !isSafeToLoadUnconditionally(L->getPointerOperand(), L->getType(),
-                                       L->getAlignment(), DL, L))
+                                       MaybeAlign(L->getAlignment()), DL, L))
         return false;
     }
   }

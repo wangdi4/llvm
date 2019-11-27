@@ -128,9 +128,7 @@ protected:
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  VPlanDriver() : FunctionPass(ID) {
-    initializeVPlanDriverPass(*PassRegistry::getPassRegistry());
-  }
+  VPlanDriver(); // INTEL
 
   bool runOnFunction(Function &Fn) override;
 };
@@ -152,9 +150,7 @@ private:
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  VPlanDriverHIR() : VPlanDriver(ID) {
-    initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
-  }
+  VPlanDriverHIR();
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 

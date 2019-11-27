@@ -440,6 +440,7 @@ void OMPClauseProfiler::VisitOMPIfClause(const OMPIfClause *C) {
 }
 
 void OMPClauseProfiler::VisitOMPFinalClause(const OMPFinalClause *C) {
+  VistOMPClauseWithPreInit(C);
   if (C->getCondition())
     Profiler->VisitStmt(C->getCondition());
 }
@@ -451,6 +452,10 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
+  for (auto *E : C->sizes())
+    Profiler->VisitStmt(E);
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VistOMPClauseWithPreInit(C);
@@ -750,14 +755,17 @@ void OMPClauseProfiler::VisitOMPThreadLimitClause(
     Profiler->VisitStmt(C->getThreadLimit());
 }
 void OMPClauseProfiler::VisitOMPPriorityClause(const OMPPriorityClause *C) {
+  VistOMPClauseWithPreInit(C);
   if (C->getPriority())
     Profiler->VisitStmt(C->getPriority());
 }
 void OMPClauseProfiler::VisitOMPGrainsizeClause(const OMPGrainsizeClause *C) {
+  VistOMPClauseWithPreInit(C);
   if (C->getGrainsize())
     Profiler->VisitStmt(C->getGrainsize());
 }
 void OMPClauseProfiler::VisitOMPNumTasksClause(const OMPNumTasksClause *C) {
+  VistOMPClauseWithPreInit(C);
   if (C->getNumTasks())
     Profiler->VisitStmt(C->getNumTasks());
 }
@@ -820,12 +828,12 @@ void StmtProfiler::VisitOMPSectionDirective(const OMPSectionDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
     const OMPTargetVariantDispatchDirective *S) {
   VisitOMPExecutableDirective(S);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {
   VisitOMPExecutableDirective(S);
@@ -936,6 +944,26 @@ void StmtProfiler::VisitOMPTaskLoopDirective(const OMPTaskLoopDirective *S) {
 
 void StmtProfiler::VisitOMPTaskLoopSimdDirective(
     const OMPTaskLoopSimdDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPMasterTaskLoopDirective(
+    const OMPMasterTaskLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPMasterTaskLoopSimdDirective(
+    const OMPMasterTaskLoopSimdDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPParallelMasterTaskLoopDirective(
+    const OMPParallelMasterTaskLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPParallelMasterTaskLoopSimdDirective(
+    const OMPParallelMasterTaskLoopSimdDirective *S) {
   VisitOMPLoopDirective(S);
 }
 
@@ -1293,7 +1321,7 @@ void StmtProfiler::VisitBlockExpr(const BlockExpr *S) {
 
 void StmtProfiler::VisitGenericSelectionExpr(const GenericSelectionExpr *S) {
   VisitExpr(S);
-  for (const GenericSelectionExpr::ConstAssociation &Assoc :
+  for (const GenericSelectionExpr::ConstAssociation Assoc :
        S->associations()) {
     QualType T = Assoc.getType();
     if (T.isNull())
@@ -1316,6 +1344,14 @@ void StmtProfiler::VisitPseudoObjectExpr(const PseudoObjectExpr *S) {
 void StmtProfiler::VisitAtomicExpr(const AtomicExpr *S) {
   VisitExpr(S);
   ID.AddInteger(S->getOp());
+}
+
+void StmtProfiler::VisitConceptSpecializationExpr(
+                                           const ConceptSpecializationExpr *S) {
+  VisitExpr(S);
+  VisitDecl(S->getFoundDecl());
+  VisitTemplateArguments(S->getTemplateArgsAsWritten()->getTemplateArgs(),
+                         S->getTemplateArgsAsWritten()->NumTemplateArgs);
 }
 
 static Stmt::StmtClass DecodeOperatorCall(const CXXOperatorCallExpr *S,
@@ -1549,6 +1585,16 @@ void StmtProfiler::VisitCXXOperatorCallExpr(const CXXOperatorCallExpr *S) {
 
   VisitCallExpr(S);
   ID.AddInteger(S->getOperator());
+}
+
+void StmtProfiler::VisitCXXRewrittenBinaryOperator(
+    const CXXRewrittenBinaryOperator *S) {
+  // If a rewritten operator were ever to be type-dependent, we should profile
+  // it following its syntactic operator.
+  assert(!S->isTypeDependent() &&
+         "resolved rewritten operator should never be type-dependent");
+  ID.AddBoolean(S->isReversed());
+  VisitExpr(S->getSemanticForm());
 }
 
 #if defined(_MSC_VER) && !defined(__clang__)

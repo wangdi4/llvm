@@ -94,11 +94,8 @@
 #include <vpclmulqdqintrin.h>
 #endif
 
-/* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
+/* No feature check desired due to internal checks */
 #include <bmiintrin.h>
-#endif
 
 /* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI2__) || defined(__M_INTRINSIC_PROMOTE__)
@@ -615,7 +612,7 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_TSXLDTRK */
 
 /* INTEL_FEATURE_ISA_AMX */
-#if defined(__AMXTILE_SUPPORTED__) || defined(__AMXINT8_SUPPORTED__) || defined(__AMXBF16_SUPPORTED__)
+#if defined(__AMX_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxintrin.h>
 #endif
@@ -623,9 +620,11 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AMX */
 
 /* INTEL_FEATURE_ISA_AMX2 */
-#if defined(__AMX2TILE_SUPPORTED__) || defined(__AMXINT8_SUPPORTED__) || defined(__AMXBF16_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX2TILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
-// TODO: when AMX2 clang part is finished, fix here.
+#if defined(__AMX2_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTRANSPOSE__) || defined(__AMXREDUCE__) ||   \
+    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||                           \
+    defined(__AMXFP16__) || defined(__AMXAVX512__) || defined(__AMXBF16EVEX__) ||                            \
+    defined(__AMXINT8EVEX__) || defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amx2intrin.h>
 #endif
 #endif
@@ -735,8 +734,6 @@ _InterlockedCompareExchange64_HLERelease(__int64 volatile *_Destination,
 }
 #endif
 
-extern int _may_i_use_cpu_feature(unsigned __int64);
-
 #ifdef __cplusplus
 }
 #endif
@@ -745,7 +742,99 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 
 #endif /* defined(_MSC_VER) && __has_extension(gnu_asm) */
 
-#include <svmlintrin.h>// INTEL
+/* INTEL_CUSTOMIZATION */
+
+#include <svmlintrin.h>
+
+#if __has_extension(gnu_asm)
+
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_clac(void) {
+  __asm__ __volatile__ ("clac" : : : "memory");
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_stac(void) {
+  __asm__ __volatile__ ("stac" : : : "memory");
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_lgdt(void *__ptr) {
+  __asm__ __volatile__("lgdt %0" : : "m"(*(short *)(__ptr)) : "memory");
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_sgdt(void *__ptr) {
+  __asm__ __volatile__("sgdt %0" : "=m"(*(short *)(__ptr)) : : "memory");
+}
+
+#endif /* __has_extension(gnu_asm) */
+
+#if !defined(_MSC_VER) && __has_extension(gnu_asm)
+
+#if __i386__
+/* __cpuid might already be a macro defined from cpuid.h */
+#ifndef __cpuid
+static __inline__ void __DEFAULT_FN_ATTRS
+__cpuid(int __info[4], int __level) {
+  __asm__ ("cpuid" : "=a"(__info[0]), "=b" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
+                   : "a"(__level), "c"(0));
+}
+#endif
+
+static __inline__ void __DEFAULT_FN_ATTRS
+__cpuidex(int __info[4], int __level, int __ecx) {
+  __asm__ ("cpuid" : "=a"(__info[0]), "=b" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
+                   : "a"(__level), "c"(__ecx));
+}
+#else
+/* x86-64 uses %rbx as the base register, so preserve it. */
+/* __cpuid might already be a macro defined from cpuid.h */
+#ifndef __cpuid
+static __inline__ void __DEFAULT_FN_ATTRS
+__cpuid(int __info[4], int __level) {
+  __asm__ ("  xchgq  %%rbx,%q1\n"
+           "  cpuid\n"
+           "  xchgq  %%rbx,%q1"
+           : "=a"(__info[0]), "=r" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
+           : "a"(__level), "c"(0));
+}
+#endif
+
+static __inline__ void __DEFAULT_FN_ATTRS
+__cpuidex(int __info[4], int __level, int __ecx) {
+  __asm__ ("  xchgq  %%rbx,%q1\n"
+           "  cpuid\n"
+           "  xchgq  %%rbx,%q1"
+           : "=a"(__info[0]), "=r" (__info[1]), "=c"(__info[2]), "=d"(__info[3])
+           : "a"(__level), "c"(__ecx));
+}
+#endif
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+__readmsr(unsigned int __register) {
+  // Loads the contents of a 64-bit model specific register (MSR) specified in
+  // the ECX register into registers EDX:EAX. The EDX register is loaded with
+  // the high-order 32 bits of the MSR and the EAX register is loaded with the
+  // low-order 32 bits. If less than 64 bits are implemented in the MSR being
+  // read, the values returned to EDX:EAX in unimplemented bit locations are
+  // undefined.
+  unsigned int __edx;
+  unsigned int __eax;
+  __asm__ ("rdmsr" : "=d"(__edx), "=a"(__eax) : "c"(__register));
+  return (((unsigned long long)__edx) << 32) | (unsigned long long)__eax;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+__writemsr(unsigned int __register, unsigned long long __data) {
+  __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
+}
+
+#endif /* !defined(_MSC_VER) && __has_extension(gnu_asm) */
+
+#undef __DEFAULT_FN_ATTRS
 
 /* Definitions of feature list to be used by feature select intrinsics */
 #define _FEATURE_GENERIC_IA32        (1ULL     )
@@ -802,5 +891,7 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 #define _FEATURE_SGX                 (1ULL << 53)
 #define _FEATURE_WBNOINVD            (1ULL << 54)
 #define _FEATURE_PCONFIG             (1ULL << 55)
+#define _FEATURE_AXV512_VP2INTERSECT (1ULL << 56)
+/* end INTEL_CUSTOMIZATION */
 
 #endif /* __IMMINTRIN_H */

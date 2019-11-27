@@ -17,7 +17,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/IRBuilder.h"     // INTEL
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
 #include <algorithm>
@@ -312,84 +311,6 @@ void BasicBlock::removePredecessor(BasicBlock *Pred,
           find(pred_begin(this), pred_end(this), Pred) != pred_end(this)) &&
          "removePredecessor: BB is not a predecessor!");
 
-#if INTEL_CUSTOMIZATION
-  // TODO: The following issue happens in llorg too. It is documented in the
-  // JIRA ticket CMPLRLLVM-7142. This fix is going to be proposed and added
-  // into the open-source version. The Intel customization should be removed
-  // during the merge between Xmain and llorg, as well the TODO comments.
-
-  // Identify if there is any PHINode that carries a cycle and uses the
-  // input BasicBlock as incoming value. A cycle is created when an
-  // User of a PHINode is an incoming value of the same PHINode.
-  // For example:
-  //
-  //   %pn = phi i8* [ %t1, %bb1 ]
-  //
-  //   %t1 = getelementptr inbounds i8, i8* %pn, i64 1
-  //
-  // Simplifying the previous instructions can lead to a broken SSA
-  // form:
-  //
-  //   %t1 = getelementptr inbounds i8, i8* %t1, i64 1
-  //
-  // The following process will check if this type of cycles can happen
-  // when removing a predecessor and turns off the simplification.
-  // For example:
-  //
-  // bb1:
-  //   ...
-  //   br %cmp, label %while.body, %exit.bb
-  //
-  // while.body:
-  //   %ptr.1 = phi i8* [ %call.i, %bb1],
-  //                    [ %incdec.ptr1, %exit.bb ]
-  //   ...
-  //   br %cmp, label %bb1, label %anotherBB
-  //
-  // exit.bb:
-  //   %incdec.ptr1 = getelementptr inbounds i8, i8* %ptr.1, i64 1
-  //   ...
-  //   br %cmp, label %while.body, label %someBB
-  //
-  // If removePredecessor is detaching %bb1 from %while.body then the
-  // only incoming value available to %ptr.1 is [ %incdec.ptr1, %exit.bb ].
-  // Simplifying the %ptr.1 can break the SSA form in the instruction
-  // %incdec.ptr1 = getelementptr inbounds i8, i8* %ptr1, i64 1.
-  auto IsCyclePhiNode = [](PHINode *PN, BasicBlock *BB) {
-    // Must have 2 incoming values only
-    if (PN->getNumIncomingValues() != 2)
-      return false;;
-
-    int BBidx = PN->getBasicBlockIndex(BB);
-
-    if (BBidx < 0)
-      return false;;
-
-    // This is the Value that won't be removed
-    unsigned ValIdx = BBidx == 0 ? 1 : 0;
-    Value *Val = PN->getIncomingValue(ValIdx);
-
-    // Check for cycle
-    for (User *User : PN->users()) {
-      if (Val == dyn_cast<Value>(User)) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Replace the input PHINode with a combination of load and store
-  // instructions that use the input Value.
-  auto SimplifyPHINode = [](PHINode *PN, Value *Val, IRBuilder<> &Builder) {
-    BasicBlock *CurrBB = PN->getParent();
-    Builder.SetInsertPoint(CurrBB->getFirstNonPHI());
-    Value *Alloc = Builder.CreateAlloca(Val->getType());
-    Builder.CreateStore(Val, Alloc);
-    Value *Load = Builder.CreateLoad(Alloc);
-    PN->replaceAllUsesWith(Load);
-  };
-#endif // INTEL_CUSTOMIZATION
-
   if (InstList.empty()) return;
   PHINode *APN = dyn_cast<PHINode>(&front());
   if (!APN) return;   // Quick exit.
@@ -415,37 +336,17 @@ void BasicBlock::removePredecessor(BasicBlock *Pred,
     if (this == Other) max_idx = 3;
   }
 
-#if INTEL_CUSTOMIZATION
-  // TODO: Remove the Intel customization after the fix for CMPLRLLVM-7142
-  // is added in llorg.
-  IRBuilder<> Builder(Pred->getModule()->getContext());
-#endif
   // <= Two predecessors BEFORE I remove one?
   if (max_idx <= 2 && !KeepOneInputPHIs) {
     // Yup, loop through and nuke the PHI nodes
     while (PHINode *PN = dyn_cast<PHINode>(&front())) {
-#if INTEL_CUSTOMIZATION
-      // TODO: Remove the Intel customization after the fix for CMPLRLLVM-7142
-      // is added in llorg.
-      bool HasCycle = IsCyclePhiNode(PN, Pred);
-#endif
       // Remove the predecessor first.
       PN->removeIncomingValue(Pred, !KeepOneInputPHIs);
 
       // If the PHI _HAD_ two uses, replace PHI node with its now *single* value
       if (max_idx == 2) {
-#if INTEL_CUSTOMIZATION
-        // TODO: Remove the Intel customization after the fix for CMPLRLLVM-7142
-        // is added in llorg.
-        if (PN->getIncomingValue(0) != PN) {
-          if (HasCycle)
-            // Simplify the PHINode with a combination of store and load
-            // if there is a cycle.
-            SimplifyPHINode(PN, PN->getIncomingValue(0), Builder);
-          else
-            PN->replaceAllUsesWith(PN->getIncomingValue(0));
-        }
-#endif // INTEL_CUSTOMIZATION
+        if (PN->getIncomingValue(0) != PN)
+          PN->replaceAllUsesWith(PN->getIncomingValue(0));
         else
           // We are left with an infinite loop with no entries: kill the PHI.
           PN->replaceAllUsesWith(UndefValue::get(PN->getType()));
@@ -461,27 +362,13 @@ void BasicBlock::removePredecessor(BasicBlock *Pred,
     PHINode *PN;
     for (iterator II = begin(); (PN = dyn_cast<PHINode>(II)); ) {
       ++II;
-#if INTEL_CUSTOMIZATION
-      // TODO: Remove the Intel customization after the fix for CMPLRLLVM-7142
-      // is added in llorg.
-      bool HasCycle = IsCyclePhiNode(PN, Pred);
-#endif
       PN->removeIncomingValue(Pred, false);
       // If all incoming values to the Phi are the same, we can replace the Phi
       // with that value.
       Value* PNV = nullptr;
       if (!KeepOneInputPHIs && (PNV = PN->hasConstantValue()))
         if (PNV != PN) {
-#if INTEL_CUSTOMIZATION
-        // TODO: Remove the Intel customization after the fix for CMPLRLLVM-7142
-        // is added in llorg.
-          if (HasCycle)
-            // Simplify the PHINode with a combination of store and load
-            // if there is a cycle.
-            SimplifyPHINode(PN, PNV, Builder);
-          else
-            PN->replaceAllUsesWith(PNV);
-#endif // INTEL_CUSTOMIZATION
+          PN->replaceAllUsesWith(PNV);
           PN->eraseFromParent();
         }
     }

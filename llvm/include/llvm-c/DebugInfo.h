@@ -17,10 +17,9 @@
 #define LLVM_C_DEBUGINFO_H
 
 #include "llvm-c/Core.h"
+#include "llvm-c/ExternC.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+LLVM_C_EXTERN_C_BEGIN
 
 /**
  * Debug info flags.
@@ -539,7 +538,7 @@ LLVMDIBuilderCreateSubroutineType(LLVMDIBuilderRef Builder,
  * @param Builder         The DIBuilder.
  * @param ParentMacroFile Macro parent (could be NULL).
  * @param Line            Source line number where the macro is defined.
- * @param MacroType       DW_MACINFO_define or DW_MACINFO_undef.
+ * @param RecordType      DW_MACINFO_define or DW_MACINFO_undef.
  * @param Name            Macro name.
  * @param NameLen         Macro name length.
  * @param Value           Macro value.
@@ -1353,8 +1352,6 @@ void LLVMInstructionSetDebugLoc(LLVMValueRef Inst, LLVMMetadataRef Loc);
  */
 LLVMMetadataKind LLVMGetMetadataKind(LLVMMetadataRef Metadata);
 
-#ifdef __cplusplus
-} /* end extern "C" */
-#endif
+LLVM_C_EXTERN_C_END
 
 #endif

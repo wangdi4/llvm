@@ -82,11 +82,13 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/Intel_CPU_utils.h" // INTEL
 #include "llvm/Support/Locale.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
+#include <bitset> // INTEL
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -1615,8 +1617,14 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
           return ExprError();
         break;
       case llvm::Triple::aarch64:
+      case llvm::Triple::aarch64_32:
       case llvm::Triple::aarch64_be:
         if (CheckAArch64BuiltinFunctionCall(BuiltinID, TheCall))
+          return ExprError();
+        break;
+      case llvm::Triple::bpfeb:
+      case llvm::Triple::bpfel:
+        if (CheckBPFBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
       case llvm::Triple::hexagon:
@@ -1786,6 +1794,7 @@ bool Sema::CheckNeonBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
 
     llvm::Triple::ArchType Arch = Context.getTargetInfo().getTriple().getArch();
     bool IsPolyUnsigned = Arch == llvm::Triple::aarch64 ||
+                          Arch == llvm::Triple::aarch64_32 ||
                           Arch == llvm::Triple::aarch64_be;
     bool IsInt64Long =
         Context.getTargetInfo().getInt64Type() == TargetInfo::SignedLong;
@@ -1816,6 +1825,14 @@ bool Sema::CheckNeonBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   }
 
   return SemaBuiltinConstantArgRange(TheCall, i, l, u + l);
+}
+
+bool Sema::CheckMVEBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  #include "clang/Basic/arm_mve_builtin_sema.inc"
+  }
 }
 
 bool Sema::CheckARMBuiltinExclusiveCall(unsigned BuiltinID, CallExpr *TheCall,
@@ -1958,6 +1975,8 @@ bool Sema::CheckARMBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
 
   if (CheckNeonBuiltinFunctionCall(BuiltinID, TheCall))
     return true;
+  if (CheckMVEBuiltinFunctionCall(BuiltinID, TheCall))
+    return true;
 
   // For intrinsics which take an immediate value as part of the instruction,
   // range check them here.
@@ -2044,6 +2063,40 @@ bool Sema::CheckAArch64BuiltinFunctionCall(unsigned BuiltinID,
   }
 
   return SemaBuiltinConstantArgRange(TheCall, i, l, u + l);
+}
+
+bool Sema::CheckBPFBuiltinFunctionCall(unsigned BuiltinID,
+                                       CallExpr *TheCall) {
+  assert(BuiltinID == BPF::BI__builtin_preserve_field_info &&
+         "unexpected ARM builtin");
+
+  if (checkArgCount(*this, TheCall, 2))
+    return true;
+
+  // The first argument needs to be a record field access.
+  // If it is an array element access, we delay decision
+  // to BPF backend to check whether the access is a
+  // field access or not.
+  Expr *Arg = TheCall->getArg(0);
+  if (Arg->getType()->getAsPlaceholderType() ||
+      (Arg->IgnoreParens()->getObjectKind() != OK_BitField &&
+       !dyn_cast<MemberExpr>(Arg->IgnoreParens()) &&
+       !dyn_cast<ArraySubscriptExpr>(Arg->IgnoreParens()))) {
+    Diag(Arg->getBeginLoc(), diag::err_preserve_field_info_not_field)
+        << 1 << Arg->getSourceRange();
+    return true;
+  }
+
+  // The second argument needs to be a constant int
+  llvm::APSInt Value;
+  if (!TheCall->getArg(1)->isIntegerConstantExpr(Value, Context)) {
+    Diag(Arg->getBeginLoc(), diag::err_preserve_field_info_not_const)
+        << 2 << Arg->getSourceRange();
+    return true;
+  }
+
+  TheCall->setType(Context.UnsignedIntTy);
+  return false;
 }
 
 bool Sema::CheckHexagonBuiltinCpu(unsigned BuiltinID, CallExpr *TheCall) {
@@ -3459,6 +3512,29 @@ static bool SemaBuiltinCpuIs(Sema &S, CallExpr *TheCall) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// Handle the string argument check for _may_i_use_cpu_feature_str.
+static bool SemaBuiltinMayIUseCpuFeatureStr(Sema &S, CallExpr *TheCall) {
+  SmallVector<StringRef, 4> Features;
+
+  for (const auto &Arg : TheCall->arguments()) {
+    // Check if the argument is a string literal.
+    if (!isa<StringLiteral>(Arg->IgnoreParenImpCasts()))
+      return S.Diag(Arg->getExprLoc(), diag::err_expr_not_string_literal)
+             << Arg->getSourceRange();
+
+    // Check the contents of the string.
+    StringRef Feature =
+        cast<StringLiteral>(Arg->IgnoreParenImpCasts())->getString();
+
+    if (!llvm::X86::isCpuFeatureValid(Feature.trim()))
+      return S.Diag(Arg->getExprLoc(), diag::err_invalid_cpu_supports)
+             << Arg->getSourceRange();
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Check if the rounding mode is legal.
 bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   // Indicates if this instruction has rounding control or just SAE.
@@ -3988,6 +4064,48 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
+bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
+                                    ArrayRef<int> ArgNums,
+                                    int Low, int High) {
+  for (int ArgNum : ArgNums) {
+    if (SemaBuiltinConstantArgRange(TheCall, ArgNum, Low, High))
+      return true;
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum,
+                                             int Low, int High) {
+  return SemaBuiltinConstantArgRange(TheCall, ArgNum, Low, High);
+}
+
+bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
+                                        ArrayRef<int> ArgNums) {
+  // Because the max number of tile register is 32, so here we use each bit
+  // to represent the usage of them in bitset<32>.
+  std::bitset<32> ArgValues;
+  for (int ArgNum : ArgNums) {
+    llvm::APSInt Arg;
+    SemaBuiltinConstantArg(TheCall, ArgNum, Arg);
+    int ArgExtValue = Arg.getExtValue();
+    assert((ArgExtValue >= 0 || ArgExtValue < 32) &&
+           "Incorrect tile register num.");
+    if (ArgValues.test(ArgExtValue))
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_x86_builtin_tmul_arg_duplicate)
+             << TheCall->getArg(ArgNum)->getSourceRange();
+    ArgValues.set(ArgExtValue);
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
+                                                ArrayRef<int> ArgNums, int Low,
+                                                int High) {
+  return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums, Low, High) ||
+         CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
+}
+
 bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   switch (BuiltinID) {
   default:
@@ -3996,31 +4114,120 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tileloaddt164:
   case X86::BI__builtin_ia32_tilestored64:
   case X86::BI__builtin_ia32_tilezero:
-    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 15);
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
   case X86::BI__builtin_ia32_tdpbssd:
   case X86::BI__builtin_ia32_tdpbsud:
   case X86::BI__builtin_ia32_tdpbusd:
   case X86::BI__builtin_ia32_tdpbuud:
   case X86::BI__builtin_ia32_tdpbf16ps:
-    if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 15) ||
-        SemaBuiltinConstantArgRange(TheCall, 1, 0, 15) ||
-        SemaBuiltinConstantArgRange(TheCall, 2, 0, 15))
-      return true;
-
-    llvm::APSInt Arg0, Arg1, Arg2;
-    SemaBuiltinConstantArg(TheCall, 0, Arg0);
-    SemaBuiltinConstantArg(TheCall, 1, Arg1);
-    SemaBuiltinConstantArg(TheCall, 2, Arg2);
-    Expr *Args = TheCall->getArg(0);
-
-    if ((Arg0.getSExtValue() == Arg1.getSExtValue()) ||
-        (Arg0.getSExtValue() == Arg2.getSExtValue()) ||
-        (Arg1.getSExtValue() == Arg2.getSExtValue()))
-      return Diag(TheCall->getBeginLoc(),
-                  diag::err_x86_builtin_tmul_arg_duplicate)
-             << Args->getSourceRange();
-
-    return false;
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  case X86::BI__builtin_ia32_t2rpntlvw:
+  case X86::BI__builtin_ia32_t2rpntlvwt1:
+  case X86::BI__builtin_ia32_t2transposew:
+  case X86::BI__builtin_ia32_t2transposewt1:
+  case X86::BI__builtin_ia32_tbroadcastrowd:
+  case X86::BI__builtin_ia32_tgatherrowd:
+  case X86::BI__builtin_ia32_tgatherrowdt1:
+  case X86::BI__builtin_ia32_tgatherrowq:
+  case X86::BI__builtin_ia32_tgatherrowqt1:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+  case X86::BI__builtin_ia32_tile16move:
+  case X86::BI__builtin_ia32_tilemovei:
+  case X86::BI__builtin_ia32_tilemovee:
+  case X86::BI__builtin_ia32_tilemovex:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+  case X86::BI__builtin_ia32_tileloadde64:
+  case X86::BI__builtin_ia32_tileloaddt1e64:
+  case X86::BI__builtin_ia32_tilestorede64:
+  case X86::BI__builtin_ia32_tilezeroe:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
+  case X86::BI__builtin_ia32_tcoladdps:
+  case X86::BI__builtin_ia32_tstorerowd:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 1);
+  case X86::BI__builtin_ia32_tcoladdbcastps:
+  case X86::BI__builtin_ia32_tnarrowb:
+  case X86::BI__builtin_ia32_tnarroww:
+  case X86::BI__builtin_ia32_tpermb_mem:
+  case X86::BI__builtin_ia32_tpermd_mem:
+  case X86::BI__builtin_ia32_tpermw_mem:
+  case X86::BI__builtin_ia32_twidenb:
+  case X86::BI__builtin_ia32_twidenw:
+  case X86::BI__builtin_ia32_taddps_mem:
+  case X86::BI__builtin_ia32_tandd_mem:
+  case X86::BI__builtin_ia32_tandnd_mem:
+  case X86::BI__builtin_ia32_tcmpps_mem:
+  case X86::BI__builtin_ia32_tcvtb2ps:
+  case X86::BI__builtin_ia32_tcvtbf162ps:
+  case X86::BI__builtin_ia32_tcvtd2ps:
+  case X86::BI__builtin_ia32_tcvtps2bf16:
+  case X86::BI__builtin_ia32_tcvtps2bs:
+  case X86::BI__builtin_ia32_tcvtps2ubs:
+  case X86::BI__builtin_ia32_tcvtub2ps:
+  case X86::BI__builtin_ia32_tfmaddps_mem:
+  case X86::BI__builtin_ia32_tfmsubps_mem:
+  case X86::BI__builtin_ia32_tfnmaddps_mem:
+  case X86::BI__builtin_ia32_tfnmsubps_mem:
+  case X86::BI__builtin_ia32_tmaxps_mem:
+  case X86::BI__builtin_ia32_tminps_mem:
+  case X86::BI__builtin_ia32_tmulps_mem:
+  case X86::BI__builtin_ia32_tord_mem:
+  case X86::BI__builtin_ia32_trcp14ps:
+  case X86::BI__builtin_ia32_treduceps:
+  case X86::BI__builtin_ia32_tscalefps_mem:
+  case X86::BI__builtin_ia32_tslld:
+  case X86::BI__builtin_ia32_tsrld:
+  case X86::BI__builtin_ia32_tsrlvd_mem:
+  case X86::BI__builtin_ia32_tsubps_mem:
+  case X86::BI__builtin_ia32_txord_mem:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1});
+  case X86::BI__builtin_ia32_tilemove:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);
+  case X86::BI__builtin_ia32_tscatterrowd:
+  case X86::BI__builtin_ia32_tscatterrowdt1:
+  case X86::BI__builtin_ia32_tscatterrowq:
+  case X86::BI__builtin_ia32_tscatterrowqt1:
+  case X86::BI__builtin_ia32_tstorehd:
+  case X86::BI__builtin_ia32_tstorehdt1:
+  case X86::BI__builtin_ia32_tstorentd:
+  case X86::BI__builtin_ia32_tstoreqd:
+  case X86::BI__builtin_ia32_tstoreqdt1:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 2);
+  case X86::BI__builtin_ia32_tblendvd:
+  case X86::BI__builtin_ia32_tinterleaveeb:
+  case X86::BI__builtin_ia32_tinterleaveew:
+  case X86::BI__builtin_ia32_tinterleaveob:
+  case X86::BI__builtin_ia32_tinterleaveow:
+  case X86::BI__builtin_ia32_tpermb_reg:
+  case X86::BI__builtin_ia32_tpermd_reg:
+  case X86::BI__builtin_ia32_tpermw_reg:
+  case X86::BI__builtin_ia32_taddps_reg:
+  case X86::BI__builtin_ia32_tandd_reg:
+  case X86::BI__builtin_ia32_tandnd_reg:
+  case X86::BI__builtin_ia32_tcmpps_reg:
+  case X86::BI__builtin_ia32_tfmaddps_reg:
+  case X86::BI__builtin_ia32_tfmsubps_reg:
+  case X86::BI__builtin_ia32_tfnmaddps_reg:
+  case X86::BI__builtin_ia32_tfnmsubps_reg:
+  case X86::BI__builtin_ia32_tmaxps_reg:
+  case X86::BI__builtin_ia32_tminps_reg:
+  case X86::BI__builtin_ia32_tmulps_reg:
+  case X86::BI__builtin_ia32_tord_reg:
+  case X86::BI__builtin_ia32_tscalefps_reg:
+  case X86::BI__builtin_ia32_tsrlvd_reg:
+  case X86::BI__builtin_ia32_tsubps_reg:
+  case X86::BI__builtin_ia32_txord_reg:
+  case X86::BI__builtin_ia32_tdpfp16ps:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+  case X86::BI__builtin_ia32_tdpbssde:
+  case X86::BI__builtin_ia32_tdpbsude:
+  case X86::BI__builtin_ia32_tdpbusde:
+  case X86::BI__builtin_ia32_tdpbuude:
+  case X86::BI__builtin_ia32_tdpbf16pse:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2}, 0, 31);
+#endif // INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX
   }
 }
 #endif // INTEL_FEATURE_ISA_AMX
@@ -4084,6 +4291,13 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   default:
     return false;
 #if INTEL_CUSTOMIZATION
+  case X86::BI_may_i_use_cpu_feature_ext:
+    i = 1;
+    l = 0;
+    u = 1;
+    break;
+  case X86::BI_may_i_use_cpu_feature_str:
+    return SemaBuiltinMayIUseCpuFeatureStr(*this, TheCall);
 #if INTEL_FEATURE_ICECODE
   case X86::BI__builtin_ia32_icecode_nr_read:
     i = 0; l = 0; u = 255;
@@ -6678,7 +6892,8 @@ ExprResult Sema::CheckOSLogFormatStringArg(Expr *Arg) {
 static bool checkVAStartABI(Sema &S, unsigned BuiltinID, Expr *Fn) {
   const llvm::Triple &TT = S.Context.getTargetInfo().getTriple();
   bool IsX64 = TT.getArch() == llvm::Triple::x86_64;
-  bool IsAArch64 = TT.getArch() == llvm::Triple::aarch64;
+  bool IsAArch64 = (TT.getArch() == llvm::Triple::aarch64 ||
+                    TT.getArch() == llvm::Triple::aarch64_32);
   bool IsWindows = TT.isOSWindows();
   bool IsMSVAStart = BuiltinID == Builtin::BI__builtin_ms_va_start;
   if (IsX64 || IsAArch64) {
@@ -7271,6 +7486,12 @@ bool Sema::SemaBuiltinAssumeAligned(CallExpr *TheCall) {
     if (!Result.isPowerOf2())
       return Diag(TheCall->getBeginLoc(), diag::err_alignment_not_power_of_two)
              << Arg->getSourceRange();
+
+    // Alignment calculations can wrap around if it's greater than 2**29.
+    unsigned MaximumAlignment = 536870912;
+    if (Result > MaximumAlignment)
+      Diag(TheCall->getBeginLoc(), diag::warn_assume_aligned_too_great)
+          << Arg->getSourceRange() << MaximumAlignment;
   }
 
   if (NumArgs > 2) {
@@ -7435,6 +7656,101 @@ bool Sema::SemaBuiltinConstantArgMultiple(CallExpr *TheCall, int ArgNum,
            << Num << Arg->getSourceRange();
 
   return false;
+}
+
+/// SemaBuiltinConstantArgPower2 - Check if argument ArgNum of TheCall is a
+/// constant expression representing a power of 2.
+bool Sema::SemaBuiltinConstantArgPower2(CallExpr *TheCall, int ArgNum) {
+  llvm::APSInt Result;
+
+  // We can't check the value of a dependent argument.
+  Expr *Arg = TheCall->getArg(ArgNum);
+  if (Arg->isTypeDependent() || Arg->isValueDependent())
+    return false;
+
+  // Check constant-ness first.
+  if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
+    return true;
+
+  // Bit-twiddling to test for a power of 2: for x > 0, x & (x-1) is zero if
+  // and only if x is a power of 2.
+  if (Result.isStrictlyPositive() && (Result & (Result - 1)) == 0)
+    return false;
+
+  return Diag(TheCall->getBeginLoc(), diag::err_argument_not_power_of_2)
+         << Arg->getSourceRange();
+}
+
+static bool IsShiftedByte(llvm::APSInt Value) {
+  if (Value.isNegative())
+    return false;
+
+  // Check if it's a shifted byte, by shifting it down
+  while (true) {
+    // If the value fits in the bottom byte, the check passes.
+    if (Value < 0x100)
+      return true;
+
+    // Otherwise, if the value has _any_ bits in the bottom byte, the check
+    // fails.
+    if ((Value & 0xFF) != 0)
+      return false;
+
+    // If the bottom 8 bits are all 0, but something above that is nonzero,
+    // then shifting the value right by 8 bits won't affect whether it's a
+    // shifted byte or not. So do that, and go round again.
+    Value >>= 8;
+  }
+}
+
+/// SemaBuiltinConstantArgShiftedByte - Check if argument ArgNum of TheCall is
+/// a constant expression representing an arbitrary byte value shifted left by
+/// a multiple of 8 bits.
+bool Sema::SemaBuiltinConstantArgShiftedByte(CallExpr *TheCall, int ArgNum) {
+  llvm::APSInt Result;
+
+  // We can't check the value of a dependent argument.
+  Expr *Arg = TheCall->getArg(ArgNum);
+  if (Arg->isTypeDependent() || Arg->isValueDependent())
+    return false;
+
+  // Check constant-ness first.
+  if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
+    return true;
+
+  if (IsShiftedByte(Result))
+    return false;
+
+  return Diag(TheCall->getBeginLoc(), diag::err_argument_not_shifted_byte)
+         << Arg->getSourceRange();
+}
+
+/// SemaBuiltinConstantArgShiftedByteOr0xFF - Check if argument ArgNum of
+/// TheCall is a constant expression representing either a shifted byte value,
+/// or a value of the form 0x??FF (i.e. a member of the arithmetic progression
+/// 0x00FF, 0x01FF, ..., 0xFFFF). This strange range check is needed for some
+/// Arm MVE intrinsics.
+bool Sema::SemaBuiltinConstantArgShiftedByteOrXXFF(CallExpr *TheCall,
+                                                   int ArgNum) {
+  llvm::APSInt Result;
+
+  // We can't check the value of a dependent argument.
+  Expr *Arg = TheCall->getArg(ArgNum);
+  if (Arg->isTypeDependent() || Arg->isValueDependent())
+    return false;
+
+  // Check constant-ness first.
+  if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
+    return true;
+
+  // Check to see if it's in either of the required forms.
+  if (IsShiftedByte(Result) ||
+      (Result > 0 && Result < 0x10000 && (Result & 0xFF) == 0xFF))
+    return false;
+
+  return Diag(TheCall->getBeginLoc(),
+              diag::err_argument_not_shifted_byte_or_xxff)
+         << Arg->getSourceRange();
 }
 
 /// SemaBuiltinARMMemoryTaggingCall - Handle calls of memory tagging extensions
@@ -10364,7 +10680,7 @@ void Sema::CheckMaxUnsignedZero(const CallExpr *Call,
   auto IsLiteralZeroArg = [](const Expr* E) -> bool {
     const auto *MTE = dyn_cast<MaterializeTemporaryExpr>(E);
     if (!MTE) return false;
-    const auto *Num = dyn_cast<IntegerLiteral>(MTE->GetTemporaryExpr());
+    const auto *Num = dyn_cast<IntegerLiteral>(MTE->getSubExpr());
     if (!Num) return false;
     if (Num->getValue() != 0) return false;
     return true;
@@ -13164,6 +13480,13 @@ static void AnalyzeImplicitConversions(Sema &S, Expr *OrigE, SourceLocation CC,
 
   if (E->isTypeDependent() || E->isValueDependent())
     return;
+
+  if (const auto *UO = dyn_cast<UnaryOperator>(E))
+    if (UO->getOpcode() == UO_Not &&
+        UO->getSubExpr()->isKnownToHaveBooleanValue())
+      S.Diag(UO->getBeginLoc(), diag::warn_bitwise_negation_bool)
+          << OrigE->getSourceRange() << T->isBooleanType()
+          << FixItHint::CreateReplacement(UO->getBeginLoc(), "!");
 
   // For conditional operators, we analyze the arguments as if they
   // were being fed directly into the output.

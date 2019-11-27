@@ -390,9 +390,16 @@ void VPOParoptTransform::guardSideEffectStatements(
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
 
+    // TODO: we only need global fences for side effect instructions
+    //       inside "omp target" and outside of the enclosed regions.
+    //       Moreover, it probably makes sense to guard such instructions
+    //       with (get_group_id() == 0) vs (get_local_id() == 0).
     VPOParoptUtils::genOCLGenericCall(
         "_Z18work_group_barrierj", Type::getVoidTy(C),
-        { ConstantInt::get(Type::getInt32Ty(C), 1) },
+        // CLK_LOCAL_MEM_FENCE  == 1
+        // CLK_GLOBAL_MEM_FENCE == 2
+        // CLK_IMAGE_MEM_FENCE  == 4
+        { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
         InsertPt);
   };
 
@@ -693,6 +700,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     Builder.CreateStore(
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
         OffloadError);
+    if (isa<WRNTargetDataNode>(W)) {
+      // For target data directive, if the "if" clause is evaluated to false,
+      // device is host, and the outlined function is called without mapping
+      // data.
+      SmallVector<Value *, 4> FnArgs(NewCall->arg_operands());
+      Builder.CreateCall(NewF, FnArgs, "");
+    }
   } else
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
 
@@ -722,7 +736,17 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->eraseFromParent();
       // We cannot erase the function right now, because it now contains
       // the region's entry/exit calls, which we will try to erase later.
-      NewF->removeFromParent();
+
+#if INTEL_CUSTOMIZATION
+      // TEMPORARY to address JIRA  CMPLRLLVM-10758.
+#endif // INTEL_CUSTOMIZATION
+      // Cannot just disconnect from parent as some passes
+      // walk all functions and encounters this function without
+      // a module and asserts.
+      // TODO Fix WRN's entry/exit BB to null and modify VPOUtils
+      // VPOUtils::stripDirectives to accept and ignore null BBs
+      // and remove the NewF completely.
+      // NewF->removeFromParent();
     }
   }
 
@@ -927,27 +951,39 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
-    auto *L = WL->getWRNLoopInfo().getLoop(I);
-    auto *UpperBoundDef =
-        cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-    if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(
-             UpperBoundDef, W)) {
-      // FIXME: if we stop calling this function for SPIR compilation,
-      //        then the check for isTargetSPIRV() has to be removed below.
-      if (isTargetSPIRV()) {
-        // This code may be executed only for ImplicitSIMDSPMDES mode.
-        OptimizationRemarkMissed R("openmp", "Target", WL->getEntryDirective());
-        R << "Consider using OpenMP combined construct "
-            "with \"target\" to get optimal performance";
-        ORE.emit(R);
+  WRNTargetNode *WT = cast<WRNTargetNode>(W);
+  auto &UncollapsedNDRange = WT->getUncollapsedNDRange();
+  unsigned NumLoops = 0;
+
+  if (UncollapsedNDRange.empty()) {
+    for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
+      auto *L = WL->getWRNLoopInfo().getLoop(I);
+      auto *UpperBoundDef =
+          cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
+      if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(UpperBoundDef, W)) {
+        // FIXME: if we stop calling this function for SPIR compilation,
+        //        then the check for isTargetSPIRV() has to be removed below.
+        if (isTargetSPIRV()) {
+          // This code may be executed only for ImplicitSIMDSPMDES mode.
+          OptimizationRemarkMissed R(
+              "openmp", "Target", WL->getEntryDirective());
+          R << "Consider using OpenMP combined construct "
+              "with \"target\" to get optimal performance";
+          ORE.emit(R);
+        }
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": loop bounds cannot be computed before the enclosing "
+                   "target region.\n");
+        return nullptr;
       }
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": loop bounds cannot be computed before the enclosing "
-                 "target region.\n");
-      return nullptr;
     }
+
+    NumLoops = WL->getWRNLoopInfo().getNormIVSize();
   }
+  else
+    NumLoops = UncollapsedNDRange.size();
+
+  assert(NumLoops != 0 && "Zero loops in loop construct.");
 
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
@@ -955,7 +991,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   IRBuilder<> Builder(InsertPt);
   SmallVector<Type *, 4> CLLoopParameterRecTypeArgs;
   CLLoopParameterRecTypeArgs.push_back(Int64Ty);
-  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+  for (unsigned I = 0; I < NumLoops; I++) {
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
@@ -973,10 +1009,10 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
   Builder.CreateStore(
       Builder.CreateSExtOrTrunc(
-          Builder.getInt32(WL->getWRNLoopInfo().getNormIVSize()), Int64Ty),
+          Builder.getInt32(NumLoops), Int64Ty),
       BaseGep);
 
-  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+  for (unsigned I = 0; I < NumLoops; I++) {
     Loop *L = WL->getWRNLoopInfo().getLoop(I);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
@@ -986,8 +1022,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     Value *UpperBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
-    Value *CloneUB = VPOParoptUtils::cloneInstructions(
-        WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    Value *CloneUB = nullptr;
+    if (UncollapsedNDRange.empty())
+      CloneUB = VPOParoptUtils::cloneInstructions(
+          WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    else
+      CloneUB = Builder.CreateLoad(UncollapsedNDRange[I]);
+
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
                         UpperBndGep);
@@ -2233,20 +2274,16 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
   W->populateBBSet();
 
-  if (W->getBBSetSize() != 3) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Expected 3 BBs in Target Variant Dispatch\n");
-    return false;
-  }
-
   // The first and last BasicBlocks contain the region.entry/exit calls.
-  // The middle one has the base function call we're interested in.
-  BasicBlock *BB = *(W->bbset_begin() + 1);
+  // The first call instruction found in the remaining BBs is the
+  // base function call. All other instructions in the region are ignored.
 
   CallInst *BaseCall = nullptr;
-  for (Instruction &I : *BB)
-    if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
-      break;
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1))
+    for (Instruction &I : *BB) {
+      if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
+        break;
+    }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)

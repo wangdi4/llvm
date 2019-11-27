@@ -42,11 +42,12 @@ public:
   // The source file is given by 'M'.  The line and column info by 'Dloc'
   explicit InlineReportCallSite(InlineReportFunction *IRCallee, bool IsInlined,
                                 InlineReportTypes::InlineReason Reason,
-                                Module *Module, DebugLoc *DLoc, Instruction *I)
+                                Module *Module, DebugLoc *DLoc, Instruction *I,
+                                bool SuppressPrint = false)
       : IRCallee(IRCallee), IsInlined(IsInlined), Reason(Reason),
         InlineCost(-1), OuterInlineCost(-1), InlineThreshold(-1),
         EarlyExitInlineCost(INT_MAX), EarlyExitInlineThreshold(INT_MAX),
-        Call(I), M(Module) {
+        Call(I), M(Module), SuppressPrint(SuppressPrint) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
     Children.clear();
@@ -99,6 +100,9 @@ public:
   int getInlineThreshold() const { return InlineThreshold; }
   void setInlineThreshold(int Threshold) { InlineThreshold = Threshold; }
 
+  bool getSuppressPrint(void) const { return SuppressPrint; }
+  void setSuppressPrint(bool V) { SuppressPrint = V; }
+
   /// \brief Stored "early exit" threshold of inlining.
   int getEarlyExitInlineThreshold() const { return EarlyExitInlineThreshold; }
   void setEarlyExitInlineThreshold(int EEThreshold) {
@@ -137,6 +141,8 @@ private:
   /// -gline-tables-only
   unsigned Line;
   unsigned Col;
+  bool SuppressPrint; // suppress inline-report print info
+
   void printCostAndThreshold(unsigned Level);
   void printOuterCostAndThreshold(void);
   void printCalleeNameModuleLineCol(unsigned Level);
@@ -150,9 +156,9 @@ private:
 ///
 class InlineReportFunction {
 public:
-  explicit InlineReportFunction(const Function *F)
+  explicit InlineReportFunction(const Function *F, bool SuppressPrint = false)
       : IsDead(false), IsCurrent(false), IsDeclaration(false),
-        LinkageChar(' '){};
+        LinkageChar(' '), SuppressPrint(SuppressPrint) {};
   ~InlineReportFunction(void);
   InlineReportFunction(const InlineReportFunction &) = delete;
   void operator=(const InlineReportFunction &) = delete;
@@ -187,14 +193,18 @@ public:
   /// brief Get a single character indicating the linkage type
   char getLinkageChar(void) { return LinkageChar; }
 
+  /// brief Get and set SuppressPrint
+  bool getSuppressPrint(void) const { return SuppressPrint; }
+  void setSuppressPrint(bool V) { SuppressPrint = V; }
+
   /// brief Set a single character indicating the linkage type
   void setLinkageChar(Function *F) {
     LinkageChar =
-      (F->hasLocalLinkage()
-           ? 'L'
-           : (F->hasLinkOnceODRLinkage()
-                  ? 'O'
-                  : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
+        (F->hasLocalLinkage()
+         ? 'L'
+         : (F->hasLinkOnceODRLinkage()
+            ? 'O'
+            : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
   }
 
   std::string &getName() { return Name; }
@@ -210,6 +220,7 @@ private:
   char LinkageChar;
   std::string Name;
   InlineReportCallSiteVector CallSites;
+  bool SuppressPrint; // suppress inline-report print
 };
 
 typedef MapVector<Function *, InlineReportFunction *> InlineReportFunctionMap;
@@ -412,8 +423,8 @@ private:
 
   public:
     InlineReportCallback(Value *V, InlineReport *CBIR)
-        : CallbackVH(V), IR(CBIR){};
-    virtual ~InlineReportCallback(){};
+        : CallbackVH(V), IR(CBIR) {};
+    virtual ~InlineReportCallback() {};
   };
 
   SmallVector<InlineReportCallback *, 16> IRCallbackVector;

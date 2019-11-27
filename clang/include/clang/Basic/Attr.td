@@ -342,6 +342,7 @@ class TargetArch<list<string> arches> : TargetSpec {
 }
 def TargetARM : TargetArch<["arm", "thumb", "armeb", "thumbeb"]>;
 def TargetAVR : TargetArch<["avr"]>;
+def TargetBPF : TargetArch<["bpfel", "bpfeb"]>;
 def TargetMips32 : TargetArch<["mips", "mipsel"]>;
 def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
@@ -498,6 +499,9 @@ class Attr {
   // content. Eg) It parses 3 args, but semantically takes 4 args.  Opts out of
   // common attribute error checking.
   bit HasCustomParsing = 0;
+  // Set to true if the attribute is a type attribute that has custom
+  // TreeTransform logic in order to handle template transformations.
+  bit HasCustomTypeTransform = 0;
   // Set to true if all of the attribute's arguments should be parsed in an
   // unevaluated context.
   bit ParseArgumentsAsUnevaluated = 0;
@@ -602,6 +606,13 @@ def Alias : Attr {
   let Args = [StringArgument<"Aliasee">];
   let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>;//***INTEL
   let Documentation = [Undocumented];
+}
+
+def ArmMveAlias : InheritableAttr, TargetSpecificAttr<TargetARM> {
+  let Spellings = [Clang<"__clang_arm_mve_alias">];
+  let Args = [IdentifierArgument<"BuiltinName">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [ArmMveAliasDocs];
 }
 
 def Aligned : InheritableAttr {
@@ -1099,6 +1110,12 @@ def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let LangOpts = [SYCLIsDevice];
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
+def SYCLIntelKernelArgsRestrict : InheritableAttr {
+  let Spellings = [ CXX11<"intel", "kernel_args_restrict"> ];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [ SYCLIsDevice, SYCLIsHost ];
+  let Documentation = [ SYCLIntelKernelArgsRestrictDocs ];
+}
 
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
@@ -1501,11 +1518,41 @@ def Mode : Attr {
 
 def SYCLIntelFPGAIVDep : Attr {
   let Spellings = [CXX11<"intelfpga","ivdep">];
-  let Args = [IntArgument<"Safelen">];
+  let Args = [
+    ExprArgument<"SafelenExpr">, ExprArgument<"ArrayExpr">,
+    UnsignedArgument<"SafelenValue">
+  ];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "ivdep";
+    }
+    bool isDependent() const {
+      return (getSafelenExpr() &&
+              getSafelenExpr()->isInstantiationDependent()) ||
+             (getArrayExpr() && getArrayExpr()->isInstantiationDependent());
+    }
+
+    const VarDecl *getArrayDecl() const {
+      return getArrayExpr()
+                 ? cast<VarDecl>(cast<DeclRefExpr>(getArrayExpr())->getDecl())
+                       ->getCanonicalDecl()
+                 : nullptr;
+    }
+
+    bool isInf() const {
+      return !getSafelenExpr();
+    }
+
+    static bool SafelenCompare(const SYCLIntelFPGAIVDepAttr *LHS,
+                               const SYCLIntelFPGAIVDepAttr *RHS) {
+      // INF < INF is false, !INF < INF is true.
+      if (!RHS->getSafelenExpr())
+        return false;
+      if (!LHS->getSafelenExpr())
+        return true;
+      return LHS->getSafelenValue() > RHS->getSafelenValue();
     }
   }];
   let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
@@ -1703,6 +1750,13 @@ def IntelFPGASimpleDualPort : Attr {
   let Documentation = [IntelFPGASimpleDualPortAttrDocs];
 }
 
+def SYCLFPGAPipe : TypeAttr {
+  let Spellings = [GNU<"pipe">];
+  let Args = [StringArgument<"Mode">];
+  let LangOpts = [SYCLIsDevice];
+  let Documentation = [SYCLFPGAPipeDocs];
+}
+
 def Naked : InheritableAttr {
   let Spellings = [GCC<"naked">, Declspec<"naked">];
   let Subjects = SubjectList<[Function]>;
@@ -1845,6 +1899,14 @@ def AMDGPUNumVGPR : InheritableAttr {
   let Args = [UnsignedArgument<"NumVGPR">];
   let Documentation = [AMDGPUNumSGPRNumVGPRDocs];
   let Subjects = SubjectList<[Function], ErrorDiag, "kernel functions">;
+}
+
+def BPFPreserveAccessIndex : InheritableAttr,
+                             TargetSpecificAttr<TargetBPF>  {
+  let Spellings = [Clang<"preserve_access_index">];
+  let Subjects = SubjectList<[Record], ErrorDiag>;
+  let Documentation = [BPFPreserveAccessIndexDocs];
+  let LangOpts = [COnly];
 }
 
 def WebAssemblyImportModule : InheritableAttr,
@@ -2121,6 +2183,20 @@ def ObjCDesignatedInitializer : Attr {
   let Documentation = [Undocumented];
 }
 
+def ObjCDirect : Attr {
+  let Spellings = [Clang<"objc_direct">];
+  let Subjects = SubjectList<[ObjCMethod], ErrorDiag>;
+  let LangOpts = [ObjC];
+  let Documentation = [ObjCDirectDocs];
+}
+
+def ObjCDirectMembers : Attr {
+  let Spellings = [Clang<"objc_direct_members">];
+  let Subjects = SubjectList<[ObjCImpl, ObjCCategory], ErrorDiag>;
+  let LangOpts = [ObjC];
+  let Documentation = [ObjCDirectMembersDocs];
+}
+
 def ObjCRuntimeName : Attr {
   let Spellings = [Clang<"objc_runtime_name">];
   let Subjects = SubjectList<[ObjCInterface, ObjCProtocol], ErrorDiag>;
@@ -2297,6 +2373,14 @@ def PragmaClangRodataSection : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def PragmaClangRelroSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
 def PragmaClangTextSection : InheritableAttr {
   // This attribute has no spellings as it is only ever created implicitly.
   let Spellings = [];
@@ -2391,6 +2475,7 @@ def Target : InheritableAttr {
     struct ParsedTargetAttr {
       std::vector<std::string> Features;
       StringRef Architecture;
+      StringRef BranchProtection;
       bool DuplicateArchitecture = false;
       bool operator ==(const ParsedTargetAttr &Other) const {
         return DuplicateArchitecture == Other.DuplicateArchitecture &&
@@ -2462,6 +2547,11 @@ def Target : InheritableAttr {
         // attributes on the function.
         if (Feature.startswith("fpmath=") || Feature.startswith("tune="))
           continue;
+
+        if (Feature.startswith("branch-protection=")) {
+          Ret.BranchProtection = Feature.split('=').second.trim();
+          continue;
+        }
 
         // While we're here iterating check for a different target cpu.
         if (Feature.startswith("arch=")) {
@@ -3671,36 +3761,10 @@ def OMPDeclareVariant : InheritableAttr {
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
     ExprArgument<"VariantFuncRef">,
-// INTEL_CUSTOMIZATION
-    VariadicEnumArgument<"Construct", "ConstructTy",
-       ["", "target", "teams", "parallel", "for", "simd",
-        "target_variant_dispatch"],
-       ["Construct_None", "Construct_Target", "Construct_Teams",
-        "Construct_Parallel", "Construct_For", "Construct_Simd",
-        "Construct_Target_Variant_Dispatch"]>,
-    VariadicEnumArgument<"Device", "DeviceTy",
-       ["", "gen"], ["Device_None", "Device_Arch_Gen"]>,
-// end INTEL_CUSTOMIZATION
-    ExprArgument<"Score">,
-    EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
-                 [ "", "implementation"
-                 ],
-                 [
-                   "CtxSetUnknown", "CtxSetImplementation"
-                 ]>,
-    EnumArgument<"CtxScore", "ScoreType",
-                 [ "", "score"
-                 ],
-                 [
-                   "ScoreUnknown", "ScoreSpecified"
-                 ]>,
-    EnumArgument<"CtxSelector", "CtxSelectorType",
-                 [ "", "vendor"
-                 ],
-                 [
-                   "CtxUnknown", "CtxVendor"
-                 ]>,
-    StringArgument<"ImplVendor", 1>
+    VariadicExprArgument<"Scores">,
+    VariadicUnsignedArgument<"CtxSelectorSets">,
+    VariadicUnsignedArgument<"CtxSelectors">,
+    VariadicStringArgument<"ImplVendors">
   ];
   let AdditionalMembers = [{
 // INTEL_CUSTOMIZATION
@@ -3717,8 +3781,8 @@ def OMPDeclareVariant : InheritableAttr {
       return "'gen'";
     }
 // end INTEL_CUSTOMIZATION
-    void printScore(raw_ostream & OS, const PrintingPolicy &Policy) const {
-      if (const Expr *E = getScore()) {
+    void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
+      if (const Expr *E = *std::next(scores_begin(), I)) {
         OS << "score(";
         E->printPretty(OS, nullptr, Policy);
         OS << "):";
@@ -3726,8 +3790,6 @@ def OMPDeclareVariant : InheritableAttr {
     }
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
-      assert(getCtxSelectorSet() != CtxSetUnknown &&
-             getCtxSelector() != CtxUnknown && "Unknown context selector.");
       if (const Expr *E = getVariantFuncRef()) {
         OS << "(";
         E->printPretty(OS, nullptr, Policy);
@@ -3735,23 +3797,66 @@ def OMPDeclareVariant : InheritableAttr {
       }
       // TODO: add printing of real context selectors.
       OS << " match(";
-      switch (getCtxSelectorSet()) {
-      case CtxSetImplementation:
-        OS << "implementation={";
-        switch (getCtxSelector()) {
-        case CtxVendor:
-          OS << "vendor(";
-          printScore(OS, Policy);
-          OS << getImplVendor();
-          OS << ")";
+      for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
+        auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
+            *std::next(ctxSelectorSets_begin(), I));
+        auto Ctx = static_cast<OpenMPContextSelectorKind>(
+            *std::next(ctxSelectors_begin(), I));
+        assert(CtxSet != OMP_CTX_SET_unknown && Ctx != OMP_CTX_unknown &&
+               "Unknown context selector.");
+        switch (CtxSet) {
+        case OMP_CTX_SET_implementation:
+          OS << "implementation={";
+          switch (Ctx) {
+          case OMP_CTX_vendor:
+            OS << "vendor(";
+            printScore(OS, Policy, I);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+// INTEL_COLLAB
+          case OMP_CTX_arch:
+          case OMP_CTX_target_variant_dispatch:
+// end INTEL_COLLAB
+          case OMP_CTX_unknown:
+            llvm_unreachable("Unknown context selector.");
+          }
+          OS << "}";
           break;
-        case CtxUnknown:
-          llvm_unreachable("Unknown context selector.");
+// INTEL_COLLAB
+        case OMP_CTX_SET_construct:
+          OS << "implementation={";
+          OS << "target variant dispatch";
+          OS << "}";
+          break;
+        case OMP_CTX_SET_device:
+          OS << "device={";
+          switch (Ctx) {
+          case OMP_CTX_arch:
+            OS << "arch(";
+            printScore(OS, Policy, I);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+          case OMP_CTX_vendor:
+          case OMP_CTX_target_variant_dispatch:
+          case OMP_CTX_unknown:
+            llvm_unreachable("Unknown context selector.");
+          }
+          OS << "}";
+          break;
+// end INTEL_COLLAB
+        case OMP_CTX_SET_unknown:
+          llvm_unreachable("Unknown context selector set.");
         }
-        OS << "}";
-        break;
-      case CtxSetUnknown:
-        llvm_unreachable("Unknown context selector set.");
       }
       OS << ")";
     }
@@ -3812,4 +3917,11 @@ def ObjCExternallyRetained : InheritableAttr {
   let Spellings = [Clang<"objc_externally_retained">];
   let Subjects = SubjectList<[NonParmVar, Function, Block, ObjCMethod]>;
   let Documentation = [ObjCExternallyRetainedDocs];
+}
+
+def NoBuiltin : Attr {
+  let Spellings = [Clang<"no_builtin">];
+  let Args = [VariadicStringArgument<"BuiltinNames">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [NoBuiltinDocs];
 }

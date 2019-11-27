@@ -1,5 +1,5 @@
-; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; The left-most dimension except leading [0], which is [%q * %q * i2], is ignored because of blobs. Right-most two dimensions, [i1][i2], is aligned with enclosing loopnests, i1-i2. A perfect loopnest is not enabled.

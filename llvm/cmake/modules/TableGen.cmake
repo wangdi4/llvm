@@ -41,7 +41,7 @@ function(tablegen project ofn)
     file(GLOB_RECURSE global_tds "${LLVM_MAIN_INCLUDE_DIR}/llvm/*.td")
     # INTEL_CUSTOMIZATION
     file(GLOB intel_tds
-         "${LLVM_MAIN_SRC_DIR}/tools/clang/include/clang/Basic/intel/*.td")
+         "${LLVM_MAIN_SRC_DIR}/../clang/include/clang/Basic/intel/*.td")
     # end INTEL_CUSTOMIZATION
     set(additional_cmdline
       -o ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
@@ -171,7 +171,7 @@ macro(add_tablegen target project)
     endif()
   endif()
 
-  if (${project} STREQUAL LLVM AND NOT LLVM_INSTALL_TOOLCHAIN_ONLY AND LLVM_BUILD_UTILS)
+  if ((${project} STREQUAL LLVM OR ${project} STREQUAL MLIR) AND NOT LLVM_INSTALL_TOOLCHAIN_ONLY AND LLVM_BUILD_UTILS)
     set(export_to_llvmexports)
     if(${target} IN_LIST LLVM_DISTRIBUTION_COMPONENTS OR
         NOT LLVM_DISTRIBUTION_COMPONENTS)

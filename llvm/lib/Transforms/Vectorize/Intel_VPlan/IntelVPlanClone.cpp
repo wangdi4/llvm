@@ -219,16 +219,17 @@ bool VPValueMapper::entireLoopWasCloned(const VPLoop *Loop) {
 VPBlockBase *VPCloneUtils::cloneBlockBase(VPBlockBase *Block,
                                           std::string Prefix,
                                           Block2BlockMapTy &BlockMap,
-                                          Value2ValueMapTy &ValueMap) {
+                                          Value2ValueMapTy &ValueMap,
+                                          VPlanDivergenceAnalysis *DA) {
   VPBlockBase *ClonedBlock = nullptr;
 
   Prefix = Prefix == "" ? "cloned." : Prefix;
   std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
 
   if (auto BasicBlock = dyn_cast<VPBasicBlock>(Block)) {
-    ClonedBlock = cloneBasicBlock(BasicBlock, Name, ValueMap);
+    ClonedBlock = cloneBasicBlock(BasicBlock, Name, ValueMap, DA);
   } else if (auto Region = dyn_cast<VPRegionBlock>(Block)) {
-    ClonedBlock = cloneRegion(Region, Name, BlockMap, ValueMap);
+    ClonedBlock = cloneRegion(Region, Name, BlockMap, ValueMap, DA);
   } else {
     llvm_unreachable("Unknown way to clone.");
   }
@@ -251,7 +252,8 @@ VPBlockBase *VPCloneUtils::cloneBlockBase(VPBlockBase *Block,
 /// Remapping happens later by VPValueMapper which must be called by user.
 VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
                                             std::string Prefix,
-                                            Value2ValueMapTy &ValueMap) {
+                                            Value2ValueMapTy &ValueMap,
+                                            VPlanDivergenceAnalysis *DA) {
   VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix);
 
   for (auto &Recipe : Block->getRecipes()) {
@@ -259,6 +261,11 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
       auto ClonedInst = Inst->clone();
       ClonedBlock->appendRecipe(ClonedInst);
       ValueMap.insert(std::make_pair(Inst, ClonedInst));
+      if (DA) {
+        if (DA->isDivergent(*Inst))
+          DA->markDivergent(*ClonedInst);
+        DA->updateVectorShape(ClonedInst, DA->getVectorShape(Inst)->clone());
+      }
     } else {
       llvm_unreachable("Don't know how to clone this type of recipe.");
     }
@@ -267,39 +274,64 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
   return ClonedBlock;
 }
 
-/// Clone \p Region.
+/// Clone given blocks from Begin to End
 /// Remapping happens later by VPValueMapper which must be called by user.
-VPRegionBlock *VPCloneUtils::cloneRegion(VPRegionBlock *Region,
-                                         std::string Prefix,
-                                         Block2BlockMapTy &BlockMap,
-                                         Value2ValueMapTy &ValueMap) {
-  Prefix = Prefix == "" ? "cloned." : Prefix;
-  VPBlockBase *Entry = Region->getEntry(), *Exit = Region->getExit();
-  VPBlockBase *ClonedEntry = nullptr, *ClonedExit = nullptr;
+VPBlockBase *VPCloneUtils::cloneBlocksRange(
+    VPBlockBase *Begin, VPBlockBase *End, Block2BlockMapTy &BlockMap,
+    Value2ValueMapTy &ValueMap, VPlanDivergenceAnalysis *DA, Twine Prefix) {
+  if (Prefix.isTriviallyEmpty())
+    Prefix.concat("cloned.");
 
+  bool EndReached = false;
   std::function<VPBlockBase *(VPBlockBase *)> Cloning =
       [&](VPBlockBase *Block) -> VPBlockBase * {
     auto It = BlockMap.find(Block);
     if (It != BlockMap.end())
       return It->second;
 
+    // Do not clone any new blocks if the end block was reached and we are
+    // finalizing the cloning process.
+    if (EndReached)
+      return nullptr;
+
     VPBlockBase *ClonedBlock =
-        cloneBlockBase(Block, Prefix, BlockMap, ValueMap);
+        cloneBlockBase(Block, Prefix.str(), BlockMap, ValueMap, DA);
     BlockMap.insert({Block, ClonedBlock});
 
-    if (Block == Exit)
-      ClonedExit = ClonedBlock;
+    if (Block == End)
+      EndReached = true;
 
-    for (auto &Succ : Block->getSuccessors()) {
-      VPBlockBase *ClonedSucc = Cloning(Succ);
-      ClonedBlock->appendSuccessor(ClonedSucc);
-      ClonedSucc->appendPredecessor(ClonedBlock);
-    }
+    for (auto &Succ : Block->getSuccessors())
+      if (VPBlockBase *ClonedSucc = Cloning(Succ)) {
+        ClonedBlock->appendSuccessor(ClonedSucc);
+        ClonedSucc->appendPredecessor(ClonedBlock);
+      }
 
     return ClonedBlock;
   };
 
-  ClonedEntry = Cloning(Entry);
+  VPBlockBase *Clone = Cloning(Begin);
+  assert(EndReached && "End block expected to be reached");
+  return Clone;
+}
+
+/// Clone \p Region.
+/// Remapping happens later by VPValueMapper which must be called by user.
+VPRegionBlock *VPCloneUtils::cloneRegion(VPRegionBlock *Region,
+                                         std::string Prefix,
+                                         Block2BlockMapTy &BlockMap,
+                                         Value2ValueMapTy &ValueMap,
+                                         VPlanDivergenceAnalysis *DA) {
+  Prefix = Prefix == "" ? "cloned." : Prefix;
+  VPBlockBase *Entry = Region->getEntry(), *Exit = Region->getExit();
+
+  VPBlockBase *ClonedEntry =
+      cloneBlocksRange(Entry, Exit, BlockMap, ValueMap, DA);
+  assert(ClonedEntry &&
+         "Entry block expected to be cloned as a part of Region");
+
+  VPBlockBase *ClonedExit = BlockMap[Exit];
+  assert(ClonedExit && "Exit block expected to be cloned as a part of Region");
 
   VPRegionBlock *ClonedR = nullptr;
   if (auto LRHIR = dyn_cast<VPLoopRegionHIR>(Region))
@@ -310,10 +342,9 @@ VPRegionBlock *VPCloneUtils::cloneRegion(VPRegionBlock *Region,
     ClonedR = new VPLoopRegion(
         VPlanUtils::createUniqueName(Prefix + Region->getName()), nullptr);
   else
-    ClonedR = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
+    ClonedR = new VPRegionBlock(
+        VPBlockBase::VPRegionBlockSC,
         VPlanUtils::createUniqueName(Prefix + Region->getName()));
-
-  ClonedR->setReplicator(Region->isReplicator());
 
   BlockMap.insert({Region, ClonedR});
 
@@ -323,11 +354,13 @@ VPRegionBlock *VPCloneUtils::cloneRegion(VPRegionBlock *Region,
   return ClonedR;
 }
 
-VPLoopRegion *VPCloneUtils::cloneLoopRegion(VPLoopRegion *LR, std::string Prefix,
-                                       Block2BlockMapTy &BlockMap,
-                                       Value2ValueMapTy &ValueMap) {
+VPLoopRegion *VPCloneUtils::cloneLoopRegion(VPLoopRegion *LR,
+                                            std::string Prefix,
+                                            Block2BlockMapTy &BlockMap,
+                                            Value2ValueMapTy &ValueMap,
+                                            VPlanDivergenceAnalysis *DA) {
 
-  return cast<VPLoopRegion>(cloneRegion(LR, Prefix, BlockMap, ValueMap));
+  return cast<VPLoopRegion>(cloneRegion(LR, Prefix, BlockMap, ValueMap, DA));
 }
 
 } // namespace vpo

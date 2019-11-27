@@ -413,7 +413,7 @@ EXTERN void __kmpc_end_serialized_parallel(kmp_Ident *loc,
   omptarget_nvptx_threadPrivateContext->SetTopLevelTaskDescr(
       threadId, currTaskDescr->GetPrevTaskDescr());
   // free
-  SafeFree(currTaskDescr, (char *)"new seq parallel task");
+  SafeFree(currTaskDescr, "new seq parallel task");
   currTaskDescr = getMyTopTaskDescriptor(threadId);
   currTaskDescr->RestoreLoopData();
 }
@@ -460,7 +460,7 @@ EXTERN void __kmpc_push_simd_limit(kmp_Ident *loc, int32_t tid,
 EXTERN void __kmpc_push_num_teams(kmp_Ident *loc, int32_t tid,
                                   int32_t num_teams, int32_t thread_limit) {
   PRINT(LD_IO, "call kmpc_push_num_teams %d\n", (int)num_teams);
-  ASSERT0(LT_FUSSY, FALSE,
+  ASSERT0(LT_FUSSY, 0,
           "should never have anything with new teams on device");
 }
 

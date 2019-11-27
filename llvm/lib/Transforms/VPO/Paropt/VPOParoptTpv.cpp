@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"

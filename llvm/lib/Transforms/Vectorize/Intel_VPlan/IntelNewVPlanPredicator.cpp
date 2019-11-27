@@ -25,6 +25,7 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -52,6 +53,10 @@ static cl::opt<bool> DotAfterLinearization(
 static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
     cl::desc("Preserve uniform branches during linearization."));
+
+static cl::opt<bool> SortBlendPhisInPredicator(
+    "vplan-sort-blend-phis-in-predicator", cl::init(false), cl::Hidden,
+    cl::desc("Sort incoming blocks of blend phis in the predicator."));
 
 namespace llvm {
 namespace vpo {
@@ -223,6 +228,27 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   // post-dom frontier have uniform predicates and uniform condition bits.
   bool Uniform = true;
   for (auto *InfluenceBB : Frontier) {
+    // Ignore latches of loops that CurrBlock belongs to. Needed for the
+    // flattened CFG. Note that latches post-dominate blocks in the loop and the
+    // same can't be true for any other block in the CurrBlock's frontier - no
+    // need to perform VPLoopInfo-based checks. Here is the case when this check
+    // is needed:
+    //
+    //         |
+    //       Header<-----------------------+
+    //         |                           |
+    //     SESE region                     |
+    //         |                           |
+    //       CurrBlock (dominates Header)  |
+    //       /   \                         |
+    //        ...                          |
+    //       \ | /                         |
+    //       Latch-------------------------+
+    //         |
+    //
+    if (VPPostDomTree.dominates(InfluenceBB, CurrBlock))
+      continue;
+
     auto *Cond = InfluenceBB->getCondBit();
     LLVM_DEBUG(dbgs() << "  Influencing term: {Block: "
                       << InfluenceBB->getName() << ", Cond: ";
@@ -388,9 +414,14 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   return LiveValueMap[AtBlock];
 }
 
-static void markPhisAsBlended(VPBlockBase *Block) {
-  for (VPPHINode &Phi : Block->getEntryBasicBlock()->getVPPhis())
+static void
+turnPhisToBlends(VPBlockBase *Block,
+                 DenseMap<const VPBlockBase *, int> &BlockIndexInRPOT) {
+  for (VPPHINode &Phi : Block->getEntryBasicBlock()->getVPPhis()) {
     Phi.setBlend(true);
+    if (SortBlendPhisInPredicator)
+      Phi.sortIncomingBlocksForBlend(&BlockIndexInRPOT);
+  }
 }
 
 bool VPlanPredicator::shouldPreserveUniformBranches() const {
@@ -439,7 +470,7 @@ void VPlanPredicator::linearizeRegion(
   assert(RegionRPOT.begin() != RegionRPOT.end() &&
          "RegionRPOT can't be empty!");
 
-  DenseMap<VPBlockBase *, int> BlockIndexInRPOT;
+  DenseMap<const VPBlockBase *, int> BlockIndexInRPOT;
   int CurrBlockRPOTIndex = 0;
   for (auto *Block : RegionRPOT)
     BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;
@@ -487,7 +518,7 @@ void VPlanPredicator::linearizeRegion(
       // For now, just mark phis as blend to avoid phis in the middle of the
       // generated BB.
       if (UniformEdges.size() == 1)
-        markPhisAsBlended(CurrBlock);
+        turnPhisToBlends(CurrBlock, BlockIndexInRPOT);
 
       // No more fixups needed, al predecessors are uniform edges that we didn't
       // touch.
@@ -570,6 +601,8 @@ void VPlanPredicator::linearizeRegion(
     for (auto *Pred : RemainingDivergentEdges) {
       // The edge is in the linearized subgraph and is processed first. Keep it,
       // but remove other successors of the pred to perform linearization.
+      assert(!shouldPreserveOutgoingEdges(Pred) &&
+             "Trying to remove an edge that should be preserved!");
       Pred->getSuccessors().clear();
       Pred->appendSuccessor(CurrBlock);
 
@@ -581,7 +614,7 @@ void VPlanPredicator::linearizeRegion(
         UniformEdges.size() + RemovedDivergentEdges.size() == 0) {
       // E.g. for isa<VPRegionBlock>(CurrBlock). Shouldn't and even can't do any
       // further processing.
-      markPhisAsBlended(CurrBlock);
+      turnPhisToBlends(CurrBlock, BlockIndexInRPOT);
       continue;
     }
 
@@ -596,7 +629,25 @@ void VPlanPredicator::linearizeRegion(
       // , including itself.
       while (PredSucc && BlockIndexInRPOT[PredSucc] < CurrBlockRPOTIndex) {
         LastProcessed = PredSucc;
-        PredSucc = PredSucc->getSingleHierarchicalSuccessor();
+        auto EdgeFormsLinearizedChain =
+            [this, &BlockIndexInRPOT, CurrBlockRPOTIndex](
+                const VPBlockBase *From, const VPBlockBase *To) {
+              return !VPBlockUtils::isBackEdge(From, To, VPLI) &&
+                     BlockIndexInRPOT[To] < CurrBlockRPOTIndex;
+            };
+        assert(count_if(PredSucc->getSuccessors(),
+                        [EdgeFormsLinearizedChain,
+                         PredSucc](const VPBlockBase *Succ) {
+                          return EdgeFormsLinearizedChain(PredSucc, Succ);
+                        }) <= 1 &&
+               "Broken linearized chain!");
+        auto *SavedPtr = PredSucc;
+        PredSucc = nullptr;
+        for (auto *Succ : SavedPtr->getHierarchicalSuccessors())
+          if (EdgeFormsLinearizedChain(SavedPtr, Succ)) {
+            PredSucc = Succ;
+            break;
+          }
       }
 
       if (is_contained(LastProcessed->getSuccessors(), CurrBlock)) {
@@ -622,7 +673,7 @@ void VPlanPredicator::linearizeRegion(
     }
 
     if (UniformEdges.size() + EdgeToBlendBBs.size() == 1) {
-      markPhisAsBlended(CurrBlock);
+      turnPhisToBlends(CurrBlock, BlockIndexInRPOT);
       continue;
     }
 
@@ -650,6 +701,8 @@ void VPlanPredicator::linearizeRegion(
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);
       CurrBlock->removePredecessor(IncomingBlock);
+      // Re-use IncomingBlock's position for blend phi sorting purpose.
+      BlockIndexInRPOT[BlendBB] = BlockIndexInRPOT[IncomingBlock];
       for (VPPHINode &Phi : VPPhisIteratorRange) {
         auto BlendPhi = new VPPHINode(Phi.getType());
         BlendPhi->setBlend(true);
@@ -668,6 +721,8 @@ void VPlanPredicator::linearizeRegion(
           BlendPhi->addIncoming(PhiIncVal, PhiIncBB);
         }
         Phi.addIncoming(BlendPhi, BlendBB);
+        if (SortBlendPhisInPredicator)
+          BlendPhi->sortIncomingBlocksForBlend(&BlockIndexInRPOT);
       }
     }
   }
@@ -805,10 +860,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
 void VPlanPredicator::predicate(void) {
 #if INTEL_CUSTOMIZATION
   assert(VPLI->size() == 1 && "more than 1 loop?");
-  VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
-  assert(PH && "Unexpected null pre-header!");
-  VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
-  VPLoop *VPL = EntryLoopR->getVPLoop();
+  VPLoop *VPL = *VPLI->begin();
   SmallVector<VPBlockBase *, 4> Exits;
   VPL->getExitBlocks(Exits);
 

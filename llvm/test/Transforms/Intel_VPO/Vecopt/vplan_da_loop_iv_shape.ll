@@ -8,17 +8,17 @@
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i64 [[STRIDED_IV_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER:BB.*]] ],  [ i64 [[STRIDED_IV_ADD:%vp.*]], [[BODY:BB.*]] ]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[UNIT_STRIDE_IV_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER]] ],  [ i64 [[UNIT_STRIDE_IV_ADD:%vp.*]], [[BODY]] ]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[UNIT_NEG_STRIDE_IV_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER]] ],  [ i64 [[UNIT_NEG_STRIDE_IV_ADD:%vp.*]], [[BODY]] ]
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: ?] i64 [[VAR_STRIDE_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER]] ],  [ i64 [[VAR_STRIDE_ADD:%vp.*]], [[BODY]] ]
+; CHECK-NEXT: Divergent: [Shape: Random] i64 [[VAR_STRIDE_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER]] ],  [ i64 [[VAR_STRIDE_ADD:%vp.*]], [[BODY]] ]
 ; Check users
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 16] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[STRIDED_IV_PHI]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[UNIT_STRIDE_IV_PHI]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 -4] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[UNIT_NEG_STRIDE_IV_PHI]]
-; CHECK: Divergent: [Shape: Strided, Stride: ?] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[VAR_STRIDE_PHI]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[UNIT_STRIDE_IV_PHI]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 -4] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[UNIT_NEG_STRIDE_IV_PHI]]
+; CHECK: Divergent: [Shape: Random] i32* {{%vp.*}} = getelementptr inbounds i32* %ary i64 [[VAR_STRIDE_PHI]]
 ; Check updates
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 4] i64 [[STRIDED_IV_ADD]] = add i64 [[STRIDED_IV_PHI]] i64 4
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[UNIT_STRIDE_IV_ADD]] = add i64 [[UNIT_STRIDE_IV_PHI]] i64 1
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[UNIT_NEG_STRIDE_IV_ADD]] = add i64 [[UNIT_NEG_STRIDE_IV_PHI]] i64 -1
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: ?] i64 [[VAR_STRIDE_ADD]] = add i64 [[VAR_STRIDE_PHI]] i64 %var.step
+; CHECK-NEXT: Divergent: [Shape: Random] i64 [[VAR_STRIDE_ADD]] = add i64 [[VAR_STRIDE_PHI]] i64 %var.step
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

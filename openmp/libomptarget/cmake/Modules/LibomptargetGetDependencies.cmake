@@ -276,4 +276,58 @@ mark_as_advanced(
         LIBOMPTARGET_DEP_OPENCL_FOUND
         LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
         LIBOMPTARGET_DEP_OPENCL_LIBRARIES)
+
+# INTEL_CUSTOMIZATION
+################################################################################
+# Looking for Level0
+################################################################################
+
+message(STATUS "Looking for Level0 includes.")
+
+# It depends on OpenCL headers
+if(NOT LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS)
+  set(LIBOMPTARGET_DEP_LEVEL0_FOUND FALSE)
+  message(STATUS "Could NOT find OpenCL for Level0. Missing includes.")
+else()
+  find_path(LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS
+    NAMES
+      ze_api.h
+    PATHS
+      ENV LIBOMPTARGET_LEVEL0_ROOT
+      ENV CPATH
+    PATH_SUFFIXES
+      include/level_zero)
+
+  if(NOT LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS)
+    set(LIBOMPTARGET_DEP_LEVEL0_FOUND FALSE)
+    message(STATUS "Could NOT find Level0. Missing includes.")
+  else()
+    message(STATUS "Level0 include DIR: ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}")
+    message(STATUS "Looking for Level0 library.")
+
+    find_library(LIBOMPTARGET_DEP_LEVEL0_LIBRARIES
+      NAMES level_zero
+      PATHS
+        ENV LIBOMPTARGET_LEVEL0_ROOT
+        ENV LIBRARY_PATH
+        ENV LD_LIBRARY_PATH
+      PATH_SUFFIXES
+        lib/ubuntu_18.04 lib) # TODO: follow up with path changes
+
+    if(NOT LIBOMPTARGET_DEP_LEVEL0_LIBRARIES)
+      set(LIBOMPTARGET_DEP_LEVEL0_FOUND FALSE)
+      message(STATUS "Could NOT find Level0. Missing library.")
+    else()
+      message(STATUS "Level0 library: ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES}")
+      set(LIBOMPTARGET_DEP_LEVEL0_FOUND TRUE)
+    endif()
+  endif()
+endif()
+
+mark_as_advanced(
+    LIBOMPTARGET_DEP_LEVEL0_FOUND
+    LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS
+    LIBOMPTARGET_DEP_LEVEL0_LIBRARIES)
+# end INTEL_CUSTOMIZATION
+
 # end INTEL_COLLAB

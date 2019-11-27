@@ -180,6 +180,7 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
+  void *get_offload_pipe(void);
 #endif // INTEL_COLLAB
 private:
   // Call to RTL

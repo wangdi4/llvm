@@ -75,7 +75,6 @@ public:
   /// best selected VPlan. This function returns true if code generation was
   /// successful, false if there was any late bailout during CG.
   bool executeBestPlan(VPOCodeGenHIR *CG);
-  void collectDeadInstructions() override {}
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
     // FIXME: Implement this!

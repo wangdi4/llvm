@@ -281,11 +281,12 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
         !SARA->isSparseArrayReduction(SrcInst)) {
 
       // Do not create back edge for sparse array reduction terms (%add) but
-      // create them for the index (%idx):
-      //   %t = %p[%idx]
-      //   %p[%idx] = %t + %add
-      auto *SinkDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
-      if (!SinkDDRef || SinkDDRef->getParentDDRef()->isTerminalRef()) {
+      // create them for the index (%idx) 2->1, 3->1:
+      //   <1> %idx =
+      //   <2> %t = %p[%idx]
+      //   <3> %p[%idx] = %t + %add
+      auto *SinkBlobDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
+      if (!SinkBlobDDRef || SinkBlobDDRef->getParentDDRef()->isTerminalRef()) {
         return false;
       }
     }
@@ -432,7 +433,7 @@ void DistPPGraph::constructUnknownSideEffectEdges(
   // N is a node with memory reference, and
   // Ul, Ur are left and right unsafe nodes.
   for (auto *Node : make_range(node_begin(), node_end())) {
-    if (Node == *UnsafeI) {
+    if (UnsafeI != UnsafeE && Node == *UnsafeI) {
       if (UnsafeL) {
         addCycle(UnsafeL, Node);
       }

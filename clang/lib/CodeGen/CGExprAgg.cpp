@@ -150,6 +150,9 @@ public:
   void VisitBinAssign(const BinaryOperator *E);
   void VisitBinComma(const BinaryOperator *E);
   void VisitBinCmp(const BinaryOperator *E);
+  void VisitCXXRewrittenBinaryOperator(CXXRewrittenBinaryOperator *E) {
+    Visit(E->getSemanticForm());
+  }
 
   void VisitObjCMessageExpr(ObjCMessageExpr *E);
   void VisitObjCIvarRefExpr(ObjCIvarRefExpr *E) {
@@ -634,7 +637,7 @@ void AggExprEmitter::EmitArrayInit(Address DestPtr, llvm::ArrayType *AType,
 //===----------------------------------------------------------------------===//
 
 void AggExprEmitter::VisitMaterializeTemporaryExpr(MaterializeTemporaryExpr *E){
-  Visit(E->GetTemporaryExpr());
+  Visit(E->getSubExpr());
 }
 
 void AggExprEmitter::VisitOpaqueValueExpr(OpaqueValueExpr *e) {

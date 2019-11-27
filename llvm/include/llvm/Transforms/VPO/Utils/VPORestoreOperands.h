@@ -61,9 +61,7 @@ class VPORestoreOperands : public FunctionPass {
 public:
   static char ID; // Pass identification
 
-  VPORestoreOperands() : FunctionPass(ID) {
-    initializeVPORestoreOperandsPass(*PassRegistry::getPassRegistry());
-  }
+  VPORestoreOperands();
 
   StringRef getPassName() const override { return "VPO Restore Operands"; }
   bool runOnFunction(Function &F) override;

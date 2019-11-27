@@ -15,15 +15,14 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[LOOP0:loop[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[LOOP0]] (BP: NULL)
-; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
@@ -40,14 +39,13 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP216:%.*]] = icmp i64 [[VP_OUTER_IV]] i64 0
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP_CMP216]]), [[LOOP1:loop[0-9]+]](!i1 [[VP_CMP216]])
+; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP_CMP216]]), [[BB7:BB[0-9]+]](!i1 [[VP_CMP216]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      REGION: [[LOOP1]] (BP: NULL)
-; CHECK-NEXT:      [[BB7:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:      [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:      no PREDECESSORS
+; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 undef, [[BB7]] ]
@@ -93,17 +91,14 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND]], [[BB9]] ]
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND]], [[BB9]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]], [[BB9]] ]
-; CHECK-NEXT:      no SUCCESSORS
-; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:      END Region([[LOOP1]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_OUTER_EXIT_COND:%.*]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(3): [[LOOP1]] [[BB6]] [[BB4]]
+; CHECK-NEXT:    PREDECESSORS(3): [[BB13]] [[BB6]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
@@ -113,16 +108,13 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB14]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB15:BB[0-9]+]]
-; CHECK-NEXT:    END Region([[LOOP0]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[LOOP0]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;

@@ -1,6 +1,10 @@
 ; RUN: opt < %s  -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
+; Verify results copied to dtrans immutable analysis.
+; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
+; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
+
 ; Check the results of indirect array multiple value analysis.
 ; At this point, the analysis will always be marked as incomplete, as we
 ; are recognizing only a limited number of ways the indirect arrays can
@@ -37,6 +41,22 @@
 ; CHECK: Multiple IA Value: [ 5 ] <incomplete>
 ; CHECK: Bottom Alloc Function
 ; CHECK: Total Frequency: 6
+
+
+; IMMUTABLE: StructType: %struct.MYSTRUCTARRAY = type { i32, i32, i32*, i32* }
+; IMMUTABLE:   Field 0:
+; IMMUTABLE:     Likely Values: 0 1
+; IMMUTABLE:     Likely Indirect Array Values:
+; IMMUTABLE:   Field 1:
+; IMMUTABLE:     Likely Values: 0 2
+; IMMUTABLE:     Likely Indirect Array Values:
+; IMMUTABLE:   Field 2:
+; IMMUTABLE:     Likely Values: null
+; IMMUTABLE:     Likely Indirect Array Values: 1
+; IMMUTABLE:   Field 3:
+; IMMUTABLE:     Likely Values: null
+; IMMUTABLE:     Likely Indirect Array Values: 5
+
 
 %struct.MYSTRUCTARRAY = type { i32, i32, i32*, i32* }
 

@@ -1,6 +1,6 @@
 //===------------- DTransPaddedMalloc.h - DTransPaddedMalloc  -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -162,6 +162,10 @@ private:
 ModulePass *createDTransPaddedMallocWrapperPass();
 
 unsigned getPaddedMallocLimit();
+
+// Returns 'true' if the padded malloc optimization is expected to be
+// applied. Expected to be used in heuristics.
+extern bool PaddedMallocIsActive(Module &M);
 
 } // namespace llvm
 

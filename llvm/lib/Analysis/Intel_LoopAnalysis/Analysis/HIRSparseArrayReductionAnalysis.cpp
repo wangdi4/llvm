@@ -63,6 +63,7 @@
 //   faction(j3) = fjx1 - tx31
 //===----------------------------------------------------------------------===//
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
 #include "llvm/Support/CommandLine.h"
@@ -723,7 +724,6 @@ void HIRSparseArrayReductionAnalysis::print(
   }
 
   for (auto &SARI : *SARCL) {
-    Loop->indent(OS, Depth);
     printAChain(OS, Depth, SARI.Chain);
   }
 }

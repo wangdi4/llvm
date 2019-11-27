@@ -1,6 +1,3 @@
-// INTEL_CUSTOMIZATION
-// XFAIL: windows-gnu,windows-msvc
-// end INTEL_CUSTOMIZATION
 // REQUIRES: x86
 // Check bad archive error reporting with --whole-archive
 // and without it.

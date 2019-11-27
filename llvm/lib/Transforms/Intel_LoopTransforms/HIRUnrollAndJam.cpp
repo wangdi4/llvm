@@ -58,6 +58,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
@@ -1427,6 +1428,12 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
                               UHelper);
       HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
     }
+
+    // Opt reports for inner loops in unroll & jam mode are moved here.
+    LoopOptReportBuilder &LORBuilder =
+        OrigLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+    LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   }
 
   HLNode *CurFirstNode = OrigLoop->getFirstChild();

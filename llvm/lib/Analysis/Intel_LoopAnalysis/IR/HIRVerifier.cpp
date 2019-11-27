@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVerifier.h"

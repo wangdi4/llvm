@@ -13,11 +13,13 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -29,7 +31,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -47,6 +52,11 @@ using namespace llvm::PatternMatch;
 
 // Debug type for verbose local pointer analysis output.
 #define DTRANS_LPA_VERBOSE "dtrans-lpa-verbose"
+
+// Debug type for outputting results of local pointer analysis
+// intermixed with an IR dump to annotate the types resolved as
+// the pointer usage type by the local pointer analyzer.
+#define DTRANS_LPA_RESULTS "dtrans-lpa-results"
 
 // Debug type for verbose call graph computations.
 #define DTRANS_CG "dtrans-cg"
@@ -68,6 +78,10 @@ static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
 
 static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
                                               cl::ReallyHidden);
+
+static cl::opt<bool>
+    DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
+                                      cl::ReallyHidden);
 // BlockFrequencyInfo is ignored while computing field frequency info
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
@@ -764,22 +778,68 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
-  void dump() {
-    dbgs() << "LocalPointerInfo:\n";
+  void dump() { print(dbgs()); }
+
+  // Print the pointer aliases and element pointee accesses.
+  // The optional \p Indent value cause each line emitted to
+  // be indented by some amount.
+  void print(raw_ostream &OS, unsigned Indent = 0, const char *Prefix = "") {
+    // Create an output string for the type to allow
+    // output of a set of strings in lexical order.
+    auto TypeToString = [Indent, Prefix](Type *Ty) {
+      std::string OutputVal;
+      raw_string_ostream StringStream(OutputVal);
+
+      StringStream << Prefix;
+      StringStream.indent(Indent + 4);
+      StringStream << *Ty;
+      StringStream.flush();
+      return OutputVal;
+    };
+
+    // Create an output string for the element pointee pair to allow
+    // output of a set of strings in lexical order.
+    auto PointeePairToString =
+        [Indent, Prefix](const std::pair<llvm::Type *, size_t> &PointeePair) {
+          std::string OutputVal;
+          raw_string_ostream StringStream(OutputVal);
+
+          StringStream << Prefix;
+          StringStream.indent(Indent + 4);
+          StringStream << *PointeePair.first << " @ " << PointeePair.second;
+          StringStream.flush();
+          return OutputVal;
+        };
+
+    OS << Prefix;
+    OS.indent(Indent);
+    OS << "LocalPointerInfo:\n";
     if (PointerTypeAliases.empty()) {
-      dbgs() << "  No aliased types.\n";
+      OS << Prefix;
+      OS.indent(Indent);
+      OS << "  No aliased types.\n";
     } else {
-      dbgs() << "  Aliased types:\n";
-      for (auto *Ty : PointerTypeAliases)
-        dbgs() << "    " << *Ty << "\n";
+      OS << Prefix;
+      OS.indent(Indent);
+      OS << "  Aliased types:\n";
+      dtrans::printCollectionSorted(OS, PointerTypeAliases.begin(),
+                                    PointerTypeAliases.end(), "\n",
+                                    TypeToString);
+      OS << "\n";
     }
+
     if (ElementPointees.empty()) {
-      dbgs() << "  No element pointees.\n";
+      OS << Prefix;
+      OS.indent(Indent);
+      OS << "  No element pointees.\n";
     } else {
-      dbgs() << "  Element pointees:\n";
-      for (auto &PointeePair : ElementPointees)
-        dbgs() << "    " << *PointeePair.first << " @ " << PointeePair.second
-               << "\n";
+      OS << Prefix;
+      OS.indent(Indent);
+      OS << "  Element pointees:\n";
+      dtrans::printCollectionSorted(OS, ElementPointees.begin(),
+                                    ElementPointees.end(), "\n",
+                                    PointeePairToString);
+      OS << "\n";
     }
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -6715,6 +6775,58 @@ public:
     SetPointerCarriedRecursive(Ty, Data, Visited, 0);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Dump the local pointer analyzer results for all functions.
+  void dump(Module &M) {
+    // This class is used to annotate the IR dump output with
+    // the information collected by the local pointer analyzer
+    // for pointers, or values that may have been cast from pointers.
+    class AnnotatedWriter : public AssemblyAnnotationWriter {
+    private:
+      LocalPointerAnalyzer &LPA;
+
+    public:
+      AnnotatedWriter(LocalPointerAnalyzer &LPA) : LPA(LPA) {}
+
+      // Output the types pointer parameters are used as within the function.
+      void emitFunctionAnnot(const Function *F, formatted_raw_ostream &OS) {
+        // We don't have LPA information for parameters of function
+        // declarations.
+        if (F->isDeclaration())
+          return;
+
+        OS << ";  Input Parameters:\n";
+        for (auto &Arg : F->args())
+          if (Arg.getType()->isPointerTy()) {
+            OS << ";    Arg " << Arg.getArgNo() << ": " << Arg;
+            Argument *ArgC = const_cast<Argument *>(&Arg);
+            emitLPA(ArgC, OS);
+          }
+      }
+
+      // Output the LPA information about the value object
+      void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+        Value *V = const_cast<Value *>(&CV);
+        emitLPA(V, OS);
+      }
+
+      void emitLPA(Value *V, formatted_raw_ostream &OS) {
+        if (!LPA.isPossiblePtrValue(V))
+          return;
+
+        LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
+        if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer()) {
+          OS << "\n";
+          LPI.print(OS, 4, ";");
+        }
+      }
+    };
+
+    AnnotatedWriter Annotator(LPA);
+    M.print(dbgs(), &Annotator);
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 private:
   DTransAnalysisInfo &DTInfo;
   const DataLayout &DL;
@@ -9641,6 +9753,7 @@ INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -9708,9 +9821,12 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
+  auto &DTImmutInfo = getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
+
   Invalidated = false;
   return Result.analyzeModule(
-      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
+      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI,
+      DTImmutInfo);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
@@ -9965,7 +10081,8 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
 
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
-    function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+    DTransImmutableInfo &DTImmutInfo) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
@@ -9987,6 +10104,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  DEBUG_WITH_TYPE(DTRANS_LPA_RESULTS, Visitor.dump(M));
   Visitor.processDeferredPointerCarriedSafetyData();
   DTBCA.analyzeAfterVisit();
 
@@ -10088,11 +10206,26 @@ bool DTransAnalysisInfo::analyzeModule(
     dbgs().flush();
   }
 
+  // Copy type info which can be passed to downstream passes without worrying
+  // about invalidation into the immutable pass.
+  for (auto *TypeInfo : type_info_entries()) {
+    if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TypeInfo))
+      for (unsigned I = 0, E = StructInfo->getNumFields(); I != E; ++I) {
+        DTImmutInfo.addStructFieldInfo(
+            cast<StructType>(StructInfo->getLLVMType()), I,
+            StructInfo->getField(I).values(),
+            StructInfo->getField(I).iavalues());
+      }
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls) {
     printCallInfo(dbgs());
     dbgs().flush();
   }
+
+  if (DTransPrintImmutableAnalyzedTypes)
+    DTImmutInfo.print(dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;
@@ -10370,6 +10503,7 @@ void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
   AU.addRequired<WholeProgramWrapperPass>();
+  AU.addRequired<DTransImmutableAnalysisWrapper>();
 }
 
 char DTransAnalysis::PassID;
@@ -10386,8 +10520,9 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
   };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  auto &DTImmutInfo = AM.getResult<DTransImmutableAnalysis>(M);
 
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI, DTImmutInfo);
   return DTResult;
 }

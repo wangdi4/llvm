@@ -36,13 +36,9 @@ set(LLVM_LINK_COMPONENTS
   ASFixer
   )
 
-# Support plugins.
-set(LLVM_NO_DEAD_STRIP 1)
-
 add_llvm_tool(opt
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
-  Debugify.cpp
   GraphPrinters.cpp
   NewPMDriver.cpp
   PassPrinters.cpp
@@ -51,6 +47,7 @@ add_llvm_tool(opt
 
   DEPENDS
   intrinsics_gen
+  SUPPORT_PLUGINS
   )
 export_executable_symbols(opt)
 
@@ -71,3 +68,7 @@ endif()
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(opt PRIVATE Polly)
 endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
+
+if(LLVM_BUILD_EXAMPLES)
+    target_link_libraries(opt PRIVATE ExampleIRTransforms)
+endif(LLVM_BUILD_EXAMPLES)

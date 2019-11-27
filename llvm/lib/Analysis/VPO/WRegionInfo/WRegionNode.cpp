@@ -692,6 +692,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
+    if (ClauseInfo.getIsF90DopeVector())
+      C.back()->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
   }
 }
@@ -726,6 +728,10 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     Item->setIsNonPod(true);
     if (IsConditional)
       Item->setIsConditional(true);
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getIsF90DopeVector())
+      Item->setIsF90DopeVector(true);
+#endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else
     for (unsigned I = 0; I < NumArgs; ++I) {
@@ -739,6 +745,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
+    if (ClauseInfo.getIsF90DopeVector())
+      C.back()->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
     }
 }
@@ -899,10 +907,17 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                            bool IsInReduction) {
   C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
   bool IsUnsigned = ClauseInfo.getIsUnsigned();
-  if (IsUnsigned)
-    assert((ReductionKind==ReductionItem::WRNReductionMax ||
-            ReductionKind==ReductionItem::WRNReductionMin) &&
-            "The UNSIGNED modifier is for MIN/MAX reduction only");
+  assert((!IsUnsigned ||
+          (ReductionKind == ReductionItem::WRNReductionMax ||
+           ReductionKind == ReductionItem::WRNReductionMin)) &&
+         "The UNSIGNED modifier is for MIN/MAX reduction only");
+
+  bool IsComplex = ClauseInfo.getIsComplex();
+  assert((!IsComplex ||
+          (ReductionKind == ReductionItem::WRNReductionAdd ||
+           ReductionKind == ReductionItem::WRNReductionSub ||
+           ReductionKind == ReductionItem::WRNReductionMult)) &&
+         "The COMPLEX modifier is for ADD/SUB/MUL reduction only");
 
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
@@ -910,6 +925,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     ReductionItem *RI = C.back();
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
     RI->setIsUnsigned(IsUnsigned);
+    RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
@@ -922,12 +938,15 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
+      RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
           WRegionUtils::supportsRegDDRefs(C.getClauseID()))
         RI->setHOrig(CurrentBundleDDRefs[I]);
+      if (ClauseInfo.getIsF90DopeVector())
+        RI->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
     }
 }
@@ -1235,6 +1254,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       getWRNLoopInfo().addNormUB(V);
     }
     break;
+    case QUAL_OMP_OFFLOAD_NDRANGE:
+      for (unsigned I = 0; I < NumArgs; ++I) {
+        Value *V = Args[I];
+        addUncollapsedNDRangeDimension(V);
+      }
+      break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -1512,6 +1537,22 @@ bool WRegionNode::canHaveCancellationPoints() const {
   case WRNParallelSections:
     return true;
   }
+  return false;
+}
+
+bool WRegionNode::canHaveCollapse() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNDistribute:
+  case WRNGenericLoop:
+    return true;
+  }
+
   return false;
 }
 

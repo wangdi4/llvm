@@ -221,6 +221,9 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
   HelpText<"Disable Intel proprietary optimizations">;
+def disable_cpudispatch_ifuncs : Flag<["-"], "disable-cpudispatch-ifuncs">,
+  HelpText<"Forces cpu_dispatch resolver generation to not use ifuncs on ELF "
+           "systems">;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
@@ -393,8 +396,6 @@ def flto_visibility_public_std:
 def flto_unit: Flag<["-"], "flto-unit">,
     HelpText<"Emit IR to support LTO unit features (CFI, whole program vtable opt)">;
 def fno_lto_unit: Flag<["-"], "fno-lto-unit">;
-def fthin_link_bitcode_EQ : Joined<["-"], "fthin-link-bitcode=">,
-    HelpText<"Write minimized bitcode to <file> for the ThinLTO thin link only">;
 def femit_debug_entry_values : Flag<["-"], "femit-debug-entry-values">,
     HelpText<"Enables debug info about call site parameter's entry values">;
 def fdebug_pass_manager : Flag<["-"], "fdebug-pass-manager">,
@@ -408,6 +409,10 @@ def msign_return_address_key_EQ : Joined<["-"], "msign-return-address-key=">,
     Values<"a_key,b_key">;
 def mbranch_target_enforce : Flag<["-"], "mbranch-target-enforce">;
 def fno_dllexport_inlines : Flag<["-"], "fno-dllexport-inlines">;
+def cfguard_no_checks : Flag<["-"], "cfguard-no-checks">,
+    HelpText<"Emit Windows Control Flow Guard tables only (no checks)">;
+def cfguard : Flag<["-"], "cfguard">,
+    HelpText<"Emit Windows Control Flow Guard tables and checks">;
 
 //===----------------------------------------------------------------------===//
 // Dependency Output Options
@@ -894,6 +899,9 @@ def fdisable_module_hash : Flag<["-"], "fdisable-module-hash">,
   HelpText<"Disable the module hash">;
 def fmodules_hash_content : Flag<["-"], "fmodules-hash-content">,
   HelpText<"Enable hashing the content of a module file">;
+def fmodules_strict_context_hash : Flag<["-"], "fmodules-strict-context-hash">,
+  HelpText<"Enable hashing of all compiler options that could impact the "
+           "semantics of a module in an implicit build">;
 def c_isystem : JoinedOrSeparate<["-"], "c-isystem">, MetaVarName<"<directory>">,
   HelpText<"Add directory to the C SYSTEM include search path">;
 def objc_isystem : JoinedOrSeparate<["-"], "objc-isystem">,
@@ -925,6 +933,8 @@ def preamble_bytes_EQ : Joined<["-"], "preamble-bytes=">,
            "covering the first N bytes of the main file">;
 def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">,
   HelpText<"include a detailed record of preprocessing actions">;
+def setup_static_analyzer : Flag<["-"], "setup-static-analyzer">,
+  HelpText<"Set up preprocessor for static analyzer (done automatically when static analyzer is run).">;
 
 //===----------------------------------------------------------------------===//
 // OpenCL Options

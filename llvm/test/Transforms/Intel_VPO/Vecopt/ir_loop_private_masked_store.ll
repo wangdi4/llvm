@@ -1,25 +1,25 @@
 ; void foo(long *ip, long *ip2)
 ; {
 ;   long index;
-; 
+;
 ; #pragma omp simd simdlen(4)
 ;   for (index = 0; index < 1024; index++) {
 ;     long val;
-; 
+;
 ;     val = index;
 ;     if (ip[index])
 ;       val = ip2[index];
-; 
+;
 ;     ip[index] = val;
 ;   }
 ; }
 ;
-; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -S -enable-vp-value-codegen=false %s | FileCheck %s
 ; CHECK: vector.ph:
 ; CHECK: vector.body:
 ; CHECK: store <4 x i64> %vec.ind, <4 x i64>* %val.vec
 ; CHECK: call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> {{.*}}, <4 x i64>* %val.vec, {{.*}})
-;     
+;
 ; ModuleID = 't1.c'
 
 ; source_filename = "t1.c"

@@ -22,6 +22,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeAtomicExpandPass(Registry);
   initializeBranchFolderPassPass(Registry);
   initializeBranchRelaxationPass(Registry);
+  initializeCFGuardLongjmpPass(Registry);
   initializeCFIInstrInserterPass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeDeadMachineInstructionElimPass(Registry);
@@ -114,6 +115,8 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeXRayInstrumentationPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeMachineLoopOptReportEmitterPass(Registry);
+  initializeFloat128ExpandPass(Registry);
+  initializeRAReportEmitterPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 }
 

@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
-; Check if array of structions are copied into temp arrays and later read from temp arrays.
+; Check if array of structures are copied into temp arrays and later read from temp arrays.
 ; Temp arrays are allocated with alloca.
 
 ; CHECK: Function: foo

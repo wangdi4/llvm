@@ -112,6 +112,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -158,6 +159,9 @@ MaxBruteForceIterations("scalar-evolution-max-iterations", cl::ReallyHidden,
 static cl::opt<bool> VerifySCEV(
     "verify-scev", cl::Hidden,
     cl::desc("Verify ScalarEvolution's backedge taken counts (slow)"));
+static cl::opt<bool> VerifySCEVStrict(
+    "verify-scev-strict", cl::Hidden,
+    cl::desc("Enable stricter verification with -verify-scev is passed"));
 static cl::opt<bool>
     VerifySCEVMap("verify-scev-maps", cl::Hidden,
                   cl::desc("Verify no dangling value in ScalarEvolution's "
@@ -216,6 +220,13 @@ static cl::opt<unsigned>
     HugeExprThreshold("scalar-evolution-huge-expr-threshold", cl::Hidden,
                   cl::desc("Size of the expression which is considered huge"),
                   cl::init(4096));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> NAryOperandStrengthenThreshold(
+     "scalar-evolution-nary-operand-strengthen-threshold", cl::Hidden,
+     cl::desc("Maximum operands to analyze for NoWrap flag strengthening"),
+     cl::init(4));
+#endif //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //                           SCEV class definitions
@@ -2341,6 +2352,107 @@ CollectAddOperandsWithScales(DenseMap<const SCEV *, APInt> &M,
   return Interesting;
 }
 
+#if INTEL_CUSTOMIZATION
+using OperandSubset = std::multiset<const SCEV*>;
+using OperandPartition = std::multiset<OperandSubset>;
+
+// Enumerate all possible partitions into two multisets for the List in
+// question. Note that the List is an ordered collection, but the enumerated
+// collection is a set of multisets. E.g., {{1}, {2, 3}} and {{3, 2}, {1}} are
+// equivalent partitions, but {{1}, {2}} and {{1, 1}, {2}} are not equivalent.
+static std::set<OperandPartition> enumeratePartitionsOfSizeTwo(const ArrayRef<const SCEV*> List) {
+  unsigned ListSize = List.size();
+  std::set<OperandPartition> Partitions;
+
+  for (unsigned LeftSetSize=1, MaxLeftSetSize=ListSize/2;
+      LeftSetSize<=MaxLeftSetSize; LeftSetSize++){
+    SmallVector<bool,4> LeftSelector(ListSize);
+    std::fill(LeftSelector.end()-LeftSetSize, LeftSelector.end(), true);
+
+    do {
+      OperandSubset LeftSet, RightSet;
+      for (unsigned Idx=0; Idx<ListSize; Idx++)
+        (LeftSelector[Idx] ? LeftSet : RightSet).insert(List[Idx]);
+
+      Partitions.insert({LeftSet, RightSet});
+    } while (std::next_permutation(LeftSelector.begin(), LeftSelector.end()));
+  }
+  return Partitions;
+}
+
+// Given an OperandPartition, try to prove additional NoWrapFlags for operation
+// \p Type assuming that the final binary operation combines the two subsets.
+// No assumptions are made about the order in which the subsets themselves were
+// combined. If no additional flags can be proved, then \p KnownFlags is
+// returned. This is used in StrengthenNoWrapFlags, so only scMulExpr and
+// scAddExpr SCEVTypes are allowed.
+// We can prove that this particular combination of the operands does not wrap
+// if both of two properties hold:
+//   p1) Neither subset is a potentially wrapping instance of the operation
+//   p2) The makeGuaranteedNoWrapRegion test proves that the operation on the
+//   two partitions doesn't wrap
+static SCEV::NoWrapFlags proveNoWrapForBinaryCombination(ScalarEvolution *SE,
+    SCEVTypes Type, const OperandPartition& Partition, SCEV::NoWrapFlags KnownFlags) {
+  using OBO = OverflowingBinaryOperator;
+
+  if ((KnownFlags & SCEV::FlagNSW) && (KnownFlags & SCEV::FlagNUW))
+    return KnownFlags;
+
+  Instruction::BinaryOps Opcode;
+  if (Type == scAddExpr) {
+    Opcode = Instruction::Add;
+  } else {
+    assert(Type == scMulExpr);
+    Opcode = Instruction::Mul;
+  }
+  assert(Partition.size() == 2);
+
+  SCEV::NoWrapFlags Flags = KnownFlags;
+
+  // Get the SCEV of the operation over the two operand subsets.
+  const OperandSubset &LeftSubset = *(Partition.begin());
+  const OperandSubset &RightSubset = *std::next(Partition.begin());
+  SmallVector<const SCEV*, 4> LeftOps(LeftSubset.begin(), LeftSubset.end());
+  SmallVector<const SCEV*, 4> RightOps(RightSubset.begin(), RightSubset.end());
+  const SCEV *LeftTerms, *RightTerms;
+
+  if (Type == scAddExpr) {
+    LeftTerms = SE->getAddExpr(LeftOps, KnownFlags);
+    RightTerms = SE->getAddExpr(RightOps, KnownFlags);
+  } else {
+    assert(Type == scMulExpr);
+    LeftTerms = SE->getMulExpr(LeftOps, KnownFlags);
+    RightTerms = SE->getMulExpr(RightOps, KnownFlags);
+  }
+
+  const SCEVNAryExpr *NLeft = dyn_cast<SCEVNAryExpr>(LeftTerms);
+  const SCEVNAryExpr *NRight = dyn_cast<SCEVNAryExpr>(RightTerms);
+
+  if (!(KnownFlags & SCEV::FlagNSW) &&
+      (!NLeft || NLeft->hasNoSignedWrap()) &&
+      (!NRight || NRight->hasNoSignedWrap())){
+    const ConstantRange RS = SE->getSignedRange(LeftTerms);
+    auto NSWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
+        Opcode, RS, OBO::NoSignedWrap);
+    if (NSWRegion.contains(SE->getSignedRange(RightTerms)))
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
+  }
+
+  if (!(KnownFlags & SCEV::FlagNUW) &&
+      (!NLeft || NLeft->hasNoUnsignedWrap()) &&
+      (!NRight || NRight->hasNoUnsignedWrap())){
+    const ConstantRange RU = SE->getUnsignedRange(LeftTerms);
+    auto NUWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
+        Opcode, RU, OBO::NoUnsignedWrap);
+    if (NUWRegion.contains(SE->getUnsignedRange(RightTerms)))
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
+  }
+
+  return Flags;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 // We're trying to construct a SCEV of type `Type' with `Ops' as operands and
 // `OldFlags' as can't-wrap behavior.  Infer a more aggressive set of
 // can't-overflow flags for the operation if possible.
@@ -2362,11 +2474,18 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
       ScalarEvolution::maskFlags(Flags, SignOrUnsignMask);
 
   // If FlagNSW is true and all the operands are non-negative, infer FlagNUW.
-  auto IsKnownNonNegative = [&](const SCEV *S) {
-    return SE->isKnownNonNegative(S);
+#if INTEL_CUSTOMIZATION
+  // Infer FlagNUW for expressions such as (@glob + 10)
+  auto IsKnownNonNegativeOrGlobalPtr = [&](const SCEV *S) {
+    auto *GlobalPtr = dyn_cast<SCEVUnknown>(S);
+    return SE->isKnownNonNegative(S) ||
+           (GlobalPtr && isa<GlobalVariable>(GlobalPtr->getValue()) &&
+            GlobalPtr->getType()->isPointerTy());
   };
+#endif // INTEL_CUSTOMIZATION
 
-  if (SignOrUnsignWrap == SCEV::FlagNSW && all_of(Ops, IsKnownNonNegative))
+  if (SignOrUnsignWrap == SCEV::FlagNSW &&        // INTEL
+      all_of(Ops, IsKnownNonNegativeOrGlobalPtr)) // INTEL
     Flags =
         ScalarEvolution::setFlags(Flags, (SCEV::NoWrapFlags)SignOrUnsignMask);
 
@@ -2404,7 +2523,41 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
       if (NUWRegion.contains(SE->getUnsignedRange(Ops[1])))
         Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
     }
+#if INTEL_CUSTOMIZATION
+  } else if (SignOrUnsignWrap != SignOrUnsignMask &&
+      (Type == scAddExpr || Type == scMulExpr) &&
+      Ops.size() >= 2 &&
+      Ops.size() <= NAryOperandStrengthenThreshold ) {
+
+    // This is essentially a more generic version of the "if" statement above.
+    // Generate all sets of unique partitions of the operands of size 2. The
+    // operation across all operands can be proven not to wrap if we can prove
+    // the same for all such partitions.
+    bool ProvingNSW=true, ProvingNUW=true;
+
+    if (SignOrUnsignWrap & SCEV::FlagNSW)
+      ProvingNSW = false;
+    if (SignOrUnsignWrap & SCEV::FlagNUW)
+      ProvingNUW = false;
+
+    for (const OperandPartition &Part : enumeratePartitionsOfSizeTwo(Ops)) {
+      SCEV::NoWrapFlags PartFlags =
+        proveNoWrapForBinaryCombination(SE, Type, Part, SignOrUnsignWrap);
+      if (!(PartFlags & SCEV::FlagNSW))
+          ProvingNSW = false;
+      if (!(PartFlags & SCEV::FlagNUW))
+          ProvingNUW = false;
+
+      if (!ProvingNSW && !ProvingNUW)
+        break;
+    }
+
+    if (ProvingNSW)
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
+    if (ProvingNUW)
+      Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
   }
+#endif //INTEL_CUSTOMIZATION
 
   return Flags;
 }
@@ -5966,6 +6119,21 @@ ScalarEvolution::getRangeRef(const SCEV *S,
     // TODO: non-affine addrec
     if (AddRec->isAffine()) {
       const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(AddRec->getLoop());
+#if INTEL_CUSTOMIZATION
+      // Try to reason about widened IVs, too. If we can prove that truncating
+      // a wide MaxBECount preserves the count then we use it to compute a more
+      // accurate range.
+      if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
+              isa<SCEVConstant>(MaxBECount) &&
+              getTypeSizeInBits(MaxBECount->getType()) > BitWidth) {
+          unsigned WideBitWidth = getTypeSizeInBits(MaxBECount->getType());
+          ConstantRange SCR = getSignedRange(MaxBECount);
+          ConstantRange UCR = getUnsignedRange(MaxBECount);
+          if (SCR.truncate(BitWidth).signExtend(WideBitWidth) == SCR &&
+              UCR.truncate(BitWidth).zeroExtend(WideBitWidth) == UCR)
+              MaxBECount = getTruncateExpr(MaxBECount, AddRec->getType());
+      }
+#endif // INTEL_CUSTOMIZATION
       if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
           getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
         auto RangeFromAffine = getRangeForAffineAR(
@@ -6965,12 +7133,16 @@ ScalarEvolution::getSmallConstantTripMultiple(const Loop *L,
   return (unsigned)Result->getZExtValue();
 }
 
-/// Get the expression for the number of loop iterations for which this loop is
-/// guaranteed not to exit via ExitingBlock. Otherwise return
-/// SCEVCouldNotCompute.
 const SCEV *ScalarEvolution::getExitCount(const Loop *L,
-                                          BasicBlock *ExitingBlock) {
-  return getBackedgeTakenInfo(L).getExact(ExitingBlock, this);
+                                          BasicBlock *ExitingBlock,
+                                          ExitCountKind Kind) {
+  switch (Kind) {
+  case Exact: 
+    return getBackedgeTakenInfo(L).getExact(ExitingBlock, this);
+  case ConstantMaximum:
+    return getBackedgeTakenInfo(L).getMax(ExitingBlock, this);
+  };
+  llvm_unreachable("Invalid ExitCountKind!");
 }
 
 const SCEV *
@@ -6979,14 +7151,15 @@ ScalarEvolution::getPredicatedBackedgeTakenCount(const Loop *L,
   return getPredicatedBackedgeTakenInfo(L).getExact(L, this, &Preds);
 }
 
-const SCEV *ScalarEvolution::getBackedgeTakenCount(const Loop *L) {
-  return getBackedgeTakenInfo(L).getExact(L, this);
-}
-
-/// Similar to getBackedgeTakenCount, except return the least SCEV value that is
-/// known never to be less than the actual backedge taken count.
-const SCEV *ScalarEvolution::getConstantMaxBackedgeTakenCount(const Loop *L) {
-  return getBackedgeTakenInfo(L).getMax(this);
+const SCEV *ScalarEvolution::getBackedgeTakenCount(const Loop *L,
+                                                   ExitCountKind Kind) {
+  switch (Kind) {
+  case Exact: 
+    return getBackedgeTakenInfo(L).getExact(L, this);
+  case ConstantMaximum:
+    return getBackedgeTakenInfo(L).getMax(this);
+  };
+  llvm_unreachable("Invalid ExitCountKind!");
 }
 
 #if INTEL_CUSTOMIZATION // HIR parsing
@@ -7388,6 +7561,16 @@ ScalarEvolution::BackedgeTakenInfo::getExact(BasicBlock *ExitingBlock,
   return SE->getCouldNotCompute();
 }
 
+const SCEV *
+ScalarEvolution::BackedgeTakenInfo::getMax(BasicBlock *ExitingBlock,
+                                           ScalarEvolution *SE) const {
+  for (auto &ENT : ExitNotTaken)
+    if (ENT.ExitingBlock == ExitingBlock && ENT.hasAlwaysTruePredicate())
+      return ENT.MaxNotTaken;
+
+  return SE->getCouldNotCompute();
+}
+
 /// getMax - Get the max backedge taken count for the loop.
 const SCEV *
 ScalarEvolution::BackedgeTakenInfo::getMax(ScalarEvolution *SE) const {
@@ -7479,13 +7662,15 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
         BasicBlock *ExitBB = EEI.first;
         const ExitLimit &EL = EEI.second;
         if (EL.Predicates.empty())
-          return ExitNotTakenInfo(ExitBB, EL.ExactNotTaken, nullptr);
+          return ExitNotTakenInfo(ExitBB, EL.ExactNotTaken, EL.MaxNotTaken,
+                                  nullptr);
 
         std::unique_ptr<SCEVUnionPredicate> Predicate(new SCEVUnionPredicate);
         for (auto *Pred : EL.Predicates)
           Predicate->add(Pred);
 
-        return ExitNotTakenInfo(ExitBB, EL.ExactNotTaken, std::move(Predicate));
+        return ExitNotTakenInfo(ExitBB, EL.ExactNotTaken, EL.MaxNotTaken,
+                                std::move(Predicate));
       });
   assert((isa<SCEVCouldNotCompute>(MaxCount) || isa<SCEVConstant>(MaxCount)) &&
          "No point in having a non-constant max backedge taken count!");
@@ -7540,6 +7725,17 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
   // Do a union of all the predicates here.
   for (unsigned i = 0, e = ExitingBlocks.size(); i != e; ++i) {
     BasicBlock *ExitBB = ExitingBlocks[i];
+
+    // We canonicalize untaken exits to br (constant), ignore them so that
+    // proving an exit untaken doesn't negatively impact our ability to reason
+    // about the loop as whole.
+    if (auto *BI = dyn_cast<BranchInst>(ExitBB->getTerminator()))
+      if (auto *CI = dyn_cast<ConstantInt>(BI->getCondition())) {
+        bool ExitIfTrue = !L->contains(BI->getSuccessor(0));
+        if ((ExitIfTrue && CI->isZero()) || (!ExitIfTrue && CI->isOne()))
+          continue;
+      }
+
     ExitLimit EL = computeExitLimit(L, ExitBB, AllowPredicates);
 
     assert((AllowPredicates || EL.Predicates.empty()) &&
@@ -8113,6 +8309,10 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
         (!PostShiftOpCode.hasValue() || *PostShiftOpCode == OpCodeOut);
   };
 
+#if INTEL_CUSTOMIZATION
+  // For some reason MatchShiftRecurrence overrides LHS.
+  Value *OrigLHS = LHS;
+#endif // INTEL_CUSTOMIZATION
   PHINode *PN;
   Instruction::BinaryOps OpCode;
   if (!MatchShiftRecurrence(LHS, PN, OpCode))
@@ -8136,9 +8336,9 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
       unsigned Log2Limit = RHS->getValue().logBase2();
       unsigned InMSB = Known.getBitWidth() - DefiniteZeros - 1;
       if (Log2Limit > InMSB) {
-        // Need a minus one here since the compare is at the end of the
-        // loop and we would have shifted left by 1 before the compare.
-        unsigned Count = RHS->getValue().logBase2() - InMSB - 1;
+        // Need a minus one here if the comparison is with the shifted IV.
+        bool CmpWithShiftedIV = (OrigLHS != PN);
+        unsigned Count = RHS->getValue().logBase2() - InMSB - CmpWithShiftedIV;
         const SCEV *BECount =
             getConstant(getEffectiveSCEVType(RHS->getType()), Count);
         return ExitLimit(BECount, BECount, false);
@@ -8160,7 +8360,9 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
     if (PossibleZeros == DefiniteZeros && DefiniteZeros < Known.getBitWidth()) {
       unsigned InMSB = Known.getBitWidth() - DefiniteZeros - 1;
       if (InMSB > 0) {
-        unsigned Count = InMSB - 1;
+        // Need a minus one here if the comparison is with the shifted IV.
+        bool CmpWithShiftedIV = (OrigLHS != PN);
+        unsigned Count = InMSB - CmpWithShiftedIV;
         const SCEV *BECount =
             getConstant(getEffectiveSCEVType(RHS->getType()), Count);
         return ExitLimit(BECount, BECount, false);
@@ -9881,7 +10083,20 @@ bool ScalarEvolution::isKnownPredicateViaNoOverflow(ICmpInst::Predicate Pred,
     OutY = cast<SCEVConstant>(ConstOp)->getAPInt();
     return (FlagsPresent & ExpectedFlags) == ExpectedFlags;
   };
+#if INTEL_CUSTOMIZATION
+  const SCEV *LHSConst, *LHSNonConst, *RHSConst, *RHSNonConst;
+  SCEV::NoWrapFlags LHSFlags, RHSFlags;
+  auto *LHSNAry = dyn_cast<SCEVNAryExpr>(LHS);
+  auto *RHSNAry = dyn_cast<SCEVNAryExpr>(RHS);
 
+  // If LHS and RHS have <nuw><nsw>, both the expressions are 'non-negative'. In
+  // this case the signedness of the comparsion does not matter.
+  if (LHSNAry && RHSNAry && LHSNAry->hasNoSignedWrap() &&
+      LHSNAry->hasNoUnsignedWrap() && RHSNAry->hasNoSignedWrap() &&
+      RHSNAry->hasNoUnsignedWrap()) {
+    Pred = ICmpInst::getSignedPredicate(Pred);
+  }
+#endif // INTEL_CUSTOMIZATION
   APInt C;
 
   switch (Pred) {
@@ -9900,6 +10115,19 @@ bool ScalarEvolution::isKnownPredicateViaNoOverflow(ICmpInst::Predicate Pred,
     if (MatchBinaryAddToConst(LHS, RHS, C, SCEV::FlagNSW) &&
         !C.isStrictlyPositive())
       return true;
+#if INTEL_CUSTOMIZATION
+    // (X + C1)<nsw> s<= (X + C2)<nsw> if C1 <= C2
+    if (LHSNAry && RHSNAry && LHSNAry->hasNoSignedWrap() &&
+        RHSNAry->hasNoSignedWrap() &&
+        splitBinaryAdd(LHS, LHSConst, LHSNonConst, LHSFlags) &&
+        splitBinaryAdd(RHS, RHSConst, RHSNonConst, RHSFlags) &&
+        (LHSNonConst == RHSNonConst) && isa<SCEVConstant>(LHSConst) &&
+        isa<SCEVConstant>(RHSConst)) {
+      APInt LHSConstVal = cast<SCEVConstant>(LHSConst)->getAPInt();
+      APInt RHSConstVal = cast<SCEVConstant>(RHSConst)->getAPInt();
+      return LHSConstVal.sle(RHSConstVal);
+    }
+#endif // INTEL_CUSTOMIZATION
     break;
 
   case ICmpInst::ICMP_SGT:
@@ -9914,6 +10142,19 @@ bool ScalarEvolution::isKnownPredicateViaNoOverflow(ICmpInst::Predicate Pred,
     // (X + C)<nsw> s< X if C < 0
     if (MatchBinaryAddToConst(LHS, RHS, C, SCEV::FlagNSW) && C.isNegative())
       return true;
+#if INTEL_CUSTOMIZATION
+    // (X + C1)<nsw> s< (X + C2)<nsw> if C1 < C2
+    if (LHSNAry && RHSNAry && LHSNAry->hasNoSignedWrap() &&
+        RHSNAry->hasNoSignedWrap() &&
+        splitBinaryAdd(LHS, LHSConst, LHSNonConst, LHSFlags) &&
+        splitBinaryAdd(RHS, RHSConst, RHSNonConst, RHSFlags) &&
+        (LHSNonConst == RHSNonConst) && isa<SCEVConstant>(LHSConst) &&
+        isa<SCEVConstant>(RHSConst)) {
+      APInt LHSConstVal = cast<SCEVConstant>(LHSConst)->getAPInt();
+      APInt RHSConstVal = cast<SCEVConstant>(RHSConst)->getAPInt();
+      return LHSConstVal.slt(RHSConstVal);
+    }
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 
@@ -10869,10 +11110,43 @@ bool ScalarEvolution::isImpliedViaOperations(ICmpInst::Predicate Pred,
   return false;
 }
 
+static bool isKnownPredicateExtendIdiom(ICmpInst::Predicate Pred,
+                                        const SCEV *LHS, const SCEV *RHS) {
+  // zext x u<= sext x, sext x s<= zext x
+  switch (Pred) {
+  case ICmpInst::ICMP_SGE:
+    std::swap(LHS, RHS);
+    LLVM_FALLTHROUGH;
+  case ICmpInst::ICMP_SLE: {
+    // If operand >=s 0 then ZExt == SExt.  If operand <s 0 then SExt <s ZExt.
+    const SCEVSignExtendExpr *SExt = dyn_cast<SCEVSignExtendExpr>(LHS);
+    const SCEVZeroExtendExpr *ZExt = dyn_cast<SCEVZeroExtendExpr>(RHS);
+    if (SExt && ZExt && SExt->getOperand() == ZExt->getOperand())
+      return true;
+    break;
+  }
+  case ICmpInst::ICMP_UGE:
+    std::swap(LHS, RHS);
+    LLVM_FALLTHROUGH;
+  case ICmpInst::ICMP_ULE: {
+    // If operand >=s 0 then ZExt == SExt.  If operand <s 0 then ZExt <u SExt.
+    const SCEVZeroExtendExpr *ZExt = dyn_cast<SCEVZeroExtendExpr>(LHS);
+    const SCEVSignExtendExpr *SExt = dyn_cast<SCEVSignExtendExpr>(RHS);
+    if (SExt && ZExt && SExt->getOperand() == ZExt->getOperand())
+      return true;
+    break;
+  }
+  default:
+    break;
+  };
+  return false;
+}
+
 bool
 ScalarEvolution::isKnownViaNonRecursiveReasoning(ICmpInst::Predicate Pred,
                                            const SCEV *LHS, const SCEV *RHS) {
-  return isKnownPredicateViaConstantRanges(Pred, LHS, RHS) ||
+  return isKnownPredicateExtendIdiom(Pred, LHS, RHS) ||
+         isKnownPredicateViaConstantRanges(Pred, LHS, RHS) ||
          IsKnownPredicateViaMinOrMax(*this, Pred, LHS, RHS) ||
          IsKnownPredicateViaAddRecStart(*this, Pred, LHS, RHS) ||
          isKnownPredicateViaNoOverflow(Pred, LHS, RHS);
@@ -11480,7 +11754,7 @@ struct SCEVCollectAddRecMultiplies {
         } else if (Unknown) {
           HasAddRec = true;
         } else {
-          bool ContainsAddRec;
+          bool ContainsAddRec = false;
           SCEVHasAddRec ContiansAddRec(ContainsAddRec);
           visitAll(Op, ContiansAddRec);
           HasAddRec |= ContainsAddRec;
@@ -12474,14 +12748,14 @@ void ScalarEvolution::verify() const {
              SE.getTypeSizeInBits(NewBECount->getType()))
       CurBECount = SE2.getZeroExtendExpr(CurBECount, NewBECount->getType());
 
-    auto *ConstantDelta =
-        dyn_cast<SCEVConstant>(SE2.getMinusSCEV(CurBECount, NewBECount));
+    const SCEV *Delta = SE2.getMinusSCEV(CurBECount, NewBECount);
 
-    if (ConstantDelta && ConstantDelta->getAPInt() != 0) {
-      dbgs() << "Trip Count Changed!\n";
+    // Unless VerifySCEVStrict is set, we only compare constant deltas.
+    if ((VerifySCEVStrict || isa<SCEVConstant>(Delta)) && !Delta->isZero()) {
+      dbgs() << "Trip Count for " << *L << " Changed!\n";
       dbgs() << "Old: " << *CurBECount << "\n";
       dbgs() << "New: " << *NewBECount << "\n";
-      dbgs() << "Delta: " << *ConstantDelta << "\n";
+      dbgs() << "Delta: " << *Delta << "\n";
       std::abort();
     }
   }

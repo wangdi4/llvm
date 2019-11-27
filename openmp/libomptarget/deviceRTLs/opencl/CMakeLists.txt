@@ -26,6 +26,9 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     src/api.cl
     src/omptarget-opencl.cl
   )
+  set(opencl_device_rtl_tmp_bc
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.tmp.bc
+  )
   set(opencl_device_rtl_bc ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.bc)
   set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.spv)
   set(opencl_flags_spirv
@@ -55,9 +58,17 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
   # Generate LLVM IR for the device RTL.
   add_custom_command(
-    OUTPUT ${opencl_device_rtl_bc}
-    COMMAND llvm-link -o ${opencl_device_rtl_bc} ${bc_all}
+    OUTPUT ${opencl_device_rtl_tmp_bc}
+    COMMAND llvm-link -o ${opencl_device_rtl_tmp_bc} ${bc_all}
     DEPENDS ${bc_all} llvm-link
+    VERBATIM
+  )
+
+  # Generate regularized LLVM IR for the device RTL.
+  add_custom_command(
+    OUTPUT ${opencl_device_rtl_bc}
+    COMMAND llvm-spirv -s -o ${opencl_device_rtl_bc} ${opencl_device_rtl_tmp_bc}
+    DEPENDS ${opencl_device_rtl_tmp_bc} llvm-spirv
     VERBATIM
   )
 

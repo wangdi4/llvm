@@ -20,16 +20,15 @@
 ; CHECK-NOT: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans resolve types'
 ; CHECK: Running DTransAnalysisInfo::analyzeModule
+; CHECK: Executing Pass 'DTrans Mem Init Trim Down'
 ; CHECK: Executing Pass 'DTrans struct of arrays to array of structs'
 ; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans weak align'
 ; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans delete field'
 ; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
-; CHECK: Executing Pass 'DTrans Mem Init Trim Down'
-; CHECK: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans reorder fields' on Module
-; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
+; CHECK: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans array of structs to struct of arrays'
 ; CHECK: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans eliminate read only field access'

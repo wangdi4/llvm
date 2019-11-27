@@ -137,7 +137,8 @@ for.end:                                          ; preds = %for.body, %entry
 
 ; CHECK: for.body:
 ; CHECK:   %indvar = phi i32 [ 0, %for.body.preheader ], [ %indvar.next, %for.body ]
-; CHECK:   %5 = add i32 %rem, %indvar
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK:   %5 = add nsw i32 %rem, %indvar
 ; CHECK:   %arrayidx = getelementptr inbounds float, float* %dy, i32 %5
 ; CHECK:   %6 = load float, float* %arrayidx, align 4
 ; CHECK:   %arrayidx1 = getelementptr inbounds float, float* %dx, i32 %5

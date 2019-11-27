@@ -629,6 +629,11 @@ bool CursorVisitor::VisitDeclContext(DeclContext *DC) {
     Decl *D = *I;
     if (D->getLexicalDeclContext() != DC)
       continue;
+    // Filter out synthesized property accessor redeclarations.
+    if (isa<ObjCImplDecl>(DC))
+      if (auto *OMD = dyn_cast<ObjCMethodDecl>(D))
+        if (OMD->isSynthesizedAccessorStub())
+          continue;
     const Optional<bool> V = handleDeclForVisitation(D);
     if (!V.hasValue())
       continue;
@@ -2055,6 +2060,13 @@ public:
   void VisitOMPTeamsDirective(const OMPTeamsDirective *D);
   void VisitOMPTaskLoopDirective(const OMPTaskLoopDirective *D);
   void VisitOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective *D);
+  void VisitOMPMasterTaskLoopDirective(const OMPMasterTaskLoopDirective *D);
+  void
+  VisitOMPMasterTaskLoopSimdDirective(const OMPMasterTaskLoopSimdDirective *D);
+  void VisitOMPParallelMasterTaskLoopDirective(
+      const OMPParallelMasterTaskLoopDirective *D);
+  void VisitOMPParallelMasterTaskLoopSimdDirective(
+      const OMPParallelMasterTaskLoopSimdDirective *D);
   void VisitOMPDistributeDirective(const OMPDistributeDirective *D);
   void VisitOMPDistributeParallelForDirective(
       const OMPDistributeParallelForDirective *D);
@@ -2180,6 +2192,11 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_CUSTOMIZATION
+void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
+  for (auto *E : C->sizes()) {
+    Visitor->AddStmt(E);
+  }
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseEnqueue::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);
@@ -2907,6 +2924,26 @@ void EnqueueVisitor::VisitOMPTaskLoopDirective(const OMPTaskLoopDirective *D) {
 
 void EnqueueVisitor::VisitOMPTaskLoopSimdDirective(
     const OMPTaskLoopSimdDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPMasterTaskLoopDirective(
+    const OMPMasterTaskLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPMasterTaskLoopSimdDirective(
+    const OMPMasterTaskLoopSimdDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPParallelMasterTaskLoopDirective(
+    const OMPParallelMasterTaskLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPParallelMasterTaskLoopSimdDirective(
+    const OMPParallelMasterTaskLoopSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
 
@@ -5430,10 +5467,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPSectionsDirective");
   case CXCursor_OMPSectionDirective:
     return cxstring::createRef("OMPSectionDirective");
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   case CXCursor_OMPTargetVariantDispatchDirective:
     return cxstring::createRef("OMPTargetVariantDispatchDirective");
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   case CXCursor_OMPSingleDirective:
     return cxstring::createRef("OMPSingleDirective");
   case CXCursor_OMPMasterDirective:
@@ -5486,6 +5523,14 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTaskLoopDirective");
   case CXCursor_OMPTaskLoopSimdDirective:
     return cxstring::createRef("OMPTaskLoopSimdDirective");
+  case CXCursor_OMPMasterTaskLoopDirective:
+    return cxstring::createRef("OMPMasterTaskLoopDirective");
+  case CXCursor_OMPMasterTaskLoopSimdDirective:
+    return cxstring::createRef("OMPMasterTaskLoopSimdDirective");
+  case CXCursor_OMPParallelMasterTaskLoopDirective:
+    return cxstring::createRef("OMPParallelMasterTaskLoopDirective");
+  case CXCursor_OMPParallelMasterTaskLoopSimdDirective:
+    return cxstring::createRef("OMPParallelMasterTaskLoopSimdDirective");
   case CXCursor_OMPDistributeDirective:
     return cxstring::createRef("OMPDistributeDirective");
   case CXCursor_OMPDistributeParallelForDirective:
@@ -6296,6 +6341,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::PragmaDetectMismatch:
   case Decl::UsingPack:
   case Decl::Concept:
+  case Decl::LifetimeExtendedTemporary:
     return C;
 
   // Declaration kinds that don't make any sense here, but are
@@ -6604,7 +6650,9 @@ void clang_enableStackTraces(void) {
 
 void clang_executeOnThread(void (*fn)(void*), void *user_data,
                            unsigned stack_size) {
-  llvm::llvm_execute_on_thread(fn, user_data, stack_size);
+  llvm::llvm_execute_on_thread(
+      fn, user_data,
+      stack_size == 0 ? llvm::None : llvm::Optional<unsigned>(stack_size));
 }
 
 //===----------------------------------------------------------------------===//

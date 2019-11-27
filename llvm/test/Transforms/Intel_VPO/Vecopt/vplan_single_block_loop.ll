@@ -1,12 +1,12 @@
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s 
+; RUN: opt %s -VPlanDriver -vplan-force-vf=2 -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s
 
 ; Verify the divergence information for the single loop for.body.
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header><latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi [ i64 0, [[BBH:.*]] ], [ i64 [[VAL2:%vp.*]], [[BBL:.*]] ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] float* [[VAL3:%vp.*]] = getelementptr inbounds float* [[VAL4:%A]] i64 [[VAL1:%vp.*]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] float* [[VAL3:%vp.*]] = getelementptr inbounds float* [[VAL4:%A]] i64 [[VAL1:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store float 4.200000e+01 float* [[VAL3:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL4:%vp.*]] = add i64 [[VAL1:%vp.*]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL5:%vp.*]] = icmp i64 [[VAL4:%vp.*]] i64 [[VAL6:%n]]

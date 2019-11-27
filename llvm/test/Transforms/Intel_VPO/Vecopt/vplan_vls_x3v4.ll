@@ -1,9 +1,6 @@
 ; RUN: opt -S -VPlanDriver -enable-vp-value-codegen -debug-only=ovls < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
-; FIXME: This test case is not optimized properly. VLS needs to be improved to
-;        handle cases like that.
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -36,19 +33,17 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:   #6 <4 x 128> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK:    [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 3, i64 6, i64 9>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_IND]]
+; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x <4 x i32>*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast <4 x i32>* [[MM_VECTORGEP_0]] to <48 x i32>*
 ; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <48 x i32>, <48 x i32>* [[GROUPPTR]], align 4
 ; CHECK-NEXT:    [[GROUPSHUFFLE:%.*]] = shufflevector <48 x i32> [[GROUPLOAD]], <48 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15, i32 24, i32 25, i32 26, i32 27, i32 36, i32 37, i32 38, i32 39>
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <16 x i32> [[GROUPSHUFFLE]], <i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i64> [[VEC_IND]], <i64 1, i64 1, i64 1, i64 1>
+; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP1]]
 ; CHECK-NEXT:    [[GROUPSHUFFLE2:%.*]] = shufflevector <48 x i32> [[GROUPLOAD]], <48 x i32> undef, <16 x i32> <i32 4, i32 5, i32 6, i32 7, i32 16, i32 17, i32 18, i32 19, i32 28, i32 29, i32 30, i32 31, i32 40, i32 41, i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <16 x i32> [[GROUPSHUFFLE2]], <i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11, i32 11>
-; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <4 x i64> [[VEC_IND]], <i64 2, i64 2, i64 2, i64 2>
+; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <4 x i64> [[VEC_PHI]], <i64 2, i64 2, i64 2, i64 2>
 ; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[GROUPSHUFFLE4:%.*]] = shufflevector <48 x i32> [[GROUPLOAD]], <48 x i32> undef, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 20, i32 21, i32 22, i32 23, i32 32, i32 33, i32 34, i32 35, i32 44, i32 45, i32 46, i32 47>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <16 x i32> [[GROUPSHUFFLE4]], <i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12, i32 12>
@@ -59,6 +54,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    [[MM_VECTORGEP_06:%.*]] = extractelement <4 x <4 x i32>*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR7:%.*]] = bitcast <4 x i32>* [[MM_VECTORGEP_06]] to <48 x i32>*
 ; CHECK-NEXT:    store <48 x i32> [[GROUPSHUFFLE5]], <48 x i32>* [[GROUPPTR7]], align 4
+; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

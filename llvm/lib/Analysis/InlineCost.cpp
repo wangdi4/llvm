@@ -18,9 +18,9 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
@@ -41,8 +41,9 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/GenericDomTree.h"            // INTEL
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 #include <algorithm>                                // INTEL
@@ -585,7 +586,8 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
     if (auto *AllocSize = dyn_cast_or_null<ConstantInt>(Size)) {
       Type *Ty = I.getAllocatedType();
       AllocatedSize = SaturatingMultiplyAdd(
-          AllocSize->getLimitedValue(), DL.getTypeAllocSize(Ty), AllocatedSize);
+          AllocSize->getLimitedValue(), DL.getTypeAllocSize(Ty).getFixedSize(),
+          AllocatedSize);
       return Base::visitAlloca(I);
     }
   }
@@ -593,7 +595,8 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
   // Accumulate the allocated size.
   if (I.isStaticAlloca()) {
     Type *Ty = I.getAllocatedType();
-    AllocatedSize = SaturatingAdd(DL.getTypeAllocSize(Ty), AllocatedSize);
+    AllocatedSize = SaturatingAdd(DL.getTypeAllocSize(Ty).getFixedSize(),
+                                  AllocatedSize);
   }
 
   // We will happily inline static alloca instructions.
@@ -1655,8 +1658,9 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
 #endif // INTEL_CUSTOMIZATION
 
   unsigned JumpTableSize = 0;
+  BlockFrequencyInfo *BFI = GetBFI ? &((*GetBFI)(F)) : nullptr;
   unsigned NumCaseCluster =
-      TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize);
+      TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize, PSI, BFI);
 
   // If suitable for a jump table, consider the cost for the table size and
   // branch to destination.

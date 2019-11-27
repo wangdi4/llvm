@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang --sycl %s -S -emit-llvm -o - | FileCheck %s
 
 template <typename name, typename Func>

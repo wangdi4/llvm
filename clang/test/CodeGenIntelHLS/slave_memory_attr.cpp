@@ -19,7 +19,13 @@ component int foo0a(int *j0,
                     slave_arg __attribute__((doublepump))          int *i5,
                     slave_arg __attribute__((bank_bits(4,3,2)))    int *i7,
                     slave_arg __attribute__((internal_max_block_ram_depth(32)))
-                                                                   int *i10)
+                    int *i10,
+                    slave_arg __attribute__((readwrite_mode("readonly")))
+                    int *i11,
+                    slave_arg __attribute__((readwrite_mode("writeonly")))
+                    int *i12,
+                    slave_arg __attribute__((readwrite_mode("readwrite")))
+                    int *i13)
 {
   return 0;
 }
@@ -36,7 +42,7 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
                     __attribute__((numbanks(8)))
                     __attribute__((bank_bits(4,3,2)))
                     __attribute__((internal_max_block_ram_depth(64)))
-
+                    __attribute__((readwrite_mode("readonly")))
           int *i0)
 {
   return 0;
@@ -51,10 +57,12 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{pump:1}",
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{pump:2}",
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numbanks:8}{bank_bits:4,3,2}",
-//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{internal_max_block_ram_depth:32}"}
+//CHECK-SAME: !"{readwritememory:READONLY}",
+//CHECK-SAME: !"{readwritememory:WRITEONLY}",
+//CHECK-SAME: !"{readwritememory:READWRITE}"}
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
 //CHECK: [[ATFOO1A]] = !{!"mm_slave"}
 //CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}
-//CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}"
+//CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}{readwritememory:READONLY}"
 //CHECK: [[LMSFOO1A]] = !{i32 32}

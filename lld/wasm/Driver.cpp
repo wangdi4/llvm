@@ -37,10 +37,9 @@ using namespace llvm::object;
 using namespace llvm::sys;
 using namespace llvm::wasm;
 
-using namespace lld;
-using namespace lld::wasm;
-
-Configuration *lld::wasm::config;
+namespace lld {
+namespace wasm {
+Configuration *config;
 
 namespace {
 
@@ -79,14 +78,16 @@ private:
 };
 } // anonymous namespace
 
-bool lld::wasm::link(ArrayRef<const char *> args, bool canExitEarly,
-                     raw_ostream &error) {
+bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
+          raw_ostream &stderrOS) {
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
-  errorHandler().errorOS = &error;
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now (use "
       "-error-limit=0 to see all errors)";
-  enableColors(error.has_colors());
+  enableColors(stderrOS.has_colors());
+
+  lld::stdoutOS = &stdoutOS;
+  lld::stderrOS = &stderrOS;
 
   config = make<Configuration>();
   symtab = make<SymbolTable>();
@@ -666,7 +667,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
 
   // Handle --help
   if (args.hasArg(OPT_help)) {
-    parser.PrintHelp(outs(),
+    parser.PrintHelp(lld::outs(),
                      (std::string(argsArr[0]) + " [options] file...").c_str(),
                      "LLVM Linker", false);
     return;
@@ -674,7 +675,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
 
   // Handle --version
   if (args.hasArg(OPT_version) || args.hasArg(OPT_v)) {
-    outs() << getLLDVersion() << "\n";
+    lld::outs() << getLLDVersion() << "\n";
     return;
   }
 
@@ -811,3 +812,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Write the result to the file.
   writeResult();
 }
+
+} // namespace wasm
+} // namespace lld

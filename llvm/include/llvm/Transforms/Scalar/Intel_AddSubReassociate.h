@@ -20,6 +20,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/PassManager.h"
+#include <atomic>
 #include <memory>
 #include <unordered_set>
 
@@ -473,9 +474,7 @@ class AddSubReassociateLegacyPass : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  AddSubReassociateLegacyPass() : FunctionPass(ID) {
-    initializeAddSubReassociateLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
+  AddSubReassociateLegacyPass();
 
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;

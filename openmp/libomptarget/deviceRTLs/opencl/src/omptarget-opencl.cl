@@ -19,7 +19,7 @@
 ///
 
 kmp_global_state_t GLOBAL = {
-  .g_barrier = {{ATOMIC_VAR_INIT(0), ATOMIC_VAR_INIT(0)}},
+  .g_barrier = {{ATOMIC_VAR_INIT(0u), ATOMIC_VAR_INIT(0u)}},
   .assume_simple_spmd_mode = 1
 };
 

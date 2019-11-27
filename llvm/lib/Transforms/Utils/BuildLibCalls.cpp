@@ -1443,6 +1443,27 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_FindClose:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_FindFirstFileA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_FindNextFileA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetFullPathNameA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetModuleHandleA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetProcAddress:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GlobalMemoryStatus:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_getuid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);

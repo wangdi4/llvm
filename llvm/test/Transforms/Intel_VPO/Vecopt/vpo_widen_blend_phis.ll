@@ -1,7 +1,8 @@
 ; This tests check that we correctly widen non-induction phi's and the select
 ; instruction when their original operands are vector-types to begin with.
 
-; RUN: opt -S -VPlanDriver -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen=false %s | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
+; RUN: opt -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPVALUE
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -9,13 +10,13 @@ target triple = "x86_64-pc-linux"
 
 ;;;;;;;;;;; Test the generation of correct vec-phis.
 ;     BB0 (s/D/U) <---+
-;    /   \        |
-;   /     |       |
-;  BB1    |       |
-;    \   /        |
-;     BB2         |
-;      |          |
-;    Latch--------+
+;    /   \            |
+;   /     |           |
+;  BB1    |           |
+;    \   /            |
+;     BB2             |
+;      |              |
+;    Latch------------+
 
 define void @test_vec_phi(i1 %flag1, <3 x i32>* %a, <3 x i32>* %b, <3 x i32>* %c) local_unnamed_addr {
 ; CHECK-LABEL:@test_vec_phi
@@ -86,11 +87,15 @@ for.body:
 
 bb0:
   %vec1 = add <2 x i32> %avec, <i32 7, i32 3>
-; CHECK: [[WIDE_A_VEC:%.*]] = shufflevector <2 x i32> %avec, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK: [[ADD1:%.*]] = add <4 x i32> [[WIDE_A_VEC]], <i32 7, i32 3, i32 7, i32 3>
+; CHECK-LLVM: [[WIDE_A_VEC:%.*]] = shufflevector <2 x i32> %avec, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK-LLVM: [[ADD1:%.*]] = add <4 x i32> [[WIDE_A_VEC]], <i32 7, i32 3, i32 7, i32 3>
+; CHECK-VPVALUE: [[ADD_VP1:%.*]] = add <2 x i32> %avec, <i32 7, i32 3>
+; CHECK-VPVALUE-NEXT: [[WIDE_A_VEC_VP:%.*]] = shufflevector <2 x i32> [[ADD_VP1]], <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
   %vec2 = add <2 x i32> %bvec, <i32 4, i32 5>
-; CHECK: [[WIDE_B_VEC:%.*]] = shufflevector <2 x i32> %bvec, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK: [[ADD2:%.*]] = add <4 x i32> [[WIDE_B_VEC]], <i32 4, i32 5, i32 4, i32 5>
+; CHECK-LLVM: [[WIDE_B_VEC:%.*]] = shufflevector <2 x i32> %bvec, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK-LLVM: [[ADD2:%.*]] = add <4 x i32> [[WIDE_B_VEC]], <i32 4, i32 5, i32 4, i32 5>
+; CHECK-VPVALUE: [[ADD_VP2:%.*]] = add <2 x i32> %bvec, <i32 4, i32 5>
+; CHECK-VPVALUE-NEXT: [[WIDE_A_VEC_VP1:%.*]] = shufflevector <2 x i32> [[ADD_VP2]], <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
   %bb1.varying = or i1 %varying, true
   br i1 %bb1.varying, label %bb3, label %bb2
 

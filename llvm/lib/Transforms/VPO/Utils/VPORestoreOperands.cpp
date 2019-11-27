@@ -492,6 +492,10 @@ INITIALIZE_PASS_END(VPORestoreOperands, "vpo-restore-operands",
 
 char VPORestoreOperands::ID = 0;
 
+VPORestoreOperands::VPORestoreOperands() : FunctionPass(ID) {
+  initializeVPORestoreOperandsPass(*PassRegistry::getPassRegistry());
+}
+
 bool VPORestoreOperands::runOnFunction(Function &F) {
   if (VPOAnalysisUtils::skipFunctionForOpenmp(F) && skipFunction(F))
     return false;

@@ -231,8 +231,9 @@ private:
   HLInst *createNonLvalHLInst(Instruction *Inst);
 
   /// Creates a unary instruction.
-  HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
-                            const Twine &Name, RegDDRef *LvalRef, Type *DestTy);
+  HLInst *createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
+                                const Twine &Name, RegDDRef *LvalRef,
+                                Type *DestTy, MDNode *FPMathTag);
 
   /// Creates a binary instruction.
   HLInst *createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
@@ -354,10 +355,13 @@ private:
                          HLContainerTy::iterator Last,
                          HLContainerTy *MoveContainer, bool Erase = false);
 
-  /// Removes [First, Last) from Container. Also destroys them is Erase is set.
+  /// Removes [First, Last) from \p Container and moves them to \p MoveContainer
+  /// if it is nonnull. Nodes are destroyed if \p Erase is set. It is an user
+  /// error to set both MoveContainer and Erase at the same time.
   static void removeInternal(HLContainerTy &Container,
                              HLContainerTy::iterator First,
-                             HLContainerTy::iterator Last, bool Erase);
+                             HLContainerTy::iterator Last,
+                             HLContainerTy *MoveContainer, bool Erase);
 
   /// Unlinks Node from HIR and destroys it.
   /// Note: This function is intentionally private. Transformations are not
@@ -707,6 +711,17 @@ public:
                               const Twine &Name = "cast",
                               RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new FNeg instruction.
+  HLInst *createFNeg(RegDDRef *RvalRef, const Twine &Name = "fneg",
+                     RegDDRef *LvalRef = nullptr, MDNode *FPMathTag = nullptr);
+
+  /// Creates a unary instruction with specified opcode. If OrigUnInst is not
+  /// null, copy IR flags from OrigUnInst to the newly created instruction.
+  HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
+                            const Twine &Name, RegDDRef *LvalRef = nullptr,
+                            Type *DestTy = nullptr,
+                            const UnaryInstruction *OrigUnInst = nullptr);
+
   /// Creates a new BinaryOperator with specified opcode. If OrigBinOp is not
   /// null, copy IR flags from OrigBinOp to the newly create instruction.
   HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
@@ -870,8 +885,13 @@ public:
                                   unsigned Idx, const Twine &Name = "insert",
                                   RegDDRef *LvalRef = nullptr);
 
-  /// Creates a new ExtractElement instruction
+  /// Creates a new ExtractElement instruction, constant index
   HLInst *createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+                                   const Twine &Name = "extract",
+                                   RegDDRef *LvalRef = nullptr);
+
+  /// Creates a new ExtractElement instruction, variable index
+  HLInst *createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
                                    const Twine &Name = "extract",
                                    RegDDRef *LvalRef = nullptr);
 

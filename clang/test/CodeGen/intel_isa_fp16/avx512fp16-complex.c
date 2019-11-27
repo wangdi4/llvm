@@ -48,7 +48,7 @@ _Float16 _Complex sub_half_cr(_Float16 _Complex a, _Float16 b) {
 _Float16 _Complex sub_half_rc(_Float16 a, _Float16 _Complex b) {
   // X86-LABEL: @sub_half_rc(
   // X86: fsub
-  // X86: fsub half 0xH8000
+  // X86: fneg
   // X86-NOT: fsub
   // X86: ret
   return a - b;

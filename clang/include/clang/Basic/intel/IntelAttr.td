@@ -521,6 +521,24 @@ def InternalMaxBlockRamDepth : InheritableAttr {
   }];
 }
 
+// One string argument
+def ReadWriteMode : Attr {
+  let Spellings = [GNU<"readwrite_mode">];
+  let Args = [StringArgument<"Type">];
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar, Field], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [ReadWriteModeDocs];
+}
+
+def MemoryLayout : Attr {
+  let Spellings = [GNU<"memory_layout">];
+  let Args = [StringArgument<"Type">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [OpenCL, HLS];
+  let Documentation = [MemoryLayoutDocs];
+}
+
 // Variadic integral arguments.
 def BankBits : Attr {
   let Spellings = [GNU<"bank_bits">];

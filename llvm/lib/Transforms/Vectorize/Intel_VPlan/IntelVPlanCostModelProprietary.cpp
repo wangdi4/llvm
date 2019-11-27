@@ -21,6 +21,7 @@
 #include "VPlanHIR/IntelVPlanVLSClientHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
@@ -72,14 +73,9 @@ unsigned
 VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
                                             const bool UseVLSCost) const {
   Type *OpTy = getMemInstValueType(VPInst);
-
-  // FIXME: That should be removed later.
-  if (!OpTy)
-    return UnknownCost;
-
   assert(OpTy && "Can't get type of the load/store instruction!");
-  unsigned Opcode = VPInst->getOpcode();
 
+  unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
 
@@ -91,7 +87,7 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
   // must be added.
   unsigned Cost =
       IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                    Alignment, AddrSpace)
+                                    MaybeAlign(Alignment), AddrSpace)
              : VPlanCostModel::getLoadStoreCost(VPInst);
 
   if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)

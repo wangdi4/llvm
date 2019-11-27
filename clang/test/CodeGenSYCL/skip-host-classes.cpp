@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang --sycl -c %s  -o %t.ll -Xclang -fsycl-int-header=%t.hpp -emit-llvm -S
 // RUN: FileCheck < %t.ll %s --check-prefix=CHECK
 

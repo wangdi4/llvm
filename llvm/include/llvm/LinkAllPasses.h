@@ -49,6 +49,7 @@
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
@@ -115,6 +116,7 @@ namespace {
       (void) llvm::createInlineReportSetupPass();
       (void) llvm::createInlineReportEmitterPass();
       (void) llvm::createIntelAdvancedFastCallWrapperPass();
+      (void) llvm::createIntelIPOPrefetchWrapperPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();
@@ -193,6 +195,7 @@ namespace {
       (void) llvm::createLoopVersioningLICMPass();
       (void) llvm::createLoopIdiomPass();
       (void) llvm::createLoopRotatePass();
+      (void) llvm::createLowerConstantIntrinsicsPass();
       (void) llvm::createLowerExpectIntrinsicPass();
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSwitchPass();
@@ -253,7 +256,6 @@ namespace {
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
       (void) llvm::createPrintFunctionPass(os);
-      (void) llvm::createPrintBasicBlockPass(os);
       (void) llvm::createModuleDebugInfoPrinterPass();
       (void) llvm::createPartialInliningPass();
       (void) llvm::createLintPass();
@@ -283,6 +285,7 @@ namespace {
       (void) llvm::createScalarizeMaskedMemIntrinPass();
       (void) llvm::createWarnMissedTransformationsPass();
       (void) llvm::createHardwareLoopsPass();
+      (void)llvm::createInjectTLIMappingsLegacyPass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
@@ -338,6 +341,7 @@ namespace {
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
+      (void) llvm::createHIRMVForVariableStridePass();
       (void) llvm::createHIRLoopConcatenationPass();
       (void) llvm::createHIRArrayTransposePass();
       (void) llvm::createHIRAosToSoaPass();
@@ -378,6 +382,9 @@ namespace {
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB
+      // VPO Paropt Loop Collapse Pass
+      (void) llvm::createVPOParoptLoopCollapsePass();
+
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 

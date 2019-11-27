@@ -86,6 +86,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -351,7 +352,7 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
       // %tFree = inttoptr.i64.elemTy*(%tMallocPtrToInt);
       // @free(&((i8*)(%tFree)[offset]));
       if (!PElemTy->isSized() || (PElemTy->getPrimitiveSizeInBits() !=
-                                  (HAT.ArrayElementSizeInBytes * 8))) {
+                                  uint64_t(HAT.ArrayElementSizeInBytes * 8))) {
         // Give up if destination type size does not match element size.
         HasValidMallocs = false;
         return;
@@ -657,7 +658,7 @@ bool HIRArrayTranspose::MallocAnalyzer::isValidStridedUseRef(RegDDRef *Ref) {
     // element size because consecutive elements before transpose are not
     // consecutive after transpose.
     if (!DestElemTy->isSized() || (DestElemTy->getPrimitiveSizeInBits() >
-                                   HAT.ArrayElementSizeInBytes * 8)) {
+                                   uint64_t(HAT.ArrayElementSizeInBytes * 8))) {
       return false;
     }
   }

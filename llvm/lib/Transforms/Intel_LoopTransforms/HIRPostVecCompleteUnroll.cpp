@@ -18,6 +18,7 @@
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"

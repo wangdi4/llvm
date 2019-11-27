@@ -148,6 +148,27 @@ TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
 /// void __cdecl std::_Xout_of_range(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
 TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// BOOL FindClose(HANDLE hFindFile);
+TLI_DEFINE_ENUM_INTERNAL(FindClose)
+TLI_DEFINE_STRING_INTERNAL("FindClose")
+/// HANDLE FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
+TLI_DEFINE_ENUM_INTERNAL(FindFirstFileA)
+TLI_DEFINE_STRING_INTERNAL("FindFirstFileA")
+/// BOOL FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
+TLI_DEFINE_ENUM_INTERNAL(FindNextFileA)
+TLI_DEFINE_STRING_INTERNAL("FindNextFileA")
+/// DWORD GetFullPathNameA(LPCSTR lpFileName, DWORD  nBufferLength, LPSTR  lpBuffer, LPSTR  *lpFilePart);
+TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameA)
+TLI_DEFINE_STRING_INTERNAL("GetFullPathNameA")
+/// HMODULE GetModuleHandleA(LPCSTR lpModuleName);
+TLI_DEFINE_ENUM_INTERNAL(GetModuleHandleA)
+TLI_DEFINE_STRING_INTERNAL("GetModuleHandleA")
+/// FARPROC GetProcAddress(HMODULE hModule, LPCSTR  lpProcName);
+TLI_DEFINE_ENUM_INTERNAL(GetProcAddress)
+TLI_DEFINE_STRING_INTERNAL("GetProcAddress")
+/// void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
+TLI_DEFINE_ENUM_INTERNAL(GlobalMemoryStatus)
+TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
 /// extern "C" void __stdcall _CxxThrowException(void* pExceptionObject, _ThrowInfo* pThrowInfo);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_CxxThrowException)
 TLI_DEFINE_STRING_INTERNAL("_CxxThrowException")

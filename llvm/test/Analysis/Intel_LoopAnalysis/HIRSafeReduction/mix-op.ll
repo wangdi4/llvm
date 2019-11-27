@@ -1,8 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze  -hir-safe-reduction-analysis -hir-safe-reduction-analysis-print-op | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -hir-safe-reduction-analysis-print-op -disable-output 2>&1 | FileCheck %s
 
-; CHECK:   %sub = [[VAR:%q.[0-9]+]]  -  (@a)[0][i1]; <Safe Reduction> Red Op: 14
-; CHECK:   [[VAR]] = %sub  +  (@b)[0][i1]; <Safe Reduction> Red Op: 14
+; CHECK:   %sub = [[VAR:%q.[0-9]+]]  -  (@a)[0][i1]; <Safe Reduction> Red Op: [[REDOP:[0-9]+]]
+; CHECK:   [[VAR]] = %sub  +  (@b)[0][i1]; <Safe Reduction> Red Op: [[REDOP]]
 
 ; Check if a safe reduction chain is recognized q = q + (@b - @a) 
 ; when - and + operators are present. Reduction operation is set to the operation found

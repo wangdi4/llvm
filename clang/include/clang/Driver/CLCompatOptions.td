@@ -173,17 +173,36 @@ def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
-#endif // INTEL_CUSTOMIZATION
-def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
-  HelpText<"Display available options">;
-#if INTEL_CUSTOMIZATION
 def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
   Alias<intel_mintrinsic_promote>, HelpText<"For certain functions using "
   "intrinsics to promote their architectures and make the intrinsic headers "
   "included by default">;
 def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
   Alias<intel_mno_intrinsic_promote>;
+def _SLASH_Qipp_EQ : CLJoined<"Qipp=">, Alias<ipp_EQ>,
+  HelpText<"Link commonly used Intel(R) Integrated Performace Primitives "
+  "(Intel(R) IPP) libraries and bring in the associated headers">;
+def _SLASH_Qipp_COL : CLJoined<"Qipp:">, Alias<ipp_EQ>;
+def _SLASH_Qipp_link_EQ : CLJoined<"Qipp-link=">, Alias<ipp_link_EQ>,
+  HelpText<"Link Intel(R) IPP libraries in the requested manner">;
+def _SLASH_Qipp_link_COL : CLJoined<"Qipp-link:">, Alias<ipp_link_EQ>;
+def _SLASH_Qipp : CLFlag<"Qipp">, Alias<ipp_EQ>, AliasArgs<["common"]>;
+def _SLASH_Qmkl_EQ : CLJoined<"Qmkl=">, Alias<mkl_EQ>,
+  HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
+  "and bring in the associated headers">;
+def _SLASH_Qmkl_COL : CLJoined<"Qmkl:">, Alias<mkl_EQ>;
+def _SLASH_Qmkl : CLFlag<"Qmkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<tbb>,
+  HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
+  "and bring in the associated headers">;
+def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<daal_EQ>,
+  HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
+  "libraries and bring in the associated headers">;
+def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<daal_EQ>;
+def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
 #endif //INTEL_CUSTOMIZATION
+def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
+  HelpText<"Display available options">;
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">,
   Alias<show_includes>;

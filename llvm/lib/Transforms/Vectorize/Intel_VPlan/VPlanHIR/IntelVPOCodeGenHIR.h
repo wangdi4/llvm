@@ -195,12 +195,11 @@ public:
   /// exit of the loop we are vectorizing. \p Goto's parent must be an HLIf.
   void handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto);
 
-  HLInst *createBitCast(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
-    HLInst *BitCastInst =
-        MainLoop->getHLNodeUtils().createBitCast(Ty, Ref->clone(), Name);
-    addInstUnmasked(BitCastInst);
-    return BitCastInst;
-  }
+  /// Create a BitCast HLInst and put it into \p Container if it is not null
+  /// else insert at the default insertion point.
+  HLInst *createBitCast(Type *Ty, RegDDRef *Ref,
+                        HLContainerTy *Container = nullptr,
+                        const Twine &Name = "cast");
 
   HLInst *createZExt(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
     HLInst *ZExtInst =
@@ -209,8 +208,12 @@ public:
     return ZExtInst;
   }
 
-  HLInst *createCTTZCall(RegDDRef *Ref, bool MaskIsNonZero,
-                         const Twine &Name = "bsf");
+  /// Create a call to a zero counting intrinsic defined by \p Id and put it
+  /// either into \p Container (if it's not null) or at the default insertion
+  /// point.
+  HLInst *createCTZCall(RegDDRef *Ref, llvm::Intrinsic::ID Id,
+                        bool MaskIsNonZero, HLContainerTy *Container = nullptr,
+                        const Twine &Name = "bsf");
 
   // Generates wide compares using VF as the vector length. Multiple
   // predicates are handled by conjoining the results of generated
@@ -413,9 +416,11 @@ private:
   // into memrefs in this group.
   SmallDenseMap<const OVLSGroup *, RegDDRef **> VLSGroupStoreMap;
 
-  // The loop for which it is safe to hoist the reduction initializer and sink
-  // reduction last value compute instructions.
+  // The insertion points for reduction initializer and reduction last value
+  // compute instructions.
   HLLoop *RednHoistLp = nullptr;
+  HLNode *RedInitInsertPoint = nullptr;
+  HLNode *RedFinalInsertPoint = nullptr;
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
@@ -457,6 +462,22 @@ private:
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }
+
+  void insertReductionInit(HLInst *Inst) {
+    HLNodeUtils::insertBefore(RedInitInsertPoint, Inst);
+  }
+  void insertReductionInit(HLContainerTy *List) {
+    HLNodeUtils::insertBefore(RedInitInsertPoint, List);
+  }
+  void insertReductionFinal(HLInst *Inst) {
+    HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
+    RedFinalInsertPoint = Inst;
+  }
+  void insertReductionFinal(HLContainerTy *List) {
+    HLNode *Save = &List->back();
+    HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
+    RedFinalInsertPoint = Save;
+  }
 
   // Erase loop intrinsics implementation - delete intel intrinsic directives
   // before/after the loop based on the BeginDir which determines where we start
@@ -537,11 +558,31 @@ private:
   //
   void widenLoopEntityInst(const VPInstruction *VPInst);
 
-  // Get scalar version of RegDDRef that represents the VPValue \p VPVal. For
-  // external definitions and constants we can obtain the scalar version from
-  // underlying HIR operand attached to VPValue, but for a VPInstruction we need
-  // to create an extract element instruction. NOTE: This function should be
-  // used only if it is known that VPVal is uniform.
+  // The following code is generated supposing we have
+  //    reduction-final (pred) reduce_val, parent_final, parent_exit
+  // %bcst = broadcast parent_final
+  // %cmp_v = cmp eq %bcst, parent_exit
+  // %ndx_fixup = select %cmp_v  %reduce_val, (is_min(pred) ? MAX_INT:MIN_INT)
+  // %result = (is_min(pred) ? reduce_min: reduce_max)(%ndx_fixup)
+  //
+  // For example, we have the following values for min+min_index.
+  //  parent_exit:  {1,5,1,3}      // minimal values for 4 lanes
+  //  reduce_val :  {100,20,85,55} // the indexes of those values for each lane
+  //  parent_final: 1
+  // We should choose the minimum index from those that correspond to the
+  // parent_final. That is done by setting the non-relevant elements in the
+  // reduce_val to MAX_INT. So we have {100,MAX_INT,85,MAX_INT}. Then we just
+  // select the minimum from those values, 85.
+  //
+  void generateMinMaxIndex(const VPReductionFinal *RedFinal,
+                           RegDDRef *RednDescriptor, HLContainerTy &RedTail,
+                           HLInst *&WInst);
+
+  // Get scalar version of RegDDRef that represents the VPValue \p VPVal.
+  // For external definitions and constants we can obtain the scalar version
+  // from underlying HIR operand attached to VPValue, but for a
+  // VPInstruction we need to create an extract element instruction. NOTE:
+  // This function should be used only if it is known that VPVal is uniform.
   RegDDRef *getUniformScalarRef(const VPValue *VPVal);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime

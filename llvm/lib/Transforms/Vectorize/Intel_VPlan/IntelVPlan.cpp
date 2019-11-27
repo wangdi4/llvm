@@ -523,34 +523,11 @@ VPRegionBlock::~VPRegionBlock() {
 void VPRegionBlock::execute(VPTransformState *State) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
 
-  if (!isReplicator()) {
-    // Visit the VPBlocks connected to "this", starting from it.
-    for (VPBlockBase *Block : RPOT) {
-      LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-      Block->execute(State);
-    }
-    return;
+  // Visit the VPBlocks connected to "this", starting from it.
+  for (VPBlockBase *Block : RPOT) {
+    LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+    Block->execute(State);
   }
-
-  assert(!State->Instance && "Replicating a Region with non-null instance.");
-
-  // Enter replicating mode.
-  State->Instance = {0, 0};
-
-  for (unsigned Part = 0, UF = State->UF; Part < UF; ++Part) {
-    State->Instance->Part = Part;
-    for (unsigned Lane = 0, VF = State->VF; Lane < VF; ++Lane) {
-      State->Instance->Lane = Lane;
-      // Visit the VPBlocks connected to \p this, starting from it.
-      for (VPBlockBase *Block : RPOT) {
-        LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-        Block->execute(State);
-      }
-    }
-  }
-
-  // Exit replicating mode.
-  State->Instance.reset();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -834,12 +811,13 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 
         // Only handle strided OptVLS Groups with no access gaps for now.
         if (GroupStride) {
-          uint64_t AllAccessMask = ~(UINT64_MAX << *GroupStride);
           GrpSize = Group->size();
+          APInt AccessMask = Group->computeByteAccessMask();
 
           // Access mask is currently 64 bits, skip groups with group stride >
           // 64 and access gaps.
-          if (*GroupStride > 64 || Group->getNByteAccessMask() != AllAccessMask)
+          if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
+              AccessMask.getBitWidth() != *GroupStride)
             Group = nullptr;
         } else
           Group = nullptr;
@@ -873,7 +851,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
               FirstMemrefDD = MemrefDD;
               GrpStartInst = HInst;
               RefSizeInBytes =
-                  DL.getTypeSizeInBits(FirstMemrefDD->getDestType()) >> 3;
+                  DL.getTypeAllocSize(FirstMemrefDD->getDestType());
             } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
               TypesMatch = false;
 
@@ -1584,7 +1562,6 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   bumpIndent(1);
   OS << Indent << "fontname=Courier\n"
      << Indent << "label=\""
-     << DOT::EscapeString(Region->isReplicator() ? "<xVFxUF> " : "<x1> ")
 #if INTEL_CUSTOMIZATION
      << DOT::EscapeString(Region->getName()) << " Size=" << Region->getSize()
      << "\"\n";
@@ -1911,6 +1888,78 @@ void VPBranchInst::print(raw_ostream &O) const {
     O << "<External Basic Block>";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+void VPPHINode::sortIncomingBlocksForBlend(
+    DenseMap<const VPBlockBase *, int> *BlockIndexInRPOTOrNull) {
+  // Sort incoming blocks according to their order in the linearized control
+  // flow. After linearization, the HCFG coming to the codegen might be
+  // something like this:
+  //
+  //   bb0:
+  //     %def0 =
+  //   bb1:
+  //     predicate %cond0
+  //     %def1 =
+  //   bb2:
+  //     predicate %cond1    ; %cond1 = %cond0 && %something
+  //     %def2 =
+  //   bb3:
+  //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
+  //
+  // We need to generate
+  //
+  //  %sel = select %cond0, %def1, %def0
+  //  %blend = select %cond1 %def2, %sel
+  //
+  // Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
+  // for such CFG.
+
+  // FIXME: Once we get rid of hierarchical CFG, we would be able to use
+  // dominance as the comparator.
+  DenseMap<const VPBlockBase *, int> LocalBlockIndexInRPOT;
+  DenseMap<const VPBlockBase *, int> &BlockIndexInRPOT =
+      BlockIndexInRPOTOrNull ? *BlockIndexInRPOTOrNull : LocalBlockIndexInRPOT;
+  if (!BlockIndexInRPOTOrNull) {
+    int CurrBlockRPOTIndex = 0;
+    ReversePostOrderTraversal<VPBlockBase *> RPOT(
+        getParent()->getParent()->getEntry());
+    for (auto *Block : RPOT)
+      BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;
+  }
+
+  unsigned NumIncoming = getNumIncomingValues();
+  using PairTy = std::pair<VPValue *, VPBasicBlock *>;
+  SmallVector<PairTy, 8> SortedIncomingBlocks;
+  for (unsigned Idx = 0; Idx < NumIncoming; ++Idx) {
+    PairTy Curr(getIncomingValue(Idx), getIncomingBlock(Idx));
+
+    auto GetRPOTNumber = [&](VPBlockBase *BB) -> unsigned {
+      while (BB) {
+        if (unsigned Idx = BlockIndexInRPOT[BB])
+          return Idx;
+        BB = BB->getParent();
+      }
+      llvm_unreachable("RPOT index missing!");
+    };
+
+    SortedIncomingBlocks.insert(
+        upper_bound(SortedIncomingBlocks, Curr,
+                    [&](const PairTy &Lhs, const PairTy &Rhs) {
+                      return GetRPOTNumber(Lhs.second) <
+                             GetRPOTNumber(Rhs.second);
+                    }),
+        Curr);
+  }
+  LLVM_DEBUG(dbgs() << "BlendPhi: " << *this << ": ");
+  for (unsigned Idx = 0; Idx < NumIncoming; ++Idx) {
+    setIncomingValue(Idx, SortedIncomingBlocks[Idx].first);
+    setIncomingBlock(Idx, SortedIncomingBlocks[Idx].second);
+    LLVM_DEBUG(dbgs() << SortedIncomingBlocks[Idx].second->getName() << " - "
+                      << BlockIndexInRPOT[SortedIncomingBlocks[Idx].second]
+                      << ", ");
+  }
+  LLVM_DEBUG(dbgs() << "\n");
+}
 
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
                                      VPBasicBlock *VPBB, bool InvalidateIR) {

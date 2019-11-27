@@ -423,7 +423,7 @@ static Address createReferenceTemporary(CodeGenFunction &CGF,
 
 LValue CodeGenFunction::
 EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
-  const Expr *E = M->GetTemporaryExpr();
+  const Expr *E = M->getSubExpr();
 
   assert((!M->getExtendingDecl() || !isa<VarDecl>(M->getExtendingDecl()) ||
           !cast<VarDecl>(M->getExtendingDecl())->isARCPseudoStrong()) &&
@@ -1270,6 +1270,8 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
   case Expr::CXXOperatorCallExprClass:
   case Expr::UserDefinedLiteralClass:
     return EmitCallExprLValue(cast<CallExpr>(E));
+  case Expr::CXXRewrittenBinaryOperatorClass:
+    return EmitLValue(cast<CXXRewrittenBinaryOperator>(E)->getSemanticForm());
   case Expr::VAArgExprClass:
     return EmitVAArgExprLValue(cast<VAArgExpr>(E));
   case Expr::DeclRefExprClass:
@@ -3483,12 +3485,60 @@ static QualType getFixedSizeElementType(const ASTContext &ctx,
   return eltType;
 }
 
+static void AddIVDepMetadata(CodeGenFunction &CGF, const ValueDecl *ArrayDecl,
+                             llvm::Value *EltPtr) {
+  if (!ArrayDecl)
+    return;
+
+  // Only handle actual GEPs, ConstantExpr GEPs don't have metadata.
+  if (auto *GEP = dyn_cast<llvm::GetElementPtrInst>(EltPtr))
+    CGF.LoopStack.addIVDepMetadata(ArrayDecl, GEP);
+}
+
+/// Given an array base, check whether its member access belongs to a record
+/// with preserve_access_index attribute or not.
+static bool IsPreserveAIArrayBase(CodeGenFunction &CGF, const Expr *ArrayBase) {
+  if (!ArrayBase || !CGF.getDebugInfo())
+    return false;
+
+  // Only support base as either a MemberExpr or DeclRefExpr.
+  // DeclRefExpr to cover cases like:
+  //    struct s { int a; int b[10]; };
+  //    struct s *p;
+  //    p[1].a
+  // p[1] will generate a DeclRefExpr and p[1].a is a MemberExpr.
+  // p->b[5] is a MemberExpr example.
+  const Expr *E = ArrayBase->IgnoreImpCasts();
+  if (const auto *ME = dyn_cast<MemberExpr>(E))
+    return ME->getMemberDecl()->hasAttr<BPFPreserveAccessIndexAttr>();
+
+  if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+    const auto *VarDef = dyn_cast<VarDecl>(DRE->getDecl());
+    if (!VarDef)
+      return false;
+
+    const auto *PtrT = VarDef->getType()->getAs<PointerType>();
+    if (!PtrT)
+      return false;
+
+    const auto *PointeeT = PtrT->getPointeeType()
+                             ->getUnqualifiedDesugaredType();
+    if (const auto *RecT = dyn_cast<RecordType>(PointeeT))
+      return RecT->getDecl()->hasAttr<BPFPreserveAccessIndexAttr>();
+    return false;
+  }
+
+  return false;
+}
+
 static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
                                      ArrayRef<llvm::Value *> indices,
                                      QualType eltType, bool inbounds,
                                      bool signedIndices, SourceLocation loc,
                                      QualType *arrayType = nullptr,
-                                     const llvm::Twine &name = "arrayidx") {
+                                     const Expr *Base = nullptr,
+                                     const llvm::Twine &name = "arrayidx",
+                                     const ValueDecl *arrayDecl = nullptr) {
   // All the indices except that last must be zero.
 #ifndef NDEBUG
   for (auto idx : indices.drop_back())
@@ -3509,17 +3559,20 @@ static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
 
   llvm::Value *eltPtr;
   auto LastIndex = dyn_cast<llvm::ConstantInt>(indices.back());
-  if (!CGF.IsInPreservedAIRegion || !LastIndex) {
+  if (!LastIndex ||
+      (!CGF.IsInPreservedAIRegion && !IsPreserveAIArrayBase(CGF, Base))) {
     eltPtr = emitArraySubscriptGEP(
         CGF, addr.getPointer(), indices, inbounds, signedIndices,
         loc, name);
+    AddIVDepMetadata(CGF, arrayDecl, eltPtr);
   } else {
     // Remember the original array subscript for bpf target
     unsigned idx = LastIndex->getZExtValue();
     llvm::DIType *DbgInfo = nullptr;
     if (arrayType)
       DbgInfo = CGF.getDebugInfo()->getOrCreateStandaloneType(*arrayType, loc);
-    eltPtr = CGF.Builder.CreatePreserveArrayAccessIndex(addr.getPointer(),
+    eltPtr = CGF.Builder.CreatePreserveArrayAccessIndex(addr.getElementType(),
+                                                        addr.getPointer(),
                                                         indices.size() - 1,
                                                         idx, DbgInfo);
   }
@@ -3657,12 +3710,18 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
       ArrayLV = EmitLValue(Array);
     auto *Idx = EmitIdxAfterBase(/*Promote*/true);
 
+    const ValueDecl *ArrayDecl = nullptr;
+    if (const auto *DRE = dyn_cast<DeclRefExpr>(Array->IgnoreParenCasts()))
+      ArrayDecl = DRE->getDecl();
+    else if (const auto *ME = dyn_cast<MemberExpr>(Array->IgnoreParenCasts()))
+      ArrayDecl = ME->getMemberDecl();
+
     // Propagate the alignment from the array itself to the result.
     QualType arrayType = Array->getType();
     Addr = emitArraySubscriptGEP(
         *this, ArrayLV.getAddress(), {CGM.getSize(CharUnits::Zero()), Idx},
         E->getType(), !getLangOpts().isSignedOverflowDefined(), SignedIndices,
-        E->getExprLoc(), &arrayType);
+        E->getExprLoc(), &arrayType, E->getBase(), "arrayidx", ArrayDecl);
     EltBaseInfo = ArrayLV.getBaseInfo();
 #if INTEL_CUSTOMIZATION
     // CQ#379144 TBAA for arrays
@@ -3697,7 +3756,8 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     QualType ptrType = E->getBase()->getType();
     Addr = emitArraySubscriptGEP(*this, Addr, Idx, E->getType(),
                                  !getLangOpts().isSignedOverflowDefined(),
-                                 SignedIndices, E->getExprLoc(), &ptrType);
+                                 SignedIndices, E->getExprLoc(), &ptrType,
+                                 E->getBase());
   }
 
   LValue LV = MakeAddrLValue(Addr, E->getType(), EltBaseInfo, EltTBAAInfo);
@@ -4101,9 +4161,20 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     const CGBitFieldInfo &Info = RL.getBitFieldInfo(field);
     Address Addr = base.getAddress();
     unsigned Idx = RL.getLLVMFieldNo(field);
-    if (Idx != 0)
-      // For structs, we GEP to the field that the record layout suggests.
-      Addr = Builder.CreateStructGEP(Addr, Idx, field->getName());
+    const RecordDecl *rec = field->getParent();
+    if (!IsInPreservedAIRegion &&
+        (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>())) {
+      if (Idx != 0)
+        // For structs, we GEP to the field that the record layout suggests.
+        Addr = Builder.CreateStructGEP(Addr, Idx, field->getName());
+    } else {
+      llvm::DIType *DbgInfo = getDebugInfo()->getOrCreateRecordType(
+          getContext().getRecordType(rec), rec->getLocation());
+      Addr = Builder.CreatePreserveStructAccessIndex(Addr, Idx,
+          getDebugInfoFIndex(rec, field->getFieldIndex()),
+          DbgInfo);
+    }
+
     // Get the access type.
     llvm::Type *FieldIntTy =
       llvm::Type::getIntNTy(getLLVMContext(), Info.StorageSize);
@@ -4244,7 +4315,8 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       addr = Address(Builder.CreateLaunderInvariantGroup(addr.getPointer()),
                      addr.getAlignment());
 
-    if (IsInPreservedAIRegion) {
+    if (IsInPreservedAIRegion ||
+        (getDebugInfo() && rec->hasAttr<BPFPreserveAccessIndexAttr>())) {
       // Remember the original union field index
       llvm::DIType *DbgInfo = getDebugInfo()->getOrCreateRecordType(
           getContext().getRecordType(rec), rec->getLocation());
@@ -4258,7 +4330,8 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       addr = Builder.CreateElementBitCast(
           addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
   } else {
-    if (!IsInPreservedAIRegion)
+    if (!IsInPreservedAIRegion &&
+        (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
       // For structs, we GEP to the field that the record layout suggests.
       addr = emitAddrOfFieldStorage(*this, addr, field);
     else
@@ -4478,10 +4551,35 @@ EmitConditionalOperatorLValue(const AbstractConditionalOperator *expr) {
   EmitBlock(contBlock);
 
   if (lhs && rhs) {
-    llvm::PHINode *phi = Builder.CreatePHI(lhs->getPointer()->getType(),
-                                           2, "cond-lvalue");
-    phi->addIncoming(lhs->getPointer(), lhsBlock);
-    phi->addIncoming(rhs->getPointer(), rhsBlock);
+    llvm::Value *lhsPtr = lhs->getPointer();
+    llvm::Value *rhsPtr = rhs->getPointer();
+    if (rhsPtr->getType() != lhsPtr->getType()) {
+      if (!getLangOpts().SYCLIsDevice)
+        llvm_unreachable(
+            "Unable to find a common address space for two pointers.");
+
+      auto CastToAS = [](llvm::Value *V, llvm::BasicBlock *BB, unsigned AS) {
+        auto *Ty = cast<llvm::PointerType>(V->getType());
+        if (Ty->getAddressSpace() == AS)
+          return V;
+        llvm::IRBuilder<> Builder(BB->getTerminator());
+        auto *TyAS = llvm::PointerType::get(Ty->getElementType(), AS);
+        return Builder.CreatePointerBitCastOrAddrSpaceCast(V, TyAS);
+      };
+
+      // Language rules define if it is legal to cast from one address space
+      // to another, and which address space we should use as a "common
+      // denominator". In SYCL, generic address space overlaps with all other
+      // address spaces.
+      unsigned GenericAS =
+          getContext().getTargetAddressSpace(LangAS::opencl_generic);
+
+      lhsPtr = CastToAS(lhsPtr, lhsBlock, GenericAS);
+      rhsPtr = CastToAS(rhsPtr, rhsBlock, GenericAS);
+    }
+    llvm::PHINode *phi = Builder.CreatePHI(lhsPtr->getType(), 2, "cond-lvalue");
+    phi->addIncoming(lhsPtr, lhsBlock);
+    phi->addIncoming(rhsPtr, rhsBlock);
     Address result(phi, std::min(lhs->getAlignment(), rhs->getAlignment()));
     AlignmentSource alignSource =
       std::max(lhs->getBaseInfo().getAlignmentSource(),
@@ -4786,7 +4884,7 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
     return CGCallee::forBuiltin(builtinID, FD);
   }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
     for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
@@ -4797,7 +4895,7 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
       CGF.CGM.GetAddrOfFunction(VFD);
     }
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   llvm::Constant *calleePtr = EmitFunctionDeclPointer(CGF.CGM, FD);
   return CGCallee::forDirect(calleePtr, GlobalDecl(FD));
 }

@@ -21,6 +21,7 @@
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 
 #include "SOAToAOSArrays.h"
+#include "SOAToAOSClassInfo.h"
 #include "SOAToAOSEffects.h"
 #include "SOAToAOSStruct.h"
 
@@ -28,6 +29,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/FunctionComparator.h"
 
@@ -47,6 +49,9 @@ static cl::opt<bool> DTransSOAToAOSSizeHeuristic(
     "dtrans-soatoaos-size-heuristic", cl::init(true), cl::Hidden,
     cl::desc("Respect size heuristic in DTrans SOAToAOS"));
 
+static cl::opt<bool> DTransSOAToAOSIgnoreClassInfo(
+    "dtrans-soatoaos-ignore-classinfo", cl::init(false), cl::Hidden,
+    cl::desc("Ignore ClassInfo Analysis in DTrans SOAToAOS"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<std::string> DTransSOAToAOSType("dtrans-soatoaos-typename",
@@ -58,9 +63,10 @@ public:
   SOAToAOSTransformImpl(
       DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      std::function<DominatorTree &(Function &)> GetDT, StringRef DepTypePrefix,
+      DTransTypeRemapper *TypeRemapper)
       : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix,
-                      TypeRemapper) {}
+                      TypeRemapper), GetDT(GetDT) {}
 
   ~SOAToAOSTransformImpl() {
     for (auto *Cand : Candidates) {
@@ -72,6 +78,7 @@ public:
 private:
   SOAToAOSTransformImpl(const SOAToAOSTransformImpl &) = delete;
   SOAToAOSTransformImpl &operator=(const SOAToAOSTransformImpl &) = delete;
+  std::function<DominatorTree &(Function &)> GetDT;
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -103,8 +110,114 @@ private:
       return true;
     }
 
+    // Verify that all member functions of vector field classes are
+    // expected pattern.
+    bool checkClassInfoAnalysis(SOAToAOSTransformImpl &Impl, Module &M) {
+      if (DTransSOAToAOSIgnoreClassInfo)
+        return true;
+
+      std::unique_ptr<MemInitCandidateInfo> CandD(new MemInitCandidateInfo());
+      if (!CandD->isCandidateType(Struct) || !CandD->collectMemberFunctions(M))
+        return false;
+
+      ClassCandI = CandD.release();
+      for (auto Loc : ArrayFieldOffsets) {
+        std::unique_ptr<ClassInfo> ClassD(
+            new ClassInfo(Impl.DL, *Impl.DTInfo, Impl.GetTLI, Impl.GetDT,
+                          ClassCandI, Loc, false));
+        if (!ClassD->analyzeClassFunctions())
+          return false;
+
+        ArraysClassInfo.push_back(ClassD.release());
+      }
+      return true;
+    }
+
+    // Compare functions F1 and F2 using class analysis info.
+    bool classInfoAnalysisCompare(Function *F1, Function *F2) {
+
+      auto GetClassInfo = [this](Function *F) -> ClassInfo * {
+        for (auto *CInfo : ArraysClassInfo)
+          if (CInfo->isCandidateMemberFunction(F))
+            return CInfo;
+        return nullptr;
+      };
+
+      // Returns true if 2nd argument of given AppendElem function
+      // F is address of element variant.
+      auto IsAddressOfElemVariantAppendElem = [](ClassInfo *CInfo,
+                                                 Function *F) {
+        Argument *Arg = F->getArg(1);
+        if (CInfo->isElemDataAddrType(Arg->getType()))
+          return true;
+        return false;
+      };
+
+      if (DTransSOAToAOSIgnoreClassInfo)
+        return false;
+
+      auto *A1Ty = getStructTypeOfMethod(*F1);
+      auto *A2Ty = getStructTypeOfMethod(*F2);
+      if (!A1Ty || !A2Ty)
+        return false;
+      ClassInfo *C1Info = GetClassInfo(F1);
+      ClassInfo *C2Info = GetClassInfo(F2);
+      if (!C1Info || !C2Info)
+        return false;
+      FunctionKind FKind1 = C1Info->getFinalFuncKind(F1);
+      FunctionKind FKind2 = C2Info->getFinalFuncKind(F2);
+      if (FKind1 != FKind2)
+        return false;
+
+      switch (FKind1) {
+      default:
+        // No need to combine the other member functions.
+        return false;
+
+      case Constructor: {
+        // Make sure flag value is same. All other fields will be
+        // verified at callsites.
+        StoreInst *FlagSI1 = C1Info->getFlagFieldStoreInstInCtor();
+        StoreInst *FlagSI2 = C2Info->getFlagFieldStoreInstInCtor();
+        if (!FlagSI1 || !FlagSI2)
+          return false;
+        if (FlagSI1->getValueOperand() == FlagSI2->getValueOperand())
+          return true;
+      } break;
+
+      case CopyConstructor:
+        // No variations are expected.
+        return true;
+
+      case AppendElem:
+        // Make sure address of element type is passed in both cases.
+        // Allow only if 2nd argument of both functions represent
+        // "element address".
+        if (IsAddressOfElemVariantAppendElem(C1Info, F1) &&
+            IsAddressOfElemVariantAppendElem(C2Info, F2))
+          return true;
+        break;
+
+      case Resize:
+      case Destructor:
+        // TODO: Even though these are semantically almost same, there are
+        // some minor differences. Need to add more checks and handle
+        // the  differences either in SOAToAOS or SOAToAOSPrepare passes.
+        // This will be fixed in next change-set.
+        return true;
+      }
+      return false;
+    }
+
   protected:
     CandidateSideEffectsInfo() {}
+
+    ~CandidateSideEffectsInfo() {
+      for (auto *CInfo : ArraysClassInfo)
+        delete CInfo;
+      if (ClassCandI)
+        delete ClassCandI;
+    }
 
     struct CombinedCallSiteInfo : public CallSiteComparator::CallSitesInfo {
       // Calls are from append-like method, no need for special processing.
@@ -121,11 +234,14 @@ private:
         std::unique_ptr<ComputeArrayMethodClassification::TransformationData>>
         ArrayTransInfo;
 
+    // These are used to keep class info of vector field classes.
+    MemInitCandidateInfo *ClassCandI = nullptr;
+    SmallVector<ClassInfo *, MaxNumFieldCandidates> ArraysClassInfo;
+
   private:
     CandidateSideEffectsInfo(const CandidateSideEffectsInfo &) = delete;
     CandidateSideEffectsInfo &
     operator=(const CandidateSideEffectsInfo &) = delete;
-
   };
 
   // Check debug passes in SOAToAOSArrays.cpp and SOAToAOSStruct.cpp.
@@ -159,9 +275,8 @@ private:
           auto *ArrType = getStructTypeOfMethod(*Method);
           assert(ArrType && "Expected class type for array method");
           NewFunctionTy = ArrayMethodTransformation::mapNewAppendType(
-              *Method,
-              getSOAElementType(ArrType, BasePointerOffset),
-              Elems, Impl.TypeRemapper, AppendMethodElemParamOffset);
+              *Method, getSOAElementType(ArrType, BasePointerOffset), Elems,
+              Impl.TypeRemapper, AppendMethodElemParamOffset);
         } else
           Impl.TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
       }
@@ -204,9 +319,8 @@ private:
 
       SmallVector<StructType *, MaxNumFieldCandidates> Fields(fields_begin(),
                                                               fields_end());
-      StructMethodTransformation SMT(Impl.DL, *Impl.DTInfo, Impl.VMap,
-                                     CSInfo, TI,
-                                     OrigFunc.getParent()->getContext());
+      StructMethodTransformation SMT(Impl.DL, *Impl.DTInfo, Impl.VMap, CSInfo,
+                                     TI, OrigFunc.getParent()->getContext());
 
       SMT.updateReferences(Struct, NewArray, Fields, AOSOffset,
                            BasePointerOffset);
@@ -246,8 +360,8 @@ private:
       }
 
       const TargetLibraryInfo &TLI = Impl.GetTLI(OrigFunc);
-      ArrayMethodTransformation AMT(Impl.DL, *Impl.DTInfo, TLI, Impl.VMap,
-                                    TI, OrigFunc.getParent()->getContext());
+      ArrayMethodTransformation AMT(Impl.DL, *Impl.DTInfo, TLI, Impl.VMap, TI,
+                                    OrigFunc.getParent()->getContext());
 
       AMT.updateBasePointerInsts(CopyElemInsts, getNumArrays(),
                                  NewElement->getPointerTo(0));
@@ -315,7 +429,6 @@ private:
     CandidateInfo() {}
 
   private:
-    CandidateInfo(const CandidateInfo &) = delete;
     CandidateInfo &operator=(const CandidateInfo &) = delete;
 
     // Structure containing one element per each transformed array.
@@ -478,8 +591,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     // As direct calls to MK_Realloc is not tested, forbid it, MK_Realloc is
     // called only from MK_Append.
     if (CSInfo.Reallocs.back() != MethodsCalled)
-      return FALSE(
-          "method  called from append-like method is not realloc.");
+      return FALSE("method  called from append-like method is not realloc.");
   }
 
   if (UnknownSeen) {
@@ -520,6 +632,11 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
                           << O->getName() << " showed bit-to-bit equality.\n");
         // GNS keeps pointers to modifiable values in a map.
         GNS.setEqual(const_cast<Function *>(F), const_cast<Function *>(O));
+      } else if (classInfoAnalysisCompare(const_cast<Function *>(F),
+                                          const_cast<Function *>(O))) {
+        LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
+                          << O->getName()
+                          << " by ClassInfo showed semantically equal.\n");
       } else {
         LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
                           << O->getName() << " showed some differences, "
@@ -548,8 +665,9 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       dbgs() << "; Struct's method " << F->getName()
              << (CheckResult && SeenArrays
                      ? " has only expected side-effects\n"
-                     : (SeenArrays ?  " needs analysis of instructions)\n":
-                        " no need to analyze: no accesses to arrays\n"));
+                     : (SeenArrays
+                            ? " needs analysis of instructions)\n"
+                            : " no need to analyze: no accesses to arrays\n"));
       if (!CheckResult && SeenArrays)
         dbgs() << "; See -debug-only=" << DTRANS_SOASTR
                << " RUN-lines in soatoaos05*.ll on debugging.\n";
@@ -646,6 +764,15 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
       continue;
     }
 
+    if (!Info->checkClassInfoAnalysis(*this, M)) {
+      LLVM_DEBUG({
+        dbgs() << "  ; Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because ClassInfo analysis failed.\n";
+      });
+      continue;
+    }
+
     if (!Info->populateSideEffects(*this, M)) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
@@ -708,7 +835,8 @@ namespace dtrans {
 bool SOAToAOSPass::runImpl(
     Module &M, DTransAnalysisInfo &DTInfo,
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-    WholeProgramInfo &WPInfo) {
+    WholeProgramInfo &WPInfo,
+    std::function<DominatorTree &(Function &)> GetDT) {
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
@@ -716,7 +844,7 @@ bool SOAToAOSPass::runImpl(
   // Perform the actual transformation.
   DTransTypeRemapper TypeRemapper;
   SOAToAOSTransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
-                                    GetTLI, "__SOADT_", &TypeRemapper);
+                                    GetTLI, GetDT, "__SOADT_", &TypeRemapper);
   return Transformer.run(M);
 }
 
@@ -728,9 +856,13 @@ PreservedAnalyses SOAToAOSPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
-  bool Changed = runImpl(M, DTransInfo, GetTLI, WP);
+  auto GetDT = [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+
+  bool Changed = runImpl(M, DTransInfo, GetTLI, WP, GetDT);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -772,13 +904,17 @@ public:
     auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
-    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WP);
+    auto GetDT = [this](Function &F) -> DominatorTree & {
+      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+    };
+    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WP, GetDT);
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
     return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
@@ -794,6 +930,7 @@ char DTransSOAToAOSWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransSOAToAOSWrapper, "dtrans-soatoaos",
                       "DTrans struct of arrays to array of structs", false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)

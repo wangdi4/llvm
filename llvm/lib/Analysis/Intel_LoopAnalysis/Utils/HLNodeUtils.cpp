@@ -23,6 +23,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include <llvm/IR/IntrinsicInst.h>
 
@@ -183,9 +184,23 @@ HLInst *HLNodeUtils::createNonLvalHLInst(Instruction *Inst) {
   return createHLInst(Inst);
 }
 
-HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
-                                       const Twine &Name, RegDDRef *LvalRef,
-                                       Type *DestTy) {
+HLInst *HLNodeUtils::createUnaryHLInst(
+    unsigned OpCode, RegDDRef *RvalRef, const Twine &Name, RegDDRef *LvalRef,
+    Type *DestTy, const UnaryInstruction *OrigUnInst) {
+  HLInst *HInst = createUnaryHLInstImpl(OpCode, RvalRef, Name, LvalRef, DestTy,
+                                        nullptr);
+  if (OrigUnInst) {
+    UnaryInstruction *NewUnInstr = cast<UnaryInstruction>(
+        const_cast<Instruction *>(HInst->getLLVMInstruction()));
+    NewUnInstr->copyIRFlags(OrigUnInst);
+  }
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
+                                           const Twine &Name, RegDDRef *LvalRef,
+                                           Type *DestTy, MDNode *FPMathTag) {
   Value *InstVal = nullptr;
   Instruction *Inst = nullptr;
   HLInst *HInst = nullptr;
@@ -220,6 +235,13 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     break;
   }
 
+  case Instruction::FNeg: {
+    assert(RvalRef->getDestType()->isFPOrFPVectorTy() &&
+           "Operand is not an float type!");
+    InstVal = DummyIRBuilder->CreateFNeg(DummyVal, Name, FPMathTag);
+    break;
+  }
+
   case Instruction::Trunc:
   case Instruction::ZExt:
   case Instruction::SExt:
@@ -232,7 +254,6 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   case Instruction::PtrToInt:
   case Instruction::IntToPtr:
   case Instruction::AddrSpaceCast: {
-
     InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, DummyVal,
                                          DestTy, Name);
     break;
@@ -367,58 +388,68 @@ HLInst *HLNodeUtils::createAlloca(Type *Ty, RegDDRef *ArraySizeRvalRef,
 
 HLInst *HLNodeUtils::createLoad(RegDDRef *RvalRef, const Twine &Name,
                                 RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::Load, RvalRef, Name, LvalRef, nullptr);
+  return createUnaryHLInstImpl(Instruction::Load, RvalRef, Name, LvalRef,
+                               nullptr, nullptr);
 }
 
 HLInst *HLNodeUtils::createStore(RegDDRef *RvalRef, const Twine &Name,
                                  RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::Store, RvalRef, Name, LvalRef, nullptr);
+  return createUnaryHLInstImpl(Instruction::Store, RvalRef, Name, LvalRef,
+                               nullptr, nullptr);
 }
 
 HLInst *HLNodeUtils::createTrunc(Type *DestTy, RegDDRef *RvalRef,
                                  const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::Trunc, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::Trunc, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createZExt(Type *DestTy, RegDDRef *RvalRef,
                                 const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::ZExt, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::ZExt, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createSExt(Type *DestTy, RegDDRef *RvalRef,
                                 const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::SExt, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::SExt, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createFPToUI(Type *DestTy, RegDDRef *RvalRef,
                                   const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::FPToUI, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::FPToUI, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createFPToSI(Type *DestTy, RegDDRef *RvalRef,
                                   const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::FPToSI, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::FPToSI, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createUIToFP(Type *DestTy, RegDDRef *RvalRef,
                                   const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::UIToFP, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::UIToFP, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createSIToFP(Type *DestTy, RegDDRef *RvalRef,
                                   const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::SIToFP, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::SIToFP, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createFPTrunc(Type *DestTy, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::FPTrunc, RvalRef, Name, LvalRef,
-                           DestTy);
+  return createUnaryHLInstImpl(Instruction::FPTrunc, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createFPExt(Type *DestTy, RegDDRef *RvalRef,
                                  const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::FPExt, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInstImpl(Instruction::FPExt, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
@@ -456,26 +487,32 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
 
 HLInst *HLNodeUtils::createPtrToInt(Type *DestTy, RegDDRef *RvalRef,
                                     const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::PtrToInt, RvalRef, Name, LvalRef,
-                           DestTy);
+  return createUnaryHLInstImpl(Instruction::PtrToInt, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createIntToPtr(Type *DestTy, RegDDRef *RvalRef,
                                     const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::IntToPtr, RvalRef, Name, LvalRef,
-                           DestTy);
+  return createUnaryHLInstImpl(Instruction::IntToPtr, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createBitCast(Type *DestTy, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::BitCast, RvalRef, Name, LvalRef,
-                           DestTy);
+  return createUnaryHLInstImpl(Instruction::BitCast, RvalRef, Name, LvalRef,
+                               DestTy, nullptr);
 }
 
 HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
                                          const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::AddrSpaceCast, RvalRef, Name, LvalRef,
-                           DestTy);
+  return createUnaryHLInstImpl(Instruction::AddrSpaceCast, RvalRef, Name,
+                               LvalRef, DestTy, nullptr);
+}
+
+HLInst *HLNodeUtils::createFNeg(RegDDRef *RvalRef, const Twine &Name,
+                                RegDDRef *LvalRef, MDNode *FPMathTag) {
+  return createUnaryHLInstImpl(Instruction::FNeg, RvalRef, Name, LvalRef,
+                               nullptr, FPMathTag);
 }
 
 HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
@@ -699,12 +736,23 @@ HLInst *HLNodeUtils::createInsertElementInst(RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                               const Twine &Name,
                                               RegDDRef *LvalRef) {
+  RegDDRef *IdxDDref = getDDRefUtils().createConstDDRef(
+      Type::getInt64Ty(getDDRefUtils().getContext()), Idx);
+
+  return createExtractElementInst(OpRef, IdxDDref, Name, LvalRef);
+}
+
+HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
+                                              const Twine &Name,
+                                              RegDDRef *LvalRef) {
 
   assert(OpRef->getDestType()->isVectorTy() &&
          "Illegal operand types for extractelement");
 
   auto UndefVal = UndefValue::get(OpRef->getDestType());
-  Value *InstVal = DummyIRBuilder->CreateExtractElement(UndefVal, Idx, Name);
+  auto UndefIdx = UndefValue::get(IdxRef->getDestType());
+  Value *InstVal =
+      DummyIRBuilder->CreateExtractElement(UndefVal, UndefIdx, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
@@ -712,10 +760,7 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
   HLInst *HInst = createLvalHLInst(Inst, LvalRef);
 
   HInst->setOperandDDRef(OpRef, 1);
-
-  RegDDRef *IdxDDref =
-      getDDRefUtils().createConstDDRef(Inst->getOperand(1)->getType(), Idx);
-  HInst->setOperandDDRef(IdxDDref, 2);
+  HInst->setOperandDDRef(IdxRef, 2);
 
   return HInst;
 }
@@ -1668,7 +1713,11 @@ bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
 
 void HLNodeUtils::removeInternal(HLContainerTy &Container,
                                  HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last, bool Erase) {
+                                 HLContainerTy::iterator Last,
+                                 HLContainerTy *MoveContainer, bool Erase) {
+  assert(!(MoveContainer && Erase) &&
+         "Caller wants to move and erase nodes at the same time!");
+
   HLNode *Node;
 
   for (auto I = First, Next = I, E = Last; I != E; I = Next) {
@@ -1676,7 +1725,9 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
     Next++;
     Node = &*I;
 
-    Container.remove(*Node);
+    if (!MoveContainer) {
+      Container.remove(*Node);
+    }
 
     if (Erase) {
       Node->getHLNodeUtils().destroy(Node);
@@ -1686,11 +1737,17 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
       Node->setParent(nullptr);
     }
   }
+
+  if (MoveContainer) {
+    MoveContainer->splice(MoveContainer->end(), Container, First, Last);
+  }
 }
 
 void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
                              HLContainerTy::iterator Last,
                              HLContainerTy *MoveContainer, bool Erase) {
+  assert(!(MoveContainer && Erase) &&
+         "Caller wants to move and erase nodes at the same time!");
 
   // Empty range should be handled before we decide to dereference 'First' as it
   // might be invalid.
@@ -1755,11 +1812,9 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
   }
 
   if (Erase) {
-    removeInternal(*OrigContainer, First, Last, true);
-  } else if (!MoveContainer) {
-    removeInternal(*OrigContainer, First, Last, false);
+    removeInternal(*OrigContainer, First, Last, nullptr, true);
   } else {
-    MoveContainer->splice(MoveContainer->end(), *OrigContainer, First, Last);
+    removeInternal(*OrigContainer, First, Last, MoveContainer, false);
   }
 
   if (UpdateInnermostFlag &&

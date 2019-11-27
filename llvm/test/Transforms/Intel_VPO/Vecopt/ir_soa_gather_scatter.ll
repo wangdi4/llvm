@@ -1,8 +1,9 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=true  -S %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; Prepare GEP for gather
-; CHECK:   %[[INDICES:.*]] = load <4 x i32>, <4 x i32>* 
+; CHECK:   %[[INDICES:.*]] = load <4 x i32>, <4 x i32>*
 ; CHECK:   [[MASK1:%.*]] = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
 ; CHECK:   %[[G_PTR_TO_SCALAR:.*]] = bitcast <4 x <2 x i32>*> {{.*}} to <4 x i32*>
 ; CHECK:   %[[VEC_BASE_PTR:.*]] = shufflevector <4 x i32*> %[[G_PTR_TO_SCALAR]], <4 x i32*> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
@@ -11,10 +12,10 @@
 ; Calculate value to be stored
 ; CHECK:   %[[VALUE_TO_STORE:.*]] = add <8 x i32> %wide.masked.gather, <i32 5, i32 6, i32 5, i32 6, i32 5, i32 6, i32 5, i32 6>
 ; Prepare GEP for scatter
-; CHECK:   %[[ReplicatedMaskVec:.*]] = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:   %[[S_PTR_TO_SCALAR:.*]] = bitcast <4 x <2 x i32>*> {{.*}} to <4 x i32*>
-; CHECK:   %[[S_VEC_BASE_PTR:.*]] = shufflevector <4 x i32*> %[[S_PTR_TO_SCALAR]], <4 x i32*> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:   %[[S_ELEM_BASE_PTR:.*]] = getelementptr i32, <8 x i32*> %[[S_VEC_BASE_PTR]], <8 x i64> <i64 0, i64 1, i64 0, i64 1, i64 0, i64 1, i64 0, i64 1>
+; CHECK-DAG:   %[[ReplicatedMaskVec:.*]] = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK-DAG:   %[[S_PTR_TO_SCALAR:.*]] = bitcast <4 x <2 x i32>*> {{.*}} to <4 x i32*>
+; CHECK-DAG:   %[[S_VEC_BASE_PTR:.*]] = shufflevector <4 x i32*> %[[S_PTR_TO_SCALAR]], <4 x i32*> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK-DAG:   %[[S_ELEM_BASE_PTR:.*]] = getelementptr i32, <8 x i32*> %[[S_VEC_BASE_PTR]], <8 x i64> <i64 0, i64 1, i64 0, i64 1, i64 0, i64 1, i64 0, i64 1>
 ; CHECK:   call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> %[[VALUE_TO_STORE]], <8 x i32*> %[[S_ELEM_BASE_PTR]], i32 4, <8 x i1> %[[ReplicatedMaskVec]])
 
 

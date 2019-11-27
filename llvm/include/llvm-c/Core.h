@@ -16,11 +16,10 @@
 #define LLVM_C_CORE_H
 
 #include "llvm-c/ErrorHandling.h"
+#include "llvm-c/ExternC.h"
 #include "llvm-c/Types.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+LLVM_C_EXTERN_C_BEGIN
 
 /**
  * @defgroup LLVMC LLVM-C: C interface to LLVM
@@ -127,6 +126,7 @@ typedef enum {
   LLVMShuffleVector  = 52,
   LLVMExtractValue   = 53,
   LLVMInsertValue    = 54,
+  LLVMFreeze         = 68,
 
   /* Atomic operators */
   LLVMFence          = 55,
@@ -1549,6 +1549,7 @@ LLVMTypeRef LLVMX86MMXType(void);
           macro(GlobalVariable)             \
       macro(UndefValue)                     \
     macro(Instruction)                      \
+      macro(UnaryOperator)                  \
       macro(BinaryOperator)                 \
       macro(CallInst)                       \
         macro(IntrinsicInst)                \
@@ -1607,6 +1608,7 @@ LLVMTypeRef LLVMX86MMXType(void);
         macro(ExtractValueInst)             \
         macro(LoadInst)                     \
         macro(VAArgInst)                    \
+        macro(FreezeInst)                   \
       macro(AtomicCmpXchgInst)              \
       macro(AtomicRMWInst)                  \
       macro(FenceInst)
@@ -3914,6 +3916,8 @@ LLVMValueRef LLVMBuildExtractValue(LLVMBuilderRef, LLVMValueRef AggVal,
 LLVMValueRef LLVMBuildInsertValue(LLVMBuilderRef, LLVMValueRef AggVal,
                                   LLVMValueRef EltVal, unsigned Index,
                                   const char *Name);
+LLVMValueRef LLVMBuildFreeze(LLVMBuilderRef, LLVMValueRef Val,
+                             const char *Name);
 
 LLVMValueRef LLVMBuildIsNull(LLVMBuilderRef, LLVMValueRef Val,
                              const char *Name);
@@ -4093,8 +4097,6 @@ LLVMBool LLVMIsMultithreaded(void);
  * @}
  */
 
-#ifdef __cplusplus
-}
-#endif
+LLVM_C_EXTERN_C_END
 
 #endif /* LLVM_C_CORE_H */

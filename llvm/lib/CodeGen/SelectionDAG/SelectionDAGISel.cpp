@@ -27,6 +27,7 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/EHPersonalities.h"
+#include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -74,6 +75,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Pass.h"
@@ -114,13 +116,6 @@ STATISTIC(NumDAGIselRetries,"Number of times dag isel has to try another path");
 STATISTIC(NumEntryBlocks, "Number of entry blocks encountered");
 STATISTIC(NumFastIselFailLowerArguments,
           "Number of entry blocks where fast isel failed to lower arguments");
-
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-IntelLibIRCAllowed("intel-libirc-allowed",
-                    cl::desc("Allow the generation of calls to libirc."),
-                    cl::init(false));
-#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<int> EnableFastISelAbort(
     "fast-isel-abort", cl::Hidden,
@@ -311,24 +306,18 @@ void TargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
 // SelectionDAGISel code
 //===----------------------------------------------------------------------===//
 
-SelectionDAGISel::SelectionDAGISel(TargetMachine &tm,
-                                   CodeGenOpt::Level OL) :
-  MachineFunctionPass(ID), TM(tm),
-  FuncInfo(new FunctionLoweringInfo()),
-  SwiftError(new SwiftErrorValueTracking()),
-  CurDAG(new SelectionDAG(tm, OL)),
-  SDB(new SelectionDAGBuilder(*CurDAG, *FuncInfo, *SwiftError, OL)),
-  AA(), GFI(),
-  OptLevel(OL),
-  DAGSize(0) {
-    initializeGCModuleInfoPass(*PassRegistry::getPassRegistry());
-    initializeBranchProbabilityInfoWrapperPassPass(
-        *PassRegistry::getPassRegistry());
-    initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
-    initializeTargetLibraryInfoWrapperPassPass(
-        *PassRegistry::getPassRegistry());
-    TM.setIntelLibIRCAllowed(IntelLibIRCAllowed); // INTEL
-  }
+SelectionDAGISel::SelectionDAGISel(TargetMachine &tm, CodeGenOpt::Level OL)
+    : MachineFunctionPass(ID), TM(tm), FuncInfo(new FunctionLoweringInfo()),
+      SwiftError(new SwiftErrorValueTracking()),
+      CurDAG(new SelectionDAG(tm, OL)),
+      SDB(new SelectionDAGBuilder(*CurDAG, *FuncInfo, *SwiftError, OL)), AA(),
+      GFI(), OptLevel(OL), DAGSize(0) {
+  initializeGCModuleInfoPass(*PassRegistry::getPassRegistry());
+  initializeBranchProbabilityInfoWrapperPassPass(
+      *PassRegistry::getPassRegistry());
+  initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
+  initializeTargetLibraryInfoWrapperPassPass(*PassRegistry::getPassRegistry());
+}
 
 SelectionDAGISel::~SelectionDAGISel() {
   delete SDB;
@@ -1596,7 +1585,7 @@ void SelectionDAGISel::SelectAllBasicBlocks(const Function &Fn) {
       // But if FastISel was run, we already selected some of the block.
       // If we emitted a tail-call, we need to delete any previously emitted
       // instruction that follows it.
-      if (HadTailCall && FuncInfo->InsertPt != FuncInfo->MBB->end())
+      if (FastIS && HadTailCall && FuncInfo->InsertPt != FuncInfo->MBB->end())
         FastIS->removeDeadCode(FuncInfo->InsertPt, FuncInfo->MBB->end());
     }
 

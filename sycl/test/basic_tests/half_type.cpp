@@ -3,8 +3,6 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 
 //==--------------- half_type.cpp - SYCL half type test --------------------==//
 //
@@ -195,10 +193,7 @@ inline bool bitwise_comparison_fp32(const half val, const uint32_t exp) {
 }
 
 int main() {
-  // We assert that the length is 1 because we use env to select the device
-  assert(device::get_devices().size() == 1);
-
-  auto dev = device::get_devices()[0];
+  device dev{default_selector()};
   if (!dev.is_host() && !dev.has_extension("cl_khr_fp16")) {
     std::cout << "This device doesn't support the extension cl_khr_fp16"
               << std::endl;
@@ -212,7 +207,7 @@ int main() {
   buffer<half, 1> a{vec_a.data(), r};
   buffer<half, 1> b{vec_b.data(), r};
 
-  queue q;
+  queue q {dev};
 
   verify_add(q, a, b, r, 7.0);
   verify_min(q, a, b, r, 3.0);

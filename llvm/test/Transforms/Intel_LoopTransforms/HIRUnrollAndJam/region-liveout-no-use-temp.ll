@@ -7,12 +7,11 @@
 ; + DO i1 = 0, 50, 1   <DO_LOOP>
 ; |   %t2 = trunc.i64.i32(i1 + 2);
 ; |
-; |   + DO i2 = 0, i1 + -1 * umin(1, (-1 + %t2)) + 1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; |   + DO i2 = 0, i1, 1   <DO_LOOP>  <MAX_TC_EST = 51>
 ; |   |   %dec.lcssa49 = 9;
 ; |   |
-; |   |      %limm = (%so)[0][0];
 ; |   |   + DO i3 = 0, -1 * i1 + 6, 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; |   |   |   (%so)[0][-1 * i3 + 9] = %limm;
+; |   |   |   (%so)[0][-1 * i3 + 9] = (%so)[0][0];
 ; |   |   + END LOOP
 ; |   |      %dec.lcssa49 = i1 + 2;
 ; |   + END LOOP
@@ -20,7 +19,7 @@
 
 ; Check for unroll by 8.
 
-; CHECK: |   %tgu = (i1 + -1 * umin(1, (-1 + %t2)) + 2)/u8;
+; CHECK: |   %tgu = (i1 + 1)/u8;
 ; CHECK: |   + DO i2 = 0, %tgu + -1, 1
 
 

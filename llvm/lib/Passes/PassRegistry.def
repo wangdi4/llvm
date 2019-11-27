@@ -21,6 +21,7 @@
 MODULE_ANALYSIS("callgraph", CallGraphAnalysis())
 #if INTEL_INCLUDE_DTRANS
 MODULE_ANALYSIS("dtransanalysis", DTransAnalysis())    // INTEL
+MODULE_ANALYSIS("dtrans-immutable-analysis", DTransImmutableAnalysis()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_ANALYSIS("inlineaggressive", InlineAggAnalysis())    // INTEL
 MODULE_ANALYSIS("lcg", LazyCallGraphAnalysis())
@@ -49,6 +50,9 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #ifndef MODULE_PASS
 #define MODULE_PASS(NAME, CREATE_PASS)
 #endif
+#if INTEL_CUSTOMIZATION
+MODULE_PASS("vec-clone",VecClonePass());
+#endif //INTEL_CUSTOMIZATION
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("attributor", AttributorPass())
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
@@ -101,11 +105,13 @@ MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,             // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
+MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())    // INTEL
 MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
 MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())           // INTEL
+MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())      // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass(nullptr, nullptr))
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())
@@ -122,6 +128,7 @@ MODULE_PASS("print", PrintModulePass(dbgs()))
 MODULE_PASS("print-lcg", LazyCallGraphPrinterPass(dbgs()))
 MODULE_PASS("print-lcg-dot", LazyCallGraphDOTPrinterPass(dbgs()))
 MODULE_PASS("print-stack-safety", StackSafetyGlobalPrinterPass(dbgs()))
+MODULE_PASS("qsortrecognizer", QsortRecognizerPass()) // INTEL
 MODULE_PASS("rewrite-statepoints-for-gc", RewriteStatepointsForGC())
 MODULE_PASS("rewrite-symbols", RewriteSymbolPass())
 MODULE_PASS("rpo-functionattrs", ReversePostOrderFunctionAttrsPass())
@@ -131,6 +138,8 @@ MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass(nullptr, nullptr))
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("asan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/false, false, true, false))
+MODULE_PASS("msan-module", MemorySanitizerPass({}))
+MODULE_PASS("tsan-module", ThreadSanitizerPass())
 MODULE_PASS("kasan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/true, false, true, false))
 MODULE_PASS("sancov-module", ModuleSanitizerCoveragePass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
@@ -138,6 +147,7 @@ MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
 MODULE_PASS("intel-advancedfastcall", IntelAdvancedFastCallPass()) // INTEL
+MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass()) // INTEL
 #if INTEL_COLLAB
 MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
@@ -268,9 +278,11 @@ FUNCTION_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 FUNCTION_PASS("float2int", Float2IntPass())
 FUNCTION_PASS("no-op-function", NoOpFunctionPass())
 FUNCTION_PASS("libcalls-shrinkwrap", LibCallsShrinkWrapPass())
+FUNCTION_PASS("inject-tli-mappings", InjectTLIMappings())
 FUNCTION_PASS("loweratomic", LowerAtomicPass())
 FUNCTION_PASS("lower-expect", LowerExpectIntrinsicPass())
 FUNCTION_PASS("lower-guard-intrinsic", LowerGuardIntrinsicPass())
+FUNCTION_PASS("lower-constant-intrinsics", LowerConstantIntrinsicsPass())
 FUNCTION_PASS("lower-widenable-condition", LowerWidenableConditionPass())
 FUNCTION_PASS("lower-subscript", LowerSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("guard-widening", GuardWideningPass())
@@ -369,6 +381,7 @@ FUNCTION_PASS("hir-loop-rematerialize", loopopt::HIRLoopRematerializePass())
 FUNCTION_PASS("hir-loop-reversal", loopopt::HIRLoopReversalPass())
 FUNCTION_PASS("hir-loop-reroll", loopopt::HIRLoopRerollPass())
 FUNCTION_PASS("hir-mv-const-ub", loopopt::HIRMVForConstUBPass())
+FUNCTION_PASS("hir-mv-variable-stride", loopopt::HIRMVForVariableStridePass())
 FUNCTION_PASS("hir-opt-predicate", loopopt::HIROptPredicatePass())
 FUNCTION_PASS("hir-opt-var-predicate", loopopt::HIROptVarPredicatePass())
 FUNCTION_PASS("hir-post-vec-complete-unroll", loopopt::HIRPostVecCompleteUnrollPass())
@@ -381,6 +394,7 @@ FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
+FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())
 FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
 FUNCTION_PASS("loop-carried-cse", LoopCarriedCSEPass())
 FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass())
@@ -398,6 +412,7 @@ FUNCTION_PASS("print<vpo-wrncollection>",
               WRegionCollectionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
+FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 #endif // INTEL_COLLAB
 FUNCTION_PASS("kmsan", MemorySanitizerPass({0, false, /*Kernel=*/true}))

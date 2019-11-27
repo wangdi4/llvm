@@ -5,8 +5,6 @@
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 // RUN: %clangxx -fsycl %s -o %t.ext.out -fsycl-unnamed-lambda
 // RUN: %CPU_RUN_PLACEHOLDER %t.ext.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 
 //==-- kernel_name_class.cpp - SYCL kernel naming variants test ------------==//
 //

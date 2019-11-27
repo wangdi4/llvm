@@ -311,14 +311,14 @@ public:
   /// DefinedAtLevel) in the current loopnest.
   bool isLinearAtLevel(unsigned Level) const { return DefinedAtLevel < Level; }
 
-  /// Returns true if the canon expr is linear at level and does not have IV at
-  /// given level.
-  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerLoops = true) const {
+  /// Returns true if the canon expr is invariant at \p Level.
+  /// If \p IgnoreInnerIVs is set to true, inner loop IVs are ignored.
+  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs = false) const {
     if (isNonLinear() || DefinedAtLevel >= Level) {
       return false;
     }
 
-    if (IgnoreInnerLoops) {
+    if (IgnoreInnerIVs) {
       return !hasIV(Level);
     }
 
@@ -466,9 +466,9 @@ public:
   bool isStandAloneUndefBlob() const;
 
   /// return true if the CanonExpr is zero
-  bool isZero() const {
+  bool isZero(bool HandleSplat = false) const {
     int64_t Val;
-    if (isIntConstant(&Val) && Val == 0) {
+    if (isIntConstantImpl(&Val, HandleSplat) && Val == 0) {
       return true;
     }
     return false;

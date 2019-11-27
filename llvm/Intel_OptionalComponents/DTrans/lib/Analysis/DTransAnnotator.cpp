@@ -27,7 +27,8 @@ namespace dtrans {
 namespace {
 constexpr const char *MetadataNames[] = {
     /*DMD_DTransType=*/"dtrans-type",
-    /*DMD_DTransSOAToOAS=*/"dtrans-soatoaos"};
+    /*DMD_DTransSOAToAOS=*/"dtrans-soatoaos",
+    /*DMD_DTransSOAToAOSPrepare=*/"dtrans-soatoaosprepare"};
 
 static_assert(sizeof(MetadataNames) / sizeof(char *) ==
                   DTransAnnotator::DMD_Last,
@@ -71,15 +72,32 @@ llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
 
 void DTransAnnotator::createDTransSOAToAOSTypeAnnotation(Function &F,
                                                          llvm::Type *Ty) {
-  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToOAS], Ty);
+  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS], Ty);
 }
 
 bool DTransAnnotator::removeDTransSOAToAOSTypeAnnotation(Function &F) {
-  return removeDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToOAS]);
+  return removeDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
 }
 
 llvm::Type *DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(Function &F) {
-  return lookupDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToOAS]);
+  return lookupDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
+}
+
+void DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
+    Function &F, llvm::Type *Ty) {
+  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOSPrepare],
+                                 Ty);
+}
+
+bool DTransAnnotator::removeDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
+  return removeDTransTypeAnnotationImpl(
+      F, MetadataNames[DMD_DTransSOAToAOSPrepare]);
+}
+
+llvm::Type *
+DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
+  return lookupDTransTypeAnnotationImpl(
+      F, MetadataNames[DMD_DTransSOAToAOSPrepare]);
 }
 
 GlobalVariable &DTransAnnotator::getAnnotationVariable(Module &M,

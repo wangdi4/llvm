@@ -38,7 +38,8 @@ exit:
 ; sure they aren't marked as post-inc users.
 ;
 ; CHECK-LABEL: IV Users for loop %test1.loop
-; CHECK-NO-LCSSA: %sext.us = {0,+,(16777216 + (-16777216 * %sub.us))<nuw><nsw>,+,33554432}<%test1.loop> (post-inc with loop %test1.loop) in    %f = ashr i32 %sext.us, 24
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK-NO-LCSSA: %sext.us = {0,+,(16777216 + (-16777216 * %sub.us)<nuw><nsw>)<nuw><nsw>,+,33554432}<%test1.loop> (post-inc with loop %test1.loop) in    %f = ashr i32 %sext.us, 24
 define i32 @test1(i1 %cond) {
 entry:
   %sub.us = select i1 %cond, i32 0, i32 0
@@ -70,7 +71,8 @@ exit:
 ; sure they aren't marked as post-inc users.
 ;
 ; CHECK-LABEL: IV Users for loop %test2.loop
-; CHECK-NO-LCSSA: %sub.cond.us = ((-1 * %sub.us)<nuw><nsw> + {0,+,1}<nuw><nsw><%test2.loop>) (post-inc with loop %test2.loop) in    %sext.us = mul i32 %mul.us, %sub.cond.us
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK-NO-LCSSA: %sub.cond.us = ((-1 * %sub.us)<nuw><nsw> + {0,+,1}<nuw><nsw><%test2.loop>)<nuw><nsw> (post-inc with loop %test2.loop) in    %sext.us = mul i32 %mul.us, %sub.cond.us
 define i32 @test2() {
 entry:
   br label %test2.loop

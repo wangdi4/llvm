@@ -1,5 +1,7 @@
-; RUN: llc < %s -mtriple=x86_64-- | grep div | count 16
-; RUN: llc < %s -mtriple=x86_64-- | grep fmodf | count 8
+; INTEL_CUSTOMIZATION
+; RUN: llc < %s -mtriple=x86_64-- -disable-iml-trans | grep div | count 16
+; RUN: llc < %s -mtriple=x86_64-- -disable-iml-trans | grep fmodf | count 8
+; end INTEL_CUSTOMIZATION
 
 define <8 x i32> @foo(<8 x i32> %t, <8 x i32> %u) {
 	%m = srem <8 x i32> %t, %u

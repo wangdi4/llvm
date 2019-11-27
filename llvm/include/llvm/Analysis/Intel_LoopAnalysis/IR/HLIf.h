@@ -126,6 +126,12 @@ public:
   unsigned getNumPredicates() const { return Predicates.size(); }
 
   /// Children iterator methods
+  ChildNodeTy::iterator child_begin() { return Children.begin(); }
+  ChildNodeTy::iterator child_end() { return Children.end(); }
+
+  ChildNodeTy::const_iterator child_begin() const { return Children.begin(); }
+  ChildNodeTy::const_iterator child_end() const { return Children.end(); }
+
   then_iterator then_begin() { return Children.begin(); }
   const_then_iterator then_begin() const { return Children.begin(); }
   then_iterator then_end() { return ElseBegin; }

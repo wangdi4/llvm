@@ -18,8 +18,8 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
@@ -95,32 +95,21 @@ public:
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
   // instructions.
-  void serializeInstruction(Instruction *Inst, bool HasLoopPrivateOperand = false);
+  void serializeInstruction(Instruction *Inst,
+                            bool HasLoopPrivateOperand = false);
   void serializeInstruction(VPInstruction *VPInst);
 
   /// Collect Uniform and Scalar values for the given \p VF.
   void collectUniformsAndScalars(unsigned VF);
 
-  IRBuilder<>& getBuilder() { return Builder; }
+  IRBuilder<> &getBuilder() { return Builder; }
 
-  BasicBlock *getLoopVectorPH() { return LoopVectorPreHeader;  }
+  BasicBlock *getLoopVectorPH() { return LoopVectorPreHeader; }
 
   Loop *getMainLoop() const { return NewLoop; }
   unsigned getVF() const { return VF; }
   bool getNeedRemainderLoop() const { return false; }
   Loop *getRemainderLoop() const { return nullptr; }
-
-  static void collectTriviallyDeadInstructions(
-    Loop *OrigLoop, VPOVectorizationLegality *Legal,
-    SmallPtrSetImpl<Instruction *> &DeadInstructions);
-
-  // TODO;TODO;TODO
-  // At this point VPlan-to-VPlan transforms are not updating DA after
-  // introducing new VPInstructions. Hence VPValues without underlying IR are
-  // known to have incorrect DA results. This must be removed once this problem
-  // is addressed. This utility can actually be static to codegen once DA
-  // problem is addressed
-  bool isVPValueUniform(VPValue *V, const VPlan *Plan);
 
   // Get the widened vector value for given value V. If the scalar value
   // has not been widened, we widen it by VF and store it in WidenMap
@@ -146,6 +135,7 @@ public:
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
   Value *getVectorPrivatePtrs(Value *ScalarPrivate);
+  Value *createVectorPrivatePtrs(VPAllocatePrivate *V);
 
   /// Return a value in the new loop corresponding to \p V from the original
   /// loop at vector index \p Lane. If the value has
@@ -173,8 +163,8 @@ public:
   /// Vectorize call arguments, or for simd functions scalarize if the arg
   /// is linear or uniform.
   void vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
-                         SmallVectorImpl<Value*> &VecArgs,
-                         SmallVectorImpl<Type*> &VecArgTys);
+                         SmallVectorImpl<Value *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys);
   void vectorizeCallArgs(VPInstruction *VPCall, VectorVariant *VecVariant,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
@@ -182,7 +172,7 @@ public:
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
   bool isScalarArgument(StringRef FnName, unsigned Idx);
-  
+
   /// Add an in memory linear to the vector of linear values.
   void addUnitStepLinear(Value *LinVal, Value *NewVal, int Step);
 
@@ -209,11 +199,6 @@ private:
   /// used in vector context after vectorization.
   bool needVectorCode(VPValue *V) { return true; }
 
-  /// Emit blocks of vector loop
-  /// Emit a bypass check to see if we have enough iterations \p Count to
-  /// execute one vector loop.
-  void  emitMinimumIterationCountCheck(Loop *L, Value *Count);
-
   /// Compute the transformed value of Index at offset StartValue using step
   /// StepValue.
   /// For integer induction, returns StartValue + Index * StepValue.
@@ -225,22 +210,18 @@ private:
                               const InductionDescriptor &ID) const;
 
   /// Emit a bypass check to see if the vector trip count is nonzero.
-  void  emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
+  void emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
 
   /// Emit resume block for combining bypassed values and the values coming
   /// from the vector loop.
-  void  emitResume(Value *CountRoundDown);
+  void emitResume(Value *CountRoundDown);
 
   /// Check whether the original loop trip count \p Count is equal to vector
   /// loop trip count \p CountRoundDown. In this case we can bypass the scalar
   /// remainder.
-  void  emitEndOfVectorLoop(Value *Count, Value *CountRoundDown);
+  void emitEndOfVectorLoop(Value *Count, Value *CountRoundDown);
 
-  // Return the trip count for the scalar loop. Returns 0 for non-constant trip
-  // count loops.
-  uint64_t getConstTripCount() const;
-
-  // Return the trip count for the scalar loop. 
+  // Return the trip count for the scalar loop.
   Value *getTripCount() const { return TripCount; }
 
   /// Returns (and creates if needed) the original loop trip count.
@@ -316,8 +297,8 @@ private:
   Value *reverseVector(Value *Vec, unsigned Stride = 1);
 
   /// Create the primary induction variable for vector loop.
-  PHINode *createInductionVariable(Loop *L, Value *Start,
-                                   Value *End, Value *Step);
+  PHINode *createInductionVariable(Loop *L, Value *Start, Value *End,
+                                   Value *Step);
 
   /// Load initial linear value before the loop and do the linear value
   /// update at the end of the loop.
@@ -327,8 +308,8 @@ private:
   void fixCrossIterationPHIs();
 
   /// The result of reduction is in register only.
-  void fixReductionInReg(PHINode *Phi, RecurrenceDescriptor& RdxDesc);
-  
+  void fixReductionInReg(PHINode *Phi, RecurrenceDescriptor &RdxDesc);
+
   /// Feed reduction result into LCSSA Phi node
   void fixReductionLCSSA(Value *LoopExitInst, Value *NewV);
 
@@ -337,13 +318,14 @@ private:
   void fixReductionPhi(PHINode *Phi, Value *VectorStart);
 
   /// Set a Phi to merge In-Reg reduction value.
-  void mergeReductionControlFlow(PHINode *Phi, RecurrenceDescriptor& RdxDesc,
+  void mergeReductionControlFlow(PHINode *Phi, RecurrenceDescriptor &RdxDesc,
                                  Value *EndV);
 
   /// Build a tail code for in-memory reduction.
-  Value *buildInMemoryReductionTail(Value *OrigRedV,
-      RecurrenceDescriptor::RecurrenceKind Kind,
-      RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
+  Value *
+  buildInMemoryReductionTail(Value *OrigRedV,
+                             RecurrenceDescriptor::RecurrenceKind Kind,
+                             RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
 
   /// Make the needed fixups for all live out values.
   void fixOutgoingValues();
@@ -426,7 +408,7 @@ private:
   Value *getIVStep(PHINode *IV, const InductionDescriptor &ID);
 
   /// Compute the scalar induction value of induction \p OrigIV for the
-  /// the vector lane \p Lane 
+  /// the vector lane \p Lane
   Value *buildScalarIVForLane(PHINode *OrigIV, unsigned Lane);
 
   /// Create a vector version of induction.
@@ -581,6 +563,26 @@ private:
   // Map of widened private values. Unlike WidenMap, this is
   // pointer-to-pointer map.
   std::map<Value *, Value *> LoopPrivateWidenMap;
+  // Map to track widened alloca created for a private memory entity introduced
+  // by VPlan. VPScalarMap cannot be reused for this since we want to track the
+  // base pointer to widened memory that was allocated during CG. The scalar map
+  // will contain corresponding pointer for each lane. Some motivating usecases
+  // where base pointer to widened alloca is needed include unit-stride
+  // load/store and OpenCL sincos vectorization. An example -
+  //
+  // Incoming IR - "QUAL.OMP.PRIVATE"(i32* %priv)
+  // VPlan private memory - i32* %vp0 = allocate-private i32*
+  //
+  // Data structures status in CG for VF=4 -
+  // LoopPrivateVPWidenMap[%vp0] ---> %ptr = alloca <4 x i32>
+  // VPWidenMap[%vp0] ---> %vptr = <i32* ptr0, i32* ptr1, i32* ptr2, i32* ptr3>
+  // VPScalarMap[%vp0][0] ---> extract %vptr, 0
+  //
+  // Suppose there is a user of %priv in incoming IR like -
+  // %call = non_vectorizable_call(i32* %priv)
+  // Then to serialize this call, we need i32* parameters from VPScalarMap. The
+  // generated %ptr alloca above will be <4 x i32>*.
+  DenseMap<VPValue *, Value *> LoopPrivateVPWidenMap;
 
   // Keeps last non-zero mask
   std::map<Value *, Value *> LoopPrivateLastMask;
@@ -620,9 +622,9 @@ private:
   unsigned getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
 
   // Widen the load of a linear value. We do a scalar load and generate a vector
-  // value using the linear \p Step 
+  // value using the linear \p Step
   void vectorizeLinearLoad(Instruction *Inst, int Step);
-  
+
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
@@ -638,7 +640,7 @@ private:
   // Widen the store of a linear value. We do a scalar store of the value in the
   // first vector lane.
   void vectorizeLinearStore(Instruction *Inst);
-  
+
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_scatter intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
@@ -651,11 +653,11 @@ private:
   void vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
                                 bool IsPvtPtr);
 
-  // Re-vectorize the given vector load instruction. The function handles 
+  // Re-vectorize the given vector load instruction. The function handles
   // only simple vectors.
   void widenVectorLoad(LoadInst *Inst);
 
-  // Re-vectorize the given vector store instruction. The function handles 
+  // Re-vectorize the given vector store instruction. The function handles
   // only simple vectors.
   void widenVectorStore(StoreInst *Inst);
 
@@ -709,10 +711,11 @@ private:
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
   void vectorizeOpenCLSinCos(CallInst *Call, bool isMasked);
+  void vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked);
 
   // Vectorize the write channel source argument for an OpenCL write channel
   // call. The source is the data that will be written to the channel.
-  Value* vectorizeOpenCLWriteChannelSrc(CallInst *Call, unsigned ArgNum);
+  Value *vectorizeOpenCLWriteChannelSrc(CallInst *Call, unsigned ArgNum);
 
   // Vectorize the read channel destination for an OpenCL read channel call.
   // The destination is the location where the data from the channel call will
@@ -725,7 +728,7 @@ private:
   Value *getStrideVector(Value *Val, Value *Stride);
 
   // Map Edge between blocks to a mask value.
-  std::map< std::pair<BasicBlock *, BasicBlock *>, Value *> EdgeToMaskMap;
+  std::map<std::pair<BasicBlock *, BasicBlock *>, Value *> EdgeToMaskMap;
 
   /// Store instructions that should be predicated, as a pair
   ///   <StoreInst, Predicate>
@@ -759,10 +762,10 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
-  SmallDenseMap<const OVLSGroup *, LoadInst *> VLSGroupLoadMap;
+  SmallDenseMap<const OVLSGroup *, Instruction *> VLSGroupLoadMap;
 };
 
-} // end vpo namespace
-} // end llvm namespace
+} // namespace vpo
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERCODEGEN_H

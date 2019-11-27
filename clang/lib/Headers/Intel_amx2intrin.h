@@ -18,281 +18,197 @@
 #ifdef __x86_64__
 
 // Transpose
-#define _tile_2rpntlvw(src, base, index, scale, tile)                          \
-  __asm__ volatile("t2rpntlvw %0, (%1,%2," #scale                              \
-                   "), %%tmm" #tile ::"r"((unsigned long long)(src)),          \
-                   "r"(base), "r"((unsigned long long)(index)))
-#define _tile_2rpntlvwt1(src, base, index, scale, tile)                        \
-  __asm__ volatile("t2rpntlvwt1 %0, (%1,%2," #scale                            \
-                   "), %%tmm" #tile ::"r"((unsigned long long)(src)),          \
-                   "r"(base), "r"((unsigned long long)(index)))
-#define _tile_2transposew(src, base, index, scale, tile)                       \
-  __asm__ volatile("t2transposew %0, (%1,%2," #scale                           \
-                   "), %%tmm" #tile ::"r"((unsigned long long)(src)),          \
-                   "r"(base), "r"((unsigned long long)(index)))
-#define _tile_2transposewt1(src, base, index, scale, tile)                     \
-  __asm__ volatile("t2transposewt1 %0, (%1,%2," #scale                         \
-                   "), %%tmm" #tile ::"r"((unsigned long long)(src)),          \
-                   "r"(base), "r"((unsigned long long)(index)))
+#define _tile_2rpntlvw(tdst, base, stride, src)                                \
+  __builtin_ia32_t2rpntlvw(tdst, base, stride, src)
+#define _tile_2rpntlvwt1(tdst, base, stride, src)                              \
+  __builtin_ia32_t2rpntlvwt1(tdst, base, stride, src)
+#define _tile_2transposew(tdst, base, stride, src)                             \
+  __builtin_ia32_t2transposew(tdst, base, stride, src)
+#define _tile_2transposewt1(tdst, base, stride, src)                           \
+  __builtin_ia32_t2transposewt1(tdst, base, stride, src)
+
 // Reduce
-#define _tile_coladdbcastps(tile1, tile2)                                      \
-  __asm__ volatile("tcoladdbcastps %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_coladdps(tile, mem)                                              \
-  __asm__ volatile("tcoladdps %%tmm" #tile ", %0" ::"m"(mem))
+#define _tile_coladdbcastps(tdst, tsrc)                                        \
+  __builtin_ia32_tcoladdbcastps(tdst, tsrc)
+#define _tile_coladdps(mem_dst, tsrc) __builtin_ia32_tcoladdps(mem_dst, tsrc)
+
 // Memory
-#define _tile_broadcastrowd(mem, tile)                                         \
-  __asm__ volatile("tbroadcastrowd %0, %%tmm" #tile ::"m"(mem))
-#define _tile_gatherrowd(base, index, tile)                                    \
-  __asm__ volatile("tgatherrowd (%0,%1), %%tmm" #tile ::"r"(base), "r"(index))
-#define _tile_gatherrowdt1(base, index, tile)                                  \
-  __asm__ volatile("tgatherrowdt1 (%0,%1), %%tmm" #tile ::"r"(base), "r"(index))
-#define _tile_gatherrowq(base, index, tile)                                    \
-  __asm__ volatile("tgatherrowq (%0,%1), %%tmm" #tile ::"r"(base), "r"(index))
-#define _tile_gatherrowqt1(base, index, tile)                                  \
-  __asm__ volatile("tgatherrowqt1 (%0,%1), %%tmm" #tile ::"r"(base), "r"(index))
-#define _tile_scatterrowd(tile, base, index)                                   \
-  __asm__ volatile("tscatterrowd %%tmm" #tile ", (%0,%1)" ::"r"(base),         \
-                   "r"(index))
-#define _tile_scatterrowdt1(tile, base, index)                                 \
-  __asm__ volatile("tscatterrowdt1 %%tmm" #tile ", (%0,%1)" ::"r"(base),       \
-                   "r"(index))
-#define _tile_scatterrowq(tile, base, index)                                   \
-  __asm__ volatile("tscatterrowq %%tmm" #tile ", (%0,%1)" ::"r"(base),         \
-                   "r"(index))
-#define _tile_scatterrowqt1(tile, base, index)                                 \
-  __asm__ volatile("tscatterrowqt1 %%tmm" #tile ", (%0,%1)" ::"r"(base),       \
-                   "r"(index))
-#define _tile_storehd(tile, base, index, scale)                                \
-  __asm__ volatile("tstorehd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base),  \
-                   "r"((unsigned long long)(index)))
-#define _tile_storehdt1(tile, base, index, scale)                              \
-  __asm__ volatile("tstorehdt1 %%tmm" #tile ", (%0,%1," #scale                 \
-                   ")" ::"r"(base),                                            \
-                   "r"((unsigned long long)(index)))
-#define _tile_storentd(tile, base, index, scale)                               \
-  __asm__ volatile("tstorentd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base), \
-                   "r"((unsigned long long)(index)))
-#define _tile_storeqd(tile, base, index, scale)                                \
-  __asm__ volatile("tstoreqd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base),  \
-                   "r"((unsigned long long)(index)))
-#define _tile_storeqdt1(tile, base, index, scale)                              \
-  __asm__ volatile("tstoreqdt1 %%tmm" #tile ", (%0,%1," #scale                 \
-                   ")" ::"r"(base),                                            \
-                   "r"((unsigned long long)(index)))
-#define _tile_storerowd(tile, mem)                                             \
-  __asm__ volatile("tstorerowd %%tmm" #tile ", %0" ::"m"(mem))
+#define _tile_broadcastrowd(tdst, mem_src)                                     \
+  __builtin_ia32_tbroadcastrowd(tdst, mem_src)
+#define _tile_gatherrowd(tdst, base, index)                                    \
+  __builtin_ia32_tgatherrowd(tdst, base, index)
+#define _tile_gatherrowdt1(tdst, base, index)                                  \
+  __builtin_ia32_tgatherrowdt1(tdst, base, index)
+#define _tile_gatherrowq(tdst, base, index)                                    \
+  __builtin_ia32_tgatherrowq(tdst, base, index)
+#define _tile_gatherrowqt1(tdst, base, index)                                  \
+  __builtin_ia32_tgatherrowqt1(tdst, base, index)
+#define _tile_scatterrowd(base, index, tsrc)                                   \
+  __builtin_ia32_tscatterrowd(base, index, tsrc)
+#define _tile_scatterrowdt1(base, index, tsrc)                                 \
+  __builtin_ia32_tscatterrowdt1(base, index, tsrc)
+#define _tile_scatterrowq(base, index, tsrc)                                   \
+  __builtin_ia32_tscatterrowq(base, index, tsrc)
+#define _tile_scatterrowqt1(base, index, tsrc)                                 \
+  __builtin_ia32_tscatterrowqt1(base, index, tsrc)
+#define _tile_storehd(base, stride, tsrc)                                      \
+  __builtin_ia32_tstorehd(base, stride, tsrc)
+#define _tile_storehdt1(base, stride, tsrc)                                    \
+  __builtin_ia32_tstorehdt1(base, stride, tsrc)
+#define _tile_storentd(base, stride, tsrc)                                     \
+  __builtin_ia32_tstorentd(base, stride, tsrc)
+#define _tile_storeqd(base, stride, tsrc)                                      \
+  __builtin_ia32_tstoreqd(base, stride, tsrc)
+#define _tile_storeqdt1(base, stride, tsrc)                                    \
+  __builtin_ia32_tstoreqdt1(base, stride, tsrc)
+#define _tile_storerowd(mem_dst, tsrc) __builtin_ia32_tstorerowd(mem_dst, tsrc)
+
 // Format
-#define _tile_blendvd(tile1, tile2, tile3)                                     \
-  __asm__ volatile("tblendvd %%tmm" #tile1 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile3 ::)
-#define _tile_interleaveeb(tile1, tile2, tile3)                                \
-  __asm__ volatile("tinterleaveeb %%tmm" #tile1 ", %%tmm" #tile2 ", "          \
-                   "%%tmm" #tile3 ::)
-#define _tile_interleaveew(tile1, tile2, tile3)                                \
-  __asm__ volatile("tinterleaveew %%tmm" #tile1 ", %%tmm" #tile2 ", "          \
-                   "%%tmm" #tile3 ::)
-#define _tile_interleaveob(tile1, tile2, tile3)                                \
-  __asm__ volatile("tinterleaveob %%tmm" #tile1 ", %%tmm" #tile2 ", "          \
-                   "%%tmm" #tile3 ::)
-#define _tile_interleaveow(tile1, tile2, tile3)                                \
-  __asm__ volatile("tinterleaveow %%tmm" #tile1 ", %%tmm" #tile2 ", "          \
-                   "%%tmm" #tile3 ::)
-#define _tile_narrowb(imm, tile1, tile2)                                       \
-  __asm__ volatile("tnarrowb %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
-#define _tile_narroww(imm, tile1, tile2)                                       \
-  __asm__ volatile("tnarroww %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
-#define _tile_permb_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tpermb %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_permb_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tpermb %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_permd_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tpermd %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_permd_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tpermd %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_permw_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tpermw %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_permw_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tpermw %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_widenb(imm, tile1, tile2)                                        \
-  __asm__ volatile("twidenb %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
-#define _tile_widenw(imm, tile1, tile2)                                        \
-  __asm__ volatile("twidenw %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
+#define _tile_blendvd(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_tblendvd(tdst, tsrc1, tsrc2)
+#define _tile_interleaveeb(tdst, tsrc1, tsrc2)                                 \
+  __builtin_ia32_tinterleaveeb(tdst, tsrc1, tsrc2)
+#define _tile_interleaveew(tdst, tsrc1, tsrc2)                                 \
+  __builtin_ia32_tinterleaveew(tdst, tsrc1, tsrc2)
+#define _tile_interleaveob(tdst, tsrc1, tsrc2)                                 \
+  __builtin_ia32_tinterleaveob(tdst, tsrc1, tsrc2)
+#define _tile_interleaveow(tdst, tsrc1, tsrc2)                                 \
+  __builtin_ia32_tinterleaveow(tdst, tsrc1, tsrc2)
+#define _tile_narrowb(tdst, tsrc, imm) __builtin_ia32_tnarrowb(tdst, tsrc, imm)
+#define _tile_narroww(tdst, tsrc, imm) __builtin_ia32_tnarroww(tdst, tsrc, imm)
+#define _tile_permb_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tpermb_reg(tdst, tsrc1, tsrc2)
+#define _tile_permb_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tpermb_mem(tdst, tsrc1, mem_src2)
+#define _tile_permd_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tpermd_reg(tdst, tsrc1, tsrc2)
+#define _tile_permd_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tpermd_mem(tdst, tsrc1, mem_src2)
+#define _tile_permw_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tpermw_reg(tdst, tsrc1, tsrc2)
+#define _tile_permw_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tpermw_mem(tdst, tsrc1, mem_src2)
+#define _tile_widenb(tdst, tsrc, imm) __builtin_ia32_twidenb(tdst, tsrc, imm)
+#define _tile_widenw(tdst, tsrc, imm) __builtin_ia32_twidenw(tdst, tsrc, imm)
+
 // Element
-#define _tile_addps_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("taddps %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_addps_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("taddps %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_andd_reg(tile1, tile2, tile3)                                    \
-  __asm__ volatile("tandd %%tmm" #tile1 ", %%tmm" #tile2 ", "                  \
-                   "%%tmm" #tile3 ::)
-#define _tile_andd_mem(mem, tile2, tile3)                                      \
-  __asm__ volatile("tandd %0, %%tmm" #tile2 ", "                               \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_andnd_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tandnd %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_andnd_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tandnd %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_cmpps_reg(imm, tile1, tile2, tile3)                              \
-  __asm__ volatile("tcmpps %0, %%tmm" #tile1 ", %%tmm" #tile2 ", "             \
-                   "%%tmm" #tile3 ::"i"(imm))
-#define _tile_cmpps_mem(imm, mem, tile2, tile3)                                \
-  __asm__ volatile("tcmpps %0, %1, %%tmm" #tile2 ", "                          \
-                   "%%tmm" #tile3 ::"i"(imm),                                  \
-                   "m"(mem))
-#define _tile_cvtb2ps(tile1, tile2)                                            \
-  __asm__ volatile("tcvtb2ps %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_cvtbf162ps(tile1, tile2)                                         \
-  __asm__ volatile("tcvtbf162ps %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_cvtd2ps(tile1, tile2)                                            \
-  __asm__ volatile("tcvtd2ps %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_cvtps2bf16(tile1, tile2)                                         \
-  __asm__ volatile("tcvtps2bf16 %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_cvtps2bs(tile1, tile2)                                           \
-  __asm__ volatile("tcvtps2bs %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_cvtps2ubs(tile1, tile2)                                          \
-  __asm__ volatile("tcvtps2ubs %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_cvtub2ps(tile1, tile2)                                           \
-  __asm__ volatile("tcvtub2ps %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_fmaddps_reg(tile1, tile2, tile3)                                 \
-  __asm__ volatile("tfmaddps %%tmm" #tile1 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile3 ::)
-#define _tile_fmaddps_mem(mem, tile2, tile3)                                   \
-  __asm__ volatile("tfmaddps %0, %%tmm" #tile2 ", "                            \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_fmsubps_reg(tile1, tile2, tile3)                                 \
-  __asm__ volatile("tfmsubps %%tmm" #tile1 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile3 ::)
-#define _tile_fmsubps_mem(mem, tile2, tile3)                                   \
-  __asm__ volatile("tfmsubps %0, %%tmm" #tile2 ", "                            \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_fnmaddps_reg(tile1, tile2, tile3)                                \
-  __asm__ volatile("tfnmaddps %%tmm" #tile1 ", %%tmm" #tile2 ", "              \
-                   "%%tmm" #tile3 ::)
-#define _tile_fnmaddps_mem(mem, tile2, tile3)                                  \
-  __asm__ volatile("tfnmaddps %0, %%tmm" #tile2 ", "                           \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_fnmsubps_reg(tile1, tile2, tile3)                                \
-  __asm__ volatile("tfnmsubps %%tmm" #tile1 ", %%tmm" #tile2 ", "              \
-                   "%%tmm" #tile3 ::)
-#define _tile_fnmsubps_mem(mem, tile2, tile3)                                  \
-  __asm__ volatile("tfnmsubps %0, %%tmm" #tile2 ", "                           \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_maxps_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tmaxps %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_maxps_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tmaxps %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_minps_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tminps %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_minps_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tminps %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_mulps_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tmulps %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_mulps_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tmulps %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_ord_reg(tile1, tile2, tile3)                                     \
-  __asm__ volatile("tord %%tmm" #tile1 ", %%tmm" #tile2 ", "                   \
-                   "%%tmm" #tile3 ::)
-#define _tile_ord_mem(mem, tile2, tile3)                                       \
-  __asm__ volatile("tord %0, %%tmm" #tile2 ", "                                \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_rcp14ps(tile1, tile2)                                            \
-  __asm__ volatile("trcp14ps %%tmm" #tile1 ", %%tmm" #tile2 ::)
-#define _tile_reduceps(imm, tile1, tile2)                                      \
-  __asm__ volatile("treduceps %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
-#define _tile_scalefps_reg(tile1, tile2, tile3)                                \
-  __asm__ volatile("tscalefps %%tmm" #tile1 ", %%tmm" #tile2 ", "              \
-                   "%%tmm" #tile3 ::)
-#define _tile_scalefps_mem(mem, tile2, tile3)                                  \
-  __asm__ volatile("tscalefps %0, %%tmm" #tile2 ", "                           \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_slld(imm, tile1, tile2)                                          \
-  __asm__ volatile("tslld %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
-#define _tile_srld(imm, tile1, tile2)                                          \
-  __asm__ volatile("tsrld %0, %%tmm" #tile1 ", %%tmm" #tile2 ::"i"(imm))
-#define _tile_srlvd_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tsrlvd %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_srlvd_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tsrlvd %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_subps_reg(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tsubps %%tmm" #tile1 ", %%tmm" #tile2 ", "                 \
-                   "%%tmm" #tile3 ::)
-#define _tile_subps_mem(mem, tile2, tile3)                                     \
-  __asm__ volatile("tsubps %0, %%tmm" #tile2 ", "                              \
-                   "%%tmm" #tile3 ::"m"(mem))
-#define _tile_xord_reg(tile1, tile2, tile3)                                    \
-  __asm__ volatile("txord %%tmm" #tile1 ", %%tmm" #tile2 ", "                  \
-                   "%%tmm" #tile3 ::)
-#define _tile_xord_mem(mem, tile2, tile3)                                      \
-  __asm__ volatile("txord %0, %%tmm" #tile2 ", "                               \
-                   "%%tmm" #tile3 ::"m"(mem))
+#define _tile_addps_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_taddps_reg(tdst, tsrc1, tsrc2)
+#define _tile_addps_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_taddps_mem(tdst, tsrc1, mem_src2)
+#define _tile_andd_reg(tdst, tsrc1, tsrc2)                                     \
+  __builtin_ia32_tandd_reg(tdst, tsrc1, tsrc2)
+#define _tile_andd_mem(tdst, tsrc1, mem_src2)                                  \
+  __builtin_ia32_tandd_mem(tdst, tsrc1, mem_src2)
+#define _tile_andnd_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tandnd_reg(tdst, tsrc1, tsrc2)
+#define _tile_andnd_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tandnd_mem(tdst, tsrc1, mem_src2)
+#define _tile_cmpps_reg(tdst, tsrc1, tsrc2, imm)                               \
+  __builtin_ia32_tcmpps_reg(tdst, tsrc1, tsrc2, imm)
+#define _tile_cmpps_mem(tdst, tsrc1, mem_src2, imm)                            \
+  __builtin_ia32_tcmpps_mem(tdst, tsrc1, mem_src2, imm)
+#define _tile_cvtb2ps(tdst, tsrc) __builtin_ia32_tcvtb2ps(tdst, tsrc)
+#define _tile_cvtbf162ps(tdst, tsrc) __builtin_ia32_tcvtbf162ps(tdst, tsrc)
+#define _tile_cvtd2ps(tdst, tsrc) __builtin_ia32_tcvtd2ps(tdst, tsrc)
+#define _tile_cvtps2bf16(tdst, tsrc) __builtin_ia32_tcvtps2bf16(tdst, tsrc)
+#define _tile_cvtps2bs(tdst, tsrc) __builtin_ia32_tcvtps2bs(tdst, tsrc)
+#define _tile_cvtps2ubs(tdst, tsrc) __builtin_ia32_tcvtps2ubs(tdst, tsrc)
+#define _tile_cvtub2ps(tdst, tsrc) __builtin_ia32_tcvtub2ps(tdst, tsrc)
+#define _tile_fmaddps_reg(tsrc1_dst, tsrc2, tsrc3)                             \
+  __builtin_ia32_tfmaddps_reg(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_fmaddps_mem(tsrc1_dst, tsrc2, mem_src3)                          \
+  __builtin_ia32_tfmaddps_mem(tsrc1_dst, tsrc2, mem_src3)
+#define _tile_fmsubps_reg(tsrc1_dst, tsrc2, tsrc3)                             \
+  __builtin_ia32_tfmsubps_reg(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_fmsubps_mem(tsrc1_dst, tsrc2, mem_src3)                          \
+  __builtin_ia32_tfmsubps_mem(tsrc1_dst, tsrc2, mem_src3)
+#define _tile_fnmaddps_reg(tsrc1_dst, tsrc2, tsrc3)                            \
+  __builtin_ia32_tfnmaddps_reg(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_fnmaddps_mem(tsrc1_dst, tsrc2, mem_src3)                         \
+  __builtin_ia32_tfnmaddps_mem(tsrc1_dst, tsrc2, mem_src3)
+#define _tile_fnmsubps_reg(tsrc1_dst, tsrc2, tsrc3)                            \
+  __builtin_ia32_tfnmsubps_reg(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_fnmsubps_mem(tsrc1_dst, tsrc2, mem_src3)                         \
+  __builtin_ia32_tfnmsubps_mem(tsrc1_dst, tsrc2, mem_src3)
+#define _tile_maxps_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tmaxps_reg(tdst, tsrc1, tsrc2)
+#define _tile_maxps_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tmaxps_mem(tdst, tsrc1, mem_src2)
+#define _tile_minps_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tminps_reg(tdst, tsrc1, tsrc2)
+#define _tile_minps_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tminps_mem(tdst, tsrc1, mem_src2)
+#define _tile_mulps_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tmulps_reg(tdst, tsrc1, tsrc2)
+#define _tile_mulps_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tmulps_mem(tdst, tsrc1, mem_src2)
+#define _tile_ord_reg(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_tord_reg(tdst, tsrc1, tsrc2)
+#define _tile_ord_mem(tdst, tsrc1, mem_src2)                                   \
+  __builtin_ia32_tord_mem(tdst, tsrc1, mem_src2)
+#define _tile_rcp14ps(tdst, tsrc) __builtin_ia32_trcp14ps(tdst, tsrc)
+#define _tile_reduceps(tdst, tsrc, imm)                                        \
+  __builtin_ia32_treduceps(tdst, tsrc, imm)
+#define _tile_scalefps_reg(tdst, tsrc1, tsrc2)                                 \
+  __builtin_ia32_tscalefps_reg(tdst, tsrc1, tsrc2)
+#define _tile_scalefps_mem(tdst, tsrc1, mem_src2)                              \
+  __builtin_ia32_tscalefps_mem(tdst, tsrc1, mem_src2)
+#define _tile_slld(tdst, tsrc, imm) __builtin_ia32_tslld(tdst, tsrc, imm)
+#define _tile_srld(tdst, tsrc, imm) __builtin_ia32_tsrld(tdst, tsrc, imm)
+#define _tile_srlvd_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tsrlvd_reg(tdst, tsrc1, tsrc2)
+#define _tile_srlvd_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tsrlvd_mem(tdst, tsrc1, mem_src2)
+#define _tile_subps_reg(tdst, tsrc1, tsrc2)                                    \
+  __builtin_ia32_tsubps_reg(tdst, tsrc1, tsrc2)
+#define _tile_subps_mem(tdst, tsrc1, mem_src2)                                 \
+  __builtin_ia32_tsubps_mem(tdst, tsrc1, mem_src2)
+#define _tile_xord_reg(tdst, tsrc1, tsrc2)                                     \
+  __builtin_ia32_txord_reg(tdst, tsrc1, tsrc2)
+#define _tile_xord_mem(tdst, tsrc1, mem_src2)                                  \
+  __builtin_ia32_txord_mem(tdst, tsrc1, mem_src2)
+
 // FP16
-#define _tile_dpfp16ps(tile1, tile2, tile3)                                    \
-  __asm__ volatile("tdpfp16ps %%tmm" #tile1 ", %%tmm" #tile2 ", "              \
-                   "%%tmm" #tile3 ::)
-// Tile to AVX512
-#define _tile_movrowe(tile, row)                                               \
-  __extension__({                                                              \
-    __m512 __zmm;                                                              \
-    __asm__ volatile("tilemovrowe %1, %%tmm" #tile ", %0"                      \
-                     : "=v"(__zmm)                                             \
-                     : "ir"(row));                                             \
-    __zmm;                                                                     \
-  })
-#define _tile_movrowe_x(tile, row)                                             \
-  __extension__({                                                              \
-    __m512 __zmm;                                                              \
-    __asm__ volatile("tilemovrowe %1, %%tmm" #tile ", %0"                      \
-                     : "=v"(__zmm)                                             \
-                     : "v"(row));                                              \
-    __zmm;                                                                     \
-  })
-#define _tile_move(tile1, tile2)                                               \
-  __asm__ volatile("tilemove %%tmm" #tile2 ", %%tmm" #tile1 ::)
-#define _tile_16move(tile, zmmx)                                               \
-  __asm__ volatile("tile16move %%zmm" #zmmx ", %%tmm" #tile ::)
-#define _tile_loadde(dst, base, stride)                                        \
-  __asm__ volatile("tileloadde (%0,%1,1), %%tmm" #dst ::"r"(base),             \
-                   "r"((unsigned long long)(stride)))
-#define _tile_loaddt1e(dst, base, stride)                                      \
-  __asm__ volatile("tileloaddt1e  (%0,%1,1), %%tmm" #dst ::"r"(base),          \
-                   "r"((unsigned long long)(stride)))
+#define _tile_dpfp16ps(tsrc1_dst, tsrc2, tsrc3)                                \
+  __builtin_ia32_tdpfp16ps(tsrc1_dst, tsrc2, tsrc3)
+
+// AMX2 AVX512
+#define _tile_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6, tsrc7,\
+  tsrc8, tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16)        \
+  __builtin_ia32_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6,    \
+  tsrc7, tsrc8, tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16)
+
+#define _tile_tilemovrowei(tsrc1, tsrc2)  __builtin_ia32_tilemovei(tsrc1, tsrc2)
+#define _tile_tilemovrowee(tsrc1, tsrc2)  __builtin_ia32_tilemovee(tsrc1, tsrc2)
+#define _tile_tilemovrowex(tsrc1, tsrc2)  __builtin_ia32_tilemovex(tsrc1, tsrc2)
+
+// BF16EVEX
+#define _tile_dpbf16pse(tsrc1_dst, tsrc2, tsrc3)                               \
+  __builtin_ia32_tdpbf16pse(tsrc1_dst, tsrc2, tsrc3)
+
+// INT8EVEX
+#define _tile_dpbssde(tsrc1_dst, tsrc2, tsrc3)                                 \
+  __builtin_ia32_tdpbssde(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_dpbsude(tsrc1_dst, tsrc2, tsrc3)                                 \
+  __builtin_ia32_tdpbsude(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_dpbusde(tsrc1_dst, tsrc2, tsrc3)                                 \
+  __builtin_ia32_tdpbusde(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_dpbuude(tsrc1_dst, tsrc2, tsrc3)                                 \
+  __builtin_ia32_tdpbuude(tsrc1_dst, tsrc2, tsrc3)
+
+// TILEEVEX
+#define _tile_loadde(dst, base, stride)  __builtin_ia32_tileloadde64((dst),    \
+  ((const void *)(base)), (__SIZE_TYPE__)(stride))
+#define _tile_stream_loadde(dst, base, stride)                                 \
+  __builtin_ia32_tileloaddt1e64((dst), ((const void *)(base)),                 \
+  (__SIZE_TYPE__)(stride))
 #define _tile_storede(src, base, stride)                                       \
-  __asm__ volatile("tilestorede  %%tmm" #src ", (%0,%1,1)" ::"r"(base),        \
-                   "r"((unsigned long long)(stride)))
-#define _tile_zeroe(src) __asm__ volatile("tilezeroe %%tmm" #src::)
-#define _tile_dpbf16pse(tile1, tile2, tile3)                                   \
-  __asm__ volatile("tdpbf16pse %%tmm" #tile3 ", %%tmm" #tile2 ", "             \
-                   "%%tmm" #tile1 ::)
-#define _tile_dpbssde(tile1, tile2, tile3)                                     \
-  __asm__ volatile("tdpbssde %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile1 ::)
-#define _tile_dpbsude(tile1, tile2, tile3)                                     \
-  __asm__ volatile("tdpbsude %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile1 ::)
-#define _tile_dpbusde(tile1, tile2, tile3)                                     \
-  __asm__ volatile("tdpbusde %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile1 ::)
-#define _tile_dpbuude(tile1, tile2, tile3)                                     \
-  __asm__ volatile("tdpbuude %%tmm" #tile3 ", %%tmm" #tile2 ", "               \
-                   "%%tmm" #tile1 ::)
+  __builtin_ia32_tilestorede64((src), ((void *)(base)),                        \
+  (__SIZE_TYPE__)(stride))
+#define _tile_tilemove(tdst, tsrc)  __builtin_ia32_tilemove(tdst, tsrc)
+#define _tile_zeroe(tile)       __builtin_ia32_tilezeroe(tile)
+
 #endif /* __x86_64__ */
 #endif /* __AMX2INTRIN_H */
 /* end INTEL_FEATURE_ISA_AMX2 */

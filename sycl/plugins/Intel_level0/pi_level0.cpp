@@ -86,7 +86,7 @@ void _pi_event::deleteL0EventList(
 }
 
 // Convinience macro makes source code search easier
-#define L0(pi_api) other_##pi_api
+#define L0(pi_api) pi_api##OclPtr
 
 // Forward declararitons
 decltype(piEventCreate) L0(piEventCreate);
@@ -94,12 +94,12 @@ decltype(piEventCreate) L0(piEventCreate);
 // No generic lambdas in C++11, so use this convinence macro.
 // NOTE: to be used in API returning "param_value".
   #define SET_PARAM_VALUE(value)        \
-{                                     \
-  typedef decltype(value) T;          \
-  if (param_value)                    \
-    *(T*)param_value = value;         \
-  if (param_value_size_ret)           \
-    *param_value_size_ret = 1;        \
+{                                       \
+  typedef decltype(value) T;            \
+  if (param_value)                      \
+    *(T*)param_value = value;           \
+  if (param_value_size_ret)             \
+    *param_value_size_ret = sizeof(T);  \
 }
 #define SET_PARAM_VALUE_STR(value)                  \
 {                                                   \
@@ -373,6 +373,9 @@ pi_result L0(piContextGetInfo)(
 
   if (param_name == PI_CONTEXT_INFO_DEVICES) {
     SET_PARAM_VALUE(context->Device);
+  }
+  else if (param_name == PI_CONTEXT_INFO_NUM_DEVICES) {
+    SET_PARAM_VALUE(pi_uint32{1});
   }
   else if (param_name == PI_CONTEXT_INFO_REFERENCE_COUNT) {
     SET_PARAM_VALUE(pi_uint32{context->RefCount});
@@ -1196,6 +1199,10 @@ pi_result L0(piEnqueueMemImageCopy)()   {   pi_throw("piEnqueueMemImageCopy: not
 pi_result L0(piEnqueueMemImageFill)()   {   pi_throw("piEnqueueMemImageFill: not implemented"); }
 pi_result L0(piMemBufferPartition)()    {   pi_throw("piMemBufferPartition: not implemented"); }
 pi_result L0(piEnqueueNativeKernel)()   {   pi_throw("piEnqueueNativeKernel: not implemented"); }
+
+pi_result L0(piextGetDeviceFunctionPointer)() {
+  pi_throw("piextGetDeviceFunctionPointer: not implemented");
+}
 
 #define _PI_API(api) \
   typedef decltype(::api) __type##api; \

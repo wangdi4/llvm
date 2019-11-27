@@ -61,6 +61,7 @@
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
@@ -253,6 +254,11 @@ static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
 static cl::opt<bool>
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
+
+// IPO Prefetch
+static cl::opt<bool>
+    EnableIPOPrefetch("enable-ipo-prefetch",
+  cl::init(true), cl::Hidden, cl::desc("Enable IPO Prefetch"));
 
 #if INTEL_INCLUDE_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
@@ -481,6 +487,10 @@ void PassManagerBuilder::populateFunctionPassManager(
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (RunVPOOpt && RunVPOParopt) {
+    FPM.add(createVPOCFGRestructuringPass());
+    FPM.add(createVPOParoptLoopCollapsePass());
+    // TODO: maybe we have to make sure loop collapsing preserves
+    //       the restructured CFG.
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt));
     if (OptLevel == 0) {
@@ -1010,6 +1020,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createGlobalsAAWrapperPass());
 
   MPM.add(createFloat2IntPass());
+  MPM.add(createLowerConstantIntrinsicsPass());
 
   addExtensionsToPM(EP_VectorizerStart, MPM);
 
@@ -1035,7 +1046,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (EnableLV)
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   MPM.add(createLoopLoadEliminationPass());
@@ -1208,9 +1219,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createGlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
+  // IPO Prefetching: make it before IPClone and Inline
+  if (EnableIPOPrefetch)
+    PM.add(createIntelIPOPrefetchWrapperPass());
+
   // Whole Program Analysis
   if (EnableWPA) {
     PM.add(createWholeProgramWrapperPassPass());
+    PM.add(createIntelFoldWPIntrinsicLegacyPass());
     // If whole-program-assume is enabled then we are going to call
     // the internalization pass.
     if (AssumeWholeProgram) {
@@ -1402,6 +1418,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    // Compute the aligment of the argument
+    PM.add(createIntelArgumentAlignmentLegacyPass());
+    // Recognize Functions that implement qsort
+    PM.add(createQsortRecognizerLegacyPass());
+  }
+
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
 #else
   bool EnableIntelPartialInlining = false;
@@ -1671,7 +1694,15 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
   // Add LCSSA pass before VPlan driver
   PM.add(createLCSSAPass());
   PM.add(createVPOCFGRestructuringPass());
+
+  // Create OCL sincos from sin/cos and sincos
+  PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
   PM.add(createVPlanDriverPass());
+
+  // Split/translate scalar OCL and vector sincos
+  PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
   // Clean up any SIMD directives left behind by VPlan vectorizer
   PM.add(createVPODirectiveCleanupPass());
 }
@@ -1833,6 +1864,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     if (SizeLevel == 0) {
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
+        PM.add(createHIRMVForVariableStridePass());
         PM.add(createHIROptVarPredicatePass());
         PM.add(createHIROptPredicatePass(OptLevel == 3, false));
       }

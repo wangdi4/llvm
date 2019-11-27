@@ -1,4 +1,4 @@
-; This funtion is part of the whole_program_read_2.ll test case. It
+; This function is part of the whole_program_read_2.ll test case. It
 ; is an external function for testing whole program.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

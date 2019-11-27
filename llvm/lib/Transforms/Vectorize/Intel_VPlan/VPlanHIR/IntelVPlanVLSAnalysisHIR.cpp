@@ -114,7 +114,7 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
 
   assert(Ref && "Unvisited RegDDRef must exist.");
 
-  unsigned Size = Ref->getDestType()->getScalarSizeInBits();
+  unsigned Size = DL.getTypeAllocSizeInBits(Ref->getDestType());
   if (!Size)
     return nullptr;
 

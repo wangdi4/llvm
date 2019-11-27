@@ -61,6 +61,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -1978,6 +1979,14 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
     }
     CreateConstraint(Constraint::Store, getNode(AI.getPointerOperand()),
                      getNode(AI.getValOperand()));
+}
+
+// Only known UnaryOperators:
+//  FNeg: FPOrFPVectorTy
+//  Freeze: Any type
+//
+void AndersensAAResult::visitUnaryOperator(UnaryOperator &AI) {
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {

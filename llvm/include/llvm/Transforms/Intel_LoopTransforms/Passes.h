@@ -132,6 +132,9 @@ FunctionPass *createHIRIdiomRecognitionPass();
 /// Creates pass that multiversions loop for the probable trip count value.
 FunctionPass *createHIRMVForConstUBPass();
 
+/// Creates pass that multiversions loop for variable strides.
+FunctionPass *createHIRMVForVariableStridePass();
+
 /// Creates pass that performs loop concatenation.
 FunctionPass *createHIRLoopConcatenationPass();
 

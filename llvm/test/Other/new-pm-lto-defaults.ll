@@ -39,6 +39,7 @@
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
+; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK-O-NEXT: Running pass: IPCloningPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
@@ -115,6 +116,7 @@
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-O2-NEXT: Running pass: PartialInlinerPass
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: IPCloningPass ;INTEL

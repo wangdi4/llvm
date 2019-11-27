@@ -94,8 +94,6 @@ LANGOPT(IntelCompat       , 1, 0,
 LANGOPT(IntelMSCompat     , 1, 0,
         "Enables or disables Microsoft compatibility features that are not planned for clang/llvm trunk")
 LANGOPT(HLS               , 1, 0, "Intel FPGA High Level Synthesis")
-LANGOPT(IntelAdvancedOptim, 1, 0,
-        "Enables or disables Intel specific advanced optimizations")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(Float128, 1, 0, "128 bit float support")
 LANGOPT(IntelQuad, 1, 0, "Intel's 128 bit float support")
@@ -132,6 +130,7 @@ BENIGN_LANGOPT(DollarIdents   , 1, 1, "'$' in identifiers")
 BENIGN_LANGOPT(AsmPreprocessor, 1, 0, "preprocessor in asm mode")
 LANGOPT(GNUMode           , 1, 1, "GNU extensions")
 LANGOPT(GNUKeywords       , 1, 1, "GNU keywords")
+VALUE_LANGOPT(GNUCVersion , 32, 0, "GNU C compatibility version")
 BENIGN_LANGOPT(ImplicitInt, 1, !C99 && !CPlusPlus, "C89 implicit 'int'")
 LANGOPT(Digraphs          , 1, 0, "digraphs")
 BENIGN_LANGOPT(HexFloats  , 1, C99, "C99 hexadecimal float constants")
@@ -142,6 +141,7 @@ LANGOPT(WritableStrings   , 1, 0, "writable string support")
 LANGOPT(ConstStrings      , 1, 0, "const-qualified string support")
 ENUM_LANGOPT(LaxVectorConversions, LaxVectorConversionKind, 2,
              LaxVectorConversionKind::All, "lax vector conversions")
+LANGOPT(ConvergentFunctions, 1, 1, "Assume convergent functions")
 LANGOPT(AltiVec           , 1, 0, "AltiVec-style vector initializers")
 LANGOPT(ZVector           , 1, 0, "System z vector extensions")
 LANGOPT(Exceptions        , 1, 0, "exception handling")
@@ -243,7 +243,7 @@ LANGOPT(UseAutoOpenCLAddrSpaceForOpenMP, 1, 0,
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
 LANGOPT(OpenMPLateOutlineAtomic, 1, 0, "Outline OpenMP atomic construct in the back end")
-LANGOPT(OpenMPLateOutlineAllowUncollapsedLoops, 1, 0,
+LANGOPT(OpenMPLateOutlineAllowUncollapsedLoops, 1, 1,
         "Generate an uncollapsed form of OpenMP loops")
 #if INTEL_FEATURE_CSA
 LANGOPT(CSAvISA, 1, 0, "[CSA] Customize target IR for binary vISA")
@@ -263,6 +263,7 @@ LANGOPT(CUDAAllowVariadicFunctions, 1, 0, "allowing variadic functions in CUDA d
 LANGOPT(CUDAHostDeviceConstexpr, 1, 1, "treating unattributed constexpr functions as __host__ __device__")
 LANGOPT(CUDADeviceApproxTranscendentals, 1, 0, "using approximate transcendental functions")
 LANGOPT(GPURelocatableDeviceCode, 1, 0, "generate relocatable device code")
+LANGOPT(GPUAllowDeviceInit, 1, 0, "allowing device side global init functions for HIP")
 
 LANGOPT(SYCLIsDevice      , 1, 0, "Generate code for SYCL device")
 LANGOPT(SYCLIsHost        , 1, 0, "SYCL host compilation")

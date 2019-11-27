@@ -1280,7 +1280,9 @@ SDValue SelectionDAG::getConstant(const ConstantInt &Val, const SDLoc &DL,
   }
 
   SDValue Result(N, 0);
-  if (VT.isVector())
+  if (VT.isScalableVector())
+    Result = getSplatVector(VT, DL, Result);
+  else if (VT.isVector())
     Result = getSplatBuildVector(VT, DL, Result);
 
   return Result;
@@ -5229,8 +5231,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
            "The result of EXTRACT_VECTOR_ELT must be at least as wide as the \
              element type of the vector.");
 
-    // EXTRACT_VECTOR_ELT of an UNDEF is an UNDEF.
-    if (N1.isUndef())
+    // Extract from an undefined value or using an undefined index is undefined.
+    if (N1.isUndef() || N2.isUndef())
       return getUNDEF(VT);
 
     // EXTRACT_VECTOR_ELT of out-of-bounds element is an UNDEF
@@ -5507,6 +5509,15 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     // INSERT_VECTOR_ELT into out-of-bounds element is an UNDEF
     if (N3C && N3C->getZExtValue() >= N1.getValueType().getVectorNumElements())
       return getUNDEF(VT);
+
+    // Undefined index can be assumed out-of-bounds, so that's UNDEF too.
+    if (N3.isUndef())
+      return getUNDEF(VT);
+
+    // If the inserted element is an UNDEF, just use the input vector.
+    if (N2.isUndef())
+      return N1;
+
     break;
   }
   case ISD::INSERT_SUBVECTOR: {
@@ -7769,38 +7780,9 @@ SDNode* SelectionDAG::mutateStrictFPToFP(SDNode *Node) {
   switch (OrigOpc) {
   default:
     llvm_unreachable("mutateStrictFPToFP called with unexpected opcode!");
-  case ISD::STRICT_FADD:       NewOpc = ISD::FADD;       break;
-  case ISD::STRICT_FSUB:       NewOpc = ISD::FSUB;       break;
-  case ISD::STRICT_FMUL:       NewOpc = ISD::FMUL;       break;
-  case ISD::STRICT_FDIV:       NewOpc = ISD::FDIV;       break;
-  case ISD::STRICT_FREM:       NewOpc = ISD::FREM;       break;
-  case ISD::STRICT_FMA:        NewOpc = ISD::FMA;        break;
-  case ISD::STRICT_FSQRT:      NewOpc = ISD::FSQRT;      break;
-  case ISD::STRICT_FPOW:       NewOpc = ISD::FPOW;       break;
-  case ISD::STRICT_FPOWI:      NewOpc = ISD::FPOWI;      break;
-  case ISD::STRICT_FSIN:       NewOpc = ISD::FSIN;       break;
-  case ISD::STRICT_FCOS:       NewOpc = ISD::FCOS;       break;
-  case ISD::STRICT_FEXP:       NewOpc = ISD::FEXP;       break;
-  case ISD::STRICT_FEXP2:      NewOpc = ISD::FEXP2;      break;
-  case ISD::STRICT_FLOG:       NewOpc = ISD::FLOG;       break;
-  case ISD::STRICT_FLOG10:     NewOpc = ISD::FLOG10;     break;
-  case ISD::STRICT_FLOG2:      NewOpc = ISD::FLOG2;      break;
-  case ISD::STRICT_LRINT:      NewOpc = ISD::LRINT;      break;
-  case ISD::STRICT_LLRINT:     NewOpc = ISD::LLRINT;     break;
-  case ISD::STRICT_FRINT:      NewOpc = ISD::FRINT;      break;
-  case ISD::STRICT_FNEARBYINT: NewOpc = ISD::FNEARBYINT; break;
-  case ISD::STRICT_FMAXNUM:    NewOpc = ISD::FMAXNUM;    break;
-  case ISD::STRICT_FMINNUM:    NewOpc = ISD::FMINNUM;    break;
-  case ISD::STRICT_FCEIL:      NewOpc = ISD::FCEIL;      break;
-  case ISD::STRICT_FFLOOR:     NewOpc = ISD::FFLOOR;     break;
-  case ISD::STRICT_LROUND:     NewOpc = ISD::LROUND;     break;
-  case ISD::STRICT_LLROUND:    NewOpc = ISD::LLROUND;    break;
-  case ISD::STRICT_FROUND:     NewOpc = ISD::FROUND;     break;
-  case ISD::STRICT_FTRUNC:     NewOpc = ISD::FTRUNC;     break;
-  case ISD::STRICT_FP_ROUND:   NewOpc = ISD::FP_ROUND;   break;
-  case ISD::STRICT_FP_EXTEND:  NewOpc = ISD::FP_EXTEND;  break;
-  case ISD::STRICT_FP_TO_SINT: NewOpc = ISD::FP_TO_SINT; break;
-  case ISD::STRICT_FP_TO_UINT: NewOpc = ISD::FP_TO_UINT; break;
+#define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)                   \
+  case ISD::STRICT_##DAGN: NewOpc = ISD::DAGN; break;
+#include "llvm/IR/ConstrainedOps.def"
   }
 
   assert(Node->getNumValues() == 2 && "Unexpected number of results!");
@@ -8860,7 +8842,9 @@ MemSDNode::MemSDNode(unsigned Opc, unsigned Order, const DebugLoc &dl,
   // We check here that the size of the memory operand fits within the size of
   // the MMO. This is because the MMO might indicate only a possible address
   // range instead of specifying the affected memory addresses precisely.
-  assert(memvt.getStoreSize() <= MMO->getSize() && "Size mismatch!");
+  // TODO: Make MachineMemOperands aware of scalable vectors.
+  assert(memvt.getStoreSize().getKnownMinSize() <= MMO->getSize() &&
+         "Size mismatch!");
 }
 
 /// Profile - Gather unique data for the node.
@@ -9274,7 +9258,7 @@ bool SelectionDAG::areNonVolatileConsecutiveLoads(LoadSDNode *LD,
 /// it cannot be inferred.
 unsigned SelectionDAG::InferPtrAlignment(SDValue Ptr) const {
   // If this is a GlobalAddress + cst, return the alignment.
-  const GlobalValue *GV;
+  const GlobalValue *GV = nullptr;
   int64_t GVOffset = 0;
   if (TLI->isGAPlusOffset(Ptr.getNode(), GV, GVOffset)) {
     unsigned IdxWidth = getDataLayout().getIndexTypeSizeInBits(GV->getType());

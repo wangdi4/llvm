@@ -22,29 +22,27 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[LOOP0:loop[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[LOOP0]] (BP: NULL)
-; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP__PRE:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[LOOP1:loop[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[LOOP1]] (BP: NULL)
-; CHECK-NEXT:    [[BB4:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_INNER_REC:%.*]] = phi  [ i32 [[VP_INNER_REC_NEXT:%.*]], [[BB6:BB[0-9]+]] ],  [ i32 [[VP__PRE]], [[BB4]] ]
@@ -84,30 +82,24 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[M_SEXT0:%.*]]
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    END Region([[LOOP1]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition([[BB10]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[M_SEXT0]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[LOOP1]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
-; CHECK-NEXT:    END Region([[LOOP0]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[LOOP0]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;

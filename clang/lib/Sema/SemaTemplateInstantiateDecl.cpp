@@ -457,35 +457,49 @@ static void instantiateOMPDeclareVariantAttr(
   if (Expr *E = Attr.getVariantFuncRef())
     VariantFuncRef = Subst(E);
 
-#if INTEL_CUSTOMIZATION
-  SmallVector<OMPDeclareVariantAttr::ConstructTy, 4> Constructs;
-  SmallVector<OMPDeclareVariantAttr::DeviceTy, 4> Devices;
-  for (auto C : Attr.construct())
-    Constructs.push_back(C);
-  for (auto D : Attr.device())
-    Devices.push_back(D);
-#endif // INTEL_CUSTOMIZATION
-
-  ExprResult Score;
-  if (Expr *E = Attr.getScore())
-    Score = Subst(E);
-
   // Check function/variant ref.
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(
           S.ConvertDeclToDeclGroup(New), VariantFuncRef.get(), Attr.getRange());
   if (!DeclVarData)
     return;
-  // Instantiate the attribute.
-  Sema::OpenMPDeclareVariantCtsSelectorData Data(Attr.getCtxSelectorSet(),
-                                                 Attr.getCtxSelector(),
-                                                 Attr.getImplVendor(), Score);
+  SmallVector<Sema::OMPCtxSelectorData, 4> Data;
+  for (unsigned I = 0, E = Attr.scores_size(); I < E; ++I) {
+    ExprResult Score;
+    if (Expr *E = *std::next(Attr.scores_begin(), I))
+      Score = Subst(E);
+    // Instantiate the attribute.
+    auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
+        *std::next(Attr.ctxSelectorSets_begin(), I));
+    auto Ctx = static_cast<OpenMPContextSelectorKind>(
+        *std::next(Attr.ctxSelectors_begin(), I));
+    switch (CtxSet) {
+    case OMP_CTX_SET_implementation:
+      switch (Ctx) {
+      case OMP_CTX_vendor:
+        Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
+        break;
+#if INTEL_COLLAB
+      case OMP_CTX_arch:
+      case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
+      case OMP_CTX_unknown:
+        llvm_unreachable("Unexpected context selector kind.");
+      }
+      break;
+#if INTEL_COLLAB
+    case OMP_CTX_SET_device:
+    case OMP_CTX_SET_construct:
+      Data.emplace_back(CtxSet, Ctx, Score, Attr.implVendors());
+      break;
+#endif // INTEL_COLLAB
+    case OMP_CTX_SET_unknown:
+      llvm_unreachable("Unexpected context selector set kind.");
+    }
+  }
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
                                        DeclVarData.getValue().second,
-#if INTEL_CUSTOMIZATION
-                                       Attr.getRange(), Constructs, Devices,
-                                       Data);
-#endif // INTEL_CUSTOMIZATION
+                                       Attr.getRange(), Data);
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
@@ -2211,6 +2225,11 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
     }
   }
 
+  if (D->isExplicitlyDefaulted())
+    SemaRef.SetDeclDefaulted(Function, D->getLocation());
+  if (D->isDeleted())
+    SemaRef.SetDeclDeleted(Function, D->getLocation());
+
   if (Function->isLocalExternDecl() && !Function->getPreviousDecl())
     DC->makeDeclVisibleInContext(PrincipalDecl);
 
@@ -2218,7 +2237,6 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
       PrincipalDecl->isInIdentifierNamespace(Decl::IDNS_Ordinary))
     PrincipalDecl->setNonMemberOperator();
 
-  assert(!D->isDefaulted() && "only methods should be defaulted");
   return Function;
 }
 
@@ -3262,7 +3280,12 @@ Decl *TemplateDeclInstantiator::VisitOMPDeclareReductionDecl(
         SubstInitializer =
             SemaRef.SubstExpr(D->getInitializer(), TemplateArgs).get();
       } else {
-        IsCorrect = IsCorrect && OmpPrivParm->hasInit();
+        auto *OldPrivParm =
+            cast<VarDecl>(cast<DeclRefExpr>(D->getInitPriv())->getDecl());
+        IsCorrect = IsCorrect && OldPrivParm->hasInit();
+        if (IsCorrect)
+          SemaRef.InstantiateVariableInitializer(OmpPrivParm, OldPrivParm,
+                                                 TemplateArgs);
       }
       SemaRef.ActOnOpenMPDeclareReductionInitializerEnd(
           NewDRD, SubstInitializer, OmpPrivParm);
@@ -3677,14 +3700,21 @@ TemplateDeclInstantiator::SubstTemplateParams(TemplateParameterList *L) {
   if (Invalid)
     return nullptr;
 
-  // Note: we substitute into associated constraints later
-  Expr *const UninstantiatedRequiresClause = L->getRequiresClause();
+  // FIXME: Concepts: Substitution into requires clause should only happen when
+  // checking satisfaction.
+  Expr *InstRequiresClause = nullptr;
+  if (Expr *E = L->getRequiresClause()) {
+    ExprResult Res = SemaRef.SubstExpr(E, TemplateArgs);
+    if (Res.isInvalid() || !Res.isUsable()) {
+      return nullptr;
+    }
+    InstRequiresClause = Res.get();
+  }
 
   TemplateParameterList *InstL
     = TemplateParameterList::Create(SemaRef.Context, L->getTemplateLoc(),
                                     L->getLAngleLoc(), Params,
-                                    L->getRAngleLoc(),
-                                    UninstantiatedRequiresClause);
+                                    L->getRAngleLoc(), InstRequiresClause);
   return InstL;
 }
 
@@ -4171,9 +4201,6 @@ void Sema::InstantiateExceptionSpec(SourceLocation PointOfInstantiation,
 bool
 TemplateDeclInstantiator::InitFunctionInstantiation(FunctionDecl *New,
                                                     FunctionDecl *Tmpl) {
-  if (Tmpl->isDeleted())
-    New->setDeletedAsWritten();
-
   New->setImplicit(Tmpl->isImplicit());
 
   // Forward the mangling number from the template to the instantiated decl.

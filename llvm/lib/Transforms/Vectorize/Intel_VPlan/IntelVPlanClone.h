@@ -28,21 +28,32 @@ public:
   /// Generic function that accepts any \p Block and clones it.
   static VPBlockBase *cloneBlockBase(VPBlockBase *Block, std::string Prefix,
                                      Block2BlockMapTy &BlockMap,
-                                     Value2ValueMapTy &ValueMap);
+                                     Value2ValueMapTy &ValueMap,
+                                     VPlanDivergenceAnalysis *DA = nullptr);
 
   /// Clone given VPBasicBlock \p Block.
   static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, std::string Prefix,
-                                       Value2ValueMapTy &ValueMap);
+                                       Value2ValueMapTy &ValueMap,
+                                       VPlanDivergenceAnalysis *DA = nullptr);
+
+  /// Clone given blocks from Begin to End
+  static VPBlockBase *cloneBlocksRange(VPBlockBase *Begin, VPBlockBase *End,
+                                       Block2BlockMapTy &BlockMap,
+                                       Value2ValueMapTy &ValueMap,
+                                       VPlanDivergenceAnalysis *DA = nullptr,
+                                       Twine Prefix = Twine());
 
   /// Clone given VPLoopRegion \p LR.
   static VPLoopRegion *cloneLoopRegion(VPLoopRegion *LR, std::string Prefix,
                                        Block2BlockMapTy &BlockMap,
-                                       Value2ValueMapTy &ValueMap);
+                                       Value2ValueMapTy &ValueMap,
+                                       VPlanDivergenceAnalysis *DA = nullptr);
 
   /// Clone given VPRegionBlocks \p Region.
   static VPRegionBlock *cloneRegion(VPRegionBlock *Region, std::string Prefix,
                                     Block2BlockMapTy &BlockMap,
-                                    Value2ValueMapTy &ValueMap);
+                                    Value2ValueMapTy &ValueMap,
+                                    VPlanDivergenceAnalysis *DA = nullptr);
 };
 
 /// VPValueMapper is responsible to remap instructions within

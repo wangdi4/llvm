@@ -331,8 +331,8 @@ public:
   /// directive.
   bool isAutoVecDirective() const;
 
-  /// Checks if the Opcode is a reduction and returns OpCode
-  bool isReductionOp(unsigned *OpCode) const;
+  /// Checks if the Opcode is a reduction and returns it in \p OpCode.
+  bool isReductionOp(unsigned *OpCode = nullptr) const;
 
   /// Checks if instruction is a min.
   bool isMin() const { return checkMinMax(true, false); }

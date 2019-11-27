@@ -34,6 +34,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIROptVarPredicate.cpp
         HIRIdiomRecognition.cpp
         HIRMVForConstUB.cpp
+        HIRMVForVariableStride.cpp
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
         HIRAosToSoa.cpp

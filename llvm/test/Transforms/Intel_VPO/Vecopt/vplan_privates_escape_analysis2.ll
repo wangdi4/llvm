@@ -1,9 +1,8 @@
 ; This test verifies that private-variables escaping out through a write
 ; to an output argument are unsafe for data-layout transformation.
 
-; RUN: opt %s -S -VPlanDriver -vplan-force-vf=4  -disable-vplan-codegen \
-; RUN: -enable-vp-value-codegen=true -vplan-use-entity-instr  -disable-output \
-; RUN: -debug-only=vploop-analysis 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-dump-soa-info %s 2>&1 | FileCheck %s
+; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
 
 ; REQUIRES:asserts
 
@@ -65,14 +64,14 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
 
 if.then:                                          ; preds = %omp.inner.for.body
   %add2 = add nsw i32 %1, %n1
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add2, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %add2, i32* %arrayidx, align 4
   br label %if.end
 
 if.else:                                          ; preds = %omp.inner.for.body
   %sub = sub nsw i32 %1, %n1
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %sub, i32* %arrayidx4, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %sub, i32* %arrayidx4, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
@@ -82,7 +81,7 @@ if.end:                                           ; preds = %if.else, %if.then
   br i1 %cmp6, label %if.then7, label %omp.inner.for.inc
 
 if.then7:                                         ; preds = %if.end
-  store i32* %arrayidx9, i32** %out, align 8, !tbaa !7
+  store i32* %arrayidx9, i32** %out, align 8
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then7, %if.end
@@ -91,7 +90,7 @@ omp.inner.for.inc:                                ; preds = %if.then7, %if.end
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
-  store i32 1023, i32* %index.lpriv, align 4, !tbaa !9
+  store i32 1023, i32* %index.lpriv, align 4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
@@ -100,8 +99,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
   %idxprom12 = sext i32 %n1 to i64
-  %arrayidx13 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr_e, i64 0, i64 %idxprom12, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx13, align 4, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr_e, i64 0, i64 %idxprom12
+  %3 = load i32, i32* %arrayidx13, align 4
   ret i32 %3
 }
 
@@ -110,12 +109,3 @@ declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA1024_i", !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}
-!7 = !{!8, !8, i64 0}
-!8 = !{!"pointer@_ZTSPi", !5, i64 0}
-!9 = !{!4, !4, i64 0}

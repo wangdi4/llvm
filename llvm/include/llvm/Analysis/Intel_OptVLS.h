@@ -32,6 +32,7 @@
 #ifndef LLVM_ANALYSIS_INTEL_OPTVLS_H
 #define LLVM_ANALYSIS_INTEL_OPTVLS_H
 
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
@@ -310,9 +311,7 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSMemref &M) {
 class OVLSGroup {
 public:
   OVLSGroup(OVLSMemref *InsertPoint, int VLen, OVLSAccessKind AKind)
-      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {
-    NByteAccessMask = 0;
-  }
+      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {}
 
   typedef OVLSMemrefVector::iterator iterator;
   inline iterator begin() { return MemrefVec.begin(); }
@@ -328,15 +327,24 @@ public:
   // Returns true if the group is empty.
   bool empty() const { return MemrefVec.empty(); }
   // Insert an element into the Group and set the masks accordingly.
-  void insert(OVLSMemref *Mrf, uint64_t AMask) {
+  void insert(OVLSMemref *Mrf) {
     assert(isSafeToInsert(*Mrf) && "Not safe to insert");
     MemrefVec.push_back(Mrf);
-    NByteAccessMask = AMask;
   }
 
-  // Returns group access mask.
-  uint64_t getNByteAccessMask() const { return NByteAccessMask; }
-  void setAccessMask(uint64_t Mask) { NByteAccessMask = Mask; }
+  /// APInt returned represents the Access Mask of the group with a bit for each
+  /// byte. For example, for the following access pattern:
+  ///
+  ///     short a = ary[5*i+0];
+  ///     short b = ary[5*i+1];
+  ///     short c = ary[5*i+3];
+  ///
+  /// the computed mask is 0b11001111. Notice that the width of the mask is 8
+  /// bits (the distance between first and last accessed bytes), while the group
+  /// stride is 10 bytes. That means that even if the mask isAllOnesValue, there
+  /// may be gaps between accesses on concecutive loop iterations.
+  APInt computeByteAccessMask() const;
+
   OVLSAccessKind getAccessKind() const { return AccessKind; }
   uint32_t getVectorLength() const { return VectorLength; }
 
@@ -406,16 +414,6 @@ private:
   /// VectorLength can be the maximum length of the underlying vector register
   /// or any other desired size that clients want to consider.
   uint32_t VectorLength;
-
-  /// \brief NByteAccessMask is a byte mask, represents the access pattern for
-  /// each N bytes comprising the i-th element of the memrefs in the MemrefVec,
-  /// here N <= VectorLength. Each bit in the mask corresponds to a byte.
-  /// Specifically, it tells us if there are any gaps in between the i-th
-  /// accesses (since access pattern information is not recorded in the
-  /// MemrefVec to save memory) Maximum 64 bytes can be represented.
-  /// TODO: get rid of this by representing gap using a dummy memref in the
-  /// MemrefVec.
-  uint64_t NByteAccessMask;
 
   /// \brief AccessKind of the group.
   OVLSAccessKind AccessKind;

@@ -32,6 +32,23 @@ class AllocaCommand;
 class AllocaCommandBase;
 class ReleaseCommand;
 
+enum BlockingT { NON_BLOCKING = 0, BLOCKING };
+
+// The struct represents the result of command enqueueing
+struct EnqueueResultT {
+  enum ResultT { SUCCESS, BLOCKED, FAILED };
+  EnqueueResultT(ResultT Result = SUCCESS, Command *Cmd = nullptr,
+                 cl_int ErrCode = CL_SUCCESS)
+      : MResult(Result), MCmd(Cmd), MErrCode(ErrCode) {}
+  // Indicates result of enqueueing
+  ResultT MResult;
+  // Pointer to the command failed to enqueue
+  Command *MCmd;
+  // Error code which is set when enqueueing fails
+  cl_int MErrCode;
+};
+
+
 // DepDesc represents dependency between two commands
 struct DepDesc {
   DepDesc(Command *DepCommand, Requirement *Req, AllocaCommandBase *AllocaCmd)
@@ -85,9 +102,11 @@ public:
   // Return type of the command, e.g. Allocate, MemoryCopy.
   CommandType getType() const { return MType; }
 
-  // The method checks if the command is enqueued, call enqueueImp if not and
-  // returns CL_SUCCESS on success.
-  cl_int enqueue();
+  // The method checks if the command is enqueued, waits for it to be unblocked
+  // if "Blocking" argument is true, then calls enqueueImp.
+  // Returns true if the command is enqueued. Sets EnqueueResult to the specific
+  // status otherwise.
+  bool enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking);
 
   bool isFinished();
 
@@ -116,12 +135,20 @@ protected:
   virtual cl_int enqueueImp() = 0;
 
 public:
-  std::vector<DepDesc> MDeps;
-  std::vector<Command *> MUsers;
-
-private:
+  // The type of the command
   CommandType MType;
+  // Indicates whether the command is enqueued or not
   std::atomic<bool> MEnqueued;
+  // Contains list of dependencies(edges)
+  std::vector<DepDesc> MDeps;
+  // Contains list of commands that depend on the command
+  std::vector<Command *> MUsers;
+  // Mutex used to protect enqueueing from race conditions
+  std::mutex MEnqueueMtx;
+  // Indicates whether the command can be blocked from enqueueing
+  bool MIsBlockable = false;
+  // Indicates whether the command is blocked from enqueueing
+  std::atomic<bool> MCanEnqueue;
 };
 
 // The command does nothing during enqueue. The task can be used to implement
@@ -218,13 +245,12 @@ private:
 
 class MapMemObject : public Command {
 public:
-  MapMemObject(Requirement SrcReq, AllocaCommandBase *SrcAlloca,
-               Requirement *DstAcc, QueueImplPtr Queue);
+  MapMemObject(AllocaCommandBase *SrcAlloca, Requirement *Req, void **DstPtr,
+               QueueImplPtr Queue);
 
-  Requirement MSrcReq;
   AllocaCommandBase *MSrcAlloca = nullptr;
-  Requirement *MDstAcc = nullptr;
-  Requirement MDstReq;
+  void **MDstPtr = nullptr;
+  Requirement MReq;
 
   void printDot(std::ostream &Stream) const override;
 
@@ -234,18 +260,17 @@ private:
 
 class UnMapMemObject : public Command {
 public:
-  UnMapMemObject(Requirement SrcReq, AllocaCommandBase *SrcAlloca,
-                 Requirement *DstAcc, QueueImplPtr Queue,
-                 bool UseExclusiveQueue = false);
+  UnMapMemObject(AllocaCommandBase *DstAlloca, Requirement *Req, void **SrcPtr,
+                 QueueImplPtr Queue, bool UseExclusiveQueue = false);
 
   void printDot(std::ostream &Stream) const override;
 
 private:
   cl_int enqueueImp() override;
 
-  Requirement MSrcReq;
-  AllocaCommandBase *MSrcAlloca = nullptr;
-  Requirement *MDstAcc = nullptr;
+  AllocaCommandBase *MDstAlloca = nullptr;
+  Requirement MReq;
+  void **MSrcPtr = nullptr;
 };
 
 // The command enqueues memory copy between two instances of memory object.
@@ -277,14 +302,14 @@ private:
 class MemCpyCommandHost : public Command {
 public:
   MemCpyCommandHost(Requirement SrcReq, AllocaCommandBase *SrcAlloca,
-                    Requirement *DstAcc, QueueImplPtr SrcQueue,
+                    Requirement DstReq, void **DstPtr, QueueImplPtr SrcQueue,
                     QueueImplPtr DstQueue);
 
   QueueImplPtr MSrcQueue;
   Requirement MSrcReq;
   AllocaCommandBase *MSrcAlloca = nullptr;
   Requirement MDstReq;
-  Requirement *MDstAcc = nullptr;
+  void **MDstPtr = nullptr;
 
   void printDot(std::ostream &Stream) const override;
 
@@ -314,21 +339,20 @@ private:
 
 class UpdateHostRequirementCommand : public Command {
 public:
-  UpdateHostRequirementCommand(QueueImplPtr Queue, Requirement *Req,
-                               AllocaCommandBase *AllocaForReq)
+  UpdateHostRequirementCommand(QueueImplPtr Queue, AllocaCommandBase *AllocaCmd,
+                               Requirement *Req, void **DstPtr)
       : Command(CommandType::UPDATE_REQUIREMENT, std::move(Queue)),
-        MReqToUpdate(Req), MAllocaForReq(AllocaForReq),
-        MStoredRequirement(*Req) {}
+        MDstPtr(DstPtr), MAllocaCmd(AllocaCmd), MReq(*Req) {}
 
-  Requirement *getStoredRequirement() { return &MStoredRequirement; }
+  Requirement *getStoredRequirement() { return &MReq; }
 
 private:
   cl_int enqueueImp() override;
   void printDot(std::ostream &Stream) const override;
 
-  Requirement *MReqToUpdate = nullptr;
-  AllocaCommandBase *MAllocaForReq = nullptr;
-  Requirement MStoredRequirement;
+  void **MDstPtr = nullptr;
+  AllocaCommandBase *MAllocaCmd = nullptr;
+  Requirement MReq;
 };
 
 } // namespace detail

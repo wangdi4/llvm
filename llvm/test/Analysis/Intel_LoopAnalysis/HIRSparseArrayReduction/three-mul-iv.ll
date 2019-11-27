@@ -1,11 +1,11 @@
 ; RUN: opt < %s -analyze -hir-ssa-deconstruction -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
-; Check sparse array reduction for (@A)[0][3 * i1];
+; Check sparse array reduction for (@A)[0][i1 + %n];
 
 ; BEGIN REGION
 ;       + DO i1 = 0, 99, 1   <DO_LOOP>
-;       |   %1 = (@A)[0][3 * i1];
+;       |   %1 = (@A)[0][i1 + %n];
 ;       |   %2 = (@C)[0][i1];
 ;       |   %3 = (@B)[0][%1];
 ;       |   %add = %2  +  %3;
@@ -28,7 +28,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @C = common dso_local local_unnamed_addr global [100 x float] zeroinitializer, align 16
 @B = common dso_local local_unnamed_addr global [100 x float] zeroinitializer, align 16
 
-define dso_local void @foo() local_unnamed_addr #0 {
+define dso_local void @foo(i64 %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -37,7 +37,7 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %0 = mul nuw nsw i64 %indvars.iv, 3
+  %0 = add nuw nsw i64 %indvars.iv, %n
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %0
   %1 = load i32, i32* %arrayidx, align 4
   %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %indvars.iv

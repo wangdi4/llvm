@@ -339,7 +339,7 @@ public:
   }
 
   bool assumeFunctionsAreConvergent() const {
-    return (CUDA && CUDAIsDevice) || OpenCL;
+    return ConvergentFunctions;
   }
 
   /// Return the OpenCL C or C++ version as a VersionTuple.

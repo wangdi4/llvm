@@ -1,6 +1,6 @@
 //===-- IntelVPlanLoopInfo.cpp ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -18,9 +18,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopIterator.h"
 #include "IntelVPlanValue.h"
-#include "IntelVPlan.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -134,4 +136,9 @@ TripCountInfo VPLoop::getTripCountInfo() {
   TripCountInfo DefaultTC;
   DefaultTC.calculateEstimatedTripCount();
   return DefaultTC;
+}
+
+void VPLoopInfo::analyze(const VPDominatorTree &DomTree) {
+  assert(begin() == end() && "VPLoopInfo has already been run!");
+  Base::analyze(DomTree);
 }

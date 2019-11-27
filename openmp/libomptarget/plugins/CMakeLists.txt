@@ -80,6 +80,9 @@ endif()
 
 if (INTEL_COLLAB)
   add_subdirectory(opencl)
+# INTEL_CUSTOMIZATION
+  add_subdirectory(level0)
+# end INTEL_CUSTOMIZATION
 endif(INTEL_COLLAB)
 
 # Make sure the parent scope can see the plugins that will be created.

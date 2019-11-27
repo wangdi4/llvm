@@ -1,12 +1,19 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
 
 ; Check that the loop is not unrolled due to small max trip count estimate.
 
-; CHECK: + DO i1 = 0, %SRIndex.185 + -1 * smin(0, (-1 + %SRIndex.185)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8>
+; CHECK: + DO i1 = 0, %SRIndex.185 + -1 * smin(0, (-1 + %SRIndex.185)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8> <nounroll>
 ; CHECK: |   %0 = (%ShiftRegister)[0][-1 * i1 + %N + -1];
 ; CHECK: |   (%ShiftRegister)[0][-1 * i1 + %N] = %0;
 ; CHECK: + END LOOP
+
+
+; Verify that underlying LLVM loop got disabling metadata.
+
+; CHECK: !llvm.loop !0
+; CHECK: !0 = distinct !{!0, !1}
+; CHECK: !1 = !{!"llvm.loop.unroll.disable"}
 
 target datalayout = "p:32:32"
 

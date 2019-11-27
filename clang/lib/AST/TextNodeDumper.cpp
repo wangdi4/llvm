@@ -1643,6 +1643,7 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
       FLAG(hasTrivialDestructor, trivial);
       FLAG(hasNonTrivialDestructor, non_trivial);
       FLAG(hasUserDeclaredDestructor, user_declared);
+      FLAG(hasConstexprDestructor, constexpr);
       FLAG(needsImplicitDestructor, needs_implicit);
       FLAG(needsOverloadResolutionForDestructor, needs_overload_resolution);
       if (!D->needsOverloadResolutionForDestructor())
@@ -1920,6 +1921,8 @@ void TextNodeDumper::VisitObjCPropertyDecl(const ObjCPropertyDecl *D) {
       OS << " unsafe_unretained";
     if (Attrs & ObjCPropertyDecl::OBJC_PR_class)
       OS << " class";
+    if (Attrs & ObjCPropertyDecl::OBJC_PR_direct)
+      OS << " direct";
     if (Attrs & ObjCPropertyDecl::OBJC_PR_getter)
       dumpDeclRef(D->getGetterMethodDecl(), "getter");
     if (Attrs & ObjCPropertyDecl::OBJC_PR_setter)

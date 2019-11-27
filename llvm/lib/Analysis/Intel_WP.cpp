@@ -13,7 +13,6 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -21,6 +20,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -32,10 +33,13 @@ namespace llvm {
 namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
-cl::opt<bool> AssumeWholeProgram("whole-program-assume",
-                                 cl::init(false), cl::ReallyHidden);
+bool AssumeWholeProgram = false;
 } // llvm_intel_wp_analysis
 } // llvm
+
+static cl::opt<bool, true>
+    AssumeWholeProgramOpt("whole-program-assume",
+                          cl::ReallyHidden, cl::location(AssumeWholeProgram));
 
 // Flag to print the libfuncs found by whole program analysis.
 static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",
@@ -44,6 +48,10 @@ static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",
 // Flag for printing the symbols that weren't internalized in the module
 static cl::opt<bool> WholeProgramTraceVisibility(
     "whole-program-trace-visibility", cl::init(false), cl::ReallyHidden);
+
+// Flag for printing the symbols resolution found by the linker
+static cl::opt<bool> WholeProgramReadTrace(
+    "whole-program-read-trace", cl::init(false), cl::ReallyHidden);
 
 // Flag asserts that whole program will be detected.
 static cl::opt<bool> WholeProgramAssert("whole-program-assert",
@@ -71,7 +79,6 @@ INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
@@ -99,25 +106,13 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
       getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
 
-  // NOTE: The old pass manager uses two variables to represent the
-  // optimization levels:
-  //
-  //   - OptLevel: stores the optimization level
-  //               0 = -O0, 1 = -O1, 2 = -O2, 3 = -O3
-  //
-  //   - SizeLevel: stores if we are optimizing for size
-  //               0 = no, 1 = Os, 2 = Oz
-  //
-  // The values of OptLevel can be 0, 1, 2 or 3.
-  unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
-
   auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
   Result.reset(new WholeProgramInfo(
                WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
-               CG, OptLevel)));
+               CG)));
 
   return false;
 }
@@ -149,10 +144,16 @@ WholeProgramInfo::~WholeProgramInfo() {}
 //                        -mllvm -debug-only=whole-program-analysis
 //                        -mllvm -whole-program-trace-visibility
 //
+//   Whole Program Read: just print the result from the whole program read
+//                       analysis
+//                       -mllvm -debug-only=whole-program-analysis
+//                       -mllvm -whole-program-read-trace
+//
 //   Full: Print all
 //         -mllvm -debug-only=whole-program-analysis
 //         -mllvm -whole-program-trace-libfuncs
 //         -mllvm -whole-program-trace-visibility
+//         -mllvm -whole-program-read-trace
 void WholeProgramInfo::printWholeProgramTrace() {
 
     auto PrintAliases = [this](void) {
@@ -200,9 +201,11 @@ void WholeProgramInfo::printWholeProgramTrace() {
     };
 
     bool Simple = !WholeProgramTraceLibFuncs &&
-                  !WholeProgramTraceVisibility;
+                  !WholeProgramTraceVisibility &&
+                  !WholeProgramReadTrace;
 
-    bool Full = (WholeProgramTraceLibFuncs && WholeProgramTraceVisibility);
+    bool Full = (WholeProgramTraceLibFuncs && WholeProgramTraceVisibility &&
+                 WholeProgramReadTrace);
 
     dbgs() << "\nWHOLE-PROGRAM-ANALYSIS: ";
 
@@ -221,6 +224,9 @@ void WholeProgramInfo::printWholeProgramTrace() {
     // Print the functions that weren't internalized
     else if (WholeProgramTraceVisibility)
       dbgs() << "EXTERNAL FUNCTIONS TRACE";
+
+    else if (WholeProgramReadTrace)
+      dbgs() << "WHOLE PROGRAM READ\n";
 
     dbgs() << "\n\n";
 
@@ -245,67 +251,22 @@ void WholeProgramInfo::printWholeProgramTrace() {
     if (Simple || Full || WholeProgramTraceVisibility)
       PrintVisibility();
 
+    if (Full || WholeProgramReadTrace)
+      WPUtils.PrintSymbolsResolution();
+
     PrintWPResult();
 }
 #endif // NDEBUG || LLVM_ENABLE_DUMP
 
-// Traverse through the IR and replace the calls to the intrinsic
-// llvm.intel.wholeprogramsafe with true if whole program safe was
-// detected. Else, replace the calls with a false. The intrinsic
-// llvm.intel.wholeprogramsafe should be removed completely after
-// this process since it won't be lowered. See the language reference
-// manual for more information.
-void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M,
-                                                     unsigned OptLevel) {
-
-  Function *WhPrIntrin = M.getFunction("llvm.intel.wholeprogramsafe");
-
-  if (!WhPrIntrin)
-    return;
-
-  LLVMContext &Context = M.getContext();
-
-  // If the optimization level is 0 then we are going to take the path
-  // when whole program is not safe. This means that any optimization
-  // wrapped in the intrinsic llvm.intel.wholeprogramsafe won't be
-  // applied (e.g. devirtualization).
-  ConstantInt *InitVal = ((isWholeProgramSafe() && OptLevel > 0) ?
-                          ConstantInt::getTrue(Context) :
-                          ConstantInt::getFalse(Context));
-
-  while (!WhPrIntrin->use_empty()){
-    // The intrinsic llvm.intel.wholeprogramsafe is only supported for
-    // CallInst instructions. The only intrinsics that are allowed in
-    // InvokeInst are: donothing, patchpoint, statepoint, coro_resume
-    // and coro_destroy.
-    CallInst *IntrinCall = cast<CallInst>(WhPrIntrin->user_back());
-    IntrinCall->replaceAllUsesWith(InitVal);
-    IntrinCall->eraseFromParent();
-  }
-
-  assert(WhPrIntrin->use_empty() && "Whole Program Analysis: intrinsic"
-          " llvm.intel.wholeprogramsafe wasn't removed correctly.");
-
-  WhPrIntrin->eraseFromParent();
-
-  assert(!M.getFunction("llvm.intel.wholeprogramsafe") &&
-          "Whole Program Analysis: intrinsic llvm.intel.wholeprogramsafe"
-          " wasn't removed correctly.");
-}
-
 WholeProgramInfo WholeProgramInfo::analyzeModule(
     Module &M,
     std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG,
-    unsigned OptLevel) {
+    function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG) {
 
   WholeProgramInfo Result;
 
   Result.wholeProgramAllExternsAreIntrins(M, GetTLI);
 
-  // Remove the uses of the intrinsic
-  // llvm.intel.wholeprogramsafe
-  Result.foldIntrinsicWholeProgramSafe(M, OptLevel);
   Result.computeIsAdvancedOptEnabled(M, GTTI);
 
   return Result;
@@ -317,7 +278,6 @@ void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addRequired<XmainOptLevelWrapperPass>();
 }
 
 // This function takes Value that is an operand to call or invoke instruction
@@ -663,6 +623,22 @@ bool WholeProgramInfo::isLinkedAsExecutable() {
   return WPUtils.getLinkingExecutable() || AssumeWholeProgramExecutable;
 }
 
+// Return the Function* that points to "main" or any of its forms,
+// else return nullptr
+Function* WholeProgramInfo::getMainFunction(Module &M) {
+
+  Function *Main = nullptr;
+
+  for (auto Name : WPUtils.getMainNames()) {
+    Main = M.getFunction(Name);
+
+    if (Main)
+      break;
+  }
+
+  return Main;
+}
+
 char WholeProgramAnalysis::PassID;
 
 // Provide a definition for the static class member used to identify passes.
@@ -676,30 +652,10 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
     return FAM.getResult<TargetIRAnalysis>(F);
   };
 
-  // NOTE: The new pass manager uses an enum to represent the
-  // optimization levels:
-  //
-  //   - PassBuilder::OptimizationLevel
-  //
-  //     PassBuilder::OptimizationLevel::O0 = -O0
-  //     PassBuilder::OptimizationLevel::O1 = -O1
-  //     PassBuilder::OptimizationLevel::O2 = -O2
-  //     PassBuilder::OptimizationLevel::O3 = -O3
-  //     PassBuilder::OptimizationLevel::Os = -Os
-  //     PassBuilder::OptimizationLevel::Oz = -Oz
-  //
-  // The values of OptLevel can be 0, 1, 2, 3, 4 or 5. The options -Os and
-  // -Oz are optimization level but for size. The compiler will treat these
-  // two levels as -O2 but without increasing the size of the code. The main
-  // difference between -Os and -Oz is that the second one does more aggressive
-  // optimizations related to size.
-  unsigned OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
-
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
   return WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
-                                  AM.getCachedResult<CallGraphAnalysis>(M),
-                                  OptLevel);
+                                  AM.getCachedResult<CallGraphAnalysis>(M));
 }

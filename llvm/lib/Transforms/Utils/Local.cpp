@@ -1185,7 +1185,7 @@ static unsigned enforceKnownAlignment(Value *V, unsigned Alignment,
     if (!GO->canIncreaseAlignment())
       return Alignment;
 
-    GO->setAlignment(PrefAlign);
+    GO->setAlignment(MaybeAlign(PrefAlign));
     return PrefAlign;
   }
 
@@ -1623,6 +1623,11 @@ bool llvm::salvageDebugInfo(Instruction &I) {
     return false;
 
   return salvageDebugInfoForDbgValues(I, DbgUsers);
+}
+
+void llvm::salvageDebugInfoOrMarkUndef(Instruction &I) {
+  if (!salvageDebugInfo(I))
+    replaceDbgUsesWithUndef(&I);
 }
 
 bool llvm::salvageDebugInfoForDbgValues(

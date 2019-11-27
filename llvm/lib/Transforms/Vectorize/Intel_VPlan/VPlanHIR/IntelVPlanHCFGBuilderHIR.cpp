@@ -120,6 +120,7 @@ template <typename DescrType>
 DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
                                                const DDRef *Ref) const {
   for (auto &Descr : List) {
+    // TODO: try to avoid returning the non-const ptr.
     DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
     assert(isa<RegDDRef>(CurrentDescr->Ref) &&
            "The original SIMD descriptor Ref is not a RegDDRef.");
@@ -265,10 +266,10 @@ HIRVectorizationLegality::getVectorIdioms(HLLoop *Loop) const {
 bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
                                                  HLLoop *Loop) const {
   auto *Idioms = getVectorIdioms(Loop);
-  for (auto &Inst : make_range(Idioms->begin(), Idioms->end()))
-    if ((Inst.second == HIRVectorIdioms::IdiomId::MinOrMax ||
-         Inst.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
-        DDRefUtils::areEqual(Inst.first->getLvalDDRef(), Ref))
+  for (auto &IdiomDescr : make_range(Idioms->begin(), Idioms->end()))
+    if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||
+         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
+        DDRefUtils::areEqual(IdiomDescr.first->getLvalDDRef(), Ref))
       return true;
 
   return false;
@@ -833,10 +834,7 @@ private:
 /// the common information about redcution type, operation, etc. The second list
 /// contains info about concrete statements. We need to iteratate through the
 /// all statements so this iterator goes through both lists, first taking the
-/// HIRSafeRedInfo and then going through its list of statements. Currently
-/// masked safe reductions are not converted since more analysis is needed in
-/// VPlan HCFG  to correctly capture loop exit instruction. (JIRA:
-/// CMPLRLLVM-9609)
+/// HIRSafeRedInfo and then going through its list of statements.
 class ReductionInputIteratorHIR {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
@@ -897,21 +895,16 @@ private:
         // need to investigate whether we need other statements as reductions.
         RedCurrent = RedEnd;
         RedCurrent--;
-        if (!isMaskedReduction()) {
-          auto Opcode = ChainCurrent->OpCode;
-          // Predicate type is needed to determine reduction kind for min/max
-          // reductions. For other reductions predicate is undefined.
-          auto Pred = Opcode == Instruction::Select
-                          ? (*RedCurrent)->getPredicate().Kind
-                          : PredicateTy::BAD_ICMP_PREDICATE;
-          Descriptor.fillReductionKinds(
-              (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
-              (*RedCurrent)->isMax());
-          break;
-        } else {
-          // invalidate iterators for masked reductions
-          RedCurrent = RedEnd = nullptr;
-        }
+        auto Opcode = ChainCurrent->OpCode;
+        // Predicate type is needed to determine reduction kind for min/max
+        // reductions. For other reductions predicate is undefined.
+        auto Pred = Opcode == Instruction::Select
+                        ? (*RedCurrent)->getPredicate().Kind
+                        : PredicateTy::BAD_ICMP_PREDICATE;
+        Descriptor.fillReductionKinds(
+            (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
+            (*RedCurrent)->isMax());
+        break;
       }
       ChainCurrent++;
     }
@@ -922,16 +915,6 @@ private:
       Descriptor.HLInst = *RedCurrent;
     else
       Descriptor.clear();
-  }
-
-  bool isMaskedReduction() {
-    if (RedCurrent == RedEnd)
-      return false;
-
-    if (isa<HLIf>((*RedCurrent)->getParent()))
-      return true;
-
-    return false;
   }
 
 private:
@@ -1411,6 +1394,5 @@ VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
   assert(HLLp && "Expected HLLoop");
   VPLoopRegion *Loop =
       new VPLoopRegionHIR(VPlanUtils::createUniqueName("loop"), VPLp, HLLp);
-  Loop->setReplicator(false /*IsReplicator*/);
   return Loop;
 }

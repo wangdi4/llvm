@@ -1,7 +1,5 @@
 // RUN: %clangxx -fsycl %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 //==---- host_image_accessor_read.cpp - SYCL host image accessor check ----==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

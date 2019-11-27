@@ -32,6 +32,7 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/Support/raw_ostream.h"
+#include <list>
 
 namespace llvm {
 

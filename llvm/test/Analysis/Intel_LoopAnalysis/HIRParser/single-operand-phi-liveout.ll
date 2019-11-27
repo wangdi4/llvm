@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; HIR-
-; + DO i1 = 0, 49, 1   <DO_LOOP>
+; + DO i1 = 0, 4294967293, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 38, 1   <DO_LOOP>
 ; |   |   + DO i3 = 0, zext.i32.i64((trunc.i64.i32(%indvars.iv) + umax(-2, (-1 * trunc.i64.i32(%indvars.iv))))), 1   <DO_LOOP>
 ; |   |   |   %1 = (%s)[0][i1 + -1 * i3 + 3][i1 + -1 * i3 + 2];
@@ -12,6 +12,7 @@
 ; |   %indvars.iv = i1 + 3;
 ; + END LOOP
 
+; Note: the i1 loop's range is large such that it may need to be truncated to be used as the i3 loop's upper bound.
 ; Check livein/liveout of the loopnest verifying that %1 is marked live out of i3 loop and %mul66 is marked live out of i2 loop.
 
 ; Collect region liveout symbases.
@@ -81,7 +82,7 @@ for.inc98:                                        ; preds = %for.body48
 for.inc100:                                       ; preds = %for.inc98
   %mul66.lcssa = phi i32 [ %mul66, %for.inc98 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond249 = icmp eq i64 %indvars.iv.next, 52
+  %exitcond249 = icmp eq i64 %indvars.iv.next, 4294967296
   br i1 %exitcond249, label %for.end102, label %for.cond43.preheader
 
 for.end102:

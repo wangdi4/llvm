@@ -125,6 +125,33 @@ void foo10(slave_arg __attribute__((internal_max_block_ram_depth(32)))
 // CHECK-NEXT: IntegerLiteral{{.*}}32{{$}}
 // CHECK: ComponentAttr
 
+__attribute__((ihc_component))
+void foo13(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
+{}
+// CHECK: FunctionDecl{{.*}}foo13
+// CHECK: ParmVarDecl{{.*}}i
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: ReadWriteModeAttr{{.*}} "readonly"
+
+__attribute__((ihc_component))
+void foo14(slave_arg __attribute__((readwrite_mode("writeonly"))) int *i)
+{}
+// CHECK: FunctionDecl{{.*}}foo14
+// CHECK: ParmVarDecl{{.*}}i
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: ReadWriteModeAttr{{.*}} "writeonly"
+
+__attribute__((ihc_component))
+void foo15(slave_arg __attribute__((readwrite_mode("readwrite"))) int *i)
+{}
+// CHECK: FunctionDecl{{.*}}foo15
+// CHECK: ParmVarDecl{{.*}}i
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: ReadWriteModeAttr{{.*}} "readwrite"
+
 // Diagnostics
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
@@ -220,3 +247,26 @@ void baz2(
   //expected-note@-2 {{conflicting attribute is here}}
   int *ip) {}
 
+//expected-error@+1{{readwrite type must be 'readonly', 'writeonly' or 'readwrite'}}
+void bar13(slave_arg __attribute__((readwrite_mode("anythingelse")))
+           int *i_par1)
+{}
+
+//expected-error@+1{{'readwrite_mode' attribute only applies to slave memory arguments}}
+void bar14(not_slave_arg1 __attribute__((readwrite_mode("readwrite")))
+           int *i_par1)
+{}
+
+void bar15(not_slave_arg2 __attribute__((readwrite_mode("readonly")))
+           int *i_par1)
+{}
+
+//expected-error@+1{{'readwrite_mode' attribute only applies to slave memory arguments}}
+void bar16(not_slave_arg3 __attribute__((readwrite_mode("readonly")))
+           int *i_par1)
+{}
+
+//expected-error@+1{{'readwrite_mode' attribute takes one argument}}
+void bar17(not_slave_arg3 __attribute__((readwrite_mode()))
+           int *i_par1)
+{}

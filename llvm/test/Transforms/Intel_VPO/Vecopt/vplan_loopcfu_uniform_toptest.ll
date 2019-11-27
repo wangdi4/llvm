@@ -18,16 +18,15 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[LOOP0:loop[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[LOOP0]] (BP: NULL)
-; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]] (BP: NULL) :
 ; CHECK-LLVM-NEXT:      <Empty Block>
 ; CHECK-VPVALUE-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-VPVALUE-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-LLVM-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 0, [[BB1]] ]
@@ -39,14 +38,13 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:    [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
 ; CHECK-NEXT:     Condition([[BB2]]): [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST]] = icmp i64 [[N0]] i64 0
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_UNIFORM_TOP_TEST]]), [[LOOP1:loop[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_UNIFORM_TOP_TEST]]), [[BB6:BB[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      REGION: [[LOOP1]] (BP: NULL)
-; CHECK-NEXT:      [[BB6:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:      [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      no PREDECESSORS
+; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 0, [[BB6]] ]
@@ -82,13 +80,9 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      no SUCCESSORS
+; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:      END Region([[LOOP1]])
-; CHECK-EMPTY:
-;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.cond1.preheader

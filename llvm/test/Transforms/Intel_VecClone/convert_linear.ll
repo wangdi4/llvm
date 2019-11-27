@@ -3,6 +3,7 @@
 ; reference to %i.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN2vl_foo
 ; CHECK: simd.begin.region:

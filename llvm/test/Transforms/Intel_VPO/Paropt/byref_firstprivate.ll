@@ -88,7 +88,7 @@ entry:
 ; CHECK: [[L0:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** %y_arr_ref.addr
 ; CHECK: [[B1:%[a-zA-Z._0-9]+]]  = bitcast [10 x [10 x float]]* [[YREF_ARR_LOCAL]] to i8*
 ; CHECK: [[B2:%[a-zA-Z._0-9]+]] = bitcast [10 x [10 x float]]* [[L0]] to i8*
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[B1]], i8* [[B2]], i64 400, i1 false)
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8*{{.*}}[[B1]], i8*{{.*}}[[B2]], i64 400, i1 false)
 
 ; CHECK: [[L1:%[a-zA-Z._0-9]+]] = load i32*, i32** %yref.addr
 ; CHECK: [[L2:%[a-zA-Z._0-9]+]] = load i32, i32* [[L1]]

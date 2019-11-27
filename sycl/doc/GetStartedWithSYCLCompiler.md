@@ -42,12 +42,12 @@ export SYCL_HOME=/export/home/sycl_workspace
 mkdir $SYCL_HOME
 ```
 
-**Windows**
+**Windows (64-bit)**
 
 Open a developer command prompt using one of two methods:
 
-- Click start menu and search for "Developer Command Prompt for VS XX", where
-  XX is a version of installed Visual Studio.
+- Click start menu and search for "**x64** Native Tools Command Prompt for VS XXXX", where
+  XXXX is a version of installed Visual Studio.
 - Ctrl-R, write "cmd", click enter, then run
   `"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" x64`
 
@@ -75,7 +75,7 @@ $SYCL_HOME/llvm/llvm
 make -j`nproc` sycl-toolchain
 ```
 
-**Windows**
+**Windows (64-bit)**
 ```bat
 cd %SYCL_HOME%
 git clone https://github.com/intel/llvm -b sycl
@@ -87,9 +87,7 @@ cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" ^
 -DLLVM_ENABLE_PROJECTS="clang;llvm-spirv;sycl" ^
 -DLLVM_EXTERNAL_SYCL_SOURCE_DIR="%SYCL_HOME%\llvm\sycl" ^
 -DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR="%SYCL_HOME%\llvm\llvm-spirv" ^
--DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_C_FLAGS="/GS" ^
--DCMAKE_CXX_FLAGS="/GS" -DCMAKE_EXE_LINKER_FLAGS="/NXCompat /DynamicBase" ^
--DCMAKE_SHARED_LINKER_FLAGS="/NXCompat /DynamicBase" ^
+-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl ^
 "%SYCL_HOME%\llvm\llvm"
 
 ninja sycl-toolchain
@@ -135,6 +133,11 @@ asset/archive should be downloaded from
 [SYCL Compiler and Runtime updates](../ReleaseNotes.md) and installed using
 the following procedure.
 
+Intel `CPU` runtime for OpenCL depends on Threading Building Blocks library
+which should be downloaded from [Threading Building Blocks (TBB)
+ GitHub repository](https://github.com/intel/tbb) and installed following
+procedure below.
+
 **Linux**
 
 1) Extract the archive. For example, for the archive
@@ -148,17 +151,34 @@ tar -zxvf oclcpu_rt_<new_version>.tar.gz
 ```bash
 echo /opt/intel/oclcpuexp/x64/libintelocl.so > /etc/OpenCL/vendors/intel_expcpu.icd
 ```
-3) Configure library paths
+
+3) Extract TBB libraries. For example, for the archive tbb2019_<version>oss_lin.tgz
+
+```bash
+mkdir -p /opt/intel/tbb
+cd /opt/intel/tbb
+tar -zxvf tbb2019_<version>oss_lin.tgz
+```
+
+4) Copy files from or create symbolic links to TBB libraries in OpenCL RT folder:
+```bash
+ln -s /opt/intel/tbb/lib/intel64/gcc4.8/libtbb.so /opt/intel/oclcpuexp/x64/libtbb.so
+ln -s /opt/intel/tbb/lib/intel64/gcc4.8/libtbbmalloc.so
+  /opt/intel/oclcpuexp/x64/libtbbmalloc.so
+```
+
+5) Configure library paths
 ```bash
 echo /opt/intel/oclcpuexp/x64 > /etc/ld.so.conf.d/libintelopenclexp.conf
 ldconfig -f /etc/ld.so.conf.d/libintelopenclexp.conf
 ```
-**Windows**
+**Windows (64-bit)**
 1) If you need `GPU` as well, then update/install it first. Do it **before**
 installing `CPU` runtime as `GPU` runtime installer may re-write some important
 files or settings and make existing `CPU` runtime not working properly.
 
-2) Extract the archive to some folder. For example, to `c:\oclcpu_rt_<new_version>`.
+2) Extract the archive to some folder. For example, to `c:\oclcpu_rt_<new_version>`
+and `c:\tbb2019_<version>oss`.
 
 3) Run `Command Prompt` as `Administrator`. To do that click `Start` button,
 type `Command Prompt`, click the Right mouse button on it, then click
@@ -167,7 +187,10 @@ type `Command Prompt`, click the Right mouse button on it, then click
 4) In the opened windows run `install.bat` provided with the extracted files
 to install runtime to the system and setup environment variables. So, if the
 extracted files are in `c:\oclcpu_rt_<new_version>\` folder, then type the
-command: `c:\oclcpu_rt_<new_version>\install.bat`
+command:
+```bash
+c:\oclcpu_rt_<new_version>\install.bat c:\tbb2019_<version>oss\bin\intel64\vc14
+```
 
 ## Test SYCL toolchain
 
@@ -180,7 +203,7 @@ To verify that built SYCL toolchain is working correctly, run:
 make -j`nproc` check-all
 ```
 
-**Windows**
+**Windows (64-bit)**
 ```bat
 ninja check-all
 ```
@@ -206,7 +229,7 @@ To configure testing of "Intel SYCL" toochain set
 cmake -DIntel_SYCL_ROOT=$SYCL_HOME/deploy -DSYCL_IMPLEMENTATION=Intel_SYCL ...
 ```
 
-**Windows**
+**Windows (64-bit)**
 ```bat
 cmake -DIntel_SYCL_ROOT=%SYCL_HOME%\deploy -DSYCL_IMPLEMENTATION=Intel_SYCL ...
 ```
@@ -281,7 +304,7 @@ export PATH=$SYCL_HOME/build/bin:$PATH
 export LD_LIBRARY_PATH=$SYCL_HOME/build/lib:$LD_LIBRARY_PATH
 ```
 
-**Windows**
+**Windows (64-bit)**
 ```bat
 set PATH=%SYCL_HOME%\build\bin;%PATH%
 set LIB=%SYCL_HOME%\build\lib;%LIB%
@@ -361,6 +384,7 @@ int main() {
 - SYCL device compiler fails if the same kernel was used in different
   translation units.
 - SYCL host device is not fully supported.
+- 32-bit host/target is not supported.
 - SYCL works only with OpenCL implementations supporting out-of-order queues.
 - On Windows linking SYCL applications with `/MTd` flag is known to cause crashes.
 

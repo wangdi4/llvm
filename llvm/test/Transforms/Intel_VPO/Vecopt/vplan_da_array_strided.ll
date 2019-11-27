@@ -25,10 +25,10 @@
 ; Check DA results
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 [[IV_ADD:%vp.*]], {{.*}} ],  [ i64 0, {{.*}} ]
 ; The first GEP from the GEP split should be unit strided and the next one should be strided.
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 800] [100 x double]* [[BASE:%vp.*]] = getelementptr inbounds [100 x [100 x double]]* %arr i64 [[IINDEX:%.*]] i64 [[IV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] [100 x double]* [[BASE:%vp.*]] = getelementptr inbounds [100 x [100 x double]]* %arr i64 [[IINDEX:%.*]] i64 [[IV]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] double* [[ELEMENT:%vp.*]] = getelementptr inbounds [100 x double]* [[BASE]] i64 0 i64 [[JINDEX:%.*]]
 ; CHECK: Divergent: [Shape: Random] double* [[ELEMENT2:%vp.*]] = getelementptr inbounds [100 x [100 x double]]* %arr2 i64 [[IINDEX]] i64 [[IV]] i64 [[JINDEX]]
-; CHECK: Divergent: [Shape: Unit Stride Pointer, Stride: i64 8] double* {{%vp.*}} = getelementptr inbounds [100 x [100 x double]]* %arr3 i64 [[IINDEX]] i64 [[JINDEX]] i64 [[IV]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] double* {{%vp.*}} = getelementptr inbounds [100 x [100 x double]]* %arr3 i64 [[IINDEX]] i64 [[JINDEX]] i64 [[IV]]
 ; Check that we generate two scatters followed by a wide store.
 ; CHECK-LABEL: vector.body:
 ; CHECK: call void @llvm.masked.scatter{{.*}}<4 x double> [[STOREVAL:%.*]], <4 x double*>

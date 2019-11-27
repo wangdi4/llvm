@@ -22,6 +22,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -860,7 +861,7 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
           /*init=*/nullptr, GV->getName(),
           /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
           GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
-      NewGV->setAlignment(GV->getAlignment());
+      NewGV->setAlignment(MaybeAlign(GV->getAlignment()));
       NewGV->copyAttributesFrom(GV);
       NewGV->copyMetadata(GV, /*Offset=*/0);
     }

@@ -1,26 +1,25 @@
 
-; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
-; A perfect loop nest is forced even when all references in innermost loop are all unit strided due to the instruction in line <6>.
+; A perfect loop nest is enabled by hir-sinking-for-perfect-loopnest
 ; First two left-most dimensions are in shape of [i2][i1].
 ; So interchange might be helpful. After that, it is up to interchange pass's locality calculation logic whther actual interchange will be done or not.
 
 ; <0>       BEGIN REGION { }
-; <35>            + DO i1 = 0, 99, 1   <DO_LOOP>
-; <36>            |   + DO i2 = 0, 99, 1   <DO_LOOP>
-; <6>             |   |   %0 = (@B)[0][i2][i1][i2];
-; <37>            |   |
-; <37>            |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-; <11>            |   |   |   %1 = (@B)[0][i1][i2][i3];
-; <14>            |   |   |   (@A)[0][i2][i3][i3] = %0 + %1;
-; <37>            |   |   + END LOOP
-; <36>            |   + END LOOP
-; <35>            + END LOOP
+; <35>         + DO i1 = 0, 99, 1   <DO_LOOP>
+; <36>         |   + DO i2 = 0, 99, 1   <DO_LOOP>
+; <37>         |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
+; <6>          |   |   |   %0 = (@B)[0][i2][i1][i2];
+; <11>         |   |   |   %1 = (@B)[0][i1][i2][i3];
+; <14>         |   |   |   (@A)[0][i2][i3][i3] = %0 + %1;
+; <37>         |   |   + END LOOP
+; <36>         |   + END LOOP
+; <35>         + END LOOP
 ; <0>       END REGION
-
-; CHECK: MayInterchange: 1
+;
+; CHECK: Interchange Needed=1
 
 ;Module Before HIR; ModuleID = 'may-interchange-not.c'
 source_filename = "may-interchange-not.c"

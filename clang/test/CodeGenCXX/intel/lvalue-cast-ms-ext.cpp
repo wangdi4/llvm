@@ -1,3 +1,4 @@
+// UNSUPPORTED: intel_opencl && i686-pc-windows
 // CQ#366312
 // RUN: %clang_cc1 -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 

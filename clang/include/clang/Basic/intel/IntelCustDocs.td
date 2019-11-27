@@ -1816,12 +1816,28 @@ def MayIUseFeatureDocs : Documentation {
   let Owner = "ekeane1";
   let Content = [{
 The Intel Compiler implements a cpu-id like function to determine the
-current processor's features called _may_i_use_cpu_feature. This function
-accepts a compile-time constant unsigned 64 bit integer that contains a
-bitmask to validate against the current processor's feature list.
+current processor's features called _may_i_use_cpu_feature. This feature
+consists of 3 different intrinsics:
 
-This function returns a boolean 'true' if every feature in the bitmask
-parameter is supported by the current host processor.
+int _may_i_use_cpu_feature(uint64_t mask) accepts a bitmask that is validated
+against the current processor's feature list. It returns an integer that is
+contextually convertible to bool (in C++) that would evaluate to 'true' if every
+feature in the bitmask parameter is supported by the current host processor.
+This function is limited to bitmask values in the first 'page' of the libirc
+cpu-id information.
+
+int _may_i_use_cpu_feature_ext(uint64_t mask, unsigned page) accepts a bitmask
+that is validated against the current processor's feature list. This works
+identically to the previous variant, except it also accepts a 'page' index that
+permits checking features on the 2nd page of the libirc information. When
+provided with a '0' in the 'page' parameter, this works identically to
+_may_i_use_cpu_feature.
+
+int _may_i_use_cpu_feature_str(<string literal> feature, ...) accepts a series
+of compile-time string literals that contain a list of feature names. These
+feature names are converted to a bitmask and uses the same infrastructure as
+_may_i_use_cpu_feature_ext to validate it. The behavior is the same as the
+previous variants.
 
 Most of this functionality is implemented in libirc. This library contains
 an init function (__intel_cpu_features_init/__intel_cpu_features_init_x)
@@ -2392,6 +2408,161 @@ attribute memory:default and can't be applied with register attribute.
   }];
 }
 
+def ReadWriteModeDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
+  let BugTracker = "CMPLRLLVM-10373";
+  let RegressionTest = "";
+  let Owner = "zahiraam";
+  let Content = [{
+The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+arguments. These are pointer arguments that already have the attribute
+"slave_memory_argument". The argument "type" is mandatory, and its values are
+"readonly", "writeonly", or "readwrite".
+It is illegal to apply the attribute readwrite_mode on pointer arguments that
+do not already have an attribute slave_memory_argument applied.
+
+Syntax:
+
+.. code-block:: text
+
+   Type ::= 'readonly' | 'writeonly' | 'readwrite';
+   __attribute__((readwrite_mode(<Type>)));
+
+Example:
+
+.. code-block:: c++
+
+   void foo0_1(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
+   {}
+
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp # HLS
+
+.. code-block:: text
+
+   FunctionDecl 0x20cec836848 <t1.cpp:6:19, line:21:1> foo0_1 'void (int *)'
+   |-ParmVarDecl 0x20cec836710 <line:2:19, line:18:82>
+     |-OpenCLLocalMemSizeAttr 0x20cec836778 <line:2:34, col:51> 32
+     |-SlaveMemoryArgumentAttr 0x20cec8367b8 <col:54>
+     `-ReadWriteModeAttr 0x20cec8367c8 <line:18:48, col:73> "readonly"
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp # HLS
+
+.. code-block:: llvm
+
+   define void @_Z6foo0_1Pi(i32* %i) {
+   entry:
+        %i.addr = alloca i32*, align 8
+        store i32* %i, i32** %i.addr, align 8
+        ret void
+   }
+   !2 = !{!"_Z6foo0_1Pi", !3}
+   !3 = !{}
+   !4 = !{!"mm_slave"}
+   !5 = !{!"wire"}
+   !6 = !{i32 0}
+   !7 = !{!"i"}
+   !8 = !{!"readwritememory: READONLY}"}
+
+   }];
+}
+
+def MemoryLayoutDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
+  let BugTracker = "CMPLRLLVM-10365";
+  let RegressionTest = "";
+  let Owner = "zahiraam";
+  let Content = [{
+The 'memory_layout' attribute is applied to a variable in OpenCl and HSL. It
+takes a mandatory argument "type" which values are either "compact" or
+"padded".
+This attribute infers the 'memory' attribute, and it is illegal to apply it
+to the attribute 'register'.
+Syntax:
+
+.. code-block:: text
+
+   Type ::= 'compact' | 'padded';
+   __attribute__((memory_layout(<Type>)));
+
+Example:
+
+.. code-block:: c++
+
+   const int __attribute__((__memory_layout__("compact"))) gc = 0;
+
+   void foo ()
+   {
+     int __attribute__((__memory_layout__("padded"))) lc;
+   }
+
+   struct st {
+     int __attribute__((__memory_layout__("compact"))) f1;
+   };
+
+   static st s1;
+   void bar() {
+     s1.f1 = 0;
+   }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump.cpp t.cpp
+
+.. code-block:: text
+
+   -VarDecl 0xf278e70 <t2.cpp:1:1, col:62> col:57 gc 'const int' cinit
+    -IntegerLiteral 0xf278f88 <col:62> 'int' 0
+    -IntelFPGAMemoryAttr 0x10661ed8 <<invalid sloc>> Implicit Default
+    `-MemoryLayoutAttr 0xf278ed8 <col:26, col:53> "compact"
+
+    `-VarDecl 0xf2791a0 <col:6, col:55> col:55 lc 'int'
+    -IntelFPGAMemoryAttr 0x10662238 <<invalid sloc>> Implicit Default
+    `-MemoryLayoutAttr 0xf279208 <col:25, col:51> "padded"
+
+    -FieldDecl 0xf279480 <line:9:6, col:56> col:56 referenced f1 'int'
+    -IntelFPGAMemoryAttr 0x10662530 <<invalid sloc>> Implicit Default
+    `-MemoryLayoutAttr 0xf2794d0 <col:25, col:52> "compact"
+
+
+IR:
+
+.. code-block:: console
+
+  $ clang -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [24 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}\00"
+   @.str.2 = private unnamed_addr constant [23 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}\00"
+
+   define dso_local void @_Z3foov() #0 {
+   entry:
+     %lc = alloca i32, align 4
+     %lc1 = bitcast i32* %lc to i8*
+     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([51 x i8], [51 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 5)
+     ret void
+   }
+
+   define dso_local void @_Z3barv() #0 {
+   entry:
+     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([52 x i8], [52 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 9)
+  store i32 0, i32* %0, align 4
+     ret void
+   }
+   }];
+}
+
 def HLSIIDocs : Documentation {
   let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
@@ -2813,6 +2984,26 @@ intrinsics or intrinsic builtins that would otherwise be disallowed due to
 always-inlining. The error message that this should prevent is '<intrin-name>
 needs target feature <feature>.' Only intrinsics defined in the system headers
 will cause this promotion to happen automatically.
+  }];
+}
+
+def CpuDispatchUseLibIrcDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let RegressionTest = "CodeGen/intel/cpu-dispatch.c";
+  let Owner = "ekeane1";
+  let Content = [{
+Typically, the cpu-dispatch functionality uses libgcc's (or compiler-rt's)
+infrastructure to test the current cpu features list. However, due to some
+customizations to libirc, including a highjacking feature that is useful for
+validating multiversioning changes, using libirc is necessary and beneficial
+in Intel Compat mode.
+  }];
+  let UserContent = [{
+This change causes cpu-dispatch/cpu-specific multiversioning to use libirc
+as its source of cpu-feature data. This library features finer grained feature
+checking, as well as permits the highjacking of the feature list via environment
+variable, which can be used to validate versions on newer hardware.
   }];
 }
 

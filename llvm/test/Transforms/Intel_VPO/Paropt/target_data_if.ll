@@ -81,12 +81,17 @@ for.end:                                          ; preds = %for.cond
   %7 = mul nuw i64 %6, 4
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.IF"(i32 %conv), "QUAL.OMP.MAP.TO"(i32* %map_size.addr), "QUAL.OMP.MAP.TO:AGGRHEAD"([1024 x i32]* %a, i32* %arrayidx2, i64 %7) ]
 
-; CHECK:  call void @__tgt_target_data_begin(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes.1, i32 0, i32 0))
-; CHECK-NEXT:  call void @test_target_data_if.DIR.OMP.TARGET.DATA.{{.*}}(i32* %map_size.addr, [1024 x i32]* %a)
+; CHECK: call void @__tgt_target_data_begin(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes.1, i32 0, i32 0))
+; CHECK-NEXT: call void @test_target_data_if.DIR.OMP.TARGET.DATA.{{.*}}(i32* %map_size.addr, [1024 x i32]* %a)
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_ptrs, i32 0, i32 0
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i64], [2 x i64]* %.offload_sizes, i32 0, i32 0
-; CHECK-NEXT:  call void @__tgt_target_data_end(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes.1, i32 0, i32 0))
+; CHECK-NEXT: call void @__tgt_target_data_end(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes.1, i32 0, i32 0))
+; CHECK-NEXT:  br label %if.end
+; CHECK-EMPTY:
+; CHECK-NEXT: if.else:
+; CHECK-NEXT: store i32 -1, i32* %.run_host_version
+; CHECK-NEXT: call void @test_target_data_if.DIR.OMP.TARGET.DATA.{{.*}}(i32* %map_size.addr, [1024 x i32]* %a)
 
   %9 = load i32, i32* %map_size.addr, align 4
   %cmp3 = icmp sgt i32 %9, 512

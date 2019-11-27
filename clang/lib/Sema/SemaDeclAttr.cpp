@@ -23,6 +23,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/DeclSpec.h"
@@ -1067,6 +1068,56 @@ static void handleDiagnoseIfAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     ArgDependent = ArgumentDependenceChecker(FD).referencesArgs(Cond);
   D->addAttr(::new (S.Context) DiagnoseIfAttr(
       S.Context, AL, Cond, Msg, DiagType, ArgDependent, cast<NamedDecl>(D)));
+}
+
+static void handleNoBuiltinAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  static constexpr const StringRef kWildcard = "*";
+
+  llvm::SmallVector<StringRef, 16> Names;
+  bool HasWildcard = false;
+
+  const auto AddBuiltinName = [&Names, &HasWildcard](StringRef Name) {
+    if (Name == kWildcard)
+      HasWildcard = true;
+    Names.push_back(Name);
+  };
+
+  // Add previously defined attributes.
+  if (const auto *NBA = D->getAttr<NoBuiltinAttr>())
+    for (StringRef BuiltinName : NBA->builtinNames())
+      AddBuiltinName(BuiltinName);
+
+  // Add current attributes.
+  if (AL.getNumArgs() == 0)
+    AddBuiltinName(kWildcard);
+  else
+    for (unsigned I = 0, E = AL.getNumArgs(); I != E; ++I) {
+      StringRef BuiltinName;
+      SourceLocation LiteralLoc;
+      if (!S.checkStringLiteralArgumentAttr(AL, I, BuiltinName, &LiteralLoc))
+        return;
+
+      if (Builtin::Context::isBuiltinFunc(BuiltinName))
+        AddBuiltinName(BuiltinName);
+      else
+        S.Diag(LiteralLoc, diag::warn_attribute_no_builtin_invalid_builtin_name)
+            << BuiltinName << AL.getAttrName()->getName();
+    }
+
+  // Repeating the same attribute is fine.
+  llvm::sort(Names);
+  Names.erase(std::unique(Names.begin(), Names.end()), Names.end());
+
+  // Empty no_builtin must be on its own.
+  if (HasWildcard && Names.size() > 1)
+    S.Diag(D->getLocation(),
+           diag::err_attribute_no_builtin_wildcard_or_builtin_name)
+        << AL.getAttrName()->getName();
+
+  if (D->hasAttr<NoBuiltinAttr>())
+    D->dropAttr<NoBuiltinAttr>();
+  D->addAttr(::new (S.Context)
+                 NoBuiltinAttr(S.Context, AL, Names.data(), Names.size()));
 }
 
 static void handlePassObjectSizeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -2553,6 +2604,29 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const ParsedAttr &AL,
     D->addAttr(newAttr);
 }
 
+static void handleObjCDirectAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // objc_direct cannot be set on methods declared in the context of a protocol
+  if (isa<ObjCProtocolDecl>(D->getDeclContext())) {
+    S.Diag(AL.getLoc(), diag::err_objc_direct_on_protocol) << false;
+    return;
+  }
+
+  if (S.getLangOpts().ObjCRuntime.allowsDirectDispatch()) {
+    handleSimpleAttribute<ObjCDirectAttr>(S, D, AL);
+  } else {
+    S.Diag(AL.getLoc(), diag::warn_objc_direct_ignored) << AL;
+  }
+}
+
+static void handleObjCDirectMembersAttr(Sema &S, Decl *D,
+                                        const ParsedAttr &AL) {
+  if (S.getLangOpts().ObjCRuntime.allowsDirectDispatch()) {
+    handleSimpleAttribute<ObjCDirectMembersAttr>(S, D, AL);
+  } else {
+    S.Diag(AL.getLoc(), diag::warn_objc_direct_ignored) << AL;
+  }
+}
+
 static void handleObjCMethodFamilyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   const auto *M = cast<ObjCMethodDecl>(D);
   if (!AL.isArgIdent(0)) {
@@ -3322,6 +3396,29 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       S.Context, Attr, LocalMemSize));
 }
 
+static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute <ReadWriteModeAttr>(S, D, Attr);
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
+    return;
+  }
+
+  if (Str != "readonly" && Str != "writeonly" && Str != "readwrite") {
+    S.Diag(Attr.getLoc(), diag::err_hls_readwrite_arg_invalid) << Attr;
+    return;
+  }
+
+  // ReadWrite attributes applies only to slavememory attributes.
+  if (!D->getAttr<SlaveMemoryArgumentAttr>()) {
+    S.Diag(Attr.getLoc(), diag::err_readwritememory_attribute_invalid) << Attr;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ReadWriteModeAttr(S.Context, Attr, Str));
+}
+
 /// Handle the static_array_reset attribute.
 /// This attribute requires a single constant value that must be 0 or 1.
 /// It is incompatible with the register attribute.
@@ -3968,6 +4065,19 @@ bool Sema::checkTargetAttr(SourceLocation LiteralLoc, StringRef AttrStr) {
     if (!Context.getTargetInfo().isValidFeatureName(CurFeature))
       return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
              << Unsupported << None << CurFeature;
+  }
+
+  TargetInfo::BranchProtectionInfo BPI;
+  StringRef Error;
+  if (!ParsedAttrs.BranchProtection.empty() &&
+      !Context.getTargetInfo().validateBranchProtection(
+          ParsedAttrs.BranchProtection, BPI, Error)) {
+    if (Error.empty())
+      return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
+             << Unsupported << None << "branch-protection";
+    else
+      return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
+             << Error;
   }
 
   return false;
@@ -5541,10 +5651,11 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
     return true;
   }
 
+  const TargetInfo &TI = Context.getTargetInfo();
   // TODO: diagnose uses of these conventions on the wrong target.
   switch (Attrs.getKind()) {
   case ParsedAttr::AT_CDecl:
-    CC = CC_C;
+    CC = TI.getDefaultCallingConv();
     break;
   case ParsedAttr::AT_FastCall:
     CC = CC_X86FastCall;
@@ -5609,7 +5720,6 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
   }
 
   TargetInfo::CallingConvCheckResult A = TargetInfo::CCCR_OK;
-  const TargetInfo &TI = Context.getTargetInfo();
   // CUDA functions may have host and/or device attributes which indicate
   // their targeted execution environment, therefore the calling convention
   // of functions in CUDA should be checked against the target deduced based
@@ -5988,6 +6098,29 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(S.Context, AL, Kind));
 }
 
+static void handleMemoryLayoutAttr(Sema &S, Decl *D,
+                                   const ParsedAttr &AL) {
+
+  checkForDuplicateAttribute<MemoryLayoutAttr>(S, D, AL);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(AL, 0, Str))
+    return;
+
+  if (Str != "compact"  && Str != "padded") {
+    S.Diag(AL.getLoc(), diag::err_hls_memorylayout_arg_invalid) << AL;
+    return;
+  }
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+             MemoryLayoutAttr(S.Context, AL, Str));
+}
+
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
 static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
@@ -6176,6 +6309,35 @@ static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // ArgCount isn't a parameter index [0;n), it's a count [1;n]
   D->addAttr(::new (S.Context)
                  XRayLogArgsAttr(S.Context, AL, ArgCount.getSourceIndex()));
+}
+
+static bool ArmMveAliasValid(unsigned BuiltinID, StringRef AliasName) {
+  if (AliasName.startswith("__arm_"))
+    AliasName = AliasName.substr(6);
+  switch (BuiltinID) {
+#include "clang/Basic/arm_mve_builtin_aliases.inc"
+  default:
+    return false;
+  }
+}
+
+static void handleArmMveAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!AL.isArgIdent(0)) {
+    S.Diag(AL.getLoc(), diag::err_attribute_argument_n_type)
+        << AL << 1 << AANT_ArgumentIdentifier;
+    return;
+  }
+
+  IdentifierInfo *Ident = AL.getArgAsIdent(0)->Ident;
+  unsigned BuiltinID = Ident->getBuiltinID();
+
+  if (!ArmMveAliasValid(BuiltinID,
+                        cast<FunctionDecl>(D)->getIdentifier()->getName())) {
+    S.Diag(AL.getLoc(), diag::err_attribute_arm_mve_alias);
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ArmMveAliasAttr(S.Context, AL, Ident));
 }
 
 //===----------------------------------------------------------------------===//
@@ -6968,6 +7130,25 @@ static void handleAVRSignalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   handleSimpleAttribute<AVRSignalAttr>(S, D, AL);
 }
 
+static void handleBPFPreserveAIRecord(Sema &S, RecordDecl *RD) {
+  // Add preserve_access_index attribute to all fields and inner records.
+  for (auto D : RD->decls()) {
+    if (D->hasAttr<BPFPreserveAccessIndexAttr>())
+      continue;
+
+    D->addAttr(BPFPreserveAccessIndexAttr::CreateImplicit(S.Context));
+    if (auto *Rec = dyn_cast<RecordDecl>(D))
+      handleBPFPreserveAIRecord(S, Rec);
+  }
+}
+
+static void handleBPFPreserveAccessIndexAttr(Sema &S, Decl *D,
+    const ParsedAttr &AL) {
+  auto *Rec = cast<RecordDecl>(D);
+  handleBPFPreserveAIRecord(S, Rec);
+  Rec->addAttr(::new (S.Context) BPFPreserveAccessIndexAttr(S.Context, AL));
+}
+
 static void handleWebAssemblyImportModuleAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!isFunctionOrMethod(D)) {
     S.Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
@@ -7757,6 +7938,14 @@ static void handleMSAllocatorAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
+
+static bool IsDeclLambdaCallOperator(Decl *D) {
+  if (const auto *MD = dyn_cast<CXXMethodDecl>(D))
+    return MD->getParent()->isLambda() &&
+           MD->getOverloadedOperator() == OverloadedOperatorKind::OO_Call;
+  return false;
+}
+
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
 /// silently ignore it if a GNU attribute.
@@ -7768,7 +7957,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Ignore C++11 attributes on declarator chunks: they appertain to the type
   // instead.
-  if (AL.isCXX11Attribute() && !IncludeCXX11Attributes)
+  if (AL.isCXX11Attribute() && !IncludeCXX11Attributes &&
+      (!IsDeclLambdaCallOperator(D) || !AL.isAllowedOnLambdas()))
     return;
 
   // Unknown attributes are automatically warned on. Target-specific attributes
@@ -7845,6 +8035,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_AVRSignal:
     handleAVRSignalAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_BPFPreserveAccessIndex:
+    handleBPFPreserveAccessIndexAttr(S, D, AL);
     break;
   case ParsedAttr::AT_WebAssemblyImportModule:
     handleWebAssemblyImportModuleAttr(S, D, AL);
@@ -7927,6 +8120,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_DiagnoseIf:
     handleDiagnoseIfAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_NoBuiltin:
+    handleNoBuiltinAttr(S, D, AL);
     break;
   case ParsedAttr::AT_ExtVectorType:
     handleExtVectorTypeAttr(S, D, AL);
@@ -8184,6 +8380,13 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_ObjCRootClass:
     handleSimpleAttribute<ObjCRootClassAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_ObjCDirect:
+    handleObjCDirectAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_ObjCDirectMembers:
+    handleObjCDirectMembersAttr(S, D, AL);
+    handleSimpleAttribute<ObjCDirectMembersAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_ObjCNonLazyClass:
     handleSimpleAttribute<ObjCNonLazyClassAttr>(S, D, AL);
@@ -8493,6 +8696,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_MemoryLayout:
+    handleMemoryLayoutAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_IntelFPGARegister:
     handleIntelFPGARegisterAttr(S, D, AL);
     break;
@@ -8565,6 +8771,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleStallLatencyAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
+  case ParsedAttr::AT_ReadWriteMode:
+    handleReadWriteMode(S, D, AL);
+    break;
   case ParsedAttr::AT_BankBits:
     handleBankBitsAttr(S, D, AL);
     break;
@@ -8626,6 +8835,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_RenderScriptKernel:
     handleSimpleAttribute<RenderScriptKernelAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLIntelKernelArgsRestrict:
+    handleSimpleAttribute<SYCLIntelKernelArgsRestrictAttr>(S, D, AL);
+    break;
   // XRay attributes.
   case ParsedAttr::AT_XRayInstrument:
     handleSimpleAttribute<XRayInstrumentAttr>(S, D, AL);
@@ -8658,6 +8870,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   case ParsedAttr::AT_MSAllocator:
     handleMSAllocatorAttr(S, D, AL);
+    break;
+
+  case ParsedAttr::AT_ArmMveAlias:
+    handleArmMveAliasAttr(S, D, AL);
     break;
   }
 }
@@ -8804,7 +9020,8 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
   }
 }
 
-// Helper for delayed processing TransparentUnion attribute.
+// Helper for delayed processing TransparentUnion or BPFPreserveAccessIndexAttr
+// attribute.
 void Sema::ProcessDeclAttributeDelayed(Decl *D,
                                        const ParsedAttributesView &AttrList) {
   for (const ParsedAttr &AL : AttrList)
@@ -8812,6 +9029,11 @@ void Sema::ProcessDeclAttributeDelayed(Decl *D,
       handleTransparentUnionAttr(*this, D, AL);
       break;
     }
+
+  // For BPFPreserveAccessIndexAttr, we want to populate the attributes
+  // to fields and inner records as well.
+  if (D && D->hasAttr<BPFPreserveAccessIndexAttr>())
+    handleBPFPreserveAIRecord(*this, cast<RecordDecl>(D));
 }
 
 // Annotation attributes are the only attributes allowed after an access

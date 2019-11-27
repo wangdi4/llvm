@@ -16,7 +16,6 @@
 
 namespace llvm {
 class BasicBlock;
-class BasicBlockPass;
 class Pass;
 
 //===----------------------------------------------------------------------===//
@@ -153,7 +152,8 @@ Pass *createLoadCoalescingPass();
 // MathFunctionReplacement - Replace known math operations with optimized
 // library function calls.
 //
-Pass *createMathLibraryFunctionsReplacementPass();
+Pass *createMathLibraryFunctionsReplacementPass(); // remove in OCL commit
+Pass *createMathLibraryFunctionsReplacementPass(bool isOCL);
 
 //===----------------------------------------------------------------------===//
 //

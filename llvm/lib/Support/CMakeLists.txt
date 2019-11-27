@@ -103,10 +103,10 @@ add_llvm_library(LLVMSupport
   IntEqClasses.cpp
 # INTEL_CUSTOMIZATION
   Intel_WP_utils.cpp
+  Intel_CPU_utils.cpp
 # end INTEL_CUSTOMIZATION
   IntervalMap.cpp
   ItaniumManglingCanonicalizer.cpp
-  JamCRC.cpp
   JSON.cpp
   KnownBits.cpp
   LEB128.cpp
@@ -120,7 +120,6 @@ add_llvm_library(LLVMSupport
   MD5.cpp
   NativeFormatting.cpp
   Optional.cpp
-  Options.cpp
   Parallel.cpp
   PluginLoader.cpp
   PrettyStackTrace.cpp

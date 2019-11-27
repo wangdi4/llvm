@@ -22,7 +22,7 @@
 #include "IntelVPlan.h"
 #include "llvm/ADT/SmallVector.h"
 
-extern cl::opt<bool> LoopMassagingEnabled;
+extern bool LoopMassagingEnabled;
 
 namespace llvm {
 class ScalarEvolution;
@@ -116,7 +116,6 @@ protected:
   bool isBreakingSSA(VPLoop *VPL);
 
   void buildLoopRegions();
-  virtual void collectUniforms(VPRegionBlock *Region);
   void buildNonLoopRegions(VPRegionBlock *ParentRegion);
 
   // Utility functions.

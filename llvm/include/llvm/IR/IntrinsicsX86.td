@@ -5861,4 +5861,321 @@ let TargetPrefix = "x86" in {
               Intrinsic<[ llvm_i64_ty ], [ llvm_i64_ty, llvm_i64_ty, llvm_i32_ty ], [ ImmArg<2> ]>;
 }
 #endif // INTEL_FEATURE_ICECODE
+
+#if INTEL_FEATURE_ISA_AMX2
+//===----------------------------------------------------------------------===//
+// AMX2 - Intel AMX2 extensions
+// Transpose
+let TargetPrefix = "x86" in {
+  def int_x86_t2rpntlvw
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvw">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t2rpntlvwt1
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwt1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t2transposew
+      : GCCBuiltin<"__builtin_ia32_t2transposew">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t2transposewt1
+      : GCCBuiltin<"__builtin_ia32_t2transposewt1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  // Reduce
+  def int_x86_tcoladdbcastps
+      : GCCBuiltin<"__builtin_ia32_tcoladdbcastps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcoladdps : GCCBuiltin<"__builtin_ia32_tcoladdps">,
+                          Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty], [ImmArg<1>]>;
+  // Memory
+  def int_x86_tbroadcastrowd
+      : GCCBuiltin<"__builtin_ia32_tbroadcastrowd">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty], [ImmArg<0>]>;
+  def int_x86_tgatherrowd
+      : GCCBuiltin<"__builtin_ia32_tgatherrowd">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_ptr_ty], [ImmArg<0>]>;
+  def int_x86_tgatherrowdt1
+      : GCCBuiltin<"__builtin_ia32_tgatherrowdt1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_ptr_ty], [ImmArg<0>]>;
+  def int_x86_tgatherrowq
+      : GCCBuiltin<"__builtin_ia32_tgatherrowq">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_ptr_ty], [ImmArg<0>]>;
+  def int_x86_tgatherrowqt1
+      : GCCBuiltin<"__builtin_ia32_tgatherrowqt1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_ptr_ty], [ImmArg<0>]>;
+  def int_x86_tscatterrowd
+      : GCCBuiltin<"__builtin_ia32_tscatterrowd">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tscatterrowdt1
+      : GCCBuiltin<"__builtin_ia32_tscatterrowdt1">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tscatterrowq
+      : GCCBuiltin<"__builtin_ia32_tscatterrowq">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tscatterrowqt1
+      : GCCBuiltin<"__builtin_ia32_tscatterrowqt1">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tstorehd
+      : GCCBuiltin<"__builtin_ia32_tstorehd">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tstorehdt1
+      : GCCBuiltin<"__builtin_ia32_tstorehdt1">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tstorentd
+      : GCCBuiltin<"__builtin_ia32_tstorentd">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tstoreqd
+      : GCCBuiltin<"__builtin_ia32_tstoreqd">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tstoreqdt1
+      : GCCBuiltin<"__builtin_ia32_tstoreqdt1">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
+  def int_x86_tstorerowd
+      : GCCBuiltin<"__builtin_ia32_tstorerowd">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty], [ImmArg<1>]>;
+  // Format
+  def int_x86_tblendvd : GCCBuiltin<"__builtin_ia32_tblendvd">,
+                         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                   [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tinterleaveeb
+      : GCCBuiltin<"__builtin_ia32_tinterleaveeb">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tinterleaveew
+      : GCCBuiltin<"__builtin_ia32_tinterleaveew">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tinterleaveob
+      : GCCBuiltin<"__builtin_ia32_tinterleaveob">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tinterleaveow
+      : GCCBuiltin<"__builtin_ia32_tinterleaveow">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tnarrowb : GCCBuiltin<"__builtin_ia32_tnarrowb">,
+                         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                   [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tnarroww : GCCBuiltin<"__builtin_ia32_tnarroww">,
+                         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                   [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tpermb_reg : GCCBuiltin<"__builtin_ia32_tpermb_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tpermb_mem : GCCBuiltin<"__builtin_ia32_tpermb_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tpermd_reg : GCCBuiltin<"__builtin_ia32_tpermd_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tpermd_mem : GCCBuiltin<"__builtin_ia32_tpermd_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tpermw_reg : GCCBuiltin<"__builtin_ia32_tpermw_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tpermw_mem : GCCBuiltin<"__builtin_ia32_tpermw_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_twidenb : GCCBuiltin<"__builtin_ia32_twidenb">,
+                        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_twidenw : GCCBuiltin<"__builtin_ia32_twidenw">,
+                        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  // Element
+  def int_x86_taddps_reg : GCCBuiltin<"__builtin_ia32_taddps_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_taddps_mem : GCCBuiltin<"__builtin_ia32_taddps_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tandd_reg : GCCBuiltin<"__builtin_ia32_tandd_reg">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tandd_mem : GCCBuiltin<"__builtin_ia32_tandd_mem">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                    [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tandnd_reg : GCCBuiltin<"__builtin_ia32_tandnd_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tandnd_mem : GCCBuiltin<"__builtin_ia32_tandnd_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcmpps_reg
+      : GCCBuiltin<"__builtin_ia32_tcmpps_reg">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>, ImmArg<3>]>;
+  def int_x86_tcmpps_mem
+      : GCCBuiltin<"__builtin_ia32_tcmpps_mem">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<3>]>;
+  def int_x86_tcvtb2ps
+      : GCCBuiltin<"__builtin_ia32_tcvtb2ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtbf162ps
+      : GCCBuiltin<"__builtin_ia32_tcvtbf162ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtd2ps
+      : GCCBuiltin<"__builtin_ia32_tcvtd2ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtps2bf16
+      : GCCBuiltin<"__builtin_ia32_tcvtps2bf16">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtps2bs
+      : GCCBuiltin<"__builtin_ia32_tcvtps2bs">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtps2ubs
+      : GCCBuiltin<"__builtin_ia32_tcvtps2ubs">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtub2ps
+      : GCCBuiltin<"__builtin_ia32_tcvtub2ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tfmaddps_reg : GCCBuiltin<"__builtin_ia32_tfmaddps_reg">,
+                             Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                       [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tfmaddps_mem
+      : GCCBuiltin<"__builtin_ia32_tfmaddps_mem">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tfmsubps_reg : GCCBuiltin<"__builtin_ia32_tfmsubps_reg">,
+                             Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                       [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tfmsubps_mem
+      : GCCBuiltin<"__builtin_ia32_tfmsubps_mem">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tfnmaddps_reg
+      : GCCBuiltin<"__builtin_ia32_tfnmaddps_reg">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tfnmaddps_mem
+      : GCCBuiltin<"__builtin_ia32_tfnmaddps_mem">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tfnmsubps_reg
+      : GCCBuiltin<"__builtin_ia32_tfnmsubps_reg">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tfnmsubps_mem
+      : GCCBuiltin<"__builtin_ia32_tfnmsubps_mem">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tmaxps_reg : GCCBuiltin<"__builtin_ia32_tmaxps_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tmaxps_mem : GCCBuiltin<"__builtin_ia32_tmaxps_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tminps_reg : GCCBuiltin<"__builtin_ia32_tminps_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tminps_mem : GCCBuiltin<"__builtin_ia32_tminps_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tmulps_reg : GCCBuiltin<"__builtin_ia32_tmulps_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tmulps_mem : GCCBuiltin<"__builtin_ia32_tmulps_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tord_reg : GCCBuiltin<"__builtin_ia32_tord_reg">,
+                         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                   [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tord_mem : GCCBuiltin<"__builtin_ia32_tord_mem">,
+                         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                   [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_trcp14ps
+      : GCCBuiltin<"__builtin_ia32_trcp14ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty], [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_treduceps : GCCBuiltin<"__builtin_ia32_treduceps">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tscalefps_reg
+      : GCCBuiltin<"__builtin_ia32_tscalefps_reg">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tscalefps_mem
+      : GCCBuiltin<"__builtin_ia32_tscalefps_mem">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tslld : GCCBuiltin<"__builtin_ia32_tslld">,
+                      Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tsrld : GCCBuiltin<"__builtin_ia32_tsrld">,
+                      Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tsrlvd_reg : GCCBuiltin<"__builtin_ia32_tsrlvd_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tsrlvd_mem : GCCBuiltin<"__builtin_ia32_tsrlvd_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tsubps_reg : GCCBuiltin<"__builtin_ia32_tsubps_reg">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tsubps_mem : GCCBuiltin<"__builtin_ia32_tsubps_mem">,
+                           Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                     [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_txord_reg : GCCBuiltin<"__builtin_ia32_txord_reg">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_txord_mem : GCCBuiltin<"__builtin_ia32_txord_mem">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_ptr_ty],
+                                    [ImmArg<0>, ImmArg<1>]>;
+  // FP16
+  def int_x86_tdpfp16ps : GCCBuiltin<"__builtin_ia32_tdpfp16ps">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  // Tile_AVX512
+  def int_x86_tilemove : GCCBuiltin<"__builtin_ia32_tilemove">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tile16move : GCCBuiltin<"__builtin_ia32_tile16move">,
+              Intrinsic<[], [llvm_i8_ty, llvm_v16f32_ty,
+                             llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
+                             llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
+                             llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
+                             llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
+                             llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty],
+                        [ImmArg<0>]>;
+  def int_x86_tilemovei : GCCBuiltin<"__builtin_ia32_tilemovei">,
+                          Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tilemovee : GCCBuiltin<"__builtin_ia32_tilemovee">,
+                          Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                    [ImmArg<0>]>;
+  def int_x86_tilemovex : GCCBuiltin<"__builtin_ia32_tilemovex">,
+                          Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_v4f32_ty],
+                                    [ImmArg<0>]>;
+  def int_x86_tileloadde64 : GCCBuiltin<"__builtin_ia32_tileloadde64">,
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                            [ImmArg<0>]>;
+  def int_x86_tileloaddt1e64 : GCCBuiltin<"__builtin_ia32_tileloaddt1e64">,
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                            [ImmArg<0>]>;
+  def int_x86_tilestorede64 : GCCBuiltin<"__builtin_ia32_tilestorede64">,
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                            [ImmArg<0>]>;
+  def int_x86_tilezeroe : GCCBuiltin<"__builtin_ia32_tilezeroe">,
+              Intrinsic<[], [llvm_i8_ty], [ImmArg<0>]>;
+  def int_x86_tdpbssde : GCCBuiltin<"__builtin_ia32_tdpbssde">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tdpbsude : GCCBuiltin<"__builtin_ia32_tdpbsude">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tdpbusde : GCCBuiltin<"__builtin_ia32_tdpbusde">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tdpbuude : GCCBuiltin<"__builtin_ia32_tdpbuude">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_tdpbf16pse : GCCBuiltin<"__builtin_ia32_tdpbf16pse">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                        [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION

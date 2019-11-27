@@ -188,6 +188,12 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
   /// MachineLoopOptReportEmitter - This pass prints loop optimization reports.
   extern char &MachineLoopOptReportEmitterID;
+
+  /// Float128Expand - This pass expands fp128 operations to libcalls.
+  extern char &Float128ExpandID;
+
+  /// RAReportEmitter - This pass prints register allocation reports.
+  extern char &RAReportEmitterID;
 #endif  // INTEL_CUSTOMIZATION
 
   /// createPostRAHazardRecognizer - This pass runs the post-ra hazard
@@ -279,6 +285,11 @@ namespace llvm {
 
   /// MachineCSE - This pass performs global CSE on machine instructions.
   extern char &MachineCSEID;
+
+  /// MIRCanonicalizer - This pass canonicalizes MIR by renaming vregs
+  /// according to the semantics of the instruction as well as hoists
+  /// code.
+  extern char &MIRCanonicalizerID;
 
   /// ImplicitNullChecks - This pass folds null pointer checks into nearby
   /// memory operations.
@@ -456,9 +467,17 @@ namespace llvm {
   /// Creates CFI Instruction Inserter pass. \see CFIInstrInserter.cpp
   FunctionPass *createCFIInstrInserter();
 
+  /// Creates CFGuard longjmp target identification pass.
+  /// \see CFGuardLongjmp.cpp
+  FunctionPass *createCFGuardLongjmpPass();
+
   /// Create Hardware Loop pass. \see HardwareLoops.cpp
   FunctionPass *createHardwareLoopsPass();
 
+#if INTEL_CUSTOMIZATION
+  // Expand fp128 operations into libcalls.
+  FunctionPass *createFloat128ExpandPass();
+#endif // INTEL_CUSTOMIZATION
 } // End llvm namespace
 
 #endif

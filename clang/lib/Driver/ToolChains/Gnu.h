@@ -10,6 +10,7 @@
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_GNU_H
 
 #include "Cuda.h"
+#include "SYCL.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
 #include <set>
@@ -77,6 +78,28 @@ private:
                               const InputInfoList &InputFiles,
                               const llvm::opt::ArgList &Args) const;
 };
+
+#if INTEL_CUSTOMIZATION
+class LLVM_LIBRARY_VISIBILITY SYCLLinker : public GnuTool {
+public:
+  SYCLLinker(const ToolChain &TC) : GnuTool("GNU::SYCLLinker", "linker (spirv)", TC) {}
+  bool hasIntegratedCPP() const override { return false; }
+  bool isLinkJob() const override { return true; }
+
+  void ConstructJob(Compilation &C, const JobAction &JA,
+                    const InputInfo &Output, const InputInfoList &Inputs,
+                    const llvm::opt::ArgList &TCArgs,
+                    const char *LinkingOutput) const override {}
+  Tool* GetSYCLToolChainLinker() const {
+    if (!SYCLToolChainLinker)
+      SYCLToolChainLinker.reset(new SYCL::Linker(getToolChain()));
+    return SYCLToolChainLinker.get();
+  }
+private:
+  mutable std::unique_ptr<Tool> SYCLToolChainLinker;
+};
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace gnutools
 
 /// gcc - Generic GCC tool implementations.
@@ -314,6 +337,11 @@ protected:
 
   /// Check whether the target triple's architecture is 32-bits.
   bool isTarget32Bit() const { return getTriple().isArch32Bit(); }
+
+#if INTEL_CUSTOMIZATION
+  /// Check whether the target triple's architecture is spir.
+  bool isTargetSpir() const { return getTriple().isSPIR(); }
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: This should be final, but the CrossWindows toolchain does weird
   // things that can't be easily generalized.

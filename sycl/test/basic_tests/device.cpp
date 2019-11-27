@@ -1,7 +1,5 @@
 // RUN: %clangxx %s -o %t.out -lsycl
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 
 //==--------------- device.cpp - SYCL device test --------------------------==//
 //
