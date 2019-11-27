@@ -624,21 +624,16 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       !isOptimizingForSize(Level) && Level > O1)
     FPM.addPass(PGOMemOPSizeOpt());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
   bool SkipRecProgression = PrepareForLTO && EnableDTrans;
 #else
   bool SkipRecProgression = false;
 #endif // INTEL_INCLUDE_DTRANS
-  FPM.addPass(TailCallElimPass(SkipRecProgression));
-                                              // Eliminate tail calls
-#endif // INTEL_CUSTOMIZATION
-=======
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (Level > O1)
-    FPM.addPass(TailCallElimPass());
->>>>>>> 8ff85ed905a7306977d07a5cd67ab4d5a56fafb4
+    FPM.addPass(TailCallElimPass(SkipRecProgression));
+#endif // INTEL_CUSTOMIZATION
   FPM.addPass(SimplifyCFGPass());
 
   // Form canonically associated expression trees, and simplify the trees using
