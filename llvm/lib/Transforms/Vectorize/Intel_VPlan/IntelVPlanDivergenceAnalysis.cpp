@@ -511,9 +511,9 @@ void VPlanDivergenceAnalysis::computeImpl() {
     if (isAlwaysUniform(I))
       continue;
 
-    bool WasDivergent = isDivergent(I);
-    if (WasDivergent)
-      continue;
+    // TODO: Early continue for divergent VPInstruction might be needed here
+    // when computation is done separately for divergence property and vector
+    // shape property. Check CMPLRLLVM-9230.
 
 #if INTEL_CUSTOMIZATION
     // Branch instructions are not explicitly represented in VPlan, so check
@@ -1009,6 +1009,10 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
 
 VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(
     const VPPHINode *Phi) {
+
+  // Loop header PHI nodes were already analyzed during initialization.
+  if (Phi->getParent() == RegionLoop->getHeader())
+    return getVectorShape(Phi);
 
   // If any incoming value shape is temporalily divergent (uniform in loop,
   // divergent out-side loop), then the phi shape is random.
