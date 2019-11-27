@@ -249,16 +249,9 @@ add_custom_target( sycl-toolchain
   COMMENT "Building SYCL compiler toolchain..."
 )
 
-# INTEL_CUSTOMIZATION
-if (CMAKE_SYCL_USE_LEVEL0)
-  add_dependencies(sycl-toolchain pi_level0)
-endif()
-# end INTEL_CUSTOMIZATION
-
 add_subdirectory( test )
 add_subdirectory( unittests )
 add_subdirectory( tools )
-# Plugin Library
 add_subdirectory( plugins )
 
 # Package deploy support
