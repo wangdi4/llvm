@@ -15,24 +15,12 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
   MAIN_CONFIG
-<<<<<<< HEAD
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg
-=======
-  ${CMAKE_CURRENT_SOURCE_DIR}/Unit/lit.cfg.py
-  )
-
-list(APPEND SYCL_TEST_DEPS
-  sycl-toolchain
-  FileCheck
-  not
-  get_device_count_by_type
-  llvm-config
->>>>>>> c380d79456a33959317b17b30eb7b8543412a57b
   )
 
 add_lit_testsuite(check-sycl "Running the SYCL regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   ARGS ${RT_TEST_ARGS}
-  DEPENDS sycl-toolchain FileCheck get_device_count_by_type llvm-config
+  DEPENDS sycl-toolchain FileCheck not get_device_count_by_type llvm-config
   )
 set_target_properties(check-sycl PROPERTIES FOLDER "SYCL tests")
