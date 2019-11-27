@@ -11,7 +11,7 @@ target triple = "x86_64-apple-macosx10.10.0"
 
 ; Derived from memset-escape-subs.ll
 ; CHECK-LABEL: @main
-; CHECK: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64{{.*}} @a
+; CHECK: tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64{{.*}} @a
 ; CHECK: call void @llvm.memset.p0i8.i64{{.*}} @a
 ; CHECK: store i32 3
 ; CHECK: load i32, i32* {{.*}}

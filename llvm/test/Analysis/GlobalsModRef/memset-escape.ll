@@ -27,8 +27,8 @@ target triple = "x86_64-apple-macosx10.10.0"
 ; CHECK-BB-LABEL: @main
 ; CHECK-BB-NOT: load
 ; CHECK-BB-NOT: br
-; First store to @a
-; CHECK-BB:      store i32 1
+; First store to @a is removed by "Dead Store Elimination."
+; CHECK-BB-NOT:      store i32 1
 ; Unrolled loop after first store to @a
 ; CHECK-BB:      store i32 0
 ; CHECK-BB:      store i32 0

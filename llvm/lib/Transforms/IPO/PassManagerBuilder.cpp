@@ -631,23 +631,16 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (SizeLevel == 0)
     MPM.add(createPGOMemOPSizeOptLegacyPass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
   bool SkipRecProgression = PrepareForLTO && EnableDTrans;
 #else
   bool SkipRecProgression = false;
 #endif // INTEL_INCLUDE_DTRANS
-  // TODO: Investigate the cost/benefit of tail call elimination on debugging.
-  if (OptLevel > 1)
-    MPM.add(createTailCallEliminationPass(SkipRecProgression));
+  MPM.add(createTailCallEliminationPass(SkipRecProgression));
                                               // Eliminate tail calls
 #endif // INTEL_CUSTOMIZATION
-  MPM.add(createCFGSimplificationPass());      // Merge & remove BBs
-=======
-  MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
->>>>>>> c9ddb02659e3ece7a0d9d6b4dac7ceea4ae46e6d
   MPM.add(createReassociatePass());           // Reassociate expressions
 
   // Begin the loop pass pipeline.
