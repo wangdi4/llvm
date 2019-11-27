@@ -1358,12 +1358,18 @@ public:
 
   /// Return operand that corrresponds to min/max parent vector value.
   VPValue *getParentExitValOperand() const {
-    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+    return getNumOperands() == 3 ? getOperand(1) : nullptr;
   }
 
   /// Return operand that corrresponds to min/max parent final value.
   VPValue *getParentFinalValOperand() const {
-    return getNumOperands() == 3 ? getOperand(1) : nullptr;
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+  }
+
+  /// Return true if this instruction is for last value calculation of an index
+  /// part of min/max+index idiom.
+  bool isMinMaxIndex() const {
+    return getParentExitValOperand() != nullptr;
   }
 
   /// Return ID of the corresponding reduce intrinsic.
@@ -1413,9 +1419,9 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty, bool IsSoa = false)
-      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
-        IsSOALayout(IsSoa) {}
+  VPAllocatePrivate(Type *Ty)
+      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}), IsSOASafe(false),
+        IsSOAProfitable(false) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -1427,10 +1433,28 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  bool isSOALayout() const { return IsSOALayout; }
+  /// Return true if doing SOA-layout transformation for the given memory is
+  /// both safe and profitable.
+  bool isSOALayout() const { return IsSOASafe && IsSOAProfitable; }
+
+  /// Return true if memory is safe for SOA, i.e. all uses inside the loop
+  /// are known and there are no layout-casts.
+  bool isSOASafe() const { return IsSOASafe; }
+
+  /// Return true if it's profitable to do SOA transformation, i.e. there
+  /// is at least one uniform/unit-stride load/store to that memory (in case of
+  /// private array), or the memory is a scalar structure
+  bool isSOAProfitable() const { return IsSOAProfitable; }
+
+  /// Set the property of the memory to be SOA-safe.
+  void setSOASafe() { IsSOASafe = true; }
+
+  /// Set the memory to be profitable for SOA-layout.
+  void setSOAProfitable() { IsSOAProfitable = true; }
 
 private:
-  bool IsSOALayout;
+  bool IsSOASafe;
+  bool IsSOAProfitable;
 };
 #endif // INTEL_CUSTOMIZATION
 

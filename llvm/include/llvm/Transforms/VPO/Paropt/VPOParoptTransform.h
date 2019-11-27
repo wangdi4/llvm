@@ -650,15 +650,114 @@ private:
   /// Initialize the local copies of firstprivate variables in the task thunk,
   /// using the originals. This is done before executing the task region.
   void genFprivInitForTask(WRegionNode *W, Value *KmpTaskTTWithPrivates,
-                           StructType *KmpTaskTTWithPrivatesTy,
-                           Instruction *InsertPt);
+                           Value *KmpPrivatesGep, StructType *KmpPrivatesTy,
+                           Instruction *InsertBefore);
+
+  /// \defgroup TaskVLAFunctions Functions specific to handling VLAs on tasks
+  ///
+  /// For VLA operands to private/fp/lp clauses on tasks, the size of memory
+  /// needed for the array is not known at compile time. So the memory cannot be
+  /// allocated as part of the 'privates' struct in the task thunk, as its type
+  /// needs to be determined at compile time. So, for VLAs, memory for the array
+  /// itself is allocated in a buffer at the end of the task thunk, and three
+  /// fields are reserved in the 'privates' struct. For example:
+  ///
+  /// \code
+  ///  int a[n];
+  ///  ...
+  ///  #pragma omp task firstprivate(a) lastprivate(a) ...
+  /// \endcode
+  ///
+  /// The memory allocated for this in the thunk looks like:
+  ///
+  /// \code
+  ///
+  ///  |<-----------task_t_with_privates---------->|
+  ///  |<--task_t-->|<---------privates_t--------->|<---------buffer---------->|
+  ///
+  ///  {{.........} , {...i32*,   i64,    i64  ...}}..|< buffer_for_a >|........
+  ///     |               |                           ^
+  ///     |               |                           |
+  ///     |             <anew>  <size >  <offset>     |< n * 4 bytes  >|
+  ///     |               |     <n * 4>               |
+  ///     |               |                           |
+  ///     |               +---------------------------+
+  ///  |<-+---------------<offset>------------------->|
+  ///     |
+  ///     |
+  ///     |<-shared.t->|
+  ///     V
+  ///     {... i32*... }
+  ///         <ashr>
+  ///
+  /// \endcode
+  ///
+  /// The space for the actual array is allocated in a buffer space after the
+  /// end of 'task_t_with_privates' struct.
+  ///
+  /// The privates_t struct contains:
+  /// - anew: an i32* which stores the address of 'buffer_for_a'. The
+  /// initialization of this pointer, to store &'buffer_for_a', is done in the
+  /// beginning of the task's outlined function. This code is emitted by
+  /// genTaskLoopInitCode().
+  /// - size: an i64 (size_t) containing the size in bytes of the array
+  /// ('%n * sizeof(i32)').
+  /// - offset: an i64 (size_t), containing the integer offset that needs to be
+  /// added to the base address of 'task_t_with_privates', to reach the
+  /// beginning of 'buffer_for_a'.
+  ///
+  /// The value of 'size' in bytes for each VLA is computed in
+  /// genKmpTaskTWithPrivatesRecordDecl().
+  ///
+  /// The value of 'offset' for each VLA operand is computed in
+  /// computeExtraBufferSpaceNeededAfterEndOfTaskThunk(). The function also
+  /// computes the total size of private memory that needs to be passed to the
+  /// '__kmp_task_alloc' call, which is sizeof('task_t_with_privates') +
+  /// <size of all buffers>.
+  ///
+  /// The initialization of 'size' and 'offset' fields in the thunk are done in
+  /// saveVLASizeAndOffsetToPrivatesThunk().
+  ///
+  /// Inside the outlined region for the task, 'offset' is needed to link 'anew'
+  /// to 'buffer_of_a'. 'size' and 'ashr' (pointer to the original %a) are
+  /// needed for lastprivate copyout and reduction finalization loops (not yet
+  /// supported).
+  ///
+  /// {@
+  /// Compute the total buffer memory needed per task for local copies of data
+  /// corresponding to variable length arrays and similar operands. The function
+  /// sets up the offset in bytes for the buffer corresponding to each clause
+  /// item, from the beginning of the task thunk. \p TaskThunkWithPrivatesSize,
+  /// which is the size of the thunk without any buffer at the end, would
+  /// be the offset for the first item.
+  /// The function inserts add instructions to compute the offsets corresponding
+  /// to each VLA clause item, and also for the total size of the thunk +
+  /// buffer. These are inserted before \p InsertBefore. \returns the Total size
+  /// of the task thunk, including the buffer at the end.
+  static Value *computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
+      WRegionNode *W, int TaskThunkWithPrivatesSize, Instruction *InsertBefore);
+
+  /// For variable length arrays on tasks, save 'data size' and 'offset to the
+  /// array in the buffer', into the space designated for them in the privates
+  /// thunk.
+  static void saveVLASizeAndOffsetToPrivatesThunk(WRegionNode *W,
+                                                  Value *KmpPrivatesGEP,
+                                                  StructType *KmpPrivatesTy,
+                                                  Instruction *InsertBefore);
+  /// @}
+
+  /// Compute and return the GEP for the 'privates_t' struct contained within
+  /// the 'task_t_with_privates' (\p KmpTaskTTWithPrivates) thunk.
+  static Value *genPrivatesGepForTask(Value *KmpTaskTTWithPrivates,
+                                      StructType *KmpTaskTTWithPrivatesTy,
+                                      Instruction *InsertBefore);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
   void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
                                   Value *&STPtr);
 
-  /// Generate the outline function of reduction initilaization
+  /// Generate the outline function of reduction initialization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
 
   /// Generate the outline function for the reduction update
@@ -684,9 +783,14 @@ private:
   /// %struct.kmp_task_t = type { i8*, i32 (i32, i8*)*, i32,
   /// %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64, i32}
   /// %struct..kmp_privates.t = type { i64, i64, i32 }
+  /// If any item is a VLA type (say int x[n]), the 'privates_t' contains a
+  /// pointer, and two size_t values (i32*, i64, i64). The size of the array in
+  /// bytes (%n * sizeof(i32)) is computed in this function, and any code
+  /// generated for that computation is inserted before \p InsertBefore.
   StructType *genKmpTaskTWithPrivatesRecordDecl(WRegionNode *W,
                                                 StructType *&KmpSharedTy,
-                                                StructType *&KmpPrivatesTy);
+                                                StructType *&KmpPrivatesTy,
+                                                Instruction *InsertBefore);
 
   /// Generate the actual parameters in the outlined function
   /// for copyin variables.

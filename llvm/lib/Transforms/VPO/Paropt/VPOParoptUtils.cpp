@@ -1301,7 +1301,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
 //    size_t, size_t, i32 (i32, i8*)*)
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
-                                           int KmpTaskTTWithPrivatesTySz,
+                                           Value *KmpTaskTTWithPrivatesTySz,
                                            int KmpSharedTySz,
                                            PointerType *KmpRoutineEntryPtrTy,
                                            Function *MicroTaskFn,
@@ -1315,20 +1315,20 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
+  IRBuilder<> Builder(InsertPt);
+  Type *SizeTTy = GeneralUtils::getSizeTTy(F);
+  Type *Int32Ty = Builder.getInt32Ty();
+
   auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
-      ConstantInt::get(GeneralUtils::getSizeTTy(F),
-                       KmpTaskTTWithPrivatesTySz);
-  auto *SharedsSize =
-      ConstantInt::get(GeneralUtils::getSizeTTy(F), KmpSharedTySz);
-  IRBuilder<> Builder(InsertPt);
+      Builder.CreateZExtOrTrunc(KmpTaskTTWithPrivatesTySz, SizeTTy);
+  auto *SharedsSize = ConstantInt::get(SizeTTy, KmpSharedTySz);
   Value *AllocArgs[] = {
       Loc,         Builder.CreateLoad(TidPtr),
       TaskFlags,   KmpTaskTWithPrivatesTySize,
       SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
-  Type *TypeParams[] = {Loc->getType(),      Type::getInt32Ty(C),
-                        Type::getInt32Ty(C), GeneralUtils::getSizeTTy(F),
-                        GeneralUtils::getSizeTTy(F), KmpRoutineEntryPtrTy};
+  Type *TypeParams[] = {Loc->getType(), Int32Ty, Int32Ty,
+                        SizeTTy,        SizeTTy, KmpRoutineEntryPtrTy};
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
@@ -3037,13 +3037,20 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Instruction *InsertPt, WRegionNode *W,
-                                         bool IsTail, bool IsVarArg) {
+                                         bool IsTail) {
   assert(BaseCall && "BaseCall is null");
   Module *M = BaseCall->getModule();
   Type *ReturnTy = BaseCall->getType();
+  FunctionType *BaseFnTy = BaseCall->getFunctionType();
+  bool IsVarArg = BaseFnTy->isVarArg();
+
+  // When IsVarArg==true, we cannot recreate the FnArgTypes from the FnArgs
+  // because there may be more arguments in the call than the formal parameters
+  // in the function declaration. Therefore, we have to use BaseFnTy->params().
   SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
   CallInst *VariantCall =
-      genCall(M, VariantName, ReturnTy, FnArgs, InsertPt, IsTail, IsVarArg);
+      genCall(M, VariantName, ReturnTy, FnArgs, BaseFnTy->params(), InsertPt,
+              IsTail, IsVarArg);
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding TgtBuffer.

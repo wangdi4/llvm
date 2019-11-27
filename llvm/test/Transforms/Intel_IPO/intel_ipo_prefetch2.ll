@@ -7,6 +7,9 @@
 ;
 ;
 
+; REQUIRES: asserts
+
+
 ; *** Run command section ***
 ; RUN: opt < %s -intel-ipoprefetch -ipo-prefetch-be-lit-friendly=1 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-ipoprefetch)' -ipo-prefetch-be-lit-friendly=1 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s

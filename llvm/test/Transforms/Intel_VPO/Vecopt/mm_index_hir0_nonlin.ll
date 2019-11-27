@@ -5,8 +5,14 @@
 ;CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ;CHECK: Reduction list
 ;CHECK-NEXT: signed (SIntMax) Start: i32 [[BEST:%best.[0-9]+]] Exit: i32 [[BEST_EXIT:%vp[0-9]+]]
-;CHECK-NEXT: signed (SIntMin) Start: i32 [[TMP:%tmp.[0-9]+]] Exit: i32 [[TMP_EXIT:%vp[0-9]+]] Parent exit: i32 [[BEST_EXIT]]
-;CHECK-NEXT: signed (SIntMin) Start: i32 [[VAL:%val.[0-9]+]] Exit: i32 [[VAL_EXIT:%vp[0-9]+]] Parent exit: i32 [[BEST_EXIT]]
+;CHECK-NEXT:   Linked values:{{.*}}
+;CHECK-EMPTY:
+;CHECK-NEXT: signed (SIntMin) Start: i32 [[TMP:%tmp.[0-9]+]] Exit: i32 [[TMP_EXIT:%vp[0-9]+]]
+;CHECK-NEXT:   Linked values:{{.*}}
+;CHECK-NEXT:  Parent exit: i32 [[BEST_EXIT]]
+;CHECK-NEXT: signed (SIntMin) Start: i32 [[VAL:%val.[0-9]+]] Exit: i32 [[VAL_EXIT:%vp[0-9]+]]
+;CHECK-NEXT:   Linked values:{{.*}}
+;CHECK-NEXT:  Parent exit: i32 [[BEST_EXIT]]
 ;CHECK-EMPTY:
 ;CHECK-NEXT: Induction list
 ;CHECK-NEXT: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 {{%vp[0-9]+}} = add i32 {{%vp[0-9]+}} i32 {{%vp[0-9]+}}

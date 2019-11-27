@@ -17,6 +17,8 @@
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
+#include "IntelVPlanUtils.h"
+#include "IntelVPlanValue.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -40,6 +42,20 @@ static cl::opt<bool, true> VPlanUseVPEntityInstructionsOpt(
     "vplan-use-entity-instr", cl::Hidden,
     cl::location(VPlanUseVPEntityInstructions),
     cl::desc("Generate VPInstructions for VPEntities"));
+
+// Flag to enable printing of SOA-analysis information.
+cl::opt<bool, true> VPlanDisplaySOAAnalysisInformation(
+    "vplan-dump-soa-info",
+     cl::Hidden, cl::location(VPlanUseVPEntityInstructions),
+    cl::desc("Display information about SOA Analysis on loop-entities."));
+
+namespace llvm {
+namespace vpo {
+bool LoopEntityImportEnabled = true;
+bool VPlanUseVPEntityInstructions = false;
+bool VPlanDisplaySOAAnalysisInformation = true;
+} // namespace vpo.
+} // namespace llvm.
 
 extern cl::opt<bool> EnableVPValueCodegen;
 
@@ -103,6 +119,7 @@ void VPReduction::dump(raw_ostream &OS) const {
     OS << " Exit: ";
     getLoopExitInstr()->printAsOperand(OS);
   }
+  printLinkedValues(OS);
 }
 
 void VPIndexReduction::dump(raw_ostream &OS) const {
@@ -158,15 +175,26 @@ void VPInduction::dump(raw_ostream &OS) const {
   if (NeedCloseForm) {
     OS << " need close form ";
   }
+  printLinkedValues(OS);
 }
 
-void VPPrivate::dump(raw_ostream &OS) const {
-}
+void VPPrivate::dump(raw_ostream &OS) const { printLinkedValues(OS); }
 
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
   MemoryPtr->dump(OS);
 }
-#endif // NDEBUG
+
+void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
+  if (LinkedVPValues.size() == 0)
+    return;
+  OS << "\n  Linked values: ";
+  for (auto *V : LinkedVPValues) {
+    V->printAsOperand(OS);
+    OS << ", ";
+  }
+  OS << "\n";
+}
+#endif // NDEBUG || LLVM_ENABLE_DUMP
 
 VPLoopEntity::~VPLoopEntity() {}
 
@@ -395,28 +423,100 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     llvm_unreachable("Unknown recurrence kind");
   }
 }
-//TODO - not implemented yet
-bool VPLoopEntityList::isMinMaxInclusive(const VPReduction &Red) {
+
+// Basing on the MinMax kind and comparison predicate identify which
+// index should be returned as last value, the last or the first one.
+// The following rules apply for predicates (b stands for "found value", ai
+// stands for array we are looking through).
+// If we have MAX the following combinations can occur:
+//   b  <  ai ? ai : b   => first index
+//   ai <  b  ? b  : ai  => last index
+//   b  <= ai ? ai : b   => last
+//   ai <= b  ? b  : ai  => first
+//   ai >  b  ? ai : b   => first
+//   b  >  ai ? b  : ai  => last
+//   ai >= b  ? ai : b   => last
+//   b  >= ai ? b  : ai  => first
+// If we have MIN the following combinations can occur:
+//   b  <  ai ? b  : ai  => last  index
+//   ai <  b  ? ai : b   => first index
+//   b  <= ai ? b  : ai  => first
+//   ai <= b  ? ai : b   => last
+//   ai >  b  ? b  : ai  => last
+//   b  >  ai ? ai : b   => first
+//   ai >= b  ? b  : ai  => first
+//   b  >= ai ? ai : b   => last
+// So, we need to know at wich position in comparison is b,
+// comparison predicate and kind of reduction (MIN or MAX).
+//
+bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
   if (Red.getRecurrenceKind() != RecurrenceKind::RK_IntegerMinMax &&
       Red.getRecurrenceKind() != RecurrenceKind::RK_FloatMinMax)
     return false;
 
+  bool IsMin;
+  switch (Red.getMinMaxRecurrenceKind()) {
+  case MinMaxRecurrenceKind::MRK_UIntMin:
+  case MinMaxRecurrenceKind::MRK_SIntMin:
+  case MinMaxRecurrenceKind::MRK_FloatMin:
+    IsMin = true;
+    break;
+  case MinMaxRecurrenceKind::MRK_UIntMax:
+  case MinMaxRecurrenceKind::MRK_SIntMax:
+  case MinMaxRecurrenceKind::MRK_FloatMax:
+    IsMin = false;
+    break;
+  default:
+    llvm_unreachable("Unknown minmax predicate");
+  }
   auto &LinkedVals = Red.getLinkedVPValues();
   for (auto *Val : LinkedVals)
     if (auto VPInst = dyn_cast<VPInstruction>(Val))
       if (VPInst->getOpcode() == Instruction::Select) {
+        VPPHINode *BestValInst = getRecurrentVPHINode(Red);
+        assert(BestValInst && "Phi node not found for min/max reduction");
+        // Get condition
         auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
+        bool BestIsFirstCmpOperand = BestValInst == PredInst->getOperand(0);
         switch (PredInst->getPredicate()) {
         case CmpInst::FCMP_OGE:
-        case CmpInst::FCMP_OLE:
         case CmpInst::FCMP_UGE:
-        case CmpInst::FCMP_ULE:
         case CmpInst::ICMP_UGE:
-        case CmpInst::ICMP_ULE:
         case CmpInst::ICMP_SGE:
+          // max b  >= ai ? b  : ai  => first
+          // min b  >= ai ? ai : b   => last
+          // max ai >= b  ? ai : b   => last
+          // min ai >= b  ? b  : ai  => first
+          return BestIsFirstCmpOperand ? IsMin : !IsMin;
+        case CmpInst::FCMP_OLE:
+        case CmpInst::FCMP_ULE:
+        case CmpInst::ICMP_ULE:
         case CmpInst::ICMP_SLE:
-          return true;
+          // min b  <= ai ? b  : ai  => first
+          // max b  <= ai ? ai : b   => last
+          // min ai <= b  ? ai : b   => last
+          // max ai <= b  ? b  : ai  => first
+          return BestIsFirstCmpOperand ? !IsMin : IsMin;
+        case CmpInst::FCMP_OGT:
+        case CmpInst::FCMP_UGT:
+        case CmpInst::ICMP_UGT:
+        case CmpInst::ICMP_SGT:
+          // max b  >  ai ? b  : ai  => last
+          // min b  >  ai ? ai : b   => first
+          // max ai >  b  ? ai : b   => first
+          // min ai >  b  ? b  : ai  => last
+          return BestIsFirstCmpOperand ? !IsMin : IsMin;
+        case CmpInst::FCMP_OLT:
+        case CmpInst::FCMP_ULT:
+        case CmpInst::ICMP_ULT:
+        case CmpInst::ICMP_SLT:
+          // max b  <  ai ? ai : b   => first
+          // min b  <  ai ? b  : ai  => last
+          // max ai <  b  ? b  : ai  => last
+          // min ai <  b  ? ai : b   => first
+          return BestIsFirstCmpOperand ? IsMin : !IsMin;
         default:
+          llvm_unreachable("Unknown minmax predicate");
           break;
         }
       }
@@ -425,25 +525,56 @@ bool VPLoopEntityList::isMinMaxInclusive(const VPReduction &Red) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPLoopEntityList::dump(raw_ostream &OS,
-                          const VPBlockBase *LoopHeader) const {
-  if (!DumpVPlanEntities)
+                            const VPBlockBase *LoopHeader) const {
+  if (!(DumpVPlanEntities || VPlanDisplaySOAAnalysisInformation))
     return;
-  if (LoopHeader)
-    OS << "Loop Entities of the loop with header " << LoopHeader->getName()
-       << "\n";
-  // TODO: different prints for different debug levels.
-  // OS << "\nReductions count: " << ReductionMap.size()
-  //   << " Inductions Count: " << InductionMap.size()
-  //   << " Privates Count: " << PrivateMap.size() << "\n";
-  if (!ReductionList.empty())
-    dumpList("\nReduction list\n", ReductionList, OS);
-  if (!InductionList.empty())
-    dumpList("\nInduction list\n", InductionList, OS);
-  if (!PrivatesList.empty())
-    dumpList("\nPrivate list\n", PrivatesList, OS);
-  OS << "\n";
+
+  if (DumpVPlanEntities) {
+    if (LoopHeader)
+      OS << "Loop Entities of the loop with header " << LoopHeader->getName()
+         << "\n";
+    // TODO: different prints for different debug levels.
+    // OS << "\nReductions count: " << ReductionMap.size()
+    //   << " Inductions Count: " << InductionMap.size()
+    //   << " Privates Count: " << PrivateMap.size() << "\n";
+    if (!ReductionList.empty())
+      dumpList("\nReduction list\n", ReductionList, OS);
+    if (!InductionList.empty())
+      dumpList("\nInduction list\n", InductionList, OS);
+    if (!PrivatesList.empty())
+      dumpList("\nPrivate list\n", PrivatesList, OS);
+    OS << "\n";
+  }
+
+  // TODO: Dump profitability information along with safety information.
+  VPBasicBlock *Preheader = cast<VPBasicBlock>(getLoop().getLoopPreheader());
+  auto getVPLoopEntity = [&](const VPValue *VPVal) -> const VPLoopEntity * {
+    auto *PrivIter = find(PrivateMap, VPVal);
+    if (PrivIter)
+      return PrivIter;
+    auto *RedIter = find(ReductionMap, VPVal);
+    if (RedIter)
+      return RedIter;
+    auto *IndIter = find(InductionMap, VPVal);
+    if (IndIter)
+      return IndIter;
+    return nullptr;
+  };
+
+  for (VPInstruction &VPInst : Preheader->vpinstructions()) {
+    if (VPAllocatePrivate *VPAllocaPriv =
+            dyn_cast<VPAllocatePrivate>(&VPInst)) {
+
+      const VPLoopEntity *E = getVPLoopEntity(VPAllocaPriv);
+      assert(E && "Expect a valid VPLoopEntity for a VPAllocatePrivate.");
+      if (VPAllocaPriv->isSOASafe())
+        OS << "SOASafe = " << *(getOrigMemoryPtr(E)) << "\n";
+      else
+        OS << "SOAUnsafe = " << *(getOrigMemoryPtr(E)) << "\n";
+    }
+  }
 }
-#endif //NDEBUG
+#endif // NDEBUG
 
 void VPLoopEntityList::finalizeImport() {
   for (auto &Red: ReductionList) {
@@ -463,8 +594,7 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   if (MemDescr->canRegisterize())
     return nullptr;
   AI = MemDescr->getMemoryPtr();
-  bool MakeSOA = MemDescr->isSafeSOA() && MemDescr->isProfitableSOA();
-  VPValue *Ret = Builder.createAllocaPrivate(AI->getType(), MakeSOA);
+  VPValue *Ret = Builder.createAllocaPrivate(AI->getType());
   Plan.getVPlanDA()->markDivergent(*Ret);
   linkValue(&E, Ret);
   return Ret;
@@ -483,7 +613,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
   // constant or something else and can be used in instructions not related to
   // this entity calculation. We should replace it only where it's needed.
   if (!E.getIsMemOnly()) {
-    const SmallVectorImpl<VPValue *> &LinkedVals = E.getLinkedVPValues();
+    auto &LinkedVals = E.getLinkedVPValues();
     for (auto *Val : LinkedVals)
       if (auto *Instr = dyn_cast<VPInstruction>(Val))
         Instr->replaceUsesOfWith(&Start, &Init);
@@ -629,8 +759,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPInstruction *InitStep =
         Builder.createInductionInitStep(Induction->getStep(), Opc);
     if (!Induction->needCloseForm()) {
-      const SmallVectorImpl<VPValue *> &LinkedVals =
-          Induction->getLinkedVPValues();
+      auto &LinkedVals = Induction->getLinkedVPValues();
       for (auto *Val : LinkedVals)
         if (auto *Instr = dyn_cast<VPInstruction>(Val))
           if (!isa<VPInductionInit>(Instr))
@@ -1012,7 +1141,7 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
-    bool ForLast = LE->isMinMaxInclusive(*Parent);
+    bool ForLast = LE->isMinMaxLastItem(*Parent);
     VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
                                   ForLast, AllocaInst, ValidMemOnly);
   }
@@ -1401,195 +1530,210 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
   }
 }
 
-namespace llvm {
-namespace vpo {
-bool LoopEntityImportEnabled = true;
-bool VPlanUseVPEntityInstructions = false;
-
-void VPLoopEntityList::doEscapeAnalysis() {
-  if (!VPlanUseVPEntityInstructions || !EnableVPValueCodegen)
-    return;
-
-  SmallPtrSet<VPLoopEntityMemoryDescriptor *, 4> AnalyzedMemDescr;
-  for (auto &MemDescrIter : MemoryDescriptors) {
-    // We build a set of 'seed' instructions. We create a vector of aliases.
-    // Initialize that vector with the original AI. In case of privates, we
-    // extend the vector with all the aliases.
-    VPLoopEntityMemoryDescriptor *MemDescr = MemDescrIter.second.get();
-
-    // TODO: We have to do this analysis for all entities. Currently, we do it
-    // just for privates.
-    if (!isa<VPPrivate>(MemDescr->getVPLoopEntity()))
-      continue;
-
-    LLVM_DEBUG(errs() << "MemDescr Val = " << *(MemDescr->getMemoryPtr())
-                      << "\n";);
-
-    if (AnalyzedMemDescr.count(MemDescr))
-      continue;
-
-    struct WorkList {
-
-      WorkList(VPPrivate *PrivEntity) {
-        for (auto &Val : PrivEntity->aliases()) {
-          Queue.insert(Val.first);
-        }
-      }
-
-      void insert(const VPValue *Inst) {
-        if (Queue.count(Inst) == 0)
-          Queue.insert(Inst);
-      }
-
-      const VPValue *pop() {
-        const VPValue *I = Queue.back();
-        Queue.pop_back();
-        return I;
-      }
-
-      bool empty() { return Queue.empty(); }
-
-    private:
-      // We use the 'set' part to avoid multiple additions of aliases in case of
-      // 'Phis' which have multiple arguments and we might add the LHS multiple
-      // times when processing each one of the input argument.
-      // Using SetVector because we want to maintain relative order in which
-      // Values are inserted in the worklist.
-      SetVector<const VPValue *> Queue;
-    };
-
-    auto isKnownSafeCall = [](Instruction *I) -> bool {
-      // These intrinsic instructions are known to be safe. This list can be
-      // further extended to include other safe instructions as well.
-      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
-        if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
-            II->getIntrinsicID() == Intrinsic::lifetime_end)
-          return true;
-      }
-      return false;
-    };
-
-    auto isOpaqueCall = [=](const VPInstruction *I) -> bool {
-      if (!I)
-        return false;
-      bool IsCallInst = I->getOpcode() == Instruction::Call;
-      return IsCallInst && I->getInstruction() &&
-             !isKnownSafeCall(I->getInstruction());
-    };
-
-    auto isStoreWritingPrivatePtrToExternalMemory =
-        [](const VPInstruction *VPInst, const VPValue *CurrentI) -> bool {
-      return VPInst->getOperand(0) == CurrentI;
-    };
-
-    // This helper function returns a LE if there is write to an address
-    // corresponding to the memoryptr of that LoopEntity
-    auto getTargetLoopEntityForStore =
-        [this](const VPInstruction *VPInst,
-               const VPValue *CurrentI) -> VPLoopEntityMemoryDescriptor * {
-      VPValue *Dest = VPInst->getOperand(1);
-      if (VPLoopEntityMemoryDescriptor *LE = getMemoryDescriptor(Dest))
-        return LE;
-      return nullptr;
-    };
-
-    // Algorithm: Use an iterative algorithm to find all reaching definitions of
-    // the alloca-inst.
-    // Description: Initialize the WorkList with the alloca from the
-    // LoopEntityList. Get all the 'Uses' of that instruction . If that 'use' is
-    // within a Call, i.e., 'escaping' into an opaque-call, mark the flag as
-    // unsafe, break from the loop and mark the memory-descriptor as unsafe. If
-    // the 'use' is any of 'Cast', 'GEP', 'Load', or Phi, add the instruction ot
-    // the WorkList to be analyzed further. For 'Store' instructions, do an
-    // analysis of the nature of store. If it is to an external memory, mark the
-    // pointer as 'escaping'. Also perform analysis of linked LE if the store
-    // destination orresponds to a different descriptor.
-
-    bool FoundUnsafe = false;
-    VPPrivate *PrivEntity = cast<VPPrivate>(MemDescr->getVPLoopEntity());
-    WorkList WL(PrivEntity);
-    WL.insert(MemDescr->getMemoryPtr());
-
-    while (!WL.empty()) {
-      const VPValue *CurrentI = WL.pop();
-
-      // Skip analysis if this is a scalar value.
-      Type *PointeeTy = cast<PointerType>(MemDescr->getMemoryPtr()->getType())
-                            ->getPointerElementType();
-
-      if (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
-            PointeeTy->isPointerTy()))
-        break;
-
-      LLVM_DEBUG(dbgs() << "CurrentI Type = " << *PointeeTy << " IsScalar = "
-                        << !(PointeeTy->isAggregateType() ||
-                             PointeeTy->isVectorTy() ||
-                             PointeeTy->isPointerTy())
-                        << "\n";);
-
-      // Get all the users of the current Instruction
-      for (VPValue *User : CurrentI->users()) {
-        const VPInstruction *VPInst = dyn_cast<VPInstruction>(User);
-
-        LLVM_DEBUG(dbgs() << "CurrentI = " << *CurrentI
-                          << "\n\t\t Use = " << *VPInst << "\n";);
-
-        // VPInst's, i.e., users of CurrentI which are aliases of the private
-        // and outside the loop-region, but created as part of entities import,
-        // are not inserted into the BB yet. We do not have to analyze these
-        // instructions for possible 'escape'.
-        if (!VPInst || !VPInst->getParent() ||
-            !(checkInstructionInLoop(VPInst, &Plan, &Loop)))
-          continue;
-        else if (isOpaqueCall(VPInst)) {
-          FoundUnsafe = true;
-          break;
-        } else if (VPInst->getOpcode() == Instruction::BitCast ||
-                   VPInst->getOpcode() == Instruction::AddrSpaceCast ||
-                   VPInst->getOpcode() == Instruction::GetElementPtr ||
-                   VPInst->getOpcode() == Instruction::PHI)
-          WL.insert(VPInst);
-        else if (VPInst->getOpcode() == Instruction::Load) {
-          // A Load from a private variable can return a pointer. We should also
-          // analyze if that pointer, which is a result of the load 'escapes'
-          if (VPInst->getType()->isPointerTy())
-            WL.insert(VPInst);
-        } else if (VPInst->getOpcode() == Instruction::Store) {
-          // TODO: Checking if the private ptr is written to a memory and then
-          // finding it 'unsafe' is very conservative. We need further
-          // analysis to check if that write results in an actual escape or it
-          // is just an temporary alias. This would require more information
-          // from VPValue's.
-          if (isStoreWritingPrivatePtrToExternalMemory(VPInst, CurrentI))
-            FoundUnsafe = true;
-          // If the write to VPValue corresponds to another LoopEntity, add it
-          // to the alias list and further analyze the memoryptr corresponding
-          // to the LoopEntity. Also mark the LoopEntity as analyzed so that
-          // duplication is avoided.
-          if (auto *LE = getTargetLoopEntityForStore(VPInst, CurrentI)) {
-            if (LE->getMemoryPtr() == CurrentI)
-              continue;
-            WL.insert(LE->getMemoryPtr());
-            AnalyzedMemDescr.insert(LE);
-          }
-        }
-      }
-    }
-
-    if (!FoundUnsafe)
-      MemDescr->setSafeSOA(true);
-
-    AnalyzedMemDescr.insert(MemDescr);
+// Top-level public interface function, meant to be invoked by the client.
+void VPLoopEntityList::VPSOAAnalysis::doSOAAnalysis() {
+  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+  // Iterate through all the instructions in the loop-preheader, and for
+  // VPAllocatePrivate instruction check if that instruction itself or any of
+  // its possible use, escapes.
+  for (VPInstruction &VInst : Preheader->vpinstructions()) {
+    if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst))
+      if (!memoryEscapes(AllocaPriv))
+        AllocaPriv->setSOASafe();
   }
-  LLVM_DEBUG(for (auto &MemDescrIter
-                  : MemoryDescriptors) {
-    const auto *MemDescr = MemDescrIter.second.get();
-    if (MemDescr->isSafeSOA())
-      dbgs() << "SOASafe = " << *(MemDescr->getMemoryPtr()) << "\n";
-    else
-      dbgs() << "SOAUnsafe = " << *(MemDescr->getMemoryPtr()) << "\n";
+}
+
+// Returns true if the pointee type of the alloca-inst is a scalar value.
+bool VPLoopEntityList::VPSOAAnalysis::isScalarTy(Type *Ty) {
+  assert(Ty && "Expect a non-null argument to isScalarTy function.");
+  return (!(Ty->isAggregateType() || Ty->isVectorTy()));
+}
+
+// Returns true if the pointee type of the alloca-inst is a scalar value.
+bool VPLoopEntityList::VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
+
+  Type *PointeeTy = Ty->getPointerElementType();
+
+  // If it is an array-type, check the element-type and return true only for
+  // scalar-type.
+  return (isa<ArrayType>(PointeeTy) &&
+          (isScalarTy(cast<ArrayType>(PointeeTy)->getElementType())));
+}
+
+// Return true if \p UseInst is a safe bitcast instruction, i.e. it's a
+// pointer-to-pointer cast doesn't change the size of the pointed elements.
+bool VPLoopEntityList::VPSOAAnalysis::isPotentiallyUnsafeSafeBitCast(
+    const VPInstruction *UseInst) {
+  if (!UseInst || (UseInst->getOpcode() != Instruction::BitCast))
+    return false;
+
+  // We expect to have only pointer-type operands.
+  PointerType *SrcPtrTy =
+      dyn_cast<PointerType>(UseInst->getOperand(0)->getType());
+  if (!SrcPtrTy)
+    return true;
+
+  PointerType *DstPtrTy = cast<PointerType>(UseInst->getType());
+  return Plan.getDataLayout()->getTypeSizeInBits(
+             SrcPtrTy->getPointerElementType()) !=
+         Plan.getDataLayout()->getTypeSizeInBits(
+             DstPtrTy->getPointerElementType());
+}
+
+// Returns true if UseInst is any function call, that we know is safe to pass a
+// private-pointer to and does not change the data-layout.
+bool VPLoopEntityList::VPSOAAnalysis::isSafePointerEscapeFunction(
+    const VPInstruction *UseInst) {
+
+  // If this is not a call-instruction, return false.
+  if (UseInst->getOpcode() != Instruction::Call)
+    return false;
+
+  Function *CalleeFunc = getCalledFunction(UseInst);
+  // For indirect calls we will have a null CalledFunc.
+  if (!CalleeFunc)
+    return false;
+  if (CalleeFunc->isIntrinsic())
+    return (CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_start ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_end ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_start ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end);
+  return false;
+}
+
+// Returns true if the instruction has operands registered as potentially-unsafe
+// during analysis.
+bool VPLoopEntityList::VPSOAAnalysis::hasPotentiallyUnsafeOperands(
+    const VPInstruction *UseInst) {
+  return any_of(UseInst->operands(), [=](const VPValue *VPOper) {
+    return PotentiallyUnsafeInsts.count(VPOper);
   });
 }
 
-} // namespace vpo
-} // namespace llvm
+// Returns true if any of the following instruction with specific constraints
+// are encountered.
+bool VPLoopEntityList::VPSOAAnalysis::isSafeLoadStore(
+    const VPInstruction *UseInst, const VPInstruction *CurrentI) {
+  unsigned OpCode = UseInst->getOpcode();
+  switch (OpCode) {
+  // We consider loads unsafe when the pointer operand is considered
+  // potentially unsafe (e.g., via unsafe bitcast).
+  case Instruction::Load:
+    return PotentiallyUnsafeInsts.count(UseInst->getOperand(0)) == 0;
+  // We consider store's unsafe when the pointer operand is considered
+  // potentially unsafe (e.g., via unsafe bitcast) or the private-pointer
+  // or its alias escapes via a write to external memory.
+  case Instruction::Store:
+    return PotentiallyUnsafeInsts.count(UseInst->getOperand(1)) == 0 &&
+           UseInst->getOperand(0) != CurrentI;
+  default:
+    return false;
+  }
+}
+
+// An umbrella function to determine the safety of an operation.
+bool VPLoopEntityList::VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
+                                                const VPInstruction *CurrentI) {
+  return isTrivialPointerAliasingInst<VPInstruction>(UseInst) ||
+         isSafePointerEscapeFunction(UseInst) ||
+         isSafeLoadStore(UseInst, CurrentI);
+}
+
+// Return true if the instruction is either in the loop-preheader of the
+// loop-body.
+bool VPLoopEntityList::VPSOAAnalysis::isInstructionInRelevantScope(
+    const VPInstruction *UseInst) {
+  if (!UseInst)
+    return false;
+  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+  return ((UseInst->getParent() == Preheader) ||
+          (checkInstructionInLoop(UseInst, &Plan, &Loop)));
+}
+
+// Function which determines if the given loop-entity escapes.
+bool VPLoopEntityList::VPSOAAnalysis::memoryEscapes(
+    const VPAllocatePrivate *Alloca) {
+
+  // Clear the 'PotentiallyUnsafeInsts' dense-set.
+  PotentiallyUnsafeInsts.clear();
+
+  // Clear the WorkList of contents of the earlier run.
+  WL.clear();
+
+  // If this is a scalar-private, just return. The real memory layout for simple
+  // scalars is identical for both SOA and AOS, it's just vector of elements.
+  assert(Alloca->getType()->isPointerTy() &&
+         "Expect the 'alloca' to have a pointer-type.");
+  if (isScalarTy(Alloca->getType()->getPointerElementType()))
+    return false;
+
+  // Non-array aggregate types are currently not supported. Conservatively, just
+  // return 'true', i.e., the memory escapes.
+  if (!isSOASupportedTy(Alloca->getType()))
+    return true;
+
+  // Initialize the WorkList with the memory-pointer.
+  WL.insert(Alloca);
+
+  // Get all the 'Uses' of these instructions. Consider the 'use' as safe under
+  // the following conditions,
+  //
+  // 1) If it is load/store, where the pointer does not come via an unsafe
+  //  bitcast.
+  //
+  // 2) If it is a store and the value-operand, a pointer we are checking, is
+  // not written to external memory (e.g., output argument of a function).
+  //
+  // 3) Call to a function that is known to not read/write memory passed by
+  // pointer and not storing the pointer to memory.
+
+  // Every other instruction is considered unsafe or potentially-unsafe.
+
+  // Instructions that create pointer aliases, checked via
+  // isTrivialPointerAliasingInst(), are added to the worklist for further
+  // analysis.
+
+  while (!WL.empty()) {
+    const VPInstruction *CurrentI = WL.pop_back_val();
+    // Analyze the users of the current-instruction.
+    for (VPValue *User : CurrentI->users()) {
+      const VPInstruction *UseInst = dyn_cast<VPInstruction>(User);
+
+      // We are only interested in pointer or its alias which is either in the
+      // Loop-preheader of within the loop itself.
+      if (!isInstructionInRelevantScope(UseInst))
+        continue;
+
+      if (!isSafeUse(UseInst, CurrentI))
+        return true;
+
+      if (isTrivialPointerAliasingInst<VPInstruction>(UseInst))
+        // If this is one of the aliasing instructions add it to the
+        // worklist.
+        WL.insert(UseInst);
+
+      // Determine if the instruction is potentially unsafe. It could be
+      // potentially unsafe when,
+      //
+      // 1) It results in a narrowed or widened
+      // pointer.
+      //    e.g., %bc = bitcast [624 x i32]* priv.ptr to i8*
+      // 2) One of the operands has previously been determined as unsafe.
+      //    e.g., Could use the previous bitcast either directly or
+      //    indirectly,
+      //          %l2 = load i8, i8* %bc
+      //                    or
+      //          %gep = ....
+      //               ...
+      //               ...
+      //          %bc2 = bitcast ...
+      //          %l2 = load i8, i8* %bc2
+      if (isPotentiallyUnsafeSafeBitCast(UseInst) ||
+          hasPotentiallyUnsafeOperands(UseInst))
+        PotentiallyUnsafeInsts.insert(UseInst);
+    }
+  }
+  // All encountered uses to the pointer or its aliases are safe instructions.
+  // We can say that it is SOASafe.
+  return false;
+}

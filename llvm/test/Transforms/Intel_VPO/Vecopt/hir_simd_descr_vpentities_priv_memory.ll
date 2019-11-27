@@ -73,7 +73,8 @@
 ; CHECK-LABEL: VPlan HIR Driver for Function: foo1
 ; CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ; CHECK: Reduction list
-; CHECK: (+) Start: i32* [[V1_START:%.*]] Memory: i32* [[V1_START]]
+; CHECK: (+) Start: i32* [[V1_START:%.*]]
+; CHECK: Memory: i32* [[V1_START]]
 
 ; CHECK-LABEL: REGION
 ; CHECK: i32* [[PRIV:%vp.*]] = allocate-priv i32*
@@ -89,7 +90,8 @@
 ; CHECK-LABEL: VPlan HIR Driver for Function: foo2
 ; CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ; CHECK: Reduction list
-; CHECK: (+) Start: i32* [[V1_START:%.*]] Exit: i32 [[ADD_EXIT:%vp.*]] Memory: i32* [[V1_START]]
+; CHECK: (+) Start: i32* [[V1_START:%.*]] Exit: i32 [[ADD_EXIT:%vp.*]]
+; CHECK: Memory: i32* [[V1_START]]
 
 ; CHECK-LABEL: REGION
 ; CHECK: i32* [[PRIV:%vp.*]] = allocate-priv i32*

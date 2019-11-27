@@ -1,9 +1,8 @@
 ; This test verifies that private-variables escaping into the unknown functions
 ; are safe for data-layout transformations.
 
-; RUN: opt %s -S -VPlanDriver -vplan-force-vf=4  -disable-vplan-codegen \
-; RUN: -enable-vp-value-codegen=true -vplan-use-entity-instr  -disable-output \
-; RUN: -debug-only=vploop-analysis 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-dump-soa-info %s 2>&1 | FileCheck %s
+; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
 
 ; REQUIRES:asserts
 
@@ -73,8 +72,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.2 ]
   %2 = trunc i64 %indvars.iv to i32
   store i32 %2, i32* %index.lpriv, align 4
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %indvars.iv
+  %3 = load i32, i32* %arrayidx, align 4
   %cmp1 = icmp sgt i32 %3, 0
   br i1 %cmp1, label %if.then, label %if.end
 
@@ -84,8 +83,8 @@ if.then:                                          ; preds = %omp.inner.for.body
   %5 = trunc i64 %indvars.iv to i32
   %add5 = add nsw i32 %5, %n1
   %idxprom6 = sext i32 %add5 to i64
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %idxprom6, !intel-tbaa !6
-  store i32 %add4, i32* %arrayidx7, align 4, !tbaa !6
+  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %idxprom6
+  store i32 %add4, i32* %arrayidx7, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body
@@ -96,14 +95,14 @@ if.end:                                           ; preds = %if.then, %omp.inner
 
 if.then9:                                         ; preds = %if.end
   %add10 = add nsw i32 %6, %n1
-  %arrayidx12 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %add10, i32* %arrayidx12, align 4, !tbaa !6
+  %arrayidx12 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %add10, i32* %arrayidx12, align 4
   br label %if.end15
 
 if.else:                                          ; preds = %if.end
   %sub = sub nsw i32 %6, %n1
-  %arrayidx14 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %sub, i32* %arrayidx14, align 4, !tbaa !6
+  %arrayidx14 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %sub, i32* %arrayidx14, align 4
   br label %if.end15
 
 if.end15:                                         ; preds = %if.else, %if.then9
@@ -115,16 +114,16 @@ if.end15:                                         ; preds = %if.else, %if.then9
 if.then18:                                        ; preds = %if.end15
   %8 = trunc i64 %indvars.iv to i32
   %sub19 = sub nsw i32 %8, %n1
-  %arrayidx21 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %sub19, i32* %arrayidx21, align 4, !tbaa !6
+  %arrayidx21 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %indvars.iv
+  store i32 %sub19, i32* %arrayidx21, align 4
   br label %omp.inner.for.inc
 
 if.else22:                                        ; preds = %if.end15
   %call = call i32 @helper(i32* nonnull %1)
   %9 = load i32, i32* %index.lpriv, align 4
   %idxprom23 = sext i32 %9 to i64
-  %arrayidx24 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %idxprom23, !intel-tbaa !6
-  store i32 %call, i32* %arrayidx24, align 4, !tbaa !6
+  %arrayidx24 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %idxprom23
+  store i32 %call, i32* %arrayidx24, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.else22, %if.then18
@@ -147,9 +146,3 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 declare dso_local i32 @helper(i32*) local_unnamed_addr
-
-!3 = !{!"int", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
-!6 = !{!7, !3, i64 0}
-!7 = !{!"array@_ZTSA1024_i", !3, i64 0}

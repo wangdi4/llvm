@@ -21,6 +21,7 @@
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/DeclOpenMP.h"
+#include "clang/AST/StmtVisitor.h" // INTEL
 #include "clang/Basic/PrettyStackTrace.h"
 using namespace clang;
 using namespace CodeGen;
@@ -5384,6 +5385,86 @@ void CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
   }
 }
 
+namespace {
+  class LoopBoundsExprChecker final :
+    public ConstStmtVisitor<LoopBoundsExprChecker, void> {
+    llvm::SmallDenseSet<const VarDecl *, 4> Vars;
+    CodeGenFunction &CGF;
+    bool FoundNonAuto = false;
+  public:
+    void VisitDeclRefExpr(const DeclRefExpr *E) {
+      if (const auto *VD = dyn_cast<VarDecl>(E->getDecl())) {
+        if (VD->getStorageDuration() != SD_Automatic)
+          FoundNonAuto = true;
+        else
+          Vars.insert(VD->getCanonicalDecl());
+      }
+    }
+    void VisitStmt(const Stmt *S) {
+      for (const Stmt *C : S->children())
+        if (C)
+          Visit(C);
+    }
+    LoopBoundsExprChecker(CodeGenFunction &CGF, const OMPLoopDirective *LD)
+        : CGF(CGF) {
+      OpenMPDirectiveKind Kind = LD->getDirectiveKind();
+      if (const auto *PreInits = cast_or_null<DeclStmt>(LD->getPreInits()))
+        Visit(PreInits);
+      if (CGF.useUncollapsedLoop(*LD)) {
+        auto UncollapsedLowerBounds = LD->uncollapsedLowerBounds();
+        auto UncollapsedUpperBounds = LD->uncollapsedUpperBounds();
+        for (unsigned I = 0, E = LD->getCollapsedNumber(); I < E; ++I) {
+          Visit(cast<DeclRefExpr>(UncollapsedLowerBounds[I]));
+          Visit(cast<DeclRefExpr>(UncollapsedUpperBounds[I]));
+        }
+      } else {
+        if (Kind != OMPD_simd)
+          Visit(cast<DeclRefExpr>(LD->getLowerBoundVariable()));
+        Visit(cast<DeclRefExpr>(LD->getUpperBoundVariable()));
+      }
+    }
+    /// This routine checks that variables used to compute the
+    /// the bounds are not used in certain clauses that would make
+    /// hoisting illegal.
+    bool okayToHoistNonCombinedLoop(const OMPExecutableDirective &S) {
+      // If variable without automatic storage was seen, don't hoist.
+      if (FoundNonAuto)
+        return false;
+      // If there is a defaultmap, don't hoist.
+      if (S.hasClausesOfKind<OMPDefaultmapClause>())
+        return false;
+      // If the variable appears in a map clause, don't hoist.
+      for (const auto *C : S.getClausesOfKind<OMPMapClause>()) {
+        for (const auto *E : C->varlists()) {
+          if (const VarDecl *PVD = OpenMPLateOutliner::getExplicitVarDecl(E))
+            if (isVarUsedInBounds(PVD))
+              return false;
+        }
+      }
+      // If the variable appears in a is_device_ptr clause, don't hoist.
+      for (const auto *C : S.getClausesOfKind<OMPIsDevicePtrClause>()) {
+        for (const auto *E : C->varlists()) {
+          if (const VarDecl *PVD = OpenMPLateOutliner::getExplicitVarDecl(E))
+            if (isVarUsedInBounds(PVD))
+              return false;
+        }
+      }
+      // If the variable appears in a private clause, don't hoist.
+      for (const auto *C : S.getClausesOfKind<OMPPrivateClause>()) {
+        for (const auto *E : C->varlists()) {
+          if (const VarDecl *PVD = OpenMPLateOutliner::getExplicitVarDecl(E))
+            if (isVarUsedInBounds(PVD))
+              return false;
+        }
+      }
+      return true;
+    }
+    bool isVarUsedInBounds(const VarDecl* VD) {
+      return Vars.find(VD) != Vars.end();
+    }
+  };
+}
+
 const OMPLoopDirective *
 CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind) {
@@ -5394,6 +5475,16 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
       DKind == OMPD_target_teams_distribute_parallel_for ||
       DKind == OMPD_target_teams_distribute_parallel_for_simd) {
     return Kind == OMPD_target ? cast<OMPLoopDirective>(&S) : nullptr;
+  }
+  // Try to hoist a loop directly under a target
+  if (DKind == OMPD_target) {
+    if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt())
+      if (auto *LD = dyn_cast<OMPLoopDirective>(CS)) {
+        LoopBoundsExprChecker Checker(*this, LD);
+        if (!Checker.okayToHoistNonCombinedLoop(S))
+          return nullptr;
+        return LD;
+      }
   }
   return nullptr;
 }
@@ -5496,6 +5587,7 @@ static bool UseCSALoopPreCond(CodeGenFunction &CGF, const OMPLoopDirective &S,
 void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
                                                    OpenMPDirectiveKind Kind,
                                                    bool WithPreInits = false) {
+  bool IsPlainSimd = (Kind == OMPD_simd || S.getDirectiveKind() == OMPD_simd);
 #if INTEL_CUSTOMIZATION
   if (LoopBoundsHaveBeenHoisted(&S))
     return;
@@ -5519,7 +5611,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
     return;
   }
 #endif // INTEL_CUSTOMIZATION
-  if (Kind != OMPD_simd)
+  if (!IsPlainSimd)
     EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
   EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
 }

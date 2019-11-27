@@ -23,9 +23,13 @@
 ; Check that reduction is imported as VPEntity with correct Exit PHI identified in the HCFG.
 ; CHECK-LABEL: Reduction list
 ; CHECK-NEXT:   (FloatMax) Start: float [[TMAX_0150:%.*]] Exit: float [[VP0:%.*]]
+; CHECK-NEXT:    Linked values:{{.*}}
+; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP1:%.*]] = add i64 [[VP2:%.*]] i64 1
+; CHECK-NEXT:    Linked values:{{.*}}
+; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :

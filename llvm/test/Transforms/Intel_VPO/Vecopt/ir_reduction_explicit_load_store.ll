@@ -6,7 +6,9 @@
 
 ; Check that reduction is imported as VPReduction.
 ; CHECK-LABEL: Reduction list
-; CHECK-NEXT:  (+) Start: float %x.promoted Exit: float [[EXIT_VPINST:%vp.*]] Memory: float* [[X:%.*]]
+; CHECK-NEXT:  (+) Start: float %x.promoted Exit: float [[EXIT_VPINST:%vp.*]]
+; CHECK-NEXT: Linked values: float [[VPPHI:%.*]], float [[EXIT_VPINST]]
+; CHECK-NEXT:  Memory: float* [[X:%.*]]
 
 ; Check generated code.
 ; CHECK-LABEL: @load_store_reduction_add(

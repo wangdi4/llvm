@@ -21,7 +21,7 @@
 ; CHECK-DAG: (%b)[i2 + 1024 * i3] --> (%c)[1024 * i1 + i2] ANTI (* * =) (? ? 0)
 ; CHECK-DAG: (%c)[1024 * i1 + i2] --> (%a)[1024 * i1 + i3] FLOW (* * =) (? ? 0)
 ; CHECK-DAG: (%c)[1024 * i1 + i2] --> (%b)[i2 + 1024 * i3] FLOW (* * =) (? ? 0)
-; CHECK-DAG: (%c)[1024 * i1 + i2] --> (%c)[1024 * i1 + i2] OUTPUT (= = =) (0 0 0)
+; CHECK-DAG: (%c)[1024 * i1 + i2] --> (%c)[1024 * i1 + i2] OUTPUT (= = *) (0 0 ?)
 ; CHECK-DAG: (%a)[1024 * i1 + i3] --> (%c)[1024 * i1 + i2] ANTI (* * =) (? ? 0)
 ;
 ;Module Before HIR

@@ -36,7 +36,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #endif // INTEL_INCLUDE_DTRANS
@@ -101,6 +101,10 @@ static cl::opt<unsigned> TinyTripCountThreshold(
     "vplan-vectorizer-min-trip-count", cl::init(0), cl::Hidden,
     cl::desc("Don't vectorize loops with a constant "
              "trip count that is smaller than this value."));
+
+static cl::opt<bool> VPlanVectorizeMaskedFabs(
+    "vplan-vectorize-masked-fabs", cl::init(false), cl::Hidden,
+    cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic."));
 
 namespace llvm {
 
@@ -559,6 +563,11 @@ void HandledCheck::visit(HLDDNode *Node) {
 
       bool TrivialVectorIntrinsic =
           (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
+      // Prevent vectorization of loop if masked fabs intrinsic vectorization is
+      // disabled.
+      if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
+          !VPlanVectorizeMaskedFabs)
+        TrivialVectorIntrinsic = false;
       if (isa<HLIf>(Inst->getParent()) &&
           (VF > 1 && !TrivialVectorIntrinsic &&
            !TLI->isFunctionVectorizable(CalledFunc, VF))) {
@@ -884,6 +893,9 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   if (RednHoistLp == OrigLoop)
     RednHoistLp = MainLoop;
 
+  RedInitInsertPoint = RednHoistLp;
+  RedFinalInsertPoint = RednHoistLp;
+
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
   setMainLoop(MainLoop);
@@ -1180,7 +1192,8 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
     if (auto LvalDDRef = HInst->getLvalDDRef()) {
       HLInst *ExtractInst = HInst->getHLNodeUtils().createExtractElementInst(
-          WideCall->getLvalDDRef()->clone(), 0, "elem", LvalDDRef->clone());
+          WideCall->getLvalDDRef()->clone(), unsigned(0), "elem",
+          LvalDDRef->clone());
       HLNodeUtils::insertAfter(WideCall, ExtractInst);
     }
   }
@@ -1503,7 +1516,7 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   }
 
   HLInst *Extract = HLLp->getHLNodeUtils().createExtractElementInst(
-      LastVal->clone(), 0, "bin.final", ResultRefClone);
+      LastVal->clone(), unsigned(0), "bin.final", ResultRefClone);
   InstContainer.push_back(*Extract);
 
   return Extract;
@@ -1682,7 +1695,8 @@ HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
     Type *Ty = Ref->getDestType();
     LLVMContext &Context = *Plan->getLLVMContext();
     Type *IntTy = IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
-    HLInst *BitCastInst = createBitCast(IntTy, Ref, "intmask");
+    HLInst *BitCastInst =
+        createBitCast(IntTy, Ref, nullptr /* Container */, "intmask");
     createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
                CurWideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
   }
@@ -1982,12 +1996,28 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
   return WideInst;
 }
 
+HLInst *VPOCodeGenHIR::createBitCast(Type *Ty, RegDDRef *Ref,
+                                     HLContainerTy *Container,
+                                     const Twine &Name) {
+  HLInst *BitCastInst =
+      MainLoop->getHLNodeUtils().createBitCast(Ty, Ref->clone(), Name);
+  if (Container)
+    Container->push_back(*BitCastInst);
+  else
+    addInstUnmasked(BitCastInst);
+  return BitCastInst;
+}
+
 // Generate cttz(bsf) call for a given Ref.
 //    %intmask = bitcast.i32(Ref);
 //    %bsf = call intrinsic.cttz.i32(Ref);
-HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, bool MaskIsNonZero,
-                                      const Twine &Name) {
+HLInst *VPOCodeGenHIR::createCTZCall(RegDDRef *Ref, llvm::Intrinsic::ID Id,
+                                     bool MaskIsNonZero,
+                                     HLContainerTy *Container,
+                                     const Twine &Name) {
   assert(Ref && "Ref is expected for this assignment.");
+  assert((Id == Intrinsic::cttz || Id == Intrinsic::ctlz) &&
+         "Unexpected intrinsic");
 
   HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
   DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
@@ -1996,19 +2026,20 @@ HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, bool MaskIsNonZero,
   Type *RefTy = Ref->getDestType();
   LLVMContext &Context = *Plan->getLLVMContext();
   Type *IntTy = IntegerType::get(Context, RefTy->getPrimitiveSizeInBits());
-  HLInst *BitCastInst = createBitCast(IntTy, Ref, Name + "intmask");
-
+  HLInst *BitCastInst = createBitCast(IntTy, Ref, Container, Name + "intmask");
   RegDDRef *IntRef = BitCastInst->getLvalDDRef();
   // As soon as this code has to be under if condition, return value from cttz
   // can be undefined if mask is zero. However if we know for a fact that mask
   // is non-zero, then inform intrinsic that zero produces defined result.
   Type *BoolTy = IntegerType::get(Context, 1);
-  Function *BsfFunc =
-      Intrinsic::getDeclaration(&HNU.getModule(), Intrinsic::cttz, {IntTy});
+  Function *BsfFunc = Intrinsic::getDeclaration(&HNU.getModule(), Id, {IntTy});
   SmallVector<RegDDRef *, 1> Args = {
       IntRef->clone(), DDRU.createConstDDRef(BoolTy, MaskIsNonZero)};
   HLInst *BsfCall = HNU.createCall(BsfFunc, Args, Name);
-  addInstUnmasked(BsfCall);
+  if (Container)
+    Container->push_back(*BsfCall);
+  else
+    addInstUnmasked(BsfCall);
   return BsfCall;
 }
 
@@ -2021,7 +2052,7 @@ HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, bool MaskIsNonZero,
 HLInst *VPOCodeGenHIR::handleLiveOutLinearInEarlyExit(HLInst *INode,
                                                       RegDDRef *Mask,
                                                       bool MaskIsNonZero) {
-  HLInst *BsfCall = createCTTZCall(Mask, MaskIsNonZero);
+  HLInst *BsfCall = createCTZCall(Mask, Intrinsic::cttz, MaskIsNonZero);
 
   // Finally update linear reference by number of executed iterations.
   RegDDRef *LinRef = INode->getRvalDDRef();
@@ -2457,7 +2488,7 @@ HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden,
   HLInst *InsertElementInst =
       MainLoop->getHLNodeUtils().createInsertElementInst(
           IdentityVec, ScalarRednRef, 0, "result.vector");
-  HLNodeUtils::insertBefore(RednHoistLp, InsertElementInst);
+  insertReductionInit(InsertElementInst);
 
   auto LvalSymbase = InsertElementInst->getLvalDDRef()->getSymbase();
   // Add the reduction ref as a live-in for each loop up to and including
@@ -2502,7 +2533,7 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
                        FinalLvalRef);
-    HLNodeUtils::insertAfter(RednHoistLp, &Tail);
+    insertReductionFinal(&Tail);
   } else {
     auto Extr = WideInst->getHLNodeUtils().createExtractElementInst(
         VecRef->clone(), VF - 1, "Last", FinalLvalRef);
@@ -2759,6 +2790,51 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
   return ScalarRef;
 }
 
+// For the code generated see comment in *.h file.
+void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
+                                        RegDDRef *RednVariable,
+                                        HLContainerTy &RedTail,
+                                        HLInst *&WInst) {
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  DDRefUtils &DDU = OrigLoop->getDDRefUtils();
+  CanonExprUtils &CEU = HNU.getCanonExprUtils();
+
+  RegDDRef *ReduceVal = widenRef(RedFinal->getReducingOperand(), getVF());
+  RegDDRef *ParentExit = widenRef(RedFinal->getParentExitValOperand(), getVF());
+  // Get DDRef for parent reduced value.
+  RegDDRef *ParentFinal =
+      widenRef(RedFinal->getParentFinalValOperand(), getVF());
+  // Get broadcasted DDRef.
+  ParentFinal = widenRef(ParentFinal, getVF());
+  unsigned Opc = RedFinal->getBinOpcode();
+  PredicateTy Pred = (Opc == VPInstruction::FMax || Opc == VPInstruction::FMin)
+                         ? PredicateTy::FCMP_OEQ
+                         : PredicateTy::ICMP_EQ;
+
+  Type *IndexVecTy = ReduceVal->getDestType();
+  assert(isa<IntegerType>(IndexVecTy->getScalarType()) &&
+         "Index part of minmax+index idiom is not integer type.");
+
+  bool NeedMaxIntVal =
+      (Opc == VPInstruction::FMin || Opc == VPInstruction::SMin ||
+       Opc == VPInstruction::UMin);
+
+  Constant *MinMaxIntVec = VPOParoptUtils::getMinMaxIntVal(
+      CEU.getContext(), IndexVecTy, !RedFinal->isSigned(), NeedMaxIntVal);
+  RegDDRef *MinMaxIntVecRef = DDU.createConstDDRef(MinMaxIntVec);
+  HLInst *IndexBlend =
+      HNU.createSelect(Pred, ParentFinal, ParentExit->clone(), ReduceVal,
+                       MinMaxIntVecRef, "idx.blend");
+  RedTail.push_back(*IndexBlend);
+
+  RegDDRef *Acc = nullptr;
+  HLInst *IdxReduceCall = createVectorReduce(
+      RedFinal->getVectorReduceIntrinsic(), IndexBlend->getLvalDDRef()->clone(),
+      Acc, RednVariable, HNU);
+  RedTail.push_back(*IdxReduceCall);
+  WInst = IdxReduceCall;
+}
+
 void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   HLInst *WInst = nullptr; // Track the last generated wide inst for VPInst
   HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
@@ -2790,7 +2866,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     }
     // TODO: This should be changed to addInst interface once it is aware of
     // Loop PH or Exit.
-    HLNodeUtils::insertBefore(RednHoistLp, &RedInitHLInsts);
+    insertReductionInit(&RedInitHLInsts);
 
     // Add the reduction init ref as a live-in for each loop up to and including
     // the hoist loop.
@@ -2822,46 +2898,52 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // Incoming vector types is not supported for HIR
       llvm_unreachable("Unsupported vector data type for reducing operand.");
     }
-
-    auto *StartVPVal = RedFinal->getStartValueOperand();
-    RegDDRef *Acc = nullptr;
-
-    if (StartVPVal) {
-      assert(isa<VPExternalDef>(StartVPVal) &&
-             "Unsupported reduction start value.");
-      Acc = getUniformScalarRef(StartVPVal);
-    }
-
-    // 1. Generate vector reduce intrinsic call
     const VPReduction *RednEntity = VPLoopEntities->getReduction(RedFinal);
     assert(RednEntity && "Reduction final does not have a corresponding "
                          "VPReduction descriptor.");
     // Scalar result of vector reduce intrinsic should be written back to the
-    // original reduction descriptor variable NOTE : We obtain this variable
-    // from VPLoopEntity corresponding to the reduction since reduction-final
-    // instruction may not have accumulators always.
+    // original reduction descriptor variable.
+    // NOTE : We obtain this variable from VPLoopEntity corresponding to the
+    // reduction since reduction-final instruction may not have accumulators
+    // always.
     RegDDRef *RednDescriptor =
         getUniformScalarRef(RednEntity->getRecurrenceStartValue());
-    HLInst *VecReduceCall =
-        createVectorReduce(Intrin, VecRef, Acc, RednDescriptor, HNU);
-    WInst = VecReduceCall;
-    RedTail.push_back(*VecReduceCall);
 
-    // 2. If the accumulator is not null, then last value scalar compute is
-    // needed, which is of the form %red.init = %red.init OP %vec.reduce NOTE :
-    // Acc will always be null for min/max reductions, createVectorReduce
-    // asserts on that.
-    if (Acc) {
-      HLInst *ScalarLastVal = HNU.createBinaryHLInst(
-          RedFinal->getBinOpcode(), Acc->clone(),
-          VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
-      WInst = ScalarLastVal;
-      RedTail.push_back(*ScalarLastVal);
+    if (RedFinal->isMinMaxIndex())
+      generateMinMaxIndex(RedFinal, RednDescriptor, RedTail, WInst);
+    else {
+      auto *StartVPVal = RedFinal->getStartValueOperand();
+      RegDDRef *Acc = nullptr;
+
+      if (StartVPVal) {
+        assert(isa<VPExternalDef>(StartVPVal) &&
+               "Unsupported reduction start value.");
+        Acc = getUniformScalarRef(StartVPVal);
+      }
+
+      // 1. Generate vector reduce intrinsic call
+      HLInst *VecReduceCall =
+          createVectorReduce(Intrin, VecRef, Acc, RednDescriptor, HNU);
+      WInst = VecReduceCall;
+      RedTail.push_back(*VecReduceCall);
+
+      // 2. If the accumulator is not null, then last value scalar compute is
+      // needed, which is of the form %red.init = %red.init OP %vec.reduce NOTE
+      // : Acc will always be null for min/max reductions, createVectorReduce
+      // asserts on that.
+      if (Acc) {
+        HLInst *ScalarLastVal = HNU.createBinaryHLInst(
+            RedFinal->getBinOpcode(), Acc->clone(),
+            VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
+        WInst = ScalarLastVal;
+        RedTail.push_back(*ScalarLastVal);
+      }
     }
 
     // TODO: This should be changed to addInst interface once it is aware of
     // Loop PH or Exit.
-    HLNodeUtils::insertAfter(RednHoistLp, &RedTail);
+    insertReductionFinal(&RedTail);
+    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
     return;
   }
 
@@ -3030,6 +3112,16 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                              WideOps[0]->clone(), WideOps[1]->clone(), ".vec");
     break;
 
+  case VPInstruction::SMin:
+    WInst = HNU.createSelect(CmpInst::ICMP_SLT, WideOps[0], WideOps[1],
+                             WideOps[0]->clone(), WideOps[1]->clone(), ".vec");
+    break;
+
+  case VPInstruction::UMin:
+    WInst = HNU.createSelect(CmpInst::ICMP_ULT, WideOps[0], WideOps[1],
+                             WideOps[0]->clone(), WideOps[1]->clone(), ".vec");
+    break;
+
   case Instruction::GetElementPtr: {
     auto RefDestTy = VPInst->getType();
     auto VecRefDestTy = VectorType::get(RefDestTy, VF);
@@ -3157,9 +3249,7 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs() {
                dbgs() << " gets the RegDDRef: "; RednRef->dump(true);
                dbgs() << "\n");
 
-    const SmallVectorImpl<VPValue *> &LinkedVals =
-        Reduction->getLinkedVPValues();
-    for (auto *V : make_range(LinkedVals.begin(), LinkedVals.end())) {
+    for (auto *V : Reduction->getLinkedVPValues()) {
       assert(ReductionRefs.find(V) == ReductionRefs.end() &&
              "VPValue is already mapped to a reduction RegDDRef.");
       ReductionRefs[V] = RednRef;

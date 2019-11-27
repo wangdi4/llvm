@@ -112,6 +112,12 @@ static cl::opt<bool> Generate2ndPrefetchInst(
     cl::desc("Generate the 2nd prefetch instruction"
     ));
 
+// Option to suppress Inline Report for IPO Prefetch, default to false.
+static cl::opt<bool> SuppressInlineReport(
+    PASS_NAME_STR "-suppress-inline-report",
+    cl::init(false), cl::ReallyHidden,
+    cl::desc("suppress inline report for ipo prefetch"));
+
 // Min Expected # of arguments in a function that a Delinquent Load (DL) may
 // reside
 static cl::opt<unsigned> DLFuncMinExpectedArgs(
@@ -646,7 +652,7 @@ private:
   bool isApplicable(void);
 
   bool createPrefetchFunction(void);
-  bool insertPrefetchFunction(void);
+  bool insertCallToPrefetchFunction(void);
 
 public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1089,7 +1095,7 @@ bool IPOPrefetcher::doTransformation(void) {
 
   // Insert a call to the prefetch function at each prefetch position
   // inside all host function(s)
-  if (!insertPrefetchFunction()) {
+  if (!insertCallToPrefetchFunction()) {
     LLVM_DEBUG(dbgs() << "PrefetchFunction insertion failed\n";);
     return false;
   }
@@ -1152,9 +1158,9 @@ bool IPOPrefetcher::identifyDLFunctions(void) {
   // Sorting DLCandidates vector puts its contents in a predictable order.
   // This will simplify later matching.
   llvm::sort(DLCandidates.begin(), DLCandidates.end(),
-            [&](const Function *F0, const Function *F1) -> bool {
-              return F0->arg_size() > F1->arg_size();
-            });
+             [&](const Function *F0, const Function *F1) -> bool {
+               return F0->arg_size() > F1->arg_size();
+             });
 
   LLVM_DEBUG({
                dbgs() << " Check collected Function order\n";
@@ -1872,6 +1878,18 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     return true;
   };
 
+  // Attach a metadata node onto a function
+  auto MarkFunctionNoInlineReport = [&](Function *F) -> bool {
+    LLVM_DEBUG(dbgs() << "Inside: " << F->getName() << "\n";);
+    LLVMContext &C = F->getContext();
+    MDNode *Node = MDNode::get(C,
+                               ConstantAsMetadata::get(
+                                   ConstantInt::get(Type::getInt32Ty(C),
+                                                    SuppressInlineReport)));
+    F->setMetadata(IPOUtils::getSuppressInlineReportStringRef(), Node);
+    return true;
+  };
+
   // Clone from DL function:
   // This process begins with a full clone of the function where DL resides.
   // (E.g. ProbeTT()).
@@ -1909,6 +1927,13 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     return false;
   }
 
+  // Suppress inline report with a special flag or under PROD build
+  if (SuppressInlineReport || IPOUtils::isProdBuild())
+    if (!MarkFunctionNoInlineReport(PrefetchFunction)) {
+      LLVM_DEBUG(dbgs() << "MarkFunctionNoInlineReport() failed\n";);
+      return false;
+    }
+
   LLVM_DEBUG({
                if (!verifyFunction(PrefetchFunction,
                                    "Function verification failed after "
@@ -1923,7 +1948,19 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 }
 
 // Create a call to the prefetch function inside each host function.
-bool IPOPrefetcher::insertPrefetchFunction(void) {
+bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
+
+  // Attach a metadata node onto a Call
+  auto MarkCallNoInlineReport = [&](CallBase *CB) -> bool {
+    LLVMContext &C = CB->getFunction()->getContext();
+    MDNode *Node = MDNode::get(C,
+                               ConstantAsMetadata::get(
+                                   ConstantInt::get(Type::getInt32Ty(C),
+                                                    SuppressInlineReport)));
+    CB->setMetadata(IPOUtils::getSuppressInlineReportStringRef(), Node);
+    return true;
+  };
+
   LLVM_DEBUG({ dumpPrefetchPositions(); });
   IRBuilder<> Builder(M.getContext());
 
@@ -1958,6 +1995,13 @@ bool IPOPrefetcher::insertPrefetchFunction(void) {
 
       CallInst *CI = Builder.CreateCall(PrefetchFunction, Args);
       CI->setCallingConv(PrefetchFunction->getCallingConv());
+
+      // Suppress inline report with a special flag or under PROD build
+      if (SuppressInlineReport || IPOUtils::isProdBuild())
+        if (!MarkCallNoInlineReport(CI)) {
+          LLVM_DEBUG(dbgs() << "MarkCallNoInlineReport(CI) failed\n";);
+          return false;
+        }
 
       // Check the newly created call to PrefetchFunction:
       LLVM_DEBUG(dbgs() << *CI << "\n";);
@@ -2016,7 +2060,8 @@ public:
 
     auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
 
-    IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
+    IPOPrefetcher Impl(M, GetTLI, LookupDomTree,
+                       LookupPostDomTree, WPInfo);
     return Impl.run(M);
   }
 };
@@ -2059,7 +2104,9 @@ PreservedAnalyses IntelIPOPrefetchPass::run(Module &M,
   }
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
+  IPOPrefetcher Impl(M, GetTLI, LookupDomTree,
+                     LookupPostDomTree, WPInfo);
+
   bool Changed = Impl.run(M);
   if (!Changed)
     return PreservedAnalyses::all();

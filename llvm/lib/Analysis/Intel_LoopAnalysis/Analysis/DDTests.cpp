@@ -4981,6 +4981,20 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
     return;
   }
 
+  //  DV cannot be overridden to (=) when
+  // -   Src and Dst mem-refs are the same and
+  // -   no IV and
+  // -   Src does not dominate or post dominate the sink
+
+  if (DDRefUtils::areEqual(SrcRegDDRef, DstRegDDRef) &&
+      (!LCALoopLevel ||
+       SrcRegDDRef->isStructurallyInvariantAtLevel(LCALoopLevel)) &&
+      (SrcInst && DstInst &&
+       (!HLNodeUtils::strictlyDominates(SrcInst, DstInst) ||
+        !HLNodeUtils::strictlyPostDominates(SrcInst, DstInst)))) {
+    return;
+  }
+
   if (AssumeNoLoopCarriedDep == LoopCarriedDepMode::InnermostOnly) {
     adjustForInnermostAssumedDeps(Result);
   } else if (AssumeNoLoopCarriedDep == LoopCarriedDepMode::All) {
@@ -5241,6 +5255,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   bool IsTemp = SrcDDRef->isTerminalRef();
+
   if (IsTemp) {
 
     // DV for Scalar temps could be refined. Calls to DA.depends

@@ -119,9 +119,15 @@ class Item
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
-    EXPR  VlaSize;   // size of vla array can be an int expression
-    int PrivateThunkIdx; // index for the var in task/taskloop's private thunk
-    int SharedThunkIdx;  // index for the var in task/taskloop's shared thunk
+    EXPR ThunkBufferSize; // Tasks: size in bytes of the space needed for the
+                          // item, in the buffer at the end of task thunk (e.g.
+                          // C99 VLAs)
+    EXPR NewThunkBufferSize; // Tasks: ThunkBufferSize readable inside the
+                             // outlined function
+    int PrivateThunkIdx;     // Tasks: index for the var in task's private thunk
+    int SharedThunkIdx;      // Tasks: index for the var in task's shared thunk
+    EXPR ThunkBufferOffset;  // Tasks: offset to the buffer for the item in the
+                             // task's thunk
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
     const ItemKind Kind; // Item kind for LLVM's RTTI
@@ -134,9 +140,10 @@ class Item
 #else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
-          IsByRef(false), IsNonPod(false), IsVla(false), VlaSize(nullptr),
-          PrivateThunkIdx(-1), SharedThunkIdx(-1), AliasScope(nullptr),
-          NoAlias(nullptr), Kind(K) {
+          IsByRef(false), IsNonPod(false), IsVla(false),
+          ThunkBufferSize(nullptr), NewThunkBufferSize(nullptr),
+          PrivateThunkIdx(-1), SharedThunkIdx(-1), ThunkBufferOffset(nullptr),
+          AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
     }
     virtual ~Item() = default;
 
@@ -146,9 +153,11 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
-    void setVlaSize(EXPR Size)    { VlaSize = Size;     }
+    void setThunkBufferSize(EXPR Size) { ThunkBufferSize = Size; }
+    void setNewThunkBufferSize(EXPR Size) { NewThunkBufferSize = Size; }
     void setPrivateThunkIdx(int I) { PrivateThunkIdx = I; }
     void setSharedThunkIdx(int I) { SharedThunkIdx = I; }
+    void setThunkBufferOffset(EXPR O) { ThunkBufferOffset = O; }
     void setAliasScope(MDNode *M) { AliasScope = M;     }
     void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
@@ -158,9 +167,11 @@ class Item
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
     bool getIsVla()         const { return IsVla;          }
-    EXPR getVlaSize()       const { return VlaSize;        }
+    EXPR getThunkBufferSize() const { return ThunkBufferSize; }
+    EXPR getNewThunkBufferSize() const { return NewThunkBufferSize; }
     int getPrivateThunkIdx() const { return PrivateThunkIdx; }
     int getSharedThunkIdx() const { return SharedThunkIdx; }
+    EXPR getThunkBufferOffset() const { return ThunkBufferOffset; }
     MDNode *getAliasScope() const { return AliasScope;     }
     MDNode *getNoAlias()    const { return NoAlias;        }
     ItemKind getKind()      const { return Kind;           }

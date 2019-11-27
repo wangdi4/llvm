@@ -923,7 +923,7 @@ public:
   /// \endcode
   static CallInst *
   genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
-                   int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
+                   Value *KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
                    PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
                    Instruction *InsertPt, bool UseTbb);
 
@@ -1297,7 +1297,9 @@ public:
                            bool IsVarArg = false);
 
   // A genCall() interface where FnArgTypes is omitted; it will be computed
-  // from FnArgs.
+  // from FnArgs. **WARNING**: do not use this interface for VarArg functions,
+  // as the list of FnArgTypes corresponding to the FnArgs may be longer than
+  // the actual list of params in the FunctionType.
   static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
                            ArrayRef<Value *> FnArgs,
                            Instruction *InsertPt = nullptr, bool IsTail = false,
@@ -1318,8 +1320,8 @@ public:
   /// corresponding target buffer.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
                                   Instruction *InsertPt,
-                                  WRegionNode *W = nullptr, bool IsTail = false,
-                                  bool IsVarArg = false);
+                                  WRegionNode *W = nullptr,
+                                  bool IsTail = false);
 
   // Creates a call with no parameters.
   // If \p InsertPt is not null, insert the call before InsertPt

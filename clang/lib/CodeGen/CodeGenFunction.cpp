@@ -1387,8 +1387,9 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // functions encountered during its codegen as if they are within a target
   // region.
   if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
-      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD))
-    Fn->addFnAttr("openmp-target-declare","true");
+      (CGM.inTargetRegion() ||
+       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD)))
+    Fn->addFnAttr("openmp-target-declare", "true");
 
   CodeGenModule::InTargetRegionRAII ITR(
       CGM, Fn->hasFnAttribute("openmp-target-declare"));
