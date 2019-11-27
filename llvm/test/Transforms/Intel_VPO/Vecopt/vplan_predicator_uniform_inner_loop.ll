@@ -21,60 +21,43 @@ define void @foo(i32 %n1, i32 %n2) {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP2:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:     Condition(external): i1 [[CMP10:%.*]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[CMP10]]), [[BB3]](!i1 [[CMP10]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition(external): i1 [[CMP10:%.*]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[CMP10]]), [[BB6:BB[0-9]+]](!i1 [[CMP10]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_I1_014:%.*]] = phi  [ i32 [[VP_INC:%.*]], [[BB8:BB[0-9]+]] ],  [ i32 0, [[BB5]] ]
+; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_I1_014:%.*]] = phi  [ i32 [[VP_INC:%.*]], [[BB5]] ],  [ i32 0, [[BB4]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_CALL:%.*]] = call i32 (...)* @baz
 ; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_INC]] = add i32 [[VP_I1_014]] i32 1
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_INC]] i32 1024
-; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB5]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB5]](!i1 [[VP_EXITCOND]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB5]] [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
+; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB7]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i32 [[VP_INC]] i32 1024
-; CHECK-NEXT:      SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB7]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB9]] [[BB4]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB6]]): [DA: Uniform]   i1 [[VP_EXITCOND15]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
-; CHECK-NEXT:    SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_EXITCOND15]]), [[BB2]](!i1 [[VP_EXITCOND15]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_EXITCOND15]]), [[BB2]](!i1 [[VP_EXITCOND15]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]:
+; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]:
+; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;

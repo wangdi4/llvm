@@ -48,7 +48,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
-; CHECK-LABEL: BB6
+; CHECK-LABEL: BB6:
 ; CHECK: i1 [[CMP:%vp.*]] = icmp i64 {{.*}} i64 {{.*}}
 ; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 {{.*}} i32 {{.*}}
 ; CHECK: store i32 [[SEL]] i32* {{.*}}

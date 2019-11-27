@@ -98,7 +98,6 @@ protected:
   void singleExitWhileLoopCanonicalization(VPLoop *VPLp);
   void mergeLoopExits(VPLoop *VPLp);
   void splitLoopsExit(VPLoop *VPLp);
-  void simplifyNonLoopRegions();
   bool isBreakingSSA(VPLoop *VPL);
 
 public:

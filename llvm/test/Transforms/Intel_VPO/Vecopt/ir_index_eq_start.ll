@@ -27,32 +27,26 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_K_IV:%.*]] = phi  [ i64 [[VP2]], [[BB1]] ],  [ i64 [[VP_K_IV_NEXT:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_K_IV:%.*]] = phi  [ i64 [[VP2]], [[BB1]] ],  [ i64 [[VP_K_IV_NEXT:%.*]], [[BB2]] ]
 ; Fix me - should use VP1
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP0]]
 ; Fix me - should use VP3
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_K_IV_NEXT]] = add i64 [[VP_K_IV]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB2]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = induction-final{add} i64 1 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP5:%.*]] = induction-final{add} i64 [[C0]] i64 [[C0]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = induction-final{add} i64 1 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP5:%.*]] = induction-final{add} i64 [[C0]] i64 [[C0]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
