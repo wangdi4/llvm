@@ -15,6 +15,8 @@
 #include "CGOpenMPRuntime.h"
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"
+#include "clang/AST/ASTLambda.h"
+#include "clang/AST/StmtVisitor.h"
 #endif // INTEL_COLLAB
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
@@ -10052,6 +10054,30 @@ CGOpenMPRuntime::DisableAutoDeclareTargetRAII::~DisableAutoDeclareTargetRAII() {
     CGM.getOpenMPRuntime().ShouldMarkAsGlobal = SavedShouldMarkAsGlobal;
 }
 
+#if INTEL_COLLAB
+namespace {
+  class TargetRegionChecker final :
+    public ConstStmtVisitor<TargetRegionChecker, bool> {
+  public:
+    bool VisitOMPExecutableDirective(const OMPExecutableDirective *D) {
+      return isOpenMPTargetExecutionDirective(D->getDirectiveKind());
+    }
+    bool VisitStmt(const Stmt *S) {
+      for (const Stmt *C : S->children())
+        if (C && Visit(C))
+          return true;
+      return false;
+    }
+  };
+  bool isLambdaCallWithTarget(const FunctionDecl *FD) {
+    if (!isLambdaCallOperator(FD))
+      return false;
+    TargetRegionChecker Checker;
+    return Checker.Visit(FD->getBody());
+  }
+}
+#endif // INTEL_COLLAB
+
 bool CGOpenMPRuntime::markAsGlobalTarget(GlobalDecl GD) {
   if (!CGM.getLangOpts().OpenMPIsDevice || !ShouldMarkAsGlobal)
     return true;
@@ -10069,6 +10095,14 @@ bool CGOpenMPRuntime::markAsGlobalTarget(GlobalDecl GD) {
     return true;
   }
 
+#if INTEL_COLLAB
+  // Prevent emission of functions used outside a target region but inside
+  // a function that has a target region.  Lambda call functions that contain
+  // target regions still must be emitted.
+  if (CGM.getLangOpts().OpenMPLateOutline && !CGM.inTargetRegion() &&
+      !isLambdaCallWithTarget(D))
+    return true;
+#endif // INTEL_COLLAB
   return !AlreadyEmittedTargetFunctions.insert(Name).second;
 }
 
