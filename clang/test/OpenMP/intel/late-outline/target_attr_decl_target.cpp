@@ -12,7 +12,7 @@
 // expected-no-diagnostics
 
 #pragma omp declare target
-//CHECK: @glob = dso_local target_declare{{.*}}
+//CHECK: @glob = hidden target_declare{{.*}}
 int glob;
 
 //CHECK: define {{.*}}barv() #[[HAS_BOTH:[0-9]+]]
