@@ -217,6 +217,7 @@ ProgramBuilder::~ProgramBuilder()
 
 void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats)
 {
+#ifndef INTEL_PRODUCT_RELEASE
     if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
     {
         // use sequential number to distinguish dumped files
@@ -226,7 +227,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
         else
           fileNameBuilder << (Utils::getVolcanoDumpFileId());
 
-        std::string fileName(m_statFileBaseName);
+        llvm::SmallString<0> fileName(m_statFileBaseName);
         fileName += fileNameBuilder.str();
         if (isEqualizerStats)
           fileName += "_eq";
@@ -248,6 +249,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
         else
           throw Exceptions::CompilerException(ec.message());
     }
+#endif // INTEL_PRODUCT_RELEASE
 }
 
 void ProgramBuilder::ParseProgram(Program* pProgram)
@@ -289,15 +291,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         }
         assert(pModule && "Module parsing has failed without exception. Strange");
 
-#ifndef INTEL_PRODUCT_RELEASE
-        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS"))
-        {
-            if (pEnv[0] != 0 && (strcmp("ALL", pEnv) || strcmp("all", pEnv)))
-            {
-                DumpModuleStats(pModule, /*isEqualizerStats = */ true);
-            }
-        }
-#endif // INTEL_PRODUCT_RELEASE
+        // Dump module stats before optimizing
+        OCLSTAT_GATHER_CHECK_TYPE(
+            DumpModuleStats(pModule, /*isEqualizerStats = */ true),
+            /*DEBUG_TYPE=*/ "PreOptStats");
 
         // Handle LLVM ERROR which can occured during build programm
         // Need to do it to eliminate RT hanging when clBuildProgramm failed
@@ -322,13 +319,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         pProgram->SetRuntimeService(lRuntimeService);
 
         // Dump module stats just before lowering if requested
-        if (const char *pEnv = getenv("VOLCANO_STATS"))
-        {
-            if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-            {
-                DumpModuleStats(pModule, /*isEqualizerStats = */ false);
-            }
-        }
+        OCLSTAT_GATHER_CHECK_TYPE(
+            DumpModuleStats(pModule, /*isEqualizerStats = */ false),
+            /*DEBUG_TYPE=*/ "PostOptStats");
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
 
