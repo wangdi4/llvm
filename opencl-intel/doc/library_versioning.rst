@@ -27,18 +27,28 @@ deliverable libraries must follow this rule. SOVERSION mechanism creates a
 symbolic link to a library as well with the same name but versioning postfix
 dropped.
 
-Driver version reported follows the same rule.
+Driver version
+======================
+In order to distinguish different OpenCL runtimes with same yy.major.mm.minor
+library version info, the "dd_changeset" (changeset is hhmmss) is appended to
+reported driver version. For local build with "head" tag, we will append the
+tag name directly.
 
+For non-official release build, the branch name is also appended.
 
 Example
 =======
 
 Lets look as an example to upcoming April 2019 release.
 
-                     |  Library version    |  Driver version
---------------------------------------------------------------
-Apr 17 release       |  2019.8.4.0         |  2019.8.4.0
---------------------------------------------------------------
+               |  branch   |  Library version |  Driver version
+----------------------------------------------------------------------------
+Apr 17 release | xmain_rel |  2019.8.4.0      |  2019.8.4.0.17_112233
+----------------------------------------------------------------------------
+               | xmain     |  2019.8.4.0      |  2019.8.4.0.17_112233.xmain
+----------------------------------------------------------------------------
+               | xmain     |  2019.8.4.0      |  2019.8.4.0.head.xmain
+----------------------------------------------------------------------------
 
 So in library directory we see:
 

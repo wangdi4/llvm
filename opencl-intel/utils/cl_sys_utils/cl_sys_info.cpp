@@ -21,5 +21,5 @@
 ///////////////////////////////////////////////////////////////////////////////
 const char* Intel::OpenCL::Utils::GetModuleProductVersion()
 {
-    return VERSIONSTRING;
+    return VERSIONSTRING_WITH_EXT;
 }
