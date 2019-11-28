@@ -558,6 +558,11 @@ TEST(FrameworkTestType, Test_clTracingFunctionsEnabledCheckTest)
     EXPECT_TRUE(clTracingFunctionsEnabledCheckTest());
 }
 
+TEST(FrameworkTestType, Test_clTracingArgumentsChangedCheckTest)
+{
+    EXPECT_TRUE(clTracingArgumentsChangedCheckTest());
+}
+
 TEST(FrameworkTestType, Test_clTracingFunctionsDisabledCheckTest)
 {
     EXPECT_TRUE(clTracingFunctionsDisabledCheckTest());
