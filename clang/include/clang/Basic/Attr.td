@@ -3778,20 +3778,40 @@ def OMPDeclareVariant : InheritableAttr {
       }
       // TODO: add printing of real context selectors.
       OS << " match(";
+      int Used[OMP_CTX_SET_unknown] = {0};
       for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
         auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
             *std::next(ctxSelectorSets_begin(), I));
-        auto Ctx = static_cast<OpenMPContextSelectorKind>(
-            *std::next(ctxSelectors_begin(), I));
-        assert(CtxSet != OMP_CTX_SET_unknown && Ctx != OMP_CTX_unknown &&
-               "Unknown context selector.");
+        if (Used[CtxSet])
+          continue;
+        if (I > 0)
+          OS << ",";
         switch (CtxSet) {
         case OMP_CTX_SET_implementation:
           OS << "implementation={";
+          break;
+        case OMP_CTX_SET_device:
+          OS << "device={";
+          break;
+        case OMP_CTX_SET_unknown:
+          llvm_unreachable("Unknown context selector set.");
+        }
+        Used[CtxSet] = 1;
+        for (unsigned K = I, EK = ctxSelectors_size(); K < EK; ++K) {
+          auto CtxSetK = static_cast<OpenMPContextSelectorSetKind>(
+              *std::next(ctxSelectorSets_begin(), K));
+          if (CtxSet != CtxSetK)
+            continue;
+          if (K != I)
+            OS << ",";
+          auto Ctx = static_cast<OpenMPContextSelectorKind>(
+              *std::next(ctxSelectors_begin(), K));
           switch (Ctx) {
           case OMP_CTX_vendor:
+            assert(CtxSet == OMP_CTX_SET_implementation &&
+                   "Expected implementation context selector set.");
             OS << "vendor(";
-            printScore(OS, Policy, I);
+            printScore(OS, Policy, K);
             if (implVendors_size() > 0) {
               OS << *implVendors(). begin();
               for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
@@ -3804,6 +3824,7 @@ def OMPDeclareVariant : InheritableAttr {
           case OMP_CTX_target_variant_dispatch:
 // end INTEL_COLLAB
           case OMP_CTX_kind:
+<<<<<<< HEAD
             llvm_unreachable("Unexpected context selector in implementation set.");
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
@@ -3821,6 +3842,10 @@ def OMPDeclareVariant : InheritableAttr {
           OS << "device={";
           switch (Ctx) {
           case OMP_CTX_kind:
+=======
+            assert(CtxSet == OMP_CTX_SET_device &&
+                   "Expected device context selector set.");
+>>>>>>> 87c3f4a5e0bb53ca0d9799ca627e0897b10a82b3
             OS << "kind(";
             if (deviceKinds_size() > 0) {
               OS << *deviceKinds().begin();
@@ -3829,6 +3854,7 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
+<<<<<<< HEAD
 // INTEL_COLLAB
           case OMP_CTX_arch:
             OS << "arch(";
@@ -3844,16 +3870,13 @@ def OMPDeclareVariant : InheritableAttr {
 // end INTEL_COLLAB
           case OMP_CTX_vendor:
             llvm_unreachable("Unexpected context selector in device set.");
+=======
+>>>>>>> 87c3f4a5e0bb53ca0d9799ca627e0897b10a82b3
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
-          OS << "}";
-          break;
-        case OMP_CTX_SET_unknown:
-          llvm_unreachable("Unknown context selector set.");
         }
-        if (I != E - 1)
-          OS << ",";
+        OS << "}";
       }
       OS << ")";
     }
