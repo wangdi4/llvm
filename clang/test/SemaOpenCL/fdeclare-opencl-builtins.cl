@@ -57,16 +57,15 @@ char4 test_int(char c, char4 c4) {
   return max(c4, c);
 }
 
-<<<<<<< HEAD
 kernel void basic_readonly_image_type(__read_only image2d_t img, int2 coord, global float4 *out) {
   out[0] = read_imagef(img, coord);
-=======
+}
+
 kernel void basic_vector_misc(float4 a) {
   float4 res;
   uint4 mask = (uint4)(1, 2, 3, 4);
 
   res = shuffle(a, mask);
->>>>>>> e54c83ec4dd493f2c6a483be2f6f3fc93624d10a
 }
 
 kernel void basic_image_readonly(read_only image2d_t image_read_only_image2d) {
