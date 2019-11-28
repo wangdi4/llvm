@@ -763,7 +763,7 @@ pi_result piKernelSetArg(
 
 pi_result piKernelGetInfo(
   pi_kernel       kernel,
-  cl_kernel_info  param_name, // TODO: change to pi_kernel_info
+  pi_kernel_info  param_name,
   size_t          param_value_size,
   void *          param_value,
   size_t *        param_value_size_ret);
@@ -799,7 +799,7 @@ pi_result piEventCreate(
 
 pi_result piEventGetInfo(
   pi_event         event,
-  cl_event_info    param_name, // TODO: untie from OpenCL
+  pi_event_info    param_name,
   size_t           param_value_size,
   void *           param_value,
   size_t *         param_value_size_ret);
