@@ -882,8 +882,6 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
-         "DeviceNum expected to be Int32");
   assert(DeviceType && DeviceType->getType()->isPointerTy() &&
          "DeviceType expected to be pointer");
   DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
@@ -904,8 +902,6 @@ CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
-         "DeviceNum expected to be Int32");
   assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
          "HostPtr expected to be void*");
   DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
@@ -928,8 +924,6 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
-         "DeviceNum expected to be Int32");
   assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
          "TgtBuffer expected to be void*");
   DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
@@ -937,6 +931,63 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
   CallInst *Call =
       genCall("__tgt_release_buffer", Int32Ty, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   void *__tgt_create_interop_obj(int64_t device_id,
+//                                  bool    is_async,
+//                                  void   *async_obj)
+CallInst *VPOParoptUtils::genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
+                                                 Value *AsyncObj,
+                                                 Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int8Ty = Type::getInt8Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert((IsAsync && AsyncObj || !IsAsync && !AsyncObj) &&
+         "AsyncObj must be null iff IsAsync is false");
+  assert((AsyncObj == nullptr || AsyncObj->getType() == Int8PtrTy) &&
+         "AsyncObj expected to be void*");
+
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
+
+  Value *IsAsyncVal = ConstantInt::get(Int8Ty, IsAsync ? 1 : 0);
+
+  if (AsyncObj == nullptr)    // create a void* nullptr argument
+    AsyncObj = Constant::getNullValue(Int8PtrTy);
+
+  Value *Args[] = {DeviceNum, IsAsyncVal, AsyncObj};
+  Type *ArgTypes[] = {Int64Ty, Int8Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_create_interop_obj", Int8PtrTy, Args, ArgTypes, InsertPt);
+
+  if (IsAsync)
+    Call->setName("interop.obj.async");
+  else
+    Call->setName("interop.obj.sync");
+
+  return Call;
+}
+
+// Generate a call to
+//   int __tgt_release_interop_obj(void *interop_obj)
+CallInst *VPOParoptUtils::genTgtReleaseInteropObj(Value *InteropObj,
+                                                  Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
+
+  CallInst *Call = genCall("__tgt_release_interop_obj", Int32Ty, {InteropObj},
+                           {Int8PtrTy}, InsertPt);
   return Call;
 }
 
@@ -1296,16 +1347,13 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   return TaskRedInitCall;
 }
 
-// This function generates a call as follows.
-//    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
-//    size_t, size_t, i32 (i32, i8*)*)
-CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
-                                           Value *TidPtr,
-                                           Value *KmpTaskTTWithPrivatesTySz,
-                                           int KmpSharedTySz,
-                                           PointerType *KmpRoutineEntryPtrTy,
-                                           Function *MicroTaskFn,
-                                           Instruction *InsertPt, bool UseTbb) {
+// Auxiliary routine to generate call to @__kmpc_omp_task_alloc
+CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
+                               Value *TaskFlags,
+                               Value *KmpTaskTTWithPrivatesTySz,
+                               int KmpSharedTySz, Value *TaskEntryPtr,
+                               Instruction *InsertPt, bool UseTbb) {
+
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
   Function *F = B->getParent();
@@ -1313,22 +1361,24 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
   GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+      VPOParoptUtils::genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   IRBuilder<> Builder(InsertPt);
   Type *SizeTTy = GeneralUtils::getSizeTTy(F);
   Type *Int32Ty = Builder.getInt32Ty();
 
-  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
       Builder.CreateZExtOrTrunc(KmpTaskTTWithPrivatesTySz, SizeTTy);
   auto *SharedsSize = ConstantInt::get(SizeTTy, KmpSharedTySz);
-  Value *AllocArgs[] = {
-      Loc,         Builder.CreateLoad(TidPtr),
-      TaskFlags,   KmpTaskTWithPrivatesTySize,
-      SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
-  Type *TypeParams[] = {Loc->getType(), Int32Ty, Int32Ty,
-                        SizeTTy,        SizeTTy, KmpRoutineEntryPtrTy};
+
+  Value *AllocArgs[] = {Loc,            Tid,
+                        TaskFlags,      KmpTaskTWithPrivatesTySize,
+                        SharedsSize,    TaskEntryPtr};
+
+  Type *TypeParams[] = {Loc->getType(), Int32Ty,
+                        Int32Ty,        SizeTTy,
+                        SizeTTy,        TaskEntryPtr->getType()};
+
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
@@ -1349,6 +1399,63 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   return TaskAllocCall;
 }
 
+// This function generates a call as follows.
+//    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
+//    size_t, size_t, i32 (i32, i8*)*)
+CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
+                                           Value *TidPtr,
+                                           Value *KmpTaskTTWithPrivatesTySz,
+                                           int KmpSharedTySz,
+                                           PointerType *KmpRoutineEntryPtrTy,
+                                           Function *MicroTaskFn,
+                                           Instruction *InsertPt, bool UseTbb) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+
+  Value *Tid = Builder.CreateLoad(TidPtr);
+  Value *TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+  Value *TaskEntry = Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy);
+
+  CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
+      W, IdentTy, Tid, TaskFlags, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+      TaskEntry, InsertPt, UseTbb);
+
+  return TaskAllocCall;
+}
+
+// Generate a call to create an AsyncObj for TARGET VARIANT DISPATCH NOWAIT
+// The object is actually a repurposed task thunk (kmp_task_t) described
+// elsewhere. The call created looks like this:
+//    i8* @__kmpc_omp_task_alloc(loc,                     // (IdentTy*)
+//                               0,                       // (i32) unused
+//                               0x10,                    // (i32) Proxy flag
+//                               sizeof(AsyncObjTy),      // (size_t)
+//                               sizeof(UseDevicePtrsTy), // (size_t)
+//                               null);                   // (i8*) unused
+CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
+                                                      StructType *IdentTy,
+                                                      int AsyncObjTySize,
+                                                      int UseDevicePtrsTySize,
+                                                      Instruction *InsertPt) {
+
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  Type *SizeTTy = GeneralUtils::getSizeTTy(InsertPt->getFunction());
+
+  Value *ValueZero = ConstantInt::get(Int32Ty, 0);
+  Value *ProxyFlag = ConstantInt::get(Int32Ty, WRNTaskFlag::Proxy); // 0x10
+  Value *ValueAsyncObjTySize = ConstantInt::get(SizeTTy, AsyncObjTySize);
+
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
+      W, IdentTy, ValueZero, ProxyFlag, ValueAsyncObjTySize,
+      UseDevicePtrsTySize, NullPtr, InsertPt, false);
+
+  return TaskAllocCall;
+}
+
 // This function generates a call to notify the runtime system that the static
 // distribute loop scheduling for teams is started
 //
@@ -1364,17 +1471,17 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 // needed. For example, in
 //
 //     int chksize;
-//     long long jjj;
+//     long long iii;
 //     #pragma omp distribute parallel for dist_schedule(static, chksize)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
-// the LCV jjj is i64, so chksize is cast from i32 to i64 in the call:
+// the LCV iii is i64, so chksize is cast from i32 to i64 in the call:
 //
 //     %chunk.cast = sext i32 %chksize to i64
 //     call void @__kmpc_team_static_init_8( ... , i64 %chunk.cast)
 //
 // The cast instruction is not needed if the type is already matching. For
-// example, if "long long jjj" above is changed to "int jjj", then we get
+// example, if "long long iii" above is changed to "int iii", then we get
 //
 //     ; no casting of "i32 %chksize" as it is the correct type
 //     call void @__kmpc_team_static_init_4( ... , i32 %chksize)
@@ -1382,9 +1489,9 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 // The cast instruction is not emitted if chunk is a constant and the compiler
 // can convert it directly. For example, given:
 //
-//     long long jjj;
+//     long long iii;
 //     #pragma omp distribute parallel for schedule(static, 17)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
 // The original "i32 17" is directly converted to "i64 17" by the compiler
 // without needing a sext instruction:
@@ -1481,17 +1588,17 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 // needed. For example, in
 //
 //     int chksize;
-//     long long jjj;
+//     long long iii;
 //     #pragma omp for schedule(static, chksize)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
-// the LCV jjj is i64, so chksize is cast from i32 to i64 in the call:
+// the LCV iii is i64, so chksize is cast from i32 to i64 in the call:
 //
 //     %chunk.cast = sext i32 %chksize to i64
 //     call void @__kmpc_for_static_init_8( ... , i64 %chunk.cast)
 //
 // The cast instruction is not needed if the type is already matching. For
-// example, if "long long jjj" above is changed to "int jjj", then we get
+// example, if "long long iii" above is changed to "int iii", then we get
 //
 //     ; no casting of "i32 %chksize" as it is the correct type
 //     call void @__kmpc_for_static_init_4( ... , i32 %chksize)
@@ -1499,9 +1606,9 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 // The cast instruction is not emitted if chunk is a constant and the compiler
 // can convert it directly. For example, given:
 //
-//     long long jjj;
+//     long long iii;
 //     #pragma omp for schedule(static, 17)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
 // The original "i32 17" is directly converted to "i64 17" by the compiler
 // without needing a sext instruction:
@@ -3036,24 +3143,46 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 // The base and variant functions must have identical signatures.
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
+                                         Value *InteropObj,
                                          Instruction *InsertPt, WRegionNode *W,
                                          bool IsTail) {
   assert(BaseCall && "BaseCall is null");
+
   Module *M = BaseCall->getModule();
+  Function *F = BaseCall->getFunction();
+  LLVMContext &C = F->getContext();
+  Type *Int8PtrTy = Type::getInt8PtrTy(C); // void*
+
   Type *ReturnTy = BaseCall->getType();
   FunctionType *BaseFnTy = BaseCall->getFunctionType();
   bool IsVarArg = BaseFnTy->isVarArg();
 
+  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
+
   // When IsVarArg==true, we cannot recreate the FnArgTypes from the FnArgs
   // because there may be more arguments in the call than the formal parameters
-  // in the function declaration. Therefore, we have to use BaseFnTy->params().
-  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
-  CallInst *VariantCall =
-      genCall(M, VariantName, ReturnTy, FnArgs, BaseFnTy->params(), InsertPt,
-              IsTail, IsVarArg);
+  // in the function declaration. Therefore, we have to use BaseFnTy->params()
+  // to populate FnArgTypes and call the genCall() version that takes an
+  // explicit FnArgTypes.
+  SmallVector<Type *, 4> FnArgTypes;
+  for (Type *ArgType : BaseFnTy->params()) {
+    FnArgTypes.push_back(ArgType);
+  }
+
+  if (InteropObj != nullptr) {
+    FnArgs.push_back(InteropObj);
+    if (!IsVarArg)
+      // If not VarArg, then the signature of the variant function has one
+      // more parameter (for void *interopObj) than the base function, so
+      // we need to update FnArgTypes accordingly.
+      FnArgTypes.push_back(Int8PtrTy);
+  }
+  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
+                                  InsertPt, IsTail, IsVarArg);
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
-  // on the use_device_ptr clause with a load from the corresponding TgtBuffer.
+  // on the use_device_ptr clause with a load from the corresponding
+  // TgtBufferAddr.
   if (W) {
     assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
     UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
@@ -3061,7 +3190,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       IRBuilder<> VCBuilder(VariantCall);
       for (UseDevicePtrItem *Item : UDPtrClause.items()) {
         Value *HostPtr = Item->getOrig();
-        Value *TgtBuffer = Item->getNew();
+        Value *TgtBufferAddr = Item->getNew();
         for (Value *Arg : FnArgs) {
           LoadInst *Load = dyn_cast<LoadInst>(Arg);
 
@@ -3079,12 +3208,14 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
             continue;
 
           if (Load->getPointerOperand() == HostPtr) {
-            LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
+            StringRef OrigName = HostPtr->getName();
+            LoadInst *Buffer =
+                VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
 
-            // HostPtr   type is:  SomeType**
-            // Arg       type is:  SomeType*
-            // TgtBuffer type is:  void**
-            // Buffer    type is:  void*
+            // HostPtr       type is:  SomeType**
+            // Arg           type is:  SomeType*
+            // TgtBufferAddr type is:  void**
+            // Buffer        type is:  void*
             //
             // To replace 'Arg' with 'Buffer' in the variant call,
             // we must cast Buffer from void* to SomeType*
@@ -3102,7 +3233,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
             (void)HostPtrElemTy;
             Value *BufferCast =
               VCBuilder.CreateBitCast(Buffer, Arg->getType());
-            BufferCast->setName("buffer.cast");
+            BufferCast->setName(OrigName + ".buffer.cast");
             VariantCall->replaceUsesOfWith(Arg, BufferCast);
             break;
           }
