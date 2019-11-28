@@ -552,6 +552,8 @@ bool DeviceBuildTask::Execute()
         return true;
     }
 
+    m_pDeviceProgram->CollectGlobalVariablePointers();
+
     m_pDeviceProgram->SetBuildLogInternal("Device build done\n");
     SetComplete(CL_BUILD_SUCCESS);
     return true;
@@ -1298,6 +1300,9 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
         }
     }
 
+    if (bNeedToBuild && CL_DEV_SUCCESS != program->AllocUSMForGVPointers())
+        return CL_OUT_OF_RESOURCES;
+
     if (NULL == pfn_notify)
     {
         pPostBuildTask->Wait();
@@ -1603,6 +1608,9 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
             pPostBuildTask->Launch();
         }
     }
+
+    if (bNeedToBuild && CL_DEV_SUCCESS != program->AllocUSMForGVPointers())
+        return CL_OUT_OF_RESOURCES;
 
     if (NULL == pfn_notify)
     {

@@ -40,6 +40,8 @@
 #define OCL_EXT_INTEL_CHANNELS                  "cl_intel_channels"
 #define OCL_EXT_INTEL_FPGA_HOST_PIPE            "cl_intel_fpga_host_pipe"
 
+#define OCL_EXT_INTEL_GLOBAL_VARIABLE_POINTER   "cl_intel_global_variable_pointers_preview"
+
 #define OCL_EXT_INTEL_SUBGROUPS                 "cl_intel_subgroups"
 #define OCL_EXT_INTEL_SUBGROUPS_CHAR            "cl_intel_subgroups_char"
 #define OCL_EXT_INTEL_SUBGROUPS_SHORT           "cl_intel_subgroups_short"
@@ -47,7 +49,8 @@
 #define OCL_EXT_INTEL_SPIRV_SUBGROUPS           "cl_intel_spirv_subgroups"
 #define OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE       "cl_intel_required_subgroup_size"
 
-#define OCL_EXT_INTEL_VEC_LEN_HINT              "cl_intel_vec_len_hint"
 #define OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY     "cl_intel_unified_shared_memory_preview"
+
+#define OCL_EXT_INTEL_VEC_LEN_HINT              "cl_intel_vec_len_hint"
 
 #define OCL_EXT_ES_KHR_INT64                    "cles_khr_int64"

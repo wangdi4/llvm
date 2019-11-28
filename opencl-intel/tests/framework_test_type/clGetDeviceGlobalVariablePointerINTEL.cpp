@@ -1,0 +1,421 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2019 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+#include "FrameworkTest.h"
+#include "TestsHelpClasses.h"
+#include <CL/cl.h>
+#include <CL/cl_ext.h>
+#include <gtest/gtest.h>
+#include <time.h>
+
+extern cl_device_type gDeviceType;
+
+class GVPointerExtensionTest : public ::testing::Test {
+protected:
+  virtual void SetUp() {
+    cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
+
+    err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
+
+    m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateContext");
+
+    m_queue =
+        clCreateCommandQueueWithProperties(m_context, m_device, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+
+    // Get extension function address
+    m_clGetDeviceGlobalVariablePointerINTEL =
+        (clGetDeviceGlobalVariablePointerINTEL_fn)
+            clGetExtensionFunctionAddressForPlatform(
+                m_platform, "clGetDeviceGlobalVariablePointerINTEL");
+    ASSERT_NE(nullptr, m_clGetDeviceGlobalVariablePointerINTEL)
+        << "clGetExtensionFunctionAddressForPlatform("
+           "\"clGetDeviceGlobalVariablePointerINTEL\") failed.";
+
+    srand((unsigned)time(nullptr));
+  }
+
+  virtual void TearDown() {
+    cl_int err = clReleaseCommandQueue(m_queue);
+    EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+    err = clReleaseContext(m_context);
+    EXPECT_OCL_SUCCESS(err, "clReleaseContext");
+  }
+
+  // Build program from source and check global variable names.
+  // gvName is global variable and negativeName is not.
+  void TestBuildProgram(const char *source, cl_program &program,
+                        const char *gvName, const char *negativeName) {
+    cl_int err;
+
+    // Check before creating program
+    size_t gvSize;
+    void *gvPtr;
+    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, gvName,
+                                                  &gvSize, &gvPtr);
+    ASSERT_EQ(CL_INVALID_PROGRAM, err)
+        << "clGetDeviceGlobalVariablePointerINTEL "
+           "must return CL_INVALID_PROGRAM if "
+           "program is not a valid OpenCL program";
+
+    // Create program
+    program = clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+
+    // Check before building program
+    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, gvName,
+                                                  nullptr, &gvPtr);
+    ASSERT_EQ(CL_INVALID_PROGRAM_EXECUTABLE, err)
+        << "clGetDeviceGlobalVariablePointerINTEL must return "
+           "CL_INVALID_PROGRAM_EXECUTABLE if program wasn't build";
+
+    // Build program
+    err = clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr,
+                         nullptr);
+    EXPECT_OCL_SUCCESS(err, "clBuildProgram");
+
+    if (CL_SUCCESS != err) {
+      size_t logSize = 0;
+      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG, 0,
+                                  nullptr, &logSize);
+      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+      std::string log("", logSize);
+      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,
+                                  logSize, &log[0], nullptr);
+      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+      FAIL() << log << "\n";
+    }
+
+    // Check after building program
+    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, gvName,
+                                                  &gvSize, nullptr);
+    ASSERT_EQ(CL_INVALID_VALUE, err)
+        << "clGetDeviceGlobalVariablePointerINTEL "
+           "must return CL_INVALID_VALUE if global_variable_pointer_ret is "
+           "nullptr";
+
+    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, nullptr,
+                                                  &gvSize, &gvPtr);
+    ASSERT_EQ(CL_INVALID_VALUE, err)
+        << "clGetDeviceGlobalVariablePointerINTEL "
+           "must return CL_INVALID_VALUE if global_variable_name is nullptr";
+
+    err = m_clGetDeviceGlobalVariablePointerINTEL(nullptr, program, gvName,
+                                                  nullptr, &gvPtr);
+    ASSERT_EQ(CL_INVALID_DEVICE, err);
+
+    err = m_clGetDeviceGlobalVariablePointerINTEL(
+        m_device, program, negativeName, &gvSize, &gvPtr);
+    ASSERT_EQ(CL_INVALID_ARG_VALUE, err);
+  }
+
+  // Test clCreateProgramWithBinary
+  void TestProgramWithBinary(cl_program program, const char *gvName,
+                             size_t gvSize, const char *negativeName) {
+    cl_int err;
+    size_t binarySize;
+    err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(binarySize),
+                           &binarySize, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetProgramInfo CL_PROGRAM_BINARY_SIZES");
+    std::vector<unsigned char> binary(binarySize);
+    const unsigned char *binaries[1] = {&binary[0]};
+    err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(binaries),
+                           &binaries, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetProgramInfo CL_PROGRAM_BINARIES");
+
+    cl_int binaryStatus[1];
+    cl_program program1 = clCreateProgramWithBinary(
+        m_context, 1, &m_device, &binarySize, binaries, binaryStatus, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateProgramWithBinary");
+    ASSERT_OCL_SUCCESS(binaryStatus[0], "clCreateProgramWithBinary");
+
+    err = clBuildProgram(program1, 1, &m_device, "-cl-std=CL2.0", nullptr,
+                         nullptr);
+    ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+    size_t size;
+    void *ptr;
+    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program1, gvName,
+                                                  &size, &ptr);
+    ASSERT_OCL_SUCCESS(err, "m_clGetDeviceGlobalVariablePointerINTEL");
+    ASSERT_NE(nullptr, ptr);
+    ASSERT_EQ(size, gvSize);
+
+    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program1,
+                                                  negativeName, &size, &ptr);
+    ASSERT_EQ(CL_INVALID_ARG_VALUE, err);
+
+    err = clReleaseProgram(program1);
+    EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+  }
+
+protected:
+  cl_platform_id m_platform;
+  cl_device_id m_device;
+  cl_context m_context;
+  cl_command_queue m_queue;
+  clGetDeviceGlobalVariablePointerINTEL_fn
+      m_clGetDeviceGlobalVariablePointerINTEL;
+};
+
+TEST_F(GVPointerExtensionTest, singleProgram) {
+  cl_int err;
+
+  cl_int x = rand() & 255;
+  std::ostringstream ss;
+  ss << "global int x = " << x
+     << ";\n"
+        "kernel void test(global int* dst) {\n"
+        "  if (get_global_id(0) == 0)\n"
+        "    dst[0] = x * 2;\n"
+        "}";
+  std::string source = ss.str();
+
+  // Build program
+  cl_program program;
+  ASSERT_NO_FATAL_FAILURE(
+      TestBuildProgram(source.c_str(), program, "x", "test"));
+
+  // Get global variable pointer
+  size_t gvSize;
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, "x", &gvSize,
+                                                &gvPtr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceGlobalVariablePointerINTEL");
+  ASSERT_NE(nullptr, gvPtr)
+      << "clGetDeviceGlobalVariablePointerINTEL must return a non-nullptr "
+         "value via global_variable_pointer_ret on success";
+  cl_int *gvPtrInt = static_cast<cl_int *>(gvPtr);
+  ASSERT_EQ(sizeof(x), gvSize);
+  ASSERT_EQ(x, *gvPtrInt);
+
+  // Check gvPtr is USM pointer
+  cl_unified_shared_memory_type_intel memType;
+  err = clGetMemAllocInfoINTEL(m_context, gvPtr, CL_MEM_ALLOC_TYPE_INTEL,
+                               sizeof(memType), &memType, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
+  ASSERT_EQ(CL_MEM_TYPE_DEVICE_INTEL, memType);
+
+  size_t bufferSize;
+  err = clGetMemAllocInfoINTEL(m_context, gvPtr, CL_MEM_ALLOC_SIZE_INTEL,
+                               sizeof(bufferSize), &bufferSize, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
+  ASSERT_EQ(gvSize, bufferSize);
+
+  cl_device_id device;
+  err = clGetMemAllocInfoINTEL(m_context, gvPtr, CL_MEM_ALLOC_DEVICE_INTEL,
+                               sizeof(device), &device, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
+  ASSERT_EQ(m_device, device);
+
+  // Test JIT save/load
+  ASSERT_NO_FATAL_FAILURE(TestProgramWithBinary(program, "x", gvSize, "test"));
+
+  // Create and execute Kernel
+  cl_kernel kernel = clCreateKernel(program, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel");
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, gvPtrInt);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  size_t gdim = 1;
+  size_t ldim = 1;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+  EXPECT_EQ(x * 2, *gvPtrInt);
+
+  // Release resources
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+  clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}
+
+TEST_F(GVPointerExtensionTest, singleProgramIndirectAccess) {
+  cl_int err;
+
+  cl_short x = (cl_short)(rand() & 255);
+  std::ostringstream ss;
+  ss << "typedef struct { short *a; } Ptrs;\n"
+        "global short x = "
+     << x
+     << ";\n"
+        "kernel void test(global Ptrs* dst) {\n"
+        "  if (get_global_id(0) == 0)\n"
+        "    *(dst->a) = x + 1;\n"
+        "}";
+  const std::string source = ss.str();
+  const char *strings = source.c_str();
+
+  // Build program
+  cl_program program;
+  program = clCreateProgramWithSource(m_context, 1, &strings, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err =
+      clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  // Get global variable pointer
+  size_t gvSize;
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, "x", &gvSize,
+                                                &gvPtr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceGlobalVariablePointerINTEL");
+  ASSERT_NE(nullptr, gvPtr)
+      << "clGetDeviceGlobalVariablePointerINTEL must return a non-nullptr "
+         "value via global_variable_pointer_ret on success";
+  cl_short *gvPtrShort = static_cast<cl_short *>(gvPtr);
+  ASSERT_EQ(sizeof(x), gvSize);
+  ASSERT_EQ(x, *gvPtrShort);
+
+  // Create kernel
+  cl_kernel kernel = clCreateKernel(program, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "kernel");
+
+  // clSetKernelExecInfo
+  struct Ptrs {
+    cl_short *a;
+  };
+  Ptrs *ptrs = (Ptrs *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                             sizeof(Ptrs), 0, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+  ptrs->a = gvPtrShort;
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, ptrs);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  // According to current proposal, it is unnecessary to setKernelExecInfo if
+  // kernel access pointer returned by clGetDeviceGlobalVariablePointerINTEL
+  // from the same program that the kernel comes from.
+
+  // Execute kernel
+  size_t gdim = 1;
+  size_t ldim = 1;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+  EXPECT_EQ(x + 1, *(ptrs->a));
+
+  // Release resources
+  err = clMemFreeINTEL(m_context, ptrs);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+  clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}
+
+TEST_F(GVPointerExtensionTest, crossProgramsIndirectAccess) {
+  cl_int err;
+
+  // First kernel
+  cl_long x = (cl_long)(rand() & 255);
+  std::ostringstream ss;
+  ss << "global long x = " << x
+     << ";\n"
+        "kernel void test1(global long* dst) {\n"
+        "  if (get_global_id(0) == 0)\n"
+        "    *dst = x;\n"
+        "}";
+  std::string source = ss.str();
+  const char *strings = source.c_str();
+
+  // Build first program
+  cl_program program1;
+  program1 = clCreateProgramWithSource(m_context, 1, &strings, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err =
+      clBuildProgram(program1, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  // Get global variable pointer from the first program
+  size_t gvSize;
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program1, "x",
+                                                &gvSize, &gvPtr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceGlobalVariablePointerINTEL");
+  ASSERT_NE(nullptr, gvPtr)
+      << "clGetDeviceGlobalVariablePointerINTEL must return a non-nullptr "
+         "value via global_variable_pointer_ret on success";
+  cl_long *gvPtrShort = static_cast<cl_long *>(gvPtr);
+  ASSERT_EQ(sizeof(x), gvSize);
+  ASSERT_EQ(x, *gvPtrShort);
+
+  // Second kernel
+  ss.clear();
+  ss << "typedef struct { long *a; } Ptrs;\n"
+     << "kernel void test2(global Ptrs* dst) {\n"
+        "  if (get_global_id(0) == 0)\n"
+        "    *(dst->a) += 1;\n"
+        "}";
+  source = ss.str();
+  strings = source.c_str();
+
+  // Build second program
+  cl_program program2;
+  program2 = clCreateProgramWithSource(m_context, 1, &strings, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err =
+      clBuildProgram(program2, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  // Create kernel from the second program
+  cl_kernel kernel = clCreateKernel(program2, "test2", &err);
+  ASSERT_OCL_SUCCESS(err, "kernel");
+
+  // clSetKernelExecInfo
+  struct Ptrs {
+    cl_long *a;
+  };
+  Ptrs *ptrs = (Ptrs *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                             sizeof(Ptrs), 0, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+  ptrs->a = gvPtrShort;
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, ptrs);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  err = clSetKernelExecInfo(kernel, CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
+                            sizeof(Ptrs), ptrs);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
+  // ptrs->a is device USM
+  cl_bool useIndirectDevice = CL_TRUE;
+  err = clSetKernelExecInfo(kernel,
+                            CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
+                            sizeof(useIndirectDevice), &useIndirectDevice);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelExecInfo");
+
+  // Execute kernel
+  size_t gdim = 1;
+  size_t ldim = 1;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+  EXPECT_EQ(x + 1, *(ptrs->a));
+
+  // Release resources
+  err = clMemFreeINTEL(m_context, ptrs);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+  clReleaseProgram(program1);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+  clReleaseProgram(program2);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}

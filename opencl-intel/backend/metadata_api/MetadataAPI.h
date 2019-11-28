@@ -299,22 +299,17 @@ struct KernelList : public NamedMDList<llvm::Function, MDValueModuleStrategy> {
 
 // internal attributes
 struct ModuleInternalMetadataAPI {
-  typedef NamedMDValue<int32_t, MDValueModuleStrategy>
-      GlobalVariableTotalSizeTy;
   typedef NamedMDValue<int32_t, MDValueModuleStrategy> GASCounterTy;
   typedef NamedMDList<int32_t, MDValueModuleStrategy> GASWarningsListTy;
 
   ModuleInternalMetadataAPI(llvm::Module *pModule)
-      : GlobalVariableTotalSize(pModule, "opencl.global_variable_total_size"),
-        GASCounter(pModule, "opencl.gen_addr_space_pointer_counter"),
+      : GASCounter(pModule, "opencl.gen_addr_space_pointer_counter"),
         GASWarningsList(pModule, "opencl.gas_warning_line_numbers")
     {
-      MDNames.push_back(GlobalVariableTotalSize.getID());
       MDNames.push_back(GASCounter.getID());
       MDNames.push_back(GASWarningsList.getID());
     }
 
-  NamedMDValueAccessor<GlobalVariableTotalSizeTy> GlobalVariableTotalSize;
   NamedMDValueAccessor<GASCounterTy> GASCounter;
   GASWarningsListTy GASWarningsList;
 

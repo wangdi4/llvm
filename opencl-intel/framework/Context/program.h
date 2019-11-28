@@ -151,6 +151,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDeviceFunctionPointer(cl_device_id device,
             const char* func_name, cl_ulong* func_pointer_ret);
 
+        // Retrieve size and pointer of a global variable given by name.
+        cl_err_code GetDeviceGlobalVariablePointer(cl_device_id device,
+            const char* gv_name, size_t* gv_size_ret, void** gv_pointer_ret);
+
+        // Allocate USM wrappers for global variable pointers
+        cl_err_code AllocUSMForGVPointers();
+
+        // Free USM wrappers for global variable pointers
+        void FreeUSMForGVPointers();
+
 	protected:
 		virtual ~Program();
 

@@ -122,21 +122,6 @@ namespace intel {
 
   char KernelInfoWrapper::ID = 0;
 
-  size_t KernelInfoWrapper::getProgramGlobalVariableTotalSize(const Module& M) {
-    // if there is no global variables - return 0
-    if (M.global_empty()) return 0;
-    size_t totalSize = 0;
-    const DataLayout &TD = M.getDataLayout();
-    for (Module::const_global_iterator it = M.global_begin(); it != M.global_end(); ++it) {
-      PointerType* ptr = cast<PointerType>(it->getType());
-      assert(ptr && "Global variable is always a pointer.");
-      if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace())) {
-        totalSize += TD.getTypeAllocSize(ptr->getContainedType(0));
-      }
-    }
-    return totalSize;
-  }
-
   bool KernelInfoWrapper::runOnModule(Module& M) {
     KernelInfoPass* pKernelInfoPass = new KernelInfoPass();
 
@@ -154,9 +139,6 @@ namespace intel {
         assert(pFunc && "got NULL kernel");
         FPM.run(*pFunc);
     }
-
-    auto handle = ModuleInternalMetadataAPI(&M).GlobalVariableTotalSize;
-    handle.set(getProgramGlobalVariableTotalSize(M));
 
     return false;
   }

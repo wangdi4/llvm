@@ -53,6 +53,9 @@ public:
 
     cl_ulong GetFunctionPointerFor(const char *) const override;
 
+    // Get a map from global variable name to its property (size/pointer).
+    void GetGlobalVariablePointers(cl_prog_gv_map &GVs) const override;
+
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;

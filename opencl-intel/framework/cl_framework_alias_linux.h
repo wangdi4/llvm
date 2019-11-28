@@ -140,6 +140,7 @@ DECLARE_ALIAS(clUnmapHostPipeIntelFPGA);
 DECLARE_ALIAS(clReadPipeIntelFPGA);
 DECLARE_ALIAS(clWritePipeIntelFPGA);
 DECLARE_ALIAS(clGetDeviceFunctionPointerINTEL);
+DECLARE_ALIAS(clGetDeviceGlobalVariablePointerINTEL);
 DECLARE_ALIAS(clCreateProgramWithILKHR);
 DECLARE_ALIAS(clCreateTracingHandleINTEL);
 DECLARE_ALIAS(clSetTracingPointINTEL);

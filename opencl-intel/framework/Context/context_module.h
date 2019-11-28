@@ -245,6 +245,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_ulong* function_pointer_ret);
 
         ///////////////////////////////////////////////////////////////////////
+        // cl_intel_global_variable_pointers functions
+        ///////////////////////////////////////////////////////////////////////
+
+        cl_int GetDeviceGlobalVariablePointer(cl_device_id device,
+            cl_program program, const char* gv_name, size_t* gv_size_ret,
+            void** gv_pointer_ret);
+
+        ///////////////////////////////////////////////////////////////////////
         // cl_intel_unified_shared_memory functions
         ///////////////////////////////////////////////////////////////////////
 

@@ -56,6 +56,8 @@ public:
 
     cl_ulong GetFunctionPointerFor(const char *) const override { return 0; }
 
+    void GetGlobalVariablePointers(cl_prog_gv_map &) const override {}
+
 protected:
     // Stores a list of MKL kernels perticipated in the Built-In kernel program
     typedef std::map<std::string, Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*> BIKernelsMap_t;

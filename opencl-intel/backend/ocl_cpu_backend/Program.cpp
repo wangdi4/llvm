@@ -24,8 +24,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
     m_pObjectCodeContainer(nullptr),
     m_pIRCodeContainer(nullptr),
-    m_kernels(nullptr),
-    m_globalVariableTotalSize(0)
+    m_kernels(nullptr)
 {}
 
 Program::~Program()
@@ -117,12 +116,21 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
 
 size_t Program::GetGlobalVariableTotalSize() const
 {
-    return m_globalVariableTotalSize;
+    size_t globalVariableTotalSize = 0;
+    for (auto &item : m_globalVariableSizes)
+        globalVariableTotalSize += item.second;
+
+    return globalVariableTotalSize;
 }
 
-void Program::SetGlobalVariableTotalSize(size_t size)
+const llvm::StringMap<size_t>& Program::GetGlobalVariableSizes() const
 {
-    m_globalVariableTotalSize = size;
+    return m_globalVariableSizes;
+}
+
+void Program::SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes)
+{
+    m_globalVariableSizes = sizes;
 }
 
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)
@@ -179,8 +187,15 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
             currentKernel->Serialize(ost, stats);
         }
     }
-    unsigned long long int tmp = (unsigned long long int)m_globalVariableTotalSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    unsigned int gvCount = (unsigned int)m_globalVariableSizes.size();
+    Serializer::SerialPrimitive<unsigned int>(&gvCount, ost);
+    for (auto &gv : m_globalVariableSizes)
+    {
+        std::string name = gv.first().str();
+        Serializer::SerialString(name, ost);
+        unsigned long long int tmp = (unsigned long long int)gv.second;
+        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    }
 }
 
 void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -201,8 +216,15 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
             m_kernels->AddKernel(currentKernel);
         }
     }
-    unsigned long long int tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_globalVariableTotalSize = (size_t)tmp;
+    unsigned int gvCount;
+    Serializer::DeserialPrimitive<unsigned int>(&gvCount, ist);
+    for (unsigned int i = 0; i < gvCount; ++i)
+    {
+        std::string name;
+        Serializer::DeserialString(name, ist);
+        unsigned long long int tmp;
+        Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+        m_globalVariableSizes[name] = (size_t)tmp;
+    }
 }
 }}}

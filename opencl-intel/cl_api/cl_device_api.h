@@ -19,6 +19,8 @@
 
 #include <cassert>
 #include <climits>
+#include <cstring>
+#include <map>
 #include "CL/cl.h"
 #include "CL/cl_usm_ext.h"
 
@@ -133,6 +135,20 @@ struct cl_prog_program
     cl_prog_kernel* kernels;                //!< A pointer to list of cl_prog_kernel
 };
 
+/*! \struct cl_prog_gv_prop
+ * \brief This struct defines property of a global variable in a built program
+ */
+struct cl_prog_gv_prop
+{
+    size_t       size;     //!< Size of global variable in bytes
+    void*        pointer;  //!< Address of global variable in program
+};
+
+/*! \map cl_prog_gv_map
+ * \brief This defined a map from global variable name to its property
+ */
+typedef std::map<std::string, cl_prog_gv_prop> cl_prog_gv_map;
+
 /*! \def _CL_CONTAINER_MASK_
     \brief This structure defines a container that holds binaries or IR of OCL compiled programs
 */
@@ -208,6 +224,7 @@ enum cl_dev_err_code
     CL_DEV_INVALID_VALUE,                       //!< Invalid value was passed to the function.
     CL_DEV_INVALID_PROPERTIES,                  //!< Properties might be valid but not supported
     CL_DEV_OUT_OF_MEMORY,                       //!< Resource allocation failure
+    CL_DEV_INVALID_ARG_VALUE,                   //!< Invalid kernel arg value
     CL_DEV_INVALID_COMMAND_LIST,                //!< Invalid command list handle
     CL_DEV_INVALID_COMMAND_TYPE,                //!< Invalid command type
     CL_DEV_INVALID_COMMAND_PARAM,               //!< Invalid command parameter
@@ -1538,10 +1555,18 @@ public:
     */
     virtual IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() = 0;
 
-    //! Retrieves Function poitner to a function in a compiled program
+    //! Retrieves Function pointer to a function in a compiled program
     virtual cl_dev_err_code clDevGetFunctionPointerFor(cl_dev_program IN prog,
         const char* IN func_name, cl_ulong* OUT func_pointer_ret) const = 0;
 
+    //! Retrieves sizes/pointers of all global variables in a built program
+    /*!
+        \param[in]  prog   A handle to a program object which is already built.
+        \param[out] gvPtrs A map from global variable name to its property
+                           (size/pointer)
+    */
+    virtual void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
+        cl_prog_gv_map OUT &gvPtrs) const = 0;
 };
 
 

@@ -170,6 +170,14 @@ public:
     virtual size_t GetGlobalVariableTotalSize() const = 0;
 
     virtual cl_ulong GetFunctionPointerFor(const char *FunctionName) const = 0;
+
+    /**
+     * Retrieves sizes/pointers of all global variables.
+     *
+     * @param gvPtrs a map from global variable name to its property
+     * (size/pointer)
+     */
+    virtual void GetGlobalVariablePointers(cl_prog_gv_map &gvPtrs) const = 0;
 };
 }}} // namespace
 

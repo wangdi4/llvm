@@ -2642,6 +2642,14 @@ cl_dev_err_code CPUDevice::clDevGetFunctionPointerFor(cl_dev_program IN prog,
         func_pointer_ret);
 }
 
+void CPUDevice::clDevGetGlobalVariablePointers(cl_dev_program IN prog,
+    cl_prog_gv_map OUT &gvPtrs) const
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+        TEXT("clDevGetGlobalVariablePointers Function enter"));
+    m_pProgramService->GetGlobalVariablePointers(prog, gvPtrs);
+}
+
 /*******************************************************************************************************************
 clDevReleaseProgram
     Call programService to release program
