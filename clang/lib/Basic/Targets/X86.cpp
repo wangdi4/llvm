@@ -549,22 +549,6 @@ SkylakeCommon:
       llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
     Features["mmx"] = true;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  // Enable a fake vnnivl feature if "avxvnni" is enabled or
-  // "avx512vl,avx512vnni" is enabled.
-  auto AVXVNNIIt = Features.find("avxvnni");
-  auto AVX512VLIt = Features.find("avx512vl");
-  auto AVX512VNNIIt = Features.find("avx512vnni");
-  if (((AVXVNNIIt != Features.end() && AVXVNNIIt->getValue()) ||
-       (AVX512VLIt != Features.end() && AVX512VLIt->getValue() &&
-        AVX512VNNIIt != Features.end() && AVX512VNNIIt->getValue())) &&
-      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-vnnivl") ==
-          FeaturesVec.end())
-    Features["vnnivl"] = true;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
-
   return true;
 }
 

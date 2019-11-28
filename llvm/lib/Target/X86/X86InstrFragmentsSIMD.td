@@ -558,6 +558,15 @@ def X86Vpdpbusds : SDNode<"X86ISD::VPDPBUSDS", SDTVnni>;
 def X86Vpdpwssd  : SDNode<"X86ISD::VPDPWSSD", SDTVnni>;
 def X86Vpdpwssds : SDNode<"X86ISD::VPDPWSSDS", SDTVnni>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+def X86VpdpbusdVex  : SDNode<"X86ISD::VPDPBUSDVEX", SDTVnni>;
+def X86VpdpbusdsVex : SDNode<"X86ISD::VPDPBUSDSVEX", SDTVnni>;
+def X86VpdpwssdVex  : SDNode<"X86ISD::VPDPWSSDVEX", SDTVnni>;
+def X86VpdpwssdsVex : SDNode<"X86ISD::VPDPWSSDSVEX", SDTVnni>;
+
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
 def X86rsqrt28   : SDNode<"X86ISD::RSQRT28",     SDTFPUnaryOp>;
 def X86rsqrt28SAE: SDNode<"X86ISD::RSQRT28_SAE", SDTFPUnaryOp>;
 def X86rcp28     : SDNode<"X86ISD::RCP28",       SDTFPUnaryOp>;

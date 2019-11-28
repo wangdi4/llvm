@@ -172,22 +172,18 @@
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_VNNI */
-#if defined(__AVXVNNI__)
+#if defined(__AVXVNNI_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXVNNI__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxvnni/avxvnniintrin.h>
-#else
+#endif
+#endif
+
 /* end INTEL_FEATURE_ISA_AVX_VNNI */
-/* end INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512VL__) && defined(__AVX512VNNI__)) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlvnniintrin.h>
 #endif
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_VNNI */
-#endif
-/* end INTEL_FEATURE_ISA_AVX_VNNI */
-/* end INTEL_CUSTOMIZATION */
 
-/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512DQ__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512dqintrin.h>
