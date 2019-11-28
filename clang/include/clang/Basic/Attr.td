@@ -3793,6 +3793,13 @@ def OMPDeclareVariant : InheritableAttr {
         case OMP_CTX_SET_device:
           OS << "device={";
           break;
+// INTEL_COLLAB
+        case OMP_CTX_SET_construct:
+          OS << "implementation={";
+          OS << "target variant dispatch";
+          OS << "}";
+          break;
+// end INTEL_COLLAB
         case OMP_CTX_SET_unknown:
           llvm_unreachable("Unknown context selector set.");
         }
@@ -3819,33 +3826,9 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
-// INTEL_COLLAB
-          case OMP_CTX_arch:
-          case OMP_CTX_target_variant_dispatch:
-// end INTEL_COLLAB
           case OMP_CTX_kind:
-<<<<<<< HEAD
-            llvm_unreachable("Unexpected context selector in implementation set.");
-          case OMP_CTX_unknown:
-            llvm_unreachable("Unknown context selector.");
-          }
-          OS << "}";
-          break;
-// INTEL_COLLAB
-        case OMP_CTX_SET_construct:
-          OS << "implementation={";
-          OS << "target variant dispatch";
-          OS << "}";
-          break;
-// end INTEL_COLLAB
-        case OMP_CTX_SET_device:
-          OS << "device={";
-          switch (Ctx) {
-          case OMP_CTX_kind:
-=======
             assert(CtxSet == OMP_CTX_SET_device &&
                    "Expected device context selector set.");
->>>>>>> 87c3f4a5e0bb53ca0d9799ca627e0897b10a82b3
             OS << "kind(";
             if (deviceKinds_size() > 0) {
               OS << *deviceKinds().begin();
@@ -3854,7 +3837,6 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
-<<<<<<< HEAD
 // INTEL_COLLAB
           case OMP_CTX_arch:
             OS << "arch(";
@@ -3868,10 +3850,6 @@ def OMPDeclareVariant : InheritableAttr {
             break;
           case OMP_CTX_target_variant_dispatch:
 // end INTEL_COLLAB
-          case OMP_CTX_vendor:
-            llvm_unreachable("Unexpected context selector in device set.");
-=======
->>>>>>> 87c3f4a5e0bb53ca0d9799ca627e0897b10a82b3
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
