@@ -2015,6 +2015,19 @@ bool Sema::CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc) {
   return true;
 }
 
+// Helper to deduce addr space of a pointee type in OpenCL mode.
+static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
+  if (!PointeeType->isUndeducedAutoType() && !PointeeType->isDependentType() &&
+      !PointeeType->isSamplerT() &&
+      !PointeeType.getQualifiers().hasAddressSpace())
+    PointeeType = S.getASTContext().getAddrSpaceQualType(
+        PointeeType,
+        S.getLangOpts().OpenCLCPlusPlus || S.getLangOpts().OpenCLVersion == 200
+            ? LangAS::opencl_generic
+            : LangAS::opencl_private);
+  return PointeeType;
+}
+
 /// Build a pointer type.
 ///
 /// \param T The type to which we'll be building a pointer.
@@ -2050,6 +2063,9 @@ QualType Sema::BuildPointerType(QualType T,
   // In ARC, it is forbidden to build pointers to unqualified pointers.
   if (getLangOpts().ObjCAutoRefCount)
     T = inferARCLifetimeForPointee(*this, T, Loc, /*reference*/ false);
+
+  if (getLangOpts().OpenCL)
+    T = deduceOpenCLPointeeAddrSpace(*this, T);
 
   // Build the pointer type.
   return Context.getPointerType(T);
@@ -2110,6 +2126,9 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
   // In ARC, it is forbidden to build references to unqualified pointers.
   if (getLangOpts().ObjCAutoRefCount)
     T = inferARCLifetimeForPointee(*this, T, Loc, /*reference*/ true);
+
+  if (getLangOpts().OpenCL)
+    T = deduceOpenCLPointeeAddrSpace(*this, T);
 
   // Handle restrict on references.
   if (LValueRef)
@@ -2759,6 +2778,9 @@ QualType Sema::BuildBlockPointerType(QualType T,
 
   if (checkQualifiedFunction(*this, T, Loc, QFK_BlockPointer))
     return QualType();
+
+  if (getLangOpts().OpenCL)
+    T = deduceOpenCLPointeeAddrSpace(*this, T);
 
   return Context.getBlockPointerType(T);
 }
@@ -7663,6 +7685,7 @@ static void HandleOpenCLAccessAttr(QualType &CurType, const ParsedAttr &Attr,
   }
 }
 
+<<<<<<< HEAD
 static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
                                           QualType &T, TypeAttrLocation TAL) {
   Declarator &D = State.getDeclarator();
@@ -7799,6 +7822,8 @@ static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
   T = State.getSema().Context.getAddrSpaceQualType(T, ImpAddr);
 }
 
+=======
+>>>>>>> d9267b1612763d2ba589aefb61e1c23fbd965fa3
 static void HandleLifetimeBoundAttr(TypeProcessingState &State,
                                     QualType &CurType,
                                     ParsedAttr &Attr) {
@@ -8049,8 +8074,6 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
   if (!state.getSema().getLangOpts().OpenCL ||
       type.getAddressSpace() != LangAS::Default)
     return;
-
-  deduceOpenCLImplicitAddrSpace(state, type, TAL);
 }
 
 void Sema::completeExprArrayBound(Expr *E) {
