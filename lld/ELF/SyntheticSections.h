@@ -1006,7 +1006,7 @@ public:
 
   size_t getSize() const override { return size; }
   void writeTo(uint8_t *buf) override;
-  bool isNeeded() const override { return !empty; }
+  bool isNeeded() const override;
   // Sort and remove duplicate entries.
   void finalizeContents() override;
   InputSection *getLinkOrderDep() const;
@@ -1019,9 +1019,6 @@ public:
 
 private:
   size_t size;
-
-  // Empty if ExecutableSections contains no dependent .ARM.exidx sections.
-  bool empty = true;
 
   // Instead of storing pointers to the .ARM.exidx InputSections from
   // InputObjects, we store pointers to the executable sections that need
@@ -1070,9 +1067,9 @@ public:
 };
 
 // This section is used to store the addresses of functions that are called
-// in range-extending thunks on PowerPC64. When producing position dependant
+// in range-extending thunks on PowerPC64. When producing position dependent
 // code the addresses are link-time constants and the table is written out to
-// the binary. When producing position-dependant code the table is allocated and
+// the binary. When producing position-dependent code the table is allocated and
 // filled in by the dynamic linker.
 class PPC64LongBranchTargetSection final : public SyntheticSection {
 public:
@@ -1114,8 +1111,9 @@ public:
 
 InputSection *createInterpSection();
 MergeInputSection *createCommentSection();
+MergeSyntheticSection *createMergeSynthetic(StringRef name, uint32_t type,
+                                            uint64_t flags, uint32_t alignment);
 template <class ELFT> void splitSections();
-void mergeSections();
 
 template <typename ELFT> void writeEhdr(uint8_t *buf, Partition &part);
 template <typename ELFT> void writePhdrs(uint8_t *buf, Partition &part);

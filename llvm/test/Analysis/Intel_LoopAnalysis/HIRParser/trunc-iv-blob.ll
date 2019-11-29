@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loopnest verifying that the truncated IV of outer loop is reverse engineered correctly as a blob in inner loop upper.
-; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, %ub + -1, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, zext.i32.i64((-2 + trunc.i64.i32(%indvars.iv))), 1   <DO_LOOP>
 ; CHECK: |   |   %1 = (%A)[i1 + -1 * i2 + 1];
 ; CHECK: |   |   %2 = (%A)[i1 + -1 * i2];
@@ -17,7 +17,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* %A) {
+define void @foo(i32* %A, i64 %ub) {
 entry:
   br label %for.body
 
@@ -59,7 +59,7 @@ for.end:                                          ; preds = %for.cond.1.for.end_
 for.inc.6:                                        ; preds = %for.end
   %inc = add nuw nsw i32 %j.03, 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp ne i64 %indvars.iv.next, 4
+  %exitcond = icmp ne i64 %indvars.iv.next, %ub
   br i1 %exitcond, label %for.body, label %for.end.7
 
 for.end.7:                                        ; preds = %for.inc.6

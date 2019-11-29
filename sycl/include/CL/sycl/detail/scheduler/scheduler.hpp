@@ -41,6 +41,9 @@ struct MemObjRecord {
   // Contains latest write commands working with memory object.
   std::vector<Command *> MWriteLeafs;
 
+  // The context which has the latest state of the memory object.
+  ContextImplPtr MCurContext;
+
   // The flag indicates that the content of the memory object was/will be
   // modified. Used while deciding if copy back needed.
   bool MMemModified;
@@ -68,7 +71,16 @@ public:
   // sycl::image destructors.
   void removeMemoryObject(detail::SYCLMemObjI *MemObj);
 
+  // Creates nodes in the graph, that update Req with the pointer to the host
+  // memory which contains the latest data of the memory object. New operations
+  // with the same memory object that have side effects are blocked until
+  // releaseHostAccessor is called.
+  // Returns an event which indicates when these nodes are completed and host
+  // accessor is ready for using.
   EventImplPtr addHostAccessor(Requirement *Req);
+
+  // Unblocks operations with the memory object.
+  void releaseHostAccessor(Requirement *Req);
 
   // Returns an instance of the scheduler object.
   static Scheduler &getInstance();
@@ -78,7 +90,7 @@ public:
 
   QueueImplPtr getDefaultHostQueue() { return DefaultHostQueue; }
 
-private:
+protected:
   Scheduler();
   static Scheduler instance;
 
@@ -98,7 +110,7 @@ private:
                              QueueImplPtr HostQueue);
 
     Command *addCopyBack(Requirement *Req);
-    Command *addHostAccessor(Requirement *Req, EventImplPtr &RetEvent);
+    Command *addHostAccessor(Requirement *Req);
 
     // [Provisional] Optimizes the whole graph.
     void optimize();
@@ -129,33 +141,39 @@ private:
     void removeRecordForMemObj(SYCLMemObjI *MemObject);
 
     // Add new command to leafs if needed.
-    void AddNodeToLeafs(MemObjRecord *Record, Command *Cmd, Requirement *Req);
+    void AddNodeToLeafs(MemObjRecord *Record, Command *Cmd,
+                        access::mode AccessMode);
 
     // Removes commands from leafs.
     void UpdateLeafs(const std::set<Command *> &Cmds, MemObjRecord *Record,
-                     Requirement *Req);
+                     access::mode AccessMode);
 
     std::vector<SYCLMemObjI *> MMemObjs;
 
   private:
-    // The method inserts memory copy operation from the context where the
-    // memory current lives to the context bound to Queue.
-    MemCpyCommand *insertMemCpyCmd(MemObjRecord *Record, Requirement *Req,
-                                   const QueueImplPtr &Queue,
-                                   bool UseExclusiveQueue = false);
+    // The method inserts required command to make so the latest state for the
+    // memory object Record refers to resides in the context which is bound to
+    // the Queue. Can insert copy/map/unmap operations depending on the source
+    // and destination.
+    Command *insertMemoryMove(MemObjRecord *Record, Requirement *Req,
+                             const QueueImplPtr &Queue,
+                             bool UseExclusiveQueue = false);
+
+    UpdateHostRequirementCommand *
+    insertUpdateHostReqCmd(MemObjRecord *Record, Requirement *Req,
+                           const QueueImplPtr &Queue);
 
     std::set<Command *> findDepsForReq(MemObjRecord *Record, Requirement *Req,
-                                       QueueImplPtr Context);
+                                       const ContextImplPtr &Context);
 
     // Searches for suitable alloca in memory record.
     AllocaCommandBase *findAllocaForReq(MemObjRecord *Record, Requirement *Req,
-                                        QueueImplPtr Queue);
+                                        const ContextImplPtr &Context);
     // Searches for suitable alloca in memory record.
     // If none found, creates new one.
     AllocaCommandBase *getOrCreateAllocaForReq(MemObjRecord *Record,
                                                Requirement *Req,
-                                               QueueImplPtr Queue,
-                                               bool ForceFullReq = false);
+                                               QueueImplPtr Queue);
 
     void markModifiedIfWrite(MemObjRecord *Record,
                              Requirement *Req);
@@ -186,10 +204,11 @@ private:
     // Wait for the command, associated with Event passed, is completed.
     static void waitForEvent(EventImplPtr Event);
 
-    // Enqueue the command passed to the underlying device.
-    // Returns pointer to command which failed to enqueue, so this command
-    // with all commands that depend on it can be rescheduled.
-    static Command *enqueueCommand(Command *Cmd);
+    // Enqueue the command passed and all it's dependencies to the underlying
+    // device. Returns true is the command is successfully enqueued. Sets
+    // EnqueueResult to the specific status otherwise.
+    static bool enqueueCommand(Command *Cmd, EnqueueResultT &EnqueueResult,
+                               BlockingT Blocking = NON_BLOCKING);
   };
 
   void waitForRecordToFinish(MemObjRecord *Record);

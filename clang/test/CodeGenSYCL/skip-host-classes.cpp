@@ -1,4 +1,5 @@
-// RUN: %clang --sycl -c %s  -o %t.ll -Xclang -fsycl-int-header=%t.hpp -emit-llvm -S
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// RUN: %clang -fsycl-device-only -c %s  -o %t.ll -Xclang -fsycl-int-header=%t.hpp -emit-llvm -S
 // RUN: FileCheck < %t.ll %s --check-prefix=CHECK
 
 // CHECK-NOT: declare dso_local spir_func void {{.+}}test{{.+}}printer{{.+}}

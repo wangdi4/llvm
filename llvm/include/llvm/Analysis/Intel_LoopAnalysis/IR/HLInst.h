@@ -35,6 +35,7 @@ private:
   const Instruction *const Inst;
   // Only used for Cmp and Select instructions.
   HLPredicate CmpOrSelectPred;
+  bool IsSinked;
 
 protected:
   explicit HLInst(HLNodeUtils &HNU, Instruction *Inst);
@@ -330,8 +331,8 @@ public:
   /// directive.
   bool isAutoVecDirective() const;
 
-  /// Checks if the Opcode is a reduction and returns OpCode
-  bool isReductionOp(unsigned *OpCode) const;
+  /// Checks if the Opcode is a reduction and returns it in \p OpCode.
+  bool isReductionOp(unsigned *OpCode = nullptr) const;
 
   /// Checks if instruction is a min.
   bool isMin() const { return checkMinMax(true, false); }
@@ -352,6 +353,11 @@ public:
 
   /// Return true if OpCode is a valid reduction opcode.
   static bool isValidReductionOpCode(unsigned OpCode);
+
+  /// Return true if the instruction was sinked.
+  bool isSinked() const { return IsSinked; }
+
+  void setIsSinked(bool Flag) { IsSinked = Flag; }
 
   const DebugLoc getDebugLoc() const override;
   void setDebugLoc(const DebugLoc &Loc);

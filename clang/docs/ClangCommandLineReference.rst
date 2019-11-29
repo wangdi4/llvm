@@ -86,8 +86,6 @@ Pass <arg> to the target offloading toolchain identified by <triple>.
 
 Run the static analyzer
 
-.. option:: --analyze-auto
-
 .. option:: --analyzer-no-default-checks
 
 .. option:: --analyzer-output<arg>
@@ -126,7 +124,11 @@ Output path for the plist report
 
 .. option:: -cfguard
 
-Emit tables required for Windows Control Flow Guard.
+Emit tables and checks for Windows Control Flow Guard.
+
+.. option:: -cfguard-no-checks
+
+Emit tables required for Windows Control Flow Guard without checks.
 
 .. option:: -client\_name<arg>
 
@@ -1944,7 +1946,8 @@ Perform ThinLTO importing using provided function summary index
 
 .. option:: -ftime-trace
 
-Turn on time profiler
+Turn on time profiler. Results can be analyzed with chrome://tracing or
+`Speedscope App <https://www.speedscope.app>`_ for flamegraph visualization
 
 .. option:: -ftime-trace-granularity=<arg>
 
@@ -2194,7 +2197,7 @@ Set EABI type, e.g. 4, 5 or gnu (default depends on triple)
 
 .. option:: -mfentry
 
-Insert calls to fentry at function entry (x86 only)
+Insert calls to fentry at function entry (x86/SystemZ only)
 
 .. option:: -mfloat-abi=<arg>
 
@@ -2427,9 +2430,30 @@ Enable XNACK (AMDGPU only)
 
 ARM
 ---
+
+.. option:: -ffixed-r6
+
+Reserve the r6 register (ARM only)
+
+.. option:: -ffixed-r7
+
+Reserve the r7 register (ARM only)
+
+.. option:: -ffixed-r8
+
+Reserve the r8 register (ARM only)
+
 .. option:: -ffixed-r9
 
 Reserve the r9 register (ARM only)
+
+.. option:: -ffixed-r10
+
+Reserve the r10 register (ARM only)
+
+.. option:: -ffixed-r11
+
+Reserve the r11 register (ARM only)
 
 .. option:: -mexecute-only, -mno-execute-only, -mpure-code
 
@@ -2638,6 +2662,28 @@ X86
 .. option:: -mamx-tile, -mno-amx-tile
 
 .. end INTEL_FEATURE_ISA_AMX
+.. INTEL_FEATURE_ISA_AMX2
+.. option:: -mamx-transpose, -mno-amx-transpose
+
+.. option:: -mamx-reduce, -mno-amx-reduce
+
+.. option:: -mamx-memory, -mno-amx-memory
+
+.. option:: -mamx-format, -mno-amx-format
+
+.. option:: -mamx-element, -mno-amx-element
+
+.. option:: -mamx-fp16, -mno-amx-fp16
+
+.. option:: -mamx-avx512, -mno-amx-avx512
+
+.. option:: -mamx-bf16-evex, -mno-amx-bf16-evex
+
+.. option:: -mamx-int8-evex, -mno-amx-int8-evex
+
+.. option:: -mamx-tile-evex, -mno-amx-tile-evex
+
+.. end INTEL_FEATURE_ISA_AMX2
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 

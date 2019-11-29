@@ -2,6 +2,7 @@
 ; variant is defined to be a correctly rounded version of the function, but for some reason the function name is not appended with _cr.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
+; RUN: opt -passes="map-intrin-to-iml" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: call svml_cc <4 x float> @__svml_truncf4

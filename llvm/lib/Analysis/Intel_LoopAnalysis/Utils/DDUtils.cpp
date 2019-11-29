@@ -782,6 +782,7 @@ bool DDUtils::enablePerfectLoopNest(
       HLInst *LoadInst =
           InnermostLoop->getHLNodeUtils().createLoad(MemRef, "Load", TmpRef);
       HLNodeUtils::insertAsFirstChild(InnermostLoop, LoadInst);
+
       HLNodeUtils::remove(*I);
       *I = LoadInst;
 
@@ -790,10 +791,13 @@ bool DDUtils::enablePerfectLoopNest(
       HLNodeUtils::moveAsFirstChild(InnermostLoop, *I);
       updateLiveinsLiveoutsForSinkedInst(InnermostLoop, *I, true);
     }
+
+    (*I)->setIsSinked(true);
   }
 
   for (auto &I : PostLoopInsts) {
     HLNodeUtils::moveAsLastChild(InnermostLoop, I);
+    I->setIsSinked(true);
     updateLiveinsLiveoutsForSinkedInst(InnermostLoop, I, false);
   }
 
@@ -805,6 +809,8 @@ bool DDUtils::enablePerfectLoopNest(
   // Loop Interchange needs this information
   gatherTempRegDDRefSymbases(PreLoopInsts, SinkedTempDDRefSymbases);
   gatherTempRegDDRefSymbases(PostLoopInsts, SinkedTempDDRefSymbases);
+
+  InnermostLoop->setIsUndoSinkingCandidate(true);
 
   return true;
 }

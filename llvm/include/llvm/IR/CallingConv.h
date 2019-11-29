@@ -75,6 +75,17 @@ namespace CallingConv {
     // CXX_FAST_TLS - Calling convention for access functions.
     CXX_FAST_TLS = 17,
 
+    /// Tail - This calling convention attemps to make calls as fast as
+    /// possible while guaranteeing that tail call optimization can always
+    /// be performed.
+    Tail = 18,
+
+    /// Special calling convention on Windows for calling the Control
+    /// Guard Check ICall funtion. The function takes exactly one argument
+    /// (address of the target function) passed in the first argument register,
+    /// and has no return value. All register values are preserved.
+    CFGuard_Check = 19,
+
     // Target - This is the start of the target-specific calling conventions,
     // e.g. fastcall and thiscall on X86.
     FirstTargetCC = 64,
@@ -221,10 +232,6 @@ namespace CallingConv {
 
     // Calling convention between AArch64 Advanced SIMD functions
     AArch64_VectorCall = 97,
-#if INTEL_CUSTOMIZATION
-    /// \brief SVML for intel compiler
-    SVML = 98,
-#endif  // INTEL_CUSTOMIZATION
 
     /// Calling convention between AArch64 SVE functions
     AArch64_SVE_VectorCall = 98,
@@ -233,6 +240,11 @@ namespace CallingConv {
     /// argument is required to be the function ptr being indirectly called.
     /// The remainder matches the regular calling convention.
     WASM_EmscriptenInvoke = 99,
+
+#if INTEL_CUSTOMIZATION
+    /// \brief SVML for intel compiler
+    SVML = 100,
+#endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023

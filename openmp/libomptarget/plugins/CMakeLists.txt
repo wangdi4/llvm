@@ -70,8 +70,6 @@ add_subdirectory(ppc64le)
 add_subdirectory(x86_64)
 
 if(INTEL_CUSTOMIZATION)
-  add_subdirectory(nios2)
-  add_subdirectory(x86_64_mic)
 # INTEL_FEATURE_CSA
   is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
   if (p)
@@ -82,6 +80,9 @@ endif()
 
 if (INTEL_COLLAB)
   add_subdirectory(opencl)
+# INTEL_CUSTOMIZATION
+  add_subdirectory(level0)
+# end INTEL_CUSTOMIZATION
 endif(INTEL_COLLAB)
 
 # Make sure the parent scope can see the plugins that will be created.

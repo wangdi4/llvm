@@ -1,12 +1,12 @@
+; REQUIRES: assert
 ; Test that checks if whole program not seen was identified correctly and the output
 ; is printed correctly when whole-program-trace-symbols is used in combination
 ; with whole-program-trace.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-trace-symbols -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -whole-program-trace-visibility -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:      UNRESOLVED CALLSITES: 0
+; CHECK:     WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE
 ; CHECK:      VISIBLE OUTSIDE LTO: 1
 ; CHECK-NEXT:   _ZN8Derived23fooEv
 ; CHECK:     WHOLE PROGRAM NOT DETECTED

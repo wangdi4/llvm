@@ -54,7 +54,7 @@ static int DebugLevel = 0;
 #endif
 
 #define NUMBER_OF_DEVICES 1
-#define OFFLOADSECTIONNAME ".omp_offloading.entries"
+#define OFFLOADSECTIONNAME "omp_offloading_entries"
 #define CSA_ASM_SECTION ".csa.code"
 #define CSA_CODE_SECTION ".csa"
 

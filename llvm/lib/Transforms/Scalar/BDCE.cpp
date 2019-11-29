@@ -20,13 +20,14 @@
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "bdce"
@@ -102,7 +103,7 @@ static bool bitTrackingDCE(Function &F, DemandedBits &DB) {
         (I.getType()->isIntOrIntVectorTy() &&
          DB.getDemandedBits(&I).isNullValue() &&
          wouldInstructionBeTriviallyDead(&I))) {
-      salvageDebugInfo(I);
+      salvageDebugInfoOrMarkUndef(I);
       Worklist.push_back(&I);
       I.dropAllReferences();
       Changed = true;

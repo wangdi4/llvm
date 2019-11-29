@@ -280,8 +280,12 @@ static bool isParOrTargetDirective(Instruction *Inst,
     case DIR_OMP_PARALLEL_LOOP:
     case DIR_OMP_PARALLEL_SECTIONS:
     case DIR_OMP_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_TEAMS:
     case DIR_OMP_SIMD:
+      // DIR_OMP_TEAMS used to be here, but it prevented guarding
+      // instructions with side effects inside OpenMP teams regions.
+      // We may want to get it back here, so that we insert barriers
+      // around OpenMP teams region. This is currently not required,
+      // since there may not be any code between "target" and "teams".
       return true;
   }
 
@@ -333,7 +337,9 @@ static bool ignoreSpecialOperands(const Instruction *I,
       "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
-    auto CalledF = CallI->getCalledFunction();
+    // Unprototyped function calls may result in a call of a bitcasted
+    // Function.
+    auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found ");
     if (CalledF->hasName() &&
         IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
@@ -366,20 +372,37 @@ void VPOParoptTransform::guardSideEffectStatements(
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
-  BasicBlock *CriticalBegin  = nullptr;
-  BasicBlock *CriticalExit  = nullptr;
 
   SmallPtrSet<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
   SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
 
+  auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
+    LLVMContext &C = InsertPt->getContext();
+
+    // TODO: we only need global fences for side effect instructions
+    //       inside "omp target" and outside of the enclosed regions.
+    //       Moreover, it probably makes sense to guard such instructions
+    //       with (get_group_id() == 0) vs (get_local_id() == 0).
+    VPOParoptUtils::genOCLGenericCall(
+        "_Z18work_group_barrierj", Type::getVoidTy(C),
+        // CLK_LOCAL_MEM_FENCE  == 1
+        // CLK_GLOBAL_MEM_FENCE == 2
+        // CLK_IMAGE_MEM_FENCE  == 4
+        { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
+        InsertPt);
+  };
+
   // Find the parallel region begin and end directives,
   // and add barriers at the entry and exit of parallel region.
   for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
        I != E; ++I) {
 
-    if (isParOrTargetDirective(&*I)) {
+    if (isParOrTargetDirective(&*I) &&
+        // Barriers must not be inserted around SIMD loops.
+        // SIMD directives must not be removed either.
+        !isParOrTargetDirective(&*I, false, true)) {
 
       ParDirectiveBegin = &*I;
       ParDirectiveExit =
@@ -390,20 +413,18 @@ void VPOParoptTransform::guardSideEffectStatements(
       GeneralUtils::collectBBSet(ParDirectiveBegin->getParent(),
                                  ParDirectiveExit->getParent(), TempParBBVec);
       ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
+
       InsertBarrierAt.insert(ParDirectiveBegin);
 
       InsertBarrierAt.insert(ParDirectiveExit);
 
-      //Remove the directive only if it is not SIMD
-      if (!isParOrTargetDirective(&*I, false, true))
-        ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
+      ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
 
       LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
                         << "\n and after ::" << *ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
-
     } else if (TargetDirectiveBegin == nullptr &&
                isParOrTargetDirective(&*I, true)) {
       TargetDirectiveBegin = &*I;
@@ -413,31 +434,11 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
-    } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
-      auto CallI = cast<CallInst>(&*I);
-      // Unprototyped function calls may result in a call of a bitcasted
-      // Function.
-      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledF) &&
-          CalledF->getName() == "__kmpc_critical") {
-        CriticalBegin = CallI->getParent();
-      }
-    } else if (CriticalExit == nullptr && isa<CallInst>(&*I)){
-      auto CallI = cast<CallInst>(&*I);
-      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledF) &&
-          CalledF->getName() == "__kmpc_end_critical") {
-        CriticalExit = CallI->getParent();
-        GeneralUtils::collectBBSet(CriticalBegin,
-            CriticalExit, CriticalSectionBlocks);
-      }
     }
   }
 
   SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
                                          ParBBVector.end());
-  SmallPtrSet<BasicBlock *, 10> CriticalBBSet(CriticalSectionBlocks.begin(),
-                                         CriticalSectionBlocks.end());
   // Iterate over all instructions and add the side effect instructions
   // to the set "SideEffectInstructions".
 
@@ -493,6 +494,10 @@ void VPOParoptTransform::guardSideEffectStatements(
     BasicBlock *ThisBB = InsertPt->getParent();
 
     // If BB already guarded continue
+    // FIXME: since we are splitting blocks, when we insert
+    //        the guards, an instruction following the already guarded
+    //        instruction originally from the same block will look
+    //        like beloning to a different block.
     if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
       continue;
 
@@ -504,12 +509,6 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
     Instruction* Term = InsertPt->getNextNonDebugInstruction();
-    if (CriticalBBSet.find(ThisBB) != CriticalBBSet.end()){
-      // Add master thread guard the basic block in the critical section.
-      // That is, get the terminator instruction, and split that into another
-      // BB, and guard everything else under the condition.
-      Term = ThisBB->getTerminator();
-    }
 
     BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
 
@@ -534,6 +533,13 @@ void VPOParoptTransform::guardSideEffectStatements(
     // Add the new split basic block, since it is already guarded
     //SideEffectBasicBlocks.insert(InsertPt->getParent());
 
+    // Insert group barrier at the merge point.
+    // We cannot just put TailBlock->getFirstNonPHI() into
+    // InsertBarrierAt, because this will not work if two side-effect
+    // instructions are consecutive - the barrier for the first guard
+    // will be inserted in the "then" block for the second instruction.
+    InsertWorkGroupBarrier(TailBlock->getFirstNonPHI());
+
     SideEffectBasicBlocks.insert(InsertPt->getParent());
     LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
   }
@@ -541,13 +547,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   if (!SideEffectInstructions.empty()){
     for (auto InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
-      IRBuilder<> Builder(InsertPt);
-      SmallVector<Value *, 3> Arg;
-      // TODO: select dimension of thread_id,
-      initArgArray(&Arg, 0);
-      VPOParoptUtils::genOCLGenericCall("_Z18work_group_barrierj",
-                                        GeneralUtils::getSizeTTy(F), Arg,
-                                        InsertPt);
+      InsertWorkGroupBarrier(InsertPt);
     }
   }
 
@@ -685,6 +685,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     Builder.CreateStore(
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
         OffloadError);
+    if (isa<WRNTargetDataNode>(W)) {
+      // For target data directive, if the "if" clause is evaluated to false,
+      // device is host, and the outlined function is called without mapping
+      // data.
+      SmallVector<Value *, 4> FnArgs(NewCall->arg_operands());
+      Builder.CreateCall(NewF, FnArgs, "");
+    }
   } else
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
 
@@ -714,7 +721,17 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->eraseFromParent();
       // We cannot erase the function right now, because it now contains
       // the region's entry/exit calls, which we will try to erase later.
-      NewF->removeFromParent();
+
+#if INTEL_CUSTOMIZATION
+      // TEMPORARY to address JIRA  CMPLRLLVM-10758.
+#endif // INTEL_CUSTOMIZATION
+      // Cannot just disconnect from parent as some passes
+      // walk all functions and encounters this function without
+      // a module and asserts.
+      // TODO Fix WRN's entry/exit BB to null and modify VPOUtils
+      // VPOUtils::stripDirectives to accept and ignore null BBs
+      // and remove the NewF completely.
+      // NewF->removeFromParent();
     }
   }
 
@@ -919,20 +936,39 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
-    auto *L = WL->getWRNLoopInfo().getLoop(I);
-    auto *UpperBoundAI =
-        cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-    assert(UpperBoundAI->getParent() != NewEntryBB &&
-           "genTgtLoopParameter: how come UB alloca "
-           "is in target region's begin block?");
-    if (!DT->dominates(UpperBoundAI, NewEntryBB)) {
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": upper bound AllocaInst for loop #" << I <<
-                 " does not dominate the enclosing target region.\n");
-      return nullptr;
+  WRNTargetNode *WT = cast<WRNTargetNode>(W);
+  auto &UncollapsedNDRange = WT->getUncollapsedNDRange();
+  unsigned NumLoops = 0;
+
+  if (UncollapsedNDRange.empty()) {
+    for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
+      auto *L = WL->getWRNLoopInfo().getLoop(I);
+      auto *UpperBoundDef =
+          cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
+      if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(UpperBoundDef, W)) {
+        // FIXME: if we stop calling this function for SPIR compilation,
+        //        then the check for isTargetSPIRV() has to be removed below.
+        if (isTargetSPIRV()) {
+          // This code may be executed only for ImplicitSIMDSPMDES mode.
+          OptimizationRemarkMissed R(
+              "openmp", "Target", WL->getEntryDirective());
+          R << "Consider using OpenMP combined construct "
+              "with \"target\" to get optimal performance";
+          ORE.emit(R);
+        }
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": loop bounds cannot be computed before the enclosing "
+                   "target region.\n");
+        return nullptr;
+      }
     }
+
+    NumLoops = WL->getWRNLoopInfo().getNormIVSize();
   }
+  else
+    NumLoops = UncollapsedNDRange.size();
+
+  assert(NumLoops != 0 && "Zero loops in loop construct.");
 
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
@@ -940,7 +976,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   IRBuilder<> Builder(InsertPt);
   SmallVector<Type *, 4> CLLoopParameterRecTypeArgs;
   CLLoopParameterRecTypeArgs.push_back(Int64Ty);
-  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+  for (unsigned I = 0; I < NumLoops; I++) {
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
@@ -958,10 +994,10 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
   Builder.CreateStore(
       Builder.CreateSExtOrTrunc(
-          Builder.getInt32(WL->getWRNLoopInfo().getNormIVSize()), Int64Ty),
+          Builder.getInt32(NumLoops), Int64Ty),
       BaseGep);
 
-  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+  for (unsigned I = 0; I < NumLoops; I++) {
     Loop *L = WL->getWRNLoopInfo().getLoop(I);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
@@ -971,8 +1007,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     Value *UpperBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
-    Value *CloneUB = VPOParoptUtils::cloneInstructions(
-        WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    Value *CloneUB = nullptr;
+    if (UncollapsedNDRange.empty())
+      CloneUB = VPOParoptUtils::cloneInstructions(
+          WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    else
+      CloneUB = Builder.CreateLoad(UncollapsedNDRange[I]);
+
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
                         UpperBndGep);
@@ -1177,10 +1218,10 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    genOffloadArraysArgument(&Info, Call);
+    genOffloadArraysArgument(&Info, InsertPt);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, Call);
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
   } else if (isa<WRNTargetUpdateNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
@@ -2218,20 +2259,16 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
   W->populateBBSet();
 
-  if (W->getBBSetSize() != 3) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Expected 3 BBs in Target Variant Dispatch\n");
-    return false;
-  }
-
   // The first and last BasicBlocks contain the region.entry/exit calls.
-  // The middle one has the base function call we're interested in.
-  BasicBlock *BB = *(W->bbset_begin() + 1);
+  // The first call instruction found in the remaining BBs is the
+  // base function call. All other instructions in the region are ignored.
 
   CallInst *BaseCall = nullptr;
-  for (Instruction &I : *BB)
-    if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
-      break;
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1))
+    for (Instruction &I : *BB) {
+      if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
+        break;
+    }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)

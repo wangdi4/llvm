@@ -20,6 +20,8 @@
 #error SOAToAOSClassInfo.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "SOAToAOSCommon.h"
+
 #include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h"
 
 namespace llvm {
@@ -108,6 +110,12 @@ public:
   // Analyze each member function to detect functionality.
   bool analyzeClassFunctions();
 
+  // Returns index of "flag" field.
+  int32_t getFlagField() { return FlagField; }
+
+  // Returns index of "array" field.
+  int32_t getArrayField() { return ArrayField; }
+
   // Returns CtorFunction.
   Function *getCtorFunction() { return CtorFunction; }
 
@@ -131,9 +139,22 @@ public:
   // Returns size of AllocsInCtor.
   int32_t getAllocsInCtorSize() { return AllocsInCtor.size(); }
 
+  // Returns field position of vector class.
+  int32_t getFieldIdx() { return FieldIdx; }
+
   // Returns true if F is member function of candidate struct.
   bool isCandidateStructMethod(Function *F) {
     return MICInfo->isStructMethod(F);
+  }
+
+  // Returns true if F is member function of candidate field vector class.
+  bool isCandidateMemberFunction(Function *F) {
+    return MICInfo->isMemberFunction(F, FieldIdx);
+  }
+
+  // Returns true if Ty represents address of element.
+  bool isElemDataAddrType(Type *Ty) {
+    return ElemDataAddrTypes.count(Ty);
   }
 
   // Returns iterator for member functions of field element class.
@@ -149,6 +170,13 @@ public:
   inline iterator_range<a_const_iterator> allocs_in_ctor() {
     return make_range(AllocsInCtor.begin(), AllocsInCtor.end());
   }
+
+  Function *getCtorWrapper();
+
+  Function *getSingleMemberFunction(FunctionKind);
+
+  // Returns store instruction that saves flag value.
+  StoreInst *getFlagFieldStoreInstInCtor();
 
 private:
   const DataLayout &DL;
@@ -189,6 +217,9 @@ private:
   // as different data-element. This is used to maintain list of all
   // data elements.
   SmallPtrSet<Type *, 4> ElemDataTypes;
+
+  // Pointer types of data elements
+  SmallPtrSet<Type *, 4> ElemDataAddrTypes;
 
   // While recognizing functionality of member functions, this is used
   // to maintain all processed instructions.
@@ -259,6 +290,7 @@ private:
   bool checkCapacityIncrementPattern(Value *, Argument *);
   bool isControlledUnderCapacityField(BasicBlock *, Value *, Value *);
   Value *isLoadOfArg(Value *);
+  Value *isValidArgumentSave(Value *);
   const Value *skipCasts(const Value *V);
   FunctionKind recognizeConstructor(Function *);
   FunctionKind recognizeDerivedConstructor(Function *, Type *, Type *);

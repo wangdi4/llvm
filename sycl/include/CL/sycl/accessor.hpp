@@ -699,7 +699,7 @@ class accessor :
 
   detail::AccessorImplDevice<AdjustedDim> impl;
 
-  PtrType MData;
+  ConcreteASPtrType MData;
 
   void __init(ConcreteASPtrType Ptr, range<AdjustedDim> AccessRange,
               range<AdjustedDim> MemRange, id<AdjustedDim> Offset) {
@@ -715,7 +715,7 @@ class accessor :
       MData += Offset[0];
   }
 
-  PtrType getQualifiedPtr() const { return MData; }
+  ConcreteASPtrType getQualifiedPtr() const { return MData; }
 
 public:
   // Default constructor for objects later initialized with __init member.
@@ -748,18 +748,20 @@ public:
                 (IsPlaceH && (IsGlobalBuf || IsConstantBuf)))>* = nullptr>
   accessor(buffer<DataT, 1, AllocatorT> &BufferRef)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<AdjustedDim>(), range<1>{1}, BufferRef.get_range()) {
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
-            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), AdjustedDim,
-            sizeof(DataT)) {
-    detail::EventImplPtr Event =
-        detail::Scheduler::getInstance().addHostAccessor(
-            AccessorBaseHost::impl.get());
-    Event->wait(Event);
+            detail::convertToArrayOfN<3, 1>(range<1>{1}),
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), AdjustedDim, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
+    if (!IsPlaceH) {
+      detail::EventImplPtr Event =
+          detail::Scheduler::getInstance().addHostAccessor(
+              AccessorBaseHost::impl.get());
+      Event->wait(Event);
+    }
 #endif
   }
 
@@ -769,15 +771,15 @@ public:
                                (!IsPlaceH && (IsGlobalBuf || IsConstantBuf)),
                                handler> &CommandGroupHandler)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<AdjustedDim>(), range<1>{1}, BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
-            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), Dimensions,
-            sizeof(DataT)) {
+            detail::convertToArrayOfN<3, 1>(range<1>{1}),
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
     CommandGroupHandler.associateWithHandler(*this);
   }
 #endif
@@ -789,19 +791,21 @@ public:
                 * = nullptr>
   accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
             detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), Dimensions,
-            sizeof(DataT)) {
-    detail::EventImplPtr Event =
-        detail::Scheduler::getInstance().addHostAccessor(
-            AccessorBaseHost::impl.get());
-    Event->wait(Event);
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
+    if (!IsPlaceH) {
+      detail::EventImplPtr Event =
+          detail::Scheduler::getInstance().addHostAccessor(
+              AccessorBaseHost::impl.get());
+      Event->wait(Event);
+    }
   }
 #endif
 
@@ -811,15 +815,15 @@ public:
   accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
            handler &CommandGroupHandler)
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
+      : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
             detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
-            detail::convertToArrayOfN<3, 1>(BufferRef.MemRange), AccessMode,
-            detail::getSyclObjImpl(BufferRef).get(), Dimensions,
-            sizeof(DataT)) {
+            detail::convertToArrayOfN<3, 1>(BufferRef.get_range()), AccessMode,
+            detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
+            BufferRef.OffsetInBytes, BufferRef.IsSubBuffer) {
     CommandGroupHandler.associateWithHandler(*this);
   }
 #endif
@@ -831,18 +835,21 @@ public:
   accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
            range<Dimensions> AccessRange, id<Dimensions> AccessOffset = {})
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(AccessOffset, AccessRange, BufferRef.MemRange) {
+      : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
                          detail::convertToArrayOfN<3, 1>(AccessRange),
-                         detail::convertToArrayOfN<3, 1>(BufferRef.MemRange),
+                         detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
                          AccessMode, detail::getSyclObjImpl(BufferRef).get(),
-                         Dimensions, sizeof(DataT)) {
-    detail::EventImplPtr Event =
-        detail::Scheduler::getInstance().addHostAccessor(
-            AccessorBaseHost::impl.get());
-    Event->wait(Event);
+                         Dimensions, sizeof(DataT), BufferRef.OffsetInBytes,
+                         BufferRef.IsSubBuffer) {
+    if (!IsPlaceH) {
+      detail::EventImplPtr Event =
+          detail::Scheduler::getInstance().addHostAccessor(
+              AccessorBaseHost::impl.get());
+      Event->wait(Event);
+    }
   }
 #endif
 
@@ -853,23 +860,24 @@ public:
            handler &CommandGroupHandler, range<Dimensions> AccessRange,
            id<Dimensions> AccessOffset = {})
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(AccessOffset, AccessRange, BufferRef.MemRange) {
+      : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
                          detail::convertToArrayOfN<3, 1>(AccessRange),
-                         detail::convertToArrayOfN<3, 1>(BufferRef.MemRange),
+                         detail::convertToArrayOfN<3, 1>(BufferRef.get_range()),
                          AccessMode, detail::getSyclObjImpl(BufferRef).get(),
-                         Dimensions, sizeof(DataT)) {
+                         Dimensions, sizeof(DataT), BufferRef.OffsetInBytes,
+                         BufferRef.IsSubBuffer) {
     CommandGroupHandler.associateWithHandler(*this);
   }
 #endif
 
   constexpr bool is_placeholder() const { return IsPlaceH; }
 
-  size_t get_size() const { return getMemoryRange().size() * sizeof(DataT); }
+  size_t get_size() const { return getAccessRange().size() * sizeof(DataT); }
 
-  size_t get_count() const { return getMemoryRange().size(); }
+  size_t get_count() const { return getAccessRange().size(); }
 
   template <int Dims = Dimensions, typename = detail::enable_if_t<(Dims > 0)>>
   range<Dimensions> get_range() const {
@@ -1030,9 +1038,9 @@ public:
       : impl(detail::InitializedVal<AdjustedDim, range>::template get<0>()) {}
 
 private:
-  PtrType getQualifiedPtr() const { return MData; }
+  ConcreteASPtrType getQualifiedPtr() const { return MData; }
 
-  PtrType MData;
+  ConcreteASPtrType MData;
 
 #else
 
@@ -1103,26 +1111,26 @@ public:
     return getQualifiedPtr()[Index];
   }
 
-  template <int Dims = Dimensions,
-            typename = detail::enable_if_t<Dims == 0 &&
-                                           AccessMode == access::mode::atomic>>
-  operator atomic<DataT, AS>() const {
+  template <int Dims = Dimensions>
+  operator typename detail::enable_if_t<
+      Dims == 0 && AccessMode == access::mode::atomic, atomic<DataT, AS>>()
+      const {
     return atomic<DataT, AS>(multi_ptr<DataT, AS>(getQualifiedPtr()));
   }
 
-  template <int Dims = Dimensions,
-            typename = detail::enable_if_t<(Dims > 0) &&
-                                           AccessMode == access::mode::atomic>>
-  atomic<DataT, AS> operator[](id<Dimensions> Index) const {
+  template <int Dims = Dimensions>
+  typename detail::enable_if_t<(Dims > 0) && AccessMode == access::mode::atomic,
+                               atomic<DataT, AS>>
+  operator[](id<Dimensions> Index) const {
     const size_t LinearIndex = getLinearIndex(Index);
     return atomic<DataT, AS>(
         multi_ptr<DataT, AS>(getQualifiedPtr() + LinearIndex));
   }
 
-  template <int Dims = Dimensions,
-            typename = detail::enable_if_t<Dims == 1 &&
-                                           AccessMode == access::mode::atomic>>
-  atomic<DataT, AS> operator[](size_t Index) const {
+  template <int Dims = Dimensions>
+  typename detail::enable_if_t<Dims == 1 && AccessMode == access::mode::atomic,
+                               atomic<DataT, AS>>
+  operator[](size_t Index) const {
     return atomic<DataT, AS>(multi_ptr<DataT, AS>(getQualifiedPtr() + Index));
   }
 

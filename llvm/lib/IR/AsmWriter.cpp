@@ -68,6 +68,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -369,6 +370,8 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::PreserveAll:   Out << "preserve_allcc"; break;
   case CallingConv::CXX_FAST_TLS:  Out << "cxx_fast_tlscc"; break;
   case CallingConv::GHC:           Out << "ghccc"; break;
+  case CallingConv::Tail:          Out << "tailcc"; break;
+  case CallingConv::CFGuard_Check: Out << "cfguard_checkcc"; break;
   case CallingConv::X86_StdCall:   Out << "x86_stdcallcc"; break;
   case CallingConv::X86_FastCall:  Out << "x86_fastcallcc"; break;
   case CallingConv::X86_ThisCall:  Out << "x86_thiscallcc"; break;
@@ -382,6 +385,9 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::ARM_AAPCS:     Out << "arm_aapcscc"; break;
   case CallingConv::ARM_AAPCS_VFP: Out << "arm_aapcs_vfpcc"; break;
   case CallingConv::AArch64_VectorCall: Out << "aarch64_vector_pcs"; break;
+  case CallingConv::AArch64_SVE_VectorCall:
+    Out << "aarch64_sve_vector_pcs";
+    break;
   case CallingConv::MSP430_INTR:   Out << "msp430_intrcc"; break;
   case CallingConv::AVR_INTR:      Out << "avr_intrcc "; break;
   case CallingConv::AVR_SIGNAL:    Out << "avr_signalcc "; break;
@@ -2591,14 +2597,6 @@ void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
 }
 
 void AssemblyWriter::printModule(const Module *M) {
-#if INTEL_CUSTOMIZATION
-  if (M->isIntelProprietary()) {
-    report_fatal_error("IR output disabled because proprietary optimizations "
-                       "have been performed.");
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   Machine.initializeIfNeeded();
 
   if (ShouldPreserveUseListOrder)
@@ -2983,13 +2981,14 @@ void AssemblyWriter::printFunctionSummary(const FunctionSummary *FS) {
 
   FunctionSummary::FFlags FFlags = FS->fflags();
   if (FFlags.ReadNone | FFlags.ReadOnly | FFlags.NoRecurse |
-      FFlags.ReturnDoesNotAlias) {
+      FFlags.ReturnDoesNotAlias | FFlags.NoInline | FFlags.AlwaysInline) {
     Out << ", funcFlags: (";
     Out << "readNone: " << FFlags.ReadNone;
     Out << ", readOnly: " << FFlags.ReadOnly;
     Out << ", noRecurse: " << FFlags.NoRecurse;
     Out << ", returnDoesNotAlias: " << FFlags.ReturnDoesNotAlias;
     Out << ", noInline: " << FFlags.NoInline;
+    Out << ", alwaysInline: " << FFlags.AlwaysInline;
     Out << ")";
   }
   if (!FS->calls().empty()) {
@@ -3434,14 +3433,6 @@ void AssemblyWriter::printTypeIdentities() {
 
 /// printFunction - Print all aspects of a function.
 void AssemblyWriter::printFunction(const Function *F) {
-#if INTEL_CUSTOMIZATION
-  if (F->getParent()->isIntelProprietary()) {
-    report_fatal_error("IR output disabled because proprietary optimizations "
-                       "have been performed.");
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // Print out the return type and name.
   Out << '\n';
 
@@ -3610,6 +3601,7 @@ void AssemblyWriter::printArgument(const Argument *Arg, AttributeSet Attrs) {
 
 /// printBasicBlock - This member is called for each basic block in a method.
 void AssemblyWriter::printBasicBlock(const BasicBlock *BB) {
+  assert(BB && BB->getParent() && "block without parent!");
   bool IsEntryBlock = BB == &BB->getParent()->getEntryBlock();
   if (BB->hasName()) {              // Print out the label if it exists...
     Out << "\n";
@@ -3624,10 +3616,7 @@ void AssemblyWriter::printBasicBlock(const BasicBlock *BB) {
       Out << "<badref>:";
   }
 
-  if (!BB->getParent()) {
-    Out.PadToColumn(50);
-    Out << "; Error: Block without parent!";
-  } else if (!IsEntryBlock) {
+  if (!IsEntryBlock) {
     // Output predecessors for the block.
     Out.PadToColumn(50);
     Out << ";";

@@ -22,6 +22,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/InitializePasses.h"
 
@@ -55,6 +56,7 @@ INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 #endif  // INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
 
@@ -82,6 +84,7 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
 #endif  // INTEL_CUSTOMIZATION
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
 bool VPOParopt::runOnModule(Module &M) {
@@ -92,11 +95,15 @@ bool VPOParopt::runOnModule(Module &M) {
     return getAnalysis<WRegionInfoWrapperPass>(F).getWRegionInfo();
   };
 
+  auto TLIGetter = [&](Function &F) -> TargetLibraryInfo & {
+    return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
+
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
 #endif  // INTEL_CUSTOMIZATION
 
-  return Impl.runImpl(M, WRegionInfoGetter);
+  return Impl.runImpl(M, WRegionInfoGetter, TLIGetter);
 }
 
 PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -106,11 +113,17 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<WRegionInfoAnalysis>(F);
   };
 
+  auto TLIGetter = [&](Function &F) -> TargetLibraryInfo & {
+    auto &FAM =
+        AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
 #if INTEL_CUSTOMIZATION
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(M).getVerbosity();
 #endif  // INTEL_CUSTOMIZATION
 
-  if (!runImpl(M, WRegionInfoGetter))
+  if (!runImpl(M, WRegionInfoGetter, TLIGetter))
     return PreservedAnalyses::all();
 
   return PreservedAnalyses::none();
@@ -121,7 +134,8 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
 // paropt's function and module level transformations.
 bool VPOParoptPass::runImpl(
     Module &M,
-    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter) {
+    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
 
   LLVM_DEBUG(dbgs() << "\n====== VPO ParoptPass ======\n\n");
 
@@ -132,7 +146,7 @@ bool VPOParoptPass::runImpl(
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptModuleTransform VP(M, Mode, OptLevel, SwitchToOffload,
                               DisableOffload);
-  bool Changed = VP.doParoptTransforms(WRegionInfoGetter);
+  bool Changed = VP.doParoptTransforms(WRegionInfoGetter, TLIGetter);
 
   LLVM_DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;

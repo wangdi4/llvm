@@ -144,6 +144,9 @@ TEST(ParsedASTTest,
     template <>
     int foo<bool> = 0;
   )cpp";
+  // FIXME: Auto-completion in a template requires disabling delayed template
+  // parsing.
+  TU.ExtraArgs.push_back("-fno-delayed-template-parsing");
 
   auto AST = TU.build();
   EXPECT_THAT(
@@ -229,8 +232,8 @@ TEST(ParsedASTTest, CanBuildInvocationWithUnknownArgs) {
 
 TEST(ParsedASTTest, CollectsMainFileMacroExpansions) {
   Annotations TestCase(R"cpp(
-    #define MACRO_ARGS(X, Y) X Y
-    // - premable ends, macros inside preamble are not considered in main file.
+    #define ^MACRO_ARGS(X, Y) X Y
+    // - preamble ends
     ^ID(int A);
     // Macro arguments included.
     ^MACRO_ARGS(^MACRO_ARGS(^MACRO_EXP(int), A), ^ID(= 2));
@@ -257,6 +260,15 @@ TEST(ParsedASTTest, CollectsMainFileMacroExpansions) {
       // Includes macro expansions in arguments that are expressions
       ^assert(0 <= ^BAR);
     }
+
+    #ifdef ^UNDEFINED
+    #endif
+
+    #define ^MULTIPLE_DEFINITION 1
+    #undef ^MULTIPLE_DEFINITION
+
+    #define ^MULTIPLE_DEFINITION 2
+    #undef ^MULTIPLE_DEFINITION
   )cpp");
   auto TU = TestTU::withCode(TestCase.code());
   TU.HeaderCode = R"cpp(
@@ -270,12 +282,15 @@ TEST(ParsedASTTest, CollectsMainFileMacroExpansions) {
     int D = DEF;
   )cpp";
   ParsedAST AST = TU.build();
-  const std::vector<SourceLocation> &MacroExpansionLocations = AST.getMacros();
   std::vector<Position> MacroExpansionPositions;
-  for (const auto &L : MacroExpansionLocations)
-    MacroExpansionPositions.push_back(
-        sourceLocToPosition(AST.getSourceManager(), L));
-  EXPECT_EQ(MacroExpansionPositions, TestCase.points());
+  for (const auto &SIDToRefs : AST.getMacros().MacroRefs) {
+    for (const auto &R : SIDToRefs.second)
+      MacroExpansionPositions.push_back(R.start);
+  }
+  for (const auto &R : AST.getMacros().UnknownMacros)
+    MacroExpansionPositions.push_back(R.start);
+  EXPECT_THAT(MacroExpansionPositions,
+              testing::UnorderedElementsAreArray(TestCase.points()));
 }
 
 } // namespace

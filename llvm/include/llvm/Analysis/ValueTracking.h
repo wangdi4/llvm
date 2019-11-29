@@ -225,6 +225,12 @@ class Value;
   ///   x < -0 --> false
   bool CannotBeOrderedLessThanZero(const Value *V, const TargetLibraryInfo *TLI);
 
+  /// Return true if the floating-point scalar value is not an infinity or if
+  /// the floating-point vector value has no infinities. Return false if a value
+  /// could ever be infinity.
+  bool isKnownNeverInfinity(const Value *V, const TargetLibraryInfo *TLI,
+                            unsigned Depth = 0);
+
   /// Return true if the floating-point scalar value is not a NaN or if the
   /// floating-point vector value has no NaN elements. Return false if a value
   /// could ever be NaN.
@@ -585,6 +591,10 @@ class Value;
   /// the parent of I.
   bool programUndefinedIfFullPoison(const Instruction *PoisonI);
 
+  /// Return true if this function can prove that V is never undef value
+  /// or poison value.
+  bool isGuaranteedNotToBeUndefOrPoison(const Value *V);
+
   /// Specific patterns of select instructions we can match.
   enum SelectPatternFlavor {
     SPF_UNKNOWN = 0,
@@ -644,12 +654,12 @@ class Value;
   SelectPatternResult matchSelectPattern(Value *V, Value *&LHS, Value *&RHS,
                                          Instruction::CastOps *CastOp = nullptr,
                                          unsigned Depth = 0);
+
   inline SelectPatternResult
-  matchSelectPattern(const Value *V, const Value *&LHS, const Value *&RHS,
-                     Instruction::CastOps *CastOp = nullptr) {
-    Value *L = const_cast<Value*>(LHS);
-    Value *R = const_cast<Value*>(RHS);
-    auto Result = matchSelectPattern(const_cast<Value*>(V), L, R);
+  matchSelectPattern(const Value *V, const Value *&LHS, const Value *&RHS) {
+    Value *L = const_cast<Value *>(LHS);
+    Value *R = const_cast<Value *>(RHS);
+    auto Result = matchSelectPattern(const_cast<Value *>(V), L, R);
     LHS = L;
     RHS = R;
     return Result;

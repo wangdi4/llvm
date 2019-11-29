@@ -21,6 +21,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Analysis/CallGraph.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
 
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
@@ -159,6 +162,139 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
                     << "\nOCL printf decl: " << *OCLPrintfDecl << "\n");
 }
 
+void VPOParoptModuleTransform::collectMayHaveOMPCriticalFunctions(
+    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
+  // Create call graph for the Module.
+  CallGraph MCG(M);
+  // Connect all orphan nodes to the entry node.
+  CallGraphNode *EntryNode = MCG.getExternalCallingNode();
+  for (auto &CGIt : MCG) {
+    CallGraphNode *CGN = CGIt.second.get();
+    if (CGN->getNumReferences() == 0 &&
+        // Skip external null nodes.
+        CGN->getFunction()) {
+      EntryNode->addCalledFunction(nullptr, CGN);
+    }
+  }
+
+  auto GetLibFunc = [&TLIGetter](Function *F) -> LibFunc {
+    if (!F)
+      return LibFunc::NotLibFunc;
+
+    TargetLibraryInfo &TLI = TLIGetter(*F);
+    LibFunc LF;
+    if (!TLI.getLibFunc(*F, LF))
+      return LibFunc::NotLibFunc;
+
+    return LF;
+  };
+
+#ifndef NDEBUG
+  for (auto &CGIt : MCG) {
+    Function *CGF = CGIt.second.get()->getFunction();
+    if (!CGF)
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CallGraph Function: ";
+                 dbgs() << "(null)";
+                 dbgs() << "\n");
+    else
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CallGraph Function: ";
+                 CGF->printAsOperand(dbgs());
+                 if (GetLibFunc(CGF) != LibFunc::NotLibFunc)
+                   dbgs() << " - is LibFunc";
+                 dbgs() << "\n");
+
+    // Print one level of the callees to get some information about the graph.
+    for (auto &CalleeNode :
+             make_range(CGIt.second.get()->begin(), CGIt.second.get()->end())) {
+      Function *CalleeF = CalleeNode.second->getFunction();
+      if (!CalleeF)
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\tCallGraph callee Function: ";
+                   dbgs() << "(null)";
+                   dbgs() << "\n");
+      else {
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\tCallGraph callee Function: ";
+                   CalleeF->printAsOperand(dbgs());
+                   if (GetLibFunc(CalleeF) != LibFunc::NotLibFunc)
+                     dbgs() << " - is LibFunc";
+                   dbgs() << "\n");
+      }
+    }
+  }
+
+  // Print out the DFS post-order list.
+  for (auto *CGN : post_order(&MCG)) {
+    Function *CGF = CGN->getFunction();
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Post-order: CallGraph Function: ";
+               if (CGF) {
+                 CGF->printAsOperand(dbgs());
+                 if (GetLibFunc(CGF) != LibFunc::NotLibFunc)
+                   dbgs() << " - is LibFunc";
+               } else
+                 dbgs() << "(null)";
+               dbgs() << "\n");
+  }
+#endif  // NDEBUG
+
+  // Mark __kmpc_critical() function.
+  for (auto &CGIt : MCG) {
+    Function *CGF = CGIt.second.get()->getFunction();
+    if (GetLibFunc(CGF) == LibFunc_kmpc_critical)
+      // We may probably break out of the loop here, but this will only
+      // be correct if only one function name qualifies as
+      // LibFunc_kmpc_critical.
+      MayHaveOMPCritical.insert(CGF);
+  }
+
+  // Propagate may-have-openmp-critical attribute across the call graph.
+  bool Updated;
+
+  do {
+    Updated = false;
+
+    for (auto &CGN : post_order(&MCG)) {
+      auto *CGF = CGN->getFunction();
+      if (!CGF)
+        // Skip external null nodes.
+        continue;
+
+      // Skip LibFunc's (e.g. sinf).
+      // They will have external null callee, but we do not expect
+      // OpenMP critical inside them.
+      auto &TLI = TLIGetter(*CGF);
+      LibFunc LF; // Not used.
+      if (TLI.getLibFunc(*CGF, LF))
+        continue;
+
+      if (MayHaveOMPCritical.find(CGF) !=
+          MayHaveOMPCritical.end())
+        // Function is already marked.
+        continue;
+
+      // Look for callees.
+      for (auto &Callee : make_range(CGN->begin(), CGN->end())) {
+        auto *CalleeF = Callee.second->getFunction();
+        // Check if there is an external null callee...
+        if (!CalleeF ||
+            // or the callee is marked already.
+            MayHaveOMPCritical.find(CalleeF) != MayHaveOMPCritical.end()) {
+          MayHaveOMPCritical.insert(CGF);
+          Updated = true;
+          break;
+        }
+      }
+    }
+  } while (Updated);
+
+#ifndef NDEBUG
+  for (auto *CGF : MayHaveOMPCritical) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+               ": Function marked as may-have-openmp-critical: ";
+               CGF->printAsOperand(dbgs());
+               dbgs() << "\n");
+  }
+#endif  // NDEBUG
+}
+
 // Perform paropt transformations for the module. Each module's function is
 // transformed by a separate VPOParoptTransform instance which performs
 // paropt transformations on a function level. Then, after tranforming all
@@ -166,7 +302,8 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
 // do necessary code cleanup (f.e. remove functions/globals which should not be
 // generated for the target).
 bool VPOParoptModuleTransform::doParoptTransforms(
-    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter) {
+    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
 
   bool Changed = false;
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M) && !DisableOffload;
@@ -176,6 +313,27 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if (!DisableOffload) {
     loadOffloadMetadata();
   }
+
+  if (IsTargetSPIRV)
+    // For SPIR targets we have to know which functions may contain
+    // "omp critical" inside them. We use this information to check
+    // if an OpenMP region may call such a function.
+    // If a work sharing OpenMP region contains such a call, then
+    // the work sharing has to be done in a special way to make sure
+    // that calls of __kmpc_critical are convergent across WIs
+    // in the same sub-group, otherwise the program may experience
+    // hangs.
+    //
+    // Note that we have to run this before the functions renaming
+    // done in the loop below, otherwise the renamed library functions
+    // will not be classified as such.
+    // It is very unfortunate that we have to do the renaming,
+    // since it changes the call-graph, and, in general, invalidates
+    // any call-graph analysis done so far. Currently, we rely
+    // on the fact that the library functions are assumed not to
+    // use OpenMP critical, so the computed may-have-openmp-critical
+    // information is not affected by the renaming.
+    collectMayHaveOMPCriticalFunctions(TLIGetter);
 
   /// As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -264,11 +422,6 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     fixTidAndBidGlobals();
 
   if (!DisableOffload) {
-    Triple TT(M.getTargetTriple());
-    if (!TT.isOSWindows() && !hasOffloadCompilation())
-      // Generate offload initialization code.
-      genOffloadingBinaryDescriptorRegistration();
-
     // Emit offload entries table.
     Changed |= genOffloadEntries();
 
@@ -558,223 +711,6 @@ StructType *VPOParoptModuleTransform::getTgOffloadEntryTy() {
   return TgOffloadEntryTy;
 }
 
-// Hold the struct type as follows.
-// struct __tgt_device_image{
-//   void   *ImageStart;       // The address of the beginning of the
-//                             // target code.
-//   void   *ImageEnd;         // The address of the end of the target
-//                             // code.
-//   __tgt_offload_entry  *EntriesBegin;  // The first element of an array
-//                                        // containing the globals and
-//                                        // target entry points.
-//   __tgt_offload_entry  *EntriesEnd;    // The last element of an array
-//                                        // containing the globals and
-//                                        // target entry points.
-// };
-StructType *VPOParoptModuleTransform::getTgDeviceImageTy() {
-  if (TgDeviceImageTy)
-    return TgDeviceImageTy;
-
-  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                    PointerType::getUnqual(getTgOffloadEntryTy()),
-                    PointerType::getUnqual(getTgOffloadEntryTy())};
-  TgDeviceImageTy =
-      StructType::get(C, TyArgs, /* "struct.__tgt_device_image" */false);
-  return TgDeviceImageTy;
-}
-
-// Hold the struct type as follows.
-// struct __tgt_bin_desc{
-//   uint32_t              NumDevices;     // Number of device types i
-//                                         // supported.
-//   __tgt_device_image   *DeviceImages;   // A pointer to an array of
-//                                         // NumDevices elements.
-//   __tgt_offload_entry  *EntriesBegin;   // The first element of an array
-//                                         // containing the globals and
-//                                         // target entry points.
-//   __tgt_offload_entry  *EntriesEnd;     // The last element of an array
-//                                         // containing the globals and
-//                                         // target entry points.
-// };
-//
-StructType *VPOParoptModuleTransform::getTgBinaryDescriptorTy() {
-  if (TgBinaryDescriptorTy)
-    return TgBinaryDescriptorTy;
-
-  Type *TyArgs[] = {Type::getInt32Ty(C),
-                    PointerType::getUnqual(getTgDeviceImageTy()),
-                    PointerType::getUnqual(getTgOffloadEntryTy()),
-                    PointerType::getUnqual(getTgOffloadEntryTy())};
-  TgBinaryDescriptorTy =
-      StructType::get(C, TyArgs, /* "struct.__tgt_bin_desc" */false);
-  return TgBinaryDescriptorTy;
-}
-
-// Return/Create a variable that binds the atexit to this shared
-// object.
-GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
-  if (DsoHandle)
-    return DsoHandle;
-
-  DsoHandle = M.getGlobalVariable("__dso_handle");
-  if (!DsoHandle) {
-    DsoHandle = new GlobalVariable(M, Type::getInt8Ty(C), false,
-                                   GlobalValue::ExternalLinkage, nullptr,
-                                   "__dso_handle");
-    DsoHandle->setVisibility(GlobalValue::HiddenVisibility);
-  }
-
-  return DsoHandle;
-}
-
-// Register the offloading binary descriptors.
-void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
-  if (OffloadEntries.empty())
-    return;
-
-  auto OffloadEntryTy = getTgOffloadEntryTy();
-  GlobalVariable *HostEntriesBegin = new GlobalVariable(
-      M, OffloadEntryTy, /*isConstant=*/true, GlobalValue::ExternalLinkage,
-      /*Initializer=*/nullptr, ".omp_offloading.entries_begin");
-  GlobalVariable *HostEntriesEnd = new GlobalVariable(
-      M, OffloadEntryTy, /*isConstant=*/true,
-      llvm::GlobalValue::ExternalLinkage, /*Initializer=*/nullptr,
-      ".omp_offloading.entries_end");
-
-  SmallVector<Constant*, 8u> DeviceImagesInit;
-  for (const auto &T : TgtDeviceTriples) {
-    const auto &N = T.getTriple();
-
-    auto *ImgBegin = new GlobalVariable(
-      M, Type::getInt8Ty(C), /*isConstant=*/true,
-      GlobalValue::ExternalWeakLinkage,
-      /*Initializer=*/nullptr, Twine(".omp_offloading.img_start.") + Twine(N));
-    auto *ImgEnd = new GlobalVariable(
-      M, Type::getInt8Ty(C), /*isConstant=*/true,
-      GlobalValue::ExternalWeakLinkage,
-      /*Initializer=*/nullptr, Twine(".omp_offloading.img_end.") + Twine(N));
-
-    SmallVector<Constant*, 4> DevInitBuffer;
-    DevInitBuffer.push_back(ImgBegin);
-    DevInitBuffer.push_back(ImgEnd);
-    DevInitBuffer.push_back(HostEntriesBegin);
-    DevInitBuffer.push_back(HostEntriesEnd);
-
-    Constant *DevInit = ConstantStruct::get(getTgDeviceImageTy(), DevInitBuffer);
-    DeviceImagesInit.push_back(DevInit);
-  }
-
-  Constant *DevArrayInit = ConstantArray::get(
-      ArrayType::get(getTgDeviceImageTy(), DeviceImagesInit.size()),
-      DeviceImagesInit);
-
-  GlobalVariable *DeviceImages =
-      new GlobalVariable(M, DevArrayInit->getType(),
-                         /*isConstant=*/true, GlobalValue::InternalLinkage,
-                         DevArrayInit, ".omp_offloading.device_images");
-  DeviceImages->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-
-  Constant *Index[] = { Constant::getNullValue(Type::getInt32Ty(C)),
-                        Constant::getNullValue(Type::getInt32Ty(C)) };
-
-  SmallVector<Constant *, 16> DescInitBuffer;
-  DescInitBuffer.push_back(
-      ConstantInt::get(Type::getInt32Ty(C), TgtDeviceTriples.size()));
-  DescInitBuffer.push_back(ConstantExpr::getGetElementPtr(
-      DeviceImages->getValueType(), DeviceImages, Index));
-  DescInitBuffer.push_back(HostEntriesBegin);
-  DescInitBuffer.push_back(HostEntriesEnd);
-
-  Constant *DescInit =
-      ConstantStruct::get(getTgBinaryDescriptorTy(), DescInitBuffer);
-  GlobalVariable *Desc =
-      new GlobalVariable(M, DescInit->getType(),
-                         /*isConstant=*/true, GlobalValue::InternalLinkage,
-                         DescInit, ".omp_offloading.descriptor");
-  if (hasOffloadCompilation())
-    return;
-  Function *TgDescUnregFn = createTgDescUnregisterLib(Desc);
-  Function *TgDescRegFn = createTgDescRegisterLib(TgDescUnregFn, Desc);
-
-  // It is sufficient to call offload registration code once per unique
-  // combination of target triples. Therefore create a comdat group for the
-  // registration/unregistration functions and associated data. Registration
-  // function name serves as a key for this comdat group (it includes sorted
-  // offload target triple names).
-  auto *ComdatKey = M.getOrInsertComdat(TgDescRegFn->getName());
-  TgDescRegFn->setLinkage(GlobalValue::LinkOnceAnyLinkage);
-  TgDescRegFn->setVisibility(GlobalValue::HiddenVisibility);
-  TgDescRegFn->setComdat(ComdatKey);
-  TgDescUnregFn->setComdat(ComdatKey);
-  DeviceImages->setComdat(ComdatKey);
-  Desc->setComdat(ComdatKey);
-  appendToGlobalCtors(M, TgDescRegFn, 0, TgDescRegFn);
-}
-
-// Create the function .omp_offloading.descriptor_unreg.
-Function *VPOParoptModuleTransform::createTgDescUnregisterLib(
-    GlobalVariable *Desc) {
-  Type *Params[] = { Type::getInt8PtrTy(C) };
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), Params, false);
-
-  Function *Fn = Function::Create(FnTy, GlobalValue::InternalLinkage,
-                                  ".omp_offloading.descriptor_unreg", M);
-  Fn->setCallingConv(CallingConv::C);
-
-  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", Fn);
-
-  DominatorTree DT;
-  DT.recalculate(*Fn);
-
-  IRBuilder<> Builder(EntryBB);
-
-  Builder.CreateRetVoid();
-  VPOParoptUtils::genTgtUnregisterLib(Desc, EntryBB->getTerminator());
-  Fn->setSection(".text.startup");
-
-  return Fn;
-}
-
-// Create the function .omp_offloading.descriptor_reg
-Function *VPOParoptModuleTransform::createTgDescRegisterLib(
-    Function *TgDescUnregFn, GlobalVariable *Desc) {
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), false);
-
-  SmallVector<StringRef, 4u> DeviceNames(TgtDeviceTriples.size());
-  transform(TgtDeviceTriples, DeviceNames.begin(),
-            [](const Triple &T) -> const std::string& {
-               return T.getTriple();
-            });
-  sort(DeviceNames.begin(), DeviceNames.end());
-  SmallString<128u> FnName;
-  {
-    raw_svector_ostream OS(FnName);
-    OS << ".omp_offloading.descriptor_reg";
-    for (auto &T : DeviceNames)
-      OS << "." << T;
-  }
-
-  Function *Fn = Function::Create(FnTy, GlobalValue::InternalLinkage,
-                                  FnName, M);
-  Fn->setCallingConv(CallingConv::C);
-
-  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", Fn);
-
-  DominatorTree DT;
-  DT.recalculate(*Fn);
-
-  IRBuilder<> Builder(EntryBB);
-
-  Builder.CreateRetVoid();
-
-  VPOParoptUtils::genTgtRegisterLib(Desc, EntryBB->getTerminator());
-  VPOParoptUtils::genCxaAtExit(TgDescUnregFn, Desc, getDsoHandle(),
-                               EntryBB->getTerminator());
-
-  Fn->setSection(".text.startup");
-  return Fn;
-}
-
 void VPOParoptModuleTransform::loadOffloadMetadata() {
   if (!UseOffloadMetadata)
     return;
@@ -977,14 +913,14 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
       // Align entries to their size, so that entries_end symbol
       // points to the end of 32-byte aligned chunk always,
       // otherwise libomptarget may read past the section.
-      cast<GlobalObject>(Entry)->setAlignment(32);
+      cast<GlobalObject>(Entry)->setAlignment(MaybeAlign(32));
       // By convention between Paropt and clang-offload-wrapper
       // the entries contribute into sections with suffix $B,
       // the entries_begin symbol is in the section with suffix $A,
       // the entries_end symbol is in the section suffix $C.
-      Entry->setSection(".omp_offloading.entries$B");
+      Entry->setSection("omp_offloading_entries$B");
     } else {
-      Entry->setSection(".omp_offloading.entries");
+      Entry->setSection("omp_offloading_entries");
     }
 
     if (IsTargetSPIRV &&
@@ -1006,5 +942,9 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
   }
 
   return Changed;
+}
+
+bool VPOParoptModuleTransform::mayHaveOMPCritical(const Function *F) const {
+  return MayHaveOMPCritical.find(F) != MayHaveOMPCritical.end();
 }
 #endif // INTEL_COLLAB

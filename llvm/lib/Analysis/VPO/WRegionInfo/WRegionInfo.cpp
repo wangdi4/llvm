@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;

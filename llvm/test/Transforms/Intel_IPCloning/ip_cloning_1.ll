@@ -1,10 +1,11 @@
+; REQUIRES: asserts
 ; It checks two function clones are created when -ip-cloning is enabled.
 ; _Z3fooiPFbiiE is cloned based on @_Z8compare1ii and @_Z8compare2ii
 ; function address constants, which are passed as 2nd argument at
 ; call-sites of _Z3fooiPFbiiE.
 
-; RUN: opt < %s -ip-cloning -print-ip-cloning -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Cloned call:
 ; CHECK: Cloned call:

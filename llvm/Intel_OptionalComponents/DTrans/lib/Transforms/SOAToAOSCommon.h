@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSCommon.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -24,6 +24,8 @@
 
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
+
+#include "llvm/IR/InstIterator.h"
 
 #include "SOAToAOSEffects.h"
 
@@ -302,6 +304,62 @@ private:
     return false;
   }
 };
+
+// Verifies that function "F" is safe to apply transformations
+// on member functions of vector class. We basically need to
+// prove that the function doesn't change fields of vector class.
+// Return false if F have any instruction that may write to memory
+// (like Store etc) except:
+//   1. Alloc instructions
+//   2. MemCpy if first argument is allocated memory in the routine.
+//
+inline bool isSafeCallForAppend(Function *F, const DTransAnalysisInfo &DTInfo,
+                                const TargetLibraryInfo &TLI) {
+
+  // Returns true if "I" is Alloc instruction.
+  auto IsAllocCall = [](Instruction *I, const DTransAnalysisInfo &DTInfo,
+                        const TargetLibraryInfo &TLI) {
+    auto *CB = dyn_cast_or_null<CallBase>(I);
+    if (!CB)
+      return false;
+    if (isDummyFuncWithThisAndIntArgs(CB, TLI))
+      return true;
+    auto *CallInfo = DTInfo.getCallInfo(CB);
+    if (CallInfo && CallInfo->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc)
+      return true;
+    return false;
+  };
+
+  // Returns true if "V" is return value of any alloc call.
+  auto IsAllocPtr = [&IsAllocCall](Value *V, const DTransAnalysisInfo &DTInfo,
+                                   const TargetLibraryInfo &TLI) {
+    auto *PN = dyn_cast<PHINode>(V);
+    if (!PN)
+      return IsAllocCall(PN, DTInfo, TLI);
+    for (unsigned I = 0, E = PN->getNumIncomingValues(); I < E; I++) {
+      if (!IsAllocCall(dyn_cast<Instruction>(PN->getIncomingValue(I)), DTInfo,
+                       TLI))
+        return false;
+    }
+    return true;
+  };
+
+  for (Instruction &I : instructions(F)) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    if (IsAllocCall(&I, DTInfo, TLI))
+      continue;
+    auto *Memcpy = dyn_cast<MemCpyInst>(&I);
+    // Just check 1st argument is coming from alloc call. No need
+    // to check for size.
+    if (Memcpy && IsAllocPtr(Memcpy->getArgOperand(0), DTInfo, TLI))
+      continue;
+    if (I.mayWriteToMemory())
+      return false;
+  }
+  return true;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Offset of memory interface in structure.
 extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;

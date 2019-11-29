@@ -183,6 +183,16 @@ extern dataT __spirv_SubgroupShuffleXorINTEL(dataT Data,
 
 template <typename dataT>
 extern dataT
+__spirv_SubgroupBlockReadINTEL(const __attribute__((ocl_global))
+                               uint8_t *Ptr) noexcept;
+
+template <typename dataT>
+extern void __spirv_SubgroupBlockWriteINTEL(__attribute__((ocl_global))
+                                            uint8_t *Ptr,
+                                            dataT Data) noexcept;
+
+template <typename dataT>
+extern dataT
 __spirv_SubgroupBlockReadINTEL(const __attribute__((ocl_global)) uint16_t *Ptr) noexcept;
 
 template <typename dataT>
@@ -201,15 +211,15 @@ template <typename dataT>
 extern int32_t __spirv_ReadPipe(RPipeTy<dataT> Pipe, dataT *Data,
                                 int32_t Size, int32_t Alignment) noexcept;
 template <typename dataT>
-extern int32_t __spirv_WritePipe(WPipeTy<dataT> Pipe, dataT *Data,
+extern int32_t __spirv_WritePipe(WPipeTy<dataT> Pipe, const dataT *Data,
                                  int32_t Size, int32_t Alignment) noexcept;
 template <typename dataT>
 extern void __spirv_ReadPipeBlockingINTEL(RPipeTy<dataT> Pipe, dataT *Data,
                                           int32_t Size,
                                           int32_t Alignment) noexcept;
 template <typename dataT>
-extern void __spirv_WritePipeBlockingINTEL(WPipeTy<dataT> Pipe, dataT *Data,
-                                           int32_t Size,
+extern void __spirv_WritePipeBlockingINTEL(WPipeTy<dataT> Pipe,
+                                           const dataT *Data, int32_t Size,
                                            int32_t Alignment) noexcept;
 template <typename dataT>
 extern RPipeTy<dataT> __spirv_CreatePipeFromPipeStorage_read(
@@ -227,7 +237,7 @@ extern __ocl_event_t
 OpGroupAsyncCopyGlobalToLocal(__spv::Scope Execution, dataT *Dest, dataT *Src,
                               size_t NumElements, size_t Stride,
                               __ocl_event_t E) noexcept {
-  for (int i = 0; i < NumElements; i++) {
+  for (size_t i = 0; i < NumElements; i++) {
     Dest[i] = Src[i * Stride];
   }
   // A real instance of the class is not needed, return dummy pointer.
@@ -239,7 +249,7 @@ extern __ocl_event_t
 OpGroupAsyncCopyLocalToGlobal(__spv::Scope Execution, dataT *Dest, dataT *Src,
                               size_t NumElements, size_t Stride,
                               __ocl_event_t E) noexcept {
-  for (int i = 0; i < NumElements; i++) {
+  for (size_t i = 0; i < NumElements; i++) {
     Dest[i * Stride] = Src[i];
   }
   // A real instance of the class is not needed, return dummy pointer.

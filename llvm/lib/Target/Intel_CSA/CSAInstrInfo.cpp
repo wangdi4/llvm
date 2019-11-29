@@ -82,8 +82,8 @@ CSAInstrInfo::CSAInstrInfo(CSASubtarget &STI)
 
 void CSAInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                MachineBasicBlock::iterator I,
-                               const DebugLoc &DL, unsigned DestReg,
-                               unsigned SrcReg, bool KillSrc) const {
+                               const DebugLoc &DL, MCRegister DestReg,
+                               MCRegister SrcReg, bool KillSrc) const {
   // This could determine the opcode based on the minimum size of the source
   // and destination
   // For now, just use MOV64 to make sure all bits are moved.

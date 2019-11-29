@@ -341,6 +341,8 @@ def err_for_range_expected_decl : Error<
 def err_argument_required_after_attribute : Error<
   "argument required after attribute">;
 def err_missing_param : Error<"expected parameter declarator">;
+def err_function_scope_depth_exceeded : Error<
+  "function scope depth exceeded maximum of %0">, DefaultFatal;
 def err_missing_comma_before_ellipsis : Error<
   "C requires a comma prior to the ellipsis in a variadic function type">;
 def err_unexpected_typedef_ident : Error<
@@ -1002,9 +1004,9 @@ def err_pragma_misplaced_in_decl : Error<"this pragma cannot appear in %0 declar
 
 // '#pragma clang section' related errors
 def err_pragma_expected_clang_section_name : Error<
-  "expected one of [bss|data|rodata|text] section kind in '#pragma %0'">;
+  "expected one of [bss|data|rodata|text|relro] section kind in '#pragma %0'">;
 def err_pragma_clang_section_expected_equal : Error<
-  "expected '=' following '#pragma clang section %select{invalid|bss|data|rodata|text}0'">;
+  "expected '=' following '#pragma clang section %select{invalid|bss|data|rodata|text|relro}0'">;
 def warn_pragma_expected_section_name : Warning<
   "expected a string literal for the section name in '#pragma %0' - ignored">,
   InGroup<IgnoredPragmas>;
@@ -1225,6 +1227,14 @@ def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modi
 def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+// INTEL_COLLAB
+def err_omp_bad_context_selector_set : Error<
+  "unknown or unsupported context selector set, expecting %0">;
+def err_omp_bad_context_selector : Error<
+  "unknown or unsupported '%0' context selector, expecting %1">;
+def err_omp_bad_device_selector : Error<
+ "unknown or unsupported '%0' selector, expecting %1">;
+// end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<
@@ -1247,9 +1257,26 @@ def err_omp_declare_variant_no_ctx_selector : Error<
   "expected context selector in '%0' clause on 'omp declare variant' directive">;
 def err_omp_declare_variant_equal_expected : Error<
   "expected '=' after '%0' context selector set name on 'omp declare variant' directive">;
+def warn_omp_declare_variant_cs_name_expected : Warning<
+  "unknown context selector in '%0' context selector set of 'omp declare variant' directive, ignored">,
+  InGroup<OpenMPClauses>;
+def err_omp_declare_variant_item_expected : Error<
+  "expected %0 in '%1' context selector of '%2' selector set of 'omp declare variant' directive">;
+def err_omp_declare_variant_ctx_set_mutiple_use : Error<
+  "context selector set '%0' is used already in the same 'omp declare variant' directive">;
+def note_omp_declare_variant_ctx_set_used_here : Note<
+  "previously context selector set '%0' used here">;
+def err_omp_expected_comma_brace : Error<"expected '}' or ',' after '%0'">;
+def err_omp_declare_variant_ctx_mutiple_use : Error<
+  "context trait selector '%0' is used already in the same '%1' context selector set of 'omp declare variant' directive">;
+def note_omp_declare_variant_ctx_used_here : Note<
+  "previously context trait selector '%0' used here">;
 def warn_omp_more_one_device_type_clause : Warning<
   "more than one 'device_type' clause is specified">,
   InGroup<OpenMPClauses>;
+def err_omp_wrong_device_kind_trait : Error<
+  "unknown '%0' device kind trait in the 'device' context selector set, expected"
+  " one of 'host', 'nohost', 'cpu', 'gpu' or 'fpga'">;
 
 // Pragma loop support.
 def err_pragma_loop_missing_argument : Error<
@@ -1290,10 +1317,11 @@ def err_pragma_cannot_end_force_cuda_host_device : Error<
   "force_cuda_host_device begin">;
 } // end of Parse Issue category.
 
-// Intel FPGA pragmas and attributes support
-// Attribute ivdep, ii, max_concurrency support
-def err_intel_fpga_loop_attrs_on_non_loop : Error<
-  "intelfpga loop attributes must be applied to for, while or do statements">;
+// SYCL loop pragmas and attributes support
+// * Intel FPGA attribute ivdep, ii, max_concurrency support
+// * clang::loop_unroll attribute support
+def err_loop_attr_on_non_loop : Error<
+  "%select{clang|intelfpga}0 loop attributes must be applied to for, while, or do statements">;
 
 let CategoryName = "Modules Issue" in {
 def err_unexpected_module_decl : Error<

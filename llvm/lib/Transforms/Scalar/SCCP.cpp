@@ -32,7 +32,6 @@
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueLattice.h"
 #include "llvm/Analysis/ValueLatticeUtils.h"
 #include "llvm/IR/BasicBlock.h"
@@ -52,12 +51,14 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PredicateInfo.h"
 #include <cassert>
 #include <utility>
@@ -1760,7 +1761,7 @@ static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
                      [](const LatticeVal &LV) { return LV.isOverdefined(); }))
       return false;
     std::vector<Constant *> ConstVals;
-    auto *ST = dyn_cast<StructType>(V->getType());
+    auto *ST = cast<StructType>(V->getType());
     for (unsigned i = 0, e = ST->getNumElements(); i != e; ++i) {
       LatticeVal V = IVs[i];
       ConstVals.push_back(V.isConstant()

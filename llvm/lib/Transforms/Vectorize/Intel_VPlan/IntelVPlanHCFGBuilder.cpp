@@ -24,12 +24,14 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -37,11 +39,17 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 static cl::opt<bool> DisableNonLoopSubRegions(
-    "disable-vplan-subregions", cl::init(false), cl::Hidden,
+    "disable-vplan-subregions", cl::init(true), cl::Hidden,
     cl::desc("Disable construction of non-loop subregions in VPlan"));
 
-cl::opt<bool> LoopMassagingEnabled(
-    "vplan-enable-loop-massaging", cl::init(true), cl::Hidden,
+static cl::opt<bool> DisableLoopRegions(
+    "disable-vplan-loop-regions", cl::init(true), cl::Hidden,
+    cl::desc("Disable construction of loop regions in VPlan"));
+
+bool LoopMassagingEnabled = true;
+static cl::opt<bool, true> LoopMassagingEnabledOpt(
+    "vplan-enable-loop-massaging", cl::location(LoopMassagingEnabled),
+    cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
 static cl::opt<bool> VPlanPrintAfterLoopMassaging(
@@ -70,6 +78,8 @@ static cl::opt<bool>
 static cl::opt<bool>
     VPlanPrintPlainCFG("vplan-print-plain-cfg", cl::init(false),
                        cl::desc("Print plain dump after VPlan buildPlainCFG."));
+
+extern cl::opt<bool> EnableVPValueCodegen;
 #endif
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
@@ -162,6 +172,169 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
   // Apply simplification to subloops
   for (auto VPSL : VPL->getSubLoops()) {
     splitLoopsPreheader(VPSL);
+  }
+}
+
+// After merge loop exits transformation and while loop canonicalization, a new
+// control-flow path is added between the loop header and the new loop latch.
+//
+// The following example shows why it is needed to preserve SSA. x is defined in
+// BB2 and it is used in BB1. After single-exit while loop transformation, a new
+// edge is added between BB1 and the NEW_LOOP_LATCH. This means that the value
+// of x can end up to the NEW_LOOP_LATCH from multiple paths. For this reason, a
+// new phi node is emitted in the NEW_LOOP_LATCH.
+// -----------------------------------------------------------------------------
+//  BEFORE                                          AFTER
+// -----------------------------------------------------------------------------
+//
+// +->BB1                               +----------->BB1
+// | x_phi1 = [x, BB3], [0, PreHeader]  | x_phi1 = [x_phi2, BB3], [0, PreHeader]
+// | ...=x                              |           ...=x_phi1
+// |   |\                               |             |\
+// |   | \                              |             | \
+// |  BB2 \       =>                    |            BB2 \
+// | x=... \                            |           x=... \
+// |   |    \                           |             |    \
+// |   |     \                          |             |     \
+// |   |     BB4                        |             |      |
+// +--BB3                               |            BB3     |
+//                                      |             |      |
+//                                      |             |      |
+//                                      +--------NEW_LOOP_LATCH
+//                                        x_phi2 = [x, BB3] [undef, BB1]
+//                                                    |
+//                                                    |
+//                                                   BB4
+//
+// Example 2: The following example shows what happens after merge loop exits
+// transformation. The LoopHeader has two live-ins (values "x" and "y") whose
+// definitions are in the loop body. Value "x" is defined in BB5. There is no
+// definition of "x" in the other two paths that lead to NewLoopLatch
+// (BB4-IntermediateBB2-NewLoopLatch and BB3-IntermediateBB1-NewLoopLatch). For
+// this reason, x_phi2 is emitted in the NewLoopLatch. Value "y" is defined in
+// BB2 which dominates NewLoopLatch. Hence, it is not needed to emit a phi node.
+// We should preserve SSA not only for live-ins, but also for live-outs. Thus, a
+// phi node (w_phi2) is emitted in NewLoopLatch.
+//
+// -----------------------------------------------------------------------------
+//  BEFORE                                          AFTER
+// -----------------------------------------------------------------------------
+//
+// +->BB1                           +--------------->BB1
+// | x_phi1=[x,BB6],[0,PreHeader]   | x_phi1=[x_phi2,NewLoopLatch],[0,PreHeader]
+// | y_phi=[y,BB6],[0,PreHeader]    |      y=[y,BB3],[0,PreHeader]
+// | ...=x                          |             ...=x_phi1
+// |   |                            |                 |
+// |  BB2                           |                BB2
+// |  y=...                         |               y=...
+// |   |                            |                 |
+// |  BB3                           |                BB3--------------------+
+// |   |  \                         |                 |                     |
+// |  BB4  EXIT_BB1                 |                BB4--------+   Intermediate
+// | w=...                          |               w=...       |          BB1
+// |   |  \                         |                 |         |           |
+// |   |   \                        |                 |         |           |
+// |  BB5   EXIT_BB2                |                BB5  Intermediate      |
+// | x=...  w_phi1=[w, BB4]         |               x=...      BB2          |
+// |   |    ...=w_phi1              |                 |   w_phi1 = [w, BB4] |
+// |   |                            |                 |         |           |
+// |   |                            |                 |         |           |
+// +--BB6                           |                BB6        |           |
+//     |                            |                 |         |           |
+//     |                            |                 |         |           |
+//  EXIT_BB3                        +-----------------NewLoopLatch<---------+
+//                                  x_phi2=[x,BB6],[undef,IntermediateBB1],
+//                                                 [undef,IntermediateBB2]
+//                                  w_phi2=[undef,BB6],[undef,IntermediateBB1],
+//                                                    [w_phi1,IntermediateBB2]
+//                                                          |
+//                                                          |
+//                                                    CascadedIfBlock1
+//                                                         /  \
+//                                                        /    \
+//                                          CascadedIfBlock2  EXIT_BB1
+//                                                      /  \
+//                                                     /    \
+//                                                EXIT_BB3  EXIT_BB2
+//                                                          ...=w_phi2
+//
+// Emit phi nodes that preserve SSA for the values that are defined in the loop
+// and they are used in loop header or outside of the current loop.
+void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
+                                         VPDominatorTree &VPDomTree) {
+  VPBasicBlock *NewLoopLatch = cast<VPBasicBlock>(VPL->getLoopLatch());
+  for (VPBlockBase *Block : VPL->getBlocks()) {
+    if (!isa<VPBasicBlock>(Block))
+      continue;
+
+    VPBasicBlock *DefBlock = cast<VPBasicBlock>(Block);
+    if (VPDomTree.dominates(DefBlock, NewLoopLatch))
+      continue;
+
+    for (VPInstruction &Def : DefBlock->vpinstructions()) {
+      // Check which definitions have uses in the loop header or outside of the
+      // loop and collect all the uses that need to be updated by the SSA phi
+      // node.
+      SmallVector<VPUser *, 2> UsesToUpdate;
+      llvm::copy_if(
+          Def.users(), std::back_inserter(UsesToUpdate), [VPL](auto &User) {
+            return isa<VPExternalUse>(User) ||
+                   !VPL->contains(cast<VPInstruction>(User)) ||
+                   (isa<VPPHINode>(User) &&
+                    cast<VPPHINode>(User)->getParent() == VPL->getHeader());
+          });
+
+      if (UsesToUpdate.empty())
+        continue;
+
+      // Create the SSA phi node.
+      VPBuilder VPBldr;
+      VPBldr.setInsertPoint(cast<VPInstruction>(&*NewLoopLatch->begin()));
+      VPPHINode *PreserveSSAPhi = VPBldr.createPhiInstruction(
+          Def.getType(), Def.getName() + ".ssa.phi");
+      // Fill-in the phi node with its operands. If the DefBlock is not one of
+      // the predecessors (BB2 in the example below), then we cannot use
+      // DefBlock as the incoming block of the SSA phi (x_phi2). Instead, the
+      // incoming block for this Def is any NewLoopLatch's predecessor that is
+      // dominated by the DefBlock (BB3 in the following example).
+      // ---------------------------------------------------------------------
+      //  BEFORE                                          AFTER
+      // ---------------------------------------------------------------------
+      // +->BB1                         +----------------->BB1
+      // | x_phi1=[x,BB6],              | x_phi1=[x_phi2,NewLoopLatch],
+      // |   |    [0,PreHeader]         |        [0,PreHeader]      |
+      // |   |     \                    |                   |       |
+      // |  BB2   EXIT_BB1              |                  BB2     INTERME-
+      // |  x=...                       |                  x=...   DIATEBB
+      // |   |                          |                   |       |
+      // |   |                          |                   |       |
+      // +--BB3                         |                  BB3      |
+      //     |                          |                   |       |
+      //   EXIT_BB2                     +--------------NewLoopLatch-+
+      //                                     x_phi2=[x, BB3],
+      //                                            [undef,INTERMEDIATEBB]
+      //                                                    |
+      //                                             CascadedIfBlock
+      //                                                  /    \
+      //                                             EXITBB1  EXITBB2
+      for (VPBlockBase *Pred : NewLoopLatch->getPredecessors()) {
+        VPValue *ValueToUse = VPDomTree.dominates(DefBlock, Pred)
+                                  ? &Def
+                                  : cast<VPValue>(Plan->getVPConstant(
+                                        UndefValue::get(Def.getType())));
+        PreserveSSAPhi->addIncoming(ValueToUse, cast<VPBasicBlock>(Pred));
+      }
+
+      // Update DA for PreserveSSAPhi. To update the DA information of a phi
+      // node, the DA algorithm checks the DA info of each of its operands.
+      VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+      if (VPlanDA->isDivergent(Def))
+        VPlanDA->markDivergent(*PreserveSSAPhi);
+
+      // Finally, update the uses of the definition with the SSA phi node.
+      for (auto *Use : UsesToUpdate)
+        Use->replaceUsesOfWith(&Def, PreserveSSAPhi);
+    }
   }
 }
 
@@ -443,10 +616,6 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  // Apply simplification to subloops.
-  for (auto VPSL : VPL->getSubLoops())
-    mergeLoopExits(VPSL);
-
   // Check if the loop has multiple exits. Merge loop exits transformation is
   // only applied in the inner loops of a loop nest.
   VPLoop *ParentLoop = VPL->getParentLoop();
@@ -456,9 +625,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     return;
 
   // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isSSABroken()   // Already marked, so...
-      && isBreakingSSA(VPL)) // don't try to analyze any more.
-    Plan->markSSABroken();
+  if (!Plan->isFullLinearizationForced() // Already marked, so...
+      && isBreakingSSA(VPL))             // don't try to analyze any more.
+    Plan->markFullLinearizationForced();
 
   // The merge loop exits transformation kicks-in.
 
@@ -472,8 +641,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // cascaded if blocks.
   SmallVector<std::pair<VPBlockBase *, VPConstant *>, 2> ExitBlockIDPairs;
   SmallDenseMap<VPBlockBase *, VPBlockBase *> ExitExitingBlocksMap;
-  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
-  VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
+  VPBasicBlock *OrigLoopLatch = cast<VPBasicBlock>(VPL->getLoopLatch());
+  VPBasicBlock *LoopHeader = cast<VPBasicBlock>(VPL->getHeader());
   // If the loop is a while loop (case 5), then it might not have a fall-through
   // edge. Therefore, in this case, the LatchExitBlock will be null.
   VPBlockBase *LatchExitBlock = nullptr;
@@ -486,6 +655,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
            "The loop latch should have two successors!");
     LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
                                   : OrigLoopLatch->getSuccessors()[0];
+    ExitExitingBlocksMap[LatchExitBlock] = OrigLoopLatch;
   }
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   // The divergence information is later used to set the new condition bit
@@ -498,8 +668,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
   VPBasicBlock *NewLoopLatch =
-      new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
+      new VPBasicBlock(VPlanUtils::createUniqueName("new.loop.latch"));
   OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
+  NewLoopLatch->moveTripCountInfoFrom(OrigLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
   // Remove the original loop latch from the blocks of the phi node of the loop
@@ -514,10 +685,11 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
-  VPPHINode *VPPhi = VPBldr.createPhiInstruction(Ty32);
+  VPPHINode *ExitIDVPPhi = VPBldr.createPhiInstruction(Ty32, "exit.id.phi");
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *NewCondBit = VPBldr.createPhiInstruction(Ty1, "TakeBackedgeCond");
+  VPPHINode *NewCondBit =
+      VPBldr.createPhiInstruction(Ty1, "take.backedge.cond");
   if (LatchExitBlock) {
     VPInstruction *OldCondBit =
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
@@ -537,8 +709,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   // Add the original loop latch in the NewLoopLatch's phi node.
   VPPHINode *NewLoopHeaderPhiNode =
-      updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, VPPhi, Plan);
-  VPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
+      updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, ExitIDVPPhi, Plan);
+  ExitIDVPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
@@ -551,7 +723,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // needed, an intermediate basic block is created. Otherwise, the exiting
   // blocks are connected with the new loop latch.
   SmallPtrSet<VPBlockBase *, 2> VisitedBlocks;
-  SmallDenseMap<VPBlockBase *, VPBasicBlock *> ExitBlockNewBlockMap;
+  SmallDenseMap<VPBlockBase *, VPBasicBlock *> ExitBlockIntermediateBBMap;
   bool phiIsMovedToNewLoopLatch = false;
   // For each exit block (apart from the new loop latch), a new basic block is
   // created and the ExitID is emitted.
@@ -569,35 +741,35 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     // through back edge. For any other basic block, we just have to redirect
     // the exiting block to the new loop latch.
     if (ExitBlock == LatchExitBlock) {
-      VPBasicBlock *NewExitingBB = nullptr;
+      VPBasicBlock *IntermediateBB = nullptr;
       if (ExitingBlock == LoopHeader) {
-        NewExitingBB =
-            new VPBasicBlock(VPlanUtils::createUniqueName("IntermediateBB"));
-        VPL->addBasicBlockToLoop(NewExitingBB, *VPLInfo);
+        IntermediateBB =
+            new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
+        VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
         VPRegionBlock *Parent = LoopHeader->getParent();
-        NewExitingBB->setParent(Parent);
+        IntermediateBB->setParent(Parent);
         Parent->setSize(Parent->getSize() + 1);
-        VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, NewExitingBB);
-        NewExitingBB->appendSuccessor(NewLoopLatch);
-        NewLoopLatch->appendPredecessor(NewExitingBB);
+        VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, IntermediateBB);
+        IntermediateBB->appendSuccessor(NewLoopLatch);
+        NewLoopLatch->appendPredecessor(IntermediateBB);
         // Replace the exiting block with the new exiting block in the exit
         // block's phi node.
         if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)) &&
             allPredsInLoop(ExitBlock, VPL))
           updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
-                              cast<VPBasicBlock>(ExitingBlock), NewExitingBB);
+                              cast<VPBasicBlock>(ExitingBlock), IntermediateBB);
       } else {
         VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
-        NewExitingBB = cast<VPBasicBlock>(ExitingBlock);
+        IntermediateBB = cast<VPBasicBlock>(ExitingBlock);
       }
       ExitID++;
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
-      VPPhi->addIncoming(ExitIDConst, NewExitingBB);
+      ExitIDVPPhi->addIncoming(ExitIDConst, IntermediateBB);
       // If the backedge is taken under the true condition, then the edge from
       // the exiting block is taken under the false condition.
       NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
-                              NewExitingBB);
+                              IntermediateBB);
 
       // The VPPHINode of the exit block should be moved in the new loop latch
       // if all the predecessors are in the loop. If not, then we remove the
@@ -619,47 +791,47 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
           }
         } else
           updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
-                              cast<VPBasicBlock>(ExitingBlock), NewExitingBB);
+                              cast<VPBasicBlock>(ExitingBlock), IntermediateBB);
       }
     } else {
       // This check ensures that only one Intermediate_BB is created (case 3) in
       // case more than one exiting blocks land on the same exit block.
       if (VisitedBlocks.count(ExitBlock)) {
-        VPBasicBlock *NBB = ExitBlockNewBlockMap[ExitBlock];
-        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NBB);
+        VPBasicBlock *ExistingIntermediateBB = ExitBlockIntermediateBBMap[ExitBlock];
+        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, ExistingIntermediateBB);
         if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)))
           removeBlockFromVPPhiNode(cast<VPBasicBlock>(ExitingBlock),
                                    cast<VPBasicBlock>(ExitBlock));
         continue;
       }
 
-      VPBasicBlock *NewBlock =
-          new VPBasicBlock(VPlanUtils::createUniqueName("IntermediateBB"));
+      VPBasicBlock *IntermediateBB =
+          new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
       VPRegionBlock *Parent = ExitingBlock->getParent();
-      NewBlock->setParent(Parent);
+      IntermediateBB->setParent(Parent);
       Parent->setSize(Parent->getSize() + 1);
-      VPL->addBasicBlockToLoop(NewBlock, *VPLInfo);
+      VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
       // Remove ExitBlock from ExitingBlock's successors and add a new
       // intermediate block to its successors. ExitBlock's predecessor will be
       // updated after emitting cascaded if blocks.
-      VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewBlock);
-      NewBlock->appendSuccessor(NewLoopLatch);
-      NewLoopLatch->appendPredecessor(NewBlock);
+      VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, IntermediateBB);
+      IntermediateBB->appendSuccessor(NewLoopLatch);
+      NewLoopLatch->appendPredecessor(IntermediateBB);
 
       if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)))
         if (allPredsInLoop(ExitBlock, VPL))
-          moveExitBlocksPhiNode(cast<VPBasicBlock>(ExitBlock), NewBlock);
+          moveExitBlocksPhiNode(cast<VPBasicBlock>(ExitBlock), IntermediateBB);
 
       // Add ExitID and update NewLoopLatch's phi node.
       ExitID++;
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
-      VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
+      ExitIDVPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(IntermediateBB));
       NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
-                              cast<VPBasicBlock>(NewBlock));
+                              cast<VPBasicBlock>(IntermediateBB));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
-      ExitBlockNewBlockMap[ExitBlock] = NewBlock;
+      ExitBlockIntermediateBBMap[ExitBlock] = IntermediateBB;
     }
     VisitedBlocks.insert(ExitBlock);
   }
@@ -667,13 +839,21 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // Step 3 : Creates cascaded if blocks. The head of the cascaded if blocks is
   // emitted after the new loop latch. The cascaded if blocks are not emitted
   // in case 2.
+
+  // We need to collect all the cascaded if blocks in a small vector which will
+  // be used in a separate step. Each cascaded if block should be assigned to
+  // the correct loop of the loop nest. This does not happen along the
+  // generation of the cascaded if blocks, but it happens in a separate step.
+  // Because the choice of the correct loop depends on the loop that cascaded if
+  // block's successors belong. Therefore, we first need to connect the cascaded
+  // if blocks with their successors (other cascaded if blocks, exit blocks) and
+  // next, we can decide which is the right loop for each cascaded if block.
+  SmallVector<VPBasicBlock *, 2> CascadedIfBlocks;
+
   if (ExitBlocks.size() > 1) {
     VPBasicBlock *IfBlock =
-        new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
-    VPRegionBlock *Parent = NewLoopLatch->getParent();
-    IfBlock->setParent(Parent);
-    Parent->setSize(Parent->getSize() + 1);
-    ParentLoop->addBasicBlockToLoop(IfBlock, *VPLInfo);
+        new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
+    CascadedIfBlocks.push_back(IfBlock);
     // Update the predecessors of the IfBlock.
     if (LatchExitBlock)
       VPBlockUtils::movePredecessor(NewLoopLatch, LatchExitBlock, IfBlock);
@@ -686,21 +866,21 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       const auto &Pair = ExitBlockIDPairs[i];
       VPBlockBase *ExitBlock = Pair.first;
       VPConstant *ExitID = Pair.second;
-      VPInstruction *CondBr = new VPCmpInst(VPPhi, ExitID, CmpInst::ICMP_EQ);
+      VPInstruction *CondBr =
+          new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
       IfBlock->appendRecipe(CondBr);
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
-        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
-        NextIfBlock->setParent(Parent);
-        Parent->setSize(Parent->getSize() + 1);
-        ParentLoop->addBasicBlockToLoop(NextIfBlock, *VPLInfo);
+        NextIfBlock =
+            new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
+        CascadedIfBlocks.push_back(NextIfBlock);
       } else {
-        // The current NextIfBlock is the LatchExitBlock.
+        // For for-loops, the NextIfBlock is the LatchExitBlock.
         NextIfBlock = cast<VPBasicBlock>(ExitBlockIDPairs[0].first);
-        if (LatchExitBlock && hasVPPhiNode(cast<VPBasicBlock>(LatchExitBlock)))
-          updateBlocksPhiNode(cast<VPBasicBlock>(LatchExitBlock),
-                              cast<VPBasicBlock>(OrigLoopLatch), IfBlock);
+        VPBlockBase *ExitingBlock = ExitExitingBlocksMap[NextIfBlock];
+        updateBlocksPhiNode(cast<VPBasicBlock>(NextIfBlock),
+                            cast<VPBasicBlock>(ExitingBlock), IfBlock);
       }
       // Update the successors of the IfBlock.
       IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock);
@@ -724,6 +904,36 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     ExitBlock->appendPredecessor(NewLoopLatch);
   }
 
+  // Now, we should assign the cascaded if block to the right loop nesting
+  // level. The cascaded if block should belong to the same loop nesting level
+  // as its successors (exit blocks). Each exit block might belong to different
+  // loop nesting level than the other exit block. In this case, the cascaded if
+  // block will have the same loop nesting level as the exit block which is
+  // deepest in the loop hierarchy.
+  while (!CascadedIfBlocks.empty()) {
+    // Start from the last cascaded if block because it has two exit blocks.
+    VPBasicBlock *CurrentCascadedIfBlock = CascadedIfBlocks.pop_back_val();
+    assert(CurrentCascadedIfBlock->getSuccessors().size() == 2 &&
+           "Two successors are expected");
+    VPLoop *Succ0Loop = VPLInfo->getLoopFor(
+        cast<VPBasicBlock>(CurrentCascadedIfBlock->getSuccessors()[0]));
+    VPLoop *Succ1Loop = VPLInfo->getLoopFor(
+        cast<VPBasicBlock>(CurrentCascadedIfBlock->getSuccessors()[1]));
+    // It's possible that successor blocks of CurrentCascadedIfBlock may fall
+    // outside of any loopnest. If so, loop depth is set to 0.
+    // The bigger the loop depth the deeper the loop is in the loop nest.
+    unsigned LoopDepthOfSucc0 = Succ0Loop ? Succ0Loop->getLoopDepth() : 0;
+    unsigned LoopDepthOfSucc1 = Succ1Loop ? Succ1Loop->getLoopDepth() : 0;
+    VPLoop *CascadedIfBlockParentLoop =
+        LoopDepthOfSucc0 >= LoopDepthOfSucc1 ? Succ0Loop : Succ1Loop;
+    if (CascadedIfBlockParentLoop)
+      CascadedIfBlockParentLoop->addBasicBlockToLoop(CurrentCascadedIfBlock,
+                                                     *VPLInfo);
+    VPRegionBlock *ParentRegion = NewLoopLatch->getParent();
+    CurrentCascadedIfBlock->setParent(ParentRegion);
+    ParentRegion->setSize(ParentRegion->getSize() + 1);
+  }
+
   VPRegionBlock *CurrentLoopRegion =
       cast<VPRegionBlock>(VPL->getHeader()->getParent());
   VPDomTree.recalculate(*CurrentLoopRegion);
@@ -734,77 +944,15 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPDomTree.recalculate(*ParentLoopRegion);
   VPPostDomTree.recalculate(*ParentLoopRegion);
 
+  // Emit phi nodes that will preserve SSA form if it is needed.
+  preserveSSAAfterLoopTransformations(VPL, Plan, VPDomTree);
+
+  assert(
+      VPL->getExitingBlock() == NewLoopLatch &&
+      "Only 1 exiting block is expeted after merge loop exits transformation");
+
   LLVM_DEBUG(dbgs() << "After merge loop exits transformation.\n");
   LLVM_DEBUG(Plan->dump());
-}
-
-// The following example shows why it is needed to preserve SSA. x is defined in
-// BB2 and it is used in BB1. After single-exit while loop transformation, a new
-// edge is added between BB1 and the NEW_LOOP_LATCH. This means that the value
-// of x can end up to the NEW_LOOP_LATCH from multiple paths. For this reason, a
-// new phi node is emitted in the NEW_LOOP_LATCH.
-// -----------------------------------------------------------------------------
-//  BEFORE                                          AFTER
-// -----------------------------------------------------------------------------
-//
-// -->BB1                               ------------>BB1
-// | x_phi1 = [x, BB3], [0, PreHeader]  | x_phi1 = [x_phi2, BB3], [0, PreHeader]
-// | ...=x                              |           ...=x_phi1
-// |   |\                               |             |\
-// |   | \                              |             | \
-// |  BB2 \       =>                    |            BB2 \
-// | x=... \                            |           x=... \
-// |   |    \                           |             |    \
-// |   |     \                          |             |     \
-// |   |     BB4                        |             |      |
-// ---BB3                               |            BB3     |
-//                                      |             |      |
-//                                      |             |      |
-//                                      ---------NEW_LOOP_LATCH
-//                                        x_phi2 = [x, BB3] [undef, BB1]
-//                                                    |
-//                                                    |
-//                                                   BB4
-//
-// TODO: Update preserveSSAForLoopHeader to work with IDF.
-void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
-                                                VPBasicBlock *NewLoopLatch,
-                                                VPBasicBlock *OrigLoopLatch,
-                                                VPBasicBlock *ExitingBlock) {
-  VPBuilder VPBldr;
-  VPBldr.setInsertPoint(NewLoopLatch);
-
-  assert(llvm::is_contained(LoopHeader->getPredecessors(), NewLoopLatch) &&
-         "NewLoopLatch must be LoopHeader's predecessor!");
-
-  for (VPPHINode &VPPhi : LoopHeader->getVPPhis()) {
-    auto *IncomingValue =
-        dyn_cast<VPInstruction>(VPPhi.getIncomingValue(NewLoopLatch));
-    // Check if we have to generate a phi node for the current incoming value at
-    // NewLoopLatch.
-    if (!IncomingValue ||
-        VPDomTree.dominates(IncomingValue->getParent(), ExitingBlock))
-      continue;
-
-    // Create a new phi node in the new loop latch for the values that are used
-    // in the loop header.
-    VPPHINode *PreserveSSAPhi =
-        VPBldr.createPhiInstruction(IncomingValue->getType());
-    // Update the phi nodes of the loop header with the new phi.
-    VPPhi.setIncomingValue(NewLoopLatch, PreserveSSAPhi);
-
-    // Update the new phi node of the new loop latch.
-    PreserveSSAPhi->addIncoming(IncomingValue,
-                                dyn_cast<VPBasicBlock>(OrigLoopLatch));
-    PreserveSSAPhi->addIncoming(
-        Plan->getVPConstant(UndefValue::get(IncomingValue->getType())),
-        cast<VPBasicBlock>(ExitingBlock));
-    VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-    // Update the DA of the SSA phi based on the DA info that the
-    // condition bit has.
-    if (VPlanDA->isDivergent(*IncomingValue))
-      VPlanDA->markDivergent(*PreserveSSAPhi);
-  }
 }
 
 bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
@@ -877,10 +1025,8 @@ bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
 //                                  BB4
 //
 void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
-  for (auto VPSL : VPL->getSubLoops())
-    singleExitWhileLoopCanonicalization(VPSL);
 
-  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  VPBasicBlock *OrigLoopLatch = cast<VPBasicBlock>(VPL->getLoopLatch());
   if (OrigLoopLatch->getNumSuccessors() > 1)
     return;
 
@@ -889,10 +1035,9 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
     return;
 
   // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isSSABroken()   // Already marked, so...
-      && isBreakingSSA(VPL)) // don't try to analyze any more.
-    Plan->markSSABroken();
-
+  if (!Plan->isFullLinearizationForced() // Already marked, so...
+      && isBreakingSSA(VPL))             // don't try to analyze any more.
+    Plan->markFullLinearizationForced();
 
   LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());
@@ -901,7 +1046,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
-  NewLoopLatch->setName(VPlanUtils::createUniqueName("NewLoopLatch"));
+  NewLoopLatch->setName(VPlanUtils::createUniqueName("new.loop.latch"));
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
   VPBlockBase *ExitingBlock = VPL->getExitingBlock();
@@ -914,10 +1059,6 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
                       cast<VPBasicBlock>(ExitingBlock), NewLoopLatch);
 
   // Fill-in NewLoopLatch with new instructions.
-  VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
-  // Emit phi nodes that will preserve SSA form if it is needed.
-  preserveSSAForLoopHeader(LoopHeader, NewLoopLatch, OrigLoopLatch,
-                           cast<VPBasicBlock>(ExitingBlock));
   // Emit the backedge condition.
   Type *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
   VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 0));
@@ -926,11 +1067,6 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *TakeBackedgeCond =
       VPBldr.createPhiInstruction(Int1Ty, "TakeBackedgeCond");
-  // TODO: The while-loop canonicalization does not preserve the SSA form. If a
-  // value from the OrigLoopLatch feeds the phi in the BB1, then this value
-  // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
-  // Currently, this is not a problem because the proper dominance will be
-  // restored after CFG linearization by predicator.
   TakeBackedgeCond->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
   TakeBackedgeCond->addIncoming(FalseConst, cast<VPBasicBlock>(ExitingBlock));
   NewLoopLatch->setCondBit(TakeBackedgeCond);
@@ -956,6 +1092,13 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
       cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
   VPDomTree.recalculate(*ParentLoopRegion);
   VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  // Emit phi nodes that will preserve SSA form if it is needed.
+  preserveSSAAfterLoopTransformations(VPL, Plan, VPDomTree);
+
+  assert(VPL->getExitingBlock() == NewLoopLatch &&
+         "Only 1 exiting block is expeted after single-exit while loop "
+         "canonicalization");
 
   LLVM_DEBUG(dbgs() << "After single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());
@@ -1136,11 +1279,15 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
 
   splitLoopsPreheader(TopLoop);
 
+  LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+             VPDomTree.print(dbgs()));
+
   if (LoopMassagingEnabled) {
-    // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
-    // VPDomTree.print(dbgs()));
-    singleExitWhileLoopCanonicalization(TopLoop);
-    mergeLoopExits(TopLoop);
+    for (auto *VPL : post_order(TopLoop)) {
+      singleExitWhileLoopCanonicalization(VPL);
+      mergeLoopExits(VPL);
+      LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
+    }
 #if INTEL_CUSTOMIZATION
     if (VPlanPrintAfterLoopMassaging) {
       errs() << "Print after loop massaging:\n";
@@ -1150,9 +1297,8 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     }
 #endif /* INTEL_CUSTOMIZATION */
 
-    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
-    // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
-    // VPDomTree.print(dbgs()));
+    LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+               VPDomTree.print(dbgs()));
   }
 
   splitLoopsExit(TopLoop);
@@ -1172,7 +1318,9 @@ void VPlanHCFGBuilder::buildLoopRegions() {
   std::function<void(VPLoop *)> buildLoopRegionsImpl = [&](VPLoop *VPL) {
 
     // Create new loop region
-    VPLoopRegion *VPLR = createLoopRegion(VPL);
+    VPLoopRegion *VPLR = nullptr;
+    if (!DisableLoopRegions)
+      VPLR = createLoopRegion(VPL);
 
     // Set VPLoop's entry and exit.
     // Entry = loop preheader, Exit = loop single exit
@@ -1185,25 +1333,30 @@ void VPlanHCFGBuilder::buildLoopRegions() {
 #if INTEL_CUSTOMIZATION
     SmallVector<VPBlockBase *, 4> LoopExits;
     VPL->getUniqueExitBlocks(LoopExits);
-    VPBasicBlock *RegionExit =
-        cast<VPBasicBlock>(getNearestCommonPostDom(VPPostDomTree, LoopExits));
+    VPBasicBlock *RegionExit = nullptr;
+    if (!DisableLoopRegions)
+      RegionExit =
+          cast<VPBasicBlock>(getNearestCommonPostDom(VPPostDomTree, LoopExits));
 #else
     assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
     VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
 #endif // INTEL_CUSTOMIZATION
 
-    LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
-                      << "   Entry: " << RegionEntry->getName() << "\n"
-                      << "   Exit: " << RegionExit->getName() << "\n");
+    if (!DisableLoopRegions) {
+      LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName()
+                        << "\n"
+                        << "   Entry: " << RegionEntry->getName() << "\n"
+                        << "   Exit: " << RegionExit->getName() << "\n");
 
-    // Connect loop region to graph
-    VPBlockUtils::insertRegion(VPLR, RegionEntry, RegionExit,
-                               false /*recomputeSize*/);
+      // Connect loop region to graph
+      VPBlockUtils::insertRegion(VPLR, RegionEntry, RegionExit,
+                                 false /*recomputeSize*/);
 
-    // Update VPLoopInfo. Add new VPLoopRegion to region entry's loop (loop PH)
-    // which, as expected, is not contained in this VPLoopRegion's VPLoop.
-    if (VPLoop *Loop = VPLInfo->getLoopFor(RegionEntry)) {
-      Loop->addBasicBlockToLoop(VPLR, *VPLInfo);
+      // Update VPLoopInfo. Add new VPLoopRegion to region entry's loop (loop
+      // PH) which, as expected, is not contained in this VPLoopRegion's VPLoop.
+      if (VPLoop *Loop = VPLInfo->getLoopFor(RegionEntry)) {
+        Loop->addBasicBlockToLoop(VPLR, *VPLInfo);
+      }
     }
 
     // Recursively build loop regions inside this loop
@@ -1328,23 +1481,54 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 }
 
 
-// Go through the blocks in Region, collecting uniforms.
-void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
-  for (VPBlockBase *Block :
-       make_range(df_iterator<VPRegionBlock *>::begin(Region),
-                  df_iterator<VPRegionBlock *>::end(Region))) {
-    if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      if (Block->getNumSuccessors() >= 2) {
-        // Multiple successors. Checking uniformity of Condition Bit
-        // Instruction.
-        VPValue *CBV = VPBB->getCondBit();
-        assert(CBV && "Expected condition bit value.");
+static TripCountInfo readIRLoopMetadata(Loop *Lp) {
+  TripCountInfo TCInfo;
+  MDNode *LoopID = Lp->getLoopID();
+  if (!LoopID)
+    // Default construct to trigger usage of the default estimated trip count
+    // later.
+    return TCInfo;
 
-        bool isUniform = Legal->isUniformForTheLoop(CBV->getUnderlyingValue());
-        if (isUniform)
-          Plan->UniformCBVs.insert(CBV);
-      }
-    }
+  for (const MDOperand &MDOp : LoopID->operands()) {
+    const auto *MD = dyn_cast<MDNode>(MDOp);
+    if (!MD)
+      continue;
+    const auto *S = dyn_cast<MDString>(MD->getOperand(0));
+    if (!S)
+      continue;
+
+    auto ExtractValue = [S, MD](auto &TCInfoField, StringRef MetadataName,
+                                StringRef ReadableString) -> void {
+      (void)ReadableString;
+      if (S->getString().equals(MetadataName))
+        TCInfoField =
+            mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+      LLVM_DEBUG(dbgs() << ReadableString << " trip count is " << TCInfoField
+                        << " set by pragma loop count.\n";);
+    };
+    ExtractValue(TCInfo.MaxTripCount, "llvm.loop.intel.loopcount_maximum",
+                 "Max");
+    ExtractValue(TCInfo.MinTripCount, "llvm.loop.intel.loopcount_minimum",
+                 "Min");
+    ExtractValue(TCInfo.TripCount, "llvm.loop.intel.loopcount_average",
+                 "Average");
+  }
+
+  return TCInfo;
+}
+
+void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
+  for (VPLoop *VPL : VPLInfo->getLoopsInPreorder()) {
+    auto *VPLatch = cast_or_null<VPBasicBlock>(VPL->getLoopLatch());
+    assert(VPLatch && "No dedicated latch!");
+    BasicBlock *Latch = VPLatch->getOriginalBB();
+    assert(Latch && "Loop massaging happened before VPLoop's creation?");
+    Loop *Lp = LI->getLoopFor(Latch);
+    assert(Lp &&
+           "VPLoopLatch does not correspond to Latch, massaging happened?");
+    TripCountInfo TCInfo = readIRLoopMetadata(Lp);
+    TCInfo.calculateEstimatedTripCount();
+    VPL->setTripCountInfo(TCInfo);
   }
 }
 
@@ -1355,9 +1539,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // Build Top Region enclosing the plain CFG
   Plan->setEntry(buildPlainCFG(CvtVec));
   VPRegionBlock *TopRegion = Plan->getEntry();
-
-  // Collect divergence information
-  collectUniforms(TopRegion);
 
   LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
   LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
@@ -1373,6 +1554,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   Plan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLInfo->analyze(VPDomTree);
+  populateVPLoopMetadata(VPLInfo);
 
   // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
   LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
@@ -1589,8 +1771,7 @@ bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
       VPValue *CBV = VPBB->getCondBit();
       assert(CBV && "Expected condition bit value.");
 
-      // TODO: Temporal implementation for HIR
-      return !Plan->UniformCBVs.count(CBV);
+      return Plan->getVPlanDA()->isDivergent(*CBV);
     }
   }
 
@@ -1599,18 +1780,18 @@ bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
   return false;
 }
 
+class PrivatesListCvt;
+
 namespace {
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
 // of the plain CFG.
 class PlainCFGBuilder {
-private:
+
   /// Outermost loop of the input loop nest.
   Loop *TheLoop = nullptr;
 
   LoopInfo *LI = nullptr;
-  // TODO: This should be removed together with the UniformCBVs set.
-  LoopVectorizationLegality *Legal;
 
   // Output TopRegion. Owned during the PlainCFG build process, moved
   // afterwards.
@@ -1649,10 +1830,23 @@ private:
 
   void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
 
+  // Create a VPInstruction based on the input IR instruction.
+  VPInstruction *createVPInstruction(Instruction *Inst);
+
+  // Check if the given IR instruction is present in the loop-body.
+  bool loopContains(Instruction *Inst) {
+    assert(Inst && "Expect a non-null instruction passed into this function.");
+    return TheLoop->contains(Inst);
+  }
+
+  // Reset the insertion point.
+  void resetInsertPoint() { VPIRBuilder.clearInsertionPoint(); }
+
 public:
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
-                  VPlan *Plan)
-      : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
+  friend PrivatesListCvt;
+
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlan *Plan)
+      : TheLoop(Lp), LI(LI), Plan(Plan) {}
 
   std::unique_ptr<VPRegionBlock> buildPlainCFG();
   void
@@ -1857,6 +2051,57 @@ public:
 
 // Convert data from Privates list
 class PrivatesListCvt : public VPEntityConverterBase {
+
+  // This method collects aliases that lie outside the loop-region. We are not
+  // concerned with aliases within the loop as they would be acquired
+  // when required (e.g., escape analysis).
+  void collectAliases(PrivateDescr &Descriptor, Value *Alloca) {
+    SetVector<Value *> WorkList;
+
+    // Start with the Alloca Inst.
+    WorkList.insert(Alloca);
+
+    while (!WorkList.empty()) {
+      Value *Head = WorkList.back();
+      WorkList.pop_back();
+      for (auto *Use : Head->users()) {
+        if (isa<IntrinsicInst>(Use) &&
+            VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
+          continue;
+
+        // Check that the use of this alias is within the loop-region and it is
+        // an alias-able instruction to begin with.
+        // Rather than the more generic 'aliasing', we are more concerned here
+        // with finding if the pointer here is based on another pointer.
+        // LLVM Aliasing instructions -
+        // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
+        Instruction *Inst = cast<Instruction>(Use);
+
+        // Lambda which determines if the 'User' is within the loop.
+        bool AliasesWithinLoop = llvm::any_of(Inst->users(), [=](Value *User) {
+          return Builder.loopContains(cast<Instruction>(User));
+        });
+
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
+            AliasesWithinLoop) {
+          auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
+          assert((isa<VPExternalDef>(NewVPOperand) ||
+                  isa<VPInstruction>(NewVPOperand)) &&
+                 "Expecting a VPExternalDef or a VPInstruction.");
+          if (isa<VPExternalDef>(NewVPOperand)) {
+            // Reset the insert-point. We do not want the instructions to be
+            // currently put into any existing basic block.
+            Builder.resetInsertPoint();
+            WorkList.insert(Inst);
+            VPInstruction *VPInst = Builder.createVPInstruction(Inst);
+            assert(VPInst && "Expect a valid VPInst to be created.");
+            Descriptor.addAlias(NewVPOperand, VPInst);
+          }
+        }
+      }
+    }
+  }
+
 public:
   PrivatesListCvt(PlainCFGBuilder &Bld, bool IsCond = false,
                   bool IsLast = false)
@@ -1868,26 +2113,18 @@ public:
     Descriptor.clear();
     assertIsSingleElementAlloca(CurValue);
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+
+    // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    for (auto *Use : make_range(CurValue->user_begin(), CurValue->user_end())) {
-      // Skip uses like the one from being an operand for the region-entry/exit
-      // directive
-      if (isa<IntrinsicInst>(Use) &&
-          VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
-        continue;
-      if (isa<BitCastInst>(Use) || isa<AddrSpaceCastInst>(Use) ||
-          isa<GetElementPtrInst>(Use)) {
-        auto *NewVPOperand = Builder.getOrCreateVPOperand(Use);
-        Descriptor.addAlias(NewVPOperand);
-      }
-    }
+    collectAliases(Descriptor, CurValue);
+
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(IsCondPriv);
     Descriptor.setIsLast(IsLastPriv);
     Descriptor.setIsExplicit(true);
-    Descriptor.setIsMemOnly(false);
+    Descriptor.setIsMemOnly(true);
   }
 
 private:
@@ -2164,6 +2401,60 @@ VPValue *PlainCFGBuilder::getOrCreateVPOperand(Value *IRVal) {
   return ExtDef;
 }
 
+VPInstruction *PlainCFGBuilder::createVPInstruction(Instruction *Inst) {
+
+  if (auto *Br = dyn_cast<BranchInst>(Inst)) {
+    // Branch instruction is not explicitly represented in VPlan but we need
+    // to represent its condition bit when it's conditional.
+    if (Br->isConditional())
+      getOrCreateVPOperand(Br->getCondition());
+
+    // Skip the rest of the Instruction processing for Branch instructions.
+    return nullptr;
+  }
+
+  VPInstruction *NewVPInst{nullptr};
+  if (auto *Phi = dyn_cast<PHINode>(Inst)) {
+    // Phi node's operands may have not been visited at this point. We create
+    // an empty VPInstruction that we will fix once the whole plain CFG has
+    // been built.
+#if INTEL_CUSTOMIZATION
+    NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
+#else
+    NewVPInst = cast<VPInstruction>(
+        VPIRBuilder.createNaryOp(Inst->getOpcode(), {} /*No operands*/, Inst));
+#endif // INTEL_CUSTOMIZATION
+    PhisToFix.push_back(Phi);
+    return NewVPInst;
+  } else {
+    // Translate LLVM-IR operands into VPValue operands and set them in the
+    // new VPInstruction.
+    SmallVector<VPValue *, 4> VPOperands;
+    for (Value *Op : Inst->operands())
+      VPOperands.push_back(getOrCreateVPOperand(Op));
+
+#if INTEL_CUSTOMIZATION
+    if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
+      assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
+      NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
+    } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
+      // Build VPGEPInstruction to represent GEP instructions
+      SmallVector<VPValue *, 3> IdxList(VPOperands.begin() + 1,
+                                        VPOperands.end());
+      if (GEP->isInBounds())
+        NewVPInst = VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
+      else
+        NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
+    } else
+#endif
+      // Build VPInstruction for any arbitraty Instruction without specific
+      // representation in VPlan.
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+          Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
+  }
+  return NewVPInst;
+}
+
 // Create new VPInstructions in a VPBasicBlock, given its BasicBlock
 // counterpart. This function must be invoked in RPO so that the operands of a
 // VPInstruction in \p BB have been visited before. VPInstructions representing
@@ -2173,64 +2464,18 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
                                                   BasicBlock *BB) {
   VPIRBuilder.setInsertPoint(VPBB);
   for (Instruction &InstRef : *BB) {
-    Instruction *Inst = &InstRef;
     // There shouldn't be any VPValue for Inst at this point. Otherwise, we
     // visited Inst when we shouldn't, breaking the RPO traversal order.
-    assert(!IRDef2VPValue.count(Inst) &&
+    assert(!IRDef2VPValue.count(&InstRef) &&
            "Instruction shouldn't have been visited.");
+    VPInstruction *NewVPInst = createVPInstruction(&InstRef);
+    // createVPInstruction can return nullptr in case of a BranchInst.
+    if (NewVPInst) {
+      if (TheLoop->contains(&InstRef))
+        addExternalUses(&InstRef, NewVPInst);
 
-    if (auto *Br = dyn_cast<BranchInst>(Inst)) {
-      // Branch instruction is not explicitly represented in VPlan but we need
-      // to represent its condition bit when it's conditional.
-      if (Br->isConditional())
-        getOrCreateVPOperand(Br->getCondition());
-
-      // Skip the rest of the Instruction processing for Branch instructions.
-      continue;
+      IRDef2VPValue[&InstRef] = NewVPInst;
     }
-
-    VPInstruction *NewVPInst;
-    if (auto *Phi = dyn_cast<PHINode>(Inst)) {
-      // Phi node's operands may have not been visited at this point. We create
-      // an empty VPInstruction that we will fix once the whole plain CFG has
-      // been built.
-#if INTEL_CUSTOMIZATION
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
-#else
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), {} /*No operands*/, Inst));
-#endif // INTEL_CUSTOMIZATION
-      PhisToFix.push_back(Phi);
-    } else {
-      // Translate LLVM-IR operands into VPValue operands and set them in the
-      // new VPInstruction.
-      SmallVector<VPValue *, 4> VPOperands;
-      for (Value *Op : Inst->operands())
-        VPOperands.push_back(getOrCreateVPOperand(Op));
-
-#if INTEL_CUSTOMIZATION
-      if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
-        assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-        NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
-      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
-        // Build VPGEPInstruction to represent GEP instructions
-        SmallVector<VPValue *, 3> IdxList(VPOperands.begin() + 1,
-                                          VPOperands.end());
-        if (GEP->isInBounds())
-          NewVPInst =
-              VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
-        else
-          NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
-      } else
-#endif
-      // Build VPInstruction for any arbitraty Instruction without specific
-      // representation in VPlan.
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
-    }
-    if (TheLoop->contains(Inst))
-      addExternalUses(Inst, NewVPInst);
-    IRDef2VPValue[Inst] = NewVPInst;
   }
 }
 
@@ -2393,7 +2638,7 @@ std::unique_ptr<VPRegionBlock> PlainCFGBuilder::buildPlainCFG() {
 
 std::unique_ptr<VPRegionBlock>
 VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
-  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Legal, Plan);
+  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
   // Converting loop enities.
   if (LoopEntityImportEnabled)

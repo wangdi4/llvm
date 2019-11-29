@@ -45,7 +45,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; VPBCG:       VPlannedBB:
 ; VPBCG:       [[TMP6:%.*]] = call i32 @llvm.experimental.vector.reduce.smax.v4i32(<4 x i32> [[TMP3]])
 ; VPBCG:       scalar.ph:
-; VPBCG:       [[BC_MERGE_REDUCTION:%.*]] = phi i32 [ [[TMP0]], [[FOR_BODY_PH:%.*]] ], [ [[TMP0]], [[MIN_ITERS_CHECKED:%.*]] ], [ [[TMP6]], [[MIDDLE_BLOCK:%.*]] ]
+; VPBCG:       [[BC_MERGE_REDUCTION:%.*]] = phi i32 [ [[TMP0]], [[FOR_BODY_PH:%.*]] ], [ [[TMP6]], [[MIDDLE_BLOCK:%.*]] ]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

@@ -106,6 +106,12 @@ EXTERN int omp_get_num_devices(void) {
   return KMP_UNSPECIFIED;
 }
 
+EXTERN int omp_get_num_procs(void) {
+  if (GLOBAL.assume_simple_spmd_mode || __kmp_is_spmd_mode())
+    return __kmp_get_local_size();
+  return __kmp_get_num_workers();
+}
+
 EXTERN int omp_is_initial_device(void) {
   return KMP_FALSE;
 }

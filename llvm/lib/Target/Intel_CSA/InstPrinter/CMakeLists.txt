@@ -7,6 +7,6 @@
 #    from the company.
 #
 
-add_llvm_library(LLVMCSAAsmPrinter
+add_llvm_component_library(LLVMCSAAsmPrinter
   CSAInstPrinter.cpp
   )

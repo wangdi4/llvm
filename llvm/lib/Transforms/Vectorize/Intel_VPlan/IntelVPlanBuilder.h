@@ -344,13 +344,12 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createAllocaPrivate(Type *Ty, bool IsSOALayout) {
-    VPInstruction *NewVPInst = new VPAllocatePrivate(Ty, IsSOALayout);
+  VPInstruction *createAllocaPrivate(Type *Ty) {
+    VPInstruction *NewVPInst = new VPAllocatePrivate(Ty);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
-
 
   //===--------------------------------------------------------------------===//
   // RAII helpers.

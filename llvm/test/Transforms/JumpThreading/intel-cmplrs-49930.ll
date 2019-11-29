@@ -29,12 +29,12 @@ define dso_local void @SyFgets(i8* %arg) #0 {
 ; CHECK-NEXT:    i32 19, label [[BB221_THREAD:%.*]]
 ; CHECK-NEXT:    i32 -1, label [[BB64_THREAD51:%.*]]
 ; CHECK-NEXT:    ]
-; CHECK:       bb64.thread:
+; CHECK:       bb64.thread51:
 ; CHECK-NEXT:    [[TMP695963:%.*]] = phi i32 [ [[TMP6955:%.*]], [[BB71_THREAD60:%.*]] ], [ [[TMP6959]], [[BB71]] ]
 ; CHECK-NEXT:    [[TMP6955]] = add i32 [[TMP695963]], -1
 ; CHECK-NEXT:    [[TMP7056:%.*]] = icmp sgt i32 [[TMP695963]], 0
 ; CHECK-NEXT:    br i1 [[TMP7056]], label [[BB71_THREAD60]], label [[BB363_THREAD50:%.*]]
-; CHECK:       bb71.thread:
+; CHECK:       bb71.thread60:
 ; CHECK-NEXT:    br label [[BB64_THREAD51]]
 ; CHECK:       bb363.thread50:
 ; CHECK-NEXT:    br label [[BB366]]

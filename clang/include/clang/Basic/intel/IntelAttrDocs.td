@@ -304,3 +304,39 @@ should take place as an ArbPrecInt type, promoting to the larger of the two
 types. All integer operations are currently supported.
   }];
 }
+
+def ReadWriteModeDocs : Documentation {
+ let Category = DocCatType;
+  let Content = [{
+The readwrite_mode attribute indicates to the compiler how the slave memory
+will be accessed from outside the component.
+
+__attribute__((readwrite_mode("readonly"))) indicates to the compiler that
+users from outside the component can only read from the slave interface.
+__attribute__((readwrite_mode("writeonly"))) indicates to the compiler that
+users from outside the component can only write to the slave interface.
+__attribute__((readwrite_mode("readwrite"))) indicates to the compiler that
+users from outside the component can read from and write to the slave
+interface.
+  }];
+}
+
+def MemoryLayoutDocs : Documentation {
+ let Category = DocCatType;
+  let Content = [{
+The memory_layout attribute provides the user of the FPGA HLD compiler
+explicit control over the layout of memory blocks used in a given memory
+system.
+
+In the presence of this attribute, the compiler will:
+
+1. Automatically size the memory depth to the next largest power of 2 if
+memory_layout is set to "padded", and will prefer width-stitching of RAM
+blocks over depth-stitching.
+
+2. Will not size the memory to the next largest power of 2 if memory_layout
+is set to "compact", and will prefer depth stitching instead of
+width-stitching if RAM usage can be lowered.
+
+ }];
+}

@@ -1,16 +1,16 @@
+; REQUIRES: assert
 ; This test checks that whole program wasn't achieved since
 ; there is no main.
 
 ; RUN: llvm-as -o %T/wp5.bc %s
 ; RUN: lld-link /out:%T/wp5.exe /entry:foo %T/wp5.bc /subsystem:console  \
-; RUN:     /mllvm:-whole-program-trace \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 
 ; CHECK:  Main definition not seen
 ; CHECK:  UNRESOLVED CALLSITES: 0
-; CHECK:  GLOBALS UNRESOLVED: 0
 ; CHECK:  ALIASES UNRESOLVED: 0
 ; CHECK:  LIBFUNCS NOT FOUND: 0
 ; CHECK:  VISIBLE OUTSIDE LTO: 0

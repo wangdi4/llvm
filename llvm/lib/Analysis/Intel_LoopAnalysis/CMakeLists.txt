@@ -1,4 +1,4 @@
-add_llvm_library(LLVMIntel_LoopAnalysis
+add_llvm_component_library(LLVMIntel_LoopAnalysis
   Intel_LoopAnalysis.cpp
   IR/BlobDDRef.cpp
   IR/CanonExpr.cpp

@@ -31,6 +31,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -61,8 +62,8 @@ struct CSACreateSelfContainedGraph : public ModulePass {
   explicit CSACreateSelfContainedGraph() : ModulePass(ID) {}
   StringRef getPassName() const override { return PASS_NAME; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineModuleInfo>();
-    AU.addRequired<CallGraphWrapperPass>();
+    AU.addRequired<MachineModuleInfoWrapperPass>();
+    AU.addRequired<MachineModuleInfoWrapperPass>();
     ModulePass::getAnalysisUsage(AU);
   }
   bool runOnModule(Module &M) override;
@@ -103,7 +104,7 @@ char CSACreateSelfContainedGraph::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CSACreateSelfContainedGraph, DEBUG_TYPE, PASS_NAME,
   false, false)
-INITIALIZE_PASS_DEPENDENCY(MachineModuleInfo)
+INITIALIZE_PASS_DEPENDENCY(MachineModuleInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_END(CSACreateSelfContainedGraph, DEBUG_TYPE, PASS_NAME,
   false, false)
@@ -821,7 +822,7 @@ void cleanupInitializerFunctions(Module &M, MachineModuleInfo *MMI) {
 
 bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
   thisMod = &M;
-  MMI = &getAnalysis<MachineModuleInfo>();
+  MMI = &getAnalysis<MachineModuleInfoWrapperPass>().getMMI();
   OffloadRegionRoots.clear();
   EntryToReturnMap.clear();
   if (hasUnsupportedCalls(M,MMI))

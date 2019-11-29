@@ -23,6 +23,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/DeclSpec.h"
@@ -548,7 +549,7 @@ static bool checkRecordDeclForAttr(const RecordDecl *RD) {
               // If it's type-dependent, we assume it could have the attribute.
               if (Ty.isDependentType())
                 return true;
-              return Ty.getAs<RecordType>()->getDecl()->hasAttr<AttrType>();
+              return Ty.castAs<RecordType>()->getDecl()->hasAttr<AttrType>();
             },
             BPaths, true))
       return true;
@@ -1067,6 +1068,56 @@ static void handleDiagnoseIfAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     ArgDependent = ArgumentDependenceChecker(FD).referencesArgs(Cond);
   D->addAttr(::new (S.Context) DiagnoseIfAttr(
       S.Context, AL, Cond, Msg, DiagType, ArgDependent, cast<NamedDecl>(D)));
+}
+
+static void handleNoBuiltinAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  static constexpr const StringRef kWildcard = "*";
+
+  llvm::SmallVector<StringRef, 16> Names;
+  bool HasWildcard = false;
+
+  const auto AddBuiltinName = [&Names, &HasWildcard](StringRef Name) {
+    if (Name == kWildcard)
+      HasWildcard = true;
+    Names.push_back(Name);
+  };
+
+  // Add previously defined attributes.
+  if (const auto *NBA = D->getAttr<NoBuiltinAttr>())
+    for (StringRef BuiltinName : NBA->builtinNames())
+      AddBuiltinName(BuiltinName);
+
+  // Add current attributes.
+  if (AL.getNumArgs() == 0)
+    AddBuiltinName(kWildcard);
+  else
+    for (unsigned I = 0, E = AL.getNumArgs(); I != E; ++I) {
+      StringRef BuiltinName;
+      SourceLocation LiteralLoc;
+      if (!S.checkStringLiteralArgumentAttr(AL, I, BuiltinName, &LiteralLoc))
+        return;
+
+      if (Builtin::Context::isBuiltinFunc(BuiltinName))
+        AddBuiltinName(BuiltinName);
+      else
+        S.Diag(LiteralLoc, diag::warn_attribute_no_builtin_invalid_builtin_name)
+            << BuiltinName << AL.getAttrName()->getName();
+    }
+
+  // Repeating the same attribute is fine.
+  llvm::sort(Names);
+  Names.erase(std::unique(Names.begin(), Names.end()), Names.end());
+
+  // Empty no_builtin must be on its own.
+  if (HasWildcard && Names.size() > 1)
+    S.Diag(D->getLocation(),
+           diag::err_attribute_no_builtin_wildcard_or_builtin_name)
+        << AL.getAttrName()->getName();
+
+  if (D->hasAttr<NoBuiltinAttr>())
+    D->dropAttr<NoBuiltinAttr>();
+  D->addAttr(::new (S.Context)
+                 NoBuiltinAttr(S.Context, AL, Names.data(), Names.size()));
 }
 
 static void handlePassObjectSizeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -2553,6 +2604,29 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const ParsedAttr &AL,
     D->addAttr(newAttr);
 }
 
+static void handleObjCDirectAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // objc_direct cannot be set on methods declared in the context of a protocol
+  if (isa<ObjCProtocolDecl>(D->getDeclContext())) {
+    S.Diag(AL.getLoc(), diag::err_objc_direct_on_protocol) << false;
+    return;
+  }
+
+  if (S.getLangOpts().ObjCRuntime.allowsDirectDispatch()) {
+    handleSimpleAttribute<ObjCDirectAttr>(S, D, AL);
+  } else {
+    S.Diag(AL.getLoc(), diag::warn_objc_direct_ignored) << AL;
+  }
+}
+
+static void handleObjCDirectMembersAttr(Sema &S, Decl *D,
+                                        const ParsedAttr &AL) {
+  if (S.getLangOpts().ObjCRuntime.allowsDirectDispatch()) {
+    handleSimpleAttribute<ObjCDirectMembersAttr>(S, D, AL);
+  } else {
+    S.Diag(AL.getLoc(), diag::warn_objc_direct_ignored) << AL;
+  }
+}
+
 static void handleObjCMethodFamilyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   const auto *M = cast<ObjCMethodDecl>(D);
   if (!AL.isArgIdent(0)) {
@@ -2705,7 +2779,7 @@ static void handleSentinelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     if (Ty->isBlockPointerType() || Ty->isFunctionPointerType()) {
       const FunctionType *FT = Ty->isFunctionPointerType()
        ? D->getFunctionType()
-       : Ty->getAs<BlockPointerType>()->getPointeeType()->getAs<FunctionType>();
+       : Ty->castAs<BlockPointerType>()->getPointeeType()->getAs<FunctionType>();
       if (!cast<FunctionProtoType>(FT)->isVariadic()) {
         int m = Ty->isFunctionPointerType() ? 0 : 1;
         S.Diag(AL.getLoc(), diag::warn_attribute_sentinel_not_variadic) << m;
@@ -3126,10 +3200,6 @@ void Sema::AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
 static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
                                                const ParsedAttr &Attr) {
   checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
-    return;
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
@@ -3326,100 +3396,27 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       S.Context, Attr, LocalMemSize));
 }
 
-static void handleHLSOptimizeFMaxAttr(Sema &S, Decl *D,
-                                      const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<OptimizeFMaxAttr>(S, D, Attr);
+static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
-  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
+  checkForDuplicateAttribute <ReadWriteModeAttr>(S, D, Attr);
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
     return;
-
-  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
-    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
-      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(S, D, Attr);
-      return;
-    }
   }
 
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  handleSimpleAttribute<OptimizeFMaxAttr>(S, D, Attr);
-}
-
-static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<OptimizeRamUsageAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
+  if (Str != "readonly" && Str != "writeonly" && Str != "readwrite") {
+    S.Diag(Attr.getLoc(), diag::err_hls_readwrite_arg_invalid) << Attr;
     return;
-
-  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
-    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
-      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(S, D, Attr);
-      return;
-    }
   }
 
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  handleSimpleAttribute<OptimizeRamUsageAttr>(S, D, Attr);
-}
-
-/// Handle the numreadports and numwriteports attributes.
-/// These require a single constant value that must be greater
-/// than zero. They are incompatible with the register and
-/// max_replicate(N) attributes.
-template <typename AttrType>
-static void handleHLSOneConstantValueAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  // The attributes NumReadPorts/NumWritePorts will eventually be
-  // replaced by max_replicates attribute. Warn the user.
-  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
-  checkForDuplicateAttribute<AttrType>(S, D, Attr);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+  // ReadWrite attributes applies only to slavememory attributes.
+  if (!D->getAttr<SlaveMemoryArgumentAttr>()) {
+    S.Diag(Attr.getLoc(), diag::err_readwritememory_attribute_invalid) << Attr;
     return;
+  }
 
-  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
-}
-
-/// Handle the numports_readonly_writeonly attribute.
-/// This requires two constant values greater than zero.
-/// This is incompatible with the register and max_replicate attributes.
-/// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
-/// its own attribute.
-static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
-                                                const ParsedAttr &Attr) {
-  // This attribute will eventually be replaced by max_replicates attribute.
-  // Warn the user.
-  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
-  checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr);
-  checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(D, Attr, Attr.getArgAsExpr(0));
-  S.HLSAddOneConstantValueAttr<NumWritePortsAttr>(D, Attr,
-                                                  Attr.getArgAsExpr(1));
+  D->addAttr(::new (S.Context) ReadWriteModeAttr(S.Context, Attr, Str));
 }
 
 /// Handle the static_array_reset attribute.
@@ -3629,10 +3626,6 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
   }
   if (Type == ArgumentInterfaceAttr::Slave) {
     if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-      return;
-    if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-      return;
-    if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
       return;
   }
 
@@ -4074,6 +4067,19 @@ bool Sema::checkTargetAttr(SourceLocation LiteralLoc, StringRef AttrStr) {
              << Unsupported << None << CurFeature;
   }
 
+  TargetInfo::BranchProtectionInfo BPI;
+  StringRef Error;
+  if (!ParsedAttrs.BranchProtection.empty() &&
+      !Context.getTargetInfo().validateBranchProtection(
+          ParsedAttrs.BranchProtection, BPI, Error)) {
+    if (Error.empty())
+      return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
+             << Unsupported << None << "branch-protection";
+    else
+      return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
+             << Error;
+  }
+
   return false;
 }
 
@@ -4195,7 +4201,7 @@ static void handleFormatArgAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (NotNSStringTy &&
       !isCFStringType(Ty, S.Context) &&
       (!Ty->isPointerType() ||
-       !Ty->getAs<PointerType>()->getPointeeType()->isCharType())) {
+       !Ty->castAs<PointerType>()->getPointeeType()->isCharType())) {
     S.Diag(AL.getLoc(), diag::err_format_attribute_not)
         << "a string type" << IdxExpr->getSourceRange()
         << getFunctionOrMethodParamRange(D, 0);
@@ -4205,7 +4211,7 @@ static void handleFormatArgAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!isNSStringType(Ty, S.Context) &&
       !isCFStringType(Ty, S.Context) &&
       (!Ty->isPointerType() ||
-       !Ty->getAs<PointerType>()->getPointeeType()->isCharType())) {
+       !Ty->castAs<PointerType>()->getPointeeType()->isCharType())) {
     S.Diag(AL.getLoc(), diag::err_format_attribute_result_not)
         << (NotNSStringTy ? "string type" : "NSString")
         << IdxExpr->getSourceRange() << getFunctionOrMethodParamRange(D, 0);
@@ -4381,7 +4387,7 @@ static void handleFormatAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
       return;
     }
   } else if (!Ty->isPointerType() ||
-             !Ty->getAs<PointerType>()->getPointeeType()->isCharType()) {
+             !Ty->castAs<PointerType>()->getPointeeType()->isCharType()) {
     S.Diag(AL.getLoc(), diag::err_format_attribute_not)
       << "a string type" << IdxExpr->getSourceRange()
       << getFunctionOrMethodParamRange(D, ArgIdx);
@@ -4741,8 +4747,7 @@ void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (isa<NumReadPortsAttr>(TmpAttr) || isa<NumWritePortsAttr>(TmpAttr) ||
-      isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
+  if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
       (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
@@ -4959,7 +4964,7 @@ void Sema::CheckAlignasUnderalignment(Decl *D) {
 
 bool Sema::checkMSInheritanceAttrOnDefinition(
     CXXRecordDecl *RD, SourceRange Range, bool BestCase,
-    MSInheritanceAttr::Spelling SemanticSpelling) {
+    MSInheritanceModel ExplicitModel) {
   assert(RD->hasDefinition() && "RD has no definition!");
 
   // We may not have seen base specifiers or any virtual methods yet.  We will
@@ -4968,14 +4973,14 @@ bool Sema::checkMSInheritanceAttrOnDefinition(
     return false;
 
   // The unspecified model never matches what a definition could need.
-  if (SemanticSpelling == MSInheritanceAttr::Keyword_unspecified_inheritance)
+  if (ExplicitModel == MSInheritanceModel::Unspecified)
     return false;
 
   if (BestCase) {
-    if (RD->calculateInheritanceModel() == SemanticSpelling)
+    if (RD->calculateInheritanceModel() == ExplicitModel)
       return false;
   } else {
-    if (RD->calculateInheritanceModel() <= SemanticSpelling)
+    if (RD->calculateInheritanceModel() <= ExplicitModel)
       return false;
   }
 
@@ -5431,7 +5436,9 @@ static void handleGlobalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
   const auto *FD = cast<FunctionDecl>(D);
-  if (!FD->getReturnType()->isVoidType()) {
+  if (!FD->getReturnType()->isVoidType() &&
+      !FD->getReturnType()->getAs<AutoType>() &&
+      !FD->getReturnType()->isInstantiationDependentType()) {
     SourceRange RTRange = FD->getReturnTypeSourceRange();
     S.Diag(FD->getTypeSpecStartLoc(), diag::err_kern_type_not_void_return)
         << FD->getType()
@@ -5460,6 +5467,9 @@ static void handleGNUInlineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     S.Diag(AL.getLoc(), diag::warn_gnu_inline_attribute_requires_inline);
     return;
   }
+
+  if (S.LangOpts.CPlusPlus && Fn->getStorageClass() != SC_Extern)
+    S.Diag(AL.getLoc(), diag::warn_gnu_inline_cplusplus_without_extern);
 
   D->addAttr(::new (S.Context) GNUInlineAttr(S.Context, AL));
 }
@@ -5641,10 +5651,11 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
     return true;
   }
 
+  const TargetInfo &TI = Context.getTargetInfo();
   // TODO: diagnose uses of these conventions on the wrong target.
   switch (Attrs.getKind()) {
   case ParsedAttr::AT_CDecl:
-    CC = CC_C;
+    CC = TI.getDefaultCallingConv();
     break;
   case ParsedAttr::AT_FastCall:
     CC = CC_X86FastCall;
@@ -5709,7 +5720,6 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
   }
 
   TargetInfo::CallingConvCheckResult A = TargetInfo::CCCR_OK;
-  const TargetInfo &TI = Context.getTargetInfo();
   // CUDA functions may have host and/or device attributes which indicate
   // their targeted execution environment, therefore the calling convention
   // of functions in CUDA should be checked against the target deduced based
@@ -6088,6 +6098,29 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(S.Context, AL, Kind));
 }
 
+static void handleMemoryLayoutAttr(Sema &S, Decl *D,
+                                   const ParsedAttr &AL) {
+
+  checkForDuplicateAttribute<MemoryLayoutAttr>(S, D, AL);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(AL, 0, Str))
+    return;
+
+  if (Str != "compact"  && Str != "padded") {
+    S.Diag(AL.getLoc(), diag::err_hls_memorylayout_arg_invalid) << AL;
+    return;
+  }
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+             MemoryLayoutAttr(S.Context, AL, Str));
+}
+
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
 static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
@@ -6114,17 +6147,9 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr))
     InCompat = true;
-  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
-    InCompat = true;
   if (checkAttrMutualExclusion<StaticArrayResetAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
     InCompat = true;
 #endif // INTEL_CUSTOMIZATION
   if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
@@ -6216,15 +6241,6 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-#if INTEL_CUSTOMIZATION
-  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
-    return;
-#endif // INTEL_CUSTOMIZATION
-
   S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
       D, Attr, Attr.getArgAsExpr(0));
 }
@@ -6293,6 +6309,35 @@ static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // ArgCount isn't a parameter index [0;n), it's a count [1;n]
   D->addAttr(::new (S.Context)
                  XRayLogArgsAttr(S.Context, AL, ArgCount.getSourceIndex()));
+}
+
+static bool ArmMveAliasValid(unsigned BuiltinID, StringRef AliasName) {
+  if (AliasName.startswith("__arm_"))
+    AliasName = AliasName.substr(6);
+  switch (BuiltinID) {
+#include "clang/Basic/arm_mve_builtin_aliases.inc"
+  default:
+    return false;
+  }
+}
+
+static void handleArmMveAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!AL.isArgIdent(0)) {
+    S.Diag(AL.getLoc(), diag::err_attribute_argument_n_type)
+        << AL << 1 << AANT_ArgumentIdentifier;
+    return;
+  }
+
+  IdentifierInfo *Ident = AL.getArgAsIdent(0)->Ident;
+  unsigned BuiltinID = Ident->getBuiltinID();
+
+  if (!ArmMveAliasValid(BuiltinID,
+                        cast<FunctionDecl>(D)->getIdentifier()->getName())) {
+    S.Diag(AL.getLoc(), diag::err_attribute_arm_mve_alias);
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ArmMveAliasAttr(S.Context, AL, Ident));
 }
 
 //===----------------------------------------------------------------------===//
@@ -6807,8 +6852,7 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
   MSInheritanceAttr *IA = S.mergeMSInheritanceAttr(
-      D, AL, /*BestCase=*/true,
-      (MSInheritanceAttr::Spelling)AL.getSemanticSpelling());
+      D, AL, /*BestCase=*/true, (MSInheritanceModel)AL.getSemanticSpelling());
   if (IA) {
     D->addAttr(IA);
     S.Consumer.AssignInheritanceModel(cast<CXXRecordDecl>(D));
@@ -7083,6 +7127,25 @@ static void handleAVRSignalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
 
   handleSimpleAttribute<AVRSignalAttr>(S, D, AL);
+}
+
+static void handleBPFPreserveAIRecord(Sema &S, RecordDecl *RD) {
+  // Add preserve_access_index attribute to all fields and inner records.
+  for (auto D : RD->decls()) {
+    if (D->hasAttr<BPFPreserveAccessIndexAttr>())
+      continue;
+
+    D->addAttr(BPFPreserveAccessIndexAttr::CreateImplicit(S.Context));
+    if (auto *Rec = dyn_cast<RecordDecl>(D))
+      handleBPFPreserveAIRecord(S, Rec);
+  }
+}
+
+static void handleBPFPreserveAccessIndexAttr(Sema &S, Decl *D,
+    const ParsedAttr &AL) {
+  auto *Rec = cast<RecordDecl>(D);
+  handleBPFPreserveAIRecord(S, Rec);
+  Rec->addAttr(::new (S.Context) BPFPreserveAccessIndexAttr(S.Context, AL));
 }
 
 static void handleWebAssemblyImportModuleAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -7442,9 +7505,9 @@ static void handleDLLAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 MSInheritanceAttr *
 Sema::mergeMSInheritanceAttr(Decl *D, const AttributeCommonInfo &CI,
                              bool BestCase,
-                             MSInheritanceAttr::Spelling SemanticSpelling) {
+                             MSInheritanceModel Model) {
   if (MSInheritanceAttr *IA = D->getAttr<MSInheritanceAttr>()) {
-    if (IA->getSemanticSpelling() == SemanticSpelling)
+    if (IA->getInheritanceModel() == Model)
       return nullptr;
     Diag(IA->getLocation(), diag::err_mismatched_ms_inheritance)
         << 1 /*previous declaration*/;
@@ -7455,7 +7518,7 @@ Sema::mergeMSInheritanceAttr(Decl *D, const AttributeCommonInfo &CI,
   auto *RD = cast<CXXRecordDecl>(D);
   if (RD->hasDefinition()) {
     if (checkMSInheritanceAttrOnDefinition(RD, CI.getRange(), BestCase,
-                                           SemanticSpelling)) {
+                                           Model)) {
       return nullptr;
     }
   } else {
@@ -7874,6 +7937,14 @@ static void handleMSAllocatorAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
+
+static bool IsDeclLambdaCallOperator(Decl *D) {
+  if (const auto *MD = dyn_cast<CXXMethodDecl>(D))
+    return MD->getParent()->isLambda() &&
+           MD->getOverloadedOperator() == OverloadedOperatorKind::OO_Call;
+  return false;
+}
+
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
 /// silently ignore it if a GNU attribute.
@@ -7885,7 +7956,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Ignore C++11 attributes on declarator chunks: they appertain to the type
   // instead.
-  if (AL.isCXX11Attribute() && !IncludeCXX11Attributes)
+  if (AL.isCXX11Attribute() && !IncludeCXX11Attributes &&
+      (!IsDeclLambdaCallOperator(D) || !AL.isAllowedOnLambdas()))
     return;
 
   // Unknown attributes are automatically warned on. Target-specific attributes
@@ -7962,6 +8034,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_AVRSignal:
     handleAVRSignalAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_BPFPreserveAccessIndex:
+    handleBPFPreserveAccessIndexAttr(S, D, AL);
     break;
   case ParsedAttr::AT_WebAssemblyImportModule:
     handleWebAssemblyImportModuleAttr(S, D, AL);
@@ -8044,6 +8119,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_DiagnoseIf:
     handleDiagnoseIfAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_NoBuiltin:
+    handleNoBuiltinAttr(S, D, AL);
     break;
   case ParsedAttr::AT_ExtVectorType:
     handleExtVectorTypeAttr(S, D, AL);
@@ -8301,6 +8379,13 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_ObjCRootClass:
     handleSimpleAttribute<ObjCRootClassAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_ObjCDirect:
+    handleObjCDirectAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_ObjCDirectMembers:
+    handleObjCDirectMembersAttr(S, D, AL);
+    handleSimpleAttribute<ObjCDirectMembersAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_ObjCNonLazyClass:
     handleSimpleAttribute<ObjCNonLazyClassAttr>(S, D, AL);
@@ -8610,6 +8695,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_MemoryLayout:
+    handleMemoryLayoutAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_IntelFPGARegister:
     handleIntelFPGARegisterAttr(S, D, AL);
     break;
@@ -8682,20 +8770,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleStallLatencyAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
-  case ParsedAttr::AT_OptimizeFMax:
-    handleHLSOptimizeFMaxAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_OptimizeRamUsage:
-    handleOptimizeRamUsageAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_NumReadPorts:
-    handleHLSOneConstantValueAttr<NumReadPortsAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NumWritePorts:
-    handleHLSOneConstantValueAttr<NumWritePortsAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NumPortsReadOnlyWriteOnly:
-    handleNumPortsReadOnlyWriteOnlyAttr(S, D, AL);
+  case ParsedAttr::AT_ReadWriteMode:
+    handleReadWriteMode(S, D, AL);
     break;
   case ParsedAttr::AT_BankBits:
     handleBankBitsAttr(S, D, AL);
@@ -8758,6 +8834,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_RenderScriptKernel:
     handleSimpleAttribute<RenderScriptKernelAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLIntelKernelArgsRestrict:
+    handleSimpleAttribute<SYCLIntelKernelArgsRestrictAttr>(S, D, AL);
+    break;
   // XRay attributes.
   case ParsedAttr::AT_XRayInstrument:
     handleSimpleAttribute<XRayInstrumentAttr>(S, D, AL);
@@ -8790,6 +8869,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   case ParsedAttr::AT_MSAllocator:
     handleMSAllocatorAttr(S, D, AL);
+    break;
+
+  case ParsedAttr::AT_ArmMveAlias:
+    handleArmMveAliasAttr(S, D, AL);
     break;
   }
 }
@@ -8919,8 +9002,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     if (diagnoseMemoryAttrs<
             IntelFPGAMemoryAttr, IntelFPGANumBanksAttr, IntelFPGABankWidthAttr,
             IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr, BankBitsAttr,
-            NumReadPortsAttr, NumWritePortsAttr, InternalMaxBlockRamDepthAttr,
-            OptimizeFMaxAttr, OptimizeRamUsageAttr>(*this, D))
+            InternalMaxBlockRamDepthAttr>(*this, D))
       D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION
@@ -8937,7 +9019,8 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
   }
 }
 
-// Helper for delayed processing TransparentUnion attribute.
+// Helper for delayed processing TransparentUnion or BPFPreserveAccessIndexAttr
+// attribute.
 void Sema::ProcessDeclAttributeDelayed(Decl *D,
                                        const ParsedAttributesView &AttrList) {
   for (const ParsedAttr &AL : AttrList)
@@ -8945,6 +9028,11 @@ void Sema::ProcessDeclAttributeDelayed(Decl *D,
       handleTransparentUnionAttr(*this, D, AL);
       break;
     }
+
+  // For BPFPreserveAccessIndexAttr, we want to populate the attributes
+  // to fields and inner records as well.
+  if (D && D->hasAttr<BPFPreserveAccessIndexAttr>())
+    handleBPFPreserveAIRecord(*this, cast<RecordDecl>(D));
 }
 
 // Annotation attributes are the only attributes allowed after an access

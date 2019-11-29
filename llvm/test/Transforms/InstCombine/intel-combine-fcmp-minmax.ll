@@ -588,7 +588,7 @@ define i1 @convert_preserve_orderness1 (float %a, float %b, float %c)  {
 ; CHECK-LABEL: @convert_preserve_orderness1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp nnan ogt float %a, %b
-; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[CMP]], float %b, float %a
+; CHECK-NEXT:    [[TMP1:%.*]] = select nnan i1 [[CMP]], float %b, float %a
 ; CHECK-NEXT:    [[TMP2:%.*]] = fcmp nnan ugt float [[TMP1]], %c
 entry:
   %cmp = fcmp nnan ult float %c, %a
@@ -602,7 +602,7 @@ define i1 @convert_preserve_orderness2 (float %a, float %b, float %c)  {
 ; CHECK-LABEL: @convert_preserve_orderness2(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp nnan olt float %a, %b
-; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[CMP]], float %b, float %a
+; CHECK-NEXT:    [[TMP1:%.*]] = select nnan i1 [[CMP]], float %b, float %a
 ; CHECK-NEXT:    [[TMP2:%.*]] = fcmp nnan ugt float [[TMP1]], %c
 entry:
   %cmp = fcmp nnan ult float %c, %a

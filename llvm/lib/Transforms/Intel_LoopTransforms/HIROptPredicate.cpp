@@ -54,6 +54,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -211,6 +212,79 @@ struct HoistCandidate {
 #endif
 };
 
+template <typename IterT>
+static void updateDefLevels(HLDDNode *Node, IterT Begin, IterT End) {
+  unsigned Level = Node->getNodeLevel();
+
+  // Update Node's refs.
+  for (auto Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+    Ref->updateDefLevel(Level);
+  }
+
+  // Keep the set of Refs whose BlobDDRefs were updated.
+  SmallPtrSet<RegDDRef *, 16> RefsToUpdate;
+
+  // handle each loop clone separately.
+  ForEach<HLLoop>::visitRange<false>(Begin, End, [&](HLLoop *Loop) {
+    SmallSet<unsigned, 32> DefSymbases;
+    SmallSet<unsigned, 32> UseSymbases;
+
+    SmallVector<DDRef *, 32> Refs;
+    DDRefGatherer<DDRef, TerminalRefs | BlobRefs>::gatherRange(
+        Loop->child_begin(), Loop->child_end(), Refs);
+
+    for (DDRef *Ref : Refs) {
+      auto Symbase = Ref->getSymbase();
+
+      // Skip non-temps. Also skip non-livein references as their level may not
+      // be changed by the predicate optimization.
+      if ((Ref->isRval() && !Ref->isSelfBlob()) || !Loop->isLiveIn(Symbase)) {
+        continue;
+      }
+
+      if (Ref->isLval()) {
+        DefSymbases.insert(Symbase);
+      } else if (Ref->getDefinedAtLevel() > Level) {
+        // Account only non-linear @ Level references.
+        UseSymbases.insert(Symbase);
+      }
+    }
+
+    // Remove symbases that have definitions inside the loop. They should
+    // preserve their non-linear definition level.
+    for (unsigned Symbase : DefSymbases) {
+      UseSymbases.erase(Symbase);
+    }
+
+    if (UseSymbases.empty()) {
+      // Nothing to update.
+      return;
+    }
+
+    for (auto *Ref : Refs) {
+      // Update only the refs with linear uses inside the loop.
+      if (!UseSymbases.count(Ref->getSymbase())) {
+        continue;
+      }
+
+      if (auto *BRef = dyn_cast<BlobDDRef>(Ref)) {
+        BRef->setDefinedAtLevel(Level);
+        RefsToUpdate.insert(BRef->getParentDDRef());
+      } else {
+        RegDDRef *RRef = cast<RegDDRef>(Ref);
+        if (RRef->isSelfBlob()) {
+          RRef->getSingleCanonExpr()->setDefinedAtLevel(Level);
+        }
+      }
+    }
+  });
+
+  // Update RegDDRefs those BlobDDRefs were updated.
+  for (auto *Ref : RefsToUpdate) {
+    Ref->updateDefLevel();
+  }
+}
+
 // The following map is used to store children nodes of switches and ifs,
 // indexed by a case or a branch.
 //
@@ -227,7 +301,7 @@ public:
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                   bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
-      : HIRF(HIRF), DDA(DDA),
+      : HIRF(HIRF), DDA(DDA), BU(HIRF.getBlobUtils()),
         EnablePartialUnswitch(EnablePartialUnswitch && !DisablePartialUnswitch),
         KeepLoopnestPerfect(KeepLoopnestPerfect || KeepLoopnestPerfectOption) {}
 
@@ -236,6 +310,7 @@ public:
 private:
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
+  BlobUtils &BU;
 
   bool EnablePartialUnswitch;
   bool KeepLoopnestPerfect;
@@ -281,9 +356,12 @@ private:
   unsigned getPossibleDefLevel(const HLDDNode *Node, const RegDDRef *Ref,
                                PUContext &PUC);
 
-  /// Returns the possible level where CE is defined. NonLinearBlob is set true
-  /// whenever CE contains a non-linear blob.
-  unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob);
+  /// Returns the possible level where CE is defined.
+  ///
+  /// NonLinearBlob is set true whenever CE contains a non-linear blob.
+  /// UDivBlob is set to true whenever CE contains a non-constant division.
+  unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob,
+                               bool &UDivBlob);
 
   void transformSwitch(HLLoop *TargetLoop,
                        iterator_range<HoistCandidate *> SwitchCandidates,
@@ -741,7 +819,11 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
   bool TransformCurrentLoop = true;
 
-  if (!DisableCostModel && !Loop->isInnermost()) {
+  // Handle innermost loops and outer loops, but only if unswitching can make
+  // the loopnest perfectly nested. In this case the loop will have only one
+  // child.
+  if (!DisableCostModel && !Loop->isInnermost() &&
+      Loop->getNumChildren() != 1) {
     TransformCurrentLoop = false;
   }
 
@@ -819,7 +901,8 @@ bool HIROptPredicate::run() {
 }
 
 unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
-                                              bool &NonLinearBlob) {
+                                              bool &NonLinearBlob,
+                                              bool &UDivBlob) {
   unsigned IVMaxLevel = 0;
   unsigned IVLevel = 0;
   for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
@@ -830,6 +913,19 @@ unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
     IVLevel++;
     if (CE->getIVConstCoeff(I)) {
       IVMaxLevel = IVLevel;
+    }
+
+    if (I->Index != InvalidBlobIndex &&
+        BlobUtils::mayContainUDivByZero(BU.getBlob(I->Index))) {
+      UDivBlob = true;
+    }
+  }
+
+  for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E && !UDivBlob;
+       ++I) {
+    if (I->Index != InvalidBlobIndex &&
+        BlobUtils::mayContainUDivByZero(BU.getBlob(I->Index))) {
+      UDivBlob = true;
     }
   }
 
@@ -848,38 +944,46 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLDDNode *Node,
                                               PUContext &PUC) {
   unsigned Level = 0;
   bool NonLinearRef = false;
+  bool UDivBlob = false;
   bool HasGEPInfo = Ref->hasGEPInfo();
 
   if (HasGEPInfo) {
-    Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef);
+    Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef, UDivBlob);
   }
 
   for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
-    Level = std::max(
-        Level, getPossibleDefLevel(Ref->getDimensionIndex(I), NonLinearRef));
+    Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionIndex(I),
+                                                NonLinearRef, UDivBlob));
 
     if (HasGEPInfo) {
-      Level = std::max(
-          Level, getPossibleDefLevel(Ref->getDimensionLower(I), NonLinearRef));
-      Level = std::max(
-          Level, getPossibleDefLevel(Ref->getDimensionStride(I), NonLinearRef));
+      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionLower(I),
+                                                  NonLinearRef, UDivBlob));
+      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionStride(I),
+                                                  NonLinearRef, UDivBlob));
     }
   }
 
-  if (Node->getNodeLevel() == Level) {
+  unsigned NodeLevel = Node->getNodeLevel();
+
+  if (NodeLevel == Level) {
     // Reference is dependent on If's nesting level. Ex.: a[i1] or i1 + %b
     return Level;
   }
 
+  if (UDivBlob) {
+    // Allow only one level unswitching in case of UDivBlob.
+    Level = NodeLevel - 1;
+  }
+
   if (NonLinearRef || Ref->isMemRef()) {
     // Return current level of attachment.
-    Level = Node->getNodeLevel();
+    Level = NodeLevel;
 
     const HLIf *If = dyn_cast<HLIf>(Node);
+
+    // May hoist one level up only.
     if (If && isPUCandidate(If, Ref, PUC)) {
       PUC.setPURequired();
-
-      // May hoist one level up only.
       Level -= 1;
     }
   }
@@ -964,7 +1068,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
     // TODO: check if candidate is defined in preheader
     TargetLoop->extractZtt();
-    TargetLoop->extractPreheader();
+    TargetLoop->extractPreheaderAndPostexit();
 
     // TransformLoop and its clones.
     transformCandidate(TargetLoop, Candidate);
@@ -1105,7 +1209,8 @@ void HIROptPredicate::transformSwitch(
   }
 
   HLNodeUtils::replace(Marker, OuterSwitch);
-  OuterSwitch->getConditionDDRef()->updateDefLevel();
+  updateDefLevels(OuterSwitch, OuterSwitch->child_begin(),
+                  OuterSwitch->child_end());
 }
 
 void HIROptPredicate::transformIf(
@@ -1242,6 +1347,8 @@ void HIROptPredicate::transformIf(
 
   NewCandidates.append(CloneMapper.getNewCandidates().begin(),
                        CloneMapper.getNewCandidates().end());
+
+  updateDefLevels(PivotIf, PivotIf->child_begin(), PivotIf->child_end());
 }
 
 // transformLoop - Perform the OptPredicate transformation for the given loop.
@@ -1405,13 +1512,6 @@ void HIROptPredicate::hoistIf(HLIf *&If, HLLoop *OrigLoop) {
 
   // Hoist the If outside the loop.
   HLNodeUtils::moveBefore(OrigLoop, If);
-
-  unsigned Level = OrigLoop->getNestingLevel();
-
-  // Update the DDRefs inside the HLIf.
-  for (auto Ref : make_range(If->ddref_begin(), If->ddref_end())) {
-    Ref->updateDefLevel(Level - 1);
-  }
 }
 
 void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,

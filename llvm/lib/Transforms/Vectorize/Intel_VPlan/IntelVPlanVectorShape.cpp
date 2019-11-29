@@ -29,8 +29,7 @@ VPVectorShape* VPVectorShape::joinShapes(const VPVectorShape *Shape1,
   if (Shape2->isUndefined())
     return new VPVectorShape(Shape1->getShapeDescriptor(), Shape1->getStride());
 
-  if (Shape1->hasKnownStride() && Shape2->hasKnownStride() &&
-      Shape1->getStrideVal() == Shape2->getStrideVal()) {
+  if (shapesHaveSameStride(Shape1, Shape2)) {
     if (Shape1->isUniform())
       return new VPVectorShape(VPVectorShape::Uni, Shape1->getStride());
     else
@@ -38,4 +37,13 @@ VPVectorShape* VPVectorShape::joinShapes(const VPVectorShape *Shape1,
   }
 
   return new VPVectorShape(VPVectorShape::Rnd);
+}
+
+bool VPVectorShape::shapesHaveSameStride(const VPVectorShape *Shape1,
+                                         const VPVectorShape *Shape2) {
+  if (Shape1 && Shape2 && Shape1->hasKnownStride() &&
+      Shape2->hasKnownStride() &&
+      Shape1->getStrideVal() == Shape2->getStrideVal())
+    return true;
+  return false;
 }

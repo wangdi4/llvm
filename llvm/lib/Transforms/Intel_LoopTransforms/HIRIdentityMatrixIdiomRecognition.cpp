@@ -40,7 +40,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #define OPT_SWITCH "hir-identity-matrix-idiom-recognition"
 #define OPT_DESC "HIR Identity Matrix Idiom Recognition"

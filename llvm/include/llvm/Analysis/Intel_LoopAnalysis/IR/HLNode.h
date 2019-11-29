@@ -158,7 +158,7 @@ protected:
   static void printFMF(raw_ostream &OS, FastMathFlags FMF);
 
   /// \brief Pretty prints predicates.
-  static void printPredicate(formatted_raw_ostream &OS, PredicateTy Pred);
+  static void printPredicate(raw_ostream &OS, PredicateTy Pred);
 
   /// \brief Base Clone Implementation
   /// This is the protected base clone implementation as the subclasses cannot

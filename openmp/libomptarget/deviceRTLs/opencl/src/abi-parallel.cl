@@ -56,7 +56,8 @@ EXTERN void __kmpc_kernel_prepare_parallel(void *work_fn,
 
   const int tid = 0;
   kmp_thread_state_t *thread_state = __kmp_get_thread_state();
-  kmp_task_state_t *curr_task = thread_state->top_level_task[tid];
+  kmp_task_state_t *curr_task =
+      (kmp_task_state_t *)thread_state->top_level_task[tid];
   KMP_ASSERT(curr_task, "Invalid task descriptor");
 
   if (__kmp_task_is_in_parallel(curr_task)) {
@@ -116,7 +117,8 @@ EXTERN void __kmpc_kernel_end_parallel() {
   int tid = __kmp_get_local_id();
   kmp_local_state_t *local_state = __kmp_get_local_state();
   kmp_thread_state_t *thread_state = __kmp_get_thread_state();
-  kmp_task_state_t *task = thread_state->top_level_task[tid];
+  kmp_task_state_t *task =
+      (kmp_task_state_t *)thread_state->top_level_task[tid];
   __kmp_set_top_level_task(thread_state, tid, task->prev);
   __kmp_dec_parallel_level(local_state->team_threads != 1);
 }
@@ -137,7 +139,8 @@ EXTERN void __kmpc_serialized_parallel(ident_t *loc, uint gtid) {
     return;
 
   kmp_thread_state_t *thread_state = __kmp_get_thread_state();
-  kmp_task_state_t *task = thread_state->top_level_task[tid];
+  kmp_task_state_t *task =
+      (kmp_task_state_t *)thread_state->top_level_task[tid];
   __kmp_task_save_loop_data(task);
 
   // We need to use statically allocated task data
@@ -164,9 +167,10 @@ EXTERN void __kmpc_end_serialized_parallel(ident_t *loc, uint gtid) {
     return;
 
   kmp_thread_state_t *thread_state = __kmp_get_thread_state();
-  kmp_task_state_t *task = thread_state->top_level_task[tid];
+  kmp_task_state_t *task =
+      (kmp_task_state_t *)thread_state->top_level_task[tid];
   __kmp_set_top_level_task(thread_state, tid, task->prev);
-  task = thread_state->top_level_task[tid];
+  task = (kmp_task_state_t *)thread_state->top_level_task[tid];
   __kmp_task_restore_loop_data(task);
 }
 

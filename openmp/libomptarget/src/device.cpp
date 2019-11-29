@@ -530,6 +530,12 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                      TgtOffsets, TgtVarsSize, NumTeams,
                                      ThreadLimit, LoopTripCount, AsyncData);
 }
+
+void *DeviceTy::get_offload_pipe(void) {
+  if (!RTL->get_offload_pipe)
+    return nullptr;
+  return RTL->get_offload_pipe(RTLDeviceID);
+}
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.

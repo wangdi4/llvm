@@ -66,12 +66,12 @@ entry:
 
 ; Check that the task thunk has space for private copies of lastprivate variables.
 ; CHECK: [[PRIV_STRTY:%[a-zA-Z._0-9]+]] = type { i64, i16, [12 x i16], i32 }
-; CHECK: [[SHARED_STRTY:%[a-zA-Z._0-9]+]] = type { i64, i16**, [12 x i16]**, i16**, i16** }
+; CHECK: [[SHARED_STRTY:%[a-zA-Z._0-9]+]] = type { i16**, [12 x i16]**, i16**, i16** }
 
 ; Check for lastprivate variables' addresses being stored to the shared area of task thunk.
-; CHECK: [[LS1:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* %taskt.shared.agg, i32 0, i32 1
+; CHECK: [[LS1:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* %taskt.shared.agg, i32 0, i32 0
 ; CHECK: store i16** %yref.addr, i16*** [[LS1]]
-; CHECK: [[LS2:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* %taskt.shared.agg, i32 0, i32 2
+; CHECK: [[LS2:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* %taskt.shared.agg, i32 0, i32 1
 ; CHECK: store [12 x i16]** %y_arr_ref.addr, [12 x i16]*** [[LS2]]
 
   %6 = load i64, i64* %.omp.lb, align 8
@@ -154,10 +154,10 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 ; Check for lastprivate copyout
 
 ; CHECK: [[LP4:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[PRIV_STRTY]], [[PRIV_STRTY]]* [[PRIVS:%[a-zA-Z._0-9]+]], i32 0, i32 1
-; CHECK: [[LS4:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* [[SHAREDS:%[a-zA-Z._0-9]+]], i32 0, i32 1
+; CHECK: [[LS4:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* [[SHAREDS:%[a-zA-Z._0-9]+]], i32 0, i32 0
 ; CHECK: [[LS4_STAR:%[a-zA-Z._0-9]+]] = load i16**, i16*** [[LS4]]
 ; CHECK: [[LP3:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[PRIV_STRTY]], [[PRIV_STRTY]]* [[PRIVS]], i32 0, i32 2
-; CHECK: [[LS3:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* [[SHAREDS]], i32 0, i32 2
+; CHECK: [[LS3:%[a-zA-Z._0-9]+]] = getelementptr inbounds [[SHARED_STRTY]], [[SHARED_STRTY]]* [[SHAREDS]], i32 0, i32 1
 ; CHECK: [[LS3_STAR:%[a-zA-Z._0-9]+]] = load [12 x i16]**, [12 x i16]*** [[LS3]]
 
 ; CHECK: [[LS4_STAR_STAR:%[a-zA-Z._0-9]+]] = load i16*, i16** [[LS4_STAR]]

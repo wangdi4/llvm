@@ -4,8 +4,9 @@
 ; -ip-cloning-loop-heuristic option enables loop based heuristic for Cloning.
 ; This test expects "bar" function is cloned two times.
 
-; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-loop-heuristic -print-ip-cloning -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -print-ip-cloning -disable-output 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-loop-heuristic -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Cloned call:
 ; CHECK: Cloned call:

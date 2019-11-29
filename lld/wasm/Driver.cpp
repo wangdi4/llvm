@@ -37,10 +37,9 @@ using namespace llvm::object;
 using namespace llvm::sys;
 using namespace llvm::wasm;
 
-using namespace lld;
-using namespace lld::wasm;
-
-Configuration *lld::wasm::config;
+namespace lld {
+namespace wasm {
+Configuration *config;
 
 namespace {
 
@@ -79,14 +78,16 @@ private:
 };
 } // anonymous namespace
 
-bool lld::wasm::link(ArrayRef<const char *> args, bool canExitEarly,
-                     raw_ostream &error) {
+bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
+          raw_ostream &stderrOS) {
+  lld::stdoutOS = &stdoutOS;
+  lld::stderrOS = &stderrOS;
+
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
-  errorHandler().errorOS = &error;
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now (use "
       "-error-limit=0 to see all errors)";
-  enableColors(error.has_colors());
+  stderrOS.enable_colors(stderrOS.has_colors());
 
   config = make<Configuration>();
   symtab = make<SymbolTable>();
@@ -140,15 +141,15 @@ static void handleColorDiagnostics(opt::InputArgList &args) {
   if (!arg)
     return;
   if (arg->getOption().getID() == OPT_color_diagnostics) {
-    enableColors(true);
+    lld::errs().enable_colors(true);
   } else if (arg->getOption().getID() == OPT_no_color_diagnostics) {
-    enableColors(false);
+    lld::errs().enable_colors(false);
   } else {
     StringRef s = arg->getValue();
     if (s == "always")
-      enableColors(true);
+      lld::errs().enable_colors(true);
     else if (s == "never")
-      enableColors(false);
+      lld::errs().enable_colors(false);
     else if (s != "auto")
       error("unknown option: --color-diagnostics=" + s);
   }
@@ -457,10 +458,8 @@ static Symbol *handleUndefined(StringRef name) {
 
 static UndefinedGlobal *
 createUndefinedGlobal(StringRef name, llvm::wasm::WasmGlobalType *type) {
-  auto *sym =
-      cast<UndefinedGlobal>(symtab->addUndefinedGlobal(name, name,
-                                                       defaultModule, 0,
-                                                       nullptr, type));
+  auto *sym = cast<UndefinedGlobal>(symtab->addUndefinedGlobal(
+      name, name, defaultModule, WASM_SYMBOL_UNDEFINED, nullptr, type));
   config->allowUndefinedSymbols.insert(sym->getName());
   sym->isUsedInRegularObj = true;
   return sym;
@@ -598,7 +597,8 @@ struct WrappedSymbol {
 };
 
 static Symbol *addUndefined(StringRef name) {
-  return symtab->addUndefinedFunction(name, "", "", 0, nullptr, nullptr, false);
+  return symtab->addUndefinedFunction(name, "", "", WASM_SYMBOL_UNDEFINED,
+                                      nullptr, nullptr, false);
 }
 
 // Handles -wrap option.
@@ -667,7 +667,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
 
   // Handle --help
   if (args.hasArg(OPT_help)) {
-    parser.PrintHelp(outs(),
+    parser.PrintHelp(lld::outs(),
                      (std::string(argsArr[0]) + " [options] file...").c_str(),
                      "LLVM Linker", false);
     return;
@@ -675,7 +675,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
 
   // Handle --version
   if (args.hasArg(OPT_version) || args.hasArg(OPT_v)) {
-    outs() << getLLDVersion() << "\n";
+    lld::outs() << getLLDVersion() << "\n";
     return;
   }
 
@@ -812,3 +812,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Write the result to the file.
   writeResult();
 }
+
+} // namespace wasm
+} // namespace lld

@@ -135,6 +135,8 @@ private:
 
   bool HasDistributePoint;
 
+  bool IsUndoSinkingCandidate;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -197,7 +199,8 @@ protected:
 
   void printDirectives(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID);
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID,
+                                 MDNode **ExternalLoopMetadata);
 
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
@@ -228,6 +231,8 @@ public:
   /// Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
+
+  void dumpOptReport() const;
 
   /// Returns the underlying type of the loop IV.
   Type *getIVType() const { return IVType; }
@@ -710,6 +715,28 @@ public:
     }
   }
 
+  void addLiveInTemp(const ArrayRef<unsigned> &Symbases) {
+    for (auto Symbase : Symbases)
+      addLiveInTemp(Symbase);
+  }
+
+  /// Adds all symbases attached at Ref as live into the loop
+  void addLiveInTemp(const RegDDRef *Ref) {
+    if (Ref->isSelfBlob()) {
+      addLiveInTemp(Ref->getSymbase());
+    }
+
+    for (auto DRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      addLiveInTemp(DRef->getSymbase());
+    }
+  }
+
+  // TODO: const
+  void addLiveInTemp(const ArrayRef<RegDDRef *> &Refs) {
+    for (auto Ref : Refs)
+      addLiveInTemp(Ref);
+  }
+
   /// Adds symbase as live out of the loop.
   void addLiveOutTemp(unsigned Symbase) {
     auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
@@ -736,6 +763,10 @@ public:
       LiveOutSet.erase(It);
     }
   }
+
+  void clearLiveInTemp() { LiveInSet.clear(); }
+
+  void clearLiveOutTemp() { LiveOutSet.clear(); }
 
   void replaceLiveInTemp(unsigned OldSymbase, unsigned NewSymbase) {
     assert(isLiveIn(OldSymbase) && "OldSymbase is not liveout!");
@@ -764,12 +795,18 @@ public:
   /// Add a list of metadata \p MDs to loops !llvm.loop MDNode.
   ///
   /// The MDNode should have the format !{!"string-identifier", Args...}
-  void addLoopMetadata(ArrayRef<MDNode *> MDs) {
-    addRemoveLoopMetadataImpl(MDs, "");
+  /// Function operates on \p ExternalLoopMetadata, if provided.
+  void addLoopMetadata(ArrayRef<MDNode *> MDs,
+                       MDNode **ExternalLoopMetadata = nullptr) {
+    addRemoveLoopMetadataImpl(MDs, "", ExternalLoopMetadata);
   }
 
   /// Remove !llvm.loop metadata that starts with \p ID.
-  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, ID); }
+  /// Function operates on \p ExternalLoopMetadata, if provided.
+  void removeLoopMetadata(StringRef ID,
+                          MDNode **ExternalLoopMetadata = nullptr) {
+    addRemoveLoopMetadataImpl({}, ID, ExternalLoopMetadata);
+  }
 
   /// Returns loop metadata corresponding to \p Name. Returns null if not found.
   MDNode *getLoopStringMetadata(StringRef Name) const;
@@ -1026,6 +1063,9 @@ public:
   /// Marks loop to do not unroll.
   void markDoNotUnroll();
 
+  // Add unroll disabling metadata to underlying LLVM loop.
+  void markLLVMLoopDoNotUnroll();
+
   /// Marks loop to do not unroll & jam.
   void markDoNotUnrollAndJam();
 
@@ -1070,6 +1110,9 @@ public:
 
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
+
+  bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
+  void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
 
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);

@@ -60,9 +60,6 @@ class OpenMPLateOutliner {
   CodeGenFunction &CGF;
   llvm::LLVMContext &C;
 
-  // Save and restore the TerminateLandingPad.
-  CodeGenFunction::OMPTerminateLandingPadHandler TLPH;
-
   // Handle reprocessing VLASizeMap expressions.
   CodeGenFunction::VLASizeMapHandler VSMH;
 
@@ -237,6 +234,7 @@ class OpenMPLateOutliner {
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
+  void emitOMPTileClause(const OMPTileClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
@@ -271,7 +269,7 @@ class OpenMPLateOutliner {
     ICK_specified_firstprivate,
     ICK_unknown
   };
-
+  void HandleImplicitVar(const Expr *E, ImplicitClauseKind ICK);
   llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> MapRefs;
@@ -327,7 +325,7 @@ public:
   void emitOMPParallelSectionsDirective();
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
-  void emitOMPTargetVariantDispatchDirective(); // INTEL
+  void emitOMPTargetVariantDispatchDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       VSMH.EmitVLAExpressions();
@@ -464,12 +462,10 @@ public:
   void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
-#if INTEL_CUSTOMIZATION
-  bool isLateOutlinedRegion() { return true; }
   bool inTargetVariantDispatchRegion() {
     return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
   }
-#endif // INTEL_CUSTOMIZATION
+  bool isLateOutlinedRegion() { return true; } // INTEL
 
 private:
   /// CodeGen info about outer OpenMP region.

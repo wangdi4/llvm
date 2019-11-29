@@ -114,7 +114,7 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
 
   assert(Ref && "Unvisited RegDDRef must exist.");
 
-  unsigned Size = Ref->getDestType()->getScalarSizeInBits();
+  unsigned Size = DL.getTypeAllocSizeInBits(Ref->getDestType());
   if (!Size)
     return nullptr;
 
@@ -127,17 +127,17 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
   Opcode = Ref->isRval() ? Instruction::Load : Instruction::Store;
 
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
-    return new VPVLSClientMemrefHIR(OVLSAccessType::getStridedLoadTy(), Ty,
-                                    Inst, Level, DDA, Ref);
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::SLoad, Ty, Inst, Level, DDA,
+                                    Ref);
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Store)
-    return new VPVLSClientMemrefHIR(OVLSAccessType::getStridedStoreTy(), Ty,
-                                    Inst, Level, DDA, Ref);
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::SStore, Ty, Inst, Level,
+                                    DDA, Ref);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Load)
-    return new VPVLSClientMemrefHIR(OVLSAccessType::getIndexedLoadTy(), Ty,
-                                    Inst, Level, DDA, Ref);
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::ILoad, Ty, Inst, Level, DDA,
+                                    Ref);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Store)
-    return new VPVLSClientMemrefHIR(OVLSAccessType::getIndexedStoreTy(), Ty,
-                                    Inst, Level, DDA, Ref);
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::IStore, Ty, Inst, Level,
+                                    DDA, Ref);
   return nullptr;
 }
 

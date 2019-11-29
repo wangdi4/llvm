@@ -43,6 +43,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -76,11 +77,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
-static cl::opt<bool>
-    EnableLoopBlockingNonConstTC("enable-" OPT_SWITCH "-nonconst-trip-count",
-                   cl::init(true), cl::Hidden,
-                   cl::desc("Enable " OPT_DESC
-                            " pass even when some trip counts are non-const"));
+static cl::opt<bool> EnableLoopBlockingNonConstTC(
+    "enable-" OPT_SWITCH "-nonconst-trip-count", cl::init(true), cl::Hidden,
+    cl::desc("Enable " OPT_DESC
+             " pass even when some trip counts are non-const"));
 
 // Following check will be disabled.
 //      Loop Depth > number of different IVs appearing
@@ -338,9 +338,12 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
   unsigned Max = 0;
   for (RegDDRef *Ref : Refs) {
     unsigned NumVariantDimensions = 0;
-    for (int I = 1, E = Ref->getNumDimensions(); I <= E; I++) {
+
+    for (unsigned I :
+         make_range(Ref->dim_index_begin(), Ref->dim_index_end())) {
       const CanonExpr *CE = Ref->getDimensionIndex(I);
-      if (CE->isInvariantAtLevel(OutermostLoopLevel, false)) {
+
+      if (CE->isInvariantAtLevel(OutermostLoopLevel)) {
         continue;
       }
       NumVariantDimensions++;
@@ -351,7 +354,7 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
     }
   }
   return Max;
-}
+} // namespace
 
 void populateTCs(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
                  DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
@@ -616,21 +619,14 @@ public:
     }
 
     const HLLoop *ConstInnermostLoop = nullptr;
-    bool IsNearPerfect = false;
-    bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
-        Loop, &ConstInnermostLoop, false, &IsNearPerfect);
-    if (!IsPerfectNest && !IsNearPerfect) {
+    bool IsPerfectNest =
+        HLNodeUtils::isPerfectLoopNest(Loop, &ConstInnermostLoop, false);
+    if (!IsPerfectNest) {
+      LLVM_DEBUG(dbgs() << "Failed: Not a perfect loop\n");
       return;
     }
 
     HLLoop *InnermostLoop = const_cast<HLLoop *>(ConstInnermostLoop);
-
-    if (!IsPerfectNest && !IsNearPerfect) {
-      LLVM_DEBUG(dbgs() << "Neither perfect nor near-perfect loop\n");
-      SkipNode = Loop;
-      return;
-    }
-
     if (HLS.getTotalLoopStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       SkipNode = Loop;
@@ -662,8 +658,8 @@ public:
       unsigned LoopDepth =
           InnermostLoop->getNestingLevel() - Loop->getNestingLevel() + 1;
       if (LoopDepth <= MaxDimension) {
-        LLVM_DEBUG(dbgs() << "Failed MaxDimension < LoopDepth " << MaxDimension
-                          << "," << LoopDepth << "\n");
+        LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < LoopDepth "
+                          << MaxDimension << "," << LoopDepth << "\n");
         SkipNode = Loop;
         return;
       }
@@ -683,7 +679,7 @@ public:
     // The loop depth is refined so that TC of a participating loop
     // is at least a TCThreshold.
     if (ConsecutiveDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed MaxDimension < ConsecutiveDepth "
+      LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
                         << MaxDimension << "," << ConsecutiveDepth << "\n");
       // Choose not to block. Stop here.
       SkipNode = Loop;
@@ -702,31 +698,22 @@ public:
         determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
                                          ToStripmines, LoopToBS, ToStripLevels);
     if (!IsToStripmine) {
-      LLVM_DEBUG(dbgs() << "Failed determineProfitableStipmineLoop\n";);
+      LLVM_DEBUG(dbgs() << "Failed: at determineProfitableStipmineLoop\n";);
       SkipNode = Loop;
       return;
-    }
-
-    if (IsNearPerfect) {
-      // It is near-perfect and looks profitable
-      DDGraph DDG = DDA.getGraph(Loop);
-      InterchangeIgnorableSymbasesTy IgnorableSymbases;
-      if (!DDUtils::enablePerfectLoopNest(InnermostLoop, DDG,
-                                          IgnorableSymbases)) {
-        LLVM_DEBUG(dbgs() << "Failed enabling a perfect loop nest\n";);
-        SkipNode = Loop;
-        return;
-      }
     }
 
     if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
                                          InnermostLoop, DDA, SRA, false)) {
       OutermostToStrips.emplace_back(NewOutermost, InnermostLoop, ToStripmines);
+      // Done with this loopnest. We are going to work on this loopnest.
+      SkipNode = Loop;
     } else {
-      LLVM_DEBUG(dbgs() << "Failed isLegalToStripmineAndInterchange\n";);
+      LLVM_DEBUG(dbgs() << "Failed: at isLegalToStripmineAndInterchange\n";);
+      // Inner loop nests will have second chances
+      // because it was invalid with respected to this outer loop.
     }
 
-    SkipNode = Loop;
     return;
   }
 
@@ -747,6 +734,14 @@ private:
   HIRLoopStatistics &HLS;
   BlockingLoopNestInfoTy &OutermostToStrips;
 };
+
+// LoopVectors contains loops at levels from [OutermostLoopLevel, ..]
+// Whenever a loop's level is given, it should be adjusted by OutermostLoopLevel
+// to index the correct entry of a container.
+inline unsigned getIndexForLoopVectors(unsigned Level,
+                                       unsigned OutermostLoopLevel) {
+  return Level - OutermostLoopLevel;
+}
 
 // LoopPermutation: Info before permutation
 // CurLoopNests : Info after permutation
@@ -770,11 +765,6 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     llvm_unreachable("Stripmined loop is not found after permutation.");
   };
 
-  // Adjust index
-  auto GetIndex = [OutermostLevel](unsigned Level) {
-    return Level - OutermostLevel;
-  };
-
   unsigned InnermostLevel = CurLoopNests.back()->getNestingLevel();
   unsigned DestLevel = OutermostLevel - 1;
 
@@ -786,7 +776,8 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
       continue;
     }
 
-    HLLoop *LpDest = CurLoopNests[GetIndex(DestLevel)];
+    HLLoop *LpDest =
+        CurLoopNests[getIndexForLoopVectors(DestLevel, OutermostLevel)];
     unsigned OrigLevel = LpWithDef->getNestingLevel();
     assert(DestLevel <= OrigLevel);
 
@@ -809,7 +800,7 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     unsigned DefMinLevel = DestLevel;
     unsigned UseMinLevel = FindUseMinLevel(OrigLevel);
     // Update Def@level of Loop UB with min blob
-    CurLoopNests[GetIndex(UseMinLevel)]
+    CurLoopNests[getIndexForLoopVectors(UseMinLevel, OutermostLevel)]
         ->getUpperDDRef()
         ->getSingleCanonExpr()
         ->setDefinedAtLevel(DefMinLevel);
@@ -821,15 +812,28 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     LLVM_DEBUG(dbgs() << "MinSB: " << MinSB << " DefMinLevel: " << DefMinLevel
                       << " UseMinLevel: " << UseMinLevel << "\n");
     for (unsigned I = DefMinLevel + 1; I <= UseMinLevel; I++) {
-      CurLoopNests[GetIndex(I)]->addLiveInTemp(MinSB);
+      CurLoopNests[getIndexForLoopVectors(I, OutermostLevel)]->addLiveInTemp(
+          MinSB);
     }
     for (unsigned I = OutermostLevel; I <= DefMinLevel; I++) {
-      CurLoopNests[GetIndex(I)]->removeLiveInTemp(MinSB);
+      CurLoopNests[getIndexForLoopVectors(I, OutermostLevel)]->removeLiveInTemp(
+          MinSB);
     }
     for (unsigned I = UseMinLevel + 1; I <= InnermostLevel; I++) {
-      CurLoopNests[GetIndex(I)]->removeLiveInTemp(MinSB);
+      CurLoopNests[getIndexForLoopVectors(I, OutermostLevel)]->removeLiveInTemp(
+          MinSB);
     }
   }
+}
+
+// Used after loop permutation to reference data structure based on loops
+// before permutation.
+const HLLoop *getLoopForReferingInfoBeforePermutation(
+    const HLLoop *LoopAfterPerm,
+    const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+    const unsigned OutermostLoopLevel) {
+  unsigned Level = LoopAfterPerm->getNestingLevel();
+  return LoopPermutation[getIndexForLoopVectors(Level, OutermostLoopLevel)];
 }
 
 // Do stripmine & interchange
@@ -844,6 +848,8 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     HLLoop *InnermostLoop;
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
+
+    InnermostLoop->setIsUndoSinkingCandidate(false);
 
     HLLoop *NewOutermostLoop = stripmineSelectedLoops(
         InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);
@@ -866,6 +872,20 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     ForEach<HLLoop>::visit(NewOutermostLoop, [&CurLoopNests](HLLoop *Lp) {
       CurLoopNests.push_back(Lp);
     });
+
+    // Add OptReport after permutation.
+    // ToStripmines knows which loops are blocked in terms of the level
+    // before the permutation happens.
+    LoopOptReportBuilder &LORBuilder = CurLoopNests.front()
+                                           ->getHLNodeUtils()
+                                           .getHIRFramework()
+                                           .getLORBuilder();
+    for (auto Lp : CurLoopNests) {
+      const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
+          Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
+      if (ToStripmines.count(OrigLoop))
+        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop is blocked");
+    }
 
     // Hoist min var's definitions to Destination Levels
     LLVM_DEBUG(NewOutermostLoop->dump(1));

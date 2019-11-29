@@ -1,7 +1,9 @@
+; REQUIRES: assert
 ; This test checks that whole program read was achieved with wmain.
 
 ; RUN: llvm-as -o %T/wpt4.bc %s
 ; RUN: lld-link /out:%T/wpt4.exe /entry:wmain %T/wpt4.bc /subsystem:console  \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s
 
@@ -11,7 +13,7 @@
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 1
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-; CHECK: WHOLE PROGRAM READ ACHIEVED
+; CHECK: WHOLE PROGRAM DETECTED
 
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"

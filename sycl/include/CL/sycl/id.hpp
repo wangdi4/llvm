@@ -21,7 +21,7 @@ template <int dimensions = 1> class id : public detail::array<dimensions> {
 private:
   using base = detail::array<dimensions>;
   static_assert(dimensions >= 1 && dimensions <= 3,
-                "id can only be 1, 2, or 3 dimentional.");
+                "id can only be 1, 2, or 3 dimensional.");
   template <int N, int val, typename T>
   using ParamTy = detail::enable_if_t<(N == val), T>;
 
@@ -160,5 +160,14 @@ size_t getOffsetForId(range<dimensions> Range, id<dimensions> Id,
   return offset;
 }
 } // namespace detail
+
+// C++ feature test macros are supported by all supported compilers
+// with the exception of MSVC 1914. It doesn't support deduction guides.
+#ifdef __cpp_deduction_guides
+id(size_t)->id<1>;
+id(size_t, size_t)->id<2>;
+id(size_t, size_t, size_t)->id<3>;
+#endif
+
 } // namespace sycl
 } // namespace cl

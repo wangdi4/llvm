@@ -62,6 +62,7 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -710,7 +711,7 @@ void VPlanPredicator::predicate(void) {
 
   // Transform inner loop control to become uniform.
   if (VPlanLoopCFU)
-    handleInnerLoopBackedges(EntryLoopR);
+    handleInnerLoopBackedges(EntryLoopR->getVPLoop());
 
   // Predicate the blocks within Region and recursively predicate nested
   // regions.

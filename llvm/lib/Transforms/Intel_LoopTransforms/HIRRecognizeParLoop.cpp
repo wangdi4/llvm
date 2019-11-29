@@ -34,6 +34,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 using namespace llvm;

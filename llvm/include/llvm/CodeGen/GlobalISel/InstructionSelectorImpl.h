@@ -26,6 +26,7 @@
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -690,7 +691,19 @@ bool InstructionSelector::executeMatchTable(
       }
       break;
     }
-
+    case GIM_CheckIsImm: {
+      int64_t InsnID = MatchTable[CurrentIdx++];
+      int64_t OpIdx = MatchTable[CurrentIdx++];
+      DEBUG_WITH_TYPE(TgtInstructionSelector::getName(),
+                      dbgs() << CurrentIdx << ": GIM_CheckIsImm(MIs[" << InsnID
+                             << "]->getOperand(" << OpIdx << "))\n");
+      assert(State.MIs[InsnID] != nullptr && "Used insn before defined");
+      if (!State.MIs[InsnID]->getOperand(OpIdx).isImm()) {
+        if (handleReject() == RejectAndGiveUp)
+          return false;
+      }
+      break;
+    }
     case GIM_CheckIsSafeToFold: {
       int64_t InsnID = MatchTable[CurrentIdx++];
       DEBUG_WITH_TYPE(TgtInstructionSelector::getName(),

@@ -14,6 +14,7 @@
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/scheduler/scheduler.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_t.hpp>
+#include <CL/sycl/device.hpp>
 #include <CL/sycl/event.hpp>
 #include <CL/sycl/property_list.hpp>
 #include <CL/sycl/range.hpp>
@@ -231,8 +232,8 @@ public:
       : BaseT(MemObject, SyclContext, std::move(AvailableEvent)),
         MRange(InitializedVal<Dimensions, range>::template get<0>()) {
     RT::PiMem Mem = pi::cast<RT::PiMem>(BaseT::MInteropMemObject);
-    PI_CALL(RT::piMemGetInfo(Mem, CL_MEM_SIZE, sizeof(size_t),
-                             &(BaseT::MSizeInBytes), nullptr));
+    PI_CALL(piMemGetInfo)(Mem, CL_MEM_SIZE, sizeof(size_t),
+                          &(BaseT::MSizeInBytes), nullptr);
 
     RT::PiMemImageFormat Format;
     getImageInfo(PI_IMAGE_INFO_FORMAT, Format);
@@ -280,10 +281,15 @@ public:
   size_t get_count() const { return MRange.size(); }
 
   void *allocateMem(ContextImplPtr Context, bool InitFromUserData,
-                    RT::PiEvent &OutEventToWait) override {
-    void *UserPtr = InitFromUserData ? BaseT::getUserPtr() : nullptr;
+                    void *HostPtr, RT::PiEvent &OutEventToWait) override {
 
-    RT::PiMemImageDesc Desc = getImageDesc();
+    assert(!(InitFromUserData && HostPtr) &&
+           "Cannot init from user data and reuse host ptr provided "
+           "simultaneously");
+
+    void *UserPtr = InitFromUserData ? BaseT::getUserPtr() : HostPtr;
+
+    RT::PiMemImageDesc Desc = getImageDesc(UserPtr != nullptr);
     assert(checkImageDesc(Desc, Context, UserPtr) &&
            "The check an image desc failed.");
 
@@ -293,7 +299,7 @@ public:
 
     return MemoryManager::allocateMemImage(
         std::move(Context), this, UserPtr, BaseT::MHostPtrReadOnly,
-        BaseT::get_size(), Desc, Format, BaseT::MInteropEvent,
+        BaseT::getSize(), Desc, Format, BaseT::MInteropEvent,
         BaseT::MInteropContext, OutEventToWait);
   }
 
@@ -342,7 +348,7 @@ public:
 private:
   template <typename T> void getImageInfo(RT::PiMemImageInfo Info, T &Dest) {
     RT::PiMem Mem = pi::cast<RT::PiMem>(BaseT::MInteropMemObject);
-    PI_CALL(RT::piMemImageGetInfo(Mem, Info, sizeof(T), &Dest, nullptr));
+    PI_CALL(piMemImageGetInfo)(Mem, Info, sizeof(T), &Dest, nullptr);
   }
 
   template <info::device Param>
@@ -376,7 +382,7 @@ private:
     return PI_MEM_TYPE_IMAGE3D;
   }
 
-  RT::PiMemImageDesc getImageDesc() {
+  RT::PiMemImageDesc getImageDesc(bool InitFromHostPtr) {
     RT::PiMemImageDesc Desc;
     Desc.image_type = getImageType();
     Desc.image_width = MRange[0];
@@ -384,8 +390,9 @@ private:
     Desc.image_depth = Dimensions > 2 ? MRange[2] : 1;
     // TODO handle cases with IMAGE1D_ARRAY and IMAGE2D_ARRAY
     Desc.image_array_size = 0;
-    Desc.image_row_pitch = MRowPitch;
-    Desc.image_slice_pitch = MSlicePitch;
+    // Pitches must be 0 if host ptr is not provided.
+    Desc.image_row_pitch = InitFromHostPtr ? MRowPitch : 0;
+    Desc.image_slice_pitch = InitFromHostPtr ? MSlicePitch : 0;
 
     Desc.num_mip_levels = 0;
     Desc.num_samples = 0;
@@ -515,7 +522,7 @@ private:
   image_channel_order MOrder;
   image_channel_type MType;
   uint8_t MNumChannels = 0; // Maximum Value - 4
-  size_t MElementSize = 0; // Maximum Value - 16
+  size_t MElementSize = 0;  // Maximum Value - 16
   size_t MRowPitch = 0;
   size_t MSlicePitch = 0;
 };

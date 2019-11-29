@@ -25,6 +25,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/DDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/IntegerRange.h"
 #include "llvm/Analysis/MemoryLocation.h"
 
 namespace llvm {
@@ -605,6 +606,17 @@ public:
   }
   const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.rend(); }
 
+  /// Dimension index iterator methods
+  //    Iterates through dimension 1 to getNumDimensions(), inclusively.
+  //     ex)
+  //        for (auto I : make_range(Ref->dim_index_begin(),
+  //        Ref->dim_index_end()))
+  //          CanonExpr *CE = Ref->getNumDimension(I);
+  IntegerRangeIterator dim_index_begin() { return IntegerRangeIterator(1); }
+  IntegerRangeIterator dim_index_end() {
+    return IntegerRangeIterator(getNumDimensions() + 1);
+  }
+
   bool hasBlobDDRefs() const { return !BlobDDRefs.empty(); }
   unsigned numBlobDDRefs() const { return BlobDDRefs.size(); }
 
@@ -650,12 +662,14 @@ public:
   }
 
   /// Returns true if the DDRef is structurally invariant at \p Level.
-  /// Note!: It does not check data-dependences, so there may be cases where
+  /// If \p IgnoreInnerIVs is true, inner loop IVs are ignored.
+  /// Note: It does not check data-dependences, so there may be cases where
   /// the  DDRef is structurally invariant, but not actually invariant. For
   /// example, in the loop below, A[5] is structurally invariant, but not
   /// actually invariant because of the data-dependence:
   /// for (i=0; i<10; i++) { A[i] = A[5] + i;}
-  bool isStructurallyInvariantAtLevel(unsigned Level) const;
+  bool isStructurallyInvariantAtLevel(unsigned Level,
+                                      bool IgnoreInnerIVs = false) const;
 
   /// Returns true if the DDRef is a memory reference
   bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
@@ -799,6 +813,7 @@ public:
     assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
     return CanonExprs[DimensionNum - 1];
   }
+
   const CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
     return const_cast<RegDDRef *>(this)->getDimensionIndex(DimensionNum);
   }

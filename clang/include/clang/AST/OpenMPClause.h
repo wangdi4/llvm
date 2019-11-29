@@ -519,7 +519,7 @@ public:
 /// \endcode
 /// In this example directive '#pragma omp task' has simple 'final'
 /// clause with condition 'a > 5'.
-class OMPFinalClause : public OMPClause {
+class OMPFinalClause : public OMPClause, public OMPClauseWithPreInit {
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -534,18 +534,25 @@ class OMPFinalClause : public OMPClause {
 public:
   /// Build 'final' clause with condition \a Cond.
   ///
+  /// \param Cond Condition of the clause.
+  /// \param HelperCond Helper condition for the construct.
+  /// \param CaptureRegion Innermost OpenMP region where expressions in this
+  /// clause must be captured.
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
-  /// \param Cond Condition of the clause.
   /// \param EndLoc Ending location of the clause.
-  OMPFinalClause(Expr *Cond, SourceLocation StartLoc, SourceLocation LParenLoc,
-                 SourceLocation EndLoc)
-      : OMPClause(OMPC_final, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Condition(Cond) {}
+  OMPFinalClause(Expr *Cond, Stmt *HelperCond,
+                 OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
+                 SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPClause(OMPC_final, StartLoc, EndLoc), OMPClauseWithPreInit(this),
+        LParenLoc(LParenLoc), Condition(Cond) {
+    setPreInitStmt(HelperCond, CaptureRegion);
+  }
 
   /// Build an empty clause.
   OMPFinalClause()
-      : OMPClause(OMPC_final, SourceLocation(), SourceLocation()) {}
+      : OMPClause(OMPC_final, SourceLocation(), SourceLocation()),
+        OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -562,11 +569,10 @@ public:
     return const_child_range(&Condition, &Condition + 1);
   }
 
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
+  child_range used_children();
   const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
+    auto Children = const_cast<OMPFinalClause *>(this)->used_children();
+    return const_child_range(Children.begin(), Children.end());
   }
 
   static bool classof(const OMPClause *T) {
@@ -734,6 +740,131 @@ public:
   }
 };
 #endif // INTEL_FEATURE_CSA
+
+/// This represents a 'tile' clause in the '#pragma omp ...'
+/// directive.
+///
+/// \code
+/// #pragma omp parallel for tile(8,16,8)
+/// \endcode
+/// In this example directive '#pragma omp parallel for' has clause 'tile'
+/// with three expressions '8', '16', '8'.
+/// The parameters must be constant non-negative integer expressions, which
+/// specifies tile sizes for the following N tightly-nested loops.
+class OMPTileClause final
+    : public OMPClause,
+      private llvm::TrailingObjects<OMPTileClause, Expr *> {
+  friend class OMPClauseReader;
+  friend TrailingObjects;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// Number of loops, associated with the tile clause.
+  unsigned NumLoops = 0;
+
+  /// Build clause with number of loops \a NumLoops.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  OMPTileClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                SourceLocation EndLoc, unsigned NumLoops)
+      : OMPClause(OMPC_tile, StartLoc, EndLoc), NumLoops(NumLoops) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  explicit OMPTileClause(unsigned NumLoops)
+      : OMPClause(OMPC_tile, SourceLocation(), SourceLocation()),
+        NumLoops(NumLoops) {}
+
+  /// Fetches list of expressions associated with this clause.
+  MutableArrayRef<Expr *> getExprRefs() {
+    return MutableArrayRef<Expr *>(getTrailingObjects<Expr *>(), NumLoops);
+  }
+
+public:
+  /// Creates clause with a list of tile expressions \a EL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param EL List of references to the expressions.
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  static OMPTileClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                               SourceLocation LParenLoc, SourceLocation EndLoc,
+                               ArrayRef<Expr *> EL, unsigned NumLoops);
+
+  /// Creates an empty clause with \a NumLoops loops.
+  ///
+  /// \param C AST context.
+  /// \param NumLoops Number of loops that is associated with this tile
+  /// clause.
+  static OMPTileClause *CreateEmpty(const ASTContext &C, unsigned NumLoops);
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Get number of loops associated with the clause.
+  unsigned getNumLoops() const { return NumLoops; }
+
+  /// Set the data for the tile clause.
+  void setTile(unsigned NumLoop, Expr *E);
+
+  /// Get the data from the tile clause.
+  Expr *getTileData(unsigned NumLoop);
+  const Expr *getTileData(unsigned NumLoop) const;
+
+  using exprlist_iterator = MutableArrayRef<Expr *>::iterator;
+  using exprlist_const_iterator = ArrayRef<const Expr *>::iterator;
+
+  exprlist_iterator exprlist_begin() { return getExprRefs().begin(); }
+  exprlist_iterator exprlist_end() { return getExprRefs().end(); }
+
+  using sizes_iterator = MutableArrayRef<Expr *>::iterator;
+  using sizes_const_iterator = ArrayRef<const Expr *>::iterator;
+  using sizes_range = llvm::iterator_range<sizes_iterator>;
+  using sizes_const_range = llvm::iterator_range<sizes_const_iterator>;
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(exprlist_begin()),
+                       reinterpret_cast<Stmt **>(exprlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPTileClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  sizes_range sizes() {
+    return sizes_range(getTrailingObjects<Expr *>(),
+                       getTrailingObjects<Expr *>() + NumLoops);
+  }
+  sizes_const_range sizes() const {
+    return sizes_const_range(getTrailingObjects<Expr *>(),
+                             getTrailingObjects<Expr *>() + NumLoops);
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == OMPC_tile;
+  }
+};
 #endif // INTEL_CUSTOMIZATION
 
 /// This represents 'safelen' clause in the '#pragma omp ...'
@@ -5311,7 +5442,7 @@ public:
 /// \endcode
 /// In this example directive '#pragma omp teams' has clause 'priority' with
 /// single expression 'n'.
-class OMPPriorityClause : public OMPClause {
+class OMPPriorityClause : public OMPClause, public OMPClauseWithPreInit {
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -5328,18 +5459,25 @@ class OMPPriorityClause : public OMPClause {
 public:
   /// Build 'priority' clause.
   ///
-  /// \param E Expression associated with this clause.
+  /// \param Priority Expression associated with this clause.
+  /// \param HelperPriority Helper priority for the construct.
+  /// \param CaptureRegion Innermost OpenMP region where expressions in this
+  /// clause must be captured.
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-  OMPPriorityClause(Expr *E, SourceLocation StartLoc, SourceLocation LParenLoc,
-                    SourceLocation EndLoc)
-      : OMPClause(OMPC_priority, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Priority(E) {}
+  OMPPriorityClause(Expr *Priority, Stmt *HelperPriority,
+                    OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
+                    SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPClause(OMPC_priority, StartLoc, EndLoc), OMPClauseWithPreInit(this),
+        LParenLoc(LParenLoc), Priority(Priority) {
+    setPreInitStmt(HelperPriority, CaptureRegion);
+  }
 
   /// Build an empty clause.
   OMPPriorityClause()
-      : OMPClause(OMPC_priority, SourceLocation(), SourceLocation()) {}
+      : OMPClause(OMPC_priority, SourceLocation(), SourceLocation()),
+        OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -5359,11 +5497,10 @@ public:
     return const_child_range(&Priority, &Priority + 1);
   }
 
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
+  child_range used_children();
   const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
+    auto Children = const_cast<OMPPriorityClause *>(this)->used_children();
+    return const_child_range(Children.begin(), Children.end());
   }
 
   static bool classof(const OMPClause *T) {
@@ -5379,7 +5516,7 @@ public:
 /// \endcode
 /// In this example directive '#pragma omp taskloop' has clause 'grainsize'
 /// with single expression '4'.
-class OMPGrainsizeClause : public OMPClause {
+class OMPGrainsizeClause : public OMPClause, public OMPClauseWithPreInit {
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -5395,16 +5532,23 @@ public:
   /// Build 'grainsize' clause.
   ///
   /// \param Size Expression associated with this clause.
+  /// \param HelperSize Helper grainsize for the construct.
+  /// \param CaptureRegion Innermost OpenMP region where expressions in this
+  /// clause must be captured.
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
-  OMPGrainsizeClause(Expr *Size, SourceLocation StartLoc,
+  OMPGrainsizeClause(Expr *Size, Stmt *HelperSize,
+                     OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                      SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_grainsize, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Grainsize(Size) {}
+      : OMPClause(OMPC_grainsize, StartLoc, EndLoc), OMPClauseWithPreInit(this),
+        LParenLoc(LParenLoc), Grainsize(Size) {
+    setPreInitStmt(HelperSize, CaptureRegion);
+  }
 
   /// Build an empty clause.
   explicit OMPGrainsizeClause()
-      : OMPClause(OMPC_grainsize, SourceLocation(), SourceLocation()) {}
+      : OMPClause(OMPC_grainsize, SourceLocation(), SourceLocation()),
+        OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -5421,11 +5565,10 @@ public:
     return const_child_range(&Grainsize, &Grainsize + 1);
   }
 
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
+  child_range used_children();
   const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
+    auto Children = const_cast<OMPGrainsizeClause *>(this)->used_children();
+    return const_child_range(Children.begin(), Children.end());
   }
 
   static bool classof(const OMPClause *T) {
@@ -5480,7 +5623,7 @@ public:
 /// \endcode
 /// In this example directive '#pragma omp taskloop' has clause 'num_tasks'
 /// with single expression '4'.
-class OMPNumTasksClause : public OMPClause {
+class OMPNumTasksClause : public OMPClause, public OMPClauseWithPreInit {
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -5496,16 +5639,23 @@ public:
   /// Build 'num_tasks' clause.
   ///
   /// \param Size Expression associated with this clause.
+  /// \param HelperSize Helper grainsize for the construct.
+  /// \param CaptureRegion Innermost OpenMP region where expressions in this
+  /// clause must be captured.
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
-  OMPNumTasksClause(Expr *Size, SourceLocation StartLoc,
+  OMPNumTasksClause(Expr *Size, Stmt *HelperSize,
+                    OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                     SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_num_tasks, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        NumTasks(Size) {}
+      : OMPClause(OMPC_num_tasks, StartLoc, EndLoc), OMPClauseWithPreInit(this),
+        LParenLoc(LParenLoc), NumTasks(Size) {
+    setPreInitStmt(HelperSize, CaptureRegion);
+  }
 
   /// Build an empty clause.
   explicit OMPNumTasksClause()
-      : OMPClause(OMPC_num_tasks, SourceLocation(), SourceLocation()) {}
+      : OMPClause(OMPC_num_tasks, SourceLocation(), SourceLocation()),
+        OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -5522,11 +5672,10 @@ public:
     return const_child_range(&NumTasks, &NumTasks + 1);
   }
 
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
+  child_range used_children();
   const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
+    auto Children = const_cast<OMPNumTasksClause *>(this)->used_children();
+    return const_child_range(Children.begin(), Children.end());
   }
 
   static bool classof(const OMPClause *T) {

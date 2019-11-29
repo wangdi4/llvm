@@ -350,6 +350,138 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
   }
 }
 
+// Goes through the CmdArgs, checking for known strings which set the library
+// linkage state (static or dynamic)
+static bool isStaticLinkState(ArgStringList &CmdArgs) {
+  // default linkage is dynamic
+  bool isStatic = false;
+  for (auto A : CmdArgs) {
+    if (A == StringRef("-shared") ||
+        A == StringRef("-Bdynamic") ||
+        A == StringRef("-call_shared") ||
+        A == StringRef("-dy")) {
+      isStatic = false;
+      continue;
+    }
+    if (A == StringRef("-static") ||
+        A == StringRef("-Bstatic") ||
+        A == StringRef("-non_shared") ||
+        A == StringRef("-dn"))
+      isStatic = true;
+  }
+  return isStatic;
+}
+
+// Add the Intel Performance Libraries (IPP, MKL, TBB, DAAL)
+// FIXME - this is a rudimentary way of adding the libraries.  These are
+// added once and in a fixed location.  Ideally, we want to add the libraries
+// at the respective location as provided on the command line.
+
+// Add IPP libraries
+static void addIPPLibs(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  // default link type is statically link
+  bool linkStatic = true;
+  if (const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ)) {
+    if (IL->getValue() == StringRef("dynamic") ||
+        IL->getValue() == StringRef("shared"))
+      linkStatic = false;
+  }
+  // Additions of libraries are currently not smart enough at an individual
+  // basis to only add the 'switch' before the library.  We must put the link
+  // state back to the original setting.
+  bool curStaticLinkState = isStaticLinkState(CmdArgs);
+  if (curStaticLinkState && !linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+  if (!curStaticLinkState && linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  ToolChain.AddIPPLibArgs(Args, CmdArgs, "-l");
+  if (curStaticLinkState && !isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  if (!curStaticLinkState && isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+}
+
+// Add MKL libraries
+static void addMKLLibs(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  // default link type is dynamically link
+  bool linkStatic = false;
+
+  // Additions of libraries are currently not smart enough at an individual
+  // basis to only add the 'switch' before the library.  We must put the link
+  // state back to the original setting.
+  bool curStaticLinkState = isStaticLinkState(CmdArgs);
+  if (curStaticLinkState && !linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+  if (!curStaticLinkState && linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  CmdArgs.push_back(Args.MakeArgString("--start-group"));
+  ToolChain.AddMKLLibArgs(Args, CmdArgs, "-l");
+  CmdArgs.push_back(Args.MakeArgString("--end-group"));
+  if (curStaticLinkState && !isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  if (!curStaticLinkState && isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+}
+
+// Add TBB libraries
+static void addTBBLibs(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  // default link type is dynamically link
+  bool linkStatic = false;
+
+  // Additions of libraries are currently not smart enough at an individual
+  // basis to only add the 'switch' before the library.  We must put the link
+  // state back to the original setting.
+  bool curStaticLinkState = isStaticLinkState(CmdArgs);
+  if (curStaticLinkState && !linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+  if (!curStaticLinkState && linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  ToolChain.AddTBBLibArgs(Args, CmdArgs, "-l");
+  if (curStaticLinkState && !isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  if (!curStaticLinkState && isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+}
+
+// Add DAAL libraries
+static void addDAALLibs(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  // default link type is dynamically link
+  bool linkStatic = false;
+
+  // Additions of libraries are currently not smart enough at an individual
+  // basis to only add the 'switch' before the library.  We must put the link
+  // state back to the original setting.
+  bool curStaticLinkState = isStaticLinkState(CmdArgs);
+  if (curStaticLinkState && !linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+  if (!curStaticLinkState && linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  CmdArgs.push_back(Args.MakeArgString("--start-group"));
+  ToolChain.AddDAALLibArgs(Args, CmdArgs, "-l");
+  CmdArgs.push_back(Args.MakeArgString("--end-group"));
+  if (curStaticLinkState && !isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  if (!curStaticLinkState && isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+}
+
+// Add performance library search paths.
+static void addPerfLibPaths(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  if (Args.hasArg(options::OPT_ipp_EQ))
+    ToolChain.AddIPPLibPath(Args, CmdArgs, "-L");
+  if (Args.hasArg(options::OPT_mkl_EQ))
+    ToolChain.AddMKLLibPath(Args, CmdArgs, "-L");
+  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+    ToolChain.AddTBBLibPath(Args, CmdArgs, "-L");
+  if (Args.hasArg(options::OPT_daal_EQ))
+    ToolChain.AddDAALLibPath(Args, CmdArgs, "-L");
+}
+
 // Intel libraries are added in statically by default
 static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args) {
@@ -581,7 +713,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         P = ToolChain.GetFilePath(crtbegin);
       }
       CmdArgs.push_back(Args.MakeArgString(P));
-	  }
+    }
 
     // Add crtfastmath.o if available and fast math is enabled.
     ToolChain.AddFastMathRuntimeIfAvailable(Args, CmdArgs);
@@ -594,6 +726,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
+  addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
 
   if (D.isUsingLTO()) {
@@ -633,6 +766,14 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   getToolChain().addProfileRTLibs(Args, CmdArgs);
 
 #if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_ipp_EQ))
+    addIPPLibs(CmdArgs, Args, ToolChain);
+  if (Args.hasArg(options::OPT_mkl_EQ))
+    addMKLLibs(CmdArgs, Args, ToolChain);
+  if (Args.hasArg(options::OPT_daal_EQ))
+    addDAALLibs(CmdArgs, Args, ToolChain);
+  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+    addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT__intel) &&
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lirc", CmdArgs, Args);
@@ -662,10 +803,15 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           Args.hasArg(options::OPT__intel)) {
-    CmdArgs.push_back("-limf");
+           (Args.hasArg(options::OPT__intel) ||
+            Args.hasArg(options::OPT_mkl_EQ))) {
+    if (Args.hasArg(options::OPT__intel))
+      CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }
+  // Add -ldl for -mkl
+  if (Args.hasArg(options::OPT_mkl_EQ))
+    CmdArgs.push_back("-ldl");
 #endif // INTEL_CUSTOMIZATION
 
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
@@ -697,6 +843,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         // OpenMP runtimes implies pthreads when using the GNU toolchain.
         // FIXME: Does this really make sense for all GNU toolchains?
         WantPthread = true;
+
+#if INTEL_CUSTOMIZATION
+        // Use of -mkl implies pthread
+        if (Args.hasArg(options::OPT_mkl_EQ))
+          WantPthread = true;
+#endif // INTEL_CUSTOMIZATION
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 
@@ -760,9 +912,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
   }
-
-  // Add OpenMP offloading linker script args if required.
-  AddOpenMPLinkerScript(getToolChain(), C, Output, Inputs, Args, CmdArgs, JA);
 
   // Add HIP offloading linker script args if required.
   AddHIPLinkerScript(getToolChain(), C, Output, Inputs, Args, CmdArgs, JA,
@@ -850,11 +999,9 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
     StringRef ABIName = riscv::getRISCVABI(Args, getToolChain().getTriple());
     CmdArgs.push_back("-mabi");
     CmdArgs.push_back(ABIName.data());
-    if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
-      StringRef MArch = A->getValue();
-      CmdArgs.push_back("-march");
-      CmdArgs.push_back(MArch.data());
-    }
+    StringRef MArchName = riscv::getRISCVArch(Args, getToolChain().getTriple());
+    CmdArgs.push_back("-march");
+    CmdArgs.push_back(MArchName.data());
     break;
   }
   case llvm::Triple::sparc:
@@ -961,7 +1108,8 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
       A->render(Args, CmdArgs);
     } else if (mips::shouldUseFPXX(
                    Args, getToolChain().getTriple(), CPUName, ABIName,
-                   mips::getMipsFloatABI(getToolChain().getDriver(), Args)))
+                   mips::getMipsFloatABI(getToolChain().getDriver(), Args,
+                                         getToolChain().getTriple())))
       CmdArgs.push_back("-mfpxx");
 
     // Pass on -mmips16 or -mno-mips16. However, the assembler equivalent of
@@ -1008,6 +1156,19 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
     CmdArgs.push_back(Args.MakeArgString("-march=" + CPUName));
     break;
   }
+  }
+
+  for (const Arg *A : Args.filtered(options::OPT_ffile_prefix_map_EQ,
+                                    options::OPT_fdebug_prefix_map_EQ)) {
+    StringRef Map = A->getValue();
+    if (Map.find('=') == StringRef::npos)
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << Map << A->getOption().getName();
+    else {
+      CmdArgs.push_back(Args.MakeArgString("--debug-prefix-map"));
+      CmdArgs.push_back(Args.MakeArgString(Map));
+    }
+    A->claim();
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_I);
@@ -1533,7 +1694,8 @@ bool clang::driver::findMIPSMultilibs(const Driver &D,
   addMultilibFlag(CPUName == "mips32r6", "march=mips32r6", Flags);
   addMultilibFlag(CPUName == "mips64", "march=mips64", Flags);
   addMultilibFlag(CPUName == "mips64r2" || CPUName == "mips64r3" ||
-                      CPUName == "mips64r5" || CPUName == "octeon",
+                      CPUName == "mips64r5" || CPUName == "octeon" ||
+                      CPUName == "octeon+",
                   "march=mips64r2", Flags);
   addMultilibFlag(CPUName == "mips64r6", "march=mips64r6", Flags);
   addMultilibFlag(isMicroMips(Args), "mmicromips", Flags);
@@ -1644,9 +1806,65 @@ static bool findMSP430Multilibs(const Driver &D,
   return false;
 }
 
+static void findRISCVBareMetalMultilibs(const Driver &D,
+                                        const llvm::Triple &TargetTriple,
+                                        StringRef Path, const ArgList &Args,
+                                        DetectedMultilibs &Result) {
+  FilterNonExistent NonExistent(Path, "/crtbegin.o", D.getVFS());
+  struct RiscvMultilib {
+    StringRef march;
+    StringRef mabi;
+  };
+  // currently only support the set of multilibs like riscv-gnu-toolchain does.
+  // TODO: support MULTILIB_REUSE
+  SmallVector<RiscvMultilib, 8> RISCVMultilibSet = {
+      {"rv32i", "ilp32"},     {"rv32im", "ilp32"},     {"rv32iac", "ilp32"},
+      {"rv32imac", "ilp32"},  {"rv32imafc", "ilp32f"}, {"rv64imac", "lp64"},
+      {"rv64imafdc", "lp64d"}};
+
+  std::vector<Multilib> Ms;
+  for (auto Element : RISCVMultilibSet) {
+    // multilib path rule is ${march}/${mabi}
+    Ms.emplace_back(
+        makeMultilib((Twine(Element.march) + "/" + Twine(Element.mabi)).str())
+            .flag(Twine("+march=", Element.march).str())
+            .flag(Twine("+mabi=", Element.mabi).str()));
+  }
+  MultilibSet RISCVMultilibs =
+      MultilibSet()
+          .Either(ArrayRef<Multilib>(Ms))
+          .FilterOut(NonExistent)
+          .setFilePathsCallback([](const Multilib &M) {
+            return std::vector<std::string>(
+                {M.gccSuffix(),
+                 "/../../../../riscv64-unknown-elf/lib" + M.gccSuffix(),
+                 "/../../../../riscv32-unknown-elf/lib" + M.gccSuffix()});
+          });
+
+
+  Multilib::flags_list Flags;
+  llvm::StringSet<> Added_ABIs;
+  StringRef ABIName = tools::riscv::getRISCVABI(Args, TargetTriple);
+  StringRef MArch = tools::riscv::getRISCVArch(Args, TargetTriple);
+  for (auto Element : RISCVMultilibSet) {
+    addMultilibFlag(MArch == Element.march,
+                    Twine("march=", Element.march).str().c_str(), Flags);
+    if (!Added_ABIs.count(Element.mabi)) {
+      Added_ABIs.insert(Element.mabi);
+      addMultilibFlag(ABIName == Element.mabi,
+                      Twine("mabi=", Element.mabi).str().c_str(), Flags);
+    }
+  }
+
+  if (RISCVMultilibs.select(Flags, Result.SelectedMultilib))
+    Result.Multilibs = RISCVMultilibs;
+}
+
 static void findRISCVMultilibs(const Driver &D,
                                const llvm::Triple &TargetTriple, StringRef Path,
                                const ArgList &Args, DetectedMultilibs &Result) {
+  if (TargetTriple.getOS() == llvm::Triple::UnknownOS)
+    return findRISCVBareMetalMultilibs(D, TargetTriple, Path, Args, Result);
 
   FilterNonExistent NonExistent(Path, "/crtbegin.o", D.getVFS());
   Multilib Ilp32 = makeMultilib("lib32/ilp32").flag("+m32").flag("+mabi=ilp32");
@@ -2142,7 +2360,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   static const char *const PPCLibDirs[] = {"/lib32", "/lib"};
   static const char *const PPCTriples[] = {
       "powerpc-linux-gnu", "powerpc-unknown-linux-gnu", "powerpc-linux-gnuspe",
-      "powerpc-suse-linux", "powerpc-montavista-linuxspe"};
+      // On 32-bit PowerPC systems running SUSE Linux, gcc is configured as a
+      // 64-bit compiler which defaults to "-m32", hence "powerpc64-suse-linux".
+      "powerpc64-suse-linux", "powerpc-montavista-linuxspe"};
   static const char *const PPC64LibDirs[] = {"/lib64", "/lib"};
   static const char *const PPC64Triples[] = {
       "powerpc64-linux-gnu", "powerpc64-unknown-linux-gnu",
@@ -2665,6 +2885,13 @@ Tool *Generic_GCC::getTool(Action::ActionClass AC) const {
     if (!Compile)
       Compile.reset(new tools::gcc::Compiler(*this));
     return Compile.get();
+#if INTEL_CUSTOMIZATION
+  case Action::LinkJobClass:
+    if (isTargetSpir())
+      return static_cast<tools::gnutools::SYCLLinker *>
+          (ToolChain::getTool(AC))->GetSYCLToolChainLinker();
+    return ToolChain::getTool(AC);
+#endif // INTEL_CUSTOMIZATION
   default:
     return ToolChain::getTool(AC);
   }
@@ -2674,7 +2901,13 @@ Tool *Generic_GCC::buildAssembler() const {
   return new tools::gnutools::Assembler(*this);
 }
 
-Tool *Generic_GCC::buildLinker() const { return new tools::gcc::Linker(*this); }
+Tool *Generic_GCC::buildLinker() const {
+#if INTEL_CUSTOMIZATION
+  if (isTargetSpir())
+    return new tools::gnutools::SYCLLinker(*this);
+#endif // INTEL_CUSTOMIZATION
+  return new tools::gcc::Linker(*this);
+}
 
 void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
   // Print the information about how we detected the GCC installation.
@@ -2854,6 +3087,39 @@ Generic_GCC::TranslateArgs(const llvm::opt::DerivedArgList &Args, StringRef,
     }
     return DAL;
   }
+#if INTEL_CUSTOMIZATION
+  if (DeviceOffloadKind == Action::OFK_None) {
+    // Add SYCL specific performance libraries.
+    // These are transformed from the added base library names to the full
+    // path including the library.
+    if (Args.hasArg(options::OPT_fsycl)) {
+      DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
+      const OptTable &Opts = getDriver().getOpts();
+      for (auto *A : Args) {
+        if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+            A->getValue() == StringRef("libmkl_sycl")) {
+          SmallString<128> MKLPath(GetMKLLibPath());
+          llvm::sys::path::append(MKLPath, "libmkl_sycl.a");
+          DAL->AddJoinedArg(A,
+            Opts.getOption(options::OPT_foffload_static_lib_EQ),
+            Args.MakeArgString(MKLPath));
+          continue;
+        }
+        if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+            A->getValue() == StringRef("libdaal_sycl")) {
+          SmallString<128> DAALPath(GetDAALLibPath());
+          llvm::sys::path::append(DAALPath, "libdaal_sycl.a");
+          DAL->AddJoinedArg(A,
+            Opts.getOption(options::OPT_foffload_static_lib_EQ),
+            Args.MakeArgString(DAALPath));
+          continue;
+        }
+        DAL->append(A);
+      }
+      return DAL;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   return nullptr;
 }
 

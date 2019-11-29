@@ -34,11 +34,6 @@ static cl::opt<bool> RoundSectionSizes(
     cl::desc("Round section sizes up to the section alignment"), cl::Hidden);
 } // end anonymous namespace
 
-static bool isMipsR6(const MCSubtargetInfo *STI) {
-  return STI->getFeatureBits()[Mips::FeatureMips32r6] ||
-         STI->getFeatureBits()[Mips::FeatureMips64r6];
-}
-
 static bool isMicroMips(const MCSubtargetInfo *STI) {
   return STI->getFeatureBits()[Mips::FeatureMicroMips];
 }
@@ -330,36 +325,6 @@ void MipsTargetStreamer::emitStoreWithImmOffset(
     emitRRR(Mips::ADDu, ATReg, ATReg, BaseReg, IDLoc, STI);
   // Emit the store with the adjusted base and offset.
   emitRRI(Opcode, SrcReg, ATReg, LoOffset, IDLoc, STI);
-}
-
-/// Emit a store instruction with an symbol offset.
-void MipsTargetStreamer::emitSCWithSymOffset(unsigned Opcode, unsigned SrcReg,
-                                             unsigned BaseReg,
-                                             MCOperand &HiOperand,
-                                             MCOperand &LoOperand,
-                                             unsigned ATReg, SMLoc IDLoc,
-                                             const MCSubtargetInfo *STI) {
-  // sc $8, sym => lui $at, %hi(sym)
-  //               sc $8, %lo(sym)($at)
-
-  // Generate the base address in ATReg.
-  emitRX(Mips::LUi, ATReg, HiOperand, IDLoc, STI);
-  if (!isMicroMips(STI) && isMipsR6(STI)) {
-    // For non-micromips r6 offset for 'sc' is not in the lower 16 bits so we
-    // put it in 'at'.
-    // sc $8, sym => lui $at, %hi(sym)
-    //               addiu $at, $at, %lo(sym)
-    //               sc $8, 0($at)
-    emitRRX(Mips::ADDiu, ATReg, ATReg, LoOperand, IDLoc, STI);
-    MCOperand Offset = MCOperand::createImm(0);
-    // Emit the store with the adjusted base and offset.
-    emitRRRX(Opcode, SrcReg, SrcReg, ATReg, Offset, IDLoc, STI);
-  } else {
-    if (BaseReg != Mips::ZERO)
-      emitRRR(Mips::ADDu, ATReg, ATReg, BaseReg, IDLoc, STI);
-    // Emit the store with the adjusted base and offset.
-    emitRRRX(Opcode, SrcReg, SrcReg, ATReg, LoOperand, IDLoc, STI);
-  }
 }
 
 /// Emit a load instruction with an immediate offset. DstReg and TmpReg are
@@ -901,12 +866,9 @@ void MipsTargetELFStreamer::finish() {
   MCSection &BSSSection = *OFI.getBSSSection();
   MCA.registerSection(BSSSection);
 
-  TextSection.setAlignment(
-      llvm::Align(std::max(16u, TextSection.getAlignment())));
-  DataSection.setAlignment(
-      llvm::Align(std::max(16u, DataSection.getAlignment())));
-  BSSSection.setAlignment(
-      llvm::Align(std::max(16u, BSSSection.getAlignment())));
+  TextSection.setAlignment(Align(std::max(16u, TextSection.getAlignment())));
+  DataSection.setAlignment(Align(std::max(16u, DataSection.getAlignment())));
+  BSSSection.setAlignment(Align(std::max(16u, BSSSection.getAlignment())));
 
   if (RoundSectionSizes) {
     // Make sections sizes a multiple of the alignment. This is useful for
@@ -1029,7 +991,7 @@ void MipsTargetELFStreamer::emitDirectiveEnd(StringRef Name) {
       MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Context);
 
   MCA.registerSection(*Sec);
-  Sec->setAlignment(llvm::Align(4));
+  Sec->setAlignment(Align(4));
 
   OS.PushSection();
 
@@ -1319,7 +1281,7 @@ void MipsTargetELFStreamer::emitMipsAbiFlags() {
   MCSectionELF *Sec = Context.getELFSection(
       ".MIPS.abiflags", ELF::SHT_MIPS_ABIFLAGS, ELF::SHF_ALLOC, 24, "");
   MCA.registerSection(*Sec);
-  Sec->setAlignment(llvm::Align(8));
+  Sec->setAlignment(Align(8));
   OS.SwitchSection(Sec);
 
   OS << ABIFlagsSection;

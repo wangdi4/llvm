@@ -112,6 +112,7 @@ namespace llvm {
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           IntelAdvancedOptim(false),               // INTEL
           IntelLibIRCAllowed(false),               // INTEL
+          IntelFtzDaz(false),                      // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           DisableIntegratedAS(false), RelaxELFRelocations(false),
@@ -121,7 +122,7 @@ namespace llvm {
           ExplicitEmulatedTLS(false), EnableIPRA(false),
           EmitStackSizeSection(false), EnableMachineOutliner(false),
           SupportsDefaultOutlining(false), EmitAddrsig(false),
-          EnableDebugEntryValues(false) {}
+          EnableDebugEntryValues(false), ForceDwarfFrameSection(false) {}
 
     /// PrintMachineCode - This flag is enabled when the -print-machineinstrs
     /// option is specified on the command line, and should enable debugging
@@ -183,10 +184,15 @@ namespace llvm {
     /// not (controlled with -x).
     unsigned IntelAdvancedOptim : 1;
 
-    /// IntelLibIRCAllowed - When true, this indicates that libirc is 
+    /// IntelLibIRCAllowed - When true, this indicates that libirc is
     /// available for the compiler to make calls to.  When false, the
     /// compiler cannot generate libirc calls.
     unsigned IntelLibIRCAllowed : 1;
+
+    /// IntelFtzDaz - When true, this indicates that enable "Flush To Zero"
+    /// and "Denormals Are Zero" flags in MXCSR. It can improve the performance
+    /// in some FP mode.
+    unsigned IntelFtzDaz : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
@@ -269,6 +275,9 @@ namespace llvm {
 
     /// Emit debug info about parameter's entry values.
     unsigned EnableDebugEntryValues : 1;
+
+    /// Emit DWARF debug frame section.
+    unsigned ForceDwarfFrameSection : 1;
 
     /// FloatABIType - This setting is set by -float-abi=xxx option is specfied
     /// on the command line. This setting may either be Default, Soft, or Hard.

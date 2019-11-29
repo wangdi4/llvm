@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #if INTEL_INCLUDE_DTRANS
@@ -381,7 +382,6 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
-    PointerType *BaseTy = cast<PointerType>(CE->getSrcType());
     auto *DestTy = getBitCastDestType();
 
     // Derive ref's destination type using BitCastDestType, if available.
@@ -396,7 +396,8 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
     if (isAddressOf()) {
-      return PointerType::get(RefTy, BaseTy->getAddressSpace());
+      return PointerType::get(RefTy,
+                              CE->getSrcType()->getPointerAddressSpace());
     } else {
       return RefTy;
     }
@@ -490,12 +491,14 @@ bool RegDDRef::isFakeRval() const {
   return HNode->isFakeRval(this);
 }
 
-bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
+bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
+                                              bool IgnoreInnerIVs) const {
 
   bool HasGEPInfo = hasGEPInfo();
 
   // Check the Base CE.
-  if (HasGEPInfo && !getBaseCE()->isInvariantAtLevel(LoopLevel)) {
+  if (HasGEPInfo &&
+      !getBaseCE()->isInvariantAtLevel(LoopLevel, IgnoreInnerIVs)) {
     return false;
   }
 
@@ -504,12 +507,15 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
 
     // Check if CanonExpr is invariant i.e. IV is not present in any form inside
     // the canon expr.
-    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel)) {
+    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel,
+                                                  IgnoreInnerIVs)) {
       return false;
     }
 
-    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(LoopLevel) ||
-                       !getDimensionStride(I)->isInvariantAtLevel(LoopLevel))) {
+    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(
+                           LoopLevel, IgnoreInnerIVs) ||
+                       !getDimensionStride(I)->isInvariantAtLevel(
+                           LoopLevel, IgnoreInnerIVs))) {
       return false;
     }
   }
@@ -1352,14 +1358,15 @@ void RegDDRef::verify() const {
     auto CE = getBaseCE();
     (void)CE;
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
-    assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
+    assert(isa<PointerType>(CE->getSrcType()->getScalarType()) &&
+           "Invalid BaseCE src type!");
 
     if (isAddressOf()) {
       // During vectorization DestType is set to a vector of pointers
       assert(isa<PointerType>(CE->getDestType()->getScalarType()) &&
              "Invalid BaseCE dest type!");
     } else {
-      assert(isa<PointerType>(CE->getDestType()) &&
+      assert(isa<PointerType>(CE->getDestType()->getScalarType()) &&
              "Invalid BaseCE dest type!");
     }
     assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&

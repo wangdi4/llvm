@@ -1335,7 +1335,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
       // this is ambiguous. Typo-correct to type and expression keywords and
       // to types and identifiers, in order to try to recover from errors.
       TentativeParseCCC CCC(Next);
-      switch (TryAnnotateName(false /* no nested name specifier */, &CCC)) {
+      switch (TryAnnotateName(&CCC)) {
       case ANK_Error:
         return TPResult::Error;
       case ANK_TentativeDecl:
@@ -1471,8 +1471,6 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw___read_write:
     // OpenCL pipe
   case tok::kw_pipe:
-    // SYCL pipe
-  case tok::kw___pipe:
 
     // GNU
   case tok::kw_restrict:
@@ -1576,7 +1574,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
         } else {
           // Try to resolve the name. If it doesn't exist, assume it was
           // intended to name a type and keep disambiguating.
-          switch (TryAnnotateName(false /* SS is not dependent */)) {
+          switch (TryAnnotateName()) {
           case ANK_Error:
             return TPResult::Error;
           case ANK_TentativeDecl:

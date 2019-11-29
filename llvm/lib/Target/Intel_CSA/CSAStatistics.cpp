@@ -22,6 +22,7 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"

@@ -1,5 +1,6 @@
-; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that foo is not selected for generic cloning of a recursive routine
 ; because its formals do not qualify under the if-switch heuristic.

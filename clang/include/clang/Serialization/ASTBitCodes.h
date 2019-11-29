@@ -382,7 +382,10 @@ namespace serialization {
     /// inside the control block.
     enum InputFileRecordTypes {
       /// An input file.
-      INPUT_FILE = 1
+      INPUT_FILE = 1,
+
+      /// The input file content hash
+      INPUT_FILE_HASH
     };
 
     /// Record types that occur within the AST block itself.
@@ -1543,6 +1546,9 @@ namespace serialization {
       /// An EmptyDecl record.
       DECL_EMPTY,
 
+      /// An LifetimeExtendedTemporaryDecl record.
+      DECL_LIFETIME_EXTENDED_TEMPORARY,
+
       /// An ObjCTypeParamDecl record.
       DECL_OBJC_TYPE_PARAM,
 
@@ -1851,6 +1857,9 @@ namespace serialization {
       /// A CXXMemberCallExpr record.
       EXPR_CXX_MEMBER_CALL,
 
+      /// A CXXRewrittenBinaryOperator record.
+      EXPR_CXX_REWRITTEN_BINARY_OPERATOR,
+
       /// A CXXConstructExpr record.
       EXPR_CXX_CONSTRUCT,
 
@@ -1921,6 +1930,7 @@ namespace serialization {
       EXPR_FUNCTION_PARM_PACK,    // FunctionParmPackExpr
       EXPR_MATERIALIZE_TEMPORARY, // MaterializeTemporaryExpr
       EXPR_CXX_FOLD,              // CXXFoldExpr
+      EXPR_CONCEPT_SPECIALIZATION,// ConceptSpecializationExpr
 
       // CUDA
       EXPR_CUDA_KERNEL_CALL,       // CUDAKernelCallExpr
@@ -1970,6 +1980,10 @@ namespace serialization {
       STMT_OMP_CANCEL_DIRECTIVE,
       STMT_OMP_TASKLOOP_DIRECTIVE,
       STMT_OMP_TASKLOOP_SIMD_DIRECTIVE,
+      STMT_OMP_MASTER_TASKLOOP_DIRECTIVE,
+      STMT_OMP_MASTER_TASKLOOP_SIMD_DIRECTIVE,
+      STMT_OMP_PARALLEL_MASTER_TASKLOOP_DIRECTIVE,
+      STMT_OMP_PARALLEL_MASTER_TASKLOOP_SIMD_DIRECTIVE,
       STMT_OMP_DISTRIBUTE_DIRECTIVE,
       STMT_OMP_TARGET_UPDATE_DIRECTIVE,
       STMT_OMP_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE,
@@ -1986,7 +2000,9 @@ namespace serialization {
       STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE,
       STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD_DIRECTIVE,
       STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE,
-      STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE, // INTEL
+#if INTEL_COLLAB
+      STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE,
+#endif // INTEL_COLLAB
       EXPR_OMP_ARRAY_SECTION,
 
       // ARC

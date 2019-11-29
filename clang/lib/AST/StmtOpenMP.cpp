@@ -41,6 +41,74 @@ const Stmt *OMPExecutableDirective::getStructuredBlock() const {
   return getInnermostCapturedStmt()->getCapturedStmt();
 }
 
+Stmt *OMPLoopDirective::tryToFindNextInnerLoop(Stmt *CurStmt,
+                                               bool TryImperfectlyNestedLoops) {
+  Stmt *OrigStmt = CurStmt;
+  CurStmt = CurStmt->IgnoreContainers();
+  // Additional work for imperfectly nested loops, introduced in OpenMP 5.0.
+  if (TryImperfectlyNestedLoops) {
+    if (auto *CS = dyn_cast<CompoundStmt>(CurStmt)) {
+      CurStmt = nullptr;
+      SmallVector<CompoundStmt *, 4> Statements(1, CS);
+      SmallVector<CompoundStmt *, 4> NextStatements;
+      while (!Statements.empty()) {
+        CS = Statements.pop_back_val();
+        if (!CS)
+          continue;
+        for (Stmt *S : CS->body()) {
+          if (!S)
+            continue;
+          if (isa<ForStmt>(S) || isa<CXXForRangeStmt>(S)) {
+            // Only single loop construct is allowed.
+            if (CurStmt) {
+              CurStmt = OrigStmt;
+              break;
+            }
+            CurStmt = S;
+            continue;
+          }
+          S = S->IgnoreContainers();
+          if (auto *InnerCS = dyn_cast_or_null<CompoundStmt>(S))
+            NextStatements.push_back(InnerCS);
+        }
+        if (Statements.empty()) {
+          // Found single inner loop or multiple loops - exit.
+          if (CurStmt)
+            break;
+          Statements.swap(NextStatements);
+        }
+      }
+      if (!CurStmt)
+        CurStmt = OrigStmt;
+    }
+  }
+  return CurStmt;
+}
+
+Stmt *OMPLoopDirective::getBody() {
+  // This relies on the loop form is already checked by Sema.
+  Stmt *Body =
+      getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+  if (auto *For = dyn_cast<ForStmt>(Body)) {
+    Body = For->getBody();
+  } else {
+    assert(isa<CXXForRangeStmt>(Body) &&
+           "Expected canonical for loop or range-based for loop.");
+    Body = cast<CXXForRangeStmt>(Body)->getBody();
+  }
+  for (unsigned Cnt = 1; Cnt < CollapsedNum; ++Cnt) {
+    Body = tryToFindNextInnerLoop(Body, /*TryImperfectlyNestedLoops=*/true);
+    if (auto *For = dyn_cast<ForStmt>(Body)) {
+      Body = For->getBody();
+    } else {
+      assert(isa<CXXForRangeStmt>(Body) &&
+             "Expected canonical for loop or range-based for loop.");
+      Body = cast<CXXForRangeStmt>(Body)->getBody();
+    }
+  }
+  return Body;
+}
+
 void OMPLoopDirective::setCounters(ArrayRef<Expr *> A) {
   assert(A.size() == getCollapsedNumber() &&
          "Number of loop counters is not the same as the collapsed number");
@@ -91,6 +159,24 @@ void OMPLoopDirective::setFinalsConditions(ArrayRef<Expr *> A) {
   llvm::copy(A, getFinalsConditions().begin());
 }
 
+#if INTEL_CUSTOMIZATION
+#define DEFINE_UNCOLLAPSED_SET(Name)                                                   \
+  void OMPLoopDirective::setUncollapsed##Name(ArrayRef<Expr *> A) {            \
+    assert(A.size() == getCollapsedNumber() &&                                 \
+           "Number of uncollapsed Exprs is not the same as the collapsed "     \
+           "number");                                                          \
+    std::copy(A.begin(), A.end(), getUncollapsed##Name().begin());             \
+  }
+  DEFINE_UNCOLLAPSED_SET(IVs)
+  DEFINE_UNCOLLAPSED_SET(LowerBounds)
+  DEFINE_UNCOLLAPSED_SET(UpperBounds)
+  DEFINE_UNCOLLAPSED_SET(Inits)
+  DEFINE_UNCOLLAPSED_SET(LoopConds)
+  DEFINE_UNCOLLAPSED_SET(Incs)
+  DEFINE_UNCOLLAPSED_SET(Updates)
+#undef DEFINE_UNCOLLAPSED_SET
+#endif // INTEL_CUSTOMIZATION
+
 OMPParallelDirective *OMPParallelDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, bool HasCancel) {
@@ -115,6 +201,19 @@ OMPParallelDirective *OMPParallelDirective::CreateEmpty(const ASTContext &C,
       C.Allocate(Size + sizeof(OMPClause *) * NumClauses + sizeof(Stmt *));
   return new (Mem) OMPParallelDirective(NumClauses);
 }
+
+#if INTEL_CUSTOMIZATION
+#define CALL_SET_UNCOLLAPSED(Name)                                             \
+  Dir->setUncollapsed##Name(Exprs.Uncollapsed##Name);
+#define CALL_ALL_SET_UNCOLLAPSED    \
+  CALL_SET_UNCOLLAPSED(IVs)         \
+  CALL_SET_UNCOLLAPSED(LowerBounds) \
+  CALL_SET_UNCOLLAPSED(UpperBounds) \
+  CALL_SET_UNCOLLAPSED(Inits)       \
+  CALL_SET_UNCOLLAPSED(LoopConds)   \
+  CALL_SET_UNCOLLAPSED(Incs)        \
+  CALL_SET_UNCOLLAPSED(Updates)
+#endif // INTEL_CUSTOMIZATION
 
 OMPSimdDirective *
 OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
@@ -147,6 +246,7 @@ OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
 #if INTEL_COLLAB
   Dir->setUpperBoundVariable(Exprs.UB);
@@ -204,6 +304,7 @@ OMPForDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -260,6 +361,7 @@ OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -321,7 +423,7 @@ OMPSectionDirective *OMPSectionDirective::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPSectionDirective();
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 OMPTargetVariantDispatchDirective *OMPTargetVariantDispatchDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
@@ -346,7 +448,7 @@ OMPTargetVariantDispatchDirective::CreateEmpty(const ASTContext &C,
       C.Allocate(Size + sizeof(OMPClause *) * NumClauses + sizeof(Stmt *));
   return new (Mem) OMPTargetVariantDispatchDirective(NumClauses);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
@@ -456,6 +558,7 @@ OMPParallelForDirective *OMPParallelForDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -511,6 +614,7 @@ OMPParallelForSimdDirective *OMPParallelForSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -857,6 +961,7 @@ OMPTargetParallelForDirective *OMPTargetParallelForDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -1005,6 +1110,7 @@ OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1060,6 +1166,7 @@ OMPTaskLoopSimdDirective *OMPTaskLoopSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1073,6 +1180,240 @@ OMPTaskLoopSimdDirective::CreateEmpty(const ASTContext &C, unsigned NumClauses,
                          sizeof(Stmt *) *
                              numLoopChildren(CollapsedNum, OMPD_taskloop_simd));
   return new (Mem) OMPTaskLoopSimdDirective(CollapsedNum, NumClauses);
+}
+
+OMPMasterTaskLoopDirective *OMPMasterTaskLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  unsigned Size =
+      llvm::alignTo(sizeof(OMPMasterTaskLoopDirective), alignof(OMPClause *));
+  void *Mem = C.Allocate(
+      Size + sizeof(OMPClause *) * Clauses.size() +
+      sizeof(Stmt *) * numLoopChildren(CollapsedNum, OMPD_master_taskloop));
+  OMPMasterTaskLoopDirective *Dir = new (Mem) OMPMasterTaskLoopDirective(
+      StartLoc, EndLoc, CollapsedNum, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPMasterTaskLoopDirective *
+OMPMasterTaskLoopDirective::CreateEmpty(const ASTContext &C,
+                                        unsigned NumClauses,
+                                        unsigned CollapsedNum, EmptyShell) {
+  unsigned Size =
+      llvm::alignTo(sizeof(OMPMasterTaskLoopDirective), alignof(OMPClause *));
+  void *Mem = C.Allocate(
+      Size + sizeof(OMPClause *) * NumClauses +
+      sizeof(Stmt *) * numLoopChildren(CollapsedNum, OMPD_master_taskloop));
+  return new (Mem) OMPMasterTaskLoopDirective(CollapsedNum, NumClauses);
+}
+
+OMPMasterTaskLoopSimdDirective *OMPMasterTaskLoopSimdDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  unsigned Size = llvm::alignTo(sizeof(OMPMasterTaskLoopSimdDirective),
+                                alignof(OMPClause *));
+  void *Mem =
+      C.Allocate(Size + sizeof(OMPClause *) * Clauses.size() +
+                 sizeof(Stmt *) *
+                     numLoopChildren(CollapsedNum, OMPD_master_taskloop_simd));
+  auto *Dir = new (Mem) OMPMasterTaskLoopSimdDirective(
+      StartLoc, EndLoc, CollapsedNum, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPMasterTaskLoopSimdDirective *
+OMPMasterTaskLoopSimdDirective::CreateEmpty(const ASTContext &C,
+                                            unsigned NumClauses,
+                                            unsigned CollapsedNum, EmptyShell) {
+  unsigned Size = llvm::alignTo(sizeof(OMPMasterTaskLoopSimdDirective),
+                                alignof(OMPClause *));
+  void *Mem =
+      C.Allocate(Size + sizeof(OMPClause *) * NumClauses +
+                 sizeof(Stmt *) *
+                     numLoopChildren(CollapsedNum, OMPD_master_taskloop_simd));
+  return new (Mem) OMPMasterTaskLoopSimdDirective(CollapsedNum, NumClauses);
+}
+
+OMPParallelMasterTaskLoopDirective *OMPParallelMasterTaskLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  unsigned Size = llvm::alignTo(sizeof(OMPParallelMasterTaskLoopDirective),
+                                alignof(OMPClause *));
+  void *Mem = C.Allocate(
+      Size + sizeof(OMPClause *) * Clauses.size() +
+      sizeof(Stmt *) *
+          numLoopChildren(CollapsedNum, OMPD_parallel_master_taskloop));
+  auto *Dir = new (Mem) OMPParallelMasterTaskLoopDirective(
+      StartLoc, EndLoc, CollapsedNum, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPParallelMasterTaskLoopDirective *
+OMPParallelMasterTaskLoopDirective::CreateEmpty(const ASTContext &C,
+                                                unsigned NumClauses,
+                                                unsigned CollapsedNum,
+                                                EmptyShell) {
+  unsigned Size = llvm::alignTo(sizeof(OMPParallelMasterTaskLoopDirective),
+                                alignof(OMPClause *));
+  void *Mem = C.Allocate(
+      Size + sizeof(OMPClause *) * NumClauses +
+      sizeof(Stmt *) *
+          numLoopChildren(CollapsedNum, OMPD_parallel_master_taskloop));
+  return new (Mem) OMPParallelMasterTaskLoopDirective(CollapsedNum, NumClauses);
+}
+
+OMPParallelMasterTaskLoopSimdDirective *
+OMPParallelMasterTaskLoopSimdDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  unsigned Size = llvm::alignTo(sizeof(OMPParallelMasterTaskLoopSimdDirective),
+                                alignof(OMPClause *));
+  void *Mem = C.Allocate(
+      Size + sizeof(OMPClause *) * Clauses.size() +
+      sizeof(Stmt *) *
+          numLoopChildren(CollapsedNum, OMPD_parallel_master_taskloop_simd));
+  auto *Dir = new (Mem) OMPParallelMasterTaskLoopSimdDirective(
+      StartLoc, EndLoc, CollapsedNum, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif //INTEL_COLLAB
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPParallelMasterTaskLoopSimdDirective *
+OMPParallelMasterTaskLoopSimdDirective::CreateEmpty(const ASTContext &C,
+                                                    unsigned NumClauses,
+                                                    unsigned CollapsedNum,
+                                                    EmptyShell) {
+  unsigned Size = llvm::alignTo(sizeof(OMPParallelMasterTaskLoopSimdDirective),
+                                alignof(OMPClause *));
+  void *Mem = C.Allocate(
+      Size + sizeof(OMPClause *) * NumClauses +
+      sizeof(Stmt *) *
+          numLoopChildren(CollapsedNum, OMPD_parallel_master_taskloop_simd));
+  return new (Mem)
+      OMPParallelMasterTaskLoopSimdDirective(CollapsedNum, NumClauses);
 }
 
 OMPDistributeDirective *OMPDistributeDirective::Create(
@@ -1114,6 +1455,7 @@ OMPDistributeDirective *OMPDistributeDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1198,6 +1540,7 @@ OMPDistributeParallelForDirective *OMPDistributeParallelForDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1272,6 +1615,7 @@ OMPDistributeParallelForSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1340,6 +1684,7 @@ OMPDistributeSimdDirective *OMPDistributeSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1398,6 +1743,7 @@ OMPTargetParallelForSimdDirective *OMPTargetParallelForSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1448,6 +1794,7 @@ OMPTargetSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
 #if INTEL_COLLAB
   Dir->setUpperBoundVariable(Exprs.UB);
@@ -1505,6 +1852,7 @@ OMPTeamsDistributeDirective *OMPTeamsDistributeDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1562,6 +1910,7 @@ OMPTeamsDistributeSimdDirective *OMPTeamsDistributeSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1625,6 +1974,7 @@ OMPTeamsDistributeParallelForSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1700,6 +2050,7 @@ OMPTeamsDistributeParallelForDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1794,6 +2145,7 @@ OMPTargetTeamsDistributeDirective *OMPTargetTeamsDistributeDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1860,6 +2212,7 @@ OMPTargetTeamsDistributeParallelForDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1939,6 +2292,7 @@ OMPTargetTeamsDistributeParallelForSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -2010,6 +2364,7 @@ OMPTargetTeamsDistributeSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }

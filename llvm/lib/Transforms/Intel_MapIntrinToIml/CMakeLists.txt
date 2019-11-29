@@ -5,7 +5,7 @@
 #                              COMPILE_FLAGS -Wno-error=strict-aliasing)
 #endif()
 
-add_llvm_library(LLVMIntel_MapIntrinToIml
+add_llvm_component_library(LLVMIntel_MapIntrinToIml
     MapIntrinToIml.cpp
     iml_accuracy_interface.cpp
     search.cpp)

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSALoopInfo.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

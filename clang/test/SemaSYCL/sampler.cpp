@@ -1,4 +1,5 @@
-// RUN: %clang -S -I %S/Inputs --sycl -Xclang -ast-dump %s | FileCheck %s
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// RUN: %clang -S -I %S/Inputs -fsycl-device-only -Xclang -ast-dump %s | FileCheck %s
 
 #include <sycl.hpp>
 

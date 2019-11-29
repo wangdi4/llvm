@@ -37,14 +37,16 @@
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
-cl::opt<uint64_t>
-    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
-                        cl::desc("Default estimated trip count"));
 static cl::opt<unsigned>
 VecThreshold("vec-threshold",
              cl::desc("sets a threshold for the vectorization on the probability"
                       "of profitable execution of the vectorized loop in parallel."),
              cl::init(100));
+
+static cl::opt<bool>
+    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
+                             cl::Hidden,
+                             cl::desc("Enable New VPlan predicator."));
 #else
 cl::opt<unsigned>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
@@ -79,21 +81,8 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-// Return trip count for a given VPlan for a first loop during DFS.
-// Assume, that VPlan has only 1 loop without peel and/or remainder(s).
-// FIXME: This function is incorrect if peel, main and remainder loop will be
-// explicitly represented in VPlan. Also it's incorrect for multi level loop
-// vectorization.
-static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
-  const VPLoopRegion *Loop = VPlanUtils::findFirstLoopDFS(VPlan);
-
-  return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
-}
-
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL) {
-  collectDeadInstructions();
-
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
 
@@ -136,33 +125,23 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     unsigned MinWidthInBits, MaxWidthInBits;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
     const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
-    // FIXME: Cannot simply call TTI->getRegisterBitWidth(true), because by
-    // default it returns 32 regardless to Vector argument.
-    // Hardcode register size to 512.
-    const unsigned MaxVectorWidth =
-        std::max(512u, TTI->getRegisterBitWidth(true) /* Vector */);
-    // FIXME: Currently limits MaxVF by 32.
-    MaxVF = std::min(MaxVectorWidth / MinWidthInBits, 32u);
+    const unsigned MaxVectorWidth = TTI->getRegisterBitWidth(true /* Vector */);
+    MaxVF = MaxVectorWidth / MinWidthInBits;
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
-#if INTEL_CUSTOMIZATION
+
+    // FIXME: Why is this?
+    MaxVF = std::min(MaxVF, 32u);
+    MinVF = std::min(MinVF, 32u);
+
     LLVM_DEBUG(dbgs() << "LVP: Orig MinVF: " << MinVF
                       << " Orig MaxVF: " << MaxVF << "\n");
+
     // Maximum allowed VF specified by user is Safelen
+    Safelen = (unsigned)PowerOf2Floor(Safelen);
     MaxVF = std::min(MaxVF, Safelen);
-
-    // If the minimum VF in the search space is greater than Safelen specified
-    // by user, then we reduce the minimum VF to nearest power of 2 less than
-    // or equal to Safelen
-    MinVF = std::min(MinVF, (unsigned)PowerOf2Floor(Safelen));
-
-    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
-    // return 512, 1024 or higher values.
-    assert(MinVF <= MaxVF && "Invalid range of VFs");
-#else
-    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
-    // return 512, 1024 or higher values.
-    assert(MinVF < MaxVF && "Invalid range of VFs");
-#endif // INTEL_CUSTOMIZATION
+    // We won't be able to fill the entire register, but it
+    // still might be profitable.
+    MinVF = std::min(MinVF, Safelen);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -183,8 +162,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       // Loop entities may be not created in some cases.
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
       VPBuilder VPIRBuilder;
-      LE->doEscapeAnalysis();
       LE->insertVPInstructions(VPIRBuilder);
+      LE->doSOAAnalysis();
       LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
                  dbgs() << *Plan;);
     }
@@ -233,7 +212,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
   // to 2^32, otherwise all logic below will have a problem with overflow.
-  uint64_t TripCount = std::min(::getTripCountForFirstLoopInDfs(ScalarPlan),
+  VPLoopInfo *VPLI = ScalarPlan->getVPLoopInfo();
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
+         && "Expected single outermost loop!");
+  VPLoop *OuterMostVPLoop = *VPLI->begin();
+  uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
 #if INTEL_CUSTOMIZATION
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL, VLSA);
@@ -357,7 +340,7 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    if (UseNewPredicator) {
+    if (EnableNewVPlanPredicator) {
       NewVPlanPredicator VPP(*VPlan);
       VPP.predicate();
     } else {
@@ -429,7 +412,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     const DataLayout *DL) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan =
-      std::make_shared<VPlan>(VPLA, Context, DL);
+      std::make_shared<VPlan>(Context, DL);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -550,11 +533,11 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
   VPCallbackILV CallbackILV;
-  /*TODO: Necessary in VPO?*/
-  VectorizerValueMap ValMap(BestVF, 1 /*UF*/);
 
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
-                         CallbackILV, Legal);
+  VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "No VPlan found for BestVF.");
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,
+                         CallbackILV, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
 #if INTEL_CUSTOMIZATION
@@ -562,20 +545,10 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV->setTransformState(&State);
 #endif // INTEL_CUSTOMIZATION
 
-  VPlan *Plan = getVPlanForVF(BestVF);
-  assert(Plan && "No VPlan found for BestVF.");
-  // TODO: This should be removed once we get proper divergence analysis
-  State.UniformCBVs = &Plan->UniformCBVs;
-
   ILV->collectUniformsAndScalars(BestVF);
 
   Plan->execute(&State);
 
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   ILV->finalizeLoop();
-}
-
-void LoopVectorizationPlanner::collectDeadInstructions() {
-  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
-                                               DeadInstructions);
 }

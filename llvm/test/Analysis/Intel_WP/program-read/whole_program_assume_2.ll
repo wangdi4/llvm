@@ -4,7 +4,6 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=-whole-program-trace \
 ; RUN:    -plugin-opt=-whole-program-assume \
 ; RUN:    -plugin-opt=-print-after-all  \
 ; RUN:    %t.bc -o %t \
@@ -15,9 +14,6 @@
 ; CHECK: define i32 @add
 ; CHECK: define i32 @wmain
 ; CHECK: declare i32 @sub
-
-; Check that whole-program-assume is enabled
-; CHECK: whole-program-assume is enabled
 
 ; Check that main and sub aren't internal, but add is internal
 ; CHECK: define internal i32 @add

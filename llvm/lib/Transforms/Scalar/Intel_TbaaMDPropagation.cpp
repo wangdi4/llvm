@@ -1,6 +1,6 @@
 //===-- TbaaMDPropagation.cpp - TBAA recovery for return pointers implementation -===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -70,10 +70,13 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/IR/CFG.h"
 
 using namespace llvm;
 
@@ -182,8 +185,8 @@ void TbaaMDPropagationImpl::visitStore(StoreInst &SI) {
 
 bool runTbaaMDPropagation(Function &F) {
   TbaaMDPropagationImpl impl;
-  for (BasicBlock &BB : F) {
-    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+  for (BasicBlock *BB : depth_first(&F.getEntryBlock())) {
+    for (auto II = BB->begin(), IE = BB->end(); II != IE;) {
       // Because we might be erasing the instruction, we need to get the
       // instruction reference first and then increment the iterator before
       // visiting the instruction.
@@ -240,8 +243,8 @@ PreservedAnalyses TbaaMDPropagationPass::run(Function &F,
 }
 
 static bool runCleanupFakeLoads(Function &F) {
-  for (BasicBlock &BB : F) {
-    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+  for (BasicBlock *BB : depth_first(&F.getEntryBlock())) {
+    for (auto II = BB->begin(), IE = BB->end(); II != IE;) {
       // Because we might be erasing the instruction, we need to get the
       // instruction reference first and then increment the iterator before
       // processing the instruction.

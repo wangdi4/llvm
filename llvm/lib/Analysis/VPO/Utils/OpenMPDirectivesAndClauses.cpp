@@ -26,9 +26,12 @@ using namespace llvm::vpo;
 
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
-      IsUnsigned(false), IsConditional(false), IsScheduleMonotonic(false),
-      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
-      IsMapAggrHead(false), IsMapAggr(false) {
+#if INTEL_CUSTOMIZATION
+      IsF90DopeVector(false),
+#endif // INTEL_CUSTOMIZATION
+      IsUnsigned(false), IsComplex(false), IsConditional(false),
+      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
+      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -85,10 +88,16 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsArraySection();
         else if (ModSubString[i] == "BYREF")
           setIsByRef();
+#if INTEL_CUSTOMIZATION
+        else if (ModSubString[i] == "F90_DV")
+          setIsF90DopeVector();
+#endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
         else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
           setIsUnsigned();
+        else if (ModSubString[i] == "CMPLX") // for reduction clause
+          setIsComplex();
         else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD") // map chain head
@@ -105,6 +114,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
   LLVM_DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
   LLVM_DEBUG(dbgs() << "  ByRef: " << getIsByRef());
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "  F90_DV: " << getIsF90DopeVector());
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
   LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
   LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
@@ -645,4 +657,42 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
   }
   return 2; //everything else
 }
+
+// True if the directive supports the private clause.
+bool VPOAnalysisUtils::supportsPrivateClause(int DirID) {
+  switch (DirID) {
+  case DIR_OMP_PARALLEL:
+  case DIR_OMP_LOOP:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_SECTIONS:
+  case DIR_OMP_PARALLEL_SECTIONS:
+  case DIR_OMP_PARALLEL_WORKSHARE:
+  case DIR_OMP_SINGLE:
+  case DIR_OMP_TASK:
+  case DIR_OMP_SIMD:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_TARGET:
+  case DIR_OMP_TEAMS:
+  case DIR_OMP_DISTRIBUTE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_GENERICLOOP:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::supportsPrivateClause(StringRef DirString) {
+  return VPOAnalysisUtils::supportsPrivateClause(
+      VPOAnalysisUtils::getDirectiveID(DirString));
+}
+
+bool VPOAnalysisUtils::supportsPrivateClause(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::supportsPrivateClause(DirID);
+}
+
+bool VPOAnalysisUtils::supportsPrivateClause(BasicBlock *BB) {
+  return VPOAnalysisUtils::supportsPrivateClause(&(BB->front()));
+}
+
 #endif // INTEL_COLLAB

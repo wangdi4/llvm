@@ -45,6 +45,7 @@
 #include "llvm/IR/Module.h"
 
 #include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 
@@ -151,7 +152,7 @@ public:
 
   bool addNormUBsToParents(WRegionNode* W);
 
-  bool isModeOmpNoCollapse() { return Mode & vpo::OmpNoCollapse; }
+  bool isModeOmpNoFECollapse() { return Mode & vpo::OmpNoFECollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
 private:
@@ -358,46 +359,62 @@ private:
   static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements,
                           unsigned &AddrSpace);
 
-  /// Generate an optionally addrspacecast'ed AllocaInst for an array
-  /// of Type \p ElementType, size \p NumElements, name \p VarName.
-  /// \p NumElements can be null for one element.
-  /// The generated Instruction is inserted before \p InsertPt
-  /// and returned as a result.
-  /// If \p AddrSpace does not match 0 (default llvm addrspace),
-  /// then the generated AllocaInst will be immediately addrspacecast'ed
-  /// and the generated AddrSpaceCastInst will be returned as a result.
-  static Instruction *genPrivatizationAlloca(Type *ElementType,
-                                             Value *NumElements,
-                                             Instruction *InsertPt,
-                                             const Twine &VarName = "",
-                                             unsigned AddrSpace = 0);
 
-  /// Generate an optionally addrspacecast'ed AllocaInst for the local copy
+  /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
-  /// The AllocaInst is inserted before \p InsertPt.
-  /// If \p ForceDefaultAddressSpace is true, then the generated AllocaInst
-  /// will not be addrspacecast'ed to match the addrspace of the \p OrigValue.
-  //  FIXME: get rid of ForceDefaultAddressSpace, when PromoteMemToReg
+  /// If new instructions need to be generated, they will be inserted
+  /// before \p InsertPt.
+  /// \p AllocaAddrSpace specifies address space in which the memory
+  /// for the privatized variable needs to be allocated. If it is
+  /// llvm::None, then the address space matches the default alloca's
+  /// address space, as specified by DataLayout. Note that some address
+  /// spaces may require allocating the private version of the variable
+  /// as a GlobalVariable, not as an AllocaInst.
+  /// If \p PreserveAddressSpace is true, then the generated Value
+  /// will be addrspacecast'ed to match the addrspace of the \p OrigValue,
+  /// otherwise, the generated Value will have the addrspace, as specified
+  /// by \p AllocaAddrSpace.
+  //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Instruction *genPrivatizationAlloca(
+  static Value *genPrivatizationAlloca(
       Value *OrigValue,
       Instruction *InsertPt,
       const Twine &NameSuffix = "",
-      bool ForceDefaultAddressSpace = false);
+      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      bool PreserveAddressSpace = true);
 
-  /// Generate an optionally addrspacecast'ed AllocaInst for the local copy
+  /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
   /// firstprivate, lastprivate, reduction, linear.
   /// \p NameSuffix is appended at the end of the generated
-  /// Instruction's name. The AllocaInst is inserted before \p InsertPt.
-  /// If \p ForceDefaultAddressSpace is true, then the generated AllocaInst
-  /// will not be addrspacecast'ed to match the addrspace of the \p OrigValue.
-  //  FIXME: get rid of ForceDefaultAddressSpace, when PromoteMemToReg
+  /// Instruction's name.
+  /// If new instructions need to be generated, they will be inserted
+  /// before \p InsertPt.
+  /// \p AllocaAddrSpace specifies address space in which the memory
+  /// for the privatized variable needs to be allocated. If it is
+  /// llvm::None, then the address space matches the default alloca's
+  /// address space, as specified by DataLayout. Note that some address
+  /// spaces may require allocating the private version of the variable
+  /// as a GlobalVariable, not as an AllocaInst.
+  /// If \p PreserveAddressSpace is true, then the generated Value
+  /// will be addrspacecast'ed to match the addrspace of the \p OrigValue,
+  /// otherwise, the generated Value will have the addrspace, as specified
+  /// by \p AllocaAddrSpace.
+  //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Instruction *genPrivatizationAlloca(
+  static Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
-      bool ForceDefaultAddressSpace = false);
+      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      bool PreserveAddressSpace = true);
+
+  /// Returns address space that should be used for privatizing variables
+  /// referenced in PRIVATE clauses of the given region \p W.
+  /// If the return value is llvm::None, then the address space
+  /// should be equal to default alloca address space, as defined
+  /// by DataLayout.
+  llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
+      const WRegionNode *W) const;
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
@@ -614,22 +631,133 @@ private:
                    Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
                    Instruction *InsertPt, bool IsTaskWait);
 
-  /// Set up the mapping between the variables (firstprivate,
-  /// lastprivate, reduction and shared) and the counterparts in the thunk.
-  AllocaInst *genTaskPrivateMapping(WRegionNode *W, StructType *KmpSharedTy);
+  /// Create a struct to contain all shared data for the task. This is allocated
+  /// in the caller of the task, and is populated with pointers to shared
+  /// variables, reduction variables, and lastprivate variables.
+  /// This is redundant in a way, but only contains pointers, so it isn't too
+  /// bad for now. We can clean this further later by directly initializing the
+  /// thunk.
+  AllocaInst *genAndPopulateTaskSharedStruct(WRegionNode *W,
+                                             StructType *KmpSharedTy);
 
-  /// Initialize the data in the shared data area inside the thunk
-  void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
-                                StructType *KmpSharedTy,
-                                StructType *KmpTaskTTWithPrivatesTy,
-                                Function *DestrThunk, Instruction *InsertPt);
+  /// Copy the data contained in the shared struct on the task's caller, to the
+  /// task's thunk.
+  void copySharedStructToTaskThunk(WRegionNode *W, AllocaInst *Src, Value *Dst,
+                                   StructType *KmpSharedTy,
+                                   StructType *KmpTaskTTWithPrivatesTy,
+                                   Function *DestrThunk, Instruction *InsertPt);
+
+  /// Initialize the local copies of firstprivate variables in the task thunk,
+  /// using the originals. This is done before executing the task region.
+  void genFprivInitForTask(WRegionNode *W, Value *KmpTaskTTWithPrivates,
+                           Value *KmpPrivatesGep, StructType *KmpPrivatesTy,
+                           Instruction *InsertBefore);
+
+  /// \defgroup TaskVLAFunctions Functions specific to handling VLAs on tasks
+  ///
+  /// For VLA operands to private/fp/lp clauses on tasks, the size of memory
+  /// needed for the array is not known at compile time. So the memory cannot be
+  /// allocated as part of the 'privates' struct in the task thunk, as its type
+  /// needs to be determined at compile time. So, for VLAs, memory for the array
+  /// itself is allocated in a buffer at the end of the task thunk, and three
+  /// fields are reserved in the 'privates' struct. For example:
+  ///
+  /// \code
+  ///  int a[n];
+  ///  ...
+  ///  #pragma omp task firstprivate(a) lastprivate(a) ...
+  /// \endcode
+  ///
+  /// The memory allocated for this in the thunk looks like:
+  ///
+  /// \code
+  ///
+  ///  |<-----------task_t_with_privates---------->|
+  ///  |<--task_t-->|<---------privates_t--------->|<---------buffer---------->|
+  ///
+  ///  {{.........} , {...i32*,   i64,    i64  ...}}..|< buffer_for_a >|........
+  ///     |               |                           ^
+  ///     |               |                           |
+  ///     |             <anew>  <size >  <offset>     |< n * 4 bytes  >|
+  ///     |               |     <n * 4>               |
+  ///     |               |                           |
+  ///     |               +---------------------------+
+  ///  |<-+---------------<offset>------------------->|
+  ///     |
+  ///     |
+  ///     |<-shared.t->|
+  ///     V
+  ///     {... i32*... }
+  ///         <ashr>
+  ///
+  /// \endcode
+  ///
+  /// The space for the actual array is allocated in a buffer space after the
+  /// end of 'task_t_with_privates' struct.
+  ///
+  /// The privates_t struct contains:
+  /// - anew: an i32* which stores the address of 'buffer_for_a'. The
+  /// initialization of this pointer, to store &'buffer_for_a', is done in the
+  /// beginning of the task's outlined function. This code is emitted by
+  /// genTaskLoopInitCode().
+  /// - size: an i64 (size_t) containing the size in bytes of the array
+  /// ('%n * sizeof(i32)').
+  /// - offset: an i64 (size_t), containing the integer offset that needs to be
+  /// added to the base address of 'task_t_with_privates', to reach the
+  /// beginning of 'buffer_for_a'.
+  ///
+  /// The value of 'size' in bytes for each VLA is computed in
+  /// genKmpTaskTWithPrivatesRecordDecl().
+  ///
+  /// The value of 'offset' for each VLA operand is computed in
+  /// computeExtraBufferSpaceNeededAfterEndOfTaskThunk(). The function also
+  /// computes the total size of private memory that needs to be passed to the
+  /// '__kmp_task_alloc' call, which is sizeof('task_t_with_privates') +
+  /// <size of all buffers>.
+  ///
+  /// The initialization of 'size' and 'offset' fields in the thunk are done in
+  /// saveVLASizeAndOffsetToPrivatesThunk().
+  ///
+  /// Inside the outlined region for the task, 'offset' is needed to link 'anew'
+  /// to 'buffer_of_a'. 'size' and 'ashr' (pointer to the original %a) are
+  /// needed for lastprivate copyout and reduction finalization loops (not yet
+  /// supported).
+  ///
+  /// {@
+  /// Compute the total buffer memory needed per task for local copies of data
+  /// corresponding to variable length arrays and similar operands. The function
+  /// sets up the offset in bytes for the buffer corresponding to each clause
+  /// item, from the beginning of the task thunk. \p TaskThunkWithPrivatesSize,
+  /// which is the size of the thunk without any buffer at the end, would
+  /// be the offset for the first item.
+  /// The function inserts add instructions to compute the offsets corresponding
+  /// to each VLA clause item, and also for the total size of the thunk +
+  /// buffer. These are inserted before \p InsertBefore. \returns the Total size
+  /// of the task thunk, including the buffer at the end.
+  static Value *computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
+      WRegionNode *W, int TaskThunkWithPrivatesSize, Instruction *InsertBefore);
+
+  /// For variable length arrays on tasks, save 'data size' and 'offset to the
+  /// array in the buffer', into the space designated for them in the privates
+  /// thunk.
+  static void saveVLASizeAndOffsetToPrivatesThunk(WRegionNode *W,
+                                                  Value *KmpPrivatesGEP,
+                                                  StructType *KmpPrivatesTy,
+                                                  Instruction *InsertBefore);
+  /// @}
+
+  /// Compute and return the GEP for the 'privates_t' struct contained within
+  /// the 'task_t_with_privates' (\p KmpTaskTTWithPrivates) thunk.
+  static Value *genPrivatesGepForTask(Value *KmpTaskTTWithPrivates,
+                                      StructType *KmpTaskTTWithPrivatesTy,
+                                      Instruction *InsertBefore);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
   void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
                                   Value *&STPtr);
 
-  /// Generate the outline function of reduction initilaization
+  /// Generate the outline function of reduction initialization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
 
   /// Generate the outline function for the reduction update
@@ -655,9 +783,14 @@ private:
   /// %struct.kmp_task_t = type { i8*, i32 (i32, i8*)*, i32,
   /// %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64, i32}
   /// %struct..kmp_privates.t = type { i64, i64, i32 }
+  /// If any item is a VLA type (say int x[n]), the 'privates_t' contains a
+  /// pointer, and two size_t values (i32*, i64, i64). The size of the array in
+  /// bytes (%n * sizeof(i32)) is computed in this function, and any code
+  /// generated for that computation is inserted before \p InsertBefore.
   StructType *genKmpTaskTWithPrivatesRecordDecl(WRegionNode *W,
                                                 StructType *&KmpSharedTy,
-                                                StructType *&KmpPrivatesTy);
+                                                StructType *&KmpPrivatesTy,
+                                                Instruction *InsertBefore);
 
   /// Generate the actual parameters in the outlined function
   /// for copyin variables.
@@ -1295,6 +1428,17 @@ private:
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
 
+  /// For the given loop \p Index in the loop kind region \p W
+  /// promote the loop's IV and UB variables to registers.
+  void registerizeLoopEssentialValues(WRegionNode *W, unsigned Index);
+
+  /// Utility to simplify PHI instructions in the given loop \p L.
+  /// Here is an example of a PHI instruction that may be produced
+  /// by the loop rotation transformation that we want to simplify:
+  ///   %2 = phi i64 [ %0, %bb1 ], [ %0, %bb2 ]
+  /// We want to relink all users of %2 to %0.
+  void simplifyLoopPHINodes(const Loop &L, const SimplifyQuery &SQ) const;
+
   /// Transform the Ith level of the loop in the region W into the
   /// OMP canonical loop form.
   void regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
@@ -1596,7 +1740,25 @@ private:
 
   /// Replace loop construct with the mapped directive in IR
   bool replaceGenericLoop(WRegionNode *W);
+
+  /// The given \p W region is one of the kinds allowing internal normalized
+  /// upper bound clause (e.g. "omp parallel for").
+  /// For the given \p W region try to find the enclosing "omp target"
+  /// region and see if the normalized upper bound value may be computed
+  /// before the "omp target" region. If it is possible, this method
+  /// will setup ND-range information for the "omp target" region.
+  /// There are additional limitations to when we actually create
+  /// ND-range information (see implementation for details).
+  bool constructNDRangeInfo(WRegionNode *W);
+
+  /// Marks the given region \p W as may-have-openmp-critical,
+  /// if it contains "omp critical" or a call that may "invoke"
+  /// "omp critical".
+  void setMayHaveOMPCritical(WRegionNode *W) const;
+
+  bool collapseOmpLoops(WRegionNode *W);
 };
+
 } /// namespace vpo
 } /// namespace llvm
 

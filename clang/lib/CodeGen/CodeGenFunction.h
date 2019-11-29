@@ -400,10 +400,10 @@ public:
     virtual void recordValueDefinition(llvm::Value *) {}
     virtual void recordValueReference(llvm::Value *) {}
     virtual void recordValueSuppression(llvm::Value *) {}
+    virtual bool inTargetVariantDispatchRegion() { return false; }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     virtual bool isLateOutlinedRegion() { return false; }
-    virtual bool inTargetVariantDispatchRegion() { return false; }
 #endif // INTEL_CUSTOMIZATION
   private:
     /// The kind of captured statement being generated.
@@ -1033,6 +1033,19 @@ public:
   ClauseMapTy ClauseMap;
 #endif // INTEL_COLLAB
 
+  /// Save/restore original map of previously emitted local vars in case when we
+  /// need to duplicate emission of the same code several times in the same
+  /// function for OpenMP code.
+  class OMPLocalDeclMapRAII {
+    CodeGenFunction &CGF;
+    DeclMapTy SavedMap;
+
+  public:
+    OMPLocalDeclMapRAII(CodeGenFunction &CGF)
+        : CGF(CGF), SavedMap(CGF.LocalDeclMap) {}
+    ~OMPLocalDeclMapRAII() { SavedMap.swap(CGF.LocalDeclMap); }
+  };
+
   /// Takes the old cleanup stack size and emits the cleanup blocks
   /// that have been added.
   void
@@ -1120,7 +1133,7 @@ public:
     assert(isInConditionalBranch());
     llvm::BasicBlock *block = OutermostConditional->getStartingBlock();
     auto store = new llvm::StoreInst(value, addr.getPointer(), &block->back());
-    store->setAlignment(addr.getAlignment().getQuantity());
+    store->setAlignment(addr.getAlignment().getAsAlign());
   }
 
   /// An RAII object to record that we're evaluating a statement
@@ -1562,24 +1575,34 @@ public:
       CGF.VLASizeMap = SavedVLASizeMap;
     }
   };
-  // Save and clear the TerminateLandingPad on entry to each OpenMP region.
-  // This will ensure we have one for each OpenMP region when it is outlined.
-  class OMPTerminateLandingPadHandler {
+  // Save and clear the TerminateHandled and TerminateLandingPad on entry to
+  // each OpenMP region. This will ensure we have one for each OpenMP region
+  // when it is outlined.
+  class TerminateHandlerRAII {
     CodeGenFunction &CGF;
+    llvm::BasicBlock *TerminateHandler;
     llvm::BasicBlock *TerminateLandingPad;
-
   public:
-    OMPTerminateLandingPadHandler(CodeGenFunction &CGF)
-        : CGF(CGF), TerminateLandingPad(CGF.TerminateLandingPad) {
+    TerminateHandlerRAII(CodeGenFunction &CGF)
+      : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
+                         TerminateLandingPad(CGF.TerminateLandingPad) {
+      CGF.TerminateHandler = nullptr;
       CGF.TerminateLandingPad = nullptr;
     }
-    ~OMPTerminateLandingPadHandler() {
+    ~TerminateHandlerRAII() {
+      if (CGF.TerminateHandler) {
+        if (!CGF.TerminateHandler->use_empty())
+          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateHandler);
+        else
+          delete CGF.TerminateHandler;
+      }
       if (CGF.TerminateLandingPad) {
         if (!CGF.TerminateLandingPad->use_empty())
           CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
         else
           delete CGF.TerminateLandingPad;
       }
+      CGF.TerminateHandler = TerminateHandler;
       CGF.TerminateLandingPad = TerminateLandingPad;
     }
   };
@@ -1815,6 +1838,8 @@ private:
   bool IsFakeLoadCand(const Expr *RV);
   bool EmitFakeLoadForRetPtr(const Expr *RV);
   llvm::Value *EmitX86MayIUseCpuFeature(const CallExpr *E);
+  llvm::Value *EmitX86MayIUseCpuFeatureExt(const CallExpr *E);
+  llvm::Value *EmitX86MayIUseCpuFeatureStr(const CallExpr *E);
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -3044,13 +3069,8 @@ public:
                                llvm::Value *Alignment,
                                llvm::Value *OffsetValue = nullptr);
 
-  void EmitAlignmentAssumption(llvm::Value *PtrValue, QualType Ty,
-                               SourceLocation Loc, SourceLocation AssumptionLoc,
-                               unsigned Alignment,
-                               llvm::Value *OffsetValue = nullptr);
-
   void EmitAlignmentAssumption(llvm::Value *PtrValue, const Expr *E,
-                               SourceLocation AssumptionLoc, unsigned Alignment,
+                               SourceLocation AssumptionLoc, llvm::Value *Alignment,
                                llvm::Value *OffsetValue = nullptr);
 
   //===--------------------------------------------------------------------===//
@@ -3378,6 +3398,13 @@ public:
   void EmitOMPTaskLoopBasedDirective(const OMPLoopDirective &S);
   void EmitOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
   void EmitOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
+  void EmitOMPMasterTaskLoopDirective(const OMPMasterTaskLoopDirective &S);
+  void
+  EmitOMPMasterTaskLoopSimdDirective(const OMPMasterTaskLoopSimdDirective &S);
+  void EmitOMPParallelMasterTaskLoopDirective(
+      const OMPParallelMasterTaskLoopDirective &S);
+  void EmitOMPParallelMasterTaskLoopSimdDirective(
+      const OMPParallelMasterTaskLoopSimdDirective &S);
   void EmitOMPDistributeDirective(const OMPDistributeDirective &S);
   void EmitOMPDistributeParallelForDirective(
       const OMPDistributeParallelForDirective &S);
@@ -3564,15 +3591,24 @@ public:
                                  OpenMPDirectiveKind Kind);
   const OMPLoopDirective *GetLoopForHoisting(const OMPExecutableDirective &S,
                                              OpenMPDirectiveKind Kind);
+  bool hasOMPSpirTarget() const;
+  bool useUncollapsedLoop(const OMPLoopDirective &S) const;
+  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
+                                         OpenMPDirectiveKind Kind,
+                                         unsigned Depth);
+
 private:
   llvm::SmallPtrSet<const void *, 8> HoistedBoundsLoops;
 #endif // INTEL_CUSTOMIZATION
   void EnsureAddressableClauseExpr(const OMPClause *C);
   void HoistTeamsClausesIfPossible(const OMPExecutableDirective &S,
                                    OpenMPDirectiveKind Kind);
+  void EmitLateOutlineOMPIterationVariable(const OMPLoopDirective &S);
   void EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
                                     OpenMPDirectiveKind Kind,
                                     bool WithPreInits);
+  void EmitLateOutlineOMPFinals(const OMPLoopDirective &S);
+
   void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                               OpenMPDirectiveKind Kind);
 
@@ -3980,14 +4016,19 @@ public:
 
   /// EmitTargetBuiltinExpr - Emit the given builtin call. Returns 0 if the call
   /// is unhandled by the current target.
-  llvm::Value *EmitTargetBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitTargetBuiltinExpr(unsigned BuiltinID, const CallExpr *E,
+                                     ReturnValueSlot ReturnValue);
 
   llvm::Value *EmitAArch64CompareBuiltinExpr(llvm::Value *Op, llvm::Type *Ty,
                                              const llvm::CmpInst::Predicate Fp,
                                              const llvm::CmpInst::Predicate Ip,
                                              const llvm::Twine &Name = "");
   llvm::Value *EmitARMBuiltinExpr(unsigned BuiltinID, const CallExpr *E,
+                                  ReturnValueSlot ReturnValue,
                                   llvm::Triple::ArchType Arch);
+  llvm::Value *EmitARMMVEBuiltinExpr(unsigned BuiltinID, const CallExpr *E,
+                                     ReturnValueSlot ReturnValue,
+                                     llvm::Triple::ArchType Arch);
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
@@ -4030,6 +4071,7 @@ public:
   llvm::Value *vectorWrapScalar16(llvm::Value *Op);
   llvm::Value *EmitAArch64BuiltinExpr(unsigned BuiltinID, const CallExpr *E,
                                       llvm::Triple::ArchType Arch);
+  llvm::Value *EmitBPFBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
   llvm::Value *BuildVector(ArrayRef<llvm::Value*> Ops);
   llvm::Value *EmitX86BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
@@ -4628,8 +4670,12 @@ public:
   // Emits the body of a multiversion function's resolver. Assumes that the
   // options are already sorted in the proper order, with the 'default' option
   // last (if it exists).
+#if INTEL_CUSTOMIZATION
   void EmitMultiVersionResolver(llvm::Function *Resolver,
-                                ArrayRef<MultiVersionResolverOption> Options);
+                                ArrayRef<MultiVersionResolverOption> Options,
+                                bool IsCpuDispatch);
+  void EmitCpuFeaturesInit();
+#endif // INTEL_CUSTOMIZATION
 
   static uint64_t GetX86CpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
 
@@ -4651,7 +4697,12 @@ private:
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
-  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO);
+#if INTEL_CUSTOMIZATION
+  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO,
+                                     bool IsCpuDispatch);
+  llvm::Value *
+  EmitX86CpuDispatchLibIrcFeaturesTest(ArrayRef<StringRef> FeaturStrs);
+#endif // INTEL_CUSTOMIZATION
 };
 
 inline DominatingLLVMValue::saved_type

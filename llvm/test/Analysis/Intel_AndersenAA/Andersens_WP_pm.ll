@@ -8,6 +8,8 @@
 ; RUN: opt %s -o Andersens_WP_pm.bc
 ; RUN: llvm-lto -disable-verify -debug-pass=Executions -O3 Andersens_WP_pm.bc 2>&1 | FileCheck %s
 
+; CHECK: Freeing Pass 'Intel IPO Prefetch' on Module
+
 ; CHECK: Executing Pass 'Whole program analysis' on Module
 ;
 ; CHECK-NOT: Freeing Pass 'Whole program analysis' on Module

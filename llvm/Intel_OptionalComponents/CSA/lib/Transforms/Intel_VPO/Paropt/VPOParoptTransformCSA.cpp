@@ -18,6 +18,7 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -458,7 +459,7 @@ protected:
       return;
 
     // Create reference which will hold the private variable address.
-    auto AAS = New->getModule()->getDataLayout().getAllocaAddrSpace();
+    auto AAS = PT.F->getParent()->getDataLayout().getAllocaAddrSpace();
     auto *Ref = new AllocaInst(New->getType(), AAS, New->getName() + ".ref",
                                getInitInsPt());
     addAlloca(Ref);
@@ -1252,7 +1253,7 @@ class VPOParoptTransform::CSALoopSplitter {
         return;
 
       // Create reference which will hold the private variable address.
-      auto AAS = New->getModule()->getDataLayout().getAllocaAddrSpace();
+      auto AAS = PT.F->getParent()->getDataLayout().getAllocaAddrSpace();
       auto *Ref = new AllocaInst(New->getType(), AAS, New->getName() + ".ref",
                                  getInitInsPt());
       addAlloca(Ref);

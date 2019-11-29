@@ -20,15 +20,14 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[LOOP0:loop[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[LOOP0]] (BP: NULL)
-; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP0:%.*]] = sext i32 [[N0:%.*]] to i64
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = add i64 [[VP0]] i64 -1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
@@ -73,16 +72,13 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB7]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; CHECK-NEXT:    END Region([[LOOP0]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[LOOP0]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;

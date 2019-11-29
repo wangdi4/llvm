@@ -1,3 +1,4 @@
+; REQUIRES: assert
 ; This test checks that whole program seen and safe weren't achieved because
 ; the definition for @sub is missing in the IR. Whole program read is still
 ; achieved since @sub is being resolved by the linker
@@ -6,7 +7,7 @@
 ; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t2.o \
 ; RUN:          -filetype=obj
 ; RUN: ld.lld -e main --lto-O2 \
-; RUN:    -mllvm -whole-program-trace \
+; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc %t2.o -o %t \
 ; RUN:    2>&1 | FileCheck %s
 

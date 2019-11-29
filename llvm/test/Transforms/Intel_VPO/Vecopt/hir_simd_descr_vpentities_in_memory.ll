@@ -50,7 +50,8 @@
 ; Check entities dump and VPlan IR
 ; CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ; CHECK: Reduction list
-; CHECK: (+) Start: i64* [[V1_START:%.*]] Memory: i64* [[V1_START]]
+; CHECK: (+) Start: i64* [[V1_START:%.*]]
+; CHECK: Memory: i64* [[V1_START]]
 
 ; CHECK-LABEL: REGION
 ; CHECK: i64* [[PRIV:%vp.*]] = allocate-priv i64*

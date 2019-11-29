@@ -67,24 +67,26 @@ using namespace llvm::object;
 using namespace llvm::sys;
 using namespace llvm::support;
 
-using namespace lld;
-using namespace lld::elf;
+namespace lld {
+namespace elf {
 
-Configuration *elf::config;
-LinkerDriver *elf::driver;
+Configuration *config;
+LinkerDriver *driver;
 
 static void setConfigs(opt::InputArgList &args);
 static void readConfigs(opt::InputArgList &args);
 
-bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
-               raw_ostream &error) {
+bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
+          raw_ostream &stderrOS) {
+  lld::stdoutOS = &stdoutOS;
+  lld::stderrOS = &stderrOS;
+
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now (use "
       "-error-limit=0 to see all errors)";
-  errorHandler().errorOS = &error;
   errorHandler().exitEarly = canExitEarly;
-  enableColors(error.has_colors());
+  stderrOS.enable_colors(stderrOS.has_colors());
 
   inputSections.clear();
   outputSections.clear();
@@ -343,6 +345,8 @@ static void checkOptions() {
       error("-r and --icf may not be used together");
     if (config->pie)
       error("-r and -pie may not be used together");
+    if (config->exportDynamic)
+      error("-r and --export-dynamic may not be used together");
   }
 
   if (config->executeOnly) {
@@ -388,16 +392,44 @@ static bool getZFlag(opt::InputArgList &args, StringRef k1, StringRef k2,
   return Default;
 }
 
+static SeparateSegmentKind getZSeparate(opt::InputArgList &args) {
+  for (auto *arg : args.filtered_reverse(OPT_z)) {
+    StringRef v = arg->getValue();
+    if (v == "noseparate-code")
+      return SeparateSegmentKind::None;
+    if (v == "separate-code")
+      return SeparateSegmentKind::Code;
+    if (v == "separate-loadable-segments")
+      return SeparateSegmentKind::Loadable;
+  }
+  return SeparateSegmentKind::None;
+}
+
+static GnuStackKind getZGnuStack(opt::InputArgList &args) {
+  for (auto *arg : args.filtered_reverse(OPT_z)) {
+    if (StringRef("execstack") == arg->getValue())
+      return GnuStackKind::Exec;
+    if (StringRef("noexecstack") == arg->getValue())
+      return GnuStackKind::NoExec;
+    if (StringRef("nognustack") == arg->getValue())
+      return GnuStackKind::None;
+  }
+
+  return GnuStackKind::NoExec;
+}
+
 static bool isKnownZFlag(StringRef s) {
   return s == "combreloc" || s == "copyreloc" || s == "defs" ||
          s == "execstack" || s == "global" || s == "hazardplt" ||
          s == "ifunc-noplt" || s == "initfirst" || s == "interpose" ||
          s == "keep-text-section-prefix" || s == "lazy" || s == "muldefs" ||
-         s == "separate-code" || s == "nocombreloc" || s == "nocopyreloc" ||
-         s == "nodefaultlib" || s == "nodelete" || s == "nodlopen" ||
-         s == "noexecstack" || s == "nokeep-text-section-prefix" ||
-         s == "norelro" || s == "noseparate-code" || s == "notext" ||
-         s == "now" || s == "origin" || s == "relro" || s == "retpolineplt" ||
+         s == "separate-code" || s == "separate-loadable-segments" ||
+         s == "nocombreloc" || s == "nocopyreloc" || s == "nodefaultlib" ||
+         s == "nodelete" || s == "nodlopen" || s == "noexecstack" ||
+         s == "nognustack" ||
+         s == "nokeep-text-section-prefix" || s == "norelro" ||
+         s == "noseparate-code" || s == "notext" || s == "now" ||
+         s == "origin" || s == "relro" || s == "retpolineplt" ||
          s == "rodynamic" || s == "text" || s == "undefs" || s == "wxneeded" ||
          s.startswith("common-page-size=") || s.startswith("max-page-size=") ||
          s.startswith("stack-size=");
@@ -773,6 +805,12 @@ static bool getCompressDebugSections(opt::InputArgList &args) {
   return true;
 }
 
+static StringRef getAliasSpelling(opt::Arg *arg) {
+  if (const opt::Arg *alias = arg->getAlias())
+    return alias->getSpelling();
+  return arg->getSpelling();
+}
+
 static std::pair<StringRef, StringRef> getOldNewOptions(opt::InputArgList &args,
                                                         unsigned id) {
   auto *arg = args.getLastArg(id);
@@ -782,7 +820,7 @@ static std::pair<StringRef, StringRef> getOldNewOptions(opt::InputArgList &args,
   StringRef s = arg->getValue();
   std::pair<StringRef, StringRef> ret = s.split(';');
   if (ret.second.empty())
-    error(arg->getSpelling() + " expects 'old;new' format, but got " + s);
+    error(getAliasSpelling(arg) + " expects 'old;new' format, but got " + s);
   return ret;
 }
 
@@ -884,13 +922,15 @@ static void readConfigs(opt::InputArgList &args) {
   config->ltoNewPassManager = args.hasArg(OPT_lto_new_pass_manager);
   config->ltoNewPmPasses = args.getLastArgValue(OPT_lto_newpm_passes);
   config->ltoo = args::getInteger(args, OPT_lto_O, 2);
-  config->ltoObjPath = args.getLastArgValue(OPT_plugin_opt_obj_path_eq);
+  config->ltoObjPath = args.getLastArgValue(OPT_lto_obj_path_eq);
   config->ltoPartitions = args::getInteger(args, OPT_lto_partitions, 1);
   config->ltoSampleProfile = args.getLastArgValue(OPT_lto_sample_profile);
   config->mapFile = args.getLastArgValue(OPT_Map);
   config->mipsGotSize = args::getInteger(args, OPT_mips_got_size, 0xfff0);
   config->mergeArmExidx =
       args.hasFlag(OPT_merge_exidx_entries, OPT_no_merge_exidx_entries, true);
+  config->mmapOutputFile =
+      args.hasFlag(OPT_mmap_output_file, OPT_no_mmap_output_file, true);
   config->nmagic = args.hasFlag(OPT_nmagic, OPT_no_nmagic, false);
   config->noinhibitExec = args.hasArg(OPT_noinhibit_exec);
   config->nostdlib = args.hasArg(OPT_nostdlib);
@@ -929,17 +969,15 @@ static void readConfigs(opt::InputArgList &args) {
   config->thinLTOCachePolicy = CHECK(
       parseCachePruningPolicy(args.getLastArgValue(OPT_thinlto_cache_policy)),
       "--thinlto-cache-policy: invalid cache policy");
-  config->thinLTOEmitImportsFiles =
-      args.hasArg(OPT_plugin_opt_thinlto_emit_imports_files);
-  config->thinLTOIndexOnly = args.hasArg(OPT_plugin_opt_thinlto_index_only) ||
-                             args.hasArg(OPT_plugin_opt_thinlto_index_only_eq);
-  config->thinLTOIndexOnlyArg =
-      args.getLastArgValue(OPT_plugin_opt_thinlto_index_only_eq);
+  config->thinLTOEmitImportsFiles = args.hasArg(OPT_thinlto_emit_imports_files);
+  config->thinLTOIndexOnly = args.hasArg(OPT_thinlto_index_only) ||
+                             args.hasArg(OPT_thinlto_index_only_eq);
+  config->thinLTOIndexOnlyArg = args.getLastArgValue(OPT_thinlto_index_only_eq);
   config->thinLTOJobs = args::getInteger(args, OPT_thinlto_jobs, -1u);
   config->thinLTOObjectSuffixReplace =
-      getOldNewOptions(args, OPT_plugin_opt_thinlto_object_suffix_replace_eq);
+      getOldNewOptions(args, OPT_thinlto_object_suffix_replace_eq);
   config->thinLTOPrefixReplace =
-      getOldNewOptions(args, OPT_plugin_opt_thinlto_prefix_replace_eq);
+      getOldNewOptions(args, OPT_thinlto_prefix_replace_eq);
   config->trace = args.hasArg(OPT_trace);
   config->undefined = args::getStrings(args, OPT_undefined);
   config->undefinedVersion =
@@ -956,8 +994,8 @@ static void readConfigs(opt::InputArgList &args) {
       args.hasFlag(OPT_warn_symbol_ordering, OPT_no_warn_symbol_ordering, true);
   config->zCombreloc = getZFlag(args, "combreloc", "nocombreloc", true);
   config->zCopyreloc = getZFlag(args, "copyreloc", "nocopyreloc", true);
-  config->zExecstack = getZFlag(args, "execstack", "noexecstack", false);
   config->zGlobal = hasZOption(args, "global");
+  config->zGnustack = getZGnuStack(args);
   config->zHazardplt = hasZOption(args, "hazardplt");
   config->zIfuncNoplt = hasZOption(args, "ifunc-noplt");
   config->zInitfirst = hasZOption(args, "initfirst");
@@ -972,7 +1010,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->zRelro = getZFlag(args, "relro", "norelro", true);
   config->zRetpolineplt = hasZOption(args, "retpolineplt");
   config->zRodynamic = hasZOption(args, "rodynamic");
-  config->zSeparateCode = getZFlag(args, "separate-code", "noseparate-code", false);
+  config->zSeparate = getZSeparate(args);
   config->zStackSize = args::getZOptionValue(args, OPT_z, "stack-size", 0);
   config->zText = getZFlag(args, "text", "notext", true);
   config->zWxneeded = hasZOption(args, "wxneeded");
@@ -1005,12 +1043,21 @@ static void readConfigs(opt::InputArgList &args) {
   if (config->splitStackAdjustSize < 0)
     error("--split-stack-adjust-size: size must be >= 0");
 
+  // The text segment is traditionally the first segment, whose address equals
+  // the base address. However, lld places the R PT_LOAD first. -Ttext-segment
+  // is an old-fashioned option that does not play well with lld's layout.
+  // Suggest --image-base as a likely alternative.
+  if (args.hasArg(OPT_Ttext_segment))
+    error("-Ttext-segment is not supported. Use --image-base if you "
+          "intend to set the base address");
+
   // Parse ELF{32,64}{LE,BE} and CPU type.
   if (auto *arg = args.getLastArg(OPT_m)) {
     StringRef s = arg->getValue();
     std::tie(config->ekind, config->emachine, config->osabi) =
         parseEmulation(s);
-    config->mipsN32Abi = (s == "elf32btsmipn32" || s == "elf32ltsmipn32");
+    config->mipsN32Abi =
+        (s.startswith("elf32btsmipn32") || s.startswith("elf32ltsmipn32"));
     config->emulation = s;
   }
 
@@ -1486,7 +1533,7 @@ static void handleUndefined(Symbol *sym) {
     sym->fetch();
 }
 
-// As an extention to GNU linkers, lld supports a variant of `-u`
+// As an extension to GNU linkers, lld supports a variant of `-u`
 // which accepts wildcard patterns. All symbols that match a given
 // pattern are handled as if they were given by `-u`.
 static void handleUndefinedGlob(StringRef arg) {
@@ -1497,13 +1544,13 @@ static void handleUndefinedGlob(StringRef arg) {
   }
 
   std::vector<Symbol *> syms;
-  symtab->forEachSymbol([&](Symbol *sym) {
+  for (Symbol *sym : symtab->symbols()) {
     // Calling Sym->fetch() from here is not safe because it may
     // add new symbols to the symbol table, invalidating the
     // current iterator. So we just keep a note.
     if (pat->match(sym->getName()))
       syms.push_back(sym);
-  });
+  }
 
   for (Symbol *sym : syms)
     handleUndefined(sym);
@@ -1529,10 +1576,10 @@ static void handleLibcall(StringRef name) {
 // result, the passes after the symbol resolution won't see any
 // symbols of type CommonSymbol.
 static void replaceCommonSymbols() {
-  symtab->forEachSymbol([](Symbol *sym) {
+  for (Symbol *sym : symtab->symbols()) {
     auto *s = dyn_cast<CommonSymbol>(sym);
     if (!s)
-      return;
+      continue;
 
     auto *bss = make<BssSection>("COMMON", s->size, s->alignment);
     bss->file = s->file;
@@ -1540,7 +1587,7 @@ static void replaceCommonSymbols() {
     inputSections.push_back(bss);
     s->replace(Defined{s->file, s->getName(), s->binding, s->stOther, s->type,
                        /*value=*/0, s->size, bss});
-  });
+  }
 }
 
 // If all references to a DSO happen to be weak, the DSO is not added
@@ -1548,15 +1595,15 @@ static void replaceCommonSymbols() {
 // created from the DSO. Otherwise, they become dangling references
 // that point to a non-existent DSO.
 static void demoteSharedSymbols() {
-  symtab->forEachSymbol([](Symbol *sym) {
+  for (Symbol *sym : symtab->symbols()) {
     auto *s = dyn_cast<SharedSymbol>(sym);
     if (!s || s->getFile().isNeeded)
-      return;
+      continue;
 
     bool used = s->used;
     s->replace(Undefined{nullptr, s->getName(), STB_WEAK, s->stOther, s->type});
     s->used = used;
-  });
+  }
 }
 
 // The section referred to by `s` is considered address-significant. Set the
@@ -1592,10 +1639,9 @@ static void findKeepUniqueSections(opt::InputArgList &args) {
 
   // Symbols in the dynsym could be address-significant in other executables
   // or DSOs, so we conservatively mark them as address-significant.
-  symtab->forEachSymbol([&](Symbol *sym) {
+  for (Symbol *sym : symtab->symbols())
     if (sym->includeInDynsym())
       markAddrsig(sym);
-  });
 
   // Visit the address-significance table in each object file and mark each
   // referenced symbol as address-significant.
@@ -1886,6 +1932,12 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   for (StringRef pat : args::getStrings(args, OPT_undefined_glob))
     handleUndefinedGlob(pat);
 
+  // Mark -init and -fini symbols so that the LTO doesn't eliminate them.
+  if (Symbol *sym = symtab->find(config->init))
+    sym->isUsedInRegularObj = true;
+  if (Symbol *sym = symtab->find(config->fini))
+    sym->isUsedInRegularObj = true;
+
   // If any of our inputs are bitcode files, the LTO code generator may create
   // references to certain library functions that might not be explicit in the
   // bitcode file's symbol table. If any of those library functions are defined
@@ -2029,20 +2081,19 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
            "feature detected");
   }
 
-  // This adds a .comment section containing a version string. We have to add it
-  // before mergeSections because the .comment section is a mergeable section.
+  // This adds a .comment section containing a version string.
   if (!config->relocatable)
     inputSections.push_back(createCommentSection());
 
   // Replace common symbols with regular symbols.
   replaceCommonSymbols();
 
-  // Do size optimizations: garbage collection, merging of SHF_MERGE sections
-  // and identical code folding.
+  // Split SHF_MERGE and .eh_frame sections into pieces in preparation for garbage collection.
   splitSections<ELFT>();
+
+  // Garbage collection and removal of shared symbols from unused shared objects.
   markLive<ELFT>();
   demoteSharedSymbols();
-  mergeSections();
 
   // Make copies of any input sections that need to be copied into each
   // partition.
@@ -2066,6 +2117,16 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // they are assigned to output sections by the default rule. Process that.
   script->addOrphanSections();
 
+  // Migrate InputSectionDescription::sectionBases to sections. This includes
+  // merging MergeInputSections into a single MergeSyntheticSection. From this
+  // point onwards InputSectionDescription::sections should be used instead of
+  // sectionBases.
+  for (BaseCommand *base : script->sectionCommands)
+    if (auto *sec = dyn_cast<OutputSection>(base))
+      sec->finalizeInputSections();
+  llvm::erase_if(inputSections,
+                 [](InputSectionBase *s) { return isa<MergeInputSection>(s); });
+
   // Two input sections with different output sections should not be folded.
   // ICF runs after processSectionCommands() so that we know the output sections.
   if (config->icf != ICFLevel::None) {
@@ -2084,3 +2145,6 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // Write the result to the file.
   writeResult<ELFT>();
 }
+
+} // namespace elf
+} // namespace lld

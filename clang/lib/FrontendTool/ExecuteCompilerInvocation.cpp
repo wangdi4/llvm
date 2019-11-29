@@ -207,6 +207,12 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     llvm::outs() << Clang->getLangOpts().helpIntelCompat();
     return true;
   }
+  if (Clang->getLangOpts().ShowIntelCompatUserDocsHelp) {
+    for (const auto &Doc : Clang->getLangOpts().EmitIntelCompatUserDocs) {
+      llvm::outs() << Doc;
+    }
+    return true;
+  }
 #endif // INTEL_CUSTOMIZATION
   // Load any requested plugins.
   for (unsigned i = 0,

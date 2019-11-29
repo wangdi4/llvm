@@ -23,7 +23,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
@@ -38,7 +38,7 @@ class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
 class VPLoopEntityList;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 using VPDominatorTree = DomTreeBase<VPBlockBase>;
 using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
@@ -91,6 +91,9 @@ public:
   void print(raw_ostream &OS, const VPLoop *VPLp);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+
+  /// Return \p true if the given pointer is unit-stride.
+  bool isUnitStridePtr(const VPValue *Ptr) const;
 
 private:
   /// Whether \p BB is part of the region.
@@ -168,6 +171,9 @@ private:
   /// \param ExitingLoop is a divergent loop.
   void propagateLoopDivergence(const VPLoop &ExitingLoop);
 
+  /// Return the type size in bytes.
+  unsigned getTypeSizeInBytes(Type *Ty) const;
+
 #if INTEL_CUSTOMIZATION
   /// Initialize shapes before propagation.
   void initializeShapes(SmallVectorImpl<const VPInstruction*> &PhiNodes);
@@ -217,6 +223,12 @@ private:
 
   /// Returns a random vector shape.
   VPVectorShape* getRandomVectorShape();
+
+  /// Returns a sequential vector shape with the given stride.
+  VPVectorShape *getSequentialVectorShape(uint64_t Stride);
+
+  /// Returns a strided vector shape with the given stride.
+  VPVectorShape *getStridedVectorShape(uint64_t Stride);
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
   bool getConstantIntVal(VPValue *V, uint64_t &IntVal);
@@ -274,10 +286,27 @@ private:
   // Undefined shapes are not stored in VectorShapes, but we need a singleton
   // object to compare against other shapes.
   std::unique_ptr<VPVectorShape> UndefShape;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Internal worklist for divergence propagation.
   SmallVector<const VPInstruction *, 8> Worklist;
+
+#if INTEL_CUSTOMIZATION
+
+  /// Mark \p DivVal as a value that is non-divergent.
+  void markNonDivergent(const VPValue *DivVal);
+
+  // Internal list of privates/induction/reductions collected from
+  // Loop-entities, to help functions like markDivergent and isAlwaysUniform
+  // distinguish between regular VPExternalDefs and Private pointers and their
+  // aliases which are outside the Loop and also appear as 'VPExternalDefs' in
+  // the representation.
+  DenseSet<VPValue *> DivergentLoopEntities;
+
+  // Mark all relevant loop-entities as Divergent.
+  template <typename EntitiesRange>
+  void markEntitiesAsDivergent(const EntitiesRange &Range);
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace vpo

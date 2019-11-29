@@ -20,6 +20,14 @@
 /// Basic messaging -- we don't have variadics in OpenCL
 ///
 
+#if 1 // For now, work around the printf addrspace mismatch issue by
+      // disabling asserts in libomptarget-opencl.bc
+      // TODO: Fix the printf addrspace mismatch issue.
+#define KMP_ASSERT(Check, Message)
+#define KMP_UNSUPPORTED(Feature)
+
+#else
+
 /// Just print out something if check fails
 #define KMP_ASSERT(Check, Message)                                             \
   do {                                                                         \
@@ -30,8 +38,10 @@
 /// Unsupported feature
 #define KMP_UNSUPPORTED(Feature)                                               \
   do {                                                                         \
-    printf("Device does not support %s\n", Feature);                           \
+    printf("Device does not support " Feature "\n");                           \
   } while (0)
+
+#endif // Workaround for the printf issue
 
 ///
 /// Utility functions
@@ -49,54 +59,23 @@ INLINE size_t __kmp_get_local_id() {
 
 /// Return linear group id
 INLINE size_t __kmp_get_group_id() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_group_id(0);
-  if (work_dim == 1)
-    return ret;
-  ret += get_num_groups(0) * get_group_id(1);
-  if (work_dim == 2)
-    return ret;
-  ret += get_num_groups(0) * get_num_groups(1) * get_group_id(2);
-  return (work_dim == 3) ? ret : 0;
+  return get_group_id(0) + get_num_groups(0) * get_group_id(1) +
+      get_num_groups(0) * get_num_groups(1) * get_group_id(2);
 }
 
 /// Return global size
 INLINE size_t __kmp_get_global_size() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_global_size(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_global_size(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_global_size(2);
-  return (work_dim == 3) ? ret : 1;
+  return get_global_size(0) * get_global_size(1) * get_global_size(2);
 }
 
 /// Return local size
 INLINE size_t __kmp_get_local_size() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_local_size(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_local_size(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_local_size(2);
-  return (work_dim == 3) ? ret : 1;
+  return get_local_size(0) * get_local_size(1) * get_local_size(2);
 }
 
 /// Return number of groups
 INLINE size_t __kmp_get_num_groups() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_num_groups(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_num_groups(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_num_groups(2);
-  return (work_dim == 3) ? ret : 1;
+  return get_num_groups(0) * get_num_groups(1) * get_num_groups(2);
 }
 
 /// Return the work id for the master thread
@@ -359,7 +338,8 @@ INLINE int __kmp_get_omp_thread_id(bool is_spmd_mode) {
     ret = __kmp_get_local_id();
   } else {
     kmp_thread_state_t *thread_state = __kmp_get_thread_state();
-    kmp_task_state_t *task = thread_state->top_level_task[tid];
+    kmp_task_state_t *task =
+        (kmp_task_state_t *)thread_state->top_level_task[tid];
     KMP_ASSERT(task,
                "Invalid task descriptor while retrieving thread ID");
     ret = task->task_data.thread_id;
@@ -373,7 +353,7 @@ INLINE int __kmp_get_omp_thread_id(bool is_spmd_mode) {
 ///
 
 INLINE void __kmp_init_thread_state(kmp_thread_state_t *thread_state, int tid) {
-  thread_state->top_level_task[tid] = NULL;
+  thread_state->top_level_task[tid] = (kmp_task_state_t *)NULL;
   thread_state->next_region.num_threads[tid] = 0;
 }
 

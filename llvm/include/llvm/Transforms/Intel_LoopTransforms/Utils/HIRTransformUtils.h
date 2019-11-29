@@ -328,6 +328,17 @@ public:
   static void divideProfileDataBy(HLContainerTy::iterator Begin,
                                   HLContainerTy::iterator End,
                                   uint64_t Denominator);
+
+  /// Collect Ztt conditions of \p Loop into passed \p ZTTs.
+  /// If \p Clone is true, existing Ztts are just cloned and not removed from \p
+  /// Loop. Otherwise, they are removed from \p Loop.
+  static void cloneOrRemoveZttPredicates(HLLoop *Loop,
+                                         SmallVectorImpl<PredicateTuple> &ZTTs,
+                                         bool Clone);
+
+  /// Add conditions in ZTTs (LHS PRED_OP RHS) to Loop's ztt. Conditions are
+  /// merged with logical and operation.
+  static void mergeZtt(HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs);
 };
 
 } // End namespace loopopt

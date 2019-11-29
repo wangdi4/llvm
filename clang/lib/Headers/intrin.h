@@ -36,6 +36,12 @@
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 
+#if __x86_64__
+#define __LPTRINT_TYPE__ __int64
+#else
+#define __LPTRINT_TYPE__ long
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -94,8 +100,7 @@ void __outword(unsigned short, unsigned short);
 void __outwordstring(unsigned short, unsigned short *, unsigned long);
 unsigned long __readcr0(void);
 unsigned long __readcr2(void);
-static __inline__
-unsigned long __readcr3(void);
+unsigned __LPTRINT_TYPE__ __readcr3(void);
 unsigned long __readcr4(void);
 unsigned long __readcr8(void);
 unsigned int __readdr(unsigned int);
@@ -132,7 +137,7 @@ void __vmx_vmptrst(unsigned __int64 *);
 void __wbinvd(void);
 void __writecr0(unsigned int);
 static __inline__
-void __writecr3(unsigned int);
+void __writecr3(unsigned __INTPTR_TYPE__);
 void __writecr4(unsigned int);
 void __writecr8(unsigned int);
 void __writedr(unsigned int, unsigned int);
@@ -140,7 +145,8 @@ void __writefsbyte(unsigned long, unsigned char);
 void __writefsdword(unsigned long, unsigned long);
 void __writefsqword(unsigned long, unsigned __int64);
 void __writefsword(unsigned long, unsigned short);
-void __writemsr(unsigned long, unsigned __int64);
+static __inline__ /* INTEL */
+void __writemsr(unsigned long, unsigned __int64); /* INTEL */
 static __inline__
 void *_AddressOfReturnAddress(void);
 static __inline__
@@ -164,7 +170,6 @@ long _InterlockedExchangeAdd_HLEAcquire(long volatile *, long);
 long _InterlockedExchangeAdd_HLERelease(long volatile *, long);
 __int64 _InterlockedExchangeAdd64_HLEAcquire(__int64 volatile *, __int64);
 __int64 _InterlockedExchangeAdd64_HLERelease(__int64 volatile *, __int64);
-void __cdecl _invpcid(unsigned int, void *);
 static __inline__ void
 __attribute__((__deprecated__("use other intrinsics or C++11 atomics instead")))
 _ReadBarrier(void);
@@ -566,22 +571,31 @@ __readmsr(unsigned long __register) {
   return (((unsigned __int64)__edx) << 32) | (unsigned __int64)__eax;
 }
 
-static __inline__ unsigned long __DEFAULT_FN_ATTRS
+/* INTEL_CUSTOMIZATION */
+static __inline__ void __DEFAULT_FN_ATTRS
+__writemsr(unsigned long __register, unsigned __int64 __data) {
+  __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
+}
+/* end INTEL_CUSTOMIZATION */
+#endif
+
+static __inline__ unsigned __LPTRINT_TYPE__ __DEFAULT_FN_ATTRS
 __readcr3(void) {
-  unsigned long __cr3_val;
-  __asm__ __volatile__ ("mov %%cr3, %0" : "=q"(__cr3_val) : : "memory");
+  unsigned __LPTRINT_TYPE__ __cr3_val;
+  __asm__ __volatile__ ("mov %%cr3, %0" : "=r"(__cr3_val) : : "memory");
   return __cr3_val;
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-__writecr3(unsigned int __cr3_val) {
-  __asm__ ("mov %0, %%cr3" : : "q"(__cr3_val) : "memory");
+__writecr3(unsigned __INTPTR_TYPE__ __cr3_val) {
+  __asm__ ("mov %0, %%cr3" : : "r"(__cr3_val) : "memory");
 }
-#endif
 
 #ifdef __cplusplus
 }
 #endif
+
+#undef __LPTRINT_TYPE__
 
 #undef __DEFAULT_FN_ATTRS
 

@@ -61,6 +61,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -1978,6 +1979,14 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
     }
     CreateConstraint(Constraint::Store, getNode(AI.getPointerOperand()),
                      getNode(AI.getValOperand()));
+}
+
+// Only known UnaryOperators:
+//  FNeg: FPOrFPVectorTy
+//  Freeze: Any type
+//
+void AndersensAAResult::visitUnaryOperator(UnaryOperator &AI) {
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
@@ -5478,6 +5487,7 @@ unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc,
     unsigned Len = sizeof(LibFuncModelAttrs) / sizeof(LibFuncDetails);
     for (unsigned Idx = 0; Idx != Len; ++Idx) {
       LibFunc FuncId = LibFuncModelAttrs[Idx].LibFuncId;
+      assert(FuncId < NumLibFuncs && "Unexpected FuncId");
       assert(LibFuncModRefAttributes[FuncId] == LFMR_UNKNOWN &&
              "Duplicate table entry");
       assert(!((LibFuncModelAttrs[Idx].Mask & LFMR_NONE) &&

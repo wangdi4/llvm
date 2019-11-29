@@ -17,6 +17,7 @@
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/IntegerRange.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
@@ -310,14 +311,14 @@ public:
   /// DefinedAtLevel) in the current loopnest.
   bool isLinearAtLevel(unsigned Level) const { return DefinedAtLevel < Level; }
 
-  /// Returns true if the canon expr is linear at level and does not have IV at
-  /// given level.
-  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerLoops = true) const {
+  /// Returns true if the canon expr is invariant at \p Level.
+  /// If \p IgnoreInnerIVs is set to true, inner loop IVs are ignored.
+  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs = false) const {
     if (isNonLinear() || DefinedAtLevel >= Level) {
       return false;
     }
 
-    if (IgnoreInnerLoops) {
+    if (IgnoreInnerIVs) {
       return !hasIV(Level);
     }
 
@@ -465,9 +466,9 @@ public:
   bool isStandAloneUndefBlob() const;
 
   /// return true if the CanonExpr is zero
-  bool isZero() const {
+  bool isZero(bool HandleSplat = false) const {
     int64_t Val;
-    if (isIntConstant(&Val) && Val == 0) {
+    if (isIntConstantImpl(&Val, HandleSplat) && Val == 0) {
       return true;
     }
     return false;
@@ -740,6 +741,19 @@ public:
 
   void setDebugLoc(const DebugLoc &DbgLoc) { this->DbgLoc = DbgLoc; }
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
+};
+
+//  All possible loop levels, which is [1, MaxLoopNestLevel].
+//     ex) for (auto Level :
+//                make_range(AllLoopLevel::begin(), AllLoopLevel::end()))
+//     Notice it is the same as
+//         for (unsigned I = 1; I <= MaxLoopNestLevel; I++)
+class AllLoopLevelRange final {
+public:
+  static IntegerRangeIterator begin() { return IntegerRangeIterator(1); }
+  static IntegerRangeIterator end() {
+    return IntegerRangeIterator(MaxLoopNestLevel + 1);
+  }
 };
 
 } // namespace loopopt

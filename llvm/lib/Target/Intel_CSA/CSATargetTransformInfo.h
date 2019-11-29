@@ -55,7 +55,7 @@ public:
   /// \name Vector TTI Implementations
   /// @{
 
-  unsigned getNumberOfRegisters(bool Vector);
+  unsigned getNumberOfRegisters(bool Vector) const;
   unsigned getRegisterBitWidth(bool Vector) const;
   unsigned getMinVectorRegisterBitWidth() const { return 64; }
   int getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index, Type *SubTp);

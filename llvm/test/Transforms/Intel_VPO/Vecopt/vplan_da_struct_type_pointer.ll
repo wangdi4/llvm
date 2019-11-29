@@ -7,7 +7,7 @@
 ; CHECK-LABEL: Basic Block: BB3
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 [[IV_ADD:%vp.*]], BB3 ],  [ i64 0, BB2 ]
 ; Check that non-uniform GEPs on StructType are divergent
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 8] %struct.S* [[BASE:%vp.*]] = getelementptr inbounds %struct.S* %SArr i64 [[IV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] %struct.S* [[BASE:%vp.*]] = getelementptr inbounds %struct.S* %SArr i64 [[IV]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[ELEMENT:%vp.*]] = getelementptr inbounds %struct.S* [[BASE]] i32 0 i32 0
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[TRUNC:%vp.*]] = trunc i64 [[IV]] to i32
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[TRUNC]] i32* [[ELEMENT]]

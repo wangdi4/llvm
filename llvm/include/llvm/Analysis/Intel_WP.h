@@ -27,7 +27,7 @@ namespace llvm {
 namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
-extern cl::opt<bool> AssumeWholeProgram;
+extern bool AssumeWholeProgram;
 } // llvm_intel_wp_analysis
 
 // It handles actual analysis and results of whole program analysis.
@@ -46,12 +46,8 @@ private:
   bool IsAdvancedOptEnabled[
       TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels];
 
-  size_t UnresolvedCallsCount;
-
-  // SetVectors used for tracing the libfuncs
-  // that were found and not found.
-  SetVector<const Function *> LibFuncsFound;
-  SetVector<const Function *> LibFuncsNotFound;
+  // True if the definition of main is seen in the IR
+  bool MainDefSeen;
 
   // SetVector for storing the functions that are visible outside the
   // LTO module
@@ -80,6 +76,22 @@ private:
       Module &M,
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // SetVectors used for tracing the libfuncs
+  // that were found and not found.
+  SetVector<const Function *> LibFuncsFound;
+  SetVector<const Function *> LibFuncsNotFound;
+
+  // Store the aliases that weren't found
+  SetVector<const GlobalAlias *> AliasesNotFound;
+
+  // Keep track of unresolved calls
+  size_t UnresolvedCallsCount;
+
+  // Print the whole program trace
+  void printWholeProgramTrace();
+#endif // NDEBUG || LLVM_ENABLE_DUMP
+
 public:
   WholeProgramInfo();
   //WholeProgramInfo(WholeProgramInfo &&Arg);
@@ -88,12 +100,7 @@ public:
   static WholeProgramInfo analyzeModule(
       Module &M,
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
-      function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG,
-      unsigned OptLevel);
-
-  // Fold the intrinsic llvm.intel.wholeprogramsafe
-  // into true or false depending on the result of the analysis
-  void foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel);
+      function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG);
 
   // Return true if the input GlobName is a form of main,
   // else return false.
@@ -118,6 +125,9 @@ public:
   bool resolveCalledValue(
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
       const Value *Arg, const Function *Caller);
+
+  // Return the Function* that points to main
+  Function* getMainFunction(Module &M);
 };
 
 // Analysis pass providing a never-invalidated whole program analysis result.

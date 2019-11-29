@@ -468,8 +468,10 @@ enum OperandEncoding {
 
 #if INTEL_FEATURE_ISA_AMX2
 #define XTP_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_PAIR,   "tile pair")
+#define Z16T_ENUM_ENTRY ENUM_ENTRY(TYPE_ZMM16_TUPLES, "zmm 16 tuples")
 #else // INTEL_FEATURE_ISA_AMX2
 #define XTP_ENUM_ENTRY
+#define Z16T_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
@@ -503,6 +505,7 @@ enum OperandEncoding {
   XTM_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")                            \
   XTP_ENUM_ENTRY                                                               \
+  Z16T_ENUM_ENTRY                                                              \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \

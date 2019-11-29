@@ -21,6 +21,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
@@ -55,7 +57,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -78,7 +80,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       NestingLevel(0), IsInnermost(true), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
   initialize();
   setNumExits(NumEx);
 
@@ -105,7 +107,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
       MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
-      HasDistributePoint(HLLoopObj.HasDistributePoint) {
+      HasDistributePoint(HLLoopObj.HasDistributePoint),
+      IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate) {
 
   initialize();
 
@@ -139,6 +142,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
+  IsUndoSinkingCandidate = Lp.IsUndoSinkingCandidate;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
   // order of HLLoops which remains the same as before.
@@ -289,7 +293,7 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
   if (ParTraits != nullptr)
     OS << " <parallel>";
 
-  if (isSIMD()) {
+  if (isAttached() && isSIMD()) {
     OS << " <simd>";
   }
 
@@ -481,6 +485,25 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   printPostexit(OS, Depth, Detailed);
 #endif // !INTEL_PRODUCT_RELEASE
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HLLoop::dumpOptReport() const {
+#if !INTEL_PRODUCT_RELEASE
+  formatted_raw_ostream OS(dbgs());
+  LoopOptReport OptReport = getOptReport();
+
+  OptReportUtils::printLoopHeaderAndOrigin(OS, 0, OptReport, getDebugLoc());
+
+  if (OptReport)
+    OptReportUtils::printOptReport(OS, 0, OptReport);
+
+  OptReportUtils::printLoopFooter(OS, 0);
+
+  if (OptReport && OptReport.nextSibling())
+    OptReportUtils::printEnclosedOptReport(OS, 0, OptReport.nextSibling());
+#endif // !INTEL_PRODUCT_RELEASE
+}
+#endif
 
 unsigned
 HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
@@ -1149,7 +1172,8 @@ bool HLLoop::isTriangularLoop() const {
 }
 
 void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
-                                       StringRef RemoveID) {
+                                       StringRef RemoveID,
+                                       MDNode **ExternalLoopMetadata) {
   assert((MDs.empty() || RemoveID.empty()) &&
          "Simultaneous addition and removal not expected!");
 
@@ -1161,7 +1185,8 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
   bool IsAddition = !MDs.empty();
   bool FoundRemoveID = false;
 
-  MDNode *ExistingLoopMD = getLoopMetadata();
+  MDNode *ExistingLoopMD =
+      ExternalLoopMetadata ? *ExternalLoopMetadata : getLoopMetadata();
 
   if (ExistingLoopMD) {
     // TODO: add tests for this part of code after enabling generation of HIR
@@ -1225,7 +1250,12 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 
   MDNode *NewLoopMD = MDNode::get(Context, NewMDs);
   NewLoopMD->replaceOperandWith(0, NewLoopMD);
-  setLoopMetadata(NewLoopMD);
+
+  if (ExternalLoopMetadata) {
+    *ExternalLoopMetadata = NewLoopMD;
+  } else {
+    setLoopMetadata(NewLoopMD);
+  }
 }
 
 void HLLoop::markDoNotVectorize() {
@@ -1252,6 +1282,20 @@ void HLLoop::markDoNotUnroll() {
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
   addLoopMetadata(
       MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
+}
+
+void HLLoop::markLLVMLoopDoNotUnroll() {
+  auto *LoopMD = OrigLoop->getLoopID();
+
+  removeLoopMetadata("llvm.loop.unroll.enable", &LoopMD);
+  removeLoopMetadata("llvm.loop.unroll.count", &LoopMD);
+
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
+  addLoopMetadata(
+      MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")),
+      &LoopMD);
+
+  OrigLoop->setLoopID(LoopMD);
 }
 
 void HLLoop::markDoNotUnrollAndJam() {

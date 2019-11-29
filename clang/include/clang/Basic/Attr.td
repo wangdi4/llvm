@@ -342,6 +342,7 @@ class TargetArch<list<string> arches> : TargetSpec {
 }
 def TargetARM : TargetArch<["arm", "thumb", "armeb", "thumbeb"]>;
 def TargetAVR : TargetArch<["avr"]>;
+def TargetBPF : TargetArch<["bpfel", "bpfeb"]>;
 def TargetMips32 : TargetArch<["mips", "mipsel"]>;
 def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
@@ -498,6 +499,9 @@ class Attr {
   // content. Eg) It parses 3 args, but semantically takes 4 args.  Opts out of
   // common attribute error checking.
   bit HasCustomParsing = 0;
+  // Set to true if the attribute is a type attribute that has custom
+  // TreeTransform logic in order to handle template transformations.
+  bit HasCustomTypeTransform = 0;
   // Set to true if all of the attribute's arguments should be parsed in an
   // unevaluated context.
   bit ParseArgumentsAsUnevaluated = 0;
@@ -602,6 +606,13 @@ def Alias : Attr {
   let Args = [StringArgument<"Aliasee">];
   let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>;//***INTEL
   let Documentation = [Undocumented];
+}
+
+def ArmMveAlias : InheritableAttr, TargetSpecificAttr<TargetARM> {
+  let Spellings = [Clang<"__clang_arm_mve_alias">];
+  let Args = [IdentifierArgument<"BuiltinName">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [ArmMveAliasDocs];
 }
 
 def Aligned : InheritableAttr {
@@ -732,9 +743,25 @@ def AVRSignal : InheritableAttr, TargetSpecificAttr<TargetAVR> {
 
 def AsmLabel : InheritableAttr {
   let Spellings = [Keyword<"asm">, Keyword<"__asm__">];
-  let Args = [StringArgument<"Label">];
+  let Args = [
+    // Label specifies the mangled name for the decl.
+    StringArgument<"Label">,
+
+    // IsLiteralLabel specifies whether the label is literal (i.e. suppresses
+    // the global C symbol prefix) or not. If not, the mangle-suppression prefix
+    // ('\01') is omitted from the decl name at the LLVM IR level.
+    //
+    // Non-literal labels are used by some external AST sources like LLDB.
+    BoolArgument<"IsLiteralLabel", /*optional=*/0, /*fake=*/1>
+  ];
   let SemaHandler = 0;
-  let Documentation = [Undocumented];
+  let Documentation = [AsmLabelDocs];
+  let AdditionalMembers =
+[{
+bool isEquivalent(AsmLabelAttr *Other) const {
+  return getLabel() == Other->getLabel() && getIsLiteralLabel() == Other->getIsLiteralLabel();
+}
+}];
 }
 
 def Availability : InheritableAttr {
@@ -1083,6 +1110,12 @@ def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let LangOpts = [SYCLIsDevice];
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
+def SYCLIntelKernelArgsRestrict : InheritableAttr {
+  let Spellings = [ CXX11<"intel", "kernel_args_restrict"> ];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [ SYCLIsDevice, SYCLIsHost ];
+  let Documentation = [ SYCLIntelKernelArgsRestrictDocs ];
+}
 
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
@@ -1109,6 +1142,24 @@ def OpenCLUnrollHint : InheritableAttr {
   let Spellings = [GNU<"opencl_unroll_hint">];
   let Args = [UnsignedArgument<"UnrollHint">];
   let Documentation = [OpenCLUnrollHintDocs];
+}
+
+def LoopUnrollHint : InheritableAttr {
+  let Spellings = [CXX11<"clang","loop_unroll">];
+  let Args = [UnsignedArgument<"UnrollHint">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "loop_unroll";
+    }
+    std::string getDiagnosticName() const {
+      std::string Value = "";
+      if (getUnrollHint())
+        Value = "(" + std::to_string(getUnrollHint()) + ")";
+      return "[[clang::loop_unroll" + Value + "]]";
+    }
+  }];
+  let Documentation = [LoopUnrollHintDocs];
 }
 
 def IntelReqdSubGroupSize: InheritableAttr {
@@ -1467,11 +1518,41 @@ def Mode : Attr {
 
 def SYCLIntelFPGAIVDep : Attr {
   let Spellings = [CXX11<"intelfpga","ivdep">];
-  let Args = [IntArgument<"Safelen">];
+  let Args = [
+    ExprArgument<"SafelenExpr">, ExprArgument<"ArrayExpr">,
+    UnsignedArgument<"SafelenValue">
+  ];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "ivdep";
+    }
+    bool isDependent() const {
+      return (getSafelenExpr() &&
+              getSafelenExpr()->isInstantiationDependent()) ||
+             (getArrayExpr() && getArrayExpr()->isInstantiationDependent());
+    }
+
+    const VarDecl *getArrayDecl() const {
+      return getArrayExpr()
+                 ? cast<VarDecl>(cast<DeclRefExpr>(getArrayExpr())->getDecl())
+                       ->getCanonicalDecl()
+                 : nullptr;
+    }
+
+    bool isInf() const {
+      return !getSafelenExpr();
+    }
+
+    static bool SafelenCompare(const SYCLIntelFPGAIVDepAttr *LHS,
+                               const SYCLIntelFPGAIVDepAttr *RHS) {
+      // INF < INF is false, !INF < INF is true.
+      if (!RHS->getSafelenExpr())
+        return false;
+      if (!LHS->getSafelenExpr())
+        return true;
+      return LHS->getSafelenValue() > RHS->getSafelenValue();
     }
   }];
   let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
@@ -1479,8 +1560,9 @@ def SYCLIntelFPGAIVDep : Attr {
 
 def SYCLIntelFPGAII : Attr {
   let Spellings = [CXX11<"intelfpga","ii">];
-  let Args = [IntArgument<"Interval">];
+  let Args = [ExprArgument<"IntervalExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "ii";
@@ -1491,8 +1573,9 @@ def SYCLIntelFPGAII : Attr {
 
 def SYCLIntelFPGAMaxConcurrency : Attr {
   let Spellings = [CXX11<"intelfpga","max_concurrency">];
-  let Args = [IntArgument<"NThreads">];
+  let Args = [ExprArgument<"NThreadsExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "max_concurrency";
@@ -1669,6 +1752,13 @@ def IntelFPGASimpleDualPort : Attr {
   let Documentation = [IntelFPGASimpleDualPortAttrDocs];
 }
 
+def SYCLFPGAPipe : TypeAttr {
+  let Spellings = [GNU<"pipe">];
+  let Args = [StringArgument<"Mode">];
+  let LangOpts = [SYCLIsDevice];
+  let Documentation = [SYCLFPGAPipeDocs];
+}
+
 def Naked : InheritableAttr {
   let Spellings = [GCC<"naked">, Declspec<"naked">];
   let Subjects = SubjectList<[Function]>;
@@ -1811,6 +1901,14 @@ def AMDGPUNumVGPR : InheritableAttr {
   let Args = [UnsignedArgument<"NumVGPR">];
   let Documentation = [AMDGPUNumSGPRNumVGPRDocs];
   let Subjects = SubjectList<[Function], ErrorDiag, "kernel functions">;
+}
+
+def BPFPreserveAccessIndex : InheritableAttr,
+                             TargetSpecificAttr<TargetBPF>  {
+  let Spellings = [Clang<"preserve_access_index">];
+  let Subjects = SubjectList<[Record], ErrorDiag>;
+  let Documentation = [BPFPreserveAccessIndexDocs];
+  let LangOpts = [COnly];
 }
 
 def WebAssemblyImportModule : InheritableAttr,
@@ -2087,6 +2185,20 @@ def ObjCDesignatedInitializer : Attr {
   let Documentation = [Undocumented];
 }
 
+def ObjCDirect : Attr {
+  let Spellings = [Clang<"objc_direct">];
+  let Subjects = SubjectList<[ObjCMethod], ErrorDiag>;
+  let LangOpts = [ObjC];
+  let Documentation = [ObjCDirectDocs];
+}
+
+def ObjCDirectMembers : Attr {
+  let Spellings = [Clang<"objc_direct_members">];
+  let Subjects = SubjectList<[ObjCImpl, ObjCCategory], ErrorDiag>;
+  let LangOpts = [ObjC];
+  let Documentation = [ObjCDirectMembersDocs];
+}
+
 def ObjCRuntimeName : Attr {
   let Spellings = [Clang<"objc_runtime_name">];
   let Subjects = SubjectList<[ObjCInterface, ObjCProtocol], ErrorDiag>;
@@ -2263,6 +2375,14 @@ def PragmaClangRodataSection : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def PragmaClangRelroSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
 def PragmaClangTextSection : InheritableAttr {
   // This attribute has no spellings as it is only ever created implicitly.
   let Spellings = [];
@@ -2357,6 +2477,7 @@ def Target : InheritableAttr {
     struct ParsedTargetAttr {
       std::vector<std::string> Features;
       StringRef Architecture;
+      StringRef BranchProtection;
       bool DuplicateArchitecture = false;
       bool operator ==(const ParsedTargetAttr &Other) const {
         return DuplicateArchitecture == Other.DuplicateArchitecture &&
@@ -2428,6 +2549,11 @@ def Target : InheritableAttr {
         // attributes on the function.
         if (Feature.startswith("fpmath=") || Feature.startswith("tune="))
           continue;
+
+        if (Feature.startswith("branch-protection=")) {
+          Ret.BranchProtection = Feature.split('=').second.trim();
+          continue;
+        }
 
         // While we're here iterating check for a different target cpu.
         if (Feature.startswith("arch=")) {
@@ -3188,25 +3314,9 @@ def MSInheritance : InheritableAttr {
                    Keyword<"__virtual_inheritance">,
                    Keyword<"__unspecified_inheritance">];
   let AdditionalMembers = [{
-  static bool hasVBPtrOffsetField(Spelling Inheritance) {
-    return Inheritance == Keyword_unspecified_inheritance;
-  }
-
-  // Only member pointers to functions need a this adjustment, since it can be
-  // combined with the field offset for data pointers.
-  static bool hasNVOffsetField(bool IsMemberFunction, Spelling Inheritance) {
-    return IsMemberFunction && Inheritance >= Keyword_multiple_inheritance;
-  }
-
-  static bool hasVBTableOffsetField(Spelling Inheritance) {
-    return Inheritance >= Keyword_virtual_inheritance;
-  }
-
-  static bool hasOnlyOneField(bool IsMemberFunction,
-                              Spelling Inheritance) {
-    if (IsMemberFunction)
-      return Inheritance <= Keyword_single_inheritance;
-    return Inheritance <= Keyword_multiple_inheritance;
+  MSInheritanceModel getInheritanceModel() const {
+    // The spelling enum should agree with MSInheritanceModel.
+    return MSInheritanceModel(getSemanticSpelling());
   }
   }];
   let Documentation = [MSInheritanceDocs];
@@ -3219,13 +3329,7 @@ def MSVtorDisp : InheritableAttr {
   let SemaHandler = 0;
 
   let AdditionalMembers = [{
-  enum Mode {
-    Never,
-    ForVBaseOverride,
-    ForVFTable
-  };
-
-  Mode getVtorDispMode() const { return Mode(vdm); }
+  MSVtorDispMode getVtorDispMode() const { return MSVtorDispMode(vdm); }
   }];
   let Documentation = [Undocumented];
 }
@@ -3628,24 +3732,20 @@ def OMPAllocateDecl : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def OMPDeclareVariant : Attr {
+def OMPDeclareVariant : InheritableAttr {
   let Spellings = [Pragma<"omp", "declare variant">];
   let Subjects = SubjectList<[Function]>;
   let SemaHandler = 0;
   let HasCustomParsing = 1;
+  let InheritEvenIfAlreadyPresent = 1;
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
-    ExprArgument<"VariantFuncRef">
-// INTEL_CUSTOMIZATION
-  , VariadicEnumArgument<"Construct", "ConstructTy",
-       ["", "target", "teams", "parallel", "for", "simd",
-        "target_variant_dispatch"],
-       ["Construct_None", "Construct_Target", "Construct_Teams",
-        "Construct_Parallel", "Construct_For", "Construct_Simd",
-        "Construct_Target_Variant_Dispatch"]>,
-       VariadicEnumArgument<"Device", "DeviceTy",
-          ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
-// end INTEL_CUSTOMIZATION
+    ExprArgument<"VariantFuncRef">,
+    VariadicExprArgument<"Scores">,
+    VariadicUnsignedArgument<"CtxSelectorSets">,
+    VariadicUnsignedArgument<"CtxSelectors">,
+    VariadicStringArgument<"ImplVendors">,
+    VariadicStringArgument<"DeviceKinds">
   ];
   let AdditionalMembers = [{
 // INTEL_CUSTOMIZATION
@@ -3662,6 +3762,13 @@ def OMPDeclareVariant : Attr {
       return "'gen'";
     }
 // end INTEL_CUSTOMIZATION
+    void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
+      if (const Expr *E = *std::next(scores_begin(), I)) {
+        OS << "score(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << "):";
+      }
+    }
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
       if (const Expr *E = getVariantFuncRef()) {
@@ -3670,7 +3777,86 @@ def OMPDeclareVariant : Attr {
         OS << ")";
       }
       // TODO: add printing of real context selectors.
-      OS << " match(unknown={})";
+      OS << " match(";
+      int Used[OMP_CTX_SET_unknown] = {0};
+      for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
+        auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
+            *std::next(ctxSelectorSets_begin(), I));
+        if (Used[CtxSet])
+          continue;
+        if (I > 0)
+          OS << ",";
+        switch (CtxSet) {
+        case OMP_CTX_SET_implementation:
+          OS << "implementation={";
+          break;
+        case OMP_CTX_SET_device:
+          OS << "device={";
+          break;
+// INTEL_COLLAB
+        case OMP_CTX_SET_construct:
+          OS << "implementation={";
+          OS << "target variant dispatch";
+          OS << "}";
+          break;
+// end INTEL_COLLAB
+        case OMP_CTX_SET_unknown:
+          llvm_unreachable("Unknown context selector set.");
+        }
+        Used[CtxSet] = 1;
+        for (unsigned K = I, EK = ctxSelectors_size(); K < EK; ++K) {
+          auto CtxSetK = static_cast<OpenMPContextSelectorSetKind>(
+              *std::next(ctxSelectorSets_begin(), K));
+          if (CtxSet != CtxSetK)
+            continue;
+          if (K != I)
+            OS << ",";
+          auto Ctx = static_cast<OpenMPContextSelectorKind>(
+              *std::next(ctxSelectors_begin(), K));
+          switch (Ctx) {
+          case OMP_CTX_vendor:
+            assert(CtxSet == OMP_CTX_SET_implementation &&
+                   "Expected implementation context selector set.");
+            OS << "vendor(";
+            printScore(OS, Policy, K);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+          case OMP_CTX_kind:
+            assert(CtxSet == OMP_CTX_SET_device &&
+                   "Expected device context selector set.");
+            OS << "kind(";
+            if (deviceKinds_size() > 0) {
+              OS << *deviceKinds().begin();
+              for (StringRef KindName : llvm::drop_begin(deviceKinds(), 1))
+                OS << ", " << KindName;
+            }
+            OS << ")";
+            break;
+// INTEL_COLLAB
+          case OMP_CTX_arch:
+            OS << "arch(";
+            printScore(OS, Policy, I);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+          case OMP_CTX_target_variant_dispatch:
+// end INTEL_COLLAB
+          case OMP_CTX_unknown:
+            llvm_unreachable("Unknown context selector.");
+          }
+        }
+        OS << "}";
+      }
+      OS << ")";
     }
   }];
 }
@@ -3729,4 +3915,11 @@ def ObjCExternallyRetained : InheritableAttr {
   let Spellings = [Clang<"objc_externally_retained">];
   let Subjects = SubjectList<[NonParmVar, Function, Block, ObjCMethod]>;
   let Documentation = [ObjCExternallyRetainedDocs];
+}
+
+def NoBuiltin : Attr {
+  let Spellings = [Clang<"no_builtin">];
+  let Args = [VariadicStringArgument<"BuiltinNames">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [NoBuiltinDocs];
 }

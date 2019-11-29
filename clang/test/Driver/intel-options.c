@@ -9,16 +9,6 @@
 // RUN: %clang_cl -### -c /Qansi-alias- %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
 // CHECK-NO_ANSI_ALIAS: "-relaxed-aliasing"
 
-// Behavior with restrict/Qrestrict option
-// RUN: %clang -### -c -restrict %s 2>&1 | FileCheck -check-prefix CHECK-RESTRICT %s
-// RUN: %clang_cl -### -c /Qrestrict %s 2>&1 | FileCheck -check-prefix CHECK-RESTRICT %s
-// CHECK-RESTRICT: "-restrict"
-
-// Behavior with no-restrict/Qrestrict- option
-// RUN: %clang -### -c -no-restrict %s 2>&1 | FileCheck -check-prefix CHECK-NO-RESTRICT %s
-// RUN: %clang_cl -### -c /Qrestrict- %s 2>&1 | FileCheck -check-prefix CHECK-NO-RESTRICT %s
-// CHECK-NO-RESTRICT: "-no-restrict"
-
 // Behavior with -fno-alias option
 // RUN: %clang -### -c -fno-alias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // RUN: %clang_cl -### -c /Oa %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
@@ -56,3 +46,22 @@
 // RUN: %clang_cl -### -c %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE-OFF %s
 // CHECK-INTRINSIC-PROMOTE: "-mintrinsic-promote"
 // CHECK-INTRINSIC-PROMOTE-OFF-NOT: "-mintrinsic-promote"
+
+// RUN: %clang_cl -### -- %s 2>&1 | FileCheck -check-prefix=CL-LIBMMT %s
+// CL-LIBMMT: "--dependent-lib=libmmt"
+// CL-LIBMMT-NOT: "--dependent-lib=libmmd"
+
+// RUN: %clang_cl -MD /clang:-MD -### -- %s 2>&1 | FileCheck -check-prefix=CL-LIBMMD %s
+// CL-LIBMMD: "--dependent-lib=libmmd"
+// CL-LIBMMD-NOT: "--dependent-lib=libcmt"
+
+// RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
+// LIBMMT: "-defaultlib:libmmt"
+
+// --dpcpp -fopenmp not supported
+// When running the 'dpcpp' driver, the --dpcpp option is used to signify the
+// source of how the compiler is invoked.
+// RUN: %clang -### -c --dpcpp -fopenmp %s 2>&1 | FileCheck -check-prefix CHECK-DPCPP-FOPENMP %s
+// RUN: %clang -### -c --dpcpp -fopenmp=libiomp5 %s 2>&1 | FileCheck -check-prefix CHECK-DPCPP-FOPENMP-ARG %s
+// CHECK-DPCPP-FOPENMP: error: unsupported option '-fopenmp'
+// CHECK-DPCPP-FOPENMP-ARG: error: unsupported option '-fopenmp=libiomp5'

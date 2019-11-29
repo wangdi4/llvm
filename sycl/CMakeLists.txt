@@ -131,10 +131,6 @@ if( DEFINED ICD_LOADER_SRC_DIR )
         DESTINATION .
         COMPONENT khronos-icd-loader
     )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/bin/OpenCL.dll
-        DESTINATION .
-        COMPONENT khronos-icd-loader
-    )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
@@ -161,6 +157,7 @@ elseif( NOT OpenCL_LIBRARIES )
                ${OPENCL_ICD_LOADER_WDK}
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
+    BUILD_BYPRODUCTS ${OpenCL_LIBRARIES}
   )
 else()
   file(GLOB ICD_LOADER_SRC "${OpenCL_LIBRARIES}*")
@@ -194,12 +191,47 @@ COMMENT "Copying SYCL headers ...")
 # Configure SYCL headers
 install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" COMPONENT sycl-headers)
 
+set(SYCL_RT_LIBS sycl)
+if (MSVC)
+  list(APPEND SYCL_RT_LIBS sycld)
+endif()
+
+# This function allows building multiple libraries with the same options.
+# Currently used by sycl and plugins library.
+# Currently handles linking with libcxx support and gcc workaround
+function( add_common_options LIB_NAME)
+  if (SYCL_USE_LIBCXX)
+      if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
+          (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+          target_compile_options(${LIB_NAME} PRIVATE -nostdinc++)
+          if ((NOT (DEFINED SYCL_LIBCXX_INCLUDE_PATH)) OR (NOT (DEFINED SYCL_LIBCXX_LIBRARY_PATH)))
+              message(FATAL_ERROR "When building with libc++ SYCL_LIBCXX_INCLUDE_PATHS and"
+                                  "SYCL_LIBCXX_LIBRARY_PATH should be set")
+          endif()
+          target_include_directories(${LIB_NAME} PRIVATE "${SYCL_LIBCXX_INCLUDE_PATH}")
+          target_link_libraries(${LIB_NAME} PRIVATE "-L${SYCL_LIBCXX_LIBRARY_PATH}" -nodefaultlibs -lc++ -lc++abi -lm -lc -lgcc_s -lgcc)
+      else()
+          message(FATAL_ERROR "Build with libc++ is not yet supported for this compiler")
+      endif()
+  else()
+
+# Workaround for bug in GCC version 5 and higher.
+# More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+        CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+    target_link_libraries(${LIB_NAME} PRIVATE gcc_s gcc)
+    endif()
+
+  endif()
+endfunction(add_common_options)
+
 # SYCL runtime library
-add_subdirectory(source)
+add_subdirectory( source )
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
-  DEPENDS sycl
+  DEPENDS ${SYCL_RT_LIBS}
+          pi_opencl
           clang
           clang-offload-wrapper
           clang-offload-bundler
@@ -207,20 +239,30 @@ add_custom_target( sycl-toolchain
           llvm-as
           llvm-ar
           llvm-dis
+          llvm-foreach
           llvm-no-spir-kernel
           llvm-spirv
           llvm-link
           llvm-objcopy
           opt
+          sycl-post-link
   COMMENT "Building SYCL compiler toolchain..."
 )
 
 add_subdirectory( test )
 add_subdirectory( unittests )
 add_subdirectory( tools )
+add_subdirectory( plugins )
 
 # Package deploy support
 # Listed here are component names contributing the package
+# INTEL_CUSTOMIZATION
+# WARNING: the components list below does not affect creation
+# WARNING: of official Intel software products. Please use
+# WARNING: llvm/CMakeLists.txt to define components that
+# WARNING: must appear in the official releases
+# WARNING: (look for INTEL_CMAKE_DEPLOY).
+# end INTEL_CUSTOMIZATION
 set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      clang
      clang-offload-wrapper
@@ -229,15 +271,25 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      llvm-as
      llvm-ar
      llvm-dis
+     llvm-foreach
      llvm-no-spir-kernel
      llvm-spirv
      llvm-link
      llvm-objcopy
      opt
+     sycl-post-link
      clang-resource-headers
      opencl-headers
      sycl-headers
+     sycl
+     pi_opencl
 )
+
+# INTEL_CUSTOMIZATION
+if (CMAKE_SYCL_USE_LEVEL0)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
+endif()
+# end INTEL_CUSTOMIZATION
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

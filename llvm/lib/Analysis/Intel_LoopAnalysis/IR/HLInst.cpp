@@ -22,6 +22,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -45,14 +46,14 @@ void HLInst::initialize() {
 
 HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
     : HLDDNode(HNU, HLNode::HLInstVal), Inst(Inst),
-      CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
+      CmpOrSelectPred(PredicateTy::FCMP_TRUE), IsSinked(false) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred), IsSinked(HLInstObj.IsSinked) {
 
   unsigned NumOp, Count = 0;
 
@@ -181,6 +182,8 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
     OS << "(";
   } else if (isa<SelectInst>(Inst)) {
     OS << "(";
+  } else if (Inst->getOpcode() == Instruction::FNeg) {
+    OS << " - ";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
              !isa<GEPOrSubsOperator>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
@@ -429,16 +432,21 @@ bool HLInst::isInPreheaderPostexitImpl(bool Preheader, HLLoop *ParLoop) const {
     return false;
   }
 
+  auto I = Preheader ? ParLoop->pre_begin() : ParLoop->post_begin();
+  auto E = Preheader ? ParLoop->pre_end() : ParLoop->post_end();
+
+  // Preheader or postexit is empty.
+  if (I == E) {
+    return false;
+  }
+
   // If top sort number is available, use it instead.
   if (unsigned TSNum = getTopSortNum()) {
     assert(isAttached() && "It is illegal to call top sort number dependent "
                            "utility on disconnected node!");
-    return Preheader ? (TSNum < ParLoop->getTopSortNum())
-                     : (TSNum > ParLoop->getLastChild()->getMaxTopSortNum());
+    return Preheader ? (TSNum <= std::prev(E)->getTopSortNum())
+                     : (TSNum >= I->getTopSortNum());
   }
-
-  auto I = Preheader ? ParLoop->pre_begin() : ParLoop->post_begin();
-  auto E = Preheader ? ParLoop->pre_end() : ParLoop->post_end();
 
   for (; I != E; I++) {
     if (cast<HLInst>(I) == this) {
@@ -532,15 +540,24 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
   const Instruction *LLVMInst = getLLVMInstruction();
 
   if (isa<BinaryOperator>(LLVMInst)) {
-    *OpCode = LLVMInst->getOpcode();
-    return isValidReductionOpCode(*OpCode);
+    unsigned OpC = LLVMInst->getOpcode();
+
+    if (OpCode) {
+      *OpCode = OpC;
+    }
+
+    return isValidReductionOpCode(OpC);
+
   } else if (isa<SelectInst>(LLVMInst)) {
-    *OpCode = Instruction::Select;
+
+    if (OpCode) {
+      *OpCode = Instruction::Select;
+    }
+
     return isMinOrMax();
-  } else {
-    *OpCode = 0;
-    return false;
   }
+
+  return false;
 }
 
 bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {

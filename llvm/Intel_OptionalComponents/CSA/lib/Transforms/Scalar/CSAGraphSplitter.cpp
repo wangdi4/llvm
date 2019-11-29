@@ -21,6 +21,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <queue>

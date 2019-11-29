@@ -3,8 +3,6 @@
 // RUNx: %CPU_RUN_PLACEHOLDER %t.out
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
 // RUNx: %ACC_RUN_PLACEHOLDER %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 //==------------ vec_convert.cpp - SYCL vec class convert method test ------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

@@ -38,6 +38,7 @@
 // dimensional subscripts like A[i][5] and A[i][t]. The current analysis assumes
 // every element of the array is being accessed.
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
@@ -675,7 +676,7 @@ unsigned HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
 
   for (auto &Refs : MemRefMap) {
     for (auto Ref : Refs.second) {
-      if (Ref->isStructurallyInvariantAtLevel(Level)) {
+      if (Ref->isStructurallyInvariantAtLevel(Level, true)) {
         if (CheckPresence) {
           return 1;
         }
@@ -712,7 +713,8 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
   for (auto &RefVec : RefGroups) {
     auto PrevRef = RefVec.front();
 
-    bool IsInv = !ReuseOnly && PrevRef->isStructurallyInvariantAtLevel(Level);
+    bool IsInv =
+        !ReuseOnly && PrevRef->isStructurallyInvariantAtLevel(Level, true);
     auto Size = RefVec.size();
 
     if (CheckPresence && (IsInv || (Size > 1))) {

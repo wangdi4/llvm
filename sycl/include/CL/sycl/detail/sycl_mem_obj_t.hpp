@@ -86,13 +86,13 @@ public:
 
     RT::PiMem Mem = pi::cast<RT::PiMem>(MInteropMemObject);
     RT::PiContext Context = nullptr;
-    PI_CALL(RT::piMemGetInfo(Mem, CL_MEM_CONTEXT, sizeof(Context), &Context,
-                             nullptr));
+    PI_CALL(piMemGetInfo)(Mem, CL_MEM_CONTEXT, sizeof(Context), &Context,
+                          nullptr);
 
     if (MInteropContext->getHandleRef() != Context)
       throw cl::sycl::invalid_parameter_error(
           "Input context must be the same as the context of cl_mem");
-    PI_CALL(RT::piMemRetain(Mem));
+    PI_CALL(piMemRetain)(Mem);
   }
 
   SYCLMemObjT(cl_mem MemObject, const context &SyclContext,
@@ -100,7 +100,12 @@ public:
       : SYCLMemObjT(MemObject, SyclContext, /*SizeInBytes*/ 0, AvailableEvent) {
   }
 
-  size_t get_size() const { return MSizeInBytes; }
+  size_t getSize() const override { return MSizeInBytes; }
+  size_t get_count() const {
+    auto constexpr AllocatorValueSize =
+        sizeof(allocator_value_type_t<AllocatorT>);
+    return (getSize() + AllocatorValueSize - 1) / AllocatorValueSize;
+  }
 
   template <typename propertyT> bool has_property() const {
     return MProps.has_property<propertyT>();
@@ -112,16 +117,11 @@ public:
 
   AllocatorT get_allocator() const { return MAllocator; }
 
-  void *allocateHostMem() override {
-    size_t AllocatorValueSize = sizeof(allocator_value_type_t<AllocatorT>);
-    size_t AllocationSize = get_size() / AllocatorValueSize;
-    AllocationSize += (get_size() % AllocatorValueSize) ? 1 : 0;
-    return MAllocator.allocate(AllocationSize);
-  }
+  void *allocateHostMem() override { return MAllocator.allocate(get_count()); }
 
   void releaseHostMem(void *Ptr) override {
     if (Ptr)
-      MAllocator.deallocate(allocator_pointer_t<AllocatorT>(Ptr), get_size());
+      MAllocator.deallocate(allocator_pointer_t<AllocatorT>(Ptr), get_count());
   }
 
   void releaseMem(ContextImplPtr Context, void *MemAllocation) override {
@@ -225,7 +225,7 @@ public:
     releaseHostMem(MShadowCopy);
 
     if (MOpenCLInterop)
-      PI_CALL(RT::piMemRelease(pi::cast<RT::PiMem>(MInteropMemObject)));
+      PI_CALL(piMemRelease)(pi::cast<RT::PiMem>(MInteropMemObject));
   }
 
   bool useHostPtr() {

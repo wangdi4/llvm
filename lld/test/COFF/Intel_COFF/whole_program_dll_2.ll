@@ -1,3 +1,4 @@
+; REQUIRES: assert
 ; This test checks that whole program read was achieved when linking
 ; an executable and a library is present. Whole program seen won't be
 ; achieved since @exportfn doesn't have IR.
@@ -6,7 +7,7 @@
 ; RUN: llvm-as -o %T/wp_dll_2_main.bc %s
 ; RUN: lld-link /entry:exportfn /out:%T/wp_dll_2.dll /dll %T/wp_dll_2.bc
 ; RUN: lld-link /out:%T/wp_dll_2.exe /entry:main %T/wp_dll_2_main.bc %T/wp_dll_2.lib \
-; RUN:     /subsystem:console /mllvm:-whole-program-trace \
+; RUN:     /subsystem:console /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS

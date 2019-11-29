@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that full load, stride, and extent dope vector constant values are
 ; determined for ARG #0 and ARG #1 of new_solver_, but that they are not
@@ -8,6 +8,7 @@
 
 ; Check the trace output.
 
+; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN
 ; CHECK: DV FOUND: ARG #0 new_solver_ 2 x i32
 ; CHECK: VALID
 ; CHECK: LB[0] = 1
@@ -32,6 +33,7 @@
 ; CHECK: COULD NOT FIND PER DIMENSION ARRAY
 ; CHECK: COULD NOT FIND PER DIMENSION ARRAY
 ; CHECK: COULD NOT FIND PER DIMENSION ARRAY
+; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
 
 @"main_$PART" = internal global [9 x [9 x i32]] zeroinitializer, align 16
 

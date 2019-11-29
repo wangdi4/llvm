@@ -208,6 +208,11 @@ namespace {
       return chunkIndex == declarator.getNumTypeObjects();
     }
 
+    bool isProcessingLambdaExpr() const {
+      return declarator.isFunctionDeclarator() &&
+             declarator.getContext() == DeclaratorContext::LambdaExprContext;
+    }
+
     unsigned getCurrentChunkIndex() const {
       return chunkIndex;
     }
@@ -1989,12 +1994,24 @@ static bool checkQualifiedFunction(Sema &S, QualType T, SourceLocation Loc,
                                    QualifiedFunctionKind QFK) {
   // Does T refer to a function type with a cv-qualifier or a ref-qualifier?
   const FunctionProtoType *FPT = T->getAs<FunctionProtoType>();
-  if (!FPT || (FPT->getMethodQuals().empty() && FPT->getRefQualifier() == RQ_None))
+  if (!FPT ||
+      (FPT->getMethodQuals().empty() && FPT->getRefQualifier() == RQ_None))
     return false;
 
   S.Diag(Loc, diag::err_compound_qualified_function_type)
     << QFK << isa<FunctionType>(T.IgnoreParens()) << T
     << getFunctionQualifiersAsString(FPT);
+  return true;
+}
+
+bool Sema::CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc) {
+  const FunctionProtoType *FPT = T->getAs<FunctionProtoType>();
+  if (!FPT ||
+      (FPT->getMethodQuals().empty() && FPT->getRefQualifier() == RQ_None))
+    return false;
+
+  Diag(Loc, diag::err_qualified_function_typeid)
+      << T << getFunctionQualifiersAsString(FPT);
   return true;
 }
 
@@ -2267,16 +2284,6 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   } else {
     // C99 6.7.5.2p1: If the element type is an incomplete or function type,
     // reject it (e.g. void ary[7], struct foo ary[7], void ary[7]())
-#if INTEL_CUSTOMIZATION
-    // CQ#366309 - allow arrays with incomplete element type as Intel extension.
-    if (getLangOpts().IntelCompat && !T->isIncompleteArrayType() &&
-        !T->isVoidType())
-      (void)RequireCompleteType(Loc, T, diag::ext_intel_array_incomplete_type);
-    // CQ380872: Arrays with incomplete (unknown) size
-    else if (getLangOpts().IntelCompat && T->isIncompleteArrayType())
-      (void)RequireCompleteType(Loc, T, diag::warn_intel_array_incomplete_size);
-    else
-#endif // INTEL_CUSTOMIZATION
     if (RequireCompleteType(Loc, T,
                             diag::err_illegal_decl_array_incomplete_type))
       return QualType();
@@ -2386,7 +2393,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
       }
     }
 
-    T = Context.getConstantArrayType(T, ConstVal, ASM, Quals);
+    T = Context.getConstantArrayType(T, ConstVal, ArraySize, ASM, Quals);
   }
 
   // OpenCL v1.2 s6.9.d: variable length arrays are not supported.
@@ -2573,6 +2580,11 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
     checkNonTrivialCUnion(T, Loc, NTCUC_FunctionReturn,
                           NTCUK_Destruct|NTCUK_Copy);
 
+  // C++2a [dcl.fct]p12:
+  //   A volatile-qualified return type is deprecated
+  if (T.isVolatileQualified() && getLangOpts().CPlusPlus2a)
+    Diag(Loc, diag::warn_deprecated_volatile_return) << T;
+
   return false;
 }
 
@@ -2652,6 +2664,11 @@ QualType Sema::BuildFunctionType(QualType T,
         FixItHint::CreateInsertion(Loc, "*");
       Invalid = true;
     }
+
+    // C++2a [dcl.fct]p4:
+    //   A parameter with volatile-qualified type is deprecated
+    if (ParamType.isVolatileQualified() && getLangOpts().CPlusPlus2a)
+      Diag(Loc, diag::warn_deprecated_volatile_param) << ParamType;
 
     ParamTypes[Idx] = ParamType;
   }
@@ -3233,7 +3250,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
 
       T = SemaRef.Context.IntTy;
       D.setInvalidType(true);
-    } else if (!HaveTrailing &&
+    } else if (Auto && !HaveTrailing &&
                D.getContext() != DeclaratorContext::LambdaExprContext) {
       // If there was a trailing return type, we already got
       // warn_cxx98_compat_trailing_return_type in the parser.
@@ -4813,6 +4830,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           S.Diag(DeclType.Loc, diag::err_func_returning_qualified_void) << T;
         } else
           diagnoseRedundantReturnTypeQualifiers(S, T, D, chunkIndex);
+
+        // C++2a [dcl.fct]p12:
+        //   A volatile-qualified return type is deprecated
+        if (T.isVolatileQualified() && S.getLangOpts().CPlusPlus2a)
+          S.Diag(DeclType.Loc, diag::warn_deprecated_volatile_return) << T;
       }
 
       // Objective-C ARC ownership qualifiers are ignored on the function
@@ -5302,6 +5324,13 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   if (D.getDeclSpec().getConstexprSpecifier() == CSK_constexpr &&
       T->isObjectType())
     T.addConst();
+
+  // C++2a [dcl.fct]p4:
+  //   A parameter with volatile-qualified type is deprecated
+  if (T.isVolatileQualified() && S.getLangOpts().CPlusPlus2a &&
+      (D.getContext() == DeclaratorContext::PrototypeContext ||
+       D.getContext() == DeclaratorContext::LambdaExprParameterContext))
+    S.Diag(D.getIdentifierLoc(), diag::warn_deprecated_volatile_param) << T;
 
   // If there was an ellipsis in the declarator, the declaration declares a
   // parameter pack whose type may be a pack expansion type.
@@ -6216,6 +6245,66 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
   }
 }
 
+static void HandleSYCLFPGAPipeAttribute(QualType &Type, const ParsedAttr &Attr,
+                                        TypeProcessingState &State) {
+  Sema &S = State.getSema();
+  ASTContext &Ctx = S.Context;
+
+  // Check the attribute arguments.
+  if (Attr.getNumArgs() != 1) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+        << Attr << 1;
+    Attr.setInvalid();
+    return;
+  }
+
+  if (!Attr.isArgExpr(0)) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+        << Attr << AANT_ArgumentString;
+    Attr.setInvalid();
+    return;
+  }
+
+  StringRef Str;
+  if (auto *SL = dyn_cast<StringLiteral>(Attr.getArgAsExpr(0))) {
+    Str = SL->getString();
+  } else {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+        << Attr << AANT_ArgumentString;
+    Attr.setInvalid();
+    return;
+  }
+
+  bool isReadOnlyPipe;
+  if (Str == "write_only")
+    isReadOnlyPipe = false;
+  else if (Str == "read_only")
+    isReadOnlyPipe = true;
+  else {
+    S.Diag(Attr.getLoc(), diag::err_pipe_attribute_arg_not_allowed) << Str;
+    Attr.setInvalid();
+    return;
+  }
+
+  auto *PipeAttr = ::new (Ctx) SYCLFPGAPipeAttr(Ctx, Attr, Str);
+
+  // Apply pipe qualifiers just to the equivalent type, as the expression is not
+  // value dependent (not templated).
+  QualType EquivType = isReadOnlyPipe
+                           ? S.BuildReadPipeType(Type, Attr.getLoc())
+                           : S.BuildWritePipeType(Type, Attr.getLoc());
+  if (EquivType.isNull()) {
+    Attr.setInvalid();
+    return;
+  }
+
+  QualType T = State.getAttributedType(PipeAttr, Type, EquivType);
+  if (!T.isNull())
+    Type = T;
+  else
+    Attr.setInvalid();
+}
+
 /// handleObjCOwnershipTypeAttr - Process an objc_ownership
 /// attribute on the specified type.
 ///
@@ -6480,7 +6569,8 @@ namespace {
       Pointer,
       BlockPointer,
       Reference,
-      MemberPointer
+      MemberPointer,
+      MacroQualified,
     };
 
     QualType Original;
@@ -6511,6 +6601,9 @@ namespace {
         } else if (isa<AttributedType>(Ty)) {
           T = cast<AttributedType>(Ty)->getEquivalentType();
           Stack.push_back(Attributed);
+        } else if (isa<MacroQualifiedType>(Ty)) {
+          T = cast<MacroQualifiedType>(Ty)->getUnderlyingType();
+          Stack.push_back(MacroQualified);
         } else {
           const Type *DTy = Ty->getUnqualifiedDesugaredType();
           if (Ty == DTy) {
@@ -6566,6 +6659,9 @@ namespace {
         QualType New = wrap(C, cast<ParenType>(Old)->getInnerType(), I);
         return C.getParenType(New);
       }
+
+      case MacroQualified:
+        return wrap(C, cast<MacroQualifiedType>(Old)->getUnderlyingType(), I);
 
       case Pointer: {
         QualType New = wrap(C, cast<PointerType>(Old)->getPointeeType(), I);
@@ -7420,6 +7516,7 @@ static bool isPermittedNeonBaseType(QualType &Ty,
   // Signed poly is mathematically wrong, but has been baked into some ABIs by
   // now.
   bool IsPolyUnsigned = Triple.getArch() == llvm::Triple::aarch64 ||
+                        Triple.getArch() == llvm::Triple::aarch64_32 ||
                         Triple.getArch() == llvm::Triple::aarch64_be;
   if (VecKind == VectorType::NeonPolyVector) {
     if (IsPolyUnsigned) {
@@ -7437,10 +7534,8 @@ static bool isPermittedNeonBaseType(QualType &Ty,
 
   // Non-polynomial vector types: the usual suspects are allowed, as well as
   // float64_t on AArch64.
-  bool Is64Bit = Triple.getArch() == llvm::Triple::aarch64 ||
-                 Triple.getArch() == llvm::Triple::aarch64_be;
-
-  if (Is64Bit && BTy->getKind() == BuiltinType::Double)
+  if ((Triple.isArch64Bit() || Triple.getArch() == llvm::Triple::aarch64_32) &&
+      BTy->getKind() == BuiltinType::Double)
     return true;
 
   return BTy->getKind() == BuiltinType::SChar ||
@@ -7466,8 +7561,10 @@ static bool isPermittedNeonBaseType(QualType &Ty,
 /// match one of the standard Neon vector types.
 static void HandleNeonVectorTypeAttr(QualType &CurType, const ParsedAttr &Attr,
                                      Sema &S, VectorType::VectorKind VecKind) {
-  // Target must have NEON
-  if (!S.Context.getTargetInfo().hasFeature("neon")) {
+  // Target must have NEON (or MVE, whose vectors are similar enough
+  // not to need a separate attribute)
+  if (!S.Context.getTargetInfo().hasFeature("neon") &&
+      !S.Context.getTargetInfo().hasFeature("mve")) {
     S.Diag(Attr.getLoc(), diag::err_attribute_unsupported) << Attr;
     Attr.setInvalid();
     return;
@@ -7776,7 +7873,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     switch (attr.getKind()) {
     default:
       // A C++11 attribute on a declarator chunk must appertain to a type.
-      if (attr.isCXX11Attribute() && TAL == TAL_DeclChunk) {
+      if (attr.isCXX11Attribute() && TAL == TAL_DeclChunk &&
+          (!state.isProcessingLambdaExpr() || !attr.isAllowedOnLambdas())) {
         state.getSema().Diag(attr.getLoc(), diag::err_attribute_not_type_attr)
             << attr;
         attr.setUsedAsTypeAttr();
@@ -7838,6 +7936,10 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       break;
     case ParsedAttr::AT_OpenCLAccess:
       HandleOpenCLAccessAttr(type, attr, state.getSema());
+      attr.setUsedAsTypeAttr();
+      break;
+    case ParsedAttr::AT_SYCLFPGAPipe:
+      HandleSYCLFPGAPipeAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();
       break;
     case ParsedAttr::AT_LifetimeBound:
@@ -8170,33 +8272,31 @@ bool Sema::hasVisibleDefinition(NamedDecl *D, NamedDecl **Suggested,
 static void assignInheritanceModel(Sema &S, CXXRecordDecl *RD) {
   RD = RD->getMostRecentNonInjectedDecl();
   if (!RD->hasAttr<MSInheritanceAttr>()) {
-    MSInheritanceAttr::Spelling IM;
-
+    MSInheritanceModel IM;
+    bool BestCase = false;
     switch (S.MSPointerToMemberRepresentationMethod) {
     case LangOptions::PPTMK_BestCase:
+      BestCase = true;
       IM = RD->calculateInheritanceModel();
       break;
     case LangOptions::PPTMK_FullGeneralitySingleInheritance:
-      IM = MSInheritanceAttr::Keyword_single_inheritance;
+      IM = MSInheritanceModel::Single;
       break;
     case LangOptions::PPTMK_FullGeneralityMultipleInheritance:
-      IM = MSInheritanceAttr::Keyword_multiple_inheritance;
+      IM = MSInheritanceModel::Multiple;
       break;
     case LangOptions::PPTMK_FullGeneralityVirtualInheritance:
-      IM = MSInheritanceAttr::Keyword_unspecified_inheritance;
+      IM = MSInheritanceModel::Unspecified;
       break;
     }
 
-    SourceRange Loc = 
-    S.ImplicitMSInheritanceAttrLoc.isValid()
-                                 ? S.ImplicitMSInheritanceAttrLoc
-                                 : RD->getSourceRange();
-  RD->addAttr(MSInheritanceAttr::CreateImplicit(
-      S.getASTContext(),
-      /*BestCase=*/S.MSPointerToMemberRepresentationMethod ==
-          LangOptions::PPTMK_BestCase,
-      Loc, AttributeCommonInfo::AS_Microsoft, IM));
-  S.Consumer.AssignInheritanceModel(RD);
+    SourceRange Loc = S.ImplicitMSInheritanceAttrLoc.isValid()
+                          ? S.ImplicitMSInheritanceAttrLoc
+                          : RD->getSourceRange();
+    RD->addAttr(MSInheritanceAttr::CreateImplicit(
+        S.getASTContext(), BestCase, Loc, AttributeCommonInfo::AS_Microsoft,
+        MSInheritanceAttr::Spelling(IM)));
+    S.Consumer.AssignInheritanceModel(RD);
   }
 }
 
@@ -8468,20 +8568,28 @@ bool Sema::RequireLiteralType(SourceLocation Loc, QualType T,
         return true;
       }
     }
-  } else if (!RD->hasTrivialDestructor()) {
-    // All fields and bases are of literal types, so have trivial destructors.
-    // If this class's destructor is non-trivial it must be user-declared.
+  } else if (getLangOpts().CPlusPlus2a ? !RD->hasConstexprDestructor()
+                                       : !RD->hasTrivialDestructor()) {
+    // All fields and bases are of literal types, so have trivial or constexpr
+    // destructors. If this class's destructor is non-trivial / non-constexpr,
+    // it must be user-declared.
     CXXDestructorDecl *Dtor = RD->getDestructor();
     assert(Dtor && "class has literal fields and bases but no dtor?");
     if (!Dtor)
       return true;
 
-    Diag(Dtor->getLocation(), Dtor->isUserProvided() ?
-         diag::note_non_literal_user_provided_dtor :
-         diag::note_non_literal_nontrivial_dtor) << RD;
-    if (!Dtor->isUserProvided())
-      SpecialMemberIsTrivial(Dtor, CXXDestructor, TAH_IgnoreTrivialABI,
-                             /*Diagnose*/true);
+    if (getLangOpts().CPlusPlus2a) {
+      Diag(Dtor->getLocation(), diag::note_non_literal_non_constexpr_dtor)
+          << RD;
+    } else {
+      Diag(Dtor->getLocation(), Dtor->isUserProvided()
+                                    ? diag::note_non_literal_user_provided_dtor
+                                    : diag::note_non_literal_nontrivial_dtor)
+          << RD;
+      if (!Dtor->isUserProvided())
+        SpecialMemberIsTrivial(Dtor, CXXDestructor, TAH_IgnoreTrivialABI,
+                               /*Diagnose*/ true);
+    }
   }
 
   return true;

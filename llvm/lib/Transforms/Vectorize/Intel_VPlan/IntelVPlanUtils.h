@@ -28,6 +28,17 @@ inline bool isMemoryInst(const Instruction *I) {
          (isa<CallInst>(I) && !cast<CallInst>(I)->doesNotAccessMemory());
 }
 
+/// \returns true if \p I is any instruction that can create a belong's-to, or
+/// simple 'aliasing' relationship, with it's input operand.
+template <typename InstTy = Instruction>
+inline bool isTrivialPointerAliasingInst(const InstTy *Inst) {
+  assert(Inst && "Expect a non-null input for isTrivialPointerAliasingInst");
+  return (Inst->getOpcode() == Instruction::BitCast ||
+          Inst->getOpcode() == Instruction::AddrSpaceCast ||
+          Inst->getOpcode() == Instruction::GetElementPtr ||
+          Inst->getOpcode() == Instruction::PHI);
+}
+
 /// \returns the vector bit-size of \p LI .
 inline size_t getVecBits(Instruction *LI, const DataLayout &DL,
                          bool AllowScalars = false) {
@@ -62,7 +73,7 @@ inline MemoryLocation getLocation(Instruction *I) {
   return MemoryLocation();
 }
 
-/// \returns true if the instruction is not a volatile or atomic load/store.
+/// \returns true if the instruction is a volatile or atomic load/store.
 inline bool isVolatileOrAtomic(Instruction *I) {
   if (LoadInst *LI = dyn_cast<LoadInst>(I))
     return !LI->isSimple();
@@ -70,7 +81,7 @@ inline bool isVolatileOrAtomic(Instruction *I) {
     return !SI->isSimple();
   if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I))
     return MI->isVolatile();
-  return true;
+  return false;
 }
 
 /// \returns true if it is a memory RAW or WAR dependence. This is handy for
@@ -164,45 +175,6 @@ inline Function *getCalledFunction(const VPInstruction *Call) {
   assert(isa<Function>(Func->getConstant()) &&
          "Underlying value for function operand is not Function.");
   return cast<Function>(Func->getConstant());
-}
-
-// FIXME: BlendPhi to select lowering should be a separate VPlan-to-VPlan
-// transformation and this routine won't be necessary here. Currently it's
-// needed in both LLVM/HIR code gen, so I had to put it here.
-inline void
-sortBlendPhiIncomingBlocks(const VPPHINode *VPPhi,
-                           SmallVectorImpl<VPBasicBlock *> &SortedBlocks) {
-  assert(SortedBlocks.empty() && "SortedBlocks should be empty!");
-  assert(VPPhi->getBlend() && "Not a blend phi!");
-
-  const VPBasicBlock *VPBB = VPPhi->getParent();
-
-  for (auto *Block : VPPhi->blocks()) {
-    assert(Block != VPBB && "Unexpected backedge for a block with blend phi!");
-    VPBlockBase *Succ =
-        Block->getSingleHierarchicalSuccessor()->getExitBasicBlock();
-    assert(Succ && "Blend phi in non-linearized control flow?");
-
-    bool Inserted = false;
-    // Check if the cfg reaches VPPhi's block through any of the already visited
-    // blocks...
-    while (Succ != VPBB) {
-      auto It = find(SortedBlocks, Succ);
-      if (It != SortedBlocks.end()) {
-        // ... if so, this Block should be processed before the first block in
-        // the SortedBlocks that is on the path from Block to VPPhi's block.
-        SortedBlocks.insert(It, Block);
-        Inserted = true;
-        break;
-      }
-
-      Succ = Succ->getSingleHierarchicalSuccessor()->getExitBasicBlock();
-    }
-    if (!Inserted)
-      // Didn't go through any of the previously collected blocks. That means
-      // those blocks all come through this Block, insert it at the end.
-      SortedBlocks.push_back(Block);
-  }
 }
 
 } // namespace vpo

@@ -66,6 +66,8 @@
 ; CHECK-NEXT: %{{[0-9]+}} = (%pb)[i1 + %bsf + 1];
 ; CHECK-NEXT: goto while.end.loopexit;
 
+target triple = "x86_64-unknown-linux-gnu"
+
 define dso_local i32 @liveout_example(i32 %len_limit, i8* nocapture readonly %pb, i8* nocapture readonly %cur) local_unnamed_addr #0 {
 entry:
   %cmp11 = icmp eq i32 %len_limit, 1
@@ -99,3 +101,5 @@ while.end:
   %t.1 = phi i32 [ 0, %entry ], [ %phitmp, %while.end.loopexit ]
   ret i32 %t.1
 }
+
+attributes #0 = { "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3" }

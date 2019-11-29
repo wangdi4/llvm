@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <detail/error_handling/error_handling.hpp>
+
 #include "CL/sycl/access/access.hpp"
 #include <CL/cl.h>
 #include <CL/sycl/detail/clusm.hpp>
@@ -20,6 +22,7 @@
 #include <CL/sycl/detail/stream_impl.hpp>
 #include <CL/sycl/sampler.hpp>
 
+#include <string>
 #include <vector>
 
 #ifdef __GNUG__
@@ -79,7 +82,7 @@ static std::string accessModeToString(access::mode Mode) {
 
 void EventCompletionClbk(RT::PiEvent, pi_int32, void *data) {
   // TODO: Handle return values. Store errors to async handler.
-  PI_CALL(RT::piEventSetStatus(pi::cast<RT::PiEvent>(data), CL_COMPLETE));
+  PI_CALL(piEventSetStatus)(pi::cast<RT::PiEvent>(data), CL_COMPLETE);
 }
 
 // Method prepares PI event's from list sycl::event's
@@ -101,17 +104,15 @@ std::vector<RT::PiEvent> Command::prepareEvents(ContextImplPtr Context) {
 
     // If contexts don't match - connect them using user event
     if (EventContext != Context && !Context->is_host()) {
-      RT::PiResult Error = PI_SUCCESS;
 
       EventImplPtr GlueEvent(new detail::event_impl());
       GlueEvent->setContextImpl(Context);
 
       RT::PiEvent &GlueEventHandle = GlueEvent->getHandleRef();
-      PI_CALL((GlueEventHandle = RT::piEventCreate(
-          Context->getHandleRef(), &Error), Error));
-      PI_CALL(RT::piEventSetCallback(
-          Event->getHandleRef(), CL_COMPLETE, EventCompletionClbk,
-          /*data=*/GlueEventHandle));
+      PI_CALL(piEventCreate)(Context->getHandleRef(), &GlueEventHandle);
+      PI_CALL(piEventSetCallback)(Event->getHandleRef(), CL_COMPLETE,
+                                  EventCompletionClbk,
+                                  /*data=*/GlueEventHandle);
       GlueEvents.push_back(std::move(GlueEvent));
       Result.push_back(GlueEventHandle);
       continue;
@@ -122,19 +123,67 @@ std::vector<RT::PiEvent> Command::prepareEvents(ContextImplPtr Context) {
   return Result;
 }
 
+void Command::waitForEvents(QueueImplPtr Queue,
+                            std::vector<RT::PiEvent> &RawEvents,
+                            RT::PiEvent &Event) {
+  if (!RawEvents.empty()) {
+    if (Queue->is_host()) {
+      PI_CALL(piEventsWait)(RawEvents.size(), &RawEvents[0]);
+    } else {
+      PI_CALL(piEnqueueEventsWait)(Queue->getHandleRef(), RawEvents.size(),
+                                   &RawEvents[0], &Event);
+    }
+  }
+}
+
 Command::Command(CommandType Type, QueueImplPtr Queue, bool UseExclusiveQueue)
     : MQueue(std::move(Queue)), MUseExclusiveQueue(UseExclusiveQueue),
       MType(Type), MEnqueued(false) {
-  MEvent.reset(new detail::event_impl());
+  MEvent.reset(new detail::event_impl(MQueue));
   MEvent->setCommand(this);
   MEvent->setContextImpl(detail::getSyclObjImpl(MQueue->get_context()));
 }
 
-cl_int Command::enqueue() {
-  bool Expected = false;
-  if (MEnqueued.compare_exchange_strong(Expected, true))
-    return enqueueImp();
-  return CL_SUCCESS;
+bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking) {
+  // Exit if already enqueued
+  if (MEnqueued)
+    return true;
+
+  // If the command is blocked from enqueueing
+  if (MIsBlockable && !MCanEnqueue) {
+    // Exit if enqueue type is not blocking
+    if (!Blocking) {
+      EnqueueResult = EnqueueResultT(EnqueueResultT::BLOCKED, this);
+      return false;
+    }
+    static bool ThrowOnBlock = getenv("SYCL_THROW_ON_BLOCK") != nullptr;
+    if (ThrowOnBlock)
+      throw sycl::runtime_error(
+          std::string("Waiting for blocked command. Block reason: ") +
+              std::string(MBlockReason),
+          PI_INVALID_OPERATION);
+
+    // Wait if blocking
+    while (!MCanEnqueue)
+      ;
+  }
+
+  std::lock_guard<std::mutex> Lock(MEnqueueMtx);
+
+  // Exit if the command is already enqueued
+  if (MEnqueued)
+    return true;
+
+  cl_int Res = enqueueImp();
+
+  if (CL_SUCCESS != Res)
+    EnqueueResult = EnqueueResultT(EnqueueResultT::FAILED, this, Res);
+  else
+    // Consider the command is successfully enqueued if return code is
+    // CL_SUCCESS
+    MEnqueued = true;
+
+  return static_cast<bool>(MEnqueued);
 }
 
 cl_int AllocaCommand::enqueueImp() {
@@ -142,9 +191,21 @@ cl_int AllocaCommand::enqueueImp() {
       Command::prepareEvents(detail::getSyclObjImpl(MQueue->get_context()));
 
   RT::PiEvent &Event = MEvent->getHandleRef();
+
+  void *HostPtr = nullptr;
+  if (!MIsLeaderAlloca) {
+
+    if (MQueue->is_host()) {
+      // Do not need to make allocation if we have a linked device allocation
+      Command::waitForEvents(MQueue, RawEvents, Event);
+      return CL_SUCCESS;
+    }
+    HostPtr = MLinkedAllocaCmd->getMemAllocation();
+  }
+
   MMemAllocation = MemoryManager::allocate(
       detail::getSyclObjImpl(MQueue->get_context()), getSYCLMemObj(),
-      MInitFromUserData, std::move(RawEvents), Event);
+      MInitFromUserData, HostPtr, std::move(RawEvents), Event);
   return CL_SUCCESS;
 }
 
@@ -153,16 +214,19 @@ void AllocaCommand::printDot(std::ostream &Stream) const {
 
   Stream << "ID = " << this << "\\n";
   Stream << "ALLOCA ON " << deviceToString(MQueue->get_device()) << "\\n";
-  Stream << " MemObj : " << this->MReq.MSYCLMemObj << "\\n";
+  Stream << " MemObj : " << this->MRequirement.MSYCLMemObj << "\\n";
+  Stream << " Link : " << this->MLinkedAllocaCmd << "\\n";
   Stream << "\"];" << std::endl;
+
 
   for (const auto &Dep : MDeps) {
     if (Dep.MDepCommand == nullptr)
       continue;
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
@@ -170,9 +234,12 @@ cl_int AllocaSubBufCommand::enqueueImp() {
   std::vector<RT::PiEvent> RawEvents =
       Command::prepareEvents(detail::getSyclObjImpl(MQueue->get_context()));
   RT::PiEvent &Event = MEvent->getHandleRef();
-  MMemAllocation = MemoryManager::createSubBuffer(
-      pi::cast<RT::PiMem>(MParentAlloca->getMemAllocation()), MReq.MElemSize,
-      MReq.MOffset, MReq.MAccessRange, std::move(RawEvents), Event);
+
+  MMemAllocation = MemoryManager::allocateMemSubBuffer(
+      detail::getSyclObjImpl(MQueue->get_context()),
+      MParentAlloca->getMemAllocation(), MRequirement.MElemSize,
+      MRequirement.MOffsetInBytes, MRequirement.MAccessRange,
+      std::move(RawEvents), Event);
   return CL_SUCCESS;
 }
 
@@ -182,9 +249,9 @@ void AllocaSubBufCommand::printDot(std::ostream &Stream) const {
   Stream << "ID = " << this << "\\n";
   Stream << "ALLOCA SUB BUF ON " << deviceToString(MQueue->get_device())
          << "\\n";
-  Stream << " MemObj : " << this->MReq.MSYCLMemObj << "\\n";
-  Stream << " Offset : " << this->MReq.MOffset[0] << "\\n";
-  Stream << " Access range : " << this->MReq.MAccessRange[0] << "\\n";
+  Stream << " MemObj : " << this->MRequirement.MSYCLMemObj << "\\n";
+  Stream << " Offset : " << this->MRequirement.MOffsetInBytes << "\\n";
+  Stream << " Access range : " << this->MRequirement.MAccessRange[0] << "\\n";
   Stream << "\"];" << std::endl;
 
   for (const auto &Dep : MDeps) {
@@ -192,8 +259,9 @@ void AllocaSubBufCommand::printDot(std::ostream &Stream) const {
       continue;
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
@@ -201,18 +269,60 @@ cl_int ReleaseCommand::enqueueImp() {
   std::vector<RT::PiEvent> RawEvents =
       Command::prepareEvents(detail::getSyclObjImpl(MQueue->get_context()));
 
-  RT::PiEvent &Event = MEvent->getHandleRef();
+  bool SkipRelease = false;
 
   // On host side we only allocate memory for full buffers.
   // Thus, deallocating sub buffers leads to double memory freeing.
-  if (!(MQueue->is_host() && MAllocaCmd->getType() == ALLOCA_SUB_BUF))
+  SkipRelease |= MQueue->is_host() && MAllocaCmd->getType() == ALLOCA_SUB_BUF;
+
+  const bool CurAllocaIsHost = MAllocaCmd->getQueue()->is_host();
+  bool NeedUnmap = false;
+  if (MAllocaCmd->MLinkedAllocaCmd) {
+
+    // When releasing one of the "linked" allocations special rules take place:
+    // 1. Device allocation should always be released.
+    // 2. Host allocation should be released if host allocation is "leader".
+    // 3. Device alloca in the pair should be in active state in order to be
+    //    correctly released.
+
+
+    // There is no actual memory allocation if a host alloca command is created
+    // being linked to a device allocation.
+    SkipRelease |= CurAllocaIsHost && !MAllocaCmd->MIsLeaderAlloca;
+
+    NeedUnmap |= CurAllocaIsHost == MAllocaCmd->MIsActive;
+  }
+
+  if (NeedUnmap) {
+    const QueueImplPtr &Queue = CurAllocaIsHost
+                                    ? MAllocaCmd->MLinkedAllocaCmd->getQueue()
+                                    : MAllocaCmd->getQueue();
+    RT::PiEvent UnmapEvent = nullptr;
+
+    void *Src = CurAllocaIsHost
+                    ? MAllocaCmd->getMemAllocation()
+                    : MAllocaCmd->MLinkedAllocaCmd->getMemAllocation();
+
+    void *Dst = !CurAllocaIsHost
+                    ? MAllocaCmd->getMemAllocation()
+                    : MAllocaCmd->MLinkedAllocaCmd->getMemAllocation();
+
+    MemoryManager::unmap(MAllocaCmd->getSYCLMemObj(), Dst, Queue, Src,
+                         std::move(RawEvents), /*MUseExclusiveQueue*/ false,
+                         UnmapEvent);
+
+    std::swap(MAllocaCmd->MIsActive, MAllocaCmd->MLinkedAllocaCmd->MIsActive);
+    RawEvents.push_back(UnmapEvent);
+  }
+
+  RT::PiEvent &Event = MEvent->getHandleRef();
+  if (SkipRelease)
+    Command::waitForEvents(MQueue, RawEvents, Event);
+  else
     MemoryManager::release(detail::getSyclObjImpl(MQueue->get_context()),
                            MAllocaCmd->getSYCLMemObj(),
                            MAllocaCmd->getMemAllocation(), std::move(RawEvents),
                            Event);
-  else
-    PI_CALL(RT::piEnqueueEventsWait(MQueue->getHandleRef(), RawEvents.size(),
-                                    &RawEvents[0], &Event));
 
   return CL_SUCCESS;
 }
@@ -229,29 +339,27 @@ void ReleaseCommand::printDot(std::ostream &Stream) const {
   for (const auto &Dep : MDeps) {
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
-MapMemObject::MapMemObject(Requirement SrcReq, AllocaCommandBase *SrcAlloca,
-                           Requirement *DstAcc, QueueImplPtr Queue)
+MapMemObject::MapMemObject(AllocaCommandBase *SrcAllocaCmd, Requirement Req,
+                           void **DstPtr, QueueImplPtr Queue)
     : Command(CommandType::MAP_MEM_OBJ, std::move(Queue)),
-      MSrcReq(std::move(SrcReq)), MSrcAlloca(SrcAlloca), MDstAcc(DstAcc),
-      MDstReq(*DstAcc) {}
+      MSrcAllocaCmd(SrcAllocaCmd), MSrcReq(std::move(Req)), MDstPtr(DstPtr) {}
 
 cl_int MapMemObject::enqueueImp() {
   std::vector<RT::PiEvent> RawEvents =
       Command::prepareEvents(detail::getSyclObjImpl(MQueue->get_context()));
-  assert(MDstReq.MDims == 1);
 
   RT::PiEvent &Event = MEvent->getHandleRef();
-  void *MappedPtr = MemoryManager::map(
-      MSrcAlloca->getSYCLMemObj(), MSrcAlloca->getMemAllocation(), MQueue,
-      MDstReq.MAccessMode, MDstReq.MDims, MDstReq.MMemoryRange,
-      MDstReq.MAccessRange, MDstReq.MOffset, MDstReq.MElemSize,
+  *MDstPtr = MemoryManager::map(
+      MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(), MQueue,
+      MSrcReq.MAccessMode, MSrcReq.MDims, MSrcReq.MMemoryRange,
+      MSrcReq.MAccessRange, MSrcReq.MOffset, MSrcReq.MElemSize,
       std::move(RawEvents), Event);
-  MDstAcc->MData = MappedPtr;
   return CL_SUCCESS;
 }
 
@@ -266,24 +374,25 @@ void MapMemObject::printDot(std::ostream &Stream) const {
   for (const auto &Dep : MDeps) {
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
-UnMapMemObject::UnMapMemObject(Requirement SrcReq, AllocaCommandBase *SrcAlloca,
-                               Requirement *DstAcc, QueueImplPtr Queue,
+UnMapMemObject::UnMapMemObject(AllocaCommandBase *DstAllocaCmd, Requirement Req,
+                               void **SrcPtr, QueueImplPtr Queue,
                                bool UseExclusiveQueue)
     : Command(CommandType::UNMAP_MEM_OBJ, std::move(Queue), UseExclusiveQueue),
-      MSrcReq(std::move(SrcReq)), MSrcAlloca(SrcAlloca), MDstAcc(DstAcc) {}
+      MDstAllocaCmd(DstAllocaCmd), MDstReq(std::move(Req)), MSrcPtr(SrcPtr) {}
 
 cl_int UnMapMemObject::enqueueImp() {
   std::vector<RT::PiEvent> RawEvents =
       Command::prepareEvents(detail::getSyclObjImpl(MQueue->get_context()));
 
   RT::PiEvent &Event = MEvent->getHandleRef();
-  MemoryManager::unmap(MSrcAlloca->getSYCLMemObj(),
-                       MSrcAlloca->getMemAllocation(), MQueue, MDstAcc->MData,
+  MemoryManager::unmap(MDstAllocaCmd->getSYCLMemObj(),
+                       MDstAllocaCmd->getMemAllocation(), MQueue, *MSrcPtr,
                        std::move(RawEvents), MUseExclusiveQueue, Event);
   return CL_SUCCESS;
 }
@@ -299,18 +408,22 @@ void UnMapMemObject::printDot(std::ostream &Stream) const {
   for (const auto &Dep : MDeps) {
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
-MemCpyCommand::MemCpyCommand(Requirement SrcReq, AllocaCommandBase *SrcAlloca,
-                             Requirement DstReq, AllocaCommandBase *DstAlloca,
+MemCpyCommand::MemCpyCommand(Requirement SrcReq,
+                             AllocaCommandBase *SrcAllocaCmd,
+                             Requirement DstReq,
+                             AllocaCommandBase *DstAllocaCmd,
                              QueueImplPtr SrcQueue, QueueImplPtr DstQueue,
                              bool UseExclusiveQueue)
     : Command(CommandType::COPY_MEMORY, std::move(DstQueue), UseExclusiveQueue),
-      MSrcQueue(SrcQueue), MSrcReq(std::move(SrcReq)), MSrcAlloca(SrcAlloca),
-      MDstReq(std::move(DstReq)), MDstAlloca(DstAlloca) {
+      MSrcQueue(SrcQueue), MSrcReq(std::move(SrcReq)),
+      MSrcAllocaCmd(SrcAllocaCmd), MDstReq(std::move(DstReq)),
+      MDstAllocaCmd(DstAllocaCmd) {
   if (!MSrcQueue->is_host())
     MEvent->setContextImpl(detail::getSyclObjImpl(MSrcQueue->get_context()));
 }
@@ -328,28 +441,18 @@ cl_int MemCpyCommand::enqueueImp() {
   // empty node instead of memcpy.
   if (MDstReq.MAccessMode == access::mode::discard_read_write ||
       MDstReq.MAccessMode == access::mode::discard_write ||
-      MSrcAlloca->getMemAllocation() == MDstAlloca->getMemAllocation()) {
-
-    if (!RawEvents.empty()) {
-      if (Queue->is_host()) {
-        PI_CALL(RT::piEventsWait(RawEvents.size(), &RawEvents[0]));
-      } else {
-        PI_CALL(RT::piEnqueueEventsWait(
-            Queue->getHandleRef(), RawEvents.size(), &RawEvents[0], &Event));
-      }
-    }
+      MSrcAllocaCmd->getMemAllocation() == MDstAllocaCmd->getMemAllocation()) {
+    Command::waitForEvents(Queue, RawEvents, Event);
   } else {
     MemoryManager::copy(
-        MSrcAlloca->getSYCLMemObj(), MSrcAlloca->getMemAllocation(), MSrcQueue,
-        MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
-        MSrcReq.MOffset, MSrcReq.MElemSize, MDstAlloca->getMemAllocation(),
+        MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(),
+        MSrcQueue, MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
+        MSrcReq.MOffset, MSrcReq.MElemSize, MDstAllocaCmd->getMemAllocation(),
         MQueue, MDstReq.MDims, MDstReq.MMemoryRange, MDstReq.MAccessRange,
         MDstReq.MOffset, MDstReq.MElemSize, std::move(RawEvents),
         MUseExclusiveQueue, Event);
   }
 
-  if (MAccToUpdate)
-    MAccToUpdate->MData = MDstAlloca->getMemAllocation();
   return CL_SUCCESS;
 }
 
@@ -358,23 +461,25 @@ void MemCpyCommand::printDot(std::ostream &Stream) const {
 
   Stream << "ID = " << this << " ; ";
   Stream << "MEMCPY ON " << deviceToString(MQueue->get_device()) << "\\n";
-  Stream << "From: " << MSrcAlloca << " is host: " << MSrcQueue->is_host()
+  Stream << "From: " << MSrcAllocaCmd << " is host: " << MSrcQueue->is_host()
          << "\\n";
-  Stream << "To: " << MDstAlloca << " is host: " << MQueue->is_host() << "\\n";
+  Stream << "To: " << MDstAllocaCmd << " is host: " << MQueue->is_host()
+         << "\\n";
 
   Stream << "\"];" << std::endl;
 
   for (const auto &Dep : MDeps) {
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
 AllocaCommandBase *ExecCGCommand::getAllocaForReq(Requirement *Req) {
   for (const DepDesc &Dep : MDeps) {
-    if (Dep.MReq == Req)
+    if (Dep.MDepRequirement == Req)
       return Dep.MAllocaCmd;
   }
   throw runtime_error("Alloca for command not found");
@@ -388,13 +493,51 @@ void ExecCGCommand::flushStreams() {
   }
 }
 
+cl_int UpdateHostRequirementCommand::enqueueImp() {
+  std::vector<RT::PiEvent> RawEvents;
+  RawEvents =
+      Command::prepareEvents(detail::getSyclObjImpl(MQueue->get_context()));
+  RT::PiEvent &Event = MEvent->getHandleRef();
+  Command::waitForEvents(MQueue, RawEvents, Event);
+
+  assert(MSrcAllocaCmd && "Expected valid alloca command");
+  assert(MSrcAllocaCmd->getMemAllocation() && "Expected valid source pointer");
+  assert(MDstPtr && "Expected valid target pointer");
+  *MDstPtr = MSrcAllocaCmd->getMemAllocation();
+  return CL_SUCCESS;
+}
+
+void UpdateHostRequirementCommand::printDot(std::ostream &Stream) const {
+  Stream << "\"" << this << "\" [style=filled, fillcolor=\"#f1337f\", label=\"";
+
+  Stream << "ID = " << this << "\n";
+  Stream << "UPDATE REQ ON " << deviceToString(MQueue->get_device()) << "\\n";
+  bool IsReqOnBuffer =
+      MDstReq.MSYCLMemObj->getType() == SYCLMemObjI::MemObjType::BUFFER;
+  Stream << "TYPE: " << (IsReqOnBuffer ? "Buffer" : "Image") << "\\n";
+  if (IsReqOnBuffer)
+    Stream << "Is sub buffer: " << std::boolalpha << MDstReq.MIsSubBuffer
+           << "\\n";
+
+  Stream << "\"];" << std::endl;
+
+  for (const auto &Dep : MDeps) {
+    Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
+           << " [ label = \"Access mode: "
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MAllocaCmd->getSYCLMemObj() << " \" ]"
+           << std::endl;
+  }
+}
+
 MemCpyCommandHost::MemCpyCommandHost(Requirement SrcReq,
-                                     AllocaCommandBase *SrcAlloca,
-                                     Requirement *DstAcc, QueueImplPtr SrcQueue,
+                                     AllocaCommandBase *SrcAllocaCmd,
+                                     Requirement DstReq, void **DstPtr,
+                                     QueueImplPtr SrcQueue,
                                      QueueImplPtr DstQueue)
     : Command(CommandType::COPY_MEMORY, std::move(DstQueue)),
-      MSrcQueue(SrcQueue), MSrcReq(std::move(SrcReq)), MSrcAlloca(SrcAlloca),
-      MDstReq(*DstAcc), MDstAcc(DstAcc) {
+      MSrcQueue(SrcQueue), MSrcReq(std::move(SrcReq)),
+      MSrcAllocaCmd(SrcAllocaCmd), MDstReq(std::move(DstReq)), MDstPtr(DstPtr) {
   if (!MSrcQueue->is_host())
     MEvent->setContextImpl(detail::getSyclObjImpl(MSrcQueue->get_context()));
 }
@@ -410,25 +553,35 @@ cl_int MemCpyCommandHost::enqueueImp() {
   // empty node instead of memcpy.
   if (MDstReq.MAccessMode == access::mode::discard_read_write ||
       MDstReq.MAccessMode == access::mode::discard_write) {
-
-    if (!RawEvents.empty()) {
-      if (Queue->is_host()) {
-        PI_CALL(RT::piEventsWait(RawEvents.size(), &RawEvents[0]));
-      } else {
-        PI_CALL(RT::piEnqueueEventsWait(
-            Queue->getHandleRef(), RawEvents.size(), &RawEvents[0], &Event));
-      }
-    }
+    Command::waitForEvents(Queue, RawEvents, Event);
     return CL_SUCCESS;
   }
 
   MemoryManager::copy(
-      MSrcAlloca->getSYCLMemObj(), MSrcAlloca->getMemAllocation(), MSrcQueue,
-      MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
-      MSrcReq.MOffset, MSrcReq.MElemSize, MDstAcc->MData, MQueue, MDstReq.MDims,
+      MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(),
+      MSrcQueue, MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
+      MSrcReq.MOffset, MSrcReq.MElemSize, *MDstPtr, MQueue, MDstReq.MDims,
       MDstReq.MMemoryRange, MDstReq.MAccessRange, MDstReq.MOffset,
       MDstReq.MElemSize, std::move(RawEvents), MUseExclusiveQueue, Event);
   return CL_SUCCESS;
+}
+
+void EmptyCommand::printDot(std::ostream &Stream) const {
+  Stream << "\"" << this << "\" [style=filled, fillcolor=\"#8d8f29\", label=\"";
+
+  Stream << "ID = " << this << "\n";
+  Stream << "EMPTY NODE"
+         << "\\n";
+
+  Stream << "\"];" << std::endl;
+
+  for (const auto &Dep : MDeps) {
+    Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
+           << " [ label = \"Access mode: "
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
+  }
 }
 
 void MemCpyCommandHost::printDot(std::ostream &Stream) const {
@@ -442,8 +595,9 @@ void MemCpyCommandHost::printDot(std::ostream &Stream) const {
   for (const auto &Dep : MDeps) {
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
@@ -486,6 +640,9 @@ void ExecCGCommand::printDot(std::ostream &Stream) const {
   case detail::CG::FILL_USM:
     Stream << "CG type: fill usm\\n";
     break;
+  case detail::CG::PREFETCH_USM:
+    Stream << "CG type: prefetch usm\\n";
+    break;
   default:
     Stream << "CG type: unknown\\n";
     break;
@@ -496,8 +653,9 @@ void ExecCGCommand::printDot(std::ostream &Stream) const {
   for (const auto &Dep : MDeps) {
     Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
            << " [ label = \"Access mode: "
-           << accessModeToString(Dep.MReq->MAccessMode) << "\\n"
-           << "MemObj: " << Dep.MReq->MSYCLMemObj << " \" ]" << std::endl;
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
   }
 }
 
@@ -522,21 +680,39 @@ static void adjustNDRangePerKernel(NDRDescT &NDR, RT::PiKernel Kernel,
   // avoid get_kernel_work_group_info on every kernel run
   range<3> WGSize = get_kernel_work_group_info<
       range<3>,
-      cl::sycl::info::kernel_work_group::compile_work_group_size>::_(Kernel,
-                                                                     Device);
+      cl::sycl::info::kernel_work_group::compile_work_group_size>::get(Kernel,
+                                                                       Device);
 
   if (WGSize[0] == 0) {
     // kernel does not request specific workgroup shape - set one
     // TODO maximum work group size as the local size might not be the best
     //      choice for CPU or FPGA devices
     size_t WGSize1D = get_kernel_work_group_info<
-        size_t, cl::sycl::info::kernel_work_group::work_group_size>::_(Kernel,
-                                                                       Device);
+        size_t,
+        cl::sycl::info::kernel_work_group::work_group_size>::get(Kernel,
+                                                                 Device);
     assert(WGSize1D != 0);
     // TODO implement better default for 2D/3D case:
     WGSize = {WGSize1D, 1, 1};
   }
   NDR.set(NDR.Dims, nd_range<3>(NDR.NumWorkGroups * WGSize, WGSize));
+}
+
+// We have the following mapping between dimensions with SPIRV builtins:
+// 1D: id[0] -> x
+// 2D: id[0] -> y, id[1] -> x
+// 3D: id[0] -> z, id[1] -> y, id[2] -> x
+// So in order to ensure the correctness we update all the kernel
+// parameters accordingly.
+// Initially we keep the order of NDRDescT as it provided by the user, this
+// simplifies overall handling and do the reverse only when
+// the kernel is enqueued.
+static void ReverseRangeDimensionsForKernel(NDRDescT &NDR) {
+  if (NDR.Dims > 1) {
+    std::swap(NDR.GlobalSize[0], NDR.GlobalSize[NDR.Dims - 1]);
+    std::swap(NDR.LocalSize[0], NDR.LocalSize[NDR.Dims - 1]);
+    std::swap(NDR.GlobalOffset[0], NDR.GlobalOffset[NDR.Dims - 1]);
+  }
 }
 
 // The function initialize accessors and calls lambda.
@@ -550,7 +726,7 @@ void DispatchNativeKernel(void *Blob) {
   void **NextArg = (void **)Blob + 1;
   for (detail::Requirement *Req : HostTask->MRequirements)
     Req->MData = *(NextArg++);
-  HostTask->MHostKernel->call(HostTask->MNDRDesc);
+  HostTask->MHostKernel->call(HostTask->MNDRDesc, nullptr);
 }
 
 cl_int ExecCGCommand::enqueueImp() {
@@ -618,12 +794,11 @@ cl_int ExecCGCommand::enqueueImp() {
     Requirement *Req = (Requirement *)(Fill->getReqToFill());
     AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
 
-    MemoryManager::fill(AllocaCmd->getSYCLMemObj(),
-                        AllocaCmd->getMemAllocation(), MQueue,
-                        Fill->MPattern.size(), Fill->MPattern.data(),
-                        Req->MDims, Req->MMemoryRange, Req->MAccessRange,
-                        Req->MOffset, Req->MElemSize, std::move(RawEvents),
-                        Event);
+    MemoryManager::fill(
+        AllocaCmd->getSYCLMemObj(), AllocaCmd->getMemAllocation(), MQueue,
+        Fill->MPattern.size(), Fill->MPattern.data(), Req->MDims,
+        Req->MMemoryRange, Req->MAccessRange, Req->MOffset, Req->MElemSize,
+        std::move(RawEvents), Event);
     return CL_SUCCESS;
   }
   case CG::CGTYPE::RUN_ON_HOST_INTEL: {
@@ -648,8 +823,8 @@ cl_int ExecCGCommand::enqueueImp() {
       }
 
       if (!RawEvents.empty())
-        PI_CALL(RT::piEventsWait(RawEvents.size(), &RawEvents[0]));
-      DispatchNativeKernel((void*)ArgsBlob.data());
+        PI_CALL(piEventsWait)(RawEvents.size(), &RawEvents[0]);
+      DispatchNativeKernel((void *)ArgsBlob.data());
       return CL_SUCCESS;
     }
 
@@ -657,7 +832,7 @@ cl_int ExecCGCommand::enqueueImp() {
     // piEnqueueNativeKernel requires additional array of pointers to args blob,
     // values that pointers point to are replaced with actual pointers to the
     // memory before execution of user function.
-    std::vector<void*> MemLocs;
+    std::vector<void *> MemLocs;
 
     for (ArgDesc &Arg : HostTask->MArgs) {
       assert(Arg.MType == kernel_param_kind_t::kind_accessor);
@@ -671,11 +846,11 @@ cl_int ExecCGCommand::enqueueImp() {
       NextArg++;
     }
 
-    pi_result Error = PI_CALL_RESULT(RT::piEnqueueNativeKernel(
+    pi_result Error = PI_CALL_NOCHECK(piEnqueueNativeKernel)(
         MQueue->getHandleRef(), DispatchNativeKernel, (void *)ArgsBlob.data(),
         ArgsBlob.size() * sizeof(ArgsBlob[0]), Buffers.size(), Buffers.data(),
         const_cast<const void **>(MemLocs.data()), RawEvents.size(),
-        RawEvents.empty() ? nullptr : RawEvents.data(), &Event));
+        RawEvents.empty() ? nullptr : RawEvents.data(), &Event);
 
     switch (Error) {
     case PI_INVALID_OPERATION:
@@ -701,8 +876,9 @@ cl_int ExecCGCommand::enqueueImp() {
           Req->MData = AllocaCmd->getMemAllocation();
         }
       if (!RawEvents.empty())
-        PI_CALL(RT::piEventsWait(RawEvents.size(), &RawEvents[0]));
-      ExecKernel->MHostKernel->call(NDRDesc);
+        PI_CALL(piEventsWait)(RawEvents.size(), &RawEvents[0]);
+      ExecKernel->MHostKernel->call(NDRDesc,
+                                    getEvent()->getHostProfilingInfo());
       return CL_SUCCESS;
     }
 
@@ -711,7 +887,7 @@ cl_int ExecCGCommand::enqueueImp() {
     RT::PiKernel Kernel = nullptr;
 
     if (nullptr != ExecKernel->MSyclKernel) {
-      assert(ExecKernel->MSyclKernel->get_context() == Context);
+      assert(ExecKernel->MSyclKernel->get_info<info::kernel::context>() == Context);
       Kernel = ExecKernel->MSyclKernel->getHandleRef();
     } else
       Kernel = detail::ProgramManager::getInstance().getOrCreateKernel(
@@ -723,29 +899,27 @@ cl_int ExecCGCommand::enqueueImp() {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
         cl_mem MemArg = (cl_mem)AllocaCmd->getMemAllocation();
-
-        PI_CALL(RT::piKernelSetArg(
-            Kernel, Arg.MIndex, sizeof(cl_mem), &MemArg));
+        PI_CALL(piKernelSetArg)(Kernel, Arg.MIndex, sizeof(cl_mem), &MemArg);
         break;
       }
       case kernel_param_kind_t::kind_std_layout: {
-        PI_CALL(RT::piKernelSetArg(
-            Kernel, Arg.MIndex, Arg.MSize, Arg.MPtr));
+        PI_CALL(piKernelSetArg)(Kernel, Arg.MIndex, Arg.MSize, Arg.MPtr);
         break;
       }
       case kernel_param_kind_t::kind_sampler: {
         sampler *SamplerPtr = (sampler *)Arg.MPtr;
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
-        PI_CALL(RT::piKernelSetArg(
-            Kernel, Arg.MIndex, sizeof(cl_sampler), &Sampler));
+        PI_CALL(piKernelSetArg)(Kernel, Arg.MIndex, sizeof(cl_sampler),
+                                &Sampler);
         break;
       }
-      case kernel_param_kind_t::kind_pointer:  {
+      case kernel_param_kind_t::kind_pointer: {
         std::shared_ptr<usm::USMDispatcher> USMDispatch =
             getSyclObjImpl(Context)->getUSMDispatch();
-        auto PtrToPtr = reinterpret_cast<intptr_t*>(Arg.MPtr);
-        auto DerefPtr = reinterpret_cast<void*>(*PtrToPtr);
+        auto PtrToPtr = reinterpret_cast<intptr_t *>(Arg.MPtr);
+        auto DerefPtr = reinterpret_cast<void *>(*PtrToPtr);
+        assert(USMDispatch != nullptr && "USM dispatcher is not available");
         pi::cast<RT::PiResult>(
             USMDispatch->setKernelArgMemPointer(Kernel, Arg.MIndex, DerefPtr));
         break;
@@ -755,33 +929,53 @@ cl_int ExecCGCommand::enqueueImp() {
       }
     }
 
-    adjustNDRangePerKernel(NDRDesc, Kernel,
-                           detail::getSyclObjImpl(
-                               MQueue->get_device())->getHandleRef());
+    adjustNDRangePerKernel(
+        NDRDesc, Kernel,
+        detail::getSyclObjImpl(MQueue->get_device())->getHandleRef());
 
     std::shared_ptr<usm::USMDispatcher> USMDispatch =
         getSyclObjImpl(Context)->getUSMDispatch();
+    assert(USMDispatch != nullptr && "USM dispatcher is not available");
     USMDispatch->setKernelIndirectAccess(Kernel, MQueue->getHandleRef());
 
-    PI_CALL(RT::piEnqueueKernelLaunch(
-        MQueue->getHandleRef(), Kernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
-        &NDRDesc.GlobalSize[0],
-        NDRDesc.LocalSize[0] ? &NDRDesc.LocalSize[0] : nullptr,
-        RawEvents.size(),
-        RawEvents.empty() ? nullptr : &RawEvents[0], &Event));
+    // Remember this information before the range dimensions are reversed
+    const bool HasLocalSize = (NDRDesc.LocalSize[0] != 0);
 
+    ReverseRangeDimensionsForKernel(NDRDesc);
+
+    pi_result Error = PI_CALL_NOCHECK(piEnqueueKernelLaunch)(
+        MQueue->getHandleRef(), Kernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
+        &NDRDesc.GlobalSize[0], HasLocalSize ? &NDRDesc.LocalSize[0] : nullptr,
+        RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0], &Event);
+
+    if (PI_SUCCESS != Error) {
+      // If we have got non-success error code, let's analyze it to emit nice
+      // exception explaining what was wrong
+      pi_device Device =
+          detail::getSyclObjImpl(MQueue->get_device())->getHandleRef();
+      return detail::enqueue_kernel_launch::handleError(Error, Device, Kernel,
+                                                        NDRDesc);
+    }
     return PI_SUCCESS;
   }
   case CG::CGTYPE::COPY_USM: {
     CGCopyUSM *Copy = (CGCopyUSM *)MCommandGroup.get();
     MemoryManager::copy_usm(Copy->getSrc(), MQueue, Copy->getLength(),
-        Copy->getDst(), std::move(RawEvents), MUseExclusiveQueue, Event);
+                            Copy->getDst(), std::move(RawEvents),
+                            MUseExclusiveQueue, Event);
     return CL_SUCCESS;
   }
   case CG::CGTYPE::FILL_USM: {
     CGFillUSM *Fill = (CGFillUSM *)MCommandGroup.get();
     MemoryManager::fill_usm(Fill->getDst(), MQueue, Fill->getLength(),
-        Fill->getFill(), std::move(RawEvents), Event);
+                            Fill->getFill(), std::move(RawEvents), Event);
+    return CL_SUCCESS;
+  }
+  case CG::CGTYPE::PREFETCH_USM: {
+    CGPrefetchUSM *Prefetch = (CGPrefetchUSM *)MCommandGroup.get();
+    MemoryManager::prefetch_usm(Prefetch->getDst(), MQueue,
+                                Prefetch->getLength(), std::move(RawEvents),
+                                Event);
     return CL_SUCCESS;
   }
   case CG::CGTYPE::NONE:

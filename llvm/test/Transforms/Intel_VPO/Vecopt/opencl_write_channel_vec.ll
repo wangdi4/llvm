@@ -1,4 +1,7 @@
-; RUN: opt %s -S -VPlanDriver -vplan-force-vf=4 2>&1 | FileCheck %s
+; Note: Test is explicitly disabled for VPValue-based CG as the feature is not uplifted yet from
+; IR-based CG.
+; RUN: opt %s -S -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false 2>&1 | FileCheck %s
+
 
 ; CHECK: __write_pipe_2_bl_fpga_v4i8
 

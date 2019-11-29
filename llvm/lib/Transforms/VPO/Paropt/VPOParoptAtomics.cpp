@@ -27,6 +27,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/VPOParoptAtomics.h"
 
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"

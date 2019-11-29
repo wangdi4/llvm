@@ -1,9 +1,6 @@
 // RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %t.out
 
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
-
 //===- MultipleDevices.cpp - Test checking multi-device execution --------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

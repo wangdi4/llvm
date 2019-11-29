@@ -29,6 +29,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 
+#include <atomic>
 #include <list>
 #include <map>
 #include <queue>
@@ -619,6 +620,7 @@ private:
   void visitAtomicRMWInst(AtomicRMWInst &AI);
   void visitPtrToIntInst(PtrToIntInst &AI);
   void visitIntToPtrInst(IntToPtrInst &AI);
+  void visitUnaryOperator(UnaryOperator &AI);
   void visitBinaryOperator(BinaryOperator &AI);
   void visitExtractElementInst(ExtractElementInst &AI);
   void visitInsertElementInst(InsertElementInst &AI);

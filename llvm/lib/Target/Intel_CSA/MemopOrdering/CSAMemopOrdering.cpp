@@ -25,6 +25,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/GraphWriter.h"
 
 #include <algorithm>

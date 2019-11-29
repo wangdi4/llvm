@@ -15,13 +15,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanDecomposerHIR.h"
+#include "../IntelVPlanIDF.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/IteratedDominanceFrontier.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
@@ -658,6 +658,17 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set the underlying DDNode for the load instruction since it will be
       // master VPI for this node
       NewVPInst->HIR.setUnderlyingNode(DDNode);
+    } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
+      // For direct calls, the called function should be added as last operand
+      // of the generated VPInstruction.
+      if (!HInst->isIndirectCallInst()) {
+        Function *F = Call->getCalledFunction();
+        assert(F && "Call HLInst does not have called function.");
+        VPValue *VPFunc = Plan->getVPConstant(F);
+        NewVPInst->addOperand(VPFunc);
+      }
     } else
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(

@@ -388,8 +388,15 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
         FoundDelta = true;
         Delta = CurDelta;
       }
-    } else {
+
+    } else if (CurDelta) {
       int64_t DimStride = Ref1->getDimensionConstStride(I);
+
+      // Bail out for non-constant stride.
+      if (!DimStride) {
+        return false;
+      }
+
       Delta += CurDelta * DimStride;
     }
   }
@@ -481,7 +488,8 @@ Type *DDRefUtils::getOffsetType(Type *Ty, ArrayRef<unsigned> Offsets) {
 // 5) if (equiv(a,b)==true) equiv(b,a)==true
 // 6) if (equiv(a,b)==true && equiv(b,c)==true) equiv(a,c)==true
 //
-bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+static Optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
+                                        const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() &&
          "Both RegDDRefs are expected to be memory references.");
 
@@ -522,9 +530,26 @@ bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
     }
   }
 
+  return {};
+}
+
+bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+  if (auto Ret = compareMemRefImpl(Ref1, Ref2)) {
+    return *Ret;
+  }
+
   // Place writes first in case everything matches.
   if (Ref1->isLval() != Ref2->isLval()) {
     return Ref1->isLval();
+  }
+
+  return false;
+}
+
+bool DDRefUtils::compareMemRefAddress(const RegDDRef *Ref1,
+                                      const RegDDRef *Ref2) {
+  if (auto Ret = compareMemRefImpl(Ref1, Ref2)) {
+    return *Ret;
   }
 
   return false;
@@ -556,4 +581,12 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
     assert(Res && "Replacement failed, caller should call "
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
   }
+}
+
+bool DDRefUtils::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
+                                 SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
+                                 SmallVectorImpl<BlobTy> *DimSizes) {
+  assert(!GepRefs.empty() && "Empty input container");
+  return GepRefs.front()->getDDRefUtils().getHIRParser().delinearizeRefs(
+      GepRefs, OutRefs, DimSizes);
 }

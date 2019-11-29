@@ -40,6 +40,8 @@
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -904,7 +906,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
   if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero()) {
+      (*Ref->canon_begin())->isZero(true /*HandleSplat*/)) {
     // GEP is not needed.
   } else {
     assert(DimNum && "No dimensions");
@@ -1930,7 +1932,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         ElementType, Ops[1],
         "hir.alloca." + std::to_string(HInst->getNumber()));
 
-    NewAlloca->setAlignment(Alloca->getAlignment());
+    NewAlloca->setAlignment(MaybeAlign(Alloca->getAlignment()));
     StoreVal = NewAlloca;
 
   } else if (isa<ExtractElementInst>(Inst)) {
@@ -1950,6 +1952,10 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (isa<UnreachableInst>(Inst)) {
     assert(Ops.empty() && "No operands expected for uneachable inst!");
     StoreVal = Builder.CreateUnreachable();
+
+  } else if (Inst->getOpcode() == Instruction::FNeg) {
+    StoreVal = Builder.CreateFNeg(Ops[1], "fneg");
+
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }

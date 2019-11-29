@@ -105,11 +105,57 @@ public:
   }
 
   event memset(void* ptr, int value, size_t count) {
-    return impl->memset(ptr, value, count);
+    return impl->memset(impl, ptr, value, count);
   }
 
   event memcpy(void* dest, const void* src, size_t count) {
-    return impl->memcpy(dest, src, count);
+    return impl->memcpy(impl, dest, src, count);
+  }
+
+  event prefetch(const void* Ptr, size_t Count) {
+    return submit([=](handler &cgh) {
+        cgh.prefetch(Ptr, Count);
+    });
+  }
+
+  // single_task version with a kernel represented as a lambda.
+  template <typename KernelName = csd::auto_name, typename KernelType>
+  void single_task(KernelType KernelFunc) {
+    submit([&](handler &cgh) {
+      cgh.template single_task<KernelName, KernelType>(KernelFunc);
+    });
+  }
+
+  // parallel_for version with a kernel represented as a lambda + range that
+  // specifies global size only.
+  template <typename KernelName = csd::auto_name, typename KernelType, int Dims>
+  void parallel_for(range<Dims> NumWorkItems, KernelType KernelFunc) {
+    // By-value or By-reference for this?
+    submit([&](handler &cgh) {
+      cgh.template parallel_for<KernelName, KernelType, Dims>(NumWorkItems,
+                                                              KernelFunc);
+    });
+  }
+
+  // parallel_for version with a kernel represented as a lambda + range and
+  // offset that specify global size and global offset correspondingly.
+  template <typename KernelName = csd::auto_name, typename KernelType, int Dims>
+  void parallel_for(range<Dims> NumWorkItems, id<Dims> WorkItemOffset,
+                    KernelType KernelFunc) {
+    submit([&](handler &cgh) {
+      cgh.template parallel_for<KernelName, KernelType, Dims>(
+          NumWorkItems, WorkItemOffset, KernelFunc);
+    });
+  }
+
+  // parallel_for version with a kernel represented as a lambda + nd_range that
+  // specifies global, local sizes and offset.
+  template <typename KernelName = csd::auto_name, typename KernelType, int Dims>
+  void parallel_for(nd_range<Dims> ExecutionRange, KernelType KernelFunc) {
+    submit([&](handler &cgh) {
+      cgh.template parallel_for<KernelName, KernelType, Dims>(ExecutionRange,
+                                                              KernelFunc);
+    });
   }
 
 private:

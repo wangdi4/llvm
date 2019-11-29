@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -S -enable-vp-value-codegen=false %s | FileCheck %s
 
 ; This test checks for handling of linear values and that we do a unit stride store
 ; CHECK: vector.ph

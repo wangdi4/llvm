@@ -331,7 +331,7 @@ class VXBX_Int_Ty<bits<11> xo, string opc, Intrinsic IntID, ValueType Ty>
 class VXCR_Int_Ty<bits<11> xo, string opc, Intrinsic IntID, ValueType Ty>
   : VXForm_CR<xo, (outs vrrc:$vD), (ins vrrc:$vA, u1imm:$ST, u4imm:$SIX),
               !strconcat(opc, " $vD, $vA, $ST, $SIX"), IIC_VecFP,
-              [(set Ty:$vD, (IntID Ty:$vA, imm:$ST, imm:$SIX))]>;
+              [(set Ty:$vD, (IntID Ty:$vA, timm:$ST, timm:$SIX))]>;
 
 //===----------------------------------------------------------------------===//
 // Instruction Definitions.
@@ -401,10 +401,10 @@ let isCodeGenOnly = 1 in {
 
 def MFVSCR : VXForm_4<1540, (outs vrrc:$vD), (ins),
                       "mfvscr $vD", IIC_LdStStore,
-                      [(set v8i16:$vD, (int_ppc_altivec_mfvscr))]>; 
+                      [(set v8i16:$vD, (int_ppc_altivec_mfvscr))]>;
 def MTVSCR : VXForm_5<1604, (outs), (ins vrrc:$vB),
                       "mtvscr $vB", IIC_LdStLoad,
-                      [(int_ppc_altivec_mtvscr v4i32:$vB)]>; 
+                      [(int_ppc_altivec_mtvscr v4i32:$vB)]>;
 
 let PPC970_Unit = 2, mayLoad = 1, mayStore = 0 in {  // Loads.
 def LVEBX: XForm_1_memOp<31,   7, (outs vrrc:$vD), (ins memrr:$src),
@@ -1409,6 +1409,12 @@ let isCodeGenOnly = 1 in {
   def VEXTSH2Ds : VX_VT5_EO5_VB5s<1538, 25, "vextsh2d", []>;
   def VEXTSW2Ds : VX_VT5_EO5_VB5s<1538, 26, "vextsw2d", []>;
 }
+
+def : Pat<(v4i32 (sext_inreg v4i32:$VRB, v4i8)), (v4i32 (VEXTSB2W $VRB))>;
+def : Pat<(v4i32 (sext_inreg v4i32:$VRB, v4i16)), (v4i32 (VEXTSH2W $VRB))>;
+def : Pat<(v2i64 (sext_inreg v2i64:$VRB, v2i8)), (v2i64 (VEXTSB2D $VRB))>;
+def : Pat<(v2i64 (sext_inreg v2i64:$VRB, v2i16)), (v2i64 (VEXTSH2D $VRB))>;
+def : Pat<(v2i64 (sext_inreg v2i64:$VRB, v2i32)), (v2i64 (VEXTSW2D $VRB))>;
 
 // Vector Integer Negate
 def VNEGW : VX_VT5_EO5_VB5<1538, 6, "vnegw",

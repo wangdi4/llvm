@@ -24,6 +24,7 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/InitializePasses.h"
 
 #include <iterator>
 

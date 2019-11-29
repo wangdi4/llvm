@@ -3,8 +3,6 @@
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 
 //==--- kernel_functor.cpp - Functors as SYCL kernel test ------------------==//
 //

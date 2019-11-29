@@ -83,6 +83,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -146,7 +147,8 @@ bool EliminateROFieldAccessImpl::checkSecondIfBB(BasicBlock *SecondIfBB,
                                                  Value *BaseOp) {
   ICmpInst::Predicate Pred;
   Instruction *LoadAddr, *Load, *ICmp;
-  BasicBlock *TrueBB, *FalseBB;
+  BasicBlock *TrueBB = nullptr;
+  BasicBlock *FalseBB = nullptr;
 
   if (!match(SecondIfBB->getTerminator(),
              m_Br(m_Instruction(ICmp), TrueBB, FalseBB))) {

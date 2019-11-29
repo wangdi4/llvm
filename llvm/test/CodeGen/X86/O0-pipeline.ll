@@ -21,11 +21,13 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
+; CHECK-NEXT:       Expand fp128 instructions ;INTEL
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:       Lower Garbage Collection Instructions
 ; CHECK-NEXT:       Shadow Stack GC Lowering
+; CHECK-NEXT:       Lower constant intrinsics
 ; CHECK-NEXT:       Remove unreachable blocks from the CFG
 ; CHECK-NEXT:       Instrument function entry/exit with calls to e.g. mcount() (post inlining)
 ; CHECK-NEXT:       Scalarize Masked Memory Intrinsics

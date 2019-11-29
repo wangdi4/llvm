@@ -24,8 +24,8 @@ $_ZN1SD2Ev = comdat any
 @llvm.used = appending global [1 x i8*] [i8* bitcast (void ()* @__omp_offloading__32_d79701d4_Var_l5_dtor to i8*)], section "llvm.metadata"
 
 ; Check that paropt creates offload entry for the Var and its destructor.
-; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* getelementptr inbounds (%struct.S, %struct.S* @Var, i32 0, i32 0), i8* {{.*}}, i32 0, i32 0), i64 1, i32 0, i32 0 }, section ".omp_offloading.entries"
-; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* bitcast (void ()* @__omp_offloading__32_d79701d4_Var_l5_dtor to i8*), i8* {{.*}}, i32 0, i32 0), i64 0, i32 4, i32 0 }, section ".omp_offloading.entries"
+; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* getelementptr inbounds (%struct.S, %struct.S* @Var, i32 0, i32 0), i8* {{.*}}, i32 0, i32 0), i64 1, i32 0, i32 0 }, section "omp_offloading_entries"
+; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant { i8*, i8*, i64, i32, i32 } { i8* bitcast (void ()* @__omp_offloading__32_d79701d4_Var_l5_dtor to i8*), i8* {{.*}}, i32 0, i32 0), i64 0, i32 4, i32 0 }, section "omp_offloading_entries"
 
 define internal void @__omp_offloading__32_d79701d4_Var_l5_dtor() section ".text.startup" {
 entry:

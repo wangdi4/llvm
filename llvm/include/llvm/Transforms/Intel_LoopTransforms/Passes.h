@@ -132,11 +132,17 @@ FunctionPass *createHIRIdiomRecognitionPass();
 /// Creates pass that multiversions loop for the probable trip count value.
 FunctionPass *createHIRMVForConstUBPass();
 
+/// Creates pass that multiversions loop for variable strides.
+FunctionPass *createHIRMVForVariableStridePass();
+
 /// Creates pass that performs loop concatenation.
 FunctionPass *createHIRLoopConcatenationPass();
 
 /// Creates pass that performs array transpose.
 FunctionPass *createHIRArrayTransposePass();
+
+/// Creates pass that performs Aos To Soa.
+FunctionPass *createHIRAosToSoaPass();
 
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
@@ -167,6 +173,9 @@ FunctionPass *createHIRPrefetchingPass();
 
 /// Create pass that enables sinking for perfect Loop nest.
 FunctionPass *createHIRSinkingForPerfectLoopnestPass();
+
+/// Create pass that enables undosinking for perfect Loop nest.
+FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
 
 /// Create pass that enables sinking for conditional temps.
 FunctionPass *createHIRConditionalTempSinkingPass();

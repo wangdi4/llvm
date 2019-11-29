@@ -148,6 +148,27 @@ TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
 /// void __cdecl std::_Xout_of_range(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
 TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// BOOL FindClose(HANDLE hFindFile);
+TLI_DEFINE_ENUM_INTERNAL(FindClose)
+TLI_DEFINE_STRING_INTERNAL("FindClose")
+/// HANDLE FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
+TLI_DEFINE_ENUM_INTERNAL(FindFirstFileA)
+TLI_DEFINE_STRING_INTERNAL("FindFirstFileA")
+/// BOOL FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
+TLI_DEFINE_ENUM_INTERNAL(FindNextFileA)
+TLI_DEFINE_STRING_INTERNAL("FindNextFileA")
+/// DWORD GetFullPathNameA(LPCSTR lpFileName, DWORD  nBufferLength, LPSTR  lpBuffer, LPSTR  *lpFilePart);
+TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameA)
+TLI_DEFINE_STRING_INTERNAL("GetFullPathNameA")
+/// HMODULE GetModuleHandleA(LPCSTR lpModuleName);
+TLI_DEFINE_ENUM_INTERNAL(GetModuleHandleA)
+TLI_DEFINE_STRING_INTERNAL("GetModuleHandleA")
+/// FARPROC GetProcAddress(HMODULE hModule, LPCSTR  lpProcName);
+TLI_DEFINE_ENUM_INTERNAL(GetProcAddress)
+TLI_DEFINE_STRING_INTERNAL("GetProcAddress")
+/// void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
+TLI_DEFINE_ENUM_INTERNAL(GlobalMemoryStatus)
+TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
 /// extern "C" void __stdcall _CxxThrowException(void* pExceptionObject, _ThrowInfo* pThrowInfo);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_CxxThrowException)
 TLI_DEFINE_STRING_INTERNAL("_CxxThrowException")
@@ -881,7 +902,17 @@ TLI_DEFINE_STRING_INTERNAL("__isoc99_scanf")
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_sscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_sscanf")
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+/// bool __kmpc_atomic_compare_exchange(size_t size, void *ptr, void *expected,
+///     void *desired, int32_t success_order, int32_t failure_order);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_compare_exchange)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_compare_exchange")
+/// void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int32_t order);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_load)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_load")
+/// void __kmpc_atomic_store(size_t size, void *ptr, void *val, int32_t order);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_store)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_store")
 /// void __kmpc_barrier(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_barrier)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_barrier")
@@ -939,13 +970,16 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_serialized_parallel")
 /// int32_t __kmpc_single(kmp_Indent *loc, int32_t global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_single)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_single")
+#endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
 /// i64* __local_stdio_printf_options();
 TLI_DEFINE_ENUM_INTERNAL(local_stdio_printf_options)
 TLI_DEFINE_STRING_INTERNAL("__local_stdio_printf_options")
 /// i64* __local_stdio_scanf_options();
 TLI_DEFINE_ENUM_INTERNAL(local_stdio_scanf_options)
 TLI_DEFINE_STRING_INTERNAL("__local_stdio_scanf_options")
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_CUSTOMIZATION
 
 /// double __log10_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(log10_finite)

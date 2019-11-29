@@ -36,15 +36,6 @@
 ; CHECK: ret void
 
 
-; The firstprivate objects are copy-constructed into the local copy in the
-; task setup code.
-
-; CHECK: DIR.OMP.TASK{{.*}}:
-; CHECK: [[SHAREDX:%[0-9]+]] = getelementptr{{.*}}struct.shared.t
-; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[SHAREDX]]{{.*}}%x
-; CHECK: [[SHAREDY:%[0-9]+]] = getelementptr{{.*}}struct.shared.t
-; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[SHAREDY]]{{.*}}%y
-
 ; The kmp_task_t thunk is allocated with the "9" flag which indicates that
 ; the destructor thunk should be called.
 
@@ -53,8 +44,16 @@
 ; The destructor thunk pointer is inserted to the right place in the task
 ; thunk.
 
-; CHECK: [[DTORPTR:%[0-9]+]] = getelementptr{{.*}} i32 0, i32 3, i32 0
+; CHECK: [[DTORPTR:%[^ ]+]] = getelementptr{{.*}} i32 0, i32 3, i32 0
 ; CHECK: store{{.*}}dtor_thunk{{.*}}[[DTORPTR]]
+
+; The firstprivate objects are copy-constructed into the local copy in the
+; task setup code.
+
+; CHECK: [[PRIVXX:%[^ ]+]] = getelementptr{{.*}}struct.kmp_privates.t
+; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[PRIVXX]]{{.*}}%x
+; CHECK: [[PRIVXY:%[^ ]+]] = getelementptr{{.*}}struct.kmp_privates.t
+; CHECK-NEXT: call{{.*}}copy_constr{{.*}}[[PRIVXY]]{{.*}}%y
 
 ; The copy-thunk is passed to kmpc_taskloop.
 

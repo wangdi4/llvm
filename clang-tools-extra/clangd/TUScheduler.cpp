@@ -44,6 +44,7 @@
 #include "TUScheduler.h"
 #include "Cancellation.h"
 #include "Compiler.h"
+#include "Context.h"
 #include "Diagnostics.h"
 #include "GlobalCompilationDatabase.h"
 #include "Logger.h"
@@ -915,11 +916,22 @@ llvm::StringRef TUScheduler::getContents(PathRef File) const {
   return It->second->Contents;
 }
 
+llvm::StringMap<std::string> TUScheduler::getAllFileContents() const {
+  llvm::StringMap<std::string> Results;
+  for (auto &It : Files)
+    Results.try_emplace(It.getKey(), It.getValue()->Contents);
+  return Results;
+}
+
 void TUScheduler::run(llvm::StringRef Name,
                       llvm::unique_function<void()> Action) {
   if (!PreambleTasks)
     return Action();
-  PreambleTasks->runAsync(Name, std::move(Action));
+  PreambleTasks->runAsync(Name, [Ctx = Context::current().clone(),
+                                 Action = std::move(Action)]() mutable {
+    WithContext WC(std::move(Ctx));
+    Action();
+  });
 }
 
 void TUScheduler::runWithAST(

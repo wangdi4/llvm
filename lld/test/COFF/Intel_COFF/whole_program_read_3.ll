@@ -1,3 +1,4 @@
+; REQUIRES: assert
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in IR and libraries.
 ; NOTE: lld will throw a exit error since the definition of sub
@@ -5,7 +6,7 @@
 
 ; RUN: llvm-as -o %T/wp3.bc %s
 ; RUN: lld-link /out:%T/wp3.exe /entry:main %T/wp3.bc /subsystem:console  \
-; RUN:     /mllvm:-whole-program-trace /force:unresolved \
+; RUN:     /mllvm:-debug-only=whole-program-analysis /force:unresolved \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK:   Main definition seen

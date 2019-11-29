@@ -1,4 +1,4 @@
-add_llvm_library(LLVMipo
+add_llvm_component_library(LLVMipo
   AlwaysInliner.cpp
   ArgumentPromotion.cpp
   Attributor.cpp
@@ -27,10 +27,15 @@ add_llvm_library(LLVMipo
   Intel_InlineReportSetup.cpp # INTEL
   Intel_InlineReportCommon.cpp   # INTEL
   Intel_InlineReportEmitter.cpp # INTEL
+  Intel_QsortRecognizer.cpp # INTEL
   InlineSimple.cpp
   Inliner.cpp
+  Intel_ArgumentAlignment.cpp      # INTEL
   Intel_CallTreeCloning.cpp # INTEL
+  Intel_FoldWPIntrinsic.cpp         # INTEL
   Intel_IPCloning.cpp     # INTEL
+  Intel_IPOPrefetch.cpp   # INTEL
+  Utils/Intel_IPOUtils.cpp # INTEL
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
   Intel_PartialInline.cpp           # INTEL

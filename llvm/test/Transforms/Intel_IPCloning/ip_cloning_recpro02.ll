@@ -1,5 +1,6 @@
-; RUN: opt < %s -ip-cloning -print-ip-cloning -disable-output -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -disable-output -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -ip-cloning -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 
 ; Various checks for conditions where a function can fail to be recognized
 ; as a recursive progression clone candidate.

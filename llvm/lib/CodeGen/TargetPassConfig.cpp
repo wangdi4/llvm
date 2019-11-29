@@ -34,6 +34,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCTargetOptions.h"
 #include "llvm/Pass.h"
@@ -42,8 +43,8 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Threading.h"
 #include "llvm/Support/SaveAndRestore.h"
+#include "llvm/Support/Threading.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" //INTEL
 #include "llvm/Transforms/Scalar.h"
@@ -58,6 +59,15 @@ using namespace llvm;
 static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
+
+static cl::opt<bool>
+IntelLibIRCAllowed("intel-libirc-allowed",
+                    cl::desc("Allow the generation of calls to libirc."),
+                    cl::init(false));
+
+static cl::opt<bool> EnableRAReport("enable-ra-report",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable register allocation report."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -189,10 +199,10 @@ static cl::opt<CFLAAType> UseCFLAA(
 /// Option names for limiting the codegen pipeline.
 /// Those are used in error reporting and we didn't want
 /// to duplicate their names all over the place.
-static const char *StartAfterOptName = "start-after";
-static const char *StartBeforeOptName = "start-before";
-static const char *StopAfterOptName = "stop-after";
-static const char *StopBeforeOptName = "stop-before";
+static const char StartAfterOptName[] = "start-after";
+static const char StartBeforeOptName[] = "start-before";
+static const char StopAfterOptName[] = "stop-after";
+static const char StopBeforeOptName[] = "stop-before";
 
 static cl::opt<std::string>
     StartAfterOpt(StringRef(StartAfterOptName),
@@ -414,6 +424,10 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   // Also register alias analysis passes required by codegen passes.
   initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
+
+#if INTEL_CUSTOMIZATION
+  TM.Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
+#endif // INTEL_CUSTOMIZATION
 
   if (StringRef(PrintMachineInstrs.getValue()).equals(""))
     TM.Options.PrintMachineCode = true;
@@ -669,6 +683,7 @@ void TargetPassConfig::addIRPasses() {
   // TODO: add a pass insertion point here
   addPass(createGCLoweringPass());
   addPass(createShadowStackGCLoweringPass());
+  addPass(createLowerConstantIntrinsicsPass());
 
   // Make sure that no unreachable blocks are instruction selected.
   addPass(createUnreachableBlockEliminationPass());
@@ -927,6 +942,13 @@ void TargetPassConfig::addMachinePasses() {
 
   // Run post-ra passes.
   addPostRegAlloc();
+
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  if (EnableRAReport)
+    addPass(&RAReportEmitterID, false);
+#endif  // !INTEL_PRODUCT_RELEASE
+#endif //INTEL_CUSTOMIZATION
 
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
   if (getOptLevel() != CodeGenOpt::None) {

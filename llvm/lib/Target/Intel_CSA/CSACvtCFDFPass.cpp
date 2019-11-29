@@ -26,6 +26,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Debug.h"
 #include <stack>

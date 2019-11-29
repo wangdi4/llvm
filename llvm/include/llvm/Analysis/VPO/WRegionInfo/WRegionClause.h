@@ -109,18 +109,25 @@ class Item
   private :
     VAR   OrigItem;  // original var
 #if INTEL_CUSTOMIZATION
-    HVAR  HOrigItem; // original var for HIR
+    HVAR HOrigItem;       // original var for HIR
+    bool IsF90DopeVector; // true for a F90 dope vector
+    EXPR F90DVNumElements; // number of elements in the F90 DV
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
                      // the offset into the thunk for the new var
     VAR   OrigGEP;   // TASK only: offset in thunk for the addr of orig var
-    VAR   NewOnTaskStack;  // TASK only: stack copy of a privatized var; this
-                           // is for optimization and may be null if unused
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
-    EXPR  VlaSize;   // size of vla array can be an int expression
-    int   ThunkIdx;  // used for task/taskloop codegen
+    EXPR ThunkBufferSize; // Tasks: size in bytes of the space needed for the
+                          // item, in the buffer at the end of task thunk (e.g.
+                          // C99 VLAs)
+    EXPR NewThunkBufferSize; // Tasks: ThunkBufferSize readable inside the
+                             // outlined function
+    int PrivateThunkIdx;     // Tasks: index for the var in task's private thunk
+    int SharedThunkIdx;      // Tasks: index for the var in task's shared thunk
+    EXPR ThunkBufferOffset;  // Tasks: offset to the buffer for the item in the
+                             // task's thunk
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
     const ItemKind Kind; // Item kind for LLVM's RTTI
@@ -128,46 +135,65 @@ class Item
   public:
     Item(VAR Orig, ItemKind K)
 #if INTEL_CUSTOMIZATION
-        : OrigItem(Orig), HOrigItem(nullptr), NewItem(nullptr),
-          OrigGEP(nullptr),
+        : OrigItem(Orig), HOrigItem(nullptr), IsF90DopeVector(false),
+          F90DVNumElements(nullptr), NewItem(nullptr), OrigGEP(nullptr),
 #else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
-          NewOnTaskStack(nullptr), IsByRef(false), IsNonPod(false),
-          IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
-          NoAlias(nullptr), Kind(K) {}
+          IsByRef(false), IsNonPod(false), IsVla(false),
+          ThunkBufferSize(nullptr), NewThunkBufferSize(nullptr),
+          PrivateThunkIdx(-1), SharedThunkIdx(-1), ThunkBufferOffset(nullptr),
+          AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
+    }
     virtual ~Item() = default;
 
     void setOrig(VAR V)           { OrigItem = V;       }
     void setNew(VAR V)            { NewItem = V;        }
     void setOrigGEP(VAR V)        { OrigGEP = V;        }
-    void setNewOnTaskStack(VAR V) { NewOnTaskStack = V; }
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
-    void setVlaSize(EXPR Size)    { VlaSize = Size;     }
-    void setThunkIdx(int I)       { ThunkIdx = I;       }
+    void setThunkBufferSize(EXPR Size) { ThunkBufferSize = Size; }
+    void setNewThunkBufferSize(EXPR Size) { NewThunkBufferSize = Size; }
+    void setPrivateThunkIdx(int I) { PrivateThunkIdx = I; }
+    void setSharedThunkIdx(int I) { SharedThunkIdx = I; }
+    void setThunkBufferOffset(EXPR O) { ThunkBufferOffset = O; }
     void setAliasScope(MDNode *M) { AliasScope = M;     }
     void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
     VAR getOrig()           const { return OrigItem;       }
     VAR getNew()            const { return NewItem;        }
     VAR getOrigGEP()        const { return OrigGEP;        }
-    VAR getNewOnTaskStack() const { return NewOnTaskStack; }
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
     bool getIsVla()         const { return IsVla;          }
-    EXPR getVlaSize()       const { return VlaSize;        }
-    int getThunkIdx()       const { return ThunkIdx;       }
+    EXPR getThunkBufferSize() const { return ThunkBufferSize; }
+    EXPR getNewThunkBufferSize() const { return NewThunkBufferSize; }
+    int getPrivateThunkIdx() const { return PrivateThunkIdx; }
+    int getSharedThunkIdx() const { return SharedThunkIdx; }
+    EXPR getThunkBufferOffset() const { return ThunkBufferOffset; }
     MDNode *getAliasScope() const { return AliasScope;     }
     MDNode *getNoAlias()    const { return NoAlias;        }
     ItemKind getKind()      const { return Kind;           }
 #if INTEL_CUSTOMIZATION
     void setHOrig(HVAR V)         { HOrigItem = V;         }
     template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
+    void setIsF90DopeVector(bool Flag) { IsF90DopeVector = Flag;  }
+    bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
+    void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
+    EXPR getF90DVNumElements() const   { return F90DVNumElements; }
 #endif // INTEL_CUSTOMIZATION
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
+
+#if INTEL_CUSTOMIZATION
+      if (getIsF90DopeVector()) {
+        if (getIsByRef())
+          OS << "F90_DV,";
+        else
+          OS << "F90_DV(";
+      }
+#endif // INTEL_CUSTOMIZATION
       if (getIsByRef())
         OS << "BYREF(";
 #if INTEL_CUSTOMIZATION
@@ -178,9 +204,20 @@ class Item
       getOrig()->printAsOperand(OS, PrintType);
       if (getIsByRef())
         OS << ")";
+#if INTEL_CUSTOMIZATION
+      else if (getIsF90DopeVector())
+        OS << ")";
+#endif // INTEL_CUSTOMIZATION
     }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+#if INTEL_CUSTOMIZATION
+      if (getIsF90DopeVector()) {
+        OS << "F90_DV";
+        if (getIsByRef())
+          OS << ",";
+      }
+#endif // INTEL_CUSTOMIZATION
       if (getIsByRef())
         OS << "BYREF";
       OS << "(" ;
@@ -488,6 +525,7 @@ public:
   private:
     WRNReductionKind Ty; // reduction operation
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
+    bool  IsComplex;     // complex type
     bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
@@ -498,9 +536,8 @@ public:
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
-        : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false),
+        : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
           IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
-
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -576,11 +613,13 @@ public:
 
     void setType(WRNReductionKind Op) { Ty = Op;             }
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
+    void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
     void setCombiner(Value *Comb)     { Combiner = Comb;     }
     void setInitializer(Value *Init)  { Initializer = Init;  }
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
+    bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
     Value *getCombiner()       const { return Combiner;      }
     Value *getInitializer()    const { return Initializer;   }

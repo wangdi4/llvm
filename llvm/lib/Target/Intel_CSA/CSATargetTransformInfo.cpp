@@ -31,7 +31,7 @@ using namespace llvm;
 //
 //===----------------------------------------------------------------------===//
 
-unsigned CSATTIImpl::getNumberOfRegisters(bool Vector) {
+unsigned CSATTIImpl::getNumberOfRegisters(bool Vector) const {
   // We don't have any registers. This metric is used to work out how many
   // things we can use in a loop, so we'll instead use the number of vector
   // units we can simultaneously handle as an approximation.

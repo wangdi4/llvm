@@ -1763,7 +1763,8 @@ bool CSATargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
   return true;
 }
 
-bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
+bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(
+    const MachineFunction &MF, EVT VT) const {
   if (!Subtarget.hasFMA())
     return false;
 

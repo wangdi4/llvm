@@ -32,9 +32,6 @@ void dorun() {                // neither declare-target nor contains-target
     }();
 }
 
-//CHECK: define {{.*}}goov() #[[NOATTRS]]
-void goo() { }                // neither declare-target nor contains-target
-
 //CHECK: define {{.*}}ZZ5dorunvENK3$_0clEv{{.*}} #[[CONTAINS_TARGET:[0-9]+]]
 
 

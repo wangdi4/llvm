@@ -91,6 +91,8 @@ def err_no_external_assembler : Error<
   "there is no external assembler that can be used on this platform">;
 def err_drv_unable_to_remove_file : Error<
   "unable to remove file: %0">;
+def err_drv_unable_to_set_working_directory : Error <
+  "unable to set working directory: %0">;
 def err_drv_command_failure : Error<
   "unable to execute command: %0">;
 def err_drv_invalid_darwin_version : Error<
@@ -147,8 +149,8 @@ def err_drv_missing_arg_mtp : Error<
   "missing argument to '%0'">;
 def err_drv_invalid_libcxx_deployment : Error<
   "invalid deployment target for -stdlib=libc++ (requires %0 or later)">;
-def err_drv_invalid_argument_to_fdebug_prefix_map : Error<
-  "invalid argument '%0' to -fdebug-prefix-map">;
+def err_drv_invalid_argument_to_option : Error<
+  "invalid argument '%0' to -%1">;
 def err_drv_malformed_sanitizer_blacklist : Error<
   "malformed sanitizer blacklist: '%0'">;
 def err_drv_duplicate_config : Error<
@@ -187,9 +189,6 @@ def warn_drv_unknown_argument_clang_cl_with_suggestion : Warning<
 
 def warn_drv_ycyu_different_arg_clang_cl : Warning<
   "support for '/Yc' and '/Yu' with different filenames not implemented yet; flags ignored">,
-  InGroup<ClangClPch>;
-def warn_drv_ycyu_no_fi_arg_clang_cl : Warning<
-  "support for '%0' without a corresponding /FI flag not implemented yet; flag ignored">,
   InGroup<ClangClPch>;
 def warn_drv_yc_multiple_inputs_clang_cl : Warning<
   "support for '/Yc' with more than one source file not implemented yet; flag ignored">,
@@ -248,8 +247,8 @@ def err_drv_omp_host_target_not_supported : Error<
   "The target '%0' is not a supported OpenMP host target.">;
 def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
   "The option -fopenmp-targets must be used in conjunction with a -fopenmp option compatible with offloading, please use -fopenmp=libomp or -fopenmp=libiomp5.">;
-def err_drv_expecting_fsycl_with_fsycl_targets : Error<
-  "The option -fsycl%0targets must be used in conjunction with -fsycl to enable offloading.">;
+def err_drv_expecting_fsycl_with_sycl_opt : Error<
+  "The option %0 must be used in conjunction with -fsycl to enable offloading.">;
 def warn_drv_omp_offload_target_duplicate : Warning<
   "The OpenMP offloading target '%0' is similar to target '%1' already specified - will be ignored.">,
   InGroup<OpenMPTarget>;
@@ -477,6 +476,10 @@ def warn_drv_msp430_hwmult_no_device : Warning<"no MCU device specified, but "
   "'-mhwmult' is set to 'auto', assuming no hardware multiply. Use -mmcu to "
   "specify a MSP430 device, or -mhwmult to set hardware multiply type "
   "explicitly.">, InGroup<InvalidCommandLineArgument>;
+
+// Frame pointer reservation.
+def err_reserved_frame_pointer : Error<
+  "'%0' has been specified but '%1' is used as the frame pointer for this target">;
 
 def warn_drv_libstdcxx_not_found : Warning<
   "include path for libstdc++ headers not found; pass '-stdlib=libc++' on the "

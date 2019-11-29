@@ -211,12 +211,16 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   if (LprivI->getIsByRef())
     Dst = new LoadInst(Dst, "", InsertPt);
 
-  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Src);
-  Type *ScalarTy = Gep->getResultElementType();
+  Type *ScalarTy = cast<PointerType>(Src->getType())->getElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (!VPOUtils::canBeRegisterized(ScalarTy, DL))
+
+  if (LprivI->getIsVla()) {
+    unsigned Align = DL.getABITypeAlignment(ScalarTy);
+    Builder.CreateMemCpy(Dst, Align, Src, Align,
+                         LprivI->getNewThunkBufferSize());
+  } else if (!VPOUtils::canBeRegisterized(ScalarTy, DL))
     VPOUtils::genMemcpy(Dst, Src, DL, DL.getABITypeAlignment(ScalarTy),
                         InsertPt->getParent());
   else {
@@ -289,13 +293,12 @@ void VPOParoptTransform::genTaskTRedType() {
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
   IntegerType *Int64Ty = Type::getInt64Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  Type *TaskTRedTyArgs[] = {Type::getInt8PtrTy(C), Int64Ty,
-                            Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                            Type::getInt8PtrTy(C), Int32Ty};
 
   KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
-      F, "__struct.kmp_task_t_red_item", TaskTRedTyArgs);
+      F, "__struct.kmp_task_t_red_item",
+      {Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
 }
 
 // internal structure for dependInfo
@@ -372,95 +375,109 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
 // %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64, i32}
 // %struct..kmp_privates.t = type { i64, i64, i32 }
 StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
-    WRegionNode *W, StructType *&KmpSharedTy, StructType *&KmpPrivatesTy) {
+    WRegionNode *W, StructType *&KmpSharedTy, StructType *&KmpPrivatesTy,
+    Instruction *InsertBefore) {
   LLVMContext &C = F->getContext();
   SmallVector<Type *, 4> KmpTaksTWithPrivatesTyArgs;
   KmpTaksTWithPrivatesTyArgs.push_back(KmpTaskTTy);
 
-  SmallVector<Type *, 4> KmpPrivatesIndices;
-  SmallVector<Type *, 4> SharedIndices;
+  SmallVector<Type *, 4> PrivateThunkTypes;
+  SmallVector<Type *, 4> SharedThunkTypes;
+  IRBuilder<> Builder(InsertBefore);
+  Type *SizeTTy = GeneralUtils::getSizeTTy(InsertBefore->getFunction());
+  unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
 
-  unsigned Count = 0;
+  unsigned PrivateCount = 0;
+  unsigned SharedCount = 0;
 
-  FirstprivateClause &FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      Value *Orig = FprivI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect first private "
-                   "pointer argument");
-      KmpPrivatesIndices.push_back(PT->getElementType());
-      SharedIndices.push_back(PT->getElementType());
-      FprivI->setThunkIdx(Count++);
+  auto reserveFieldsForItemInPrivateThunk = [&PrivateThunkTypes, &PrivateCount,
+                                             &Builder, &SizeTTy,
+                                             &SizeTBitWidth](Item *I) {
+    Type *ElementTy = nullptr;
+    Value *NumElements = nullptr;
+    unsigned AddrSpace = 0;
+    getItemInfo(I, ElementTy, NumElements, AddrSpace);
+    if (!NumElements) {
+      PrivateThunkTypes.push_back(ElementTy);
+      I->setPrivateThunkIdx(PrivateCount++);
+      return;
     }
-  }
+
+    if (isa<ConstantInt>(NumElements)) {
+      PrivateThunkTypes.push_back(ArrayType::get(
+          ElementTy, cast<ConstantInt>(NumElements)->getZExtValue()));
+      I->setPrivateThunkIdx(PrivateCount++);
+      return;
+    }
+
+    StringRef NamePrefix = I->getOrig()->getName();
+    I->setIsVla(true);
+
+    Value *ElementSize =
+        Builder.getIntN(SizeTBitWidth, ElementTy->getScalarSizeInBits() / 8);
+    Value *ArraySizeInBytes =
+        Builder.CreateMul(Builder.CreateBitCast(NumElements, SizeTTy),
+                          ElementSize, NamePrefix + ".array.size.in.bytes");
+    I->setThunkBufferSize(ArraySizeInBytes);
+
+    // For VLAs, we allocate three spaces in the privates thunk. For the pointer
+    // corresponding to the local copy of the item, array size, and offset for
+    // the actual array which is allocated in a buffer at the end of the task
+    // thunk.
+    I->setPrivateThunkIdx(PrivateCount);
+    PrivateCount += 3;
+    PrivateThunkTypes.push_back(PointerType::getUnqual(ElementTy));
+    PrivateThunkTypes.push_back(SizeTTy);
+    PrivateThunkTypes.push_back(SizeTTy);
+  };
+
+  for (FirstprivateItem *FprivI : W->getFpriv().items())
+    reserveFieldsForItemInPrivateThunk(FprivI);
 
   if (W->canHaveLastprivate()) {
-    LastprivateClause &LprivClause = W->getLpriv();
-    if (!LprivClause.empty()) {
-      for (LastprivateItem *LprivI : LprivClause.items()) {
-        Value *Orig = LprivI->getOrig();
-        Type *ElementTy = nullptr;
-        Value *NumElements = nullptr;
-        unsigned AddrSpace = 0;
-        getItemInfo(LprivI, ElementTy, NumElements, AddrSpace);
-        if (NumElements) {
-          assert(isa<ConstantInt>(NumElements) &&
-                 "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");
-          uint64_t NE = cast<ConstantInt>(NumElements)->getZExtValue();
-          ElementTy = ArrayType::get(ElementTy, NE);
-        }
+    for (LastprivateItem *LprivI : W->getLpriv().items()) {
+      if (FirstprivateItem *FprivI = LprivI->getInFirstprivate()) {
+        LprivI->setPrivateThunkIdx(FprivI->getPrivateThunkIdx());
+        LprivI->setIsVla(FprivI->getIsVla());
+        LprivI->setThunkBufferSize(FprivI->getThunkBufferSize());
+      } else
+        reserveFieldsForItemInPrivateThunk(LprivI);
 
-        auto PT = dyn_cast<PointerType>(Orig->getType());
-        assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
-                     "pointer argument");
-        KmpPrivatesIndices.push_back(ElementTy);
-        SharedIndices.push_back(PT);
-        LprivI->setThunkIdx(Count++);
-      }
+      auto PT = dyn_cast<PointerType>(LprivI->getOrig()->getType());
+      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
+                   "pointer argument");
+      SharedThunkTypes.push_back(PT);
+      LprivI->setSharedThunkIdx(SharedCount++);
     }
   }
 
-  unsigned SaveCount = Count;
-  PrivateClause &PrivClause = W->getPriv();
-  if (!PrivClause.empty()) {
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      Value *Orig = PrivI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(
-          PT &&
-          "genKmpTaskTWithPrivatesRecordDecl: Expect private pointer argument");
-      KmpPrivatesIndices.push_back(PT->getElementType());
-      PrivI->setThunkIdx(Count++);
-    }
-  }
-
-  Count = SaveCount;
+  for (PrivateItem *PrivI : W->getPriv().items())
+    reserveFieldsForItemInPrivateThunk(PrivI);
 
   // Utility to add fields in the thunk for the reduction variables.
-  auto AddRedVarInThunk = [&](ReductionClause &RedClause,
-                              SmallVectorImpl<Type *> &SharedIndices,
-                              unsigned &Count) {
+  auto AddRedVarInThunk = [](ReductionClause &RedClause,
+                              SmallVectorImpl<Type *> &SharedThunkTypes,
+                              unsigned &SharedCount) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
         Value *Orig = RedI->getOrig();
         auto PT = dyn_cast<PointerType>(Orig->getType());
         assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
                      "pointer argument");
-        SharedIndices.push_back(PT);
-        RedI->setThunkIdx(Count++);
+        SharedThunkTypes.push_back(PT);
+        RedI->setSharedThunkIdx(SharedCount++);
       }
     }
   };
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
-    AddRedVarInThunk(RedClause, SharedIndices, Count);
+    AddRedVarInThunk(RedClause, SharedThunkTypes, SharedCount);
   }
 
   if (W->canHaveInReduction()) {
     ReductionClause &RedClause = W->getInRed();
-    AddRedVarInThunk(RedClause, SharedIndices, Count);
+    AddRedVarInThunk(RedClause, SharedThunkTypes, SharedCount);
   }
 
   SharedClause &ShaClause = W->getShared();
@@ -470,18 +487,16 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
       auto PT = dyn_cast<PointerType>(Orig->getType());
       assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect shared "
                    "pointer argument");
-      SharedIndices.push_back(PT);
-      ShaI->setThunkIdx(Count++);
+      SharedThunkTypes.push_back(PT);
+      ShaI->setSharedThunkIdx(SharedCount++);
     }
   }
 
-  KmpPrivatesTy = StructType::create(
-      C, makeArrayRef(KmpPrivatesIndices.begin(), KmpPrivatesIndices.end()),
-      "__struct.kmp_privates.t", false);
+  KmpPrivatesTy = StructType::create(C, PrivateThunkTypes,
+                                     "__struct.kmp_privates.t", false);
 
-  KmpSharedTy = StructType::create(
-      C, makeArrayRef(SharedIndices.begin(), SharedIndices.end()),
-      "__struct.shared.t", false);
+  KmpSharedTy =
+      StructType::create(C, SharedThunkTypes, "__struct.shared.t", false);
 
   KmpTaksTWithPrivatesTyArgs.push_back(KmpPrivatesTy);
 
@@ -491,6 +506,9 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
                                       KmpTaksTWithPrivatesTyArgs.end()),
                          "__struct.kmp_task_t_with_privates", false);
 
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Task thunk type for privates: '"
+                    << *KmpPrivatesTy << "', shareds: '" << *KmpSharedTy
+                    << "'.\n");
   return KmpTaskTTWithPrivatesTy;
 }
 
@@ -527,68 +545,49 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   KmpSharedTy = nullptr;
   StructType *KmpPrivatesTy = nullptr;
-  KmpTaskTTWithPrivatesTy =
-      genKmpTaskTWithPrivatesRecordDecl(W, KmpSharedTy, KmpPrivatesTy);
+  Instruction *InsertBefore = F->getEntryBlock().getTerminator();
+  KmpTaskTTWithPrivatesTy = genKmpTaskTWithPrivatesRecordDecl(
+      W, KmpSharedTy, KmpPrivatesTy, InsertBefore);
 
-  IRBuilder<> Builder(F->getEntryBlock().getTerminator());
+  IRBuilder<> Builder(InsertBefore);
+  Value *Zero = Builder.getInt32(0);
+
   AllocaInst *DummyTaskTWithPrivates = Builder.CreateAlloca(
       KmpTaskTTWithPrivatesTy, nullptr, "taskt.withprivates");
 
   Builder.SetInsertPoint(W->getEntryBBlock()->getTerminator());
-  SmallVector<Value *, 4> Indices;
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(0));
-  Value *BaseTaskTGep = Builder.CreateInBoundsGEP(
-      KmpTaskTTWithPrivatesTy, DummyTaskTWithPrivates, Indices);
-  /*
-    Indices.clear();
-    Indices.push_back(Builder.getInt32(0));
-    Indices.push_back(Builder.getInt32(2));
-    Value *PartIdGep =
-        Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
-  */
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(0));
+  Value *BaseTaskTGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, DummyTaskTWithPrivates,
+                                {Zero, Zero}, ".taskt.base");
+  // Value *PartIdGep = Builder.CreateInBoundsGEP(
+  //     KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(2)}, ".part.id");
+
   Value *SharedGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, {Zero, Zero});
   Value *SharedLoad = Builder.CreateLoad(SharedGep);
-  Value *SharedCast =
-      Builder.CreateBitCast(SharedLoad, PointerType::getUnqual(KmpSharedTy));
+  Value *SharedCast = Builder.CreateBitCast(
+      SharedLoad, PointerType::getUnqual(KmpSharedTy), ".shareds");
 
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(1));
-  Value *PrivatesGep = Builder.CreateInBoundsGEP(
-      KmpTaskTTWithPrivatesTy, DummyTaskTWithPrivates, Indices);
+  Value *PrivatesGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, DummyTaskTWithPrivates,
+                                {Zero, Builder.getInt32(1)}, ".privates");
 
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(5));
-  Value *LowerBoundGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
-  Value *LowerBoundLd = Builder.CreateLoad(LowerBoundGep);
+  Value *LowerBoundGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(5)}, ".lb.gep");
+  Value *LowerBoundLd = Builder.CreateLoad(LowerBoundGep, ".lb");
 
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(6));
-  Value *UpperBoundGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
-  Value *UpperBoundLd = Builder.CreateLoad(UpperBoundGep);
+  Value *UpperBoundGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(6)}, ".ub.gep");
+  Value *UpperBoundLd = Builder.CreateLoad(UpperBoundGep, ".ub");
 
   /*The stride does not need to change since the loop is normalized by the clang
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(7));
-  Value *StrideGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
-  Value *StrideLd = Builder.CreateLoad(StrideGep);
+  Value *StrideGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(7)}, ".stride.gep");
+  Value *StrideLd = Builder.CreateLoad(StrideGep, ".stride");
   */
 
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(8));
-  LastIterGep = Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  LastIterGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(8)}, ".last.iter.gep");
 
   if (isLoop) {
     Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
@@ -607,54 +606,95 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     if (UpperBoundLd->getType()->getIntegerBitWidth() !=
         IndValTy->getIntegerBitWidth())
       UpperBoundLd = Builder.CreateSExtOrTrunc(UpperBoundLd, IndValTy);
-    VPOParoptUtils::updateOmpPredicateAndUpperBound(W, UpperBoundLd,
+    VPOParoptUtils::updateOmpPredicateAndUpperBound(W, 0, UpperBoundLd,
                                                     &*Builder.GetInsertPoint());
   }
-  PrivateClause &PrivClause = W->getPriv();
-  if (!PrivClause.empty()) {
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(PrivI->getThunkIdx()));
-      Value *ThunkPrivatesGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices,
-                                    PrivI->getOrig()->getName() + ".gep");
-      PrivI->setNew(ThunkPrivatesGep);
+
+  // Update the New and NewThunkBufferSize fields for the clause item.
+  auto setNewForItemFromPrivateThunk = [&Builder, &KmpPrivatesTy, &PrivatesGep,
+                                        &Zero](Item *I) {
+    StringRef OrigName = I->getOrig()->getName();
+
+    int NewVIdx = I->getPrivateThunkIdx();
+    Value *NewVGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx)},
+        OrigName + ".gep");
+    if (!I->getIsVla()) {
+      I->setNew(NewVGep);
+      return;
     }
+    I->setNew(Builder.CreateLoad(NewVGep, OrigName));
+
+    Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 1)},
+        OrigName + ".data.size.gep");
+    I->setNewThunkBufferSize(
+        Builder.CreateLoad(NewVDataSizeGep, OrigName + ".data.size"));
+  };
+
+  // If an item is a VLA, make its New field point to its corresponding buffer
+  // space at the end of the thunk.
+  auto linkPrivateItemToBufferAtEndOfThunkIfVLA = [&Builder, &KmpPrivatesTy,
+                                                   &PrivatesGep,
+                                                   &DummyTaskTWithPrivates,
+                                                   &Zero](Item *I) {
+    if (!I->getIsVla())
+      return;
+
+    StringRef OrigName = I->getOrig()->getName();
+    int NewVIdx = I->getPrivateThunkIdx();
+    Value *NewVGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx)},
+        OrigName + ".gep");
+
+    Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
+        OrigName + ".data.offset.gep");
+    Value *NewVDataOffset =
+        Builder.CreateLoad(NewVDataOffsetGep, OrigName + ".data.offset");
+
+    Type *Int8PtrTy = Builder.getInt8PtrTy();
+    Value *TaskThunkBasePtr = Builder.CreateBitCast(
+        DummyTaskTWithPrivates, Int8PtrTy, ".taskt.withprivates.base");
+    Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
+                                        OrigName + ".priv.data");
+
+    Builder.CreateStore(NewVData,
+                        Builder.CreateBitCast(NewVGep,
+                                              PointerType::getUnqual(Int8PtrTy),
+                                              OrigName + ".priv.gep.cast"));
+  };
+
+  for (PrivateItem *PrivI : W->getPriv().items()) {
+    linkPrivateItemToBufferAtEndOfThunkIfVLA(PrivI);
+    setNewForItemFromPrivateThunk(PrivI);
   }
 
-  FirstprivateClause &FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
-      Value *ThunkPrivatesGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices,
-                                    FprivI->getOrig()->getName() + ".gep");
-      FprivI->setNew(ThunkPrivatesGep);
-    }
+  for (FirstprivateItem *FprivI : W->getFpriv().items()) {
+    linkPrivateItemToBufferAtEndOfThunkIfVLA(FprivI);
+    setNewForItemFromPrivateThunk(FprivI);
   }
 
   if (W->canHaveLastprivate()) {
-    LastprivateClause &LprivClause = W->getLpriv();
-    if (!LprivClause.empty()) {
-      for (LastprivateItem *LprivI : LprivClause.items()) {
-        StringRef OrigName = LprivI->getOrig()->getName();
-        Indices.clear();
-        Indices.push_back(Builder.getInt32(0));
-        Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
-        Value *ThunkPrivatesGep = Builder.CreateInBoundsGEP(
-            KmpPrivatesTy, PrivatesGep, Indices, OrigName + ".gep");
-        Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
-            KmpSharedTy, SharedCast, Indices, OrigName + ".shr.gep");
-        Value *ThunkSharedVal =
-            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
-        // Parm is used to record the address of last private in the compiler
-        // shared variables in the thunk.
-        LprivI->setNew(ThunkPrivatesGep);
-        LprivI->setOrigGEP(ThunkSharedVal);
+    for (LastprivateItem *LprivI : W->getLpriv().items()) {
+      if (FirstprivateItem *FprivI = LprivI->getInFirstprivate()) {
+        LprivI->setNew(FprivI->getNew());
+        LprivI->setNewThunkBufferSize(FprivI->getNewThunkBufferSize());
+      } else {
+        linkPrivateItemToBufferAtEndOfThunkIfVLA(LprivI);
+        setNewForItemFromPrivateThunk(LprivI);
       }
+
+      StringRef OrigName = LprivI->getOrig()->getName();
+      Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
+          KmpSharedTy, SharedCast,
+          {Zero, Builder.getInt32(LprivI->getSharedThunkIdx())},
+          OrigName + ".shr.gep");
+      Value *ThunkSharedVal =
+          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
+      // Parm is used to record the address of last private in the compiler
+      // shared variables in the thunk.
+      LprivI->setOrigGEP(ThunkSharedVal);
     }
   }
 
@@ -665,13 +705,12 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
         StringRef OrigName = RedI->getOrig()->getName();
-        Indices.clear();
-        Indices.push_back(Builder.getInt32(0));
-        Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
         Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
-            KmpSharedTy, SharedCast, Indices, OrigName + ".shr.gep");
+            KmpSharedTy, SharedCast,
+            {Zero, Builder.getInt32(RedI->getSharedThunkIdx())},
+            OrigName + ".shr.gep");
         Value *ThunkSharedVal =
-            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
+            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
         Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
             Mode & OmpTbb);
@@ -697,13 +736,12 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
       StringRef OrigName = ShaI->getOrig()->getName();
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(ShaI->getThunkIdx()));
       Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
-          KmpSharedTy, SharedCast, Indices, OrigName + ".shr.gep");
+          KmpSharedTy, SharedCast,
+          {Zero, Builder.getInt32(ShaI->getSharedThunkIdx())},
+          OrigName + ".shr.gep");
       Value *ThunkSharedVal =
-          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
+          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
       ShaI->setNew(ThunkSharedVal);
     }
   }
@@ -714,11 +752,12 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   return true;
 }
 
-// Set up the mapping between the variables (firstprivate,
-// lastprivate, reduction and shared) and the counterparts in the thunk.
-AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
-                                                      StructType *KmpSharedTy) {
-  SmallVector<Value *, 4> Indices;
+// Create a struct to contain all shared data for the task. This is allocated in
+// the caller of the task, and is populated with pointers to shared variables,
+// reduction variables, and lastprivate variables.
+AllocaInst *
+VPOParoptTransform::genAndPopulateTaskSharedStruct(WRegionNode *W,
+                                                   StructType *KmpSharedTy) {
 
   BasicBlock *EntryPredecessor = W->getEntryBBlock()->getSinglePredecessor();
   assert(EntryPredecessor && "Single pre-task block not created.");
@@ -731,32 +770,18 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
                                 &*(EntryPredecessor->getTerminator()), DT, LI);
   Instruction *InsertPt = EntryPredecessor->getTerminator();
   IRBuilder<> Builder(InsertPt);
+  Value *Zero = Builder.getInt32(0);
   AllocaInst *TaskSharedBase =
       Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
-
-  FirstprivateClause &FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
-      Value *Gep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      VPOParoptUtils::genCopyByAddr(
-          Gep, FprivI->getOrig(), cast<Instruction>(Gep)->getNextNode(),
-          FprivI->getCopyConstructor(), FprivI->getIsByRef());
-    }
-  }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
-        Indices.clear();
-        Indices.push_back(Builder.getInt32(0));
-        Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
-        Value *Gep =
-            Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+        Value *Gep = Builder.CreateInBoundsGEP(
+            KmpSharedTy, TaskSharedBase,
+            {Zero, Builder.getInt32(LprivI->getSharedThunkIdx())},
+            LprivI->getOrig()->getName() + ".shr.gep");
         // storing pointer value to task base
         Builder.CreateStore(LprivI->getOrig(), Gep);
       }
@@ -764,15 +789,14 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   }
 
   // Utility to generate the gep instructions for the reduction variables.
-  auto GenGepForRedVarsInTask = [&] (ReductionClause &RedClause,
-                                     IRBuilder<> &Builder) {
+  auto GenGepForRedVarsInTask = [&](ReductionClause &RedClause,
+                                    IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
-        Indices.clear();
-        Indices.push_back(Builder.getInt32(0));
-        Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
-        Value *Gep =
-            Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+        Value *Gep = Builder.CreateInBoundsGEP(
+            KmpSharedTy, TaskSharedBase,
+            {Zero, Builder.getInt32(RedI->getSharedThunkIdx())},
+            RedI->getOrig()->getName() + ".shr.gep");
         Builder.CreateStore(RedI->getOrig(), Gep);
       }
     }
@@ -791,11 +815,10 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   SharedClause &ShaClause = W->getShared();
   if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(ShaI->getThunkIdx()));
-      Value *Gep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+      Value *Gep = Builder.CreateInBoundsGEP(
+          KmpSharedTy, TaskSharedBase,
+          {Zero, Builder.getInt32(ShaI->getSharedThunkIdx())},
+          ShaI->getOrig()->getName() + ".shr.gep");
       Builder.CreateStore(ShaI->getOrig(), Gep);
     }
   }
@@ -805,93 +828,200 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
 
 // Initialize the data in the shared data area inside the thunk.
 // Also used for tasks.
-void VPOParoptTransform::genSharedInitForTaskLoop(
+void VPOParoptTransform::copySharedStructToTaskThunk(
     WRegionNode *W, AllocaInst *Src, Value *Dst, StructType *KmpSharedTy,
     StructType *KmpTaskTTWithPrivatesTy, Function *DestrThunk,
     Instruction *InsertPt) {
+
+  if (KmpSharedTy->getNumElements() == 0 && !DestrThunk)
+    return;
+
   IRBuilder<> Builder(InsertPt);
+  Value *Zero = Builder.getInt32(0);
 
   Value *Cast = Builder.CreateBitCast(
-      Dst, PointerType::getUnqual(KmpTaskTTWithPrivatesTy));
+      Dst, PointerType::getUnqual(KmpTaskTTWithPrivatesTy),
+      ".taskt.with.privates");
 
-  SmallVector<Value *, 4> Indices;
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(0));
-  Value *TaskTTyGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
+  Value *TaskTTyGep = Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast,
+                                                {Zero, Zero}, ".taskt");
 
   StructType *KmpTaskTTy =
       dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
 
-  Value *SharedTyGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
+  if (KmpSharedTy->getNumElements()) {
+    Value *SharedTyGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep,
+                                                   {Zero, Zero}, ".sharedptr");
 
-  Value *LI = Builder.CreateLoad(SharedTyGep);
+    Value *LI = Builder.CreateLoad(SharedTyGep, ".shareds");
 
-  LLVMContext &C = F->getContext();
-  Value *SrcCast = Builder.CreateBitCast(Src, Type::getInt8PtrTy(C));
+    LLVMContext &C = F->getContext();
+    Value *SrcCast = Builder.CreateBitCast(Src, Type::getInt8PtrTy(C));
 
-  Value *Size;
+    Value *Size;
 
-  const DataLayout DL = F->getParent()->getDataLayout();
-  if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
-    Size = Builder.getInt64(
-        DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
-  else
-    Size = Builder.getInt32(
-        DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+    const DataLayout DL = F->getParent()->getDataLayout();
+    if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
+      Size = Builder.getInt64(
+          DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+    else
+      Size = Builder.getInt32(
+          DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-  unsigned Align = DL.getABITypeAlignment(Src->getAllocatedType());
-  Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
+    unsigned Align = DL.getABITypeAlignment(Src->getAllocatedType());
+    Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
+  }
 
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(1));
-  Value *PrivatesGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
+  if (!DestrThunk)
+    return;
 
-  Value *SharedBase =
-      Builder.CreateBitCast(LI, PointerType::getUnqual(KmpSharedTy));
+  Value *DestrGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTy, TaskTTyGep,
+      {Zero, Builder.getInt32(3) /* cmplrdate_t */, Zero /* destructor */},
+      ".destr.gep");
+  Builder.CreateStore(DestrThunk, DestrGep);
+}
 
-  StructType *KmpPrivatesTy =
-      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(1));
+Value *VPOParoptTransform::computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
+    WRegionNode *W, int TaskThunkWithPrivatesSize, Instruction *InsertBefore) {
+  assert(TaskThunkWithPrivatesSize > 0 && "Unexpected size of task thunk.");
+
+  IRBuilder<> Builder(InsertBefore);
+  unsigned SizeTBitWidth = GeneralUtils::getSizeTTy(InsertBefore->getFunction())
+                               ->getIntegerBitWidth();
+  Value *CurrentOffset =
+      Builder.getIntN(SizeTBitWidth, TaskThunkWithPrivatesSize);
+
+  auto computeOffsetForItem = [&CurrentOffset, &Builder](Item *I) {
+    if (!I->getIsVla())
+      return;
+
+    StringRef NamePrefix = I->getOrig()->getName();
+    CurrentOffset->setName(NamePrefix + ".array.offset");
+    I->setThunkBufferOffset(CurrentOffset);
+
+    // next item's offset = current offset + current item's data size
+    CurrentOffset = Builder.CreateAdd(CurrentOffset, I->getThunkBufferSize());
+  };
+
+  for (PrivateItem *PrivI : W->getPriv().items())
+    computeOffsetForItem(PrivI);
+
+  for (FirstprivateItem *FprivI : W->getFpriv().items())
+    computeOffsetForItem(FprivI);
+
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LprivI : W->getLpriv().items())
+      if (FirstprivateItem *FprivI = LprivI->getInFirstprivate())
+        LprivI->setThunkBufferOffset(FprivI->getThunkBufferOffset());
+      else
+        computeOffsetForItem(LprivI);
+
+  CurrentOffset->setName("sizeof.taskt.with.privates.and.buffer");
+  return CurrentOffset;
+}
+
+void VPOParoptTransform::saveVLASizeAndOffsetToPrivatesThunk(
+    WRegionNode *W, Value *KmpPrivatesGep, StructType *KmpPrivatesTy,
+    Instruction *InsertBefore) {
+
+  IRBuilder<> Builder(InsertBefore);
+  Value *Zero = Builder.getInt32(0);
+
+  auto saveSizeAndOffsetForItem = [&](Item *I) {
+    if (!I->getIsVla())
+      return;
+
+    StringRef OrigName = I->getOrig()->getName();
+    int NewVIdx = I->getPrivateThunkIdx();
+
+    // For VLA items, the privates thunk contains NewV, size and offset in three
+    // consecutive locations beginning from the PrivateThunkIdx. Here we save
+    // size and offset to the corresponding locations.
+    Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, KmpPrivatesGep, {Zero, Builder.getInt32(NewVIdx + 1)},
+        OrigName + ".priv.data.size.gep");
+    Builder.CreateStore(I->getThunkBufferSize(), NewVDataSizeGep);
+
+    Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, KmpPrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
+        OrigName + ".priv.data.offset.gep");
+    Builder.CreateStore(I->getThunkBufferOffset(), NewVDataOffsetGep);
+  };
+
+  for (PrivateItem *PrivI : W->getPriv().items())
+    saveSizeAndOffsetForItem(PrivI);
+
+  for (FirstprivateItem *FprivI : W->getFpriv().items())
+    saveSizeAndOffsetForItem(FprivI);
+
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LprivI : W->getLpriv().items()) {
+      if (LprivI->getInFirstprivate())
+        continue;
+      saveSizeAndOffsetForItem(LprivI);
+    }
+}
+
+Value *
+VPOParoptTransform::genPrivatesGepForTask(Value *KmpTaskTTWithPrivates,
+                                          StructType *KmpTaskTTWithPrivatesTy,
+                                          Instruction *InsertBefore) {
+  IRBuilder<> Builder(InsertBefore);
+  Value *Zero = Builder.getInt32(0);
+  Value *Cast = Builder.CreateBitCast(
+      KmpTaskTTWithPrivates, PointerType::getUnqual(KmpTaskTTWithPrivatesTy),
+      ".taskt.with.privates");
+
+  return Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast,
+                                   {Zero, Builder.getInt32(1)}, ".privates");
+}
+
+void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
+                                             Value *KmpTaskTTWithPrivates,
+                                             Value *KmpPrivatesGEP,
+                                             StructType *KmpPrivatesTy,
+                                             Instruction *InsertBefore) {
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      int TIdx = FprivI->getThunkIdx();
+  if (FprivClause.empty())
+    return;
 
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(TIdx));
-      Value *PrivateGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
-      Value *SharedGep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, SharedBase, Indices);
-      if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
-        Size = Builder.getInt64(DL.getTypeAllocSize(
-            FprivI->getOrig()->getType()->getPointerElementType()));
-      else
-        Size = Builder.getInt32(DL.getTypeAllocSize(
-            FprivI->getOrig()->getType()->getPointerElementType()));
+  IRBuilder<> Builder(InsertBefore);
+  const DataLayout &DL = InsertBefore->getModule()->getDataLayout();
 
-      Value *S = Builder.CreateBitCast(
-          SharedGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
-      Value *D = Builder.CreateBitCast(
-          PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
-      unsigned Align = DL.getABITypeAlignment(FprivI->getOrig()->getType());
-      Builder.CreateMemCpy(D, Align, S, Align, Size);
+  for (FirstprivateItem *FprivI : FprivClause.items()) {
+    Value *OrigV = FprivI->getOrig();
+    StringRef NamePrefix = OrigV->getName();
+
+    if (!FprivI->getIsVla()) {
+      Value *NewVGep = Builder.CreateInBoundsGEP(
+          KmpPrivatesTy, KmpPrivatesGEP,
+          {Builder.getInt32(0), Builder.getInt32(FprivI->getPrivateThunkIdx())},
+          NamePrefix + ".priv.gep");
+      VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
+                                    FprivI->getCopyConstructor(),
+                                    FprivI->getIsByRef());
+      continue;
     }
 
-    if (DestrThunk) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0)); // struct GEP
-      Indices.push_back(Builder.getInt32(3)); // data1 field (cmplrdata_t)
-      Indices.push_back(Builder.getInt32(0)); // destructor thunk in cmplrdata
-      Value *DestrGep =
-          Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
-      Builder.CreateStore(DestrThunk, DestrGep);
-    }
+    assert(!FprivI->getIsByRef() && "Unexpected Byref + VLA operand.");
+
+    Type *Int8PtrTy = Builder.getInt8PtrTy();
+    Value *TaskThunkBasePtr = Builder.CreateBitCast(
+        KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
+
+    Value *NewData =
+        Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
+                          NamePrefix + ".priv.data");
+    Value *OrigCast =
+        Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
+
+    unsigned Align = DL.getABITypeAlignment(
+        cast<PointerType>(OrigV->getType())->getElementType());
+
+    Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
+                         FprivI->getThunkBufferSize());
   }
 }
 
@@ -925,7 +1055,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
 
   AllocaInst *UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
   Value *UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator(),
+      VPOParoptUtils::computeOmpUpperBound(W, 0, EntryBB->getTerminator(),
                                            ".for.taskloop.init");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
@@ -1236,10 +1366,11 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
 
   StructType *KmpTaskTTRedRecTy = StructType::create(
-      C, makeArrayRef(KmpTaskTRedRecTyArgs.begin(), KmpTaskTRedRecTyArgs.end()),
-      "__struct.kmp_task_t_red_rec", false);
+      C, KmpTaskTRedRecTyArgs, "__struct.kmp_task_t_red_rec", false);
 
   IRBuilder<> Builder(InsertBefore);
+  Value *Zero = Builder.getInt32(0);
+
   AllocaInst *DummyTaskTRedRec =
       Builder.CreateAlloca(KmpTaskTTRedRecTy, nullptr, "taskt.red.rec");
 
@@ -1247,18 +1378,20 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   unsigned Count = 0;
   for (ReductionItem *RedI : RedClause.items()) {
 
-    Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
-        KmpTaskTTRedRecTy, DummyTaskTRedRec,
-        {Builder.getInt32(0), Builder.getInt32(Count++)});
+    StringRef NamePrefix = RedI->getOrig()->getName();
 
-    Value *Gep =
-        Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                  {Builder.getInt32(0), Builder.getInt32(0)});
+    Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
+        KmpTaskTTRedRecTy, DummyTaskTRedRec, {Zero, Builder.getInt32(Count++)},
+        NamePrefix + ".red.struct");
+
+    Value *Gep = Builder.CreateInBoundsGEP(
+        KmpTaskTRedTy, BaseTaskTRedGep, {Zero, Zero}, NamePrefix + ".red.item");
     Builder.CreateStore(
         Builder.CreateBitCast(RedI->getOrig(), Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(1)});
+                                    {Zero, Builder.getInt32(1)},
+                                    NamePrefix + ".red.size");
     Builder.CreateStore(
         Builder.getInt64(DL.getTypeAllocSize(
             RedI->getOrig()->getType()->getPointerElementType())),
@@ -1266,22 +1399,26 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
     Function *RedInitFunc = genTaskLoopRedInitFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(2)});
+                                    {Zero, Builder.getInt32(2)},
+                                    NamePrefix + ".red.init");
     Builder.CreateStore(
         Builder.CreateBitCast(RedInitFunc, Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(3)});
+                                    {Zero, Builder.getInt32(3)},
+                                    NamePrefix + ".red.fini");
     Builder.CreateStore(ConstantPointerNull::get(Type::getInt8PtrTy(C)), Gep);
 
     Function *RedCombFunc = genTaskLoopRedCombFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(4)});
+                                    {Zero, Builder.getInt32(4)},
+                                    NamePrefix + ".red.comb");
     Builder.CreateStore(
         Builder.CreateBitCast(RedCombFunc, Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Builder.getInt32(0), Builder.getInt32(5)});
+                                    {Zero, Builder.getInt32(5)},
+                                    NamePrefix + ".red.flags");
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }
   VPOParoptUtils::genKmpcTaskReductionInit(
@@ -1381,10 +1518,13 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   W->populateBBSet();
 
   resetValueInOmpClauseGeneric(W, W->getIf());
-
   resetValueInTaskDependClause(W);
+  if (isa<WRNTaskloopNode>(W)) {
+    resetValueInOmpClauseGeneric(W, W->getNumTasks());
+    resetValueInOmpClauseGeneric(W, W->getGrainsize());
+  }
 
-  AllocaInst *PrivateBase = genTaskPrivateMapping(W, KmpSharedTy);
+  AllocaInst *SharedAggrStruct = genAndPopulateTaskSharedStruct(W, KmpSharedTy);
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
@@ -1432,17 +1572,30 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   assert(MTFnCI->getCalledFunction() &&
          "genTaskGenericCode: Expect non-empty function.");
 
+  Value *TotalTaskTTWithPrivatesSize =
+      computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
+          W, KmpTaskTTWithPrivatesTySz, NewCall);
+
   Function *DestrThunk = genTaskDestructorThunk(W, KmpTaskTTWithPrivatesTy);
   if (DestrThunk)
     W->setTaskFlag(W->getTaskFlag() | 0x8);
 
   CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
-      W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+      W, IdentTy, TidPtrHolder, TotalTaskTTWithPrivatesSize, KmpSharedTySz,
       KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
       Mode & OmpTbb);
+  TaskAllocCI->setName(".task.alloc");
 
-  genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
-                           KmpTaskTTWithPrivatesTy, DestrThunk, NewCall);
+  copySharedStructToTaskThunk(W, SharedAggrStruct, TaskAllocCI, KmpSharedTy,
+                              KmpTaskTTWithPrivatesTy, DestrThunk, NewCall);
+
+  StructType *KmpPrivatesTy =
+      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(1));
+  Value *PrivatesGep =
+      genPrivatesGepForTask(TaskAllocCI, KmpTaskTTWithPrivatesTy, NewCall);
+
+  saveVLASizeAndOffsetToPrivatesThunk(W, PrivatesGep, KmpPrivatesTy, NewCall);
+  genFprivInitForTask(W, TaskAllocCI, PrivatesGep, KmpPrivatesTy, NewCall);
 
   IRBuilder<> Builder(NewCall);
 

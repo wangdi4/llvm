@@ -22,28 +22,25 @@ namespace detail {
 
 void Scheduler::waitForRecordToFinish(MemObjRecord *Record) {
   for (Command *Cmd : Record->MReadLeafs) {
-    Command *FailedCommand = GraphProcessor::enqueueCommand(Cmd);
-    if (FailedCommand) {
-      assert(!FailedCommand && "Command failed to enqueue");
+    EnqueueResultT Res;
+    bool Enqueued = GraphProcessor::enqueueCommand(Cmd, Res);
+    if (!Enqueued && EnqueueResultT::FAILED == Res.MResult)
       throw runtime_error("Enqueue process failed.");
-    }
     GraphProcessor::waitForEvent(Cmd->getEvent());
   }
   for (Command *Cmd : Record->MWriteLeafs) {
-    Command *FailedCommand = GraphProcessor::enqueueCommand(Cmd);
-    if (FailedCommand) {
-      assert(!FailedCommand && "Command failed to enqueue");
+    EnqueueResultT Res;
+    bool Enqueued = GraphProcessor::enqueueCommand(Cmd, Res);
+    if (!Enqueued && EnqueueResultT::FAILED == Res.MResult)
       throw runtime_error("Enqueue process failed.");
-    }
     GraphProcessor::waitForEvent(Cmd->getEvent());
   }
   for (AllocaCommandBase *AllocaCmd : Record->MAllocaCommands) {
     Command *ReleaseCmd = AllocaCmd->getReleaseCmd();
-    Command *FailedCommand = GraphProcessor::enqueueCommand(ReleaseCmd);
-    if (FailedCommand) {
-      assert(!FailedCommand && "Command failed to enqueue");
+    EnqueueResultT Res;
+    bool Enqueued = GraphProcessor::enqueueCommand(ReleaseCmd, Res);
+    if (!Enqueued && EnqueueResultT::FAILED == Res.MResult)
       throw runtime_error("Enqueue process failed.");
-    }
     GraphProcessor::waitForEvent(ReleaseCmd->getEvent());
   }
 }
@@ -65,10 +62,9 @@ EventImplPtr Scheduler::addCG(std::unique_ptr<detail::CG> CommandGroup,
     }
 
     // TODO: Check if lazy mode.
-    Command *FailedCommand = GraphProcessor::enqueueCommand(NewCmd);
-    MGraphBuilder.cleanupCommands();
-    if (FailedCommand)
-      // TODO: Reschedule commands.
+    EnqueueResultT Res;
+    bool Enqueued = GraphProcessor::enqueueCommand(NewCmd, Res);
+    if (!Enqueued && EnqueueResultT::FAILED == Res.MResult)
       throw runtime_error("Enqueue process failed.");
   }
 
@@ -85,9 +81,9 @@ EventImplPtr Scheduler::addCopyBack(Requirement *Req) {
   // buffer.
   if (!NewCmd)
     return nullptr;
-  Command *FailedCommand = GraphProcessor::enqueueCommand(NewCmd);
-  if (FailedCommand)
-    // TODO: Reschedule commands.
+  EnqueueResultT Res;
+  bool Enqueued = GraphProcessor::enqueueCommand(NewCmd, Res);
+  if (!Enqueued && EnqueueResultT::FAILED == Res.MResult)
     throw runtime_error("Enqueue process failed.");
   return NewCmd->getEvent();
 }
@@ -132,16 +128,19 @@ void Scheduler::removeMemoryObject(detail::SYCLMemObjI *MemObj) {
 EventImplPtr Scheduler::addHostAccessor(Requirement *Req) {
   std::lock_guard<std::mutex> lock(MGraphLock);
 
-  EventImplPtr RetEvent;
-  Command *NewCmd = MGraphBuilder.addHostAccessor(Req, RetEvent);
+  Command *NewCmd = MGraphBuilder.addHostAccessor(Req);
 
   if (!NewCmd)
     return nullptr;
-  Command *FailedCommand = GraphProcessor::enqueueCommand(NewCmd);
-  if (FailedCommand)
-    // TODO: Reschedule commands.
+  EnqueueResultT Res;
+  bool Enqueued = GraphProcessor::enqueueCommand(NewCmd, Res);
+  if (!Enqueued && EnqueueResultT::FAILED == Res.MResult)
     throw runtime_error("Enqueue process failed.");
-  return RetEvent;
+  return NewCmd->getEvent();
+}
+
+void Scheduler::releaseHostAccessor(Requirement *Req) {
+  Req->MBlockedCmd->MCanEnqueue = true;
 }
 
 Scheduler::Scheduler() {

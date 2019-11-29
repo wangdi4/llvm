@@ -38,6 +38,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 using namespace llvm;
 using namespace llvm::PatternMatch;

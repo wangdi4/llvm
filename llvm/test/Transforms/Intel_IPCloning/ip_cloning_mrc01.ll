@@ -1,5 +1,6 @@
-; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning -print-ip-cloning 2>&1 | FileCheck %s
-; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -print-ip-cloning 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -debug-only=ipcloning 2>&1 | FileCheck %s
 
 ; Check that foo is selected for cloning as a "many recursive calls" cloning
 ; candidate.

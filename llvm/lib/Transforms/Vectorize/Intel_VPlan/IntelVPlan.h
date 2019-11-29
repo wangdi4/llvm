@@ -36,6 +36,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
+#include <atomic>
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPLoopAnalysis.h"
@@ -88,6 +89,8 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 // Class names mapping to minimize the diff:
 #define InnerLoopVectorizer VPOCodeGen
 #define LoopVectorizationLegality VPOVectorizationLegality
+
+struct TripCountInfo;
 #endif // INTEL_CUSTOMIZATION
 
 /// In what follows, the term "input IR" refers to code that is fed into the
@@ -104,140 +107,6 @@ struct VPIteration {
   static unsigned ALL_LANES() { return -1; }
 };
 
-/// This is a helper struct for maintaining vectorization state. It's used for
-/// mapping values from the original loop to their corresponding values in
-/// the new loop. Two mappings are maintained: one for vectorized values and
-/// one for scalarized values. Vectorized values are represented with UF
-/// vector values in the new loop, and scalarized values are represented with
-/// UF x VF scalar values in the new loop. UF and VF are the unroll and
-/// vectorization factors, respectively.
-///
-/// Entries can be added to either map with setVectorValue and setScalarValue,
-/// which assert that an entry was not already added before. If an entry is to
-/// replace an existing one, call resetVectorValue and resetScalarValue. This is
-/// currently needed to modify the mapped values during "fix-up" operations that
-/// occur once the first phase of widening is complete. These operations include
-/// type truncation and the second phase of recurrence widening.
-///
-/// Entries from either map can be retrieved using the getVectorValue and
-/// getScalarValue functions, which assert that the desired value exists.
-
-struct VectorizerValueMap {
-  friend struct VPTransformState;
-
-private:
-  /// The unroll factor. Each entry in the vector map contains UF vector values.
-  unsigned UF;
-
-  /// The vectorization factor. Each entry in the scalar map contains UF x VF
-  /// scalar values.
-  unsigned VF;
-
-  /// The vector and scalar map storage. We use std::map and not DenseMap
-  /// because insertions to DenseMap invalidate its iterators.
-  typedef SmallVector<Value *, 2> VectorParts;
-  typedef SmallVector<SmallVector<Value *, 4>, 2> ScalarParts;
-  std::map<Value *, VectorParts> VectorMapStorage;
-  std::map<Value *, ScalarParts> ScalarMapStorage;
-
-public:
-  /// Construct an empty map with the given unroll and vectorization factors.
-  VectorizerValueMap(unsigned UF, unsigned VF) : UF(UF), VF(VF) {}
-
-  /// \return True if the map has any vector entry for \p Key.
-  bool hasAnyVectorValue(Value *Key) const {
-    return VectorMapStorage.count(Key);
-  }
-
-  /// \return True if the map has a vector entry for \p Key and \p Part.
-  bool hasVectorValue(Value *Key, unsigned Part) const {
-    assert(Part < UF && "Queried Vector Part is too large.");
-    if (!hasAnyVectorValue(Key))
-      return false;
-    const VectorParts &Entry = VectorMapStorage.find(Key)->second;
-    assert(Entry.size() == UF && "VectorParts has wrong dimensions.");
-    return Entry[Part] != nullptr;
-  }
-
-  /// \return True if the map has any scalar entry for \p Key.
-  bool hasAnyScalarValue(Value *Key) const {
-    return ScalarMapStorage.count(Key);
-  }
-
-  /// \return True if the map has a scalar entry for \p Key and \p Instance.
-  bool hasScalarValue(Value *Key, const VPIteration &Instance) const {
-    assert(Instance.Part < UF && "Queried Scalar Part is too large.");
-    assert(Instance.Lane < VF && "Queried Scalar Lane is too large.");
-    if (!hasAnyScalarValue(Key))
-      return false;
-    const ScalarParts &Entry = ScalarMapStorage.find(Key)->second;
-    assert(Entry.size() == UF && "ScalarParts has wrong dimensions.");
-    assert(Entry[Instance.Part].size() == VF &&
-           "ScalarParts has wrong dimensions.");
-    return Entry[Instance.Part][Instance.Lane] != nullptr;
-  }
-
-  /// Retrieve the existing vector value that corresponds to \p Key and
-  /// \p Part.
-  Value *getVectorValue(Value *Key, unsigned Part) {
-    assert(hasVectorValue(Key, Part) && "Getting non-existent value.");
-    return VectorMapStorage[Key][Part];
-  }
-
-  /// Retrieve the existing scalar value that corresponds to \p Key and
-  /// \p Instance.
-  Value *getScalarValue(Value *Key, const VPIteration &Instance) {
-    assert(hasScalarValue(Key, Instance) && "Getting non-existent value.");
-    return ScalarMapStorage[Key][Instance.Part][Instance.Lane];
-  }
-
-  /// Set a vector value associated with \p Key and \p Part. Assumes such a
-  /// value is not already set. If it is, use resetVectorValue() instead.
-  void setVectorValue(Value *Key, unsigned Part, Value *Vector) {
-    assert(!hasVectorValue(Key, Part) && "Vector value already set for part");
-    if (!VectorMapStorage.count(Key)) {
-      VectorParts Entry(UF);
-      VectorMapStorage[Key] = Entry;
-    }
-    VectorMapStorage[Key][Part] = Vector;
-  }
-
-  /// Set a scalar value associated with \p Key and \p Instance. Assumes such a
-  /// value is not already set.
-  void setScalarValue(Value *Key, const VPIteration &Instance, Value *Scalar) {
-    assert(!hasScalarValue(Key, Instance) && "Scalar value already set");
-    if (!ScalarMapStorage.count(Key)) {
-      ScalarParts Entry(UF);
-      // TODO: Consider storing uniform values only per-part, as they occupy
-      //       lane 0 only, keeping the other VF-1 redundant entries null.
-      for (unsigned Part = 0; Part < UF; ++Part)
-        Entry[Part].resize(VF, nullptr);
-      ScalarMapStorage[Key] = Entry;
-    }
-    ScalarMapStorage[Key][Instance.Part][Instance.Lane] = Scalar;
-  }
-
-  /// Reset the vector value associated with \p Key for the given \p Part.
-  /// This function can be used to update values that have already been
-  /// vectorized. This is the case for "fix-up" operations including type
-  /// truncation and the second phase of recurrence vectorization.
-  void resetVectorValue(Value *Key, unsigned Part, Value *Vector) {
-    assert(hasVectorValue(Key, Part) && "Vector value not set for part");
-    VectorMapStorage[Key][Part] = Vector;
-  }
-
-  /// Reset the scalar value associated with \p Key for \p Part and \p Lane.
-  /// This function can be used to update values that have already been
-  /// scalarized. This is the case for "fix-up" operations including scalar phi
-  /// nodes for scalarized and predicated instructions.
-  void resetScalarValue(Value *Key, const VPIteration &Instance,
-                        Value *Scalar) {
-    assert(hasScalarValue(Key, Instance) &&
-           "Scalar value not set for part and lane");
-    ScalarMapStorage[Key][Instance.Part][Instance.Lane] = Scalar;
-  }
-};
-
 /// This class is used to enable the VPlan to invoke a method of ILV. This is
 /// needed until the method is refactored out of ILV and becomes reusable.
 struct VPCallback {
@@ -248,23 +117,13 @@ struct VPCallback {
 /// VPTransformState holds information passed down when "executing" a VPlan,
 /// needed for generating the output IR.
 struct VPTransformState {
+  VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
+                   class DominatorTree *DT, IRBuilder<> &Builder,
+                   InnerLoopVectorizer *ILV, VPCallback &Callback,
+                   VPLoopInfo *VPLI)
+      : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder), ILV(ILV),
+        Callback(Callback), VPLI(VPLI) {}
 
-#if INTEL_CUSTOMIZATION
-  VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
-                   class DominatorTree *DT, IRBuilder<> &Builder,
-                   VectorizerValueMap &ValueMap, InnerLoopVectorizer *ILV,
-                   VPCallback &Callback, LoopVectorizationLegality *Legal)
-      : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder),
-        ValueMap(ValueMap), ILV(ILV), Callback(Callback), Legal(Legal) {}
-#else
-  VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
-                   class DominatorTree *DT, IRBuilder<> &Builder,
-                   VectorizerValueMap &ValueMap, InnerLoopVectorizer *ILV,
-                   VPCallback &Callback)
-      : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder),
-        ValueMap(ValueMap), ILV(ILV), Callback(Callback) {
-  }
-#endif
   /// The chosen Vectorization and Unroll Factors of the loop being vectorized.
   unsigned VF;
   unsigned UF;
@@ -333,10 +192,6 @@ struct VPTransformState {
   /// Hold a reference to the IRBuilder used to generate output IR code.
   IRBuilder<> &Builder;
 
-  /// Hold a reference to the Value state information used when generating the
-  /// Values of the output IR.
-  VectorizerValueMap &ValueMap;
-
   /// Hold a reference to a mapping between VPValues in VPlan and original
   /// Values they correspond to.
   VPValue2ValueTy VPValue2Value;
@@ -346,20 +201,7 @@ struct VPTransformState {
 
   VPCallback &Callback;
 #if INTEL_CUSTOMIZATION
-  /// Hold a pointer to LoopVectorizationLegality to access its
-  /// IsUniformAfterVectorization method.
-  class LoopVectorizationLegality *Legal;
-
-  // NOTE: The condition bit generated by codegen used to be carried by the
-  //       conditionbit recipes. Now that these are gone, codegen needs a way
-  //       to access this data.
-  //       We initialize it in VPInstruction::execute().
-  //       It is being used in VPBasicBlock::createEmptyBasicBlock().
-  //
-  // 2. Mapping the CBVs to llvm values during the CBV's execute()
-  /// The condition bit value carried by the VPValue.
-  SmallDenseMap<VPValue *, Value *> CBVToConditionBitMap;
-  UniformsTy *UniformCBVs;
+  VPLoopInfo *VPLI;
 #endif
 };
 
@@ -888,22 +730,11 @@ public:
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
 
-  // Return number of successors that this VPInstruction has. The instruction
-  // must be a terminator.
-  // TODO: Implement function when/if terminator instructions are added to
-  // VPlan. This function is needed to templatize common LLVM CFG algorithms
-  // (like GraphDiff).
-  unsigned getNumSuccessors() {
-    llvm_unreachable(
-        "VPlan function defined for GraphDiff compilation invoked.");
-  }
-  // Return the specified successor. This instruction must be a terminator.
-  // TODO: Implement function when/if terminator instructions are added to
-  // VPlan. This function is needed to templatize common LLVM CFG algorithms
-  // (like GraphDiff).
-  VPBlockBase *getSuccessor(unsigned Idx) {
-    llvm_unreachable(
-        "VPlan function defined for GraphDiff compilation invoked.");
+  bool mayHaveSideEffects() const {
+    auto *Instr = getInstruction();
+    if (!Instr)
+      return true; // Without underlying IR return pessimistic answer.
+    return Instr->mayHaveSideEffects();
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1038,6 +869,18 @@ private:
 public:
   void setBlend(bool B) { Blend = B; }
   bool getBlend() const { return Blend; }
+  /// Sort the incoming blocks of the blend phi according to their execution
+  /// order in the linearized CFG. Required to be performed prior to code
+  /// generation for the blend phis.
+  ///
+  /// \p BlockIndexInRPOTOrNull is an optional parameter with the mapping of the
+  /// blocks in \p this phi's parent region to that blocks' RPOT numbers. If not
+  /// provided, it will be calculated inside the method.
+  //
+  // TODO: As an optimization, the sorting can be done once per block, but that
+  // should be done at the caller side complicating the code.
+  void sortIncomingBlocksForBlend(
+      DenseMap<const VPBlockBase *, int> *BlockIndexInRPOTOrNull = nullptr);
 
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
   using const_vpblock_iterator =
@@ -1515,12 +1358,18 @@ public:
 
   /// Return operand that corrresponds to min/max parent vector value.
   VPValue *getParentExitValOperand() const {
-    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+    return getNumOperands() == 3 ? getOperand(1) : nullptr;
   }
 
   /// Return operand that corrresponds to min/max parent final value.
   VPValue *getParentFinalValOperand() const {
-    return getNumOperands() == 3 ? getOperand(1) : nullptr;
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+  }
+
+  /// Return true if this instruction is for last value calculation of an index
+  /// part of min/max+index idiom.
+  bool isMinMaxIndex() const {
+    return getParentExitValOperand() != nullptr;
   }
 
   /// Return ID of the corresponding reduce intrinsic.
@@ -1570,9 +1419,9 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty, bool IsSoa = false)
-      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
-        IsSOALayout(IsSoa) {}
+  VPAllocatePrivate(Type *Ty)
+      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}), IsSOASafe(false),
+        IsSOAProfitable(false) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -1584,10 +1433,28 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  bool isSOALayout() const { return IsSOALayout; }
+  /// Return true if doing SOA-layout transformation for the given memory is
+  /// both safe and profitable.
+  bool isSOALayout() const { return IsSOASafe && IsSOAProfitable; }
+
+  /// Return true if memory is safe for SOA, i.e. all uses inside the loop
+  /// are known and there are no layout-casts.
+  bool isSOASafe() const { return IsSOASafe; }
+
+  /// Return true if it's profitable to do SOA transformation, i.e. there
+  /// is at least one uniform/unit-stride load/store to that memory (in case of
+  /// private array), or the memory is a scalar structure
+  bool isSOAProfitable() const { return IsSOAProfitable; }
+
+  /// Set the property of the memory to be SOA-safe.
+  void setSOASafe() { IsSOASafe = true; }
+
+  /// Set the memory to be profitable for SOA-layout.
+  void setSOAProfitable() { IsSOAProfitable = true; }
 
 private:
-  bool IsSOALayout;
+  bool IsSOASafe;
+  bool IsSOAProfitable;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -2199,24 +2066,15 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
+    (void)PrintType;
+    OS << getName();
   }
 
-  void print(raw_ostream &OS) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
-  }
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const {
-    std::string Indent((Depth * 4), ' ');
-    OS << Indent << getName();
-  }
-
-  virtual void dump() const = 0;
-
-  virtual void dump(raw_ostream &OS, unsigned Indent = 0,
-                    const VPlanDivergenceAnalysis *DA = nullptr) const = 0;
+  void dump() const { print(dbgs()); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Iterators and types to access Successors of a VPBlockBase
@@ -2529,9 +2387,9 @@ public:
     return make_range(It, ItEnd);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0,
-            const VPlanDivergenceAnalysis *DA = nullptr) const override;
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2546,11 +2404,28 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 
+  TripCountInfo *getTripCountInfo() { return TCInfo.get(); }
+  const TripCountInfo *getTripCountInfo() const { return TCInfo.get(); }
+  void setTripCountInfo(std::unique_ptr<TripCountInfo> TCInfo) {
+    assert(!this->TCInfo && "Trip count info alread set!");
+    this->TCInfo = std::move(TCInfo);
+  }
+  void moveTripCountInfoFrom(VPBasicBlock *OtherBB) {
+    TCInfo = std::move(OtherBB->TCInfo);
+  }
+
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
+
+  // TODO: Not sure what other types of loop metadata we'd need. Most probably,
+  // we need some abstraction on top of TripCountInfo (and maybe that struct
+  // itself should be split in some way). The idea about this field is to have
+  // something similar to LLVM IR's loop metadata on the backedge branch
+  // instruction, so it will be filled for the latches only.
+  std::unique_ptr<TripCountInfo> TCInfo;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
@@ -2588,11 +2463,6 @@ private:
   /// Hold the Single Exit of the SESE region represented by the VPRegionBlock.
   VPBlockBase *Exit;
 
-  /// A VPRegionBlock can represent either a single instance of its
-  /// VPBlockBases, or multiple (VF * UF) replicated instances. The latter is
-  /// used when the internal SESE region handles a single scalarized lane.
-  bool IsReplicator;
-
 #if INTEL_CUSTOMIZATION
   /// Holds the number of VPBasicBlocks within the region. It is necessary for
   /// dominator tree.
@@ -2617,17 +2487,9 @@ public:
   /// that is actually instantiated. Values of this enumeration are kept in the
   /// VPRegionBlock classes VRID field. They are used for concrete type
   /// identification.
-#if INTEL_CUSTOMIZATION
-  VPRegionBlock(const unsigned char SC, const std::string &Name,
-                bool IsReplicator = false)
-      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr),
-        IsReplicator(IsReplicator), Size(0), IsDivergent(true),
-        RegionDT(nullptr), RegionPDT(nullptr) {}
-#else
-  VPRegionBlock(const std::string &Name, bool IsReplicator = false)
-      : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
-        IsReplicator(IsReplicator) {}
-#endif
+  VPRegionBlock(const unsigned char SC, const std::string &Name)
+      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
+        IsDivergent(true), RegionDT(nullptr), RegionPDT(nullptr) {}
 
   ~VPRegionBlock();
 
@@ -2680,10 +2542,6 @@ public:
   // need to report it.
   VPBlockBase &front() const { return *Entry; }
 #endif
-  /// An indicator if the VPRegionBlock represents single or multiple instances.
-  bool isReplicator() const { return IsReplicator; }
-
-  void setReplicator(bool ToReplicate) { IsReplicator = ToReplicate; }
 
 #if INTEL_CUSTOMIZATION
   /// Getters for Dominator Tree
@@ -2699,9 +2557,9 @@ public:
   void computePDT(void);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0,
-            const VPlanDivergenceAnalysis *DA = nullptr) const override;
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -2729,9 +2587,20 @@ private:
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   const DataLayout *DL = nullptr;
 
-  // Ugly hack to enable full linearization for cases where while-loop
-  // canonicalization or merge loop exits transformation break SSA.
-  bool SSAIsBroken = false;
+  // We need to force full linearization for certain cases. Currently this
+  // happens for cases where while-loop canonicalization or merge loop exits
+  // transformation break SSA or for HIR vector code generation which needs
+  // to be extended to preserve uniform control flow. This flag is set to true
+  // when we need to force full linearization. Full linearization can still
+  // kick in when this flag is false such as cases where we use a command
+  // line option to do the same.
+  bool FullLinearizationForced = false;
+
+  // The flag shows whether all steps needed for the loop entities privatization
+  // are finished. Particularly, all VPInstructions for private memory
+  // allocation are generated and the needed replacements in the VPLoop code are
+  // done.
+  bool LoopEntitiesPrivatizationIsDone = false;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2747,9 +2616,6 @@ protected:
   /// serves optimizations that operate on the VPlan.
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
 #endif // INTEL_CUSTOMIZATION
-
-  /// Holds the VFs applicable to this VPlan.
-  SmallSet<unsigned, 2> VFs;
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
@@ -2781,8 +2647,6 @@ protected:
   DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
       VPMetadataAsValues;
 
-  std::shared_ptr<VPLoopAnalysisBase> VPLA;
-
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
@@ -2791,33 +2655,16 @@ protected:
 #endif
 
 public:
-#if INTEL_CUSTOMIZATION
-  /// Keep the uniform VPValues here, so that we won't have to check
-  /// the underlying IR.
-  // TODO: To be moved to the Divergence Analysis Infrastructure
-  UniformsTy UniformCBVs;
+  VPlan(LLVMContext *Context, const DataLayout *DL)
+      : Context(Context), DL(DL) {}
 
-  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
-        const DataLayout *DL)
-      : Context(Context), DL(DL), VPLA(VPLA) {}
-#else
-  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
-#endif
-
-  ~VPlan() {
-#if !INTEL_CUSTOMIZATION
-    for (auto &MapEntry : Value2VPValue)
-      delete MapEntry.second;
-#endif
-  }
+  ~VPlan() = default;
 
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
-
-  VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
 
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
@@ -2833,8 +2680,8 @@ public:
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
 
-  void markSSABroken() { SSAIsBroken = true; }
-  bool isSSABroken() { return SSAIsBroken; }
+  void markFullLinearizationForced() { FullLinearizationForced = true; }
+  bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
   const DataLayout* getDataLayout() const { return DL; }
 
@@ -2861,6 +2708,17 @@ public:
     if (Iter == LoopEntities.end())
       return nullptr;
     return Iter->second.get();
+  }
+
+  /// Return \p true if we have finished importing of loop-entities and
+  /// generated appropriate VPInstructions.
+  bool isLoopEntitiesPrivatizationDone() const {
+    return LoopEntitiesPrivatizationIsDone;
+  }
+
+  /// Mark the flag that indicates that importing of loop entities is done.
+  void setLoopEntitiesPrivatizationDone(bool LEImportsDone) {
+    LoopEntitiesPrivatizationIsDone = LEImportsDone;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2892,10 +2750,6 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #endif // INTEL_CUSTOMIZATION
-
-  void addVF(unsigned VF) { VFs.insert(VF); }
-
-  bool hasVF(unsigned VF) { return VFs.count(VF); }
 
   const std::string &getName() const { return Name; }
 
@@ -3196,15 +3050,10 @@ inline raw_ostream &operator<<(raw_ostream &OS,
   P.dump(OS);
   return OS;
 }
-inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
-  BB.dump(OS, 2);
+inline raw_ostream &operator<<(raw_ostream &OS, const VPBlockBase &BB) {
+  BB.print(OS, 2);
   return OS;
 }
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
-  RB.dump(OS, 2);
-  return OS;
-}
-
 #endif // INTEL_CUSTOMIZATION
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -3389,18 +3238,6 @@ public:
     return false;
   }
 
-  /// Count and return the number of succesors of \p PredBlock excluding any
-  /// backedges.
-  static unsigned countSuccessorsNoBE(VPBlockBase *PredBlock,
-                                      VPLoopInfo *VPLI) {
-    unsigned Count = 0;
-    for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-      if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
-        Count++;
-    }
-    return Count;
-  }
-
   static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                       VPDominatorTree &DomTree);
 
@@ -3510,9 +3347,6 @@ public:
   }
 
   static const VPLoopRegion *findNthLoopDFS(const VPlan *Plan, unsigned N);
-  static const VPLoopRegion *findFirstLoopDFS(const VPlan *Plan) {
-    return findNthLoopDFS(Plan, 1);
-  }
 };
 
 /// A wrapper class to add VPlan related remarks for opt-report. Currently
@@ -3573,6 +3407,15 @@ template <> struct GraphTraits<vpo::VPBlockBase *> {
   static inline ChildIteratorType child_end(NodeRef N) {
     return N->getSuccessors().end();
   }
+};
+
+// This specialization is for the ChildrenGetterTy from
+// GenericIteratedDominanceFrontier.h. Clang's GraphTraits for clang::CFGBlock
+// do the same trick.
+// TODO: Consider fixing GenericIteratedDominanceFrontier.h during upstreaming
+// instead.
+template <>
+struct GraphTraits<vpo::VPBlockBase> : public GraphTraits<vpo::VPBlockBase *> {
 };
 
 template <> struct GraphTraits<const vpo::VPBlockBase *> {
@@ -3675,21 +3518,6 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
 
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
-
-#if INTEL_CUSTOMIZATION
-// Successors iterating interfaces added to compile VPlan HCFG for GraphDiff
-// utility.The iterator requires terminator instruction for corresponding VPBB.
-// TODO: Implement function when/if terminator instructions are added to VPlan.
-// This function is needed to templatize common LLVM CFG algorithms (like
-// GraphDiff).
-using vp_succ_iterator = SuccIterator<vpo::VPInstruction, vpo::VPBlockBase>;
-inline vp_succ_iterator succ_begin(vpo::VPBlockBase *VPBB) {
-  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
-}
-inline vp_succ_iterator succ_end(vpo::VPBlockBase *VPBB) {
-  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
-}
-#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H

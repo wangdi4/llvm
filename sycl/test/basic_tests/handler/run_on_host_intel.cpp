@@ -2,9 +2,6 @@
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
-
 //==-- run_on_host_intel.cpp -----------------------------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

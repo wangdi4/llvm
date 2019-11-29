@@ -23,6 +23,10 @@
 #define _PI_H_VERSION_MAJOR 1
 #define _PI_H_VERSION_MINOR 1
 
+#define _PI_STRING_HELPER(a) #a
+#define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
+#define _PI_H_VERSION_STRING                                                   \
+  _PI_CONCAT(_PI_H_VERSION_MAJOR, _PI_H_VERSION_MINOR)
 // TODO: we need a mapping of PI to OpenCL somewhere, and this can be done
 // elsewhere, e.g. in the pi_opencl, but constants/enums mapping is now
 // done here, for efficiency and simplicity.
@@ -48,15 +52,18 @@ typedef pi_uint64   pi_bitfield;
 // TODO: populate PI enums.
 //
 typedef enum {
-  PI_SUCCESS                    = CL_SUCCESS,
+  PI_SUCCESS = CL_SUCCESS,
   PI_RESULT_INVALID_KERNEL_NAME = CL_INVALID_KERNEL_NAME,
-  PI_INVALID_OPERATION          = CL_INVALID_OPERATION,
-  PI_INVALID_QUEUE_PROPERTIES   = CL_INVALID_QUEUE_PROPERTIES,
-  PI_INVALID_VALUE              = CL_INVALID_VALUE,
-  PI_INVALID_CONTEXT            = CL_INVALID_CONTEXT,
-  PI_INVALID_PLATFORM           = CL_INVALID_PLATFORM,
-  PI_INVALID_DEVICE             = CL_INVALID_DEVICE,
-  PI_OUT_OF_HOST_MEMORY         = CL_OUT_OF_HOST_MEMORY
+  PI_INVALID_OPERATION = CL_INVALID_OPERATION,
+  PI_INVALID_QUEUE_PROPERTIES = CL_INVALID_QUEUE_PROPERTIES,
+  PI_INVALID_VALUE = CL_INVALID_VALUE,
+  PI_INVALID_CONTEXT = CL_INVALID_CONTEXT,
+  PI_INVALID_PLATFORM = CL_INVALID_PLATFORM,
+  PI_INVALID_DEVICE = CL_INVALID_DEVICE,
+  PI_INVALID_BINARY = CL_INVALID_BINARY,
+  PI_MISALIGNED_SUB_BUFFER_OFFSET = CL_MISALIGNED_SUB_BUFFER_OFFSET,
+  PI_OUT_OF_HOST_MEMORY = CL_OUT_OF_HOST_MEMORY,
+  PI_INVALID_WORK_GROUP_SIZE = CL_INVALID_WORK_GROUP_SIZE
 } _pi_result;
 
 typedef enum {
@@ -78,23 +85,96 @@ typedef enum : pi_uint64 {
 
 // TODO: populate and sync with cl::sycl::info::device
 typedef enum {
-  PI_DEVICE_INFO_TYPE           = CL_DEVICE_TYPE,
-  PI_DEVICE_INFO_PARENT         = CL_DEVICE_PARENT_DEVICE,
-  PI_DEVICE_INFO_PLATFORM       = CL_DEVICE_PLATFORM,
-  PI_DEVICE_INFO_PARTITION_TYPE = CL_DEVICE_PARTITION_TYPE,
-  PI_DEVICE_INFO_NAME           = CL_DEVICE_NAME
+  PI_DEVICE_INFO_TYPE                     = CL_DEVICE_TYPE,
+  PI_DEVICE_INFO_PARENT                   = CL_DEVICE_PARENT_DEVICE,
+  PI_DEVICE_INFO_PLATFORM                 = CL_DEVICE_PLATFORM,
+  PI_DEVICE_INFO_PARTITION_TYPE           = CL_DEVICE_PARTITION_TYPE,
+  PI_DEVICE_INFO_VENDOR_ID                = CL_DEVICE_VENDOR_ID,
+  PI_DEVICE_VENDOR                        = CL_DEVICE_VENDOR,
+  PI_DRIVER_VERSION                       = CL_DRIVER_VERSION,
+  PI_DEVICE_PROFILE                       = CL_DEVICE_PROFILE,
+  PI_DEVICE_VERSION                       = CL_DEVICE_VERSION,
+  PI_DEVICE_OPENCL_C_VERSION              = CL_DEVICE_OPENCL_C_VERSION,
+  PI_DEVICE_PREFERRED_INTEROP_USER_SYNC   = CL_DEVICE_PREFERRED_INTEROP_USER_SYNC,
+  PI_DEVICE_PRINTF_BUFFER_SIZE            = CL_DEVICE_PRINTF_BUFFER_SIZE,
+  PI_DEVICE_PARTITION_PROPERTIES          = CL_DEVICE_PARTITION_PROPERTIES,
+  PI_DEVICE_PARTITION_MAX_SUB_DEVICES     = CL_DEVICE_PARTITION_MAX_SUB_DEVICES,
+  PI_DEVICE_PARTITION_AFFINITY_DOMAIN     = CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
+  PI_DEVICE_PARTITION_TYPE                = CL_DEVICE_PARTITION_TYPE,
+  PI_DEVICE_REFERENCE_COUNT               = CL_DEVICE_REFERENCE_COUNT,
+  PI_DEVICE_INFO_EXTENSIONS               = CL_DEVICE_EXTENSIONS,
+  PI_DEVICE_INFO_COMPILER_AVAILABLE       = CL_DEVICE_COMPILER_AVAILABLE,
+  PI_DEVICE_INFO_LINKER_AVAILABLE         = CL_DEVICE_LINKER_AVAILABLE,
+  PI_DEVICE_INFO_MAX_COMPUTE_UNITS        = CL_DEVICE_MAX_COMPUTE_UNITS,
+  PI_DEVICE_INFO_NAME                     = CL_DEVICE_NAME,
+  PI_DEVICE_MAX_WORK_ITEM_DIMENSIONS      = CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
+  PI_DEVICE_MAX_WORK_GROUP_SIZE           = CL_DEVICE_MAX_WORK_GROUP_SIZE,
+  PI_DEVICE_MAX_WORK_ITEM_SIZES           = CL_DEVICE_MAX_WORK_ITEM_SIZES,
+  PI_DEVICE_SINGLE_FP_CONFIG              = CL_DEVICE_SINGLE_FP_CONFIG,
+  PI_DEVICE_HALF_FP_CONFIG                = CL_DEVICE_HALF_FP_CONFIG,
+  PI_DEVICE_DOUBLE_FP_CONFIG              = CL_DEVICE_DOUBLE_FP_CONFIG,
+  PI_DEVICE_GLOBAL_MEM_CACHE_TYPE         = CL_DEVICE_GLOBAL_MEM_CACHE_TYPE,
+  PI_DEVICE_GLOBAL_MEM_CACHELINE_SIZE     = CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE,
+  PI_DEVICE_GLOBAL_MEM_CACHE_SIZE         = CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,
+  PI_DEVICE_GLOBAL_MEM_SIZE               = CL_DEVICE_GLOBAL_MEM_SIZE,
+  PI_DEVICE_MAX_CONSTANT_BUFFER_SIZE      = CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE,
+  PI_DEVICE_MAX_CONSTANT_ARGS             = CL_DEVICE_MAX_CONSTANT_ARGS,
+  PI_DEVICE_LOCAL_MEM_TYPE                = CL_DEVICE_LOCAL_MEM_TYPE,
+  PI_DEVICE_LOCAL_MEM_SIZE                = CL_DEVICE_LOCAL_MEM_SIZE,
+  PI_DEVICE_ERROR_CORRECTION_SUPPORT      = CL_DEVICE_ERROR_CORRECTION_SUPPORT,
+  PI_DEVICE_PROFILING_TIMER_RESOLUTION    = CL_DEVICE_PROFILING_TIMER_RESOLUTION,
+  PI_DEVICE_HOST_UNIFIED_MEMORY           = CL_DEVICE_HOST_UNIFIED_MEMORY,
+  PI_DEVICE_BUILT_IN_KERNELS              = CL_DEVICE_BUILT_IN_KERNELS,
+  PI_DEVICE_ENDIAN_LITTLE                 = CL_DEVICE_ENDIAN_LITTLE,
+  PI_DEVICE_AVAILABLE                     = CL_DEVICE_AVAILABLE,
+  PI_DEVICE_EXECUTION_CAPABILITIES        = CL_DEVICE_EXECUTION_CAPABILITIES,
+  PI_DEVICE_QUEUE_PROPERTIES              = CL_DEVICE_QUEUE_PROPERTIES,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR   = CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT  = CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_INT    = CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_LONG   = CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT  = CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE = CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,
+  PI_DEVICE_PREFERRED_VECTOR_WIDTH_HALF   = CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF,
+  PI_DEVICE_MAX_CLOCK_FREQUENCY           = CL_DEVICE_MAX_CLOCK_FREQUENCY,
+  PI_DEVICE_ADDRESS_BITS                  = CL_DEVICE_ADDRESS_BITS,
+  PI_DEVICE_MAX_READ_IMAGE_ARGS           = CL_DEVICE_MAX_READ_IMAGE_ARGS,
+  PI_DEVICE_MAX_WRITE_IMAGE_ARGS          = CL_DEVICE_MAX_WRITE_IMAGE_ARGS,
+  PI_DEVICE_IMAGE2D_MAX_WIDTH             = CL_DEVICE_IMAGE2D_MAX_WIDTH,
+  PI_DEVICE_IMAGE2D_MAX_HEIGHT            = CL_DEVICE_IMAGE2D_MAX_HEIGHT,
+  PI_DEVICE_IMAGE3D_MAX_WIDTH             = CL_DEVICE_IMAGE3D_MAX_WIDTH,
+  PI_DEVICE_IMAGE3D_MAX_HEIGHT            = CL_DEVICE_IMAGE3D_MAX_HEIGHT,
+  PI_DEVICE_IMAGE3D_MAX_DEPTH             = CL_DEVICE_IMAGE3D_MAX_DEPTH,
+  PI_DEVICE_IMAGE_MAX_BUFFER_SIZE         = CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,
+  PI_DEVICE_IMAGE_MAX_ARRAY_SIZE          = CL_DEVICE_IMAGE_MAX_ARRAY_SIZE,
+  PI_DEVICE_MAX_MEM_ALLOC_SIZE            = CL_DEVICE_MAX_MEM_ALLOC_SIZE,
+  PI_DEVICE_IMAGE_SUPPORT                 = CL_DEVICE_IMAGE_SUPPORT,
+  PI_DEVICE_MAX_PARAMETER_SIZE            = CL_DEVICE_MAX_PARAMETER_SIZE,
+  PI_DEVICE_MAX_SAMPLERS                  = CL_DEVICE_MAX_SAMPLERS,
+  PI_DEVICE_MEM_BASE_ADDR_ALIGN           = CL_DEVICE_MEM_BASE_ADDR_ALIGN,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_CHAR      = CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_SHORT     = CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_INT       = CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_LONG      = CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT     = CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE    = CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_HALF      = CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF
 } _pi_device_info;
 
 // TODO: populate
 typedef enum {
   PI_CONTEXT_INFO_DEVICES     = CL_CONTEXT_DEVICES,
-  PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES
+  PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
+  PI_CONTEXT_INFO_REFERENCE_COUNT = CL_CONTEXT_REFERENCE_COUNT
 } _pi_context_info;
 
-// TODO: populate
 typedef enum {
+  PI_QUEUE_INFO_CONTEXT         = CL_QUEUE_CONTEXT,
   PI_QUEUE_INFO_DEVICE          = CL_QUEUE_DEVICE,
-  PI_QUEUE_INFO_REFERENCE_COUNT = CL_QUEUE_REFERENCE_COUNT
+  PI_QUEUE_INFO_DEVICE_DEFAULT  = CL_QUEUE_DEVICE_DEFAULT,
+  PI_QUEUE_INFO_PROPERTIES      = CL_QUEUE_PROPERTIES,
+  PI_QUEUE_INFO_REFERENCE_COUNT = CL_QUEUE_REFERENCE_COUNT,
+  PI_QUEUE_INFO_SIZE            = CL_QUEUE_SIZE
 } _pi_queue_info;
 
 typedef enum {
@@ -106,6 +186,47 @@ typedef enum {
   PI_IMAGE_INFO_HEIGHT       = CL_IMAGE_HEIGHT,
   PI_IMAGE_INFO_DEPTH        = CL_IMAGE_DEPTH
 } _pi_image_info;
+
+typedef enum {
+  PI_KERNEL_FUNCTION_NAME    = CL_KERNEL_FUNCTION_NAME,
+  PI_KERNEL_NUM_ARGS         = CL_KERNEL_NUM_ARGS,
+  PI_KERNEL_REFERENCE_COUNT  = CL_KERNEL_REFERENCE_COUNT,
+  PI_KERNEL_INFO_CONTEXT     = CL_KERNEL_CONTEXT,
+  PI_KERNEL_INFO_PROGRAM     = CL_KERNEL_PROGRAM,
+  PI_KERNEL_ATTRIBUTES       = CL_KERNEL_ATTRIBUTES
+} _pi_kernel_info;
+
+typedef enum {
+  PI_KERNEL_GLOBAL_WORK_SIZE                    = CL_KERNEL_GLOBAL_WORK_SIZE,
+  PI_KERNEL_WORK_GROUP_SIZE                     = CL_KERNEL_WORK_GROUP_SIZE,
+  PI_KERNEL_COMPILE_WORK_GROUP_SIZE             = CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
+  PI_KERNEL_LOCAL_MEM_SIZE                      = CL_KERNEL_LOCAL_MEM_SIZE,
+  PI_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE  = CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+  PI_KERNEL_PRIVATE_MEM_SIZE                    = CL_KERNEL_PRIVATE_MEM_SIZE
+} _pi_kernel_group_info;
+
+typedef enum {
+  PI_EVENT_INFO_COMMAND_QUEUE              = CL_EVENT_COMMAND_QUEUE,
+  PI_EVENT_INFO_CONTEXT                    = CL_EVENT_CONTEXT,
+  PI_EVENT_INFO_COMMAND_TYPE               = CL_EVENT_COMMAND_TYPE,
+  PI_EVENT_INFO_COMMAND_EXECUTION_STATUS   = CL_EVENT_COMMAND_EXECUTION_STATUS,
+  PI_EVENT_INFO_REFERENCE_COUNT            = CL_EVENT_REFERENCE_COUNT
+} _pi_event_info;
+
+// TODO: populate
+typedef enum {
+  PI_COMMAND_TYPE_NDRANGE_KERNEL           = CL_COMMAND_NDRANGE_KERNEL,
+  PI_COMMAND_TYPE_MEM_BUFFER_READ          = CL_COMMAND_READ_BUFFER,
+  PI_COMMAND_TYPE_MEM_BUFFER_WRITE         = CL_COMMAND_WRITE_BUFFER,
+  PI_COMMAND_TYPE_MEM_BUFFER_COPY          = CL_COMMAND_COPY_BUFFER,
+  PI_COMMAND_TYPE_MEM_BUFFER_MAP           = CL_COMMAND_MAP_BUFFER,
+  PI_COMMAND_TYPE_MEM_BUFFER_UNMAP         = CL_COMMAND_UNMAP_MEM_OBJECT,
+  PI_COMMAND_TYPE_MEM_BUFFER_READ_RECT     = CL_COMMAND_READ_BUFFER_RECT,
+  PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT    = CL_COMMAND_WRITE_BUFFER_RECT,
+  PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT     = CL_COMMAND_COPY_BUFFER_RECT,
+  PI_COMMAND_TYPE_USER                     = CL_COMMAND_USER,
+  PI_COMMAND_TYPE_MEM_BUFFER_FILL          = CL_COMMAND_FILL_BUFFER
+} _pi_command_type;
 
 typedef enum {
   PI_MEM_TYPE_BUFFER         = CL_MEM_OBJECT_BUFFER,
@@ -156,7 +277,6 @@ typedef enum {
   PI_BUFFER_CREATE_TYPE_REGION = CL_BUFFER_CREATE_TYPE_REGION
 } _pi_buffer_create_type;
 
-typedef pi_bitfield pi_sampler_properties;
 const pi_bool PI_TRUE = CL_TRUE;
 const pi_bool PI_FALSE = CL_FALSE;
 
@@ -183,6 +303,11 @@ typedef enum {
   PI_SAMPLER_FILTER_MODE_NEAREST = CL_FILTER_NEAREST,
   PI_SAMPLER_FILTER_MODE_LINEAR  = CL_FILTER_LINEAR,
 } _pi_sampler_filter_mode;
+
+typedef pi_bitfield pi_sampler_properties;
+const pi_sampler_properties PI_SAMPLER_PROPERTIES_NORMALIZED_COORDS = CL_SAMPLER_NORMALIZED_COORDS;
+const pi_sampler_properties PI_SAMPLER_PROPERTIES_ADDRESSING_MODE   = CL_SAMPLER_ADDRESSING_MODE;
+const pi_sampler_properties PI_SAMPLER_PROPERTIES_FILTER_MODE       = CL_SAMPLER_FILTER_MODE;
 
 // NOTE: this is made 64-bit to match the size of cl_mem_flags to
 // make the translation to OpenCL transparent.
@@ -212,6 +337,10 @@ typedef _pi_device_info             pi_device_info;
 typedef _pi_context_info            pi_context_info;
 typedef _pi_queue_info              pi_queue_info;
 typedef _pi_image_info              pi_image_info;
+typedef _pi_kernel_info             pi_kernel_info;
+typedef _pi_kernel_group_info       pi_kernel_group_info;
+typedef _pi_event_info              pi_event_info;
+typedef _pi_command_type            pi_command_type;
 typedef _pi_mem_type                pi_mem_type;
 typedef _pi_image_channel_order     pi_image_channel_order;
 typedef _pi_image_channel_type      pi_image_channel_type;
@@ -244,9 +373,20 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 /// Target identification strings for
 /// pi_device_binary_struct.DeviceTargetSpec
 ///
+/// A device type represented by a particular target
+/// triple requires specific binary images. We need
+/// to map the image type onto the device target triple
+///
 #define PI_DEVICE_BINARY_TARGET_UNKNOWN "<unknown>"
+/// SPIR-V 32-bit image <-> "spir", 32-bit OpenCL device
 #define PI_DEVICE_BINARY_TARGET_SPIRV32 "spir"
-#define PI_DEVICE_BINARY_TARGET_SPIRV64 "spir64";
+/// SPIR-V 64-bit image <-> "spir64", 64-bit OpenCL device
+#define PI_DEVICE_BINARY_TARGET_SPIRV64 "spir64"
+/// Device-specific binary images produced from SPIR-V 64-bit <->
+/// various "spir64_*" triples for specific 64-bit OpenCL devices
+#define PI_DEVICE_BINARY_TARGET_SPIRV64_X86_64 "spir64_x86_64"
+#define PI_DEVICE_BINARY_TARGET_SPIRV64_GEN "spir64_gen"
+#define PI_DEVICE_BINARY_TARGET_SPIRV64_FPGA "spir64_fpga"
 
 /// This struct is a record of the device binary information. If the Kind field
 /// denotes a portable binary type (SPIRV or LLVMIR), the DeviceTargetSpec field
@@ -263,6 +403,13 @@ struct pi_device_binary_struct {
   /// format of the binary data - SPIRV, LLVMIR bitcode,...
   uint8_t Format;
   /// null-terminated string representation of the device's target architecture
+  /// which holds one of:
+  /// PI_DEVICE_BINARY_TARGET_UNKNOWN - unknown
+  /// PI_DEVICE_BINARY_TARGET_SPIRV32 - general value for 32-bit OpenCL devices
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64 - general value for 64-bit OpenCL devices
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64_X86_64 - 64-bit OpenCL CPU device
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64_GEN - GEN GPU device (64-bit OpenCL)
+  /// PI_DEVICE_BINARY_TARGET_SPIRV64_FPGA - 64-bit OpenCL FPGA device
   const char *DeviceTargetSpec;
   /// a null-terminated string; target- and compiler-specific options
   /// which are suggested to use to "build" program at runtime
@@ -324,21 +471,21 @@ typedef _pi_event *       pi_event;
 typedef _pi_sampler *     pi_sampler;
 
 typedef struct {
-          pi_image_channel_order image_channel_order;
-          pi_image_channel_type  image_channel_data_type;
+  pi_image_channel_order image_channel_order;
+  pi_image_channel_type image_channel_data_type;
 } _pi_image_format;
 
 typedef struct {
-          pi_mem_type image_type;
-          size_t image_width;
-          size_t image_height;
-          size_t image_depth;
-          size_t image_array_size;
-          size_t image_row_pitch;
-          size_t image_slice_pitch;
-          pi_uint32 num_mip_levels;
-          pi_uint32 num_samples;
-          pi_mem buffer;
+  pi_mem_type image_type;
+  size_t image_width;
+  size_t image_height;
+  size_t image_depth;
+  size_t image_array_size;
+  size_t image_row_pitch;
+  size_t image_slice_pitch;
+  pi_uint32 num_mip_levels;
+  pi_uint32 num_samples;
+  pi_mem buffer;
 } _pi_image_desc;
 
 typedef _pi_image_format   pi_image_format;
@@ -356,6 +503,16 @@ typedef _pi_image_desc     pi_image_desc;
 //
 // TODO: describe interfaces in Doxygen format
 //
+
+struct _pi_plugin;
+typedef _pi_plugin pi_plugin;
+
+// PI Plugin Initialise.
+// Plugin will check the PI version of Plugin Interface,
+// populate the PI Version it supports, update targets field and populate
+// PiFunctionTable with Supported APIs. The pointers are in a predetermined
+// order in pi.def file.
+pi_result piPluginInit(pi_plugin *plugin_info);
 
 //
 // Platform
@@ -404,15 +561,29 @@ pi_result piDevicePartition(
 /// and the IR characteristics.
 ///
 pi_result piextDeviceSelectBinary(
-  pi_device           device, // TODO: does this need to be context?
+  pi_device           device,
   pi_device_binary *  binaries,
   pi_uint32           num_binaries,
   pi_device_binary *  selected_binary);
 
+/// Retrieves a device function pointer to a user-defined function
+/// \arg \c function_name. \arg \c function_pointer_ret is set to 0 if query
+/// failed.
+///
+/// \arg \c program must be built before calling this API. \arg \c device
+/// must present in the list of devices returned by \c get_device method for
+/// \arg \c program.
+///
+pi_result piextGetDeviceFunctionPointer(
+  pi_device        device,
+  pi_program       program,
+  const char *     function_name,
+  pi_uint64 *      function_pointer_ret);
+
 //
 // Context
 //
-pi_context piContextCreate( // TODO: change interface to return error code instead
+pi_result piContextCreate(
   const cl_context_properties * properties, // TODO: untie from OpenCL
   pi_uint32         num_devices,
   const pi_device * devices,
@@ -422,7 +593,7 @@ pi_context piContextCreate( // TODO: change interface to return error code inste
     size_t       cb,
     void *       user_data),
   void *            user_data,
-  pi_result *       result);
+  pi_context *      ret_context);
 
 pi_result piContextGetInfo(
   pi_context         context,
@@ -460,20 +631,20 @@ pi_result piQueueFinish(pi_queue command_queue);
 //
 // Memory
 //
-pi_mem piMemBufferCreate( // TODO: change interface to return error code
+pi_result piMemBufferCreate(
   pi_context   context,
   pi_mem_flags flags,
   size_t       size,
   void *       host_ptr,
-  pi_result *  errcode_ret);
+  pi_mem *     ret_mem);
 
-pi_mem piMemImageCreate( // TODO: change interface to return error code
+pi_result piMemImageCreate(
   pi_context              context,
   pi_mem_flags            flags,
   const pi_image_format * image_format,
   const pi_image_desc *   image_desc,
   void *                  host_ptr,
-  pi_result *             errcode_ret);
+  pi_mem *                ret_mem);
 
 pi_result piMemGetInfo(
   pi_mem           mem,
@@ -495,10 +666,12 @@ pi_result piMemRetain(
 pi_result piMemRelease(
   pi_mem mem);
 
-pi_mem piMemBufferPartition( // TODO: change interface to return error code
-    pi_mem context, pi_mem_flags flags,
-    pi_buffer_create_type buffer_create_type, void *buffer_create_info,
-    pi_result *errcode_ret);
+pi_result piMemBufferPartition(
+    pi_mem                    buffer,
+    pi_mem_flags              flags,
+    pi_buffer_create_type     buffer_create_type,
+    void *                    buffer_create_info,
+    pi_mem *                  ret_mem);
 //
 // Program
 //
@@ -508,21 +681,21 @@ pi_result piProgramCreate(
   size_t        length,
   pi_program *  res_program);
 
-pi_program piclProgramCreateWithBinary( // TODO: change to return pi_result
+pi_result piclProgramCreateWithSource(
+  pi_context        context,
+  pi_uint32         count,
+  const char **     strings,
+  const size_t *    lengths,
+  pi_program *      ret_program);
+
+pi_result piclProgramCreateWithBinary(
   pi_context                     context,
   pi_uint32                      num_devices,
   const pi_device *              device_list,
   const size_t *                 lengths,
   const unsigned char **         binaries,
   pi_int32 *                     binary_status,
-  pi_result *                    errcode_ret);
-
-pi_program piclProgramCreateWithSource( // TODO:  change to return pi_result
-  pi_context        context,
-  pi_uint32         count,
-  const char **     strings,
-  const size_t *    lengths,
-  pi_result *       errcode);
+  pi_program *                   ret_program);
 
 pi_result piProgramGetInfo(
   pi_program          program,
@@ -531,7 +704,7 @@ pi_result piProgramGetInfo(
   void *              param_value,
   size_t *            param_value_size_ret);
 
-pi_program piProgramLink( // TODO: change interface to return error code
+pi_result piProgramLink(
   pi_context          context,
   pi_uint32           num_devices,
   const pi_device *   device_list,
@@ -541,7 +714,7 @@ pi_program piProgramLink( // TODO: change interface to return error code
   void (*  pfn_notify)(pi_program program,
                        void * user_data),
   void *              user_data,
-  pi_result *         errcode_ret);
+  pi_program *        ret_program);
 
 pi_result piProgramCompile(
   pi_program           program,
@@ -577,10 +750,10 @@ pi_result piProgramRelease(pi_program program);
 //
 // Kernel
 //
-pi_kernel piKernelCreate( // TODO: change interface to return error code
+pi_result piKernelCreate(
   pi_program      program,
   const char *    kernel_name,
-  pi_result *     errcode_ret);
+  pi_kernel *     ret_kernel);
 
 pi_result piKernelSetArg(
   pi_kernel    kernel,
@@ -620,9 +793,9 @@ pi_result piKernelRelease(pi_kernel    kernel);
 //
 // Events
 //
-pi_event piEventCreate( // TODO: change to return pi_result
+pi_result piEventCreate(
   pi_context    context,
-  pi_result *   errcode_ret);
+  pi_event *    ret_event);
 
 pi_result piEventGetInfo(
   pi_event         event,
@@ -826,7 +999,7 @@ pi_result piEnqueueMemImageWrite(
   const pi_event *  event_wait_list,
   pi_event *        event);
 
-  pi_result piEnqueueMemImageCopy(
+pi_result piEnqueueMemImageCopy(
   pi_queue          command_queue,
   pi_mem            src_image,
   pi_mem            dst_image,
@@ -847,7 +1020,7 @@ pi_result piEnqueueMemImageFill(
   const pi_event *  event_wait_list,
   pi_event *        event);
 
-void * piEnqueueMemBufferMap( // TODO: change to return pi_result
+pi_result piEnqueueMemBufferMap(
   pi_queue          command_queue,
   pi_mem            buffer,
   pi_bool           blocking_map,
@@ -857,7 +1030,7 @@ void * piEnqueueMemBufferMap( // TODO: change to return pi_result
   pi_uint32         num_events_in_wait_list,
   const pi_event *  event_wait_list,
   pi_event *        event,
-  pi_result *       errcode_ret);
+  void* *           ret_map);
 
 pi_result piEnqueueMemUnmap(
   pi_queue         command_queue,
@@ -866,6 +1039,25 @@ pi_result piEnqueueMemUnmap(
   pi_uint32        num_events_in_wait_list,
   const pi_event * event_wait_list,
   pi_event *       event);
+
+
+struct _pi_plugin {
+  // PI version supported by host passed to the plugin. The Plugin
+  // checks and writes the appropriate Function Pointers in
+  // PiFunctionTable.
+  // TODO: Work on version fields and their handshaking mechanism.
+  // Some choices are:
+  // - Use of integers to keep major and minor version.
+  // - Keeping char* Versions.
+  const char PiVersion[4] = _PI_H_VERSION_STRING;
+  // Plugin edits this.
+  char PluginVersion[4] = _PI_H_VERSION_STRING;
+  char *Targets;
+  struct FunctionPointers {
+#define _PI_API(api) decltype(::api) *api;
+#include <CL/sycl/detail/pi.def>
+  } PiFunctionTable;
+};
 
 #ifdef __cplusplus
 } // extern "C"

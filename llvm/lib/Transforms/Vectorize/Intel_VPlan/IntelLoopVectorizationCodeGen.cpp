@@ -37,7 +37,7 @@ static cl::opt<bool>
                          cl::desc("Serialize alloca for private array-types"));
 
 // Force VPValue based code generation path.
-cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false),
+cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(true),
                                    cl::Hidden,
                                    cl::desc("Enable VPValue based codegen"));
 
@@ -201,33 +201,6 @@ void VPOCodeGen::emitResume(Value *CountRoundDown) {
       BCResumeVal->addIncoming(II.getStartValue(), BB);
     OrigPhi->setIncomingValue(BlockIdx, BCResumeVal);
   }
-}
-
-void VPOCodeGen::emitMinimumIterationCountCheck(Loop *L, Value *Count) {
-
-  BasicBlock *VLoopFirstBB = L->getLoopPreheader();
-  assert(VLoopFirstBB && "Loop does not have a preheader block.");
-  IRBuilder<> Builder(VLoopFirstBB->getTerminator());
-
-  // Generate code to check that the loop's trip count that we computed by
-  // adding one to the backedge-taken count will not overflow.
-  Value *CheckMinIters = Builder.CreateICmpULT(
-      Count, ConstantInt::get(Count->getType(), VF), "min.iters.check");
-
-  BasicBlock *NewBB =
-    VLoopFirstBB->splitBasicBlock(VLoopFirstBB->getTerminator(),
-                                 "min.iters.checked");
-  // Update dominator tree immediately if the generated block is a
-  // LoopBypassBlock because SCEV expansions to generate loop bypass
-  // checks may query it before the current function is finished.
-  DT->addNewBlock(NewBB, VLoopFirstBB);
-  addBlockToParentLoop(L, NewBB, *LI);
-
-  BranchInst *Branch = BranchInst::Create(LoopScalarPreHeader, NewBB,
-                                          CheckMinIters);
-  ReplaceInstWithInst(VLoopFirstBB->getTerminator(), Branch);
-
-  LoopBypassBlocks.push_back(VLoopFirstBB);
 }
 
 Value *VPOCodeGen::emitTransformedIndex(IRBuilder<> &B, Value *Index,
@@ -450,8 +423,6 @@ void VPOCodeGen::createEmptyLoop() {
   // Find the loop boundaries.
   Value *Count = getOrCreateTripCount(Lp);
 
-  emitMinimumIterationCountCheck(Lp, Count);
-
   // Now, compare the new count to zero. If it is zero skip the vector loop and
   // jump to the scalar loop.
   emitVectorLoopEnteredCheck(Lp, LoopScalarPreHeader);
@@ -640,7 +611,7 @@ void VPOCodeGen::fixReductionInReg(PHINode *Phi,
   // To do so, we need to generate the 'identity' vector and override
   // one of the elements with the incoming scalar reduction. We need
   // to do it in the vector-loop preheader.
-  Builder.SetInsertPoint(LoopBypassBlocks[1]->getTerminator());
+  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
 
   // This is the vector-clone of the value that leaves the loop.
   Value *VecExit = getVectorValue(LoopExitInst);
@@ -745,7 +716,7 @@ void VPOCodeGen::createSerialPrivateArrayBase(Value *ArrPriv) {
     AllocaInst *SPrivArr = Builder.CreateAlloca(
         PointeeTy, nullptr, ArrPrivInst->getName() + ".vec");
     // Alignment of the alloca should match the original alignment.
-    SPrivArr->setAlignment(getPrivateVarAlignment(ArrPriv));
+    SPrivArr->setAlignment(MaybeAlign(getPrivateVarAlignment(ArrPriv)));
     ScalarMap[ArrPriv][I] = SPrivArr;
   }
   Builder.restoreIP(OldIP);
@@ -824,7 +795,7 @@ Value *VPOCodeGen::getVectorPrivateAggregateBase(Value *AggrPriv) {
   AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
       VecTyForAlloca, nullptr, AggrPriv->getName() + ".vec");
   // Alignment of the alloca should match the original alignment.
-  WidenedPrivArr->setAlignment(getPrivateVarAlignment(AggrPriv));
+  WidenedPrivArr->setAlignment(MaybeAlign(getPrivateVarAlignment(AggrPriv)));
 
   // Save alloca's result
   LoopPrivateWidenMap[AggrPriv] = WidenedPrivArr;
@@ -882,7 +853,7 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
       Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec"));
 
   // Alignment of vector alloca should match the original alignment
-  PtrToVec->setAlignment(getPrivateVarAlignment(V));
+  PtrToVec->setAlignment(MaybeAlign(getPrivateVarAlignment(V)));
 
   // Save alloca's result
   LoopPrivateWidenMap[V] = PtrToVec;
@@ -1842,12 +1813,10 @@ void VPOCodeGen::serializeInstruction(Instruction *Instr, bool HasLoopPrivateOpe
 
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
-  unsigned Lanes =
-      (!HasLoopPrivateOperand && OrigLoop->hasLoopInvariantOperands(Instr)) ||
-              isUniformAfterVectorization(Instr, VF)
-          ? 1
-          : VF;
-
+  unsigned Lanes = !HasLoopPrivateOperand && !Instr->mayHaveSideEffects() &&
+                           isUniformAfterVectorization(Instr, VF)
+                       ? 1
+                       : VF;
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
 
@@ -2233,36 +2202,14 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
   }
 
   // Blend the PHIs using selects and incoming masks.
-
-  // Sort incoming blocks according to their order in the linearized control flow.
-  // After linearization, the HCFG coming to the codegen might be something like
-  // this:
-  //
-  //   bb0:
-  //     %def0 =
-  //   bb1:
-  //     predicate %cond0
-  //     %def1 =
-  //   bb2:
-  //     predicate %cond1    ; %cond1 = %cond0 && %something
-  //     %def2 =
-  //   bb3:
-  //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
-  //
-  // We need to generate
-  //
-  //  %sel = select %cond0, %def1, %def0
-  //  %blend = select %cond1 %def2, %sel
-  //
-  // Note, that the order of processing needs to be [ %def0, %def1, %def2 ] for
-  // such CFG.
-  SmallVector<VPBasicBlock *, 4> SortedBlocks;
-  sortBlendPhiIncomingBlocks(VPPhi, SortedBlocks);
+  VPPhi->sortIncomingBlocksForBlend();
 
   // Generate a sequence of selects.
   Value *BlendVal = nullptr;
-  for (auto *Block : SortedBlocks) {
-    Value *IncomingVecVal = getVectorValue(VPPhi->getIncomingValue(Block));
+  for (unsigned Idx = 0, End = VPPhi->getNumIncomingValues(); Idx < End;
+       ++Idx) {
+    VPBasicBlock *Block = VPPhi->getIncomingBlock(Idx);
+    Value *IncomingVecVal = getVectorValue(VPPhi->getIncomingValue(Idx));
     if (!BlendVal) {
       BlendVal = IncomingVecVal;
       continue;
@@ -2781,7 +2728,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   SmallVector<Type *, 2> VecArgTys;
   Function *CalledFunc = Call->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function");
-  bool IsMasked = (MaskValue != nullptr) ? true : false;
+  bool IsMasked = MaskValue != nullptr;
 
   // Don't attempt vector function matching for SVML or built-in functions.
   std::unique_ptr<VectorVariant> MatchedVariant;
@@ -2900,9 +2847,15 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         }
 
         // Check for GEPs producing unit-stride pointers.
-        VPVectorShape *VPPtrShape = DA->getVectorShape(VPInst);
-        if (VPPtrShape->isUnitStridePtr()) {
-          int StrideInBytes = VPPtrShape->getStrideVal();
+        if (DA->isUnitStridePtr(VPInst) &&
+            all_of(VPInst->users(), [](const VPUser *U) -> bool {
+              if (auto *UserInst = dyn_cast<VPInstruction>(U))
+                if (!UserInst->isUnderlyingIRValid())
+                  return false;
+
+              return true;
+            })) {
+          int StrideInBytes = DA->getVectorShape(VPInst)->getStrideVal();
           Legal->addPtrStride(Inst, StrideInBytes > 0 ? 1 : -1);
         }
       }
@@ -3119,6 +3072,42 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     WidenMap[VPInst->getUnderlyingValue()] = WideZExt;
     return;
   }
+  case Instruction::Trunc: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated trunc VPInstruction.");
+
+    // Widen source operands.
+    Value *VecSrc = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    Value *WideTrunc =
+        Builder.CreateTrunc(VecSrc, getWidenedType(VPInst->getType(), VF));
+
+    VPWidenMap[VPInst] = WideTrunc;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = WideTrunc;
+    return;
+  }
+  case Instruction::FNeg: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated fneg VPInstruction.");
+
+    // Widen the source operand.
+    Value *VecSrc = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    auto UnOpCode = static_cast<Instruction::UnaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateUnOp(UnOpCode, VecSrc);
+
+    VPWidenMap[VPInst] = V;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = V;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }
@@ -3245,6 +3234,25 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::AddrSpaceCast:
     vectorizeCast<AddrSpaceCastInst>(Inst);
     break;
+  case Instruction::FNeg: {
+    if (isUniformAfterVectorization(Inst, VF)) {
+      serializeInstruction(Inst);
+      break;
+    }
+    // Widen operand
+    UnaryOperator *UnOp = cast<UnaryOperator>(Inst);
+    Value *Src = getVectorValue(Inst->getOperand(0));
+
+    // Create wide instruction
+    Value *V = Builder.CreateUnOp(UnOp->getOpcode(), Src);
+
+    UnaryOperator *VecOp = cast<UnaryOperator>(V);
+    VecOp->copyIRFlags(UnOp);
+
+    WidenMap[Inst] = V;
+    break;
+  }
+
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
@@ -3339,7 +3347,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     }
 
     StringRef CalledFunc = F->getName();
-    bool IsMasked = (MaskValue != nullptr) ? true : false;
+    bool IsMasked = MaskValue != nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
         ((matchVectorVariant(Call, IsMasked) ||
           (!IsMasked && matchVectorVariant(Call, true)))) ||
@@ -3395,37 +3403,6 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
 
   VectorTripCount = Builder.CreateSub(TC, R, "n.vec");
   return VectorTripCount;
-}
-
-void VPOCodeGen::collectTriviallyDeadInstructions(
-    Loop *OrigLoop, VPOVectorizationLegality *Legal,
-    SmallPtrSetImpl<Instruction *> &DeadInstructions) {
-  BasicBlock *Latch = OrigLoop->getLoopLatch();
-
-  // We create new control-flow for the vectorized loop, so the original
-  // condition will be dead after vectorization if it's only used by the
-  // branch.
-  auto *Cmp = dyn_cast<Instruction>(Latch->getTerminator()->getOperand(0));
-  if (Cmp && Cmp->hasOneUse())
-    DeadInstructions.insert(Cmp);
-
-  // We create new "steps" for induction variable updates to which the original
-  // induction variables map. An original update instruction will be dead if
-  // all its users except the induction variable are dead.
-  for (auto &Induction : *Legal->getInductionVars()) {
-    PHINode *Ind = Induction.first;
-    auto *IndUpdate = cast<Instruction>(Ind->getIncomingValueForBlock(Latch));
-    if (all_of(IndUpdate->users(), [&](User *U) -> bool {
-      return U == Ind || DeadInstructions.count(cast<Instruction>(U));
-    }))
-      DeadInstructions.insert(IndUpdate);
-  }
-}
-
-uint64_t VPOCodeGen::getConstTripCount() const {
-  if (auto *C = dyn_cast<ConstantInt>(TripCount))
-    return C->getZExtValue();
-  return 0;
 }
 
 Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
@@ -3491,18 +3468,11 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Collect instructions inside the loop that will remain uniform after
   // vectorization.
 
-  // Global values, params and instructions outside of current loop are out of
-  // scope.
-  auto isOutOfScope = [&](Value *V) -> bool {
-    Instruction *I = dyn_cast<Instruction>(V);
-    return (!I || !OrigLoop->contains(I));
-  };
-
   SetVector<Instruction *> Worklist;
 
   // Start from Uniforms that alerady collected for any VF.
   //for (Instruction *I : Legal->uniforms())
-    Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
+  Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
 
   // Holds consecutive and consecutive-like pointers. Consecutive-like pointers
   // are pointers that are treated like consecutive pointers during
@@ -3513,6 +3483,12 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Holds pointer operands of instructions that are possibly non-uniform.
   SmallPtrSet<Instruction *, 8> PossibleNonUniformPtrs;
 
+  // Check if a value is loop invariant or has already been
+  // accounted as uniform.
+  auto isInWorklistOrOutOfScope = [&](Value *V) -> bool {
+    return OrigLoop->isLoopInvariant(V) || Worklist.count(cast<Instruction>(V));
+  };
+
   // Iterate over the instructions in the loop, and collect all
   // consecutive-like pointer operands in ConsecutiveLikePtrs. If it's possible
   // that a consecutive-like pointer operand will be scalarized, we collect it
@@ -3521,8 +3497,21 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // memory instructions. For example, if a loop loads and stores from the same
   // location, but the store is conditional, the store will be scalarized, and
   // the getelementptr won't remain uniform.
+  // We also collect call instructions that have a return value as they are
+  // (seems) the only instructions that may not be uniform even with uniform
+  // operands(or with no operands at all). Check whether a call instruction
+  // may have a side effect to determine that. That actually is a bit
+  // pessimistic approach since function determinism is only a subset of all
+  // possible side effects.
   for (auto *BB : OrigLoop->blocks())
     for (auto &I : *BB) {
+
+      if (I.getOpcode() == Instruction::Call &&
+          (I.getType()->isVoidTy() || !I.mayHaveSideEffects()) &&
+          all_of(I.operands(), isInWorklistOrOutOfScope)) {
+        Worklist.insert(&I);
+        LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << I << "\n");
+      }
 
       // If there's no pointer operand, there's nothing to do.
       auto *Ptr = dyn_cast_or_null<Instruction>(getLoadStorePointerOperand(&I));
@@ -3559,17 +3548,15 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
 
   // Expand Worklist in topological order: whenever a new instruction
   // is added , its users should be either already inside Worklist, or
-  // out of scope. It ensures a uniform instruction will only be used
-  // by uniform instructions or out of scope instructions.
+  // out of scope (loop invariant). It ensures a uniform instruction will only
+  // be used by uniform instructions or out of scope instructions.
   unsigned idx = 0;
   while (idx != Worklist.size()) {
     Instruction *I = Worklist[idx++];
 
     for (auto OV : I->operand_values()) {
       if (auto *OI = dyn_cast<Instruction>(OV)) {
-        if (all_of(OI->users(), [&](User *U) -> bool {
-              return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
-            })) {
+        if (all_of(OI->users(), isInWorklistOrOutOfScope)) {
           Worklist.insert(OI);
           LLVM_DEBUG(dbgs()
                      << "LV: Found uniform instruction: " << *OI << "\n");

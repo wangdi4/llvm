@@ -2,20 +2,20 @@
 ; For this case, the gep indices are constant, but the ptr is unit stride.
 
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -debug-only=vplan-divergence-analysis -vplan-force-vf=2 %s 2>&1 | FileCheck %s
 
 ; CHECK: Basic Block: {{BB[0-9]+}}
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VAL1:%vp.*]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[VAL2:%vp.*]], {{BB[0-9]+}} ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32* [[VAL3:%vp.*]] = phi  [ i32* %p, {{BB[0-9]+}} ],  [ i32* [[VAL4:%vp.*]], {{BB[0-9]+}} ]
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i32 1] store i32 [[VAL1]] i32* [[VAL3]]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[VAL4]] = getelementptr inbounds i32* [[VAL3]] i64 1
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL3:%vp.*]] = phi  [ i32* %p, {{BB[0-9]+}} ],  [ i32* [[VAL4:%vp.*]], {{BB[0-9]+}} ]
+; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL1]] i32* [[VAL3]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL4]] = getelementptr inbounds i32* [[VAL3]] i64 1
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VAL2]] = add i32 [[VAL1]] i32 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i32 [[VAL2]] i32 256
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %p) local_unnamed_addr #0 {
+define dso_local void @foo(i32* nocapture %p) {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
@@ -35,11 +35,49 @@ DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.2
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+; This test checks that pointer-inductions are correctly identified when different step-sizes are used.
+
+; CHECK: Divergent: [Shape: Strided, Stride: i64 3] i32 [[IV:%.*]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[ADD2:%.*]], {{BB[0-9]+}} ]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[PHI1:%.*]] = phi  [ i32* %p1, {{BB[0-9]+}} ],  [ i32* [[INC2:%.*]], {{BB[0-9]+}} ]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[PHI2:%.*]] = phi  [ i32* %p2, {{BB[0-9]+}} ],  [ i32* [[INC3:%.*]], {{BB[0-9]+}} ]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC1:%.*]] = getelementptr inbounds i32* [[PHI1]] i64 1
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC2]] = getelementptr inbounds i32* [[INC1]] i64 1
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC3]] = getelementptr inbounds i32* [[PHI2]] i64 2
+; CHECK: Divergent: [Shape: Strided, Stride: i64 3] i32 [[ADD1:%.*]] = add i32 [[IV]] i32 1
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 3] i32 [[ADD2]] = add i32 [[ADD1]] i32 2
+; CHECK: Divergent: [Shape: Strided, Stride: i64 12] i32* [[INC4:%.*]] = getelementptr inbounds i32* %p3 i32 [[ADD2]]
+
+
+; Function Attrs: nounwind uwtable
+define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3) {
+omp.inner.for.body.lr.ph:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
+  %iv = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add2, %omp.inner.for.body ]
+  %p1.addr = phi i32* [ %p1, %omp.inner.for.body.lr.ph ], [ %incptr2, %omp.inner.for.body ]
+  %p2.addr = phi i32* [ %p2, %omp.inner.for.body.lr.ph ], [ %incptr3, %omp.inner.for.body ]
+  store i32 %iv, i32* %p1.addr, align 4
+  %incptr1 = getelementptr inbounds i32, i32* %p1.addr, i64 1
+  %incptr2 = getelementptr inbounds i32, i32* %incptr1, i64 1
+  %incptr3 = getelementptr inbounds i32, i32* %p2.addr, i64 2
+  %add1 = add nuw nsw i32 %iv, 1
+  %add2 = add nuw nsw i32 %add1, 2
+  %incptr4 = getelementptr inbounds i32, i32* %p3, i32 %add2
+  %exitcond = icmp eq i32 %add2, 256
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %DIR.OMP.END.SIMD.1
+
+DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.2
+  ret void
+}
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare token @llvm.directive.region.entry()
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

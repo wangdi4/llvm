@@ -11,6 +11,7 @@
 #include <CL/sycl/detail/usm_impl.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/exception.hpp>
+#include <CL/sycl/queue.hpp>
 #include <CL/sycl/usm/usm_enums.hpp>
 
 #include <cstdlib>
@@ -36,6 +37,8 @@ public:
   usm_allocator() = delete;
   usm_allocator(const context &Ctxt, const device &Dev)
       : mContext(Ctxt), mDevice(Dev) {}
+  usm_allocator(const queue &Q)
+      : mContext(Q.get_context()), mDevice(Q.get_device()) {}
   usm_allocator(const usm_allocator &Other)
       : mContext(Other.mContext), mDevice(Other.mDevice) {}
 
@@ -109,7 +112,7 @@ public:
       usm::alloc AllocT = AllocKind,
       typename std::enable_if<AllocT == usm::alloc::host, int>::type = 0>
   pointer allocate(size_t Size) {
-    auto Result = reinterpret_cast<pointer>(detail::usm::alignedAlloc(
+    auto Result = reinterpret_cast<pointer>(detail::usm::alignedAllocHost(
         getAlignment(), Size * sizeof(value_type), mContext, AllocKind));
     if (!Result) {
       throw memory_allocation_error();

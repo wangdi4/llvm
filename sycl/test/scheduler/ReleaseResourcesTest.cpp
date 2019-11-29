@@ -3,8 +3,6 @@
 // RUN: env SYCL_PI_TRACE=1 %CPU_RUN_PLACEHOLDER %t.out 2>&1 %CPU_CHECK_PLACEHOLDER
 // RUN: env SYCL_PI_TRACE=1 %GPU_RUN_PLACEHOLDER %t.out 2>&1 %GPU_CHECK_PLACEHOLDER
 // RUN: env SYCL_PI_TRACE=1 %ACC_RUN_PLACEHOLDER %t.out 2>&1 %ACC_CHECK_PLACEHOLDER
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 //==------------------- ReleaseResourcesTests.cpp --------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -50,11 +48,11 @@ int main() {
   return Failed;
 }
 
-// CHECK: PI ---> (m_Context = RT::piContextCreate(0, DeviceIds.size(), DeviceIds.data(), 0, 0, &Err), Err)
-// CHECK: PI ---> RT::piQueueCreate(Context, Device, CreationFlags, &Queue)
-// CHECK: PI ---> pi::piProgramCreate(Context, Data, DataLen, &Program)
-// CHECK: PI ---> (Kernel = RT::piKernelCreate( Program, KernelName.c_str(), &Err), Err)
-// CHECK: PI ---> RT::piQueueRelease(m_CommandQueue)
-// CHECK: PI ---> RT::piContextRelease(m_Context)
-// CHECK: PI ---> RT::piKernelRelease(KernIt.second)
-// CHECK: PI ---> RT::piProgramRelease(ToBeDeleted)
+// CHECK:---> piContextCreate
+// CHECK:---> piQueueCreate
+// CHECK:---> piProgramCreate
+// CHECK:---> piKernelCreate
+// CHECK:---> piQueueRelease
+// CHECK:---> piContextRelease
+// CHECK:---> piKernelRelease
+// CHECK:---> piProgramRelease

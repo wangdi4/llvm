@@ -1,6 +1,7 @@
 ; This test checks that whole program assume won't internalize
 ; @sub since it doesn't have IR but it should internalize @add,
 ; while using the new pass manager. The new pass manager won't
+; REQUIRES: assert
 ; print IR for an analysis pass, therefore we are going to print
 ; the whole program trace and check that @add is visible externally
 ; first. Then, @add shouldn't be marked as visible externally
@@ -11,7 +12,7 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=-whole-program-trace \
+; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-assume \
 ; RUN:    -plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=debug-pass-manager \

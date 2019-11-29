@@ -194,7 +194,7 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
 #define NON_CANONICAL_TYPE(name, parent) case Type::name:
 #define DEPENDENT_TYPE(name, parent) case Type::name:
 #define NON_CANONICAL_UNLESS_DEPENDENT_TYPE(name, parent) case Type::name:
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
       llvm_unreachable("non-canonical or dependent type in IR-generation");
 
     case Type::Auto:
@@ -436,13 +436,13 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // Scan function arguments for vector width.
   for (llvm::Argument &A : CurFn->args())
     if (auto *VT = dyn_cast<llvm::VectorType>(A.getType()))
-      LargestVectorWidth = std::max(LargestVectorWidth,
-                                    VT->getPrimitiveSizeInBits());
+      LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
+                                   VT->getPrimitiveSizeInBits().getFixedSize());
 
   // Update vector width based on return type.
   if (auto *VT = dyn_cast<llvm::VectorType>(CurFn->getReturnType()))
-    LargestVectorWidth = std::max(LargestVectorWidth,
-                                  VT->getPrimitiveSizeInBits());
+    LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
+                                  VT->getPrimitiveSizeInBits().getFixedSize());
 
   // Add the required-vector-width attribute. This contains the max width from:
   // 1. min-vector-width attribute used in the source program.
@@ -543,6 +543,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
 {
   if (!FD->hasAttr<OpenCLKernelAttr>())
     return;
+
+  // TODO Module identifier is not reliable for this purpose since two modules
+  // can have the same ID, needs improvement
+  if (getLangOpts().SYCLIsDevice)
+    Fn->addFnAttr("sycl-module-id", Fn->getParent()->getModuleIdentifier());
 
   llvm::LLVMContext &Context = getLLVMContext();
 
@@ -693,8 +698,7 @@ static llvm::Constant *getPrologueSignature(CodeGenModule &CGM,
   return CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM);
 }
 
-void CodeGenFunction::StartFunction(GlobalDecl GD,
-                                    QualType RetTy,
+void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
                                     llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo,
                                     const FunctionArgList &Args,
@@ -821,6 +825,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   // Add no-jump-tables value.
   Fn->addFnAttr("no-jump-tables",
                 llvm::toStringRef(CGM.getCodeGenOpts().NoUseJumpTables));
+
+  // Add no-inline-line-tables value.
+  if (CGM.getCodeGenOpts().NoInlineLineTables)
+    Fn->addFnAttr("no-inline-line-tables");
 
   // Add profile-sample-accurate value.
   if (CGM.getCodeGenOpts().ProfileSampleAccurate)
@@ -980,6 +988,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
       else {
         Fn->addFnAttr("instrument-function-entry-inlined",
                       getTarget().getMCountName());
+      }
+      if (CGM.getCodeGenOpts().MNopMCount) {
+        if (getContext().getTargetInfo().getTriple().getArch() !=
+            llvm::Triple::systemz)
+          CGM.getDiags().Report(diag::err_opt_not_valid_on_target)
+            << "-mnop-mcount";
+        if (!CGM.getCodeGenOpts().CallFEntry)
+          CGM.getDiags().Report(diag::err_opt_not_valid_without_opt)
+            << "-mnop-mcount" << "-mfentry";
+        Fn->addFnAttr("mnop-mcount", "true");
       }
     }
   }
@@ -1369,8 +1387,9 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // functions encountered during its codegen as if they are within a target
   // region.
   if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
-      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD))
-    Fn->addFnAttr("openmp-target-declare","true");
+      (CGM.inTargetRegion() ||
+       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD)))
+    Fn->addFnAttr("openmp-target-declare", "true");
 
   CodeGenModule::InTargetRegionRAII ITR(
       CGM, Fn->hasFnAttribute("openmp-target-declare"));
@@ -1869,7 +1888,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
                                llvm::GlobalVariable::PrivateLinkage,
                                NullConstant, Twine());
     CharUnits NullAlign = DestPtr.getAlignment();
-    NullVariable->setAlignment(NullAlign.getQuantity());
+    NullVariable->setAlignment(NullAlign.getAsAlign());
     Address SrcPtr(Builder.CreateBitCast(NullVariable, Builder.getInt8PtrTy()),
                    NullAlign);
 
@@ -2069,7 +2088,7 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
 #define NON_CANONICAL_TYPE(Class, Base)
 #define DEPENDENT_TYPE(Class, Base) case Type::Class:
 #define NON_CANONICAL_UNLESS_DEPENDENT_TYPE(Class, Base)
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
       llvm_unreachable("unexpected dependent type!");
 
     // These types are never variably-modified.
@@ -2264,24 +2283,9 @@ void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
 }
 
 void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
-                                              QualType Ty, SourceLocation Loc,
-                                              SourceLocation AssumptionLoc,
-                                              unsigned Alignment,
-                                              llvm::Value *OffsetValue) {
-  llvm::Value *TheCheck;
-  llvm::Instruction *Assumption = Builder.CreateAlignmentAssumption(
-      CGM.getDataLayout(), PtrValue, Alignment, OffsetValue, &TheCheck);
-  if (SanOpts.has(SanitizerKind::Alignment)) {
-    llvm::Value *AlignmentVal = llvm::ConstantInt::get(IntPtrTy, Alignment);
-    EmitAlignmentAssumptionCheck(PtrValue, Ty, Loc, AssumptionLoc, AlignmentVal,
-                                 OffsetValue, TheCheck, Assumption);
-  }
-}
-
-void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
                                               const Expr *E,
                                               SourceLocation AssumptionLoc,
-                                              unsigned Alignment,
+                                              llvm::Value *Alignment,
                                               llvm::Value *OffsetValue) {
   if (auto *CE = dyn_cast<CastExpr>(E))
     E = CE->getSubExprAsWritten();
@@ -2478,8 +2482,8 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
           << TargetDecl->getDeclName()
           << CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
 
-  } else if (TargetDecl->hasAttr<TargetAttr>() ||
-             TargetDecl->hasAttr<CPUSpecificAttr>()) {
+  } else if (!TargetDecl->isMultiVersion() &&
+             TargetDecl->hasAttr<TargetAttr>()) {
     // Get the required features for the callee.
 
     const TargetAttr *TD = TargetDecl->getAttr<TargetAttr>();
@@ -2515,14 +2519,25 @@ void CodeGenFunction::EmitSanitizerStatReport(llvm::SanitizerStatKind SSK) {
 }
 
 llvm::Value *
-CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO) {
+#if INTEL_CUSTOMIZATION
+CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO,
+                                       bool IsCpuDispatch) {
+#endif // INTEL_CUSTOMIZATION
   llvm::Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
     Condition = EmitX86CpuIs(RO.Conditions.Architecture);
 
   if (!RO.Conditions.Features.empty()) {
-    llvm::Value *FeatureCond = EmitX86CpuSupports(RO.Conditions.Features);
+#if INTEL_CUSTOMIZATION
+    llvm::Value *FeatureCond = nullptr;
+    if (IsCpuDispatch &&
+        CGM.getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
+      FeatureCond =
+          EmitX86CpuDispatchLibIrcFeaturesTest(RO.Conditions.Features);
+    else
+      FeatureCond = EmitX86CpuSupports(RO.Conditions.Features);
+#endif // INTEL_CUSTOMIZATION
     Condition =
         Condition ? Builder.CreateAnd(Condition, FeatureCond) : FeatureCond;
   }
@@ -2553,7 +2568,10 @@ static void CreateMultiVersionResolverReturn(CodeGenModule &CGM,
 }
 
 void CodeGenFunction::EmitMultiVersionResolver(
-    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
+#if INTEL_CUSTOMIZATION
+    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
+    bool IsCpuDispatch) {
+#endif // INTEL_CUSTOMIZATION
   assert((getContext().getTargetInfo().getTriple().getArch() ==
               llvm::Triple::x86 ||
           getContext().getTargetInfo().getTriple().getArch() ==
@@ -2561,15 +2579,28 @@ void CodeGenFunction::EmitMultiVersionResolver(
          "Only implemented for x86 targets");
 
   bool SupportsIFunc = getContext().getTargetInfo().supportsIFunc();
+#if INTEL_CUSTOMIZATION
+  SupportsIFunc =
+      SupportsIFunc &&
+      !(IsCpuDispatch && CGM.getCodeGenOpts().DisableCpuDispatchIFuncs);
+#endif // INTEL_CUSTOMIZATION
 
   // Main function's basic block.
   llvm::BasicBlock *CurBlock = createBasicBlock("resolver_entry", Resolver);
   Builder.SetInsertPoint(CurBlock);
-  EmitX86CpuInit();
+#if INTEL_CUSTOMIZATION
+  if (IsCpuDispatch &&
+      CGM.getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
+    EmitCpuFeaturesInit();
+  else
+    EmitX86CpuInit();
+#endif // INTEL_CUSTOMIZATION
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
-    llvm::Value *Condition = FormResolverCondition(RO);
+#if INTEL_CUSTOMIZATION
+    llvm::Value *Condition = FormResolverCondition(RO, IsCpuDispatch);
+#endif // INTEL_CUSTOMIZATION
 
     // The 'default' or 'generic' case.
     if (!Condition) {

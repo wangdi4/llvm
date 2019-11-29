@@ -4,113 +4,149 @@
 #cmake_policy(SET CMP0057 NEW)
 #include(AddLLVM)
 
-add_library(sycl SHARED
-  "${sycl_inc_dir}/CL/sycl.hpp"
-  "detail/builtins_common.cpp"
-  "detail/builtins_geometric.cpp"
-  "detail/builtins_integer.cpp"
-  "detail/builtins_math.cpp"
-  "detail/builtins_relational.cpp"
-  "detail/pi.cpp"
-  "detail/pi_opencl.cpp"
-  "detail/common.cpp"
-  "detail/context_impl.cpp"
-  "detail/device_impl.cpp"
-  "detail/device_info.cpp"
-  "detail/event_impl.cpp"
-  "detail/force_device.cpp"
-  "detail/helpers.cpp"
-  "detail/image_accessor_util.cpp"
-  "detail/image_impl.cpp"
-  "detail/kernel_impl.cpp"
-  "detail/kernel_info.cpp"
-  "detail/memory_manager.cpp"
-  "detail/platform_impl.cpp"
-  "detail/platform_info.cpp"
-  "detail/program_impl.cpp"
-  "detail/program_manager/program_manager.cpp"
-  "detail/queue_impl.cpp"
-  "detail/os_util.cpp"
-  "detail/platform_util.cpp"
-  "detail/sampler_impl.cpp"
-  "detail/stream_impl.cpp"
-  "detail/scheduler/commands.cpp"
-  "detail/scheduler/scheduler.cpp"
-  "detail/scheduler/graph_processor.cpp"
-  "detail/scheduler/graph_builder.cpp"
-  "detail/usm/clusm.cpp"
-  "detail/usm/usm_dispatch.cpp"
-  "detail/usm/usm_impl.cpp"
-  "detail/util.cpp"
-  "context.cpp"
-  "device.cpp"
-  "device_selector.cpp"
-  "event.cpp"
-  "exception.cpp"
-  "exception_list.cpp"
-  "half_type.cpp"
-  "kernel.cpp"
-  "platform.cpp"
-  "queue.cpp"
-  "ordered_queue.cpp"
-  "sampler.cpp"
-  "stream.cpp"
-  "spirv_ops.cpp"
+function(add_sycl_rt_library LIB_NAME)
+
+  add_library(${LIB_NAME} SHARED ${ARGN})
+
+  #To-Do: Remove dependency on icd loader and opencl headers.
+  add_dependencies(${LIB_NAME}
+    ocl-icd
+    ocl-headers
+    sycl-headers
+  )
+
+  set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+
+  if (MSVC)
+      target_compile_definitions(${LIB_NAME} PRIVATE __SYCL_BUILD_SYCL_DLL )
+      target_link_libraries(${LIB_NAME} PRIVATE shlwapi)
+  endif()
+  target_include_directories(
+      ${LIB_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} "${sycl_inc_dir}")
+  target_link_libraries(${LIB_NAME}
+      PRIVATE OpenCL::Headers
+      PRIVATE ${OpenCL_LIBRARIES}
+      PRIVATE ${CMAKE_DL_LIBS}
+  )
+
+  add_common_options(${LIB_NAME})
+
+endfunction(add_sycl_rt_library)
+
+set(SYCL_SOURCES
+    "${sycl_inc_dir}/CL/sycl.hpp"
+    "detail/accessor_impl.cpp"
+    "detail/builtins_common.cpp"
+    "detail/builtins_geometric.cpp"
+    "detail/builtins_integer.cpp"
+    "detail/builtins_math.cpp"
+    "detail/builtins_relational.cpp"
+    "detail/pi.cpp"
+    "detail/common.cpp"
+    "detail/config.cpp"
+    "detail/context_impl.cpp"
+    "detail/device_impl.cpp"
+    "detail/device_info.cpp"
+    "detail/error_handling/enqueue_kernel.cpp"
+    "detail/event_impl.cpp"
+    "detail/force_device.cpp"
+    "detail/helpers.cpp"
+    "detail/image_accessor_util.cpp"
+    "detail/image_impl.cpp"
+    "detail/kernel_impl.cpp"
+    "detail/kernel_info.cpp"
+    "detail/memory_manager.cpp"
+    "detail/platform_impl.cpp"
+    "detail/platform_info.cpp"
+    "detail/program_impl.cpp"
+    "detail/program_manager/program_manager.cpp"
+    "detail/queue_impl.cpp"
+    "detail/os_util.cpp"
+    "detail/platform_util.cpp"
+    "detail/sampler_impl.cpp"
+    "detail/stream_impl.cpp"
+    "detail/scheduler/commands.cpp"
+    "detail/scheduler/scheduler.cpp"
+    "detail/scheduler/graph_processor.cpp"
+    "detail/scheduler/graph_builder.cpp"
+    "detail/usm/clusm.cpp"
+    "detail/usm/usm_dispatch.cpp"
+    "detail/usm/usm_impl.cpp"
+    "detail/util.cpp"
+    "context.cpp"
+    "device.cpp"
+    "device_selector.cpp"
+    "event.cpp"
+    "exception.cpp"
+    "exception_list.cpp"
+    "half_type.cpp"
+    "kernel.cpp"
+    "platform.cpp"
+    "queue.cpp"
+    "ordered_queue.cpp"
+    "sampler.cpp"
+    "stream.cpp"
+    "spirv_ops.cpp"
+    "$<$<PLATFORM_ID:Windows>:detail/windows_pi.cpp>"
+    "$<$<OR:$<PLATFORM_ID:Linux>,$<PLATFORM_ID:Darwin>>:detail/posix_pi.cpp>"
 )
 
-add_dependencies(sycl
-  ocl-icd
-  ocl-headers
-  sycl-headers
-)
-
-set_target_properties(sycl PROPERTIES LINKER_LANGUAGE CXX)
-
-# INTEL_CUSTOMIZATION CORC-4868
-#
-# Try to prevent use of deprecated interface warning
-# and do not treat warnings as error unless it fixed upstream
-#
-target_compile_definitions (sycl PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
-target_compile_options (sycl PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error>
-    $<$<CXX_COMPILER_ID:MSVC>:/WX->
-)
-#end INTEL_CUSTOMIZATION
+add_sycl_rt_library(sycl ${SYCL_SOURCES})
 
 if (MSVC)
-    target_compile_definitions(sycl PRIVATE __SYCL_BUILD_SYCL_DLL )
-endif()
-target_include_directories(sycl PRIVATE "${sycl_inc_dir}")
-target_link_libraries(sycl
-    PRIVATE OpenCL::Headers
-    PRIVATE ${OpenCL_LIBRARIES}
-)
-if (SYCL_USE_LIBCXX)
-    if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
-        (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
-        target_compile_options(sycl PRIVATE -nostdinc++)
-        if ((NOT (DEFINED SYCL_LIBCXX_INCLUDE_PATH)) OR (NOT (DEFINED SYCL_LIBCXX_LIBRARY_PATH)))
-            message(FATAL_ERROR "When building with libc++ SYCL_LIBCXX_INCLUDE_PATHS and"
-                                "SYCL_LIBCXX_LIBRARY_PATH should be set")
-        endif()
-        target_include_directories(sycl PRIVATE "${SYCL_LIBCXX_INCLUDE_PATH}")
-        target_link_libraries(sycl PRIVATE "-L${SYCL_LIBCXX_LIBRARY_PATH}" -nodefaultlibs -lc++ -lc++abi -lm -lc -lgcc_s -lgcc)
-    else()
-        message(FATAL_ERROR "Build with libc++ is not yet supported for this compiler")
+  # MSVC provides two incompatible build variants for its CRT: release and debug
+  # To avoid potential issues in user code we also need to provide two kinds
+  # of SYCL Runtime Library for release and debug configurations.
+  set(SYCL_CXX_FLAGS "")
+  if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    set(SYCL_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG}")
+    string(REPLACE "/MDd" "" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
+    string(REPLACE "/MTd" "" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
+  else()
+    if (CMAKE_BUILD_TYPE MATCHES "Release")
+      set(SYCL_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}")
+    elseif (CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+      set(SYCL_CXX_FLAGS "${CMAKE_CXX_FLAGS_MINSIZEREL}")
+    elseif (CMAKE_BUILD_TYPE MATCHES "MinSizeRel")
+      set(SYCL_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
     endif()
+    string(REPLACE "/MD" "" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
+    string(REPLACE "/MT" "" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
+  endif()
+
+  # target_compile_options requires list of options, not a string
+  string(REPLACE " " ";" SYCL_CXX_FLAGS "${SYCL_CXX_FLAGS}")
+
+  set(SYCL_CXX_FLAGS_RELEASE "${SYCL_CXX_FLAGS};/MD")
+  set(SYCL_CXX_FLAGS_DEBUG "${SYCL_CXX_FLAGS};/MDd")
+
+  # CMake automatically applies these flags to all targets. To override this
+  # behavior, options lists are reset.
+  set(CMAKE_CXX_FLAGS_RELEASE "")
+  set(CMAKE_CXX_FLAGS_MINSIZEREL "")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "")
+  set(CMAKE_CXX_FLAGS_DEBUG "")
+
+  target_compile_options(sycl PUBLIC ${SYCL_CXX_FLAGS_RELEASE})
+
+  add_sycl_rt_library(sycld ${SYCL_SOURCES})
+  target_compile_options(sycld PUBLIC ${SYCL_CXX_FLAGS_DEBUG})
 else()
+# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
+  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 
 # Workaround for bug in GCC version 5 and higher.
 # More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
-    CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
-  target_link_libraries(sycl PRIVATE gcc_s gcc)
-endif()
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+    target_link_libraries(sycl PRIVATE gcc_s gcc)
+  endif()
 
 endif()
 
-install(TARGETS sycl
+install(TARGETS ${SYCL_RT_LIBS}
     ARCHIVE DESTINATION "lib" COMPONENT sycl
     LIBRARY DESTINATION "lib" COMPONENT sycl
     RUNTIME DESTINATION "bin" COMPONENT sycl)

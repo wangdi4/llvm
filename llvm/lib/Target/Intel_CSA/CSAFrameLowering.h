@@ -25,9 +25,9 @@ class CSAFrameLowering : public TargetFrameLowering {
 public:
   explicit CSAFrameLowering()
       : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
-                            /* align */ 16,
+                            /* align */ Align(16),
                             /* local area offset */ 0,
-                            /* transient align */ 16) {}
+                            /* transient align */ Align(16)) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;

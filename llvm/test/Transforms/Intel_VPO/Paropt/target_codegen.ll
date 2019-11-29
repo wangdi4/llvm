@@ -28,9 +28,9 @@ target device_triples = "x86_64-pc-linux-gnu"
 ; CHECK-HST: [[ID:@.+\.region_id]] = weak constant i8 0
 ; CHECK-ALL: [[NAME:@.+]] = internal target_declare unnamed_addr constant [{{[0-9]+}} x i8] c"[[OUTLINEDTARGET:.+]]\00"
 ; CHECK-HST: [[ENTRY:@.+]] = weak target_declare constant {{.+}} i8* [[ID]], i8* getelementptr inbounds ({{.+}} [[NAME]],
-; CHECK-HST-SAME: section ".omp_offloading.entries"
+; CHECK-HST-SAME: section "omp_offloading_entries"
 ; CHECK-TGT: [[ENTRY:@.+]] = weak target_declare constant {{.+}} i8* bitcast (void ()* @[[OUTLINEDTARGET]] to i8*), i8* getelementptr inbounds ({{.+}} [[NAME]],
-; CHECK-TGT-SAME: section ".omp_offloading.entries"
+; CHECK-TGT-SAME: section "omp_offloading_entries"
 
 ; Function containing target region should remain in the host compilation, but not in target.
 ; CHECK-HST:     void @foo()

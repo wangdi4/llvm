@@ -301,6 +301,46 @@ protected:
     return true;
   }
 
+  // Deallocation of memory pointed to element pointer.
+  static bool isElementPtrFree(const Dep *D, const ArraySummaryForIdiom &S) {
+    auto *Free = D;
+
+    if (D->Kind == Dep::DK_Function && D->Args->size() == 1)
+      Free = *D->Args->begin();
+
+    if (Free->Kind != Dep::DK_Free)
+      return false;
+
+    if (!isElementLoad(Free->Arg1, S))
+      return false;
+
+    if (Free->Arg2->Kind != Dep::DK_Const &&
+        !isMemoryInterfaceFieldLoadRec(Free->Arg2, S))
+      return false;
+
+    return true;
+  }
+
+  // Deallocation of memory pointed to both base and element pointer.
+  static bool isBaseElementPtrFree(const Dep *D,
+                                   const ArraySummaryForIdiom &S) {
+    unsigned ElementFree = 0;
+    unsigned BaseFree = 0;
+    if (D->Kind == Dep::DK_Function) {
+      for (auto *Free : *D->Args) {
+        if (isElementPtrFree(Free, S))
+          ElementFree++;
+        else if (isBasePtrFree(Free, S))
+          BaseFree++;
+        else
+          return false;
+      }
+    }
+    if (ElementFree != 1 || BaseFree != 1)
+      return false;
+    return true;
+  }
+
   // Load from integer field of S.StrType.
   static bool isIntegerFieldLoad(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Load)
@@ -527,6 +567,8 @@ private:
     bool HasElementSetFromArg = false;
     // MK_Dtor/MK_Realloc.
     bool HasBasePtrFree = false;
+    // MK_Set/MK_Dtor
+    bool HasElemPtrFree = false;
     // Not MK_Set and MKF_Get*.
     // Should be false if methods are not combined later.
     bool HasFieldUpdate = false;
@@ -537,6 +579,9 @@ private:
 
     MethodKind classifyMethod(const ArraySummaryForIdiom &S) const {
       if (HasClangCallTerminate && !HasBasePtrFree)
+        return MK_Unknown;
+      // Don't allow ElemPtrFree except in Dtor/Set.
+      if (HasElemPtrFree && !(HasBasePtrFree || HasElementSetFromArg))
         return MK_Unknown;
 
       // MK_Append/MK_Set
@@ -721,7 +766,7 @@ private:
           // Base is direct access of base pointer in array structure,
           // or value returned from allocation.
           if (!ArrayIdioms::isBasePointerLoad(DO, S) &&
-               !checkAlloc(cast<Instruction>(V)))
+              !checkAlloc(cast<Instruction>(V)))
             return false;
         } else {
           TI.ElementPtrGEP.insert(I);
@@ -768,6 +813,16 @@ private:
     return false;
   }
 
+  // Return true if Ptr is just incremented pointer that is
+  // returned from some allocation call.
+  bool checkIncrementedAllocPtr(const Instruction *Ptr) const {
+    auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
+    if (GEP && GEP->getNumIndices() == 1 &&
+        checkAlloc(cast<Instruction>(GEP->getOperand(0))))
+      return true;
+    return false;
+  }
+
   // Checks for structured memset.
   // Completes checks from DepCompute.
   // Helper method for classify.
@@ -783,7 +838,8 @@ private:
     const Dep *DO = DM.getApproximation(Dest);
     // Base is direct access of base pointer in array structure,
     // or value returned from allocation.
-    if (!ArrayIdioms::isBasePointerLoad(DO, S) && !checkAlloc(Dest))
+    if (!ArrayIdioms::isBasePointerLoad(DO, S) && !checkAlloc(Dest) &&
+        !checkIncrementedAllocPtr(Dest))
       return false;
 
     return dtrans::isValueMultipleOfSize(MS->getLength(),
@@ -1083,6 +1139,9 @@ public:
         if (ArrayIdioms::isBasePtrFree(D, S)) {
           MC.HasBasePtrFree = true;
           break;
+        } else if (ArrayIdioms::isElementPtrFree(D, S)) {
+          MC.HasElemPtrFree = true;
+          break;
         }
         // Checking that external side effect is not related to updates of
         // fields. Loads of MemoryInterface is allowed.
@@ -1095,6 +1154,11 @@ public:
       case Instruction::Resume:
         // Checking that external side effect is not related to updates of
         // fields. Loads of MemoryInterface is allowed.
+        if (ArrayIdioms::isBaseElementPtrFree(D, S)) {
+          MC.HasBasePtrFree = true;
+          MC.HasElemPtrFree = true;
+          break;
+        }
         if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
@@ -1128,9 +1192,12 @@ public:
           // load of base pointer.
           MC.HasBasePtrFree = true;
           break;
-        }
-        // Corresponds to memset of elements
-        else if (ArrayIdioms::isNewMemoryInit(D, S)) {
+        } else if (ArrayIdioms::isElementPtrFree(D, S)) {
+          MC.HasElemPtrFree = true;
+          break;
+
+          // Corresponds to memset of elements
+        } else if (ArrayIdioms::isNewMemoryInit(D, S)) {
           if (checkElementAccessForTransformation(&I, "Memset of elements"))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOAARR,
@@ -1159,9 +1226,8 @@ public:
       }
     }
 
-    return Invalid
-               ? std::make_pair(MK_Unknown, nullptr)
-               : std::make_pair(MC.classifyMethod(S), MC.CalledMethod);
+    return Invalid ? std::make_pair(MK_Unknown, nullptr)
+                   : std::make_pair(MC.classifyMethod(S), MC.CalledMethod);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   class AnnotatedWriter : public AssemblyAnnotationWriter {
@@ -1199,7 +1265,7 @@ public:
 
   using OrigToCopyTy = DenseMap<Value *, Value *>;
 
-  static void copyArgAttrs(Argument* From, Argument *To) {
+  static void copyArgAttrs(Argument *From, Argument *To) {
     auto *F = To->getParent();
     AttrBuilder AB(F->getAttributes(), To->getArgNo());
     AB.merge(AttrBuilder(F->getAttributes(), From->getArgNo()));
@@ -1288,8 +1354,9 @@ public:
         assert(IsCombined && "Incorrect analysis");
         unsigned S1 = -1U;
         unsigned S2 = -1U;
-        auto AllocKind =
-            isDummyFunc ? AK_UserMalloc : cast<AllocCallInfo>(Info)->getAllocKind();
+        auto AllocKind = isDummyFunc
+                             ? AK_UserMalloc
+                             : cast<AllocCallInfo>(Info)->getAllocKind();
         getAllocSizeArgs(AllocKind, Call, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
         auto *OldSize =
@@ -1439,13 +1506,11 @@ public:
       auto *NewI = P.first;
       auto *CopyI = P.second;
       if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
-        auto It =
-            OrigToCopy.find(CopyLoad->getPointerOperand());
+        auto It = OrigToCopy.find(CopyLoad->getPointerOperand());
         if (It != OrigToCopy.end())
           CopyLoad->setOperand(0, It->second);
       } else if (auto *CopyStore = dyn_cast<StoreInst>(CopyI)) {
-        auto It =
-            OrigToCopy.find(CopyStore->getPointerOperand());
+        auto It = OrigToCopy.find(CopyStore->getPointerOperand());
         if (It != OrigToCopy.end())
           CopyStore->setOperand(1, It->second);
         auto *CopyVal = CopyStore->getValueOperand();

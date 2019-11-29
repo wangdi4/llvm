@@ -118,9 +118,9 @@ define <16 x i32>@test_int_x86_avx512_mask_vpdpbusd_512(<16 x i32> %x0, <16 x i3
 ; CHECK-LABEL: test_int_x86_avx512_mask_vpdpbusd_512:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    kmovd %esi, %k1
-; CHECK-NEXT:    vmovaps %zmm0, %zmm3
+; CHECK-NEXT:    vmovdqa64 %zmm0, %zmm3
 ; CHECK-NEXT:    vpdpbusd (%rdi), %zmm1, %zmm3 {%k1}
-; CHECK-NEXT:    vmovaps %zmm0, %zmm4
+; CHECK-NEXT:    vmovdqa64 %zmm0, %zmm4
 ; CHECK-NEXT:    vpdpbusd %zmm2, %zmm1, %zmm4
 ; CHECK-NEXT:    vpdpbusd %zmm2, %zmm1, %zmm0 {%k1} {z}
 ; CHECK-NEXT:    vpaddd %zmm0, %zmm4, %zmm0

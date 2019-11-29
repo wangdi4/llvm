@@ -14,10 +14,12 @@
 
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/PassRegistry.h"
+#include "llvm/Support/CommandLine.h"
 #include <algorithm>
 
 using namespace llvm;
@@ -35,7 +37,7 @@ static cl::opt<bool> EnableMemInitTrimDown("enable-dtrans-meminittrimdown",
 
 // SOA-to-AOS Prepare transformation.
 static cl::opt<bool> EnableSOAToAOSPrepare("enable-dtrans-soatoaos-prepare",
-                                    cl::init(false), cl::Hidden,
+                                    cl::init(true), cl::Hidden,
                                     cl::desc("Enable DTrans SOAToAOSPrepare"));
 // SOA-to-AOS transformation.
 static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
@@ -166,6 +168,7 @@ constexpr bool EnableResolveTypes = true;
 
 void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
+  initializeDTransImmutableAnalysisWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
   initializeDTransResolveTypesWrapperPass(PR);
@@ -215,6 +218,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
 
   if (EnableTranspose)
     addPass(MPM, transpose, dtrans::TransposePass());
+  if (EnableMemInitTrimDown)
+    addPass(MPM, meminittrimdown, dtrans::MemInitTrimDownPass());
   if (EnableSOAToAOSPrepare)
     addPass(MPM, soatoaosprepare, dtrans::SOAToAOSPreparePass());
   if (EnableSOAToAOS)
@@ -222,8 +227,6 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   addPass(MPM, weakalign, dtrans::WeakAlignPass());
   if (EnableDeleteFields)
     addPass(MPM, deletefield, dtrans::DeleteFieldPass());
-  if (EnableMemInitTrimDown)
-    addPass(MPM, meminittrimdown, dtrans::MemInitTrimDownPass());
   addPass(MPM, reorderfields, dtrans::ReorderFieldsPass());
   addPass(MPM, aostosoa, dtrans::AOSToSOAPass());
   addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
@@ -262,6 +265,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
 
   if (EnableTranspose)
     addPass(PM, transpose, createDTransTransposeWrapperPass());
+  if (EnableMemInitTrimDown)
+    addPass(PM, meminittrimdown, createDTransMemInitTrimDownWrapperPass());
   if (EnableSOAToAOSPrepare)
     addPass(PM, soatoaosprepare, createDTransSOAToAOSPrepareWrapperPass());
   if (EnableSOAToAOS)
@@ -269,8 +274,6 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   addPass(PM, weakalign, createDTransWeakAlignWrapperPass());
   if (EnableDeleteFields)
     addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
-  if (EnableMemInitTrimDown)
-    addPass(PM, meminittrimdown, createDTransMemInitTrimDownWrapperPass());
   addPass(PM, reorderfields, createDTransReorderFieldsWrapperPass());
   addPass(PM, aostosoa, createDTransAOSToSOAWrapperPass());
   addPass(PM, elimrofieldaccess,
@@ -323,6 +326,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
+  (void)llvm::createDTransImmutableAnalysisWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
   (void)llvm::createDTransWeakAlignWrapperPass();
   (void)llvm::createDTransMemInitTrimDownWrapperPass();

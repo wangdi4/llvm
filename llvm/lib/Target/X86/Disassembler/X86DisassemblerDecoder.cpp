@@ -12,12 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "X86DisassemblerDecoder.h"
+#include "llvm/ADT/StringRef.h"
+
 #include <cstdarg> /* for va_*()       */
 #include <cstdio>  /* for vsnprintf()  */
 #include <cstdlib> /* for exit()       */
 #include <cstring> /* for memset()     */
-
-#include "X86DisassemblerDecoder.h"
 
 using namespace llvm::X86Disassembler;
 
@@ -1546,8 +1547,14 @@ static int readModRM(struct InternalInstruction* insn) {
 #define TMM_TYPE_PAIR(prefix)                             \
     case TYPE_TMM_PAIR:                                   \
       return prefix##_TMM0_TMM1 + (index / 2 );
+
+// We don't use tuple registers here. Just pick either ZMM0 or ZMM16.
+#define ZMM16_TYPE_TUPLES(prefix)                         \
+    case TYPE_ZMM16_TUPLES:                               \
+      return prefix##_ZMM0 + (index / 16) * 16;
 #else // INTEL_FEATURE_ISA_AMX2
 #define TMM_TYPE_PAIR(prefix)
+#define ZMM16_TYPE_TUPLES(prefix)
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
@@ -1598,6 +1605,7 @@ static int readModRM(struct InternalInstruction* insn) {
       return prefix##_XMM0 + index;                       \
     TMM_TYPE(prefix)                                      \
     TMM_TYPE_PAIR(prefix)                                 \
+    ZMM16_TYPE_TUPLES(prefix)                             \
     case TYPE_VK:                                         \
       index &= 0xf;                                       \
       if (index > 7)                                      \

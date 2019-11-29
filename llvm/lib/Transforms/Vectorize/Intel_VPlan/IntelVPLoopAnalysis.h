@@ -11,8 +11,6 @@
 //
 /// \file
 /// This file provides VPLoop-based analyses:
-///  - VPLoopAnalysisBase, which can be used to compute min, known, estimated
-///    or max trip counts for a VPLoopRegion.
 ///  - VPLoopEntity, which is a base class for loop entities like inductions,
 ///    reductions, private.
 ///  - VPlanScalVecAnalysis, which is used to keep information about code
@@ -24,13 +22,12 @@
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLOOPANALYSIS_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/IVDescriptors.h"
 #include <map>
 
 using namespace llvm;
-
-extern cl::opt<bool> LoopEntityImportEnabled;
-extern cl::opt<bool> VPlanUseVPEntityInstructions;
 
 namespace llvm {
 
@@ -50,131 +47,19 @@ class VPConstant;
 class VPInstruction;
 class VPPHINode;
 class VPBlockBase;
+class VPBasicBlock;
 class VPBuilder;
+class VPAllocatePrivate;
 
-class VPLoopAnalysisBase {
-protected:
-#if INTEL_CUSTOMIZATION
-  using TripCountTy = uint64_t;
-#else
-  // SCEV's getConstantTripCount() is limited to trip counts that fit into
-  // uint32_t
-  using TripCountTy = unsigned;
-#endif // INTEL_CUSTOMIZATION
-  typedef struct TripCountInfo {
-    TripCountTy MinTripCount;
-    TripCountTy MaxTripCount;
-    TripCountTy TripCount;
-    bool IsEstimated;
-
-    explicit TripCountInfo(void)
-        : MinTripCount(0), MaxTripCount(0), TripCount(0), IsEstimated(true) {}
-    explicit TripCountInfo(const TripCountTy MinTC, const TripCountTy MaxTC,
-                           const TripCountTy TC, const bool IsEstimated)
-        : MinTripCount(MinTC), MaxTripCount(MaxTC), TripCount(TC),
-          IsEstimated(IsEstimated) {}
-  } TripCount;
-
-  std::map<const VPLoopRegion *, TripCountInfo> LoopTripCounts;
-
-  // Trip count for loops with unknown loop count
-  const TripCountTy DefaultTripCount;
-
-  TripCountInfo computeAndReturnTripCountInfo(const VPLoopRegion *Lp) {
-    if (LoopTripCounts.count(Lp))
-      return LoopTripCounts.find(Lp)->second;
-    computeTripCount(Lp);
-    assert(LoopTripCounts.count(Lp) &&
-           "Cannot compute trip count for this loop");
-    return LoopTripCounts.find(Lp)->second;
-  }
-
-  virtual void computeTripCountImpl(const VPLoopRegion *Lp) = 0;
-
-public:
-  explicit VPLoopAnalysisBase(const TripCountTy DefaultTripCount)
-      : DefaultTripCount(DefaultTripCount) {}
-
-  virtual ~VPLoopAnalysisBase(){}
-
-  void computeTripCount(const VPLoopRegion *Lp) { computeTripCountImpl(Lp); }
-
-  /// Return true if trip count for the loop is known in compile time.
-  bool isKnownTripCountFor(const VPLoopRegion *Lp) {
-    return !computeAndReturnTripCountInfo(Lp).IsEstimated;
-  }
-
-  /// Return minimal trip count for the loop, which was either computed by some
-  /// analysis or was provided by user.
-  TripCountTy getMinTripCountFor(const VPLoopRegion *Lp) {
-    return computeAndReturnTripCountInfo(Lp).MinTripCount;
-  }
-
-  /// Return minimal trip count for the loop, which was either computed by some
-  /// analysis or was provided by user.
-  TripCountTy getMaxTripCountFor(const VPLoopRegion *Lp) {
-    return computeAndReturnTripCountInfo(Lp).MaxTripCount;
-  }
-
-  /// Return trip count for the loop. It's caller's responsibility to check
-  /// whether this trip count was estimated or was known in compile time.
-  TripCountTy getTripCountFor(const VPLoopRegion *Lp) {
-    return computeAndReturnTripCountInfo(Lp).TripCount;
-  }
-
-  /// Set known trip count for a given VPLoop. This function also sets MinTC and
-  /// MaxTC to same value.
-  void setKnownTripCountFor(const VPLoopRegion *Lp,
-                            const TripCountTy TripCount) {
-    LoopTripCounts[Lp] = TripCountInfo(TripCount, TripCount, TripCount, false);
-  }
-
-  /// Set estimated trip count for a given VPLoop. This function doesn't touch
-  /// MinTC or MaxTC.
-  void setEstimatedTripCountFor(const VPLoopRegion *Lp,
-                                const TripCountTy TripCount) {
-    LoopTripCounts[Lp].TripCount = TripCount;
-    LoopTripCounts[Lp].IsEstimated = true;
-  }
-
-  /// Set MinTC for a given VPLoop. This function doesn't touch TC or MaxTC.
-  void setMinTripCountFor(const VPLoopRegion *Lp, const TripCountTy TripCount) {
-    LoopTripCounts[Lp].MinTripCount = TripCount;
-    LoopTripCounts[Lp].IsEstimated = true;
-    if (TripCount > getMaxTripCountFor(Lp))
-      setMaxTripCountFor(Lp, TripCount);
-  }
-
-  /// Set MaxTC for a given VPLoop. This function doesn't touch TC or MinTC.
-  void setMaxTripCountFor(const VPLoopRegion *Lp, const TripCountTy TripCount) {
-    LoopTripCounts[Lp].MaxTripCount = TripCount;
-    LoopTripCounts[Lp].IsEstimated = true;
-    if (TripCount < getMinTripCountFor(Lp))
-      setMinTripCountFor(Lp, TripCount);
-  }
-
-  void setTripCountsFromPragma(const VPLoopRegion *Lp, uint64_t MinTripCount,
-                               uint64_t MaxTripCount, uint64_t AvgTripCount);
-};
-
-class VPLoopAnalysis : public VPLoopAnalysisBase {
-private:
-  ScalarEvolution *SE;
-  LoopInfo *LI;
-  // TODO: templatizing of getSmallConstantMaxTripCount() is required to support
-  // VPLoop.
-
-  void computeTripCountImpl(const VPLoopRegion *Lp) final;
-
-public:
-  explicit VPLoopAnalysis(ScalarEvolution *SE,
-                          const TripCountTy DefaultTripCount, LoopInfo *LI)
-      : VPLoopAnalysisBase(DefaultTripCount), SE(SE), LI(LI) {}
-};
+extern bool LoopEntityImportEnabled;
+extern bool VPlanUseVPEntityInstructions;
+extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Base class for loop entities
 class VPLoopEntity {
 public:
+  using LinkedVPValuesTy = SmallSet<VPValue *, 4>;
+
   enum { Reduction, IndexReduction, Induction, Private };
   unsigned char getID() const { return SubclassID; }
 
@@ -188,15 +73,11 @@ public:
   void setIsMemOnly(bool V) { IsMemOnly = V; }
   bool getIsMemOnly() const { return IsMemOnly; }
 
-  const SmallVectorImpl<VPValue *> &getLinkedVPValues() const {
-    return LinkedVPValues;
-  }
+  const LinkedVPValuesTy &getLinkedVPValues() const { return LinkedVPValues; }
   void addLinkedVPValue(VPValue *Val) {
     if (Val != nullptr)
-      LinkedVPValues.push_back(Val);
+      LinkedVPValues.insert(Val);
   }
-
-  virtual void getAliases(SmallVectorImpl<VPValue *> &Aliases) {}
 
 protected:
   // No need for public constructor.
@@ -205,9 +86,13 @@ protected:
 
   bool IsMemOnly;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printLinkedValues(raw_ostream &OS) const;
+#endif // NDEBUG || LLVM_ENABLE_DUMP
+
 private:
   const unsigned char SubclassID;
-  SmallVector<VPValue *, 2> LinkedVPValues;
+  LinkedVPValuesTy LinkedVPValues;
 };
 
 /// Recurrence descriptor
@@ -335,7 +220,40 @@ private:
 /// Private descriptor. Privates can be declared explicitly or detected
 /// by analysis.
 class VPPrivate : public VPLoopEntity {
+  friend class VPLoopEntityList;
 
+public:
+  // Currently only used for VPPrivates. In future, this can be hoisted to
+  // VPLoopEntity.
+  using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
+
+  VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
+            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
+      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
+        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
+        Aliases(std::move(InAliases)) {}
+
+  bool isConditional() const { return IsConditional; }
+  bool isLast() const { return IsLast; }
+  bool isExplicit() const { return IsExplicit; }
+
+  // TODO: Consider making this method virtual and hence available to all
+  // entities.
+  // Iterator-range for the aliases-set.
+  iterator_range<VPEntityAliasesTy::const_iterator> aliases() const {
+    return iterator_range<VPEntityAliasesTy::const_iterator>(Aliases.begin(),
+                                                             Aliases.end());
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == Private;
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+private:
   // The assignment is under condition.
   bool IsConditional;
 
@@ -348,34 +266,9 @@ class VPPrivate : public VPLoopEntity {
   // The assignment instruction.
   VPInstruction *FinalInst;
 
-  // Aliases associated with a pointer
-  DenseSet<VPValue *> Aliases;
-
-public:
-  VPPrivate(VPInstruction *FinalI, DenseSet<VPValue *> &&InAliases,
-            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
-      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
-        Aliases(std::move(InAliases)) {}
-
-  bool isConditional() const { return IsConditional; }
-  bool isLast() const { return IsLast; }
-  bool isExplicit() const { return IsExplicit; }
-  // TODO: Replace the deep-copying of Aliases with code that returns a
-  // reference to Aliases. This would be done when we have identified the need
-  // of 'aliases' for all other VP*
-  void getAliases(SmallVectorImpl<VPValue *> &AliasesVec) override {
-    for (auto *Val : Aliases)
-      AliasesVec.push_back(Val);
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPLoopEntity *V) {
-    return V->getID() == Private;
-  }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override;
-#endif
+  // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
+  // instructions to existing loop-private, which are outside the loop-region.
+  VPEntityAliasesTy Aliases;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -398,14 +291,6 @@ public:
   /// load/store inside the loop and storing just last value.
   bool canRegisterize() const { return CanRegisterize; }
 
-  /// Return true if memory is safe for SOA, i.e. all uses inside the loop
-  /// are known and there are no layout-casts.
-  bool isSafeSOA() const { return SafeSOA; }
-
-  /// Return true if it's profitable to make SOA transformation, i.e. there
-  /// is at least one unit-stride load/store to that memory (in case of
-  /// private array), or the memory is a scalar structure.
-  bool isProfitableSOA() const { return ProfitableSOA; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const;
 #endif
@@ -419,15 +304,12 @@ private:
 
   // Interface for analyzer to set the bits.
   void setCanRegisterize(bool Val) { CanRegisterize = Val; }
-  void setSafeSOA(bool Val) { SafeSOA = Val; }
-  void setProfitableSOA(bool Val) { ProfitableSOA = Val; }
 
   // Allocation instruction.
   VPValue *MemoryPtr;
 
   bool CanRegisterize = false;
-  bool SafeSOA = false;
-  bool ProfitableSOA = false;
+
 };
 
 /// Class to hold/analyze VPLoop enitites - reductions, inductions, and
@@ -438,6 +320,7 @@ class VPLoopEntityList {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
+  using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
   /// Add reduction described by \p K, \p MK, and \p Signed,
@@ -471,7 +354,7 @@ public:
   /// instruction which writes to the private memory witin the for-loop. Also
   /// store other relavant attributes of the private like the conditional, last
   /// and explicit.
-  VPPrivate *addPrivate(VPInstruction *FinalI, DenseSet<VPValue *> &Aliases,
+  VPPrivate *addPrivate(VPInstruction *FinalI, VPEntityAliasesTy &PtrAliases,
                         bool IsConditional, bool IsLast, bool Explicit,
                         VPValue *AI = nullptr, bool ValidMemOnly = false);
 
@@ -530,29 +413,32 @@ public:
 
   /// Entities lists. We need a predictable way of iterating through lists so
   /// the init/fini code is generated always the same for the same loops.
-  typedef SmallVector<std::unique_ptr<VPReduction>, 4> VPReductionList;
-  typedef SmallVector<std::unique_ptr<VPInduction>, 4> VPInductionList;
-  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivatesList;
+  using VPReductionList = SmallVector<std::unique_ptr<VPReduction>, 4>;
+  using VPInductionList = SmallVector<std::unique_ptr<VPInduction>, 4>;
+  using VPPrivatesList = SmallVector<std::unique_ptr<VPPrivate>, 4>;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
-  typedef DenseMap<const VPValue *, const VPReduction *> VPReductionMap;
-  typedef DenseMap<const VPValue *, const VPInduction *> VPInductionMap;
-  typedef DenseMap<const VPValue *, const VPPrivate *> VPPrivateMap;
+  using VPReductionMap = DenseMap<const VPValue *, const VPReduction *>;
+  using VPInductionMap = DenseMap<const VPValue *, const VPInduction *>;
+  using VPPrivateMap = DenseMap<const VPValue *, const VPPrivate *>;
 
-  /// Iterators to iterate through entities lists.
-  VPInductionList::iterator inductionsBegin();
-  VPInductionList::iterator inductionsEnd();
-
-  VPReductionList::const_iterator reductionsBegin() const {
-    return ReductionList.begin();
+  // Return the iterator-range to the list of privates loop-entities.
+  inline decltype(auto) vpprivates() const {
+    return map_range(make_range(PrivatesList.begin(), PrivatesList.end()),
+                     getRawPointer<VPPrivate>);
   }
-  VPReductionList::const_iterator reductionsEnd() const {
-    return ReductionList.end();
+  // Return the iterator-range to the list of reduction loop-entities.
+  inline decltype(auto) vpreductions() const {
+    return map_range(make_range(ReductionList.begin(), ReductionList.end()),
+                     getRawPointer<VPReduction>);
   }
 
-  VPPrivatesList::iterator privatesBegin();
-  VPPrivatesList::iterator privatesEnd();
+  // Return the iterator-range to the list of induction loop-entities.
+  inline decltype(auto) vpinductions() const {
+    return map_range(make_range(InductionList.begin(), InductionList.end()),
+                     getRawPointer<VPInduction>);
+  }
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
@@ -564,7 +450,7 @@ public:
   VPLoopEntityList(VPlan &P, VPLoop &L) : Plan(P), Loop(L) {}
 
   VPValue *getReductionIdentity(const VPReduction *Red) const;
-  static bool isMinMaxInclusive(const VPReduction &Red);
+  bool isMinMaxLastItem(const VPReduction &Red) const;
 
   void insertVPInstructions(VPBuilder &Builder);
 
@@ -591,10 +477,91 @@ public:
   // DuplicateInductionPHIs after replacement. NOTE: The duplicate PHI is not
   // removed from HCFG.
   void replaceDuplicateInductionPHIs();
-  void doEscapeAnalysis();
+
+  // Do SOA-analysis on loop-entities.
+  void doSOAAnalysis();
 
   /// Return VPPHINode that corresponds to a recurrent entity.
   VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
+
+  /// Return true if the \p VPhi is recurrence Phi of a reduction.
+  /// Recurrence phi is phi that resides in loop header and merges
+  /// initial value and value coming from loop latch.
+  bool isReductionPhi(const VPPHINode* VPhi) const;
+
+  /// Class for SOA-datalayout transformation analysis for loop-privates.
+
+  // This class uses the rules listed in
+  // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules to identify
+  // pointer-aliasing instructions that we would encounter.
+  class VPSOAAnalysis {
+
+    // The 'UseInst' input argument-name to the functions in the class represent
+    // the 'use'-instruction and 'CurrentI' represents the instruction of which
+    // 'UseInst' is an use.
+
+  public:
+    /// Do SOA-analysis for all VPAllocatePrivates in the entry-block.
+    void doSOAAnalysis();
+
+    VPSOAAnalysis(const VPlan &Plan, const VPLoop &Loop)
+        : Plan(Plan), Loop(Loop) {}
+
+  private:
+    using WorkList = SetVector<const VPInstruction *>;
+
+    // The running worklist of all the instructions which we want to track.
+    WorkList WL;
+
+    // The list of potentially unsafe instructions. The users of these
+    // instructions have to be analyzed for any unsafe behavior.
+    DenseSet<const VPValue *> PotentiallyUnsafeInsts;
+
+    // VPlan object.
+    const VPlan &Plan;
+
+    // VPLoop object.
+    const VPLoop &Loop;
+
+    /// \returns true if \p UseInst is a safe operation. This would evaluate
+    /// to see if \p UseInst is a trivial pointer aliasing instruction, a safe
+    /// function-call or a safe load/store as determined by
+    /// \link VPSOAAnalysis::isSafeInstruction \endlink.
+    bool isSafeUse(const VPInstruction *UseInst, const VPInstruction *CurrentI);
+
+    /// \returns true if \p UseInst is a safe instruction. Load/Stores are
+    /// tested for various constraints to determine safety and every other
+    /// instruction is considered unsafe.
+    bool isSafeLoadStore(const VPInstruction *UseInst,
+                         const VPInstruction *CurrentI);
+
+    /// Determine if the memory pointed to be the Alloca escapes.
+    bool memoryEscapes(const VPAllocatePrivate *Alloca);
+
+    /// \return true if \p UseInst is a known safe bitcast instruction.
+    bool isPotentiallyUnsafeSafeBitCast(const VPInstruction *UseInst);
+
+    /// \ return true if \p UseInst has any potentially-unsafe operands.
+    bool hasPotentiallyUnsafeOperands(const VPInstruction *UseInst);
+
+    /// \returns true if \p UseInst is any function call that we know is a
+    /// safe-function, i.e., passing a private-pointer would not result in
+    /// change of data-layout on the pointee.
+    bool isSafePointerEscapeFunction(const VPInstruction *UseInst);
+
+    /// \returns true if \p Val's pointee-type is a scalar.
+    bool isSOASupportedTy(Type *Ty);
+
+    /// \returns true if \p Val's pointee-type is a scalar.
+    bool isScalarTy(Type *Ty);
+
+    /// \return true if the incoming instruction is in the relevant scope.
+    /// Specifically, we check if the instruction is non-null pointer and
+    /// either
+    /// a) In the loop-preheader, or,
+    /// b) In the loop.
+    bool isInstructionInRelevantScope(const VPInstruction *UseInst);
+  };
 
 private:
   VPlan &Plan;
@@ -724,6 +691,26 @@ private:
                                 VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
+
+  // Insert VPInstructions related to VPReductions.
+  void insertReductionVPInstructions(VPBuilder &Builder,
+                                     VPBasicBlock *Preheader,
+                                     VPBasicBlock *PostExit);
+
+  // Insert VPInstructions related to VPInductions.
+  void insertInductionVPInstructions(VPBuilder &Builder,
+                                     VPBasicBlock *Preheader,
+                                     VPBasicBlock *PostExit);
+
+  // Insert VPInstructions related to VPPrivates.
+  void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
+
+  // Mapping function that returns the underlying raw pointer.
+  template <typename EntityType>
+  static inline EntityType *
+  getRawPointer(const std::unique_ptr<EntityType> &En) {
+    return En.get();
+  }
 };
 
 class VPEntityImportDescr {
@@ -956,6 +943,7 @@ private:
 /// privates.
 class PrivateDescr : public VPEntityImportDescr {
   using BaseT = VPEntityImportDescr;
+  using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
   PrivateDescr() { clear(); }
@@ -994,7 +982,7 @@ public:
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
-  void addAlias(VPValue *Val) { PtrAliases.insert(Val); }
+  void addAlias(VPValue *Alias, VPInstruction *I) { PtrAliases[Alias] = I; }
 
 private:
   VPValue *AllocaInst = nullptr;
@@ -1003,7 +991,7 @@ private:
   // multiple aliases as opposed to memory descriptors for inductions or
   // reductions. Hence, we have a separate field. TODO: consider using a
   // single/same field for every memory descriptor.
-  DenseSet<VPValue *> PtrAliases;
+  VPEntityAliasesTy PtrAliases;
   bool IsConditional;
   bool IsLast;
   bool IsExplicit;

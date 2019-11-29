@@ -86,7 +86,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 #define DEBUGSERVER_BASENAME "debugserver"
-using namespace llvm;
 using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::process_gdb_remote;
@@ -99,12 +98,14 @@ namespace lldb {
 // namespace. This allows you to attach with a debugger and call this function
 // and get the packet history dumped to a file.
 void DumpProcessGDBRemotePacketHistory(void *p, const char *path) {
-  StreamFile strm;
-  Status error = FileSystem::Instance().Open(strm.GetFile(), FileSpec(path),
-                                             File::eOpenOptionWrite |
-                                                 File::eOpenOptionCanCreate);
-  if (error.Success())
-    ((ProcessGDBRemote *)p)->GetGDBRemote().DumpHistory(strm);
+  auto file = FileSystem::Instance().Open(
+      FileSpec(path), File::eOpenOptionWrite | File::eOpenOptionCanCreate);
+  if (!file) {
+    llvm::consumeError(file.takeError());
+    return;
+  }
+  StreamFile stream(std::move(file.get()));
+  ((ProcessGDBRemote *)p)->GetGDBRemote().DumpHistory(stream);
 }
 } // namespace lldb
 
@@ -152,6 +153,11 @@ public:
     return m_collection_sp->GetPropertyAtIndexAsBoolean(
         nullptr, idx,
         g_processgdbremote_properties[idx].default_uint_value != 0);
+  }
+
+  bool GetUseGPacketForReading() const {
+    const uint32_t idx = ePropertyUseGPacketForReading;
+    return m_collection_sp->GetPropertyAtIndexAsBoolean(nullptr, idx, true);
   }
 };
 
@@ -308,6 +314,9 @@ ProcessGDBRemote::ProcessGDBRemote(lldb::TargetSP target_sp,
       GetGlobalPluginProperties()->GetPacketTimeout();
   if (timeout_seconds > 0)
     m_gdb_comm.SetPacketTimeout(std::chrono::seconds(timeout_seconds));
+
+  m_use_g_packet_for_reading =
+      GetGlobalPluginProperties()->GetUseGPacketForReading();
 }
 
 // Destructor
@@ -3626,9 +3635,9 @@ bool ProcessGDBRemote::StartAsyncThread() {
     llvm::Expected<HostThread> async_thread = ThreadLauncher::LaunchThread(
         "<lldb.process.gdb-remote.async>", ProcessGDBRemote::AsyncThread, this);
     if (!async_thread) {
-      LLDB_LOG(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST),
-               "failed to launch host thread: {}",
-               llvm::toString(async_thread.takeError()));
+      LLDB_LOG_ERROR(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST),
+                     async_thread.takeError(),
+                     "failed to launch host thread: {}");
       return false;
     }
     m_async_thread = *async_thread;
@@ -5088,7 +5097,7 @@ ParseStructuredDataPacket(llvm::StringRef packet) {
   if (log) {
     if (json_sp) {
       StreamString json_str;
-      json_sp->Dump(json_str);
+      json_sp->Dump(json_str, true);
       json_str.Flush();
       LLDB_LOGF(log,
                 "ProcessGDBRemote::%s() "

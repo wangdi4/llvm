@@ -120,6 +120,8 @@ void initializeCFGOnlyPrinterLegacyPassPass(PassRegistry&);
 void initializeCFGOnlyViewerLegacyPassPass(PassRegistry&);
 void initializeCFGPrinterLegacyPassPass(PassRegistry&);
 void initializeCFGSimplifyPassPass(PassRegistry&);
+void initializeCFGuardPass(PassRegistry&);
+void initializeCFGuardLongjmpPass(PassRegistry&);
 void initializeCFGViewerLegacyPassPass(PassRegistry&);
 void initializeCFIInstrInserterPass(PassRegistry&);
 void initializeCFLAndersAAWrapperPassPass(PassRegistry&);
@@ -178,6 +180,7 @@ void initializeFEntryInserterPass(PassRegistry&);
 void initializeFinalizeISelPass(PassRegistry&);
 void initializeFinalizeMachineBundlesPass(PassRegistry&);
 void initializeFlattenCFGPassPass(PassRegistry&);
+void initializeFloat128ExpandPass(PassRegistry&); // INTEL
 void initializeFloat2IntLegacyPassPass(PassRegistry&);
 void initializeForceFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeForwardControlFlowIntegrityPass(PassRegistry&);
@@ -216,6 +219,7 @@ void initializeInferAddressSpacesLegacyPassPass(PassRegistry &);
 void initializeInferAddressSpacesPass(PassRegistry&);
 #endif // INTEL_COLLAB
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
+void initializeInjectTLIMappingsLegacyPass(PassRegistry &);
 void initializeInlineAggressiveWrapperPassPass(PassRegistry&); // INTEL
 void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCountPass(PassRegistry&);
@@ -226,7 +230,10 @@ void initializeInstrOrderFileLegacyPassPass(PassRegistry&);
 void initializeInstructionCombiningPassPass(PassRegistry&);
 void initializeInstructionSelectPass(PassRegistry&);
 void initializeIntelAdvancedFastCallWrapperPassPass(PassRegistry &); // INTEL
+void initializeIntelIPOPrefetchWrapperPassPass(PassRegistry &); // INTEL
 void initializeIntelPartialInlineLegacyPassPass(PassRegistry &); // INTEL
+void initializeIntelArgumentAlignmentLegacyPassPass(PassRegistry &); // INTEL
+void initializeIntelFoldWPIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeInterleavedAccessPass(PassRegistry&);
 void initializeInterleavedLoadCombinePass(PassRegistry &);
 void initializeInternalizeLegacyPassPass(PassRegistry&);
@@ -285,6 +292,7 @@ void initializeLoopVectorizePass(PassRegistry&);
 void initializeLoopVersioningLICMPass(PassRegistry&);
 void initializeLoopVersioningPassPass(PassRegistry&);
 void initializeLowerAtomicLegacyPassPass(PassRegistry&);
+void initializeLowerConstantIntrinsicsPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
 void initializeLowerExpectIntrinsicPass(PassRegistry&);
 void initializeLowerGuardIntrinsicLegacyPassPass(PassRegistry&);
@@ -309,7 +317,7 @@ void initializeMachineDominatorTreePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
 void initializeMachineLICMPass(PassRegistry&);
 void initializeMachineLoopInfoPass(PassRegistry&);
-void initializeMachineModuleInfoPass(PassRegistry&);
+void initializeMachineModuleInfoWrapperPassPass(PassRegistry &);
 void initializeMachineOptimizationRemarkEmitterPassPass(PassRegistry&);
 void initializeMachineOutlinerPass(PassRegistry&);
 void initializeMachinePipelinerPass(PassRegistry&);
@@ -374,7 +382,6 @@ void initializePostRAMachineSinkingPass(PassRegistry&);
 void initializePostRASchedulerPass(PassRegistry&);
 void initializePreISelIntrinsicLoweringLegacyPassPass(PassRegistry&);
 void initializePredicateInfoPrinterLegacyPassPass(PassRegistry&);
-void initializePrintBasicBlockPassPass(PassRegistry&);
 void initializePrintFunctionPassWrapperPass(PassRegistry&);
 void initializePrintModulePassWrapperPass(PassRegistry&);
 void initializeProcessImplicitDefsPass(PassRegistry&);
@@ -491,6 +498,8 @@ void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 // Pass for transforming __fpga_reg builtin representation
 void initializeTransformFPGARegPass(PassRegistry &);
+// Qsort recognition
+void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
@@ -531,8 +540,10 @@ void initializeHIRCodeGenWrapperPassPass(PassRegistry&);
 void initializeHIROptVarPredicateLegacyPassPass(PassRegistry&);
 void initializeHIRIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRMVForConstUBLegacyPassPass(PassRegistry&);
+void initializeHIRMVForVariableStrideLegacyPassPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
+void initializeHIRAosToSoaLegacyPassPass(PassRegistry&);
 void initializeHIRLoopFusionLegacyPassPass(PassRegistry&);
 void initializeHIRDeadStoreEliminationLegacyPassPass(PassRegistry&);
 void initializeHIRLastValueComputationLegacyPassPass(PassRegistry&);
@@ -542,6 +553,7 @@ void initializeHIRRecognizeParLoopPass(PassRegistry&);
 void initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRPrefetchingLegacyPassPass(PassRegistry&);
 void initializeHIRSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
+void initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
@@ -575,6 +587,7 @@ void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
+void initializeRAReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -584,6 +597,8 @@ void initializeWRegionInfoWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 // VPO Utility Pass
 void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Paropt Loop Collapse Pass
+void initializeVPOParoptLoopCollapsePass(PassRegistry&);
 // VPO Paropt Prepare Pass
 void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Pass to restore operands renamed by VPO Paropt Prepare pass

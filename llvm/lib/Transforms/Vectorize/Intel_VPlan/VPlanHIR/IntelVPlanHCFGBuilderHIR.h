@@ -328,11 +328,9 @@ private:
   std::unique_ptr<VPRegionBlock>
   buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
 
-  void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
+  void populateVPLoopMetadata(VPLoopInfo *VPLInfo) override;
 
-  void collectUniforms(VPRegionBlock *Region) override {
-    // Do nothing for now
-  }
+  void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,

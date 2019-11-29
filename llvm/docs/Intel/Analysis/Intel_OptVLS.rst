@@ -131,7 +131,7 @@ abstract data types (discussed in Section 2).
 
 These abstract data types are as follows:
 
-#. OVLSAccessType- Allows representing different vector access type such as [stride|index][load|store].
+#. OVLSAccessKind - Allows representing different vector access kinds such as [stride|index][load|store].
 #. OVLSType- Allows representing a vector type as <# elements> x <element-size in bits>
 #. OVLSMemref- Allows representing a vector memory reference such as gather/scatter
 #. OVLSGroup- Allows representing a group of OVLSMemrefs

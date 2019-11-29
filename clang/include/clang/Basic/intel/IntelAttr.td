@@ -521,74 +521,22 @@ def InternalMaxBlockRamDepth : InheritableAttr {
   }];
 }
 
-// No arguments.
-def OptimizeFMax : Attr {
-  let Spellings = [GNU<"optimize_fmax">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
+// One string argument
+def ReadWriteMode : Attr {
+  let Spellings = [GNU<"readwrite_mode">];
+  let Args = [StringArgument<"Type">];
+  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar, Field], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [ReadWriteModeDocs];
 }
 
-def OptimizeRamUsage : Attr {
-  let Spellings = [GNU<"optimize_ram_usage">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
+def MemoryLayout : Attr {
+  let Spellings = [GNU<"memory_layout">];
+  let Args = [StringArgument<"Type">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
-// One integral argument.
-def NumReadPorts : Attr {
-  let Spellings = [GNU<"numreadports">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-def NumWritePorts : Attr {
-  let Spellings = [GNU<"numwriteports">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-// Two integral arguments.
-def NumPortsReadOnlyWriteOnly : Attr {
-  let Spellings = [GNU<"numports_readonly_writeonly">];
-  let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
+  let Documentation = [MemoryLayoutDocs];
 }
 
 // Variadic integral arguments.

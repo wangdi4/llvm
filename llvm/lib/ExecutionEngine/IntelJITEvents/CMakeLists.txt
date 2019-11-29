@@ -7,9 +7,10 @@ endif()
 set(LLVM_INTEL_JIT_LIBS ${LLVM_PTHREAD_LIB} ${LLVM_INTEL_JIT_LIBS})
 
 
-add_llvm_library(LLVMIntelJITEvents
+add_llvm_component_library(LLVMIntelJITEvents
   IntelJITEventListener.cpp
   jitprofiling.c
+  ittnotify_static.cpp
 
   LINK_LIBS ${LLVM_INTEL_JIT_LIBS}
 )

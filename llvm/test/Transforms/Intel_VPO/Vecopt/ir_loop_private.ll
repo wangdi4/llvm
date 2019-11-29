@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 -S -enable-vp-value-codegen=false %s | FileCheck %s
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %a2.vec = alloca <4 x i32>

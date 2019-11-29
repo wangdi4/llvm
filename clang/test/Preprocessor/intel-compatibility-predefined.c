@@ -8,10 +8,10 @@
 // -fintel-compatibility option.  This doesn't check for any specific values
 // of these predefined macros.
 
-// RUN: %clang_cc1 -E -dM -triple i686-pc-linux %s -o - | \
+// RUN: %clang_cc1 -fgnuc-version=4.2.1 -E -dM -triple i686-pc-linux %s -o - | \
 // RUN:     FileCheck %s -check-prefix CHECK-GNU-VERSION
 
-// RUN: %clang_cc1 -E -dM -triple i686-pc-linux \
+// RUN: %clang_cc1 -fgnuc-version=4.2.1 -E -dM -triple i686-pc-linux \
 // RUN:    -fintel-compatibility %s -o - | \
 // RUN:    FileCheck %s -check-prefix CHECK-GNU-VERSION
 

@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
+
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_WP.h"          // INTEL
@@ -38,12 +39,17 @@
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+
 #include <cassert>
 #include <cstdint>
 #include <utility>
@@ -1013,6 +1019,10 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
         New->takeName(Call);
       }
     }
+
+#if INTEL_CUSTOMIZATION
+    IPOUtils::preserveOrSuppressInlineReport(Call, New);
+#endif //INTEL_CUSTOMIZATION
 
     // Finally, remove the old call from the program, reducing the use-count of
     // F.

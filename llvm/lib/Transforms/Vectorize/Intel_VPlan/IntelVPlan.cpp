@@ -104,6 +104,7 @@ VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
   VPBasicBlock *BB = Block->getExitBasicBlock();
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   BB->moveConditionalEOBTo(NewBlock);
+  NewBlock->moveTripCountInfoFrom(BB);
   insertBlockAfter(NewBlock, BB);
 
   // Add NewBlock to VPLoopInfo
@@ -160,8 +161,10 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
                                        VPDominatorTree &DomTree,
                                        VPPostDominatorTree &PostDomTree) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  if (isa<VPBasicBlock>(Block))
-    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock);
+  if (auto *BB = dyn_cast<VPBasicBlock>(Block)) {
+    BB->moveConditionalEOBTo(NewBlock);
+    NewBlock->moveTripCountInfoFrom(BB);
+  }
   insertBlockAfter(NewBlock, Block);
 
   // Add NewBlock to VPLoopInfo
@@ -278,6 +281,21 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
     delete Block;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPBlockBase::print(raw_ostream &OS, unsigned Depth,
+                        const VPlanDivergenceAnalysis *DA,
+                        const Twine &NamePrefix) const {
+  formatted_raw_ostream FOS(OS);
+  if (auto *Region = dyn_cast<VPRegionBlock>(this)) {
+    Region->print(FOS, Depth, DA, NamePrefix);
+    return;
+  }
+
+  auto *BB = cast<VPBasicBlock>(this);
+  BB->print(FOS, Depth, DA, NamePrefix);
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 BasicBlock *
 #if INTEL_CUSTOMIZATION
 VPBasicBlock::createEmptyBasicBlock(VPTransformState *State)
@@ -365,7 +383,15 @@ void VPBasicBlock::execute(VPTransformState *State) {
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
   VPBlockBase *SingleHPred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
-  VPLoopRegion *ParentLoop = nullptr;
+
+  VPLoopInfo *VPLI = State->VPLI;
+
+  // TODO: Won't take place with explicit peel/reminder. But we'd need much more
+  // fixes to support CG for such case anyway.
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
+         && "Expected single outermost loop!");
+
+  VPLoop *OuterMostVPLoop = *VPLI->begin();
 
   // 1. Create an IR basic block, or reuse one already available if possible.
   // The last IR basic block is reused in four cases:
@@ -375,15 +401,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
   //    is PrevVPBB and the latter has a single (hierarchical) successor; and
   // D. when the current VPBB is an entry of a region replica - where PrevVPBB
   //    is the exit of this region from a previous instance.
-  // TODO: We currently cannot use VPLoopRegion class here
-  if (PrevVPBB && (ParentLoop = dyn_cast<VPLoopRegion>(this->getParent())) &&
-      ParentLoop->getEntry() == PrevVPBB /* B */ &&
-      // TODO: We need to properly support outer-loop vectorization scenarios.
-      // Latches for inner loops are not removed and we don't have VPlan,
-      // VPLoopInfo, etc. accessible from State. Temporal fix: outermost loop's
-      // parent is TopRegion. TopRegion's parent is null.
-      !ParentLoop->getParent()->getParent()) {
-
+  if (OuterMostVPLoop->getHeader() == this) {
     // Set NewBB to loop H basic block
     BasicBlock *LoopPH = State->CFG.PrevBB;
     NewBB = LoopPH->getSingleSuccessor();
@@ -505,34 +523,11 @@ VPRegionBlock::~VPRegionBlock() {
 void VPRegionBlock::execute(VPTransformState *State) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
 
-  if (!isReplicator()) {
-    // Visit the VPBlocks connected to "this", starting from it.
-    for (VPBlockBase *Block : RPOT) {
-      LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-      Block->execute(State);
-    }
-    return;
+  // Visit the VPBlocks connected to "this", starting from it.
+  for (VPBlockBase *Block : RPOT) {
+    LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
+    Block->execute(State);
   }
-
-  assert(!State->Instance && "Replicating a Region with non-null instance.");
-
-  // Enter replicating mode.
-  State->Instance = {0, 0};
-
-  for (unsigned Part = 0, UF = State->UF; Part < UF; ++Part) {
-    State->Instance->Part = Part;
-    for (unsigned Lane = 0, VF = State->VF; Lane < VF; ++Lane) {
-      State->Instance->Lane = Lane;
-      // Visit the VPBlocks connected to \p this, starting from it.
-      for (VPBlockBase *Block : RPOT) {
-        LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-        Block->execute(State);
-      }
-    }
-  }
-
-  // Exit replicating mode.
-  State->Instance.reset();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -558,11 +553,12 @@ void VPRegionBlock::recomputeSize() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
-                        const VPlanDivergenceAnalysis *DA) const {
+void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
+                         const VPlanDivergenceAnalysis *DA,
+                         const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
-  OS << StrIndent << getName() << " (BP: ";
+  OS << StrIndent << NamePrefix << getName() << " (BP: ";
   if (getPredicateRecipe())
     OS << *getPredicateRecipe();
   else
@@ -635,10 +631,6 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
   }
   OS << "\n\n";
 }
-
-void VPBasicBlock::dump() const {
-  dump(errs(), 1);
-}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 /// Return true if \p Recipe is a VPInstruction in a single-use chain of
@@ -689,8 +681,9 @@ void VPRegionBlock::computePDT(void) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
-                         const VPlanDivergenceAnalysis *DA) const {
+void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
+                          const VPlanDivergenceAnalysis *DA,
+                          const Twine &NamePrefix) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
 
@@ -717,7 +710,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
   //       BB7          +0
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
   for (const VPBlockBase *BB : RPOT) {
-    BB->dump(OS, Indent + SuccList.size() - 1, DA);
+    BB->print(OS, Indent + SuccList.size() - 1, DA);
     Printed.insert(BB);
     SuccList.remove(BB);
     for (auto *Succ : BB->getSuccessors())
@@ -729,10 +722,6 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
     OS << StrIndent << "SUCCESSORS(1):" << Successor->getName() << "\n";
   OS << StrIndent << "END Region(" << getName() << ")\n";
   OS << "\n";
-}
-
-void VPRegionBlock::dump() const {
-  dump(errs(), 1);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -822,12 +811,13 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 
         // Only handle strided OptVLS Groups with no access gaps for now.
         if (GroupStride) {
-          uint64_t AllAccessMask = ~(UINT64_MAX << *GroupStride);
           GrpSize = Group->size();
+          APInt AccessMask = Group->computeByteAccessMask();
 
           // Access mask is currently 64 bits, skip groups with group stride >
           // 64 and access gaps.
-          if (*GroupStride > 64 || Group->getNByteAccessMask() != AllAccessMask)
+          if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
+              AccessMask.getBitWidth() != *GroupStride)
             Group = nullptr;
         } else
           Group = nullptr;
@@ -861,7 +851,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
               FirstMemrefDD = MemrefDD;
               GrpStartInst = HInst;
               RefSizeInBytes =
-                  DL.getTypeSizeInBits(FirstMemrefDD->getDestType()) >> 3;
+                  DL.getTypeAllocSize(FirstMemrefDD->getDestType());
             } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
               TypesMatch = false;
 
@@ -1081,7 +1071,9 @@ void VPlan::execute(VPTransformState *State) {
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
   // of code, we decided to seperate both versions with a single
   // INTEL_CUSTOMIZATION
-  auto VLoop = VPlanUtils::findFirstLoopDFS(this)->getVPLoop();
+  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
+         "Expected single outermost loop!");
+  VPLoop *VLoop = *VPLInfo->begin();
   State->ILV->setVPlan(this, getLoopEntities(VLoop));
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
@@ -1350,9 +1342,9 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
     E->dump(OS, EIter->first->getHeader());
   }
   const VPBlockBase *Entry = getEntry();
-  Entry->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+  Entry->print(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   for (auto &Succ : Entry->getSuccessors()) {
-    Succ->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+    Succ->print(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   }
   if (!VPExternalUses.empty()) {
     OS << "External Uses:\n";
@@ -1570,7 +1562,6 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   bumpIndent(1);
   OS << Indent << "fontname=Courier\n"
      << Indent << "label=\""
-     << DOT::EscapeString(Region->isReplicator() ? "<xVFxUF> " : "<x1> ")
 #if INTEL_CUSTOMIZATION
      << DOT::EscapeString(Region->getName()) << " Size=" << Region->getSize()
      << "\"\n";
@@ -1898,18 +1889,98 @@ void VPBranchInst::print(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+void VPPHINode::sortIncomingBlocksForBlend(
+    DenseMap<const VPBlockBase *, int> *BlockIndexInRPOTOrNull) {
+  // Sort incoming blocks according to their order in the linearized control
+  // flow. After linearization, the HCFG coming to the codegen might be
+  // something like this:
+  //
+  //   bb0:
+  //     %def0 =
+  //   bb1:
+  //     predicate %cond0
+  //     %def1 =
+  //   bb2:
+  //     predicate %cond1    ; %cond1 = %cond0 && %something
+  //     %def2 =
+  //   bb3:
+  //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
+  //
+  // We need to generate
+  //
+  //  %sel = select %cond0, %def1, %def0
+  //  %blend = select %cond1 %def2, %sel
+  //
+  // Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
+  // for such CFG.
+
+  // FIXME: Once we get rid of hierarchical CFG, we would be able to use
+  // dominance as the comparator.
+  DenseMap<const VPBlockBase *, int> LocalBlockIndexInRPOT;
+  DenseMap<const VPBlockBase *, int> &BlockIndexInRPOT =
+      BlockIndexInRPOTOrNull ? *BlockIndexInRPOTOrNull : LocalBlockIndexInRPOT;
+  if (!BlockIndexInRPOTOrNull) {
+    int CurrBlockRPOTIndex = 0;
+    ReversePostOrderTraversal<VPBlockBase *> RPOT(
+        getParent()->getParent()->getEntry());
+    for (auto *Block : RPOT)
+      BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;
+  }
+
+  unsigned NumIncoming = getNumIncomingValues();
+  using PairTy = std::pair<VPValue *, VPBasicBlock *>;
+  SmallVector<PairTy, 8> SortedIncomingBlocks;
+  for (unsigned Idx = 0; Idx < NumIncoming; ++Idx) {
+    PairTy Curr(getIncomingValue(Idx), getIncomingBlock(Idx));
+
+    auto GetRPOTNumber = [&](VPBlockBase *BB) -> unsigned {
+      while (BB) {
+        if (unsigned Idx = BlockIndexInRPOT[BB])
+          return Idx;
+        BB = BB->getParent();
+      }
+      llvm_unreachable("RPOT index missing!");
+    };
+
+    SortedIncomingBlocks.insert(
+        upper_bound(SortedIncomingBlocks, Curr,
+                    [&](const PairTy &Lhs, const PairTy &Rhs) {
+                      return GetRPOTNumber(Lhs.second) <
+                             GetRPOTNumber(Rhs.second);
+                    }),
+        Curr);
+  }
+  LLVM_DEBUG(dbgs() << "BlendPhi: " << *this << ": ");
+  for (unsigned Idx = 0; Idx < NumIncoming; ++Idx) {
+    setIncomingValue(Idx, SortedIncomingBlocks[Idx].first);
+    setIncomingBlock(Idx, SortedIncomingBlocks[Idx].second);
+    LLVM_DEBUG(dbgs() << SortedIncomingBlocks[Idx].second->getName() << " - "
+                      << BlockIndexInRPOT[SortedIncomingBlocks[Idx].second]
+                      << ", ");
+  }
+  LLVM_DEBUG(dbgs() << "\n");
+}
+
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
-                                     bool InvalidateIR) {
+                                     VPBasicBlock *VPBB, bool InvalidateIR) {
   assert(NewVal && "Can't replace uses with null value");
   assert(getType() == NewVal->getType() && "Incompatible data types");
+  assert(!(Loop && VPBB) && "Cannot have both Loop and VPBB to be non-null.");
   unsigned Cnt = 0;
   while (getNumUsers() > Cnt) {
-    if (Loop)
+    if (Loop) {
       if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
         if (!Loop->contains(cast<VPBlockBase>(Instr->getParent()))) {
           ++Cnt;
           continue;
         }
+    } else if (VPBB) {
+      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
+        if (Instr->getParent() != VPBB) {
+          ++Cnt;
+          continue;
+        }
+    }
     Users[Cnt]->replaceUsesOfWith(this, NewVal, InvalidateIR);
   }
 }

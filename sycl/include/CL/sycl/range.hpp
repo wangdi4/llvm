@@ -17,7 +17,7 @@ namespace sycl {
 template <int dimensions> class id;
 template <int dimensions = 1> class range : public detail::array<dimensions> {
   static_assert(dimensions >= 1 && dimensions <= 3,
-                "range can only be 1, 2, or 3 dimentional.");
+                "range can only be 1, 2, or 3 dimensional.");
   using base = detail::array<dimensions>;
 
 public:
@@ -133,6 +133,12 @@ public:
 
 #undef __SYCL_GEN_OPT
 };
+
+#ifdef __cpp_deduction_guides
+range(size_t)->range<1>;
+range(size_t, size_t)->range<2>;
+range(size_t, size_t, size_t)->range<3>;
+#endif
 
 } // namespace sycl
 } // namespace cl

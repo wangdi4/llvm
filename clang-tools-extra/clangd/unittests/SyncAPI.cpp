@@ -96,10 +96,9 @@ runFindDocumentHighlights(ClangdServer &Server, PathRef File, Position Pos) {
   return std::move(*Result);
 }
 
-llvm::Expected<std::vector<TextEdit>> runRename(ClangdServer &Server,
-                                                PathRef File, Position Pos,
-                                                llvm::StringRef NewName) {
-  llvm::Optional<llvm::Expected<std::vector<TextEdit>>> Result;
+llvm::Expected<FileEdits> runRename(ClangdServer &Server, PathRef File,
+                                    Position Pos, llvm::StringRef NewName) {
+  llvm::Optional<llvm::Expected<FileEdits>> Result;
   Server.rename(File, Pos, NewName, /*WantFormat=*/true, capture(Result));
   return std::move(*Result);
 }
@@ -149,6 +148,13 @@ llvm::Expected<std::vector<Range>>
 runSemanticRanges(ClangdServer &Server, PathRef File, Position Pos) {
   llvm::Optional<llvm::Expected<std::vector<Range>>> Result;
   Server.semanticRanges(File, Pos, capture(Result));
+  return std::move(*Result);
+}
+
+llvm::Expected<llvm::Optional<clangd::Path>>
+runSwitchHeaderSource(ClangdServer &Server, PathRef File) {
+  llvm::Optional<llvm::Expected<llvm::Optional<clangd::Path>>> Result;
+  Server.switchSourceHeader(File, capture(Result));
   return std::move(*Result);
 }
 

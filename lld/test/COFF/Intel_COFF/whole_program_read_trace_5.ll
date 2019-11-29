@@ -1,8 +1,10 @@
+; REQUIRES: assert
 ; This test checks that whole program wasn't achieved since
 ; there is no main.
 
 ; RUN: llvm-as -o %T/wpt5.bc %s
 ; RUN: lld-link /out:%T/wpt5.exe /entry:foo %T/wpt5.bc /subsystem:console  \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s
 
@@ -12,7 +14,7 @@
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 1
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-; CHECK: WHOLE PROGRAM READ NOT ACHIEVED
+; CHECK: whole program not read
 
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"

@@ -61,11 +61,11 @@ namespace {
 class X86InterleavedClientMemref : public OVLSMemref {
 public:
   X86InterleavedClientMemref(char MemrefId, int Distance, Type *ElemType,
-                             unsigned NumElements, OVLSAccessType AType,
+                             unsigned NumElements, OVLSAccessKind AKind,
                              Optional<int64_t> VStride)
       : OVLSMemref(VLSK_X86InterleavedClientMemref,
                    OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AType) {
+                   AKind) {
     MId = MemrefId;
     Dist = Distance;
     DataType = VectorType::get(ElemType, NumElements);
@@ -89,9 +89,11 @@ public:
 
   Optional<int64_t> getConstStride() const override { return VecStride; }
 
-  unsigned getLocation() const override {
-    return MId; // FIXME
-  }
+  // Returning true since in this application all the queiried memrefs have the
+  // same location.
+  bool dominates(const OVLSMemref &Mrf) const override { return true; }
+  bool postDominates(const OVLSMemref &Mrf) const override { return true; }
+
   int getDistance() const { return Dist; }
 
 private:
@@ -240,11 +242,10 @@ class X86InterleavedAccessGroup {
       int Dist = isa<StoreInst>(Inst)
                      ? ((Indices[i] / NumElements) * EltSizeInByte)
                      : Indices[i] * EltSizeInByte;
-      OVLSAccessType AType = isa<StoreInst>(Inst)
-                                 ? OVLSAccessType::getStridedStoreTy()
-                                 : OVLSAccessType::getStridedLoadTy();
+      OVLSAccessKind AKind =
+          isa<StoreInst>(Inst) ? OVLSAccessKind::SStore : OVLSAccessKind::SLoad;
       OVLSMemref *Mrf = new X86InterleavedClientMemref(
-          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(), AType,
+          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(), AKind,
           Factor * EltSizeInByte);
       Memrefs.push_back(Mrf);
       ShuffleToMemrefMap.insert(

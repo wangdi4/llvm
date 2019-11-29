@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "BreakpointPrinter.h"
-#include "Debugify.h"
 #include "NewPMDriver.h"
 #include "PassPrinters.h"
 #include "llvm/ADT/Triple.h"
@@ -56,6 +55,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Debugify.h"
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
@@ -216,6 +216,12 @@ static cl::opt<bool>
 DisableSimplifyLibCalls("disable-simplify-libcalls",
                         cl::desc("Disable simplify-libcalls"));
 
+static cl::list<std::string>
+DisableBuiltins("disable-builtin",
+                cl::desc("Disable specific target library builtin function"),
+                cl::ZeroOrMore);
+
+
 static cl::opt<bool>
 Quiet("q", cl::desc("Obsolete option"), cl::Hidden);
 
@@ -351,7 +357,7 @@ public:
     PassKind Kind = P->getPassKind();
     StringRef Name = P->getPassName();
 
-    // TODO: Implement Debugify for BasicBlockPass, LoopPass.
+    // TODO: Implement Debugify for LoopPass.
     switch (Kind) {
       case PT_Function:
         super::add(createDebugifyFunctionPass());
@@ -506,11 +512,36 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
                                         getCodeModel(), GetCodeGenOptLevel());
 }
 
+#ifdef BUILD_EXAMPLES
+void initializeExampleIRTransforms(llvm::PassRegistry &Registry);
+#endif
+
 #ifdef LINK_POLLY_INTO_TOOLS
 namespace polly {
 void initializePollyPasses(llvm::PassRegistry &Registry);
 }
 #endif
+
+void exportDebugifyStats(llvm::StringRef Path, const DebugifyStatsMap &Map) {
+  std::error_code EC;
+  raw_fd_ostream OS{Path, EC};
+  if (EC) {
+    errs() << "Could not open file: " << EC.message() << ", " << Path << '\n';
+    return;
+  }
+
+  OS << "Pass Name" << ',' << "# of missing debug values" << ','
+     << "# of missing locations" << ',' << "Missing/Expected value ratio" << ','
+     << "Missing/Expected location ratio" << '\n';
+  for (const auto &Entry : Map) {
+    StringRef Pass = Entry.first;
+    DebugifyStatistics Stats = Entry.second;
+
+    OS << Pass << ',' << Stats.NumDbgValuesMissing << ','
+       << Stats.NumDbgLocsMissing << ',' << Stats.getMissingValueRatio() << ','
+       << Stats.getEmptyLocationRatio() << '\n';
+  }
+}
 
 //===----------------------------------------------------------------------===//
 // main for opt
@@ -553,7 +584,6 @@ int main(int argc, char **argv) {
   initializeDwarfEHPreparePass(Registry);
   initializeSafeStackLegacyPassPass(Registry);
   initializeSjLjEHPreparePass(Registry);
-  initializeStackProtectorPass(Registry);
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeGlobalMergePass(Registry);
   initializeIndirectBrExpandPassPass(Registry);
@@ -572,6 +602,7 @@ int main(int argc, char **argv) {
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
+  initializeFloat128ExpandPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);
@@ -583,6 +614,10 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
+
+#ifdef BUILD_EXAMPLES
+  initializeExampleIRTransforms(Registry);
+#endif
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
@@ -659,7 +694,9 @@ int main(int argc, char **argv) {
       OutputFilename = "-";
 
     std::error_code EC;
-    Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::OF_None));
+    sys::fs::OpenFlags Flags = OutputAssembly ? sys::fs::OF_Text
+                                              : sys::fs::OF_None;
+    Out.reset(new ToolOutputFile(OutputFilename, EC, Flags));
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
@@ -743,6 +780,19 @@ int main(int argc, char **argv) {
   // The -disable-simplify-libcalls flag actually disables all builtin optzns.
   if (DisableSimplifyLibCalls)
     TLII.disableAllFunctions();
+  else {
+    // Disable individual builtin functions in TargetLibraryInfo.
+    LibFunc F;
+    for (auto &FuncName : DisableBuiltins)
+      if (TLII.getLibFunc(FuncName, F))
+        TLII.setUnavailable(F);
+      else {
+        errs() << argv[0] << ": cannot disable nonexistent builtin function "
+               << FuncName << '\n';
+        return 1;
+      }
+  }
+
   Passes.add(new TargetLibraryInfoWrapperPass(TLII));
 
   // Add internal analysis passes from the target machine.
@@ -836,9 +886,6 @@ int main(int argc, char **argv) {
 
       if (AnalyzeOnly) {
         switch (Kind) {
-        case PT_BasicBlock:
-          Passes.add(createBasicBlockPassPrinter(PassInf, Out->os(), Quiet));
-          break;
         case PT_Region:
           Passes.add(createRegionPassPrinter(PassInf, Out->os(), Quiet));
           break;

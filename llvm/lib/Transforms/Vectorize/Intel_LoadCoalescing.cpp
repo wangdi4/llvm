@@ -1,6 +1,6 @@
 //===--- Intel_LoadCoalescing.cpp - Coalescing of consecutive loads -------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -29,6 +29,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Vectorize.h"
 
 #define DEBUG_TYPE "load-coalescing"
@@ -122,14 +123,15 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
           Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
 
     CostBeforeCoalescing += TTI->getMemoryOpCost(
-        MemberI->getOpcode(), GroupMemType, MemberI->getAlignment(),
+        MemberI->getOpcode(), GroupMemType, MaybeAlign(MemberI->getAlignment()),
         MemberI->getPointerAddressSpace());
 
     CoalescedLoadScalarOffset += getNumElementsSafe(GroupMemType);
   }
 
   int GroupLoadCost =
-      TTI->getMemoryOpCost(LI->getOpcode(), GroupTy, LI->getAlignment(),
+      TTI->getMemoryOpCost(LI->getOpcode(), GroupTy,
+                           MaybeAlign(LI->getAlignment()),
                            LI->getPointerAddressSpace());
   int CostAfterCoalescing = GroupLoadCost + ShuffleCost;
   int ProfitabilityThreshold = CostAfterCoalescing - CostBeforeCoalescing;

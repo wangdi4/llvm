@@ -166,39 +166,6 @@ __attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__inte
 __kernel void kernel_7g() {
 }
 
-__kernel void kernel_7h() {
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_fmax))
-  __attribute__((register))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int stuff1[100];
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((register))
-  __attribute__((optimize_fmax))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int stuff2[100];
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_ram_usage))
-  __attribute__((register))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int stuff3[100];
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((register))
-  __attribute__((optimize_ram_usage))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int stuff4[100];
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_fmax))
-  __attribute__((optimize_ram_usage))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int stuff5[100];
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((optimize_fmax))
-  __attribute__((internal_max_block_ram_depth(64)))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int stuff6[100];
-}
-
 __attribute__((max_work_group_size(1, -1, 1))) // expected-error{{'max_work_group_size' attribute requires a non-negative integral compile time constant expression}}
 __kernel void kernel_8a() {}
 

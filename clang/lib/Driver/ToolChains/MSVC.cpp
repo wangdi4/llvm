@@ -324,7 +324,7 @@ void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
   CmdArgs.push_back(
       C.getArgs().MakeArgString(Twine("-OUT:") + Output.getFilename()));
 
-  SmallString<128> ExecPath(getToolChain().GetProgramPath("lib"));
+  SmallString<128> ExecPath(getToolChain().GetProgramPath("lib.exe"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
@@ -351,15 +351,49 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(std::string("-out:") + Output.getFilename()));
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles) &&
-      !C.getDriver().IsCLMode())
+      !C.getDriver().IsCLMode()) {
     CmdArgs.push_back("-defaultlib:libcmt");
+#if INTEL_CUSTOMIZATION
+    CmdArgs.push_back("-defaultlib:libmmt");
+#endif // INTEL_CUSTOMIZATION
+  }
 
-  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT_fsycl))
-    CmdArgs.push_back("-defaultlib:sycl.lib");
+  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT_fsycl)) {
+    if (Args.hasArg(options::OPT__SLASH_MDd) ||
+        Args.hasArg(options::OPT__SLASH_MTd))
+      CmdArgs.push_back("-defaultlib:sycld.lib");
+    else
+      CmdArgs.push_back("-defaultlib:sycl.lib");
+  }
 
   for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ))
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-defaultlib:") + A->getValue()));
+
+#if INTEL_CUSTOMIZATION
+  // Add Intel performance libraries. Only add the lib when not in CL-mode as
+  // they have already been added via directive in the compilation
+  if (Args.hasArg(options::OPT_ipp_EQ)) {
+    getToolChain().AddIPPLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddIPPLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Args.hasArg(options::OPT_mkl_EQ)) {
+    getToolChain().AddMKLLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ)) {
+    getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Args.hasArg(options::OPT_daal_EQ)) {
+    getToolChain().AddDAALLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddDAALLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (!llvm::sys::Process::GetEnv("LIB")) {
     // If the VC environment hasn't been configured (perhaps because the user
@@ -370,6 +404,11 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Twine("-libpath:") +
         TC.getSubDirectoryPath(
             toolchains::MSVCToolChain::SubDirectoryType::Lib)));
+
+    CmdArgs.push_back(Args.MakeArgString(
+        Twine("-libpath:") +
+        TC.getSubDirectoryPath(toolchains::MSVCToolChain::SubDirectoryType::Lib,
+                               "atlmfc")));
 
     if (TC.useUniversalCRT()) {
       std::string UniversalCRTLibPath;
@@ -456,6 +495,17 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
+
+  // Control Flow Guard checks
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
+    StringRef GuardArgs = A->getValue();
+    if (GuardArgs.equals_lower("cf") || GuardArgs.equals_lower("cf,nochecks")) {
+      // MSVC doesn't yet support the "nochecks" modifier.
+      CmdArgs.push_back("-guard:cf");
+    } else if (GuardArgs.equals_lower("cf-")) {
+      CmdArgs.push_back("-guard:cf-");
+    }
+  }
 
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                    options::OPT_fno_openmp, false)) {
@@ -595,7 +645,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
               EnvVar.substr(0, PrefixLen) +
               TC.getSubDirectoryPath(SubDirectoryType::Bin) +
               llvm::Twine(llvm::sys::EnvPathSeparator) +
-              TC.getSubDirectoryPath(SubDirectoryType::Bin, HostArch) +
+              TC.getSubDirectoryPath(SubDirectoryType::Bin, "", HostArch) +
               (EnvVar.size() > PrefixLen
                    ? llvm::Twine(llvm::sys::EnvPathSeparator) +
                          EnvVar.substr(PrefixLen)
@@ -719,6 +769,17 @@ std::unique_ptr<Command> visualstudio::Compiler::GetCommand(
     CmdArgs.push_back(A->getOption().getID() == options::OPT_fthreadsafe_statics
                           ? "/Zc:threadSafeInit"
                           : "/Zc:threadSafeInit-");
+  }
+
+  // Control Flow Guard checks
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
+    StringRef GuardArgs = A->getValue();
+    if (GuardArgs.equals_lower("cf") || GuardArgs.equals_lower("cf,nochecks")) {
+      // MSVC doesn't yet support the "nochecks" modifier.
+      CmdArgs.push_back("/guard:cf");
+    } else if (GuardArgs.equals_lower("cf-")) {
+      CmdArgs.push_back("/guard:cf-");
+    }
   }
 
   // Pass through all unknown arguments so that the fallback command can see
@@ -871,6 +932,7 @@ static const char *llvmArchToDevDivInternalArch(llvm::Triple::ArchType Arch) {
 // of hardcoding paths.
 std::string
 MSVCToolChain::getSubDirectoryPath(SubDirectoryType Type,
+                                   llvm::StringRef SubdirParent,
                                    llvm::Triple::ArchType TargetArch) const {
   const char *SubdirName;
   const char *IncludeName;
@@ -890,6 +952,9 @@ MSVCToolChain::getSubDirectoryPath(SubDirectoryType Type,
   }
 
   llvm::SmallString<256> Path(VCToolChainPath);
+  if (!SubdirParent.empty())
+    llvm::sys::path::append(Path, SubdirParent);
+
   switch (Type) {
   case SubDirectoryType::Bin:
     if (VSLayout == ToolsetLayout::VS2017OrNewer) {
@@ -1258,6 +1323,26 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (DriverArgs.hasArg(options::OPT_nostdlibinc))
     return;
 
+#if INTEL_CUSTOMIZATION
+  // Add Intel performance library headers
+  if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetMKLIncludePathExtra(DriverArgs));
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetMKLIncludePath(DriverArgs));
+  }
+  if (DriverArgs.hasArg(clang::driver::options::OPT_ipp_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetIPPIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_tbb) ||
+      DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetTBBIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetDAALIncludePath(DriverArgs));
+#endif // INTEL_CUSTOMIZATION
+
   // Honor %INCLUDE%. It should know essential search paths with vcvarsall.bat.
   if (llvm::Optional<std::string> cl_include_dir =
           llvm::sys::Process::GetEnv("INCLUDE")) {
@@ -1275,6 +1360,8 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (!VCToolChainPath.empty()) {
     addSystemInclude(DriverArgs, CC1Args,
                      getSubDirectoryPath(SubDirectoryType::Include));
+    addSystemInclude(DriverArgs, CC1Args,
+                     getSubDirectoryPath(SubDirectoryType::Include, "atlmfc"));
 
     if (useUniversalCRT()) {
       std::string UniversalCRTSdkPath;
@@ -1535,7 +1622,29 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     } else if (A->getOption().matches(options::OPT_D)) {
       // Translate -Dfoo#bar into -Dfoo=bar.
       TranslateDArg(A, *DAL, Opts);
-    } else {
+    }
+#if INTEL_CUSTOMIZATION
+    // Add SYCL specific performance libraries.
+    // These are transformed from the added base library names to the full
+    // path including the library.
+    else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+             A->getValue() == StringRef("libmkl_sycl")) {
+      SmallString<128> MKLPath(GetMKLLibPath());
+      llvm::sys::path::append(MKLPath, "libmkl_sycl.lib");
+      DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
+                        Args.MakeArgString(MKLPath));
+      continue;
+    }
+    else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+             A->getValue() == StringRef("libdaal_sycl")) {
+      SmallString<128> DAALPath(GetDAALLibPath());
+      llvm::sys::path::append(DAALPath, "libdaal_sycl.lib");
+      DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
+                        Args.MakeArgString(DAALPath));
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+    else {
       DAL->append(A);
     }
   }

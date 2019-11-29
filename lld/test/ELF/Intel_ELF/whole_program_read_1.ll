@@ -1,8 +1,9 @@
+; REQUIRES: assert
 ; This test checks that whole program was achieved.
 
 ; RUN: opt %s -o %t.bc
 ; RUN: ld.lld -e main --lto-O2 \
-; RUN:     -mllvm -whole-program-trace \
+; RUN:     -mllvm -debug-only=whole-program-analysis \
 ; RUN:     -mllvm -whole-program-assume-executable %t.bc -o %t \
 ; RUN:     2>&1 | FileCheck %s
 

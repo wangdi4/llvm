@@ -1,8 +1,5 @@
-; RUN: opt -S -VPlanDriver < %s | FileCheck %s
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen < %s | FileCheck %s
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt -S -VPlanDriver -vplan-force-vf=8 < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-force-vf=8 -enable-vp-value-codegen < %s | FileCheck %s
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -76,8 +73,6 @@ for.end9.loopexit:                                ; preds = %for.inc7
 for.end9:                                         ; preds = %for.end9.loopexit, %entry
   ret void
 }
-
-attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.ident = !{!0}
 

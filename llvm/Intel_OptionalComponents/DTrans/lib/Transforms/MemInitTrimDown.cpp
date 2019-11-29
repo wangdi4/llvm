@@ -23,7 +23,10 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 
@@ -60,7 +63,7 @@ public:
         [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
     bool Changed =
@@ -278,10 +281,28 @@ bool MemInitClassInfo::checkMemberFunctionCalls() {
                                 &FindCapacityArgPos]() {
     Value *ValOp = getCapacityInitInst()->getValueOperand();
 
-    // If constant value saved to capacity value, there is no
-    // need to find CapacityArgPos.
-    if (isa<Constant>(ValOp))
+    if (isa<Constant>(ValOp)) {
+      // Find CapacityArgPos even if constant value saved to capacity value.
+      // We will fix capacity constants at callsite even though it is not
+      // needed.
+      Function *CtorF = getCtorFunction();
+      int32_t IntArgPos = -1;
+      int32_t Pos = 0;
+      // Try to find capacity argument position. It is only the integer
+      // argument with no uses since the value is already propagated.
+      for (Argument &A : CtorF->args()) {
+        if (A.getType()->isIntegerTy(32)) {
+          if (IntArgPos != -1)
+            return false;
+          IntArgPos = Pos;
+        }
+        Pos++;
+      }
+      if (IntArgPos == -1 || !CtorF->getArg(IntArgPos)->use_empty())
+        return false;
+      CapacityArgPos = IntArgPos;
       return VerifyCapacityValueAndAppend(ValOp);
+    }
 
     if (!FindCapacityArgPos(ValOp))
       return false;
@@ -513,9 +534,12 @@ void MemInitClassInfo::trimDowmMemInit() {
     CtorMemsetI->replaceUsesOfWith(MemsetSize, NewVal);
     DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
                     { dbgs() << "  After: " << *CtorMemsetI << "\n"; });
-    return;
   }
-  assert(isa<Argument>(ValOp) && "Expected Argument");
+
+  // If ValOp is constant, there is no need to change capacity value that
+  // is passed at callsites since those constants are already propagated.
+  // But, decided to fix those constants at callsites also to help
+  // SOAToAOS pass later.
 
   for (auto *Call : CtorCallsInStructMethods) {
     Value *CVal = Call->getArgOperand(CapacityArgPos);
@@ -585,6 +609,24 @@ void MemInitTrimDownImpl::transformMemInit(void) {
   assert(ClassInfoSet.size() && "Expected atleast one ClassInfo element");
   for (auto *ClassI : ClassInfoSet)
     ClassI->trimDowmMemInit();
+
+  // After trimdown transformation, some instructions will be
+  // dead. Remove the dead instructions because downstream ClassInfo
+  // analysis can't handle dead instructions.
+  for (auto *ClassI : ClassInfoSet)
+    for (auto *F : ClassI->field_member_functions()) {
+      SmallVector<Instruction *, 4> DeadInsts;
+
+      for (auto &I : instructions(F))
+        if (isInstructionTriviallyDead(&I)) {
+          DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+            dbgs() << "    Recursively Delete " << I << "\n";
+          });
+          DeadInsts.push_back(&I);
+        }
+      if (!DeadInsts.empty())
+        RecursivelyDeleteTriviallyDeadInstructions(DeadInsts);
+    }
 }
 
 // Return true if EP is just position of capacity value that is passed to Ctor
@@ -671,7 +713,13 @@ bool MemInitTrimDownImpl::gatherCandidateInfo(void) {
     dbgs() << "MemInitTrimDown transformation:";
     dbgs() << "\n";
   });
-  // TODO: Consider only SOAToAOS candidates for MemInitTrimDown.
+  // TODO: Since MemInitTrimDown now runs before SOAToAOS, we can't limit
+  // MemInitTrimDown transformation to only the structs that are transformed
+  // by SOAToAOS.
+  // Add more checks that are done by SOAToAOS like populateCFGInformation,
+  // populateSideEffects etc to limit the number of possible candidates (
+  // also to be on the safe side).
+  //
   for (TypeInfo *TI : DTInfo.type_info_entries()) {
     std::unique_ptr<MemInitCandidateInfo> CInfo(new MemInitCandidateInfo());
 
@@ -694,8 +742,21 @@ bool MemInitTrimDownImpl::gatherCandidateInfo(void) {
       });
       continue;
     }
-
-    // TODO: Check SafetyData for candidate field array structs also.
+    // Check SafetyData for candidate field array structs.
+    bool FieldSafetyCheck = true;
+    for (auto Loc : CInfo->candidate_fields()) {
+      auto *FInfo = DTInfo.getTypeInfo(CInfo->getFieldElemTy(Loc));
+      if (!FInfo || DTInfo.testSafetyData(FInfo, dtrans::DT_MemInitTrimDown)) {
+        FieldSafetyCheck = false;
+        break;
+      }
+    }
+    if (!FieldSafetyCheck) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Failed: safety test for field array struct.\n";
+      });
+      continue;
+    }
 
     if (!CInfo->collectMemberFunctions(M)) {
       DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
@@ -778,8 +839,8 @@ PreservedAnalyses MemInitTrimDownPass::run(Module &M,
   MemInitDominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(F);
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
 
   if (!runImpl(M, DTransInfo, GetTLI, WPInfo, GetDT))

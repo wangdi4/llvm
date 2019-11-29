@@ -1,10 +1,10 @@
 ; RUN: opt -S -VPlanDriver -loopopt=0 -vplan-build-vect-candidates=10000\
-; RUN:     -debug-only=vploop-analysis < %s 2>&1 \
+; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
 ; RUN:     | FileCheck %s
 
 ; REQUIRES: asserts
 
-; CHECK: Max trip count is {{[0-9]+}} updated by loop opt upon retrieving loop count from pragma
+; CHECK: Max trip count is {{[0-9]+}} set by pragma loop count
 ; CHECK: Average trip count is {{[0-9]+}} set by pragma loop count
 ; CHECK: Min trip count is {{[0-9]+}} set by pragma loop count
 

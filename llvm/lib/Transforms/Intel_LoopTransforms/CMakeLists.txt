@@ -1,4 +1,4 @@
-add_llvm_library(LLVMIntel_LoopTransforms 
+add_llvm_component_library(LLVMIntel_LoopTransforms 
         Intel_LoopTransforms.cpp
         HIRSSADeconstruction.cpp
         HIRTempCleanup.cpp
@@ -34,8 +34,10 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIROptVarPredicate.cpp
         HIRIdiomRecognition.cpp
         HIRMVForConstUB.cpp
+        HIRMVForVariableStride.cpp
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
+        HIRAosToSoa.cpp
         Utils/HIRTransformUtils.cpp
         HIRLoopFusion.cpp
         HIRLoopFusionGraph.cpp
@@ -47,6 +49,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRIdentityMatrixIdiomRecognition.cpp
         HIRPrefetching.cpp
         HIRSinkingForPerfectLoopnest.cpp
+        HIRUndoSinkingForPerfectLoopnest.cpp
         HIRConditionalTempSinking.cpp
         HIRMemoryReductionSinking.cpp
 

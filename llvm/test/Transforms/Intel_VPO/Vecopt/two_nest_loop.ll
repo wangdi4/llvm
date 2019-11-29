@@ -1,6 +1,6 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -debug 2>&1 | FileCheck %s
+; RUN: opt -S %s -VPlanDriver -vplan-print-after-linearization -disable-output | FileCheck %s
 
 ;source code:
 ;void foo(float *a, float *b, int* n) {
@@ -17,15 +17,15 @@
 ; Expected 2 all-zero-check VPInstructions created proving the recursivness
 ; of loopCFU calls.
 
-; CHECK-LABEL: VPlan IR for: Predicator: After predication
-; CHECK-DAG: i1 [[ALLZERO_1:%vp.*]] = all-zero-check
-; CHECK-NEXT: no SUCCESSORS
-; CHECK-DAG: Condition({{BB[0-9]+}}): [DA: Uniform] i1  [[ALLZERO_1]] = all-zero-check
+; CHECK-LABEL: After predication and linearization
+; CHECK:        i1 [[ALLZERO_1:%vp.*]] = all-zero-check
+; CHECK-NEXT: SUCCESSORS(1)
+; CHECK:      Condition({{BB[0-9]+}}): [DA: Uniform] i1  [[ALLZERO_1]] = all-zero-check
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[ALLZERO_1]]), {{BB[0-9]+}}(!i1 [[ALLZERO_1]])
-; CHECK-DAG: i1 [[ALLZERO_2:%vp.*]] = all-zero-check
-; CHECK-NEXT: i1 [[NOTCOND:%vp.*]] = not i1 [[ALLZERO_2]]
-; CHECK-NEXT: no SUCCESSORS
-; CHECK-DAG: Condition({{BB[0-9]+}}): [DA: Uniform] i1  [[NOTCOND]] = not i1 [[ALLZERO_2]]
+; CHECK:        i1 [[ALLZERO_2:%vp.*]] = all-zero-check
+; CHECK-NEXT:   i1 [[NOTCOND:%vp.*]] = not i1 [[ALLZERO_2]]
+; CHECK-NEXT: SUCCESSORS(1)
+; CHECK:      Condition({{BB[0-9]+}}): [DA: Uniform] i1  [[NOTCOND]] = not i1 [[ALLZERO_2]]
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[NOTCOND]]), {{BB[0-9]+}}(!i1 [[NOTCOND]])
 ;
 

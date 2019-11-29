@@ -1,3 +1,4 @@
+; REQUIRES: assert
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in the IR. Whole program read
 ; can still be achieved.
@@ -6,7 +7,7 @@
 ; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %T/foo.obj \
 ; RUN:          -filetype=obj
 ; RUN: lld-link /out:%T/wp2.exe /entry:main %T/wp2.bc %T/foo.obj /subsystem:console  \
-; RUN:     /mllvm:-whole-program-trace \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK:   Main definition seen

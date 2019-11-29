@@ -284,6 +284,420 @@ void foo2(int *d) {
   }
 //CHECK: call void @llvm.directive.region.exit(token [[TOK16]])
 //CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
-
 }
+
+struct A {
+  int m, a;
+  A(int x=0, int y=0) :m(x),   a(y) {}
+  A(const A& p)       :m(p.m), a(p.a) {}
+  ~A() {m=-1;a=-1;}
+};
+
+struct B {
+  int m, a;
+  B(int x=0, int y=0) :m(x),   a(y) {}
+  B(const A& p)       :m(p.m), a(p.a) {}
+  ~B() {m=-1;a=-1;}
+};
+
+void init_an_A(B* ap, int m_init, int a_init) { ap->m=m_init,ap->a=a_init; }
+#pragma omp declare reduction(myred1:A:omp_out.m*=omp_in.m) \
+                              initializer(omp_priv = A(1,0))
+#pragma omp declare reduction(myred2:B:omp_out.m*=omp_in.m) \
+                              initializer(init_an_A(&omp_priv,1,0))
+#pragma omp declare reduction(myred3:B:omp_out.m*=omp_in.m) \
+                              initializer(omp_priv = B(1))
+
+
+#pragma omp declare reduction(myred4:A:omp_out.m*=omp_in.m) \
+                              initializer(omp_priv = omp_orig)
+#pragma omp declare reduction(myred5:A:omp_out.m*=omp_in.m) \
+                              initializer(omp_priv = A(omp_orig.m+1))
+#pragma omp declare reduction(myred6:A:omp_out.m*=omp_in.m)
+
+//CHECK: define{{.*}}foo3
+//CHECK: [[N1_ADDR:%.+]] = alloca i32,
+//CHECK: [[N2_ADDR:%.+]] = alloca %struct.A,
+//CHECK: [[N3_ADDR:%.+]] = alloca %struct.B,
+//CHECK: [[N4_ADDR:%.+]] = alloca %struct.B,
+//CHECK: [[N5_ADDR:%.+]] = alloca %struct.B,
+void foo3() {
+  int i;
+  A a1(1,0);
+  B a2(1), a3(2);
+  B a4; init_an_A(&a4, 1, 0);
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B* [[N5_ADDR]],
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B*)* @_ZTS1B.omp.destr,
+// CHECK-SAME: void (%struct.B*, %struct.B*)* @.omp_combiner.,
+// CHECK-SAME: void (%struct.B*, %struct.B*)* @.omp_initializer.)
+  #pragma omp parallel  reduction(myred2: a4)
+  for(i=1; i<10; i++) {
+  }
+//CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A* [[N2_ADDR]],
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr,
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_combiner..1,
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_initializer..2),
+  #pragma omp parallel  reduction(myred1:a1)
+  for(i=1; i<10; i++) {
+    a1.m = 10;
+  }
+//CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B* [[N3_ADDR]],
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B*)* @_ZTS1B.omp.destr,
+// CHECK-SAME: oid (%struct.B*, %struct.B*)* @.omp_combiner..3,
+// CHECK-SAME: void (%struct.B*, %struct.B*)* @.omp_initializer..4),
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B* [[N4_ADDR]],
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B*)* @_ZTS1B.omp.destr,
+// CHECK-SAME: oid (%struct.B*, %struct.B*)* @.omp_combiner..3,
+// CHECK-SAME: void (%struct.B*, %struct.B*)* @.omp_initializer..4),
+  #pragma omp parallel  reduction(myred3: a2,a3) private(a1)
+  for(i=1; i<10; i++) {
+  }
+// CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A* %a1,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr,
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_combiner..5
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_initializer..6),
+  #pragma omp parallel  reduction(myred4: a1)
+  for(i=1; i<10; i++);
+//CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A* %a1,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr,
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_combiner..7
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_initializer..8),
+  #pragma omp parallel  reduction(myred5: a1)
+  for(i=1; i<10; i++);
+//CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A* %a1,
+// CHECK-SAME: %struct.A* (%struct.A*)* @_ZTS1A.omp.def_constr,
+// CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr,
+// CHECK-SAME: void (%struct.A*, %struct.A*)* @.omp_combiner..9
+// CHECK-SAME: i8* null),
+  #pragma omp parallel  reduction(myred6: a1)
+  for(i=1; i<10; i++);
+}
+
+// CHECK: define internal void @.omp_initializer.(%struct.B* noalias %0, %struct.B* noalias %1)
+// CHECK: call void @_Z9init_an_AP1Bii(%struct.B* %3, i32 1, i32 0)
+// CHECK-NEXT: ret void
+
+// CHECK: define internal void @.omp_initializer..2(%struct.A* noalias %0, %struct.A* noalias %1)
+// CHECK: call void @_ZN1AC1Eii(%struct.A* %3, i32 1, i32 0)
+// CHECK-NEXT: ret void
+
+// CHECK: define internal void @.omp_initializer..4(%struct.B* noalias %0, %struct.B* noalias %1)
+// CHECK: call void @_ZN1BC1Eii(%struct.B* %3, i32 1, i32 0)
+// CHECK-NEXT: ret void
+
+int con, des;
+
+typedef struct Point {
+   Point(int p1=0, int p2=0) : x(p1), y(p2) {con++;}
+   Point(const Point& p) : x(p.x),y(p.y) {con++;}
+   ~Point() {des++;}
+   int x, y;
+} Point;
+
+#pragma omp declare reduction (pointMax: Point : omp_out.x =  omp_in.x) \
+                               initializer(omp_priv = Point(1, 10000))
+
+#pragma omp declare reduction (pointMin: Point : \
+            omp_out.y = omp_out.y < omp_in.y ? omp_out.y : omp_in.y ) \
+                          initializer(omp_priv = Point(1, 1000))
+
+//CHECK: define{{.*}}findMinMax
+void findMinMax(Point* points, int n, Point* minPoint, Point* maxPoint) {
+  Point lmaxPoint(points[0].x, points[0].y);
+  Point lminPoint(points[0].x, points[0].y);
+  Point *pMax = &lmaxPoint, *pMin = &lminPoint;
+
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Point* %lminPoint,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.Point*)* @_ZTS5Point.omp.destr,
+// CHECK-SAME: void (%struct.Point*, %struct.Point*)* @.omp_combiner..10,
+// CHECK-SAME: void (%struct.Point*, %struct.Point*)* @.omp_initializer..11),
+  #pragma omp parallel for reduction(pointMin:lminPoint)
+  for (int i = 1; i < n; i++) {}
+//CHECK: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+}
+
+// CHECK: define internal void @.omp_initializer..11(%struct.Point* noalias %0, %struct.Point* noalias %1)
+// CHECK: call void @_ZN5PointC1Eii(%struct.Point* %3, i32 1, i32 1000)
+// CHECK-NEXT: ret void
+
+int dcnt;
+struct B1 { int a; };
+struct A1 {
+  operator B1() { B1 bvar; bvar.a = a - 5; return bvar; }
+  int a,b,c;
+} avar1;
+A1 boo1() { return avar1; }
+#pragma omp declare \
+        reduction(myred1:B1:omp_out.a*=omp_in.a) \
+                            initializer(omp_priv = boo1())
+struct A2 {
+  int a,b,c;
+} avar2;
+struct B2 {
+  int a; B2() {}
+  B2(A2 av) : a(av.a-5) {}
+};
+A2 boo2() { return avar2; }
+#pragma omp declare \
+        reduction(myred2:B2:omp_out.a*=omp_in.a) \
+                            initializer(omp_priv = boo2())
+struct B3 { int a; };
+struct A3 { ~A3() { dcnt++; }
+            operator B3() { B3 b; b.a = a - 5; return b; }
+            int a,b,c; } avar3;
+A3 boo3() { return avar3; }
+#pragma omp declare \
+        reduction(myred3:B3:omp_out.a*=omp_in.a) \
+                            initializer(omp_priv = boo3())
+struct A4 { ~A4() { dcnt++; } int a,b,c; } avar4;
+struct B4 { int a; B4() {} B4(A4 av) : a(av.a-5) {} };
+A4 boo4() { return avar4; }
+int i = 5;
+#pragma omp declare \
+        reduction(myred4:B4:omp_out.a*=omp_in.a) \
+                            initializer(omp_priv = boo4())
+#pragma omp declare \
+        reduction(myred4a:A4:omp_out.a*=omp_in.a) \
+                            initializer(omp_priv = boo4())
+
+//CHECK: define{{.*}}foo4
+void foo4() {
+  int i;
+  B1 bvar1;
+  B2 bvar2;
+  B3 bvar3;
+  B4 bvar4;
+  A4 avar4a;
+
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B1* %bvar1,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B1*)* @_ZTS2B1.omp.destr,
+// CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_combiner..12,
+// CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_initializer..13),
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B2* %bvar2,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B2*)* @_ZTS2B2.omp.destr,
+// CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_combiner..14,
+// CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_initializer..15),
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B3* %bvar3,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B3*)* @_ZTS2B3.omp.destr,
+// CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_combiner..16,
+// CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_initializer..17),
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B4* %bvar4,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.B4*)* @_ZTS2B4.omp.destr,
+// CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_combiner..18,
+// CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_initializer..19),
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A4* %avar4a,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.A4*)* @_ZTS2A4.omp.destr,
+// CHECK-SAME: void (%struct.A4*, %struct.A4*)* @.omp_combiner..20,
+// CHECK-SAME: void (%struct.A4*, %struct.A4*)* @.omp_initializer..21)
+  #pragma omp parallel \
+               reduction(myred1:bvar1)   \
+               reduction(myred2:bvar2)   \
+               reduction(myred3:bvar3)   \
+               reduction(myred4:bvar4)   \
+               reduction(myred4a:avar4a)
+  {
+  }
+//CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+}
+
+// CHECK: define internal void @.omp_initializer..13(%struct.B1* noalias %0, %struct.B1* noalias %1)
+// CHECK: %call2 = call i32 @_ZN2A1cv2B1Ev(%struct.A1* %ref.tmp
+// CHECK-NEXT: %coerce.dive = getelementptr inbounds %struct.B1, %struct.B1* %3, i32 0, i32 0
+// CHECK-NEXT: store i32 %call2, i32* %coerce.dive, align 4
+// CHECK-NEXT: ret void
+
+// CHECK: define internal void @.omp_initializer..15(%struct.B2* noalias %0, %struct.B2* noalias %1)
+// CHECK: call void @_ZN2B2C1E2A2(%struct.B2* %3, i64 %9, i32 %11)
+// CHECK: ret void
+
+// CHECK: define internal void @.omp_initializer..17(%struct.B3* noalias %0, %struct.B3* noalias %1)
+// CHECK:call void @_ZN2A3D1Ev(%struct.A3* %ref.tmp)
+// CHECK-NEXT ret void
+
+
+// CHECK: define internal void @.omp_initializer..19(%struct.B4* noalias %0, %struct.B4* noalias %1)
+// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* %3, %struct.A4* %agg.tmp)
+// CHECK-NEXT: call void @_ZN2A4D1Ev(%struct.A4* %agg.tmp)
+// CHECK-NEXT: ret void
+
+// CHECK: define internal void @.omp_initializer..21(%struct.A4* noalias %0, %struct.A4* noalias %1)
+// CHECK: call void @_Z4boo4v(%struct.A4* sret %3)
+// CHECK-NEXT: ret void
+
+
+int x;
+struct AA3 {AA3() {x++;}
+           ~AA3() {x++; }
+           int a,b,c; } avar;
+AA3 boo(AA3*) { return avar;}
+#pragma omp declare reduction(myred6:AA3:omp_out.a*=omp_in.a) \
+                              initializer(boo(&omp_priv))
+//CHECK: define{{.*}}foo5
+void foo5()
+{
+  AA3 bvar3;
+// CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.AA3* %bvar3,
+// CHECK-SAME: i8* null,
+// CHECK-SAME: void (%struct.AA3*)* @_ZTS3AA3.omp.destr,
+// CHECK-SAME: void (%struct.AA3*, %struct.AA3*)* @.omp_combiner..22,
+// CHECK-SAME: oid (%struct.AA3*, %struct.AA3*)* @.omp_initializer..23)
+  #pragma omp parallel reduction(myred6:bvar3)
+  {
+  }
+//CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+}
+
+// CHECK: define internal void @.omp_initializer..23(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
+// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret %agg.tmp.ensured, %struct.AA3* %3)
+// CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* %agg.tmp.ensured)
+// CHECK-NEXT: ret void
+
+struct Foo { int i; };
+void init_Foo(Foo *f) { f->i = 0; }
+#pragma omp declare reduction (+:Foo:omp_out.i+=omp_in.i) \
+                                      initializer(init_Foo(&omp_priv))
+#pragma omp declare reduction (add:int,long,double:omp_out += omp_in) \
+                                      initializer(omp_priv = 0)
+#pragma omp declare reduction (add2:int,long,double:omp_out += omp_in)
+
+typedef int myint;
+typedef myint redint;
+#pragma omp declare reduction (add3:redint:omp_out += omp_in)
+
+void test1()
+{
+  int j;
+
+  /* predefined 'int', user defined 'Foo'. */
+  int z = 0;
+  Foo f;
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z),
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(%struct.Foo* %f,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_initializer..25)
+  #pragma omp parallel reduction(+:z,f)
+  for (j = 0; j < 10; ++j);
+// CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+  Foo f1;
+  int z1 = 0;
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z1),
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(%struct.Foo* %f1,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_initializer..25)
+  #pragma omp parallel reduction(+:z1) reduction(+:f1)
+  for (j = 0; j < 10; ++j);
+  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+  Foo f2;
+  int z2 = 0;
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(%struct.Foo* %f2,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_initializer..25)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z2),
+  #pragma omp parallel reduction(+:f2) reduction(+:z2)
+  for (j = 0; j < 10; ++j);
+  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+  double dz = 0.0;
+  long lz = 0;
+  int z3 = 0;
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(double* %dz,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (double*)* @_ZTSd.omp.destr,
+  // CHECK-SAME: void (double*, double*)* @.omp_combiner..26,
+  // CHECK-SAME: void (double*, double*)* @.omp_initializer..27)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(i64* %lz,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (i64*)* @_ZTSl.omp.destr,
+  // CHECK-SAME: void (i64*, i64*)* @.omp_combiner..28,
+  // CHECK-SAME: void (i64*, i64*)* @.omp_initializer..29)
+  // CHECK-SAME: QUAL.OMP.REDUCTION.UDR"(i32* %z3,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (i32*)* @_ZTSi.omp.destr,
+  // CHECK-SAME: void (i32*, i32*)* @.omp_combiner..30,
+  // CHECK-SAME: void (i32*, i32*)* @.omp_initializer..31)
+  #pragma omp parallel reduction(add:dz,lz,z3)
+  for (j = 0; j < 10; ++j);
+  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+
+  double dz1 = 0.0;
+  long lz1 = 0;
+  int z4 = 0;
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(double* %dz1,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: i8* null
+  // CHECK-SAME: void (double*, double*)* @.omp_combiner..32,
+  // CHECK-SAME: i8* null)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(i64* %lz1,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (i64*, i64*)* @.omp_combiner..33
+  // CHECK-SAME: i8* null)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(i32* %z4,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (i32*, i32*)* @.omp_combiner..34,
+  // CHECK-SAME: i8* null)
+  #pragma omp parallel reduction(add2:dz1,lz1,z4)
+  for (j = 0; j < 10; ++j);
+  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+
+  int z5 = 0;
+  myint z6 = 0;
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(i32* %z5,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (i32*, i32*)* @.omp_combiner..35,
+  // CHECK-SAME: i8* null)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(i32* %z6,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (i32*, i32*)* @.omp_combiner..35,
+  // CHECK-SAME: i8* null)
+  #pragma omp parallel reduction(add3:z5,z6)
+  for (j = 0; j < 10; ++j);
+  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+}
+
+
 // end INTEL_COLLAB

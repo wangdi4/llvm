@@ -103,7 +103,7 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
   ParsedAttributesWithRange Attrs(AttrFactory);
   MaybeParseCXX11Attributes(Attrs, nullptr, /*MightBeObjCMessageSend*/ true);
   if (!MaybeParseOpenCLUnrollHintAttribute(Attrs) ||
-      !MaybeParseIntelFPGALoopAttributes(Attrs))
+      !MaybeParseSYCLLoopAttributes(Attrs))
     return StmtError();
 
   StmtResult Res = ParseStatementOrDeclarationAfterAttributes(
@@ -192,7 +192,7 @@ Retry:
       // Try to limit which sets of keywords should be included in typo
       // correction based on what the next token is.
       StatementFilterCCC CCC(Next);
-      if (TryAnnotateName(/*IsAddressOfOperand*/ false, &CCC) == ANK_Error) {
+      if (TryAnnotateName(&CCC) == ANK_Error) {
         // Handle errors here by skipping up to the next semicolon or '}', and
         // eat the semicolon if that's what stopped us.
         SkipUntil(tok::r_brace, StopAtSemi | StopBeforeMatch);
@@ -225,6 +225,8 @@ Retry:
         Decl =
             ParseDeclaration(DeclaratorContext::BlockContext, DeclEnd, Attrs);
       }
+      if (Attrs.Range.getBegin().isValid())
+        DeclStart = Attrs.Range.getBegin();
       return Actions.ActOnDeclStmt(Decl, DeclStart, DeclEnd);
     }
 
@@ -2439,7 +2441,7 @@ bool Parser::ParseOpenCLUnrollHintAttribute(ParsedAttributes &Attrs) {
   return true;
 }
 
-bool Parser::ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
+bool Parser::ParseSYCLLoopAttributes(ParsedAttributes &Attrs) {
   MaybeParseCXX11Attributes(Attrs);
 
   if (Attrs.empty())
@@ -2447,11 +2449,14 @@ bool Parser::ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
 
   if (Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAIVDep &&
       Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAII &&
-      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency)
+      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency &&
+      Attrs.begin()->getKind() != ParsedAttr::AT_LoopUnrollHint)
     return true;
 
+  bool IsIntelFPGAAttribute = (Attrs.begin()->getKind() != ParsedAttr::AT_LoopUnrollHint);
+
   if (!(Tok.is(tok::kw_for) || Tok.is(tok::kw_while) || Tok.is(tok::kw_do))) {
-    Diag(Tok, diag::err_intel_fpga_loop_attrs_on_non_loop);
+    Diag(Tok, diag::err_loop_attr_on_non_loop) << IsIntelFPGAAttribute;
     return false;
   }
   return true;

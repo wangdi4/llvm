@@ -204,14 +204,28 @@ private:
 
   void initGraphHelpers();
 
+  // Add directed edge to Successors and Predecessors maps.
+  void addDirectedEdgeInternal(unsigned Src, unsigned Dst) {
+    Successors[Src].insert(Dst);
+    Predecessors[Dst].insert(Src);
+  }
+
+  // Add undirected edge to Neighbors map.
+  void addNeighborEdgeInternal(unsigned NodeA, unsigned NodeB) {
+    Neighbors[NodeA].insert(NodeB);
+    Neighbors[NodeB].insert(NodeA);
+  }
+
+  void eraseNeighborEdgeInternal(unsigned NodeA, unsigned NodeB) {
+    Neighbors[NodeA].erase(NodeB);
+    Neighbors[NodeB].erase(NodeA);
+  }
+
   // Init pathTo structures. O(V^2)
   void initPathToInfo(NodeMapTy &LocalPathFrom, NodeMapTy &LocalPathTo);
 
   // Init PathFrom, BadPathFrom, PathTo and BadPathTo structures.
   void initPathInfo(FuseEdgeHeap &Heap);
-
-  // Assume collapse V <- X, update nodes that needs to be reordered.
-  void updateReversedPredecessors(unsigned NodeV, unsigned NodeX);
 
   // Update path info for a subtree of nodes.
   void updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
@@ -280,6 +294,10 @@ private:
   FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
             HLNode *ParentNode, HLNodeRangeTy Children);
 
+  void verifyDependentMaps(StringRef Title, const NodeMapTy &BaseMap,
+                           const NodeMapTy &CheckMap, bool ReverseEdges,
+                           bool IgnoreRemovedNodes) const;
+
 public:
   static FuseGraph create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
                           HLNode *ParentNode, HLNodeRangeTy Range);
@@ -298,6 +316,8 @@ public:
   // Populates the \p SortedFuseNodes with graph nodes in topological order.
   void
   topologicalSort(SmallVectorImpl<const FuseNode *> &SortedFuseNodes) const;
+
+  void verify(bool InitialState) const;
 };
 
 } // namespace fusion

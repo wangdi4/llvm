@@ -1358,6 +1358,10 @@ Expectations of change sets
   a regression test that verifies the correctness of the change. A well-written
   test also helps to document the intended effect of the new code.
 
+- If the change transforms IR, debug information should be preserved whenever
+  possible. Changes which copy, clone, or replace instructions should include
+  a test verifying that debug information is preserved.
+
 - All changes should be appropriately documented. The level of documentation
   required depends on the scope of the change. For trivial changes, the commit
   message may be sufficient. More complex changes should be described in code

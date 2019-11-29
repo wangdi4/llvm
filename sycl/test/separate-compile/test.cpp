@@ -1,12 +1,12 @@
 // >> ---- compile src1
 // >> device compilation...
-// RUN: %clangxx --sycl -Xclang -fsycl-int-header=sycl_ihdr_a.h %s -c -o a_kernel.bc
+// RUN: %clangxx -fsycl-device-only -Xclang -fsycl-int-header=sycl_ihdr_a.h %s -c -o a_kernel.bc
 // >> host compilation...
 // RUN: %clangxx -include sycl_ihdr_a.h -g -c %s -o a.o
 //
 // >> ---- compile src2
 // >> device compilation...
-// RUN: %clangxx -DB_CPP=1 --sycl -Xclang -fsycl-int-header=sycl_ihdr_b.h %s -c -o b_kernel.bc
+// RUN: %clangxx -DB_CPP=1 -fsycl-device-only -Xclang -fsycl-int-header=sycl_ihdr_b.h %s -c -o b_kernel.bc
 // >> host compilation...
 // RUN: %clangxx -DB_CPP=1 -include sycl_ihdr_b.h -g -c %s -o b.o
 //
@@ -27,7 +27,7 @@
 //
 // >> ---- wrap device binary
 // >> produce .bc
-// RUN: clang-offload-wrapper -o wrapper.bc -host=x86_64 -kind=sycl app.spv
+// RUN: clang-offload-wrapper -o wrapper.bc -host=x86_64 -kind=sycl -target=spir64 app.spv
 //
 // >> compile .bc to .o
 // RUN: %clangxx -c wrapper.bc -o wrapper.o
@@ -36,8 +36,6 @@
 // RUN: %clangxx wrapper.o a.o b.o -o app.exe -lsycl
 // RUN: ./app.exe | FileCheck %s
 // CHECK: pass
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 
 //==----------- test.cpp - Tests SYCL separate compilation -----------------==//
 //

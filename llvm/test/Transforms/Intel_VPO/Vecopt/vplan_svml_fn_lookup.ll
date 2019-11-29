@@ -1,22 +1,24 @@
 ; This test checks that masked svml call is serialized if the masked version of
 ; intirinsic is not available.
 
-; RUN: opt -VPlanDriver -vplan-force-vf=2 -vector-library=SVML -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=2 -vector-library=SVML \
+; RUN: -enable-vp-value-codegen=false -S %s | FileCheck %s
+
+; RUN: opt -VPlanDriver -vplan-force-vf=2 -vector-library=SVML \
+; RUN: -enable-vp-value-codegen -S %s | FileCheck %s
 
 target datalayout = "p:32:32-p1:32:32-p2:16:16"
 
 @arr = dso_local global [1024 x float] zeroinitializer, align 16
 
-@global = global i8 0
+; Function Attrs: nounwind
+declare double @_Z4sqrtd(double)
 
 ; Function Attrs: nounwind
-declare double @_Z4sqrtd(double) local_unnamed_addr
+declare double @_Z3expd(double)
 
 ; Function Attrs: nounwind
-declare double @_Z3expd(double) local_unnamed_addr
-
-; Function Attrs: nounwind
-declare float @_Z3logf(float) local_unnamed_addr
+declare float @_Z3logf(float)
 
 ; CHECK-LABEL: @test1(
 ; CHECK: vector.body:
@@ -35,7 +37,7 @@ declare float @_Z3logf(float) local_unnamed_addr
 
 define void @test1(double %t, float %tf, i32 %idx) {
   br label %simd.begin.region
-  simd.begin.region:                                ; preds = %19
+  simd.begin.region:
     %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()]
     br label %simd.loop
 
@@ -60,13 +62,13 @@ define void @test1(double %t, float %tf, i32 %idx) {
   simd.loop.exit:
     %indvar = add nuw i32 %index, 1
     %vl.cond = icmp ult i32 %indvar, 8
-    br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !19
+    br i1 %vl.cond, label %simd.loop, label %simd.end.region
 
-  simd.end.region:                                  ; preds = %simd.loop.exit
+  simd.end.region:
     call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
     br label %return
 
-  return:                                           ; preds = %simd.end.region
+  return:
     ret void
 }
 
@@ -75,6 +77,3 @@ declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-!19 = distinct !{!19, !20}
-!20 = !{!"llvm.loop.unroll.disable"}

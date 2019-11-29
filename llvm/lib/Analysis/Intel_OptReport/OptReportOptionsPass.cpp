@@ -17,6 +17,7 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;

@@ -4,8 +4,6 @@
 // TODO: Uncomment once test is fixed on GPU
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
-// TODO: SYCL specific fail - windows+debug mode - analyze and enable
-// XFAIL: windows
 
 //==-struct_kernel_param.cpp-Checks passing structs as kernel params--------==//
 //

@@ -43,8 +43,8 @@ using namespace llvm;
 using namespace llvm::object;
 using namespace llvm::ELF;
 
-using namespace lld;
-using namespace lld::elf;
+namespace lld {
+namespace elf {
 
 // Creates an empty file to store a list of object files for final
 // linking of distributed ThinLTO.
@@ -149,12 +149,12 @@ BitcodeCompiler::BitcodeCompiler() {
                                        config->ltoPartitions);
 
   // Initialize usedStartStop.
-  symtab->forEachSymbol([&](Symbol *sym) {
+  for (Symbol *sym : symtab->symbols()) {
     StringRef s = sym->getName();
     for (StringRef prefix : {"__start_", "__stop_"})
       if (s.startswith(prefix))
         usedStartStop.insert(s.substr(prefix.size()));
-  });
+  }
 }
 
 BitcodeCompiler::~BitcodeCompiler() = default;
@@ -322,3 +322,6 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
       ret.push_back(createObjectFile(*file));
   return ret;
 }
+
+} // namespace elf
+} // namespace lld

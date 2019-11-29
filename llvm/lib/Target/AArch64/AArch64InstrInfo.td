@@ -62,6 +62,9 @@ def HasAM            : Predicate<"Subtarget->hasAM()">,
 def HasSEL2          : Predicate<"Subtarget->hasSEL2()">,
                        AssemblerPredicate<"FeatureSEL2", "sel2">;
 
+def HasPMU           : Predicate<"Subtarget->hasPMU()">,
+                       AssemblerPredicate<"FeaturePMU", "pmu">;
+
 def HasTLB_RMI          : Predicate<"Subtarget->hasTLB_RMI()">,
                        AssemblerPredicate<"FeatureTLB_RMI", "tlb-rmi">;
 
@@ -256,6 +259,88 @@ def SDT_AArch64WrapperLarge : SDTypeProfile<1, 4,
                                          SDTCisSameAs<1, 2>, SDTCisSameAs<1, 3>,
                                          SDTCisSameAs<1, 4>]>;
 
+// non-extending masked load fragment.
+def nonext_masked_load :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (masked_ld node:$ptr, undef, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getExtensionType() == ISD::NON_EXTLOAD &&
+         cast<MaskedLoadSDNode>(N)->isUnindexed();
+}]>;
+// sign extending masked load fragments.
+def asext_masked_load :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (masked_ld node:$ptr, undef, node:$pred, node:$def),[{
+  return (cast<MaskedLoadSDNode>(N)->getExtensionType() == ISD::EXTLOAD ||
+          cast<MaskedLoadSDNode>(N)->getExtensionType() == ISD::SEXTLOAD) &&
+         cast<MaskedLoadSDNode>(N)->isUnindexed();
+}]>;
+def asext_masked_load_i8 :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (asext_masked_load node:$ptr, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::i8;
+}]>;
+def asext_masked_load_i16 :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (asext_masked_load node:$ptr, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::i16;
+}]>;
+def asext_masked_load_i32 :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (asext_masked_load node:$ptr, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::i32;
+}]>;
+// zero extending masked load fragments.
+def zext_masked_load :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (masked_ld node:$ptr, undef, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getExtensionType() == ISD::ZEXTLOAD &&
+         cast<MaskedLoadSDNode>(N)->isUnindexed();
+}]>;
+def zext_masked_load_i8 :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (zext_masked_load node:$ptr, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::i8;
+}]>;
+def zext_masked_load_i16 :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (zext_masked_load node:$ptr, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::i16;
+}]>;
+def zext_masked_load_i32 :
+  PatFrag<(ops node:$ptr, node:$pred, node:$def),
+          (zext_masked_load node:$ptr, node:$pred, node:$def), [{
+  return cast<MaskedLoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::i32;
+}]>;
+
+// non-truncating masked store fragment.
+def nontrunc_masked_store :
+  PatFrag<(ops node:$val, node:$ptr, node:$pred),
+          (masked_st node:$val, node:$ptr, undef, node:$pred), [{
+  return !cast<MaskedStoreSDNode>(N)->isTruncatingStore() &&
+         cast<MaskedStoreSDNode>(N)->isUnindexed();
+}]>;
+// truncating masked store fragments.
+def trunc_masked_store :
+  PatFrag<(ops node:$val, node:$ptr, node:$pred),
+          (masked_st node:$val, node:$ptr, undef, node:$pred), [{
+  return cast<MaskedStoreSDNode>(N)->isTruncatingStore() &&
+         cast<MaskedStoreSDNode>(N)->isUnindexed();
+}]>;
+def trunc_masked_store_i8 :
+  PatFrag<(ops node:$val, node:$ptr, node:$pred),
+          (trunc_masked_store node:$val, node:$ptr, node:$pred), [{
+  return cast<MaskedStoreSDNode>(N)->getMemoryVT().getScalarType() == MVT::i8;
+}]>;
+def trunc_masked_store_i16 :
+  PatFrag<(ops node:$val, node:$ptr, node:$pred),
+          (trunc_masked_store node:$val, node:$ptr, node:$pred), [{
+  return cast<MaskedStoreSDNode>(N)->getMemoryVT().getScalarType() == MVT::i16;
+}]>;
+def trunc_masked_store_i32 :
+  PatFrag<(ops node:$val, node:$ptr, node:$pred),
+          (trunc_masked_store node:$val, node:$ptr, node:$pred), [{
+  return cast<MaskedStoreSDNode>(N)->getMemoryVT().getScalarType() == MVT::i32;
+}]>;
 
 // Node definitions.
 def AArch64adrp          : SDNode<"AArch64ISD::ADRP", SDTIntUnaryOp, []>;
@@ -421,6 +506,14 @@ def AArch64stzg : SDNode<"AArch64ISD::STZG", SDT_AArch64SETTAG, [SDNPHasChain, S
 def AArch64st2g : SDNode<"AArch64ISD::ST2G", SDT_AArch64SETTAG, [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 def AArch64stz2g : SDNode<"AArch64ISD::STZ2G", SDT_AArch64SETTAG, [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 
+def SDT_AArch64unpk : SDTypeProfile<1, 1, [
+    SDTCisInt<0>, SDTCisInt<1>, SDTCisOpSmallerThanOp<1, 0>
+]>;
+def AArch64sunpkhi : SDNode<"AArch64ISD::SUNPKHI", SDT_AArch64unpk>;
+def AArch64sunpklo : SDNode<"AArch64ISD::SUNPKLO", SDT_AArch64unpk>;
+def AArch64uunpkhi : SDNode<"AArch64ISD::UUNPKHI", SDT_AArch64unpk>;
+def AArch64uunpklo : SDNode<"AArch64ISD::UUNPKLO", SDT_AArch64unpk>;
+
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -430,10 +523,10 @@ def AArch64stz2g : SDNode<"AArch64ISD::STZ2G", SDT_AArch64SETTAG, [SDNPHasChain,
 // the Function object through the <Target>Subtarget and objections were raised
 // to that (see post-commit review comments for r301750).
 let RecomputePerFunction = 1 in {
-  def ForCodeSize   : Predicate<"MF->getFunction().hasOptSize()">;
-  def NotForCodeSize   : Predicate<"!MF->getFunction().hasOptSize()">;
+  def ForCodeSize   : Predicate<"shouldOptForSize(MF)">;
+  def NotForCodeSize   : Predicate<"!shouldOptForSize(MF)">;
   // Avoid generating STRQro if it is slow, unless we're optimizing for code size.
-  def UseSTRQro : Predicate<"!Subtarget->isSTRQroSlow() || MF->getFunction().hasOptSize()">;
+  def UseSTRQro : Predicate<"!Subtarget->isSTRQroSlow() || shouldOptForSize(MF)">;
 
   def UseBTI : Predicate<[{ MF->getFunction().hasFnAttribute("branch-target-enforcement") }]>;
   def NotUseBTI : Predicate<[{ !MF->getFunction().hasFnAttribute("branch-target-enforcement") }]>;
@@ -798,7 +891,11 @@ def MOVbaseTLS : Pseudo<(outs GPR64:$dst), (ins),
 let Uses = [ X9 ], Defs = [ X16, X17, LR, NZCV ] in {
 def HWASAN_CHECK_MEMACCESS : Pseudo<
   (outs), (ins GPR64noip:$ptr, i32imm:$accessinfo),
-  [(int_hwasan_check_memaccess X9, GPR64noip:$ptr, (i32 imm:$accessinfo))]>,
+  [(int_hwasan_check_memaccess X9, GPR64noip:$ptr, (i32 timm:$accessinfo))]>,
+  Sched<[]>;
+def HWASAN_CHECK_MEMACCESS_SHORTGRANULES : Pseudo<
+  (outs), (ins GPR64noip:$ptr, i32imm:$accessinfo),
+  [(int_hwasan_check_memaccess_shortgranules X9, GPR64noip:$ptr, (i32 timm:$accessinfo))]>,
   Sched<[]>;
 }
 
@@ -1463,6 +1560,8 @@ def : Pat<(ctlz (or (shl (xor (sra GPR32:$Rn, (i64 31)), GPR32:$Rn), (i64 1)),
 def : Pat<(ctlz (or (shl (xor (sra GPR64:$Rn, (i64 63)), GPR64:$Rn), (i64 1)),
                 (i64 1))),
           (CLSXr GPR64:$Rn)>;
+def : Pat<(int_aarch64_cls GPR32:$Rn), (CLSWr GPR32:$Rn)>;
+def : Pat<(int_aarch64_cls64 GPR64:$Rm), (EXTRACT_SUBREG (CLSXr GPR64:$Rm), sub_32)>;
 
 // Unlike the other one operand instructions, the instructions with the "rev"
 // mnemonic do *not* just different in the size bit, but actually use different
@@ -2199,8 +2298,8 @@ def : InstAlias<"prfm $Rt, [$Rn]", (PRFMui prfop:$Rt, GPR64sp:$Rn, 0)>;
 def alignedglobal : PatLeaf<(iPTR iPTR:$label), [{
   if (auto *G = dyn_cast<GlobalAddressSDNode>(N)) {
     const DataLayout &DL = MF->getDataLayout();
-    unsigned Align = G->getGlobal()->getPointerAlignment(DL);
-    return Align >= 4 && G->getOffset() % 4 == 0;
+    MaybeAlign Align = G->getGlobal()->getPointerAlignment(DL);
+    return Align && *Align >= 4 && G->getOffset() % 4 == 0;
   }
   if (auto *C = dyn_cast<ConstantPoolSDNode>(N))
     return C->getAlignment() >= 4 && C->getOffset() % 4 == 0;
@@ -3745,6 +3844,12 @@ defm SQRDMLAH : SIMDThreeSameVectorSQRDMLxHTiedHS<1,0b10000,"sqrdmlah",
 defm SQRDMLSH : SIMDThreeSameVectorSQRDMLxHTiedHS<1,0b10001,"sqrdmlsh",
                                                     int_aarch64_neon_sqsub>;
 
+// Extra saturate patterns, other than the intrinsics matches above
+defm : SIMDThreeSameVectorExtraPatterns<"SQADD", saddsat>;
+defm : SIMDThreeSameVectorExtraPatterns<"UQADD", uaddsat>;
+defm : SIMDThreeSameVectorExtraPatterns<"SQSUB", ssubsat>;
+defm : SIMDThreeSameVectorExtraPatterns<"UQSUB", usubsat>;
+
 defm AND : SIMDLogicalThreeVector<0, 0b00, "and", and>;
 defm BIC : SIMDLogicalThreeVector<0, 0b01, "bic",
                                   BinOpFrag<(and node:$LHS, (vnot node:$RHS))> >;
@@ -4340,6 +4445,25 @@ defm : Neon_mul_widen_patterns<AArch64smull, SMULLv8i8_v8i16,
   SMULLv4i16_v4i32, SMULLv2i32_v2i64>;
 defm : Neon_mul_widen_patterns<AArch64umull, UMULLv8i8_v8i16,
   UMULLv4i16_v4i32, UMULLv2i32_v2i64>;
+
+// Patterns for smull2/umull2.
+multiclass Neon_mul_high_patterns<SDPatternOperator opnode,
+  Instruction INST8B, Instruction INST4H, Instruction INST2S> {
+  def : Pat<(v8i16 (opnode (extract_high_v16i8 V128:$Rn),
+                           (extract_high_v16i8 V128:$Rm))),
+             (INST8B V128:$Rn, V128:$Rm)>;
+  def : Pat<(v4i32 (opnode (extract_high_v8i16 V128:$Rn),
+                           (extract_high_v8i16 V128:$Rm))),
+             (INST4H V128:$Rn, V128:$Rm)>;
+  def : Pat<(v2i64 (opnode (extract_high_v4i32 V128:$Rn),
+                           (extract_high_v4i32 V128:$Rm))),
+             (INST2S V128:$Rn, V128:$Rm)>;
+}
+
+defm : Neon_mul_high_patterns<AArch64smull, SMULLv16i8_v8i16,
+  SMULLv8i16_v4i32, SMULLv4i32_v2i64>;
+defm : Neon_mul_high_patterns<AArch64umull, UMULLv16i8_v8i16,
+  UMULLv8i16_v4i32, UMULLv4i32_v2i64>;
 
 // Additional patterns for SMLAL/SMLSL and UMLAL/UMLSL
 multiclass Neon_mulacc_widen_patterns<SDPatternOperator opnode,
@@ -6998,6 +7122,115 @@ let AddedComplexity = 10 in {
   def : Pat<(i64 (extractelt (v2i64 V128:$V), (i64 0))), (EXTRACT_SUBREG V128:$V, dsub)>;
   def : Pat<(i32 (extractelt (v4i32 V128:$V), (i64 0))), (EXTRACT_SUBREG V128:$V, ssub)>;
   def : Pat<(i32 (extractelt (v2i32 V64:$V), (i64 0))), (EXTRACT_SUBREG V64:$V, ssub)>;
+}
+
+// dot_v4i8
+class mul_v4i8<SDPatternOperator ldop> :
+  PatFrag<(ops node:$Rn, node:$Rm, node:$offset),
+          (mul (ldop (add node:$Rn, node:$offset)),
+               (ldop (add node:$Rm, node:$offset)))>;
+class mulz_v4i8<SDPatternOperator ldop> :
+  PatFrag<(ops node:$Rn, node:$Rm),
+          (mul (ldop node:$Rn), (ldop node:$Rm))>;
+
+def load_v4i8 :
+  OutPatFrag<(ops node:$R),
+             (INSERT_SUBREG
+              (v2i32 (IMPLICIT_DEF)),
+               (i32 (COPY_TO_REGCLASS (LDRWui node:$R, (i64 0)), FPR32)),
+              ssub)>;
+
+class dot_v4i8<Instruction DOT, SDPatternOperator ldop> :
+  Pat<(i32 (add (mul_v4i8<ldop> GPR64sp:$Rn, GPR64sp:$Rm, (i64 3)),
+           (add (mul_v4i8<ldop> GPR64sp:$Rn, GPR64sp:$Rm, (i64 2)),
+           (add (mul_v4i8<ldop> GPR64sp:$Rn, GPR64sp:$Rm, (i64 1)),
+                (mulz_v4i8<ldop> GPR64sp:$Rn, GPR64sp:$Rm))))),
+      (EXTRACT_SUBREG (i64 (DOT (DUPv2i32gpr WZR),
+                                (load_v4i8 GPR64sp:$Rn),
+                                (load_v4i8 GPR64sp:$Rm))),
+                      sub_32)>, Requires<[HasDotProd]>;
+
+// dot_v8i8
+class ee_v8i8<SDPatternOperator extend> :
+  PatFrag<(ops node:$V, node:$K),
+          (v4i16 (extract_subvector (v8i16 (extend node:$V)), node:$K))>;
+
+class mul_v8i8<SDPatternOperator mulop, SDPatternOperator extend> :
+  PatFrag<(ops node:$M, node:$N, node:$K),
+          (mulop (v4i16 (ee_v8i8<extend> node:$M, node:$K)),
+                 (v4i16 (ee_v8i8<extend> node:$N, node:$K)))>;
+
+class idot_v8i8<SDPatternOperator mulop, SDPatternOperator extend> :
+  PatFrag<(ops node:$M, node:$N),
+          (i32 (extractelt
+           (v4i32 (AArch64uaddv
+            (add (mul_v8i8<mulop, extend> node:$M, node:$N, (i64 0)),
+                 (mul_v8i8<mulop, extend> node:$M, node:$N, (i64 4))))),
+           (i64 0)))>;
+
+// vaddv_[su]32 is special; -> ADDP Vd.2S,Vn.2S,Vm.2S; return Vd.s[0];Vn==Vm
+def VADDV_32 : OutPatFrag<(ops node:$R), (ADDPv2i32 node:$R, node:$R)>;
+
+class odot_v8i8<Instruction DOT> :
+  OutPatFrag<(ops node:$Vm, node:$Vn),
+             (EXTRACT_SUBREG
+              (VADDV_32
+               (i64 (DOT (DUPv2i32gpr WZR),
+                         (v8i8 node:$Vm),
+                         (v8i8 node:$Vn)))),
+              sub_32)>;
+
+class dot_v8i8<Instruction DOT, SDPatternOperator mulop,
+                    SDPatternOperator extend> :
+  Pat<(idot_v8i8<mulop, extend> V64:$Vm, V64:$Vn),
+      (odot_v8i8<DOT> V64:$Vm, V64:$Vn)>,
+  Requires<[HasDotProd]>;
+
+// dot_v16i8
+class ee_v16i8<SDPatternOperator extend> :
+  PatFrag<(ops node:$V, node:$K1, node:$K2),
+          (v4i16 (extract_subvector
+           (v8i16 (extend
+            (v8i8 (extract_subvector node:$V, node:$K1)))), node:$K2))>;
+
+class mul_v16i8<SDPatternOperator mulop, SDPatternOperator extend> :
+  PatFrag<(ops node:$M, node:$N, node:$K1, node:$K2),
+          (v4i32
+           (mulop (v4i16 (ee_v16i8<extend> node:$M, node:$K1, node:$K2)),
+                  (v4i16 (ee_v16i8<extend> node:$N, node:$K1, node:$K2))))>;
+
+class idot_v16i8<SDPatternOperator m, SDPatternOperator x> :
+  PatFrag<(ops node:$M, node:$N),
+          (i32 (extractelt
+           (v4i32 (AArch64uaddv
+            (add
+             (add (mul_v16i8<m, x> node:$M, node:$N, (i64 0), (i64 0)),
+                  (mul_v16i8<m, x> node:$M, node:$N, (i64 8), (i64 0))),
+             (add (mul_v16i8<m, x> node:$M, node:$N, (i64 0), (i64 4)),
+                  (mul_v16i8<m, x> node:$M, node:$N, (i64 8), (i64 4)))))),
+           (i64 0)))>;
+
+class odot_v16i8<Instruction DOT> :
+  OutPatFrag<(ops node:$Vm, node:$Vn),
+             (i32 (ADDVv4i32v
+              (DOT (DUPv4i32gpr WZR), node:$Vm, node:$Vn)))>;
+
+class dot_v16i8<Instruction DOT, SDPatternOperator mulop,
+                SDPatternOperator extend> :
+  Pat<(idot_v16i8<mulop, extend> V128:$Vm, V128:$Vn),
+      (odot_v16i8<DOT> V128:$Vm, V128:$Vn)>,
+  Requires<[HasDotProd]>;
+
+let AddedComplexity = 10 in {
+  def : dot_v4i8<SDOTv8i8, sextloadi8>;
+  def : dot_v4i8<UDOTv8i8, zextloadi8>;
+  def : dot_v8i8<SDOTv8i8, AArch64smull, sext>;
+  def : dot_v8i8<UDOTv8i8, AArch64umull, zext>;
+  def : dot_v16i8<SDOTv16i8, AArch64smull, sext>;
+  def : dot_v16i8<UDOTv16i8, AArch64umull, zext>;
+
+  // FIXME: add patterns to generate vector by element dot product.
+  // FIXME: add SVE dot-product patterns.
 }
 
 include "AArch64InstrAtomics.td"

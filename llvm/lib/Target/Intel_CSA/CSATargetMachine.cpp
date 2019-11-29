@@ -382,7 +382,8 @@ void CSATargetMachine::adjustPassManager(PassManagerBuilder &PMB) {
 static MCContext *
 addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
                         bool DisableVerify, bool &WillCompleteCodeGenPipeline,
-                        raw_pwrite_stream &Out, MachineModuleInfo *MMI) {
+                        raw_pwrite_stream &Out,
+                        MachineModuleInfoWrapperPass *MMI) {
   // Targets may override createPassConfig to provide a target-specific
   // subclass.
   TargetPassConfig *PassConfig = TM->createPassConfig(PM);
@@ -391,7 +392,7 @@ addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
   WillCompleteCodeGenPipeline = PassConfig->willCompleteCodeGenPipeline();
   PM.add(PassConfig);
   if (!MMI)
-    MMI = new MachineModuleInfo(TM);
+    MMI = new MachineModuleInfoWrapperPass(TM);
   PM.add(MMI);
 
   if (PassConfig->addISelPasses())
@@ -401,7 +402,7 @@ addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
   if (!WillCompleteCodeGenPipeline)
     PM.add(createPrintMIRPass(Out));
 
-  return &MMI->getContext();
+  return &MMI->getMMI().getContext();
 }
 
 // This function is also mostly copied from lib/CodeGen/LLVMTargetMachine.cpp.
@@ -489,7 +490,8 @@ bool CSATargetMachine::addAsmPrinterWithAsmWrapping(PassManagerBase &PM,
 // This function is also mostly copied from lib/CodeGen/LLVMTargetMachine.cpp.
 bool CSATargetMachine::addPassesToEmitFile(
   PassManagerBase &PM, raw_pwrite_stream &Out, raw_pwrite_stream *DwoOut,
-  CodeGenFileType FileType, bool DisableVerify, MachineModuleInfo *MMI) {
+  CodeGenFileType FileType, bool DisableVerify,
+  MachineModuleInfoWrapperPass *MMI) {
   // Add common CodeGen passes.
   bool WillCompleteCodeGenPipeline = true;
   MCContext *Context               = addPassesToGenerateCode(

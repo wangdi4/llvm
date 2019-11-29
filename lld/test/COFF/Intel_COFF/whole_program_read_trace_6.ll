@@ -1,9 +1,11 @@
+; REQUIRES: assert
 ; This test checks that whole program read was achieved even though all
 ; symbols are visibile outside the module. (In other words, none of the
 ; functions are "internal".)
 
 ; RUN: llvm-as -o %T/wpt6.bc %s
 ; RUN: lld-link /out:%T/wpt6.exe /entry:main %T/wpt6.bc /subsystem:console  \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s
 
@@ -19,7 +21,7 @@
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 3
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-; CHECK: WHOLE PROGRAM READ ACHIEVED
+; CHECK: WHOLE PROGRAM DETECTED
 
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"

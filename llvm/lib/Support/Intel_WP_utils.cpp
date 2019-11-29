@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Intel_WP_utils.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -57,14 +58,43 @@ bool WholeProgramUtils::isLinkerAddedSymbol(llvm::StringRef SymbolName) {
 // main. Else return false.
 bool WholeProgramUtils::isMainEntryPoint(llvm::StringRef GlobName) {
 
-  return llvm::StringSwitch<bool>(GlobName)
-      .Cases("main",
-             "MAIN__",
-             "wmain",
-             "WinMain",
-             "wWinMain",
-             "DllMain",
-             true)
-      .Default(false);
+  for (auto Name : MainNames) {
+    if (GlobName.compare(Name) == 0)
+      return true;
+  }
 
+  return false;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void WholeProgramUtils::AddSymbolResolution(llvm::StringRef SymbolName,
+                                            unsigned Attributes) {
+
+  WholeProgramReadSymbol Symbol(SymbolName, Attributes);
+  SymbolsVector.push_back(Symbol);
+}
+
+void WholeProgramUtils::PrintSymbolsResolution() {
+
+  unsigned SymbolsResolved = 0;
+  unsigned SymbolsUnresolved = 0;
+
+  for (auto Symbol : SymbolsVector) {
+    dbgs() << "SYMBOL NAME: " << Symbol.getName() << "\n";
+    dbgs() << "  RESULT:";
+    dbgs() << (Symbol.isMain() ? " MAIN |" : "");
+    dbgs() << (Symbol.isLinkerAddedSymbol() ? " LINKER ADDED SYMBOL |" : "");
+    dbgs() << (Symbol.isResolvedByLinker() ? "" : " NOT") <<
+                " RESOLVED BY LINKER \n\n";
+
+    if (Symbol.isLinkerAddedSymbol() || Symbol.isResolvedByLinker())
+      SymbolsResolved++;
+
+    else
+      SymbolsUnresolved++;
+  }
+
+  dbgs() << "SYMBOLS RESOLVED BY LINKER: " << SymbolsResolved << "\n";
+  dbgs() << "SYMBOLS NOT RESOLVED BY LINKER: " << SymbolsUnresolved << "\n";
+}
+#endif // NDEBUG || LLVM_ENABLE_DUMP

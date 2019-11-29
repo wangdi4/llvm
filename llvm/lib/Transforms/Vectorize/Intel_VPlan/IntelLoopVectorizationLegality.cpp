@@ -141,28 +141,108 @@ static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
 /// Analyze reduction pattern for variable \p RedVarPtr and return true if we
 /// have Phi nodes inside. If yes, return the Phi node in \p LoopHeaderPhiNode
 /// and the initializer in \p StartV.
+// Analyzed scenarios include:
+// (1) -- Reduction Phi nodes, the new value is in reg
+// StartV = Load
+//  ** Inside loop body **
+//  **REDUCTION PHI** -
+// Current = phi (StartV, NewVal)
+// %NewVal = add nsw i32 %NextVal, %Current
+// eof loop
+// use %NewVal
+//
+// (2) -- Reduction uses register, but also stores to memory inside loop.
+// store i32 StartV, i32* %Sum
+// ** Inside loop body **
+// %Current = phi (StartV, NewVal)
+// %NewVal = add i32 %Current, %NextVal
+// store i32 %NewVal, i32* %Sum
+// eof loop
+// use %NewVal
 bool VPOVectorizationLegality::doesReductionUsePhiNodes(
     Value *RedVarPtr, PHINode *&LoopHeaderPhiNode, Value *&StartV) {
-  auto usedInOnlyOnePhiNode = [](Value *V) {
+  auto usedInOnlyOneHeaderPhiNode = [this](Value *V) {
     PHINode *Phi = nullptr;
     for (auto U : V->users())
-      if (isa<PHINode>(U)) {
+      if (isa<PHINode>(U) &&
+          cast<PHINode>(U)->getParent() == TheLoop->getHeader()) {
         if (Phi) // More than one Phi node
           return (PHINode *)nullptr;
         Phi = cast<PHINode>(U);
       }
     return Phi;
   };
+  auto isReductionStartPhiNode = [this](PHINode *Phi, Instruction *UpdateInst) {
+    // Reduction phi is expected to be in loop header.
+    if (Phi->getParent() != TheLoop->getHeader())
+      return false;
+
+    // Header phis can have only two incoming values. For a reduction phi, one
+    // is expected to be UpdateInst and the other a loop invariant
+    // initialization value.
+    assert(Phi->getNumIncomingValues() == 2 &&
+           "Header Phis expected to have two incoming values.");
+    Value *InVal0 = Phi->getIncomingValue(0);
+    Value *InVal1 = Phi->getIncomingValue(1);
+
+    if (UpdateInst && InVal0 != UpdateInst && InVal1 != UpdateInst)
+      return false;
+
+    if (!TheLoop->isLoopInvariant(InVal0) && !TheLoop->isLoopInvariant(InVal1))
+      return false;
+
+    // All conditions satisfied for reduction phi.
+    return true;
+  };
   SmallVector<Value *, 4> Users;
   collectAllRelevantUsers(RedVarPtr, Users);
-  for (auto U : Users)
-    if (auto LI = dyn_cast<LoadInst>(U))
+  for (auto U : Users) {
+    if (auto LI = dyn_cast<LoadInst>(U)) {
       if (TheLoop->isLoopInvariant(LI)) { // Scenario (1)
-        LoopHeaderPhiNode = usedInOnlyOnePhiNode(U);
+        LoopHeaderPhiNode = usedInOnlyOneHeaderPhiNode(U);
         if (LoopHeaderPhiNode &&
-            LoopHeaderPhiNode->getParent() == TheLoop->getHeader())
+            isReductionStartPhiNode(LoopHeaderPhiNode,
+                                    nullptr /*UpdateInst*/)) {
           StartV = LI;
+          break;
+        }
       }
+      // Nothing more for scenario (1).
+      continue;
+    }
+    if (auto SI = dyn_cast<StoreInst>(U)) {
+      if (TheLoop->contains(SI->getParent())) { // Scenario (2)
+        // The updated value of reduction is being stored inside loop, try to
+        // check if reduction also has a PHI node to perform the reduction in
+        // register.
+        Value *UpdateV = SI->getOperand(0);
+        if (!isa<Instruction>(UpdateV))
+          continue;
+
+        Instruction *UpdateInst = cast<Instruction>(UpdateV);
+        for (auto Op : UpdateInst->operand_values()) {
+          // TODO: Handle more complex cases like masked reductions which will
+          // have multiple updating instructions. Try to templatize
+          // ReductionDescr::tryToCompleteByVPlan from VPLoopAnalysis.
+          if (!isa<PHINode>(Op))
+            continue;
+
+          PHINode *UpdatePhiOp = cast<PHINode>(Op);
+          // We expect to have only one PHI for the reduction in loop header.
+          // Confirm this by checking loop header PHI users of the UpdateInst.
+          if (UpdatePhiOp == usedInOnlyOneHeaderPhiNode(UpdateInst) &&
+              isReductionStartPhiNode(UpdatePhiOp, UpdateInst)) {
+            LoopHeaderPhiNode = UpdatePhiOp;
+            StartV = LoopHeaderPhiNode->getOperand(0) == UpdateV
+                         ? LoopHeaderPhiNode->getOperand(1)
+                         : LoopHeaderPhiNode->getOperand(0);
+          }
+        }
+        if (StartV && LoopHeaderPhiNode)
+          break;
+      }
+    }
+  }
   return (StartV && LoopHeaderPhiNode);
 }
 
@@ -249,7 +329,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(
 void VPOVectorizationLegality::parseBinOpReduction(
     AllocaInst *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
 
-  // Analyzing 2 possible scenarios:
+  // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
   // StartV = Load
   //  ** Inside loop body **
@@ -259,7 +339,16 @@ void VPOVectorizationLegality::parseBinOpReduction(
   // eof loop
   // use %NewVal
   //
-  // (2) -- The new value is always in memory
+  // (2) -- Reduction uses register, but also stores to memory inside loop.
+  // store i32 StartV, i32* %Sum
+  // ** Inside loop body **
+  // %Current = phi (StartV, NewVal)
+  // %NewVal = add i32 %Current, %NextVal
+  // store i32 %NewVal, i32* %Sum
+  // eof loop
+  // use %NewVal
+  //
+  // (3) -- The new value is always in memory
   // ** Inside loop body **
   // %Current = LOAD i32, i32* %Sum, align 4
   //  %NewVal = add nsw i32 %NextVal, %Current
@@ -286,8 +375,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
                             RecurrenceDescriptor::MRK_Invalid, nullptr,
                             ReductionPhi->getType(), true, CastInsts);
     ExplicitReductions[ReductionPhi] = {RD, cast<AllocaInst>(RedVarPtr)};
-  }
-  if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
+  } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
     InMemoryReductions[RedVarPtr] = {Kind, RecurrenceDescriptor::MRK_Invalid};
 
   if (!UsePhi && !UseMemory)

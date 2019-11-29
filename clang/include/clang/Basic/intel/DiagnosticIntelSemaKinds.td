@@ -48,14 +48,6 @@ def err_recursive_attribute_expected : Error<
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
-  // CQ#366309 - allow arrays with incomplete element type in IntelCompat mode.
-def ext_intel_array_incomplete_type : Extension<
-  "array with incomplete element type %0 is an Intel extension">,
-  InGroup<IntelCompat>;
-  // CQ#380872 - Arrays with incomplete (unknown) size
-def warn_intel_array_incomplete_size : Warning<
-  "array with incomplete (unknown) size element %0">,
-  InGroup<IntelCompat>;
 // CQ#366312
 def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
   "assignment to lvalue cast that does not lengthen the size of "
@@ -73,10 +65,6 @@ def warn_return_missing_expr_no_err : Warning<
 def warn_arg_invalid_range_low_assumed : Warning<
   "expected a value between %0 and %1, defaults to %0">,
   InGroup<IntelCompat>;
-// CQ#371340
-def warn_non_asm_stmt_in_naked_function : Warning<
-  "attribute 'naked' ignored on function with non-ASM statements">,
-  InGroup<IgnoredAttributes>;
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
 
@@ -146,9 +134,12 @@ def err_hls_force_loop_pipelining_invalid : Error<
   "%0 attribute argument must be 'on' or 'off'">;
 def err_hls_force_loop_pipelining_conflict : Error<
   "%0 and 'hls_force_loop_pipelining(off)' attributes are not compatible">;
-def warn_attribute_deprecated : Warning<
-  "attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead">,
-  InGroup<IgnoredAttributes>;
+def err_hls_readwrite_arg_invalid : Error<
+  "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
+def err_readwritememory_attribute_invalid : Error<
+  "%0 attribute only applies to slave memory arguments">;
+def err_hls_memorylayout_arg_invalid : Error<
+  "%0 attribute argument must be 'compact', or 'padded'">;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
@@ -281,13 +272,12 @@ InGroup<DiagGroup<"intrinsic-promote">>;
 def note_intrinsic_promote : Note<"Intrinsic called here">;
 
 // OpenMP
-def err_omp_single_decl_in_declare_variant : Error<
-  "single declaration is expected after 'declare variant' directive">;
-def err_omp_function_expected_variant : Error<
-  "'#pragma omp declare variant' can only be applied to functions">;
 def warn_omp_simdlen_in_target_spir: Warning<
   "simdlen clause is not supported for this target">,
   InGroup<SimdUnsupported>;
+def warn_collapse_ignored_with_tile : Warning<
+  "'collapse' clause ignored when using 'tile' clause">, InGroup<OpenMPClauses>;
+def note_omp_tile_expr : Note<"as specified in 'tile' clause">;
 
 #if INTEL_FEATURE_CSA
 // Intel CSA extensions

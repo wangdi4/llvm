@@ -1,3 +1,4 @@
+; REQUIRES: assert
 ; Test that checks if whole program seen was identified correctly.The test case
 ; is simple. It contains a Base class, Derived class and Derived2 class. The
 ; function foo is declared as virtual in Base and the definition can be found
@@ -5,7 +6,7 @@
 ; then it should be whole program seen.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-assume-hidden -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -whole-program-assume-hidden -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 ; CHECK:      UNRESOLVED CALLSITES: 0

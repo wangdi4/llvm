@@ -18,6 +18,7 @@
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 
@@ -78,7 +79,7 @@ bool PatchableFunction::runOnMachineFunction(MachineFunction &MF) {
     MIB.add(MO);
 
   FirstActualI->eraseFromParent();
-  MF.ensureAlignment(llvm::Align(16));
+  MF.ensureAlignment(Align(16));
   return true;
 }
 

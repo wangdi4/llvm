@@ -6,12 +6,14 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # INTEL_CUSTOMIZATION build.
   Intel_FMACGCommon.cpp
   Intel_FMACommon.cpp
+  Intel_Float128ExpandPass.cpp
   Intel_MIRMatcher.cpp
   Intel_MachineLoopOptReportEmitter.cpp
+  Intel_RAReportEmitter.cpp
   )
 # end INTEL_CUSTOMIZATION
 
-add_llvm_library(LLVMCodeGen
+add_llvm_component_library(LLVMCodeGen
   AggressiveAntiDepBreaker.cpp
   AllocationOrder.cpp
   Analysis.cpp
@@ -23,6 +25,7 @@ add_llvm_library(LLVMCodeGen
   BuiltinGCs.cpp
   CalcSpillWeights.cpp
   CallingConvLower.cpp
+  CFGuardLongjmp.cpp
   CFIInstrInserter.cpp
   CodeGen.cpp
   CodeGenPrepare.cpp
@@ -93,6 +96,7 @@ add_llvm_library(LLVMCodeGen
   MachineInstr.cpp
   MachineLICM.cpp
   MachineLoopInfo.cpp
+  MachineLoopUtils.cpp
   MachineModuleInfo.cpp
   MachineModuleInfoImpls.cpp
   MachineOperand.cpp
@@ -104,6 +108,7 @@ add_llvm_library(LLVMCodeGen
   MachineRegisterInfo.cpp
   MachineScheduler.cpp
   MachineSink.cpp
+  MachineSizeOpts.cpp
   MachineSSAUpdater.cpp
   MachineTraceMetrics.cpp
   MachineVerifier.cpp

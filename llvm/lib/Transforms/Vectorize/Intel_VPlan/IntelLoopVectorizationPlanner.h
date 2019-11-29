@@ -24,12 +24,6 @@
 #endif
 #include "llvm/ADT/DenseMap.h"
 
-#if INTEL_CUSTOMIZATION
-extern cl::opt<uint64_t> VPlanDefaultEstTrip;
-#else
-extern cl::opt<unsigned> VPlanDefaultEstTrip;
-#endif // INTEL_CUSTOMIZATION
-
 namespace llvm {
 class Loop;
 class ScalarEvolution;
@@ -70,10 +64,7 @@ public:
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
         LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
-    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip, LI);
   }
-
-  void setUseNewPredicator() { UseNewPredicator = true; }
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -81,8 +72,6 @@ public:
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL);
-
-  virtual void collectDeadInstructions();
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -206,14 +195,8 @@ private:
   class DominatorTree *DT;
 
 #if INTEL_CUSTOMIZATION
-  /// VPLoop Analysis.
-  std::shared_ptr<VPLoopAnalysisBase> VPLA;
-
   /// VPlan VLS Analysis.
   VPlanVLSAnalysis *VLSA;
-
-  /// Use new predicator
-  bool UseNewPredicator = false;
 #endif // INTEL_CUSTOMIZATION
 
   /// The profitablity analysis.
@@ -223,20 +206,6 @@ private:
   VPOCodeGen *ILV = nullptr;
 
   // InnerLoopVectorizer *ILV = nullptr;
-
-  // Holds instructions from the original loop that we predicated. Such
-  // instructions reside in their own conditioned VPBasicBlock and represent
-  // an optimization opportunity for sinking their scalarized operands thus
-  // reducing their cost by the predicate's probability.
-  // SmallPtrSet<Instruction *, 4> PredicatedInstructions;
-
-  // Holds instructions from the original loop whose counterparts in the
-  // vectorized loop would be trivially dead if generated. For example,
-  // original induction update instructions can become dead because we
-  // separately emit induction "steps" when generating code for the new loop.
-  // Similarly, we create a new latch condition when setting up the structure
-  // of the new loop, so the old one can become dead.
-  SmallPtrSet<Instruction *, 4> DeadInstructions;
 
   /// VPlans are shared between VFs, use smart pointers.
   DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;

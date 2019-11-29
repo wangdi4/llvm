@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "TableGenBackends.h"
+#include "ClangASTEmitters.h"
+
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -1880,7 +1883,7 @@ struct PragmaClangAttributeSupport {
 } // end anonymous namespace
 
 static bool doesDeclDeriveFrom(const Record *D, const Record *Base) {
-  const Record *CurrentBase = D->getValueAsDef("Base");
+  const Record *CurrentBase = D->getValueAsOptionalDef(BaseFieldName);
   if (!CurrentBase)
     return false;
   if (CurrentBase == Base)
@@ -1921,7 +1924,8 @@ PragmaClangAttributeSupport::PragmaClangAttributeSupport(
 
   std::vector<Record *> Aggregates =
       Records.getAllDerivedDefinitions("AttrSubjectMatcherAggregateRule");
-  std::vector<Record *> DeclNodes = Records.getAllDerivedDefinitions("DDecl");
+  std::vector<Record *> DeclNodes =
+    Records.getAllDerivedDefinitions(DeclNodeClassName);
   for (const auto *Aggregate : Aggregates) {
     Record *SubjectDecl = Aggregate->getValueAsDef("Subject");
 
@@ -2346,10 +2350,8 @@ static void emitClangAttrThisIsaIdentifierArgList(RecordKeeper &Records,
   OS << "#endif // CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST\n\n";
 }
 
-namespace clang {
-
 // Emits the class definitions for attributes.
-void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
+void clang::EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
   emitSourceFileHeader("Attribute classes' definitions", OS);
 
   OS << "#ifndef LLVM_CLANG_ATTR_CLASSES_INC\n";
@@ -2623,7 +2625,7 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
 }
 
 // Emits the class method definitions for attributes.
-void EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
+void clang::EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
   emitSourceFileHeader("Attribute classes' member function definitions", OS);
 
   std::vector<Record*> Attrs = Records.getAllDerivedDefinitions("Attr");
@@ -2696,8 +2698,6 @@ void EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
         "const PrintingPolicy &Policy) const {\n";
   EmitFunc("printPretty(OS, Policy)");
 }
-
-} // end namespace clang
 
 static void emitAttrList(raw_ostream &OS, StringRef Class,
                          const std::vector<Record*> &AttrList) {
@@ -2905,9 +2905,11 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
   // Add defaulting macro definitions.
   Hierarchy.emitDefaultDefines(OS);
   emitDefaultDefine(OS, "PRAGMA_SPELLING_ATTR", nullptr);
+  emitDefaultDefine(OS, "DEPENDENT_STMT_ATTR", nullptr);
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<Record *> PragmaAttrs;
+  std::vector<Record *> DependentStmtAttrs;
   for (auto *Attr : Attrs) {
     if (!Attr->getValueAsBit("ASTNode"))
       continue;
@@ -2920,6 +2922,9 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
     if (AttrHasPragmaSpelling(Attr))
       PragmaAttrs.push_back(Attr);
 
+    if (Attr->getValueAsBit("HasCustomTypeTransform"))
+      DependentStmtAttrs.push_back(Attr);
+
     // Place it in the hierarchy.
     Hierarchy.classifyAttr(Attr);
   }
@@ -2929,6 +2934,7 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
 
   // Emit the ad hoc groups.
   emitAttrList(OS, "PRAGMA_SPELLING_ATTR", PragmaAttrs);
+  emitAttrList(OS, "DEPENDENT_STMT_ATTR", DependentStmtAttrs);
 
   // Emit the attribute ranges.
   OS << "#ifdef ATTR_RANGE\n";
@@ -2937,6 +2943,7 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
   OS << "#endif\n";
 
   Hierarchy.emitUndefs(OS);
+  OS << "#undef DEPENDENT_STMT_ATTR\n";
   OS << "#undef PRAGMA_SPELLING_ATTR\n";
 }
 
@@ -3477,9 +3484,8 @@ static std::string GetDiagnosticSpelling(const Record &R) {
   // If we couldn't find the DiagSpelling in this object, we can check to see
   // if the object is one that has a base, and if it is, loop up to the Base
   // member recursively.
-  std::string Super = R.getSuperClasses().back().first->getName();
-  if (Super == "DDecl" || Super == "DStmt")
-    return GetDiagnosticSpelling(*R.getValueAsDef("Base"));
+  if (auto Base = R.getValueAsOptionalDef(BaseFieldName))
+    return GetDiagnosticSpelling(*Base);
 
   return "";
 }
@@ -3559,7 +3565,8 @@ static std::string GenerateCustomAppertainsTo(const Record &Subject,
   if (I != CustomSubjectSet.end())
     return *I;
 
-  Record *Base = Subject.getValueAsDef("Base");
+  // This only works with non-root Decls.
+  Record *Base = Subject.getValueAsDef(BaseFieldName);
 
   // Not currently support custom subjects within custom subjects.
   if (Base->isSubClassOf("SubsetSubject")) {
@@ -4419,18 +4426,26 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     EnumName += "Items";
     SmallString<32> StateName = EnumName;
     StateName += "State";
+    SmallString<32> DocStateName = OptionName;
+    DocStateName += "UserDocs";
     OS << "// Implementation for option " << OptionName;
     OS << "\nenum " << EnumName << " {\n";
     SmallString<2048> SwitchCases;
     SmallString<2048> HelpItems;
     SmallString<2048> DefaultStateInits;
+    SmallString<2048> UserDocs;
     int Count = 0;
     for (const auto *Doc : I.second) {
       StringRef ItemName = Doc->getName();
+      // UserContent contains any user oriented text, if any, associated
+      // with ItemName in the input .td file.
+      StringRef UserContent = Doc->getValueAsString("UserContent");
+
       if (ItemName.size() <= 4 ||
           ItemName.substr(ItemName.size() - 4, 4) != "Docs")
         PrintFatalError(Doc->getLoc(), "Name must be <TagName>Docs");
       ItemName = ItemName.drop_back(4);
+      // ItemName = option name, e.g., StringCharStarCatchableDocs
       OS << "  " << ItemName << ",\n";
       SwitchCases += "    .Case(\"";
       SwitchCases += ItemName;
@@ -4445,10 +4460,36 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       DefaultStateInits += "] = ";
       DefaultStateInits += std::to_string(Doc->getValueAsBit("Default"));
       DefaultStateInits += ";\n";
+      // If we have a user description for an Intel compatibility flag, ensure
+      // formatting (with respect to newlines).
+      if (!UserContent.empty()) {
+        UserDocs += "  IntelCompatUserDocs[";
+        UserDocs += ItemName;
+        UserDocs += "] = \"";
+
+        // Start with the actual beginning and end of description text without
+        // extraneous characters.
+        UserContent = UserContent.trim("\n ");
+        // If these are present, they should be removed.
+        assert(UserContent.find('\t') == StringRef::npos);
+        while (!UserContent.empty()) {
+          std::pair <StringRef, StringRef> UD = UserContent.split('\n');
+
+          assert(UD.first.size() <= 80);
+          UserDocs += UD.first.str();
+          UserDocs += "\\n";
+          UserContent = UD.second;
+	}
+        UserDocs += "\\n\"";
+        UserDocs += ";\n";
+      }
       Count++;
     }
     OS << "};\nstd::array<bool," << Count << "> " << StateName << " = {};\n";
+    OS << "std::array<StringRef," << Count << "> " << DocStateName << " = {};\n";
+    OS << "llvm::SmallVector<std::string, 0> Emit" << DocStateName << ";\n";
     OS << "bool Show" << OptionName << "Help = false;\n";
+    OS << "bool Show" << DocStateName << "Help = false;\n";
     OS << "StringRef help" << OptionName << "() const {\n";
     OS << "  return \"Valid values for " << OptionName << ":\\n\"";
     OS << HelpItems << ";\n}\n";
@@ -4461,10 +4502,21 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "void setAll" << StateName << "Default() {\n";
     OS << DefaultStateInits;
     OS << "}\n";
+    OS << "void setAll" << DocStateName << "Init() {\n";
+    OS <<  UserDocs;
+    OS << "}\n";
     OS << "bool set" << StateName << "(StringRef S, bool Enable) {\n";
     OS << "  int N = fromString" << EnumName << "(S);\n";
     OS << "  if (N == -1) return false;\n";
     OS << "  " << StateName << "[N] = Enable;\n  return true;\n}\n\n";
+    OS << "bool setEmit" << DocStateName << "(StringRef S) {\n";
+    OS << "  int N = fromString" << EnumName << "(S);\n";
+    OS << "  if (N == -1) return false;\n";
+    OS << "  std::string Underline(S.size(),'=');\n";
+    OS << "  std::string Msg(S.str()+\"\\n\"+" << "Underline" << "+\"\\n\"+" << DocStateName << "[N].str());\n";
+    OS << "  Emit" << DocStateName << ".push_back(Msg);\n";
+    OS << "  " << DocStateName << "[N] = \"\";\n";
+    OS << "  return true;\n}\n";
   }
 }
 #endif // INTEL_CUSTOMIZATION

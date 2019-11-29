@@ -27,7 +27,9 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/BranchProbability.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -912,6 +914,17 @@ void CHR::checkScopeHoistable(CHRScope *Scope) {
       DenseMap<Instruction *, bool> Visited;
       bool IsHoistable = checkHoistValue(SI->getCondition(), InsertPoint,
                                          DT, Unhoistables, nullptr, Visited);
+#if INTEL_CUSTOMIZATION
+      auto NewFreq =
+          BFI.getBlockProfileCount(InsertPoint->getParent());
+      auto OldFreq = BFI.getBlockProfileCount(SI->getParent());
+
+      // If insert point is hotter than current block,
+      // drop it.
+      if (NewFreq && OldFreq &&
+          NewFreq.getValue() > OldFreq.getValue()*2)
+        IsHoistable = false;
+#endif // INTEL_CUSTOMIZATION
       if (!IsHoistable) {
         CHR_DEBUG(dbgs() << "Dropping select " << *SI << "\n");
         ORE.emit([&]() {
@@ -933,6 +946,17 @@ void CHR::checkScopeHoistable(CHRScope *Scope) {
       DenseMap<Instruction *, bool> Visited;
       bool IsHoistable = checkHoistValue(Branch->getCondition(), InsertPoint,
                                          DT, Unhoistables, nullptr, Visited);
+#if INTEL_CUSTOMIZATION
+      auto NewFreq =
+          BFI.getBlockProfileCount(InsertPoint->getParent());
+      auto OldFreq = BFI.getBlockProfileCount(Branch->getParent());
+
+      // If insert point is hotter than current block,
+      // drop it.
+      if (NewFreq && OldFreq &&
+          NewFreq.getValue() > OldFreq.getValue()*2)
+        IsHoistable = false;
+#endif // INTEL_CUSTOMIZATION
       if (!IsHoistable) {
         // If the branch isn't hoistable, drop the selects in the entry
         // block, preferring the branch, which makes the branch the hoist
@@ -1061,6 +1085,7 @@ static bool shouldSplit(Instruction *InsertPoint,
                         DenseSet<Value *> &ConditionValues,
                         DominatorTree &DT,
                         DenseSet<Instruction *> &Unhoistables) {
+  assert(InsertPoint && "Null InsertPoint");
   CHR_DEBUG(
       dbgs() << "shouldSplit " << *InsertPoint << " PrevConditionValues ";
       for (Value *V : PrevConditionValues) {
@@ -1071,7 +1096,6 @@ static bool shouldSplit(Instruction *InsertPoint,
         dbgs() << *V << ", ";
       }
       dbgs() << "\n");
-  assert(InsertPoint && "Null InsertPoint");
   // If any of Bases isn't hoistable to the hoist point, split.
   for (Value *V : ConditionValues) {
     DenseMap<Instruction *, bool> Visited;

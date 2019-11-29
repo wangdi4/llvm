@@ -383,10 +383,19 @@ class DDTest {
                               DistanceVector &ForwardDistV,
                               DistanceVector &BackwardDistV, unsigned Levels);
 
+  void adjustDV(Dependences &Result, bool SameBase, const RegDDRef *SrcRegDDRef,
+                const RegDDRef *DstRegDDRef);
+
   /// When IVDEP directive is present for a level, DV can be adjusted
   /// SameBase indicates if the base pointer of src/dst DD_REF are the same
   /// Returns true IVDEP is hit
   bool adjustDVforIVDEP(Dependences &Result, bool SameBase);
+
+  /// Assumes no loop carried dependencies exist for the innermost loop
+  void adjustForInnermostAssumedDeps(Dependences &Result);
+
+  /// Assumes no loop carried dependencies exist for all loops
+  void adjustForAllAssumedDeps(Dependences &Result);
 
   /// Map DV to distance
 
@@ -511,18 +520,18 @@ class DDTest {
     /// out to OS.
     void dump(raw_ostream &OS) const;
   };
-  ///  CommonLevels - levels that need to set DV
+  ///  CommonLevels - it is different than LCALoopLevel in some cases like in
+  ///  fusion mode.
   unsigned CommonLevels = 0;
-  ///  CommonLevelsForIVDEP - levels that affects DV when IVDEP is present
-  unsigned CommonLevelsForIVDEP = 0;
+  unsigned LCALoopLevel = 0;
   unsigned SrcLevels = 0;
   unsigned DstLevels = 0;
   unsigned MaxLevels = 0;
   bool NoCommonNest = false;
 
   HLLoop *DeepestLoop;
-  ///  CommonIVDEPLoop, corrsponding to CommonLevelsForIVDEP
-  HLLoop *CommonIVDEPLoop = nullptr;
+  ///  LCALoop, corrsponding to LCALoopLevel
+  HLLoop *LCALoop = nullptr;
 
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
   /// instructions and establishes their shared loops. Sets the variables

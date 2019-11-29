@@ -25,6 +25,7 @@
 #define LLVM_TRANSFORMS_VPO_PAROPT_MODULE_TRANSFORMS_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 
@@ -71,7 +72,8 @@ public:
 
   /// Perform paropt transformation on a module.
   bool doParoptTransforms(
-      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
+      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
 
 private:
   friend class VPOParoptTransform;
@@ -173,6 +175,18 @@ private:
 
   /// Routine to populate PrintfDecl and OCLPrintfDecl
   void createOCLPrintfDecl(Function *F);
+
+  /// Routine to identify Functions that may use "omp critical"
+  /// either directly or down the call stack.
+  void collectMayHaveOMPCriticalFunctions(
+      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
+
+  /// A set of Functions identified by collectMayHaveOMPCriticalFunctions()
+  /// to potentially "invoke" "omp critical".
+  SmallPtrSet<Function *, 32> MayHaveOMPCritical;
+
+  /// Returns true for Functions marked by collectMayHaveOMPCriticalFunctions().
+  bool mayHaveOMPCritical(const Function *F) const;
 
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {
@@ -309,28 +323,8 @@ private:
   /// false - otherwise.
   bool genOffloadEntries();
 
-  /// Register the offloading binary descriptors.
-  void genOffloadingBinaryDescriptorRegistration();
-
   /// Return/Create the struct type __tgt_offload_entry.
   StructType *getTgOffloadEntryTy();
-
-  /// Return/Create the struct type __tgt_device_image.
-  StructType *getTgDeviceImageTy();
-
-  /// Return/Create the struct type __tgt_bin_desc.
-  StructType *getTgBinaryDescriptorTy();
-
-  /// Return/Create a variable that binds the atexit to this shared
-  /// object.
-  GlobalVariable *getDsoHandle();
-
-  /// Create the function .omp_offloading.descriptor_reg
-  Function *createTgDescRegisterLib(Function *TgDescUnregFn,
-                                    GlobalVariable *Desc);
-
-  /// Create the function .omp_offloading.descriptor_unreg
-  Function *createTgDescUnregisterLib(GlobalVariable *Desc);
 };
 
 } /// namespace vpo

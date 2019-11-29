@@ -22,7 +22,7 @@
 #include "IntelVPlan.h"
 #include "llvm/ADT/SmallVector.h"
 
-extern cl::opt<bool> LoopMassagingEnabled;
+extern bool LoopMassagingEnabled;
 
 namespace llvm {
 class ScalarEvolution;
@@ -88,6 +88,9 @@ protected:
   virtual std::unique_ptr<VPRegionBlock>
   buildPlainCFG(VPLoopEntityConverterList &Cvts);
 
+  /// Translate loop metadata from underlying IR to VPLoop data structure.
+  virtual void populateVPLoopMetadata(VPLoopInfo *VPLInfo);
+
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
     assert(VPLp && "Expected a valid VPLoop.");
     VPLoopRegion *Loop =
@@ -113,7 +116,6 @@ protected:
   bool isBreakingSSA(VPLoop *VPL);
 
   void buildLoopRegions();
-  virtual void collectUniforms(VPRegionBlock *Region);
   void buildNonLoopRegions(VPRegionBlock *ParentRegion);
 
   // Utility functions.

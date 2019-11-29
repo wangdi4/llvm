@@ -173,21 +173,36 @@ def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
-#endif // INTEL_CUSTOMIZATION
-def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
-  HelpText<"Display available options">;
-#if INTEL_CUSTOMIZATION
 def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
   Alias<intel_mintrinsic_promote>, HelpText<"For certain functions using "
   "intrinsics to promote their architectures and make the intrinsic headers "
   "included by default">;
 def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
   Alias<intel_mno_intrinsic_promote>;
-def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
-  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
-def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
-  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
+def _SLASH_Qipp_EQ : CLJoined<"Qipp=">, Alias<ipp_EQ>,
+  HelpText<"Link commonly used Intel(R) Integrated Performace Primitives "
+  "(Intel(R) IPP) libraries and bring in the associated headers">;
+def _SLASH_Qipp_COL : CLJoined<"Qipp:">, Alias<ipp_EQ>;
+def _SLASH_Qipp_link_EQ : CLJoined<"Qipp-link=">, Alias<ipp_link_EQ>,
+  HelpText<"Link Intel(R) IPP libraries in the requested manner">;
+def _SLASH_Qipp_link_COL : CLJoined<"Qipp-link:">, Alias<ipp_link_EQ>;
+def _SLASH_Qipp : CLFlag<"Qipp">, Alias<ipp_EQ>, AliasArgs<["common"]>;
+def _SLASH_Qmkl_EQ : CLJoined<"Qmkl=">, Alias<mkl_EQ>,
+  HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
+  "and bring in the associated headers">;
+def _SLASH_Qmkl_COL : CLJoined<"Qmkl:">, Alias<mkl_EQ>;
+def _SLASH_Qmkl : CLFlag<"Qmkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<tbb>,
+  HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
+  "and bring in the associated headers">;
+def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<daal_EQ>,
+  HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
+  "libraries and bring in the associated headers">;
+def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<daal_EQ>;
+def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
 #endif //INTEL_CUSTOMIZATION
+def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
+  HelpText<"Display available options">;
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">,
   Alias<show_includes>;
@@ -214,8 +229,10 @@ def _SLASH_W1 : CLFlag<"W1">, HelpText<"Enable -Wall">, Alias<Wall>;
 def _SLASH_W2 : CLFlag<"W2">, HelpText<"Enable -Wall">, Alias<Wall>;
 def _SLASH_W3 : CLFlag<"W3">, HelpText<"Enable -Wall">, Alias<Wall>;
 def _SLASH_W4 : CLFlag<"W4">, HelpText<"Enable -Wall and -Wextra">, Alias<WCL4>;
-def _SLASH_Wall : CLFlag<"Wall">, HelpText<"Enable -Weverything">,
-  Alias<W_Joined>, AliasArgs<["everything"]>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Wall : CLFlag<"Wall">, HelpText<"Enable -Wall">,
+  Alias<W_Joined>, AliasArgs<["all"]>;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_WX : CLFlag<"WX">, HelpText<"Treat warnings as errors">,
   Alias<W_Joined>, AliasArgs<["error"]>;
 def _SLASH_WX_ : CLFlag<"WX-">,
@@ -438,6 +455,9 @@ def _SLASH_Zc_inline : CLIgnoredFlag<"Zc:inline">;
 def _SLASH_Zc_rvalueCast : CLIgnoredFlag<"Zc:rvalueCast">;
 def _SLASH_Zc_ternary : CLIgnoredFlag<"Zc:ternary">;
 def _SLASH_Zc_wchar_t : CLIgnoredFlag<"Zc:wchar_t">;
+def _SLASH_ZH_MD5 : CLIgnoredFlag<"ZH:MD5">;
+def _SLASH_ZH_SHA1 : CLIgnoredFlag<"ZH:SHA1">;
+def _SLASH_ZH_SHA_256 : CLIgnoredFlag<"ZH:SHA_256">;
 def _SLASH_Zm : CLIgnoredJoined<"Zm">;
 def _SLASH_Zo : CLIgnoredFlag<"Zo">;
 def _SLASH_Zo_ : CLIgnoredFlag<"Zo-">;

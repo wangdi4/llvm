@@ -51,7 +51,7 @@ private:
   // Linearize the CFG within Region.
   void linearizeRegionRec(VPRegionBlock *Region);
 
-  void handleInnerLoopBackedges(VPLoopRegion *LoopRegion);
+  void handleInnerLoopBackedges(VPLoop *VPL);
 
 public:
   VPlanPredicator(VPlan *Plan) : Plan(Plan), VPLI(Plan->getVPLoopInfo()) {}

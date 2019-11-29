@@ -25,7 +25,7 @@ if(NOT DEFINED LLVM_VERSION_PATCH)
   set(LLVM_VERSION_PATCH 0)
 endif()
 if(NOT DEFINED LLVM_VERSION_SUFFIX)
-  set(LLVM_VERSION_SUFFIX svn)
+  set(LLVM_VERSION_SUFFIX git)
 endif()
 
 if (NOT PACKAGE_VERSION)
@@ -52,6 +52,10 @@ project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
 
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
+set(CMAKE_CXX_EXTENSIONS NO)
+
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "No build type selected, default to Debug")
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)" FORCE)
@@ -61,7 +65,7 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libclc;libcxx;libcxxabi;libunwind;lld;lldb;llgo;openmp;parallel-libs;polly;pstl")
+set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;llgo;openmp;parallel-libs;polly;pstl")
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_ALL_PROJECTS}), or \"all\".")
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
@@ -535,6 +539,10 @@ option(LLVM_BUILD_EXAMPLES
   "Build the LLVM example programs. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the LLVM examples" ON)
 
+if(LLVM_BUILD_EXAMPLES)
+  add_definitions(-DBUILD_EXAMPLES)
+endif(LLVM_BUILD_EXAMPLES)
+
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
@@ -569,17 +577,28 @@ if(NOT DEFINED LLVM_DYLIB_COMPONENTS)
   set(LLVM_DYLIB_COMPONENTS "all" CACHE STRING
     "Semicolon-separated list of components to include in libLLVM, or \"all\".")
 endif()
-option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm dynamic library" OFF)
+
 if(MSVC)
   option(LLVM_BUILD_LLVM_C_DYLIB "Build LLVM-C.dll (Windows only)" ON)
+  # Set this variable to OFF here so it can't be set with a command-line
+  # argument.
+  set (LLVM_LINK_LLVM_DYLIB OFF)
+  if (BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "BUILD_SHARED_LIBS options is not supported on Windows.")
+  endif()
 else()
+  option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm dynamic library" OFF)
   option(LLVM_BUILD_LLVM_C_DYLIB "Build libllvm-c re-export library (Darwin only)" OFF)
+  set(LLVM_BUILD_LLVM_DYLIB_default OFF)
+  if(LLVM_LINK_LLVM_DYLIB OR LLVM_BUILD_LLVM_C_DYLIB)
+    set(LLVM_BUILD_LLVM_DYLIB_default ON)
+  endif()
+  option(LLVM_BUILD_LLVM_DYLIB "Build libllvm dynamic library" ${LLVM_BUILD_LLVM_DYLIB_default})
 endif()
-set(LLVM_BUILD_LLVM_DYLIB_default OFF)
-if(LLVM_LINK_LLVM_DYLIB OR (LLVM_BUILD_LLVM_C_DYLIB AND NOT MSVC))
-  set(LLVM_BUILD_LLVM_DYLIB_default ON)
+
+if (LLVM_LINK_LLVM_DYLIB AND BUILD_SHARED_LIBS)
+  message(FATAL_ERROR "Cannot enable BUILD_SHARED_LIBS with LLVM_LINK_LLVM_DYLIB.  We recommend disabling BUILD_SHARED_LIBS.")
 endif()
-option(LLVM_BUILD_LLVM_DYLIB "Build libllvm dynamic library" ${LLVM_BUILD_LLVM_DYLIB_default})
 
 option(LLVM_OPTIMIZED_TABLEGEN "Force TableGen to be built with optimization" OFF)
 if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND (LLVM_ENABLE_ASSERTIONS OR CMAKE_CONFIGURATION_TYPES)))
@@ -601,7 +620,7 @@ if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE OR
     if(NOT LLVM_PROFILE_DATA_DIR)
       file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_PROFILE_DATA_DIR)
     endif()
-		file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
+    file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
   endif()
   if(NOT LLVM_CSPROFILE_FILE_PATTERN)
     if(NOT LLVM_CSPROFILE_DATA_DIR)
@@ -626,6 +645,9 @@ mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)
 
 set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL
   "Enable per-target runtimes directory")
+
+set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
+  "Profiling data file to use when compiling in order to improve runtime performance.")
 
 # All options referred to from HandleLLVMOptions have to be specified
 # BEFORE this include, otherwise options will not be correctly set on
@@ -1069,11 +1091,7 @@ set(LLVM_SRPM_DIR "${CMAKE_CURRENT_BINARY_DIR}/srpm")
 
 get_source_info(${CMAKE_CURRENT_SOURCE_DIR} revision repository)
 string(LENGTH "${revision}" revision_length)
-if(revision MATCHES "^[0-9]+$" AND revision_length LESS 40)
-  set(LLVM_RPM_SPEC_REVISION "r${revision}")
-else()
-  set(LLVM_RPM_SPEC_REVISION "${revision}")
-endif()
+set(LLVM_RPM_SPEC_REVISION "${revision}")
 
 configure_file(
   ${LLVM_SRPM_USER_BINARY_SPECFILE}
@@ -1150,17 +1168,6 @@ endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 # Make sure we don't get -rdynamic in every binary. For those that need it,
 # use export_executable_symbols(target).
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-
-set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
-  "Profiling data file to use when compiling in order to improve runtime performance.")
-
-if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
-  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "(Clang)|(Intel)" )
-    add_definitions("-fprofile-instr-use=${LLVM_PROFDATA_FILE}")
-  else()
-    message(FATAL_ERROR "LLVM_PROFDATA_FILE can only be specified when compiling with clang")
-  endif()
-endif()
 
 include(AddLLVM)
 include(TableGen)
@@ -1383,7 +1390,104 @@ if (LLVM_INCLUDE_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
+if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
+  add_subdirectory(utils/llvm-locstats)
+endif()
+
 if (INTEL_CUSTOMIZATION)
+  if (INTEL_CMAKE_DEPLOY)
+
+    # The code below defines a set of CMake components that will
+    # be put into the resulting deploy structure, which is used
+    # by the product team for creating various Intel software products.
+    #
+    # If you have any concerns or questions about adding your new
+    # component to one or more products, please contact ICLProcessTeam@intel.com
+    set(INTEL_DEPLOY_COMPONENTS_LIST
+      # LLVM components
+      clang lld llc llvm-link llvm-profdata llvm-spirv
+      clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
+      clang-resource-headers
+      # XDEV components
+      xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom
+      xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
+      xdev-support-scripts
+      # OpenMP components
+      llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
+      llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_CSA
+      llvm-csa-ompplugin
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
+      # SYCL components
+      opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
+      pi_opencl
+    )
+
+    if (WIN32)
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+        # XDEV components
+        xdev-xilib xdev-xilink
+      )
+    else()
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+        # LLVM components
+        llvm-ar llvm-ranlib LLVMgold
+        # XDEV components
+        xdev-icpx
+        # SYCL components
+        pi_level0
+        # CXX components
+        cxx cxxabi cxx-headers
+      )
+    endif()
+
+    set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
+      # OpenCL components
+      ocl-common_clang ocl-builtins ocl-builtins-shared
+      ocl-config ocl-cl_logger ocl-tbb-ext ocl-OpenCL
+      ocl-svml ocl-gdb-plugin ocl-eyeq-builtins
+      ocl-clang_compiler ocl-clang_compiler32 ocl-clang_compiler64
+      ocl-intelocl ocl-intelocl32 ocl-intelocl64
+      ocl-cpu_device ocl-cpu_device32 ocl-cpu_device64
+      ocl-task_executor ocl-task_executor32 ocl-task_executor64
+      ocl-OclCpuBackEnd ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd64
+    )
+
+    if (WIN32)
+      list(APPEND INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
+        # OpenCL components
+        ocl-OclCpuDebugging7
+      )
+    endif(WIN32)
+
+    if (INTEL_OPENCL_STANDALONE_PRODUCT)
+      # For standalone OpenCL product we must only deploy OpenCL components
+      # and nothing else.
+      set(INTEL_DEPLOY_COMPONENTS_LIST)
+    endif()
+
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      ${INTEL_OPENCL_DEPLOY_COMPONENTS_LIST}
+    )
+
+    # FIXME: temporary verification before we remove INTEL_DEPLOY_COMPONENTS
+    #        setup in VRD files.
+    if (DEFINED INTEL_DEPLOY_COMPONENTS)
+      foreach (comp ${INTEL_DEPLOY_COMPONENTS})
+        list(FIND INTEL_DEPLOY_COMPONENTS_LIST ${comp} idx)
+        if (idx LESS 0)
+          message(FATAL_ERROR "CMake component (${comp}) is present in "
+            "INTEL_DEPLOY_COMPONENTS but not in "
+            "INTEL_DEPLOY_COMPONENTS_LIST.")
+        endif()
+      endforeach(comp)
+    endif()
+
+    set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS_LIST})
+  endif()
+
   # This command is used for creating a fake dependency in order to force
   # another command(s) to execute.
   # Its output is never produced as a result thus each other

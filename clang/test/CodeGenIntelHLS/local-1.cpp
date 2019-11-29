@@ -3,13 +3,9 @@
 
 //CHECK: @_ZL3gc1 = internal constant i32 0, align 4
 //CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:2}
-//CHECK: @_ZL3gc2 = internal constant i32 0, align 4
-//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numreadports:2}{numwriteports:3}
-//CHECK: @_ZL3gc3 = internal constant i32 0, align 4
-//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:2}{simple_dual_port:1}
+//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}
 //CHECK: @[[Struct3:.*]] = internal global %struct.foo_three zeroinitializer, align 4
-//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}{numreadports:2}
 //CHECK: @[[Struct5:.*]] = internal global %struct.foo_five zeroinitializer, align 1
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1}{max_replicates:2}
 //CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1,2}{max_replicates:2}
@@ -22,29 +18,19 @@
 //CHECK: [[ANN21:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,8}{max_replicates:4}{staticreset:1}
 //CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{max_replicates:2}{max_concurrency:4}
 //CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{simple_dual_port:1}{max_concurrency:4}
-//CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}{numreadports:2}{numwriteports:3}
 //CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:3}
 //CHECK: [[ANN15:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{max_replicates:3}{bank_bits:4,3,2}
 //CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{simple_dual_port:1}{bank_bits:4,3,2}
-//CHECK: [[ANN17:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{simple_dual_port:1}{numreadports:2}
+//CHECK: [[ANN17:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{simple_dual_port:1}
 //CHECK: [[ANN18:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:3}{simple_dual_port:1}
 
 const int __attribute__((max_replicates(2))) gc1 = 0;
-// expected-warning@+2{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-// expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-const int __attribute__((numreadports(2), numwriteports(3))) gc2 = 0;
 const int __attribute__((max_replicates(2), simple_dual_port)) gc3 = 0;
 
 void foo() {
   //CHECK: call void @llvm.var.annotation(i8* %lc11, i8* getelementptr{{.*}}[[ANN1]]
   int __attribute__((max_replicates(2))) lc1;
-  // expected-warning@+2{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use maxreplicates attribute instead}}
-  // expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use maxreplicates attribute instead}}
-  //CHECK:  call void @llvm.var.annotation(i8* %lc22, i8* getelementptr{{.*}}[[ANN2]]
-  int __attribute__((numreadports(2), numwriteports(3))) lc2;
-  //CHECK:  call void @llvm.var.annotation(i8* %lc33, i8* getelementptr{{.*}}[[ANN4]]
   int __attribute__((simple_dual_port)) lc3 = 0;
-  //CHECK:  call void @llvm.var.annotation(i8* %lc44, i8* getelementptr{{.*}}[[ANN3]]
   int __attribute__((max_replicates(2), simple_dual_port)) lc4 = 0;
 }
 
@@ -53,8 +39,6 @@ template <int bankwidth, int numbanks, int readports, int writeports,
 __attribute__((ihc_component)) void foo_one() {
   //CHECK: call void @llvm.var.annotation(i8* %var_one1, i8* getelementptr{{.*}}[[ANN11]]
   //CHECK: call void @llvm.var.annotation(i8* %var_two2, i8* getelementptr{{.*}}[[ANN12]]
-  //CHECK: call void @llvm.var.annotation(i8* %var_three3, i8* getelementptr{{.*}}[[ANN3]]
-  //CHECK: call void @llvm.var.annotation(i8* %var_four4, i8* getelementptr{{.*}}[[ANN13]]
   __attribute__((bankwidth(bankwidth), numbanks(numbanks),
                  max_concurrency(max_concurrency),
                  max_replicates(num_replicates))) int var_one;
@@ -62,10 +46,6 @@ __attribute__((ihc_component)) void foo_one() {
                  max_concurrency(max_concurrency),
                  simple_dual_port)) int var_two;
   __attribute__((simple_dual_port, max_replicates(num_replicates))) int var_three;
-  // expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use maxreplicates attribute instead}}
-  // expected-error@+2{{'max_replicates' and 'numreadports' attributes are not compatible}}
-  // expected-note@+1{{conflicting attribute is here}}
-  __attribute__((simple_dual_port, numports_readonly_writeonly(readports, writeports))) int var_four;
 }
 
 template <int numbanks, int bit, int num_replicates>
@@ -79,11 +59,9 @@ __attribute__((ihc_component)) void foo_two() {
 
   __attribute__((max_replicates(num_replicates))) int var_one;
   __attribute__((max_replicates(num_replicates), __bank_bits__(4, bit, 2))) int var_two;
-  // expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use maxreplicates attribute instead}}
   __attribute__((simple_dual_port)) int var_four;
   __attribute__((simple_dual_port, __bank_bits__(4, bit, 2))) int var_five;
-  // expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use maxreplicates attribute instead}}
-  __attribute__((numbanks(numbanks), simple_dual_port, numreadports(2))) int var_six;
+  __attribute__((numbanks(numbanks), simple_dual_port)) int var_six;
   __attribute__((max_replicates(num_replicates), simple_dual_port)) int var_seven;
 }
 
@@ -95,8 +73,6 @@ void call() {
 struct foo_three {
   int __attribute__((max_replicates(2))) f3;
   int __attribute__((simple_dual_port)) f4;
-  // expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use maxreplicates attribute instead}}
-  int __attribute__((numreadports(2), simple_dual_port)) f5;
 };
 
 static foo_three s1;
@@ -106,8 +82,6 @@ void bar1() {
   s1.f3 = 0;
   //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct3]], i32 0, i32 1){{.*}}getelementptr{{.*}}[[ANN4]]
   s1.f4 = 0;
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.foo_three, %struct.foo_three* @[[Struct3]], i32 0, i32 2){{.*}}getelementptr{{.*}}[[ANN5]]
-  s1.f5 = 0;
 }
 
 struct foo_four {

@@ -52,6 +52,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstring>
 #ifndef __SYCL_DEVICE_ONLY__
 #include <cfenv>
 #endif
@@ -191,17 +192,6 @@ template <typename T> struct LShift {
   }
 };
 
-// Add a specific is_arithmetic for SYCL types that include half FP type
-template <typename T>
-using is_arithmetic = std::integral_constant<bool,
-     std::is_arithmetic<T>::value ||
-     std::is_same<typename std::remove_const<T>::type, half>::value>;
-
-template <typename T>
-using is_floating_point =
-    std::integral_constant<bool, std::is_floating_point<T>::value ||
-                                     std::is_same<T, half>::value>;
-
 template <typename T, typename R>
 using is_int_to_int =
     std::integral_constant<bool, std::is_integral<T>::value &&
@@ -315,28 +305,26 @@ template <typename Type, int NumElements> class vec {
   using DataType =
       typename detail::BaseCLTypeConverter<DataT, NumElements>::DataType;
 
-  template <bool B, class T, class F>
-  using conditional_t = typename std::conditional<B, T, F>::type;
-
   static constexpr int getNumElements() { return NumElements; }
 
   // SizeChecker is needed for vec(const argTN &... args) ctor to validate args.
   template <int Counter, int MaxValue, class...>
-  struct SizeChecker
-      : conditional_t<Counter == MaxValue, std::true_type, std::false_type> {};
+  struct SizeChecker: detail::conditional_t<Counter == MaxValue,
+      std::true_type, std::false_type> {};
 
   template <int Counter, int MaxValue, typename DataT_, class... tail>
   struct SizeChecker<Counter, MaxValue, DataT_, tail...>
-      : conditional_t<Counter + 1 <= MaxValue,
+      : detail::conditional_t<Counter + 1 <= MaxValue,
                       SizeChecker<Counter + 1, MaxValue, tail...>,
                       std::false_type> {};
 
 #define ALLOW_VECTOR_SIZES(num_elements)                                       \
   template <int Counter, int MaxValue, typename DataT_, class... tail>         \
   struct SizeChecker<Counter, MaxValue, vec<DataT_, num_elements>, tail...>    \
-      : conditional_t<Counter + num_elements <= MaxValue,                      \
-                      SizeChecker<Counter + num_elements, MaxValue, tail...>,  \
-                      std::false_type> {};                                     \
+      : detail::conditional_t<                                                 \
+            Counter + (num_elements) <= MaxValue,                              \
+            SizeChecker<Counter + (num_elements), MaxValue, tail...>,          \
+            std::false_type> {};                                               \
   template <int Counter, int MaxValue, typename DataT_, typename T2,           \
             typename T3, template <typename> class T4, int... T5,              \
             class... tail>                                                     \
@@ -344,9 +332,10 @@ template <typename Type, int NumElements> class vec {
       Counter, MaxValue,                                                       \
       detail::SwizzleOp<vec<DataT_, num_elements>, T2, T3, T4, T5...>,         \
       tail...>                                                                 \
-      : conditional_t<Counter + sizeof...(T5) <= MaxValue,                     \
-                      SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>, \
-                      std::false_type> {};                                     \
+      : detail::conditional_t<                                                 \
+            Counter + sizeof...(T5) <= MaxValue,                               \
+            SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>,           \
+            std::false_type> {};                                               \
   template <int Counter, int MaxValue, typename DataT_, typename T2,           \
             typename T3, template <typename> class T4, int... T5,              \
             class... tail>                                                     \
@@ -354,9 +343,10 @@ template <typename Type, int NumElements> class vec {
       Counter, MaxValue,                                                       \
       detail::SwizzleOp<const vec<DataT_, num_elements>, T2, T3, T4, T5...>,   \
       tail...>                                                                 \
-      : conditional_t<Counter + sizeof...(T5) <= MaxValue,                     \
-                      SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>, \
-                      std::false_type> {};
+      : detail::conditional_t<                                                 \
+            Counter + sizeof...(T5) <= MaxValue,                               \
+            SizeChecker<Counter + sizeof...(T5), MaxValue, tail...>,           \
+            std::false_type> {};
 
   ALLOW_VECTOR_SIZES(1)
   ALLOW_VECTOR_SIZES(2)
@@ -369,7 +359,7 @@ template <typename Type, int NumElements> class vec {
   template <class...> struct conjunction : std::true_type {};
   template <class B1, class... tail>
   struct conjunction<B1, tail...>
-      : conditional_t<bool(B1::value), conjunction<tail...>, B1> {};
+      : detail::conditional_t<bool(B1::value), conjunction<tail...>, B1> {};
 
   // TypeChecker is needed for vec(const argTN &... args) ctor to validate args.
   template <typename T, typename DataT_>
@@ -593,11 +583,16 @@ public:
     return Result;
   }
 
-  template <typename asT>
-  typename std::enable_if<sizeof(asT) == sizeof(DataType), asT>::type
-  as() const {
+  template <typename asT> asT as() const {
+    static_assert((sizeof(*this) == sizeof(asT)),
+                  "The new SYCL vec type must have the same storage size in "
+                  "bytes as this SYCL vec");
+    static_assert(
+        detail::is_contained<asT, detail::gtl::vector_basic_list>::value,
+        "asT must be SYCL vec of a different element type and "
+        "number of elements specified by asT");
     asT Result;
-    *static_cast<DataType *>(static_cast<void *>(&Result.m_Data)) = m_Data;
+    std::memcpy(&Result.m_Data, &m_Data, sizeof(decltype(Result.m_Data)));
     return Result;
   }
 
@@ -609,6 +604,24 @@ public:
   ConstSwizzle<SwizzleIndexes...> swizzle() const {
     return this;
   }
+
+  // ext_vector_type is used as an underlying type for sycl::vec on device.
+  // The problem is that for clang vector types the return of operator[] is a
+  // temporary and not a reference to the element in the vector. In practice
+  // reinterpret_cast<DataT *>(&m_Data)[i]; is working. According to
+  // http://llvm.org/docs/GetElementPtr.html#can-gep-index-into-vector-elements
+  // this is not disallowed now. But could probably be disallowed in the future.
+  // That is why tests are added to check that behavior of the compiler has
+  // not changed.
+  //
+  // Implement operator [] in the same way for host and device.
+  // TODO: change host side implementation when underlying type for host side
+  // will be changed to std::array.
+  const DataT &operator[](int i) const {
+    return reinterpret_cast<const DataT *>(&m_Data)[i];
+  }
+
+  DataT &operator[](int i) { return reinterpret_cast<DataT *>(&m_Data)[i]; }
 
   // Begin hi/lo, even/odd, xyzw, and rgba swizzles.
 private:
@@ -853,6 +866,32 @@ public:
 #endif
   }
 
+  vec operator+() const {
+// Use __SYCL_DEVICE_ONLY__ macro because cast to OpenCL vector type is defined
+// by SYCL device compiler only.
+#ifdef __SYCL_DEVICE_ONLY__
+    return vec{+m_Data};
+#else
+    vec Ret;
+    for (size_t I = 0; I < NumElements; ++I)
+      Ret.setValue(I, +getValue(I));
+    return Ret;
+#endif
+  }
+
+  vec operator-() const {
+// Use __SYCL_DEVICE_ONLY__ macro because cast to OpenCL vector type is defined
+// by SYCL device compiler only.
+#ifdef __SYCL_DEVICE_ONLY__
+    return vec{-m_Data};
+#else
+    vec Ret;
+    for (size_t I = 0; I < NumElements; ++I)
+      Ret.setValue(I, -getValue(I));
+    return Ret;
+#endif
+  }
+
   // OP is: &&, ||
   // vec<RET, NumElements> operatorOP(const vec<DataT, NumElements> &Rhs) const;
   // vec<RET, NumElements> operatorOP(const DataT &Rhs) const;
@@ -1028,6 +1067,13 @@ private:
   template <typename T1, int T2> friend class vec;
 };
 
+#ifdef __cpp_deduction_guides
+// all compilers supporting deduction guides also support fold expressions
+template <class T, class... U,
+          class = detail::enable_if_t<(std::is_same<T, U>::value && ...)>>
+vec(T, U...)->vec<T, sizeof...(U) + 1>;
+#endif
+
 namespace detail {
 
 // SwizzleOP represents expression templates that operate on vec.
@@ -1183,6 +1229,16 @@ public:
   vec_rel_t operator!() {
     vec_t Tmp = *this;
     return !Tmp;
+  }
+
+  vec_t operator+() {
+    vec_t Tmp = *this;
+    return +Tmp;
+  }
+
+  vec_t operator-() {
+    vec_t Tmp = *this;
+    return -Tmp;
   }
 
   template <int IdxNum = getNumElements(),
@@ -1789,10 +1845,6 @@ using __half16_vec_t = half_vec<16>;
 namespace cl {
 namespace sycl {
 namespace detail {
-// Use conditional_t to improve code readablity.
-template <bool B, typename T1, typename T2>
-using conditional_t = typename std::conditional<B, T1, T2>::type;
-
 // select_apply_cl_t selects from T8/T16/T32/T64 basing on
 // sizeof(IN).  expected to handle scalar types in IN.
 template <typename T, typename T8, typename T16, typename T32, typename T64>

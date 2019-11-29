@@ -136,7 +136,8 @@ public:
 
   /// Return true if an FMA operation is faster than a pair of fmul and fadd
   /// instructions.
-  bool isFMAFasterThanFMulAndFAdd(EVT VT) const override;
+  bool isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
+                                  EVT VT) const override;
 
   /// post-selection hooks, in this case a workaround for LLVM's mishandling of
   /// optional register defs

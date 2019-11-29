@@ -77,6 +77,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Function.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -120,9 +121,9 @@ class HIRLoopFusion {
 
   template <bool PreLoop>
   bool generatePreOrPostLoops(HLNode *AnchorNode,
-                              const SmallVectorImpl<unsigned> &Indices,
-                              const SmallVectorImpl<int64_t> &Bounds,
-                              const SmallVectorImpl<HLLoop *> &Candidates,
+                              ArrayRef<unsigned> Indices,
+                              ArrayRef<int64_t> Bounds,
+                              ArrayRef<HLLoop *> Candidates,
                               SmallDenseSet<unsigned> &IndexSet);
 
   HLLoop *fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates);
@@ -157,63 +158,16 @@ static void copyLiveRangeInfo(HLLoop *DstLoop, const HLLoop *SrcLoop) {
                    SrcLoop->live_out_begin(), SrcLoop->live_out_end());
 }
 
-typedef std::tuple<RegDDRef *, HLPredicate, RegDDRef *> PredicateTuple;
-
-static void cloneOrRemoveZttPredicates(HLLoop *Loop,
-                                       SmallVectorImpl<PredicateTuple> &ZTTs,
-                                       bool Clone) {
-  if (Loop->hasZtt()) {
-    for (auto PredI = Loop->ztt_pred_begin(), PredE = Loop->ztt_pred_end();
-         PredI != PredE; ++PredI) {
-
-      RegDDRef *LHS;
-      RegDDRef *RHS;
-
-      if (Clone) {
-        LHS = Loop->getZttPredicateOperandDDRef(PredI, true)->clone();
-        RHS = Loop->getZttPredicateOperandDDRef(PredI, false)->clone();
-      } else {
-        LHS = Loop->removeZttPredicateOperandDDRef(PredI, true);
-        RHS = Loop->removeZttPredicateOperandDDRef(PredI, false);
-      }
-
-      ZTTs.emplace_back(LHS, *PredI, RHS);
-    }
-  }
-}
-
-static void mergeZtt(HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs) {
-  if (!ZTTs.empty()) {
-    RegDDRef *LHS;
-    PredicateTy Pred;
-    RegDDRef *RHS;
-
-    auto ZttI = ZTTs.begin();
-
-    if (!Loop->hasZtt()) {
-      std::tie(LHS, Pred, RHS) = *ZttI++;
-      Loop->createZtt(LHS, Pred, RHS);
-    }
-
-    for (auto E = ZTTs.end(); ZttI != E; ++ZttI) {
-      std::tie(LHS, Pred, RHS) = *ZttI;
-
-      Loop->addZttPredicate(Pred, LHS, RHS);
-    }
-  }
-}
-
 static void moveMergeZtt(HLLoop *DstLoop, HLLoop *SrcLoop) {
   SmallVector<PredicateTuple, 8> ZTTs;
-  cloneOrRemoveZttPredicates(SrcLoop, ZTTs, false);
-  mergeZtt(DstLoop, ZTTs);
+  HIRTransformUtils::cloneOrRemoveZttPredicates(SrcLoop, ZTTs, false);
+  HIRTransformUtils::mergeZtt(DstLoop, ZTTs);
 }
 
-static void scavengeLoopParts(const SmallVectorImpl<HLLoop *> &Candidates,
+static void scavengeLoopParts(ArrayRef<HLLoop *> Candidates,
                               const SmallDenseSet<unsigned> &IndexSet,
                               SmallVectorImpl<PredicateTuple> &ZTTs,
-                              HLContainerTy &Preheader, HLContainerTy &Nodes,
-                              HLContainerTy &Postexit,
+                              HLContainerTy &Nodes,
                               SmallVectorImpl<unsigned> &LiveIns,
                               SmallVectorImpl<unsigned> &LiveOuts) {
   for (unsigned J = 0, E = Candidates.size(); J < E; ++J) {
@@ -221,17 +175,11 @@ static void scavengeLoopParts(const SmallVectorImpl<HLLoop *> &Candidates,
       HLLoop *LoopJ = Candidates[J];
 
       // Handle ZTT
-      cloneOrRemoveZttPredicates(LoopJ, ZTTs, true);
-
-      // Handle preheader
-      HLNodeUtils::remove(&Preheader, LoopJ->pre_begin(), LoopJ->pre_end());
+      HIRTransformUtils::cloneOrRemoveZttPredicates(LoopJ, ZTTs, true);
 
       // Handle body
       HLNodeUtils::cloneSequence(&Nodes, LoopJ->getFirstChild(),
                                  LoopJ->getLastChild());
-
-      // Handle postexit
-      HLNodeUtils::remove(&Postexit, LoopJ->post_begin(), LoopJ->post_end());
 
       // Handle live-ins and live-outs
       LiveIns.append(LoopJ->live_in_begin(), LoopJ->live_in_end());
@@ -241,14 +189,15 @@ static void scavengeLoopParts(const SmallVectorImpl<HLLoop *> &Candidates,
 }
 
 template <bool PreLoop>
-bool HIRLoopFusion::generatePreOrPostLoops(
-    HLNode *AnchorNode, const SmallVectorImpl<unsigned> &Indices,
-    const SmallVectorImpl<int64_t> &Bounds,
-    const SmallVectorImpl<HLLoop *> &Candidates,
-    SmallDenseSet<unsigned> &IndexSet) {
+bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
+                                           ArrayRef<unsigned> Indices,
+                                           ArrayRef<int64_t> Bounds,
+                                           ArrayRef<HLLoop *> Candidates,
+                                           SmallDenseSet<unsigned> &IndexSet) {
   HLLoop *FirstLoop = Candidates.front();
 
   LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+  HLLoop *FirstPreLoop = nullptr;
   HLLoop *LastPostLoop = nullptr;
 
   auto CreateLoop = [&LORBuilder, FirstLoop](RegDDRef *LowerDDRef,
@@ -286,6 +235,9 @@ bool HIRLoopFusion::generatePreOrPostLoops(
 
         NewUpperDDRef->getSingleCanonExpr()->addConstant(-1, true);
         NewLoop = CreateLoop(NewLowerDDRef, NewUpperDDRef);
+        if (!FirstPreLoop) {
+          FirstPreLoop = NewLoop;
+        }
 
         HLNodeUtils::insertBefore(AnchorNode, NewLoop);
       } else {
@@ -302,21 +254,16 @@ bool HIRLoopFusion::generatePreOrPostLoops(
       }
 
       SmallVector<PredicateTuple, 8> ZTTs;
-      HLContainerTy Preheader;
       HLContainerTy Nodes;
-      HLContainerTy Postexit;
       SmallVector<unsigned, 16> LiveIns;
       SmallVector<unsigned, 16> LiveOuts;
 
       // Collect loop parts: bodies, ztts and live-in/out info.
-      scavengeLoopParts(Candidates, IndexSet, ZTTs, Preheader, Nodes, Postexit,
-                        LiveIns, LiveOuts);
+      scavengeLoopParts(Candidates, IndexSet, ZTTs, Nodes, LiveIns, LiveOuts);
 
       // Apply collected info to the new loop.
-      mergeZtt(NewLoop, ZTTs);
-      HLNodeUtils::insertAsFirstPreheaderNodes(NewLoop, &Preheader);
+      HIRTransformUtils::mergeZtt(NewLoop, ZTTs);
       HLNodeUtils::insertAsFirstChildren(NewLoop, &Nodes);
-      HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &Postexit);
       setLiveRangeInfo(NewLoop, LiveIns.begin(), LiveIns.end(),
                        LiveOuts.begin(), LiveOuts.end());
 
@@ -344,7 +291,21 @@ bool HIRLoopFusion::generatePreOrPostLoops(
     }
   }
 
+  if (FirstPreLoop) {
+    // Move all preheader nodes to the first pre loop.
+    for (auto *Loop : Candidates) {
+      HLNodeUtils::moveAsLastPreheaderNodes(FirstPreLoop, Loop->pre_begin(),
+                                            Loop->pre_end());
+    }
+  }
+
   if (LastPostLoop) {
+    // Move all postexit nodes to the last post loop.
+    for (auto *Loop : Candidates) {
+      HLNodeUtils::moveAsLastPostexitNodes(LastPostLoop, Loop->post_begin(),
+                                           Loop->post_end());
+    }
+
     LORBuilder(*FirstLoop).moveSiblingsTo(*LastPostLoop);
   }
 

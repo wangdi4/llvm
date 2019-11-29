@@ -696,6 +696,27 @@ class HIRParser {
   /// Returns BlobUtils object.
   BlobUtils &getBlobUtils() { return DDRU.getBlobUtils(); }
 
+  struct DelinearizedCoeffBlobIndex {
+    unsigned DimIndex;
+    int64_t Coeff;
+    unsigned BlobIndex;
+
+    DelinearizedCoeffBlobIndex() : Coeff(0) {}
+    DelinearizedCoeffBlobIndex(unsigned DimIndex, int64_t Coeff,
+                               unsigned BlobIndex)
+        : DimIndex(DimIndex), Coeff(Coeff), BlobIndex(BlobIndex) {}
+  };
+
+  /// Return the dimension index with the new blob and coeff after blob with \p
+  /// BlobIndex being mapped using \p DimSizes.
+  Optional<DelinearizedCoeffBlobIndex>
+  delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
+                       SmallVectorImpl<BlobTy> &DimSizes);
+
+  RegDDRef *delinearizeSingleRef(const RegDDRef *Refs,
+                                 SmallVectorImpl<BlobTy> &Strides,
+                                 SmallVectorImpl<BlobTy> &DimSizes);
+
 public:
   HIRParser(DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
             HIRRegionIdentification &RI, HIRFramework &HIRF, HIRCreation &HIRC,
@@ -731,6 +752,11 @@ public:
   const DataLayout &getDataLayout() const {
     return getHIRFramework().getDataLayout();
   }
+
+  /// Refer to DDRefUtils::delinearizeRefs().
+  bool delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
+                       SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
+                       SmallVectorImpl<BlobTy> *DimSizes = nullptr);
 };
 
 } // End namespace loopopt

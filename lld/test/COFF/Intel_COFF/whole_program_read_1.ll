@@ -1,8 +1,9 @@
+; REQUIRES: assert
 ; This test checks that whole program was achieved.
 
 ; RUN: llvm-as -o %T/wp1.bc %s
 ; RUN: lld-link /out:%T/wp1.exe /entry:main %T/wp1.bc /subsystem:console  \
-; RUN:     /mllvm:-whole-program-trace \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK:   Main definition seen

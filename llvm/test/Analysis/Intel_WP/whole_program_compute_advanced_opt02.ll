@@ -1,4 +1,5 @@
-; RUN: opt %s -disable-output -whole-program-advanced-opt-trace -wholeprogramanalysis -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx 2>&1 | FileCheck %s
+; REQUIRES: assert
+; RUN: opt %s -disable-output -debug-only=whole-program-analysis -whole-program-advanced-opt-trace -wholeprogramanalysis -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx 2>&1 | FileCheck %s
 
 ; This test is to verify the module level computation for advanced optimizations
 ; is checking the target feature information of the functions in the module when

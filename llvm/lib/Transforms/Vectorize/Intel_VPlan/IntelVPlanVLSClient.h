@@ -30,7 +30,7 @@ class VPVLSClientMemref : public OVLSMemref {
   const SCEV *ScevExpr = nullptr;
 
 public:
-  VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
+  VPVLSClientMemref(const OVLSMemrefKind &Kind, OVLSAccessKind AccKind,
                     const OVLSType &Ty, const VPInstruction *Inst,
                     const VPlanVLSAnalysis *VLSA);
 
@@ -40,19 +40,13 @@ public:
 
   Optional<int64_t> getConstStride() const override;
 
-  unsigned getLocation() const override {
-    llvm_unreachable("Unimplemented");
-  }
+  bool dominates(const OVLSMemref &Mrf) const override;
+  bool postDominates(const OVLSMemref &Mrf) const override;
 
   const VPInstruction *getInstruction(void) const { return Inst; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const {
-    this->print(dbgs());
-    dbgs() << '\n';
-  }
-
-  virtual void print(raw_ostream &Os, const Twine Indent = "") const;
+  void print(raw_ostream &Os, unsigned Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static bool classof(const OVLSMemref *Memref) {

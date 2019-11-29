@@ -55,6 +55,10 @@ enum AllocType : uint8_t {
   CallocLike         = 1<<2, // allocates + bzero
   ReallocLike        = 1<<3, // reallocates
   StrDupLike         = 1<<4,
+#if INTEL_CUSTOMIZATION
+  FreeLike = 1 << 5,   // free
+  DeleteLike = 1 << 6, // delete
+#endif //INTEL_CUSTOMIZATION
   MallocOrCallocLike = MallocLike | CallocLike,
   AllocLike          = MallocLike | CallocLike | StrDupLike,
   AnyAlloc           = AllocLike | ReallocLike
@@ -104,9 +108,23 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   {LibFunc_realloc,             {ReallocLike, 2, 1,  -1}},
   {LibFunc_reallocf,            {ReallocLike, 2, 1,  -1}},
   {LibFunc_strdup,              {StrDupLike,  1, -1, -1}},
-  {LibFunc_strndup,             {StrDupLike,  2, 1,  -1}}
+  {LibFunc_strndup,             {StrDupLike,  2, 1,  -1}},
+#if INTEL_CUSTOMIZATION
+  {LibFunc_free, {FreeLike, 1, 0, -1}}, // free(i8*)
+#endif //INTEL_CUSTOMIZATION
   // TODO: Handle "int posix_memalign(void **, size_t, size_t)"
 };
+
+#if INTEL_CUSTOMIZATION
+static bool isIntegerPointerWithWidth(Type *Ty, const unsigned Width) {
+  if (Ty->isPointerTy()) {
+    PointerType *PTy = dyn_cast<PointerType>(Ty);
+    Type *PointeeTy = PTy->getPointerElementType();
+    return PointeeTy->isIntegerTy(Width);
+  }
+  return false;
+}
+#endif //INTEL_CUSTOMIZATION
 
 static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast,
                                          bool &IsNoBuiltin) {
@@ -166,6 +184,17 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
        FTy->getParamType(SndParam)->isIntegerTy(32) ||
        FTy->getParamType(SndParam)->isIntegerTy(64)))
     return *FnData;
+
+#if INTEL_CUSTOMIZATION
+  // Model a free or delete call signature
+  if (FTy->getReturnType()==Type::getVoidTy(FTy->getContext()) &&
+      (FTy->getNumParams()==FnData->NumParams) &&
+      (FstParam==0 &&
+          isIntegerPointerWithWidth(FTy->getParamType(FstParam), 8)) &&
+      (SndParam < 0))
+    return *FnData;
+#endif // INTEL_CUSTOMIZATION
+
   return None;
 }
 
@@ -287,6 +316,14 @@ bool llvm::isMallocLikeFn(
       .hasValue();
 }
 
+#if INTEL_CUSTOMIZATION
+/// Tests if a function is a call or invoke to a library function that
+/// allocates memory (e.g., malloc).
+bool llvm::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, MallocLike, TLI).hasValue();
+}
+#endif
+
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
 bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
@@ -295,6 +332,12 @@ bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 }
 
 #if INTEL_CUSTOMIZATION
+/// Tests if a function is a call or invoke to a library function that
+/// allocates memory (e.g., calloc).
+bool llvm::isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, CallocLike, TLI).hasValue();
+}
+
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
 bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
@@ -308,6 +351,25 @@ bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
   }
   return false;
 }
+
+/// Tests if a function is a call or invoke to a library function that
+/// allocates memory (e.g., new).
+bool llvm::isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, OpNewLike, TLI).hasValue();
+}
+
+/// Tests if a function is a call or invoke to a library function that
+/// frees memory (e.g., free).
+bool llvm::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, FreeLike, TLI).hasValue();
+}
+
+/// Tests if a function is a call or invoke to a library function that
+/// frees memory (e.g., delete).
+bool llvm::isDeleteFn(const Function *F, const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, DeleteLike, TLI).hasValue();
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Tests if a value is a call or invoke to a library function that
@@ -641,9 +703,9 @@ STATISTIC(ObjectVisitorArgument,
 STATISTIC(ObjectVisitorLoad,
           "Number of load instructions with unsolved size and offset");
 
-APInt ObjectSizeOffsetVisitor::align(APInt Size, uint64_t Align) {
-  if (Options.RoundToAlign && Align)
-    return APInt(IntTyBits, alignTo(Size.getZExtValue(), llvm::Align(Align)));
+APInt ObjectSizeOffsetVisitor::align(APInt Size, uint64_t Alignment) {
+  if (Options.RoundToAlign && Alignment)
+    return APInt(IntTyBits, alignTo(Size.getZExtValue(), Align(Alignment)));
   return Size;
 }
 

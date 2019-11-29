@@ -242,7 +242,7 @@ public:
   bool PredicateInstruction(MachineInstr &MI,
                             ArrayRef<MachineOperand> Pred) const override;
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
-                   const DebugLoc &DL, unsigned DestReg, unsigned SrcReg,
+                   const DebugLoc &DL, MCRegister DestReg, MCRegister SrcReg,
                    bool KillSrc) const override;
   void storeRegToStackSlot(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MBBI,
@@ -328,8 +328,7 @@ public:
   // memory addresses and false otherwise.
   bool
   areMemAccessesTriviallyDisjoint(const MachineInstr &MIa,
-                                  const MachineInstr &MIb,
-                                  AliasAnalysis *AA = nullptr) const override;
+                                  const MachineInstr &MIb) const override;
 };
 
 } // end namespace llvm

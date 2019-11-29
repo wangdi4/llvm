@@ -1,8 +1,9 @@
+; REQUIRES: assert
 ; This test checks that whole program was achieved with wmain.
 
 ; RUN: llvm-as -o %T/wp4.bc %s
 ; RUN: lld-link /out:%T/wp4.exe /entry:wmain %T/wp4.bc /subsystem:console  \
-; RUN:     /mllvm:-whole-program-trace \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK:   Main definition seen

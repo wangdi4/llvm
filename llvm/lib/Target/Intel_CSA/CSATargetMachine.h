@@ -73,7 +73,8 @@ public:
   // This is overridden to set up assembly wrapping.
   bool addPassesToEmitFile(PassManagerBase &PM, raw_pwrite_stream &Out,
                            raw_pwrite_stream *DwoOut, CodeGenFileType FileType,
-                           bool DisableVerify, MachineModuleInfo *MMI) override;
+                           bool DisableVerify,
+                           MachineModuleInfoWrapperPass *MMIWP) override;
 
   TargetTransformInfo getTargetTransformInfo(const Function &F) override;
 };

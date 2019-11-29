@@ -4,12 +4,6 @@
 // RUN: env SYCL_PI_TRACE=1 %GPU_RUN_PLACEHOLDER %t.out 2>&1 %GPU_CHECK_PLACEHOLDER
 // TODO: For now PI checks are skipped for ACC device. To decide if it's good.
 // RUN: env %ACC_RUN_PLACEHOLDER %t.out
-//
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
-
-// INTEL_CUSTOMIZATION
-// XFAIL: windows
 
 //==-------------- image_access.cpp - SYCL image accessors test  -----------==//
 //
@@ -48,5 +42,5 @@ int main() {
   return 0;
 }
 
-// CHECK: PI ---> (NewMem = RT::piMemImageCreate(TargetContext->getHandleRef(), CreationFlags, &Format, &Desc, UserPtr, &Error), Error)
-// CHECK: PI ---> RT::piEnqueueMemImageRead( Queue, SrcMem, CL_FALSE, &SrcOffset[0], &SrcAccessRange[0], RowPitch, SlicePitch, DstMem, DepEvents.size(), &DepEvents[0], &OutEvent)
+// CHECK:---> piMemImageCreate
+// CHECK:---> piEnqueueMemImageRead

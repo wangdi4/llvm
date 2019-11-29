@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instruction.h"
@@ -77,8 +78,8 @@ public:
   StringRef getPassName() const override { return "CSA: Procedure Calls Pass"; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineModuleInfo>();
-    AU.addPreserved<MachineModuleInfo>();
+    AU.addRequired<MachineModuleInfoWrapperPass>();
+    AU.addPreserved<MachineModuleInfoWrapperPass>();
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }

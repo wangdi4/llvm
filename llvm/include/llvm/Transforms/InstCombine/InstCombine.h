@@ -51,11 +51,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
 
   InstructionCombiningPass(bool ExpensiveCombines = true,       // INTEL
-                           bool TypeLoweringOpts = true)        // INTEL
-      : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines), // INTEL
-        TypeLoweringOpts(TypeLoweringOpts) {                    // INTEL
-    initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
-  }
+                           bool TypeLoweringOpts = true);       // INTEL
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;

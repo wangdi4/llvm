@@ -40,6 +40,7 @@ class VPUser;
 #if INTEL_CUSTOMIZATION
 // Forward declaration (need them to friend them within VPInstruction)
 // TODO: This needs to be refactored
+class VPBasicBlock;
 class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
@@ -100,9 +101,11 @@ private:
   // 2. IR flags and call attributes
   bool IsUnderlyingValueValid;
 
-  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
-  /// replacement is restricted by VPInstructions from the \p Loop.
-  void replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *L, bool InvalidateIR);
+  /// Replace all uses of *this with \p NewVal. If the \p Loop/BasicBlock is not
+  /// null then replacement is restricted by VPInstructions from the \p given
+  /// Loop/BasicBlock.
+  void replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *L, VPBasicBlock *VPBB,
+                              bool InvalidateIR);
 
 protected:
 
@@ -239,14 +242,21 @@ public:
   /// however in VPlan we invalidate the underlying value of the VPUser if
   /// applicable.
   void replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, nullptr, InvalidateIR);
+    replaceAllUsesWithImpl(NewVal, nullptr, nullptr, InvalidateIR);
   }
 
   /// Replace all uses of *this with \p NewVal in the \p Loop. Additionally
   /// invalidate the underlying IR if \p InvalidateIR is set.
   void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
                                 bool InvalidateIR = true) {
-    replaceAllUsesWithImpl(NewVal, &Loop, InvalidateIR);
+    replaceAllUsesWithImpl(NewVal, &Loop, nullptr, InvalidateIR);
+  }
+
+  /// Replace all uses of *this with \p NewVal in the \p VPBB. Additionally
+  /// invalidate the underlying IR if \p InvalidateIR is set.
+  void replaceAllUsesWithInBlock(VPValue *NewVal, VPBasicBlock &VPBB,
+                                 bool InvalidateIR = true) {
+    replaceAllUsesWithImpl(NewVal, nullptr, &VPBB, InvalidateIR);
   }
 #endif // INTEL_CUSTOMIZATION
 

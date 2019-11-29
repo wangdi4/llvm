@@ -35,6 +35,7 @@ subdirectories =
  llvm-ifs
  llvm-exegesis
  llvm-extract
+ llvm-foreach
  llvm-jitlistener
  llvm-jitlink
  llvm-link
@@ -56,6 +57,7 @@ subdirectories =
  llvm-split
  llvm-undname
  opt
+ sycl-post-link
  verify-uselistorder
 #if INTEL_CUSTOMIZATION
  intelovls-test

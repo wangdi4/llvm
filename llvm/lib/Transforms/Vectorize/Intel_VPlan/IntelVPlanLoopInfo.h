@@ -28,6 +28,29 @@ class VPBlockBase;
 class VPBasicBlock;
 class VPValue;
 class VPInstruction;
+class VPlanDivergenceAnalysis;
+class VPLoop;
+
+struct TripCountInfo {
+  using TripCountTy = uint64_t;
+  TripCountTy MinTripCount = 0;
+  static constexpr TripCountTy UnknownMaxTripCount =
+      // unsigned is due to inconsistency in interfaces we use to get known
+      // trip count vs. get maximum trip count.
+      std::numeric_limits<unsigned>::max();
+  TripCountTy MaxTripCount = UnknownMaxTripCount;
+  TripCountTy TripCount = 0;
+  bool IsEstimated = true;
+
+  void calculateEstimatedTripCount();
+  static TripCountInfo getKnownTripCountInfo(TripCountTy TripCount) {
+    return {TripCount, TripCount, TripCount, false};
+  }
+};
+
+/// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
+/// Hierarchical CFG. It is a specialization of LoopInfoBase class.
+class VPLoopInfo;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
@@ -50,12 +73,40 @@ public:
   // LoopBase's contains isn't virtual so its I->getParent can't call our
   // overload, have to re-implement it too.
   bool contains(const VPInstruction *I) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
+                 unsigned Indent = 0,
+                 const VPlanDivergenceAnalysis *DA = nullptr) const;
+
+  LLVM_DUMP_METHOD void dump() const { print(dbgs()); }
+  LLVM_DUMP_METHOD void dumpVerbose() const {
+    print(dbgs(), /*Depth=*/0, /*Verbose=*/true);
+  }
+  LLVM_DUMP_METHOD void dumpRPOT() const { printRPOT(dbgs()); };
+  LLVM_DUMP_METHOD void dumpRPOT(const VPLoopInfo *VPLI) const {
+    printRPOT(dbgs(), VPLI);
+  };
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  using TripCountTy = TripCountInfo::TripCountTy;
+  void setTripCountInfo(TripCountInfo TCInfo);
+  TripCountInfo getTripCountInfo();
+  void setKnownTripCount(TripCountTy TripCount) {
+    setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
+  }
 };
+class VPLoopInfo : public LoopInfoBase<VPBlockBase, VPLoop> {
+  using Base = LoopInfoBase<VPBlockBase, VPLoop>;
 
-/// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
-/// Hierarchical CFG. It is a specialization of LoopInfoBase class.
-typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
-
+  // Remove interface from public. We prohibit VPLoop's recalculating because
+  // they are used as keys in multiple maps. That is needed because we want to
+  // decouple CFG from the VPlan, so loop-specific VPlan data needs some map
+  // key. VPloop seems to be the best candidate so far.
+  using Base::releaseMemory;
+public:
+  void analyze(const DomTreeBase<VPBlockBase> &DomTree);
+};
 } // namespace vpo
 
 template <> struct GraphTraits<vpo::VPLoop *> {

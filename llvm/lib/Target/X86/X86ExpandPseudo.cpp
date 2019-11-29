@@ -41,11 +41,11 @@ public:
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
-  const X86Subtarget *STI;
-  const X86InstrInfo *TII;
-  const X86RegisterInfo *TRI;
-  const X86MachineFunctionInfo *X86FI;
-  const X86FrameLowering *X86FL;
+  const X86Subtarget *STI = nullptr;
+  const X86InstrInfo *TII = nullptr;
+  const X86RegisterInfo *TRI = nullptr;
+  const X86MachineFunctionInfo *X86FI = nullptr;
+  const X86FrameLowering *X86FL = nullptr;
 
   bool runOnMachineFunction(MachineFunction &Fn) override;
 
@@ -275,7 +275,7 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
 
     MachineInstr &NewMI = *std::prev(MBBI);
     NewMI.copyImplicitOps(*MBBI->getParent()->getParent(), *MBBI);
-    MBB.getParent()->updateCallSiteInfo(&*MBBI, &NewMI);
+    MBB.getParent()->moveCallSiteInfo(&*MBBI, &NewMI);
 
     // Delete the pseudo instruction TCRETURN.
     MBB.erase(MBBI);
@@ -374,6 +374,32 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
   case TargetOpcode::ICALL_BRANCH_FUNNEL:
     ExpandICallBranchFunnel(&MBB, MBBI);
     return true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+  case X86::TILE16MOVEPseudo: {
+    MachineInstrBuilder MIB = BuildMI(MBB, MBBI, DL, TII->get(X86::TILE16MOVE));
+
+    // Transfer the destination register operand.
+    MIB.add(MI.getOperand(0));
+
+    bool SrcIsKill = MI.getOperand(1).isKill();
+    Register SrcReg = MI.getOperand(1).getReg();
+
+    // Get the first zmm register.
+    Register SrcReg0 = TRI->getSubReg(SrcReg, X86::sub_z0);
+    MIB.addReg(SrcReg0);
+
+    // Add an implicit kill and use for the super-reg.
+    MIB.addReg(SrcReg, RegState::Implicit | getKillRegState(SrcIsKill));
+
+    MIB.copyImplicitOps(*MBBI);
+
+    // Delete the pseudo.
+    MBBI->eraseFromParent();
+    return true;
+  }
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Previous switch has a fallthrough?");
 }

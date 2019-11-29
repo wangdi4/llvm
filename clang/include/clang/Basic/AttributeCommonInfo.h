@@ -82,11 +82,11 @@ protected:
 
 public:
   AttributeCommonInfo(SourceRange AttrRange)
-      : AttrRange(AttrRange), AttrKind(0), SyntaxUsed(0),
+      : AttrRange(AttrRange), ScopeLoc(), AttrKind(0), SyntaxUsed(0),
         SpellingIndex(SpellingNotCalculated) {}
 
   AttributeCommonInfo(SourceLocation AttrLoc)
-      : AttrRange(AttrLoc), AttrKind(0), SyntaxUsed(0),
+      : AttrRange(AttrLoc), ScopeLoc(), AttrKind(0), SyntaxUsed(0),
         SpellingIndex(SpellingNotCalculated) {}
 
   AttributeCommonInfo(const IdentifierInfo *AttrName,
@@ -154,6 +154,13 @@ public:
 
   bool isCXX11Attribute() const {
     return SyntaxUsed == AS_CXX11 || isAlignasAttribute();
+  }
+
+  bool isAllowedOnLambdas() const {
+    // FIXME: Eventually we want to do a list here populated via tablegen.  But
+    // we want C++ attributes to be permissible on Lambdas, and get propagated
+    // to the call operator declaration.
+    return getParsedKind() == AT_SYCLIntelKernelArgsRestrict;
   }
 
   bool isC2xAttribute() const { return SyntaxUsed == AS_C2x; }

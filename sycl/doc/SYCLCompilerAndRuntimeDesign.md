@@ -102,16 +102,18 @@ pointers to the device memory. As there is no way in OpenCL to pass structures
 with pointers inside as kernel arguments all memory objects shared between host
 and device must be passed to the kernel as raw pointers.
 SYCL also has a special mechanism for passing kernel arguments from host to
-the device. In OpenCL you need to call `clSetKernelArg`, in SYCL all the
-kernel arguments are captures/fields of lambda/functor SYCL functions for
-invoking kernels (such as `parallel_for`). For example, in the previous code
-snippet above `accessor` `A` is one such captured kernel argument.
+the device. In OpenCL kernel arguments are set by calling `clSetKernelArg` function
+for each kernel argument, meanwhile in SYCL all the kernel arguments are fields of
+"SYCL kernel function" which can be defined as a lambda function or a named function
+object and passed as an argument to SYCL function for invoking kernels (such as
+`parallel_for` or `single_task`). For example, in the previous code snippet above
+`accessor` `A` is one such captured kernel argument.
 
-To facilitate the mapping of the captures/fields of lambdas/functors to OpenCL
-kernel and overcome OpenCL limitations we added the generation of an OpenCL
+To facilitate the mapping of SYCL kernel data members to OpenCL
+kernel arguments and overcome OpenCL limitations we added the generation of an OpenCL
 kernel function inside the compiler. An OpenCL kernel function contains the
-body of the SYCL kernel function, receives OpenCL like parameters and
-additionally does some manipulation to initialize captured lambda/functor fields
+body of the SYCL kernel function, receives OpenCL-like parameters and
+additionally does some manipulation to initialize SYCL kernel data members
 with these parameters. In some pseudo code the OpenCL kernel function for the
 previous code snippet above looks like this:
 
@@ -217,17 +219,14 @@ and understands mnemonics designating a particular code form, for example
 architecture).  User can specify desired code format using the target-specific
 option mechanism, similar to OpenMP.
 
-`-Xsycl-target=<triple> <arg>`
+`-Xsycl-target-backend=<triple> "arg1 arg2 ..."`
 
-For example, to support offload to CPU, FPGA, Gen9/vISA3.3, Gen9/SPIR-V the
-following options would be used:
+For example, to support offload to Gen9/vISA3.3, the following options would be used:
 
-`-fsycl -fsycl-targets=x86,fpga,gen9 -Xsycl-target=gen9 "-fmt:visa -fmt:spirv"`
+`-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xsycl-target-backend "-device skl"`
 
-The `<arg>` parameter is passed by the driver directly to the SYCL device
-compiler for the corresponding target w/o parsing it. For each target there is
-some default code form which is generated in the absence of overriding via the
-`-Xsycl-target` option.
+The driver passes the `-device skl` parameter directly to the Gen device backend compiler
+without parsing it.
 
 **TBD:** Having multiple code forms for the same target in the fat binary might
 mean invoking device compiler multiple times. Multiple invocations are not

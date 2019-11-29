@@ -20,6 +20,8 @@ namespace cl {
 namespace sycl {
 namespace detail {
 
+class Command;
+
 // The class describes a requirement to access a SYCL memory object such as
 // sycl::buffer and sycl::image. For example, each accessor used in a kernel,
 // except one with access target "local", adds such requirement for the command
@@ -63,20 +65,21 @@ class AccessorImplHost {
 public:
   AccessorImplHost(id<3> Offset, range<3> AccessRange, range<3> MemoryRange,
                    access::mode AccessMode, detail::SYCLMemObjI *SYCLMemObject,
-                   int Dims, int ElemSize)
+                   int Dims, int ElemSize, int OffsetInBytes = 0,
+                   bool IsSubBuffer = false)
       : MOffset(Offset), MAccessRange(AccessRange), MMemoryRange(MemoryRange),
         MAccessMode(AccessMode), MSYCLMemObj(SYCLMemObject), MDims(Dims),
-        MElemSize(ElemSize) {}
+        MElemSize(ElemSize), MOffsetInBytes(OffsetInBytes),
+        MIsSubBuffer(IsSubBuffer) {}
 
-  ~AccessorImplHost() {
-    if (BlockingEvent)
-      BlockingEvent->setComplete();
-  }
+  ~AccessorImplHost();
+
   AccessorImplHost(const AccessorImplHost &Other)
       : MOffset(Other.MOffset), MAccessRange(Other.MAccessRange),
         MMemoryRange(Other.MMemoryRange), MAccessMode(Other.MAccessMode),
         MSYCLMemObj(Other.MSYCLMemObj), MDims(Other.MDims),
-        MElemSize(Other.MElemSize) {}
+        MElemSize(Other.MElemSize), MOffsetInBytes(Other.MOffsetInBytes),
+        MIsSubBuffer(Other.MIsSubBuffer) {}
 
   id<3> MOffset;
   // The size of accessing region.
@@ -89,12 +92,12 @@ public:
 
   unsigned int MDims;
   unsigned int MElemSize;
+  unsigned int MOffsetInBytes;
+  bool MIsSubBuffer;
 
   void *MData = nullptr;
 
-  EventImplPtr BlockingEvent;
-
-  bool MUsedFromSourceKernel = false;
+  Command *MBlockedCmd = nullptr;
 };
 
 using AccessorImplPtr = std::shared_ptr<AccessorImplHost>;
@@ -103,10 +106,11 @@ class AccessorBaseHost {
 public:
   AccessorBaseHost(id<3> Offset, range<3> AccessRange, range<3> MemoryRange,
                    access::mode AccessMode, detail::SYCLMemObjI *SYCLMemObject,
-                   int Dims, int ElemSize) {
-    impl = std::make_shared<AccessorImplHost>(Offset, AccessRange, MemoryRange,
-                                              AccessMode, SYCLMemObject,
-                                              Dims, ElemSize);
+                   int Dims, int ElemSize, int OffsetInBytes = 0,
+                   bool IsSubBuffer = false) {
+    impl = std::make_shared<AccessorImplHost>(
+        Offset, AccessRange, MemoryRange, AccessMode, SYCLMemObject, Dims,
+        ElemSize, OffsetInBytes, IsSubBuffer);
   }
 
 protected:
@@ -137,6 +141,23 @@ public:
   int MDims;
   int MElemSize;
   std::vector<char> MMem;
+
+  bool PerWI = false;
+  size_t LocalMemSize;
+  size_t MaxWGSize;
+  void resize(size_t LocalSize, size_t GlobalSize) {
+    if (GlobalSize != 1 && LocalSize != 1) {
+      // If local size is not specified then work group size is chosen by
+      // runtime. That is why try to allocate based on max work group size or
+      // global size. In the worst case allocate 80% of local memory.
+      size_t MinEstWGSize = LocalSize ? LocalSize : GlobalSize;
+      MinEstWGSize = MinEstWGSize > MaxWGSize ? MaxWGSize : MinEstWGSize;
+      size_t NewSize = MinEstWGSize * MSize[0];
+      MSize[0] =
+          NewSize > 8 * LocalMemSize / 10 ? 8 * LocalMemSize / 10 : NewSize;
+      MMem.resize(NewSize * MElemSize);
+    }
+  }
 };
 
 class LocalAccessorBaseHost {

@@ -27,6 +27,7 @@
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/DDG.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/DominanceFrontier.h"
@@ -57,6 +58,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/PreISelIntrinsicLowering.h"
 #include "llvm/CodeGen/UnreachableBlockElim.h"
 #include "llvm/IR/Dominators.h"
@@ -64,6 +66,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/SafepointIRVerifier.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Regex.h"
@@ -88,14 +91,18 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -161,6 +168,7 @@
 #include "llvm/Transforms/Scalar/LoopUnrollAndJamPass.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
+#include "llvm/Transforms/Scalar/LowerConstantIntrinsics.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerGuardIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerWidenableCondition.h"
@@ -187,6 +195,7 @@
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
+#include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LCSSA.h"
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
@@ -205,6 +214,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 // Intel Loop Optimization framework
 // Framework passes
@@ -226,6 +236,7 @@
 
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTranspose.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoa.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
@@ -244,6 +255,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStride.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"
@@ -259,6 +271,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
@@ -273,6 +286,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
@@ -280,6 +294,7 @@
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #endif //INTEL_CUSTOMIZATION
 using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
@@ -334,6 +349,11 @@ static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
 
+// IPO Prefetch
+static cl::opt<bool> EnableIPOPrefetch(
+    "enable-npm-ipo-prefetch", cl::init(true), cl::Hidden,
+    cl::desc("Enable IPO Prefetch"));
+
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
     cl::init(true), cl::Hidden,
@@ -350,7 +370,7 @@ static cl::opt<bool> EnableWPA("enable-npm-whole-program-analysis",
   cl::desc("Enable Whole Program analysis in the new pass manager"));
 #endif // INTEL_CUSTOMIZATION
 
-static Regex DefaultAliasRegex(
+static const Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
 
 // This option is used in simplifying testing SampleFDO optimizations for
@@ -558,21 +578,25 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
 
   // Hoisting of scalars and load expressions.
-  if (EnableGVNHoist)
-    FPM.addPass(GVNHoistPass());
+  if (Level > O1) {
+    if (EnableGVNHoist)
+      FPM.addPass(GVNHoistPass());
 
-  // Global value numbering based sinking.
-  if (EnableGVNSink) {
-    FPM.addPass(GVNSinkPass());
-    FPM.addPass(SimplifyCFGPass());
+    // Global value numbering based sinking.
+    if (EnableGVNSink) {
+      FPM.addPass(GVNSinkPass());
+      FPM.addPass(SimplifyCFGPass());
+    }
   }
 
   // Speculative execution if the target has divergent branches; otherwise nop.
-  FPM.addPass(SpeculativeExecutionPass());
+  if (Level > O1) {
+    FPM.addPass(SpeculativeExecutionPass());
 
-  // Optimize based on known information about branches, and cleanup afterward.
-  FPM.addPass(JumpThreadingPass());
-  FPM.addPass(CorrelatedValuePropagationPass());
+    // Optimize based on known information about branches, and cleanup afterward.
+    FPM.addPass(JumpThreadingPass());
+    FPM.addPass(CorrelatedValuePropagationPass());
+  }
   FPM.addPass(SimplifyCFGPass());
   if (Level == O3)
     FPM.addPass(AggressiveInstCombinePass());
@@ -597,7 +621,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // For PGO use pipeline, try to optimize memory intrinsics such as memcpy
   // using the size value profile. Don't perform this when optimizing for size.
   if (PGOOpt && PGOOpt->Action == PGOOptions::IRUse &&
-      !isOptimizingForSize(Level))
+      !isOptimizingForSize(Level) && Level > O1)
     FPM.addPass(PGOMemOPSizeOpt());
 
 #if INTEL_CUSTOMIZATION
@@ -606,8 +630,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 #else
   bool SkipRecProgression = false;
 #endif // INTEL_INCLUDE_DTRANS
-  FPM.addPass(TailCallElimPass(SkipRecProgression));
-                                              // Eliminate tail calls
+  // TODO: Investigate the cost/benefit of tail call elimination on debugging.
+  if (Level > O1)
+    FPM.addPass(TailCallElimPass(SkipRecProgression));
 #endif // INTEL_CUSTOMIZATION
   FPM.addPass(SimplifyCFGPass());
 
@@ -635,6 +660,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Rotate Loop - disable header duplication at -Oz
   LPM1.addPass(LoopRotatePass(Level != Oz));
+  // TODO: Investigate promotion cap for O1.
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
   LPM1.addPass(SimpleLoopUnswitchPass());
   LPM2.addPass(IndVarSimplifyPass());
@@ -650,8 +676,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   if ((Phase != ThinLTOPhase::PreLink || !PGOOpt ||
        PGOOpt->Action != PGOOptions::SampleUse) &&
       PTO.LoopUnrolling)
-    LPM2.addPass(
-        LoopFullUnrollPass(Level, false, PTO.ForgetAllSCEVInLoopUnroll));
+    LPM2.addPass(LoopFullUnrollPass(Level, /*OnlyWhenForced=*/false,
+                                    PTO.ForgetAllSCEVInLoopUnroll));
 
   for (auto &C : LoopOptimizerEndEPCallbacks)
     C(LPM2, Level);
@@ -672,6 +698,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // *All* loop passes must preserve it, in order to be able to use it.
   FPM.addPass(createFunctionToLoopPassAdaptor(
       std::move(LPM2), /*UseMemorySSA=*/false, DebugLogging));
+
+  // Delete small array after loop unroll.
+  FPM.addPass(SROA());
 
   // Eliminate redundancies.
   if (Level != O1) {
@@ -719,18 +748,21 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Re-consider control flow based optimizations after redundancy elimination,
   // redo DCE, etc.
-  FPM.addPass(JumpThreadingPass());
-  FPM.addPass(CorrelatedValuePropagationPass());
-  FPM.addPass(DSEPass());
-  FPM.addPass(createFunctionToLoopPassAdaptor(
-      LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),
-      EnableMSSALoopDependency, DebugLogging));
+  if (Level > O1) {
+    FPM.addPass(JumpThreadingPass());
+    FPM.addPass(CorrelatedValuePropagationPass());
+    FPM.addPass(DSEPass());
+    FPM.addPass(createFunctionToLoopPassAdaptor(
+        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),
+        EnableMSSALoopDependency, DebugLogging));
+  }
 
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
 
   // Finally, do an expensive DCE pass to catch all the dead code exposed by
   // the simplifications and basic cleanup after all the simplifications.
+  // TODO: Investigate if this is too expensive.
   FPM.addPass(ADCEPass());
   FPM.addPass(SimplifyCFGPass());
 #if INTEL_CUSTOMIZATION
@@ -1140,6 +1172,8 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
 
   FunctionPassManager OptimizePM(DebugLogging);
   OptimizePM.addPass(Float2IntPass());
+  OptimizePM.addPass(LowerConstantIntrinsicsPass());
+
   // FIXME: We need to run some loop optimizations to re-rotate loops after
   // simplify-cfg and others undo their rotation.
 
@@ -1213,13 +1247,13 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // combiner for cleanup here so that the unrolling and LICM can be pipelined
   // across the loop nests.
   // We do UnrollAndJam in a separate LPM to ensure it happens before unroll
-  if (EnableUnrollAndJam) {
+  if (EnableUnrollAndJam && PTO.LoopUnrolling) {
     OptimizePM.addPass(
         createFunctionToLoopPassAdaptor(LoopUnrollAndJamPass(Level)));
   }
-  if (PTO.LoopUnrolling)
-    OptimizePM.addPass(LoopUnrollPass(
-        LoopUnrollOptions(Level, false, PTO.ForgetAllSCEVInLoopUnroll)));
+  OptimizePM.addPass(LoopUnrollPass(
+      LoopUnrollOptions(Level, /*OnlyWhenForced=*/!PTO.LoopUnrolling,
+                        PTO.ForgetAllSCEVInLoopUnroll)));
   OptimizePM.addPass(WarnMissedTransformationsPass());
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(
@@ -1422,6 +1456,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
       // Set the optimization level
       MPM.addPass(XmainOptLevelAnalysisInit(Level));
       MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+      MPM.addPass(IntelFoldWPIntrinsicPass());
     }
 #endif // INTEL_CUSTOMIZATION
     // The WPD and LowerTypeTest passes need to run at -O0 to lower type
@@ -1457,6 +1492,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
   if (EnableWPA) {
     MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+    MPM.addPass(IntelFoldWPIntrinsicPass());
     // If whole-program-assume is enabled then we are going to call
     // the internalization pass.
     if (AssumeWholeProgram) {
@@ -1650,6 +1686,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    MPM.addPass(IntelArgumentAlignmentPass());
+    MPM.addPass(QsortRecognizerPass());
+  }
+
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
 #else
   bool EnableIntelPartialInlining = false;
@@ -1699,6 +1740,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+  // IPO-based prefetch
+  if (EnableIPOPrefetch)
+    MPM.addPass(IntelIPOPrefetchPass());
+
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
                                    false /*EnableSpecialCases*/));
@@ -1924,7 +1969,7 @@ auto parsePassParameters(ParametersParseCallableT &&Parser, StringRef Name,
   Expected<ParametersT> Result = Parser(Params);
   assert((Result || Result.template errorIsA<StringError>()) &&
          "Pass parameter parser can only return StringErrors.");
-  return std::move(Result);
+  return Result;
 }
 
 /// Parser of parameters for LoopUnroll pass.
@@ -1941,6 +1986,15 @@ Expected<LoopUnrollOptions> parseLoopUnrollOptions(StringRef Params) {
                        .Default(-1);
     if (OptLevel >= 0) {
       UnrollOpts.setOptLevel(OptLevel);
+      continue;
+    }
+    if (ParamName.consume_front("full-unroll-max=")) {
+      int Count;
+      if (ParamName.getAsInteger(0, Count))
+        return make_error<StringError>(
+            formatv("invalid LoopUnrollPass parameter '{0}' ", ParamName).str(),
+            inconvertibleErrorCode());
+      UnrollOpts.setFullUnrollMaxCount(Count);
       continue;
     }
 
