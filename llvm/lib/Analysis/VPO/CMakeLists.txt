@@ -9,7 +9,7 @@
 #    Configures build for project.
 #
 
-add_llvm_library(LLVMVPOAnalysis
+add_llvm_component_library(LLVMVPOAnalysis
   VPOAnalysis.cpp
   Utils/GeneralUtils.cpp
   # Utils/IntrinsicUtils.cpp             # Moved to lib/Analysis/CMakeLists.txt

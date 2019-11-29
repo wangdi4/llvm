@@ -898,6 +898,7 @@ parseImplementationSelector(Parser &P, SourceLocation Loc,
   case OMP_CTX_arch:
   case OMP_CTX_target_variant_dispatch:
 #endif // INTEL_COLLAB
+  case OMP_CTX_kind:
   case OMP_CTX_unknown:
     P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
         << "implementation";
@@ -976,17 +977,10 @@ parseConstructSelector(Parser &P, SourceLocation Loc,
       P.ConsumeToken();
   }
 }
+#endif // INTEL_COLLAB
 
-/// Parse context selector for 'device' selector set.
-///
-/// The 5.0 spec allows:
-///
-///   kind(kind-name-list)
-///   isa(isa-name-list)
-///   arch(arch-name-list)
-///
-/// We currently support only 'arch'.
-///
+/// Parse context selector for 'device' selector set:
+/// 'kind' '(' <kind> { ',' <kind> } ')'
 static void
 parseDeviceSelector(Parser &P, SourceLocation Loc,
                     llvm::StringMap<SourceLocation> &UsedCtx,
@@ -1016,6 +1010,49 @@ parseDeviceSelector(Parser &P, SourceLocation Loc,
   OpenMPContextSelectorKind CSKind = getOpenMPContextSelector(CtxSelectorName);
   (void)P.ConsumeToken();
   switch (CSKind) {
+  case OMP_CTX_kind: {
+    // Parse '('.
+    BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
+    (void)T.expectAndConsume(diag::err_expected_lparen_after,
+                             CtxSelectorName.data());
+    llvm::UniqueVector<Sema::OMPCtxStringType> Kinds;
+    do {
+      // Parse <kind>.
+      StringRef KindName;
+      if (Tok.is(tok::identifier)) {
+        Buffer.clear();
+        KindName = P.getPreprocessor().getSpelling(P.getCurToken(), Buffer);
+        SourceLocation SLoc = P.getCurToken().getLocation();
+        (void)P.ConsumeToken();
+        if (llvm::StringSwitch<bool>(KindName)
+                .Case("host", false)
+                .Case("nohost", false)
+                .Case("cpu", false)
+                .Case("gpu", false)
+                .Case("fpga", false)
+                .Default(true)) {
+          P.Diag(SLoc, diag::err_omp_wrong_device_kind_trait) << KindName;
+        } else {
+          Kinds.insert(KindName);
+        }
+      } else {
+        P.Diag(Tok.getLocation(), diag::err_omp_declare_variant_item_expected)
+            << "'host', 'nohost', 'cpu', 'gpu', or 'fpga'"
+            << "kind"
+            << "device";
+      }
+      if (!P.TryConsumeToken(tok::comma) && Tok.isNot(tok::r_paren)) {
+        P.Diag(Tok, diag::err_expected_punc)
+            << (KindName.empty() ? "kind of device" : KindName);
+      }
+    } while (Tok.is(tok::identifier));
+    // Parse ')'.
+    (void)T.consumeClose();
+    if (!Kinds.empty())
+      Data.emplace_back(OMP_CTX_SET_device, CSKind, ExprResult(), Kinds);
+    break;
+  }
+#if INTEL_COLLAB
   case OMP_CTX_arch: {
     // Parse '('.
     BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
@@ -1051,8 +1088,9 @@ parseDeviceSelector(Parser &P, SourceLocation Loc,
       Data.emplace_back(OMP_CTX_SET_device, CSKind, Score, ArchNames);
     break;
   }
-  case OMP_CTX_vendor:
   case OMP_CTX_target_variant_dispatch:
+#endif // INTEL_COLLAB
+  case OMP_CTX_vendor:
   case OMP_CTX_unknown:
     P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
         << "device";
@@ -1063,7 +1101,6 @@ parseDeviceSelector(Parser &P, SourceLocation Loc,
     return;
   }
 }
-#endif // INTEL_COLLAB
 
 /// Parses clauses for 'declare variant' directive.
 /// clause:
@@ -1119,10 +1156,10 @@ bool Parser::parseOpenMPContextSelectors(
         case OMP_CTX_SET_construct:
           parseConstructSelector(*this, Loc, UsedCtx, Data);
           break;
+#endif // INTEL_COLLAB
         case OMP_CTX_SET_device:
           parseDeviceSelector(*this, Loc, UsedCtx, Data);
           break;
-#endif // INTEL_COLLAB
         case OMP_CTX_SET_unknown:
           // Skip until either '}', ')', or end of directive.
           while (!SkipUntil(tok::r_brace, tok::r_paren,

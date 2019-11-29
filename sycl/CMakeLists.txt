@@ -239,6 +239,7 @@ add_custom_target( sycl-toolchain
           llvm-as
           llvm-ar
           llvm-dis
+          llvm-foreach
           llvm-no-spir-kernel
           llvm-spirv
           llvm-link
@@ -270,6 +271,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      llvm-as
      llvm-ar
      llvm-dis
+     llvm-foreach
      llvm-no-spir-kernel
      llvm-spirv
      llvm-link

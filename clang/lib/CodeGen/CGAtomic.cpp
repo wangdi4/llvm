@@ -488,13 +488,36 @@ static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
   CGF.Builder.SetInsertPoint(ContBB);
 }
 
+/// Duplicate the atomic min/max operation in conventional IR for the builtin
+/// variants that return the new rather than the original value.
+static llvm::Value *EmitPostAtomicMinMax(CGBuilderTy &Builder,
+                                         AtomicExpr::AtomicOp Op,
+                                         bool IsSigned,
+                                         llvm::Value *OldVal,
+                                         llvm::Value *RHS) {
+  llvm::CmpInst::Predicate Pred;
+  switch (Op) {
+  default:
+    llvm_unreachable("Unexpected min/max operation");
+  case AtomicExpr::AO__atomic_max_fetch:
+    Pred = IsSigned ? llvm::CmpInst::ICMP_SGT : llvm::CmpInst::ICMP_UGT;
+    break;
+  case AtomicExpr::AO__atomic_min_fetch:
+    Pred = IsSigned ? llvm::CmpInst::ICMP_SLT : llvm::CmpInst::ICMP_ULT;
+    break;
+  }
+  llvm::Value *Cmp = Builder.CreateICmp(Pred, OldVal, RHS, "tst");
+  return Builder.CreateSelect(Cmp, OldVal, RHS, "newval");
+}
+
 static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
                          Address Ptr, Address Val1, Address Val2,
                          llvm::Value *IsWeak, llvm::Value *FailureOrder,
                          uint64_t Size, llvm::AtomicOrdering Order,
                          llvm::SyncScope::ID Scope) {
   llvm::AtomicRMWInst::BinOp Op = llvm::AtomicRMWInst::Add;
-  llvm::Instruction::BinaryOps PostOp = (llvm::Instruction::BinaryOps)0;
+  bool PostOpMinMax = false;
+  unsigned PostOp = 0;
 
   switch (E->getOp()) {
 #if INTEL_CUSTOMIZATION
@@ -729,12 +752,20 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     Op = llvm::AtomicRMWInst::Sub;
     break;
 
+  case AtomicExpr::AO__atomic_min_fetch:
+    PostOpMinMax = true;
+    LLVM_FALLTHROUGH;
+  case AtomicExpr::AO__c11_atomic_fetch_min:
   case AtomicExpr::AO__opencl_atomic_fetch_min:
   case AtomicExpr::AO__atomic_fetch_min:
     Op = E->getValueType()->isSignedIntegerType() ? llvm::AtomicRMWInst::Min
                                                   : llvm::AtomicRMWInst::UMin;
     break;
 
+  case AtomicExpr::AO__atomic_max_fetch:
+    PostOpMinMax = true;
+    LLVM_FALLTHROUGH;
+  case AtomicExpr::AO__c11_atomic_fetch_max:
   case AtomicExpr::AO__opencl_atomic_fetch_max:
   case AtomicExpr::AO__atomic_fetch_max:
     Op = E->getValueType()->isSignedIntegerType() ? llvm::AtomicRMWInst::Max
@@ -784,10 +815,15 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   // For __atomic_*_fetch operations, perform the operation again to
   // determine the value which was written.
   llvm::Value *Result = RMWI;
-  if (PostOp)
-    Result = CGF.Builder.CreateBinOp(PostOp, RMWI, LoadVal1);
+  if (PostOpMinMax)
+    Result = EmitPostAtomicMinMax(CGF.Builder, E->getOp(),
+                                  E->getValueType()->isSignedIntegerType(),
+                                  RMWI, LoadVal1);
+  else if (PostOp)
+    Result = CGF.Builder.CreateBinOp((llvm::Instruction::BinaryOps)PostOp, RMWI,
+                                     LoadVal1);
   if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch || // INTEL
-      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit    || // INTEL  
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit    || // INTEL
       E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_1  || // INTEL
       E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_2  || // INTEL
       E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_4  || // INTEL
@@ -1112,6 +1148,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__c11_atomic_fetch_and:
   case AtomicExpr::AO__c11_atomic_fetch_or:
   case AtomicExpr::AO__c11_atomic_fetch_xor:
+  case AtomicExpr::AO__c11_atomic_fetch_max:
+  case AtomicExpr::AO__c11_atomic_fetch_min:
   case AtomicExpr::AO__opencl_atomic_fetch_and:
   case AtomicExpr::AO__opencl_atomic_fetch_or:
   case AtomicExpr::AO__opencl_atomic_fetch_xor:
@@ -1125,8 +1163,10 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__atomic_or_fetch:
   case AtomicExpr::AO__atomic_xor_fetch:
   case AtomicExpr::AO__atomic_nand_fetch:
-  case AtomicExpr::AO__atomic_fetch_min:
+  case AtomicExpr::AO__atomic_max_fetch:
+  case AtomicExpr::AO__atomic_min_fetch:
   case AtomicExpr::AO__atomic_fetch_max:
+  case AtomicExpr::AO__atomic_fetch_min:
     Val1 = EmitValToTemp(*this, E->getVal1());
     break;
   }
@@ -1249,14 +1289,18 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__opencl_atomic_fetch_min:
     case AtomicExpr::AO__opencl_atomic_fetch_max:
     case AtomicExpr::AO__atomic_fetch_xor:
+    case AtomicExpr::AO__c11_atomic_fetch_max:
+    case AtomicExpr::AO__c11_atomic_fetch_min:
     case AtomicExpr::AO__atomic_add_fetch:
     case AtomicExpr::AO__atomic_and_fetch:
     case AtomicExpr::AO__atomic_nand_fetch:
     case AtomicExpr::AO__atomic_or_fetch:
     case AtomicExpr::AO__atomic_sub_fetch:
     case AtomicExpr::AO__atomic_xor_fetch:
-    case AtomicExpr::AO__atomic_fetch_min:
     case AtomicExpr::AO__atomic_fetch_max:
+    case AtomicExpr::AO__atomic_fetch_min:
+    case AtomicExpr::AO__atomic_max_fetch:
+    case AtomicExpr::AO__atomic_min_fetch:
       // For these, only library calls for certain sizes exist.
       UseOptimizedLibcall = true;
       break;
@@ -1356,6 +1400,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     QualType RetTy;
     bool HaveRetTy = false;
     llvm::Instruction::BinaryOps PostOp = (llvm::Instruction::BinaryOps)0;
+    bool PostOpMinMax = false;
     switch (E->getOp()) {
     case AtomicExpr::AO__c11_atomic_init:
     case AtomicExpr::AO__opencl_atomic_init:
@@ -1595,6 +1640,10 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
                         MemTy, E->getExprLoc(), sizeChars);
       break;
+    case AtomicExpr::AO__atomic_min_fetch:
+      PostOpMinMax = true;
+      LLVM_FALLTHROUGH;
+    case AtomicExpr::AO__c11_atomic_fetch_min:
     case AtomicExpr::AO__atomic_fetch_min:
     case AtomicExpr::AO__opencl_atomic_fetch_min:
       LibCallName = E->getValueType()->isSignedIntegerType()
@@ -1603,6 +1652,10 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
                         LoweredMemTy, E->getExprLoc(), sizeChars);
       break;
+    case AtomicExpr::AO__atomic_max_fetch:
+      PostOpMinMax = true;
+      LLVM_FALLTHROUGH;
+    case AtomicExpr::AO__c11_atomic_fetch_max:
     case AtomicExpr::AO__atomic_fetch_max:
     case AtomicExpr::AO__opencl_atomic_fetch_max:
       LibCallName = E->getValueType()->isSignedIntegerType()
@@ -1670,7 +1723,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // PostOp is only needed for the atomic_*_fetch operations, and
     // thus is only needed for and implemented in the
     // UseOptimizedLibcall codepath.
-    assert(UseOptimizedLibcall || !PostOp);
+    assert(UseOptimizedLibcall || (!PostOp && !PostOpMinMax));
 
     RValue Res = emitAtomicLibcall(*this, LibCallName, RetTy, Args);
     // The value is returned directly from the libcall.
@@ -1681,7 +1734,12 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // provided an out-param.
     if (UseOptimizedLibcall && Res.getScalarVal()) {
       llvm::Value *ResVal = Res.getScalarVal();
-      if (PostOp) {
+      if (PostOpMinMax) {
+        llvm::Value *LoadVal1 = Args[1].getRValue(*this).getScalarVal();
+        ResVal = EmitPostAtomicMinMax(Builder, E->getOp(),
+                                      E->getValueType()->isSignedIntegerType(),
+                                      ResVal, LoadVal1);
+      } else if (PostOp) {
         llvm::Value *LoadVal1 = Args[1].getRValue(*this).getScalarVal();
         ResVal = Builder.CreateBinOp(PostOp, ResVal, LoadVal1);
       }

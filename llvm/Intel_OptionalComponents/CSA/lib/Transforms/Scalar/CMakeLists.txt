@@ -11,7 +11,7 @@
 #    Configures build for project.
 #
 
-add_llvm_library(LLVMIntel_CSAScalarOpt
+add_llvm_component_library(LLVMIntel_CSAScalarOpt
   Scalar.cpp
   LoopSPMDization.cpp
   CSALowerParallelIntrinsics.cpp

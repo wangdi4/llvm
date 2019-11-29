@@ -25,13 +25,13 @@ namespace detail {
 
 // Specialization for parent device
 template <>
-device get_device_info<device, info::device::parent_device>::_(
-  RT::PiDevice dev) {
+device
+get_device_info<device, info::device::parent_device>::get(RT::PiDevice dev) {
 
   typename sycl_to_pi<device>::type result;
-  PI_CALL(RT::piDeviceGetInfo,
-    dev, pi::cast<RT::PiDeviceInfo>(info::device::parent_device),
-    sizeof(result), &result, nullptr);
+  PI_CALL(piDeviceGetInfo)(
+      dev, pi::cast<RT::PiDeviceInfo>(info::device::parent_device),
+      sizeof(result), &result, nullptr);
   if (result == nullptr)
     throw invalid_object_error(
         "No parent for device because it is not a subdevice");

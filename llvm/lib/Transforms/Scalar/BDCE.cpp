@@ -103,7 +103,7 @@ static bool bitTrackingDCE(Function &F, DemandedBits &DB) {
         (I.getType()->isIntOrIntVectorTy() &&
          DB.getDemandedBits(&I).isNullValue() &&
          wouldInstructionBeTriviallyDead(&I))) {
-      salvageDebugInfo(I);
+      salvageDebugInfoOrMarkUndef(I);
       Worklist.push_back(&I);
       I.dropAllReferences();
       Changed = true;

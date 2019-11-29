@@ -1,5 +1,5 @@
 // UNSUPPORTED: intel_opencl
-// RUN: %clang %s -S -emit-llvm --sycl -o - | FileCheck %s
+// RUN: %clang %s -S -emit-llvm -fsycl-device-only -o - | FileCheck %s
 
 #include "CL/sycl.hpp"
 

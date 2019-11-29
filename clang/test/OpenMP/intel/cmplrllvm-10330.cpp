@@ -48,6 +48,6 @@ int main()
 
 //Check-HOST: define dso_local i32 @main() #0 {
 
-//Check-TARG: define dso_local i32 @main() #0 {
+//Check-TARG: define hidden i32 @main() #0 {
 
 

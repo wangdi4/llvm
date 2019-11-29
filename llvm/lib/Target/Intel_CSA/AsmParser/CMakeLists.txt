@@ -7,6 +7,6 @@
 #    from the company.
 #
 
-add_llvm_library(LLVMCSAAsmParser
+add_llvm_component_library(LLVMCSAAsmParser
   CSAAsmParser.cpp
 )

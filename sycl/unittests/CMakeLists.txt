@@ -10,3 +10,4 @@ function(add_llvm_unittest_with_input_files test_dirname)
 endfunction()
 
 add_subdirectory(pi)
+add_subdirectory(misc)

@@ -530,6 +530,7 @@ set(mips64el_SOURCES ${GENERIC_TF_SOURCES}
 
 set(powerpc64_SOURCES
   ppc/divtc3.c
+  ppc/fixtfti.c
   ppc/fixtfdi.c
   ppc/fixunstfti.c
   ppc/fixunstfdi.c

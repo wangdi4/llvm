@@ -2518,8 +2518,8 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
     for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
-    if (isa<FPMathOperator>(PN))
-      Builder.setFastMathFlags(PN->getFastMathFlags());
+      if (isa<FPMathOperator>(PN))
+        Builder.setFastMathFlags(PN->getFastMathFlags());
 
       Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
       Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
