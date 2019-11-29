@@ -6192,6 +6192,11 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
     if ((getLangOpts().OpenCLCPlusPlus || getLangOpts().OpenCLVersion >= 200) &&
         Var->hasGlobalStorage())
       ImplAS = LangAS::opencl_global;
+#if INTEL_CUSTOMIZATION
+    if (Context.getBaseElementType(Type)->isChannelType())
+      ImplAS = LangAS::opencl_global;
+#endif // INTEL_CUSTOMIZATION
+
     Type = Context.getAddrSpaceQualType(Type, ImplAS);
     Decl->setType(Type);
   }
@@ -6568,7 +6573,92 @@ static bool diagnoseOpenCLTypes(Scope *S, Sema &Se, Declarator &D,
     return false;
   }
 
-<<<<<<< HEAD
+  // OpenCL v1.2 s6.9.r:
+  // The event type cannot be used to declare a program scope variable.
+  // OpenCL v2.0 s6.9.q:
+  // The clk_event_t and reserve_id_t types cannot be declared in program
+  // scope.
+  if (NULL == S->getParent()) {
+    if (R->isReserveIDT() || R->isClkEventT() || R->isEventT()) {
+      Se.Diag(D.getIdentifierLoc(),
+              diag::err_invalid_type_for_program_scope_var)
+          << R;
+      D.setInvalidType();
+      return false;
+    }
+  }
+
+  // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
+  QualType NR = R;
+  while (NR->isPointerType()) {
+    if (NR->isFunctionPointerType()) {
+      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_function_pointer);
+      D.setInvalidType();
+      return false;
+    }
+    NR = NR->getPointeeType();
+  }
+
+  if (!Se.getOpenCLOptions().isEnabled("cl_khr_fp16")) {
+    // OpenCL v1.2 s6.1.1.1: reject declaring variables of the half and
+    // half array type (unless the cl_khr_fp16 extension is enabled).
+    if (Se.Context.getBaseElementType(R)->isHalfType()) {
+      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_half_declaration) << R;
+      D.setInvalidType();
+      return false;
+    }
+  }
+
+  // OpenCL v1.2 s6.9.r:
+  // The event type cannot be used with the __local, __constant and __global
+  // address space qualifiers.
+  if (R->isEventT()) {
+    if (R.getAddressSpace() != LangAS::opencl_private) {
+      Se.Diag(D.getBeginLoc(), diag::err_event_t_addr_space_qual);
+      D.setInvalidType();
+      return false;
+    }
+  }
+
+  // C++ for OpenCL does not allow the thread_local storage qualifier.
+  // OpenCL C does not support thread_local either, and
+  // also reject all other thread storage class specifiers.
+  DeclSpec::TSCS TSC = D.getDeclSpec().getThreadStorageClassSpec();
+  if (TSC != TSCS_unspecified) {
+    bool IsCXX = Se.getLangOpts().OpenCLCPlusPlus;
+    Se.Diag(D.getDeclSpec().getThreadStorageClassSpecLoc(),
+            diag::err_opencl_unknown_type_specifier)
+        << IsCXX << Se.getLangOpts().getOpenCLVersionTuple().getAsString()
+        << DeclSpec::getSpecifierName(TSC) << 1;
+    D.setInvalidType();
+    return false;
+  }
+
+  if (R->isSamplerT()) {
+    // OpenCL v1.2 s6.9.b p4:
+    // The sampler type cannot be used with the __local and __global address
+    // space qualifiers.
+    if (R.getAddressSpace() == LangAS::opencl_local ||
+        R.getAddressSpace() == LangAS::opencl_global) {
+      Se.Diag(D.getIdentifierLoc(), diag::err_wrong_sampler_addressspace);
+      D.setInvalidType();
+    }
+
+    // OpenCL v1.2 s6.12.14.1:
+    // A global sampler must be declared with either the constant address
+    // space qualifier or with the const qualifier.
+    if (DC->isTranslationUnit() &&
+        !(R.getAddressSpace() == LangAS::opencl_constant ||
+          R.isConstQualified())) {
+      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_nonconst_global_sampler);
+      D.setInvalidType();
+    }
+    if (D.isInvalidType())
+      return false;
+  }
+  return true;
+}
+
 #if INTEL_CUSTOMIZATION
 static FunctionDecl *createOCLBuiltinDecl(ASTContext &Context, DeclContext *DC,
                                           StringRef Name, QualType RetTy,
@@ -6662,102 +6752,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     bool &AddToScope, ArrayRef<BindingDecl *> Bindings) {
   QualType R = TInfo->getType();
   DeclarationName Name = GetNameForDeclarator(D).getName();
-=======
-  // OpenCL v1.2 s6.9.r:
-  // The event type cannot be used to declare a program scope variable.
-  // OpenCL v2.0 s6.9.q:
-  // The clk_event_t and reserve_id_t types cannot be declared in program
-  // scope.
-  if (NULL == S->getParent()) {
-    if (R->isReserveIDT() || R->isClkEventT() || R->isEventT()) {
-      Se.Diag(D.getIdentifierLoc(),
-              diag::err_invalid_type_for_program_scope_var)
-          << R;
-      D.setInvalidType();
-      return false;
-    }
-  }
->>>>>>> d9267b1612763d2ba589aefb61e1c23fbd965fa3
 
-  // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
-  QualType NR = R;
-  while (NR->isPointerType()) {
-    if (NR->isFunctionPointerType()) {
-      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_function_pointer);
-      D.setInvalidType();
-      return false;
-    }
-    NR = NR->getPointeeType();
-  }
-
-  if (!Se.getOpenCLOptions().isEnabled("cl_khr_fp16")) {
-    // OpenCL v1.2 s6.1.1.1: reject declaring variables of the half and
-    // half array type (unless the cl_khr_fp16 extension is enabled).
-    if (Se.Context.getBaseElementType(R)->isHalfType()) {
-      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_half_declaration) << R;
-      D.setInvalidType();
-      return false;
-    }
-  }
-
-  // OpenCL v1.2 s6.9.r:
-  // The event type cannot be used with the __local, __constant and __global
-  // address space qualifiers.
-  if (R->isEventT()) {
-    if (R.getAddressSpace() != LangAS::opencl_private) {
-      Se.Diag(D.getBeginLoc(), diag::err_event_t_addr_space_qual);
-      D.setInvalidType();
-      return false;
-    }
-  }
-
-  // C++ for OpenCL does not allow the thread_local storage qualifier.
-  // OpenCL C does not support thread_local either, and
-  // also reject all other thread storage class specifiers.
-  DeclSpec::TSCS TSC = D.getDeclSpec().getThreadStorageClassSpec();
-  if (TSC != TSCS_unspecified) {
-    bool IsCXX = Se.getLangOpts().OpenCLCPlusPlus;
-    Se.Diag(D.getDeclSpec().getThreadStorageClassSpecLoc(),
-            diag::err_opencl_unknown_type_specifier)
-        << IsCXX << Se.getLangOpts().getOpenCLVersionTuple().getAsString()
-        << DeclSpec::getSpecifierName(TSC) << 1;
-    D.setInvalidType();
-    return false;
-  }
-
-  if (R->isSamplerT()) {
-    // OpenCL v1.2 s6.9.b p4:
-    // The sampler type cannot be used with the __local and __global address
-    // space qualifiers.
-    if (R.getAddressSpace() == LangAS::opencl_local ||
-        R.getAddressSpace() == LangAS::opencl_global) {
-      Se.Diag(D.getIdentifierLoc(), diag::err_wrong_sampler_addressspace);
-      D.setInvalidType();
-    }
-
-    // OpenCL v1.2 s6.12.14.1:
-    // A global sampler must be declared with either the constant address
-    // space qualifier or with the const qualifier.
-    if (DC->isTranslationUnit() &&
-        !(R.getAddressSpace() == LangAS::opencl_constant ||
-          R.isConstQualified())) {
-      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_nonconst_global_sampler);
-      D.setInvalidType();
-    }
-    if (D.isInvalidType())
-      return false;
-  }
-  return true;
-}
-
-NamedDecl *Sema::ActOnVariableDeclarator(
-    Scope *S, Declarator &D, DeclContext *DC, TypeSourceInfo *TInfo,
-    LookupResult &Previous, MultiTemplateParamsArg TemplateParamLists,
-    bool &AddToScope, ArrayRef<BindingDecl *> Bindings) {
-  QualType R = TInfo->getType();
-  DeclarationName Name = GetNameForDeclarator(D).getName();
-
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Intel OpenCL FPGA channels
     if (Context.getBaseElementType(R)->isChannelType()) {
@@ -6771,18 +6766,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     }
 #endif // INTEL_CUSTOMIZATION
 
-    // OpenCL v1.2 s6.9.r:
-    // The event type cannot be used with the __local, __constant and __global
-    // address space qualifiers.
-    if (R->isEventT()) {
-      if (R.getAddressSpace() != LangAS::opencl_private) {
-        Diag(D.getBeginLoc(), diag::err_event_t_addr_space_qual);
-        D.setInvalidType();
-      }
-    }
-=======
   IdentifierInfo *II = Name.getAsIdentifierInfo();
->>>>>>> d9267b1612763d2ba589aefb61e1c23fbd965fa3
 
   if (D.isDecompositionDeclarator()) {
     // Take the name of the first declarator as our name for diagnostic
@@ -7843,7 +7827,13 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
         NewVD->hasExternalStorage()) {
 #if INTEL_CUSTOMIZATION
       bool IsChannel = Context.getBaseElementType(T)->isChannelType();
+      bool IsPipe = Context.getBaseElementType(T)->isPipeType();
       if (!T->isSamplerT() && !IsChannel &&
+          // Pipes (used in program scope) have a better diagnostic
+          // elsewhere. This diagnostic is misleading, since address space
+          // cannot be set for a pipe anyway.
+          !(IsPipe &&
+            Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) &&
 #endif // INTEL_CUSTOMIZATION
           !(T.getAddressSpace() == LangAS::opencl_constant ||
             (T.getAddressSpace() == LangAS::opencl_global &&
