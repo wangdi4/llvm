@@ -166,12 +166,45 @@ cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
   return CL_SUCCESS;
 }
 
-cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
-                                         unsigned int   uiProgramBinarySize,
-                                         const char*    szOptions,
-                                         OUT char**     ppBinary,
-                                         OUT size_t*    puiBinarySize,
-                                         OUT char**     pszCompileLog) const
+void FrontEndCompiler::GetSpecConstInfo(
+    const char* szProgramBinary, size_t uiProgramSize,
+    std::vector<SpecConstInfoTy>& SpecConstInfo) const
+{
+    FESPIRVProgramDescriptor spirvDesc;
+    spirvDesc.pSPIRVContainer = szProgramBinary;
+    spirvDesc.uiSPIRVContainerSize = uiProgramSize;
+    spirvDesc.pszOptions = nullptr;
+    spirvDesc.uiSpecConstCount = 0;
+    spirvDesc.puiSpecConstIds = nullptr;
+    spirvDesc.puiSpecConstValues = nullptr;
+
+    IOCLFESpecConstInfo* pSpecConstInfo = nullptr;
+
+    LOG_DEBUG(TEXT("Enter FrontEndCompiler::GetSpecConstInfo("
+                   "szProgramBinary=%d, uiProgramSize=%d)"),
+        szProgramBinary, uiProgramSize);
+    m_pFECompiler->GetSpecConstInfo(&spirvDesc, &pSpecConstInfo);
+    // Free resourses
+    if (pSpecConstInfo)
+    {
+        for(size_t i = 0, e = pSpecConstInfo->getSpecConstCount(); i < e; ++i)
+        {
+            SpecConstInfo.emplace_back(pSpecConstInfo->getSpecConstId(i),
+                                       pSpecConstInfo->getSpecConstSize(i));
+        }
+        pSpecConstInfo->release();
+    }
+}
+
+cl_err_code FrontEndCompiler::ParseSpirv(const char*     szProgramBinary,
+                                         unsigned int    uiProgramBinarySize,
+                                         const char*     szOptions,
+                                         size_t          uiSpecConstCount,
+                                         const uint32_t* puiSpecConstIds,
+                                         const uint64_t* puiSpecConstValues,
+                                         OUT char**      ppBinary,
+                                         OUT size_t*     puiBinarySize,
+                                         OUT char**      pszCompileLog) const
 {
     LOG_DEBUG(TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
         szProgramBinary, uiProgramBinarySize, szOptions, ppBinary, puiBinarySize, pszCompileLog);
@@ -187,6 +220,9 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
     spirvDesc.pSPIRVContainer = szProgramBinary;
     spirvDesc.uiSPIRVContainerSize = uiProgramBinarySize;
     spirvDesc.pszOptions = szOptions;
+    spirvDesc.uiSpecConstCount = uiSpecConstCount;
+    spirvDesc.puiSpecConstIds = puiSpecConstIds;
+    spirvDesc.puiSpecConstValues = puiSpecConstValues;
 
     err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);
 
