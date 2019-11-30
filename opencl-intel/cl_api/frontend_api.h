@@ -15,6 +15,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 #include <CL/cl.h>
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
@@ -36,6 +37,14 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         virtual void Release() = 0;
     protected:
         virtual ~IOCLFEKernelArgInfo() {}
+    };
+    struct IOCLFESpecConstInfo {
+        virtual size_t getSpecConstCount() const = 0;
+        virtual cl_uint getSpecConstId(size_t index) const = 0;
+        virtual cl_uint getSpecConstSize(size_t index) const = 0;
+        virtual void Release() = 0;
+      protected:
+        virtual ~IOCLFESpecConstInfo() {}
     };
 }}}
 
@@ -90,6 +99,12 @@ struct FESPIRVProgramDescriptor
     size_t          uiSPIRVContainerSize;
     // A string for compile options
     const char*     pszOptions;
+    // Number of elements in puiSpecConstIds and puiSpecConstValues arrays
+    size_t          uiSpecConstCount;
+    // Array of specialization constant ids provided via clSetProgramSpecializationConstant API
+    const uint32_t* puiSpecConstIds;
+    // Array of specialization constant values provided via clSetProgramSpecializationConstant API
+    const uint64_t* puiSpecConstValues;
 };
 
 struct FESPIRProgramDescriptor
@@ -159,6 +174,11 @@ public:
     virtual bool CheckLinkOptions(const char*  szOptions,
                                      char*        szUnrecognizedOptions,
                                      size_t       uiUnrecognizedOptionsSize) = 0;
+
+    // Input: pProgDesc - descriptor of the program created with SPIRV
+    // Output: pSpecConstInfo - Interface to specialization constants information foung in the input.
+    virtual void GetSpecConstInfo(FESPIRVProgramDescriptor* pProgDesc,
+                                 IOCLFESpecConstInfo** pSpecConstInfo) = 0;
 
     // release compiler instance
     virtual void Release() = 0;

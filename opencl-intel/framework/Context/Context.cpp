@@ -489,6 +489,17 @@ cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t 
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// ContextModule::clSetProgramSpecializationConstant
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::SetSpecializationConstant(SharedPtr<Program> pProgram,
+                                               cl_uint uiSpecId,
+                                               size_t szSpecSize,
+                                               const void* pSpecValue)
+{
+    return m_programService.SetSpecializationConstant(pProgram, uiSpecId, szSpecSize, pSpecValue);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateProgramWithSource
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, SharedPtr<Program>* ppProgram)
