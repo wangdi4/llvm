@@ -27,7 +27,12 @@ device device_selector::select_device() const {
   if (res != nullptr)
     return *res;
 
-  throw cl::sycl::runtime_error("No device of requested type available.");
+#ifdef INTEL_CUSTOMIZATION
+  throw cl::sycl::runtime_error(
+      "No device of requested type available. Please check "
+      "https://software.intel.com/en-us/articles/"
+      "intel-oneapi-dpcpp-compiler-system-requirements-beta");
+#endif // INTEL_CUSTOMIZATION
 }
 
 int default_selector::operator()(const device &dev) const {

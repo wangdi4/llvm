@@ -393,6 +393,7 @@ void WRNTargetUpdateNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
   setDevice(nullptr);
+  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetVariantNode<" << getNumber()
                     << ">\n");
@@ -403,6 +404,7 @@ void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                       unsigned Verbosity) const {
   unsigned Indent = 2 * Depth;
   vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
+  vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
 }
 
 //

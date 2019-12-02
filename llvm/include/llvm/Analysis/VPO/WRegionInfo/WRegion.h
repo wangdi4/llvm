@@ -781,16 +781,19 @@ class WRNTargetVariantNode : public WRegionNode {
 private:
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
+  bool Nowait;
 
 public:
   WRNTargetVariantNode(BasicBlock *BB);
 
 protected:
   void setDevice(EXPR E) { Device = E; }
+  void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const { return Device; }
+  bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
