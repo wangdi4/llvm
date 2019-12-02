@@ -583,6 +583,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// for -g flag
     static bool getDebugFlagFromMetadata(Module *M);
 
+    /// getOptimizationFlagFromMetadata - check opencl.compiler.options
+    /// for -cl-opt-disable flag
+    static bool getOptDisableFlagFromMetadata(Module *M);
+
     /// generatedFromOCLCPP - check that IR was generated from OCL C++
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);
