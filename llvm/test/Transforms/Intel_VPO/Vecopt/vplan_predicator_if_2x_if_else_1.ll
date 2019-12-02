@@ -5,7 +5,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define void @test_nested_if_else(i32* noalias nocapture %a) local_unnamed_addr #0 {
+define void @test_2_hammocks_3(i32* noalias nocapture %a) local_unnamed_addr #0 {
 ; CHECK-LABEL:  After predication and linearization
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
@@ -24,7 +24,6 @@ define void @test_nested_if_else(i32* noalias nocapture %a) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDUCTION_PHI]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_LOOP_HEADER_LD:%.*]] = load i32* [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_HEADER_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 0
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_HEADER_VARYING_NOT:%.*]] = not i1 [[VP_LOOP_HEADER_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
@@ -34,92 +33,100 @@ define void @test_nested_if_else(i32* noalias nocapture %a) local_unnamed_addr #
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB2_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 2
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB2_VARYING_NOT:%.*]] = not i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 1
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB5_BR_VP_BB2_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING_NOT]] i1 [[VP_BB2_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB5_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING_NOT]] i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_BB2_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB6_MUL:%.*]] = mul i32 [[VP_LOOP_HEADER_LD]] i32 6
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_BB2_VARYING]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB5_SUB:%.*]] = sub i32 [[VP_LOOP_HEADER_LD]] i32 5
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB2_MUL:%.*]] = mul i32 [[VP_LOOP_HEADER_LD]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 1
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 4
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_VARYING_NOT:%.*]] = not i1 [[VP_BB4_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 4
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB16_BR_VP_BB4_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB4_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB16_BR_VP_BB4_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB4_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB3_MUL:%.*]] = mul i32 [[VP_LOOP_HEADER_LD]] i32 3
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB16_BR_VP_BB4_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB6_MUL:%.*]] = mul i32 [[VP_LOOP_HEADER_LD]] i32 6
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]] (BP: NULL) :
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB16_BR_VP_BB4_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB5_SUB:%.*]] = sub i32 [[VP_LOOP_HEADER_LD]] i32 5
+; CHECK-NEXT:    SUCCESSORS(1):[[BB14:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB14]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION]] = add i64 [[VP_INDUCTION_PHI]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDUCTION]] i64 1000
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB13]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i64 [[VP_INDUCTION]] i64 1000
-; CHECK-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB14]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP8:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB15:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     Condition([[BB14]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i64 [[VP_INDUCTION]] i64 1000
+; CHECK-NEXT:    SUCCESSORS(2):[[BB15:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]] (BP: NULL) :
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP9:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB16:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB16]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB15]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
-;          entry
-;            |
-; +----->loop.header
-; |       /    \
-; |     bb1    bb2
-; |     / \    / \
-; |   bb3 bb4 bb5 bb6
-; |     \   \  /  /
-; +------loop.latch
-;            |
-;        loop.exit
-;            |
+;            entry
+;              |
+;   +----->loop.header
+;   |        /   \
+;   |       bb1   \
+;   |      /   \   \
+;   |     bb2  bb3  +
+;   |      \   /    |
+;   |       bb4     |
+;   |      /   \    |
+;   |     bb5  bb6  |
+;   |      \   /    |
+;   +------loop.latch
+;              |
+;          loop.exit
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %loop.header
 
@@ -127,34 +134,34 @@ loop.header:                                         ; preds = %loop.latch, %ent
   %induction.phi = phi i64 [ 0, %entry ], [ %induction, %loop.latch ]
   %gep = getelementptr inbounds i32, i32* %a, i64 %induction.phi
   %loop.header.ld = load i32, i32* %gep, align 4
-  %loop.header.varying = icmp eq i32 %loop.header.ld, 0
-  br i1 %loop.header.varying, label %bb1, label %bb2
+  %loop.header.varying = icmp sgt i32 %loop.header.ld, 0
+  br i1 %loop.header.varying, label %bb1, label %loop.latch
 
 bb1:                                          ; preds = %loop.header
   %bb1.varying = icmp sgt i32 %loop.header.ld, 1
-  br i1 %bb1.varying, label %bb3, label %bb4
+  br i1 %bb1.varying, label %bb2, label %bb3
 
-bb3:                                         ; preds = %bb1
-  %bb3.mul = mul nsw i32 %loop.header.ld, 3
-  br label %loop.latch
+bb2:                                         ; preds = %if.then
+  %bb2.mul = mul nsw i32 %loop.header.ld, 2
+  br label %bb4
 
-bb4:                                          ; preds = %bb1
-  %bb4.add = add nsw i32 %loop.header.ld, 4
-  br label %loop.latch
+bb3:                                          ; preds = %if.then
+  %bb3.add = add nsw i32 %loop.header.ld, 3
+  br label %bb4
 
-bb2:                                        ; preds = %loop.header
-  %bb2.varying = icmp sgt i32 %loop.header.ld, 2
-  br i1 %bb2.varying, label %bb5, label %bb6
+bb4:                                           ; preds = %bb2, %bb3
+  %bb4.varying = icmp sgt i32 %loop.header.ld, 4
+  br i1 %bb4.varying, label %bb5, label %bb6
 
-bb5:                                        ; preds = %bb2
+bb5:                                        ; preds = %bb4
   %bb5.sub = sub nsw i32 %loop.header.ld, 5
   br label %loop.latch
 
-bb6:                                        ; preds = %bb2
+bb6:                                        ; preds = %bb4
   %bb6.mul = mul nsw i32 %loop.header.ld, 6
   br label %loop.latch
 
-loop.latch:                                          ; preds = %bb4, %bb3, %bb6, %bb5
+loop.latch:                                          ; preds = %loop.header, %bb6, %bb5
   %induction = add nuw nsw i64 %induction.phi, 1
   %exitcond = icmp eq i64 %induction, 1000
   br i1 %exitcond, label %loop.exit, label %loop.header

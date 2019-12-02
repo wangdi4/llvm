@@ -19,7 +19,6 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
-#include "IntelVPlanPredicator.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"

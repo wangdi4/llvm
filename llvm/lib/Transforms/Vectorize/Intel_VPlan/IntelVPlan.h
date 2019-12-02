@@ -2468,9 +2468,6 @@ private:
   /// dominator tree.
   unsigned Size;
 
-  /// Holds whether the control flow within the region is divergent or uniform.
-  bool IsDivergent;
-
   /// Traverse all the region VPBasicBlocks to recompute Size
   void recomputeSize();
 #endif
@@ -2489,7 +2486,7 @@ public:
   /// identification.
   VPRegionBlock(const unsigned char SC, const std::string &Name)
       : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
-        IsDivergent(true), RegionDT(nullptr), RegionPDT(nullptr) {}
+        RegionDT(nullptr), RegionPDT(nullptr) {}
 
   ~VPRegionBlock();
 
@@ -2532,10 +2529,6 @@ public:
   unsigned getSize() const { return Size; }
 
   void setSize(unsigned Sz) { Size = Sz; }
-
-  bool isDivergent() const { return IsDivergent; }
-
-  void setDivergent(bool IsDiv) { IsDivergent = IsDiv; }
 
   // TODO: This is weird. For some reason, DominatorTreeBase is using
   // A->getParent()->front() instead of using GraphTraints::getEntry. We may

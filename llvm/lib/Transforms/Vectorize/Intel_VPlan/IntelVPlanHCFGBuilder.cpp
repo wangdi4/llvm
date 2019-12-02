@@ -56,11 +56,6 @@ static cl::opt<bool> VPlanPrintAfterLoopMassaging(
     "vplan-print-after-loop-massaging", cl::init(false),
     cl::desc("Print plain dump after loop massaging"));
 
-static cl::opt<bool> DisableUniformRegions(
-    "disable-uniform-regions", cl::init(false), cl::Hidden,
-    cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
-             "set as divergent."));
-
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
     DisableVPlanDA("disable-vplan-da", cl::init(false), cl::Hidden,
@@ -1388,7 +1383,6 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
   WorkList.push_back(ParentRegion->getEntry());
 
   unsigned ParentSize = 0;
-  bool ParentIsDivergent = false;
 
   while (!WorkList.empty()) {
 
@@ -1461,9 +1455,6 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
       // Set Current's parent
       Current->setParent(ParentRegion);
 
-      // Check if Current causes parent region to be divergent.
-      ParentIsDivergent |= isDivergentBlock(Current);
-
       // No new region has been detected. Add Current's successors.
       for (auto Succ : Current->getSuccessors()) {
         LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
@@ -1474,7 +1465,6 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
   }
 
   ParentRegion->setSize(ParentSize);
-  ParentRegion->setDivergent(ParentIsDivergent);
 
   LLVM_DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName()
                     << "\n");
@@ -1751,33 +1741,6 @@ bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(
   }
 
   return true;
-}
-
-// TODO
-// Return true if \p Block is a VPBasicBlock that contains a successor selector
-// (CondBit) that is not uniform. If Block is a VPRegionBlock,
-// it returns false since a region can only have a single successor (by now).
-bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
-  if (DisableUniformRegions)
-    return true;
-
-  if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
-    unsigned NumSuccs = Block->getNumSuccessors();
-    if (NumSuccs < 2) {
-      assert(!VPBB->getCondBit() && "Unexpected condition bit instruction");
-      return false;
-    } else {
-      // Multiple successors. Checking uniformity of Condition Bit Instruction.
-      VPValue *CBV = VPBB->getCondBit();
-      assert(CBV && "Expected condition bit value.");
-
-      return Plan->getVPlanDA()->isDivergent(*CBV);
-    }
-  }
-
-  // Regions doesn't change parent region divergence.
-  assert(Block->getSinglePredecessor() && "Region with multiple successors");
-  return false;
 }
 
 class PrivatesListCvt;

@@ -89,7 +89,9 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
-;         BB0 (U)<--+
+;       for.body<---+
+;          |        |
+;         BB0 (U)   |
 ;       /     \     |
 ;     BB1 (D)  |    |
 ;    /   \    /     |
@@ -259,7 +261,9 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
-;           BB0 (U) <-----+
+;         for.body<-------+
+;            |            |
+;           BB0 (U)       |
 ;          /    \         |
 ;         /      \        |
 ;      BB1 (D)   BB2 (D)  |
@@ -408,7 +412,9 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i32* %a, i32 %b) loca
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
-;         BB0 (U)<--+
+;       for.body<---+
+;          |        |
+;         BB0 (U)   |
 ;       /     \     |
 ;     BB1 (D)  |    |
 ;    /   \     |    |
@@ -581,7 +587,9 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
-;         BB0 (U) <----------+
+;       for.body<------------+
+;          |                 |
+;         BB0 (U)            |
 ;       /     \              |
 ;     BB1 (D)  BB4 (U)       |
 ;    /   \      /  \         |
@@ -666,7 +674,6 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_SKIP_LOOP:%.*]] = icmp i64 [[VP_OUTER_IV]] i64 [[MASK_OUT_INNER_LOOP0:%.*]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_SKIP_LOOP_NOT:%.*]] = not i1 [[VP_SKIP_LOOP]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
@@ -676,7 +683,7 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_SKIP_LOOP_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_SKIP_LOOP]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP216:%.*]] = icmp i64 [[N0:%.*]] i64 0
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP216_NOT_1:%.*]] = not i1 [[VP_CMP216]]
@@ -684,12 +691,12 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB5_BR_VP_CMP216_NOT:%.*]] = and i1 [[VP_SKIP_LOOP_NOT]] i1 [[VP_CMP216_NOT_1]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_CMP216_NOT:%.*]] = and i1 [[VP_SKIP_LOOP]] i1 [[VP_CMP216_NOT_1]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
@@ -697,17 +704,17 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INNER_IV_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 undef, [[BB7]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB9]] ],  [ i64 0, [[BB7]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB9]] [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB15_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB5_BR_VP_CMP216_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB15_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB4_BR_VP_CMP216_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
@@ -721,7 +728,7 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
@@ -731,14 +738,14 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     Condition([[BB13]]): [DA: Uniform]   i1 [[VP8]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP8]]), [[BB8]](!i1 [[VP8]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB14]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND]], [[BB9]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP10:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP10:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB15:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
@@ -767,48 +774,67 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
+;       entry
+;         |
+;        bb0
+;         |
+;  +->outer.loop.header
+;  |      |          |
+;  |     bb1------+  |
+;  |      |       |  |
+;  |     bb2      |  |
+;  |      |       |  |
+;  |  inner.loop  |  |
+;  |      |       |  |
+;  |     bb3      |  |
+;  |      |       |  |
+;  +--outer.loop.latch
+;         |
+;        bb4
+;         |
+;        exit
   %cmp18 = icmp sgt i64 %N, 0
-  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
+  br i1 %cmp18, label %bb0, label %exit
 
-for.cond1.preheader.preheader:
+bb0:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %for.cond1.preheader
+  br label %outer.loop.header
 
-for.cond1.preheader:
-  %outer.iv = phi i64 [ %outer.iv.next, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
+outer.loop.header:
+  %outer.iv = phi i64 [ %outer.iv.next, %outer.loop.latch ], [ 0, %bb0 ]
   %skip_loop = icmp eq i64 %outer.iv, %mask_out_inner_loop
-  br i1 %skip_loop, label %for.inc5, label %top_test
+  br i1 %skip_loop, label %bb1, label %outer.loop.latch
 
-top_test:
+bb1:
   %cmp216 = icmp eq i64 %N, 0
-  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
+  br i1 %cmp216, label %outer.loop.latch, label %bb2
 
-for.body3.preheader:
-  br label %for.body3
+bb2:
+  br label %inner.loop
 
-for.body3:
-  %inner.iv = phi i64 [ %inner.iv.next, %for.body3 ], [ 0, %for.body3.preheader ]
+inner.loop:
+  %inner.iv = phi i64 [ %inner.iv.next, %inner.loop ], [ 0, %bb2 ]
   %arrayidx = getelementptr inbounds i64, i64* %a, i64 %inner.iv
   %ld = load i64, i64* %arrayidx
   %some_cmp = icmp eq i64 %ld, 42
   %inner.iv.next = add nuw nsw i64 %inner.iv, 1
   %exitcond = icmp eq i64 %inner.iv.next, %outer.iv
-  br i1 %exitcond, label %for.inc5.loopexit, label %for.body3
+  br i1 %exitcond, label %bb3, label %inner.loop
 
-for.inc5.loopexit:
-  %phi_use = phi i64 [ %inner.iv, %for.body3 ]
-  br label %for.inc5
+bb3:
+  %phi_use = phi i64 [ %inner.iv, %inner.loop ]
+  br label %outer.loop.latch
 
-for.inc5:
+outer.loop.latch:
   %outer.iv.next = add nuw nsw i64 %outer.iv, 1
   %outer_exit_cond = icmp eq i64 %outer.iv.next, %N
-  br i1 %outer_exit_cond, label %for.end7.loopexit, label %for.cond1.preheader
+  br i1 %outer_exit_cond, label %bb4, label %outer.loop.header
 
-for.end7.loopexit:
+bb4:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
-  br label %for.end7
+  br label %exit
 
-for.end7:
+exit:
   ret void
 }
 
@@ -886,7 +912,9 @@ define void @test_single_succ_single_pred_edge(i32* %a, i32 %b) local_unnamed_ad
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
-;         BB0 (D)<--+
+;       for.body<---+
+;          |        |
+;         BB0 (D)   |
 ;       /    \      |
 ;     BB1    BB2    |
 ;      |      |     |
@@ -1071,7 +1099,9 @@ define void @test_use_dom_instead_of_direct_succ(i32* %a, i32 %b) local_unnamed_
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
-;            BB0 (D) <---------+
+;          for.body<-----------+
+;             |                |
+;            BB0 (D)           |
 ;          /    \              |
 ;        BB1 (D) \             |
 ;       /  \      BB6 (D)-+    |
@@ -1372,7 +1402,9 @@ entry:
 ; edges from BB2 are not causing crashes (we used to assert for a number of
 ; outgoing edges inside the linearized chain, but didn't limit it to the blocks
 ; for which at least once successor was processed).
-;         BB0 (D)<--+
+;       for.body<---+
+;          |        |
+;         BB0 (D)   |
 ;       /     \     |
 ;     BB1     BB2   |
 ;      \     / |    |
