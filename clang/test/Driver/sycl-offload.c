@@ -621,16 +621,10 @@
 // FOFFLOAD_STATIC_LIB_SRC: 11: compiler, {3}, ir, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 12: backend, {11}, assembler, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 13: assembler, {12}, object, (device-sycl)
-<<<<<<< HEAD
-// FOFFLOAD_STATIC_LIB_SRC: 14: linker, {13, 9}, spirv, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 15: clang-offload-wrapper, {14}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {10}, "device-sycl (spir64-unknown-unknown-sycldevice)" {15}, image
-=======
 // FOFFLOAD_STATIC_LIB_SRC: 14: linker, {13, 9}, ir, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 15: llvm-spirv, {14}, spirv, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 16: clang-offload-wrapper, {15}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 17: offload, "host-sycl (x86_64-unknown-linux-gnu)" {10}, "device-sycl (spir64-unknown-unknown-sycldevice)" {16}, image
->>>>>>> a339d4cf48200ea879a8740478201cfbeb704fca
+// FOFFLOAD_STATIC_LIB_SRC: 17: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {10}, "device-sycl (spir64-unknown-unknown-sycldevice)" {16}, image
 
 /// ###########################################################################
 

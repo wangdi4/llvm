@@ -6940,7 +6940,6 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-kind=") + Twine(Kind)));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // When debugging, make the native debugger the default for SYCL on Windows.
     if (getToolChain().getTriple().isWindowsMSVCEnvironment() &&
@@ -6948,9 +6947,8 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       WrapperArgs.push_back("--build-opts=-gnative");
     }
 #endif // INTEL_CUSTOMIZATION
-=======
+
     ArgStringList ForeachArgs;
->>>>>>> a339d4cf48200ea879a8740478201cfbeb704fca
 
     for (const InputInfo &I : Inputs) {
       assert(I.isFilename() && "Invalid input.");
