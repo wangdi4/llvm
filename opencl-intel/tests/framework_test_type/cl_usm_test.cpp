@@ -182,7 +182,7 @@ TEST_F(USMTest, memAlloc) {
   }
 
   // Test wrong alignments
-  int alignments[] = { 7, sizeof(cl_double16) * 8 };
+  int alignments[] = {7, sizeof(cl_double16) * 8};
   for (int alignment : alignments) {
     void *buf = clDeviceMemAllocINTEL(m_context, m_device, nullptr, size,
                                       alignment, &err);
@@ -251,17 +251,28 @@ TEST_F(USMTest, enqueueMemset) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  int countFillErrors = 0;
+  int countErrors = 0;
   for (size_t i = 0; i < num / 2; i++)
     if (buffer[i] != (char)value2)
-      countFillErrors++;
+      countErrors++;
   for (size_t i = num / 2; i < num; i++)
     if (buffer[i] != (char)value1)
-      countFillErrors++;
-  ASSERT_EQ(countFillErrors, 0);
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
 
   err = clMemFreeINTEL(m_context, buffer);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+
+  // Memset host ptr
+  char *data = new char[size];
+  err = clEnqueueMemsetINTEL(m_queue, data, value1, size, 0, NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
+  countErrors = 0;
+  for (size_t i = 0; i < num; i++)
+    if (data[i] != (char)value1)
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
+  delete[] data;
 }
 
 TEST_F(USMTest, enqueueMemFill) {
@@ -290,17 +301,29 @@ TEST_F(USMTest, enqueueMemFill) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  int countFillErrors = 0;
+  int countErrors = 0;
   for (size_t i = 0; i < size1; i += pattern1_size)
     if (0 != strncmp(&buffer[i], pattern1, pattern1_size))
-      countFillErrors++;
+      countErrors++;
   for (size_t i = size1; i < size; i += pattern2_size)
     if (0 != strncmp(&buffer[i], pattern2, pattern2_size))
-      countFillErrors++;
-  ASSERT_EQ(countFillErrors, 0);
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
 
   err = clMemFreeINTEL(m_context, buffer);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+
+  // Fill host ptr
+  char *data = new char[size1];
+  err = clEnqueueMemFillINTEL(m_queue, data, pattern1, pattern1_size, size1, 0,
+                              NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+  countErrors = 0;
+  for (size_t i = 0; i < size1; i += pattern1_size)
+    if (0 != strncmp(&data[i], pattern1, pattern1_size))
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
+  delete[] data;
 }
 
 TEST_F(USMTest, enqueueMemcpy) {
