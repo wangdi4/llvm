@@ -21,6 +21,7 @@
 #include "ICLDevBackendProgram.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include <string>
 #include <memory>
@@ -146,10 +147,16 @@ public:
     virtual size_t GetGlobalVariableTotalSize() const;
 
     /**
-     * Sets the total amount of storage, in bytes, used by
-     * program variables in the global address space.
+     * Gets sizes of global variables
+     * @return a map from global variable name to its size in bytes
      */
-    void SetGlobalVariableTotalSize(size_t);
+    virtual const llvm::StringMap<size_t>& GetGlobalVariableSizes() const;
+
+    /**
+     * Set sizes of global variables
+     * @param sizes a map from global variable name to its size in bytes
+     */
+    void SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes);
 
     /**
      * Sets the Object Code Container (program will take ownership of the container)
@@ -214,7 +221,8 @@ protected:
     std::auto_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
     RuntimeServiceSharedPtr m_RuntimeService;
-    size_t            m_globalVariableTotalSize;
+    // Map from global variable name to its size in bytes
+    llvm::StringMap<size_t> m_globalVariableSizes;
 
 private:
     // Disable copy ctor and assignment operator

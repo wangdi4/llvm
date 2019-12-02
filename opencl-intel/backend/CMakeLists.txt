@@ -28,7 +28,7 @@ if (NOT OPENCL_INTREE_BUILD)
 endif()
 
 # Version of cached binary
-add_definitions(-DOCL_CACHED_BINARY_VERSION=4)
+add_definitions(-DOCL_CACHED_BINARY_VERSION=5)
 
 remove_definitions( -D_UNICODE -DUNICODE )
 

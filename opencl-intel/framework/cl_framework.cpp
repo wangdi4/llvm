@@ -3264,6 +3264,36 @@ SET_ALIAS(clGetDeviceFunctionPointerINTEL);
 REGISTER_EXTENSION_FUNCTION(clGetDeviceFunctionPointerINTEL,
     clGetDeviceFunctionPointerINTEL);
 
+cl_int CL_API_CALL clGetDeviceGlobalVariablePointerINTEL(cl_device_id device,
+    cl_program program, const char* gv_name, size_t* gv_size_ret,
+    void** gv_pointer_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetDeviceGlobalVariablePointerINTEL");
+        apiLogger << "cl_device_id device" << device
+                  << "cl_program program" << program
+                  << "const char* gv_name" << gv_name
+                  << "size_t* gv_size_ret" << gv_size_ret
+                  << "void** gv_pointer_ret" << gv_pointer_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("gv_pointer_ret", gv_pointer_ret, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            GetDeviceGlobalVariablePointer(device, program, gv_name,
+                                           gv_size_ret, gv_pointer_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            GetDeviceGlobalVariablePointer(device, program, gv_name,
+                                           gv_size_ret, gv_pointer_ret));
+    }
+}
+SET_ALIAS(clGetDeviceGlobalVariablePointerINTEL);
+
+REGISTER_EXTENSION_FUNCTION(clGetDeviceGlobalVariablePointerINTEL,
+    clGetDeviceGlobalVariablePointerINTEL);
+
 void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
                                       const cl_mem_properties_intel* properties,
                                       size_t size,

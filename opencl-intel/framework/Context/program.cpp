@@ -42,7 +42,12 @@ Program::Program(SharedPtr<Context> pContext) : OCLObject<_cl_program_int>(
 
 Program::~Program()
 {
-	assert (0 == m_pKernels.Count());
+    assert (0 == m_pKernels.Count());
+
+    // Release USM wrappers of device programs' global variable pointers whose
+    // life time is tied to the parent program.
+    // This has to be done before deallocation of device programs.
+    FreeUSMForGVPointers();
 }
 
 cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
@@ -71,6 +76,66 @@ cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(device);
     assert(pDeviceProgram && " pDeviceProgram is null");
     return pDeviceProgram->GetFunctionPointer(func_name, func_pointer_ret);
+}
+
+cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
+    const char *gv_name, size_t *gv_size_ret, void **gv_pointer_ret)
+{
+    DeviceProgram *deviceProgram = InternalGetDeviceProgram(device);
+    if (!deviceProgram)
+        return CL_INVALID_DEVICE;
+
+    // Program already built?
+    if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
+        return CL_INVALID_PROGRAM_EXECUTABLE;
+
+    const cl_prog_gv_map &gvs = deviceProgram->GetGlobalVariablePointers();
+    auto it = gvs.find(gv_name);
+    if (it == gvs.end())
+        return CL_INVALID_ARG_VALUE;
+    if (gv_size_ret)
+        *gv_size_ret = it->second.size;
+    *gv_pointer_ret = it->second.pointer;
+
+    return CL_SUCCESS;
+}
+
+cl_err_code Program::AllocUSMForGVPointers()
+{
+    for (cl_uint i = 0; i < m_szNumAssociatedDevices; ++i)
+    {
+        DeviceProgram* deviceProgram = m_ppDevicePrograms[i].get();
+        if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
+            continue;
+        const cl_prog_gv_map &gvs = deviceProgram->GetGlobalVariablePointers();
+        for (const auto &gv : gvs)
+        {
+            // Represent global variable pointer as USM device pointer
+            cl_int err = m_pContext->USMDeviceAllocGlobalVariable(
+                deviceProgram->GetDeviceId(), gv.second.size,
+                gv.second.pointer);
+            if (CL_FAILED(err))
+                return err;
+        }
+    }
+    return CL_SUCCESS;
+}
+
+void Program::FreeUSMForGVPointers()
+{
+    for (cl_uint i = 0; i < m_szNumAssociatedDevices; ++i)
+    {
+        DeviceProgram* deviceProgram = m_ppDevicePrograms[i].get();
+        if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
+            continue;
+        const cl_prog_gv_map &gvs = deviceProgram->GetGlobalVariablePointers();
+        for (const auto &gv : gvs)
+        {
+            cl_int err = m_pContext->USMFree(gv.second.pointer);
+            assert(CL_SUCCEEDED(err) &&
+                   "Failed to free USM for global variable pointer");
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

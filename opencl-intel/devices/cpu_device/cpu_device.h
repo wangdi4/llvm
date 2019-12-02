@@ -170,6 +170,10 @@ public:
     cl_dev_err_code clDevGetFunctionPointerFor(cl_dev_program IN prog,
         const char* IN func_name, cl_ulong* OUT func_pointer_ret) const;
 
+    // Retrieves sizes/pointers of all global variables in a built program
+    void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
+        cl_prog_gv_map OUT &gvPtrs) const;
+
     // NOTE: this function is not thread-safe by itself and caller is
     // responsible for performing synchronization
     void            clDevCloseDevice(void);

@@ -313,16 +313,7 @@ void    __attribute__((overloadable)) intel_sub_group_block_write8(__global usho
 #endif // cl_intel_subgroups_half
 #ifdef cl_intel_subgroups_short
 short    __attribute__((overloadable)) intel_sub_group_broadcast( short  x, uint sub_group_local_id );
-short2   __attribute__((overloadable)) intel_sub_group_broadcast( short2 x, uint sub_group_local_id );
-short3   __attribute__((overloadable)) intel_sub_group_broadcast( short3 x, uint sub_group_local_id );
-short4   __attribute__((overloadable)) intel_sub_group_broadcast( short4 x, uint sub_group_local_id );
-short8   __attribute__((overloadable)) intel_sub_group_broadcast( short8 x, uint sub_group_local_id );
-
 ushort   __attribute__((overloadable)) intel_sub_group_broadcast( ushort  x, uint sub_group_local_id );
-ushort2  __attribute__((overloadable)) intel_sub_group_broadcast( ushort2 x, uint sub_group_local_id );
-ushort3  __attribute__((overloadable)) intel_sub_group_broadcast( ushort3 x, uint sub_group_local_id );
-ushort4  __attribute__((overloadable)) intel_sub_group_broadcast( ushort4 x, uint sub_group_local_id );
-ushort8  __attribute__((overloadable)) intel_sub_group_broadcast( ushort8 x, uint sub_group_local_id );
 
 short    __attribute__((overloadable)) intel_sub_group_shuffle( short   x, uint c );
 short2   __attribute__((overloadable)) intel_sub_group_shuffle( short2  x, uint c );
@@ -434,18 +425,10 @@ void    __attribute__((overloadable)) intel_sub_group_block_write_us4( __global 
 void    __attribute__((overloadable)) intel_sub_group_block_write_us8( __global ushort* p, ushort8 data );
 
 #endif // cl_intel_subgroups_short
+
 #ifdef cl_intel_subgroups_char
 char    __attribute__((overloadable)) intel_sub_group_broadcast(char  x, uint sub_group_local_id);
-char2   __attribute__((overloadable)) intel_sub_group_broadcast(char2 x, uint sub_group_local_id);
-char3   __attribute__((overloadable)) intel_sub_group_broadcast(char3 x, uint sub_group_local_id);
-char4   __attribute__((overloadable)) intel_sub_group_broadcast(char4 x, uint sub_group_local_id);
-char8   __attribute__((overloadable)) intel_sub_group_broadcast(char8 x, uint sub_group_local_id);
-
 uchar   __attribute__((overloadable)) intel_sub_group_broadcast(uchar  x, uint sub_group_local_id);
-uchar2  __attribute__((overloadable)) intel_sub_group_broadcast(uchar2 x, uint sub_group_local_id);
-uchar3  __attribute__((overloadable)) intel_sub_group_broadcast(uchar3 x, uint sub_group_local_id);
-uchar4  __attribute__((overloadable)) intel_sub_group_broadcast(uchar4 x, uint sub_group_local_id);
-uchar8  __attribute__((overloadable)) intel_sub_group_broadcast(uchar8 x, uint sub_group_local_id);
 
 char    __attribute__((overloadable)) intel_sub_group_shuffle(char   x, uint c);
 char2   __attribute__((overloadable)) intel_sub_group_shuffle(char2  x, uint c);

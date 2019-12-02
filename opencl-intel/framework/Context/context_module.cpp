@@ -3028,6 +3028,21 @@ cl_int ContextModule::GetDeviceFunctionPointer(cl_device_id device,
     return error;
 }
 
+cl_int ContextModule::GetDeviceGlobalVariablePointer(cl_device_id device,
+    cl_program program, const char* gv_name, size_t* gv_size_ret,
+    void** gv_pointer_ret)
+{
+    if (nullptr == gv_name || nullptr == gv_pointer_ret)
+        return CL_INVALID_VALUE;
+
+    SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject(
+        (_cl_program_int*)program).DynamicCast<Program>();
+    if (nullptr == pProgram.GetPtr())
+        return CL_INVALID_PROGRAM;
+
+    return pProgram->GetDeviceGlobalVariablePointer(device, gv_name,
+        gv_size_ret, gv_pointer_ret);
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //

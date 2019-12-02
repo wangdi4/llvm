@@ -52,23 +52,33 @@ OclBuiltinImpl sub_group_any_fake = OclBuiltinImpl<sub_group_any, sub_group_type
 // broadcast
 
 OclBuiltinImpl sub_group_broadcast_fake = OclBuiltinImpl<sub_group_broadcast, sub_group_types_broadcast_scalar, 0, DummyReturn>;
+OclBuiltinImpl sub_group_broadcast_cs_fake = OclBuiltinImpl<sub_group_broadcast_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
 
 // reduce [add|min|max]
 
 OclBuiltinImpl sub_group_reduce_add_fake = OclBuiltinImpl<sub_group_reduce_add, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_reduce_min_fake = OclBuiltinImpl<sub_group_reduce_min, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_reduce_max_fake = OclBuiltinImpl<sub_group_reduce_max, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
+OclBuiltinImpl sub_group_reduce_add_cs_fake = OclBuiltinImpl<sub_group_reduce_add_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
+OclBuiltinImpl sub_group_reduce_min_cs_fake = OclBuiltinImpl<sub_group_reduce_min_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
+OclBuiltinImpl sub_group_reduce_max_cs_fake = OclBuiltinImpl<sub_group_reduce_max_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
 
 // exclusive [add|min|max]
 OclBuiltinImpl sub_group_scan_exclusive_add_fake = OclBuiltinImpl<sub_group_scan_exclusive_add, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_scan_exclusive_min_fake = OclBuiltinImpl<sub_group_scan_exclusive_min, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_scan_exclusive_max_fake = OclBuiltinImpl<sub_group_scan_exclusive_max, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
+OclBuiltinImpl sub_group_scan_exclusive_add_cs_fake = OclBuiltinImpl<sub_group_scan_exclusive_add_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
+OclBuiltinImpl sub_group_scan_exclusive_min_cs_fake = OclBuiltinImpl<sub_group_scan_exclusive_min_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
+OclBuiltinImpl sub_group_scan_exclusive_max_cs_fake = OclBuiltinImpl<sub_group_scan_exclusive_max_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
 
 // inclusive [add|min|max]
 
 OclBuiltinImpl sub_group_scan_inclusive_add_fake = OclBuiltinImpl<sub_group_scan_inclusive_add, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_scan_inclusive_min_fake = OclBuiltinImpl<sub_group_scan_inclusive_min, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_scan_inclusive_max_fake = OclBuiltinImpl<sub_group_scan_inclusive_max, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;
+OclBuiltinImpl sub_group_scan_inclusive_add_cs_fake = OclBuiltinImpl<sub_group_scan_inclusive_add_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
+OclBuiltinImpl sub_group_scan_inclusive_min_cs_fake = OclBuiltinImpl<sub_group_scan_inclusive_min_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
+OclBuiltinImpl sub_group_scan_inclusive_max_cs_fake = OclBuiltinImpl<sub_group_scan_inclusive_max_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
 
 //
 // Shuffles

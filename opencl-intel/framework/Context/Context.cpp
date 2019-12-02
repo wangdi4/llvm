@@ -1821,16 +1821,24 @@ cl_mem_alloc_flags_intel Context::ParseUSMAllocProperties(
 void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
                         cl_device_id device,
                         const cl_mem_properties_intel* properties,
-                        size_t size, unsigned int alignment,
-                        cl_int* errcode_ret)
+                        size_t size, void* userPtr, unsigned int alignment,
+                        cl_int* errcode)
 {
+    // Check if USM of userPtr exists
+    if (userPtr && m_usmBuffers.count(userPtr))
+    {
+        if (errcode)
+            *errcode = CL_SUCCESS;
+        return userPtr;
+    }
+
     cl_int err;
     cl_mem_alloc_flags_intel flags = ParseUSMAllocProperties(properties,
                                                              &err);
 #define USM_ALLOC_ERR_RET(err) \
         { \
-            if (errcode_ret) \
-                *errcode_ret = err; \
+            if (errcode) \
+                *errcode = err; \
             return nullptr; \
         }
     if (CL_SUCCESS != err)
@@ -1933,6 +1941,9 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     usmBuf->SetFlags(flags);
 
     flags |= CL_MEM_READ_WRITE;
+    if (nullptr != userPtr)
+        flags |= CL_MEM_USE_HOST_PTR;
+
     size_t forceAlignment = 0;
     if (0 != alignment)
     {
@@ -1943,49 +1954,67 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
 
     // these flags aren't needed anymore
     err = usmBuf->Initialize(flags & ~CL_MEM_ALLOC_WRITE_COMBINED_INTEL,
-        nullptr, 1, &size, nullptr, nullptr, 0, forceAlignment);
+        nullptr, 1, &size, nullptr, userPtr, 0, forceAlignment);
     if (CL_SUCCESS != err)
         USM_ALLOC_ERR_RET(err);
 
     OclAutoWriter mu(&m_usmBuffersRwlock);
     void* usmPtr = usmBuf->GetBackingStoreData();
-    m_usmBuffers[usmPtr] = usmBuf;
 
-    if (0 != forceAlignment && !IS_ALIGNED_ON(usmPtr, forceAlignment))
+    if (nullptr != userPtr && usmPtr != userPtr)
         USM_ALLOC_ERR_RET(CL_OUT_OF_RESOURCES);
 
-    if (errcode_ret)
-        *errcode_ret = CL_SUCCESS;
+    if (nullptr == userPtr && 0 != forceAlignment &&
+        !IS_ALIGNED_ON(usmPtr, forceAlignment))
+        USM_ALLOC_ERR_RET(CL_OUT_OF_RESOURCES);
+
+    m_usmBuffers[usmPtr] = usmBuf;
+
+    if (errcode)
+        *errcode = CL_SUCCESS;
     return usmPtr;
 }
 
 void* Context::USMHostAlloc(const cl_mem_properties_intel* properties,
                             size_t size,
                             cl_uint alignment,
-                            cl_int* errcode_ret)
+                            cl_int* errcode)
 {
     cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_HOST_INTEL;
-    return USMAlloc(type, nullptr, properties, size, alignment, errcode_ret);
+    return USMAlloc(type, nullptr, properties, size, nullptr, alignment,
+                    errcode);
 }
 
 void* Context::USMDeviceAlloc(cl_device_id device,
                               const cl_mem_properties_intel* properties,
                               size_t size,
                               cl_uint alignment,
-                              cl_int* errcode_ret)
+                              cl_int* errcode)
 {
     cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_DEVICE_INTEL;
-    return USMAlloc(type, device, properties, size, alignment, errcode_ret);
+    return USMAlloc(type, device, properties, size, nullptr, alignment,
+                    errcode);
+}
+
+cl_int Context::USMDeviceAllocGlobalVariable(cl_device_id device,
+                                             size_t gvSize,
+                                             void* gvPtr)
+{
+    cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_DEVICE_INTEL;
+    cl_int errcode;
+    (void)USMAlloc(type, device, nullptr, gvSize, gvPtr, 0, &errcode);
+    return errcode;
 }
 
 void* Context::USMSharedAlloc(cl_device_id device,
                               const cl_mem_properties_intel* properties,
                               size_t size,
                               cl_uint alignment,
-                              cl_int* errcode_ret)
+                              cl_int* errcode)
 {
     cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_SHARED_INTEL;
-    return USMAlloc(type, device, properties, size, alignment, errcode_ret);
+    return USMAlloc(type, device, properties, size, nullptr, alignment,
+                    errcode);
 }
 
 cl_int Context::USMFree(void* usmPtr)

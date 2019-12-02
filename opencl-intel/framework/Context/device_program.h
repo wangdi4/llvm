@@ -145,6 +145,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_int GetFunctionPointer(const char* func_name,
             cl_ulong* func_pointer_ret);
 
+        // Collect all global variable pointers after device build in order to
+        // create USM wrappers.
+        void CollectGlobalVariablePointers();
+
+        // Get global variable pointers
+        const cl_prog_gv_map& GetGlobalVariablePointers() const {
+            return m_gvPointers;
+        }
+
     protected:
         // Current program state
         EDeviceProgramState m_state;
@@ -171,6 +180,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         char*               m_pBinaryBits;
         size_t              m_uiBinaryBitsSize;
         cl_program_binary_type m_clBinaryBitsType;
+
+        // Global variables
+        cl_prog_gv_map      m_gvPointers;
 
         // Ensure the object is multi-thread safe
         mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;

@@ -122,6 +122,7 @@ EXPORTS
 	clUnmapHostPipeIntelFPGA
 	clGetProfileDataDeviceIntelFPGA
 	clGetDeviceFunctionPointerINTEL
+	clGetDeviceGlobalVariablePointerINTEL
 	clCreateTracingHandleINTEL
 	clSetTracingPointINTEL
 	clDestroyTracingHandleINTEL

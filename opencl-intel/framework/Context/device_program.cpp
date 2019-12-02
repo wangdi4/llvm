@@ -488,6 +488,14 @@ cl_int DeviceProgram::GetFunctionPointer(const char* func_name,
         m_programHandle, func_name, func_pointer_ret);
 }
 
+void DeviceProgram::CollectGlobalVariablePointers()
+{
+    assert(nullptr != m_programHandle && "invalid program handle");
+
+    m_pDevice->GetDeviceAgent()->clDevGetGlobalVariablePointers(m_programHandle,
+        m_gvPointers);
+}
+
 cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet)
 {
     if (nullptr == pBin && nullptr == puiBinSizeRet)

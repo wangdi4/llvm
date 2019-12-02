@@ -695,7 +695,7 @@ static ContainerTy OCLBuiltinVecInfo() {
     }
   }
   TypeInfo SubGroupReductionsTypes[] =
-    {{'c'}, {'h'}, {'s'}, {'t'}, {'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
+    {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
   for (TypeInfo &Type : SubGroupReductionsTypes) {
     addEntries(Info, std::string("_Z19sub_group_broadcast"), {Type, {'j'}},
                {VectorKind::vector(), VectorKind::uniform()}, true);
@@ -706,6 +706,21 @@ static ContainerTy OCLBuiltinVecInfo() {
       addEntries(Info, std::string("_Z28sub_group_scan_exclusive_") + Op, Type,
                  {VectorKind::vector()}, true);
       addEntries(Info, std::string("_Z28sub_group_scan_inclusive_") + Op, Type,
+                 {VectorKind::vector()}, true);
+    }
+  }
+  TypeInfo IntelSubGroupReductionsTypes[] =
+    {{'c'}, {'h'}, {'s'}, {'t'}};
+  for (TypeInfo &Type : IntelSubGroupReductionsTypes) {
+    addEntries(Info, std::string("_Z25intel_sub_group_broadcast"), {Type, {'j'}},
+               {VectorKind::vector(), VectorKind::uniform()}, true);
+    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
+      addEntries(Info, std::string("_Z26intel_sub_group_reduce_") + Op, Type,
+                 {VectorKind::vector()}, true);
+
+      addEntries(Info, std::string("_Z34intel_sub_group_scan_exclusive_") + Op, Type,
+                 {VectorKind::vector()}, true);
+      addEntries(Info, std::string("_Z34intel_sub_group_scan_inclusive_") + Op, Type,
                  {VectorKind::vector()}, true);
     }
   }
@@ -764,11 +779,19 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
   RetInfo.push_back({std::string("_Z22intel_sub_group_balloti"), VectorKind::uniform()});
 
   std::string SubGroupTypes[] =
-    {{'c'}, {'h'}, {'s'}, {'t'}, {'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
+    {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
   for (auto Type : SubGroupTypes) {
     RetInfo.push_back({std::string("_Z19sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
     for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
       RetInfo.push_back({std::string("_Z20sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
+  }
+
+  std::string IntelSubGroupTypes[] =
+    {{'c'}, {'h'}, {'s'}, {'t'}};
+  for (auto Type : IntelSubGroupTypes) {
+    RetInfo.push_back({std::string("_Z25intel_sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
+    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
+      RetInfo.push_back({std::string("_Z26intel_sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
   }
 
   return RetInfo;
@@ -778,7 +801,7 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
   OCLPrepareKernelForVecClone PK(CPUId);
 
   // FIXME: Longer term plan is to make the return value propery part of
-  // VectorVariant encoding.
+  // VectorVariant encoding
   //
   // Also, note that we're annotating declarations here. It's legal because:
   //   - The uniformity is true for all the VFs possible

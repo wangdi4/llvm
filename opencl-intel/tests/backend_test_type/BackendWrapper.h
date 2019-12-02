@@ -199,6 +199,8 @@ public:
     virtual size_t GetGlobalVariableTotalSize() const { return 0; }
 
     virtual cl_ulong GetFunctionPointerFor(const char *FunctionName) const { return 0; }
+
+    virtual void GetGlobalVariablePointers(cl_prog_gv_map &gvPtrs) const {}
 };
 
 #endif // BACKEND_WRAPPER_H

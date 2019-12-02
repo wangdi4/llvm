@@ -383,6 +383,25 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
         pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
     }
+
+    // Collect sizes of global variables
+    if (!spModule->global_empty())
+    {
+        llvm::StringMap<size_t> GlobalVariableSizes;
+        const llvm::DataLayout &DL = spModule->getDataLayout();
+        for (auto I = spModule->global_begin(), E = spModule->global_end();
+            I != E; ++I)
+        {
+            llvm::PointerType *PT = llvm::cast<llvm::PointerType>(I->getType());
+            if (!IS_ADDR_SPACE_GLOBAL(PT->getAddressSpace()))
+                continue;
+            const llvm::GlobalVariable *GV = &*I;
+            size_t Size = DL.getTypeAllocSize(PT->getContainedType(0));
+            GlobalVariableSizes[GV->getName()] = Size;
+        }
+        // Set the sizes of global (address space) variables used by the program
+        pProgram->SetGlobalVariableSizes(GlobalVariableSizes);
+    }
 }
 
 IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const

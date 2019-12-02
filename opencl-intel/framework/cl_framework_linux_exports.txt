@@ -123,6 +123,8 @@
 
         clGetDeviceFunctionPointerINTEL;
 
+        clGetDeviceGlobalVariablePointerINTEL;
+
         clCreateTracingHandleINTEL;
         clSetTracingPointINTEL;
         clDestroyTracingHandleINTEL;

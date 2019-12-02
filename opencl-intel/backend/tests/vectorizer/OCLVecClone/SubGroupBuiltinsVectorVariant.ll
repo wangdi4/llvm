@@ -46,33 +46,33 @@ entry:
 
   %call3 = tail call spir_func i64 @_Z19sub_group_broadcastlj(i64 %3, i32 0) #4
   %call4 = tail call spir_func i32 @_Z19sub_group_broadcastij(i32 %0, i32 0) #4
-  %call5 = tail call spir_func i16 @_Z19sub_group_broadcastsj(i16 %1, i32 0) #4
-  %call6 = tail call spir_func i8  @_Z19sub_group_broadcastcj(i8 %2, i32 0) #4
+  %call5 = tail call spir_func i16 @_Z25intel_sub_group_broadcastsj(i16 %1, i32 0) #4
+  %call6 = tail call spir_func i8  @_Z25intel_sub_group_broadcastcj(i8 %2, i32 0) #4
 ; CHECK: = call <4 x i64> @_Z19sub_group_broadcastDv4_ljDv4_j(<4 x i64> [[WIDE_LOAD_TRUNCi64]], i32 0, <4 x i64> <i64 -1, i64 -1, i64 -1, i64 -1>)
 ; CHECK: = call <4 x i32> @_Z19sub_group_broadcastDv4_ijDv4_j(<4 x i32> %wide.load, i32 0, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; CHECK: = call <4 x i16> @_Z19sub_group_broadcastDv4_sjDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], i32 0, <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
-; CHECK: = call <4 x i8> @_Z19sub_group_broadcastDv4_cjDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], i32 0, <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+; CHECK: = call <4 x i16> @_Z25intel_sub_group_broadcastDv4_sjDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], i32 0, <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8> @_Z25intel_sub_group_broadcastDv4_cjDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], i32 0, <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
 
   %call7 = tail call spir_func i32 @_Z20sub_group_reduce_addi(i32 %0) #4
-  %call8 = tail call spir_func i16 @_Z20sub_group_reduce_mins(i16 %1) #4
-  %call9 = tail call spir_func i8  @_Z20sub_group_reduce_maxc(i8  %2) #4
+  %call8 = tail call spir_func i16 @_Z26intel_sub_group_reduce_mins(i16 %1) #4
+  %call9 = tail call spir_func i8  @_Z26intel_sub_group_reduce_maxc(i8  %2) #4
 ; CHECK: = call <4 x i32> @_Z20sub_group_reduce_addDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; CHECK: = call <4 x i16> @_Z20sub_group_reduce_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
-; CHECK: = call <4 x i8>  @_Z20sub_group_reduce_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+; CHECK: = call <4 x i16> @_Z26intel_sub_group_reduce_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8>  @_Z26intel_sub_group_reduce_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
 
   %call10 = tail call spir_func i32 @_Z28sub_group_scan_exclusive_addi(i32 %0) #4
-  %call11 = tail call spir_func i16 @_Z28sub_group_scan_exclusive_mins(i16 %1) #4
-  %call12 = tail call spir_func i8  @_Z28sub_group_scan_exclusive_maxc(i8  %2) #4
+  %call11 = tail call spir_func i16 @_Z34intel_sub_group_scan_exclusive_mins(i16 %1) #4
+  %call12 = tail call spir_func i8  @_Z34intel_sub_group_scan_exclusive_maxc(i8  %2) #4
 ; CHECK: = call <4 x i32> @_Z28sub_group_scan_exclusive_addDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; CHECK: = call <4 x i16> @_Z28sub_group_scan_exclusive_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
-; CHECK: = call <4 x i8> @_Z28sub_group_scan_exclusive_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+; CHECK: = call <4 x i16> @_Z34intel_sub_group_scan_exclusive_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8> @_Z34intel_sub_group_scan_exclusive_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
 
   %call13 = tail call spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32 %0) #4
-  %call14 = tail call spir_func i16 @_Z28sub_group_scan_inclusive_mins(i16 %1) #4
-  %call15 = tail call spir_func i8  @_Z28sub_group_scan_inclusive_maxc(i8  %2) #4
+  %call14 = tail call spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16 %1) #4
+  %call15 = tail call spir_func i8  @_Z34intel_sub_group_scan_inclusive_maxc(i8  %2) #4
 ; CHECK: = call <4 x i32> @_Z28sub_group_scan_inclusive_addDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; CHECK: = call <4 x i16> @_Z28sub_group_scan_inclusive_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
-; CHECK: = call <4 x i8> @_Z28sub_group_scan_inclusive_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+; CHECK: = call <4 x i16> @_Z34intel_sub_group_scan_inclusive_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8> @_Z34intel_sub_group_scan_inclusive_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
 
   %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %call, i64 42, i32 %slid.reverse)
 ; CHECK: = call <4 x i64> @_Z28intel_sub_group_shuffle_downDv4_lS_Dv4_jS0_(
@@ -132,23 +132,23 @@ declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #1
 ; Function Attrs: convergent
 declare spir_func i64 @_Z19sub_group_broadcastlj(i64, i32) local_unnamed_addr #1
 declare spir_func i32 @_Z19sub_group_broadcastij(i32, i32) local_unnamed_addr #1
-declare spir_func i16 @_Z19sub_group_broadcastsj(i16, i32) local_unnamed_addr #1
-declare spir_func i8 @_Z19sub_group_broadcastcj(i8, i32) local_unnamed_addr #1
+declare spir_func i16 @_Z25intel_sub_group_broadcastsj(i16, i32) local_unnamed_addr #1
+declare spir_func i8 @_Z25intel_sub_group_broadcastcj(i8, i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent
 declare spir_func i32 @_Z20sub_group_reduce_addi(i32) local_unnamed_addr #1
-declare spir_func i16 @_Z20sub_group_reduce_mins(i16) local_unnamed_addr #1
-declare spir_func i8  @_Z20sub_group_reduce_maxc(i8) local_unnamed_addr #1
+declare spir_func i16 @_Z26intel_sub_group_reduce_mins(i16) local_unnamed_addr #1
+declare spir_func i8  @_Z26intel_sub_group_reduce_maxc(i8) local_unnamed_addr #1
 
 ; Function Attrs: convergent
 declare spir_func i32 @_Z28sub_group_scan_exclusive_addi(i32) local_unnamed_addr #1
-declare spir_func i16 @_Z28sub_group_scan_exclusive_mins(i16) local_unnamed_addr #1
-declare spir_func i8  @_Z28sub_group_scan_exclusive_maxc(i8) local_unnamed_addr #1
+declare spir_func i16 @_Z34intel_sub_group_scan_exclusive_mins(i16) local_unnamed_addr #1
+declare spir_func i8  @_Z34intel_sub_group_scan_exclusive_maxc(i8) local_unnamed_addr #1
 
 ; Function Attrs: convergent
 declare spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32) local_unnamed_addr #1
-declare spir_func i16 @_Z28sub_group_scan_inclusive_mins(i16) local_unnamed_addr #1
-declare spir_func i8  @_Z28sub_group_scan_inclusive_maxc(i8) local_unnamed_addr #1
+declare spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16) local_unnamed_addr #1
+declare spir_func i8  @_Z34intel_sub_group_scan_inclusive_maxc(i8) local_unnamed_addr #1
 
 ; Function Attrs: convergent nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2

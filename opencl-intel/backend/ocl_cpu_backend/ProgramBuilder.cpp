@@ -147,16 +147,6 @@ static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
   return reader.IsCachedObject();
 }
 
-// Update the size of the variables in global address space used by the program.
-static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
-  auto globalSizeMetadata = ModuleInternalMetadataAPI(pModule).GlobalVariableTotalSize;
-  // The info is missing only when we build image built-ins and we don't
-  // care about the size of global variables in the program.
-  if (!globalSizeMetadata.hasValue())
-    return;
-  pProgram->SetGlobalVariableTotalSize(globalSizeMetadata.get());
-}
-
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
@@ -349,7 +339,6 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
         // call post build method
         PostBuildProgramStep( pProgram, pModule, pOptions );
-        updateGlobalVariableTotalSize(pProgram, pModule);
 
         BuildProgramCachedExecutable(pObjectCodeCache.get(), pProgram);
     }
