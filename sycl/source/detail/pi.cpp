@@ -101,13 +101,7 @@ bool bindPlugin(void *Library) {
   // TODO: Compare Supported versions and check for backward compatibility.
   // Make sure err is PI_SUCCESS.
   assert((err == PI_SUCCESS) && "Unexpected error when binding to Plugin.");
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   (void)err;
-#endif // INTEL_CUSTOMIZATION
-=======
-  (void)err;
->>>>>>> e6accbbb70189eb75946b976776ca1df2e84d8e3
 
   // TODO: Return a more meaningful value/enum.
   return true;
