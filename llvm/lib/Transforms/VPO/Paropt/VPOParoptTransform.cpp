@@ -1829,6 +1829,13 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
 Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
                                                   Type *ScalarTy) {
   Value *V = nullptr;
+
+  assert(!RedI->getIsComplex() ||
+         RedI->getType() == ReductionItem::WRNReductionAdd ||
+         RedI->getType() == ReductionItem::WRNReductionSub ||
+         RedI->getType() == ReductionItem::WRNReductionMult &&
+             "Unsupported operation in OMP reduction for complex type!");
+
   switch (RedI->getType()) {
   case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
@@ -1846,7 +1853,10 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
     if (RedI->getIsComplex()) {
       Constant *ValueOne =
           ConstantFP::get(ScalarTy->getStructElementType(0), 1.0);
-      V = ConstantStruct::get(cast<StructType>(ScalarTy), {ValueOne, ValueOne});
+      Constant *ValueZero =
+          ConstantFP::get(ScalarTy->getStructElementType(0), 0.0);
+      V = ConstantStruct::get(cast<StructType>(ScalarTy),
+                              {ValueOne, ValueZero});
     } else {
       V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 1)
                                          : ConstantFP::get(ScalarTy, 1.0);
@@ -2237,9 +2247,10 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
     return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
 
-  assert(VPOUtils::canBeRegisterized(AllocaTy,
-                                     InsertPt->getModule()->getDataLayout()) &&
-         "genReductionFini: Expect incoming scalar type.");
+  assert((VPOUtils::canBeRegisterized(AllocaTy,
+                                      InsertPt->getModule()->getDataLayout()) ||
+          RedI->getIsComplex()) &&
+         "genReductionFini: Expect incoming scalar/complex type.");
   Type *ScalarTy = AllocaTy->getScalarType();
 
   return genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
@@ -2930,9 +2941,10 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   }
 
   IRBuilder<> Builder(InsertPt);
-  assert(VPOUtils::canBeRegisterized(AllocaTy,
-                                     InsertPt->getModule()->getDataLayout()) &&
-         "genReductionInit: Expect incoming scalar type.");
+  assert((VPOUtils::canBeRegisterized(AllocaTy,
+                                      InsertPt->getModule()->getDataLayout()) ||
+          RedI->getIsComplex()) &&
+         "genReductionInit: Expect incoming scalar/complex type.");
   Value *V = genReductionScalarInit(RedI, ScalarTy);
   Builder.CreateStore(V, AI);
 }

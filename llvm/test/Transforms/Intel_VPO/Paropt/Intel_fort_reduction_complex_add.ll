@@ -1,4 +1,6 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
 
 ; This test is used to check reduction operation with complex type.
 ;      PROGRAM OMP_TEST
@@ -408,3 +410,5 @@ attributes #1 = { nounwind readnone speculatable }
 attributes #2 = { nounwind }
 
 !omp_offload.info = !{}
+
+; end INTEL_CUSTOMIZATION
