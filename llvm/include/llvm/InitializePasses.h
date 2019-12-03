@@ -469,6 +469,7 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry&);
 void initializeWriteThinLTOBitcodePass(PassRegistry&);
 void initializeXRayInstrumentationPass(PassRegistry&);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Pass for alias analysis for STL templates
 void initializeStdContainerAAWrapperPassPass(PassRegistry &);
@@ -608,6 +609,8 @@ void initializeVPOParoptPass(PassRegistry&);
 // VPO Tpv Transformation
 void initializeVPOParoptTpvPass(PassRegistry&);
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 59f4592ad18b733d31b2c2ac5e5466fe619859dd
 
 #if INTEL_CUSTOMIZATION
 void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
