@@ -2,7 +2,7 @@
 ; reduction variable inside the loop and a loop invariant load for starting value, while reduction
 ; is performed in register (using PHI node).
 
-; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-print-after-hcfg -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-print-after-hcfg -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPReduction.
 ; CHECK-LABEL: Reduction list

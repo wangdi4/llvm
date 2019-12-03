@@ -1,8 +1,7 @@
 ; Test to check that DA propagates stride information for selects with external uniform conditions generating
 ; a strided VectorShape.
 
-; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -enable-vp-value-codegen=false -vplan-force-vf=2 -S 2>&1 | FileCheck %s
-; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -enable-vp-value-codegen=true -vplan-force-vf=2 -S 2>&1 | FileCheck %s
+; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -vplan-force-vf=2 -S 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 

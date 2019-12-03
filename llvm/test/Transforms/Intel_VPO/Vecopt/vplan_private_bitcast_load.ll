@@ -4,11 +4,7 @@
 ; locations as they could be when we assume SOA layout.
 
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring \
-; RUN: -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false  2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring \
-; RUN: -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=true  2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
-
+; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4  2>&1 | FileCheck %s
 
 ; CHECK: [[PRIV_BASE:%.*]] = getelementptr [2520 x double], [2520 x double]* {{.*}}, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[BC:%.*]] = bitcast <4 x [2520 x double]*> [[PRIV_BASE]] to <4 x i8*>
@@ -30,18 +26,13 @@
 ; CHECK-NEXT: [[GATHER2:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[BC1]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
 ; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, <4 x double addrspace(1)*> {{.*}}, <4 x i64> {{.*}}
 ; CHECK-NEXT: [[BC2:%.*]] = bitcast <4 x double addrspace(1)*> [[GEP2]] to <4 x i64 addrspace(1)*>
-; CHECK-LLVM-NEXT: call void @llvm.masked.scatter.v4i64.v4p1i64(<4 x i64> [[GATHER2]], <4 x i64 addrspace(1)*> [[BC2]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-VPVAL-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
-; CHECK-VPVAL-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
-; CHECK-VPVAL-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
-; CHECK-LLVM-NEXT:  call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR4]])
-; CHECK-VPVAL-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR4]])
-; CHECK-LLVM-NEXT:  call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR3]])
-; CHECK-VPVAL-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR3]])
-; CHECK-LLVM-NEXT:  call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR2]])
-; CHECK-VPVAL-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR2]])
-; CHECK-LLVM-NEXT:  call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR1]])
-; CHECK-VPVAL-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR1]])
+; CHECK-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
+; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
+; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR4]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR3]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR2]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* [[PRIV_PTR1]])
 
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

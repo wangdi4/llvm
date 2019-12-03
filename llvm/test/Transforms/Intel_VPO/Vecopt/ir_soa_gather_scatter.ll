@@ -1,5 +1,4 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vp-value-codegen=true  -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4  -S %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; Prepare GEP for gather
