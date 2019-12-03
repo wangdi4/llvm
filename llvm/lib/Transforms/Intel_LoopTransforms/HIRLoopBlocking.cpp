@@ -75,6 +75,13 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+#if !INTEL_PRODUCT_RELEASE
+static cl::opt<bool>
+    PrintBlockedLoops(OPT_SWITCH "-print-affected-loops", cl::init(false),
+                      cl::ReallyHidden,
+                      cl::desc("Print loops affected by " OPT_DESC " pass"));
+#endif // !INTEL_PRODUCT_RELEASE
+
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
 static cl::opt<bool> EnableLoopBlockingNonConstTC(
@@ -837,7 +844,8 @@ const HLLoop *getLoopForReferingInfoBeforePermutation(
 }
 
 // Do stripmine & interchange
-void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
+void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips,
+                      StringRef FuncName) {
 
   for (auto &Triple : CandidateRangeToStrips) {
 
@@ -848,6 +856,13 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     HLLoop *InnermostLoop;
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
+
+#if !INTEL_PRODUCT_RELEASE
+    if (PrintBlockedLoops) {
+      dbgs() << "== Before blocking in " << FuncName << " == \n";
+      OutermostLoop->dump();
+    }
+#endif // !INTEL_PRODUCT_RELEASE
 
     InnermostLoop->setIsUndoSinkingCandidate(false);
 
@@ -893,6 +908,13 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     LLVM_DEBUG(dbgs() << "after hoist\n");
     LLVM_DEBUG(NewOutermostLoop->dump());
 
+#if !INTEL_PRODUCT_RELEASE
+    if (PrintBlockedLoops) {
+      dbgs() << "== After blocking in " << FuncName << " == \n";
+      NewOutermostLoop->dump();
+    }
+#endif // !INTEL_PRODUCT_RELEASE
+
     // Invalidate
     NewOutermostLoop->getParentRegion()->setGenCode();
     HIRInvalidationUtils::invalidateLoopNestBody(NewOutermostLoop);
@@ -918,7 +940,7 @@ bool doLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   }
 
   // Do transformation
-  doTransformation(CandidateRangeToStrips);
+  doTransformation(CandidateRangeToStrips, HIRF.getFunction().getName());
 
   return true;
 }
