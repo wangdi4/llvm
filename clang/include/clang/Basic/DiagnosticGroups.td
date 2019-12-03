@@ -821,6 +821,7 @@ def Move : DiagGroup<"move", [
   ]>;
 
 def Extra : DiagGroup<"extra", [
+    DeprecatedCopy,
     MissingFieldInitializers,
     IgnoredQualifiers,
     InitializerOverrides,
