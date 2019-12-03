@@ -2471,13 +2471,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     value = Builder.getTrue();
 
   // Most common case by far: integer increment.
-<<<<<<< HEAD
   } else if (type->isIntegerType() || type->isArbPrecIntType()) { // INTEL
-    // Note that signed integer inc/dec with width less than int can't
-    // overflow because of promotion rules; we're just eliding a few steps here.
-    if (E->canOverflow() && type->isSignedIntegerOrEnumerationType()) {
-=======
-  } else if (type->isIntegerType()) {
     QualType promotedType;
     bool canPerformLossyDemotionCheck = false;
     if (type->isPromotableIntegerType()) {
@@ -2523,7 +2517,6 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
       // overflow because of promotion rules; we're just eliding a few steps
       // here.
     } else if (E->canOverflow() && type->isSignedIntegerOrEnumerationType()) {
->>>>>>> b98a0c7f6c9c7b38b6cd764e6f47e16e3d8c342c
       value = EmitIncDecConsiderOverflowBehavior(E, value, isInc);
     } else if (E->canOverflow() && type->isUnsignedIntegerType() &&
                CGF.SanOpts.has(SanitizerKind::UnsignedIntegerOverflow)) {
