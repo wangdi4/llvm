@@ -1,18 +1,9 @@
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
-; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
-; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
-; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
-; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=EITHER,FNATTR-SUBSCRIPT
-; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=EITHER,FNATTR-SUBSCRIPT
-; RUN: opt -S -convert-to-subscript < %s | opt -attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
-; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S -attributor-annotate-decl-cs | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
+; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
+; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
+; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
+; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
-=======
-; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR
-; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR
->>>>>>> 96552036e307f7b0dd6477583c3fdb7de17e8aac
 
 @g = global i32* null		; <i32**> [#uses=1]
 
@@ -62,13 +53,6 @@ l1:
 @lookup_table = global [2 x i1] [ i1 0, i1 1 ]
 
 ; FNATTR: define i1 @c5(i32* %q, i32 %bitno)
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO_SUBSCRIPT: define i1 @c5(i32* nofree readonly %q, i32 %bitno)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @c5(i32* readonly %q, i32 %bitno)
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 96552036e307f7b0dd6477583c3fdb7de17e8aac
 define i1 @c5(i32* %q, i32 %bitno) {
 	%tmp = ptrtoint i32* %q to i32
 	%tmp2 = lshr i32 %tmp, %bitno
@@ -104,13 +88,6 @@ define i1* @lookup_bit(i32* %q, i32 %bitno) readnone nounwind {
 }
 
 ; FNATTR: define i1 @c7(i32* readonly %q, i32 %bitno)
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @c7(i32* nofree readonly %q, i32 %bitno)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @c7(i32* readonly %q, i32 %bitno)
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 96552036e307f7b0dd6477583c3fdb7de17e8aac
 define i1 @c7(i32* %q, i32 %bitno) {
 	%ptr = call i1* @lookup_bit(i32* %q, i32 %bitno)
 	%val = load i1, i1* %ptr
@@ -263,13 +240,6 @@ define void @test_atomicrmw(i32* %p) {
 }
 
 ; FNATTR: define void @test_volatile(i32* %x)
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define void @test_volatile(i32* nofree align 4 %x)
-; ATTRIBUTOR-SUBSCRIPT: define void @test_volatile(i32* %x)
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 96552036e307f7b0dd6477583c3fdb7de17e8aac
 define void @test_volatile(i32* %x) {
 entry:
   %gep = getelementptr i32, i32* %x, i64 1
@@ -322,13 +292,6 @@ define i1 @captureICmpRev(i32* %x) {
 }
 
 ; FNATTR: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture nofree nonnull readnone %x)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 96552036e307f7b0dd6477583c3fdb7de17e8aac
 define i1 @nocaptureInboundsGEPICmp(i32* %x) {
   %1 = getelementptr inbounds i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -337,13 +300,6 @@ define i1 @nocaptureInboundsGEPICmp(i32* %x) {
 }
 
 ; FNATTR: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture nofree nonnull readnone %x)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 96552036e307f7b0dd6477583c3fdb7de17e8aac
 define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
   %1 = getelementptr inbounds i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -354,9 +310,7 @@ define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
 ; INTEL_CUSTOMIZATION
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* nofree readnone %x)
 ; FNATTR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
 define i1 @captureGEPICmp(i32* %x) {
   %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -366,9 +320,7 @@ define i1 @captureGEPICmp(i32* %x) {
 
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nofree readnone %x)
 ; FNATTR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
 define i1 @captureGEPICmpRev(i32* %x) {
   %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
