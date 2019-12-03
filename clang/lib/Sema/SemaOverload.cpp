@@ -7383,7 +7383,6 @@ void Sema::AddConversionCandidate(
     }
     break;
 
-  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::BadConversion:
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_fail_bad_final_conversion;
