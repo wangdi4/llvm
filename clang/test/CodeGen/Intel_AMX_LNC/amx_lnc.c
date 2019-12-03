@@ -1,7 +1,7 @@
 // REQUIRES: intel_feature_isa_amx_lnc
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
-// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -emit-llvm -o - -Wall -Werror -pedantic \
+// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
 
 #include <immintrin.h>
@@ -131,4 +131,24 @@ void test_tile_tilezeroe() {
   // CHECK-LABEL: @test_tile_tilezeroe
   // CHECK: call void @llvm.x86.tilezeroe(i8 1)
   _tile_zeroe(1);
+}
+
+//AMX_LNC
+void test_tile_cvtd2pse(void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_cvtd2pse
+  // CHECK: call void @llvm.x86.tcvtd2pse{{.*}}, i64 %{{.*}}, i8 1)
+  _tile_cvtd2pse(A, B, 1);
+}
+
+void test_tile_cvtrowd2psei() {
+  // CHECK-LABEL: @test_tile_cvtrowd2psei
+  // CHECK: %0 = call <16 x float> @llvm.x86.tcvtrowd2psei(i8 1, i32 2)
+  _tile_cvtrowd2psei(1, 2);
+}
+
+typedef unsigned int uint32_t;
+void test_tile_cvtrowd2psee(uint32_t A) {
+  // CHECK-LABEL: @test_tile_cvtrowd2psee
+  // CHECK: %1 = call <16 x float> @llvm.x86.tcvtrowd2psee(i8 1, i32 %0)
+  _tile_cvtrowd2psee(1, A);
 }

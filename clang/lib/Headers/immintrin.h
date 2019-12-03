@@ -629,7 +629,7 @@ _storebe_i64(void * __P, long long __D) {
 #if defined(__AMX_LNC_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXREDUCE__) || defined(__AMXFP16__) || \
     defined(__AMXAVX512__) || defined(__AMXBF16EVEX__) || defined(__AMXINT8EVEX__) ||                 \
-    defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AMXTILEEVEX__) || defined(__AMXELEMENTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxlncintrin.h>
 #endif
 #endif

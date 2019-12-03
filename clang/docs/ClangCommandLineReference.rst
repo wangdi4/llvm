@@ -2685,6 +2685,8 @@ X86
 
 .. option:: -mamx-tile-evex, -mno-amx-tile-evex
 
+.. option:: -mamx-element-evex, -mno-amx-element-evex
+
 .. end INTEL_FEATURE_ISA_AMX_LNC
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx

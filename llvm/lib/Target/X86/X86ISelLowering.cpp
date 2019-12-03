@@ -32910,11 +32910,13 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCVTROWD2PSErri:
   case X86::PTILEMOVROWErri:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCVTROWD2PSErri: Opc = X86::TCVTROWD2PSErri; break;
     case X86::PTILEMOVROWErri: Opc = X86::TILEMOVROWErri; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
@@ -32925,12 +32927,14 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCVTROWD2PSErre:
   case X86::PTILEMOVROWErre:
   case X86::PTILEMOVROWErrx:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCVTROWD2PSErre: Opc = X86::TCVTROWD2PSErre; break;
     case X86::PTILEMOVROWErre: Opc = X86::TILEMOVROWErre; break;
     case X86::PTILEMOVROWErrx: Opc = X86::TILEMOVROWErrx; break;
     }
@@ -33050,6 +33054,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case X86::PTSCATTERROWDT1:
   case X86::PTSCATTERROWQ:
   case X86::PTSCATTERROWQT1:
+  case X86::PTCVTD2PSE:
   case X86::PTSTORENTD:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
@@ -33059,6 +33064,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     case X86::PTSCATTERROWDT1: Opc = X86::TSCATTERROWDT1; break;
     case X86::PTSCATTERROWQ: Opc = X86::TSCATTERROWQ; break;
     case X86::PTSCATTERROWQT1: Opc = X86::TSCATTERROWQT1; break;
+    case X86::PTCVTD2PSE: Opc = X86::TCVTD2PSE; break;
     case X86::PTSTORENTD: Opc = X86::TSTORENTD; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));

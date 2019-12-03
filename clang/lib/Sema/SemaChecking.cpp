@@ -4214,7 +4214,11 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tileloaddt1e64:
   case X86::BI__builtin_ia32_tilestorede64:
   case X86::BI__builtin_ia32_tilezeroe:
+  case X86::BI__builtin_ia32_tcvtrowd2psee:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
+  case X86::BI__builtin_ia32_tcvtrowd2psei:
+    return (CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31) ||
+            CheckX86BuiltinTileArgumentsRange(TheCall, 1, 0, 255));
   case X86::BI__builtin_ia32_tilemove:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);
   case X86::BI__builtin_ia32_tscatterrowd:
@@ -4223,6 +4227,8 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tscatterrowqt1:
   case X86::BI__builtin_ia32_tstorentd:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 2);
+  case X86::BI__builtin_ia32_tcvtd2pse:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 2, 0, 31);
   case X86::BI__builtin_ia32_tdpfp16ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
   case X86::BI__builtin_ia32_tdpbssde:
