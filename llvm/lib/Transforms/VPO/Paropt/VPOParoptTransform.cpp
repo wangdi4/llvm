@@ -7961,10 +7961,10 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
 }
 
 bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
-  if (VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES)
+  if (!deviceTriplesHasSPIRV())
     return false;
 
-  if (!deviceTriplesHasSPIRV())
+  if (!VPOParoptUtils::mayUseSPMDMode(W))
     return false;
 
   WRegionNode *WTarget =
