@@ -1458,7 +1458,7 @@ if (INTEL_CUSTOMIZATION)
     if (WIN32)
       list(APPEND INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
         # OpenCL components
-        ocl-OclCpuDebugging7
+        ocl-OclCpuDebugging9
       )
     endif(WIN32)
 
