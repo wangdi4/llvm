@@ -7798,13 +7798,8 @@ multiclass avx512_cvt_s_int_round<bits<8> opc, X86VectorVTInfo SrcVT,
                                   X86VectorVTInfo DstVT, SDNode OpNode,
                                   SDNode OpNodeRnd,
                                   X86FoldableSchedWrite sched, string asm,
-<<<<<<< HEAD
                                   string aliasStr, Predicate prd = HasAVX512> { // INTEL
-  let Predicates = [prd] in { // INTEL
-=======
-                                  string aliasStr> {
-  let Predicates = [HasAVX512], ExeDomain = SrcVT.ExeDomain in {
->>>>>>> 40dfc6dff10bd8881c6df31884e2184bbaab5698
+  let Predicates = [prd], ExeDomain = SrcVT.ExeDomain in { // INTEL
     def rr_Int : SI<opc, MRMSrcReg, (outs DstVT.RC:$dst), (ins SrcVT.RC:$src),
                 !strconcat(asm,"\t{$src, $dst|$dst, $src}"),
                 [(set DstVT.RC:$dst, (OpNode (SrcVT.VT SrcVT.RC:$src)))]>,
@@ -7944,14 +7939,9 @@ def : Pat<(v2f64 (X86Movsd
 multiclass avx512_cvt_s_all<bits<8> opc, string asm, X86VectorVTInfo _SrcRC,
                             X86VectorVTInfo _DstRC, SDNode OpNode,
                             SDNode OpNodeInt, SDNode OpNodeSAE,
-<<<<<<< HEAD
                             X86FoldableSchedWrite sched, string aliasStr, // INTEL
                             Predicate prd = HasAVX512> { // INTEL
-let Predicates = [prd] in { // INTEL
-=======
-                            X86FoldableSchedWrite sched, string aliasStr>{
-let Predicates = [HasAVX512], ExeDomain = _SrcRC.ExeDomain in {
->>>>>>> 40dfc6dff10bd8881c6df31884e2184bbaab5698
+let Predicates = [prd], ExeDomain = _SrcRC.ExeDomain in { // INTEL
   let isCodeGenOnly = 1 in {
   def rr : AVX512<opc, MRMSrcReg, (outs _DstRC.RC:$dst), (ins _SrcRC.FRC:$src),
               !strconcat(asm,"\t{$src, $dst|$dst, $src}"),
