@@ -427,18 +427,20 @@ protected:
   bool HasAMXBF16 = false;
   bool HasAMXINT8 = false;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXELEMENT = false;
   bool HasAMXREDUCE = false;
   bool HasAMXFORMAT = false;
-  bool HasAMXTRANSPOSE = false;
   bool HasAMXMEMORY = false;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  bool HasAMXTRANSPOSE = false;
   bool HasAMXFP16 = false;
   bool HasAMXAVX512 = false;
   bool HasAMXINT8EVEX = false;
   bool HasAMXTILEEVEX = false;
   bool HasAMXBF16EVEX = false;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
@@ -803,18 +805,20 @@ public:
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   bool hasAMXELEMENT() const { return HasAMXELEMENT; }
   bool hasAMXREDUCE() const { return HasAMXREDUCE; }
   bool hasAMXFORMAT() const { return HasAMXFORMAT; }
-  bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXMEMORY() const { return HasAMXMEMORY; }
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXAVX512() const { return HasAMXAVX512; }
   bool hasAMXFP16() const { return HasAMXFP16; }
   bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
   bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
   bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI

@@ -826,7 +826,7 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
 let RenderMethod = "addTILEPairOperands" in {
   def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
 }
@@ -842,7 +842,7 @@ let RenderMethod = "addZMM16TuplesOperands" in {
 def ZMM16Tuples : RegisterOperand<VR512> {
   let ParserMatchClass = ZMM16TuplesAsmOperand;
 }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 Complex Pattern Definitions.
@@ -1026,18 +1026,20 @@ def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
 def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
 def HasAMXFORMAT    : Predicate<"Subtarget->hasAMXFORMAT()">;
-def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
 def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
 def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
 def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
 def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
 def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;

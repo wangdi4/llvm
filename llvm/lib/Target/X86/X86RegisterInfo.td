@@ -31,7 +31,7 @@ let Namespace = "X86" in {
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   def sub_t0   : SubRegIndex<-1>;
   def sub_t1   : SubRegIndex<-1, -1>;
 
@@ -51,7 +51,7 @@ let Namespace = "X86" in {
   def sub_z13  : SubRegIndex<512, 6656>;
   def sub_z14  : SubRegIndex<512, 7168>;
   def sub_z15  : SubRegIndex<512, 7680>;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -310,7 +310,7 @@ def TMM14: X86Reg<"tmm14", 14>;
 def TMM15: X86Reg<"tmm15", 15>;
 #endif // INTEL_FEATURE_ISA_AMX
 
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
 def TMM16: X86Reg<"tmm16", 16>;
 def TMM17: X86Reg<"tmm17", 17>;
 def TMM18: X86Reg<"tmm18", 18>;
@@ -327,7 +327,7 @@ def TMM28: X86Reg<"tmm28", 28>;
 def TMM29: X86Reg<"tmm29", 29>;
 def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 
 // Mask Registers, used by AVX-512 instructions.
@@ -730,7 +730,7 @@ let isAllocatable = 0 in
 def VTILE : RegisterClass<"X86", [untyped], 0,
                           (sequence "TMM%u", 0, 15)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
 // Tiles
 let isAllocatable = 0 in
 def VTILEX : RegisterClass<"X86", [untyped], 0,
@@ -759,5 +759,5 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 
 // Need check alignment 3rd operand size=512*16
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION

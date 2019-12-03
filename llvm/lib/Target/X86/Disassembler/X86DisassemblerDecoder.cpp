@@ -1543,7 +1543,7 @@ static int readModRM(struct InternalInstruction* insn) {
 #define TMM_TYPE(prefix)
 #endif // INTEL_FEATURE_ISA_AMX
 
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
 #define TMM_TYPE_PAIR(prefix)                             \
     case TYPE_TMM_PAIR:                                   \
       return prefix##_TMM0_TMM1 + (index / 2 );
@@ -1552,10 +1552,10 @@ static int readModRM(struct InternalInstruction* insn) {
 #define ZMM16_TYPE_TUPLES(prefix)                         \
     case TYPE_ZMM16_TUPLES:                               \
       return prefix##_ZMM0 + (index / 16) * 16;
-#else // INTEL_FEATURE_ISA_AMX2
+#else // INTEL_FEATURE_ISA_AMX_LNC
 #define TMM_TYPE_PAIR(prefix)
 #define ZMM16_TYPE_TUPLES(prefix)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

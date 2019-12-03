@@ -176,6 +176,14 @@ static Value *generateSerialInstruction(IRBuilder<> &Builder,
     Ops.erase(Ops.begin());
     SerialInst = Builder.CreateGEP(GepBasePtr, Ops);
     cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
+  } else if (VPInst->getOpcode() == Instruction::InsertElement) {
+    assert(ScalarOperands.size() == 3 &&
+           "InsertElement instruction should have three operands.");
+    SerialInst = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
+  } else if (VPInst->getOpcode() == Instruction::ExtractElement) {
+    assert(ScalarOperands.size() == 2 &&
+           "ExtractElement instruction should have two operands.");
+    SerialInst = Builder.CreateExtractElement(Ops[0], Ops[1]);
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("Currently serialization of only binop instructions, "
@@ -1351,6 +1359,12 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
   // %final = insertelement <2 x float> %wide.extract1, float %res2, i64 1
   if (!isa<VPConstant>(OrigIndexVal) ||
       !cast<VPConstant>(OrigIndexVal)->isConstantInt()) {
+
+    if (MaskValue) {
+      serializeWithPredication(VPInst);
+      return;
+    }
+
     Value *WideExtract =
         UndefValue::get(VectorType::get(VPInst->getType(), VF));
     Value *IndexValVec = getVectorValue(OrigIndexVal);
@@ -1398,8 +1412,10 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
 
   if (!isa<VPConstant>(OrigIndexVal) ||
       !cast<VPConstant>(OrigIndexVal)->isConstantInt()) {
-    assert(!MaskValue && "Masked insertelement vectorization for variable "
-                         "index is not supported.");
+    if (MaskValue) {
+      serializeWithPredication(VPInst);
+      return;
+    }
     Value *WideInsert = InsertTo;
     Value *IndexValVec = getVectorValue(OrigIndexVal);
 

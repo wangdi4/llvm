@@ -32229,12 +32229,12 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return X86::TMM0 + Imm;
   };
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   auto TMMImmToTMMPair = [](unsigned Imm) {
     assert (Imm < 16 && "Illegal tmm pair index.");
     return X86::TMM0_TMM1 + Imm / 2;
   };
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 
   switch (MI.getOpcode()) {
@@ -32549,32 +32549,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-  case X86::PT2RPNTLVW:
-  case X86::PT2RPNTLVWT1:
-  case X86::PT2TRANSPOSEW:
-  case X86::PT2TRANSPOSEWT1:{
-    const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc;
-    switch (MI.getOpcode()) {
-    default: llvm_unreachable("Unexpected instruction!");
-    case X86::PT2RPNTLVW: Opc = X86::T2RPNTLVW; break;
-    case X86::PT2RPNTLVWT1: Opc = X86::T2RPNTLVWT1; break;
-    case X86::PT2TRANSPOSEW: Opc = X86::T2TRANSPOSEW; break;
-    case X86::PT2TRANSPOSEWT1: Opc = X86::T2TRANSPOSEWT1; break;
-    }
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
-
-    MIB.add(MI.getOperand(1)); // base
-    MIB.add(MI.getOperand(2)); // scale
-    MIB.add(MI.getOperand(3)); // index
-    MIB.add(MI.getOperand(4)); // displacement
-    MIB.add(MI.getOperand(5)); // segment
-    MIB.add(MI.getOperand(6)); // reg
-    MI.eraseFromParent(); // The pseudo is gone now.
-    return BB;
-  }
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::PTADDPS:
   case X86::PTANDND:
   case X86::PTANDD:
@@ -32779,7 +32754,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case X86::PTCVTPS2BS:
   case X86::PTCVTPS2UBS:
   case X86::PTCVTUB2PS:
-  case X86::PTILEMOVE:
   case X86::PTRCP14PS:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
@@ -32794,7 +32768,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     case X86::PTCVTPS2UBS: Opc = X86::TCVTPS2UBS; break;
     case X86::PTCVTUB2PS: Opc = X86::TCVTUB2PS; break;
     case X86::PTRCP14PS: Opc = X86::TRCP14PS; break;
-    case X86::PTILEMOVE: Opc = X86::TILEMOVE; break;
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
@@ -32805,7 +32778,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
   case X86::PTBLENDVD:
-  case X86::PTDPFP16PS:
   case X86::PTFMADDPS:
   case X86::PTFMSUBPS:
   case X86::PTFNMADDPS:
@@ -32820,7 +32792,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     case X86::PTFMSUBPS: Opc = X86::TFMSUBPSrr; break;
     case X86::PTFNMADDPS: Opc = X86::TFNMADDPSrr; break;
     case X86::PTFNMSUBPS: Opc = X86::TFNMSUBPSrr; break;
-    case X86::PTDPFP16PS: Opc = X86::TDPFP16PS; break;
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
@@ -32859,51 +32830,18 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTGATHERROWD:
-  case X86::PTGATHERROWDT1:
-  case X86::PTGATHERROWQ:
-  case X86::PTGATHERROWQT1:{
-    const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc;
-    switch (MI.getOpcode()) {
-    default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTGATHERROWD: Opc = X86::TGATHERROWD; break;
-    case X86::PTGATHERROWDT1: Opc = X86::TGATHERROWDT1; break;
-    case X86::PTGATHERROWQ: Opc = X86::TGATHERROWQ; break;
-    case X86::PTGATHERROWQT1: Opc = X86::TGATHERROWQT1; break;
-    }
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
-    MIB.add(MI.getOperand(1)); // base
-    MIB.add(MI.getOperand(2)); // scale
-    MIB.add(MI.getOperand(3)); // index
-    MIB.add(MI.getOperand(4)); // displacement
-    MIB.add(MI.getOperand(5)); // segment
-    MI.eraseFromParent(); // The pseudo is gone now.
-    return BB;
-  }
-  case X86::PTSCATTERROWD:
-  case X86::PTSCATTERROWDT1:
-  case X86::PTSCATTERROWQ:
-  case X86::PTSCATTERROWQT1:
   case X86::PTSTOREHD:
   case X86::PTSTOREHDT1:
   case X86::PTSTOREQD:
-  case X86::PTSTOREQDT1:
-  case X86::PTSTORENTD:{
+  case X86::PTSTOREQDT1:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTSCATTERROWD: Opc = X86::TSCATTERROWD; break;
-    case X86::PTSCATTERROWDT1: Opc = X86::TSCATTERROWDT1; break;
-    case X86::PTSCATTERROWQ: Opc = X86::TSCATTERROWQ; break;
-    case X86::PTSCATTERROWQT1: Opc = X86::TSCATTERROWQT1; break;
     case X86::PTSTOREHD: Opc = X86::TSTOREHD; break;
     case X86::PTSTOREHDT1: Opc = X86::TSTOREHDT1; break;
     case X86::PTSTOREQD: Opc = X86::TSTOREQD; break;
     case X86::PTSTOREQDT1: Opc = X86::TSTOREQDT1; break;
-    case X86::PTSTORENTD: Opc = X86::TSTORENTD; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0)); // base
@@ -32912,6 +32850,48 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MIB.add(MI.getOperand(3)); // displacement
     MIB.add(MI.getOperand(4)); // segment
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(5).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  case X86::PT2RPNTLVW:
+  case X86::PT2RPNTLVWT1:
+  case X86::PT2TRANSPOSEW:
+  case X86::PT2TRANSPOSEWT1:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PT2RPNTLVW: Opc = X86::T2RPNTLVW; break;
+    case X86::PT2RPNTLVWT1: Opc = X86::T2RPNTLVWT1; break;
+    case X86::PT2TRANSPOSEW: Opc = X86::T2TRANSPOSEW; break;
+    case X86::PT2TRANSPOSEWT1: Opc = X86::T2TRANSPOSEWT1; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(6)); // reg
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILEMOVE:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILEMOVE: Opc = X86::TILEMOVE; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
 
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
@@ -32958,6 +32938,23 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MIB.add(MI.getOperand(0));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
     MIB.add(MI.getOperand(2));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTDPFP16PS:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTDPFP16PS: Opc = X86::TDPFP16PS; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
 
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
@@ -33026,7 +33023,56 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX2
+  case X86::PTGATHERROWD:
+  case X86::PTGATHERROWDT1:
+  case X86::PTGATHERROWQ:
+  case X86::PTGATHERROWQT1:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTGATHERROWD: Opc = X86::TGATHERROWD; break;
+    case X86::PTGATHERROWDT1: Opc = X86::TGATHERROWDT1; break;
+    case X86::PTGATHERROWQ: Opc = X86::TGATHERROWQ; break;
+    case X86::PTGATHERROWQT1: Opc = X86::TGATHERROWQT1; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTSCATTERROWD:
+  case X86::PTSCATTERROWDT1:
+  case X86::PTSCATTERROWQ:
+  case X86::PTSCATTERROWQT1:
+  case X86::PTSTORENTD:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTSCATTERROWD: Opc = X86::TSCATTERROWD; break;
+    case X86::PTSCATTERROWDT1: Opc = X86::TSCATTERROWDT1; break;
+    case X86::PTSCATTERROWQ: Opc = X86::TSCATTERROWQ; break;
+    case X86::PTSCATTERROWQT1: Opc = X86::TSCATTERROWQT1; break;
+    case X86::PTSTORENTD: Opc = X86::TSTORENTD; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0)); // base
+    MIB.add(MI.getOperand(1)); // scale
+    MIB.add(MI.getOperand(2)); // index
+    MIB.add(MI.getOperand(3)); // displacement
+    MIB.add(MI.getOperand(4)); // segment
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(5).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   }
 }
