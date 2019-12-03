@@ -1067,7 +1067,7 @@ bool CodeGenPrepare::simplifyOffsetableRelocate(Instruction &I) {
       // Collect all the relocate calls associated with a statepoint
       AllRelocateCalls.push_back(Relocate);
 
-  // We need atleast one base pointer relocation + one derived pointer
+  // We need at least one base pointer relocation + one derived pointer
   // relocation to mangle
   if (AllRelocateCalls.size() < 2)
     return false;
