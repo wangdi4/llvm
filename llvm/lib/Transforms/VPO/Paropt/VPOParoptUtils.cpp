@@ -4258,9 +4258,29 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
   return Result;
 }
 
-bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+bool VPOParoptUtils::mayUseSPMDMode(WRegionNode *W) {
+  // Check if SPMD mode is allowed by the options.
+  if (VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES)
+    return false;
+
   // We cannot support SPMD execution scheme with SIMD1 emulation.
   if (W->mayHaveOMPCritical())
+    return false;
+
+  // Reductions require global locks. With SPMD mode there will be
+  // to many of them (basically, a lock per each sub-group) and it
+  // will result in too long serial sequence of updates.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10535, CMPLRLLVM-10704, CMPLRLLVM-11080.
+#endif  // INTEL_CUSTOMIZATION
+  if (W->canHaveReduction() && !W->getRed().items().empty())
+    return false;
+
+  return true;
+}
+
+bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+  if (!VPOParoptUtils::mayUseSPMDMode(W))
     return false;
 
   WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);

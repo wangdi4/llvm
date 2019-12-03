@@ -1856,20 +1856,16 @@ public:
 private:
   /// Look-Ahead: Score multiplier for consecutive loads.
   static const int SCORE_LOADS_CONSEC = 3;
-  /// Look-Ahead: Score multiplier for loads with constant distance.
-  static const int SCORE_LOADS_CONST_DIST = 2;
   /// Look-Ahead: Score for constants.
   static const int SCORE_CONST = 1;
-  /// Look-Ahead: Score for identical instructions.
-  static const int SCORE_INSTR_SAME_OPCODE_EQUAL = 2;
+  /// Look-Ahead: Score for identical instructions (broadcasts).
+  static const int SCORE_SPLAT = 2;
   /// Look-Ahead: Score for different instructions with same opcode.
-  static const int SCORE_INSTR_SAME_OPCODE_DIFF = 1;
+  static const int SCORE_INSTR_SAME_OPCODE = 1;
   /// Look-Ahead: Score for instructions with different opcodes.
   static const int SCORE_INSTR_DIFF_OPCODE = 0;
   /// Look-Ahead: Score for failure.
   static const int SCORE_FAIL = 0;
-  /// Multiplier for getScoreAtLevel() in order to avoid floats.
-  static const int COST_MULTIPLIER = 10;
   // The look-ahead score measured how well the frontier-rooted sub-trees match.
   // This score is adjusted by this much when the frontier nodes (users of the
   // sub-tree) don't match and require Padding by PSLP to get vectorized.
@@ -2949,9 +2945,6 @@ private:
   /// \returns true if all instructions in VL are in the same BB as the root.
   bool areInSameBB(ArrayRef<Value *> VL, int RootIdx);
 
-  /// \returns the massaged \p Score.
-  int massageScore(int Score) const { return Score * COST_MULTIPLIER; }
-
   /// \returns the cost-model score of the subtrees rooted at v1 and v2.
   int getScoreAtLevel(Value *v1, Value *v2, int Level, int MaxLevel);
 
@@ -2975,14 +2968,11 @@ private:
   /// and good for vectorization.
   int getLookAheadScore(Value *LHS, Value *RHS);
 
-  /// \returns a high score if \p LHS and \p RHS form a splat (a broadcast).
-  int getSplatScore(Value *LHS, Value *RHS);
-
   /// \returns the best matching operands into \p BestoOps.
   int getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane, int OpI,
                      const OpVec &BestOperandsSoFar, VecMode Mode);
 
-  /// \returns true if v1 and v2 could be combined into a vector.
+  /// \returns the score of placing \p v1 and \p v2 in consecutive lanes.
   int areConsecutive(Value *v1, Value *v2) const;
 
   /// Replace Op's frontier with opcode with the 'effective' one.
@@ -3944,45 +3934,34 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
     assert(!verifyFunction(*F, &dbgs()));
 }
 
-// Return TRUE if V1 and V2 should be placed in consecutive lanes.
 int BoUpSLP::areConsecutive(Value *v1, Value *v2) const {
-  LoadInst *LI1 = dyn_cast<LoadInst>(v1);
-  LoadInst *LI2 = dyn_cast<LoadInst>(v2);
+  auto *LI1 = dyn_cast<LoadInst>(v1);
+  auto *LI2 = dyn_cast<LoadInst>(v2);
   if (LI1 && LI2) {
-
-    bool LoadsAreConsecutive = isConsecutiveAccess(LI1, LI2, *DL, *SE);
-    if (LoadsAreConsecutive)
-      return massageScore(SCORE_LOADS_CONSEC);
-    else {
-      return massageScore(SCORE_FAIL);
-    }
+    return isConsecutiveAccess(LI1, LI2, *DL, *SE) ? SCORE_LOADS_CONSEC
+                                                   : SCORE_FAIL;
   }
 
-  Constant *C1 = dyn_cast<Constant>(v1);
-  Constant *C2 = dyn_cast<Constant>(v2);
+  auto *C1 = dyn_cast<Constant>(v1);
+  auto *C2 = dyn_cast<Constant>(v2);
   if (C1 && C2) {
-    return massageScore(SCORE_CONST);
+    return SCORE_CONST;
   }
 
-  Instruction *Instr1 = dyn_cast<Instruction>(v1);
-  Instruction *Instr2 = dyn_cast<Instruction>(v2);
+  auto *Instr1 = dyn_cast<Instruction>(v1);
+  auto *Instr2 = dyn_cast<Instruction>(v2);
   if (Instr1 && Instr2) {
+    if (Instr1 == Instr2)
+      return SCORE_SPLAT;
+
     // getSameOpcode() also covers add-sub
     InstructionsState S = getSameOpcode({Instr1, Instr2});
-    if (S.getOpcode()) {
-      // An add-sub vector is +1 cost, so I am not sure whether this helps
-      // if (Instr1->getOpcode() == Instr2->getOpcode()) {
-      // SPLATs have a higher priority if more than 2 lanes
-      if (Instr1 == Instr2) {
-        return massageScore(SCORE_INSTR_SAME_OPCODE_EQUAL);
-      } else {
-        return massageScore(SCORE_INSTR_SAME_OPCODE_DIFF);
-      }
-    } else {
-      return massageScore(SCORE_INSTR_DIFF_OPCODE);
-    }
+    // An add-sub vector is +1 cost, so I am not sure whether this helps
+    // if (Instr1->getOpcode() == Instr2->getOpcode()) {
+    // SPLATs have a higher priority if more than 2 lanes
+    return S.getOpcode() ? SCORE_INSTR_SAME_OPCODE : SCORE_INSTR_DIFF_OPCODE;
   }
-  return massageScore(SCORE_FAIL);
+  return SCORE_FAIL;
 }
 
 // We go through the operands of V1 and V2 until LEVEL
@@ -3998,7 +3977,7 @@ int BoUpSLP::getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
   Instruction *I1 = dyn_cast<Instruction>(V1);
   Instruction *I2 = dyn_cast<Instruction>(V2);
   if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
-      ShallowScoreAtThisLevel == massageScore(SCORE_FAIL) ||
+      ShallowScoreAtThisLevel == SCORE_FAIL ||
       (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
     return ShallowScoreAtThisLevel;
 
@@ -4096,11 +4075,6 @@ int BoUpSLP::getLookAheadScore(Value *LHS, Value *RHS) {
   return Score;
 }
 
-// Returns a score of 1*multiplier if LHS == RHS, 0 otherwise.
-int BoUpSLP::getSplatScore(Value *LHS, Value *RHS) {
-  return massageScore(static_cast<int>(RHS == LHS));
-}
-
 /// Look for the best operands for \p LHSOp. Return the best ones in \p BestOps.
 /// Depending on what type of Value we have on the LHS, we should
 /// follow a different strategy on how to get the best value for the RHS. This
@@ -4146,7 +4120,7 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
       }
       break;
     case VM_SPLAT:
-      Score = getSplatScore(LHS, RHS);
+      Score = RHS == LHS ? 1 : 0;
       break;
     case VM_FAILED:
       Score = -1;
@@ -4189,7 +4163,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
         (FrontierOperandToSwapWith) ? FrontierOperandToSwapWith->getFrontier()
                                     : OrigRHSOperand->getFrontier();
     auto S = getSameOpcode({LHSFrontierI, RHSNewFrontierI});
-    Score += S.isAltShuffle() ? massageScore(BLEND_COST) : 0;
+    if (S.isAltShuffle())
+      Score += BLEND_COST;
 
     // Check score and set best if needed.
     if (Score > 0 && Score >= BestScore) {
@@ -4205,7 +4180,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     }
   }
 
-  return BestScore;
+  // Multiplier in order to avoid floats.
+  return BestScore * 10;
 }
 
 // Replaces old frontier opcode with "effective" one for 'Op'. The "effective"
@@ -4383,17 +4359,18 @@ int BoUpSLP::getMNScore() const {
   for (int OpI = 0, OpIMax = CurrentMultiNode->getNumOperands(); OpI != OpIMax;
        ++OpI) {
     bool AreConsecutive = true;
-    for (int Lane = 1, Lanes = CurrentMultiNode->getNumLanes(); Lane != Lanes;
-         ++Lane) {
+    for (unsigned Lane = 1; Lane != CurrentMultiNode->getNumLanes(); ++Lane) {
       const OperandData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const OperandData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
-      if (!areConsecutive(OperandL->getValue(), OperandR->getValue()) ||
+      if (areConsecutive(OperandL->getValue(), OperandR->getValue()) ==
+              SCORE_FAIL ||
           OperandL->getValue() == OperandR->getValue()) {
         AreConsecutive = false;
         break;
       }
     }
-    Score += (int)AreConsecutive;
+    if (AreConsecutive)
+      ++Score;
   }
   return Score;
 }
