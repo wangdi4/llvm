@@ -24,14 +24,14 @@ template <info::kernel Param> struct get_kernel_info<string_class, Param> {
   static string_class get(RT::PiKernel Kernel) {
     size_t ResultSize;
     // TODO catch an exception and put it to list of asynchronous exceptions
-    PI_CALL(piKernelGetInfo)(Kernel, cl_kernel_info(Param), 0, nullptr,
+    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), 0, nullptr,
                              &ResultSize);
     if (ResultSize == 0) {
       return "";
     }
     vector_class<char> Result(ResultSize);
     // TODO catch an exception and put it to list of asynchronous exceptions
-    PI_CALL(piKernelGetInfo)(Kernel, cl_kernel_info(Param), ResultSize,
+    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), ResultSize,
                              Result.data(), nullptr);
     return string_class(Result.data());
   }
@@ -41,7 +41,7 @@ template <info::kernel Param> struct get_kernel_info<cl_uint, Param> {
   static cl_uint get(RT::PiKernel Kernel) {
     cl_uint Result;
     // TODO catch an exception and put it to list of asynchronous exceptions
-    PI_CALL(piKernelGetInfo)(Kernel, cl_kernel_info(Param), sizeof(cl_uint),
+    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), sizeof(cl_uint),
                              &Result, nullptr);
     return Result;
   }

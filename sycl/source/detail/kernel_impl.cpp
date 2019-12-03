@@ -31,7 +31,7 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, const context &SyclContext,
       MCreatedFromSource(IsCreatedFromSource) {
 
   RT::PiContext Context = nullptr;
-  PI_CALL(piKernelGetInfo)(MKernel, CL_KERNEL_CONTEXT, sizeof(Context),
+  PI_CALL(piKernelGetInfo)(MKernel, PI_KERNEL_INFO_CONTEXT, sizeof(Context),
                            &Context, nullptr);
   auto ContextImpl = detail::getSyclObjImpl(SyclContext);
   if (ContextImpl->getHandleRef() != Context)

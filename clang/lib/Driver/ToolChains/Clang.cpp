@@ -5580,7 +5580,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       HeaderOpt += Output.getFilename();
       CmdArgs.push_back(Args.MakeArgString(HeaderOpt));
     }
-    if (Args.hasArg(options::OPT_fsycl_unnamed_lambda))
+    if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
+        options::OPT_fno_sycl_unnamed_lambda, Args.hasArg(options::OPT_dpcpp)))
       CmdArgs.push_back("-fsycl-unnamed-lambda");
   }
 

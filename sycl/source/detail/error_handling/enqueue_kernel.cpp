@@ -125,8 +125,8 @@ bool handleInvalidWorkGroupSize(pi_device Device, pi_kernel Kernel,
       // given by local_work_size
 
       pi_program Program = nullptr;
-      PI_CALL(piKernelGetInfo)(Kernel, CL_KERNEL_PROGRAM, sizeof(pi_program),
-                               &Program, nullptr);
+      PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM,
+                               sizeof(pi_program), &Program, nullptr);
       size_t OptsSize = 0;
       PI_CALL(piProgramGetBuildInfo)(Program, Device, CL_PROGRAM_BUILD_OPTIONS,
                                      0, nullptr, &OptsSize);

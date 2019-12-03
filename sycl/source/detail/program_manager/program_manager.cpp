@@ -129,7 +129,7 @@ RT::PiKernel ProgramManager::getOrCreateKernel(OSModuleHandle M,
 
 RT::PiProgram ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel) {
   RT::PiProgram Program;
-  PI_CALL(piKernelGetInfo)(Kernel, CL_KERNEL_PROGRAM, sizeof(cl_program),
+  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program),
                            &Program, nullptr);
   return Program;
 }
