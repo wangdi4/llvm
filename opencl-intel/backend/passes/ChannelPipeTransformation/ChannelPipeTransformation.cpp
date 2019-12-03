@@ -128,6 +128,7 @@ static GlobalVariable *createGlobalPipeArray(Module &M, Type *PipeTy,
                                              ArrayRef<size_t> Dimensions,
                                              const Twine &Name) {
   auto *PipeArrayTy = CompilationUtils::createMultiDimArray(PipeTy, Dimensions);
+  assert(PipeArrayTy && "Is Dimensions invalid? Size of Dimensions must greater than 0.");
 
   auto *PipeGV = new GlobalVariable(
       M, PipeArrayTy, /*isConstant=*/false, GlobalValue::ExternalLinkage,
@@ -552,8 +553,9 @@ static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall, Value *G
                                       Value *Pipe, AllocaMapType &AllocaMap,
                                       OCLBuiltins &Builtins) {
   assert(GlobalPipe && "Failed to find corresponding global pipe");
-  ChannelKind CK = CompilationUtils::getChannelKind(
-      ChannelCall->getCalledFunction()->getName());
+  assert(ChannelCall && "ChannelCall should be null");
+  assert(ChannelCall->getCalledFunction() && "Indirect function is unexpected");
+  ChannelKind CK = CompilationUtils::getChannelKind(ChannelCall->getCalledFunction()->getName());
 
   PipeKind PK;
   PK.Op = PipeKind::READWRITE;

@@ -1299,6 +1299,7 @@ const char* TiXmlUnknown::Parse( const char* p, TiXmlParsingData* data, TiXmlEnc
 	if ( !p )
 	{
 		if ( document )	document->SetError( TIXML_ERROR_PARSING_UNKNOWN, 0, 0, encoding );
+		return nullptr;
 	}
 	if ( *p == '>' )
 		return p+1;
@@ -1350,7 +1351,8 @@ const char* TiXmlComment::Parse( const char* p, TiXmlParsingData* data, TiXmlEnc
 
 	if ( !StringEqual( p, startTag, false, encoding ) )
 	{
-		document->SetError( TIXML_ERROR_PARSING_COMMENT, p, data, encoding );
+		if (document)
+			document->SetError(TIXML_ERROR_PARSING_COMMENT, p, data, encoding);
 		return 0;
 	}
 	p += strlen( startTag );
@@ -1512,7 +1514,8 @@ const char* TiXmlText::Parse( const char* p, TiXmlParsingData* data, TiXmlEncodi
 
 		if ( !StringEqual( p, startTag, false, encoding ) )
 		{
-			document->SetError( TIXML_ERROR_PARSING_CDATA, p, data, encoding );
+			if (document)
+				document->SetError(TIXML_ERROR_PARSING_CDATA, p, data, encoding);
 			return 0;
 		}
 		p += strlen( startTag );

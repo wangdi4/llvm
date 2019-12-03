@@ -524,12 +524,11 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   const std::string BlockReadBaseName("intel_sub_group_block_read");
   const std::string BlockWriteBaseName("intel_sub_group_block_write");
 
-  llvm::StringMap<std::string> SuffixMap{
+  llvm::StringMap<const char *> SuffixMap{
       {{"", "j"}, {"_ul", "m"}, {"_ui", "j"}, {"_us", "t"}, {"_uc", "h"}}};
 
-  std::array<std::string, 5> BlockReadWriteSuffixes{
-      {"", "_ul", "_ui", "_us", "_uc"}};
-  std::array<unsigned, 4> BlockReadWriteVecLengths{{1, 2, 4, 8}};
+  const char *BlockReadWriteSuffixes[] = {"", "_ul", "_ui", "_us", "_uc"};
+  unsigned BlockReadWriteVecLengths[4] = {1, 2, 4, 8};
 
   // Example:
   // "intel_sub_group_block_read", "", 1 -> "intel_sub_group_block_read"
@@ -579,7 +578,7 @@ static void addSpecialBuiltins(ContainerTy &Info) {
 
   BuiltinInfoList ReadBuiltins;
   BuiltinInfoList WriteBuiltins;
-  for (auto Suffix : BlockReadWriteSuffixes) {
+  for (const char *Suffix : BlockReadWriteSuffixes) {
     for (auto OrigTypeVL : BlockReadWriteVecLengths) {
       const std::string BlockReadBaseName("intel_sub_group_block_read");
       std::string ReadBaseName =
@@ -692,7 +691,7 @@ static ContainerTy OCLBuiltinVecInfo() {
                {VectorKind::vector(),
                   VectorKind::uniform(), VectorKind::uniform(), VectorKind::uniform()},
                 false);
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
+    for (auto Op : {"add", "min", "max"}) {
        addEntries(Info, std::string("_Z21work_group_reduce_") + Op, Type,
                  {VectorKind::vector()}, false);
        addEntries(Info, std::string("_Z29work_group_scan_exclusive_") + Op, Type,
@@ -706,7 +705,7 @@ static ContainerTy OCLBuiltinVecInfo() {
   for (TypeInfo &Type : SubGroupReductionsTypes) {
     addEntries(Info, std::string("_Z19sub_group_broadcast"), {Type, {'j'}},
                {VectorKind::vector(), VectorKind::uniform()}, true);
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
+    for (auto Op : {"add", "min", "max"}) {
       addEntries(Info, std::string("_Z20sub_group_reduce_") + Op, Type,
                  {VectorKind::vector()}, true);
 
@@ -721,7 +720,7 @@ static ContainerTy OCLBuiltinVecInfo() {
   for (TypeInfo &Type : IntelSubGroupReductionsTypes) {
     addEntries(Info, std::string("_Z25intel_sub_group_broadcast"), {Type, {'j'}},
                {VectorKind::vector(), VectorKind::uniform()}, true);
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
+    for (auto Op : {"add", "min", "max"}) {
       addEntries(Info, std::string("_Z26intel_sub_group_reduce_") + Op, Type,
                  {VectorKind::vector()}, true);
 
@@ -769,13 +768,13 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
   // Work group uniform built-ins
   RetInfo.push_back({"_Z14work_group_alli", VectorKind::uniform()});
   RetInfo.push_back({"_Z14work_group_anyi", VectorKind::uniform()});
-  std::string WorkGroupTypes[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (auto Type : WorkGroupTypes) {
+  const char WorkGroupTypes[] = {'i', 'j', 'l', 'm', 'f', 'd'};
+  for (char Type : WorkGroupTypes) {
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "m", VectorKind::uniform()});
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mm", VectorKind::uniform()});
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mmm", VectorKind::uniform()});
 
-    for (std::string Op : std::array<std::string, 3>{{"add", "min", "max"}})
+    for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type, VectorKind::uniform()});
   }
 
@@ -785,19 +784,17 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
 
   RetInfo.push_back({std::string("_Z22intel_sub_group_balloti"), VectorKind::uniform()});
 
-  std::string SubGroupTypes[] =
-    {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (auto Type : SubGroupTypes) {
+  const char SubGroupTypes[] = {'i', 'j', 'l', 'm', 'f', 'd'};
+  for (char Type : SubGroupTypes) {
     RetInfo.push_back({std::string("_Z19sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
+    for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z20sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
   }
 
-  std::string IntelSubGroupTypes[] =
-    {{'c'}, {'h'}, {'s'}, {'t'}};
-  for (auto Type : IntelSubGroupTypes) {
+  const char IntelSubGroupTypes[] = {'c', 'h', 's', 't'};
+  for (char Type : IntelSubGroupTypes) {
     RetInfo.push_back({std::string("_Z25intel_sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
+    for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z26intel_sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
   }
 

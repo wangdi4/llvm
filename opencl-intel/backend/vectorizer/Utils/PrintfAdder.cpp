@@ -51,6 +51,7 @@ void PrintfAdder::getConditionalGIDs(Function *F) {
   Instruction *loc = entry.getFirstNonPHI();
   Module *M = F->getParent();
   Function *gidFunc = M->getFunction(GET_GID_NAME);
+  assert(gidFunc && "Missing " GET_GID_NAME);
   FunctionType *fTy = gidFunc->getFunctionType();
 
   m_gids.clear();

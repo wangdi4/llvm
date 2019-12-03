@@ -779,8 +779,9 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
                                               ArrayRef<Value *> NewArgs,
                                               Function *NewF) {
   assert(OldC && "CallInst is NULL");
-  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size());
   assert(NewF && "function is NULL");
+  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size() &&
+         "Function argument number mismatch");
 
   SmallVector<Value *, 16> Args;
   for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)

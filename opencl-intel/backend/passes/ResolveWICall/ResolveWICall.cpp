@@ -467,6 +467,7 @@ namespace intel {
 
     params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, uiSizeT), uiSize));
     Function *pPrefetch = m_pModule->getFunction("lprefetch");
+    assert(pPrefetch && "Missing 'lprefetch' function");
     CallInst::Create(pPrefetch, ArrayRef<Value*>(params), "", pCall);
   }
 
@@ -608,6 +609,7 @@ namespace intel {
   // BE for loading bytecode
   // we handle here ONLY pointer to struct and double pointer to struct
   Function *cbkF = m_pModule->getFunction(FunctionName);
+  assert(cbkF && "Missing callback function");
   Function::arg_iterator AI = cbkF->arg_begin();
   for (SmallVectorImpl<Value *>::iterator it = NewParams.begin(), E = NewParams.end();
        it != E; ++it, ++AI) {
