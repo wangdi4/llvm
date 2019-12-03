@@ -966,7 +966,13 @@ public:
     void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
       std::swap(OpsVec[OpIdx1][Lane], OpsVec[OpIdx2][Lane]);
     }
-
+#if INTEL_CUSTOMIZATION
+    // We eventually want to completely switch to community version of
+    // Look-ahead scores calculation stuff. For now enable access to
+    // getShallowScore routine and score constants so that it could be used from
+    // outside of the class.
+  public:
+#endif // INTEL_CUSTOMIZATION
     // The hard-coded scores listed here are not very important. When computing
     // the scores of matching one sub-tree with another, we are basically
     // counting the number of values that are matching. So even if all scores
@@ -980,7 +986,7 @@ public:
     /// ExtractElementInst from same vector and consecutive indexes.
     static const int ScoreConsecutiveExtracts = 3;
     /// Constants.
-    static const int ScoreConstants = 2;
+    static const int ScoreConstants = 1; // INTEL (orig: 2)
     /// Instructions with the same opcode.
     static const int ScoreSameOpcode = 2;
     /// Instructions with alt opcodes (e.g, add + sub).
@@ -1040,6 +1046,7 @@ public:
       return VLOperands::ScoreFail;
     }
 
+  private: // INTEL
     /// Holds the values and their lane that are taking part in the look-ahead
     /// score calculation. This is used in the external uses cost calculation.
     SmallDenseMap<Value *, int> InLookAheadValues;
@@ -1854,24 +1861,12 @@ public:
   /// This is set to true if PSLP was succesful.
   bool PSLPSuccess = false;
 private:
-  /// Look-Ahead: Score multiplier for consecutive loads.
-  static const int SCORE_LOADS_CONSEC = 3;
-  /// Look-Ahead: Score for constants.
-  static const int SCORE_CONST = 1;
-  /// Look-Ahead: Score for identical instructions (broadcasts).
-  static const int SCORE_SPLAT = 2;
-  /// Look-Ahead: Score for different instructions with same opcode.
-  static const int SCORE_INSTR_SAME_OPCODE = 1;
-  /// Look-Ahead: Score for instructions with different opcodes.
-  static const int SCORE_INSTR_DIFF_OPCODE = 0;
-  /// Look-Ahead: Score for failure.
-  static const int SCORE_FAIL = 0;
   // The look-ahead score measured how well the frontier-rooted sub-trees match.
   // This score is adjusted by this much when the frontier nodes (users of the
   // sub-tree) don't match and require Padding by PSLP to get vectorized.
   // The more negative the number the worse the resulting score.
   // Its main purpose is to break ties across scores.
-  static const int BLEND_COST = -2;
+  static const int BLEND_COST = -3;
 
   /// Contains the padded instructions emitted by PSLP, that should be removed
   /// if PSLP fails (not the selects).
@@ -2972,9 +2967,6 @@ private:
   int getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane, int OpI,
                      const OpVec &BestOperandsSoFar, VecMode Mode);
 
-  /// \returns the score of placing \p v1 and \p v2 in consecutive lanes.
-  int areConsecutive(Value *v1, Value *v2) const;
-
   /// Replace Op's frontier with opcode with the 'effective' one.
   void replaceFrontierOpcodeWithEffective(OperandData *Op);
 
@@ -3934,50 +3926,20 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
     assert(!verifyFunction(*F, &dbgs()));
 }
 
-int BoUpSLP::areConsecutive(Value *v1, Value *v2) const {
-  auto *LI1 = dyn_cast<LoadInst>(v1);
-  auto *LI2 = dyn_cast<LoadInst>(v2);
-  if (LI1 && LI2) {
-    return isConsecutiveAccess(LI1, LI2, *DL, *SE) ? SCORE_LOADS_CONSEC
-                                                   : SCORE_FAIL;
-  }
-
-  auto *C1 = dyn_cast<Constant>(v1);
-  auto *C2 = dyn_cast<Constant>(v2);
-  if (C1 && C2) {
-    return SCORE_CONST;
-  }
-
-  auto *Instr1 = dyn_cast<Instruction>(v1);
-  auto *Instr2 = dyn_cast<Instruction>(v2);
-  if (Instr1 && Instr2) {
-    if (Instr1 == Instr2)
-      return SCORE_SPLAT;
-
-    // getSameOpcode() also covers add-sub
-    InstructionsState S = getSameOpcode({Instr1, Instr2});
-    // An add-sub vector is +1 cost, so I am not sure whether this helps
-    // if (Instr1->getOpcode() == Instr2->getOpcode()) {
-    // SPLATs have a higher priority if more than 2 lanes
-    return S.getOpcode() ? SCORE_INSTR_SAME_OPCODE : SCORE_INSTR_DIFF_OPCODE;
-  }
-  return SCORE_FAIL;
-}
-
 // We go through the operands of V1 and V2 until LEVEL
 // and we count the number of matches.
 int BoUpSLP::getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
   // Get the shallow score of V1 and V2.
-  int ShallowScoreAtThisLevel = areConsecutive(V1, V2);
+  int ShallowScoreAtThisLevel = VLOperands::getShallowScore(V1, V2, *DL, *SE);
 
   // If reached MaxLevel,
   // or if V1 and V2 are not instructions,
   // or if they are SPLAT,
   // or if they are not consecutive, early return the current cost.
-  Instruction *I1 = dyn_cast<Instruction>(V1);
-  Instruction *I2 = dyn_cast<Instruction>(V2);
+  auto *I1 = dyn_cast<Instruction>(V1);
+  auto *I2 = dyn_cast<Instruction>(V2);
   if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
-      ShallowScoreAtThisLevel == SCORE_FAIL ||
+      ShallowScoreAtThisLevel == VLOperands::ScoreFail ||
       (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
     return ShallowScoreAtThisLevel;
 
@@ -4362,9 +4324,10 @@ int BoUpSLP::getMNScore() const {
     for (unsigned Lane = 1; Lane != CurrentMultiNode->getNumLanes(); ++Lane) {
       const OperandData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const OperandData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
-      if (areConsecutive(OperandL->getValue(), OperandR->getValue()) ==
-              SCORE_FAIL ||
-          OperandL->getValue() == OperandR->getValue()) {
+      if (OperandL->getValue() == OperandR->getValue() ||
+          VLOperands::getShallowScore(OperandL->getValue(),
+                                      OperandR->getValue(), *DL,
+                                      *SE) == VLOperands::ScoreFail) {
         AreConsecutive = false;
         break;
       }
