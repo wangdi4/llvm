@@ -22,7 +22,6 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   Passes
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis
   Intel_LoopTransforms
@@ -34,9 +33,6 @@ set(LLVM_LINK_COMPONENTS
   VPOAnalysis
   VPOTransforms
 # end INTEL_COLLAB
-  ASFixer
-=======
->>>>>>> 59f4592ad18b733d31b2c2ac5e5466fe619859dd
   )
 
 add_llvm_tool(opt

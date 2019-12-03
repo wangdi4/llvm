@@ -1404,7 +1404,6 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   } else if (FnRetTy->isReferenceType()) {
     // If this function returns a reference, take the address of the expression
     // rather than the value.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Handle the case of ret_type& function();
     if (!getLangOpts().isIntelCompat(LangOptions::FakeLoad) ||
@@ -1412,34 +1411,6 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
         !EmitFakeLoadForRetPtr(RV)) {
       RValue Result = EmitReferenceBindingToExpr(RV);
       llvm::Value *Val = Result.getScalarVal();
-      if (!getenv("DISABLE_INFER_AS")) {
-        if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-          auto *ExpectedPtrType =
-              cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-          unsigned ValueAS = PtrTy->getAddressSpace();
-          unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-          if (ValueAS != ExpectedAS) {
-            Val =
-                Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
-          }
-=======
-    RValue Result = EmitReferenceBindingToExpr(RV);
-    llvm::Value *Val = Result.getScalarVal();
-    if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-      auto *ExpectedPtrType =
-          cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-      unsigned ValueAS = PtrTy->getAddressSpace();
-      unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-      if (ValueAS != ExpectedAS) {
-        Val = Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
-      }
-    }
-    Builder.CreateStore(Val, ReturnValue);
-  } else {
-    switch (getEvaluationKind(RV->getType())) {
-    case TEK_Scalar:
-    {
-      llvm::Value *Val = EmitScalarExpr(RV);
       if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
         auto *ExpectedPtrType =
             cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
@@ -1448,7 +1419,6 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
         if (ValueAS != ExpectedAS) {
           Val =
               Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
->>>>>>> 59f4592ad18b733d31b2c2ac5e5466fe619859dd
         }
       }
       Builder.CreateStore(Val, ReturnValue);
@@ -1466,16 +1436,14 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
           Exp->getOpcode() != UO_AddrOf || !IsFakeLoadCand(Exp->getSubExpr()) ||
           !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
         llvm::Value *Val = EmitScalarExpr(RV);
-        if (!getenv("DISABLE_INFER_AS")) {
-          if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-            auto *ExpectedPtrType =
-                cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-            unsigned ValueAS = PtrTy->getAddressSpace();
-            unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-            if (ValueAS != ExpectedAS)
-              Val = Builder.CreatePointerBitCastOrAddrSpaceCast(
-                  Val, ExpectedPtrType);
-          }
+        if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
+          auto *ExpectedPtrType =
+              cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
+          unsigned ValueAS = PtrTy->getAddressSpace();
+          unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+          if (ValueAS != ExpectedAS)
+            Val = Builder.CreatePointerBitCastOrAddrSpaceCast(
+                Val, ExpectedPtrType);
         }
         Builder.CreateStore(Val, ReturnValue);
       }
