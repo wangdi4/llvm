@@ -90,7 +90,7 @@ static cl::opt<int> InlineThreshold(
     cl::desc("Control the amount of inlining to perform (default = 225)"));
 
 static cl::opt<int> HintThreshold(
-    "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore, 
+    "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore,
     cl::desc("Threshold for inlining functions with inline hint"));
 
 static cl::opt<int>
@@ -102,7 +102,7 @@ static cl::opt<int>
 // PGO before we actually hook up inliner with analysis passes such as BPI and
 // BFI.
 static cl::opt<int> ColdThreshold(
-    "inlinecold-threshold", cl::Hidden, cl::init(45), cl::ZeroOrMore, 
+    "inlinecold-threshold", cl::Hidden, cl::init(45), cl::ZeroOrMore,
     cl::desc("Threshold for inlining functions with cold attribute"));
 
 static cl::opt<int>
@@ -278,6 +278,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool HasUninlineableIntrinsic = false;
   bool InitsVargArgs = false;
 
+  /// Attempt to evaluate indirect calls to boost its inline cost.
+  bool BoostIndirectCalls;
+
   /// Number of bytes allocated statically by the callee.
   uint64_t AllocatedSize = 0;
   unsigned NumInstructions = 0;
@@ -428,6 +431,7 @@ public:
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
                ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
+<<<<<<< HEAD
                Function &Callee, CallBase &Call,   // INTEL
                TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
@@ -435,17 +439,25 @@ public:
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
                SmallSet<Function *, 20> *FForDTrans, // INTEL
                const InlineParams &Params)         // INTEL
+=======
+               Function &Callee, CallBase &Call, const InlineParams &Params,
+               bool BoostIndirect = true)
+>>>>>>> 825debe847d15a5670eff54745a6691145ddfae1
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCall(Call), Params(Params), Threshold(Params.DefaultThreshold),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         FuncsForDTrans(FForDTrans),
 #endif // INTEL_CUSTOMIZATION
         EnableLoadElimination(true) {}
+=======
+        BoostIndirectCalls(BoostIndirect), EnableLoadElimination(true) {}
+>>>>>>> 825debe847d15a5670eff54745a6691145ddfae1
 
   InlineResult analyzeCall(CallBase &Call,                       // INTEL
                            const TargetTransformInfo &CalleeTTI, // INTEL
@@ -572,9 +584,9 @@ bool CallAnalyzer::isGEPFree(GetElementPtrInst &GEP) {
   Operands.push_back(GEP.getOperand(0));
   for (User::op_iterator I = GEP.idx_begin(), E = GEP.idx_end(); I != E; ++I)
     if (Constant *SimpleOp = SimplifiedValues.lookup(*I))
-       Operands.push_back(SimpleOp);
-     else
-       Operands.push_back(*I);
+      Operands.push_back(SimpleOp);
+    else
+      Operands.push_back(*I);
   return TargetTransformInfo::TCC_Free == TTI.getUserCost(&GEP, Operands);
 }
 
@@ -1421,81 +1433,68 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
   if (isa<CallInst>(Call) && cast<CallInst>(Call).cannotDuplicate())
     ContainsNoDuplicateCall = true;
 
-  if (Function *F = Call.getCalledFunction()) {
-    // When we have a concrete function, first try to simplify it directly.
-    if (simplifyCallSite(F, Call))
-      return true;
-
-    // Next check if it is an intrinsic we know about.
-    // FIXME: Lift this into part of the InstVisitor.
-    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(&Call)) {
-      switch (II->getIntrinsicID()) {
-      default:
-        if (!Call.onlyReadsMemory() && !isAssumeLikeIntrinsic(II))
-          disableLoadElimination();
-        return Base::visitCallBase(Call);
-
-      case Intrinsic::load_relative:
-        // This is normally lowered to 4 LLVM instructions.
-        addCost(3 * InlineConstants::InstrCost);
-        return false;
-
-      case Intrinsic::memset:
-      case Intrinsic::memcpy:
-      case Intrinsic::memmove:
-        disableLoadElimination();
-        // SROA can usually chew through these intrinsics, but they aren't free.
-        return false;
-      case Intrinsic::icall_branch_funnel:
-      case Intrinsic::localescape:
-        HasUninlineableIntrinsic = true;
-        return false;
-      case Intrinsic::vastart:
-        InitsVargArgs = true;
-        return false;
-      }
-    }
-
-    if (F == Call.getFunction()) {
-      // This flag will fully abort the analysis, so don't bother with anything
-      // else.
-      IsRecursiveCall = true;
-      return false;
-    }
-
-    if (TTI.isLoweredToCall(F)) {
-      // We account for the average 1 instruction per call argument setup
-      // here.
+  Value *Callee = Call.getCalledOperand();
+  Function *F = dyn_cast_or_null<Function>(Callee);
+  bool IsIndirectCall = !F;
+  if (IsIndirectCall) {
+    // Check if this happens to be an indirect function call to a known function
+    // in this inline context. If not, we've done all we can.
+    F = dyn_cast_or_null<Function>(SimplifiedValues.lookup(Callee));
+    if (!F) {
+      // Pay the price of the argument setup. We account for the average 1
+      // instruction per call argument setup here.
       addCost(Call.arg_size() * InlineConstants::InstrCost);
 
-      // Everything other than inline ASM will also have a significant cost
-      // merely from making the call.
-      if (!isa<InlineAsm>(Call.getCalledValue()))
-        addCost(InlineConstants::CallPenalty);
+      if (!Call.onlyReadsMemory())
+        disableLoadElimination();
+      return Base::visitCallBase(Call);
     }
-
-    if (!Call.onlyReadsMemory())
-      disableLoadElimination();
-    return Base::visitCallBase(Call);
   }
 
-  // Otherwise we're in a very special case -- an indirect function call. See
-  // if we can be particularly clever about this.
-  Value *Callee = Call.getCalledValue();
+  assert(F && "Expected a call to a known function");
 
-  // First, pay the price of the argument setup. We account for the average
-  // 1 instruction per call argument setup here.
-  addCost(Call.arg_size() * InlineConstants::InstrCost);
+  // When we have a concrete function, first try to simplify it directly.
+  if (simplifyCallSite(F, Call))
+    return true;
 
-  // Next, check if this happens to be an indirect function call to a known
-  // function in this inline context. If not, we've done all we can.
-  Function *F = dyn_cast_or_null<Function>(SimplifiedValues.lookup(Callee));
-  if (!F) {
-    if (!Call.onlyReadsMemory())
+  // Next check if it is an intrinsic we know about.
+  // FIXME: Lift this into part of the InstVisitor.
+  if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(&Call)) {
+    switch (II->getIntrinsicID()) {
+    default:
+      if (!Call.onlyReadsMemory() && !isAssumeLikeIntrinsic(II))
+        disableLoadElimination();
+      return Base::visitCallBase(Call);
+
+    case Intrinsic::load_relative:
+      // This is normally lowered to 4 LLVM instructions.
+      addCost(3 * InlineConstants::InstrCost);
+      return false;
+
+    case Intrinsic::memset:
+    case Intrinsic::memcpy:
+    case Intrinsic::memmove:
       disableLoadElimination();
-    return Base::visitCallBase(Call);
+      // SROA can usually chew through these intrinsics, but they aren't free.
+      return false;
+    case Intrinsic::icall_branch_funnel:
+    case Intrinsic::localescape:
+      HasUninlineableIntrinsic = true;
+      return false;
+    case Intrinsic::vastart:
+      InitsVargArgs = true;
+      return false;
+    }
   }
 
+  if (F == Call.getFunction()) {
+    // This flag will fully abort the analysis, so don't bother with anything
+    // else.
+    IsRecursiveCall = true;
+    return false;
+  }
+
+<<<<<<< HEAD
   // If we have a constant that we are calling as a function, we can peer
   // through it and see the function target. This happens not infrequently
   // during devirtualization and so we want to give it a hefty bonus for
@@ -1511,9 +1510,34 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
+=======
+  if (TTI.isLoweredToCall(F)) {
+    // We account for the average 1 instruction per call argument setup here.
+    addCost(Call.arg_size() * InlineConstants::InstrCost);
+
+    // If we have a constant that we are calling as a function, we can peer
+    // through it and see the function target. This happens not infrequently
+    // during devirtualization and so we want to give it a hefty bonus for
+    // inlining, but cap that bonus in the event that inlining wouldn't pan out.
+    // Pretend to inline the function, with a custom threshold.
+    if (IsIndirectCall && BoostIndirectCalls) {
+      auto IndirectCallParams = Params;
+      IndirectCallParams.DefaultThreshold =
+          InlineConstants::IndirectCallThreshold;
+      CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
+                      IndirectCallParams, false);
+      if (CA.analyzeCall(Call)) {
+        // We were able to inline the indirect call! Subtract the cost from the
+        // threshold to get the bonus we want to apply, but don't go below zero.
+        Cost -= std::max(0, CA.getThreshold() - CA.getCost());
+      }
+    } else
+      // Otherwise simply add the cost for merely making the call.
+      addCost(InlineConstants::CallPenalty);
+>>>>>>> 825debe847d15a5670eff54745a6691145ddfae1
   }
 
-  if (!F->onlyReadsMemory())
+  if (!(Call.onlyReadsMemory() || (IsIndirectCall && F->onlyReadsMemory())))
     disableLoadElimination();
   return Base::visitCallBase(Call);
 }
@@ -1695,7 +1719,7 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
 
   int64_t ExpectedNumberOfCompare = 3 * (int64_t)NumCaseCluster / 2 - 1;
   int64_t SwitchCost =
-      ExpectedNumberOfCompare * 2 * InlineConstants::InstrCost;
+    ExpectedNumberOfCompare * 2 * InlineConstants::InstrCost;
 
   addCost(SwitchCost, (int64_t)CostUpperBound);
   return false;
