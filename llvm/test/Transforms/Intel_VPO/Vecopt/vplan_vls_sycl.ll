@@ -17,43 +17,33 @@ define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
 ;    dst[4*x + i + 1] = t1;
 ;  }
 ;
-; CHECK:       Printing Groups- Total Groups 4
+; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1:
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 8
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:    AccessMask(per byte, R to L): 11111111
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
+; CHECK-NEXT:   #2 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2:
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 8
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #2 <4 x 32> SLoad
-; CHECK-NEXT:  Group#3:
-; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 8
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #4 <4 x 32> SStore
-; CHECK-NEXT:  Group#4:
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 8
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:    AccessMask(per byte, R to L): 11111111
 ; CHECK-NEXT:   #3 <4 x 32> SStore
+; CHECK-NEXT:   #4 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK:         [[TMP0:%.*]] = add nsw <4 x i64> [[BROADCAST_SPLAT:%.*]], [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i64> [[TMP0]], <i64 1, i64 1, i64 1, i64 1>
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT2:%.*]], <4 x i64> [[TMP0]]
-; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT2]], <4 x i64> [[TMP1]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER4:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP3]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
-; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[WIDE_MASKED_GATHER]], <i32 7, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[WIDE_MASKED_GATHER4]], <i32 11, i32 11, i32 11, i32 11>
-; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i64> [[BROADCAST_SPLAT6:%.*]], [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i64> [[TMP4]], <i64 1, i64 1, i64 1, i64 1>
-; CHECK-NEXT:    [[MM_VECTORGEP9:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT8:%.*]], <4 x i64> [[TMP4]]
-; CHECK-NEXT:    [[MM_VECTORGEP10:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT8]], <4 x i64> [[TMP5]]
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP2]], <4 x i32*> [[MM_VECTORGEP9]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP3]], <4 x i32*> [[MM_VECTORGEP10]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK:         [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP:%.*]], i64 0
+; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <8 x i32>*
+; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <8 x i32>, <8 x i32>* [[GROUPPTR]], align 4
+; CHECK-NEXT:    [[GROUPSHUFFLE:%.*]] = shufflevector <8 x i32> [[GROUPLOAD]], <8 x i32> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
+; CHECK-NEXT:    [[GROUPSHUFFLE4:%.*]] = shufflevector <8 x i32> [[GROUPLOAD]], <8 x i32> undef, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
+; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[GROUPSHUFFLE]], <i32 7, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[GROUPSHUFFLE4]], <i32 11, i32 11, i32 11, i32 11>
+; CHECK:         [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> [[TMP3]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[GROUPSHUFFLE11:%.*]] = shufflevector <8 x i32> [[TMP6]], <8 x i32> undef, <8 x i32> <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>
+; CHECK-NEXT:    [[MM_VECTORGEP9_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP9:%.*]], i64 0
+; CHECK-NEXT:    [[GROUPPTR12:%.*]] = bitcast i32* [[MM_VECTORGEP9_0]] to <8 x i32>*
+; CHECK-NEXT:    store <8 x i32> [[GROUPSHUFFLE11]], <8 x i32>* [[GROUPPTR12]], align 4
 ; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:
