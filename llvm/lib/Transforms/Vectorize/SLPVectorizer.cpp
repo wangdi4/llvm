@@ -9793,11 +9793,16 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
       V.buildTree(VL, ExternallyUsedValues, IgnoreList);
+      SmallVector<Value *, 4> ReorderedOps(VL.begin(), VL.end()); // INTEL
       Optional<ArrayRef<unsigned>> Order = V.bestOrder();
       // TODO: Handle orders of size less than number of elements in the vector.
       if (Order && Order->size() == VL.size()) {
         // TODO: reorder tree nodes without tree rebuilding.
+#if !INTEL_CUSTOMIZATION
+        // INTEL: Moved to outer scope due to repeated uses (and initialized in
+        // direct order).
         SmallVector<Value *, 4> ReorderedOps(VL.size());
+#endif // INTEL_CUSTOMIZATION
         llvm::transform(*Order, ReorderedOps.begin(),
                         [VL](const unsigned Idx) { return VL[Idx]; });
         V.buildTree(ReorderedOps, ExternallyUsedValues, IgnoreList);
@@ -9824,16 +9829,7 @@ public:
         // Enable PSLP.
         V.DoPSLP = true;
 
-        V.buildTree(VL, ExternallyUsedValues, IgnoreList);
-        Optional<ArrayRef<unsigned>> Order = V.bestOrder();
-        // TODO: Handle orders of size less than number of elements in the vector.
-        if (Order && Order->size() == VL.size()) {
-          // TODO: reorder tree nodes without tree rebuilding.
-          SmallVector<Value *, 4> ReorderedOps(VL.size());
-          llvm::transform(*Order, ReorderedOps.begin(),
-                          [VL](const unsigned Idx) { return VL[Idx]; });
-          V.buildTree(ReorderedOps, ExternallyUsedValues, IgnoreList);
-        }
+        V.buildTree(ReorderedOps, ExternallyUsedValues, IgnoreList);
         V.computeMinimumValueSizes();
 
         // Estimate PSLP cost.
@@ -9847,19 +9843,11 @@ public:
         if (Cost < PSLPCost && Cost < -SLPCostThreshold) {
           V.deleteTree();
           assert(!V.DoPSLP);
-          V.buildTree(VL, ExternallyUsedValues, IgnoreList);
-          Optional<ArrayRef<unsigned>> Order = V.bestOrder();
-          if (Order && Order->size() == VL.size()) {
-            // TODO: reorder tree nodes without tree rebuilding.
-            SmallVector<Value *, 4> ReorderedOps(Order->size());
-            llvm::transform(*Order, ReorderedOps.begin(),
-                            [VL](const unsigned Idx) { return VL[Idx]; });
-            V.buildTree(ReorderedOps, ExternallyUsedValues, IgnoreList);
-          }
+          V.buildTree(ReorderedOps, ExternallyUsedValues, IgnoreList);
           V.computeMinimumValueSizes();
 #ifndef NDEBUG
-          int NewCost =
-              V.getTreeCost() + getReductionCost(TTI, ReducedVals[i], ReduxWidth);
+          int NewCost = V.getTreeCost() +
+                        getReductionCost(TTI, ReducedVals[i], ReduxWidth);
           assert(NewCost == Cost && "Bad PSLP cleanup ???");
 #endif
         } else {
