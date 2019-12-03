@@ -4142,8 +4142,7 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     }
   }
 
-  // Multiplier in order to avoid floats.
-  return BestScore * 10;
+  return BestScore;
 }
 
 // Replaces old frontier opcode with "effective" one for 'Op'. The "effective"
@@ -4373,16 +4372,21 @@ BoUpSLP::GroupState BoUpSLP::getBestGroupForOpI(int OpI,
       TryGroup.append(FirstOperand);
       if (TryGroup.size() == 1)
         TryGroup.setMode(getVecModeForVal(FirstOperand->getValue()));
-
       buildMaxGroup(TryGroup, OpI, FirstOperandsForNextGroup);
-      // Find the best maximum group. We divide by the number of nodes in the
-      // group. This avoids long bad groups.
-      int Score = TryGroup.getScore() / TryGroup.size();
+
+      auto getNormalizedScore = [](const OpGroup &G) {
+        // In order to find the best maximum group its score is divided
+        // by the group size (the number of nodes in a group).
+        // Multiplier is used in order to avoid floats still providing
+        // decent differentiation between groups. This way long bad
+        // groups are avoided.
+        return G.getScore() * 10 / G.size();
+      };
       if (LocalBestGroup.empty() ||
           // We need to make the groups as long as possible.
           (TryGroup.size() >= LocalBestGroup.size() &&
            // We should maximize the score per lane.
-           Score > LocalBestGroup.getScore() / LocalBestGroup.size())) {
+           getNormalizedScore(TryGroup) > getNormalizedScore(LocalBestGroup))) {
         LocalBestGroup = TryGroup;
 
         // Check our complexity budget. We have this many spawns left.
