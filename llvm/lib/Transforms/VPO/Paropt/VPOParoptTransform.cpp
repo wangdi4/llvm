@@ -872,8 +872,9 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
                                      TeamUpperBnd, TeamStride, DistSchedKind,
                                      TeamLB, TeamUB, TeamST);
 
-    if (isa<WRNParallelSectionsNode>(W) || isa<WRNParallelLoopNode>(W) ||
-        isa<WRNDistributeParLoopNode>(W))
+    if (isa<WRNParallelSectionsNode>(W) || isa<WRNDistributeParLoopNode>(W) ||
+        isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W) ||
+        isa<WRNSectionsNode>(W))
       genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd,
                                 TeamLowerBnd, TeamUpperBnd, SchedStride);
 
