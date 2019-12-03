@@ -3565,7 +3565,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     Command* memsetCommand;
     void *pattern = &value;
     size_t pattern_size = 1;
-    if (nullptr == usmBuf.GetPtr())
+    if (nullptr != usmBuf.GetPtr())
         memsetCommand = new MemFillUsmBufferCommand(queue, m_pOclEntryPoints,
             usmBuf, pattern, pattern_size,
             (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
@@ -3622,7 +3622,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(cl_command_queue command_queue,
 
     // do the work:
     Command* memFillCommand;
-    if (nullptr == usmBuf.GetPtr())
+    if (nullptr != usmBuf.GetPtr())
         memFillCommand = new MemFillUsmBufferCommand(queue, m_pOclEntryPoints,
             usmBuf, pattern, pattern_size,
             (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
