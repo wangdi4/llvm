@@ -122,13 +122,10 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FSQRT:       R = SoftenFloatRes_FSQRT(N); break;
     case ISD::STRICT_FSUB:
     case ISD::FSUB:        R = SoftenFloatRes_FSUB(N); break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case ISD::FTAN:        R = SoftenFloatRes_FTAN(N); break;
 #endif
-=======
     case ISD::STRICT_FTRUNC:
->>>>>>> ebfff46c8d29efd9767a24043766ddd588db26c3
     case ISD::FTRUNC:      R = SoftenFloatRes_FTRUNC(N); break;
     case ISD::LOAD:        R = SoftenFloatRes_LOAD(N); break;
     case ISD::ATOMIC_SWAP: R = BitcastToInt_ATOMIC_SWAP(N); break;
