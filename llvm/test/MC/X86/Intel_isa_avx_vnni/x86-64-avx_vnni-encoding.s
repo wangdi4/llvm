@@ -1,227 +1,227 @@
 // REQUIRES: intel_feature_isa_avx_vnni
 // RUN: llvm-mc -triple x86_64-unknown-unknown -mattr=+avxvnni --show-encoding < %s  | FileCheck %s
 
-// CHECK: vpdpbusd %ymm4, %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd %ymm4, %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x50,0xf4]
-          vpdpbusd %ymm4, %ymm5, %ymm6
+          {vex} vpdpbusd %ymm4, %ymm5, %ymm6
 
-// CHECK: vpdpbusd %xmm4, %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd %xmm4, %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x50,0xf4]
-          vpdpbusd %xmm4, %xmm5, %xmm6
+          {vex} vpdpbusd %xmm4, %xmm5, %xmm6
 
-// CHECK: vpdpbusd  268435456(%rbp,%r14,8), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd  268435456(%rbp,%r14,8), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xa2,0x55,0x50,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpbusd  268435456(%rbp,%r14,8), %ymm5, %ymm6
+          {vex} vpdpbusd  268435456(%rbp,%r14,8), %ymm5, %ymm6
 
-// CHECK: vpdpbusd  291(%r8,%rax,4), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd  291(%r8,%rax,4), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xc2,0x55,0x50,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpbusd  291(%r8,%rax,4), %ymm5, %ymm6
+          {vex} vpdpbusd  291(%r8,%rax,4), %ymm5, %ymm6
 
-// CHECK: vpdpbusd  (%rip), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd  (%rip), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x50,0x35,0x00,0x00,0x00,0x00]
-          vpdpbusd  (%rip), %ymm5, %ymm6
+          {vex} vpdpbusd  (%rip), %ymm5, %ymm6
 
-// CHECK: vpdpbusd  -1024(,%rbp,2), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd  -1024(,%rbp,2), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x50,0x34,0x6d,0x00,0xfc,0xff,0xff]
-          vpdpbusd  -1024(,%rbp,2), %ymm5, %ymm6
+          {vex} vpdpbusd  -1024(,%rbp,2), %ymm5, %ymm6
 
-// CHECK: vpdpbusd  4064(%rcx), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd  4064(%rcx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x50,0xb1,0xe0,0x0f,0x00,0x00]
-          vpdpbusd  4064(%rcx), %ymm5, %ymm6
+          {vex} vpdpbusd  4064(%rcx), %ymm5, %ymm6
 
-// CHECK: vpdpbusd  -4096(%rdx), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusd  -4096(%rdx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x50,0xb2,0x00,0xf0,0xff,0xff]
-          vpdpbusd  -4096(%rdx), %ymm5, %ymm6
+          {vex} vpdpbusd  -4096(%rdx), %ymm5, %ymm6
 
-// CHECK: vpdpbusd  268435456(%rbp,%r14,8), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd  268435456(%rbp,%r14,8), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xa2,0x51,0x50,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpbusd  268435456(%rbp,%r14,8), %xmm5, %xmm6
+          {vex} vpdpbusd  268435456(%rbp,%r14,8), %xmm5, %xmm6
 
-// CHECK: vpdpbusd  291(%r8,%rax,4), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd  291(%r8,%rax,4), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xc2,0x51,0x50,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpbusd  291(%r8,%rax,4), %xmm5, %xmm6
+          {vex} vpdpbusd  291(%r8,%rax,4), %xmm5, %xmm6
 
-// CHECK: vpdpbusd  (%rip), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd  (%rip), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x50,0x35,0x00,0x00,0x00,0x00]
-          vpdpbusd  (%rip), %xmm5, %xmm6
+          {vex} vpdpbusd  (%rip), %xmm5, %xmm6
 
-// CHECK: vpdpbusd  -512(,%rbp,2), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd  -512(,%rbp,2), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x50,0x34,0x6d,0x00,0xfe,0xff,0xff]
-          vpdpbusd  -512(,%rbp,2), %xmm5, %xmm6
+          {vex} vpdpbusd  -512(,%rbp,2), %xmm5, %xmm6
 
-// CHECK: vpdpbusd  2032(%rcx), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd  2032(%rcx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x50,0xb1,0xf0,0x07,0x00,0x00]
-          vpdpbusd  2032(%rcx), %xmm5, %xmm6
+          {vex} vpdpbusd  2032(%rcx), %xmm5, %xmm6
 
-// CHECK: vpdpbusd  -2048(%rdx), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusd  -2048(%rdx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x50,0xb2,0x00,0xf8,0xff,0xff]
-          vpdpbusd  -2048(%rdx), %xmm5, %xmm6
+          {vex} vpdpbusd  -2048(%rdx), %xmm5, %xmm6
 
-// CHECK: vpdpbusds %ymm4, %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds %ymm4, %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x51,0xf4]
-          vpdpbusds %ymm4, %ymm5, %ymm6
+          {vex} vpdpbusds %ymm4, %ymm5, %ymm6
 
-// CHECK: vpdpbusds %xmm4, %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds %xmm4, %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x51,0xf4]
-          vpdpbusds %xmm4, %xmm5, %xmm6
+          {vex} vpdpbusds %xmm4, %xmm5, %xmm6
 
-// CHECK: vpdpbusds  268435456(%rbp,%r14,8), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds  268435456(%rbp,%r14,8), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xa2,0x55,0x51,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpbusds  268435456(%rbp,%r14,8), %ymm5, %ymm6
+          {vex} vpdpbusds  268435456(%rbp,%r14,8), %ymm5, %ymm6
 
-// CHECK: vpdpbusds  291(%r8,%rax,4), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds  291(%r8,%rax,4), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xc2,0x55,0x51,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpbusds  291(%r8,%rax,4), %ymm5, %ymm6
+          {vex} vpdpbusds  291(%r8,%rax,4), %ymm5, %ymm6
 
-// CHECK: vpdpbusds  (%rip), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds  (%rip), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x51,0x35,0x00,0x00,0x00,0x00]
-          vpdpbusds  (%rip), %ymm5, %ymm6
+          {vex} vpdpbusds  (%rip), %ymm5, %ymm6
 
-// CHECK: vpdpbusds  -1024(,%rbp,2), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds  -1024(,%rbp,2), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x51,0x34,0x6d,0x00,0xfc,0xff,0xff]
-          vpdpbusds  -1024(,%rbp,2), %ymm5, %ymm6
+          {vex} vpdpbusds  -1024(,%rbp,2), %ymm5, %ymm6
 
-// CHECK: vpdpbusds  4064(%rcx), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds  4064(%rcx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x51,0xb1,0xe0,0x0f,0x00,0x00]
-          vpdpbusds  4064(%rcx), %ymm5, %ymm6
+          {vex} vpdpbusds  4064(%rcx), %ymm5, %ymm6
 
-// CHECK: vpdpbusds  -4096(%rdx), %ymm5, %ymm6
+// CHECK: {vex} vpdpbusds  -4096(%rdx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x51,0xb2,0x00,0xf0,0xff,0xff]
-          vpdpbusds  -4096(%rdx), %ymm5, %ymm6
+          {vex} vpdpbusds  -4096(%rdx), %ymm5, %ymm6
 
-// CHECK: vpdpbusds  268435456(%rbp,%r14,8), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds  268435456(%rbp,%r14,8), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xa2,0x51,0x51,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpbusds  268435456(%rbp,%r14,8), %xmm5, %xmm6
+          {vex} vpdpbusds  268435456(%rbp,%r14,8), %xmm5, %xmm6
 
-// CHECK: vpdpbusds  291(%r8,%rax,4), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds  291(%r8,%rax,4), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xc2,0x51,0x51,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpbusds  291(%r8,%rax,4), %xmm5, %xmm6
+          {vex} vpdpbusds  291(%r8,%rax,4), %xmm5, %xmm6
 
-// CHECK: vpdpbusds  (%rip), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds  (%rip), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x51,0x35,0x00,0x00,0x00,0x00]
-          vpdpbusds  (%rip), %xmm5, %xmm6
+          {vex} vpdpbusds  (%rip), %xmm5, %xmm6
 
-// CHECK: vpdpbusds  -512(,%rbp,2), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds  -512(,%rbp,2), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x51,0x34,0x6d,0x00,0xfe,0xff,0xff]
-          vpdpbusds  -512(,%rbp,2), %xmm5, %xmm6
+          {vex} vpdpbusds  -512(,%rbp,2), %xmm5, %xmm6
 
-// CHECK: vpdpbusds  2032(%rcx), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds  2032(%rcx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x51,0xb1,0xf0,0x07,0x00,0x00]
-          vpdpbusds  2032(%rcx), %xmm5, %xmm6
+          {vex} vpdpbusds  2032(%rcx), %xmm5, %xmm6
 
-// CHECK: vpdpbusds  -2048(%rdx), %xmm5, %xmm6
+// CHECK: {vex} vpdpbusds  -2048(%rdx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x51,0xb2,0x00,0xf8,0xff,0xff]
-          vpdpbusds  -2048(%rdx), %xmm5, %xmm6
+          {vex} vpdpbusds  -2048(%rdx), %xmm5, %xmm6
 
-// CHECK: vpdpwssd %ymm4, %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd %ymm4, %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x52,0xf4]
-          vpdpwssd %ymm4, %ymm5, %ymm6
+          {vex} vpdpwssd %ymm4, %ymm5, %ymm6
 
-// CHECK: vpdpwssd %xmm4, %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd %xmm4, %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x52,0xf4]
-          vpdpwssd %xmm4, %xmm5, %xmm6
+          {vex} vpdpwssd %xmm4, %xmm5, %xmm6
 
-// CHECK: vpdpwssd  268435456(%rbp,%r14,8), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd  268435456(%rbp,%r14,8), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xa2,0x55,0x52,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpwssd  268435456(%rbp,%r14,8), %ymm5, %ymm6
+          {vex} vpdpwssd  268435456(%rbp,%r14,8), %ymm5, %ymm6
 
-// CHECK: vpdpwssd  291(%r8,%rax,4), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd  291(%r8,%rax,4), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xc2,0x55,0x52,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpwssd  291(%r8,%rax,4), %ymm5, %ymm6
+          {vex} vpdpwssd  291(%r8,%rax,4), %ymm5, %ymm6
 
-// CHECK: vpdpwssd  (%rip), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd  (%rip), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x52,0x35,0x00,0x00,0x00,0x00]
-          vpdpwssd  (%rip), %ymm5, %ymm6
+          {vex} vpdpwssd  (%rip), %ymm5, %ymm6
 
-// CHECK: vpdpwssd  -1024(,%rbp,2), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd  -1024(,%rbp,2), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x52,0x34,0x6d,0x00,0xfc,0xff,0xff]
-          vpdpwssd  -1024(,%rbp,2), %ymm5, %ymm6
+          {vex} vpdpwssd  -1024(,%rbp,2), %ymm5, %ymm6
 
-// CHECK: vpdpwssd  4064(%rcx), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd  4064(%rcx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x52,0xb1,0xe0,0x0f,0x00,0x00]
-          vpdpwssd  4064(%rcx), %ymm5, %ymm6
+          {vex} vpdpwssd  4064(%rcx), %ymm5, %ymm6
 
-// CHECK: vpdpwssd  -4096(%rdx), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssd  -4096(%rdx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x52,0xb2,0x00,0xf0,0xff,0xff]
-          vpdpwssd  -4096(%rdx), %ymm5, %ymm6
+          {vex} vpdpwssd  -4096(%rdx), %ymm5, %ymm6
 
-// CHECK: vpdpwssd  268435456(%rbp,%r14,8), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd  268435456(%rbp,%r14,8), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xa2,0x51,0x52,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpwssd  268435456(%rbp,%r14,8), %xmm5, %xmm6
+          {vex} vpdpwssd  268435456(%rbp,%r14,8), %xmm5, %xmm6
 
-// CHECK: vpdpwssd  291(%r8,%rax,4), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd  291(%r8,%rax,4), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xc2,0x51,0x52,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpwssd  291(%r8,%rax,4), %xmm5, %xmm6
+          {vex} vpdpwssd  291(%r8,%rax,4), %xmm5, %xmm6
 
-// CHECK: vpdpwssd  (%rip), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd  (%rip), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x52,0x35,0x00,0x00,0x00,0x00]
-          vpdpwssd  (%rip), %xmm5, %xmm6
+          {vex} vpdpwssd  (%rip), %xmm5, %xmm6
 
-// CHECK: vpdpwssd  -512(,%rbp,2), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd  -512(,%rbp,2), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x52,0x34,0x6d,0x00,0xfe,0xff,0xff]
-          vpdpwssd  -512(,%rbp,2), %xmm5, %xmm6
+          {vex} vpdpwssd  -512(,%rbp,2), %xmm5, %xmm6
 
-// CHECK: vpdpwssd  2032(%rcx), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd  2032(%rcx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x52,0xb1,0xf0,0x07,0x00,0x00]
-          vpdpwssd  2032(%rcx), %xmm5, %xmm6
+          {vex} vpdpwssd  2032(%rcx), %xmm5, %xmm6
 
-// CHECK: vpdpwssd  -2048(%rdx), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssd  -2048(%rdx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x52,0xb2,0x00,0xf8,0xff,0xff]
-          vpdpwssd  -2048(%rdx), %xmm5, %xmm6
+          {vex} vpdpwssd  -2048(%rdx), %xmm5, %xmm6
 
-// CHECK: vpdpwssds %ymm4, %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds %ymm4, %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x53,0xf4]
-          vpdpwssds %ymm4, %ymm5, %ymm6
+          {vex} vpdpwssds %ymm4, %ymm5, %ymm6
 
-// CHECK: vpdpwssds %xmm4, %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds %xmm4, %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x53,0xf4]
-          vpdpwssds %xmm4, %xmm5, %xmm6
+          {vex} vpdpwssds %xmm4, %xmm5, %xmm6
 
-// CHECK: vpdpwssds  268435456(%rbp,%r14,8), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds  268435456(%rbp,%r14,8), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xa2,0x55,0x53,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpwssds  268435456(%rbp,%r14,8), %ymm5, %ymm6
+          {vex} vpdpwssds  268435456(%rbp,%r14,8), %ymm5, %ymm6
 
-// CHECK: vpdpwssds  291(%r8,%rax,4), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds  291(%r8,%rax,4), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xc2,0x55,0x53,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpwssds  291(%r8,%rax,4), %ymm5, %ymm6
+          {vex} vpdpwssds  291(%r8,%rax,4), %ymm5, %ymm6
 
-// CHECK: vpdpwssds  (%rip), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds  (%rip), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x53,0x35,0x00,0x00,0x00,0x00]
-          vpdpwssds  (%rip), %ymm5, %ymm6
+          {vex} vpdpwssds  (%rip), %ymm5, %ymm6
 
-// CHECK: vpdpwssds  -1024(,%rbp,2), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds  -1024(,%rbp,2), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x53,0x34,0x6d,0x00,0xfc,0xff,0xff]
-          vpdpwssds  -1024(,%rbp,2), %ymm5, %ymm6
+          {vex} vpdpwssds  -1024(,%rbp,2), %ymm5, %ymm6
 
-// CHECK: vpdpwssds  4064(%rcx), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds  4064(%rcx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x53,0xb1,0xe0,0x0f,0x00,0x00]
-          vpdpwssds  4064(%rcx), %ymm5, %ymm6
+          {vex} vpdpwssds  4064(%rcx), %ymm5, %ymm6
 
-// CHECK: vpdpwssds  -4096(%rdx), %ymm5, %ymm6
+// CHECK: {vex} vpdpwssds  -4096(%rdx), %ymm5, %ymm6
 // CHECK: encoding: [0xc4,0xe2,0x55,0x53,0xb2,0x00,0xf0,0xff,0xff]
-          vpdpwssds  -4096(%rdx), %ymm5, %ymm6
+          {vex} vpdpwssds  -4096(%rdx), %ymm5, %ymm6
 
-// CHECK: vpdpwssds  268435456(%rbp,%r14,8), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds  268435456(%rbp,%r14,8), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xa2,0x51,0x53,0xb4,0xf5,0x00,0x00,0x00,0x10]
-          vpdpwssds  268435456(%rbp,%r14,8), %xmm5, %xmm6
+          {vex} vpdpwssds  268435456(%rbp,%r14,8), %xmm5, %xmm6
 
-// CHECK: vpdpwssds  291(%r8,%rax,4), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds  291(%r8,%rax,4), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xc2,0x51,0x53,0xb4,0x80,0x23,0x01,0x00,0x00]
-          vpdpwssds  291(%r8,%rax,4), %xmm5, %xmm6
+          {vex} vpdpwssds  291(%r8,%rax,4), %xmm5, %xmm6
 
-// CHECK: vpdpwssds  (%rip), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds  (%rip), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x53,0x35,0x00,0x00,0x00,0x00]
-          vpdpwssds  (%rip), %xmm5, %xmm6
+          {vex} vpdpwssds  (%rip), %xmm5, %xmm6
 
-// CHECK: vpdpwssds  -512(,%rbp,2), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds  -512(,%rbp,2), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x53,0x34,0x6d,0x00,0xfe,0xff,0xff]
-          vpdpwssds  -512(,%rbp,2), %xmm5, %xmm6
+          {vex} vpdpwssds  -512(,%rbp,2), %xmm5, %xmm6
 
-// CHECK: vpdpwssds  2032(%rcx), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds  2032(%rcx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x53,0xb1,0xf0,0x07,0x00,0x00]
-          vpdpwssds  2032(%rcx), %xmm5, %xmm6
+          {vex} vpdpwssds  2032(%rcx), %xmm5, %xmm6
 
-// CHECK: vpdpwssds  -2048(%rdx), %xmm5, %xmm6
+// CHECK: {vex} vpdpwssds  -2048(%rdx), %xmm5, %xmm6
 // CHECK: encoding: [0xc4,0xe2,0x51,0x53,0xb2,0x00,0xf8,0xff,0xff]
-          vpdpwssds  -2048(%rdx), %xmm5, %xmm6
+          {vex} vpdpwssds  -2048(%rdx), %xmm5, %xmm6
 

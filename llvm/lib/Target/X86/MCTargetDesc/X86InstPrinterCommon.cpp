@@ -356,6 +356,31 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\trepne\t";
   else if (Flags & X86::IP_HAS_REPEAT)
     O << "\trep\t";
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  switch (MI->getOpcode()) {
+  case X86::VPDPBUSDSVEXYrm:
+  case X86::VPDPBUSDSVEXYrr:
+  case X86::VPDPBUSDSVEXrm:
+  case X86::VPDPBUSDSVEXrr:
+  case X86::VPDPBUSDVEXYrm:
+  case X86::VPDPBUSDVEXYrr:
+  case X86::VPDPBUSDVEXrm:
+  case X86::VPDPBUSDVEXrr:
+  case X86::VPDPWSSDSVEXYrm:
+  case X86::VPDPWSSDSVEXYrr:
+  case X86::VPDPWSSDSVEXrm:
+  case X86::VPDPWSSDSVEXrr:
+  case X86::VPDPWSSDVEXYrm:
+  case X86::VPDPWSSDVEXYrr:
+  case X86::VPDPWSSDVEXrm:
+  case X86::VPDPWSSDVEXrr:
+    // These all require a pseudo prefix
+    O << "\t{vex}";
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,

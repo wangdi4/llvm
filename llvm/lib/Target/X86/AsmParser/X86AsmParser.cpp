@@ -2371,6 +2371,12 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         ForcedVEXEncoding = VEXEncoding_VEX2;
       else if (Prefix == "vex3")
         ForcedVEXEncoding = VEXEncoding_VEX3;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      else if (Prefix == "vex")
+        ForcedVEXEncoding = VEXEncoding_VEX2;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
       else if (Prefix == "evex")
         ForcedVEXEncoding = VEXEncoding_EVEX;
       else
@@ -3358,6 +3364,32 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   // EVEX encoding.
   // FIXME: We really need a way to break the ambiguity.
   switch (Opc) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  case X86::VPDPBUSDSVEXYrm:
+  case X86::VPDPBUSDSVEXYrr:
+  case X86::VPDPBUSDSVEXrm:
+  case X86::VPDPBUSDSVEXrr:
+  case X86::VPDPBUSDVEXYrm:
+  case X86::VPDPBUSDVEXYrr:
+  case X86::VPDPBUSDVEXrm:
+  case X86::VPDPBUSDVEXrr:
+  case X86::VPDPWSSDSVEXYrm:
+  case X86::VPDPWSSDSVEXYrr:
+  case X86::VPDPWSSDSVEXrm:
+  case X86::VPDPWSSDSVEXrr:
+  case X86::VPDPWSSDVEXYrm:
+  case X86::VPDPWSSDVEXYrr:
+  case X86::VPDPWSSDVEXrm:
+  case X86::VPDPWSSDVEXrr:
+    // These instructions are only available with {vex2} or {vex3} prefix
+    if (ForcedVEXEncoding != VEXEncoding_VEX2 &&
+        ForcedVEXEncoding != VEXEncoding_VEX3)
+      return Match_Unsupported;
+    break;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   case X86::VCVTSD2SIZrm_Int:
   case X86::VCVTSD2SI64Zrm_Int:
   case X86::VCVTSS2SIZrm_Int:
