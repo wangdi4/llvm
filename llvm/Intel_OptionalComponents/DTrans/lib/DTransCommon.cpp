@@ -186,6 +186,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
+  initializeDTransTypeMetadataReaderTestWrapperPass(PR);
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
@@ -334,5 +335,6 @@ void llvm::createDTransPasses() {
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();
+  (void)llvm::createDTransMetadataReaderTestWrapperPass();
 #endif // !INTEL_PRODUCT_RELEASE
 }

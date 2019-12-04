@@ -699,24 +699,49 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF1Test(void) {
 // 12. (%t4)[0].0[%t38.out] = %t48;
 // 13. t69:
 //
+// Or, alternatively,
+//  |   %16 = (%0)[0].12.0[i1];
+//  |   %20 = (%0)[0].10.0[%16 + %1];
+//  |   (%0)[0].10.0[%16 + %1] = %20 + trunc.i32.i16(%7) + -256;
+//  |   %24 = (%0)[0].7.0[%16 + %1];
+//  |   if (%13 > 0)
+//  |   {
+//  |      + DO i2 = 0, zext.i32.i64(%13) + -1, 1   <DO_MULTI_EXIT_LOOP>
+//  <MAX_TC_EST = 4> |      |   if ((%4)[0].0[i2] == %24) |      |   { |      |
+//  goto %51; |      |   } |      + END LOOP
+//  |
+//  |      %44 = %13; // CopyInst1
+//  |      goto %43;
+//  |      %51:
+//  |      goto %52;
+//  |   }
+//  |   %44 = %13; // CopyInst2
+//  |   %43:
+//  |   %47 = (%0)[0].8.0[%24];
+//  |   (%0)[0].8.0[%24] = %47 + -1;
+//  |   %13 = %13  +  1;
+//  |   (%4)[0].0[%44] = %24;
+//  |   %52:
+namespace {
+// Helper for doDeepPatternTestOuterLp
+bool isCopy(const HLInst *HInst) {
+  return HInst && HInst->isCopyInst() &&
+         HInst->getLvalDDRef()->isTerminalRef() &&
+         HInst->getRvalDDRef()->isTerminalRef();
+}
+} // namespace
+
 bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-  // LLVM_DEBUG(FOS << "OuterLpNodeVec: \n"; print(OuterLpNodeVec););
 
-  // Expect a total of 14 HLNode* in OuterLp-only level:
-  if (OuterLpNodeVec.size() != 14) {
-    return false;
-  }
-
-  // 0. %t38.out = %t38;
-  // Check: CopyInst, Lval is a temp, Rval is a temp;
-  HLInst *HInst = dyn_cast<HLInst>(OuterLpNodeVec[0]);
-  if (!HInst || !HInst->isCopyInst() ||
-      !HInst->getLvalDDRef()->isTerminalRef() ||
-      !HInst->getRvalDDRef()->isTerminalRef()) {
-    return false;
+  auto It = OuterLpNodeVec.begin();
+  HLInst *CopyInst1 = nullptr;
+  HLInst *CopyInst2 = nullptr;
+  if (isCopy(dyn_cast<HLInst>(*It))) {
+    CopyInst1 = cast<HLInst>(*It);
+    It++;
   }
 
   int64_t IntConst = 0;
@@ -728,7 +753,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a temp
   // - Rval is a 2-Dimensional non-local memref, Dim1 has IV, Dim2 is a
   // const 0
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[1]);
+  HLInst *HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -757,7 +782,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a temp
   // - Rval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[2]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -787,7 +813,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a 2-Dimensional non-local memref, Dim1 has IV, Dim2 is a const 0
   //  . [note]: Lval here is the same as Rval in previous instruction
   // - Rval is a terminalRef
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[3]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -828,7 +855,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a temp
   // - Rval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[4]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -852,12 +880,20 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
+  // Within the outer if
   // 5. goto t61;
-  HLGoto *Goto = dyn_cast<HLGoto>(OuterLpNodeVec[5]);
-  if (!Goto) {
+  It++;
+  if (isCopy(dyn_cast<HLInst>(*It))) {
+    if (CopyInst1)
+      return false;
+    CopyInst1 = cast<HLInst>(*It);
+    It++;
+  }
+  HLGoto *GotoPossiblyAfterCopy1 = dyn_cast<HLGoto>(*It);
+  if (!GotoPossiblyAfterCopy1) {
     return false;
   }
-  HLLabel *Label = Goto->getTargetLabel();
+  HLLabel *Label = GotoPossiblyAfterCopy1->getTargetLabel();
   if (!Label) {
     return false;
   }
@@ -867,13 +903,15 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   }
 
   // 6. t68:
-  Label = dyn_cast<HLLabel>(OuterLpNodeVec[6]);
+  It++;
+  Label = dyn_cast<HLLabel>(*It);
   if (!Label) {
     return false;
   }
 
   // 7. goto t69;
-  Goto = dyn_cast<HLGoto>(OuterLpNodeVec[7]);
+  It++;
+  HLGoto *Goto = dyn_cast<HLGoto>(*It);
   if (!Goto) {
     return false;
   }
@@ -885,9 +923,27 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   if (Label->getParent() != OuterLp) {
     return false;
   }
+  //// end of outer if
+
+  // If copy, just increase iterator
+  It++;
+  if (isCopy(dyn_cast<HLInst>(*It))) {
+    if (!CopyInst1) {
+      return false;
+    }
+    CopyInst2 = cast<HLInst>(*It);
+    // CopyInst1 and CopyInst2 should the same form.
+    if (!DDRefUtils::areEqual(CopyInst1->getLvalDDRef(),
+                              CopyInst2->getLvalDDRef(), true) ||
+        !DDRefUtils::areEqual(CopyInst1->getRvalDDRef(),
+                              CopyInst2->getRvalDDRef(), true)) {
+      return false;
+    }
+    It++;
+  }
 
   // 8. t61:
-  Label = dyn_cast<HLLabel>(OuterLpNodeVec[8]);
+  Label = dyn_cast<HLLabel>(*It);
   if (!Label) {
     return false;
   }
@@ -898,7 +954,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a temp
   // - Rval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[9]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -927,7 +984,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
   // - Rval is a CanonExpr* without IV
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[10]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -967,7 +1025,9 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Operand0: a temp;
   // - Operand1: the same temp;
   // - Operand2: a constant integer (1)
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[11]);
+  // HInst = dyn_cast<HLInst>(OuterLpNodeVec[11]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst || !isa<BinaryOperator>(HInst->getLLVMInstruction()) ||
       !HInst->getOperandDDRef(0)->isTerminalRef()) {
     return false;
@@ -1002,13 +1062,28 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
+  if (!CopyInst1) {
+    return false;
+  }
+
+  if (CopyInst2) {
+    // We already checked CopyInst1 is immediatly followed by
+    // a goto.
+    if (!HLNodeUtils::postDominates(HInst,
+                                    GotoPossiblyAfterCopy1->getTargetLabel()) ||
+        !HLNodeUtils::postDominates(HInst, CopyInst2)) {
+      return false;
+    }
+  }
+
   // 12. (%t4)[0].0[%t38.out] = %t48;
   // Check:
   // - StoreInst
   // - Lval is a 2-Dimensional local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
   // - Rval is a temp
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[12]);
+  It++;
+  HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
   }
@@ -1032,7 +1107,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   }
 
   // 13. t69:
-  Label = dyn_cast<HLLabel>(OuterLpNodeVec[13]);
+  It++;
+  Label = dyn_cast<HLLabel>(*It);
   if (!Label) {
     return false;
   }
@@ -1835,7 +1911,8 @@ HIRSymbolicTripCountCompleteUnrollPass::run(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM) {
   HIRSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
                                      AM.getResult<TargetIRAnalysis>(F),
-                                     AM.getResult<HIRDDAnalysisPass>(F)).run();
+                                     AM.getResult<HIRDDAnalysisPass>(F))
+      .run();
 
   return PreservedAnalyses::all();
 }
@@ -1865,7 +1942,8 @@ public:
     return HIRSymbolicTripCountCompleteUnroll(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA()).run();
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
+        .run();
   }
 };
 

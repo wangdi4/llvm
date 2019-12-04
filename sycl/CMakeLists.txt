@@ -246,6 +246,9 @@ add_custom_target( sycl-toolchain
           llvm-objcopy
           opt
           sycl-post-link
+# INTEL_CUSTOMIZATION
+          sycl-config-file
+# end INTEL_CUSTOMIZATION
   COMMENT "Building SYCL compiler toolchain..."
 )
 
@@ -283,6 +286,9 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-headers
      sycl
      pi_opencl
+# INTEL_CUSTOMIZATION
+     sycl-config-file
+# end INTEL_CUSTOMIZATION
 )
 
 # INTEL_CUSTOMIZATION

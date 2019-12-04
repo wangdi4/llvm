@@ -142,12 +142,6 @@ protected:
       Name = ("vp." + Val.getName()).str();
   }
 
-  /// Return validity of underlying Value or HIR node.
-  bool isUnderlyingIRValid() const;
-
-  /// Invalidate the underlying Value or HIR node.
-  void invalidateUnderlyingIR();
-
 public:
   /// An enumeration for keeping track of the concrete subclass of VPValue
   /// that are actually instantiated. Values of this enumeration are kept in
@@ -258,6 +252,12 @@ public:
                                  bool InvalidateIR = true) {
     replaceAllUsesWithImpl(NewVal, nullptr, &VPBB, InvalidateIR);
   }
+
+  /// Return validity of underlying Value or HIR node.
+  bool isUnderlyingIRValid() const;
+
+  /// Invalidate the underlying Value or HIR node.
+  void invalidateUnderlyingIR();
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -367,15 +367,15 @@ public:
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);
   }
-  /// Replace all uses of operand \From by \To. Additionally invalidate the
-  /// underlying IR if \p InvalidateIR is set.
+  /// Replace all uses of operand \From by \To, invalidating the underlying IR
+  /// if \p InvalidateIR is true.
   void replaceUsesOfWith(VPValue *From, VPValue *To, bool InvalidateIR = true) {
     for (int I = 0, E = getNumOperands(); I != E; ++I)
-      if (getOperand(I) == From)
+      if (getOperand(I) == From) {
         setOperand(I, To);
-
-    if (InvalidateIR)
-      invalidateUnderlyingIR();
+        if (InvalidateIR)
+          invalidateUnderlyingIR();
+      }
   }
 
   /// Return index of a given \p Operand.
