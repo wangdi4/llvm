@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERCODEGEN_H
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERCODEGEN_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
@@ -88,7 +88,6 @@ public:
 
   // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(VPInstruction *VPInst);
-  void vectorizeVPInstruction(VPInstruction *VPInst);
 
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
@@ -107,8 +106,7 @@ public:
   // Get the widened vector value for given value V. If the scalar value
   // has not been widened, we widen it by VF and store it in WidenMap
   // before returning the widened value
-  Value *getVectorValue(VPValue *V); // TODO: Remove after uplift
-  Value *getVectorValueUplifted(VPValue *V);
+  Value *getVectorValue(VPValue *V);
 
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
@@ -118,8 +116,7 @@ public:
   /// loop at vector index \p Lane. If the value has
   /// been vectorized but not scalarized, the necessary extractelement
   /// instruction will be generated.
-  Value *getScalarValue(VPValue *V, unsigned Lane); // TODO: Remove after uplift
-  Value *getScalarValueUplifted(VPValue *V, unsigned Lane);
+  Value *getScalarValue(VPValue *V, unsigned Lane);
 
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
@@ -560,4 +557,4 @@ private:
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERCODEGEN_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H

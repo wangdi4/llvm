@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanDriver.h"
-#include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPOCodeGen.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVolcanoOpenCL.h"
