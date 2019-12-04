@@ -1592,8 +1592,8 @@ unsigned RegDDRef::getDefinedAtLevel() const {
 
   bool HasGEPInfo = hasGEPInfo();
 
-  if (HasGEPInfo && getBaseCE()->isNonLinear()) {
-    return NonLinearLevel;
+  if (HasGEPInfo) {
+    MaxLevel = getBaseCE()->getDefinedAtLevel();
   }
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
