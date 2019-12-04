@@ -732,7 +732,7 @@ CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
     if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
       if (const Expr *LE = LHAttr->getLoopExprValue()) {
         assert(LE->isGLValue());
-        BundleValues.push_back(CGF.EmitLValue(LE).getPointer(CGF));
+        BundleValues.push_back(CGF.EmitLValue(LE).getPointer());
         if (const Expr *E = LHAttr->getValue())
           BundleValues.push_back(CGF.EmitScalarExpr(E));
         else
@@ -818,7 +818,7 @@ CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
 
   for (const auto *P : BL->privates()) {
     SmallVector<llvm::Value *, 4> BundleValues;
-    BundleValues.push_back(CGF.EmitLValue(P).getPointer(CGF));
+    BundleValues.push_back(CGF.EmitLValue(P).getPointer());
     OpBundles.push_back(
         llvm::OperandBundleDef("QUAL.PRAGMA.PRIVATE", BundleValues));
   }

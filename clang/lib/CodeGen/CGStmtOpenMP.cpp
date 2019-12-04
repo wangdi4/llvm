@@ -5517,7 +5517,7 @@ void CodeGenFunction::EnsureAddressableClauseExpr(const OMPClause *C) {
   // Use the lvalue directly.
   if (E->IgnoreImplicit()->isLValue()) {
     E = E->IgnoreImplicit();
-    addMappedClause(C, EmitLValue(E).getAddress(*this));
+    addMappedClause(C, EmitLValue(E).getAddress());
     return;
   }
 
