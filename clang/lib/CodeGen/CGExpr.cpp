@@ -4286,7 +4286,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
         getContext().getTypeSizeInChars(FieldType).getQuantity();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (field->isBitField()) {
     // If the field is a bitfield, then BitfieldResult lvalue is complete.
@@ -4296,10 +4295,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   }
 #endif  // INTEL_CUSTOMIZATION
 
-  Address addr = base.getAddress();
-=======
   Address addr = base.getAddress(*this);
->>>>>>> 40194ea5a6705b4c8bf9efda32a29b979bdccaea
   if (auto *ClassDef = dyn_cast<CXXRecordDecl>(rec)) {
     if (CGM.getCodeGenOpts().StrictVTablePointers &&
         ClassDef->isDynamicClass()) {
@@ -4670,7 +4666,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
         if (SizeAfter <= SizeBefore) {
           LValue LV = EmitLValue(SubExpr);
           llvm::Type *DesTy = ConvertType(ToType)->getPointerTo();
-          llvm::Value *V = Builder.CreatePointerCast(LV.getPointer(), DesTy);
+          llvm::Value *V =
+              Builder.CreatePointerCast(LV.getPointer(*this), DesTy);
           return MakeNaturalAlignAddrLValue(V, E->getType());
         }
       }

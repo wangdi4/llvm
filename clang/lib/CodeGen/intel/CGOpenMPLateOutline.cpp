@@ -56,9 +56,9 @@ OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
     CodeGenFunction::RunCleanupsScope Scope(NewCGF);
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
         NewCGF.GetAddrOfLocalVar(&Dst), PtrTy->getAs<PointerType>());
-    NewCGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(), Ty.getQualifiers(),
-                         /*IsInitializer=*/true);
-    NewCGF.Builder.CreateStore(ArgLVal.getPointer(), NewCGF.ReturnValue);
+    NewCGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(NewCGF),
+                            Ty.getQualifiers(), /*IsInitializer=*/true);
+    NewCGF.Builder.CreateStore(ArgLVal.getPointer(NewCGF), NewCGF.ReturnValue);
   }
   NewCGF.FinishFunction();
   return Fn;
@@ -96,9 +96,9 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty) {
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
                                                  NewCGF.GetAddrOfLocalVar(&Dst),
                                                  PtrTy->getAs<PointerType>());
-    NewCGF.emitDestroy(ArgLVal.getAddress(), Ty,
-                    NewCGF.getDestroyer(Ty.isDestructedType()),
-                    NewCGF.needsEHCleanup(Ty.isDestructedType()));
+    NewCGF.emitDestroy(ArgLVal.getAddress(NewCGF), Ty,
+                       NewCGF.getDestroyer(Ty.isDestructedType()),
+                       NewCGF.needsEHCleanup(Ty.isDestructedType()));
   }
   NewCGF.FinishFunction();
   return Fn;
@@ -199,8 +199,8 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
         NewCGF.GetAddrOfLocalVar(&DstDecl), ObjPtrTy->getAs<PointerType>());
-    NewCGF.EmitAnyExprToMem(RebuiltCCE, ArgLVal.getAddress(),
-                         Ty.getQualifiers(), /*IsInitializer=*/true);
+    NewCGF.EmitAnyExprToMem(RebuiltCCE, ArgLVal.getAddress(NewCGF),
+                            Ty.getQualifiers(), /*IsInitializer=*/true);
   }
   NewCGF.FinishFunction();
 
@@ -254,14 +254,12 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
   NewCGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
 
   auto DestAddr = NewCGF.EmitLoadOfPointerLValue(
-                                            NewCGF.GetAddrOfLocalVar(&DstDecl),
-                                            ObjPtrTy->getAs<PointerType>())
-                      .getAddress();
+                             NewCGF.GetAddrOfLocalVar(&DstDecl),
+                             ObjPtrTy->getAs<PointerType>()).getAddress(NewCGF);
 
   auto SrcAddr = NewCGF.EmitLoadOfPointerLValue(
-                                            NewCGF.GetAddrOfLocalVar(&SrcDecl),
-                                            ObjPtrTy->getAs<PointerType>())
-                     .getAddress();
+                            NewCGF.GetAddrOfLocalVar(&SrcDecl),
+                            ObjPtrTy->getAs<PointerType>()).getAddress(NewCGF);
 
   auto *SrcVD = cast<VarDecl>(cast<DeclRefExpr>(SrcExpr)->getDecl());
   auto *DestVD = cast<VarDecl>(cast<DeclRefExpr>(DstExpr)->getDecl());
@@ -350,7 +348,7 @@ Address OpenMPLateOutliner::emitOMPArraySectionExpr(const Expr *E,
                                                     ArraySectionTy *AS) {
   const Expr *Base = getArraySectionBase(E, &CGF, AS);
   QualType BaseTy = Base->getType();
-  Address BaseAddr = CGF.EmitLValue(Base).getAddress();
+  Address BaseAddr = CGF.EmitLValue(Base).getAddress(CGF);
   if (BaseTy->isVariablyModifiedType()) {
     for (auto &ASD : *AS) {
       if (const ArrayType *AT = BaseTy->getAsArrayTypeUnsafe()) {
@@ -407,7 +405,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
   } else {
     assert(E->isGLValue());
-    llvm::Value *V = CGF.EmitLValue(E).getPointer();
+    llvm::Value *V = CGF.EmitLValue(E).getPointer(CGF);
     if (IsRef) {
       auto *LI = dyn_cast<llvm::LoadInst>(V);
       assert(LI && "expected load instruction for reference type");
@@ -2479,7 +2477,7 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
       if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
         if (isa<OMPCapturedExprDecl>(VD)) {
           PrivScope.addPrivateNoTemps(VD, [this, VD]() -> Address {
-            return EmitLValue(VD->getAnyInitializer()).getAddress();
+            return EmitLValue(VD->getAnyInitializer()).getAddress(*this);
           });
         }
       }
