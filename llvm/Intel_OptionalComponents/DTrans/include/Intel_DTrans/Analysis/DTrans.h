@@ -686,7 +686,9 @@ StringRef CRuleTypeKindName(CRuleTypeKind Kind);
 // information collected during the analysis to the transforms about how
 // a memfunc call is impacting a structure.
 struct MemfuncRegion {
-  MemfuncRegion() : IsCompleteAggregate(true), FirstField(0), LastField(0) {}
+  MemfuncRegion()
+      : IsCompleteAggregate(true), PrePadBytes(0), FirstField(0), LastField(0),
+        PostPadBytes(0) {}
 
   // If this is 'false', the FirstField and LastField members must be set
   // to indicate an inclusive set of fields within the structure that are
@@ -695,9 +697,12 @@ struct MemfuncRegion {
   bool IsCompleteAggregate;
 
   // If the region is a description of a partial structure modification, these
-  // members specify the first and last fields touched.
+  // members specify the first and last fields touched, and number of padding
+  // bytes before/after the first/last field.
+  unsigned int PrePadBytes;
   unsigned int FirstField;
   unsigned int LastField;
+  unsigned int PostPadBytes;
 };
 
 // This class is used to hold information that has been
@@ -933,18 +938,32 @@ public:
     return Regions[RN].IsCompleteAggregate;
   }
 
+  unsigned int getPrePadBytes(unsigned int RN) {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    assert(!getIsCompleteAggregate(RN) &&
+      "Field tracking only valid when not a complete aggregate");
+    return Regions[RN].PrePadBytes;
+  }
+
   unsigned int getFirstField(unsigned int RN) const {
     assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
     assert(!getIsCompleteAggregate(RN) &&
-        "Field tracking only value when not a complete aggregate");
+        "Field tracking only valid when not a complete aggregate");
     return Regions[RN].FirstField;
   }
 
   unsigned int getLastField(unsigned int RN) const {
     assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
     assert(!getIsCompleteAggregate(RN) &&
-        "Field tracking only value when not a complete aggregate");
+        "Field tracking only valid when not a complete aggregate");
     return Regions[RN].LastField;
+  }
+
+  unsigned int getPostPadBytes(unsigned int RN) {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    assert(!getIsCompleteAggregate(RN) &&
+      "Field tracking only valid when not a complete aggregate");
+    return Regions[RN].PostPadBytes;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

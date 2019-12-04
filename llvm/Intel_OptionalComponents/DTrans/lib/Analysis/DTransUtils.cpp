@@ -866,8 +866,10 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
     OS << "  Region " << RN << ":\n";
     OS << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
     if (!IsComplete) {
+      OS << "    PrePad:     " << getPrePadBytes(RN) << "\n";
       OS << "    FirstField: " << getFirstField(RN) << "\n";
       OS << "    LastField:  " << getLastField(RN) << "\n";
+      OS << "    PostPad:    " << getPostPadBytes(RN) << "\n";
     }
 
     PTI.print(OS);

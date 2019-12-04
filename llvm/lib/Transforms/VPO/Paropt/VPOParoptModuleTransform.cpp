@@ -45,6 +45,10 @@ static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
   cl::desc("Use offload metadata created by clang in paropt lowering."));
 
+static cl::opt<bool> AssumeExternMayHaveOmpCritical(
+  "vpo-paropt-assume-extern-may-have-omp-critical", cl::Hidden, cl::init(false),
+  cl::desc("Assume that an external function call may contain omp critical."));
+
 // This table is used to change math function names (left column) to the
 // OCL builtin format (right column).
 //
@@ -274,7 +278,7 @@ void VPOParoptModuleTransform::collectMayHaveOMPCriticalFunctions(
       for (auto &Callee : make_range(CGN->begin(), CGN->end())) {
         auto *CalleeF = Callee.second->getFunction();
         // Check if there is an external null callee...
-        if (!CalleeF ||
+        if ((!CalleeF && AssumeExternMayHaveOmpCritical) ||
             // or the callee is marked already.
             MayHaveOMPCritical.find(CalleeF) != MayHaveOMPCritical.end()) {
           MayHaveOMPCritical.insert(CGF);
