@@ -294,7 +294,15 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
                                                         nullptr);
 
-        pCompiler->BuildProgram(pModule, pBuildOpts, &buildResult);
+        std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
+        if((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
+           (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
+             MergeOptions.append(" -cl-opt-disable");
+        if((MergeOptions.find("-g") == std::string::npos) &&
+           (CompilationUtils::getDebugFlagFromMetadata(pModule)))
+             MergeOptions.append(" -g");
+
+        pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult);
         // ObjectCodeCache structure will be filled by a callback after JIT
         // happens.
         std::unique_ptr<ObjectCodeCache>
@@ -329,7 +337,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
             // L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
                                                  pModule,
-                                                 pBuildOpts,
+                                                 MergeOptions.c_str(),
                                                  buildResult);
             // update kernels with RuntimeService
             Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
