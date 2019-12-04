@@ -1622,10 +1622,9 @@ void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
         // The following code will yield a type of double. This type is used
         // to determine the stride in elements.
         Type *ArgTy = Args[I]->getDestType();
-        PointerType *PtrTy = cast<PointerType>(ArgTy);
-        VectorType *VecTy = cast<VectorType>(PtrTy->getElementType());
-        PointerType *ElemPtrTy = cast<PointerType>(VecTy->getElementType());
-        Type *ElemTy = ElemPtrTy->getElementType();
+        assert(isa<VectorType>(ArgTy) && "Expected vector of pointers");
+        PointerType *PtrTy = cast<PointerType>(ArgTy->getScalarType());
+        Type *ElemTy = PtrTy->getElementType();
         unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
         unsigned ElemStride = ByteStride / ElemSize;
         AttrList.addAttribute("stride",

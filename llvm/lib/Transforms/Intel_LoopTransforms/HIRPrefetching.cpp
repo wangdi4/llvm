@@ -164,6 +164,21 @@ bool HIRPrefetching::doAnalysis(
       continue;
     }
 
+    // Temporarily give up for refs with vector indices.
+    // TODO: prefetch by 'scalarizing' these refs.
+    bool HasVectorIndex = false;
+    for (auto *IndexCE :
+         make_range(FirstRef->canon_begin(), FirstRef->canon_end())) {
+      if (IndexCE->getSrcType()->isVectorTy()) {
+        HasVectorIndex = true;
+        break;
+      }
+    }
+
+    if (HasVectorIndex) {
+      continue;
+    }
+
     Stride = std::abs(ConstStride);
 
     collectPrefetchCandidates(RefGroup, TripCount, Stride, PrefetchCandidates);

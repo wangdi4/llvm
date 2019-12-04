@@ -711,7 +711,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   assert(hasGEPInfo() && "Stride is only valid for GEP refs!");
   assert(getHLDDNode() && "Cannot compute stride of detached ref!");
 
-  if (getDefinedAtLevel() >= Level) {
+  if (!isLinearAtLevel(Level)) {
     return false;
   }
 
@@ -756,11 +756,6 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
     }
 
     if ((Index != InvalidBlobIndex) || (DimCE->getDenominator() != 1)) {
-      return false;
-    }
-
-    // Bail out on vector types.
-    if (!DimCE->getSrcType()->isIntegerTy()) {
       return false;
     }
 
