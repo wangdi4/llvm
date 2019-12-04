@@ -11408,11 +11408,6 @@ bool checkContext<OMP_CTX_SET_device, OMP_CTX_kind, CodeGenModule &>(
     case llvm::Triple::wasm64:
     case llvm::Triple::renderscript32:
     case llvm::Triple::renderscript64:
-#if INTEL_CUSTOMIZATION
-    case llvm::Triple::fpga_aoco:
-    case llvm::Triple::fpga_aocr:
-    case llvm::Triple::fpga_aocx:
-#endif // INTEL_CUSTOMIZATION
       return false;
     }
   }
