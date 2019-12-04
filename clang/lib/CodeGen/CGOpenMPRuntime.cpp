@@ -11373,6 +11373,9 @@ bool checkContext<OMP_CTX_SET_device, OMP_CTX_kind, CodeGenModule &>(
     case llvm::Triple::bpfel:
     case llvm::Triple::bpfeb:
     case llvm::Triple::hexagon:
+    case llvm::Triple::fpga_aoco:
+    case llvm::Triple::fpga_aocr:
+    case llvm::Triple::fpga_aocx:
     case llvm::Triple::mips:
     case llvm::Triple::mipsel:
     case llvm::Triple::mips64:
