@@ -6,11 +6,10 @@
 #
 # ##===----------------------------------------------------------------------===##
 #
-# Build a device RTL for each available machine.
+# Build a device RTL for each available machine available.
 #
 ##===----------------------------------------------------------------------===##
 
-add_subdirectory(amdgcn)
 add_subdirectory(nvptx)
 
 #INTEL_CUSTOMIZATION
