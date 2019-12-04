@@ -3212,11 +3212,19 @@ class OffloadingActionBuilder final {
       // Append a new link action for each device.
       auto TC = ToolChains.begin();
       for (auto &LI : DeviceLinkerInputs) {
+#ifdef INTEL_CUSTOMIZATION
+        OffloadAction::DeviceDependences DeviceLinkDeps;
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_Image);
-        OffloadAction::DeviceDependences DeviceLinkDeps;
-        DeviceLinkDeps.add(*DeviceLinkAction, **TC, /*BoundArch=*/nullptr,
-		        Action::OFK_OpenMP);
+        if ((*TC)->getTriple().isSPIR()) {
+          auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+              DeviceLinkAction, types::TY_Image);
+          DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
+                             Action::OFK_OpenMP);
+        } else
+          DeviceLinkDeps.add(*DeviceLinkAction, **TC, /*BoundArch=*/nullptr,
+                             Action::OFK_OpenMP);
+#endif
         AL.push_back(C.MakeAction<OffloadAction>(DeviceLinkDeps,
             DeviceLinkAction->getType()));
         ++TC;
