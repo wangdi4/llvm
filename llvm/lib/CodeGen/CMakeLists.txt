@@ -13,7 +13,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   )
 # end INTEL_CUSTOMIZATION
 
-add_llvm_library(LLVMCodeGen
+add_llvm_component_library(LLVMCodeGen
   AggressiveAntiDepBreaker.cpp
   AllocationOrder.cpp
   Analysis.cpp

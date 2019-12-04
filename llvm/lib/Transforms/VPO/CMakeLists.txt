@@ -36,7 +36,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 
-add_llvm_library(LLVMVPOTransforms
+add_llvm_component_library(LLVMVPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp

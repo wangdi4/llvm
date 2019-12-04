@@ -30,6 +30,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
@@ -47,6 +48,14 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
+
+// TODO: This is temporary while we support both old and new implementations
+// of target variant dispatch for MKL. After the new implementation is fully
+// tested, we will purge the old one and remove this flag.
+static cl::opt<bool>
+    UseInterop("vpo-paropt-use-interop", cl::Hidden,
+               cl::init(false),
+               cl::desc("Use the interop_obj for target variant dispatch."));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1993,6 +2002,234 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   return VariantName;
 }
 
+// To support asynchronous execution for a TARGET VARIANT DISPATCH NOWAIT
+// construct, an AsyncObj is created and passed to @__tgt_create_interop_obj().
+// Its type is that of a struct of this form:
+//
+//      struct AsyncObjTy { // struct size = 8+8+4+4 = 24 on 64bit arch
+//        void* UDPtrs;     // pointer to a UseDevicePtrsTy struct
+//        void* task_entry; // unused
+//        int   part_id;    // unused
+//        int   num_ptrs;   // number of use_device_ptr pointers
+//      };
+//
+// where the UseDevicePtrsTy is a struct to hold void* pointers corresponding
+// to the target buffers created for each pointer. For example, for the
+// clause use_device_ptr(a,b,c,d), the structure will look like this:
+//
+//      struct UseDevicePtrsTy { // struct size = num_ptrs*8 on 64bit arch
+//        void* a.buffer;
+//        void* b.buffer;
+//        void* c.buffer;
+//        void* d.buffer;
+//      };
+//
+// The AsyncObjTy is actually a __kmp_task_t struct, and
+// the UseDevicePtrsTy corresponds to the "shareds" struct.
+//
+// The AsyncObj is allocated by calling __kmpc_omp_task_alloc, with
+// the proxy flag bit set (WRNTaskFlag::Proxy is 0x10).
+static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
+                             StructType *IdentTy, Instruction *InsertPt) {
+  Function *F = InsertPt->getFunction();
+  LLVMContext &C = F->getContext();
+  const DataLayout DL = F->getParent()->getDataLayout();
+
+  IRBuilder<> Builder(InsertPt);
+  IntegerType *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  Value *Zero = Builder.getInt32(0);
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  // Build the struct for AsyncObjTy:
+  //
+  //   %__struct.AsyncObj = type { i8*, i8*, i32, i32 }
+
+  Type *AsyncObjTyFields[] = {Int8PtrTy, // 0: Pointer to UseDevicePtrsTy struct
+                              Int8PtrTy, // 1: unused: task_entry
+                              Int32Ty,   // 2: unused: part_id
+                              Int32Ty};  // 3: number of ptrs in UseDevicePtrsTy
+  StructType *AsyncObjTy =
+      StructType::create(C, AsyncObjTyFields, "__struct.AsyncObj", false);
+  int AsyncObjTySize = DL.getTypeAllocSize(AsyncObjTy);
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": AsyncObjTy: " << *AsyncObjTy
+                    << "; Size = " << AsyncObjTySize << " bytes\n");
+
+  // Build the struct for UseDevicePtrsTy if use_device_ptr clause is present.
+  // Add one "i8*" field for each item in the clause.
+  // Example: for 4 pointers, the struct is:
+  //
+  //   %__struct.UDPtrs = type { i8*, i8*, i8*, i8* }
+
+  StructType *UseDevicePtrsTy = nullptr;
+  int UseDevicePtrsTySize = 0;
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  int NumberOfPointers = UDPtrClause.size();
+  if (NumberOfPointers > 0) {
+    SmallVector<Type *, 4> StructFields; // {i8*, i8*, i8*, etc.}
+    for (int I = 0; I < NumberOfPointers; I++)
+      StructFields.push_back(Int8PtrTy);
+    UseDevicePtrsTy =
+        StructType::create(C, StructFields, "__struct.UDPtrs", false);
+    UseDevicePtrsTySize = DL.getTypeAllocSize(UseDevicePtrsTy);
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": UseDevicePtrsTy: " << *UseDevicePtrsTy
+                      << "; Size = " << UseDevicePtrsTySize << " bytes\n");
+  }
+
+  // Create AsyncObj by calling __kmpc_omp_task_alloc()
+  // For the example with 4 use_device_ptr pointers, the call looks like this:
+  //
+  //   %asyncobj = call i8* @__kmpc_omp_task_alloc(
+  //                        %__struct.ident_t* @.kmpc_loc.0.0,
+  //                        i32 0,      // unused
+  //                        i32 16,     // "proxy" flag 0x10
+  //                        i64 24,     // sizeof(AsyncObjTy) = 8+8+4+4 = 24
+  //                        i64 32,     // sizeof(UseDevicePtrsTy) = 4*8 = 32
+  //                        i8* null)   // unused
+
+  CallInst *AsyncObj = VPOParoptUtils::genKmpcTaskAllocForAsyncObj(
+      W, IdentTy, AsyncObjTySize, UseDevicePtrsTySize, InsertPt);
+  assert(AsyncObj && "AsyncObj not created for Target Variant Dispatch Nowait");
+  AsyncObj->setName("asyncobj"); // void* pointer
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": AsyncObj: " << *AsyncObj << "\n");
+
+  // Create a base pointer to AsyncObj by casting the void* ptr to AsyncObjTy*
+  // like this:
+  //   %asyncobj.ptr = bitcast i8* %asyncobj to %__struct.AsyncObj*
+  Value *AsyncObjPtr = Builder.CreateBitCast( // base pointer to AsyncObjTy
+      AsyncObj, PointerType::getUnqual(AsyncObjTy), "asyncobj.ptr");
+
+  // Initialize fields 1,2,3 of AsyncObj. Field 0 is already initialized
+  // by the runtime to hold a pointer to UseDevicePtrsTy.
+
+  // Field 1: task_entry pointer is unused. Just init it to null.
+  //
+  //   %task.entry.gep = getelementptr inbounds %__struct.AsyncObj,
+  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 1
+  //   store i8* null, i8** %task.entry.gep
+
+  Value *TaskEntryGep = Builder.CreateInBoundsGEP(
+      AsyncObjTy, AsyncObjPtr, {Zero, Builder.getInt32(1)}, "task.entry.gep");
+  Builder.CreateStore(NullPtr, TaskEntryGep);
+
+  // Field 2: part_id is unused. Just init it to 0.
+  //
+  //   %part.id.gep = getelementptr inbounds %__struct.AsyncObj,
+  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 2
+  //   store i32 0, i32* %part.id.gep
+
+  Value *PartIdGep = Builder.CreateInBoundsGEP(
+      AsyncObjTy, AsyncObjPtr, {Zero, Builder.getInt32(2)}, "part.id.gep");
+  Builder.CreateStore(Zero, PartIdGep);
+
+  // Field 3: save the number of use_device_ptr pointers here.
+  //
+  //   %num.ptrs.gep = getelementptr inbounds %__struct.AsyncObj,
+  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 3
+  //   store i32 <NumberOfPointers>, i32* %num.ptrs.gep
+
+  Value *NumPointersGep =
+      Builder.CreateInBoundsGEP(AsyncObjTy, AsyncObjPtr,
+                                {Zero, Builder.getInt32(3)}, "num.ptrs.gep");
+  Builder.CreateStore(Builder.getInt32(NumberOfPointers), NumPointersGep);
+
+  // Save the target buffer for a use_device_ptr pointer in the
+  // UseDevicePtrsTy struct.
+  if (NumberOfPointers > 0) {
+
+    // Build "UDPtrsPtr" to point to the UseDevicePtrsTy struct.
+    // Field 0 of AsyncObj holds the address of the UseDevicePtrsTy struct.
+    // Load it and cast it to UseDevicePtrsTy*. The IR looks like this:
+    //
+    //   %UDPtrs.gep = getelementptr inbounds %__struct.AsyncObj,
+    //                   %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 0
+    //   %11 = load i8*, i8** %UDPtrs.gep
+    //   %UDPtrs.ptr = bitcast i8* %11 to %__struct.UDPtrs*
+
+    Value *UDPtrsGep = Builder.CreateInBoundsGEP(AsyncObjTy, AsyncObjPtr,
+                                                 {Zero, Zero}, "UDPtrs.gep");
+    LoadInst *UDPtrsLoad = Builder.CreateLoad(UDPtrsGep);
+    Value *UDPtrsPtr = Builder.CreateBitCast(
+        UDPtrsLoad, PointerType::getUnqual(UseDevicePtrsTy), "UDPtrs.ptr");
+
+    // Store each target buffer in the UseDevicePtrsTy struct.
+    int Index = 0;
+    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+      StringRef OrigName = Item->getOrig()->getName();
+
+      // Build GEP for the Index'th field in the UseDevicePtrsTy struct. E.g.,
+      //
+      //   %aaa.gep = getelementptr inbounds %__struct.UDPtrs,
+      //                 %__struct.UDPtrs* %UDPtrs.ptr, i32 0, i32 <Index>
+
+      Value *Gep = Builder.CreateInBoundsGEP(UseDevicePtrsTy, UDPtrsPtr,
+                                             {Zero, Builder.getInt32(Index++)},
+                                             OrigName + ".gep");
+      // Store the buffer in the UseDevicePtrsTy field corresponding to the GEP
+      //
+      //   %aaa.buffer = load i8*, i8** %aaa.tgt.buffer.addr
+      //   store i8* %aaa.buffer, i8** %aaa.gep
+
+      Value *TgtBufferAddr = Item->getNew(); // i8**
+      LoadInst *Load =
+          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // i8*
+      Builder.CreateStore(Load, Gep);
+    }
+  }
+
+  return AsyncObj;
+}
+
+// Create an InteropObj that is used for TARGET VARIANT DISPATCH [NOWAIT],
+// for both synchronouos and asynchronous modes.
+//
+// The struct is of this form:
+//
+//      struct __tgt_interop_obj {
+//        int64_t device_id;              // OpenMP device id
+//        bool    is_async;               // true for asynchronous
+//        void   *async_obj;              // Pointer to the asynchronous object
+//        void  (*async_handler)(void*);  // Callback function for asynchronous
+//        void   *pipe;       // Opaque handle to device-dependent offload pipe
+//      };
+//
+// If the NOWAIT clause is absent, then execution is synchronous,
+// and the fields is_async=false, async_obj=nullptr, async_handler=nullptr
+//
+// If the NOWAIT clause is present, then execution is asynchronous,
+// and the fields is_async=true, and all fields will be populated.
+//
+// The field values for device_id, is_async, and async_obj are emitted by the
+// compiler and passed to the __tgt_create_interop_obj() runtime. The values
+// for the async_handler and the pipe are provided by the runtime.
+static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
+                               StructType *IdentTy, Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Value *AsyncObj = nullptr;
+  bool IsAsync = W->getNowait(); // true means asynchronous execution
+
+  if (IsAsync)
+    AsyncObj = createAsyncObj(W, DeviceNum, IdentTy, InsertPt);
+
+  // Call __tgt_create_interop_obj(device_num, is_async, asyncobj)
+  //
+  // For is_async==false (no NOWAIT clause) it looks like
+  //   call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
+  //
+  // For is_async==true it looks like
+  //   call i8* @__tgt_create_interop_obj(i64 0, i8 1, i8* %asyncobj)
+
+  CallInst *InteropObj = VPOParoptUtils::genTgtCreateInteropObj(
+      DeviceNum, IsAsync, AsyncObj, InsertPt);
+
+  assert(InteropObj && "InteropObj not created for Target Variant Dispatch");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": InteropObj: " << *InteropObj << "\n");
+
+  return InteropObj;
+}
+
 /// Auxiliary function called from genTargetVariantDispatchCode() to
 ///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
 ///       for each host pointer
@@ -2050,14 +2287,15 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 
   // (A1)
   // For each host pointer in the use_device_pointer clause:
-  //   Alloc a target buffer pointer (void*)
+  //   Alloc a target buffer pointer (void**)
   //   Initialized it to null
   //   Save it in the Clause Item's "New" field
   for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-    AllocaInst *TgtBuffer =
-        Builder.CreateAlloca(Int8PtrTy, nullptr, "tgt.buffer");
-    Builder.CreateStore(NullPtr, TgtBuffer);
-    Item->setNew(TgtBuffer);
+    StringRef OrigName = Item->getOrig()->getName();
+    AllocaInst *TgtBufferAddr =
+        Builder.CreateAlloca(Int8PtrTy, nullptr, OrigName + ".tgt.buffer.addr");
+    Builder.CreateStore(NullPtr, TgtBufferAddr);
+    Item->setNew(TgtBufferAddr);
   }
 
   // (B1)
@@ -2113,18 +2351,19 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
   for (UseDevicePtrItem *Item : UDPtrClause.items()) {
     Builder.SetInsertPoint(InsertBefore);
     Value *Orig = Item->getOrig();
+    StringRef OrigName = Orig->getName();
     LoadInst *PtrLoad = Builder.CreateLoad(Orig, "hostPtr");
     assert(PtrLoad->getType()->isPointerTy() &&
            "Target Variant: Expected a pointer");
     Value *Ptr = Builder.CreateBitCast(PtrLoad, Int8PtrTy);
     CallInst *BufferCall =
         VPOParoptUtils::genTgtCreateBuffer(DeviceNum, Ptr, InsertBefore);
-    BufferCall->setName("buffer");
+    BufferCall->setName(OrigName + ".buffer");
     assert(BufferCall->getType() == Int8PtrTy &&
            "Expected __tgt_create_buffer() to return a void*");
-    Value *TgtBuffer = Item->getNew();
-    assert(TgtBuffer != nullptr && "Target Variant: missing tgtBuffer");
-    Builder.CreateStore(BufferCall, TgtBuffer);
+    Value *TgtBufferAddr = Item->getNew();
+    assert(TgtBufferAddr != nullptr && "Target Variant: missing TgtBufferAddr");
+    Builder.CreateStore(BufferCall, TgtBufferAddr);
 
     Value *IsNull = Builder.CreateICmpEQ(BufferCall, NullPtr, "isNull");
     SplitBlockAndInsertIfThen(IsNull, InsertBefore, false, nullptr, DT, LI,
@@ -2150,10 +2389,11 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     // one (the old parent of CleanupTerm before the split).
     // At -O2 this isn't a problem (somehow cleaned up) but at -O0 it
     // dies in the verifier.
+    StringRef OrigName = Item->getOrig()->getName();
     Builder.SetInsertPoint(CleanupTerm);
     CleanupTerm->getParent()->setName("check.unused.buffer");
-    Value *TgtBuffer = Item->getNew();
-    LoadInst *Buffer = Builder.CreateLoad(TgtBuffer, "buffer");
+    Value *TgtBufferAddr = Item->getNew();
+    LoadInst *Buffer = Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
     Value *NotNull = Builder.CreateICmpNE(Buffer, NullPtr, "notNull");
     Instruction *FreeTerm =
         SplitBlockAndInsertIfThen(NotNull, CleanupTerm, false, nullptr, DT, LI);
@@ -2308,6 +2548,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Instruction *InsertPt = BaseCall;
   IRBuilder<> Builder(InsertPt);
   IntegerType *Int32Ty = Builder.getInt32Ty();
+  IntegerType *Int64Ty = Builder.getInt64Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
   ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
   ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
@@ -2315,7 +2556,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // Default device num is -1
   Value *DeviceNum = W->getDevice();
   if (DeviceNum == nullptr) {
-    DeviceNum = ConstantInt::get(Int32Ty, -1);
+    DeviceNum = ConstantInt::get(Int64Ty, -1);
   }
 
   // Emit call to check for device availability:
@@ -2369,22 +2610,43 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Instruction *ThenTerm, *ElseTerm;
   buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt);        // (3)
 
+  // Create the interop object for
+  // (1) Asynchronous case (i.e., NOWAIT is present), or
+  // (2) Synchronous case when "UseInterop" flag is true.
+  //     If the flag is false, then the synchronous case will revert to
+  //     the old implementation without using interop_obj.
+  //     TODO: remove the old implementation when the new one if fully tested.
+  Value *InteropObj = nullptr;
+  if (UseInterop || W->getNowait())
+    InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm);
+
   // Create and insert Variant call before ThenTerm
   ThenTerm->getParent()->setName("variant.call");
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
-  CallInst *VariantCall =                                              // (4,D)
-      VPOParoptUtils::genVariantCall(BaseCall, VariantName, ThenTerm, W);
+  CallInst *VariantCall =                                               // (4,D)
+      VPOParoptUtils::genVariantCall(BaseCall, VariantName, InteropObj,
+                                     ThenTerm, W);
   if (!IsVoidType)
     VariantCall->setName("variant");
-  // Release target buffers after Variant call
-  if (!UDPtrClause.empty()) {
+
+  // Release target buffers after Variant call only for synchronous cases;
+  // i.e., when NOWAIT is false. For async cases they are released by the
+  // async_handler callback routine.
+  if (!UDPtrClause.empty() && W->getNowait() == false) {
     Builder.SetInsertPoint(ThenTerm);
     for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      Value *TgtBuffer = Item->getNew();
-      LoadInst *Buffer = Builder.CreateLoad(TgtBuffer, "buffer");
+      StringRef OrigName = Item->getOrig()->getName();
+      Value *TgtBufferAddr = Item->getNew();
+      LoadInst *Buffer =
+          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
       VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm);  // (E)
     }
   }
+
+  // Release the interop object for synchronous execution (no NOWAIT clause).
+  // Don't do this for the asynchronous case; the async_handler will do it.
+  if (InteropObj != nullptr && W->getNowait() == false)
+    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, ThenTerm);
 
   // Move BaseCall to before ElseTerm
   ElseTerm->getParent()->setName("base.call");

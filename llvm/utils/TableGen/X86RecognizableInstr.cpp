@@ -1047,11 +1047,11 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   TYPE("VTILE",               TYPE_TMM)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("VTILEX",              TYPE_TMM)
   TYPE("VTILEPair",           TYPE_TMM_PAIR)
   TYPE("ZMM16Tuples",         TYPE_ZMM16_TUPLES)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
@@ -1101,9 +1101,9 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_IB)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_IB)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
@@ -1152,11 +1152,11 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_RM)
   ENCODING("VTILEPAIR",       ENCODING_RM)
   ENCODING("ZMM16Tuples",     ENCODING_RM)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
@@ -1213,11 +1213,11 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_REG)
   ENCODING("VTILEPair",       ENCODING_REG)
   ENCODING("ZMM16Tuples",     ENCODING_REG)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
@@ -1259,11 +1259,11 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_VVVV)
   ENCODING("VTILEPAIR",       ENCODING_VVVV)
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");

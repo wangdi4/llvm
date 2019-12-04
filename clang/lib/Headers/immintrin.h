@@ -172,22 +172,18 @@
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_VNNI */
-#if defined(__AVXVNNI__)
+#if defined(__AVXVNNI_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXVNNI__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxvnni/avxvnniintrin.h>
-#else
+#endif
+#endif
+
 /* end INTEL_FEATURE_ISA_AVX_VNNI */
-/* end INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512VL__) && defined(__AVX512VNNI__)) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlvnniintrin.h>
 #endif
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_VNNI */
-#endif
-/* end INTEL_FEATURE_ISA_AVX_VNNI */
-/* end INTEL_CUSTOMIZATION */
 
-/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512DQ__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512dqintrin.h>
@@ -619,16 +615,25 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX */
 
-/* INTEL_FEATURE_ISA_AMX2 */
-#if defined(__AMX2_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTRANSPOSE__) || defined(__AMXREDUCE__) ||   \
-    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||                           \
-    defined(__AMXFP16__) || defined(__AMXAVX512__) || defined(__AMXBF16EVEX__) ||                            \
-    defined(__AMXINT8EVEX__) || defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amx2intrin.h>
+/* INTEL_FEATURE_ISA_AMX_FUTURE */
+#if defined(__AMX_FUTURE_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXREDUCE__) ||           \
+    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||      \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxfutureintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX2 */
+/* end INTEL_FEATURE_ISA_AMX_FUTURE */
+
+/* INTEL_FEATURE_ISA_AMX_LNC */
+#if defined(__AMX_LNC_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXREDUCE__) || defined(__AMXFP16__) || \
+    defined(__AMXAVX512__) || defined(__AMXBF16EVEX__) || defined(__AMXINT8EVEX__) ||                 \
+    defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxlncintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_LNC */
 
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 #if defined(__KEYLOCKER_SUPPORTED__)

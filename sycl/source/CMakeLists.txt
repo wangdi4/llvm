@@ -19,8 +19,10 @@ function(add_sycl_rt_library LIB_NAME)
 
   if (MSVC)
       target_compile_definitions(${LIB_NAME} PRIVATE __SYCL_BUILD_SYCL_DLL )
+      target_link_libraries(${LIB_NAME} PRIVATE shlwapi)
   endif()
-  target_include_directories(${LIB_NAME} PRIVATE "${sycl_inc_dir}")
+  target_include_directories(
+      ${LIB_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} "${sycl_inc_dir}")
   target_link_libraries(${LIB_NAME}
       PRIVATE OpenCL::Headers
       PRIVATE ${OpenCL_LIBRARIES}
@@ -33,6 +35,7 @@ endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES
     "${sycl_inc_dir}/CL/sycl.hpp"
+    "detail/accessor_impl.cpp"
     "detail/builtins_common.cpp"
     "detail/builtins_geometric.cpp"
     "detail/builtins_integer.cpp"
@@ -40,9 +43,11 @@ set(SYCL_SOURCES
     "detail/builtins_relational.cpp"
     "detail/pi.cpp"
     "detail/common.cpp"
+    "detail/config.cpp"
     "detail/context_impl.cpp"
     "detail/device_impl.cpp"
     "detail/device_info.cpp"
+    "detail/error_handling/enqueue_kernel.cpp"
     "detail/event_impl.cpp"
     "detail/force_device.cpp"
     "detail/helpers.cpp"
@@ -83,7 +88,7 @@ set(SYCL_SOURCES
     "stream.cpp"
     "spirv_ops.cpp"
     "$<$<PLATFORM_ID:Windows>:detail/windows_pi.cpp>"
-    "$<$<PLATFORM_ID:Linux>:detail/linux_pi.cpp>"
+    "$<$<OR:$<PLATFORM_ID:Linux>,$<PLATFORM_ID:Darwin>>:detail/posix_pi.cpp>"
 )
 
 add_sycl_rt_library(sycl ${SYCL_SOURCES})

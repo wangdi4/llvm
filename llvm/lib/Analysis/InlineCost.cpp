@@ -434,7 +434,7 @@ public:
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
                SmallSet<Function *, 20> *FForDTrans, // INTEL
-               const InlineParams &Params)
+               const InlineParams &Params)         // INTEL
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCall(Call), Params(Params), Threshold(Params.DefaultThreshold),

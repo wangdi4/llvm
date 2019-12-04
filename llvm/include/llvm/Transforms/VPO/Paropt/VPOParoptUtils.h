@@ -927,6 +927,14 @@ public:
                    PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
                    Instruction *InsertPt, bool UseTbb);
 
+  /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
+  /// for the TARGET VARIANT DISPATCH NOWAIT construct corresponding to \p W
+  static CallInst *genKmpcTaskAllocForAsyncObj(WRegionNode *W,
+                                               StructType *IdentTy,
+                                               int AsyncObjTySize,
+                                               int UseDevicePtrsTySize,
+                                               Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_taskloop`. Example:
   /// \code
   ///   void @__kmpc_taskloop(
@@ -1182,6 +1190,23 @@ public:
 
   /// Generate a call to
   /// \code
+  ///    void *__tgt_create_interop_obj(int64_t device_id,
+  ///                                   bool    is_async,
+  ///                                   void   *async_obj)
+  /// \endcode
+  static CallInst *genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
+                                          Value *AsyncObj,
+                                          Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///    int __tgt_release_interop_obj(void *interop_obj)
+  /// \endcode
+  static CallInst *genTgtReleaseInteropObj(Value *InteropObj,
+                                           Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
   ///   int omp_get_num_devices()
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
@@ -1319,7 +1344,7 @@ public:
   /// is a host pointer (listed in the use_device_ptr clause) with its
   /// corresponding target buffer.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Instruction *InsertPt,
+                                  Value *InteropObj, Instruction *InsertPt,
                                   WRegionNode *W = nullptr,
                                   bool IsTail = false);
 
@@ -1343,6 +1368,14 @@ public:
   static Value *genSPIRVHorizontalReduction(
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
+
+  /// Returns true, if the prerequisites for using ND-range driven
+  /// parallelization for the given loop-kind \p W region are met.
+  /// This includes checking user options and the properties
+  /// of the region itself. There are more requirements for the
+  /// IR that need to be satisfied to make ND-range parallelization
+  /// possible (see useSPMDMode() below).
+  static bool mayUseSPMDMode(WRegionNode *W);
 
   /// Returns true, if work partitioning for the loop-kind \p W region
   /// should rely on ND-range driven parallelization. This implies

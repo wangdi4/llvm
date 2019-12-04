@@ -33,7 +33,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.spv)
   set(opencl_flags_spirv
     -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
-    -disable-llvm-passes -include opencl-c.h -DINTEL_COLLAB=1
+    -disable-llvm-passes -include opencl-c.h -DINTEL_COLLAB=1 -ffp-contract=off
   )
   if(INTEL_CUSTOMIZATION)
     set(opencl_flags_spirv ${opencl_flags_spirv} -DINTEL_CUSTOMIZATION=1)

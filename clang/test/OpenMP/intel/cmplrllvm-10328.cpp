@@ -48,6 +48,6 @@ int foo()
 
 //Check-HOST: define dso_local i32 @"?foo@@YAHXZ"() #0 {
 
-//Check-TARG: define dso_local spir_func i32 @"?foo@@YAHXZ"() #0 {
+//Check-TARG: define hidden spir_func i32 @"?foo@@YAHXZ"() #0 {
 
 

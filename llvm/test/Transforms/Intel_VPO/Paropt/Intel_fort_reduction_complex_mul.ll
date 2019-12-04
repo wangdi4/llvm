@@ -1,4 +1,7 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+
 
 ; This test is used to check reduction operation with complex type.
 ;      PROGRAM OMP_TEST
@@ -127,7 +130,7 @@ bb17:                                             ; preds = %bb16
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.MUL:CMPLX"([1 x %complex_64bit]* %"omp_test_$R"), "QUAL.OMP.SHARED"(i32* @"omp_test_$NUM_THREADS") ]
   br label %bb18
 
-; CHECK:  store %complex_64bit { float 1.000000e+00, float 1.000000e+00 }, %complex_64bit* %red.cpy.dest.ptr
+; CHECK:  store %complex_64bit { float 1.000000e+00, float 0.000000e+00 }, %complex_64bit* %red.cpy.dest.ptr
 
 bb16:                                             ; preds = %bb12
   %ptr_cast = bitcast [1 x %complex_64bit]* %"omp_test_$R" to %complex_64bit*
@@ -439,3 +442,5 @@ attributes #1 = { nounwind readnone speculatable }
 attributes #2 = { nounwind }
 
 !omp_offload.info = !{}
+
+; end INTEL_CUSTOMIZATION

@@ -479,14 +479,7 @@ public:
   void replaceDuplicateInductionPHIs();
 
   // Do SOA-analysis on loop-entities.
-  void doSOAAnalysis() {
-    VPSOAAnalysis VPSOAA(Plan, getLoop());
-    VPSOAA.doSOAAnalysis();
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (VPlanDisplaySOAAnalysisInformation)
-      dump(dbgs());
-#endif
-  }
+  void doSOAAnalysis();
 
   /// Return VPPHINode that corresponds to a recurrent entity.
   VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;

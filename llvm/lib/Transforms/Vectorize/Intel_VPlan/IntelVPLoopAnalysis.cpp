@@ -44,16 +44,16 @@ static cl::opt<bool, true> VPlanUseVPEntityInstructionsOpt(
     cl::desc("Generate VPInstructions for VPEntities"));
 
 // Flag to enable printing of SOA-analysis information.
-cl::opt<bool, true> VPlanDisplaySOAAnalysisInformation(
-    "vplan-dump-soa-info",
-     cl::Hidden, cl::location(VPlanUseVPEntityInstructions),
+static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
+    "vplan-dump-soa-info", cl::Hidden,
+    cl::location(VPlanDisplaySOAAnalysisInformation),
     cl::desc("Display information about SOA Analysis on loop-entities."));
 
 namespace llvm {
 namespace vpo {
 bool LoopEntityImportEnabled = true;
 bool VPlanUseVPEntityInstructions = false;
-bool VPlanDisplaySOAAnalysisInformation = true;
+bool VPlanDisplaySOAAnalysisInformation = false;
 } // namespace vpo.
 } // namespace llvm.
 
@@ -329,6 +329,16 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   }
 
   DuplicateInductionPHIs.clear();
+}
+
+// Do SOA-analysis on loop-entities.
+void VPLoopEntityList::doSOAAnalysis() {
+  VPSOAAnalysis VPSOAA(Plan, getLoop());
+  VPSOAA.doSOAAnalysis();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (VPlanDisplaySOAAnalysisInformation)
+    dump(dbgs());
+#endif
 }
 
 VPReduction *VPLoopEntityList::addReduction(

@@ -1888,6 +1888,8 @@ def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
 def fsycl : Flag<["-"], "fsycl">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
   HelpText<"generate SYCL code.">;
 def fno_sycl : Flag<["-"], "fno-sycl">, Group<f_Group>, Flags<[NoArgumentUnused, CoreOption]>;
+def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption]>,
+  HelpText<"Compile SYCL kernels for device">;
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[DriverOption, CC1Option, CoreOption]>,
   HelpText<"Specify comma-separated list of triples SYCL offloading targets to be supported">;
 def fsycl_add_targets_EQ : CommaJoined<["-"], "fsycl-add-targets=">, Flags<[DriverOption, CoreOption]>,
@@ -1905,6 +1907,8 @@ def fsycl_link : Flag<["-"], "fsycl-link">, Alias<fsycl_link_EQ>,
   HelpText<"Generate partially linked device object to be used with the host link">;
 def fsycl_unnamed_lambda : Flag<["-"], "fsycl-unnamed-lambda">,
   Flags<[CC1Option, CoreOption]>, HelpText<"Allow unnamed SYCL lambda kernels">;
+def fno_sycl_unnamed_lambda : Flag<["-"], "fno-sycl-unnamed-lambda">,
+  Flags<[CC1Option, CoreOption]>;
 def fsycl_help_EQ : Joined<["-"], "fsycl-help=">,
   Flags<[DriverOption, CoreOption]>, HelpText<"Emit help information from the related offline compilation tool">, Values<"all,fpga,gen,x86_64">;
 def fsycl_help : Flag<["-"], "fsycl-help">, Alias<fsycl_help_EQ>,
@@ -2091,6 +2095,12 @@ def fdebug_prefix_map_EQ
   : Joined<["-"], "fdebug-prefix-map=">, Group<f_Group>,
     Flags<[CC1Option,CC1AsOption]>,
     HelpText<"remap file source paths in debug info">;
+def ffile_prefix_map_EQ
+  : Joined<["-"], "ffile-prefix-map=">, Group<f_Group>, Flags<[CC1Option]>,
+    HelpText<"remap file source paths in debug info and predefined preprocessor macros">;
+def fmacro_prefix_map_EQ
+  : Joined<["-"], "fmacro-prefix-map=">, Group<Preprocessor_Group>, Flags<[CC1Option]>,
+    HelpText<"remap file source paths in predefined preprocessor macros">;
 def fforce_dwarf_frame : Flag<["-"], "fforce-dwarf-frame">, Group<f_Group>, Flags<[CC1Option]>,
     HelpText<"Always emit a debug frame section">;
 def fno_force_dwarf_frame : Flag<["-"], "fno-force-dwarf-frame">, Group<f_Group>, Flags<[CC1Option]>,
@@ -3164,9 +3174,7 @@ def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-def mamx_transpose : Flag<["-"], "mamx-transpose">, Group<m_x86_Features_Group>;
-def mno_amx_transpose : Flag<["-"], "mno-amx-transpose">, Group<m_x86_Features_Group>;
+#if INTEL_FEATURE_ISA_AMX_FUTURE
 def mamx_reduce : Flag<["-"], "mamx-reduce">, Group<m_x86_Features_Group>;
 def mno_amx_reduce : Flag<["-"], "mno-amx-reduce">, Group<m_x86_Features_Group>;
 def mamx_memory : Flag<["-"], "mamx-memory">, Group<m_x86_Features_Group>;
@@ -3175,6 +3183,11 @@ def mamx_format : Flag<["-"], "mamx-format">, Group<m_x86_Features_Group>;
 def mno_amx_format : Flag<["-"], "mno-amx-format">, Group<m_x86_Features_Group>;
 def mamx_element : Flag<["-"], "mamx-element">, Group<m_x86_Features_Group>;
 def mno_amx_element : Flag<["-"], "mno-amx-element">, Group<m_x86_Features_Group>;
+
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+def mamx_transpose : Flag<["-"], "mamx-transpose">, Group<m_x86_Features_Group>;
+def mno_amx_transpose : Flag<["-"], "mno-amx-transpose">, Group<m_x86_Features_Group>;
 def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
 def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
 def mamx_avx512 : Flag<["-"], "mamx-avx512">, Group<m_x86_Features_Group>;
@@ -3185,7 +3198,8 @@ def mamx_int8_evex : Flag<["-"], "mamx-int8-evex">, Group<m_x86_Features_Group>;
 def mno_amx_int8_evex : Flag<["-"], "mno-amx-int8-evex">, Group<m_x86_Features_Group>;
 def mamx_tile_evex : Flag<["-"], "mamx-tile-evex">, Group<m_x86_Features_Group>;
 def mno_amx_tile_evex : Flag<["-"], "mno-amx-tile-evex">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX2
+
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 def msse : Flag<["-"], "msse">, Group<m_x86_Features_Group>;
 def mno_sse : Flag<["-"], "mno-sse">, Group<m_x86_Features_Group>;
@@ -3570,10 +3584,6 @@ defm sign_zero : BooleanFFlag<"sign-zero">, Group<gfortran_Group>;
 defm stack_arrays : BooleanFFlag<"stack-arrays">, Group<gfortran_Group>;
 defm underscoring : BooleanFFlag<"underscoring">, Group<gfortran_Group>;
 defm whole_file : BooleanFFlag<"whole-file">, Group<gfortran_Group>;
-
-def sycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption]>,
-  HelpText<"Compile SYCL kernels for device">;
-def sycl : Flag<["--"], "sycl">, Alias<sycl_device_only>, Flags<[CoreOption]>;
 
 def reuse_exe_EQ : Joined<["-"], "reuse-exe=">,
   HelpText<"Speed up FPGA aoc compile if the device code in <exe> is unchanged.">,

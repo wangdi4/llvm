@@ -1,4 +1,4 @@
-add_llvm_library(LLVMIntel_OpenCLTransforms
+add_llvm_component_library(LLVMIntel_OpenCLTransforms
   FMASplitter.cpp
   OpenCLTransforms.cpp
 

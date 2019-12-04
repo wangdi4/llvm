@@ -23,7 +23,7 @@ bool event_impl::is_host() const { return m_HostEvent || !m_OpenCLInterop; }
 
 cl_event event_impl::get() const {
   if (m_OpenCLInterop) {
-    PI_CALL(RT::piEventRetain, m_Event);
+    PI_CALL(piEventRetain)(m_Event);
     return pi::cast<cl_event>(m_Event);
   }
   throw invalid_object_error(
@@ -32,17 +32,13 @@ cl_event event_impl::get() const {
 
 event_impl::~event_impl() {
   if (m_Event) {
-    PI_CALL(RT::piEventRelease, m_Event);
+    PI_CALL(piEventRelease)(m_Event);
   }
-}
-
-void event_impl::setComplete() {
-  PI_CALL(RT::piEventSetStatus, m_Event, CL_COMPLETE);
 }
 
 void event_impl::waitInternal() const {
   if (!m_HostEvent) {
-    PI_CALL(RT::piEventsWait, 1, &m_Event);
+    PI_CALL(piEventsWait)(1, &m_Event);
   }
   // Waiting of host events is NOP so far as all operations on host device
   // are blocking.
@@ -72,18 +68,18 @@ event_impl::event_impl(cl_event CLEvent, const context &SyclContext)
   }
 
   RT::PiContext TempContext;
-  PI_CALL(RT::piEventGetInfo, m_Event, CL_EVENT_CONTEXT, sizeof(RT::PiContext),
-          &TempContext, nullptr);
+  PI_CALL(piEventGetInfo)(m_Event, PI_EVENT_INFO_CONTEXT,
+                          sizeof(RT::PiContext), &TempContext, nullptr);
   if (m_Context->getHandleRef() != TempContext) {
     throw cl::sycl::invalid_parameter_error(
         "The syclContext must match the OpenCL context associated with the "
         "clEvent.");
   }
 
-  PI_CALL(RT::piEventRetain, m_Event);
+  PI_CALL(piEventRetain)(m_Event);
 }
 
-event_impl::event_impl(std::shared_ptr<cl::sycl::detail::queue_impl> Queue) {
+event_impl::event_impl(QueueImplPtr Queue) : m_Queue(Queue) {
   if (Queue->is_host() &&
       Queue->has_property<property::queue::enable_profiling>()) {
     m_HostProfilingInfo.reset(new HostProfilingInfo());
@@ -112,13 +108,15 @@ void event_impl::wait_and_throw(
     if (Cmd)
       Cmd->getQueue()->throw_asynchronous();
   }
+  if (m_Queue)
+    m_Queue->throw_asynchronous();
 }
 
 template <>
 cl_ulong
 event_impl::get_profiling_info<info::event_profiling::command_submit>() const {
   if (!m_HostEvent) {
-    return get_event_profiling_info<info::event_profiling::command_submit>::_(
+    return get_event_profiling_info<info::event_profiling::command_submit>::get(
         this->getHandleRef());
   }
   if (!m_HostProfilingInfo)
@@ -130,7 +128,7 @@ template <>
 cl_ulong
 event_impl::get_profiling_info<info::event_profiling::command_start>() const {
   if (!m_HostEvent) {
-    return get_event_profiling_info<info::event_profiling::command_start>::_(
+    return get_event_profiling_info<info::event_profiling::command_start>::get(
         this->getHandleRef());
   }
   if (!m_HostProfilingInfo)
@@ -142,7 +140,7 @@ template <>
 cl_ulong
 event_impl::get_profiling_info<info::event_profiling::command_end>() const {
   if (!m_HostEvent) {
-    return get_event_profiling_info<info::event_profiling::command_end>::_(
+    return get_event_profiling_info<info::event_profiling::command_end>::get(
         this->getHandleRef());
   }
   if (!m_HostProfilingInfo)
@@ -152,7 +150,7 @@ event_impl::get_profiling_info<info::event_profiling::command_end>() const {
 
 template <> cl_uint event_impl::get_info<info::event::reference_count>() const {
   if (!m_HostEvent) {
-    return get_event_info<info::event::reference_count>::_(
+    return get_event_info<info::event::reference_count>::get(
         this->getHandleRef());
   }
   return 0;
@@ -162,7 +160,7 @@ template <>
 info::event_command_status
 event_impl::get_info<info::event::command_execution_status>() const {
   if (!m_HostEvent) {
-    return get_event_info<info::event::command_execution_status>::_(
+    return get_event_info<info::event::command_execution_status>::get(
         this->getHandleRef());
   }
   return info::event_command_status::complete;

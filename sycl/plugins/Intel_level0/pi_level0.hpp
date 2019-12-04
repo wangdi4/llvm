@@ -39,6 +39,11 @@ struct _pi_event {
   // L0 event handle.
   ze_event_handle_t L0Event;
 
+  // Keeps the command-queue and command associated with the event.
+  // These are NULL for the user events.
+  pi_queue Queue;
+  pi_command_type CommandType;
+
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
 
@@ -64,6 +69,9 @@ struct _pi_kernel {
 
   // Keep the program of the kernel.
   pi_program Program;
+
+  // L0 doesn't do the reference counting, so we have to do.
+  pi_uint32 RefCount;
 };
 
 template<class To, class From>

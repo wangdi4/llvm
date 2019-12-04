@@ -228,13 +228,14 @@
 
 // OpenMP context selector sets.
 OPENMP_CONTEXT_SELECTOR_SET(implementation)
+OPENMP_CONTEXT_SELECTOR_SET(device)
 #if INTEL_COLLAB
 OPENMP_CONTEXT_SELECTOR_SET(construct)
-OPENMP_CONTEXT_SELECTOR_SET(device)
 #endif // INTEL_COLLAB
 
 // OpenMP context selectors.
 OPENMP_CONTEXT_SELECTOR(vendor)
+OPENMP_CONTEXT_SELECTOR(kind)
 #if INTEL_COLLAB
 OPENMP_CONTEXT_SELECTOR(target_variant_dispatch)
 OPENMP_CONTEXT_SELECTOR(arch)
@@ -494,6 +495,7 @@ OPENMP_FOR_SIMD_CLAUSE(linear)
 OPENMP_FOR_SIMD_CLAUSE(aligned)
 OPENMP_FOR_SIMD_CLAUSE(ordered)
 OPENMP_FOR_SIMD_CLAUSE(allocate)
+OPENMP_FOR_SIMD_CLAUSE(if)
 
 // Clauses allowed for OpenMP directive 'omp sections'.
 OPENMP_SECTIONS_CLAUSE(private)

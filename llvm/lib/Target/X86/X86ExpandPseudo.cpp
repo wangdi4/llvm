@@ -375,7 +375,7 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     ExpandICallBranchFunnel(&MBB, MBBI);
     return true;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
   case X86::TILE16MOVEPseudo: {
     MachineInstrBuilder MIB = BuildMI(MBB, MBBI, DL, TII->get(X86::TILE16MOVE));
 
@@ -398,7 +398,7 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MBBI->eraseFromParent();
     return true;
   }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Previous switch has a fallthrough?");

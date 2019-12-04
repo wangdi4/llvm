@@ -4122,27 +4122,9 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tdpbf16ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-  case X86::BI__builtin_ia32_t2rpntlvw:
-  case X86::BI__builtin_ia32_t2rpntlvwt1:
-  case X86::BI__builtin_ia32_t2transposew:
-  case X86::BI__builtin_ia32_t2transposewt1:
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::BI__builtin_ia32_tbroadcastrowd:
-  case X86::BI__builtin_ia32_tgatherrowd:
-  case X86::BI__builtin_ia32_tgatherrowdt1:
-  case X86::BI__builtin_ia32_tgatherrowq:
-  case X86::BI__builtin_ia32_tgatherrowqt1:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
-  case X86::BI__builtin_ia32_tile16move:
-  case X86::BI__builtin_ia32_tilemovei:
-  case X86::BI__builtin_ia32_tilemovee:
-  case X86::BI__builtin_ia32_tilemovex:
-    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
-  case X86::BI__builtin_ia32_tileloadde64:
-  case X86::BI__builtin_ia32_tileloaddt1e64:
-  case X86::BI__builtin_ia32_tilestorede64:
-  case X86::BI__builtin_ia32_tilezeroe:
-    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
   case X86::BI__builtin_ia32_tcoladdps:
   case X86::BI__builtin_ia32_tstorerowd:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 1);
@@ -4182,15 +4164,8 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tsubps_mem:
   case X86::BI__builtin_ia32_txord_mem:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1});
-  case X86::BI__builtin_ia32_tilemove:
-    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);
-  case X86::BI__builtin_ia32_tscatterrowd:
-  case X86::BI__builtin_ia32_tscatterrowdt1:
-  case X86::BI__builtin_ia32_tscatterrowq:
-  case X86::BI__builtin_ia32_tscatterrowqt1:
   case X86::BI__builtin_ia32_tstorehd:
   case X86::BI__builtin_ia32_tstorehdt1:
-  case X86::BI__builtin_ia32_tstorentd:
   case X86::BI__builtin_ia32_tstoreqd:
   case X86::BI__builtin_ia32_tstoreqdt1:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 2);
@@ -4218,6 +4193,36 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tsrlvd_reg:
   case X86::BI__builtin_ia32_tsubps_reg:
   case X86::BI__builtin_ia32_txord_reg:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  case X86::BI__builtin_ia32_t2rpntlvw:
+  case X86::BI__builtin_ia32_t2rpntlvwt1:
+  case X86::BI__builtin_ia32_t2transposew:
+  case X86::BI__builtin_ia32_t2transposewt1:
+  case X86::BI__builtin_ia32_tgatherrowd:
+  case X86::BI__builtin_ia32_tgatherrowdt1:
+  case X86::BI__builtin_ia32_tgatherrowq:
+  case X86::BI__builtin_ia32_tgatherrowqt1:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+  case X86::BI__builtin_ia32_tile16move:
+  case X86::BI__builtin_ia32_tilemovei:
+  case X86::BI__builtin_ia32_tilemovee:
+  case X86::BI__builtin_ia32_tilemovex:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+  case X86::BI__builtin_ia32_tileloadde64:
+  case X86::BI__builtin_ia32_tileloaddt1e64:
+  case X86::BI__builtin_ia32_tilestorede64:
+  case X86::BI__builtin_ia32_tilezeroe:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
+  case X86::BI__builtin_ia32_tilemove:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);
+  case X86::BI__builtin_ia32_tscatterrowd:
+  case X86::BI__builtin_ia32_tscatterrowdt1:
+  case X86::BI__builtin_ia32_tscatterrowq:
+  case X86::BI__builtin_ia32_tscatterrowqt1:
+  case X86::BI__builtin_ia32_tstorentd:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 2);
   case X86::BI__builtin_ia32_tdpfp16ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
   case X86::BI__builtin_ia32_tdpbssde:
@@ -4226,7 +4231,7 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tdpbuude:
   case X86::BI__builtin_ia32_tdpbf16pse:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2}, 0, 31);
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX
   }
 }
@@ -5748,20 +5753,19 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
       && sizeof(NumVals)/sizeof(NumVals[0]) == NumForm,
       "need to update code for modified forms");
   static_assert(AtomicExpr::AO__c11_atomic_init == 0 &&
-                    AtomicExpr::AO__c11_atomic_fetch_xor + 1 ==
+                    AtomicExpr::AO__c11_atomic_fetch_min + 1 ==
                         AtomicExpr::AO__atomic_load,
                 "need to update code for modified C11 atomics");
   bool IsOpenCL = Op >= AtomicExpr::AO__opencl_atomic_init &&
                   Op <= AtomicExpr::AO__opencl_atomic_fetch_max;
   bool IsC11 = (Op >= AtomicExpr::AO__c11_atomic_init &&
-               Op <= AtomicExpr::AO__c11_atomic_fetch_xor) ||
+               Op <= AtomicExpr::AO__c11_atomic_fetch_min) ||
                IsOpenCL;
   bool IsN = Op == AtomicExpr::AO__atomic_load_n ||
              Op == AtomicExpr::AO__atomic_store_n ||
              Op == AtomicExpr::AO__atomic_exchange_n ||
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
   bool IsAddSub = false;
-  bool IsMinMax = false;
 #if INTEL_CUSTOMIZATION
   // Used for the Intel versions where we type-coerce the _N values to match
   // the function, rather than erroring on mismatch, so these are used to store
@@ -5818,12 +5822,12 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   case AtomicExpr::AO__atomic_or_fetch:
   case AtomicExpr::AO__atomic_xor_fetch:
   case AtomicExpr::AO__atomic_nand_fetch:
-    Form = Arithmetic;
-    break;
-
+  case AtomicExpr::AO__c11_atomic_fetch_min:
+  case AtomicExpr::AO__c11_atomic_fetch_max:
+  case AtomicExpr::AO__atomic_min_fetch:
+  case AtomicExpr::AO__atomic_max_fetch:
   case AtomicExpr::AO__atomic_fetch_min:
   case AtomicExpr::AO__atomic_fetch_max:
-    IsMinMax = true;
     Form = Arithmetic;
     break;
 
@@ -6048,17 +6052,8 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
       return ExprError();
     }
     if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (IsMinMax) {
-      const BuiltinType *BT = ValType->getAs<BuiltinType>();
-      if (!BT || (BT->getKind() != BuiltinType::Int &&
-                  BT->getKind() != BuiltinType::UInt)) {
-        Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_int32_or_ptr);
-        return ExprError();
-      }
-    }
-    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (!IsAddSub && !IsMinMax && !ValType->isIntegerType()) {
-      Diag(ExprRange.getBegin(), diag::err_atomic_op_bitwise_needs_atomic_int)
+    if (!IsAddSub && !ValType->isIntegerType()) {
+      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int)
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
@@ -13272,7 +13267,7 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
     return;
 
   if (isObjCSignedCharBool(S, T) && !Source->isCharType() &&
-      !E->isKnownToHaveBooleanValue()) {
+      !E->isKnownToHaveBooleanValue(/*Semantic=*/false)) {
     return adornObjCBoolConversionDiagWithTernaryFixit(
         S, E,
         S.Diag(CC, diag::warn_impcast_int_to_objc_signed_char_bool)

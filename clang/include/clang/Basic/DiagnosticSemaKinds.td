@@ -569,9 +569,13 @@ def err_access_decl : Error<
   "use using declarations instead">;
 def warn_deprecated_copy_operation : Warning<
   "definition of implicit copy %select{constructor|assignment operator}1 "
-  "for %0 is deprecated because it has a user-declared "
-  "%select{copy %select{assignment operator|constructor}1|destructor}2">,
-  InGroup<Deprecated>, DefaultIgnore;
+  "for %0 is deprecated because it has a user-declared copy "
+  "%select{assignment operator|constructor}1">,
+  InGroup<DeprecatedCopy>, DefaultIgnore;
+def warn_deprecated_copy_dtor_operation : Warning<
+  "definition of implicit copy %select{constructor|assignment operator}1 "
+  "for %0 is deprecated because it has a user-declared destructor">,
+  InGroup<DeprecatedCopyDtor>, DefaultIgnore;
 def warn_cxx17_compat_exception_spec_in_signature : Warning<
   "mangled name of %0 will change in C++17 due to non-throwing exception "
   "specification in function signature">, InGroup<CXX17CompatMangling>;
@@ -7527,10 +7531,8 @@ def err_atomic_op_needs_trivial_copy : Error<
 def err_atomic_op_needs_atomic_int_or_ptr : Error<
   "address argument to atomic operation must be a pointer to %select{|atomic }0"
   "integer or pointer (%1 invalid)">;
-def err_atomic_op_needs_int32_or_ptr : Error<
-  "address argument to atomic operation must be a pointer to signed or unsigned 32-bit integer">;
-def err_atomic_op_bitwise_needs_atomic_int : Error<
-  "address argument to bitwise atomic operation must be a pointer to "
+def err_atomic_op_needs_atomic_int : Error<
+  "address argument to atomic operation must be a pointer to "
   "%select{|atomic }0integer (%1 invalid)">;
 def warn_atomic_op_has_invalid_memory_order : Warning<
   "memory order argument to atomic operation is invalid">,
@@ -8523,7 +8525,7 @@ def warn_tautological_overlap_comparison : Warning<
 
 def warn_stringcompare : Warning<
   "result of comparison against %select{a string literal|@encode}0 is "
-  "unspecified (use strncmp instead)">,
+  "unspecified (use an explicit string comparison function instead)">,
   InGroup<StringCompare>;
 
 def warn_identity_field_assign : Warning<
@@ -9399,7 +9401,7 @@ def ext_omp_loop_not_canonical_init : ExtWarn<
   "('var = init' or 'T var = init')">, InGroup<OpenMPLoopForm>;
 def err_omp_loop_not_canonical_cond : Error<
   "condition of OpenMP for loop must be a relational comparison "
-	"('<', '<=', '>', %select{or '>='|'>=', or '!='}0) of loop variable %1">;
+  "('<', '<=', '>', %select{or '>='|'>=', or '!='}0) of loop variable %1">;
 def err_omp_loop_not_canonical_incr : Error<
   "increment clause of OpenMP for loop must perform simple addition "
   "or subtraction on loop variable %0">;

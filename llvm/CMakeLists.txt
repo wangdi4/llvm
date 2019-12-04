@@ -899,10 +899,15 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
 # end INTEL_FEATURE_ISA_AMX
 
-# INTEL_FEATURE_ISA_AMX2
+# INTEL_FEATURE_ISA_AMX_FUTURE
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX2)
-# end INTEL_FEATURE_ISA_AMX2
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FUTURE)
+# end INTEL_FEATURE_ISA_AMX_FUTURE
+
+# INTEL_FEATURE_ISA_AMX_LNC
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_LNC)
+# end INTEL_FEATURE_ISA_AMX_LNC
 
 # INTEL_FEATURE_ISA_KEYLOCKER
       list(APPEND features_enabled_by_default
@@ -1453,7 +1458,7 @@ if (INTEL_CUSTOMIZATION)
     if (WIN32)
       list(APPEND INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
         # OpenCL components
-        ocl-OclCpuDebugging7
+        ocl-OclCpuDebugging9
       )
     endif(WIN32)
 

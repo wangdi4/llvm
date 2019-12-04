@@ -549,22 +549,6 @@ SkylakeCommon:
       llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
     Features["mmx"] = true;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  // Enable a fake vnnivl feature if "avxvnni" is enabled or
-  // "avx512vl,avx512vnni" is enabled.
-  auto AVXVNNIIt = Features.find("avxvnni");
-  auto AVX512VLIt = Features.find("avx512vl");
-  auto AVX512VNNIIt = Features.find("avx512vnni");
-  if (((AVXVNNIIt != Features.end() && AVXVNNIIt->getValue()) ||
-       (AVX512VLIt != Features.end() && AVX512VLIt->getValue() &&
-        AVX512VNNIIt != Features.end() && AVX512VNNIIt->getValue())) &&
-      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-vnnivl") ==
-          FeaturesVec.end())
-    Features["vnnivl"] = true;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
-
   return true;
 }
 
@@ -797,11 +781,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   } else if (Name == "avx512f") {
     setSSELevel(Features, AVX512F, Enabled);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
     if (!Enabled) {
       Features["amx-avx512"] = false;
     }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   } else if (Name.startswith("avx512")) {
     if (Enabled)
@@ -818,11 +802,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
         Features["avx512bw"] = Features["avx512vl"] = true;
       }
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
       else {
         Features["amx-fp16"] = false;
       }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_FP16
     }
 #endif // INTEL_FEATURE_ISA_FP16
@@ -883,33 +867,37 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   else if (Name == "amx-tile" && !Enabled) {
     Features["amx-bf16"] = Features["amx-int8"] = false;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-    Features["amx-transpose"] = Features["amx-reduce"] =
-    Features["amx-memory"] = Features["amx-format"] =
-    Features["amx-element"] = Features["amx-fp16"] =
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+    Features["amx-reduce"] = Features["amx-memory"] =
+    Features["amx-format"] = Features["amx-element"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+    Features["amx-transpose"] = Features["amx-fp16"] =
     Features["amx-avx512"] = Features["amx-bf16-evex"] =
     Features["amx-int8-evex"] = Features["amx-tile-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX
   }
   else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
     Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-  else if ((Name == "amx-transpose" || Name == "amx-reduce" ||
-            Name == "amx-memory" || Name == "amx-format" ||
-            Name == "amx-element" || Name == "amx-avx512" ||
-            Name == "amx-bf16-evex" || Name == "amx-int8-evex" ||
-            Name == "amx-tile-evex") && Enabled)
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+  else if ((Name == "amx-reduce" || Name == "amx-memory" ||
+            Name == "amx-format" || Name == "amx-element") && Enabled)
     Features["amx-tile"] = true;
-  else if ((Name == "amx-fp16") && Enabled) {
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  else if ((Name == "amx-transpose" || Name == "amx-tile-evex" ||
+            Name == "amx-int8-evex"|| Name == "amx-bf16-evex") && Enabled)
+    Features["amx-tile"] = true;
+  else if (Name == "amx-fp16" && Enabled) {
     Features["amx-tile"] = true;
     setFeatureEnabledImpl(Features, "avx512fp16", true);
   } else if ((Name == "amx-avx512") && Enabled) {
     Features["amx-tile"] = true;
     setFeatureEnabledImpl(Features, "avx512f", true);
   }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
   else if (Name == "avxvnni") {
     if (Enabled)
@@ -1085,9 +1073,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-    } else if (Feature == "+amx-transpose") {
-      HasAMXTRANSPOSE = true;
+#if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
     } else if (Feature == "+amx-memory") {
@@ -1096,6 +1082,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXFORMAT = true;
     } else if (Feature == "+amx-element") {
       HasAMXELEMENT = true;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+    } else if (Feature == "+amx-transpose") {
+      HasAMXTRANSPOSE = true;
     } else if (Feature == "+amx-fp16") {
       HasAMXFP16 = true;
     } else if (Feature == "+amx-avx512") {
@@ -1106,7 +1096,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXINT8EVEX = true;
     } else if (Feature == "+amx-tile-evex") {
       HasAMXTILEEVEX = true;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
@@ -1566,9 +1556,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXBF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-  if (HasAMXTRANSPOSE)
-    Builder.defineMacro("__AMXTRANSPOSE__");
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   if (HasAMXREDUCE)
     Builder.defineMacro("__AMXREDUCE__");
   if (HasAMXMEMORY)
@@ -1577,6 +1565,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFORMAT__");
   if (HasAMXELEMENT)
     Builder.defineMacro("__AMXELEMENT__");
+  Builder.defineMacro("__AMX_FUTURE_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  if (HasAMXTRANSPOSE)
+    Builder.defineMacro("__AMXTRANSPOSE__");
   if (HasAMXFP16)
     Builder.defineMacro("__AMXFP16__");
   if (HasAMXAVX512)
@@ -1587,8 +1580,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXINT8EVEX__");
   if (HasAMXTILEEVEX)
     Builder.defineMacro("__AMXTILEEVEX__");
-  Builder.defineMacro("__AMX2_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX2
+  Builder.defineMacro("__AMX_LNC_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
@@ -1716,18 +1709,20 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-int8", true)
       .Case("amx-tile", true)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-      .Case("amx-transpose", true)
+#if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
       .Case("amx-format", true)
       .Case("amx-element", true)
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+      .Case("amx-transpose", true)
       .Case("amx-fp16", true)
       .Case("amx-avx512", true)
       .Case("amx-bf16-evex", true)
       .Case("amx-int8-evex", true)
       .Case("amx-tile-evex", true)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
@@ -1843,18 +1838,20 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-      .Case("amx-transpose", HasAMXTRANSPOSE)
+#if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)
       .Case("amx-format", HasAMXFORMAT)
       .Case("amx-element", HasAMXELEMENT)
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+      .Case("amx-transpose", HasAMXTRANSPOSE)
       .Case("amx-fp16", HasAMXFP16)
       .Case("amx-avx512", HasAMXAVX512)
       .Case("amx-bf16-evex", HasAMXBF16EVEX)
       .Case("amx-int8-evex", HasAMXINT8EVEX)
       .Case("amx-tile-evex", HasAMXTILEEVEX)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", HasAVXVNNI)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI

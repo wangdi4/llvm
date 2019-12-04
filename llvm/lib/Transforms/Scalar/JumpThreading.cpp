@@ -342,14 +342,13 @@ bool JumpThreading::runOnFunction(Function &F) {
   DomTreeUpdater DTU(*DT, DomTreeUpdater::UpdateStrategy::Lazy);
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
-  bool HasProfileData = F.hasProfileData();
-  if (HasProfileData) {
+  if (F.hasProfileData()) {
     LoopInfo LI{DominatorTree(F)};
     BPI.reset(new BranchProbabilityInfo(F, LI, TLI));
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, HasProfileData,
+  bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, F.hasProfileData(),
                               std::move(BFI), std::move(BPI));
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
@@ -376,7 +375,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, HasProfileData,
+  bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, F.hasProfileData(),
                          std::move(BFI), std::move(BPI));
 
   if (!Changed)
@@ -2012,7 +2011,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                             getSuccessor(GetBestDestForJumpOnUndef(BB));
 
   // Ok, try to thread it!
-  return ThreadEdge(RegionInfo, PredsToFactor, MostPopularDest);    // INTEL
+  return TryThreadEdge(RegionInfo, PredsToFactor, MostPopularDest);    // INTEL
 }
 
 /// ProcessBranchOnPHI - We have an otherwise unthreadable conditional branch on
@@ -2445,9 +2444,9 @@ static BasicBlock* getSubRegionPred(BasicBlock *OldBB,
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
 /// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
 /// across a region of blocks.  Transform the IR to reflect this change.
-bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
-                                   const SmallVectorImpl<BasicBlock*> &PredBBs,
-                                   BasicBlock *SuccBB) {
+bool JumpThreadingPass::TryThreadEdge(
+    const ThreadRegionInfo &RegionInfo,
+    const SmallVectorImpl<BasicBlock *> &PredBBs, BasicBlock *SuccBB) {
   BasicBlock *RegionTop = RegionInfo.back().first;
   BasicBlock *RegionBottom = RegionInfo.front().second;
   SmallVector<BasicBlock*, 16> RegionBlocks;
@@ -2559,6 +2558,19 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       }
     }
   }
+  ThreadEdge(RegionInfo, RegionBlocks, ThreadingLoopHeader, PredBBs, SuccBB);
+  return true;
+}
+
+/// ThreadEdge - We have decided that it is safe and profitable to factor the
+/// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
+/// across BB.  Transform the IR to reflect this change.
+void JumpThreadingPass::ThreadEdge(
+    const ThreadRegionInfo &RegionInfo,
+    const SmallVectorImpl<BasicBlock *> &RegionBlocks, bool ThreadingLoopHeader,
+    const SmallVectorImpl<BasicBlock *> &PredBBs, BasicBlock *SuccBB) {
+  BasicBlock *RegionTop = RegionInfo.back().first;
+  BasicBlock *RegionBottom = RegionInfo.front().second;
 
   // And finally, do it!  Start by factoring the predecessors if needed.
   BasicBlock *PredBB;
@@ -2572,8 +2584,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
 
   // And finally, do it!
   LLVM_DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName()
-                    << "' to '" << SuccBB->getName() << "' with cost: "
-                    << JumpThreadCost << ", across blocks:\n    ";
+                    << "' to '" << SuccBB->getName() << ", across blocks:\n    ";
              for (auto BB : RegionBlocks)
                dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
@@ -2845,7 +2856,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   // Threaded an edge!
   ++BlockThreadCount[RegionBottom];
   ++NumThreads;
-  return true;
 }
 #endif // INTEL_CUSTOMIZATION
 

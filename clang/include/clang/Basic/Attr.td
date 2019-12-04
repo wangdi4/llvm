@@ -1560,8 +1560,9 @@ def SYCLIntelFPGAIVDep : Attr {
 
 def SYCLIntelFPGAII : Attr {
   let Spellings = [CXX11<"intelfpga","ii">];
-  let Args = [IntArgument<"Interval">];
+  let Args = [ExprArgument<"IntervalExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "ii";
@@ -1572,8 +1573,9 @@ def SYCLIntelFPGAII : Attr {
 
 def SYCLIntelFPGAMaxConcurrency : Attr {
   let Spellings = [CXX11<"intelfpga","max_concurrency">];
-  let Args = [IntArgument<"NThreads">];
+  let Args = [ExprArgument<"NThreadsExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "max_concurrency";
@@ -3312,25 +3314,9 @@ def MSInheritance : InheritableAttr {
                    Keyword<"__virtual_inheritance">,
                    Keyword<"__unspecified_inheritance">];
   let AdditionalMembers = [{
-  static bool hasVBPtrOffsetField(Spelling Inheritance) {
-    return Inheritance == Keyword_unspecified_inheritance;
-  }
-
-  // Only member pointers to functions need a this adjustment, since it can be
-  // combined with the field offset for data pointers.
-  static bool hasNVOffsetField(bool IsMemberFunction, Spelling Inheritance) {
-    return IsMemberFunction && Inheritance >= Keyword_multiple_inheritance;
-  }
-
-  static bool hasVBTableOffsetField(Spelling Inheritance) {
-    return Inheritance >= Keyword_virtual_inheritance;
-  }
-
-  static bool hasOnlyOneField(bool IsMemberFunction,
-                              Spelling Inheritance) {
-    if (IsMemberFunction)
-      return Inheritance <= Keyword_single_inheritance;
-    return Inheritance <= Keyword_multiple_inheritance;
+  MSInheritanceModel getInheritanceModel() const {
+    // The spelling enum should agree with MSInheritanceModel.
+    return MSInheritanceModel(getSemanticSpelling());
   }
   }];
   let Documentation = [MSInheritanceDocs];
@@ -3343,13 +3329,7 @@ def MSVtorDisp : InheritableAttr {
   let SemaHandler = 0;
 
   let AdditionalMembers = [{
-  enum Mode {
-    Never,
-    ForVBaseOverride,
-    ForVFTable
-  };
-
-  Mode getVtorDispMode() const { return Mode(vdm); }
+  MSVtorDispMode getVtorDispMode() const { return MSVtorDispMode(vdm); }
   }];
   let Documentation = [Undocumented];
 }
@@ -3764,7 +3744,8 @@ def OMPDeclareVariant : InheritableAttr {
     VariadicExprArgument<"Scores">,
     VariadicUnsignedArgument<"CtxSelectorSets">,
     VariadicUnsignedArgument<"CtxSelectors">,
-    VariadicStringArgument<"ImplVendors">
+    VariadicStringArgument<"ImplVendors">,
+    VariadicStringArgument<"DeviceKinds">
   ];
   let AdditionalMembers = [{
 // INTEL_CUSTOMIZATION
@@ -3797,35 +3778,20 @@ def OMPDeclareVariant : InheritableAttr {
       }
       // TODO: add printing of real context selectors.
       OS << " match(";
+      int Used[OMP_CTX_SET_unknown] = {0};
       for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
         auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
             *std::next(ctxSelectorSets_begin(), I));
-        auto Ctx = static_cast<OpenMPContextSelectorKind>(
-            *std::next(ctxSelectors_begin(), I));
-        assert(CtxSet != OMP_CTX_SET_unknown && Ctx != OMP_CTX_unknown &&
-               "Unknown context selector.");
+        if (Used[CtxSet])
+          continue;
+        if (I > 0)
+          OS << ",";
         switch (CtxSet) {
         case OMP_CTX_SET_implementation:
           OS << "implementation={";
-          switch (Ctx) {
-          case OMP_CTX_vendor:
-            OS << "vendor(";
-            printScore(OS, Policy, I);
-            if (implVendors_size() > 0) {
-              OS << *implVendors(). begin();
-              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
-                OS << ", " << VendorName;
-            }
-            OS << ")";
-            break;
-// INTEL_COLLAB
-          case OMP_CTX_arch:
-          case OMP_CTX_target_variant_dispatch:
-// end INTEL_COLLAB
-          case OMP_CTX_unknown:
-            llvm_unreachable("Unknown context selector.");
-          }
-          OS << "}";
+          break;
+        case OMP_CTX_SET_device:
+          OS << "device={";
           break;
 // INTEL_COLLAB
         case OMP_CTX_SET_construct:
@@ -3833,9 +3799,45 @@ def OMPDeclareVariant : InheritableAttr {
           OS << "target variant dispatch";
           OS << "}";
           break;
-        case OMP_CTX_SET_device:
-          OS << "device={";
+// end INTEL_COLLAB
+        case OMP_CTX_SET_unknown:
+          llvm_unreachable("Unknown context selector set.");
+        }
+        Used[CtxSet] = 1;
+        for (unsigned K = I, EK = ctxSelectors_size(); K < EK; ++K) {
+          auto CtxSetK = static_cast<OpenMPContextSelectorSetKind>(
+              *std::next(ctxSelectorSets_begin(), K));
+          if (CtxSet != CtxSetK)
+            continue;
+          if (K != I)
+            OS << ",";
+          auto Ctx = static_cast<OpenMPContextSelectorKind>(
+              *std::next(ctxSelectors_begin(), K));
           switch (Ctx) {
+          case OMP_CTX_vendor:
+            assert(CtxSet == OMP_CTX_SET_implementation &&
+                   "Expected implementation context selector set.");
+            OS << "vendor(";
+            printScore(OS, Policy, K);
+            if (implVendors_size() > 0) {
+              OS << *implVendors(). begin();
+              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
+                OS << ", " << VendorName;
+            }
+            OS << ")";
+            break;
+          case OMP_CTX_kind:
+            assert(CtxSet == OMP_CTX_SET_device &&
+                   "Expected device context selector set.");
+            OS << "kind(";
+            if (deviceKinds_size() > 0) {
+              OS << *deviceKinds().begin();
+              for (StringRef KindName : llvm::drop_begin(deviceKinds(), 1))
+                OS << ", " << KindName;
+            }
+            OS << ")";
+            break;
+// INTEL_COLLAB
           case OMP_CTX_arch:
             OS << "arch(";
             printScore(OS, Policy, I);
@@ -3846,17 +3848,13 @@ def OMPDeclareVariant : InheritableAttr {
             }
             OS << ")";
             break;
-          case OMP_CTX_vendor:
           case OMP_CTX_target_variant_dispatch:
+// end INTEL_COLLAB
           case OMP_CTX_unknown:
             llvm_unreachable("Unknown context selector.");
           }
-          OS << "}";
-          break;
-// end INTEL_COLLAB
-        case OMP_CTX_SET_unknown:
-          llvm_unreachable("Unknown context selector set.");
         }
+        OS << "}";
       }
       OS << ")";
     }

@@ -61,6 +61,15 @@ public:
   /// Return true if the instruction is a directive represented
   /// as a llvm.directive.region.entry/exit intrinsic call
   static bool isDirective(Instruction *I);
+
+  /// Creates a clone of \p CI without any operand bundles that match
+  /// by \p Predicate. Replaces all uses of the original \p CI
+  /// with the new Instruction created.
+  /// \returns newly created CallInst, if it created one, \p CI otherwise
+  /// (if no matching bundle on \p CI).
+  static CallInst *removeOperandBundlesFromCall(
+      CallInst *CI,
+      function_ref<bool(const OperandBundleDef &Bundle)> Predicate);
 };
 
 } // namespace llvm

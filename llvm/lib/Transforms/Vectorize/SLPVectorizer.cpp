@@ -816,6 +816,8 @@ public:
   }
 
   /// Check if ArrayType or StructType is isomorphic to some VectorType.
+  /// Accepts homogeneous aggregate of vectors like
+  /// { <2 x float>, <2 x float> }
   ///
   /// \returns number of elements in vector if isomorphism exists, 0 otherwise.
   unsigned canMapToVector(Type *T, const DataLayout &DL) const;
@@ -964,7 +966,13 @@ public:
     void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
       std::swap(OpsVec[OpIdx1][Lane], OpsVec[OpIdx2][Lane]);
     }
-
+#if INTEL_CUSTOMIZATION
+    // We eventually want to completely switch to community version of
+    // Look-ahead scores calculation stuff. For now enable access to
+    // getShallowScore routine and score constants so that it could be used from
+    // outside of the class.
+  public:
+#endif // INTEL_CUSTOMIZATION
     // The hard-coded scores listed here are not very important. When computing
     // the scores of matching one sub-tree with another, we are basically
     // counting the number of values that are matching. So even if all scores
@@ -978,7 +986,7 @@ public:
     /// ExtractElementInst from same vector and consecutive indexes.
     static const int ScoreConsecutiveExtracts = 3;
     /// Constants.
-    static const int ScoreConstants = 2;
+    static const int ScoreConstants = 1; // INTEL (orig: 2)
     /// Instructions with the same opcode.
     static const int ScoreSameOpcode = 2;
     /// Instructions with alt opcodes (e.g, add + sub).
@@ -1038,6 +1046,7 @@ public:
       return VLOperands::ScoreFail;
     }
 
+  private: // INTEL
     /// Holds the values and their lane that are taking part in the look-ahead
     /// score calculation. This is used in the external uses cost calculation.
     SmallDenseMap<Value *, int> InLookAheadValues;
@@ -1852,28 +1861,12 @@ public:
   /// This is set to true if PSLP was succesful.
   bool PSLPSuccess = false;
 private:
-  /// Look-Ahead: Score multiplier for consecutive loads.
-  static const int SCORE_LOADS_CONSEC = 3;
-  /// Look-Ahead: Score multiplier for loads with constant distance.
-  static const int SCORE_LOADS_CONST_DIST = 2;
-  /// Look-Ahead: Score for constants.
-  static const int SCORE_CONST = 1;
-  /// Look-Ahead: Score for identical instructions.
-  static const int SCORE_INSTR_SAME_OPCODE_EQUAL = 2;
-  /// Look-Ahead: Score for different instructions with same opcode.
-  static const int SCORE_INSTR_SAME_OPCODE_DIFF = 1;
-  /// Look-Ahead: Score for instructions with different opcodes.
-  static const int SCORE_INSTR_DIFF_OPCODE = 0;
-  /// Look-Ahead: Score for failure.
-  static const int SCORE_FAIL = 0;
-  /// Multiplier for getScoreAtLevel() in order to avoid floats.
-  static const int COST_MULTIPLIER = 10;
   // The look-ahead score measured how well the frontier-rooted sub-trees match.
   // This score is adjusted by this much when the frontier nodes (users of the
   // sub-tree) don't match and require Padding by PSLP to get vectorized.
   // The more negative the number the worse the resulting score.
   // Its main purpose is to break ties across scores.
-  static const int BLEND_COST = -2;
+  static const int BLEND_COST = -3;
 
   /// Contains the padded instructions emitted by PSLP, that should be removed
   /// if PSLP fails (not the selects).
@@ -2947,9 +2940,6 @@ private:
   /// \returns true if all instructions in VL are in the same BB as the root.
   bool areInSameBB(ArrayRef<Value *> VL, int RootIdx);
 
-  /// \returns the massaged \p Score.
-  int massageScore(int Score) const { return Score * COST_MULTIPLIER; }
-
   /// \returns the cost-model score of the subtrees rooted at v1 and v2.
   int getScoreAtLevel(Value *v1, Value *v2, int Level, int MaxLevel);
 
@@ -2973,15 +2963,9 @@ private:
   /// and good for vectorization.
   int getLookAheadScore(Value *LHS, Value *RHS);
 
-  /// \returns a high score if \p LHS and \p RHS form a splat (a broadcast).
-  int getSplatScore(Value *LHS, Value *RHS);
-
   /// \returns the best matching operands into \p BestoOps.
   int getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane, int OpI,
                      const OpVec &BestOperandsSoFar, VecMode Mode);
-
-  /// \returns true if v1 and v2 could be combined into a vector.
-  int areConsecutive(Value *v1, Value *v2) const;
 
   /// Replace Op's frontier with opcode with the 'effective' one.
   void replaceFrontierOpcodeWithEffective(OperandData *Op);
@@ -3942,61 +3926,20 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
     assert(!verifyFunction(*F, &dbgs()));
 }
 
-// Return TRUE if V1 and V2 should be placed in consecutive lanes.
-int BoUpSLP::areConsecutive(Value *v1, Value *v2) const {
-  LoadInst *LI1 = dyn_cast<LoadInst>(v1);
-  LoadInst *LI2 = dyn_cast<LoadInst>(v2);
-  if (LI1 && LI2) {
-
-    bool LoadsAreConsecutive = isConsecutiveAccess(LI1, LI2, *DL, *SE);
-    if (LoadsAreConsecutive)
-      return massageScore(SCORE_LOADS_CONSEC);
-    else {
-      return massageScore(SCORE_FAIL);
-    }
-  }
-
-  Constant *C1 = dyn_cast<Constant>(v1);
-  Constant *C2 = dyn_cast<Constant>(v2);
-  if (C1 && C2) {
-    return massageScore(SCORE_CONST);
-  }
-
-  Instruction *Instr1 = dyn_cast<Instruction>(v1);
-  Instruction *Instr2 = dyn_cast<Instruction>(v2);
-  if (Instr1 && Instr2) {
-    // getSameOpcode() also covers add-sub
-    InstructionsState S = getSameOpcode({Instr1, Instr2});
-    if (S.getOpcode()) {
-      // An add-sub vector is +1 cost, so I am not sure whether this helps
-      // if (Instr1->getOpcode() == Instr2->getOpcode()) {
-      // SPLATs have a higher priority if more than 2 lanes
-      if (Instr1 == Instr2) {
-        return massageScore(SCORE_INSTR_SAME_OPCODE_EQUAL);
-      } else {
-        return massageScore(SCORE_INSTR_SAME_OPCODE_DIFF);
-      }
-    } else {
-      return massageScore(SCORE_INSTR_DIFF_OPCODE);
-    }
-  }
-  return massageScore(SCORE_FAIL);
-}
-
 // We go through the operands of V1 and V2 until LEVEL
 // and we count the number of matches.
 int BoUpSLP::getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
   // Get the shallow score of V1 and V2.
-  int ShallowScoreAtThisLevel = areConsecutive(V1, V2);
+  int ShallowScoreAtThisLevel = VLOperands::getShallowScore(V1, V2, *DL, *SE);
 
   // If reached MaxLevel,
   // or if V1 and V2 are not instructions,
   // or if they are SPLAT,
   // or if they are not consecutive, early return the current cost.
-  Instruction *I1 = dyn_cast<Instruction>(V1);
-  Instruction *I2 = dyn_cast<Instruction>(V2);
+  auto *I1 = dyn_cast<Instruction>(V1);
+  auto *I2 = dyn_cast<Instruction>(V2);
   if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
-      ShallowScoreAtThisLevel == massageScore(SCORE_FAIL) ||
+      ShallowScoreAtThisLevel == VLOperands::ScoreFail ||
       (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
     return ShallowScoreAtThisLevel;
 
@@ -4094,11 +4037,6 @@ int BoUpSLP::getLookAheadScore(Value *LHS, Value *RHS) {
   return Score;
 }
 
-// Returns a score of 1*multiplier if LHS == RHS, 0 otherwise.
-int BoUpSLP::getSplatScore(Value *LHS, Value *RHS) {
-  return massageScore(static_cast<int>(RHS == LHS));
-}
-
 /// Look for the best operands for \p LHSOp. Return the best ones in \p BestOps.
 /// Depending on what type of Value we have on the LHS, we should
 /// follow a different strategy on how to get the best value for the RHS. This
@@ -4144,7 +4082,7 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
       }
       break;
     case VM_SPLAT:
-      Score = getSplatScore(LHS, RHS);
+      Score = RHS == LHS ? 1 : 0;
       break;
     case VM_FAILED:
       Score = -1;
@@ -4187,7 +4125,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
         (FrontierOperandToSwapWith) ? FrontierOperandToSwapWith->getFrontier()
                                     : OrigRHSOperand->getFrontier();
     auto S = getSameOpcode({LHSFrontierI, RHSNewFrontierI});
-    Score += S.isAltShuffle() ? massageScore(BLEND_COST) : 0;
+    if (S.isAltShuffle())
+      Score += BLEND_COST;
 
     // Check score and set best if needed.
     if (Score > 0 && Score >= BestScore) {
@@ -4203,7 +4142,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     }
   }
 
-  return BestScore;
+  // Multiplier in order to avoid floats.
+  return BestScore * 10;
 }
 
 // Replaces old frontier opcode with "effective" one for 'Op'. The "effective"
@@ -4381,17 +4321,19 @@ int BoUpSLP::getMNScore() const {
   for (int OpI = 0, OpIMax = CurrentMultiNode->getNumOperands(); OpI != OpIMax;
        ++OpI) {
     bool AreConsecutive = true;
-    for (int Lane = 1, Lanes = CurrentMultiNode->getNumLanes(); Lane != Lanes;
-         ++Lane) {
+    for (unsigned Lane = 1; Lane != CurrentMultiNode->getNumLanes(); ++Lane) {
       const OperandData *OperandL = CurrentMultiNode->getOperand(Lane - 1, OpI);
       const OperandData *OperandR = CurrentMultiNode->getOperand(Lane, OpI);
-      if (!areConsecutive(OperandL->getValue(), OperandR->getValue()) ||
-          OperandL->getValue() == OperandR->getValue()) {
+      if (OperandL->getValue() == OperandR->getValue() ||
+          VLOperands::getShallowScore(OperandL->getValue(),
+                                      OperandR->getValue(), *DL,
+                                      *SE) == VLOperands::ScoreFail) {
         AreConsecutive = false;
         break;
       }
     }
-    Score += (int)AreConsecutive;
+    if (AreConsecutive)
+      ++Score;
   }
   return Score;
 }
@@ -5833,6 +5775,12 @@ unsigned BoUpSLP::canMapToVector(Type *T, const DataLayout &DL) const {
     N = cast<ArrayType>(T)->getNumElements();
     EltTy = cast<ArrayType>(T)->getElementType();
   }
+
+  if (auto *VT = dyn_cast<VectorType>(EltTy)) {
+    EltTy = VT->getElementType();
+    N *= VT->getNumElements();
+  }
+
   if (!isValidElementType(EltTy))
     return 0;
   uint64_t VTSize = DL.getTypeStoreSizeInBits(VectorType::get(EltTy, N));
@@ -5841,7 +5789,7 @@ unsigned BoUpSLP::canMapToVector(Type *T, const DataLayout &DL) const {
   if (ST) {
     // Check that struct is homogeneous.
     for (const auto *Ty : ST->elements())
-      if (Ty != EltTy)
+      if (Ty != *ST->element_begin())
         return 0;
   }
   return N;
@@ -9789,7 +9737,7 @@ public:
 
   /// Attempt to vectorize the tree found by
   /// matchAssociativeReduction.
-  bool tryToReduce(BoUpSLP &V, TargetTransformInfo *TTI, bool Try2WayRdx) {
+  bool tryToReduce(BoUpSLP &V, TargetTransformInfo *TTI) {
     if (ReducedVals.empty())
       return false;
 
@@ -9797,14 +9745,11 @@ public:
     // to a nearby power-of-2. Can safely generate oversized
     // vectors and rely on the backend to split them to legal sizes.
     unsigned NumReducedVals = ReducedVals.size();
-    if (Try2WayRdx && NumReducedVals != 2)
-      return false;
-    unsigned MinRdxVals = Try2WayRdx ? 2 : 4;
-    if (NumReducedVals < MinRdxVals)
+    if (NumReducedVals < 4)
       return false;
 
     unsigned ReduxWidth = PowerOf2Floor(NumReducedVals);
-    unsigned MinRdxWidth = Log2_32(MinRdxVals);
+
     Value *VectorizedTree = nullptr;
 
     // FIXME: Fast-math-flags should be set based on the instructions in the
@@ -9840,7 +9785,7 @@ public:
     SmallVector<Value *, 16> IgnoreList;
     for (auto &V : ReductionOps)
       IgnoreList.append(V.begin(), V.end());
-    while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > MinRdxWidth) {
+    while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > 2) {
       auto VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
 
 #if INTEL_CUSTOMIZATION
@@ -10172,12 +10117,24 @@ static bool findBuildVector(InsertElementInst *LastInsertElem,
 }
 
 /// Like findBuildVector, but looks for construction of aggregate.
+/// Accepts homegeneous aggregate of vectors like { <2 x float>, <2 x float> }.
 ///
 /// \return true if it matches.
-static bool findBuildAggregate(InsertValueInst *IV,
-                               SmallVectorImpl<Value *> &BuildVectorOpds) {
+static bool findBuildAggregate(InsertValueInst *IV, TargetTransformInfo *TTI,
+                               SmallVectorImpl<Value *> &BuildVectorOpds,
+                               int &UserCost) {
+  UserCost = 0;
   do {
-    BuildVectorOpds.push_back(IV->getInsertedValueOperand());
+    if (auto *IE = dyn_cast<InsertElementInst>(IV->getInsertedValueOperand())) {
+      int TmpUserCost;
+      SmallVector<Value *, 4> TmpBuildVectorOpds;
+      if (!findBuildVector(IE, TTI, TmpBuildVectorOpds, TmpUserCost))
+        return false;
+      BuildVectorOpds.append(TmpBuildVectorOpds.rbegin(), TmpBuildVectorOpds.rend());
+      UserCost += TmpUserCost;
+    } else {
+      BuildVectorOpds.push_back(IV->getInsertedValueOperand());
+    }
     Value *V = IV->getAggregateOperand();
     if (isa<UndefValue>(V))
       break;
@@ -10257,7 +10214,7 @@ static Value *getReductionValue(const DominatorTree *DT, PHINode *P,
 /// performed.
 static bool tryToVectorizeHorReductionOrInstOperands(
     PHINode *P, Instruction *Root, BasicBlock *BB, BoUpSLP &R,
-    TargetTransformInfo *TTI, bool Try2WayRdx,
+    TargetTransformInfo *TTI,
     const function_ref<bool(Instruction *, BoUpSLP &)> Vectorize) {
   if (!ShouldVectorizeHor)
     return false;
@@ -10288,7 +10245,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     if (BI || SI) {
       HorizontalReduction HorRdx;
       if (HorRdx.matchAssociativeReduction(P, Inst)) {
-        if (HorRdx.tryToReduce(R, TTI, Try2WayRdx)) {
+        if (HorRdx.tryToReduce(R, TTI)) {
           Res = true;
           // Set P to nullptr to avoid re-analysis of phi node in
           // matchAssociativeReduction function unless this is the root node.
@@ -10331,8 +10288,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
 
 bool SLPVectorizerPass::vectorizeRootInstruction(PHINode *P, Value *V,
                                                  BasicBlock *BB, BoUpSLP &R,
-                                                 TargetTransformInfo *TTI,
-                                                 bool Try2WayRdx) {
+                                                 TargetTransformInfo *TTI) {
   if (!V)
     return false;
   auto *I = dyn_cast<Instruction>(V);
@@ -10345,24 +10301,25 @@ bool SLPVectorizerPass::vectorizeRootInstruction(PHINode *P, Value *V,
   auto &&ExtraVectorization = [this](Instruction *I, BoUpSLP &R) -> bool {
     return tryToVectorize(I, R);
   };
-  return tryToVectorizeHorReductionOrInstOperands(P, I, BB, R, TTI, Try2WayRdx,
+  return tryToVectorizeHorReductionOrInstOperands(P, I, BB, R, TTI,
                                                   ExtraVectorization);
 }
 
 bool SLPVectorizerPass::vectorizeInsertValueInst(InsertValueInst *IVI,
                                                  BasicBlock *BB, BoUpSLP &R) {
+  int UserCost = 0;
   const DataLayout &DL = BB->getModule()->getDataLayout();
   if (!R.canMapToVector(IVI->getType(), DL))
     return false;
 
   SmallVector<Value *, 16> BuildVectorOpds;
-  if (!findBuildAggregate(IVI, BuildVectorOpds))
+  if (!findBuildAggregate(IVI, TTI, BuildVectorOpds, UserCost))
     return false;
 
   LLVM_DEBUG(dbgs() << "SLP: array mappable to vector: " << *IVI << "\n");
   // Aggregate value is unlikely to be processed in vector register, we need to
   // extract scalars into scalar registers, so NeedExtraction is set true.
-  return tryToVectorizeList(BuildVectorOpds, R);
+  return tryToVectorizeList(BuildVectorOpds, R, UserCost);
 }
 
 bool SLPVectorizerPass::vectorizeInsertElementInst(InsertElementInst *IEI,
@@ -10539,23 +10496,6 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
     if (isa<InsertElementInst>(it) || isa<CmpInst>(it) ||
         isa<InsertValueInst>(it))
       PostProcessInstructions.push_back(&*it);
-  }
-
-  // Make a final attempt to match a 2-way reduction if nothing else worked.
-  // We do not try this above because it may interfere with other vectorization
-  // attempts.
-  // TODO: The constraints are copied from the above call to
-  //       vectorizeRootInstruction(), but that might be too restrictive?
-  BasicBlock::iterator LastInst = --BB->end();
-  if (!Changed && LastInst->use_empty() &&
-      (LastInst->getType()->isVoidTy() || isa<CallInst>(LastInst) ||
-       isa<InvokeInst>(LastInst))) {
-    if (ShouldStartVectorizeHorAtStore || !isa<StoreInst>(LastInst)) {
-      for (auto *V : LastInst->operand_values()) {
-        Changed |= vectorizeRootInstruction(nullptr, V, BB, R, TTI,
-                                            /* Try2WayRdx */ true);
-      }
-    }
   }
 
   return Changed;
