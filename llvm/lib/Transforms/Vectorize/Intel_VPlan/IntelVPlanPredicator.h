@@ -24,7 +24,6 @@
 #include "llvm/IR/Dominators.h"
 
 using namespace llvm::vpo;
-#define VPlanPredicator NewVPlanPredicator
 #else
 #include "LoopVectorizationPlanner.h"
 #include "VPlan.h"
@@ -32,6 +31,7 @@ using namespace llvm::vpo;
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
+namespace vpo {
 
 class VPlanPredicator {
 private:
@@ -179,5 +179,6 @@ public:
 #if INTEL_CUSTOMIZATION
 #undef VPlanPredicator
 #endif // INTEL_CUSTOMIZATION
+} // namespace vpo
 } // end namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H

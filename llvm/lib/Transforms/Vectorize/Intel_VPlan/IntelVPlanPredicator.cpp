@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
-#include "IntelNewVPlanPredicator.h"
+#include "IntelVPlanPredicator.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIDF.h"
 #else
@@ -37,7 +37,6 @@ using namespace llvm::vpo;
 static cl::opt<bool> VPlanLoopCFU(
     "vplan-loop-cfu", cl::init(true), cl::Hidden,
     cl::desc("Perform inner loop control flow uniformity transformation"));
-#define VPlanPredicator NewVPlanPredicator
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
