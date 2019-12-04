@@ -733,6 +733,7 @@ public:
   ReductionDescriptorHIR() { clear(); }
 
   const DataType *getHLInst() const { return HLInst; }
+  SafeRedChain getRedChain() const { return RedChain; }
   const DataType *getParentInst() const { return ParentInst; }
   RecurrenceKind getKind() const { return RKind; }
   MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
@@ -820,6 +821,7 @@ private:
   }
 
   const DataType *HLInst;
+  SafeRedChain RedChain;
   const DataType *ParentInst; // Link to parent reduction.
   RecurrenceKind RKind;
   MinMaxRecurrenceKind MK;
@@ -904,6 +906,7 @@ private:
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
             (*RedCurrent)->isMax());
+        Descriptor.RedChain = ChainCurrent->Chain;
         break;
       }
       ChainCurrent++;
@@ -1146,11 +1149,18 @@ public:
 
   void operator()(ReductionDescr &Descriptor, const value_type &CurValue) {
     auto Inst = CurValue.getHLInst();
-    if (Inst)
+    if (Inst) {
       Descriptor.setExit(
           dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(Inst)));
-    else
+      for (auto *ChainInst : CurValue.getRedChain()) {
+        if (ChainInst == Inst)
+          continue;
+        LLVM_DEBUG(dbgs() << "ChainInst: "; ChainInst->dump());
+        Descriptor.addLinkedVPValue(Decomposer.getVPValueForNode(ChainInst));
+      }
+    } else {
       Descriptor.setExit(nullptr);
+    }
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(nullptr);
     Descriptor.setKind(CurValue.getKind());

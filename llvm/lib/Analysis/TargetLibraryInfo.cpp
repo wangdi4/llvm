@@ -2015,10 +2015,16 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_kmpc_critical:
-    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
-            FTy.getParamType(0)->isPointerTy() &&
-            FTy.getParamType(1)->isIntegerTy() &&
-            FTy.getParamType(2)->isPointerTy());
+    if (NumParams == 1)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy());
+    else if (NumParams == 3)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy() &&
+              FTy.getParamType(1)->isIntegerTy() &&
+              FTy.getParamType(2)->isPointerTy());
+    else
+      return false;
 
   case LibFunc_kmpc_dispatch_init_4:
     return (NumParams == 7 && FTy.getReturnType()->isVoidTy() &&
@@ -2040,10 +2046,16 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(5)->isPointerTy());
 
   case LibFunc_kmpc_end_critical:
-    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
-            FTy.getParamType(0)->isPointerTy() &&
-            FTy.getParamType(1)->isIntegerTy() &&
-            FTy.getParamType(2)->isPointerTy());
+    if (NumParams == 1)
+      return (NumParams == FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy());
+    else if (NumParams == 3)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy() &&
+              FTy.getParamType(1)->isIntegerTy() &&
+              FTy.getParamType(2)->isPointerTy());
+    else
+      return false;
 
   case LibFunc_kmpc_end_reduce_nowait:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&

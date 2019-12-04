@@ -260,7 +260,7 @@ static bool isCompareFunction(Function *CompareFunc) {
 
     Value *LVal = nullptr;
     Value *RVal = nullptr;
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
 
     if (!match(Cond, m_ICmp(Pred, m_Value(LVal), m_Value(RVal))))
       return false;
