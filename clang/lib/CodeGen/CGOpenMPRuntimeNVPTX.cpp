@@ -2330,7 +2330,7 @@ void CGOpenMPRuntimeNVPTX::emitGenericVarsProlog(CodeGenFunction &CGF,
         VarTy = Rec.second.FD->getType();
       } else {
         llvm::Value *Ptr = CGF.Builder.CreateInBoundsGEP(
-            VarAddr.getAddress().getPointer(),
+            VarAddr.getAddress(CGF).getPointer(),
             {Bld.getInt32(0), getNVPTXLaneID(CGF)});
         VarTy =
             Rec.second.FD->getType()->castAsArrayTypeUnsafe()->getElementType();
@@ -2338,7 +2338,7 @@ void CGOpenMPRuntimeNVPTX::emitGenericVarsProlog(CodeGenFunction &CGF,
             Address(Ptr, CGM.getContext().getDeclAlign(Rec.first)), VarTy,
             AlignmentSource::Decl);
       }
-      Rec.second.PrivateAddr = VarAddr.getAddress();
+      Rec.second.PrivateAddr = VarAddr.getAddress(CGF);
       if (!IsInTTDRegion &&
           (WithSPMDCheck ||
            getExecutionMode() == CGOpenMPRuntimeNVPTX::EM_Unknown)) {
@@ -2349,10 +2349,10 @@ void CGOpenMPRuntimeNVPTX::emitGenericVarsProlog(CodeGenFunction &CGF,
                  "Secondary glob data must be one per team.");
           LValue SecVarAddr = CGF.EmitLValueForField(SecBase, SecIt->second.FD);
           VarAddr.setAddress(
-              Address(Bld.CreateSelect(IsTTD, SecVarAddr.getPointer(),
-                                       VarAddr.getPointer()),
+              Address(Bld.CreateSelect(IsTTD, SecVarAddr.getPointer(CGF),
+                                       VarAddr.getPointer(CGF)),
                       VarAddr.getAlignment()));
-          Rec.second.PrivateAddr = VarAddr.getAddress();
+          Rec.second.PrivateAddr = VarAddr.getAddress(CGF);
         }
         Address GlobalPtr = Rec.second.PrivateAddr;
         Address LocalAddr = CGF.CreateMemTemp(VarTy, Rec.second.FD->getName());
@@ -2364,7 +2364,8 @@ void CGOpenMPRuntimeNVPTX::emitGenericVarsProlog(CodeGenFunction &CGF,
       if (EscapedParam) {
         const auto *VD = cast<VarDecl>(Rec.first);
         CGF.EmitStoreOfScalar(ParValue, VarAddr);
-        I->getSecond().MappedParams->setVarAddr(CGF, VD, VarAddr.getAddress());
+        I->getSecond().MappedParams->setVarAddr(CGF, VD,
+                                                VarAddr.getAddress(CGF));
       }
       if (IsTTD)
         ++SecIt;
@@ -2398,7 +2399,7 @@ void CGOpenMPRuntimeNVPTX::emitGenericVarsProlog(CodeGenFunction &CGF,
                                      CGM.getContext().getDeclAlign(VD),
                                      AlignmentSource::Decl);
     I->getSecond().MappedParams->setVarAddr(CGF, cast<VarDecl>(VD),
-                                            Base.getAddress());
+                                            Base.getAddress(CGF));
     I->getSecond().EscapedVariableLengthDeclsAddrs.emplace_back(GlobalRecValue);
   }
   I->getSecond().MappedParams->apply(CGF);
@@ -3702,7 +3703,8 @@ static llvm::Value *emitListToGlobalCopyFunction(
     const FieldDecl *FD = VarFieldMap.lookup(VD);
     LValue GlobLVal = CGF.EmitLValueForField(
         CGF.MakeNaturalAlignAddrLValue(BufferArrPtr, StaticTy), FD);
-    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(GlobLVal.getPointer(), Idxs);
+    llvm::Value *BufferPtr =
+        Bld.CreateInBoundsGEP(GlobLVal.getPointer(CGF), Idxs);
     GlobLVal.setAddress(Address(BufferPtr, GlobLVal.getAlignment()));
     switch (CGF.getEvaluationKind(Private->getType())) {
     case TEK_Scalar: {
@@ -3799,7 +3801,8 @@ static llvm::Value *emitListToGlobalReduceFunction(
     const FieldDecl *FD = VarFieldMap.lookup(VD);
     LValue GlobLVal = CGF.EmitLValueForField(
         CGF.MakeNaturalAlignAddrLValue(BufferArrPtr, StaticTy), FD);
-    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(GlobLVal.getPointer(), Idxs);
+    llvm::Value *BufferPtr =
+        Bld.CreateInBoundsGEP(GlobLVal.getPointer(CGF), Idxs);
     llvm::Value *Ptr = CGF.EmitCastToVoidPtr(BufferPtr);
     CGF.EmitStoreOfScalar(Ptr, Elem, /*Volatile=*/false, C.VoidPtrTy);
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
@@ -3903,7 +3906,8 @@ static llvm::Value *emitGlobalToListCopyFunction(
     const FieldDecl *FD = VarFieldMap.lookup(VD);
     LValue GlobLVal = CGF.EmitLValueForField(
         CGF.MakeNaturalAlignAddrLValue(BufferArrPtr, StaticTy), FD);
-    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(GlobLVal.getPointer(), Idxs);
+    llvm::Value *BufferPtr =
+        Bld.CreateInBoundsGEP(GlobLVal.getPointer(CGF), Idxs);
     GlobLVal.setAddress(Address(BufferPtr, GlobLVal.getAlignment()));
     switch (CGF.getEvaluationKind(Private->getType())) {
     case TEK_Scalar: {
@@ -3999,7 +4003,8 @@ static llvm::Value *emitGlobalToListReduceFunction(
     const FieldDecl *FD = VarFieldMap.lookup(VD);
     LValue GlobLVal = CGF.EmitLValueForField(
         CGF.MakeNaturalAlignAddrLValue(BufferArrPtr, StaticTy), FD);
-    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(GlobLVal.getPointer(), Idxs);
+    llvm::Value *BufferPtr =
+        Bld.CreateInBoundsGEP(GlobLVal.getPointer(CGF), Idxs);
     llvm::Value *Ptr = CGF.EmitCastToVoidPtr(BufferPtr);
     CGF.EmitStoreOfScalar(Ptr, Elem, /*Volatile=*/false, C.VoidPtrTy);
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
@@ -4322,7 +4327,7 @@ void CGOpenMPRuntimeNVPTX::emitReduction(
     Address Elem = CGF.Builder.CreateConstArrayGEP(ReductionList, Idx);
     CGF.Builder.CreateStore(
         CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-            CGF.EmitLValue(RHSExprs[I]).getPointer(), CGF.VoidPtrTy),
+            CGF.EmitLValue(RHSExprs[I]).getPointer(CGF), CGF.VoidPtrTy),
         Elem);
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
       // Store array size.
@@ -4904,7 +4909,7 @@ void CGOpenMPRuntimeNVPTX::adjustTargetSpecificDataForLambdas(
       if (VD->getType().getCanonicalType()->isReferenceType())
         VDAddr = CGF.EmitLoadOfReferenceLValue(VDAddr,
                                                VD->getType().getCanonicalType())
-                     .getAddress();
+                     .getAddress(CGF);
       CGF.EmitStoreOfScalar(VDAddr.getPointer(), VarLVal);
     }
   }
