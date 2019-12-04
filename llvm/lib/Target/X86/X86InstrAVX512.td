@@ -9660,26 +9660,28 @@ let Defs = [EFLAGS], Predicates = [HasAVX512] in {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 let Defs = [EFLAGS], Predicates = [HasFP16] in {
-  defm VUCOMISHZ : avx512_ord_cmp_sae<0x2E, v8f16x_info, "vucomish", WriteFCom>,
-                                AVX512PSIi8Base, T_MAP5PS, EVEX_CD8<16, CD8VT1>;
-  defm VCOMISHZ : avx512_ord_cmp_sae<0x2F, v8f16x_info, "vcomish", WriteFCom>,
-                                AVX512PSIi8Base, T_MAP5PS, EVEX_CD8<16, CD8VT1>;
-  defm VUCOMISHZ : sse12_ord_cmp<0x2E, FR16X, X86cmp, f16, f16mem, loadf16,
-                                "ucomish", WriteFCom>, T_MAP5PS, EVEX, VEX_LIG,
+  defm VUCOMISHZ : avx512_ord_cmp_sae<0x2E, v8f16x_info, "vucomish",
+                                SSEPackedSingle>, AVX512PSIi8Base, T_MAP5PS,
                                 EVEX_CD8<16, CD8VT1>;
+  defm VCOMISHZ : avx512_ord_cmp_sae<0x2F, v8f16x_info, "vcomish",
+                                SSEPackedSingle>, AVX512PSIi8Base, T_MAP5PS,
+                                EVEX_CD8<16, CD8VT1>;
+  defm VUCOMISHZ : sse12_ord_cmp<0x2E, FR16X, X86cmp, f16, f16mem, loadf16,
+                                "ucomish", SSEPackedSingle>, T_MAP5PS, EVEX,
+                                VEX_LIG, EVEX_CD8<16, CD8VT1>;
   let Pattern = []<dag> in {
     defm VCOMISHZ : sse12_ord_cmp<0x2F, FR16X, undef, f16, f16mem, loadf16,
-                                "comish", WriteFCom>, T_MAP5PS, EVEX, VEX_LIG,
-                                EVEX_CD8<16, CD8VT1>;
+                                "comish", SSEPackedSingle>, T_MAP5PS, EVEX,
+                                VEX_LIG, EVEX_CD8<16, CD8VT1>;
   }
   let isCodeGenOnly = 1 in {
     defm VUCOMISHZ : sse12_ord_cmp_int<0x2E, VR128X, X86ucomi, v8f16, shmem,
-                                sse_load_f16, "ucomish", WriteFCom>, T_MAP5PS,
-                                EVEX, VEX_LIG, EVEX_CD8<16, CD8VT1>;
+                                sse_load_f16, "ucomish", SSEPackedSingle>,
+                                T_MAP5PS, EVEX, VEX_LIG, EVEX_CD8<16, CD8VT1>;
 
     defm VCOMISHZ : sse12_ord_cmp_int<0x2F, VR128X, X86comi, v8f16, shmem,
-                                sse_load_f16, "comish", WriteFCom>, T_MAP5PS,
-                                EVEX, VEX_LIG, EVEX_CD8<16, CD8VT1>;
+                                sse_load_f16, "comish", SSEPackedSingle>,
+                                T_MAP5PS, EVEX, VEX_LIG, EVEX_CD8<16, CD8VT1>;
   }
 }
 #endif // INTEL_FEATURE_ISA_FP16
