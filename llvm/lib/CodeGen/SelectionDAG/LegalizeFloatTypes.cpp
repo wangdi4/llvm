@@ -1315,22 +1315,18 @@ void DAGTypeLegalizer::ExpandFloatRes_FADD(SDNode *N, SDValue &Lo,
 #if INTEL_CUSTOMIZATION
 void DAGTypeLegalizer::ExpandFloatRes_FATAN(SDNode *N,
                                            SDValue &Lo, SDValue &Hi) {
-  SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0),
-                                         RTLIB::ATAN_F32, RTLIB::ATAN_F64,
-                                         RTLIB::ATAN_F80, RTLIB::ATAN_F128,
-                                         RTLIB::ATAN_PPCF128),
-                            N, false);
-  GetPairElements(Call, Lo, Hi);
+  ExpandFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
+                                       RTLIB::ATAN_F32, RTLIB::ATAN_F64,
+                                       RTLIB::ATAN_F80, RTLIB::ATAN_F128,
+                                       RTLIB::ATAN_PPCF128), Lo, Hi);
 }
 
 void DAGTypeLegalizer::ExpandFloatRes_FATAN2(SDNode *N,
                                            SDValue &Lo, SDValue &Hi) {
-  SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0),
-                                         RTLIB::ATAN2_F32, RTLIB::ATAN2_F64,
-                                         RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
-                                         RTLIB::ATAN2_PPCF128),
-                            N, false);
-  GetPairElements(Call, Lo, Hi);
+  ExpandFloatRes_Binary(N, GetFPLibCall(N->getValueType(0),
+                                        RTLIB::ATAN2_F32, RTLIB::ATAN2_F64,
+                                        RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
+                                        RTLIB::ATAN2_PPCF128), Lo, Hi);
 }
 #endif
 
@@ -1575,12 +1571,10 @@ void DAGTypeLegalizer::ExpandFloatRes_FSUB(SDNode *N, SDValue &Lo,
 #if INTEL_CUSTOMIZATION
 void DAGTypeLegalizer::ExpandFloatRes_FTAN(SDNode *N,
                                            SDValue &Lo, SDValue &Hi) {
-  SDValue Call = LibCallify(GetFPLibCall(N->getValueType(0),
-                                         RTLIB::TAN_F32, RTLIB::TAN_F64,
-                                         RTLIB::TAN_F80, RTLIB::TAN_F128,
-                                         RTLIB::TAN_PPCF128),
-                            N, false);
-  GetPairElements(Call, Lo, Hi);
+  ExpandFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
+                                       RTLIB::TAN_F32, RTLIB::TAN_F64,
+                                       RTLIB::TAN_F80, RTLIB::TAN_F128,
+                                       RTLIB::TAN_PPCF128), Lo, Hi);
 }
 #endif
 
