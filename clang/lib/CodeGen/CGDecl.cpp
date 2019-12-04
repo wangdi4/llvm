@@ -792,7 +792,7 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
       drillIntoBlockVariable(*this, lvalue, cast<VarDecl>(D));
 #if INTEL_CUSTOMIZATION
     if (CGM.getCodeGenOpts().OptimizationLevel >= 2) {
-      llvm::Value *V = lvalue.getPointer();
+      llvm::Value *V = lvalue.getPointer(*this);
       if (V && V->hasName()) {
         auto Intrin = getContainerIntrinsic(
             CodeGenModule::SCOK_ContainerPtrIterator, V->getName());
