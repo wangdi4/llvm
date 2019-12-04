@@ -109,7 +109,7 @@ FunctionPass *createHIRLoopCollapsePass();
 
 /// createHIRSymbolicTripCountCompleteUnrollLegacyPass - This creates a HIR Loop
 /// pass that performs Loop based pattern matching.
-FunctionPass *createHIRSymbolicTripCountCompleteUnrollLegacyPass();
+FunctionPass *createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
 
 /// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.

@@ -1,4 +1,4 @@
-//==-- HIRSymbolicTripCountCompleteUnroll.h ----------- --*- C++ -*---===//
+//===-- HIRPMSymbolicTripCountCompleteUnroll.h -----------===//
 // HIR Loop Pattern Match Pass for Symbolic TripCount 2-level loop nest.
 //
 // Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
@@ -162,7 +162,11 @@ class HIRDDAnalysis;
 
 namespace unrollsymtc {
 
-class HIRSymbolicTripCountCompleteUnroll {
+typedef SmallVector<HLNode *, 16> NodeVecTy;
+
+class HIRPMSymbolicTripCountCompleteUnroll {
+
+private:
   HIRFramework &HIRF;
   const TargetTransformInfo &TTI;
   HIRDDAnalysis &HDDA;
@@ -173,12 +177,12 @@ class HIRSymbolicTripCountCompleteUnroll {
   HLIf *HLIF0 = nullptr;
   HLIf *HLIF1 = nullptr;
 
-  SmallVector<HLNode *, 16> OuterLpNodeVec; // HLNode(s) in OuterLp
+  NodeVecTy OuterLpNodeVec; // HLNode(s) in OuterLp
   SmallVector<HLInst *, 16> OuterLpInstVec;
   SmallVector<HLLabel *, 4> OuterLpLabelVec;
   SmallVector<HLGoto *, 4> OuterLpGotoVec;
 
-  SmallVector<HLNode *, 16> InnerLpNodeVec; // HLNode(s) in InnerLp
+  NodeVecTy InnerLpNodeVec; // HLNode(s) in InnerLp
 
   SmallVector<RegDDRef *, 16> NonLocalRefVec;
   SmallVector<RegDDRef *, 16> MParentRefVec;
@@ -187,9 +191,9 @@ class HIRSymbolicTripCountCompleteUnroll {
   struct StructuralCollector;
 
 public:
-  HIRSymbolicTripCountCompleteUnroll(HIRFramework &HIRF,
-                                     const TargetTransformInfo &TTI,
-                                     HIRDDAnalysis &HDDA)
+  HIRPMSymbolicTripCountCompleteUnroll(HIRFramework &HIRF,
+                                       const TargetTransformInfo &TTI,
+                                       HIRDDAnalysis &HDDA)
       : HIRF(HIRF), TTI(TTI), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
 
   bool run();
@@ -331,13 +335,13 @@ private:
   // *** Utility functions ***
 
   static bool isLocalMemRef(const RegDDRef *Ref) {
-    return HIRSymbolicTripCountCompleteUnroll::isLocalOrNonLocalMemRef(Ref,
-                                                                       true);
+    return HIRPMSymbolicTripCountCompleteUnroll::isLocalOrNonLocalMemRef(Ref,
+                                                                         true);
   }
 
   static bool isNonLocalMemRef(const RegDDRef *Ref) {
-    return HIRSymbolicTripCountCompleteUnroll::isLocalOrNonLocalMemRef(Ref,
-                                                                       false);
+    return HIRPMSymbolicTripCountCompleteUnroll::isLocalOrNonLocalMemRef(Ref,
+                                                                         false);
   }
 
   static bool isLocalOrNonLocalMemRef(const RegDDRef *Ref, bool IsLocal) {

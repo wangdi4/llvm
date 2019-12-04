@@ -1818,7 +1818,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     if (OptLevel > 2) {
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRLoopConcatenationPass());
-        PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
+        PM.add(createHIRPMSymbolicTripCountCompleteUnrollLegacyPass());
       }
       PM.add(createHIRArrayTransposePass());
     }

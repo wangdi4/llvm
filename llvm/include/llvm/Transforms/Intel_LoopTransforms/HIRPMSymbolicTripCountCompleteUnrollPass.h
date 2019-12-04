@@ -1,4 +1,4 @@
-//===---- HIRSymbolicTripCountCompleteUnroll.h -----------------*- C++-*---===//
+//===---- HIRPMSymbolicTripCountCompleteUnroll.h -----------------*- C++-*---===//
 //
 // Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_HIRSYMBOLICTRIPCOUNTCOMPLETEUNROLLPASS_H
-#define LLVM_HIRSYMBOLICTRIPCOUNTCOMPLETEUNROLLPASS_H
+#ifndef LLVM_HIRPMSYMBOLICTRIPCOUNTCOMPLETEUNROLLPASS_H
+#define LLVM_HIRPMSYMBOLICTRIPCOUNTCOMPLETEUNROLLPASS_H
 
 #include "llvm/IR/PassManager.h"
 
@@ -22,8 +22,8 @@ namespace llvm {
 
 namespace loopopt {
 
-class HIRSymbolicTripCountCompleteUnrollPass
-    : public PassInfoMixin<HIRSymbolicTripCountCompleteUnrollPass> {
+class HIRPMSymbolicTripCountCompleteUnrollPass
+    : public PassInfoMixin<HIRPMSymbolicTripCountCompleteUnrollPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
@@ -32,4 +32,4 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_HIRSYMBOLICTRIPCOUNTCOMPLETEUNROLLPASS_H
+#endif // LLVM_HIRPMSYMBOLICTRIPCOUNTCOMPLETEUNROLLPASS_H
