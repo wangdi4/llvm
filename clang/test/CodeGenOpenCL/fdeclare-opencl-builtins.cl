@@ -1,6 +1,7 @@
 // RUN: %clang_cc1 -emit-llvm -o - -O0 -triple spir-unknown-unknown -fdeclare-opencl-builtins -finclude-default-header %s | FileCheck %s
 
 // INTEL_CUSTOMIZATION
+#include <stddef.h> // for size_t
 typedef float float4 __attribute__((ext_vector_type(4)));
 // end INTEL_CUSTOMIZATION
 
