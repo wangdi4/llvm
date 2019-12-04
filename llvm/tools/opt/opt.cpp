@@ -592,7 +592,7 @@ int main(int argc, char **argv) {
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
   initializeHardwareLoopsPass(Registry);
-<<<<<<< HEAD
+  initializeTypePromotionPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
@@ -610,9 +610,6 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
-=======
-  initializeTypePromotionPass(Registry);
->>>>>>> bc76dadb3cf16c38564ccb1cc54206279b7c54bc
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);

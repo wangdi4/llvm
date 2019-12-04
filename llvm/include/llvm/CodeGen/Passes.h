@@ -474,16 +474,14 @@ namespace llvm {
   /// Create Hardware Loop pass. \see HardwareLoops.cpp
   FunctionPass *createHardwareLoopsPass();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Expand fp128 operations into libcalls.
   FunctionPass *createFloat128ExpandPass();
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Create IR Type Promotion pass. \see TypePromotion.cpp
   FunctionPass *createTypePromotionPass();
 
->>>>>>> bc76dadb3cf16c38564ccb1cc54206279b7c54bc
 } // End llvm namespace
 
 #endif
