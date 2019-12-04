@@ -20,13 +20,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -S -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK-NEXT: %result.vector = insertelement zeroinitializer, %i_sum.027, 0;
+; CHECK-NEXT: %red.var = 0;
+; CHECK-NEXT: %red.var = insertelement %red.var, %i_sum.027, 0;
 ; CHECK-NEXT: <{{[0-9]+}}>
 ; CHECK-NEXT: + DO i1
 ; CHECK-NOT: + DO i2
 ; CHECK: + END LOOP
 ; CHECK-NEXT: <{{[0-9]+}}>
-; CHECK-NEXT: %rdx.shuf = shufflevector %result.vector
+; CHECK-NEXT: %i_sum.027 = @llvm.experimental.vector.reduce.add
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @name(i8* nocapture readonly %pix1, i32 %i_stride_pix1, i8* nocapture readonly %pix2, i32 %i_stride_pix2) local_unnamed_addr #0 {
