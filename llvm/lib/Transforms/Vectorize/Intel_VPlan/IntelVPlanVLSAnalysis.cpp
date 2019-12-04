@@ -64,7 +64,7 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
     }
 
     auto BasicBlock = cast<VPBasicBlock>(Block);
-    for (const VPInstruction &VPInst : BasicBlock->vpinstructions()) {
+    for (const VPInstruction &VPInst : *BasicBlock) {
       auto Opcode = VPInst.getOpcode();
       if (Opcode != Instruction::Load && Opcode != Instruction::Store)
         continue;

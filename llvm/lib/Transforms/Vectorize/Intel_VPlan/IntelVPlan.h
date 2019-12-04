@@ -428,9 +428,11 @@ private:
 /// has sub-classes (VPCmpInst, VPPHINode, etc.) that would need to be
 /// replicated under the VPInstructionHIR.
 #endif
-class VPInstruction : public VPUser, public VPRecipeBase {
+class VPInstruction : public VPUser,
+  public ilist_node_with_parent<VPInstruction, VPBasicBlock> {
 #if INTEL_CUSTOMIZATION
   friend class HIRSpecifics;
+  friend class VPBasicBlock;
   friend class VPBuilder;
   friend class VPBranchInst;
   friend class VPBuilderHIR;
@@ -644,6 +646,9 @@ private:
   typedef unsigned char OpcodeTy;
   OpcodeTy Opcode;
 
+  /// Each VPInstruction belongs to a single VPBasicBlock.
+  VPBasicBlock *Parent = nullptr;
+
 #if INTEL_CUSTOMIZATION
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
@@ -674,14 +679,12 @@ protected:
 public:
 #if INTEL_CUSTOMIZATION
   VPInstruction(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode) {
     assert(BaseTy && "BaseTy can't be null!");
   }
   VPInstruction(unsigned Opcode, Type *BaseTy,
                 std::initializer_list<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode) {
     assert(BaseTy && "BaseTy can't be null!");
   }
 #else
@@ -693,11 +696,6 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() == VPValue::VPInstructionSC;
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *R) {
-    return R->getVPRecipeID() == VPRecipeBase::VPInstructionSC;
   }
 
   unsigned getOpcode() const { return Opcode; }
@@ -738,12 +736,16 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
+  /// \return the VPBasicBlock which this VPInstruction belongs to.
+  VPBasicBlock *getParent() { return Parent; }
+  const VPBasicBlock *getParent() const { return Parent; }
+
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
-  void execute(VPTransformState &State) override;
+  virtual void execute(VPTransformState &State);
 #if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG) override;
+  virtual void executeHIR(VPOCodeGenHIR *CG);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
   void dump(raw_ostream &O) const override { dump(O, nullptr); };
@@ -755,9 +757,8 @@ public:
 #endif
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Dump the VPInstruction.
-  /// Print the Recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  /// Print the VPInstruction.
+  virtual void print(raw_ostream &O, const Twine &Indent) const;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr) const;
@@ -797,10 +798,6 @@ public:
   }
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
-  static bool classof(const VPRecipeBase *R) {
-    return isa<VPInstruction>(R) && classof(cast<VPInstruction>(R));
   }
 
   virtual VPCmpInst *clone() const final {
@@ -998,13 +995,6 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  // FIXME: VPRecipeBase is going to be removed, so this classof
-  // should be removed. Right now it's needed to cast directly to VPPHINode
-  // during instruction traversal of VPBB
-  static inline bool classof(const VPRecipeBase *V) {
-    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
   /// Create new PHINode and copy original incoming values to the newly created
   /// PHINode. Caller is responsible to replace these values with what is
   /// needed.
@@ -1124,10 +1114,6 @@ public:
   }
 
   static bool classof(const VPValue *V) {
-    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
-  static bool classof(const VPRecipeBase *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
@@ -2174,10 +2160,10 @@ private:
 /// sequence of instructions that will appear consecutively in a basic block
 /// of the vectorized version. The VPBasicBlock takes care of the control-flow
 /// relations with other VPBasicBlock's and Regions. It holds a sequence of zero
-/// or more VPRecipe's that take care of representing the instructions.
-/// A VPBasicBlock that holds no VPRecipe's represents no instructions; this
-/// may happen, e.g., to support disjoint Regions and to ensure Regions have a
-/// single exit, possibly an empty one.
+/// or more VPInstructions that take care of representing the instructions.
+/// A VPBasicBlock that holds no instructions: this may happen, e.g., to support
+/// disjoint Regions and to ensure Regions have a single exit, possibly an empty
+/// one.
 ///
 /// Note that in contrast to the IR BasicBlock, a VPBasicBlock models its
 /// control-flow edges with successor and predecessor VPBlockBase directly,
@@ -2185,84 +2171,47 @@ private:
 /// "use" the VPBasicBlock.
 class VPBasicBlock : public VPBlockBase {
 public:
-  typedef iplist<VPRecipeBase> RecipeListTy;
+  using VPInstructionListTy = iplist<VPInstruction>;
 
 private:
-  /// The list of VPRecipes, held in order of instructions to generate.
-  RecipeListTy Recipes;
+  /// The list of VPInstructions, held in order of instructions to generate.
+  VPInstructionListTy Instructions;
 
 public:
   /// Instruction iterators...
-  typedef RecipeListTy::iterator iterator;
-  typedef RecipeListTy::const_iterator const_iterator;
-  typedef RecipeListTy::reverse_iterator reverse_iterator;
-  typedef RecipeListTy::const_reverse_iterator const_reverse_iterator;
+  using iterator = VPInstructionListTy::iterator;
+  using const_iterator = VPInstructionListTy::const_iterator;
+  using reverse_iterator = VPInstructionListTy::reverse_iterator;
+  using const_reverse_iterator = VPInstructionListTy::const_reverse_iterator;
 
   //===--------------------------------------------------------------------===//
-  /// Recipe iterator methods
+  /// Instruction iterator methods
   ///
-  inline iterator begin() { return Recipes.begin(); }
-  inline const_iterator begin() const { return Recipes.begin(); }
-  inline iterator end() { return Recipes.end(); }
-  inline const_iterator end() const { return Recipes.end(); }
+  inline iterator begin() { return Instructions.begin(); }
+  inline const_iterator begin() const { return Instructions.begin(); }
+  inline iterator end() { return Instructions.end(); }
+  inline const_iterator end() const { return Instructions.end(); }
 
-  inline reverse_iterator rbegin() { return Recipes.rbegin(); }
-  inline const_reverse_iterator rbegin() const { return Recipes.rbegin(); }
-  inline reverse_iterator rend() { return Recipes.rend(); }
-  inline const_reverse_iterator rend() const { return Recipes.rend(); }
+  inline reverse_iterator rbegin() { return Instructions.rbegin(); }
+  inline const_reverse_iterator rbegin() const { return Instructions.rbegin(); }
+  inline reverse_iterator rend() { return Instructions.rend(); }
+  inline const_reverse_iterator rend() const { return Instructions.rend(); }
 
-  inline size_t size() const { return Recipes.size(); }
-  inline bool empty() const { return Recipes.empty(); }
-  inline const VPRecipeBase &front() const { return Recipes.front(); }
-  inline VPRecipeBase &front() { return Recipes.front(); }
-  inline const VPRecipeBase &back() const { return Recipes.back(); }
-  inline VPRecipeBase &back() { return Recipes.back(); }
-
-  // Few helpers to make use of in decltype below.
-  static bool isVPInstruction(const VPRecipeBase &Recipe) {
-    return isa<VPInstruction>(Recipe);
-  }
-  static VPInstruction &asVPInstruction(VPRecipeBase &Recipe) {
-    return cast<VPInstruction>(Recipe);
-  }
-  static const VPInstruction &asConstVPInstruction(const VPRecipeBase &Recipe) {
-    return cast<VPInstruction>(Recipe);
-  }
-
-  // FIXME: Temporary filtered ranges until we get rid of recipes. Once
-  // that's done, they should be removed.
-  inline auto vpinstructions()
-      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
-                                              isVPInstruction),
-                            asVPInstruction)) {
-    return map_range(
-        make_filter_range(make_range(begin(), end()), isVPInstruction),
-        asVPInstruction);
-  }
-  inline auto vpinstructions() const
-      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
-                                              isVPInstruction),
-                            asConstVPInstruction)) {
-    return map_range(
-        make_filter_range(make_range(begin(), end()), isVPInstruction),
-        asConstVPInstruction);
-  }
-
-  /// \brief Return the underlying instruction list container.
-  ///
-  /// Currently you need to access the underlying instruction list container
-  /// directly if you want to modify it.
-  const RecipeListTy &getInstList() const { return Recipes; }
-  RecipeListTy &getInstList() { return Recipes; }
+  inline size_t size() const { return Instructions.size(); }
+  inline bool empty() const { return Instructions.empty(); }
+  inline const VPInstruction &front() const { return Instructions.front(); }
+  inline VPInstruction &front() { return Instructions.front(); }
+  inline const VPInstruction &back() const { return Instructions.back(); }
+  inline VPInstruction &back() { return Instructions.back(); }
 
   /// \brief Returns a pointer to a member of the instruction list.
-  static RecipeListTy VPBasicBlock::*getSublistAccess(VPRecipeBase *) {
-    return &VPBasicBlock::Recipes;
+  static VPInstructionListTy VPBasicBlock::*getSublistAccess(VPInstruction *) {
+    return &VPBasicBlock::Instructions;
   }
 
   auto getVPPhis() {
-    auto AsVPPHINode = [](VPRecipeBase &Recipe) -> VPPHINode & {
-      return cast<VPPHINode>(Recipe);
+    auto AsVPPHINode = [](VPInstruction &Instruction) -> VPPHINode & {
+      return cast<VPPHINode>(Instruction);
     };
 
     // If the block is empty or if it has no PHIs, return null range
@@ -2277,72 +2226,77 @@ public:
     return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
-  VPBasicBlock(const std::string &Name, VPRecipeBase *Recipe = nullptr)
+  VPBasicBlock(const std::string &Name, VPInstruction *Instruction = nullptr)
       : VPBlockBase(VPBasicBlockSC, Name), CBlock(nullptr), TBlock(nullptr),
         FBlock(nullptr), OriginalBB(nullptr) {
-    if (Recipe)
-      appendRecipe(Recipe);
+    if (Instruction)
+      appendInstruction(Instruction);
   }
 
-  ~VPBasicBlock() { Recipes.clear(); }
+  ~VPBasicBlock() { Instructions.clear(); }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *V) {
     return V->getVPBlockID() == VPBlockBase::VPBasicBlockSC;
   }
 
-  void insert(VPRecipeBase *Recipe, iterator InsertPt) {
-    assert(Recipe && "No recipe to append.");
-    assert(!Recipe->Parent && "Recipe already in VPlan");
-    Recipe->Parent = this;
-    Recipes.insert(InsertPt, Recipe);
+  void insert(VPInstruction *Instruction, iterator InsertPt) {
+    assert(Instruction && "No instruction to append.");
+    assert(!Instruction->Parent && "Instruction already in VPlan");
+    Instruction->Parent = this;
+    Instructions.insert(InsertPt, Instruction);
   }
 
-  /// Augment the existing recipes of a VPBasicBlock with an additional
-  /// \p Recipe as the last recipe.
-  void appendRecipe(VPRecipeBase *Recipe) { insert(Recipe, end()); }
+  /// Augment the existing instructions of a VPBasicBlock with an additional
+  /// \p Instruction as the last Instruction.
+  void appendInstruction(VPInstruction *Instruction) {
+    insert(Instruction, end());
+  }
 
 #if INTEL_CUSTOMIZATION
-  /// Add \p Recipe after \p After. If \p After is null, \p Recipe will be
-  /// inserted as the first recipe.
-  void addRecipeAfter(VPRecipeBase *Recipe, VPRecipeBase *After) {
-    Recipe->Parent = this;
+  /// Add \p Instruction after \p After. If \p After is null, \p Instruction
+  /// will be inserted as the first instruction.
+  void addInstructionAfter(VPInstruction *Instruction, VPInstruction *After) {
+    Instruction->Parent = this;
     if (!After) {
-      Recipes.insert(Recipes.begin(), Recipe);
+      Instructions.insert(Instructions.begin(), Instruction);
     } else {
-      Recipes.insertAfter(After->getIterator(), Recipe);
+      Instructions.insertAfter(After->getIterator(), Instruction);
     }
   }
 
-  /// Augment the existing recipes of a VPBasicBlock with an additional
-  /// \p Recipe at a position given by an existing recipe \p Before. If
-  /// \p Before is null, \p Recipe is appended as the last recipe.
-  void addRecipe(VPRecipeBase *Recipe, VPRecipeBase *Before = nullptr) {
-    Recipe->Parent = this;
+  /// Augment the existing instructions of a VPBasicBlock with an additional
+  /// \p Instruction at a position given by an existing instruction \p Before.
+  /// \p If Before is null, \p Instruction is appended as the last instruction.
+  void addInstruction(VPInstruction *Instruction,
+                      VPInstruction *Before = nullptr) {
+    Instruction->Parent = this;
     if (!Before) {
-      Recipes.insert(Recipes.end(), Recipe);
+      Instructions.insert(Instructions.end(), Instruction);
     } else {
       assert(Before->Parent == this &&
              "Insertion before point not in this basic block.");
-      Recipes.insert(Before->getIterator(), Recipe);
+      Instructions.insert(Before->getIterator(), Instruction);
     }
   }
 
   void moveConditionalEOBTo(VPBasicBlock *ToBB);
 #endif
 
-  /// Remove the recipe from VPBasicBlock's recipes.
-  void removeRecipe(VPRecipeBase *Recipe) { Recipes.remove(Recipe); }
+  /// Remove the instruction from VPBasicBlock's instructions.
+  void removeInstruction(VPInstruction *Instruction) {
+    Instructions.remove(Instruction);
+  }
 
-  /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
-  void eraseRecipe(VPRecipeBase *Recipe) {
-    // If Recipe is a VPInstruction, then we need to remove all its operands
-    // before erasing the VPInstruction. Else this breaks the use-def chains.
-    if (auto *VPI = dyn_cast<VPInstruction>(Recipe)) {
-      while (VPI->getNumOperands())
-        VPI->removeOperand(0);
-    }
-    Recipes.erase(Recipe);
+  /// Remove the instruction from VPBasicBlock's instructions and destroy
+  /// Instruction object.
+  void eraseInstruction(VPInstruction *Instruction) {
+    // We need to remove all instruction operands before erasing the
+    // VPInstruction. Else this breaks the use-def chains.
+    while (Instruction->getNumOperands())
+      Instruction->removeOperand(0);
+
+    Instructions.erase(Instruction);
   }
 
   /// The method which generates all new IR instructions that correspond to
@@ -2353,24 +2307,23 @@ public:
   void executeHIR(VPOCodeGenHIR *CG) override;
 #endif
 
-  /// Retrieve the list of VPRecipes that belong to this VPBasicBlock.
-  const RecipeListTy &getRecipes() const { return Recipes; }
-  RecipeListTy &getRecipes() { return Recipes; }
+  /// Retrieve the list of VPInstructions that belong to this VPBasicBlock.
+  const VPInstructionListTy &getInstructions() const { return Instructions; }
+  VPInstructionListTy &getInstructions() { return Instructions; }
 #if INTEL_CUSTOMIZATION
   /// Returns a range that iterates over non predicator related instructions
   /// in the VPBasicBlock.
-  auto getNonPredicateInstructions() const -> decltype(vpinstructions()) {
+  auto getNonPredicateInstructions() const {
     // New predicator uses VPInstructions to generate the block predicate.
     // Skip instructions until block-predicate instruction is seen if the block
     // has a predicate.
-    auto Range = vpinstructions();
 
     // No predicate instruction, return immediately.
     if(getPredicate() == nullptr)
-      return Range;
+      return make_range(begin(), end());
 
-    auto It = Range.begin();
-    auto ItEnd = Range.end();
+    auto It = begin();
+    auto ItEnd = end();
 
     assert(It != ItEnd &&
            "VPBasicBlock without VPInstructions can't have a predicate!");

@@ -434,11 +434,11 @@ void VPBasicBlock::execute(VPTransformState *State) {
   State->CFG.VPBB2IRBB[this] = NewBB;
   State->CFG.PrevVPBB = this;
 
-  for (VPRecipeBase &Recipe : Recipes)
-    Recipe.execute(*State);
+  for (VPInstruction &Inst : Instructions)
+    Inst.execute(*State);
 
-  // ILV's MaskValue is set when we find a BlockPredicateRecipe in
-  // VPBasicBlock's list of recipes. After generating code for all the
+  // ILV's MaskValue is set when we find a Pred Instruction in
+  // VPBasicBlock's list of instructions. After generating code for all the
   // VPBasicBlock's instructions, we have to reset MaskValue in order not to
   // propagate its value to the next VPBasicBlock.
   State->ILV->setMaskValue(nullptr);
@@ -535,7 +535,7 @@ void VPRegionBlock::execute(VPTransformState *State) {
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
   // Set CondBit in NewBlock. Note that we are only setting the
   // successor selector pointer. The CondBit is kept in its
-  // original VPBB recipe list.
+  // original VPBB instructions list.
   if (getNumSuccessors() > 1) {
     assert(getCondBit() && "Missing CondBit");
     ToBB->setCondBit(getCondBit());
@@ -569,13 +569,9 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
   if (empty()) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
-    for (const VPRecipeBase &Recipe : *this) {
-      if (auto *Inst = dyn_cast<VPInstruction>(&Recipe)) {
-        OS << StrIndent << " ";
-        Inst->dump(OS, DA);
-        continue;
-      }
-      OS << StrIndent << " " << Recipe;
+    for (const VPInstruction &Inst : *this) {
+      OS << StrIndent << " ";
+      Inst.dump(OS, DA);
     }
   }
   const VPValue *CB = getCondBit();
@@ -633,38 +629,34 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-/// Return true if \p Recipe is a VPInstruction in a single-use chain of
+/// Return true if \p Inst is a VPInstruction in a single-use chain of
 /// instructions ending in block-predicate instruction that is the last
 /// instruction in the block (and thus not really masking anything).
-static bool isDeadPredicateInst(VPRecipeBase &Recipe) {
-  auto *Inst = dyn_cast<VPInstruction>(&Recipe);
-  if (!Inst)
-    return false;
-  unsigned Opcode = Inst->getOpcode();
+static bool isDeadPredicateInst(VPInstruction &Inst) {
+  unsigned Opcode = Inst.getOpcode();
   if (Opcode == VPInstruction::Pred) {
-    auto *BB = Inst->getParent();
-    return ++(Inst->getIterator()) == BB->end();
+    auto *BB = Inst.getParent();
+    return ++(Inst.getIterator()) == BB->end();
   }
 
   if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
     return false;
 
-  if (Inst->getNumUsers() != 1)
+  if (Inst.getNumUsers() != 1)
     return false;
 
-  return isDeadPredicateInst(*cast<VPInstruction>(*Inst->user_begin()));
+  return isDeadPredicateInst(*cast<VPInstruction>(*Inst.user_begin()));
 }
-
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
-  for (VPRecipeBase &Recipe : Recipes) {
-    if (isDeadPredicateInst(Recipe))
+  for (VPInstruction &Inst : Instructions) {
+    if (isDeadPredicateInst(Inst))
       // This is not just emitted code clean-up, but something required to
       // support our hacky search loop CG that crashes trying to emit code for
       // "and/not" instructions that use "icmp" decomposed from the HLLoop.
       continue;
-    Recipe.executeHIR(CG);
+    Inst.executeHIR(CG);
   }
 }
 
@@ -1409,10 +1401,8 @@ void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
             OS << "no loop found\n";
           return;
         }
-        for (const VPRecipeBase &Recipe : *Block) {
-          const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
-          if (!VPInst)
-            continue;
+        for (const VPInstruction &Inst : *Block) {
+          const auto *VPInst = &Inst;
           if (DumpVPlanLiveness > 2)
             OS << "Instruction: " << *VPInst << "\n";
           for (const VPValue *Op : VPInst->operands()) {
@@ -1537,8 +1527,8 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BasicBlock) {
   bumpIndent(1);
   OS << Indent << "\"" << DOT::EscapeString(BasicBlock->getName()) << ":\\n\"";
   bumpIndent(1);
-  for (const VPRecipeBase &Recipe : *BasicBlock)
-    Recipe.print(OS, Indent);
+  for (const VPInstruction &Inst : *BasicBlock)
+    Inst.print(OS, Indent);
 #if INTEL_CUSTOMIZATION
   const VPValue *CBV = BasicBlock->getCondBit();
   // Dump the CondBit
