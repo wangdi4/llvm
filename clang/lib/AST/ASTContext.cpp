@@ -771,6 +771,7 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
 #if INTEL_CUSTOMIZATION
   // CQ#379144 Intel TBAA.
   switch (T.getCXXABI().getKind()) {
+  case TargetCXXABI::Fuchsia:
   case TargetCXXABI::GenericARM: // Same as Itanium at this level
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
@@ -10403,6 +10404,7 @@ MangleContext *ASTContext::createMangleContext(const TargetInfo *T) {
   if (!T)
     T = Target;
   switch (T->getCXXABI().getKind()) {
+  case TargetCXXABI::Fuchsia:
   case TargetCXXABI::GenericAArch64:
   case TargetCXXABI::GenericItanium:
   case TargetCXXABI::GenericARM:
