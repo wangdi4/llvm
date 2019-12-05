@@ -5595,6 +5595,10 @@ outliner::OutlinedFunction AArch64InstrInfo::getOutliningCandidateInfo(
                                               RepeatedSequenceLocs.end(),
                                               hasIllegalSPModification),
                                RepeatedSequenceLocs.end());
+
+    // If the sequence doesn't have enough candidates left, then we're done.
+    if (RepeatedSequenceLocs.size() < 2)
+      return outliner::OutlinedFunction();
   }
 
   // Properties about candidate MBBs that hold for all of them.
