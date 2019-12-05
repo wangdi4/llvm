@@ -501,6 +501,9 @@ typedef struct {
   for (int i=0; i<num_buffers; ++i) {
     __tgt_release_buffer(device_num, device_buffers[i]);
   }
+
+  __tgt_release_interop_obj(interop_obj);
+
   __kmpc_proxy_task_completed_ooo(async_obj);
 }
 
