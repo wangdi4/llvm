@@ -2193,14 +2193,6 @@ void ASTStmtReader::VisitOMPParallelForSimdDirective(
   VisitOMPLoopDirective(D);
 }
 
-void ASTStmtReader::VisitOMPParallelMasterDirective(
-    OMPParallelMasterDirective *D) {
-  VisitStmt(D);
-  // The NumClauses field was read in ReadStmtFromStream.
-  Record.skipInts(1);
-  VisitOMPExecutableDirective(D);
-}
-
 void ASTStmtReader::VisitOMPParallelSectionsDirective(
     OMPParallelSectionsDirective *D) {
   VisitStmt(D);
@@ -3044,11 +3036,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                                    CollapsedNum, Empty);
       break;
     }
-
-    case STMT_OMP_PARALLEL_MASTER_DIRECTIVE:
-      S = OMPParallelMasterDirective::CreateEmpty(
-          Context, Record[ASTStmtReader::NumStmtFields], Empty);
-      break;
 
     case STMT_OMP_PARALLEL_SECTIONS_DIRECTIVE:
       S = OMPParallelSectionsDirective::CreateEmpty(
