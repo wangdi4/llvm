@@ -53,6 +53,7 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> EmitPubnamesWithLocals(
         "debug-emit-pubnames-with-locals",
@@ -60,11 +61,25 @@ static cl::opt<bool> EmitPubnamesWithLocals(
         cl::desc("Add local symbol names to the .debug_pubnames section"),
         cl::init(false));
 #endif // INTEL_CUSTOMIZATION
+=======
+static dwarf::Tag GetCompileUnitType(UnitKind Kind, DwarfDebug *DW) {
+
+  //  According to DWARF Debugging Information Format Version 5,
+  //  3.1.2 Skeleton Compilation Unit Entries:
+  //  "When generating a split DWARF object file (see Section 7.3.2
+  //  on page 187), the compilation unit in the .debug_info section
+  //  is a "skeleton" compilation unit with the tag DW_TAG_skeleton_unit"
+  if (DW->getDwarfVersion() >= 5 && Kind == UnitKind::Skeleton)
+    return dwarf::DW_TAG_skeleton_unit;
+
+  return dwarf::DW_TAG_compile_unit;
+}
+>>>>>>> 789e257ce0d84ef5ddbabfdf0c990b2878e67744
 
 DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
                                    AsmPrinter *A, DwarfDebug *DW,
-                                   DwarfFile *DWU)
-    : DwarfUnit(dwarf::DW_TAG_compile_unit, Node, A, DW, DWU), UniqueID(UID) {
+                                   DwarfFile *DWU, UnitKind Kind)
+    : DwarfUnit(GetCompileUnitType(Kind, DW), Node, A, DW, DWU), UniqueID(UID) {
   insertDIE(Node, &getUnitDie());
   MacroLabelBegin = Asm->createTempSymbol("cu_macro_begin");
 }
