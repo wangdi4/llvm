@@ -5979,15 +5979,10 @@ multiclass avx512_fp_packed<bits<8> opc, string OpcodeStr, SDPatternOperator OpN
 
 multiclass avx512_fp_round_packed<bits<8> opc, string OpcodeStr,
                                   SDPatternOperator OpNodeRnd,
-<<<<<<< HEAD
                                   X86FoldableSchedWrite sched, X86VectorVTInfo _,
                                   string suffix = _.Suffix,
                                   string ClobberConstraint = ""> {
-  let ExeDomain = _.ExeDomain in
-=======
-                                  X86FoldableSchedWrite sched, X86VectorVTInfo _> {
   let ExeDomain = _.ExeDomain, Uses = [MXCSR] in
->>>>>>> c8995de06994c40ff2505bd18321fab8b4dc41be
   defm rrb: AVX512_maskable<opc, MRMSrcReg, _, (outs _.RC:$dst),
                   (ins _.RC:$src1, _.RC:$src2, AVX512RC:$rc), OpcodeStr##suffix,
                   "$rc, $src2, $src1", "$src1, $src2, $rc",
@@ -6039,7 +6034,6 @@ multiclass avx512_fp_binop_p<bits<8> opc, string OpcodeStr, SDPatternOperator Op
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 multiclass avx512_fp_binop_ph<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
@@ -6063,9 +6057,7 @@ multiclass avx512_fp_binop_ph<bits<8> opc, string OpcodeStr, SDPatternOperator O
 #endif // INTEL_CUSTOMIZATION
 
 
-=======
 let Uses = [MXCSR] in
->>>>>>> c8995de06994c40ff2505bd18321fab8b4dc41be
 multiclass avx512_fp_binop_p_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd,
                                    X86SchedWriteSizes sched> {
 #if INTEL_CUSTOMIZATION
@@ -7309,12 +7301,8 @@ let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
                                "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
                     [RHS_m]>, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, EVEX_4V, SIMD_EXC; // INTEL
 
-<<<<<<< HEAD
-    def rb    : AVX512<opc, MRMSrcReg, (outs _.FRC:$dst), // INTEL
-=======
     let Uses = [MXCSR] in
-    def rb    : AVX512FMA3S<opc, MRMSrcReg, (outs _.FRC:$dst),
->>>>>>> c8995de06994c40ff2505bd18321fab8b4dc41be
+    def rb    : AVX512<opc, MRMSrcReg, (outs _.FRC:$dst), // INTEL
                      (ins _.FRC:$src1, _.FRC:$src2, _.FRC:$src3, AVX512RC:$rc),
                      !strconcat(OpcodeStr,
                               "\t{$rc, $src3, $src2, $dst|$dst, $src2, $src3, $rc}"),
@@ -9699,14 +9687,9 @@ let Defs = [EFLAGS], Predicates = [HasFP16] in {
 
 /// avx512_fp14_s rcp14ss, rcp14sd, rsqrt14ss, rsqrt14sd
 multiclass avx512_fp14_s<bits<8> opc, string OpcodeStr, SDNode OpNode,
-<<<<<<< HEAD
                          X86FoldableSchedWrite sched, X86VectorVTInfo _, // INTEL
                          Predicate prd = HasAVX512> { // INTEL
-  let Predicates = [prd], ExeDomain = _.ExeDomain in { // INTEL
-=======
-                         X86FoldableSchedWrite sched, X86VectorVTInfo _> {
-  let Predicates = [HasAVX512], ExeDomain = _.ExeDomain, Uses = [MXCSR] in {
->>>>>>> c8995de06994c40ff2505bd18321fab8b4dc41be
+  let Predicates = [prd], ExeDomain = _.ExeDomain, Uses = [MXCSR] in { // INTEL
   defm rr : AVX512_maskable_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
                            (ins _.RC:$src1, _.RC:$src2), OpcodeStr,
                            "$src2, $src1", "$src1, $src2",
