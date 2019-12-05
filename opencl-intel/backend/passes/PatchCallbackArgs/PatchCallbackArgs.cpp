@@ -86,6 +86,8 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
               &M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
           Value *RuntimeHandle = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
+          assert(WorkInfo && "WorkInfo should be nullptr");
+          assert(RuntimeHandle && "RuntimeHandle should not be null");
           IRBuilder<> B(
               dyn_cast<Instruction>(CallingF->getEntryBlock().begin()));
           ImplicitArgs.first = B.CreateLoad(WorkInfo);

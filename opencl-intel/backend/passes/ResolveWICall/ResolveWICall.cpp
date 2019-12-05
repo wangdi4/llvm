@@ -99,19 +99,28 @@ namespace intel {
       return true;
   }
 
+  static LoadInst *createLoadForTLSGlobal(
+      IRBuilder<> &builder,
+      Module *module,
+      ImplicitArgsUtils::IMPLICIT_ARGS arg) {
+    auto TLSG = CompilationUtils::getTLSGlobal(module, arg);
+    assert(TLSG && "TLS Global cannot be nullptr");
+    return builder.CreateLoad(TLSG);
+  }
+
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
     if (m_useTLSGlobals) {
       IRBuilder<> B(dyn_cast<Instruction>(pFunc->getEntryBlock().begin()));
-      m_pWorkInfo = B.CreateLoad(CompilationUtils::getTLSGlobal(
-          m_pModule, ImplicitArgsUtils::IA_WORK_GROUP_INFO));
-      m_pWGId = B.CreateLoad(CompilationUtils::getTLSGlobal(
-          m_pModule, ImplicitArgsUtils::IA_WORK_GROUP_ID));
-      m_pBaseGlbId = B.CreateLoad(CompilationUtils::getTLSGlobal(
-          m_pModule, ImplicitArgsUtils::IA_GLOBAL_BASE_ID));
-      m_pSpecialBuf = B.CreateLoad(CompilationUtils::getTLSGlobal(
-          m_pModule, ImplicitArgsUtils::IA_BARRIER_BUFFER));
-      m_pRuntimeHandle = B.CreateLoad(CompilationUtils::getTLSGlobal(
-          m_pModule, ImplicitArgsUtils::IA_RUNTIME_HANDLE));
+      m_pWorkInfo = createLoadForTLSGlobal(
+          B, m_pModule, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
+      m_pWGId = createLoadForTLSGlobal(
+          B, m_pModule, ImplicitArgsUtils::IA_WORK_GROUP_ID);
+      m_pBaseGlbId = createLoadForTLSGlobal(
+          B, m_pModule, ImplicitArgsUtils::IA_GLOBAL_BASE_ID);
+      m_pSpecialBuf = createLoadForTLSGlobal(
+          B, m_pModule, ImplicitArgsUtils::IA_BARRIER_BUFFER);
+      m_pRuntimeHandle = createLoadForTLSGlobal(
+          B, m_pModule, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
     } else {
       CompilationUtils::getImplicitArgs(pFunc, nullptr, &m_pWorkInfo, &m_pWGId,
                                         &m_pBaseGlbId, &m_pSpecialBuf,
