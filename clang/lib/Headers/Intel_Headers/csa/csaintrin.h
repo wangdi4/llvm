@@ -28,15 +28,18 @@ typedef float           __m64f __attribute__((__vector_size__(8))); // Used for 
 
 #ifdef __CSA__
 /* Define the types for vector types on CSA */
-// q: denotes  8 bits long
-// h: denotes 16 bits long
+// q    : denotes  8 bits size
+// h    : denotes 16 bits size
+// s, u : denote  32 bits size
 
 typedef _Float16        __m64h __attribute__((__vector_size__(8))); // Used for fp16x4
 typedef signed char     __v8qi __attribute__((__vector_size__(8))); // Used for signed int8x8
 typedef unsigned char   __v8qu __attribute__((__vector_size__(8))); // Used for unsigned int8x8
 typedef short           __v4hi __attribute__((__vector_size__(8))); // Used for signed int16x4
 typedef unsigned short  __v4hu __attribute__((__vector_size__(8))); // Used for unsigned int16x4
-typedef long long       __m64i __attribute__((__vector_size__(8))); // Used for signatures (int8x8, int16x4, etc.)
+typedef int             __v2si __attribute__((__vector_size__(8))); // Used for signed int32x2
+typedef unsigned int    __v2ui __attribute__((__vector_size__(8))); // Used for unsigned int32x2
+typedef long long       __m64i __attribute__((__vector_size__(8))); // Used for signatures (int8x8, int16x4, int32x2, etc.)
 #endif
 
 /* Disable and swizzle enums */
@@ -446,49 +449,91 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
 // Add packed 8-bit integers in a and b, and return the result.
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_add_epi8 (__m64i a, __m64i b)
 {
-  return (__m64i)((__v8qi)a + (__v8qi)b);
+  return (__m64i) ((__v8qi)a + (__v8qi)b);
 }
 
 // Add packed 16-bit integers in a and b, and return the result.
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_add_epi16(__m64i a, __m64i b)
 {
-  return (__m64i)((__v4hi)a + (__v4hi)b);
+  return (__m64i) ((__v4hi)a + (__v4hi)b);
+}
+
+// Subtract packed 8-bit integers in b from packed 8-bit integers in a, and return the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_sub_epi8(__m64i a, __m64i b)
+{
+  return (__m64i) ((__v8qi)a - (__v8qi)b);
+}
+
+// Subtract packed 16-bit integers in b from packed 16-bit integers in a, and return the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_sub_epi16(__m64i a, __m64i b)
+{
+  return (__m64i) ((__v4hi)a - (__v4hi)b);
 }
 
 // Add packed 8-bit integers in a and b using saturation, and return the result.
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_adds_epi8(__m64i a, __m64i b)
 {
-  return (__m64i)__builtin_csa_addsu8x8((__v8qi)a, (__v8qi)b);
-}
-
-// Compute the bitwise AND of 64 bits (representing integer data) in a and b, and return the result.
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_and_si64(__m64i a, __m64i b)
-{
-  return (__m64i)((__m64i)a & (__m64i)b);
-}
-
-// Extract an 8-bit integer from a, selected with imm8, and return the result.
-static __inline__ char __DEFAULT_FN_ATTRS _mm64_extract_epi8(__m64i a, int i)
-{
-  return (char)((__v8qi)a)[i];
+  return (__m64i) __builtin_csa_addsu8x8((__v8qi)a, (__v8qi)b);
 }
 
 // Compare packed 8-bit integers in a and b, and return the packed maximum values.
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epi8(__m64i a, __m64i b)
 {
-  return __builtin_csa_maxs8x8((__v8qi)a, (__v8qi)b);
+  return (__m64i) __builtin_csa_maxs8x8((__v8qi)a, (__v8qi)b);
 }
 
 // Create mask from the most significant bit of each 8-bit element in a, and return the result.
 static __inline__ int __DEFAULT_FN_ATTRS _mm64_movemask_epi8(__m64i a)
 {
-  return __builtin_csa_movmsk8x8((__v8qu)a);
+  return (int) __builtin_csa_movmsk8x8((__v8qu)a);
+}
+
+// Compute the bitwise AND of 64 bits (representing integer data) in a and b, and return the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_and_si64(__m64i a, __m64i b)
+{
+  return (__m64i) (a & b);
 }
 
 // Compute the bitwise OR of 64 bits (representing integer data) in a and b, and return the result.
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_or_si64(__m64i a, __m64i b)
 {
-  return (__m64i)((__m64i)a | (__m64i)b);
+  return (__m64i) (a | b);
+}
+
+// Compute the bitwise XOR of 64 bits (representing integer data) in a and b, and return the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_xor_si64(__m64i a, __m64i b)
+{
+  return (__m64i) (a ^ b);
+}
+
+// Copy 64-bit integer a to the result.
+static __inline__ __int64 __DEFAULT_FN_ATTRS _mm64_cvtm64_si64(__m64i a)
+{
+  return (__int64) a;
+}
+
+// Copy 32-bit integer a to the lower elements of the result, and zero the upper element.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_cvtsi32_si64(int a)
+{
+  return (__m64i) ((__v2si){a, 0});
+}
+
+// Copy 64-bit integer a to the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_cvtsi64_m64(__int64 a)
+{
+  return (__m64i) a;
+}
+
+// Copy the lower 32-bit integer in a to the result.
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cvtsi64_si32(__m64i a)
+{
+  return (int) (((__v2si)a)[0]);
+}
+
+// Set packed 8-bit integers in the result with the supplied values.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_set_epi8(char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0)
+{
+  return (__m64i) ((__v8qi){e0, e1, e2, e3, e4, e5, e6, e7});
 }
 
 // Set packed 16-bit integers in the result with the supplied values.
@@ -497,19 +542,89 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_set_epi16(short e3, short e2, 
   return (__m64i) ((__v4hi){e0, e1, e2, e3});
 }
 
-// Subtract packed 8-bit integers in b from packed 8-bit integers in a, and return the result.
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_sub_epi8(__m64i a, __m64i b)
+// Set packed 32-bit integers in the result with the supplied values.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_set_epi32(int e1, int e0)
 {
-  return (__m64i)((__v8qi)a - (__v8qi)b);
+  return (__m64i) ((__v2si){e0, e1});
 }
 
-// Subtract packed 16-bit integers in b from packed 16-bit integers in a, and return the result.
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_sub_epi16(__m64i a, __m64i b)
+// Broadcast 8-bit integer a to all elements of the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_set1_epi8(char a)
 {
-  return (__m64i)((__v4hi)a - (__v4hi)b);
+  return (__m64i) ((__v8qi){a, a, a, a, a, a, a, a});
 }
+
+// Broadcast 16-bit integer a to all elements of the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS  _mm64_set1_epi16(short a)
+{
+  return (__m64i) ((__v4hi){a, a, a, a});
+}
+
+// Broadcast 32-bit integer a to all elements of the result.
+static __inline__ __m64i __DEFAULT_FN_ATTRS  _mm64_set1_epi32(int a)
+{
+  return (__m64i) ((__v2si){a, a});
+}
+
+// Set packed 8-bit integers in the result with the supplied values in reverse order.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_setr_epi8(char e0, char e1, char e2, char e3, char e4, char e5, char e6, char e7)
+{
+  return (__m64i) ((__v8qi){e0, e1, e2, e3, e4, e5, e6, e7});
+}
+
+// Set packed 16-bit integers in the result with the supplied values in reverse order.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_setr_epi16(short e0, short e1, short e2, short e3)
+{
+  return (__m64i) ((__v4hi){e0, e1, e2, e3});
+}
+
+// Set packed 32-bit integers in the result with the supplied values in reverse order.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_setr_epi32(int e0, int e1)
+{
+  return (__m64i) ((__v2si){e0, e1});
+}
+
+// Return vector of type __m64i with all elements set to zero.
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_setzero_si64()
+{
+  return (__m64i) ((__v4hi){0, 0, 0, 0});
+}
+
+// Extract an 8-bit integer from a, selected with i, and return the result.
+static __inline__ char __DEFAULT_FN_ATTRS _mm64_extract_epi8(__m64i a, int i)
+{
+  return (char) (((__v8qi)a)[i]);
+}
+
+// Extract a 16-bit integer from a, selected with i, and return the result.
+static __inline__ short __DEFAULT_FN_ATTRS _mm64_extract_epi16(__m64i a, int i)
+{
+  return (short) (((__v4hi)a)[i]);
+}
+
+// Extract a 32-bit integer from a, selected with i, and return the result.
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_extract_epi32(__m64i a, int i)
+{
+  return (int) (((__v2si)a)[i]);
+}
+
+// Return a new vector which is composed of 16-bit slices from the two input vectors. Each of
+// the selectors determine the corresponding lane on in the input, with sel0 determining the
+// low 16 bits and sel3 the highest 16 bits.
+#define _mm64_shuf_si64(A, B, M, N, O, P) \
+  (__m64i)(__builtin_shufflevector((__v4hi)(A), (__v4hi)(B), (M), (N), (O), (P)))
+
+// Shuffle 16-bit integers in A using the control in IMM8, and return the
+// shuffled vector. Every 2 bits of IMM8 are used to control the output.
+#define _mm64_shuf_si64(A, IMM8) \
+  (__m64i) (__builtin_shufflevector((__v4hi)A, (__v4hi) _mm64_set1_epi16(0), \
+                                    (IMM8) & 0x3,          \
+                                    ((IMM8) & 0xc) >> 2,   \
+                                    ((IMM8) & 0x30) >> 4,  \
+                                    ((IMM8) & 0xc0) >> 6))
 #endif
 
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __CSAINTRIN_H */
+
