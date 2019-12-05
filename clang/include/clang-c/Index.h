@@ -2570,21 +2570,13 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelMasterTaskLoopSimdDirective      = 284,
 
-<<<<<<< HEAD
-  /** OpenMP parallel master directive.
-   */
-  CXCursor_OMPParallelMasterDirective      = 285,
-
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 286,
+  CXCursor_OMPTargetVariantDispatchDirective = 285,
 
   CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPParallelMasterDirective,
-#endif /* INTEL_COLLAB */
-=======
   CXCursor_LastStmt = CXCursor_OMPParallelMasterTaskLoopSimdDirective,
->>>>>>> 33f6d465d790ac5c9b949e6bc05127d356212079
+#endif /* INTEL_COLLAB */
 
   /**
    * Cursor that represents the translation unit itself.
