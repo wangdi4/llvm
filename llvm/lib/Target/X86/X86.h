@@ -167,11 +167,9 @@ void initializeX86ExpandPseudoPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
-=======
 
 namespace X86AS {
 enum : unsigned {
@@ -184,7 +182,6 @@ enum : unsigned {
 };
 } // End X86AS namespace
 
->>>>>>> 9e978bb01ceae8eaa415d8951cc96803e68b73fb
 } // End llvm namespace
 
 #endif
