@@ -401,10 +401,11 @@ public:
     virtual void recordValueReference(llvm::Value *) {}
     virtual void recordValueSuppression(llvm::Value *) {}
     virtual bool inTargetVariantDispatchRegion() { return false; }
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
+    virtual void enterTryStmt() { }
+    virtual void exitTryStmt() { }
+    virtual bool inTryStmt() { assert(false); return false; }
     virtual bool isLateOutlinedRegion() { return false; }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;

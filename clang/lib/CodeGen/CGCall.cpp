@@ -4452,6 +4452,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     // exception is thrown during a cleanup outside of a try/catch.
     // We don't need to model anything in IR to get this behavior.
     CannotThrow = true;
+#if INTEL_COLLAB
+  } else if (CapturedStmtInfo && CapturedStmtInfo->isLateOutlinedRegion() &&
+             !CapturedStmtInfo->inTryStmt()) {
+    // Can't legally throw in an OpenMP region that cannot catch the exception
+    // within the region.
+    CannotThrow = true;
+#endif // INTEL_COLLAB
   } else {
     // Otherwise, nounwind call sites will never throw.
     CannotThrow = Attrs.hasAttribute(llvm::AttributeList::FunctionIndex,

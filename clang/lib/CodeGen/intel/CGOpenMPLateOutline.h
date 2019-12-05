@@ -465,13 +465,21 @@ public:
   bool inTargetVariantDispatchRegion() {
     return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
   }
-  bool isLateOutlinedRegion() { return true; } // INTEL
+  void enterTryStmt() { ++TryStmts; }
+  void exitTryStmt() {
+    assert(TryStmts > 0);
+    --TryStmts;
+  }
+  bool inTryStmt() { return TryStmts > 0; }
+  bool isLateOutlinedRegion() { return true; }
 
 private:
   /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &D;
+  /// Nesting of C++ 'try' statements in the OpenMP region.
+  unsigned TryStmts = 0;
 };
 
 /// RAII for emitting code of OpenMP constructs.
