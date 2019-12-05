@@ -17,12 +17,6 @@
 
 #ifdef INTEL_CUSTOMIZATION
 
-namespace llvm {
-namespace vpo {
-extern cl::opt<bool> DisableLCFUMaskRegion;
-}
-} // namespace llvm
-
 void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
   // Community version stores VPlan reference - to minimize changes get a
@@ -340,30 +334,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     // along mask=false path. i.e., this edge skips the loop body.
     RegionEntryBlock->appendSuccessor(RegionExitBlock);
     RegionExitBlock->appendPredecessor(RegionEntryBlock);
-
-    if (!DisableLCFUMaskRegion) {
-      VPRegionBlock *MaskRegion =
-          new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                            VPlanUtils::createUniqueName("mask_region"));
-      VPBlockUtils::insertRegion(MaskRegion, RegionEntryBlock, RegionExitBlock,
-                                 false);
-
-      auto *SubLoopRegion =
-          cast_or_null<VPLoopRegion>(SubLoop->getHeader()->getParent());
-
-      // The new region parent is the loop.
-      MaskRegion->setParent(SubLoopRegion);
-      SubLoop->addBasicBlockToLoop(MaskRegion, *VPLI);
-
-      // All blocks in the new region must have the parent set to the new
-      // region.
-      for (VPBlockBase *RegionBlock :
-           make_range(df_iterator<VPRegionBlock *>::begin(MaskRegion),
-                      df_iterator<VPRegionBlock *>::end(MaskRegion))) {
-        if (RegionBlock->getParent() == SubLoopRegion)
-          RegionBlock->setParent(MaskRegion);
-      }
-    }
 
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");

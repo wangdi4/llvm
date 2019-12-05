@@ -59,14 +59,6 @@ static cl::opt<bool> SortBlendPhisInPredicator(
     "vplan-sort-blend-phis-in-predicator", cl::init(false), cl::Hidden,
     cl::desc("Sort incoming blocks of blend phis in the predicator."));
 
-namespace llvm {
-namespace vpo {
-cl::opt<bool> DisableLCFUMaskRegion(
-    "disable-vplan-cfu-mask-region", cl::init(true), cl::Hidden,
-    cl::desc("Disable construction of non-loop mask subregion in LoopCFU"));
-}
-} // namespace llvm
-
 // Generate a tree of ORs for all IncomingPredicates in  WorkList.
 // Note: This function destroys the original Worklist.
 //
