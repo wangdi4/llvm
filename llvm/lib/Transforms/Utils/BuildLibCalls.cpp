@@ -970,6 +970,18 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_Getctype:
+    return Changed;
+  case LibFunc_under_Getcvt:
+    return Changed;
+  case LibFunc_under_Tolower:
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_Toupper:
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_under_errno:
     return Changed;
   case LibFunc_under_fstat64i32:
@@ -1796,6 +1808,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 2);
     return Changed;
   case LibFunc_stdio_common_vsprintf:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setDoesNotCapture(F, 3);
+    Changed |= setOnlyReadsMemory(F, 3);
+    return Changed;
+  case LibFunc_dunder_stdio_common_vsprintf_s:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
