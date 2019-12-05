@@ -933,9 +933,7 @@ def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
 def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
-def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">,
-                            AssemblerPredicate<"FeatureAVXVNNI", "AVXVNNI">;
-def NoAVXVNNI  : Predicate<"!Subtarget->hasAVXVNNI()">;
+def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 

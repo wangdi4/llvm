@@ -87,7 +87,7 @@ void _pi_event::deleteL0EventList(
   delete[] ze_event_list;
 }
 
-// Convinience macro makes source code search easier
+// TODO: remove this
 #define L0(pi_api) pi_api
 
 // Forward declararitons
@@ -2275,10 +2275,20 @@ pi_result L0(piextGetDeviceFunctionPointer)(
   pi_throw("piextGetDeviceFunctionPointer: not implemented");
 }
 
-#define _PI_API(api) \
-  typedef decltype(::api) __type##api; \
-  const __type##api * api##OclPtr = (__type##api *) &L0(api);
+pi_result L0(piPluginInit)(pi_plugin *PluginInit)
+{
+  // TODO: handle versioning/targets properly.
+  size_t PluginVersionSize = sizeof(PluginInit->PluginVersion);
+  assert(strlen(_PI_H_VERSION_STRING) < PluginVersionSize);
+  strncpy(PluginInit->PluginVersion, _PI_H_VERSION_STRING, PluginVersionSize);
+
+#define _PI_API(api)                                                \
+  (PluginInit->PiFunctionTable).api = (decltype(&::api))(&L0(api));
 #include <CL/sycl/detail/pi.def>
+
+  // TODO: handle errors
+  return PI_SUCCESS;
+}
 
 #ifdef __cplusplus
 } // extern "C"

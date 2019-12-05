@@ -47,6 +47,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -142,6 +143,7 @@ bool VPlanDriver::processFunction(Function &Fn) {
 
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   DL = &Fn.getParent()->getDataLayout();
+  WR = nullptr;
 
   assert(!(VPlanVectCand && VPlanConstrStressTest) &&
          "Stress testing for VPlan "
@@ -513,6 +515,39 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       CandLoopsVectorized++;
       ModifiedLoop = true;
       addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
+
+      // Emit kernel optimization remarks.
+      if (WR) {
+        // TODO: Collect remarks about Gather/Scatter counts
+        // during CG itself using VPlanOptReportBuilder framework.
+        unsigned GatherCount = 0;
+        unsigned ScatterCount = 0;
+        for (auto Block : VCodeGen.getMainLoop()->getBlocks())
+          if (auto BB = dyn_cast<BasicBlock>(Block))
+            for (auto &Inst : *BB)
+              if (auto IntrinInst = dyn_cast<IntrinsicInst>(&Inst)) {
+                Intrinsic::ID ID = IntrinInst->getIntrinsicID();
+                if (ID == Intrinsic::masked_gather)
+                  GatherCount++;
+                if (ID == Intrinsic::masked_scatter)
+                  ScatterCount++;
+              }
+
+        OptimizationRemark R("VPlan Vectorization", "Vectorized", &Fn);
+        if (VectorVariant::isVectorVariant(Fn.getName()))
+          R << ore::NV("Remark",
+                       "Kernel was " + Twine(VF).str() + "-way vectorized");
+        else
+          R << ore::NV("Remark",
+                       "Loop was " + Twine(VF).str() + "-way vectorized");
+        if (GatherCount > 0)
+          R << ore::NV("Remark", Twine(GatherCount).str() + " gathers");
+        if (ScatterCount > 0)
+          R << ore::NV("Remark", Twine(ScatterCount).str() + " scatters");
+
+        OptimizationRemarkEmitter &ORE = WR->getORE();
+        ORE.emit(R);
+      }
     }
   }
 
