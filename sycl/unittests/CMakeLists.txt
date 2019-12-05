@@ -11,3 +11,4 @@ endfunction()
 
 add_subdirectory(pi)
 add_subdirectory(misc)
+add_subdirectory(thread_safety)
