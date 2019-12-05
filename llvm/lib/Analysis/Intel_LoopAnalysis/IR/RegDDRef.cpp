@@ -1475,7 +1475,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
     unsigned DimNum = getNumDimensions();
     Type *ElemTy;
     if (DimNum == 0) {
-      DimTy = getBaseCE()->getSrcType();
+      DimTy = getBaseCE()->getSrcType()->getScalarType();
       ElemTy = DimTy->getPointerElementType();
     } else {
       // Get the lowest dimension type, then apply struct offset if present. The
