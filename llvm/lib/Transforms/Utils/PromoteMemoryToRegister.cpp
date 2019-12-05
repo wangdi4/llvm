@@ -25,6 +25,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -46,6 +47,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <iterator>
@@ -66,6 +68,24 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
   // assignments to subsections of the memory unit.
   unsigned AS = AI->getType()->getAddressSpace();
 
+#if INTEL_CUSTOMIZATION
+  // If alloca is for private variable used inside SIMD region, it can be
+  // promoted
+  auto isValueUsedBySimdPrivateClause = [AI](const IntrinsicInst *II) {
+    if (vpo::VPOAnalysisUtils::getDirectiveID(
+            const_cast<IntrinsicInst *>(II)) != DIR_OMP_SIMD)
+      return false;
+    SmallVector<OperandBundleDef, 8> OpBundles;
+    II->getOperandBundlesAsDefs(OpBundles);
+    return std::any_of(
+        OpBundles.begin(), OpBundles.end(), [AI](OperandBundleDef &B) {
+          return vpo::VPOAnalysisUtils::getClauseID(B.getTag()) ==
+                     QUAL_OMP_PRIVATE &&
+                 *B.input_begin() == AI;
+        });
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // Only allow direct and non-volatile loads and stores...
   for (const User *U : AI->users()) {
     if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
@@ -81,10 +101,13 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
       if (SI->isVolatile())
         return false;
     } else if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
-      if (const VarAnnotIntrinsic *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {   //INTEL
-        if (!VAI->hasRegisterAttributeSet())                                  //INTEL
-          return false;                                                       //INTEL
-      } else if (!II->isLifetimeStartOrEnd())        //INTEL
+#if INTEL_CUSTOMIZATION
+      if (const VarAnnotIntrinsic *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {
+        if (!VAI->hasRegisterAttributeSet())
+          return false;
+      } else if (!II->isLifetimeStartOrEnd() &&
+                 !isValueUsedBySimdPrivateClause(II))
+#endif // INTEL_CUSTOMIZATION
         return false;
     } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
       if (BCI->getType() != Type::getInt8PtrTy(U->getContext(), AS))
@@ -324,6 +347,20 @@ static void removeLifetimeIntrinsicUsers(AllocaInst *AI) {
     ++UI;
     if (isa<LoadInst>(I) || isa<StoreInst>(I))
       continue;
+
+#if INTEL_CUSTOMIZATION
+    if (vpo::VPOAnalysisUtils::isBeginDirective(I)) {
+      // for SIMD region directive we only remove PRIVATE clauses
+      CallInst *CI = cast<CallInst>(I);
+      CI = IntrinsicUtils::removeOperandBundlesFromCall(
+          CI, [AI](const OperandBundleDef &Bundle) {
+            return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
+                       QUAL_OMP_PRIVATE &&
+                   *Bundle.input_begin() == AI;
+          });
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (!I->getType()->isVoidTy()) {
       // The only users of this bitcast/GEP instruction are lifetime intrinsics.
