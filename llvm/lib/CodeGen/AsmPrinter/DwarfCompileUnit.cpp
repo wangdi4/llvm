@@ -53,7 +53,6 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> EmitPubnamesWithLocals(
         "debug-emit-pubnames-with-locals",
@@ -61,7 +60,7 @@ static cl::opt<bool> EmitPubnamesWithLocals(
         cl::desc("Add local symbol names to the .debug_pubnames section"),
         cl::init(false));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static dwarf::Tag GetCompileUnitType(UnitKind Kind, DwarfDebug *DW) {
 
   //  According to DWARF Debugging Information Format Version 5,
@@ -74,7 +73,6 @@ static dwarf::Tag GetCompileUnitType(UnitKind Kind, DwarfDebug *DW) {
 
   return dwarf::DW_TAG_compile_unit;
 }
->>>>>>> 789e257ce0d84ef5ddbabfdf0c990b2878e67744
 
 DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
                                    AsmPrinter *A, DwarfDebug *DW,
