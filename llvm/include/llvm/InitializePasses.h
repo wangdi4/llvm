@@ -556,6 +556,7 @@ void initializeHIRSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
+void initializeHIRRowWiseMVLegacyPassPass(PassRegistry &);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
