@@ -1239,6 +1239,7 @@ namespace intel {
       int vecWidth =
           kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
       unsigned int strideSize = m_pDataPerValue->getStrideSize(pFunc);
+      assert(vecWidth && "vecWidth should not be 0!");
       strideSize = (strideSize + vecWidth - 1) / vecWidth;
 
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that

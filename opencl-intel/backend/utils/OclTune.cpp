@@ -72,6 +72,11 @@ void Statistic::setModuleStatInfo (llvm::Module *M, const char * workloadName,
   time (&rawtime);
   timeinfo = localtime (&rawtime);
 
+  if (!timeinfo) {
+    perror("localtime");
+    llvm_unreachable("Getting local time failed");
+  }
+
   strftime (buffer,80,"%Y-%m-%d %H:%M:%S",timeinfo);
 
   auto msimd = ModuleStatMetadataAPI(M);

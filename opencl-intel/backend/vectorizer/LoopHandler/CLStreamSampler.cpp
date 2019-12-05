@@ -396,11 +396,11 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
     if (m_streamSize[i].first == width ) return m_streamSize[i].second;
   }
 
+  assert(m_tripCount && "NULL trip count ?");
   // Stream size for the width was not computed yet. Calculate it now.
   Value *widthConst = ConstantInt::get(m_tripCount->getType(), width);
   // Default location in case trip count is constant \ global
   Instruction *loc = m_header->getParent()->getEntryBlock().getFirstNonPHI();
-  assert(m_tripCount && "NULL trip count ?");
   if (Instruction *tripCountInst = dyn_cast<Instruction>(m_tripCount)) {
     assert(tripCountInst != tripCountInst->getParent()->getTerminator() &&
         "trip count can not be the termiantor of a block");

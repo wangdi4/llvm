@@ -40,7 +40,9 @@ protected:
   /// call - the call instruction to the fake insert
   FakeVectorOp(const CallInst &call, unsigned indexOfIndexArg):
     Call(call), IndexOfIndexArg(indexOfIndexArg) {
-    V_ASSERT(!Mangler::isMangledCall(Call.getCalledFunction()->getName()) && "Fake vector op has no side effects and should not have been masked!");
+    V_ASSERT(Call.getCalledFunction() &&
+      !Mangler::isMangledCall(Call.getCalledFunction()->getName()) &&
+      "Fake vector op has no side effects and should not have been masked!");
   }
   public:
   /// Returns the function argument which is the insertion index

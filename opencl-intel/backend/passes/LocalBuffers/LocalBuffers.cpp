@@ -272,7 +272,7 @@ namespace intel{
 
     unsigned int currLocalOffset = 0;
     // Create code for local buffer
-    Instruction *pFirstInst = dyn_cast<Instruction>(pFunc->getEntryBlock().begin());
+    Instruction *pFirstInst = &*(pFunc->getEntryBlock().begin());
 
     if (m_useTLSGlobals) {
       builder.SetInsertPoint(pFirstInst);
@@ -383,6 +383,7 @@ namespace intel{
     if (m_isNativeDBG)
       updateUsageBlocks(pFunc);
 
+    assert(pLocalMem && "pLocalMem should not be nullptr.");
     parseLocalBuffers(pFunc, pLocalMem);
   }
 

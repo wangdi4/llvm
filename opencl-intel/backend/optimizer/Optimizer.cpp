@@ -722,7 +722,9 @@ static void populatePassesPostFailCheck(
 
   if (!pRtlModuleList.empty()) {
     // Inline BI function
-    PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix()));
+    const char *CPUPrefix = pConfig->GetCpuId().GetCPUPrefix();
+    assert(CPUPrefix && "CPU Prefix should not be null");
+    PM.add(createBuiltInImportPass(CPUPrefix));
     if (debugType == intel::None) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass

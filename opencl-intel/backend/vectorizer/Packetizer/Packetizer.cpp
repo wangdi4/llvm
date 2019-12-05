@@ -1340,6 +1340,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       args.push_back(bitCastPtr);
       break;
     case STORE:
+      V_ASSERT(MO.Data && "Data for MemoryOperation with STORE type cannot be null");
       args.push_back(MO.Mask);
       obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
       args.push_back(MO.Data);
@@ -2031,6 +2032,7 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
     // c.  <2 x float> foo(...) --> <8 x float> foo4(...)
     // array of vectors , or it is the return is by pointers as last arguments,
     // or VPlan style return type.
+    V_ASSERT(CI->getCalledFunction() && "Indirect call is not expected!");
     if (newCall->getType()->isVoidTy()) {
       // return by pointers.
       return handleReturnByPointers(CI, newCall);
@@ -2175,8 +2177,8 @@ bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) 
   unsigned firstPtr = numArgs - numPtrs;
   for (unsigned i=0; i<numPtrs; i++) {
     Value *ptr = newCall->getArgOperand(i + firstPtr);
-    V_ASSERT(ptr->getType()->isPointerTy() && "bad signature");
     if (!ptr) return false;
+    V_ASSERT(ptr->getType()->isPointerTy() && "bad signature");
     Instruction* LI = new LoadInst(ptr, "", CI);
     V_ASSERT(LI->getType()->isVectorTy() && "bad signature");
     V_ASSERT(cast<VectorType>(LI->getType()) ==

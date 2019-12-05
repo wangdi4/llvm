@@ -532,10 +532,8 @@ namespace intel {
       /*Type=*/pFuncTy,
       /*Linkage=*/GlobalValue::ExternalLinkage,
       /*Name=*/name, m_pModule); //(external, no body)
-    pNewFunc->setCallingConv(CallingConv::C);
-
     assert( pNewFunc && "Failed to create new function declaration" );
-
+    pNewFunc->setCallingConv(CallingConv::C);
     return pNewFunc;
   }
 

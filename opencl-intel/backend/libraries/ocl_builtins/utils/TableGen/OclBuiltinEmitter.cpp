@@ -373,7 +373,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
       "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
+      const OclType* ArgTy = m_DB.getOclType(cast<DefInit>(Outs->getArg(i))->getDef()->getName());
       const std::string& ArgName = Outs->getArgNameStr(i);
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
@@ -962,6 +962,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
   {
     std::vector<Record*> Tys;
     const RecordVal* RV = R->getValue("Types");
+    assert(RV && "Invalid OclBuiltinImpl record.");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
       assert(IV && isa<ListInit>(IV->getValue()) &&
@@ -1016,6 +1017,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
   // Impl
   {
     const RecordVal* RV = R->getValue("Impl");
+    assert(RV && "Invalid OclBuiltinImpl record.");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
       if (StringInit *SI = dyn_cast<StringInit>(IV->getValue()))
@@ -1149,7 +1151,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
             assert(isa<DefInit>(Def) && "Failed to resolve some references");
           }
 
-          const Record* DefRec = dyn_cast<DefInit>(Def)->getDef();
+          const Record* DefRec = cast<DefInit>(Def)->getDef();
           const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());
 
           std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
