@@ -5943,16 +5943,11 @@ defm VMAXCSHZ : avx512_comutable_binop_s<0x5F, "vmaxsh", f16x_info, X86fmaxc,
 multiclass avx512_fp_packed<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
                             X86VectorVTInfo _, X86FoldableSchedWrite sched,
                             bit IsCommutable,
-<<<<<<< HEAD
                             bit IsKCommutable = IsCommutable,
                             string suffix = _.Suffix,
                             string ClobberConstraint = ""> {
-  let ExeDomain = _.ExeDomain, hasSideEffects = 0 in {
-=======
-                            bit IsKCommutable = IsCommutable> {
   let ExeDomain = _.ExeDomain, hasSideEffects = 0,
       Uses = [MXCSR], mayRaiseFPException = 1 in {
->>>>>>> c1c673303dcfb242efea2d0d2760e5765f9f9281
   defm rr: AVX512_maskable<opc, MRMSrcReg, _, (outs _.RC:$dst),
                   (ins _.RC:$src1, _.RC:$src2), OpcodeStr##suffix,
                   "$src2, $src1", "$src1, $src2",
@@ -5971,8 +5966,8 @@ multiclass avx512_fp_packed<bits<8> opc, string OpcodeStr, SDPatternOperator OpN
                      (ins _.RC:$src1, _.ScalarMemOp:$src2), OpcodeStr##suffix,
                      "${src2}"##_.BroadcastStr##", $src1",
                      "$src1, ${src2}"##_.BroadcastStr,
-                     (OpNode  _.RC:$src1, (_.VT (_.BroadcastLdFrag addr:$src2))), // INTEL
-                     0, 0, 0, vselect, ClobberConstraint>, // INTEL
+                     (OpNode  _.RC:$src1, (_.VT (_.BroadcastLdFrag addr:$src2))),
+                     0, 0, 0, vselect, ClobberConstraint>,
                      EVEX_4V, EVEX_B,
                      Sched<[sched.Folded, sched.ReadAfterFold]>;
     }
@@ -7272,21 +7267,13 @@ let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
   defm r_Int: AVX512_maskable_3src_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.RC:$src3), OpcodeStr,
           "$src3, $src2", "$src2, $src3", (null_frag), 1, 1>,
-<<<<<<< HEAD
-          EVEX_4V, Sched<[SchedWriteFMA.Scl]>; // INTEL
-=======
-          AVX512FMA3Base, Sched<[SchedWriteFMA.Scl]>, SIMD_EXC;
->>>>>>> c1c673303dcfb242efea2d0d2760e5765f9f9281
+          EVEX_4V, Sched<[SchedWriteFMA.Scl]>, SIMD_EXC; // INTEL
 
   let mayLoad = 1 in
   defm m_Int: AVX512_maskable_3src_scalar<opc, MRMSrcMem, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.IntScalarMemOp:$src3), OpcodeStr,
           "$src3, $src2", "$src2, $src3", (null_frag), 1, 1>,
-<<<<<<< HEAD
-          EVEX_4V, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>; // INTEL
-=======
-          AVX512FMA3Base, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, SIMD_EXC;
->>>>>>> c1c673303dcfb242efea2d0d2760e5765f9f9281
+          EVEX_4V, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, SIMD_EXC; // INTEL
 
   defm rb_Int: AVX512_maskable_3src_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
          (ins _.RC:$src2, _.RC:$src3, AVX512RC:$rc),
@@ -7298,21 +7285,12 @@ let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
                      (ins _.FRC:$src1, _.FRC:$src2, _.FRC:$src3),
                      !strconcat(OpcodeStr,
                               "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-<<<<<<< HEAD
-                     !if(MaskOnlyReg, [], [RHS_r])>, Sched<[SchedWriteFMA.Scl]>, EVEX_4V; // INTEL
+                     !if(MaskOnlyReg, [], [RHS_r])>, Sched<[SchedWriteFMA.Scl]>, EVEX_4V, SIMD_EXC; // INTEL
     def m     : AVX512<opc, MRMSrcMem, (outs _.FRC:$dst), // INTEL
                     (ins _.FRC:$src1, _.FRC:$src2, _.ScalarMemOp:$src3),
                     !strconcat(OpcodeStr,
                                "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-                    [RHS_m]>, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, EVEX_4V; // INTEL
-=======
-                     !if(MaskOnlyReg, [], [RHS_r])>, Sched<[SchedWriteFMA.Scl]>, SIMD_EXC;
-    def m     : AVX512FMA3S<opc, MRMSrcMem, (outs _.FRC:$dst),
-                    (ins _.FRC:$src1, _.FRC:$src2, _.ScalarMemOp:$src3),
-                    !strconcat(OpcodeStr,
-                               "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-                    [RHS_m]>, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, SIMD_EXC;
->>>>>>> c1c673303dcfb242efea2d0d2760e5765f9f9281
+                    [RHS_m]>, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, EVEX_4V, SIMD_EXC; // INTEL
 
     def rb    : AVX512<opc, MRMSrcReg, (outs _.FRC:$dst), // INTEL
                      (ins _.FRC:$src1, _.FRC:$src2, _.FRC:$src3, AVX512RC:$rc),
@@ -7846,13 +7824,8 @@ multiclass avx512_cvt_s_int_round<bits<8> opc, X86VectorVTInfo SrcVT,
                 !strconcat(asm,"\t{$src, $dst|$dst, $src}"),
                 [(set DstVT.RC:$dst, (OpNode
                       (SrcVT.VT SrcVT.ScalarIntMemCPat:$src)))]>,
-<<<<<<< HEAD
-                EVEX, VEX_LIG, Sched<[sched.Folded, sched.ReadAfterFold]>;
-  } // Predicates = [prd] // INTEL
-=======
                 EVEX, VEX_LIG, Sched<[sched.Folded, sched.ReadAfterFold]>, SIMD_EXC;
-  } // Predicates = [HasAVX512]
->>>>>>> c1c673303dcfb242efea2d0d2760e5765f9f9281
+  } // Predicates = [prd] // INTEL
 
   def : InstAlias<"v" # asm # aliasStr # "\t{$src, $dst|$dst, $src}",
           (!cast<Instruction>(NAME # "rr_Int") DstVT.RC:$dst, SrcVT.RC:$src), 0, "att">;
@@ -8004,13 +7977,8 @@ let Predicates = [prd], ExeDomain = _SrcRC.ExeDomain in { // INTEL
               !strconcat(asm,"\t{$src, $dst|$dst, $src}"),
               [(set _DstRC.RC:$dst,
                 (OpNodeInt (_SrcRC.VT _SrcRC.ScalarIntMemCPat:$src)))]>,
-<<<<<<< HEAD
-              EVEX, VEX_LIG, Sched<[sched.Folded, sched.ReadAfterFold]>;
-} // Predicates = [prd] // INTEL
-=======
               EVEX, VEX_LIG, Sched<[sched.Folded, sched.ReadAfterFold]>, SIMD_EXC;
-} //HasAVX512
->>>>>>> c1c673303dcfb242efea2d0d2760e5765f9f9281
+} // Predicates = [prd] // INTEL
 
   def : InstAlias<asm # aliasStr # "\t{$src, $dst|$dst, $src}",
           (!cast<Instruction>(NAME # "rr_Int") _DstRC.RC:$dst, _SrcRC.RC:$src), 0, "att">;
