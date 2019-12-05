@@ -6192,13 +6192,11 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
     if ((getLangOpts().OpenCLCPlusPlus || getLangOpts().OpenCLVersion >= 200) &&
         Var->hasGlobalStorage())
       ImplAS = LangAS::opencl_global;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Context.getBaseElementType(Type)->isChannelType())
       ImplAS = LangAS::opencl_global;
 #endif // INTEL_CUSTOMIZATION
 
-=======
     // If the original type from a decayed type is an array type and that array
     // type has no address space yet, deduce it now.
     if (auto DT = dyn_cast<DecayedType>(Type)) {
@@ -6212,7 +6210,6 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
         Type = Context.getDecayedType(OrigTy);
       }
     }
->>>>>>> 0023d393987bfef8642eff250522255d946ecd75
     Type = Context.getAddrSpaceQualType(Type, ImplAS);
     // Apply any qualifiers (including address space) from the array type to
     // the element type. This implements C99 6.7.3p8: "If the specification of
