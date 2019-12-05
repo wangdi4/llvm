@@ -24,17 +24,20 @@
 #ifndef __CSAINTRIN_H
 #define __CSAINTRIN_H
 
+typedef float           __m64f __attribute__((__vector_size__(8))); // Used for fp32x2
+
+#ifdef __CSA__
 /* Define the types for vector types on CSA */
 // q: denotes  8 bits long
 // h: denotes 16 bits long
-typedef _Float16        __m64h __attribute__((__vector_size__(8))); // Used for fp16x4
-typedef float           __m64f __attribute__((__vector_size__(8))); // Used for fp32x2
 
+typedef _Float16        __m64h __attribute__((__vector_size__(8))); // Used for fp16x4
 typedef signed char     __v8qi __attribute__((__vector_size__(8))); // Used for signed int8x8
 typedef unsigned char   __v8qu __attribute__((__vector_size__(8))); // Used for unsigned int8x8
 typedef short           __v4hi __attribute__((__vector_size__(8))); // Used for signed int16x4
 typedef unsigned short  __v4hu __attribute__((__vector_size__(8))); // Used for unsigned int16x4
 typedef long long       __m64i __attribute__((__vector_size__(8))); // Used for signatures (int8x8, int16x4, etc.)
+#endif
 
 /* Disable and swizzle enums */
 typedef enum {
@@ -435,6 +438,7 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
   (__m64f)(__builtin_shufflevector((__m64f)(A), (__m64f)(B), (M), (N)))
 
 
+#ifdef __CSA__
 /*
  * Integer vector Intrinsics
  */
@@ -504,6 +508,7 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_sub_epi16(__m64i a, __m64i b)
 {
   return (__m64i)((__v4hi)a - (__v4hi)b);
 }
+#endif
 
 #undef __DEFAULT_FN_ATTRS
 
