@@ -456,8 +456,13 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     VecArgTys.push_back(VecArg->getType());
   }
 
-  // We're done, unless we have an additional mask parameter to process that
-  // wasn't part of the original (scalar) call.
+  // Process mask parameters
+  StringRef VecFnName = TLI->getVectorizedFunction(FnName, VF, MaskValue);
+  if (MaskValue && !VecFnName.empty() &&
+      isSVMLFunction(TLI, FnName, VecFnName)) {
+    addMaskToSVMLCall(F, VecArgs, VecArgTys);
+    return;
+  }
   if (!VecVariant || !VecVariant->isMasked())
     return;
 

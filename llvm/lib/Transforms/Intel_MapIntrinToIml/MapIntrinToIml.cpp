@@ -1058,8 +1058,6 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
 }
 
 bool MapIntrinToIml::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   return Impl.runImpl(F, TTI, TLI);

@@ -3208,6 +3208,8 @@ def mamx_int8_evex : Flag<["-"], "mamx-int8-evex">, Group<m_x86_Features_Group>;
 def mno_amx_int8_evex : Flag<["-"], "mno-amx-int8-evex">, Group<m_x86_Features_Group>;
 def mamx_tile_evex : Flag<["-"], "mamx-tile-evex">, Group<m_x86_Features_Group>;
 def mno_amx_tile_evex : Flag<["-"], "mno-amx-tile-evex">, Group<m_x86_Features_Group>;
+def mamx_element_evex : Flag<["-"], "mamx-element-evex">, Group<m_x86_Features_Group>;
+def mno_amx_element_evex : Flag<["-"], "mno-amx-element-evex">, Group<m_x86_Features_Group>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION

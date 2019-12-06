@@ -440,6 +440,7 @@ protected:
   bool HasAMXINT8EVEX = false;
   bool HasAMXTILEEVEX = false;
   bool HasAMXBF16EVEX = false;
+  bool HasAMXELEMENTEVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
@@ -818,6 +819,7 @@ public:
   bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
   bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
   bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
+  bool hasAMXELEMENTEVEX() const { return HasAMXELEMENTEVEX; }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }

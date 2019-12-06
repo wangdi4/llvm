@@ -2550,6 +2550,52 @@ void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
   Builder.CreateStore(VecCall, VecReadDst);
 }
 
+void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
+                                   SmallVectorImpl<Value *> &VecArgs,
+                                   SmallVectorImpl<Type *> &VecArgTys) {
+  assert(MaskValue && "Expected mask to be present");
+  VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
+  assert(VecTy->getVectorNumElements() ==
+             MaskValue->getType()->getVectorNumElements() &&
+         "Re-vectorization of SVML functions is not supported yet");
+
+  if (VecTy->getBitWidth() < 512) {
+    // For 128-bit and 256-bit masked calls, mask value is appended to the
+    // parameter list. For example:
+    //
+    //  %sin.vec = call <4 x float> @__svml_sinf4_mask(<4 x float>, <4 x i32>)
+    VectorType *MaskTyExt = VectorType::get(
+        IntegerType::get(OrigF->getContext(), VecTy->getScalarSizeInBits()),
+        VecTy->getElementCount());
+    Value *MaskValueExt = Builder.CreateSExt(MaskValue, MaskTyExt);
+    VecArgTys.push_back(MaskTyExt);
+    VecArgs.push_back(MaskValueExt);
+  } else {
+    // Compared with 128-bit and 256-bit calls, 512-bit masked calls need extra
+    // pass-through source parameters. We don't care about masked-out lanes, so
+    // just pass undef for that parameter. For example:
+    //
+    // %sin.vec = call <16 x float> @__svml_sinf16_mask(<16 x float>, <16 x i1>,
+    //            <16 x float>)
+    SmallVector<Type *, 1> NewArgTys;
+    SmallVector<Value *, 1> NewArgs;
+
+    Constant *Undef = UndefValue::get(VecTy);
+
+    NewArgTys.push_back(VecTy);
+    NewArgs.push_back(Undef);
+
+    NewArgTys.push_back(MaskValue->getType());
+    NewArgs.push_back(MaskValue);
+
+    NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
+    NewArgs.append(VecArgs.begin(), VecArgs.end());
+
+    VecArgTys = std::move(NewArgTys);
+    VecArgs = std::move(NewArgs);
+  }
+}
+
 void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
@@ -2608,8 +2654,13 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
     VecArgTys.push_back(VecArg->getType());
   }
 
-  // We're done, unless we have an additional mask parameter to process that
-  // wasn't part of the original (scalar) call.
+  // Process mask parameters
+  StringRef VecFnName = TLI->getVectorizedFunction(FnName, VF, MaskValue);
+  if (MaskValue && !VecFnName.empty() &&
+      isSVMLFunction(TLI, FnName, VecFnName)) {
+    addMaskToSVMLCall(F, VecArgs, VecArgTys);
+    return;
+  }
   if (!VecVariant || !VecVariant->isMasked())
     return;
 

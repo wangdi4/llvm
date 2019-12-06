@@ -1,7 +1,7 @@
 // REQUIRES: intel_feature_isa_amx_lnc
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
-// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f \
+// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex \
 // RUN: -emit-llvm -fsyntax-only -verify
 
 #include <immintrin.h>
@@ -473,4 +473,18 @@ void test_tile_tilemove() {
 
 void test_tile_tilezeroe() {
   _tile_zeroe(32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+}
+
+void test_tile_cvtd2pse(void *A, size_t B) {
+  _tile_cvtd2pse(A, B, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+}
+
+void test_tile_cvtrowd2psei() {
+  _tile_cvtrowd2psei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_cvtrowd2psei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+typedef unsigned int uint32_t;
+void test_tile_cvtrowd2psee(uint32_t A) {
+  _tile_cvtrowd2psee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }

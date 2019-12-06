@@ -320,6 +320,10 @@ def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX",
                                       "Support AMX amx-bf16-evex instructions",
                                       [FeatureAMXTILE]>;
 
+def FeatureAMXELEMENTEVEX     : SubtargetFeature<"amx-element-evex", "HasAMXELEMENTEVEX", "true",
+                                      "Support AMX amx-element-evex instructions",
+                                      [FeatureAMXTILE]>;
+
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",

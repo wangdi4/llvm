@@ -874,7 +874,8 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AMX_LNC
     Features["amx-transpose"] = Features["amx-fp16"] =
     Features["amx-avx512"] = Features["amx-bf16-evex"] =
-    Features["amx-int8-evex"] = Features["amx-tile-evex"] = false;
+    Features["amx-int8-evex"] = Features["amx-tile-evex"] =
+    Features["amx-element-evex"] = false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX
   }
@@ -888,7 +889,8 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
   else if ((Name == "amx-transpose" || Name == "amx-tile-evex" ||
-            Name == "amx-int8-evex"|| Name == "amx-bf16-evex") && Enabled)
+            Name == "amx-int8-evex"|| Name == "amx-bf16-evex" ||
+            Name == "amx-element-evex") && Enabled)
     Features["amx-tile"] = true;
   else if (Name == "amx-fp16" && Enabled) {
     Features["amx-tile"] = true;
@@ -1096,6 +1098,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXINT8EVEX = true;
     } else if (Feature == "+amx-tile-evex") {
       HasAMXTILEEVEX = true;
+    } else if (Feature == "+amx-element-evex") {
+      HasAMXELEMENTEVEX = true;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
     } else if (Feature == "+avxvnni") {
@@ -1580,6 +1584,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXINT8EVEX__");
   if (HasAMXTILEEVEX)
     Builder.defineMacro("__AMXTILEEVEX__");
+  if (HasAMXELEMENTEVEX)
+    Builder.defineMacro("__AMXELEMENTEVEX__");
   Builder.defineMacro("__AMX_LNC_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
@@ -1722,6 +1728,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-bf16-evex", true)
       .Case("amx-int8-evex", true)
       .Case("amx-tile-evex", true)
+      .Case("amx-element-evex", true)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
@@ -1851,6 +1858,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-bf16-evex", HasAMXBF16EVEX)
       .Case("amx-int8-evex", HasAMXINT8EVEX)
       .Case("amx-tile-evex", HasAMXTILEEVEX)
+      .Case("amx-element-evex", HasAMXELEMENTEVEX)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", HasAVXVNNI)
