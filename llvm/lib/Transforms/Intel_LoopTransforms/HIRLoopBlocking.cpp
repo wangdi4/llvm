@@ -382,15 +382,16 @@ void populateTCs(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
 // NewOutermost will be updated if the given OutermostLoop's TC
 // is smaller then the threshold.
 unsigned calcConsecutiveDepthOverTCThreshold(
-    const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
-    HLLoop *&NewOutermost, const DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
+    HLLoop *InnermostLoop, const HLLoop *OutermostLoop, HLLoop *&NewOutermost,
+    const DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
 
   auto IsConstTC = [](uint64_t TC) { return TC > 0; };
 
   // Scan from Innermost outerward
   // See if TC is constant and over a certain threshold
+  NewOutermost = InnermostLoop;
   unsigned ConsecutiveDepth = 0;
-  for (const HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
+  for (HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
        Lp != ELp; Lp = Lp->getParentLoop()) {
     uint64_t TCAtLevel = LoopToTC.find(Lp)->second;
     // non-const TC has TCAtLevel zero
@@ -400,7 +401,7 @@ unsigned calcConsecutiveDepthOverTCThreshold(
       }
     }
     ConsecutiveDepth++;
-    NewOutermost = const_cast<HLLoop *>(Lp);
+    NewOutermost = Lp;
   }
 
   return ConsecutiveDepth;
@@ -431,48 +432,12 @@ unsigned calcConsecutiveDepthOverTCThreshold(
 // Default algorithm is by setting  BlockingAlgorithm = matmul.
 bool determineProfitableStripmineLoop(
     const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
-    const MemRefGatherer::VectorTy &Refs, LoopSetTy &LoopsToStripmine,
+    ArrayRef<int> NumRefsWithSmallStrides, ArrayRef<int> NumRefsMissingAtLevel,
     const DenseMap<const HLLoop *, unsigned> &LoopToBS,
-    SmallVectorImpl<unsigned> &ToStripLevels) {
+    LoopSetTy &LoopsToStripmine) {
 
-  unsigned OuterLevel = OutermostLoop->getNestingLevel();
   unsigned InnerLevel = InnermostLoop->getNestingLevel();
-  SmallVector<int, MaxLoopNestLevel + 1> NumRefsMissingAtLevel(
-      MaxLoopNestLevel + 1, 0);
-  SmallVector<int, MaxLoopNestLevel + 1> NumRefsWithSmallStrides(
-      MaxLoopNestLevel + 1, 0);
-  for (const RegDDRef *Ref : Refs) {
-
-    for (unsigned Level = OuterLevel; Level <= InnerLevel; Level++) {
-      int64_t Stride = 0;
-      if (Ref->getConstStrideAtLevel(Level, &Stride) && Stride >= 1 &&
-          // TODO: Adjust LoopBlockigStrideThreshold by
-          //       the element type size if needed
-          Stride <= LoopBlockingStrideThreshold) {
-        // This logic is for implementing finding a loop level
-        // whose subscript is found in contiguous dimension of a ref.
-        // After all, this is a heuristic.
-
-        NumRefsWithSmallStrides[Level]++;
-      }
-
-      // TODO: Consider using isInvariantAt..
-      // Do we want to check Ref->isInvariantAtLevel() instead?
-      // Even if it doesn't contains IVs, it may have blobs.
-      // Might become more important for handling non-perfect loop nest
-      bool LevelSeen = Ref->hasIV(Level);
-
-      if (!LevelSeen &&
-          (std::any_of(Ref->canon_begin(), Ref->canon_end(),
-                       [](const CanonExpr *CE) { return CE->hasIV(); }))) {
-        // Ref should have at least one IV.
-        // If Ref has no IV (e.g. A[0]),
-        // the ref should be ignored.
-
-        NumRefsMissingAtLevel[Level]++;
-      }
-    } // all level
-  }
+  unsigned OuterLevel = OutermostLoop->getNestingLevel();
 
   // Stripmining from the parent of the innermost
   // Scan from inner to outer, and choose loops to stripmine
@@ -509,7 +474,6 @@ bool determineProfitableStripmineLoop(
       LLVM_DEBUG(dbgs() << "Loop at Level " << ToStripmine->getNestingLevel()
                         << " will be stripmined\n");
       LoopsToStripmine.insert(ToStripmine);
-      ToStripLevels.push_back(ToStripmine->getNestingLevel());
     }
   }
 
@@ -517,7 +481,8 @@ bool determineProfitableStripmineLoop(
   // Experiments in skx showed blocking all three levels of matrix
   // multiplication gives best performance.
   if (LoopBlockingAlgorithm == MatMul &&
-      (std::any_of(NumRefsMissingAtLevel.begin(), NumRefsMissingAtLevel.end(),
+      (std::any_of(std::next(NumRefsMissingAtLevel.begin(), OuterLevel),
+                   std::next(NumRefsMissingAtLevel.begin(), InnerLevel + 1),
                    [](int Num) { return Num > 0; }))) {
 
     auto StripmineSize = LoopToBS.find(InnermostLoop)->second;
@@ -529,7 +494,6 @@ bool determineProfitableStripmineLoop(
                         << InnermostLoop->getNestingLevel()
                         << " will be stripmined\n");
       LoopsToStripmine.insert(const_cast<HLLoop *>(InnermostLoop));
-      ToStripLevels.push_back(InnermostLoop->getNestingLevel());
     }
   }
 
@@ -581,10 +545,12 @@ bool isValidToBlock(DirectionVector &DV, unsigned OutermostLevel,
   return true;
 }
 
-bool isLegalToStripmineAndInterchange(
-    const SmallVectorImpl<unsigned> &ToStripLevels, const HLLoop *OutermostLoop,
-    const HLLoop *InnermostLoop, HIRDDAnalysis &DDA,
-    HIRSafeReductionAnalysis &SRA, bool RefineDV) {
+bool isLegalToStripmineAndInterchange(const LoopSetTy &LoopToStrip,
+                                      const HLLoop *OutermostLoop,
+                                      const HLLoop *InnermostLoop,
+                                      HIRDDAnalysis &DDA,
+                                      HIRSafeReductionAnalysis &SRA,
+                                      bool RefineDV) {
 
   // Collect DVs
   SmallVector<DirectionVector, 16> DVs;
@@ -604,143 +570,159 @@ bool isLegalToStripmineAndInterchange(
 
   unsigned OutermostLevel = OutermostLoop->getNestingLevel();
   for (auto &DV : DVs) {
-    for (unsigned I : ToStripLevels) {
+    // TODO: It looks to me instead of for loop, we can only check
+    //       maximum level (i.e. innermost level of ToStripLevels),
+    //       after going over isValidToBlock's logic. But not completely sure
+    //       for now.
+    for (auto Lp : LoopToStrip) {
 
-      if (!isValidToBlock(DV, OutermostLevel, I)) {
+      if (!isValidToBlock(DV, OutermostLevel, Lp->getNestingLevel())) {
         return false;
       }
     }
   }
   return true;
+} // namespace
+
+void countProBlockingRefs(ArrayRef<RegDDRef *> Refs,
+                          SmallVectorImpl<int> &NumRefsWithSmallStrides,
+                          SmallVectorImpl<int> &NumRefsMissingAtLevel) {
+
+  for (const RegDDRef *Ref : Refs) {
+
+    for (auto Level :
+         make_range(AllLoopLevelRange::begin(), AllLoopLevelRange::end())) {
+      int64_t Stride = 0;
+      if (Ref->getConstStrideAtLevel(Level, &Stride) && Stride >= 1 &&
+          // TODO: Adjust LoopBlockigStrideThreshold by
+          //       the element type size if needed
+          Stride <= LoopBlockingStrideThreshold) {
+        // This logic is for implementing finding a loop level
+        // whose subscript is found in contiguous dimension of a ref.
+        // After all, this is a heuristic.
+
+        NumRefsWithSmallStrides[Level]++;
+      }
+
+      // TODO: Consider using isInvariantAt..
+      // Do we want to check Ref->isInvariantAtLevel() instead?
+      // Even if it doesn't contains IVs, it may have blobs.
+      // Might become more important for handling non-perfect loop nest
+      bool LevelSeen = Ref->hasIV(Level);
+
+      if (!LevelSeen &&
+          (std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                       [](const CanonExpr *CE) { return CE->hasIV(); }))) {
+        // Ref should have at least one IV.
+        // If Ref has no IV (e.g. A[0]),
+        // the ref should be ignored.
+
+        NumRefsMissingAtLevel[Level]++;
+      }
+    } // all level
+  }
 }
 
-class CandidateCollector final : public HLNodeVisitorBase {
-public:
-  bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
+// Returns the outermost loop where blocking will be applied
+// in the range of [outermost, InnermostLoop]
+HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
+                            HLLoop *InnermostLoop, LoopSetTy &LoopToStrip) {
 
-  void visit(HLLoop *Loop) {
+  // Get the highest outermost ancestor of given InnermostLoop
+  // that can make a perfect loop nest.
+  bool IsNearPerfect = false;
+  const HLLoop *HighestAncestor =
+      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop,
+                                                        IsNearPerfect);
 
-    if (Loop->isInnermost()) {
-      SkipNode = Loop;
-      return;
-    }
+  // Sink-pass is run before, so all near-perfect would have been perfect by
+  // now.
+  // If it is still IsNearPerfect, sinking pass was not able to
+  // enable a perfect loop nest. Just bail out.
+  if (IsNearPerfect) {
+    LLVM_DEBUG(dbgs() << "Failed: NearPerfect loop can"
+                         "not become a perfect loop.\n");
 
-    const HLLoop *ConstInnermostLoop = nullptr;
-    bool IsPerfectNest =
-        HLNodeUtils::isPerfectLoopNest(Loop, &ConstInnermostLoop, false);
-    if (!IsPerfectNest) {
-      LLVM_DEBUG(dbgs() << "Failed: Not a perfect loop\n");
-      return;
-    }
-
-    HLLoop *InnermostLoop = const_cast<HLLoop *>(ConstInnermostLoop);
-    if (HLS.getTotalLoopStatistics(InnermostLoop)
-            .hasCallsWithUnsafeSideEffects()) {
-      SkipNode = Loop;
-      return;
-    }
-
-    // Gather DDRefs in the InnermostLoop
-    MemRefGatherer::VectorTy Refs;
-    MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
-                                InnermostLoop->child_end(), Refs);
-    LLVM_DEBUG(dbgs() << "Innermost Loop references:\n");
-    LLVM_DEBUG(MemRefGatherer::dump(Refs));
-
-    // Now Loop is a perfect loop nest
-    if (std::any_of(Refs.begin(), Refs.end(),
-                    [](const RegDDRef *Ref) { return Ref->isNonLinear(); })) {
-      LLVM_DEBUG(dbgs() << "Failed: nonlinear ref in the innermost loop\n");
-      // If any Ref is a non-linear, give up here.
-      SkipNode = Loop;
-      return;
-    }
-
-    unsigned MaxDimension =
-        calcMaxVariantDimension(Refs, Loop->getNestingLevel());
-    if (!DisableLoopDepthCheck) {
-      // A heuristic choice: Choose not to block. Stop here.
-      // This check is useful for blocking typical matrix multiplication.
-
-      unsigned LoopDepth =
-          InnermostLoop->getNestingLevel() - Loop->getNestingLevel() + 1;
-      if (LoopDepth <= MaxDimension) {
-        LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < LoopDepth "
-                          << MaxDimension << "," << LoopDepth << "\n");
-        SkipNode = Loop;
-        return;
-      }
-    }
-
-    // Now scan through loop nest's TC
-    HLLoop *NewOutermost = Loop;
-    DenseMap<const HLLoop *, uint64_t> LoopToTC;
-    populateTCs(InnermostLoop, Loop, LoopToTC);
-    unsigned ConsecutiveDepth = calcConsecutiveDepthOverTCThreshold(
-        InnermostLoop, Loop, NewOutermost, LoopToTC);
-
-    // A heuristic choice potentially to be changed:
-    // For example, in a typical matrix multiplication,
-    // loop depth is 3 (i, j, k loops) and maximum number of dimensions
-    // is 2 ([i][j], [i][k], [k][j]).
-    // The loop depth is refined so that TC of a participating loop
-    // is at least a TCThreshold.
-    if (ConsecutiveDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
-                        << MaxDimension << "," << ConsecutiveDepth << "\n");
-      // Choose not to block. Stop here.
-      SkipNode = Loop;
-      return;
-    }
-
-    // Adjust BlockSize (a.k.a stripmine size) depending on TC
-    DenseMap<const HLLoop *, unsigned> LoopToBS;
-    adjustBlockSize(LoopToTC, LoopToBS);
-
-    LoopSetTy ToStripmines;
-
-    // SmallSet does not allow iteration, auxiliary data structure
-    SmallVector<unsigned, MaxLoopNestLevel> ToStripLevels;
-    bool IsToStripmine =
-        determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
-                                         ToStripmines, LoopToBS, ToStripLevels);
-    if (!IsToStripmine) {
-      LLVM_DEBUG(dbgs() << "Failed: at determineProfitableStipmineLoop\n";);
-      SkipNode = Loop;
-      return;
-    }
-
-    if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
-                                         InnermostLoop, DDA, SRA, false)) {
-      OutermostToStrips.emplace_back(NewOutermost, InnermostLoop, ToStripmines);
-      // Done with this loopnest. We are going to work on this loopnest.
-      SkipNode = Loop;
-    } else {
-      LLVM_DEBUG(dbgs() << "Failed: at isLegalToStripmineAndInterchange\n";);
-      // Inner loop nests will have second chances
-      // because it was invalid with respected to this outer loop.
-    }
-
-    return;
+    return nullptr;
   }
 
-  void visit(const HLNode *) {}
-  void postVisit(const HLNode *) {}
+  if (!HighestAncestor) {
+    // Blocking is not applied to depth-1 loop nest.
+    LLVM_DEBUG(dbgs() << "Failed: Innermost is not Do-loop. \n");
 
-public:
-  CandidateCollector(HIRDDAnalysis &DDAnalysis, HIRSafeReductionAnalysis &SRA,
-                     HIRLoopStatistics &HLS,
-                     BlockingLoopNestInfoTy &CandidateLoops)
-      : SkipNode(nullptr), DDA(DDAnalysis), SRA(SRA), HLS(HLS),
-        OutermostToStrips(CandidateLoops) {}
+    return nullptr;
+  }
 
-private:
-  HLNode *SkipNode;
-  HIRDDAnalysis &DDA;
-  HIRSafeReductionAnalysis &SRA;
-  HIRLoopStatistics &HLS;
-  BlockingLoopNestInfoTy &OutermostToStrips;
-};
+  if (HighestAncestor == InnermostLoop) {
+    // Blocking is not applied to depth-1 loop nest.
+    LLVM_DEBUG(dbgs() << "Failed: HighestAncestor is Innermost. \n");
+
+    return nullptr;
+  }
+
+  // Checking non-linear refs
+  MemRefGatherer::VectorTy Refs;
+  MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
+                              InnermostLoop->child_end(), Refs);
+  // TODO: see if pre-header and post-exit refs better be added.
+  //       Currently, they are not added.
+  if (std::any_of(Refs.begin(), Refs.end(),
+                  [](const RegDDRef *Ref) { return Ref->isNonLinear(); })) {
+    LLVM_DEBUG(dbgs() << "Failed: nonlinear memref in the innermost loop\n");
+    // If any Ref is a non-linear, give up here.
+    return nullptr;
+  }
+
+  // Currently, countings are done per level for all levels
+  SmallVector<int, MaxLoopNestLevel + 1> NumRefsWithSmallStrides(
+      MaxLoopNestLevel + 1, 0);
+  SmallVector<int, MaxLoopNestLevel + 1> NumRefsMissingAtLevel(
+      MaxLoopNestLevel + 1, 0);
+  countProBlockingRefs(Refs, NumRefsWithSmallStrides, NumRefsMissingAtLevel);
+
+  DenseMap<const HLLoop *, uint64_t> LoopToTC;
+  populateTCs(InnermostLoop, HighestAncestor, LoopToTC);
+
+  HLLoop *AdjustedHighestAncestor = InnermostLoop;
+  unsigned ConsecutiveDepth = calcConsecutiveDepthOverTCThreshold(
+      InnermostLoop, HighestAncestor, AdjustedHighestAncestor, LoopToTC);
+
+  LLVM_DEBUG(dbgs() << "ConsecutiveDepth: " << ConsecutiveDepth << "\n");
+  (void)ConsecutiveDepth;
+
+  // Adjust BlockSize (a.k.a stripmine size) depending on TC
+  DenseMap<const HLLoop *, unsigned> LoopToBS;
+  adjustBlockSize(LoopToTC, LoopToBS);
+
+  // Now Different Outermost Loop is tried.
+  // Outermost loop's level increased per try.
+  // When the first legal/profitable loopnest is found, tries stop.
+  for (HLLoop *Lp = AdjustedHighestAncestor; Lp != InnermostLoop;
+       Lp = cast<HLLoop>(Lp->getFirstChild())) {
+
+    LoopToStrip.clear();
+
+    bool IsToStripmine = determineProfitableStripmineLoop(
+        InnermostLoop, Lp, NumRefsWithSmallStrides, NumRefsMissingAtLevel,
+        LoopToBS, LoopToStrip);
+    if (!IsToStripmine) {
+      LLVM_DEBUG(dbgs() << "Failed: at Outermost Level "
+                        << Lp->getNestingLevel()
+                        << " determineProfitableStipmineLoop\n";);
+      // Try inner loopnest
+      continue;
+    }
+
+    if (isLegalToStripmineAndInterchange(LoopToStrip, Lp, InnermostLoop, DDA,
+                                         SRA, false)) {
+      // Deepest candidate nest is found. At this point, we don't worry about
+      // trying inner loop nests. Record the result and return with success;
+      return Lp;
+    }
+  }
+
+  return nullptr;
+}
 
 // LoopVectors contains loops at levels from [OutermostLoopLevel, ..]
 // Whenever a loop's level is given, it should be adjusted by OutermostLoopLevel
@@ -844,105 +826,110 @@ const HLLoop *getLoopForReferingInfoBeforePermutation(
 }
 
 // Do stripmine & interchange
-void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips,
-                      StringRef FuncName) {
-
-  for (auto &Triple : CandidateRangeToStrips) {
-
-    // Stripmine
-    LoopSetTy ByStripLoops;
-
-    HLLoop *OutermostLoop;
-    HLLoop *InnermostLoop;
-    LoopSetTy ToStripmines;
-    std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
+void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
+                      const LoopSetTy &ToStripmines, StringRef FuncName) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (PrintBlockedLoops) {
-      dbgs() << "== Before blocking in " << FuncName << " == \n";
-      OutermostLoop->dump();
-    }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-    InnermostLoop->setIsUndoSinkingCandidate(false);
-
-    HLLoop *NewOutermostLoop = stripmineSelectedLoops(
-        InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);
-
-    assert(!ByStripLoops.empty() && "Should be stripmined somewhere");
-
-    // Populate Permutation
-    int TotalDepth = InnermostLoop->getNestingLevel() -
-                     NewOutermostLoop->getNestingLevel() + 1;
-    SmallVector<const HLLoop *, MaxLoopNestLevel> LoopPermutation(TotalDepth,
-                                                                  nullptr);
-    populatePermutation(NewOutermostLoop, InnermostLoop, ByStripLoops,
-                        LoopPermutation);
-
-    // Interchange
-    HIRTransformUtils::permuteLoopNests(NewOutermostLoop, LoopPermutation,
-                                        InnermostLoop->getNestingLevel());
-
-    SmallVector<HLLoop *, MaxLoopNestLevel> CurLoopNests;
-    ForEach<HLLoop>::visit(NewOutermostLoop, [&CurLoopNests](HLLoop *Lp) {
-      CurLoopNests.push_back(Lp);
-    });
-
-    // Add OptReport after permutation.
-    // ToStripmines knows which loops are blocked in terms of the level
-    // before the permutation happens.
-    LoopOptReportBuilder &LORBuilder = CurLoopNests.front()
-                                           ->getHLNodeUtils()
-                                           .getHIRFramework()
-                                           .getLORBuilder();
-    for (auto Lp : CurLoopNests) {
-      const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
-          Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
-      if (ToStripmines.count(OrigLoop))
-        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop is blocked");
-    }
-
-    // Hoist min var's definitions to Destination Levels
-    LLVM_DEBUG(NewOutermostLoop->dump(1));
-    hoistMinDefs(ByStripLoops, LoopPermutation, CurLoopNests);
-    LLVM_DEBUG(dbgs() << "after hoist\n");
-    LLVM_DEBUG(NewOutermostLoop->dump());
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (PrintBlockedLoops) {
-      dbgs() << "== After blocking in " << FuncName << " == \n";
-      NewOutermostLoop->dump();
-    }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-    // Invalidate
-    NewOutermostLoop->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateLoopNestBody(NewOutermostLoop);
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(NewOutermostLoop);
+  if (PrintBlockedLoops) {
+    dbgs() << "== Before blocking in " << FuncName << " == \n";
+    OutermostLoop->dump();
   }
-}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  InnermostLoop->setIsUndoSinkingCandidate(false);
+
+  // Stripmine
+  LoopSetTy ByStripLoops;
+  HLLoop *NewOutermostLoop = stripmineSelectedLoops(
+      InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);
+
+  assert(!ByStripLoops.empty() && "Should be stripmined somewhere");
+
+  // Populate Permutation
+  int TotalDepth = InnermostLoop->getNestingLevel() -
+                   NewOutermostLoop->getNestingLevel() + 1;
+  SmallVector<const HLLoop *, MaxLoopNestLevel> LoopPermutation(TotalDepth,
+                                                                nullptr);
+  populatePermutation(NewOutermostLoop, InnermostLoop, ByStripLoops,
+                      LoopPermutation);
+
+  // Interchange
+  HIRTransformUtils::permuteLoopNests(NewOutermostLoop, LoopPermutation,
+                                      InnermostLoop->getNestingLevel());
+
+  SmallVector<HLLoop *, MaxLoopNestLevel> CurLoopNests;
+  ForEach<HLLoop>::visit(NewOutermostLoop, [&CurLoopNests](HLLoop *Lp) {
+    CurLoopNests.push_back(Lp);
+  });
+
+  // Add OptReport after permutation.
+  // ToStripmines knows which loops are blocked in terms of the level
+  // before the permutation happens.
+  LoopOptReportBuilder &LORBuilder =
+      CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  for (auto Lp : CurLoopNests) {
+    const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
+        Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
+    if (ToStripmines.count(OrigLoop))
+      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop is blocked");
+  }
+
+  // Hoist min var's definitions to Destination Levels
+  LLVM_DEBUG(NewOutermostLoop->dump(1));
+  hoistMinDefs(ByStripLoops, LoopPermutation, CurLoopNests);
+  LLVM_DEBUG(dbgs() << "after hoist\n");
+  LLVM_DEBUG(NewOutermostLoop->dump());
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintBlockedLoops) {
+    dbgs() << "== After blocking in " << FuncName << " == \n";
+    NewOutermostLoop->dump();
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  // Invalidate
+  NewOutermostLoop->getParentRegion()->setGenCode();
+  HIRInvalidationUtils::invalidateLoopNestBody(NewOutermostLoop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(NewOutermostLoop);
+} // namespace
 
 bool doLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                     HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &HLS) {
 
-  BlockingLoopNestInfoTy CandidateRangeToStrips;
-  CandidateCollector BlockingCandidateCollector(DDA, SRA, HLS,
-                                                CandidateRangeToStrips);
-  HIRF.getHLNodeUtils().visitAll(BlockingCandidateCollector);
+  // Collect innermost loops first
+  // Many of collections of data can be applied because we are
+  // working on perfect or near-perfect loop
+  // TODO: replace with loop-only iterator
+  //       Keeping all innermost loops in all regions is not ideal.
+  SmallVector<HLLoop *, 32> InnermostLoops;
+  (HIRF.getHLNodeUtils()).gatherInnermostLoops(InnermostLoops);
 
-  if (CandidateRangeToStrips.empty()) {
-    return false;
+  bool Changed = false;
+  for (auto *InnermostLoop : InnermostLoops) {
+
+    if (HLS.getTotalLoopStatistics(InnermostLoop)
+            .hasCallsWithUnsafeSideEffects())
+      continue;
+
+    LoopSetTy LoopToStrip;
+    HLLoop *OutermostLoop =
+        findLoopNestToBlock(DDA, SRA, InnermostLoop, LoopToStrip);
+
+    if (!OutermostLoop)
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Loop to Block: \n");
+    LLVM_DEBUG(OutermostLoop->dump());
+    assert(OutermostLoop != InnermostLoop);
+    assert(!LoopToStrip.empty());
+
+    doTransformation(OutermostLoop, InnermostLoop, LoopToStrip,
+                     HIRF.getFunction().getName());
+
+    Changed = true;
   }
 
-  for (auto &Triple : CandidateRangeToStrips) {
-    assert(!(std::get<2>(Triple)).empty() && "An empty entry");
-    (void)Triple;
-  }
-
-  // Do transformation
-  doTransformation(CandidateRangeToStrips, HIRF.getFunction().getName());
-
-  return true;
+  return Changed;
 }
 
 } // namespace
