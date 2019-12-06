@@ -221,7 +221,7 @@ static void instantiateDependentHLSOneConstantPowerTwoValueAttr(
 
 static void instantiateDependentHLSBankBitsAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const BankBitsAttr *BBA, Decl *New) {
+    const IntelFPGABankBitsAttr *BBA, Decl *New) {
   // The bank_bits expressions are constant expressions.
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
@@ -233,7 +233,7 @@ static void instantiateDependentHLSBankBitsAttr(
       return;
     Args.push_back(Result.getAs<Expr>());
   }
-  S.AddBankBitsAttr(New, *BBA, Args.data(), Args.size());
+  S.AddIntelFPGABankBitsAttr(New, *BBA, Args.data(), Args.size());
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -716,7 +716,8 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           IntelFPGANumBanksAttr>(*this, TemplateArgs, NBA, New);
       continue;
     }
-    const BankBitsAttr *BBA = dyn_cast<BankBitsAttr>(TmplAttr);
+    const IntelFPGABankBitsAttr *BBA =
+        dyn_cast<IntelFPGABankBitsAttr>(TmplAttr);
     if (BBA) {
       instantiateDependentHLSBankBitsAttr(*this, TemplateArgs, BBA, New);
       continue;

@@ -4280,17 +4280,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
             getContext());
     Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
   }
-  if (const auto *BBA = D->getAttr<BankBitsAttr>()) {
-    Out << '{' << BBA->getSpelling() << ':';
-    for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();
-         I != E; ++I) {
-      if (I != BBA->args_begin())
-        Out << ',';
-      llvm::APSInt BBAInt = (*I)->EvaluateKnownConstInt(getContext());
-      Out << BBAInt;
-    }
-    Out << '}';
-  }
   if (const auto *RWA = D->getAttr<ReadWriteModeAttr>()) {
     Out << '{' << "readwritememory:" << RWA->getType().upper() << '}';
   }

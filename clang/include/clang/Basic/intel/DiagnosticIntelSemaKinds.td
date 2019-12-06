@@ -122,10 +122,6 @@ def err_hls_merge_dir_invalid : Error<
   "merge direction must be 'depth' or 'width'">;
 def err_hls_memory_arg_invalid : Error<
   "%0 attribute requires either no argument or one of: %1">;
-def err_bankbits_numbanks_conflicting : Error<
-  "the number of bank_bits must be equal to ceil(log2(numbanks))">;
-def err_bankbits_non_consecutive : Error<
-  "bank_bits must be consecutive">;
 def err_memory_attribute_invalid : Error<
   "%0 attribute only applies to "
   "%select{|slave memory arguments, non-static field members, }1"

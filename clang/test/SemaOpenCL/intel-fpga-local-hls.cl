@@ -554,11 +554,7 @@ void foo1()
   __attribute__((bank_bits()))
   unsigned int bb_eight[4];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((bank_bits(0)))
-  unsigned int bb_nine[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
   __attribute__((bank_bits(-1)))
   unsigned int bb_ten[4];
 

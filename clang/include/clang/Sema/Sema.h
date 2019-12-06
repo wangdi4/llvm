@@ -9413,21 +9413,17 @@ public:
                                      Expr *E);
   void AddInternalMaxBlockRamDepthAttr(Decl *D, const AttributeCommonInfo &CI,
                                        Expr *E);
-<<<<<<< HEAD
   template <typename AttrType>
   void HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                   Expr *E);
   template <typename AttrType>
   void HLSAddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                           Expr *E);
-=======
+#endif // INTEL_CUSTOMIZATION
+
   void AddIntelFPGABankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
                                 Expr **Exprs, unsigned Size);
->>>>>>> 7becb9d8f0763de995d6fc0e716a736a85f26f1e
 
-  void AddBankBitsAttr(Decl *D, const AttributeCommonInfo &CI, Expr **Exprs,
-                       unsigned Size);
-#endif // INTEL_CUSTOMIZATION
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                       bool IsPackExpansion);

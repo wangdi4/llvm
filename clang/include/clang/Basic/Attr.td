@@ -1776,11 +1776,11 @@ def SYCLFPGAPipe : TypeAttr {
 
 // Variadic integral arguments.
 def IntelFPGABankBits : Attr {
-  let Spellings = [CXX11<"intelfpga", "bank_bits">];
+  let Spellings = [CXX11<"intelfpga", "bank_bits">, GNU<"bank_bits">]; // INTEL
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankBitsDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {

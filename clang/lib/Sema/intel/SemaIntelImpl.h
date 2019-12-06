@@ -52,7 +52,7 @@ void Sema::HLSAddOneConstantPowerTwoValueAttr(Decl *D,
       return;
     }
     if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-      if (auto *BBA = D->getAttr<BankBitsAttr>()) {
+      if (auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
         unsigned NumBankBits = BBA->args_size();
         if (NumBankBits != Value.ceilLogBase2()) {
           Diag(TmpAttr.getLocation(), diag::err_bankbits_numbanks_conflicting);
