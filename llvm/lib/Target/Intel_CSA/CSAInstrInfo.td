@@ -1070,12 +1070,22 @@ def ABS16     : UnaryOp< ABS,    abs,    Ti16,   IIALU>;
 def ABS32     : UnaryOp< ABS,    abs,    Ti32,   IIALU>;
 def ABS64     : UnaryOp< ABS,    abs,    Ti64,   IIALU>;
 
-def ABSF16    : UnaryOp< ABS,    fabs,   Tf16, IIALU>;
-def ABSF32    : UnaryOp< ABS,    fabs,   Tf32, IIALU>;
-def ABSF64    : UnaryOp< ABS,    fabs,   Tf64, IIALU>;
+// abs simd instructions
+def ABS8X8: FMTGEN<ABS, Ti8x8,
+    (outs I64:$res),
+    (ins RCLi8x8:$op1),
+    "abs8x8\t$res, $op1",
+    [(set I64:$res, (int_csa_abs8x8 RCLi8x8:$op1))]>;
 
-def ABS8X8    : UnaryOp< ABS,    abs,    Ti8x8,  IIALU>;
-def ABS16X4   : UnaryOp< ABS,    abs,    Ti16x4, IIALU>;
+def ABS16X4: FMTGEN<ABS, Ti16x4,
+    (outs I64:$res),
+    (ins RCLi16x4:$op1),
+    "abs16x4\t$res, $op1",
+    [(set I64:$res, (int_csa_abs16x4 RCLi16x4:$op1))]>;
+
+def ABSF16    : UnaryOp< ABS,    fabs,   Tf16,   IIALU>;
+def ABSF32    : UnaryOp< ABS,    fabs,   Tf32,   IIALU>;
+def ABSF64    : UnaryOp< ABS,    fabs,   Tf64,   IIALU>;
 
 def SQRT      : GenericOp<"sqrt", [HasSqrt]>;
 def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
@@ -1196,13 +1206,13 @@ def TEST8X8: FMTGEN<TEST, Ti8x8,
     (outs I8:$res),
     (ins RCLi8x8:$op1, RCLi8x8: $op2),
     "test8x8\t$res, $op1, $op2",
-    []>;
+    [(set I8:$res, (int_csa_test8x8 RCLi8x8:$op1, RCLi8x8:$op2))]>;
 
 def TEST16X4: FMTGEN<TEST, Ti16x4,
     (outs I8:$res),
     (ins RCLi16x4:$op1, RCLi16x4:$op2),
     "test16x4\t$res, $op1, $op2",
-    []>;
+    [(set I8:$res, (int_csa_test16x4 RCLi16x4:$op1, RCLi16x4:$op2))]>;
 
 // Since there are no real i32x2 operations, we use Tf32x2 for the 32X2 test instruction
 // and not add the i32x2 classes.
@@ -1210,7 +1220,7 @@ def TEST32X2: FMTGEN<TEST, Tf32x2,
     (outs I8:$res),
     (ins RCLf32x2:$op1, RCLf32x2:$op2),
     "test32x2\t$res, $op1, $op2",
-    []>;
+    [(set I8:$res, (int_csa_test32x2 RCLf32x2:$op1, RCLf32x2:$op2))]>;
 
 // first type in convert name is result, second is source type
 def CVT       : GenericOp<"cvt">;
@@ -2600,13 +2610,13 @@ def MOVMSK8X8: FMTGEN<?, Ti8x8,
     (outs I8:$res),
     (ins RCLi8x8:$op1),
     "movmsk8x8\t$res, $op1",
-    [(set I8:$res, (int_csa_movmsk8x8 imm:$op1))]>;
+    [(set I8:$res, (int_csa_movmsk8x8 RCLi8x8:$op1))]>;
 
 def MOVMSK16X4: FMTGEN<?, Ti16x4,
     (outs I8:$res),
     (ins RCLi16x4:$op1),
     "movmsk16x4\t$res, $op1",
-    []>;
+    [(set I8:$res, (int_csa_movmsk16x4 RCLi16x4:$op1))]>;
 
 def SHUFI16X4: FMTGEN<?, Tf16x4,
     (outs I64:$res),
@@ -2625,13 +2635,13 @@ def BLEND8X8: FMTGEN<?, Ti8x8,
     (outs I64:$res),
     (ins RCLi8:$op1, RCLi8x8: $op2, RCLi8x8: $op3),
     "blend8x8\t$res, $op1, $op2, $op3",
-    []>;
+    [(set I64:$res, (int_csa_blend8x8 RCLi8:$op1, RCLi8x8:$op2, RCLi8x8:$op3))]>;
 
 def BLEND16X4: FMTGEN<?, Ti16x4,
     (outs I64:$res),
     (ins RCLi8:$op1, RCLi16x4: $op2, RCLi16x4: $op3),
     "blend16x4\t$res, $op1, $op2, $op3",
-    []>;
+    [(set I64:$res, (int_csa_blend16x4  RCLi8:$op1,  RCLi16x4:$op2,  RCLi16x4:$op3))]>;
 
 // Since there are no real i32x2 operations, we use Tf32x2 for the 32X2 blend instruction
 // and not add the i32x2 classes.
@@ -2639,7 +2649,7 @@ def BLEND32X2: FMTGEN<?, Tf32x2,
     (outs I64:$res),
     (ins RCLi8:$op1, RCLf32x2: $op2, RCLf32x2: $op3),
     "blend32x2\t$res, $op1, $op2, $op3",
-    []>;
+    [(set I64:$res, (int_csa_blend32x2 RCLi8:$op1, RCLf32x2:$op2, RCLf32x2:$op3))]>;
 
 def : Pat<(v2f32 (insertelt RCLf32x2:$vec, f32:$val, 0)),
     (SHUFI32X2 $vec, (COPY_TO_REGCLASS $val, I64), 2, 1)>;

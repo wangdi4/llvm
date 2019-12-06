@@ -180,14 +180,68 @@ def int_csa_fmsaf32x2 : GCCBuiltin<"__builtin_csa_fmsaf32x2">,
     Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
 
+def int_csa_fnmsf32x2 : GCCBuiltin<"__builtin_csa_fnmsf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+// Integer vector intrinsics //
+
+// Compute the bitwise AND of corresponding 8-bit integers in a and b,and set the
+// corresponding bit in the result if the result is non-zero.
+// int __m64_test_epi8(__m64i a, __m64i b)
+def int_csa_test8x8 : GCCBuiltin<"__builtin_csa_test8x8">,
+    Intrinsic<[llvm_i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the bitwise AND of corresponding 16-bit integers in a and b, and set the
+// corresponding bit in the result if the result is non-zero.
+// int __m64_test_epi16(__m64i a, __m64i b)
+def int_csa_test16x4 : GCCBuiltin<"__builtin_csa_test16x4">,
+    Intrinsic<[llvm_i8_ty], [llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Compute the bitwise AND of corresponding 32-bit integers in a and b, and set the
+// corresponding bit in the result if the result is non-zero.
+// int __m64_test_epi32(__m64i a, __m64i b)
+def int_csa_test32x2 : GCCBuiltin<"__builtin_csa_test32x2">,
+    Intrinsic<[llvm_i8_ty], [llvm_v2f32_ty, llvm_v2f32_ty], [IntrNoMem]>;
+
+// Compute the absolute value of packed 8-bit integers in a, and return the unsigned results.
+// __m64i __m64_abs_epi8(__m64i a)
+def int_csa_abs8x8 : GCCBuiltin<"__builtin_csa_abs8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the absolute value of packed 16-bit integers in a, and return the unsigned results.
+// __m64i __m64_abs_epi16(__m64i a)
+def int_csa_abs16x4 : GCCBuiltin<"__builtin_csa_abs16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty], [IntrNoMem]>;
+
 // Create mask from the most significant bit of each 8-bit element in a, and return the result.
 // int __m64_movemask_epi8(__m64i a)
 def int_csa_movmsk8x8 : GCCBuiltin<"__builtin_csa_movmsk8x8">,
     Intrinsic<[llvm_i8_ty], [llvm_v8i8_ty], [IntrNoMem]>;
 
-def int_csa_fnmsf32x2 : GCCBuiltin<"__builtin_csa_fnmsf32x2">,
-    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
-      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+// Create mask from the most significant bit of each 16-bit element in a, and return the result.
+// int __m64_movemask_epi16(__m64i a)
+def int_csa_movmsk16x4 : GCCBuiltin<"__builtin_csa_movmsk16x4">,
+    Intrinsic<[llvm_i8_ty], [llvm_v4i16_ty], [IntrNoMem]>;
+
+// Blend packed 8-bit integers from a and b using the bits in mask. Each element is picked
+// from a if its corresponding bit in the mask is 0, and from b if it is 1.
+// __m64i _mm64_blend_epi8(unsigned char mask, __m64i a, __m64i b)
+def int_csa_blend8x8 : GCCBuiltin<"__builtin_csa_blend8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_i8_ty, llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Blend packed 16-bit integers from a and b using the bits in mask. Each element is picked
+// from a if its corresponding bit in the mask is 0, and from b if it is 1.
+// __m64i _mm64_blend_epi16(unsigned char mask, __m64i a, __m64i b)
+def int_csa_blend16x4 : GCCBuiltin<"__builtin_csa_blend16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_i8_ty, llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Blend packed 32-bit floating point numbers from a and b using the bits in mask. Each element
+// is picked from a if its corresponding bit in the mask is 0, and from b if it is 1.
+// __m64f _mm64_blend_ps(unsigned char mask, __m64f a, __m64f b)
+def int_csa_blend32x2 : GCCBuiltin<"__builtin_csa_blend32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_i8_ty, llvm_v2f32_ty, llvm_v2f32_ty], [IntrNoMem]>;
+
 
 // Intrinsics for specifying ordering edges attached to memory references.
 def int_csa_inord  : Intrinsic<[], [llvm_i1_ty], [] /* , "llvm.csa.inord"  */>;
