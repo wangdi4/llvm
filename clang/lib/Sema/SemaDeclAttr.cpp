@@ -3904,8 +3904,8 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 // Handles num_simd_work_items.
-static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
+static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
+                                           const ParsedAttr &Attr) { // INTEL
   if (D->isInvalidDecl())
     return;
 
@@ -8401,7 +8401,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSubGroupSize(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelNumSimdWorkItems:
-    handleNumSimdWorkItemsAttr(S, D, AL);
+    handleSYCLNumSimdWorkItemsAttr(S, D, AL); // INTEL
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
