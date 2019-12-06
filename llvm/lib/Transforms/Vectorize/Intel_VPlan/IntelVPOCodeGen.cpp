@@ -2199,8 +2199,6 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // Private memory is a pointer. We need to get element type
   // and allocate VF elements.
   Type *OrigTy = V->getType()->getPointerElementType();
-  assert((!OrigTy->isAggregateType() || !V->isSOALayout()) &&
-         "SOA is not supported for aggregate types yet");
 
   Type *VecTyForAlloca;
   // TODO. We should handle the case when original alloca has the size argument,
