@@ -435,6 +435,9 @@ static bool findCompareFunction(Function *F) {
     if (!Call)
       continue;
 
+    if (isa<DbgInfoIntrinsic>(I))
+      continue;
+
     // All calls must be a direct call
     if (Call->isIndirectCall()) {
       CompareFunction = nullptr;
