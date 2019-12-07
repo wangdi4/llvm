@@ -478,16 +478,6 @@ namespace llvm {
       VPDPWSSD,
       VPDPWSSDS,
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-      // Vex encoding
-      VPDPBUSDVEX,
-      VPDPBUSDSVEX,
-      VPDPWSSDVEX,
-      VPDPWSSDSVEX,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
-
       // FMA nodes.
       // We use the target independent ISD::FMA for the non-inverted case.
       FNMADD,
