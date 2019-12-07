@@ -1897,6 +1897,8 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
               Intrinsic<[llvm_v16i32_ty], [llvm_v16i32_ty, llvm_v16i32_ty,
                          llvm_v16i32_ty], [IntrNoMem]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
   //vnni must vex-encoding
   def int_x86_avx_vpdpbusd_128 :
               GCCBuiltin<"__builtin_ia32_vpdpbusdvex128">,
@@ -1933,6 +1935,8 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
               GCCBuiltin<"__builtin_ia32_vpdpwssdsvex256">,
               Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty, llvm_v8i32_ty,
                          llvm_v8i32_ty], [IntrNoMem]>;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//
