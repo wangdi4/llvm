@@ -2560,9 +2560,11 @@ def : Pat<(v4f16 (build_vector RCLf16:$v0, RCLf16:$v1, RCLf16:$v2, RCLf16:$v3)),
           (PACK16_64 $v0, $v1, $v2, $v3)>;
 def PACK32_64 : FMTGEN<PACK, Ti32,
     (outs I64:$dst),
-    (ins RCLf32:$lo, RCLf32:$hi),
+    (ins RCL32:$lo, RCL32:$hi),
     "pack32_64\t$dst, $lo, $hi",
-    [(set v2f32:$dst, (build_vector RCLf32:$lo, RCLf32:$hi))]>;
+    [(set v2f32:$dst, (build_vector RCL32:$lo, RCL32:$hi))]>;
+def : Pat<(v2f32 (build_vector RCLf32:$v0, RCLf32:$v1)),
+          (PACK32_64 $v0, $v1)>;
 
 
 def UNPACK64_8 : FMTGEN<UNPACK, Ti8,
