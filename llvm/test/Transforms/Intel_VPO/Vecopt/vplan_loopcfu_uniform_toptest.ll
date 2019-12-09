@@ -14,54 +14,54 @@ declare void @llvm.directive.region.exit(token)
 
 define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  After inner loop control flow transformation
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]] (BP: NULL) :
+; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp i64 [[N0:%.*]] i64 0
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
 ; CHECK-NEXT:     Condition([[BB2]]): [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST]] = icmp i64 [[N0]] i64 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_UNIFORM_TOP_TEST]]), [[BB6:BB[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]] (BP: NULL) :
+; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]] (BP: NULL) :
+; CHECK-NEXT:      [[BB7]]:
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 0, [[BB6]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]] (BP: NULL) :
+; CHECK-NEXT:      [[BB9]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB7]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB8]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB11:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB10]] (BP: NULL) :
+; CHECK-NEXT:        [[BB10]]:
 ; CHECK-NEXT:         [DA: Uniform]   i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
 ; CHECK-NEXT:         [DA: Uniform]   i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB11]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB11]] (BP: NULL) :
+; CHECK-NEXT:      [[BB11]]:
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
@@ -69,13 +69,13 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]] (BP: NULL) :
+; CHECK-NEXT:      [[BB8]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB11]]): [DA: Uniform]   i1 [[VP2]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB12:BB[0-9]+]](i1 [[VP2]]), [[BB7]](!i1 [[VP2]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB12]] (BP: NULL) :
+; CHECK-NEXT:      [[BB12]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]

@@ -510,12 +510,7 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
                          const VPlanDivergenceAnalysis *DA,
                          const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
-  // Print name and predicate
-  // TODO - get rid of BP print. This will be done as a separate change
-  // as this will need test updates.
-  OS << StrIndent << NamePrefix << getName() << " (BP: ";
-  OS << "NULL";
-  OS << ") :\n";
+  OS << StrIndent << NamePrefix << getName() << ":\n";
 
   // Print block body
   if (empty()) {
@@ -632,12 +627,7 @@ void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
   SetVector<const VPBlockBase *> SuccList;
 
   std::string StrIndent = std::string(2 * Indent, ' ');
-  // Print name and predicate
-  // TODO - get rid of BP print. This will be done as a separate change
-  // as this will need test updates.
-  OS << StrIndent << "REGION: " << getName() << " (BP: ";
-  OS << "NULL";
-  OS << ")\n";
+  OS << StrIndent << "REGION: " << getName() << "\n";
 
   SuccList.insert(Entry);
   // Main loop for printing VPRegion blocks.

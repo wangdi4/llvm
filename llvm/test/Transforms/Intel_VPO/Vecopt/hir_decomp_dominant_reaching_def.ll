@@ -28,8 +28,8 @@
 
 ; Check correctness of HCFG
 ; CHECK-LABEL:  Print after building H-CFG:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK:         [[LP_BODY:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK:         [[LP_BODY:BB[0-9]+]]:
 ; CHECK-DAG:      i32 [[VP0:%.*]] = phi  [ i32 [[ADD824:%add824]], [[LP_PH:BB[0-9]+]] ],  [ i32 [[VP1:%.*]], [[LP_EXIT:BB[0-9]+]] ]
 ; CHECK-DAG:      i32 [[VP2:%.*]] = phi  [ i32 [[ADD426:%add426]], [[LP_PH]] ],  [ i32 [[VP3:%.*]], [[LP_EXIT]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[LP_PH]] ],  [ i64 [[VP5:%.*]], [[LP_EXIT]] ]

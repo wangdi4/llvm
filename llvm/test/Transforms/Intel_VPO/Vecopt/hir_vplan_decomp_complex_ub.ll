@@ -21,7 +21,7 @@
 ; CHECK-NEXT: i64 [[Max:%.*]] = smax i64 [[Sext]] i64 1
 ; CHECK-NEXT: i64 [[Add:%.*]] = add i64 [[Max]] i64 -1
 ; CHECK-NEXT: SUCCESSORS(1):[[H:BB.*]]
-; CHECK: [[H]] {{.*}}:
+; CHECK: [[H]]:
 ; CHECK-NEXT: i64 [[IVPhi:%.*]] = phi
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

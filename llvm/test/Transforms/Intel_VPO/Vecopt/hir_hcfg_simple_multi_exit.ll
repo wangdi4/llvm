@@ -17,18 +17,18 @@
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after building H-CFG:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP0:%.*]] = add i32 [[LEN_LIMIT0:%.*]] i32 -2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]] (BP: NULL) :
+; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP1:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = zext i32 [[DELTA20:%.*]] to i64
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = mul i64 [[VP3]] i64 -1
@@ -45,34 +45,34 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition([[BB2]]): [DA: Divergent] i1 [[VP14]] = icmp i32 [[VP9]] i32 [[VP13]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP14]]), [[BB3]](!i1 [[VP14]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]] (BP: NULL) :
+; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Divergent] i32 [[VP2]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP15:%.*]] = icmp i32 [[VP2]] i32 [[VP0]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP15]]), [[BB6:BB[0-9]+]](!i1 [[VP15]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]] (BP: NULL) :
+; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]] (BP: NULL) :
+; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Uniform]   br for.end.loopexit
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]] (BP: NULL) :
+; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]] (BP: NULL) :
+; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
