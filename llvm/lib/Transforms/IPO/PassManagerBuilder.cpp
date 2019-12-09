@@ -246,6 +246,11 @@ static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
 
+// Dead Array Element Ops Elimination
+static cl::opt<bool> EnableDeadArrayOpsElim(
+   "enable-dead-array-ops-elim", cl::init(true), cl::Hidden,
+   cl::desc("Enable Dead Array Ops Elimination"));
+
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
@@ -1499,6 +1504,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDeadArrayOpsElim)
+    PM.add(createDeadArrayOpsEliminationLegacyPass());
+
   if (RunLTOPartialInlining)
     PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
 #if INTEL_INCLUDE_DTRANS

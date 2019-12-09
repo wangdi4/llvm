@@ -76,6 +76,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIntelArgumentAlignmentLegacyPassPass(Registry); // INTEL
   initializeQsortRecognizerLegacyPassPass(Registry); // INTEL
   initializeIntelFoldWPIntrinsicLegacyPassPass(Registry); // INTEL
+  initializeDeadArrayOpsEliminationLegacyPassPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

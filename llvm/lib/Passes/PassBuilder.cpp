@@ -93,6 +93,7 @@
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
@@ -342,13 +343,18 @@ static cl::opt<bool> EnableAndersen("enable-npm-andersen", cl::init(true),
 
 // Inline Aggressive Analysis
 static cl::opt<bool> EnableInlineAggAnalysis(
-    "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
-    cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
+   "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
+   cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
 
 // IP Cloning
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+
+// Dead Array Element Ops Elimination
+static cl::opt<bool> EnableDeadArrayOpsElim(
+   "enable-npm-dead-array-ops-elim", cl::init(true), cl::Hidden,
+   cl::desc("Enable Dead Array Ops Elimination for the new PM (default = on)"));
 
 // IPO Prefetch
 static cl::opt<bool> EnableIPOPrefetch(
@@ -1734,6 +1740,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // cases.
   if (EnableDTrans)
     MPM.addPass(IntelAdvancedFastCallPass());
+
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1741,6 +1748,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDeadArrayOpsElim)
+    MPM.addPass(DeadArrayOpsEliminationPass());
+
   // IPO-based prefetch
   if (EnableIPOPrefetch)
     MPM.addPass(IntelIPOPrefetchPass());
