@@ -7,10 +7,10 @@ endif (BUILD_X64)
 
 # Microsoft Assembler setup - use private rules
 if (BUILD_X64)
-    set( CMAKE_ASM_COMPILER            ml64 ) #OLD changed due to issues in TFW (didn't find asm compiler on win 64
+    set( OPENCL_ASM_COMPILER           ml64 ) #OLD changed due to issues in TFW (didn't find asm compiler on win 64
     set( CMAKE_ASM_FLAGS               /nologo /c /Zi) # do not quote this!!!!
 else (BUILD_X64)
-    set( CMAKE_ASM_COMPILER            ml )
+    set( OPENCL_ASM_COMPILER           ml )
     set( CMAKE_ASM_FLAGS               /nologo /safeseh /c /coff /Zi) # do not quote this!!!!
 endif (BUILD_X64)
 

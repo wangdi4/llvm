@@ -72,7 +72,7 @@ if(BUILD_X64)
     if (WIN32)
         CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/kernel_execute_64.asm )
     else ()
-        set (UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
+        CREATE_ASM_RULES(UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
     endif ()
 endif(BUILD_X64)
 

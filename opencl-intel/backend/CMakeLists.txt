@@ -45,50 +45,6 @@ if (NOT WIN32)
     add_definitions( ${WARNING_LEVEL} )
 endif (NOT WIN32)
 
-if(WIN32)
-#
-# Usage
-#     CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
-#
-# Creates ADD_TO_SOURCES_LIST_VAR that should be added to the source files list
-#
-macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
-
-    if (${ARGC} GREATER  1)
-        foreach( FILE ${ARGN} )
-            get_filename_component( FILE_NAME ${FILE} NAME_WE )
-            set( BIN_DIR  ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
-            set( OBJ_FILE ${BIN_DIR}/${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-            set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
-
-            if (CMAKE_ASM_OUTPUT_NAME_FLAG)
-              set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-            endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
-
-            add_custom_command(OUTPUT ${OBJ_FILE}
-              COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
-              COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                      ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
-                      ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
-                      ${OBJ_OUTPUT_NAME_FLAG}
-                      ${SRC_FILE}
-              MAIN_DEPENDENCY ${SRC_FILE}
-              VERBATIM
-            )
-
-            list(APPEND OBJ_FILES ${OBJ_FILE})
-            list(APPEND SRC_FILES ${SRC_FILE})
-        endforeach( FILE )
-    endif (${ARGC} GREATER 1)
-
-    if (DEFINED OBJ_FILES)
-        set (${ADD_TO_SOURCES_LIST_VAR} ${SRC_FILES} ${OBJ_FILES})
-        set_source_files_properties( ${OBJ_FILES} PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE )
-    endif(DEFINED OBJ_FILES)
-
-endmacro( CREATE_ASM_RULES )
-endif(WIN32)
-
 ###############################################################################################
 
 project(Backend C CXX)
