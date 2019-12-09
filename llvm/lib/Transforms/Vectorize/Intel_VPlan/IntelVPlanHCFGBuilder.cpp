@@ -1187,8 +1187,8 @@ void VPlanHCFGBuilder::simplifyNonLoopRegions() {
       // TODO: WIP. The code below has to be revisited. It will enable the
       // construction of VPRegions that currently are not built because they
       // share entry/exit nodes with other VPRegions. This transformation would
-      // require to introduce new recipes to split original phi instructions
-      // that are in the problematic basic blocks.
+      // require to introduce new instructions to split original phi
+      // instructions that are in the problematic basic blocks.
 
       // VPBlockBase *PostDom =
       //    PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
@@ -1383,9 +1383,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              VPPostDomTree.print(dbgs()));
 
 #if INTEL_CUSTOMIZATION
-  // simplifyPlainCFG inserts empty blocks with CondBit recipes. This messes up
-  // determining the influence region of a branch instruction. i.e., the
-  // immediate post-dominator becomes this empty block instead of the actual
+  // simplifyPlainCFG inserts empty blocks with CondBit instructions. This
+  // messes up determining the influence region of a branch instruction. i.e.,
+  // the immediate post-dominator becomes this empty block instead of the actual
   // convergence point containing the phi. Running DA here allows reuse of the
   // current Dominator Trees and results in fewer modifications to the DA
   // algorithm since it was designed to run over a plain CFG. We should also

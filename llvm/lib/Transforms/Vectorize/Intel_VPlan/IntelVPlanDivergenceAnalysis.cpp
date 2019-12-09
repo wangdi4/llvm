@@ -323,8 +323,6 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
     }
 
     // taint outside users of values carried by @DivLoop
-    // community code divergence here is with how instructions are iterated over
-    // due to recipes. Community code simply does 'for (auto &I : *UserBlock)'.
     for (VPInstruction &I : *(cast<VPBasicBlock>(UserBlock))) {
       if (isAlwaysUniform(I))
         continue;
