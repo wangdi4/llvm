@@ -3553,8 +3553,7 @@ class OffloadingActionBuilder final {
             LinkObjects.push_back(I);
         }
         auto *DeviceLinkAction =
-<<<<<<< HEAD
-            C.MakeAction<LinkJobAction>(LI, types::TY_LLVM_BC);
+            C.MakeAction<LinkJobAction>(LinkObjects, types::TY_LLVM_BC);
         ActionList WrapperInputs;
         Action *SPIRVInput = DeviceLinkAction;
         types::ID OutType = types::TY_SPIRV;
@@ -3570,9 +3569,6 @@ class OffloadingActionBuilder final {
         auto *SPIRVTranslateAction =
             C.MakeAction<SPIRVTranslatorJobAction>(SPIRVInput, OutType);
 
-=======
-            C.MakeAction<LinkJobAction>(LinkObjects, types::TY_SPIRV);
->>>>>>> 47b93aef48db162892e6081e0a739f304d715ecc
         auto TT = SYCLTripleList[I];
         bool SYCLAOTCompile =
             (TT.getSubArch() != llvm::Triple::NoSubArch &&
@@ -3590,21 +3586,17 @@ class OffloadingActionBuilder final {
           }
           // Do the additional Ahead of Time compilation when the specific
           // triple calls for it (provided a valid subarch).
-<<<<<<< HEAD
-          auto *DeviceBECompileAction = C.MakeAction<BackendCompileJobAction>(
-              SPIRVTranslateAction, OutType);
-
-          WrapperInputs.push_back(DeviceBECompileAction);
-=======
           Action *DeviceBECompileAction;
           ActionList BEActionList;
-          BEActionList.push_back(DeviceLinkAction);
+#if INTEL_CUSTOMIZATION
+          BEActionList.push_back(SPIRVTranslateAction);
+#endif // INTEL_CUSTOMIZATION
           if (!DeviceObjects.empty())
             for (const auto &A : DeviceObjects)
               BEActionList.push_back(A);
           DeviceBECompileAction =
               C.MakeAction<BackendCompileJobAction>(BEActionList, OutType);
->>>>>>> 47b93aef48db162892e6081e0a739f304d715ecc
+          WrapperInputs.push_back(DeviceBECompileAction);
           auto *DeviceWrappingAction = C.MakeAction<OffloadWrapperJobAction>(
               WrapperInputs, types::TY_Object);
           DA.add(*DeviceWrappingAction, **TC, /*BoundArch=*/nullptr,
@@ -5401,7 +5393,9 @@ InputInfo Driver::BuildJobsForActionNoCache(
             continue;
           }
           if (JA->getType() == types::TY_FPGA_AOCO) {
-            TI = types::TY_Tempfilelist;
+#if INTEL_CUSTOMIZATION
+            TI = types::TY_TempAOCOfilelist;
+#endif // INTEL_CUSTOMIZATION
             Ext = "txt";
           }
         } else if (EffectiveTriple.getSubArch() !=

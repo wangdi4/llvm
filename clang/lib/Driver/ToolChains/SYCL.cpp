@@ -304,19 +304,17 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
   InputInfoList ForeachInputs;
   ArgStringList CmdArgs{"-o",  Output.getFilename()};
   for (const auto &II : Inputs) {
-<<<<<<< HEAD
     std::string Filename(II.getFilename());
     if (II.getType() == types::TY_Tempfilelist)
       ForeachInputs.push_back(II);
-    CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
-=======
-    // Add any FPGA library lists.  These come in as tempfile lists.
-    if (II.getType() == types::TY_Tempfilelist)
+    // Add any FPGA library lists.  These come in as special tempfile lists.
+#if INTEL_CUSTOMIZATION
+    if (II.getType() == types::TY_TempAOCOfilelist)
       CmdArgs.push_back(Args.MakeArgString(Twine("-library-list=") +
-          II.getFilename()));
+          Filename));
     else
-      CmdArgs.push_back(II.getFilename());
->>>>>>> 47b93aef48db162892e6081e0a739f304d715ecc
+      CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
+#endif // INTEL_CUSTOMIZATION
   }
   CmdArgs.push_back("-sycl");
 
