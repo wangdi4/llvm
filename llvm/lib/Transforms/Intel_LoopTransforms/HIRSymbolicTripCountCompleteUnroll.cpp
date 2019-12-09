@@ -736,6 +736,11 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
+  if (OuterLpNodeVec.size() < 14) {
+    return false;
+  }
+
+  auto EndIt = OuterLpNodeVec.end();
   auto It = OuterLpNodeVec.begin();
   HLInst *CopyInst1 = nullptr;
   HLInst *CopyInst2 = nullptr;
@@ -753,6 +758,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Lval is a temp
   // - Rval is a 2-Dimensional non-local memref, Dim1 has IV, Dim2 is a
   // const 0
+  if (It == EndIt)
+    return false;
   HLInst *HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -783,6 +790,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Rval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -814,6 +823,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   //  . [note]: Lval here is the same as Rval in previous instruction
   // - Rval is a terminalRef
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -856,6 +867,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Rval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -883,12 +896,16 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // Within the outer if
   // 5. goto t61;
   It++;
+  if (It == EndIt)
+    return false;
   if (isCopy(dyn_cast<HLInst>(*It))) {
     if (CopyInst1)
       return false;
     CopyInst1 = cast<HLInst>(*It);
     It++;
   }
+  if (It == EndIt)
+    return false;
   HLGoto *GotoPossiblyAfterCopy1 = dyn_cast<HLGoto>(*It);
   if (!GotoPossiblyAfterCopy1) {
     return false;
@@ -904,6 +921,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 
   // 6. t68:
   It++;
+  if (It == EndIt)
+    return false;
   Label = dyn_cast<HLLabel>(*It);
   if (!Label) {
     return false;
@@ -911,6 +930,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 
   // 7. goto t69;
   It++;
+  if (It == EndIt)
+    return false;
   HLGoto *Goto = dyn_cast<HLGoto>(*It);
   if (!Goto) {
     return false;
@@ -927,6 +948,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 
   // If copy, just increase iterator
   It++;
+  if (It == EndIt)
+    return false;
   if (isCopy(dyn_cast<HLInst>(*It))) {
     if (!CopyInst1) {
       return false;
@@ -943,6 +966,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   }
 
   // 8. t61:
+  if (It == EndIt)
+    return false;
   Label = dyn_cast<HLLabel>(*It);
   if (!Label) {
     return false;
@@ -955,6 +980,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Rval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -985,6 +1012,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   //   const 0
   // - Rval is a CanonExpr* without IV
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -1027,6 +1056,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   // - Operand2: a constant integer (1)
   // HInst = dyn_cast<HLInst>(OuterLpNodeVec[11]);
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst || !isa<BinaryOperator>(HInst->getLLVMInstruction()) ||
       !HInst->getOperandDDRef(0)->isTerminalRef()) {
@@ -1083,6 +1114,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   //   const 0
   // - Rval is a temp
   It++;
+  if (It == EndIt)
+    return false;
   HInst = dyn_cast<HLInst>(*It);
   if (!HInst) {
     return false;
@@ -1108,6 +1141,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 
   // 13. t69:
   It++;
+  if (It == EndIt)
+    return false;
   Label = dyn_cast<HLLabel>(*It);
   if (!Label) {
     return false;
@@ -1119,6 +1154,11 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     LLVM_DEBUG(FOS << "Failed OuterLp's LiveOutTemp test\n";);
     return false;
   }
+
+  // We don't expect any more inst.
+  It++;
+  if (It != EndIt)
+    return false;
 
   return true;
 }

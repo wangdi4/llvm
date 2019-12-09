@@ -34,7 +34,9 @@
 using namespace llvm;
 #if INTEL_CUSTOMIZATION
 using namespace llvm::vpo;
-extern cl::opt<bool> VPlanLoopCFU;
+static cl::opt<bool> VPlanLoopCFU(
+    "vplan-loop-cfu", cl::init(true), cl::Hidden,
+    cl::desc("Perform inner loop control flow uniformity transformation"));
 #define VPlanPredicator NewVPlanPredicator
 #endif // INTEL_CUSTOMIZATION
 

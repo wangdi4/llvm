@@ -408,6 +408,7 @@ FUNCTION_PASS("hir-sinking-for-perfect-loopnest", loopopt::HIRSinkingForPerfectL
 FUNCTION_PASS("hir-undo-sinking-for-perfect-loopnest", loopopt::HIRUndoSinkingForPerfectLoopnestPass())
 FUNCTION_PASS("hir-conditional-temp-sinking", loopopt::HIRConditionalTempSinkingPass())
 FUNCTION_PASS("hir-memory-reduction-sinking", loopopt::HIRMemoryReductionSinkingPass())
+FUNCTION_PASS("hir-rowwise-mv", loopopt::HIRRowWiseMVPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

@@ -80,6 +80,12 @@ public:
     return false;
   }
 
+  /// Results cannot be invalidated.
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
+    return false;
+  }
+
   void print(raw_ostream &OS) const;
 };
 
@@ -91,6 +97,7 @@ class DTransImmutableAnalysis
 public:
   typedef DTransImmutableInfo Result;
   Result run(Module &M, ModuleAnalysisManager &AM);
+  Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
 class DTransImmutableAnalysisWrapper : public ImmutablePass {

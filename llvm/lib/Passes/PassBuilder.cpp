@@ -276,6 +276,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMV.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"

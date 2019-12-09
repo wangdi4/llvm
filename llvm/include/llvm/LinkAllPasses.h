@@ -358,6 +358,7 @@ namespace {
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
+      (void)llvm::createHIRRowWiseMVPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
