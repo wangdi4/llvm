@@ -947,17 +947,8 @@ private:
 
     // If alloca is for private structure variable used inside SIMD region, we
     // allow SROA on it.
-    if (vpo::VPOAnalysisUtils::getDirectiveID(&II) == DIR_OMP_SIMD) {
-      SmallVector<OperandBundleDef, 8> OpBundles;
-      II.getOperandBundlesAsDefs(OpBundles);
-      if (std::any_of(OpBundles.begin(), OpBundles.end(),
-                      [AI = &AS.AI](OperandBundleDef &B) {
-                        return vpo::VPOAnalysisUtils::getClauseID(B.getTag()) ==
-                                   QUAL_OMP_PRIVATE &&
-                               *B.input_begin() == AI;
-                      }))
-        return;
-    }
+    if (IntrinsicUtils::isValueUsedBySimdPrivateClause(&II, &AS.AI))
+      return;
 #endif // INTEL_CUSTOMIZATION
 
     if (II.isLifetimeStartOrEnd()) {
@@ -4742,14 +4733,8 @@ bool SROA::deleteDeadInstructions(
         // After that alloca becomes trivially dead.
         if (isa<AllocaInst>(U) && U->hasOneUse()) {
           CallInst *CI = dyn_cast<CallInst>(*U->user_begin());
-          if (CI && vpo::VPOAnalysisUtils::isBeginDirective(CI)) {
-            CI = IntrinsicUtils::removeOperandBundlesFromCall(
-                CI, [AI = U](const OperandBundleDef &Bundle) {
-                  return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
-                             QUAL_OMP_PRIVATE &&
-                         *Bundle.input_begin() == AI;
-                });
-          }
+          if (CI && vpo::VPOAnalysisUtils::isBeginDirective(CI))
+            IntrinsicUtils::removePrivateClauseForValue(CI, U);
         }
 #endif // INTEL_CUSTOMIZATION
         if (isInstructionTriviallyDead(U))

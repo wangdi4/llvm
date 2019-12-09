@@ -68,24 +68,6 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
   // assignments to subsections of the memory unit.
   unsigned AS = AI->getType()->getAddressSpace();
 
-#if INTEL_CUSTOMIZATION
-  // If alloca is for private variable used inside SIMD region, it can be
-  // promoted
-  auto isValueUsedBySimdPrivateClause = [AI](const IntrinsicInst *II) {
-    if (vpo::VPOAnalysisUtils::getDirectiveID(
-            const_cast<IntrinsicInst *>(II)) != DIR_OMP_SIMD)
-      return false;
-    SmallVector<OperandBundleDef, 8> OpBundles;
-    II->getOperandBundlesAsDefs(OpBundles);
-    return std::any_of(
-        OpBundles.begin(), OpBundles.end(), [AI](OperandBundleDef &B) {
-          return vpo::VPOAnalysisUtils::getClauseID(B.getTag()) ==
-                     QUAL_OMP_PRIVATE &&
-                 *B.input_begin() == AI;
-        });
-  };
-#endif // INTEL_CUSTOMIZATION
-
   // Only allow direct and non-volatile loads and stores...
   for (const User *U : AI->users()) {
     if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
@@ -106,7 +88,7 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
         if (!VAI->hasRegisterAttributeSet())
           return false;
       } else if (!II->isLifetimeStartOrEnd() &&
-                 !isValueUsedBySimdPrivateClause(II))
+                 !IntrinsicUtils::isValueUsedBySimdPrivateClause(II, AI))
 #endif // INTEL_CUSTOMIZATION
         return false;
     } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
@@ -352,12 +334,7 @@ static void removeLifetimeIntrinsicUsers(AllocaInst *AI) {
     if (vpo::VPOAnalysisUtils::isBeginDirective(I)) {
       // for SIMD region directive we only remove PRIVATE clauses
       CallInst *CI = cast<CallInst>(I);
-      CI = IntrinsicUtils::removeOperandBundlesFromCall(
-          CI, [AI](const OperandBundleDef &Bundle) {
-            return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
-                       QUAL_OMP_PRIVATE &&
-                   *Bundle.input_begin() == AI;
-          });
+      IntrinsicUtils::removePrivateClauseForValue(CI, AI);
       continue;
     }
 #endif // INTEL_CUSTOMIZATION
