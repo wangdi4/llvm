@@ -181,6 +181,7 @@ struct DeviceTy {
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
   void *get_offload_pipe(void);
+  int32_t is_managed_data(void *);
 #endif // INTEL_COLLAB
 private:
   // Call to RTL
