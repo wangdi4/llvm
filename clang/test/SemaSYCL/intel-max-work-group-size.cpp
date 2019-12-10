@@ -2,6 +2,10 @@
 // RUN: %clang %s -fsyntax-only -Xclang -ast-dump -fsycl-device-only | FileCheck %s
 // RUN: %clang_cc1 -fsycl-is-host -fsyntax-only -verify %s
 
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// end INTEL_CUSTOMIZATION
+
 #ifndef __SYCL_DEVICE_ONLY__
 struct FuncObj {
   [[intelfpga::max_work_group_size(1, 1, 1)]] // expected-no-diagnostics
