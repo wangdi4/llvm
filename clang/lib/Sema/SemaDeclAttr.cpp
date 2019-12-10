@@ -2857,7 +2857,6 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) WeakImportAttr(S.Context, AL));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool checkValidSYCLSpelling(Sema &S, const ParsedAttr &Attr) {
   if (S.getLangOpts().SYCLIsDevice) {
@@ -3745,26 +3744,14 @@ static bool IsSlaveMemory(Sema &S, Decl *D) {
   return S.getLangOpts().HLS && D->hasAttr<OpenCLLocalMemSizeAttr>() &&
          D->hasAttr<SlaveMemoryArgumentAttr>();
 }
+#endif // INTEL_CUSTOMIZATION
 
-// Handles reqd_work_group_size, work_group_size_hint and max_work_group_size
-// attributes
-#endif // INTEL_CUSTOMIZATION
-template <typename WorkGroupAttr>
-static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
-#if INTEL_CUSTOMIZATION
-  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
-      AL.getKind() == ParsedAttr::AT_MaxWorkGroupSize) {
-    S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored)
-        << AL;
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
 // Checks correctness of mutual usage of different work_group_size attributes:
 // reqd_work_group_size, max_work_group_size. Values of reqd_work_group_size
 // arguments shall be equal or less than values coming from max_work_group_size.
-static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &Attr,
-                                     uint32_t WGSize[3]) {
+static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
+                                         const ParsedAttr &Attr,  // INTEL
+                                         uint32_t WGSize[3]) {    // INTEL
   if (const SYCLIntelMaxWorkGroupSizeAttr *A =
       D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
     if (!(WGSize[0] <= A->getXDim() && WGSize[1] <= A->getYDim() &&
@@ -3794,7 +3781,15 @@ template <typename WorkGroupAttr>
 static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->isInvalidDecl())
     return;
->>>>>>> 90536429ebf1c761786bb64c5c620e5c4be4738d
+
+#if INTEL_CUSTOMIZATION
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      AL.getKind() == ParsedAttr::AT_MaxWorkGroupSize) {
+    S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored)
+        << AL;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   uint32_t WGSize[3];
   for (unsigned i = 0; i < 3; ++i) {
@@ -3809,7 +3804,6 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
     return;
@@ -3823,11 +3817,9 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
+  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize)) // INTEL
     return;
 
->>>>>>> 90536429ebf1c761786bb64c5c620e5c4be4738d
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
   if (Existing && !(Existing->getXDim() == WGSize[0] &&
                     Existing->getYDim() == WGSize[1] &&
