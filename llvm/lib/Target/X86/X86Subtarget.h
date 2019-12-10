@@ -499,16 +499,14 @@ protected:
   /// Threeway branch is profitable in this subtarget.
   bool ThreewayBranchProfitable = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Processor supports Decoded Stream Buffer.
   bool HasDSB = false;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Use Goldmont specific floating point div/sqrt costs.
   bool UseGLMDivSqrtCosts = false;
 
->>>>>>> f688570d5c5493e969d5fca599d6eb8a796e27ca
   /// What processor and OS we're targeting.
   Triple TargetTriple;
 
