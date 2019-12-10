@@ -6755,6 +6755,7 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_parallel:
   case OMPD_for:
   case OMPD_parallel_for:
+  case OMPD_parallel_master:
   case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_parallel_for_simd:
@@ -7068,6 +7069,7 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_parallel:
   case OMPD_for:
   case OMPD_parallel_for:
+  case OMPD_parallel_master:
   case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_parallel_for_simd:
@@ -8925,6 +8927,7 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_parallel:
     case OMPD_for:
     case OMPD_parallel_for:
+    case OMPD_parallel_master:
     case OMPD_parallel_sections:
     case OMPD_for_simd:
     case OMPD_parallel_for_simd:
@@ -9705,6 +9708,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_parallel:
     case OMPD_for:
     case OMPD_parallel_for:
+    case OMPD_parallel_master:
     case OMPD_parallel_sections:
     case OMPD_for_simd:
     case OMPD_parallel_for_simd:
@@ -10402,6 +10406,7 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_parallel:
     case OMPD_for:
     case OMPD_parallel_for:
+    case OMPD_parallel_master:
     case OMPD_parallel_sections:
     case OMPD_for_simd:
     case OMPD_parallel_for_simd:
