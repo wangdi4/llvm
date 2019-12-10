@@ -104,6 +104,13 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
     return true;
 
+#if INTEL_CUSTOMIZATION
+  // Assume all versions of the "other" backend have a compiler.
+  // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
+  if (pi::useBackend(pi::SYCL_BE_PI_OTHER))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   // OpenCL 2.1 and greater require clCreateProgramWithIL
   if (pi::useBackend(pi::SYCL_BE_PI_OPENCL) &&
       C.get_platform().get_info<info::platform::version>() >= "2.1")
@@ -434,49 +441,10 @@ void ProgramManager::debugDumpBinaryImages() const {
   }
 }
 
-<<<<<<< HEAD
-struct ImageDeleter {
-  void operator()(DeviceImage *I) {
-    delete[] I->BinaryStart;
-    delete I;
-  }
-};
-
-static bool is_device_binary_type_supported(const context &C,
-                                            RT::PiDeviceBinaryType Format) {
-  // All formats except PI_DEVICE_BINARY_TYPE_SPIRV are supported.
-  if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
-    return true;
-
-#if INTEL_CUSTOMIZATION
-  // Assume all versions of the "other" backend have a compiler.
-  // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
-  if (pi::useBackend(pi::SYCL_BE_PI_OTHER))
-    return true;
-#endif // INTEL_CUSTOMIZATION
-
-  // OpenCL 2.1 and greater require clCreateProgramWithIL
-  if (pi::useBackend(pi::SYCL_BE_PI_OPENCL) &&
-      C.get_platform().get_info<info::platform::version>() >= "2.1")
-    return true;
-
-  // Otherwise we need cl_khr_il_program extension to be present
-  // and we can call clCreateProgramWithILKHR using the extension
-  for (const auto &D : C.get_devices()) {
-    auto Extensions = D.get_info<info::device::extensions>();
-    if (std::find(Extensions.begin(), Extensions.end(),
-                  string_class("cl_khr_il_program")) != Extensions.end())
-      return true;
-  }
-
-  // This device binary type is not supported.
-  return false;
-=======
 KernelSetId ProgramManager::getNextKernelSetId() const {
   // No need for atomic, should be guarded by the caller
   static KernelSetId Result = LastKSId;
   return ++Result;
->>>>>>> bbf7a442c5ad088a53a3d7647fd24290325254d7
 }
 
 KernelSetId
