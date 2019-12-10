@@ -179,10 +179,11 @@ private:
   /// Serialize instruction that requires predication.
   void serializeWithPredication(VPInstruction *VPInst);
 
-  /// Specialized method to handle predication of uniform load instruction. This
-  /// function generates a single scalar load predicated by a not all-zero check
+  /// Specialized method to handle predication of a uniform instruction. This
+  /// function generates a single scalar instruction predicated by a
+  /// not all-zero check.
   /// of the current MaskValue.
-  // Example :
+  // Example for Load instruction:
   //
   // Incoming scalar pseudo IR -
   // loop.body:
@@ -231,7 +232,12 @@ private:
   //   %bcast = shufflevector %merge.phi
   //   %wide.user = add <VF x Ty> %bcast, %wide.loop.iv
   //
-  void serializePredicatedUniformLoad(VPInstruction *VPInst);
+  void serializePredicatedUniformInstruction(VPInstruction *VPInst);
+
+  /// Specialized method for kernel-convergent and kernel-uniform call
+  /// Generates single call instruction predicated by a not all-zero check
+  /// of the current mask value.
+  void processPredicatedKernelConvergentUniformCall(VPInstruction *VPInst);
 
   /// Predicate conditional instructions that require predication on their
   /// respective conditions.
@@ -298,6 +304,9 @@ private:
   /// Return true if \p FnName is the name of an OpenCL scalar select and \p Idx
   /// is the position of the mask argument.
   bool isOpenCLSelectMask(StringRef FnName, unsigned Idx);
+
+  /// Return true if \p VPInst call site has a \p AttrName attribute
+  bool callHasAttribute(VPInstruction *VPInst, StringRef AttrName) const;
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);

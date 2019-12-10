@@ -692,6 +692,14 @@ bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
   return Idx == 2 && ScalarSelectSet.count(FnName);
 }
 
+bool VPOCodeGen::callHasAttribute(VPInstruction *VPInst,
+                                  StringRef AttrName) const {
+  if (const auto *UnderlyingValue = VPInst->getUnderlyingValue())
+    if (const auto *UnderlyingCI = dyn_cast<CallInst>(UnderlyingValue))
+      return UnderlyingCI->hasFnAttr(AttrName);
+  return false;
+}
+
 void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
@@ -956,13 +964,21 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
     bool IsMasked = MaskValue != nullptr;
-    if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
+    if (callHasAttribute(VPInst, "kernel-uniform-call") &&
+        callHasAttribute(VPInst, "kernel-convergent-call")) {
+      // TODO: this case must be handled via VPlan to VPlan bypass
+      // infrastructure.
+      processPredicatedKernelConvergentUniformCall(VPInst);
+    } else if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
         ((matchVectorVariant(UnderlyingCI, IsMasked) ||
           (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||
         (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(VPInst);
     } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
+      assert(!callHasAttribute(VPInst, "kernel-call-once") &&
+             "VPVALCG: Serialization of a kernel called-once "
+             "function is not allowed.");
       serializeWithPredication(VPInst);
     }
     return;
@@ -1870,7 +1886,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   // TODO: Using DA for loop invariance.
   if (isVPValueUniform(Ptr, Plan)) {
     if (MaskValue)
-      serializePredicatedUniformLoad(VPInst);
+      serializePredicatedUniformInstruction(VPInst);
     else
       serializeInstruction(VPInst);
     return;
@@ -2726,7 +2742,15 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
   llvm_unreachable("Unsupported shuffle");
 }
 
-void VPOCodeGen::serializePredicatedUniformLoad(VPInstruction *VPInst) {
+void VPOCodeGen::processPredicatedKernelConvergentUniformCall(
+                     VPInstruction *VPInst) {
+  if (MaskValue)
+    return serializePredicatedUniformInstruction(VPInst);
+
+  return serializeInstruction(VPInst);
+}
+
+void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
   assert(MaskValue->getType()->isVectorTy() &&
          MaskValue->getType()->getVectorNumElements() == VF &&
          "Unexpected Mask Type");
@@ -2741,20 +2765,20 @@ void VPOCodeGen::serializePredicatedUniformLoad(VPInstruction *VPInst) {
   auto *CmpInst =
       Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
 
-  // Now create a scalar load, populating correct values for its operands.
+  // Now create a scalar instruction, populating correct values for its operands.
   SmallVector<Value *, 4> ScalarOperands;
   for (unsigned Op = 0, e = VPInst->getNumOperands(); Op != e; ++Op) {
     auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), 0 /*Lane*/);
-    assert(ScalarOp && "Operand for serialized uniform load not found.");
+    assert(ScalarOp && "Operand for serialized uniform instruction not found.");
     ScalarOperands.push_back(ScalarOp);
   }
 
-  Value *SerialLoad =
+  Value *SerialInstruction =
       generateSerialInstruction(Builder, VPInst, ScalarOperands);
-  VPScalarMap[VPInst][0] = SerialLoad;
+  VPScalarMap[VPInst][0] = SerialInstruction;
 
   PredicatedInstructions.push_back(
-      std::make_pair(cast<Instruction>(SerialLoad), CmpInst));
+      std::make_pair(cast<Instruction>(SerialInstruction), CmpInst));
 }
 
 void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
@@ -2796,7 +2820,8 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
          "Can't serialize aggregate type instructions.");
 
   unsigned Lanes =
-      !VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan) ? 1 : VF;
+      (!VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan)) ||
+       callHasAttribute(VPInst, "kernel-uniform-call") ? 1 : VF;
 
   for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
     SmallVector<Value *, 4> ScalarOperands;
