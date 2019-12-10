@@ -1,16 +1,22 @@
 //RUN: %clang_cc1 %s -cl-std=clc++ -pedantic -ast-dump -verify | FileCheck %s
 
-//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'int (int) const __generic'
+// INTEL_CUSTOMIZATION
+//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'int (int){{( __attribute__.*)?}} const __generic'
+// end INTEL_CUSTOMIZATION
 auto glambda = [](auto a) { return a; };
 
 __kernel void test() {
   int i;
-//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'void () const __generic'
+// INTEL_CUSTOMIZATION
+//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const __generic'
+// end INTEL_CUSTOMIZATION
   auto  llambda = [&]() {i++;};
   llambda();
   glambda(1);
   // Test lambda with default parameters
-//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'void () const __generic'
+// INTEL_CUSTOMIZATION
+//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const __generic'
+// end INTEL_CUSTOMIZATION
   [&] {i++;} ();
   __constant auto err = [&]() {}; //expected-note-re{{candidate function not viable: address space mismatch in 'this' argument ('__constant (lambda at {{.*}})'), parameter type must be 'const __generic (lambda at {{.*}})'}}
   err();                          //expected-error-re{{no matching function for call to object of type '__constant (lambda at {{.*}})'}}
@@ -25,10 +31,14 @@ __kernel void test() {
 }
 
 __kernel void test_qual() {
-//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void () const'
+// INTEL_CUSTOMIZATION
+//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const'
+// end INTEL_CUSTOMIZATION
   auto priv1 = []() __private {};
   priv1();
-//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void () const __generic'
+// INTEL_CUSTOMIZATION
+//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const __generic'
+// end INTEL_CUSTOMIZATION
   auto priv2 = []() __generic {};
   priv2();
   auto priv3 = []() __global {}; //expected-note-re{{candidate function not viable: address space mismatch in 'this' argument ('(lambda at {{.*}})'), parameter type must be 'const __global (lambda at {{.*}})'}} //expected-note{{conversion candidate of type 'void (*)()'}}
@@ -38,7 +48,9 @@ __kernel void test_qual() {
   const1(); //expected-error{{no matching function for call to object of type '__constant (lambda at}}
   __constant auto const2 = []() __generic{}; //expected-note-re{{candidate function not viable: address space mismatch in 'this' argument ('__constant (lambda at {{.*}})'), parameter type must be 'const __generic (lambda at {{.*}}'}} //expected-note{{conversion candidate of type 'void (*)()'}}
   const2(); //expected-error{{no matching function for call to object of type '__constant (lambda at}}
-//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void () const __constant'
+// INTEL_CUSTOMIZATION
+//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const __constant'
+// end INTEL_CUSTOMIZATION
   __constant auto const3 = []() __constant{};
   const3();
 
