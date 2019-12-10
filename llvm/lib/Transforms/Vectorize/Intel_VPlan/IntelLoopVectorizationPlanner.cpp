@@ -24,9 +24,9 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
+#include "IntelVPlanClone.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
-#include "IntelVPlanClone.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -36,20 +36,18 @@
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
-static cl::opt<unsigned>
-VecThreshold("vec-threshold",
-             cl::desc("sets a threshold for the vectorization on the probability"
-                      "of profitable execution of the vectorized loop in parallel."),
-             cl::init(100));
+static cl::opt<unsigned> VecThreshold(
+    "vec-threshold",
+    cl::desc("sets a threshold for the vectorization on the probability"
+             "of profitable execution of the vectorized loop in parallel."),
+    cl::init(100));
 
 #else
-cl::opt<unsigned>
-    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
-                        cl::desc("Default estimated trip count"));
+cl::opt<unsigned> VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
+                                      cl::desc("Default estimated trip count"));
 #endif // INTEL_CUSTOMIZATION
-static cl::opt<unsigned> VPlanForceVF(
-    "vplan-force-vf", cl::init(0),
-    cl::desc("Force VPlan to use given VF"));
+static cl::opt<unsigned> VPlanForceVF("vplan-force-vf", cl::init(0),
+                                      cl::desc("Force VPlan to use given VF"));
 
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
@@ -208,8 +206,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
   // to 2^32, otherwise all logic below will have a problem with overflow.
   VPLoopInfo *VPLI = ScalarPlan->getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
-         && "Expected single outermost loop!");
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+         "Expected single outermost loop!");
   VPLoop *OuterMostVPLoop = *VPLI->begin();
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
@@ -281,11 +279,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
-      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold))/100.0f;
+      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold)) / 100.0f;
     }
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
-    (void) CmpChar;
+    (void)CmpChar;
     LLVM_DEBUG(dbgs() << "Scalar Cost = " << TripCount << " x "
                       << ScalarIterationCost << " = " << ScalarCost << ' '
                       << CmpChar << " VectorCost = " << VectorTripCount << "[x"
@@ -327,7 +325,7 @@ void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
 
-  DenseSet<VPlan*> PredicatedVPlans;
+  DenseSet<VPlan *> PredicatedVPlans;
   for (auto It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
@@ -401,8 +399,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
     const DataLayout *DL) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan =
-      std::make_shared<VPlan>(Context, DL);
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -422,8 +419,8 @@ template <class Legality> constexpr IRKind getIRKindByLegality() {
 
 template <class VPOVectorizationLegality>
 #endif
-void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
-                                                 VPOVectorizationLegality &LVL) {
+void LoopVectorizationPlanner::EnterExplicitData(
+    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
 #if INTEL_CUSTOMIZATION
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
   if (Kind == IRKind::LLVMIR)
@@ -510,8 +507,8 @@ template void
 LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
     WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL);
 #endif
-} // namespace llvm
 } // namespace vpo
+} // namespace llvm
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
