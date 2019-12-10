@@ -127,7 +127,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
 }
 
 // Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
   Function *PrintfDecl = MT->getPrintfDecl();
   if (!PrintfDecl)
     // no printf() found in the module
@@ -192,6 +192,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                                                      Function *Fn,
                                                      CallInst *&Call) {
 
+  assert(isTargetSPIRV() &&
+         "finalizeKernelFunction called for non-SPIRV target.");
+
   FunctionType *FnTy = Fn->getFunctionType();
   SmallVector<Type *, 8> ParamsTy;
 
@@ -248,28 +251,26 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs.erase(DI);
     FunctionDIs[NFn] = SP;
   }
-  if (isTargetSPIRV()) {
-    InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
+  InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
-    // We intentionally call the function below after InferAddrSpaces() to have
-    // the latter restructure addrspacecasts hidden inside GEP expressions.
-    // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
-    // addrspacecast in the printf's first argument would fail to find the cast.
-    // For example:
-    //   BEFORE:
-    //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
-    //     addrspace(4)* addrspacecast (
-    //       [25 x i8] addrspace(1)* @.str to
-    //       [25 x i8] addrspace(4)*
-    //     ), i64 0, i64 0)
-    //   AFTER:
-    //     i8 addrspace(4)* addrspacecast (
-    //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
-    //       addrspace(1)* @.str, i64 0, i64 0)
-    //     to i8 addrspace(4)*)
-    //
-    replacePrintfWithOCLBuiltin(NFn);
-  }
+  // We intentionally call the function below after InferAddrSpaces() to have
+  // the latter restructure addrspacecasts hidden inside GEP expressions.
+  // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
+  // addrspacecast in the printf's first argument would fail to find the cast.
+  // For example:
+  //   BEFORE:
+  //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
+  //     addrspace(4)* addrspacecast (
+  //       [25 x i8] addrspace(1)* @.str to
+  //       [25 x i8] addrspace(4)*
+  //     ), i64 0, i64 0)
+  //   AFTER:
+  //     i8 addrspace(4)* addrspacecast (
+  //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
+  //       addrspace(1)* @.str, i64 0, i64 0)
+  //     to i8 addrspace(4)*)
+  //
+  replacePrintfWithOCLBuiltin(NFn);
 
   return NFn;
 }
@@ -340,12 +341,10 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
 }
 
 /// This function ignores special instructions with side effect.
-/// Returns true if the store address is one of the \p PrivateVariables.
 /// Returns true if the call instruction is a special call.
 /// Returns true if the store address is an alloca instruction,
 /// that is allocated locally in the thread.
-static bool ignoreSpecialOperands(const Instruction *I,
-                                  SmallPtrSetImpl<Value *> &PrivateVariables) {
+static bool ignoreSpecialOperands(const Instruction *I) {
 
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
@@ -364,11 +363,17 @@ static bool ignoreSpecialOperands(const Instruction *I,
       return true;
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
+    const Value *RootPointer = StorePointer->stripPointerCasts();
     LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer);
-    if (isa<AllocaInst>(StorePointer)) {
-      return true;
-    }
-    if (PrivateVariables.find(StorePointer) != PrivateVariables.end())
+    // We must not guard stores through private pointers. The store must
+    // happen in each work item, so that the variable is initialized
+    // in each work item. For values privatized as local allocas RootPointer
+    // will be the AllocaInst with private address space, so there is no need
+    // for special handling of the regions' private values.
+    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE ||
+        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE)
       return true;
   }
   return false;
@@ -377,8 +382,10 @@ static bool ignoreSpecialOperands(const Instruction *I,
 /// Guard instructions that have side effects, so that only master thread
 /// (thread_id == 0) in each team executes it.
 void VPOParoptTransform::guardSideEffectStatements(
-    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables,
-    Instruction *KernelEntryDir, Instruction *KernelExitDir) {
+    WRegionNode *W, Function *KernelF) {
+
+  assert(isTargetSPIRV() &&
+         "guardSideEffectStatements() called for non-SPIRV target.");
 
   SmallVector<Instruction *, 6> SideEffectInstructions;
   SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
@@ -390,10 +397,13 @@ void VPOParoptTransform::guardSideEffectStatements(
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
+  CallInst *KernelEntryDir = cast<CallInst>(W->getEntryDirective());
+  CallInst *KernelExitDir = cast<CallInst>(W->getExitDirective());
 
   SmallPtrSet<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
-  SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
+  SmallVector<Instruction *, 10> EntryDirectivesToDelete;
+  SmallVector<Instruction *, 10> ExitDirectivesToDelete;
   SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
 
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
@@ -417,6 +427,22 @@ void VPOParoptTransform::guardSideEffectStatements(
   for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
        I != E; ++I) {
 
+    // Collect OpenMP directive calls so that we can delete them
+    // later.
+    if (VPOAnalysisUtils::isOpenMPDirective(&*I) &&
+        // Avoid deleting SIMD directives.
+        !isParOrTargetDirective(&*I, false, true) &&
+        // Target directives require special processing (see below).
+        &*I != KernelEntryDir && &*I != KernelExitDir) {
+      // Distinguish between entry and other directives, since
+      // we want to delete the entry directives after their
+      // exit companions.
+      if (VPOAnalysisUtils::isBeginDirective(&*I))
+        EntryDirectivesToDelete.push_back(&*I);
+      else
+        ExitDirectivesToDelete.push_back(&*I);
+    }
+
     if (isParOrTargetDirective(&*I) &&
         // Barriers must not be inserted around SIMD loops.
         // SIMD directives must not be removed either.
@@ -435,8 +461,6 @@ void VPOParoptTransform::guardSideEffectStatements(
       InsertBarrierAt.insert(ParDirectiveBegin);
 
       InsertBarrierAt.insert(ParDirectiveExit);
-
-      ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
 
       LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
                         << "\n and after ::" << *ParDirectiveExit);
@@ -492,7 +516,7 @@ void VPOParoptTransform::guardSideEffectStatements(
           if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
             continue;
         }
-        if (ignoreSpecialOperands(&I, PrivateVariables))
+        if (ignoreSpecialOperands(&I))
           continue;
 
         LLVM_DEBUG(dbgs() << "\n Instruction Has Sideeffect::" << I
@@ -569,9 +593,25 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
   }
 
-  for (auto BB : ParDirectiveExitBlocks) {
-    VPOUtils::stripDirectives(*BB);
-  }
+  // Delete the non-SIMD directives.
+  // The target directives will be removed by paroptTransforms().
+  for (auto *I : ExitDirectivesToDelete)
+    VPOUtils::stripDirectives(*I->getParent());
+  for (auto *I : EntryDirectivesToDelete)
+    VPOUtils::stripDirectives(*I->getParent());
+
+  // Remove all clauses from the "omp target" entry directive.
+  // The extra references in the clauses may prevent address space
+  // inferring. We cannot remove the directive call yet, because
+  // the removal in paroptTransforms() will complain.
+  OperandBundleDef B(VPOAnalysisUtils::getDirectiveString(KernelEntryDir),
+                     None);
+  // The following call clones the original directive call
+  // with just the directive name in the operand bundles.
+  auto *NewEntryDir = CallInst::Create(KernelEntryDir, { B }, KernelEntryDir);
+  KernelEntryDir->replaceAllUsesWith(NewEntryDir);
+  KernelEntryDir->eraseFromParent();
+  W->setEntryDirective(NewEntryDir);
 }
 
 // Generate the code for the directive omp target
@@ -615,38 +655,24 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   if (isa<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
-  }
 
-  // Please note that the name of NewF is updated in the
-  // function registerTargetRegion.
-  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation()) {
-    LLVM_DEBUG(dbgs() << "\n Before finalizeKernel Dump the function ::"
-                      << *NewF);
-    NewF = finalizeKernelFunction(W, NewF, NewCall);
-    LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
-                      << *NewF);
+    // Please note that the name of NewF is updated in the
+    // function registerTargetRegion.
+    if (isTargetSPIRV()) {
+      LLVM_DEBUG(dbgs() << "\n Before guardSideEffectStatemets the function ::"
+                 << *NewF);
+      guardSideEffectStatements(W, NewF);
+      LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
+                 << *NewF);
 
-    SmallPtrSet<Value *, 10> PrivateVariables;
-    if (W->canHavePrivate()) {
-      PrivateClause const &PrivClause = W->getPriv();
-      for (PrivateItem *PrivI : PrivClause.items()) {
-        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
-                          << PrivI->getOrig()->getName()
-                          << " New:: " << PrivI->getNew()->getName());
-        PrivateVariables.insert(PrivI->getNew());
-      }
-      for (auto *PrivI : W->getFpriv().items()) {
-        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
-                          << PrivI->getOrig()->getName()
-                          << " New:: " << PrivI->getNew()->getName());
-        PrivateVariables.insert(PrivI->getNew());
-      }
+      // Make sure to run kernel finalization after guardSideEffectStatemets(),
+      // which is responsible for cleaning up all directive calls that
+      // were left until this point for guardSideEffectStatemets() to work.
+      // The extra directive call may prevent address space inferring.
+      NewF = finalizeKernelFunction(W, NewF, NewCall);
+      LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
+                 << *NewF);
     }
-    guardSideEffectStatements(NewF, PrivateVariables, W->getEntryDirective(),
-                              W->getExitDirective());
-    LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
-                      << *NewF);
   }
 
   if (hasOffloadCompilation())

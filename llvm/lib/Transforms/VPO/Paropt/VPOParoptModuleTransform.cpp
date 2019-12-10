@@ -29,6 +29,7 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
+#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #if INTEL_CUSTOMIZATION
@@ -424,6 +425,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
+
+#if INTEL_CUSTOMIZATION
+  if (IsTargetSPIRV)
+    Changed |= InferAddrSpacesForGlobals(vpo::ADDRESS_SPACE_GENERIC, M);
+#endif  // INTEL_CUSTOMIZATION
 
   if (!DisableOffload) {
     // Emit offload entries table.

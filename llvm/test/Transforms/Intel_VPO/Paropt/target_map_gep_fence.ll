@@ -60,7 +60,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %entry
 DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
 
 ; Check that after prepare, uses of %local are replaced with a load from LADDR.
-; PREPR: [[LADDR_LOAD:%[a-zA-Z._0-9]+]] = load [1 x i32]*, [1 x i32]** [[LADDR]]
+; PREPR: [[LADDR_LOAD:%[a-zA-Z._0-9]+]] = load volatile [1 x i32]*, [1 x i32]** [[LADDR]]
 ; PREPR: [[GEP1:%[a-zA-Z._0-9]+]] = getelementptr inbounds [1 x i32], [1 x i32]* [[LADDR_LOAD]], i64 0, i64 0
 ; PREPR: store i32 800, i32* [[GEP1]]
 

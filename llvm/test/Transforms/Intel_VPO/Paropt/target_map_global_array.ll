@@ -32,7 +32,7 @@ entry:
 ; PREPR: call token @llvm.directive.region.entry()
 ; PREPR-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* @arrS
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"([100 x i32]* @arrS, [100 x i32]** [[AADDR]])
-; PREPR: [[A_RENAMED:%[a-zA-Z._0-9]+]] = load [100 x i32]*, [100 x i32]** [[AADDR]]
+; PREPR: [[A_RENAMED:%[a-zA-Z._0-9]+]] = load volatile [100 x i32]*, [100 x i32]** [[AADDR]]
 ; PREPR: [[GEP1:%[a-zA-Z._0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* [[A_RENAMED]], i64 0, i64 50
 ; PREPR: store i32 3, i32* [[GEP1]], align 8
 
