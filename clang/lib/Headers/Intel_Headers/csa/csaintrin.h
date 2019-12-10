@@ -40,7 +40,7 @@ typedef unsigned short  __v4hu __attribute__((__vector_size__(8))); /* Used for 
 typedef int             __v2si __attribute__((__vector_size__(8))); /* Used for signed int32x2   */
 typedef unsigned int    __v2ui __attribute__((__vector_size__(8))); /* Used for unsigned int32x2 */
 typedef long long       __m64i __attribute__((__vector_size__(8))); /* Used for signatures (int8x8, int16x4, int32x2, etc.) */
-#endif
+#endif /* __CSA__ */
 
 /* Disable and swizzle enums */
 typedef enum {
@@ -435,14 +435,17 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
   float res_hi = (disable & 2) ? a_hi : fms(a_hi, b_hi, c_hi);
   return (__m64f){res_lo, res_hi};
 }
-#endif
+#endif /* __CSA__ */
 
 #define _mm64_shuf_ps(A, B, M, N) \
   (__m64f)(__builtin_shufflevector((__m64f)(A), (__m64f)(B), (M), (N)))
 
 
 #ifdef __CSA__
-/* Intrinsics for half-precision vectors */
+/*
+ * Intrinsics for half-precision vectors
+ */
+
 static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setzero_ph(void)
 {
   return (__m64h){ 0.0f16, 0.0f16, 0.0f16, 0.0f16 };
@@ -500,7 +503,6 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
   return (__m64i)(a);
 }
 
-
 /*
  * Integer vector Intrinsics
  */
@@ -532,7 +534,78 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_sub_epi16(__m64i a, __m64i b)
 /* Add packed 8-bit integers in a and b using saturation, and return the result. */
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_adds_epi8(__m64i a, __m64i b)
 {
-  return (__m64i)__builtin_csa_addsu8x8((__v8qi)a, (__v8qi)b);
+  return (__m64i) __builtin_csa_addss8x8((__v8qi)a, (__v8qi)b);
+}
+
+/* Add packed 16-bit integers in a and b using saturation, and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_adds_epi16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_addss16x4((__v4hi)a, (__v4hi)b);
+}
+
+/* Add packed unsigned 8-bit integers in a and b using saturation, and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_adds_epu8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_addsu8x8((__v8qu)a, (__v8qu)b);
+}
+
+/* Add packed unsigned 16-bit integers in a and b using saturation, and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_adds_epu16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_addsu16x4((__v4hu)a, (__v4hu)b);
+}
+
+/* Subtract packed 8-bit integers in b from packed 8-bit integers in a using saturation,
+   and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_subs_epi8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_subss8x8((__v8qi)a, (__v8qi)b);
+}
+
+/* Subtract packed 16-bit integers in b from packed 16-bit integers in a using saturation,
+   and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_subs_epi16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_subss16x4((__v4hi)a, (__v4hi)b);
+}
+
+/* Subtract packed unsigned 8-bit integers in b from packed unsigned 8-bit integers in a
+   using saturation, and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_subs_epu8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_subsu8x8((__v8qu)a, (__v8qu)b);
+}
+
+/* Subtract packed unsigned 16-bit integers in b from packed unsigned 16-bit integers in a
+   using saturation, and return the result. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_subs_epu16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_subsu16x4((__v4hu)a, (__v4hu)b);
+}
+
+/* Compare packed 8-bit integers in a and b, and return the packed minimum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_min_epi8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_mins8x8((__v8qi)a, (__v8qi)b);
+}
+
+/* Compare packed 16-bit integers in a and b, and return the packed minimum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_min_epi16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_mins16x4((__v4hi)a, (__v4hi)b);
+}
+
+/* Compare packed unsigned 8-bit integers in a and b, and return the packed minimum values. */
+
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_min_epu8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_minu8x8((__v8qu)a, (__v8qu)b);
+}
+
+/* Compare packed unsigned 16-bit integers in a and b, and return the packed minimum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_min_epu16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_minu16x4((__v4hu)a, (__v4hu)b);
 }
 
 /* Compare packed 8-bit integers in a and b, and return the packed maximum values. */
@@ -572,6 +645,25 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_abs_epi8(__m64i a)
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_abs_epi16(__m64i a)
 {
   return (__m64i)__builtin_csa_abs16x4((__v4hu)a);
+}
+
+/* Compare packed 16-bit integers in a and b, and return the packed maximum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epi16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_maxs16x4((__v4hi)a, (__v4hi)b);
+}
+
+/* Compare packed unsigned 8-bit integers in a and b, and return the packed maximum values. */
+
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epu8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_maxu8x8((__v8qu)a, (__v8qu)b);
+}
+
+/* Compare packed unsigned 16-bit integers in a and b, and return the packed maximum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epu16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_maxu16x4((__v4hu)a, (__v4hu)b);
 }
 
 /* Create mask from the most significant bit of each 8-bit element in a, and return the result. */
@@ -740,7 +832,7 @@ static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_blend_ps(unsigned char mask, _
 {
   return (__m64f)__builtin_csa_blend16x4(mask, a, b);
 }
-#endif
+#endif /* __CSA__ */
 
 #undef __DEFAULT_FN_ATTRS
 
