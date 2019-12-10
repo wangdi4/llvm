@@ -1079,12 +1079,8 @@ void CodeGenAction::ExecuteAction() {
       TheModule->setTargetTriple(TargetOpts.Triple);
     }
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-    EmbedBitcode(TheModule.get(), CI.getCodeGenOpts(),
-=======
     EmbedBitcode(TheModule.get(), CodeGenOpts,
->>>>>>> a3b2552575d3c333e928446fac10cc5b0b4092a9
                  MainFile->getMemBufferRef());
 #endif // !INTEL_PRODUCT_RELEASE
 
