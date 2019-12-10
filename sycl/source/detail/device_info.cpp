@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+#include <CL/sycl/detail/host_device_intel/backend.hpp>
+#endif // INTEL_CUSTOMIZATION
 #include <CL/sycl/detail/os_util.hpp>
 #include <CL/sycl/device.hpp>
 #include <detail/device_impl.hpp>
@@ -23,6 +26,25 @@
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
+
+#if INTEL_CUSTOMIZATION
+// Host device functionality is extended to support different
+// host device backends and each of then should device these
+// values.
+// There is no dedicated serial backend, but it still
+// required to have these functions.
+#if DPCPP_HOST_DEVICE_SERIAL
+static cl_uint getMaxComputeUnits() {
+  return 1;
+}
+
+static size_t getWorkGroupSize() { return 1; }
+
+static sycl::id<3> getMaxWorkItemSizes() {
+  return {1, 1, 1};
+}
+#endif /* DPCPP_HOST_DEVICE_SERIAL */
+#endif /* INTEL_CUSTIMIZATION */
 
 // Specialization for parent device
 template <>
@@ -101,7 +123,11 @@ template <> cl_uint get_device_info_host<info::device::vendor_id>() {
 }
 
 template <> cl_uint get_device_info_host<info::device::max_compute_units>() {
-  return std::thread::hardware_concurrency();
+#if INTEL_CUSTOMIZATION
+  return detail::getMaxComputeUnits();
+#else
+  return 1;
+#endif /* INTEL_CUSTOMIZATION */
 }
 
 template <>
@@ -111,12 +137,19 @@ cl_uint get_device_info_host<info::device::max_work_item_dimensions>() {
 
 template <> id<3> get_device_info_host<info::device::max_work_item_sizes>() {
   // current value is the required minimum
+#if INTEL_CUSTOMIZATION
+  return detail::getMaxWorkItemSizes();
+#else
   return {1, 1, 1};
+#endif // INTEL_CUSTOMIZATION
 }
 
 template <> size_t get_device_info_host<info::device::max_work_group_size>() {
-  // current value is the required minimum
+#if INTEL_CUSTOMIZATION
+  return detail::getWorkGroupSize();
+#else
   return 1;
+#endif // INTEL_CUSTOMIZATION
 }
 
 template <>
