@@ -293,7 +293,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   pi_assert(ze_avail_mem_count > 0);
   ze_device_memory_properties_t *ze_device_memory_properties =
     new ze_device_memory_properties_t[ze_avail_mem_count]();
-  for (uint32_t i; i < ze_avail_mem_count; i++) {
+  for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
     ze_device_memory_properties[i].version = ZE_DEVICE_MEMORY_PROPERTIES_VERSION_CURRENT;
   }
   ZE_CALL(zeDeviceGetMemoryProperties(
@@ -380,7 +380,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_MAX_MEM_ALLOC_SIZE) {
     // TODO: To confirm with spec.
     uint32_t max_mem_alloc_size = 0;
-    for (uint32_t i; i < ze_avail_mem_count; i++) {
+    for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
       max_mem_alloc_size += ze_device_memory_properties[i].totalSize;
     }
     SET_PARAM_VALUE(pi_uint32{max_mem_alloc_size});
@@ -388,7 +388,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_GLOBAL_MEM_SIZE) {
     // TODO: To confirm with spec.
     uint32_t max_mem_alloc_size = 0;
-    for (uint32_t i; i < ze_avail_mem_count; i++) {
+    for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
       max_mem_alloc_size += ze_device_memory_properties[i].totalSize;
     }
     SET_PARAM_VALUE(pi_uint32{max_mem_alloc_size});
@@ -396,7 +396,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_LOCAL_MEM_SIZE) {
   // TODO: To confirm with spec.
     uint32_t max_mem_alloc_size = 0;
-    for (uint32_t i; i < ze_avail_mem_count; i++) {
+    for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
       max_mem_alloc_size += ze_device_memory_properties[i].totalSize;
     }
     SET_PARAM_VALUE(pi_uint32{max_mem_alloc_size});
@@ -425,7 +425,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
      SET_PARAM_VALUE(pi_uint32{(ze_driver_version_major << 8) | ze_driver_version_minor});
   }
   else if (param_name == PI_DEVICE_VERSION) {
-    SET_PARAM_VALUE(pi_uint32{ze_device_properties.version});
+    SET_PARAM_VALUE(pi_cast<pi_uint32>(ze_device_properties.version));
   }
   else if (param_name == PI_DEVICE_PARTITION_MAX_SUB_DEVICES) {
     SET_PARAM_VALUE(pi_uint32{ze_device_properties.numTiles});
@@ -913,7 +913,7 @@ pi_result L0(piMemRelease)(pi_mem ptr) {
   // TODO: handle errors
   ZE_CALL(zeDriverFreeMem(
     ze_driver_global,
-    static_cast<void*>(ptr)));
+    pi_cast<void*>(ptr)));
 
   return PI_SUCCESS;
 }
@@ -1009,11 +1009,10 @@ pi_result L0(piMemImageCreate)(
                              ZE_IMAGE_FLAG_PROGRAM_WRITE),
     ze_image_type,
     formatDesc,
-    // TODO: check that size_t width/height/depth fit into 32-bit
-    static_cast<uint32_t>(image_desc->image_width),
-    static_cast<uint32_t>(image_desc->image_height),
-    static_cast<uint32_t>(image_desc->image_depth),
-    static_cast<uint32_t>(image_desc->image_array_size),
+    pi_cast<uint32_t>(image_desc->image_width),
+    pi_cast<uint32_t>(image_desc->image_height),
+    pi_cast<uint32_t>(image_desc->image_depth),
+    pi_cast<uint32_t>(image_desc->image_array_size),
     image_desc->num_mip_levels
   };
 
@@ -1389,9 +1388,9 @@ pi_result L0(piEnqueueKernelLaunch)(
   zePrint("calling zeCommandListAppendLaunchKernel() with"
                   "  ze_event %lx\n"
                   "  num_events_in_wait_list %d:",
-          (unsigned long int)ze_event, num_events_in_wait_list);
+          pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
   for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", (unsigned long int)ze_event_wait_list[i]);
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
   }
   zePrint("\n");
 
@@ -1471,7 +1470,7 @@ pi_result L0(piEventGetInfo)(
     SET_PARAM_VALUE(pi_context{event->Queue->Context});
   }
   else if (param_name == PI_EVENT_INFO_COMMAND_TYPE) {
-    SET_PARAM_VALUE(pi_uint64{event->CommandType});
+    SET_PARAM_VALUE(pi_cast<pi_uint64>(event->CommandType));
   }
   else if (param_name == PI_EVENT_INFO_COMMAND_EXECUTION_STATUS) {
     ze_result_t ze_result;
@@ -1530,7 +1529,7 @@ pi_result L0(piEventsWait)(
 
   for (uint32_t i = 0; i < num_events; i++) {
     ze_event_handle_t ze_event = event_list[i]->L0Event;
-    zePrint("ze_event = %lx\n", (unsigned long int)ze_event);
+    zePrint("ze_event = %lx\n", pi_cast<std::uintptr_t>(ze_event));
     // TODO: Using UINT32_MAX for timeout should have the desired
     // effect of waiting until the event is trigerred, but it seems that
     // it is causing an OS crash, so use an interruptable loop for now.
@@ -1799,9 +1798,9 @@ pi_result L0(piEnqueueMemBufferRead)(
   zePrint("calling zeCommandListAppendMemoryCopy() with\n"
                   "  xe_event %lx\n"
                   "  num_events_in_wait_list %d:",
-          (unsigned long int)ze_event, num_events_in_wait_list);
+          pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
   for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", (unsigned long int)ze_event_wait_list[i]);
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
   }
   zePrint("\n");
 
@@ -1848,9 +1847,9 @@ pi_result L0(piEnqueueMemBufferReadRect)(
 
   zePrint("calling zeCommandListAppendWaitOnEvents() with\n"
                 "  num_events_in_wait_list %d:",
-                (unsigned long int)ze_event, num_events_in_wait_list);
+                pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
   for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", (unsigned long int)ze_event_wait_list[i]);
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
   }
   zePrint("\n");
 
@@ -1892,7 +1891,7 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   ));
 
   zePrint("calling zeCommandListAppendMemoryCopyRegion() with\n"
-                  "  ze_event %lx\n", (unsigned long int)ze_event);
+                  "  ze_event %lx\n", pi_cast<std::uintptr_t>(ze_event));
 
   command_queue->executeCommandList();
   _pi_event::deleteL0EventList(ze_event_wait_list);
@@ -1950,9 +1949,9 @@ pi_result L0(piEnqueueMemBufferWrite)(
   zePrint("calling zeCommandListAppendMemoryCopy() with\n"
                   "  xe_event %lx\n"
                   "  num_events_in_wait_list %d:",
-          (unsigned long int)ze_event, num_events_in_wait_list);
+          pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
   for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", (unsigned long int)ze_event_wait_list[i]);
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
   }
   zePrint("\n");
 
@@ -1999,9 +1998,9 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
 
   zePrint("calling zeCommandListAppendWaitOnEvents() with\n"
                 "  num_events_in_wait_list %d:",
-                (unsigned long int)ze_event, num_events_in_wait_list);
+                pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
   for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", (unsigned long int)ze_event_wait_list[i]);
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
   }
   zePrint("\n");
 
@@ -2052,7 +2051,7 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   }
 
   zePrint("calling zeCommandListAppendMemoryCopyRegion() with\n"
-                  "  ze_event %lx\n", (unsigned long int)ze_event);
+                  "  ze_event %lx\n", pi_cast<std::uintptr_t>(ze_event));
 
   command_queue->executeCommandList();
   _pi_event::deleteL0EventList(ze_event_wait_list);
@@ -2101,9 +2100,9 @@ pi_result L0(piEnqueueMemBufferCopy)(
   zePrint("calling zeCommandListAppendMemoryCopy() with\n"
                   "  xe_event %lx\n"
                   "  num_events_in_wait_list %d:",
-          (unsigned long int)ze_event, num_events_in_wait_list);
+          pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
   for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", (unsigned long int)ze_event_wait_list[i]);
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
   }
   zePrint("\n");
 
