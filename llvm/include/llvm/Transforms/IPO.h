@@ -325,6 +325,9 @@ ModulePass *createDopeVectorConstPropLegacyPass(void);
 /// "is-qsort".
 ModulePass *createQsortRecognizerLegacyPass(void);
 
+/// \brief This pass eliminates dead array element operations.
+ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
+
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

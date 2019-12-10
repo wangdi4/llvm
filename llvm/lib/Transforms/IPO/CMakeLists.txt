@@ -21,6 +21,7 @@ add_llvm_component_library(LLVMipo
   IPO.cpp
   InferFunctionAttrs.cpp
   Intel_AdvancedFastCall.cpp   # INTEL
+  Intel_DeadArrayOpsElimination.cpp   # INTEL
   Intel_DopeVectorConstProp.cpp   # INTEL
   Intel_InlineReport.cpp   # INTEL
   Intel_MDInlineReport.cpp   # INTEL

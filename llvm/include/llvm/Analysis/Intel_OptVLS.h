@@ -311,7 +311,12 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSMemref &M) {
 class OVLSGroup {
 public:
   OVLSGroup(OVLSMemref *InsertPoint, int VLen, OVLSAccessKind AKind)
-      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {}
+      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    static int GroupCounter = 0;
+    DebugId = ++GroupCounter;
+#endif
+  }
 
   typedef OVLSMemrefVector::iterator iterator;
   inline iterator begin() { return MemrefVec.begin(); }
@@ -393,6 +398,7 @@ public:
   const OVLSMemrefVector &getMemrefVec() const { return MemrefVec; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  int getDebugId() const { return DebugId; }
   void print(OVLSostream &OS, unsigned SpaceCount) const;
   void dump() const;
 #endif
@@ -417,6 +423,11 @@ private:
 
   /// \brief AccessKind of the group.
   OVLSAccessKind AccessKind;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// A unique group identifier to make dumps more readable.
+  int DebugId;
+#endif
 };
 
 /// OVLSOperand is used to define an operand object for OVLSInstruction.
