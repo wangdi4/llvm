@@ -337,7 +337,7 @@ namespace {
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
-      (void) llvm::createHIRSymbolicTripCountCompleteUnrollLegacyPass();
+      (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();

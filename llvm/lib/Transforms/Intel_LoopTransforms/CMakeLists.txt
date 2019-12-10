@@ -26,7 +26,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLoopReversal.cpp
         HIRLMM.cpp
         HIRLoopCollapse.cpp
-        HIRSymbolicTripCountCompleteUnroll.cpp
+        HIRPMSymbolicTripCountCompleteUnroll.cpp
         HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
         HIRParDirInsert.cpp

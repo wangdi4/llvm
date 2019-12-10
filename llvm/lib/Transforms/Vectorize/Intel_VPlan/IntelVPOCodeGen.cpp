@@ -2097,18 +2097,13 @@ void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
   Type *VecTy = VectorType::get(ScalarTy, VF);
   PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
                                     &*LoopVectorBody->getFirstInsertionPt());
-  if (UnderlyingPhi)
-    // TODO. Remove after switching to VPValue-based code gen.
-    WidenMap[UnderlyingPhi] = VecPhi;
   VPWidenMap[VPPhi] = VecPhi;
-  if (EnableVPValueCodegen)
-    // In this case we need an additional fixup.
-    PhisToFix[VPPhi] = VecPhi;
+
+  // We need an additional fixup.
+  PhisToFix[VPPhi] = VecPhi;
 }
 
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
-  assert(EnableVPValueCodegen && "This call is unexpected");
-
   if (VPEntities && VPEntities->isReductionPhi(VPPhi))
     // Handle reductions.
     vectorizeReductionPHI(VPPhi);
@@ -2204,8 +2199,6 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // Private memory is a pointer. We need to get element type
   // and allocate VF elements.
   Type *OrigTy = V->getType()->getPointerElementType();
-  assert((!OrigTy->isAggregateType() || !V->isSOALayout()) &&
-         "SOA is not supported for aggregate types yet");
 
   Type *VecTyForAlloca;
   // TODO. We should handle the case when original alloca has the size argument,

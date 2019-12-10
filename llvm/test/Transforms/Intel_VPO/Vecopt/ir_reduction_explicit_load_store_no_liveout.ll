@@ -4,7 +4,7 @@
 ; the reduction is not live-out of the loop.
 ; TODO: LinkedValues are not itemized due to unpredictable order (they are kept in a set).
 
-; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-print-after-linearization -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-print-after-linearization -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPReduction.
 ; CHECK-LABEL:  Loop Entities of the loop with header

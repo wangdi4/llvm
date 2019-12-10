@@ -263,7 +263,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPMSymbolicTripCountCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"

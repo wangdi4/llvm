@@ -1,24 +1,18 @@
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 -enable-vp-value-codegen=false %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-LLVM %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 -enable-vp-value-codegen %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-VPVALCG %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=8 -enable-vp-value-codegen=false %s | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-LLVM %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=8 -enable-vp-value-codegen %s | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-VPVALCG %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 -enable-vp-value-codegen=false %s | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-LLVM %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 -enable-vp-value-codegen %s | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-VPVALCG %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=32 -enable-vp-value-codegen=false %s | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-LLVM %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=32 -enable-vp-value-codegen %s | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-VPVALCG %s
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4  %s | FileCheck -DVL=4 %s
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=8  %s | FileCheck -DVL=8 %s
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 %s | FileCheck -DVL=16 %s
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=32 %s | FileCheck -DVL=32 %s
 
 ; TODO: Fast-math flags are not represented in VPValue yet. Update check when feature is implemented.
 ; CHECK-LABEL: test_sinf
-; CHECK-LLVM:     [[RESULT:%.*]] = call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> {{.*}})
-; CHECK-VPVALCG:  [[RESULT:%.*]] = call svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> {{.*}})
-; CHECK:          [[PTR:%.*]] = bitcast float* {{.*}} to <[[VL]] x float>*
-; CHECK:          store <[[VL]] x float> [[RESULT]], <[[VL]] x float>* [[PTR]], align 4
+; CHECK:  [[RESULT:%.*]] = call svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> {{.*}})
+; CHECK:  [[PTR:%.*]] = bitcast float* {{.*}} to <[[VL]] x float>*
+; CHECK:  store <[[VL]] x float> [[RESULT]], <[[VL]] x float>* [[PTR]], align 4
 
 ; CHECK-LABEL: test_sin
-; CHECK-LLVM:     [[RESULT:%.*]] = call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> {{.*}})
-; CHECK-VPVALCG:  [[RESULT:%.*]] = call svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> {{.*}})
-; CHECK:          [[PTR:%.*]] = bitcast double* {{.*}} to <[[VL]] x double>*
-; CHECK:          store <[[VL]] x double> [[RESULT]], <[[VL]] x double>* [[PTR]], align 8
+; CHECK:  [[RESULT:%.*]] = call svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> {{.*}})
+; CHECK:  [[PTR:%.*]] = bitcast double* {{.*}} to <[[VL]] x double>*
+; CHECK:  store <[[VL]] x double> [[RESULT]], <[[VL]] x double>* [[PTR]], align 8
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

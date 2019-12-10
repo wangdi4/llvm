@@ -426,7 +426,7 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
                                                  VPOVectorizationLegality &LVL) {
 #if INTEL_CUSTOMIZATION
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
-  if (Kind == IRKind::LLVMIR && EnableVPValueCodegen)
+  if (Kind == IRKind::LLVMIR)
     VPlanUseVPEntityInstructions = true;
 #endif
   // Collect any SIMD loop private information
@@ -534,8 +534,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Set ILV transform state
   ILV->setTransformState(&State);
 #endif // INTEL_CUSTOMIZATION
-
-  ILV->collectUniformsAndScalars(BestVF);
 
   Plan->execute(&State);
 

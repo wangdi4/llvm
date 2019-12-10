@@ -1377,7 +1377,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // entities replaces them with private memory definitions.) When the flag is \
   // true, all VPExternalDefs are treated as 'uniform' by DA.
 
-  if (EnableVPValueCodegen && !P->isLoopEntitiesPrivatizationDone()) {
+  if (!P->isLoopEntitiesPrivatizationDone()) {
 
     // Mark private entities as divergent.
     markEntitiesAsDivergent(RegionLoopEntities->vpprivates());
@@ -1430,7 +1430,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 
 #if INTEL_CUSTOMIZATION
   // Mark the Loop-entities which we had marked as divergent, as uniform again.
-  if (EnableVPValueCodegen && !P->isLoopEntitiesPrivatizationDone()) {
+  if (!P->isLoopEntitiesPrivatizationDone()) {
     for (auto *EntityPtr : DivergentLoopEntities) {
       markNonDivergent(EntityPtr);
       updateVectorShape(EntityPtr, getUniformVectorShape());

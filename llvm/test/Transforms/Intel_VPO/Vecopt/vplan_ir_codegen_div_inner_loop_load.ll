@@ -1,7 +1,6 @@
 ; Test for codegen of uniform loads inside divergent inner loops.
 
 ; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
-; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen -S | FileCheck %s
 
 ; CHECK-LABEL: @test1
 ; CHECK:       vector.body:

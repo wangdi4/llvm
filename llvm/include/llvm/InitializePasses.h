@@ -534,7 +534,7 @@ void initializeHIRRuntimeDDLegacyPassPass(PassRegistry&);
 void initializeHIRLoopReversalLegacyPassPass(PassRegistry&);
 void initializeHIRLMMLegacyPassPass(PassRegistry&);
 void initializeHIRLoopCollapseLegacyPassPass(PassRegistry&);
-void initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(PassRegistry&);
+void initializeHIRPMSymbolicTripCountCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRScalarReplArrayLegacyPassPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenWrapperPassPass(PassRegistry&);

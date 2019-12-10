@@ -1733,26 +1733,7 @@ void VPIfTruePredicateRecipe::dump(raw_ostream &OS) const {
 #endif
 
 void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
-  Value *PredMask = PredecessorPredicate
-                        ? PredecessorPredicate->getVectorizedPredicate()[0]
-                        : nullptr;
-
-  // Get the vector mask value of the branch condition
-  auto VecCondMask =
-      State.ILV->getVectorValue(ConditionValue->getUnderlyingValue());
-
-  // Combine with the predecessor block mask if needed - a null predecessor
-  // mask
-  // implies allones(predecessor is active for all lanes).
-  Value *EdgeMask;
-  if (PredMask)
-    EdgeMask = State.Builder.CreateAnd(VecCondMask, PredMask);
-  else
-    EdgeMask = VecCondMask;
-
-  VectorizedPredicate.push_back(EdgeMask);
-  // Register the Edge with mask in CG
-  State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
+  llvm_unreachable("Recipe/LLVM-IR based codegen was removed!");
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1773,12 +1754,7 @@ void VPEdgePredicateRecipe::dump(raw_ostream &OS) const {
 #endif
 
 void VPEdgePredicateRecipe::execute(VPTransformState &State) {
-  // This recipe does not produce any code. It propagates an already
-  // calculated mask value to CG.
-  Value *PredMask = PredecessorPredicate
-                        ? PredecessorPredicate->getVectorizedPredicate()[0]
-                        : nullptr;
-  State.ILV->setEdgeMask(FromBB, ToBB, PredMask);
+  llvm_unreachable("Recipe/LLVM-IR based codegen was removed!");
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1838,29 +1814,7 @@ void VPIfFalsePredicateRecipe::dump(raw_ostream &OS) const {
 #endif
 
 void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
-  Value *PredMask = PredecessorPredicate
-                        ? PredecessorPredicate->getVectorizedPredicate()[0]
-                        : nullptr;
-
-  // Get the vector mask value of the branch condition - since this
-  // edge is taken if the mask value is false we compute the negation
-  // of this mask value.
-  auto VecCondMask =
-      State.ILV->getVectorValue(ConditionValue->getUnderlyingValue());
-  VecCondMask = State.Builder.CreateNot(VecCondMask);
-
-  // Combine with the predecessor block mask if needed - a null predecessor
-  // mask
-  // implies allones(predecessor is active for all lanes).
-  Value *EdgeMask;
-  if (PredMask)
-    EdgeMask = State.Builder.CreateAnd(VecCondMask, PredMask);
-  else
-    EdgeMask = VecCondMask;
-
-  VectorizedPredicate.push_back(EdgeMask);
-  // Register the Edge with mask in CG
-  State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
+  llvm_unreachable("Recipe/LLVM-IR based codegen was removed!");
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

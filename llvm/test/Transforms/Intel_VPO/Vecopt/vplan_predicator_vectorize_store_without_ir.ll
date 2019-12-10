@@ -2,8 +2,7 @@
 ; Test copied from vplan_vectorize_store_without_ir.ll. Verifies placement of
 ; block-predicate instruction in a block consisting of PHI nodes only.
 
-; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=2 -disable-output -vplan-print-after-linearization -enable-vp-value-codegen=0 | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
-; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=2 -disable-output -vplan-print-after-linearization -enable-vp-value-codegen=1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVALUE
+; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=2 -disable-output -vplan-print-after-linearization | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -20,15 +19,13 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]] (BP: NULL) :
-; CHECK-LLVM-NEXT:        <Empty Block>
-; CHECK-VPVALUE-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-VPVALUE-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
-; CHECK-LLVM-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 0, [[BB1]] ]
-; CHECK-VPVALUE-NEXT:  [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
+; CHECK-NEXT:  [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_SKIP_LOOP:%.*]] = icmp i64 [[VP_OUTER_IV]] i64 [[MASK_OUT_INNER_LOOP0:%.*]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_SKIP_LOOP_NOT:%.*]] = not i1 [[VP_SKIP_LOOP]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
@@ -143,8 +140,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB18]] (BP: NULL) :
-; CHECK-LLVM-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 1
-; CHECK-VPVALUE-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_OUTER_EXIT_COND:%.*]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB17]]
@@ -156,8 +152,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB18]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB19]] (BP: NULL) :
-; CHECK-LLVM-NEXT:        <Empty Block>
-; CHECK-VPVALUE-NEXT:     [DA: Uniform]   i64 [[VP16:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP16:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB20:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

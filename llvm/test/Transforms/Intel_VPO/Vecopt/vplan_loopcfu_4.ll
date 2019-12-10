@@ -2,7 +2,7 @@
 ; Test inner control flow uniformity where the inner loop is a while loop without loop index.
 
 ; REQUIRES: asserts
-; RUN: opt -S < %s -VPlanDriver -enable-vp-value-codegen -vplan-print-after-loop-cfu -disable-output | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

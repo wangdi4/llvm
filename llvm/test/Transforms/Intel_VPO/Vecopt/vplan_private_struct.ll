@@ -3,55 +3,28 @@
 ; TODO: Address the non-determinism in the placement of allocas (CMPLRLLVM-10636) and make necessary
 ; changes for VPValue CG.
 
-;RUN: opt -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen=false %s | FileCheck %s --check-prefixes=CHECK
-;RUN: opt -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen %s  | FileCheck %s --check-prefixes=CHECK-VPVALUE
-
+; RUN: opt -S -VPlanDriver -vplan-force-vf=2 %s  | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECKS for IR-based codegen.
-; CHECK-LABEL: @_ZGVdN8u___block_fn_block_invoke_kernel
+; CHECK-DAG: [[A:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
+; CHECK-DAG: [[BC1:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[A]] to %struct.ndrange_t.6*
+; CHECK-DAG: [[PRIV_BC_ADDRS1:%.*]] = getelementptr %struct.ndrange_t.6, %struct.ndrange_t.6* [[BC1]], <2 x i32> <i32 0, i32 1>
 
-; CHECK: [[A:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-NEXT: [[B:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-NEXT: [[C:%.*]] = alloca [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>], align 8
+; CHECK-DAG: [[C:%.*]] = alloca [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>], align 8
+; CHECK-DAG: [[BC3:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[C]] to <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*
+; CHECK-DAG: [[PRIV_BC_ADDRS3:%.*]] =  getelementptr <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* [[BC3]], <2 x i32> <i32 0, i32 1>
 
-; CHECK: [[BC3:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[C]] to <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*
-; CHECK-NEXT: [[PRIV_BC_ADDRS3:%.*]] =  getelementptr <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* [[BC3]], <2 x i32> <i32 0, i32 1>
+; CHECK-DAG: [[B:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
+; CHECK-DAG: [[BC2:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[B]] to %struct.ndrange_t.6*
+; CHECK-DAG: [[PRIV_BC_ADDRS2:%.*]] = getelementptr %struct.ndrange_t.6, %struct.ndrange_t.6* [[BC2]], <2 x i32> <i32 0, i32 1>
 
-; CHECK-DAG: [[LT1:%.*]] = bitcast <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[PRIV_BC_ADDRS3]] to <2 x i8*>
-; CHECK-NEXT: [[E1:%.*]] = extractelement <2 x i8*> [[LT1]], i32 1
-; CHECK-NEXT: [[E2:%.*]] = extractelement <2 x i8*> [[LT1]], i32 0
-; CHECK-NEXT: call void @llvm.lifetime.start.p0i8(i64 28, i8* nonnull [[E2]])
-; CHECK-NEXT: call void @llvm.lifetime.start.p0i8(i64 28, i8* nonnull [[E1]])
-
-; CHECK: [[BC2:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[B]] to %struct.ndrange_t.6*
-; CHECK-NEXT: [[PRIV_BC_ADDRS2:%.*]] = getelementptr %struct.ndrange_t.6, %struct.ndrange_t.6* [[BC2]], <2 x i32> <i32 0, i32 1>
-
-; CHECK: [[BC1:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[A]] to %struct.ndrange_t.6*
-; CHECK-NEXT: [[PRIV_BC_ADDRS1:%.*]] = getelementptr %struct.ndrange_t.6, %struct.ndrange_t.6* [[BC1]], <2 x i32> <i32 0, i32 1>
-
-
-; CHECKS for vpvalue-based codegen.
-
-; CHECK-VPVALUE-DAG: [[A:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-VPVALUE-DAG: [[BC1:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[A]] to %struct.ndrange_t.6*
-; CHECK-VPVALUE-DAG: [[PRIV_BC_ADDRS1:%.*]] = getelementptr %struct.ndrange_t.6, %struct.ndrange_t.6* [[BC1]], <2 x i32> <i32 0, i32 1>
-
-; CHECK-VPVALUE-DAG: [[C:%.*]] = alloca [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>], align 8
-; CHECK-VPVALUE-DAG: [[BC3:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[C]] to <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*
-; CHECK-VPVALUE-DAG: [[PRIV_BC_ADDRS3:%.*]] =  getelementptr <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* [[BC3]], <2 x i32> <i32 0, i32 1>
-
-; CHECK-VPVALUE-DAG: [[B:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-VPVALUE-DAG: [[BC2:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[B]] to %struct.ndrange_t.6*
-; CHECK-VPVALUE-DAG: [[PRIV_BC_ADDRS2:%.*]] = getelementptr %struct.ndrange_t.6, %struct.ndrange_t.6* [[BC2]], <2 x i32> <i32 0, i32 1>
-
-; CHECK-VPVALUE: [[LT1:%.*]] = bitcast <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[PRIV_BC_ADDRS3]] to <2 x i8*>
-; CHECK-VPVALUE: [[E1:%.*]] = extractelement <2 x i8*> [[LT1]], i32 1
-; CHECK-VPVALUE: [[E2:%.*]] = extractelement <2 x i8*> [[LT1]], i32 0
-; CHECK-VPVALUE: call void @llvm.lifetime.start.p0i8(i64 28, i8* [[E2]])
-; CHECK-VPVALUE: call void @llvm.lifetime.start.p0i8(i64 28, i8* [[E1]])
+; CHECK: [[LT1:%.*]] = bitcast <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[PRIV_BC_ADDRS3]] to <2 x i8*>
+; CHECK: [[E1:%.*]] = extractelement <2 x i8*> [[LT1]], i32 1
+; CHECK: [[E2:%.*]] = extractelement <2 x i8*> [[LT1]], i32 0
+; CHECK: call void @llvm.lifetime.start.p0i8(i64 28, i8* [[E2]])
+; CHECK: call void @llvm.lifetime.start.p0i8(i64 28, i8* [[E1]])
 
 
 %struct.ndrange_t.6 = type { i32, [3 x i64], [3 x i64], [3 x i64] }
