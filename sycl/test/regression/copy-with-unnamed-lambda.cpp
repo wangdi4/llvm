@@ -1,8 +1,13 @@
 // RUN: %clangxx -fsycl -fsycl-unnamed-lambda %s -o %t.out
+<<<<<<< HEAD
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
+=======
+// The purpose of this test is to check that the following code can be
+// successfully compiled
+>>>>>>> e73d2cee02e4a8b720d914577920334f0bd2ca47
 #include <CL/sycl.hpp>
 
 #include <iostream>
