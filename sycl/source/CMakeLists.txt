@@ -127,9 +127,10 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "")
   set(CMAKE_CXX_FLAGS_DEBUG "")
 
-  target_compile_options(sycl PUBLIC ${SYCL_CXX_FLAGS_RELEASE})
+  target_compile_options(sycl PRIVATE ${SYCL_CXX_FLAGS_RELEASE})
 
   add_sycl_rt_library(sycld ${SYCL_SOURCES})
+<<<<<<< HEAD
   target_compile_options(sycld PUBLIC ${SYCL_CXX_FLAGS_DEBUG})
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
@@ -144,6 +145,9 @@ else()
     target_link_libraries(sycl PRIVATE gcc_s gcc)
   endif()
 
+=======
+  target_compile_options(sycld PRIVATE ${SYCL_CXX_FLAGS_DEBUG})
+>>>>>>> f9296b612d42ace16bfde6923ff1d0b0a09edf88
 endif()
 
 # INTEL_CUSTOMIZATION
