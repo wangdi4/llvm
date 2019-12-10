@@ -12,6 +12,875 @@ list<OclType> sub_group_types_vec = [v4i32, v8i32, v16i32,
                                      v4f32, v8f32, v16f32,
                                      v4f64, v8f64, v16f64];
 
+// broadcast
+OclBuiltinImpl sub_group_broadcast_avx128v4gentype = OclBuiltinImpl<sub_group_broadcast_vec, [v4u32, v4i32, v4f32,
+                                                                                              v4i64, v4u64, v4f64], 0,
+  [{
+    return $Arg0VarName[$Arg1VarName];
+  }]>;
+
+//
+// reductions
+//
+
+// all|any
+OclBuiltinImpl sub_group_all_avx128v4iu32 = OclBuiltinImpl<sub_group_all_vec, [v4u32, v4i32], 0,
+  [{
+    __m128i is_zero = _mm_cmpeq_epi32((__m128i)$Arg0VarName, _mm_set_epi32(0,0,0,0));
+    return _mm_testz_si128(is_zero, (__m128i)$Arg1VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_any_avx128v4iu32 = OclBuiltinImpl<sub_group_any_vec, [v4u32, v4i32], 0,
+  [{
+    return _mm_testz_si128((__m128i)$Arg0VarName, (__m128i)$Arg1VarName) != 1;
+  }]>;
+
+// reduce add
+OclBuiltinImpl sub_group_reduce_add_avx128ui32 = OclBuiltinImpl<sub_group_reduce_add_vec, [v4i32, v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0Type temp = as_$Arg0Type(_mm_hadd_epi32((__m128i)arg0, (__m128i)arg0));
+    return temp[0] + temp[1];
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx128f32 = OclBuiltinImpl<sub_group_reduce_add_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0Type temp = as_$Arg0Type(_mm_hadd_ps((__m128)arg0, (__m128)arg0));
+    return temp[0] + temp[1];
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx128ui64 = OclBuiltinImpl<sub_group_reduce_add_vec, [v4i64, v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    $Arg0BaseType#2 temp = as_$Arg0BaseType#2(_mm_add_epi64((__m128i)arg0.lo, (__m128i)arg0.hi));
+    return temp[0] + temp[1];
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx128f64 = OclBuiltinImpl<sub_group_reduce_add_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    $Arg0BaseType#2 temp = as_$Arg0BaseType#2(_mm_add_pd((__m128d)arg0.lo, (__m128d)arg0.hi));
+    return temp[0] + temp[1];
+  }]>;
+
+// reduce min
+OclBuiltinImpl sub_group_reduce_min_avx128u32 = OclBuiltinImpl<sub_group_reduce_min_vec, [v4u32], 0,
+  [{
+     int4 arg0 = as_int4($Arg0VarName);
+     int4 arg1 = as_int4($Arg1VarName);
+     arg0 |= ~arg1;
+     int4 temp0 = as_int4(_mm_min_epu32((__m128i)arg0, (__m128i)__builtin_shufflevector(arg0, arg0, 2, 3, 0, 1)));
+     $Arg0Type temp1 = as_$Arg0Type(temp0);
+     return min(temp1[0], temp1[1]);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx128i32 = OclBuiltinImpl<sub_group_reduce_min_vec, [v4i32], 0,
+  [{
+     int4 arg0 = as_int4($Arg0VarName);
+     int4 arg1 = as_int4($Arg1VarName);
+     arg0 &= arg1;
+     arg1 = (~arg1) & INT_MAX;
+     arg0 |= arg1;
+     int4 temp0 = as_int4(_mm_min_epi32((__m128i)arg0, (__m128i)__builtin_shufflevector(arg0, arg0, 2, 3, 0, 1)));
+     $Arg0Type temp1 = as_$Arg0Type(temp0);
+     return min(temp1[0], temp1[1]);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx128f32 = OclBuiltinImpl<sub_group_reduce_min_vec, [v4f32], 0,
+  [{
+     int4 arg0 = as_int4($Arg0VarName);
+     int4 arg1 = as_int4($Arg1VarName);
+     arg0 &= arg1;
+     arg1 = (~arg1) & as_int(INFINITY);
+     arg0 |= arg1;
+     int4 temp0 = as_int4(_mm_min_ps((__m128)arg0, (__m128)__builtin_shufflevector(arg0, arg0, 2, 3, 0, 1)));
+     $Arg0Type temp1 = as_$Arg0Type(temp0);
+     return min(temp1[0], temp1[1]);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx128u64 = OclBuiltinImpl<sub_group_reduce_min_vec, [v4u64], 0,
+  [{
+     long4 arg0 = as_long4($Arg0VarName);
+     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+     arg0 |= ~arg1;
+     long2 temp0;
+     long2 mask2 = __builtin_convertvector(as_$Arg0BaseType#2(arg0.lo) > as_$Arg0BaseType#2(arg0.hi), long2);
+     temp0 = arg0.lo & ~mask2;
+     temp0 |= arg0.hi & mask2;
+     $Arg0BaseType#2 temp1 = as_$Arg0BaseType#2(temp0);
+     return min(temp1.lo, temp1.hi);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx128i64 = OclBuiltinImpl<sub_group_reduce_min_vec, [v4i64], 0,
+  [{
+     long4 arg0 = as_long4($Arg0VarName);
+     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+     arg0 &= arg1;
+     arg1 = (~arg1) & LONG_MAX;
+     arg0 |= arg1;
+     long2 temp0;
+     long2 mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.lo, (__m128i)arg0.hi));
+     temp0 = arg0.lo & ~mask2;
+     temp0 |= arg0.hi & mask2;
+     $Arg0BaseType#2 temp1 = as_$Arg0BaseType#2(temp0);
+     return min(temp1.lo, temp1.hi);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx128f64 = OclBuiltinImpl<sub_group_reduce_min_vec, [v4f64], 0,
+  [{
+     long4 arg0 = as_long4($Arg0VarName);
+     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+     arg0 &= arg1;
+     arg1 = (~arg1) & as_long((double)INFINITY);
+     arg0 |= arg1;
+     long2 temp0;
+     long2 mask2 = as_long2(_mm_cmpgt_pd((__m128d)arg0.lo, (__m128d)arg0.hi));
+     temp0 = arg0.lo & ~mask2;
+     temp0 |= arg0.hi & mask2;
+     $Arg0BaseType#2 temp1 = as_$Arg0BaseType#2(temp0);
+     return min(temp1.lo, temp1.hi);
+  }]>;
+
+// reduce max
+OclBuiltinImpl sub_group_reduce_max_avx128u32 = OclBuiltinImpl<sub_group_reduce_max_vec, [v4u32], 0,
+  [{
+     int4 arg0 = as_int4($Arg0VarName);
+     int4 arg1 = as_int4($Arg1VarName);
+     arg0 &= arg1;
+     int4 temp0 = as_int4(_mm_max_epu32((__m128i)arg0, (__m128i)__builtin_shufflevector(arg0, arg0, 2, 3, 0, 1)));
+     $Arg0Type temp1 = as_$Arg0Type(temp0);
+     return max(temp1[0], temp1[1]);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx128i32 = OclBuiltinImpl<sub_group_reduce_max_vec, [v4i32], 0,
+  [{
+     int4 arg0 = as_int4($Arg0VarName);
+     int4 arg1 = as_int4($Arg1VarName);
+     arg0 &= arg1;
+     arg1 = (~arg1) & INT_MIN;
+     arg0 |= arg1;
+     int4 temp0 = as_int4(_mm_max_epi32((__m128i)arg0, (__m128i)__builtin_shufflevector(arg0, arg0, 2, 3, 0, 1)));
+     $Arg0Type temp1 = as_$Arg0Type(temp0);
+     return max(temp1[0], temp1[1]);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx128f32 = OclBuiltinImpl<sub_group_reduce_max_vec, [v4f32], 0,
+  [{
+     int4 arg0 = as_int4($Arg0VarName);
+     int4 arg1 = as_int4($Arg1VarName);
+     arg0 &= arg1;
+     arg1 = (~arg1) & as_int(-INFINITY);
+     arg0 |= arg1;
+     int4 temp0 = as_int4(_mm_max_ps((__m128)arg0, (__m128)__builtin_shufflevector(arg0, arg0, 2, 3, 0, 1)));
+     $Arg0Type temp1 = as_$Arg0Type(temp0);
+     return max(temp1[0], temp1[1]);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx128u64 = OclBuiltinImpl<sub_group_reduce_max_vec, [v4u64], 0,
+  [{
+     long4 arg0 = as_long4($Arg0VarName);
+     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+     arg0 &= arg1;
+     long2 temp0;
+     long2 mask2 = __builtin_convertvector(as_$Arg0BaseType#2(arg0.lo) > as_$Arg0BaseType#2(arg0.hi), long2);
+     temp0 = arg0.lo & mask2;
+     temp0 |= arg0.hi & ~mask2;
+     $Arg0BaseType#2 temp1 = as_$Arg0BaseType#2(temp0);
+     return max(temp1.lo, temp1.hi);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx128i64 = OclBuiltinImpl<sub_group_reduce_max_vec, [v4i64], 0,
+  [{
+     long4 arg0 = as_long4($Arg0VarName);
+     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+     arg0 &= arg1;
+     arg1 = (~arg1) & LONG_MIN;
+     arg0 |= arg1;
+     long2 temp0;
+     long2 mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.lo, (__m128i)arg0.hi));
+     temp0 = arg0.lo & mask2;
+     temp0 |= arg0.hi & ~mask2;
+     $Arg0BaseType#2 temp1 = as_$Arg0BaseType#2(temp0);
+     return max(temp1.lo, temp1.hi);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx128f64 = OclBuiltinImpl<sub_group_reduce_max_vec, [v4f64], 0,
+  [{
+     long4 arg0 = as_long4($Arg0VarName);
+     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+     arg0 &= arg1;
+     arg1 = (~arg1) & as_long((double)-INFINITY);
+     arg0 |= arg1;
+     long2 temp0;
+     long2 mask2 = as_long2(_mm_cmpgt_pd((__m128d)arg0.lo, (__m128d)arg0.hi));
+     temp0 = arg0.lo & mask2;
+     temp0 |= arg0.hi & ~mask2;
+     $Arg0BaseType#2 temp1 = as_$Arg0BaseType#2(temp0);
+     return max(temp1.lo, temp1.hi);
+  }]>;
+
+// inclusive scan
+// add
+OclBuiltinImpl sub_group_scan_inclusive_add_avx128iu32 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec, [v4i32, v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_add_epi32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx128f32 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_add_ps((__m128)$Arg0VarName, (__m128)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx128iu64 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec, [v4i64, v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName.lo = as_$Arg0BaseType#2(_mm_add_epi64((__m128i)$Arg0VarName.lo, (__m128i)temp.lo));
+      $Arg0VarName.hi = as_$Arg0BaseType#2(_mm_add_epi64((__m128i)$Arg0VarName.hi, (__m128i)temp.hi));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx128f64 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName.lo = as_$Arg0BaseType#2(_mm_add_pd((__m128d)$Arg0VarName.lo, (__m128d)temp.lo));
+      $Arg0VarName.hi = as_$Arg0BaseType#2(_mm_add_pd((__m128d)$Arg0VarName.hi, (__m128d)temp.hi));
+    }
+    return $Arg0VarName;
+  }]>;
+
+// min
+OclBuiltinImpl sub_group_scan_inclusive_min_avx128i32 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v4i32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INT_MAX;
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = INT_MAX;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_min_epi32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx128u32 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 |= ~arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = UINT_MAX;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_min_epu32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx128f32 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & as_int(INFINITY);
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = INFINITY;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_min_ps((__m128)$Arg0VarName, (__m128)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx128i64 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v4i64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    arg1 = (~arg1) & LONG_MAX;
+    arg0 |= arg1;
+    long4 temp0 = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp0[3] = LONG_MAX;
+      temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
+      long2 mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.lo, (__m128i)temp0.lo));
+      arg0.lo &= ~mask2;
+      arg0.lo |= temp0.lo & mask2;
+      mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.hi, (__m128i)temp0.hi));
+      arg0.hi &= ~mask2;
+      arg0.hi |= temp0.hi & mask2;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx128u64 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 |= ~arg1;
+    long4 temp0 = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp0[3] = as_long(ULONG_MAX);
+      temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
+      long4 mask4 = __builtin_convertvector(as_$Arg0Type(arg0) > as_$Arg0Type(temp0), long4);
+      arg0 &= ~mask4;
+      arg0 |= temp0 & mask4;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx128f64 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    long INF = as_long((double)INFINITY);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INF;
+    arg0 |= arg1;
+    long4 temp0 = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp0[3] = INF;
+      temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
+      arg0.lo = as_long2( _mm_min_pd((__m128d)arg0.lo, (__m128d)temp0.lo));
+      arg0.hi = as_long2( _mm_min_pd((__m128d)arg0.hi, (__m128d)temp0.hi));
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+// max
+OclBuiltinImpl sub_group_scan_inclusive_max_avx128i32 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v4i32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INT_MIN;
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = INT_MIN;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_max_epi32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx128u32 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_max_epu32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx128f32 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & as_int(-INFINITY);
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp[3] = -INFINITY;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_max_ps((__m128)$Arg0VarName, (__m128)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx128i64 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v4i64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    arg1 = (~arg1) & LONG_MIN;
+    arg0 |= arg1;
+    long4 temp0 = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp0[3] = LONG_MIN;
+      temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
+      long2 mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.lo, (__m128i)temp0.lo));
+      arg0.lo &= mask2;
+      arg0.lo |= temp0.lo & ~mask2;
+      mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.hi, (__m128i)temp0.hi));
+      arg0.hi &= mask2;
+      arg0.hi |= temp0.hi & ~mask2;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx128u64 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    long4 temp0 = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp0[3] = 0;
+      temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
+      long4 mask4 = __builtin_convertvector(as_$Arg0Type(arg0) > as_$Arg0Type(temp0), long4);
+      arg0 &= mask4;
+      arg0 |= temp0 & ~mask4;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx128f64 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    long INF = as_long((double)-INFINITY);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INF;
+    arg0 |= arg1;
+    long4 temp0 = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 3; i++) {
+      temp0[3] = INF;
+      temp0 = __builtin_shufflevector(temp0, temp0, 3, 0, 1, 2);
+      arg0.lo = as_long2( _mm_max_pd((__m128d)arg0.lo, (__m128d)temp0.lo));
+      arg0.hi = as_long2( _mm_max_pd((__m128d)arg0.hi, (__m128d)temp0.hi));
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+// exclusive scan
+// add
+OclBuiltinImpl sub_group_scan_exclusive_add_avx128iu32 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec, [v4i32, v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = 0;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_add_epi32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx128f32 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = 0;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_add_ps((__m128)$Arg0VarName, (__m128)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx128iu64 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec, [v4i64, v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = 0;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName.hi = as_$Arg0BaseType#2(_mm_add_epi64((__m128i)$Arg0VarName.hi, (__m128i)temp.hi));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx128f64 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = 0;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName.hi = as_$Arg0BaseType#2(_mm_add_pd((__m128d)$Arg0VarName.hi, (__m128d)temp.hi));
+    }
+    return $Arg0VarName;
+  }]>;
+
+//min
+OclBuiltinImpl sub_group_scan_exclusive_min_avx128i32 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [v4i32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INT_MAX;
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = INT_MAX;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = INT_MAX;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_min_epi32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx128u32 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 |= ~arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = UINT_MAX;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = UINT_MAX;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_min_epu32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx128f32 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & as_int(INFINITY);
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = INFINITY;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = INFINITY;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_min_ps((__m128)$Arg0VarName, (__m128)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx128i64 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [v4i64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    arg1 = (~arg1) & LONG_MAX;
+    arg0 |= arg1;
+
+    arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
+    arg0[0] = LONG_MAX;
+    long4 temp = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = LONG_MAX;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      long2 mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.hi, (__m128i)temp.hi));
+      arg0.hi &= ~mask2;
+      arg0.hi |= temp.hi & mask2;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx128u64 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 |= ~arg1;
+
+    arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
+    arg0[0] = as_long(ULONG_MAX);
+    long4 temp = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = as_long(ULONG_MAX);
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      long4 mask4 = __builtin_convertvector(as_$Arg0Type(arg0) > as_$Arg0Type(temp), long4);
+      arg0 &= ~mask4;
+      arg0 |= temp & mask4;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx128f64 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+
+    long INF = as_long((double)INFINITY);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INF;
+    arg0 |= arg1;
+
+    arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
+    arg0[0] = INF;
+    long4 temp = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = INF;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      arg0.hi = as_long2(_mm_min_pd((__m128d)arg0.hi, (__m128d)temp.hi));
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+//max
+OclBuiltinImpl sub_group_scan_exclusive_max_avx128i32 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4i32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INT_MIN;
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = INT_MIN;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = INT_MIN;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_max_epi32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx128u32 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4u32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 |= ~arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = 0;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_max_epu32((__m128i)$Arg0VarName, (__m128i)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx128f32 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4f32], 0,
+  [{
+    int4 arg0 = as_int4($Arg0VarName);
+    int4 arg1 = as_int4($Arg1VarName);
+    arg0 &= arg1;
+    arg1 = (~arg1) & as_int(-INFINITY);
+    arg0 |= arg1;
+    $Arg0VarName = as_$Arg0Type(arg0);
+
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+    $Arg0VarName[0] = -INFINITY;
+    $Arg0Type temp = $Arg0VarName;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = -INFINITY;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      $Arg0VarName = as_$Arg0Type(_mm_max_ps((__m128)$Arg0VarName, (__m128)temp));
+    }
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx128i64 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4i64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 &= arg1;
+    arg1 = (~arg1) & LONG_MIN;
+    arg0 |= arg1;
+
+    arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
+    arg0[0] = LONG_MIN;
+    long4 temp = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = LONG_MIN;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      long2 mask2 = as_long2( _mm_cmpgt_epi64((__m128i)arg0.hi, (__m128i)temp.hi));
+      arg0.hi &= mask2;
+      arg0.hi |= temp.hi & ~mask2;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx128u64 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4u64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+    arg0 |= ~arg1;
+
+    arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
+    arg0[0] = 0;
+    long4 temp = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = 0;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      long4 mask4 = __builtin_convertvector(as_$Arg0Type(arg0) > as_$Arg0Type(temp), long4);
+      arg0 &= mask4;
+      arg0 |= temp & ~mask4;
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx128f64 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v4f64], 0,
+  [{
+    long4 arg0 = as_long4($Arg0VarName);
+    long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
+
+    long INF = as_long((double)-INFINITY);
+    arg0 &= arg1;
+    arg1 = (~arg1) & INF;
+    arg0 |= arg1;
+
+    arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
+    arg0[0] = INF;
+    long4 temp = arg0;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 2; i++) {
+      temp[3] = INF;
+      temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+      arg0.hi = as_long2(_mm_max_pd((__m128d)arg0.hi, (__m128d)temp.hi));
+    }
+    return as_$Arg0Type(arg0);
+  }]>;
+
+
 //
 // Shuffles
 //
