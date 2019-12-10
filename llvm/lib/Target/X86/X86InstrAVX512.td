@@ -5877,13 +5877,13 @@ multiclass avx512_binop_s_sae<bits<8> opc, string OpcodeStr, SDNode OpNode,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 }
-defm VADD : avx512_binop_s_round<0x58, "vadd", fadd, X86fadds, X86faddRnds,
+defm VADD : avx512_binop_s_round<0x58, "vadd", any_fadd, X86fadds, X86faddRnds,
                                  SchedWriteFAddSizes, 1>;
-defm VMUL : avx512_binop_s_round<0x59, "vmul", fmul, X86fmuls, X86fmulRnds,
+defm VMUL : avx512_binop_s_round<0x59, "vmul", any_fmul, X86fmuls, X86fmulRnds,
                                  SchedWriteFMulSizes, 1>;
-defm VSUB : avx512_binop_s_round<0x5C, "vsub", fsub, X86fsubs, X86fsubRnds,
+defm VSUB : avx512_binop_s_round<0x5C, "vsub", any_fsub, X86fsubs, X86fsubRnds,
                                  SchedWriteFAddSizes, 0>;
-defm VDIV : avx512_binop_s_round<0x5E, "vdiv", fdiv, X86fdivs, X86fdivRnds,
+defm VDIV : avx512_binop_s_round<0x5E, "vdiv", any_fdiv, X86fdivs, X86fdivRnds,
                                  SchedWriteFDivSizes, 0>;
 defm VMIN : avx512_binop_s_sae<0x5D, "vmin", X86fmin, X86fmins, X86fminSAEs,
                                SchedWriteFCmpSizes, 0>;
@@ -6097,7 +6097,7 @@ multiclass avx512_fp_binop_p_sae<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd
                                   EVEX_V512, PD, VEX_W,EVEX_CD8<64, CD8VF>;
 }
 
-defm VADD : avx512_fp_binop_p<0x58, "vadd", fadd, HasAVX512,
+defm VADD : avx512_fp_binop_p<0x58, "vadd", any_fadd, HasAVX512,
                               SchedWriteFAddSizes, 1>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -6105,7 +6105,7 @@ defm VADD : avx512_fp_binop_p<0x58, "vadd", fadd, HasAVX512,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x58, "vadd", X86faddRnd, SchedWriteFAddSizes>;
-defm VMUL : avx512_fp_binop_p<0x59, "vmul", fmul, HasAVX512,
+defm VMUL : avx512_fp_binop_p<0x59, "vmul", any_fmul, HasAVX512,
                               SchedWriteFMulSizes, 1>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -6113,7 +6113,7 @@ defm VMUL : avx512_fp_binop_p<0x59, "vmul", fmul, HasAVX512,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x59, "vmul", X86fmulRnd, SchedWriteFMulSizes>;
-defm VSUB : avx512_fp_binop_p<0x5C, "vsub", fsub, HasAVX512,
+defm VSUB : avx512_fp_binop_p<0x5C, "vsub", any_fsub, HasAVX512,
                               SchedWriteFAddSizes>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -6121,7 +6121,7 @@ defm VSUB : avx512_fp_binop_p<0x5C, "vsub", fsub, HasAVX512,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x5C, "vsub", X86fsubRnd, SchedWriteFAddSizes>;
-defm VDIV : avx512_fp_binop_p<0x5E, "vdiv", fdiv, HasAVX512,
+defm VDIV : avx512_fp_binop_p<0x5E, "vdiv", any_fdiv, HasAVX512,
                               SchedWriteFDivSizes>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
