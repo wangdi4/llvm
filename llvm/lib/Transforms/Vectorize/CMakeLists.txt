@@ -24,7 +24,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanDriver.cpp
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
   Intel_VPlan/IntelVPlanIdioms.cpp
-  Intel_VPlan/IntelNewVPlanPredicator.cpp
+  Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp

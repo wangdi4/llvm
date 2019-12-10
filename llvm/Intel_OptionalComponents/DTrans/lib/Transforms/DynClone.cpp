@@ -33,6 +33,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/GlobalStatus.h"
 
 #include <algorithm>
 #include <cmath>
@@ -237,6 +238,9 @@ private:
 
   // List of cloned routines.
   FunctionSet ClonedFunctionList;
+
+  // Map from GlobalVariables to be cloned to Functions in which they appear
+  DenseMap<GlobalVariable *, FunctionSet> ClonedGlobalVariableFunctionMap;
 
   // List of allocation calls for candidate structs in InitRoutine.
   SmallVector<std::pair<AllocCallInfo *, Type *>, 4> AllocCalls;
@@ -3082,6 +3086,167 @@ bool DynCloneImpl::createCallGraphClone(void) {
     LLVM_DEBUG(dbgs() << "      PHI: " << *Phi << "\n");
   };
 
+  //
+  // Return 'F' if 'U' is either an Instruction in some Function 'F',
+  // or has a single User which is an Instruction in some Function 'F'.
+  // This second case is meant to handle operators like BitCast and
+  // GetElementPtr which are not Instructions but whose use is clearly
+  // limited to some Function.
+  //
+  auto GetUniqueFunctionForUser = [](User *U) -> Function * {
+    auto I = dyn_cast<Instruction>(U);
+    if (I)
+      return I->getFunction();
+    if (!U->hasOneUse())
+      return nullptr;
+    auto II = dyn_cast<Instruction>(U->user_back());
+    if (II)
+      return II->getFunction();
+    return nullptr;
+  };
+
+  //
+  // Return 'true' if 'F' is a Function which has only one Use, a single
+  // callsite called in a Function on the ClonedFunctionList.
+  //
+  auto IsExtraCloneFunctionCandidate = [&](Function *F) -> bool {
+    if (!F->hasOneUse())
+      return false;
+    auto CB = dyn_cast<CallBase>(F->user_back());
+    if (!CB || CB->getCalledFunction() != F)
+      return false;
+    return ClonedFunctionList.count(CB->getCaller());
+  };
+
+  //
+  // After inlining, GlobalOpt can often localize GlobalVariables which
+  // were previously accessed in more than one Function, but now are only
+  // accessed in a single Function. But dynamic cloning can interfere with
+  // that by copying such variables into clones of the original Functions.
+  //
+  // So, for example, in:
+  //   int opt = 0;
+  //   extern void foo() {
+  //     opt++;
+  //     bar();
+  //   }
+  //   extern void bar() {
+  //     opt--;
+  //     baz();
+  //   }
+  //   extern void baz() {
+  //     opt += 2;
+  //   }
+  // Say that after inlining, baz() is inlined into bar() and bar() is
+  // inlined into foo().  Then 'opt' would appear only in foo(), and could be
+  // localized.
+  //
+  // Now, assume that Dynamic Cloning decided to clone foo() into foo.1()
+  // and bar() into bar.1(). (I have omiited the structure references in
+  // foo() and bar() that would motivate the cloning to keep the example
+  // simple.) After inlining, 'opt' would appear in both foo() and foo.1(),
+  // and would not be localized.
+  //
+  // But we know by the nature of Dynamic Cloning that either the original
+  // Functions or the clones will be executed, but not both.  So, we can
+  // "split" GlobalVariables like 'opt', with a separate version, say 'opt.1'
+  // in the clones, so that both 'opt' and 'opt.1' can be localized after
+  // inlining.
+  //
+  // Note that all instances of 'opt' must be a clone to make this work.
+  // So, in the above example, if Dynamic Cloning chooses not to clone baz(),
+  // we would have to give up on splitting 'opt'.  Alternately, we could add
+  // baz() to the list of cloned functions so it can be localized. We choose
+  // to do this in limited cases. The lambda IsExtraCloneFunctionCandidate()
+  // above determines if a Function deserves this special treatment.
+  //
+  auto SplitGlobalVariablesForCloning = [&](ValueToValueMapTy &VMap) {
+    GlobalStatus GS;
+    // Collect the initial set of GlobalVariables for splitting.
+    for (auto GVI = M.global_begin(), E = M.global_end(); GVI != E; ) {
+      GlobalVariable *GV = &*GVI++;
+      // To make this simple, skip variables with initializers which are
+      // not constant data.
+      if (GV->hasInitializer() && !isa<ConstantData>(GV->getInitializer()))
+        continue;
+      // Skip over address taken variables.
+      if (GlobalStatus::analyzeGlobal(GV, GS))
+        continue;
+      // Skip over variables that are not assigned in at least one Function.
+      if (GS.StoredType != GlobalStatus::Stored &&
+          GS.StoredType != GlobalStatus::StoredOnce)
+        continue;
+      // Collect the Functions in which GV appears
+      for (User *U : GV->users()) {
+        Function *F = GetUniqueFunctionForUser(U);
+        if (!F) {
+          ClonedGlobalVariableFunctionMap.erase(GV);
+          break;
+        }
+        ClonedGlobalVariableFunctionMap[GV].insert(F);
+      }
+    }
+    // Ensure that each candidate for splitting appears only in cloned
+    // Functions or the special case where we will force the cloning.
+    // Allow only one special case IsExtraCloneFunctionCandidate() Function.
+    DenseMap<GlobalVariable *, Function *> ExtraCloneMap;
+    SmallPtrSet<GlobalVariable *, 4> RemovedVariables;
+    for (auto &X : ClonedGlobalVariableFunctionMap) {
+      GlobalVariable *GV = X.first;
+      FunctionSet &FS = X.second;
+      bool InClonedFunction = false;
+      Function *CloneFunctionCandidate = nullptr;
+      for (Function *F : FS) {
+        if (ClonedFunctionList.count(F)) {
+          InClonedFunction = true;
+          continue;
+        }
+        if (IsExtraCloneFunctionCandidate(F) && !CloneFunctionCandidate) {
+          CloneFunctionCandidate = F;
+        } else {
+          CloneFunctionCandidate = nullptr;
+          RemovedVariables.insert(GV);
+          break;
+        }
+      }
+      if (!InClonedFunction)
+        RemovedVariables.insert(GV);
+      else if (InClonedFunction && CloneFunctionCandidate)
+        ExtraCloneMap[GV] = CloneFunctionCandidate;
+    }
+    for (GlobalVariable *GV : RemovedVariables)
+      ClonedGlobalVariableFunctionMap.erase(GV);
+    Function *ExtraClone = ExtraCloneMap.size() == 1 ?
+        ExtraCloneMap.begin()->second : nullptr;
+    // Insert the special case Function in the list of Functions to be cloned,
+    // if we found one.
+    if (ExtraClone) {
+      ClonedFunctionList.insert(ExtraClone);
+      LLVM_DEBUG(dbgs() << "New Clone From Splitting "
+                        << ExtraClone->getName() << "\n");
+    }
+    // Split the GlobalVariables.
+    for (auto &X : ClonedGlobalVariableFunctionMap) {
+      GlobalVariable *GV = X.first;
+      GlobalVariable *NV = new GlobalVariable(M, GV->getValueType(),
+                                              GV->isConstant(),
+                                              GV->getLinkage(),
+                                              (Constant *) nullptr,
+                                              GV->getName(),
+                                              (GlobalVariable *) nullptr,
+                                              GV->getThreadLocalMode(),
+                                              GV->getType()->getAddressSpace());
+      if (GV->hasInitializer())
+        NV->setInitializer(GV->getInitializer());
+      NV->copyAttributesFrom(GV);
+      // Put the GlobalVariable and its split version in a VMap for use
+      // when we call CloneFunction().
+      VMap[GV] = NV;
+      LLVM_DEBUG(dbgs() << "SPLIT GlobalVariable: " << GV->getName()
+                        << " TO " << NV->getName() << "\n");
+    }
+  };
+
   CallInst *CI = cast<CallInst>(InitRoutine->user_back());
   Function *CallerMain = CI->getCaller();
 
@@ -3118,9 +3283,13 @@ bool DynCloneImpl::createCallGraphClone(void) {
     FindCloningCallChains(F, CallerMain, SpecializedCallsInMain);
   }
 
+  // Create list of GlobalVariables to be split, augmenting additional
+  // Functions to the ClonedFunctionList, if necessary.
+  ValueToValueMapTy VMap;
+  SplitGlobalVariablesForCloning(VMap);
+
   // Create cloned routines
   for (auto *F : ClonedFunctionList) {
-    ValueToValueMapTy VMap;
     LLVM_DEBUG(dbgs() << "    Cloning ..." << F->getName() << "\n");
     Function *NewF = CloneFunction(F, VMap);
     CloningMap[F] = NewF;

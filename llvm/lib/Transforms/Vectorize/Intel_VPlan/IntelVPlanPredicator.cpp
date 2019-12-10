@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
-#include "IntelNewVPlanPredicator.h"
+#include "IntelVPlanPredicator.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIDF.h"
 #else
@@ -37,7 +37,6 @@ using namespace llvm::vpo;
 static cl::opt<bool> VPlanLoopCFU(
     "vplan-loop-cfu", cl::init(true), cl::Hidden,
     cl::desc("Perform inner loop control flow uniformity transformation"));
-#define VPlanPredicator NewVPlanPredicator
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -59,14 +58,6 @@ static cl::opt<bool> PreserveUniformCFG(
 static cl::opt<bool> SortBlendPhisInPredicator(
     "vplan-sort-blend-phis-in-predicator", cl::init(false), cl::Hidden,
     cl::desc("Sort incoming blocks of blend phis in the predicator."));
-
-namespace llvm {
-namespace vpo {
-cl::opt<bool> DisableLCFUMaskRegion(
-    "disable-vplan-cfu-mask-region", cl::init(true), cl::Hidden,
-    cl::desc("Disable construction of non-loop mask subregion in LoopCFU"));
-}
-} // namespace llvm
 
 // Generate a tree of ORs for all IncomingPredicates in  WorkList.
 // Note: This function destroys the original Worklist.

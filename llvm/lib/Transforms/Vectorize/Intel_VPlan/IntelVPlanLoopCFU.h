@@ -17,19 +17,12 @@
 
 #ifdef INTEL_CUSTOMIZATION
 
-namespace llvm {
-namespace vpo {
-extern cl::opt<bool> DisableLCFUMaskRegion;
-}
-} // namespace llvm
-
 void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
-#ifdef VPlanPredicator
   // Community version stores VPlan reference - to minimize changes get a
   // pointer to the VPlan here.
   auto *Plan = &(this->Plan);
-#endif
+
   VPlanDivergenceAnalysis *VPDA = Plan->getVPlanDA();
 
   for (auto *SubLoop : VPL->getSubLoops()) {
@@ -73,7 +66,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
     VPValue *TopTest = SubLoopRegnPred->getCondBit();
     if (TopTest) {
-#ifdef VPlanPredicator
       auto *SubLoopRegnPredBlock = cast<VPBasicBlock>(SubLoopRegnPred);
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
@@ -86,7 +78,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
         if (Divergent)
           VPDA->markDivergent(*TopTest);
       }
-#endif // VPlanPredicator
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
     }
 
@@ -161,12 +152,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
       LoopBodyMask->addIncoming(One, SubLoopPreHeader);
     }
 
-#ifdef VPlanPredicator
-    // We are in the middle of transitioning to the new VPInstruction based
-    // predicator implementation and only plan to handle inner loop flow
-    // uniformity with the new predicator implementation. This code only
-    // kicks in in the new predicator where we define VPlanPredicator as
-    // NewVPlanPredicator.
     { // This scope is for the Guard (RAII)
       VPBuilder::InsertPointGuard Guard(Builder);
       Builder.setInsertPoint(RegionExitBlock);
@@ -340,7 +325,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
         NewCondBit = Builder.createNot(NewCondBit);
       NewLoopLatch->setCondBit(NewCondBit);
     }
-#endif // VPlanPredicator
 
     LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
     SubLoopHeader->addRecipe(LoopBodyMask);
@@ -350,30 +334,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     // along mask=false path. i.e., this edge skips the loop body.
     RegionEntryBlock->appendSuccessor(RegionExitBlock);
     RegionExitBlock->appendPredecessor(RegionEntryBlock);
-
-    if (!DisableLCFUMaskRegion) {
-      VPRegionBlock *MaskRegion =
-          new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                            VPlanUtils::createUniqueName("mask_region"));
-      VPBlockUtils::insertRegion(MaskRegion, RegionEntryBlock, RegionExitBlock,
-                                 false);
-
-      auto *SubLoopRegion =
-          cast_or_null<VPLoopRegion>(SubLoop->getHeader()->getParent());
-
-      // The new region parent is the loop.
-      MaskRegion->setParent(SubLoopRegion);
-      SubLoop->addBasicBlockToLoop(MaskRegion, *VPLI);
-
-      // All blocks in the new region must have the parent set to the new
-      // region.
-      for (VPBlockBase *RegionBlock :
-           make_range(df_iterator<VPRegionBlock *>::begin(MaskRegion),
-                      df_iterator<VPRegionBlock *>::end(MaskRegion))) {
-        if (RegionBlock->getParent() == SubLoopRegion)
-          RegionBlock->setParent(MaskRegion);
-      }
-    }
 
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");

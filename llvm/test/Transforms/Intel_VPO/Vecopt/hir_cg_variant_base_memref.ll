@@ -7,20 +7,27 @@
 ; <13>
 ; <13>          + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; <3>           |   %0 = (%arr)[i1];
-; <5>           |   %1 = (%0)[i1];
-; <6>           |   %sum.011 = %1  +  %sum.011; <Safe Reduction>
+; <6>           |   %sum.011 = (%0)[i1]  +  %sum.011; <Safe Reduction>
 ; <13>          + END LOOP
 ; <13>
 ; <15>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; Check CG without VPLoopEntities representation for reduction.
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr=false -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=NONVPRED
+; Check CG when VPLoopEntities representation is used for reduction.
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr=true -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=VPRED
 
-; CHECK:          + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
-; CHECK-NEXT:     |   %.vec = (<4 x i32*>*)(%arr)[i1];
-; CHECK-NEXT:     |   %.vec1 = (<4 x i32>*)(%.vec)[i1 + <i64 0, i64 1, i64 2, i64 3>];
-; CHECK-NEXT:     |   %result.vector = %.vec1  +  %result.vector;
-; CHECK-NEXT:     + END LOOP
+; NONVPRED:          + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; NONVPRED-NEXT:     |   %.vec = (<4 x i32*>*)(%arr)[i1];
+; NONVPRED-NEXT:     |   %result.vector = (<4 x i32>*)(%.vec)[i1 + <i64 0, i64 1, i64 2, i64 3>]  +  %result.vector;
+; NONVPRED-NEXT:     + END LOOP
+
+; VPRED:             + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; VPRED-NEXT:        |   %.vec = (<4 x i32*>*)(%arr)[i1];
+; VPRED-NEXT:        |   %.vec1 = (<4 x i32>*)(%.vec)[i1 + <i64 0, i64 1, i64 2, i64 3>];
+; VPRED-NEXT:        |   %red.var = %.vec1  +  %red.var;
+; VPRED-NEXT:        + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -81,6 +81,14 @@ To pi_cast(From value) {
   return (To)(value);
 }
 
+template<>
+uint32_t pi_cast(uint64_t value) {
+  // Cast value and check that we don't lose any information.
+  uint32_t casted_value = (uint32_t)(value);
+  assert((uint64_t)casted_value == value);
+  return casted_value;
+}
+
 [[noreturn]] void pi_throw(const char *message) {
   std::cerr << "pi_throw: " << message << std::endl;
   throw message;

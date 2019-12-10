@@ -42,6 +42,7 @@
 #include "llvm/Analysis/Intel_AggInline.h"                  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #include "llvm/Analysis/Intel_WP.h"                         // INTEL
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"       // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/Config/llvm-config.h"
@@ -85,6 +86,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"  // INTEL
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -307,8 +309,10 @@ private:
 
   friend class AllocaSlices::SliceBuilder;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if defined(INTEL_CUSTOMIZATION) || \
+    !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Handle to alloca instruction to simplify method interfaces.
+  /// We also need it for handling private allocas used inside SIMD regions.
   AllocaInst &AI;
 #endif
 
@@ -927,17 +931,34 @@ private:
            "Map index doesn't point back to a slice with this user.");
   }
 
-  // Disable SRoA for any intrinsics except for lifetime invariants and     //INTEL
-  // var.annotation intrinsics with register attribute set.                 //INTEL
+  // Disable SRoA for any intrinsics except for lifetime invariants,    //INTEL
+  // var.annotation intrinsics with register attribute set and          //INTEL
+  // OMP private clauses inside SIMD region directives.                 //INTEL
   // FIXME: What about debug intrinsics? This matches old behavior, but
   // doesn't make sense.
   void visitIntrinsicInst(IntrinsicInst &II) {
     if (!IsOffsetKnown)
       return PI.setAborted(&II);
 
-    if (auto *VAI = dyn_cast<VarAnnotIntrinsic>(&II))   //INTEL
-      if (VAI->hasRegisterAttributeSet())               //INTEL
-        return;                                         //INTEL
+#if INTEL_CUSTOMIZATION
+    if (auto *VAI = dyn_cast<VarAnnotIntrinsic>(&II))
+      if (VAI->hasRegisterAttributeSet())
+        return;
+
+    // If alloca is for private structure variable used inside SIMD region, we
+    // allow SROA on it.
+    if (vpo::VPOAnalysisUtils::getDirectiveID(&II) == DIR_OMP_SIMD) {
+      SmallVector<OperandBundleDef, 8> OpBundles;
+      II.getOperandBundlesAsDefs(OpBundles);
+      if (std::any_of(OpBundles.begin(), OpBundles.end(),
+                      [AI = &AS.AI](OperandBundleDef &B) {
+                        return vpo::VPOAnalysisUtils::getClauseID(B.getTag()) ==
+                                   QUAL_OMP_PRIVATE &&
+                               *B.input_begin() == AI;
+                      }))
+        return;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (II.isLifetimeStartOrEnd()) {
       ConstantInt *Length = cast<ConstantInt>(II.getArgOperand(0));
@@ -1058,7 +1079,8 @@ private:
 
 AllocaSlices::AllocaSlices(const DataLayout &DL, AllocaInst &AI)
     :
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if defined(INTEL_CUSTOMIZATION) || \
+    !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       AI(AI),
 #endif
       PointerEscapingInstr(nullptr) {
@@ -4714,6 +4736,22 @@ bool SROA::deleteDeadInstructions(
       if (Instruction *U = dyn_cast<Instruction>(Operand)) {
         // Zero out the operand and see if it becomes trivially dead.
         Operand = nullptr;
+#if INTEL_CUSTOMIZATION
+        // If we have alloca with single use which is in private clause
+        // of SIMD region directive we remove PRIVATE clauses.
+        // After that alloca becomes trivially dead.
+        if (isa<AllocaInst>(U) && U->hasOneUse()) {
+          CallInst *CI = dyn_cast<CallInst>(*U->user_begin());
+          if (CI && vpo::VPOAnalysisUtils::isBeginDirective(CI)) {
+            CI = IntrinsicUtils::removeOperandBundlesFromCall(
+                CI, [AI = U](const OperandBundleDef &Bundle) {
+                  return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
+                             QUAL_OMP_PRIVATE &&
+                         *Bundle.input_begin() == AI;
+                });
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
         if (isInstructionTriviallyDead(U))
           DeadInsts.insert(U);
       }

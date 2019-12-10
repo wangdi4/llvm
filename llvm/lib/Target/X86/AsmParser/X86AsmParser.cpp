@@ -3366,22 +3366,22 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   switch (Opc) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
-  case X86::VPDPBUSDSVEXYrm:
-  case X86::VPDPBUSDSVEXYrr:
-  case X86::VPDPBUSDSVEXrm:
-  case X86::VPDPBUSDSVEXrr:
-  case X86::VPDPBUSDVEXYrm:
-  case X86::VPDPBUSDVEXYrr:
-  case X86::VPDPBUSDVEXrm:
-  case X86::VPDPBUSDVEXrr:
-  case X86::VPDPWSSDSVEXYrm:
-  case X86::VPDPWSSDSVEXYrr:
-  case X86::VPDPWSSDSVEXrm:
-  case X86::VPDPWSSDSVEXrr:
-  case X86::VPDPWSSDVEXYrm:
-  case X86::VPDPWSSDVEXYrr:
-  case X86::VPDPWSSDVEXrm:
-  case X86::VPDPWSSDVEXrr:
+  case X86::VPDPBUSDSYrm:
+  case X86::VPDPBUSDSYrr:
+  case X86::VPDPBUSDSrm:
+  case X86::VPDPBUSDSrr:
+  case X86::VPDPBUSDYrm:
+  case X86::VPDPBUSDYrr:
+  case X86::VPDPBUSDrm:
+  case X86::VPDPBUSDrr:
+  case X86::VPDPWSSDSYrm:
+  case X86::VPDPWSSDSYrr:
+  case X86::VPDPWSSDSrm:
+  case X86::VPDPWSSDSrr:
+  case X86::VPDPWSSDYrm:
+  case X86::VPDPWSSDYrr:
+  case X86::VPDPWSSDrm:
+  case X86::VPDPWSSDrr:
     // These instructions are only available with {vex2} or {vex3} prefix
     if (ForcedVEXEncoding != VEXEncoding_VEX2 &&
         ForcedVEXEncoding != VEXEncoding_VEX3)

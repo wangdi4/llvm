@@ -13121,21 +13121,11 @@ multiclass VNNI_common<bits<8> Op, string OpStr, SDNode OpNode,
   let Predicates = [HasVNNI] in
   defm Z      :   VNNI_rmb<Op, OpStr, OpNode, sched.ZMM, v16i32_info,
                            IsCommutable>, EVEX_V512;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  let Predicates = [HasVNNI, HasVLX] in {
-    defm Z256 :   VNNI_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
-                           IsCommutable>, EVEX_V256, NotEVEX2VEXConvertible;
-    defm Z128 :   VNNI_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,
-                           IsCommutable>, EVEX_V128, NotEVEX2VEXConvertible;
-#else // INTEL_FEATURE_ISA_AVX_VNNI
   let Predicates = [HasVNNI, HasVLX] in {
     defm Z256 :   VNNI_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
                            IsCommutable>, EVEX_V256;
     defm Z128 :   VNNI_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,
                            IsCommutable>, EVEX_V128;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
   }
 }
 

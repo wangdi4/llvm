@@ -341,8 +341,13 @@ struct HIRLoopInterchange::CollectCandidateLoops final
             dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
       } else {
         LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
-        CandidateLoops.push_back(
-            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+        CandidateLoopPair LoopPair =
+            std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop));
+        if (std::find(CandidateLoops.begin(), CandidateLoops.end(), LoopPair) ==
+            CandidateLoops.end()) {
+          CandidateLoops.push_back(
+              std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+        }
       }
 
       SkipNode = Loop;

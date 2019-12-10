@@ -1351,6 +1351,60 @@ void LinkerDriver::doGnuLTOLinking() {
     os.close();
   };
 
+  // Return true if the relocation command needs the flag
+  // -flinker-output=nolto-rel. Else return false. This is for supporting
+  // GCC9x +.
+  auto linkerOutputFlagNeeded = [](StringRef &gccCommand) {
+
+    // Create an empty temporary file to write the stderrs
+    SmallString<128> gccOutMessage;
+    int fd;
+    if (auto ec = sys::fs::createTemporaryFile("lld-gnu-lto-temp",
+                                               ".txt", fd, gccOutMessage))
+      fatal("cannot create a temporary file for gcc: " + ec.message());
+
+    std::string linkerOutputCmd = gccCommand.str() +
+                                  " -flinker-output=nolto-rel ";
+    SmallVector<StringRef, 0> newArgs;
+    StringRef(linkerOutputCmd).split(newArgs," ");
+
+    // Only write stderr
+    Optional<StringRef> redirects[3];
+    redirects[0] = None;
+    redirects[1] = None;
+    redirects[2] = gccOutMessage.str();
+
+    // Execute gcc -flinker-output=nolto-rel
+    sys::ExecuteAndWait(newArgs[0], newArgs, None, redirects, 0, 0,
+      nullptr, nullptr);
+
+    // Collect the buffer. We don't need to close it, MemoryBuffer reads
+    // the file and closes it.
+    auto mbOrErr = MemoryBuffer::getFile(gccOutMessage.str(), -1, false);
+    if (auto ec = mbOrErr.getError())
+      fatal("cannot open gcc result file: " + ec.message());
+
+    std::unique_ptr<MemoryBuffer> &memBuffer = *mbOrErr;
+
+    // The file should not be empty since we ran gcc without an input
+    // file. Therefore we should get at least "no input files" message.
+    if (memBuffer->getBufferSize() == 0)
+      fatal("incorrect gcc result file");
+
+    StringRef buffer = memBuffer->getBuffer();
+
+    // Different versions of GCC handle the message differently. GCC 5x
+    // doesn't support -flinker-output, while GCC6x + supports the linker
+    // output flag but doesn't support nolto-rel. We just need to make sure
+    // that the nolto-rel option is not in the output.
+    bool ret = buffer.find("nolto-rel") == StringRef::npos;
+
+    // delete temporary file
+    sys::fs::remove(gccCommand.str());
+
+    return ret;
+  };
+
   warn("GNU LTO files found in the command line.");
 
   // Find G++
@@ -1376,17 +1430,16 @@ void LinkerDriver::doGnuLTOLinking() {
     fatal("unable to generate the temporary files for GNU LTO");
 
   StringRef exec = saver.save(*exeOrErr);
-  std::string newCMD = exec.str() + " ";
 
   // Build the command g++ -r GNU-LTO-FILES -nostdlib
   //                    -nostartfiles -o /tmp/gnulto.o
-  newCMD += "-r ";
+  std::string gnuFlags = "-r ";
 
-  newCMD += gNULTOFilesCmd;
+  gnuFlags += gNULTOFilesCmd;
 
-  newCMD += "-nostdlib ";
-  newCMD += "-nostartfiles ";
-  newCMD += "-o ";
+  gnuFlags += "-nostdlib ";
+  gnuFlags += "-nostartfiles ";
+  gnuFlags += "-o ";
 
   // Create an unique temporary file to write the output
   SmallString<128> gNUOutputObj;
@@ -1396,8 +1449,19 @@ void LinkerDriver::doGnuLTOLinking() {
       fatal("cannot create a temporary file: " + ec.message());
 
   tempsVector.push_back(gNUOutputObj.str());
+  gnuFlags += gNUOutputObj.str().str();
 
-  newCMD += gNUOutputObj.str().str();
+  std::string newCMD = exec.str() + " ";
+
+  // Support for GNU GCC/G++ 9+. This flag tells the compiler to generate
+  // a real object when a relocatable object is created with GNU lto. If
+  // the flag is not used, the compiler will be invoked and will do LTO
+  // but it will merge the IR and will generate a new LTO object rather
+  // than a real object.
+  if (linkerOutputFlagNeeded(exec))
+    newCMD += "-flinker-output=nolto-rel ";
+
+  newCMD += gnuFlags;
 
   SmallVector<StringRef, 0> newArgs;
   StringRef(newCMD).split(newArgs," ");

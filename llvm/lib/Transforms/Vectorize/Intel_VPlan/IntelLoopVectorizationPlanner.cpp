@@ -18,7 +18,7 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
-#include "IntelNewVPlanPredicator.h"
+#include "IntelVPlanPredicator.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "llvm/ADT/DenseSet.h"
@@ -335,7 +335,7 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    NewVPlanPredicator VPP(*VPlan);
+    VPlanPredicator VPP(*VPlan);
     VPP.predicate();
 
     PredicatedVPlans.insert(VPlan);
