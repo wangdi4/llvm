@@ -4714,6 +4714,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPMasterTaskLoopSimdDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
     AllowedNameModifiers.push_back(OMPD_taskloop);
+    if (LangOpts.OpenMP >= 50)
+      AllowedNameModifiers.push_back(OMPD_simd);
     break;
   case OMPD_parallel_master_taskloop:
     Res = ActOnOpenMPParallelMasterTaskLoopDirective(
@@ -4726,6 +4728,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
     AllowedNameModifiers.push_back(OMPD_taskloop);
     AllowedNameModifiers.push_back(OMPD_parallel);
+    if (LangOpts.OpenMP >= 50)
+      AllowedNameModifiers.push_back(OMPD_simd);
     break;
   case OMPD_distribute:
     Res = ActOnOpenMPDistributeDirective(ClausesWithImplicit, AStmt, StartLoc,
@@ -4745,6 +4749,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPDistributeParallelForSimdDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
     AllowedNameModifiers.push_back(OMPD_parallel);
+    if (LangOpts.OpenMP >= 50)
+      AllowedNameModifiers.push_back(OMPD_simd);
     break;
   case OMPD_distribute_simd:
     Res = ActOnOpenMPDistributeSimdDirective(
@@ -10891,9 +10897,19 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
       CaptureRegion = OMPD_task;
       break;
     case OMPD_parallel_master_taskloop:
-    case OMPD_parallel_master_taskloop_simd:
       if (NameModifier == OMPD_unknown || NameModifier == OMPD_taskloop)
         CaptureRegion = OMPD_parallel;
+      break;
+    case OMPD_parallel_master_taskloop_simd:
+      if ((OpenMPVersion <= 45 && NameModifier == OMPD_unknown) ||
+          NameModifier == OMPD_taskloop) {
+        CaptureRegion = OMPD_parallel;
+        break;
+      }
+      if (OpenMPVersion <= 45)
+        break;
+      if (NameModifier == OMPD_unknown || NameModifier == OMPD_simd)
+        CaptureRegion = OMPD_taskloop;
       break;
     case OMPD_parallel_for_simd:
       if (OpenMPVersion <= 45)
@@ -10902,10 +10918,17 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
         CaptureRegion = OMPD_parallel;
       break;
     case OMPD_taskloop_simd:
+    case OMPD_master_taskloop_simd:
       if (OpenMPVersion <= 45)
         break;
       if (NameModifier == OMPD_unknown || NameModifier == OMPD_simd)
         CaptureRegion = OMPD_taskloop;
+      break;
+    case OMPD_distribute_parallel_for_simd:
+      if (OpenMPVersion <= 45)
+        break;
+      if (NameModifier == OMPD_unknown || NameModifier == OMPD_simd)
+        CaptureRegion = OMPD_parallel;
       break;
     case OMPD_cancel:
     case OMPD_parallel:
@@ -10917,11 +10940,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target_teams_distribute:
     case OMPD_target_teams_distribute_simd:
     case OMPD_distribute_parallel_for:
-    case OMPD_distribute_parallel_for_simd:
     case OMPD_task:
     case OMPD_taskloop:
     case OMPD_master_taskloop:
-    case OMPD_master_taskloop_simd:
     case OMPD_target_data:
     case OMPD_simd:
     case OMPD_for_simd:
