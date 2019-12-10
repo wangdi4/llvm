@@ -2009,6 +2009,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
     return true;
@@ -2400,6 +2401,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
     llvm_unreachable("Combined directives not handled here");
