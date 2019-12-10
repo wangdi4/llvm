@@ -6264,6 +6264,11 @@ static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 /// The values must be consecutive values (i.e. 3,4,5 or 2,1).
 static void handleIntelFPGABankBitsAttr(Sema &S, Decl *D,
                                         const ParsedAttr &Attr) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   checkForDuplicateAttribute<IntelFPGABankBitsAttr>(S, D, Attr);
 
   if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
