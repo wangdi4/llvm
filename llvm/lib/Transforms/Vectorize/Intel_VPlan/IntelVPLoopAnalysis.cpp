@@ -571,7 +571,7 @@ void VPLoopEntityList::dump(raw_ostream &OS,
     return nullptr;
   };
 
-  for (VPInstruction &VPInst : Preheader->vpinstructions()) {
+  for (VPInstruction &VPInst : *Preheader) {
     if (VPAllocatePrivate *VPAllocaPriv =
             dyn_cast<VPAllocatePrivate>(&VPInst)) {
 
@@ -1563,7 +1563,7 @@ void VPLoopEntityList::VPSOAAnalysis::doSOAAnalysis() {
   // Iterate through all the instructions in the loop-preheader, and for
   // VPAllocatePrivate instruction check if that instruction itself or any of
   // its possible use, escapes.
-  for (VPInstruction &VInst : Preheader->vpinstructions()) {
+  for (VPInstruction &VInst : *Preheader) {
     if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst))
       if (!memoryEscapes(AllocaPriv))
         AllocaPriv->setSOASafe();

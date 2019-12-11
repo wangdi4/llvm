@@ -33,8 +33,8 @@ using namespace llvm::loopopt;
 // VPPhi instruction to the front of the list
 static void movePhiToFront(VPPHINode *Phi) {
   VPBasicBlock *BB = Phi->getParent();
-  BB->getInstList().splice((BB->front()).getIterator(), BB->getInstList(),
-                           Phi->getIterator());
+  BB->getInstructions().splice((BB->front()).getIterator(),
+                               BB->getInstructions(), Phi->getIterator());
 }
 
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
@@ -559,9 +559,7 @@ unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
 // Return a pointer to the last VPInstruction of \p VPBB. Return nullptr if \p
 // VPBB is empty.
 static VPInstruction *getLastVPI(VPBasicBlock *VPBB) {
-  assert((VPBB->empty() || isa<VPInstruction>(&VPBB->back())) &&
-         "VPRecipes in HIR?");
-  return VPBB->empty() ? nullptr : cast<VPInstruction>(&VPBB->back());
+  return VPBB->empty() ? nullptr : &VPBB->back();
 }
 
 // Set \p MasterVPI as master VPInstruction of all the decomposed VPInstructions
@@ -579,13 +577,11 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
           ? VPBB->begin()
           : std::next(VPBasicBlock::iterator(LastVPIBeforeDec));
   VPBasicBlock::iterator DecompVPIEnd = VPBasicBlock::iterator(MasterVPI);
-  for (auto &Recipe : make_range(DecompVPIStart, DecompVPIEnd)) {
-    assert(isa<VPInstruction>(Recipe) && "VPRecipes in HIR?");
-    auto *DecompVPI = cast<VPInstruction>(&Recipe);
+  for (auto &DecompVPI : make_range(DecompVPIStart, DecompVPIEnd)) {
     // DecompVPI is a new VPInstruction at this point. To be marked as
     // decomposed VPInstruction with the following 'setMaster'.
-    assert(DecompVPI->isNew() && "Expected new VPInstruction!");
-    DecompVPI->HIR.setMaster(MasterVPI);
+    assert(DecompVPI.isNew() && "Expected new VPInstruction!");
+    DecompVPI.HIR.setMaster(MasterVPI);
   }
 }
 
@@ -981,7 +977,7 @@ void VPDecomposerHIR::computeLiveInBlocks(
     // VPBB has both use and definition of symbase, iterate over it's VPIs to
     // find out which comes first
     assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &VPI : cast<VPBasicBlock>(VPBB)->vpinstructions()) {
+    for (auto &VPI : *(cast<VPBasicBlock>(VPBB))) {
       // Underlying HIR is not attached to non-master VPInstructions
       if (!VPI.HIR.isMaster())
         continue;
@@ -1101,7 +1097,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
        make_range(df_iterator<VPBlockBase *>::begin(HCFGEntry),
                   df_iterator<VPBlockBase *>::end(HCFGEntry))) {
     assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &VPI : cast<VPBasicBlock>(VPBB)->vpinstructions()) {
+    for (auto &VPI : *(cast<VPBasicBlock>(VPBB))) {
       if (!VPI.HIR.isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
@@ -1309,11 +1305,11 @@ void VPDecomposerHIR::fixPhiNodes() {
       // HIR should not be invalidated, we are still building initial HCFG.
       FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx),
                                    false /*InvalidateIR*/);
-      FixedPhi->getParent()->eraseRecipe(FixedPhi);
+      FixedPhi->getParent()->eraseInstruction(FixedPhi);
     } else {
       // Solution for case 2
       HLDDNode *FirstDefNode = nullptr;
-      for (auto &VPI : FixedPhi->getParent()->vpinstructions()) {
+      for (auto &VPI : *(FixedPhi->getParent())) {
         if (!VPI.HIR.isMaster())
           continue;
 
@@ -1345,7 +1341,7 @@ void VPDecomposerHIR::fixPhiNodes() {
       // Replace the PHI node and remove it from HCFG. HIR should not be
       // invalidated, we are still building initial HCFG.
       FixedPhi->replaceAllUsesWith(FirstDefVPI, false /*InvalidateIR*/);
-      FixedPhi->getParent()->eraseRecipe(FixedPhi);
+      FixedPhi->getParent()->eraseInstruction(FixedPhi);
     }
   }
 }
@@ -1491,7 +1487,7 @@ void VPDecomposerHIR::fixPhiNodePass(
 
   // Iterate over instructions of VPBB and update the incoming value of Symbases
   // being tracked if any instruction in the VPBB writes into it
-  for (auto &VPI : VPBB->vpinstructions()) {
+  for (auto &VPI : *VPBB) {
     LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI.dump());
 
     if (VPI.HIR.isMaster()) {

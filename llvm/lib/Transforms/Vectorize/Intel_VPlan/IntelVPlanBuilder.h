@@ -9,8 +9,7 @@
 ///
 /// \file
 /// This file provides a VPlan-based builder utility analogous to IRBuilder.
-/// It provides an instruction-level API for generating VPInstructions while
-/// abstracting away the Recipe manipulation details.
+/// It provides an instruction-level API for generating VPInstructions.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANBUILDER_H

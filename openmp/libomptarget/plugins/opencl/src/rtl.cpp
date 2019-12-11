@@ -63,9 +63,7 @@ typedef cl_int  (CL_API_CALL *clGetMemAllocInfoINTELTy)(
     size_t param_value_size,
     void* param_value,
     size_t* param_value_size_ret);
-
 #endif  // INTEL_CUSTOMIZATION
-
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
@@ -347,6 +345,9 @@ public:
   std::vector<ProfileDataTy> Profiles;
   std::vector<std::vector<char>> Names;
   std::mutex *Mutexes;
+
+  // Requires flags
+  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
   uint64_t flag;
   int32_t DataTransferLatency;
@@ -675,6 +676,12 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
+  DP("Initialize requires flags to %" PRId64 "\n", RequiresFlags);
+  DeviceInfo.RequiresFlags = RequiresFlags;
+  return RequiresFlags;
+}
+
 static void dumpImageToFile(
     const void *Image, size_t ImageSize, const char *Type) {
 #if INTEL_CUSTOMIZATION
@@ -883,7 +890,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   if (!DeviceInfo.clGetMemAllocInfoINTELFn &&
       DeviceInfo.Extensions[device_id].GetMemAllocInfoINTELPointer ==
       ExtensionStatusEnabled &&
-      DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU) {
+      (DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU ||
+       DeviceInfo.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)) {
     // TODO: limit this to CPU devices for the time being.
     DeviceInfo.clGetMemAllocInfoINTELFn =
         reinterpret_cast<clGetMemAllocInfoINTELTy>(
@@ -1102,6 +1110,19 @@ int32_t __tgt_rtl_manifest_data_for_region(
 EXTERN void *__tgt_rtl_get_offload_pipe(int32_t device_id) {
   return (void *)DeviceInfo.Queues[device_id];
 }
+
+#if INTEL_CUSTOMIZATION
+EXTERN int32_t __tgt_rtl_is_managed_data(int32_t device_id, void *hst_ptr) {
+  if (!DeviceInfo.clGetMemAllocInfoINTELFn)
+    return 0;
+  cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_UNKNOWN_INTEL;
+  INVOKE_CL_RET(0, DeviceInfo.clGetMemAllocInfoINTELFn,
+                DeviceInfo.CTX[device_id], hst_ptr, CL_MEM_ALLOC_TYPE_INTEL,
+                sizeof(type), &type, nullptr);
+  // These two types do not need explicit data move.
+  return (type == CL_MEM_TYPE_HOST_INTEL || type == CL_MEM_TYPE_SHARED_INTEL);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static inline
 void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,

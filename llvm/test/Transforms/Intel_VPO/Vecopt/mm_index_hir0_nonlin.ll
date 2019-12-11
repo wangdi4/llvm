@@ -17,7 +17,7 @@
 ;CHECK-NEXT: Induction list
 ;CHECK-NEXT: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 {{%vp[0-9]+}} = add i32 {{%vp[0-9]+}} i32 {{%vp[0-9]+}}
 ;
-;CHECK:  BB3 (BP: NULL) :
+;CHECK:  BB3:
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = add
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = reduction-init i32 [[BEST]]
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = reduction-init i32 [[TMP]]
@@ -25,7 +25,7 @@
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = induction-init{add} i32 0 i32 1
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = induction-init-step{add} i32 1
 ;
-;CHECK:  BB5 (BP: NULL) :
+;CHECK:  BB5:
 ;CHECK-NEXT:  i32 [[BEST_FINAL:%vp[0-9]+]] = reduction-final{u_smax} i32 [[BEST_EXIT]]
 ;CHECK-NEXT:  i32 [[TMP_FINAL:%vp[0-9]+]] = reduction-final{s_smin} i32 [[TMP_EXIT]] i32 [[BEST_EXIT]] i32 [[BEST_FINAL]]
 ;CHECK-NEXT:  i32 {{%vp[0-9]+}} = reduction-final{s_smin} i32 [[VAL_EXIT]] i32 [[BEST_EXIT]] i32 [[BEST_FINAL]]

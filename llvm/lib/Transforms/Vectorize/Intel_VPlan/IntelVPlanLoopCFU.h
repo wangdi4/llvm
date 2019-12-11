@@ -116,25 +116,25 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     if (dyn_cast<VPCmpInst>(BottomTest)) {
       VPBasicBlock *BottomTestBlock =
           cast<VPInstruction>(BottomTest)->getParent();
-      BottomTestBlock->removeRecipe(cast<VPInstruction>(BottomTest));
-      RegionExitBlock->addRecipe(cast<VPInstruction>(BottomTest));
+      BottomTestBlock->removeInstruction(cast<VPInstruction>(BottomTest));
+      RegionExitBlock->addInstruction(cast<VPInstruction>(BottomTest));
     }
 
     // Move all instructions that are not phi nodes to the new loop body
     // header block. These were the instructions that were part of the
     // original loop header, but these instructions are now part of the loop
     // body that need to be under mask.
-    SmallVector<VPRecipeBase *, 2> ToMove;
-    SmallVector<VPRecipeBase *, 2> SubLoopHeaderPhis;
-    for (auto &Inst : SubLoopHeader->vpinstructions()) {
+    SmallVector<VPInstruction *, 2> ToMove;
+    SmallVector<VPInstruction *, 2> SubLoopHeaderPhis;
+    for (auto &Inst : *SubLoopHeader) {
       if (!isa<VPPHINode>(Inst))
         ToMove.push_back(&Inst);
       else
         SubLoopHeaderPhis.push_back(&Inst);
     }
     for (auto *Inst : ToMove) {
-      SubLoopHeader->removeRecipe(Inst);
-      NewLoopHeader->addRecipe(Inst);
+      SubLoopHeader->removeInstruction(Inst);
+      NewLoopHeader->addInstruction(Inst);
     }
 
     // Construct loop body mask and insert into the loop header
@@ -223,7 +223,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
         // We will be adding instructions to the latch so do the copy to avoid
         // stale iterators.
         SmallVector<VPInstruction *, 16> Instructions(map_range(
-            BB->vpinstructions(),
+            *BB,
             // Can't have a vector of references - take the address.
             [](VPInstruction &VPInst) -> VPInstruction * { return &VPInst; }));
         for (VPInstruction *Inst : Instructions) {
@@ -257,7 +257,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
               // matter.
               assert(SubLoopHeader->getNumPredecessors() == 2 &&
                      "Expected exactly two predecessors for SubLoopHeader!");
-              SubLoopHeader->addRecipeAfter(NewPhi, nullptr /* be the first */);
+              SubLoopHeader->addInstructionAfter(NewPhi,
+                                                 nullptr /* be the first */);
 
               // Create the blend before population NewPhi's incoming values
               // that blend will be one of them.
@@ -303,8 +304,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
               LCSSAPhi = new VPPHINode(Inst->getType());
               LCSSAPhi->setName(Inst->getName() + ".live.out.lcssa");
               VPDA->markDivergent(*LCSSAPhi);
-              SubLoopExitBlock->addRecipeAfter(LCSSAPhi,
-                                               nullptr /* be the first */);
+              SubLoopExitBlock->addInstructionAfter(LCSSAPhi,
+                                                    nullptr /* be the first */);
               LCSSAPhi->addIncoming(Blend, NewLoopLatch);
             }
 
@@ -327,7 +328,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     }
 
     LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
-    SubLoopHeader->addRecipe(LoopBodyMask);
+    SubLoopHeader->addInstruction(LoopBodyMask);
     RegionEntryBlock->setCondBit(LoopBodyMask);
 
     // Connect region entry/exit blocks so that predicate can be propagated

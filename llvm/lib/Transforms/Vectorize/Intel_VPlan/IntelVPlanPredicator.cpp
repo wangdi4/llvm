@@ -387,7 +387,8 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
       // default.
       Phi = new VPPHINode(LiveIn->getType());
       Phi->setName(Val->getName() + ".phi." + BB->getName());
-      BB->getEntryBasicBlock()->addRecipeAfter(Phi, nullptr /*be the first*/);
+      BB->getEntryBasicBlock()->addInstructionAfter(Phi,
+                                                    nullptr /*be the first*/);
       for (auto *BBPred : BB->getPredecessors()) {
         Phi->addIncoming(
             Plan.getVPConstant(ConstantInt::getFalse(*Plan.getLLVMContext())),
@@ -700,7 +701,7 @@ void VPlanPredicator::linearizeRegion(
       for (VPPHINode &Phi : VPPhisIteratorRange) {
         auto BlendPhi = new VPPHINode(Phi.getType());
         BlendPhi->setBlend(true);
-        BlendBB->addRecipe(BlendPhi);
+        BlendBB->addInstruction(BlendPhi);
         Plan.getVPlanDA()->markDivergent(*BlendPhi);
         int NumIncoming = Phi.getNumIncomingValues();
         // Ugly loop to protect against iterator invalidation due to removal

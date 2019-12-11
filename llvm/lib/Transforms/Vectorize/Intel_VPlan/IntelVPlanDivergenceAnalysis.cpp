@@ -170,7 +170,7 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 static void getPhis(const VPBlockBase *Block,
                     SmallVectorImpl<const VPInstruction *> &Phis) {
   const VPBasicBlock *PhiBlock = cast<VPBasicBlock>(Block);
-  for (const VPInstruction &VPInst : PhiBlock->vpinstructions()) {
+  for (const VPInstruction &VPInst : *PhiBlock) {
     unsigned OpCode = VPInst.getOpcode();
     if (OpCode == Instruction::PHI)
       Phis.push_back(&VPInst);
@@ -323,9 +323,7 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
     }
 
     // taint outside users of values carried by @DivLoop
-    // community code divergence here is with how instructions are iterated over
-    // due to recipes. Community code simply does 'for (auto &I : *UserBlock)'.
-    for (auto &I : cast<VPBasicBlock>(UserBlock)->vpinstructions()) {
+    for (VPInstruction &I : *(cast<VPBasicBlock>(UserBlock))) {
       if (isAlwaysUniform(I))
         continue;
       if (isDivergent(I))
@@ -701,7 +699,7 @@ void VPlanDivergenceAnalysis::setVectorShapesForUniforms(const VPLoop *VPLp) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &VPInst : VPBB->vpinstructions()) {
+      for (auto &VPInst : *VPBB) {
         if (!isDivergent(VPInst) && getVectorShape(&VPInst)->isUndefined()) {
           VPVectorShape *NewShape = getUniformVectorShape();
           updateVectorShape(&VPInst, NewShape);
@@ -715,7 +713,7 @@ void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &VPInst : VPBB->vpinstructions()) {
+      for (auto &VPInst : *VPBB) {
         VPVectorShape *Shape = getVectorShape(&VPInst);
         assert(!Shape->isUndefined() && "Shape has not been defined");
         if (!isDivergent(VPInst) && !Shape->isUniform())
@@ -738,7 +736,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
       LLVM_DEBUG(dbgs() << "Basic Block: " << VPBB->getName() << "\n");
-      for (auto &VPInst : VPBB->vpinstructions()) {
+      for (auto &VPInst : *VPBB) {
         if (isDivergent(VPInst))
           LLVM_DEBUG(OS << "Divergent: ");
         else
@@ -1273,7 +1271,7 @@ void VPlanDivergenceAnalysis::initializeShapes(
   ReversePostOrderTraversal<VPBlockBase *> RPOT(RegionLoop->getHeader());
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &VPInst : VPBB->vpinstructions()) {
+      for (auto &VPInst : *VPBB) {
         // If any operands of the instruction are always known to be
         // uniform, set the shape as uniform. This will also cover cases
         // where some instructions have all uniform operands that are
@@ -1393,7 +1391,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // Collect instructions that may possibly have non-deterministic result.
   for (auto *B : CandidateLoop->getBlocks())
     if (auto *VPBB = dyn_cast<VPBasicBlock>(B))
-      for (const auto &VPInst : VPBB->vpinstructions())
+      for (const auto &VPInst : *VPBB)
         if (!hasDeterministicResult(VPInst))
           Worklist.push_back(&VPInst);
 

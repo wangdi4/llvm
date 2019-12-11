@@ -185,6 +185,10 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
 // Returns opaque handle to a device-dependent offload pipe.
 EXTERN
 void *__tgt_rtl_get_offload_pipe(int32_t ID);
+
+// Checks if the specified memory location is managed.
+EXTERN
+int32_t __tgt_rtl_is_managed_data(int32_t ID, void *HostPtr);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

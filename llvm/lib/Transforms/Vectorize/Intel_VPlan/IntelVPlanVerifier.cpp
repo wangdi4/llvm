@@ -834,7 +834,7 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
 void VPlanVerifier::verifyBlock(const VPBlockBase *Block,
                                 const VPRegionBlock *Region) const {
   if (const auto *BB = dyn_cast<const VPBasicBlock>(Block)) {
-    for (const auto &Inst : BB->vpinstructions())
+    for (const auto &Inst : *BB)
       verifyInstruction(&Inst, BB);
   }
 }
