@@ -832,7 +832,7 @@ public:
   ///   %dest.arr.begin = load <element_ty>* %addr0
   /// \endcode
   /// Where NewV is the local dope vector for I.
-  static void genF90DVRedutionInitDstInfo(const Item *I,
+  static void genF90DVReductionInitDstInfo(const Item *I,
                                           Value *&DestArrayBeginOut,
                                           Type *&DestElementTyOut,
                                           Value *&NumElementsOut,
@@ -848,7 +848,7 @@ public:
   ///   %src.arr.begin = load <element_ty>* %origv.addr0
   /// \endcode
   /// Where NewV is the local dope vector for I, and OrigV is the original.
-  static void genF90DVRedutionFiniSrcDstInfo(const Item *I,
+  static void genF90DVReductionFiniSrcDstInfo(const Item *I,
                                              Value *&SrcArrayBeginOut,
                                              Value *&DestArrayBeginOut,
                                              Type *&DestElementTyOut,

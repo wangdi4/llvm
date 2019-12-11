@@ -1863,11 +1863,17 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
     }
     break;
   case ReductionItem::WRNReductionAnd:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionEqv:
+#endif // INTEL_CUSTOMIZATION
     V = ConstantInt::get(ScalarTy, 1);
     break;
   case ReductionItem::WRNReductionOr:
   case ReductionItem::WRNReductionBxor:
   case ReductionItem::WRNReductionBor:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionNeqv:
+#endif // INTEL_CUSTOMIZATION
     V = ConstantInt::get(ScalarTy, 0);
     break;
   case ReductionItem::WRNReductionBand:
@@ -2104,6 +2110,9 @@ bool VPOParoptTransform::genReductionScalarFini(
     Res = Builder.CreateOr(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionBxor:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionNeqv:
+#endif // INTEL_CUSTOMIZATION
     Res = Builder.CreateXor(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionAnd:
@@ -2120,6 +2129,12 @@ bool VPOParoptTransform::genReductionScalarFini(
   case ReductionItem::WRNReductionMin:
     Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
     break;
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionEqv:
+    Res = Builder.CreateXor(Rhs1, Rhs2);
+    Res = Builder.CreateNot(Res);
+    break;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Reduction operator not yet supported!");
   }
@@ -3100,7 +3115,7 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
   } else
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVRedutionInitDstInfo(
+    VPOParoptUtils::genF90DVReductionInitDstInfo(
         &RedI, DestArrayBegin, DestElementTy, NumElements, InsertPt);
   } else
 #endif // INTEL_CUSTOMIZATION
@@ -3126,7 +3141,7 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
 
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVRedutionFiniSrcDstInfo(
+    VPOParoptUtils::genF90DVReductionFiniSrcDstInfo(
         &RedI, SrcArrayBegin, DestArrayBegin, DestElementTy, NumElements,
         InsertPt);
     return;

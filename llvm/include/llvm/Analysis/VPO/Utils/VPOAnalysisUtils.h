@@ -297,6 +297,10 @@ public:
     /// such as QUAL_OMP_DEPEND_IN
     static bool isDependClause(int ClauseID);
 
+    /// Return true iff the ClauseID represents a INREDUCTION clause,
+    /// such as QUAL_OMP_INREDUCTION_ADD
+    static bool isInReductionClause(int ClauseID);
+
     /// Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD
     static bool isReductionClause(int ClauseID);
