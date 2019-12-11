@@ -1948,6 +1948,11 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
       // Set the result of the wide load and add the same to VLS Group load map.
       WLoadRes = WideLoad->getLvalDDRef();
       VLSGroupLoadMap[Grp] = WLoadRes;
+
+      DEBUG_WITH_TYPE("ovls",
+                      dbgs() << "Emitted a group-wide vector LOAD for Group#"
+                             << Grp->getDebugId() << ":\n  ");
+      DEBUG_WITH_TYPE("ovls", WideLoad->dump());
     } else
       WLoadRes = (*It).second;
 
@@ -1989,6 +1994,11 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
           createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
                                  InterleaveFactor, Mask);
       propagateMetadata(Grp, WideInst->getOperandDDRef(0));
+
+      DEBUG_WITH_TYPE("ovls",
+                      dbgs() << "Emitted a group-wide vector STORE for Group#"
+                             << Grp->getDebugId() << ":\n  ");
+      DEBUG_WITH_TYPE("ovls", WideInst->dump());
     }
   }
 

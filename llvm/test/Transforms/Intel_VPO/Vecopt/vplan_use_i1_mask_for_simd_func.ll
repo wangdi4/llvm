@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -use-i1-mask-for-simd-funcs -disable-vplan-subregions -S < %s  | FileCheck %s
+; RUN: opt -VPlanDriver -use-i1-mask-for-simd-funcs -S < %s  | FileCheck %s
 
 ; CHECK-LABEL: vector.body
 ; CHECK-NOT: zext <4 x i1>

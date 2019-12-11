@@ -335,8 +335,6 @@ private:
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
                       HIRVectorizationLegality *Legality, const DDGraph &DDG);
-
-  VPLoopRegion *createLoopRegion(VPLoop *VPLp) override;
 };
 
 } // namespace vpo

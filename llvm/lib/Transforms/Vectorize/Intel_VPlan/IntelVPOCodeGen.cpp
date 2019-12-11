@@ -619,6 +619,10 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
         Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
   }
 
+  DEBUG_WITH_TYPE(
+      "ovls", dbgs() << "Emitted a group-wide vector LOAD for Group#"
+                     << Group->getDebugId() << ":\n  " << *GroupLoad << "\n\n");
+
   VLSGroupLoadMap.insert(std::make_pair(Group, GroupLoad));
   return GroupLoad;
 }
@@ -834,13 +838,21 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
 
   // Create the wide store.
   unsigned Align = getOriginalLoadStoreAlignment(VPStore);
+  Instruction *GroupStore;
   if (MaskValue) {
     Value *StoreMask = replicateVectorElts(
         MaskValue, OriginalVL * Group->size(), Builder, "groupStoreMask");
-    Builder.CreateMaskedStore(StoredValue, GroupPtr, Align, StoreMask);
+    GroupStore =
+        Builder.CreateMaskedStore(StoredValue, GroupPtr, Align, StoreMask);
   } else {
-    Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
+    GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
   }
+
+  DEBUG_WITH_TYPE("ovls", dbgs()
+                              << "Emitted a group-wide vector STORE for Group#"
+                              << Group->getDebugId() << ":\n  " << *GroupStore
+                              << "\n\n");
+  (void) GroupStore;
 }
 
 void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
