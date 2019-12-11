@@ -6589,6 +6589,19 @@ void CodeGenModule::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
         SD->getCPUName(GD.getMultiVersionIndex())->getName(), FeaturesTmp);
     std::vector<std::string> Features(FeaturesTmp.begin(), FeaturesTmp.end());
     Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU, Features);
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  } else if (const auto *TP = FD->getAttr<TargetPromotionAttr>()) {
+    std::vector<std::string> FeaturesTmp(Target.getTargetOpts().Features);
+    StringRef NewFeats(TP->getFeatures());
+    while (!NewFeats.empty()) {
+      std::pair<StringRef, StringRef> split = NewFeats.split(',');
+      FeaturesTmp.push_back(split.first);
+      NewFeats = split.second;
+    }
+
+    Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU, FeaturesTmp);
+#endif // INTEL_CUSTOMIZATION
   } else {
     Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU,
                           Target.getTargetOpts().Features);
