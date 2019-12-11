@@ -5743,7 +5743,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
       StringRef(FeatureStr).split(ReqFeatures, ',');
     }
   } else if (const auto *TA = Callee->getAttr<TargetAttr>()){
-    TargetAttr::ParsedTargetAttr ParsedInfo = TA->parse();
+    ParsedTargetAttr ParsedInfo = TA->parse();
 
     // Setting the CPU isn't supported for target promoting.
     if (!ParsedInfo.Architecture.empty())
