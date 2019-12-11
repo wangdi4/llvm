@@ -217,12 +217,23 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
                 set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
             endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
 
+            if (WIN32)
+              # CMAKE_ASM_FLAGS is a list on Windows, so we can use it
+              # with add_custom_command( VERBATIM )
+              set(ASM_FLAGS_LIST ${CMAKE_ASM_FLAGS})
+            else()
+              # Transform string CMAKE_ASM_FLAGS into a list to work
+              # properly with add_custom_command( VERBATIM )
+              separate_arguments(ASM_FLAGS_LIST UNIX_COMMAND ${CMAKE_ASM_FLAGS})
+            endif()
+
             add_custom_command(OUTPUT ${OBJ_FILE}
                                COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                                COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                                       ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
-                                                             ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
+                                       ${OPENCL_ASM_COMPILER} ${ASM_FLAGS_LIST}
+                                                              ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
                                                              ${OBJ_OUTPUT_NAME_FLAG}
+                                                             ${CMAKE_ASM_COMPILE_TO_OBJ_FLAG}
                                                              ${SRC_FILE}
                                MAIN_DEPENDENCY ${SRC_FILE}
                                VERBATIM
