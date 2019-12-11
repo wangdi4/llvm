@@ -7,8 +7,10 @@ if(LLVM_MAIN_INCLUDE_DIR)
 endif()
 if(INTEL_CUSTOMIZATION)
   list(APPEND LLVM_TABLEGEN_FLAGS ${LLVM_INTEL_TABLEGEN_FLAGS})
-  # If needed, append -DINTEL_COLLAB directly to LLVM_TABLEGEN_FLAGS
-  # below.
+endif()
+
+if(INTEL_COLLAB)
+  list(APPEND LLVM_TABLEGEN_FLAGS -DINTEL_COLLAB)
 endif()
 
 function(tablegen project ofn)

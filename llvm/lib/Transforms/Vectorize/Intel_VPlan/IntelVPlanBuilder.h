@@ -344,10 +344,11 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createAllocaPrivate(Type *Ty) {
-    VPInstruction *NewVPInst = new VPAllocatePrivate(Ty);
+  VPInstruction *createAllocaPrivate(const VPValue *AI) {
+    VPInstruction *NewVPInst = new VPAllocatePrivate(AI->getType());
     if (BB)
       BB->insert(NewVPInst, InsertPt);
+    NewVPInst->setName(AI->getName());
     return NewVPInst;
   }
 

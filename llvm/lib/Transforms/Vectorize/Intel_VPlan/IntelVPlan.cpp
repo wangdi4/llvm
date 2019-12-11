@@ -18,7 +18,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
-#include "IntelLoopVectorizationCodeGen.h"
+#include "IntelVPOCodeGen.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"

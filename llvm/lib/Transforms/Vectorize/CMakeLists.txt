@@ -13,7 +13,6 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp
   IntelMFReplacement.cpp
-  Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
   Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp

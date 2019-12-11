@@ -16,11 +16,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlanner.h"
-#include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
-#include "IntelVPlanPredicator.h"
+#include "IntelVPOCodeGen.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanHCFGBuilder.h"
+#include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
