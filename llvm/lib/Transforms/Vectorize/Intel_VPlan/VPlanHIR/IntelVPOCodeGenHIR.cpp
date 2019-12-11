@@ -2717,13 +2717,14 @@ static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
     AddrRef = PtrOp;
     AddrRef->setAddressOf(false);
   } else {
-    // PtrOp is an invariant blob - we need to generate a
-    // reference of the form blob[0].
+    // PtrOp is an invariant blob or value computed inside loop - we need to
+    // generate a reference of the form blob[0].
     assert(PtrOp->isSelfBlob() && "Expected self blob DDRef");
     auto &HIRF = HNU.getHIRFramework();
     llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
     auto Is64Bit = TargetTriple.isArch64Bit();
-    AddrRef = DDU.createMemRef(PtrOp->getSelfBlobIndex());
+    AddrRef =
+        DDU.createMemRef(PtrOp->getSelfBlobIndex(), PtrOp->getDefinedAtLevel());
     auto Int32Ty = Type::getInt32Ty(HNU.getContext());
     auto Int64Ty = Type::getInt64Ty(HNU.getContext());
     auto Zero = CEU.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
