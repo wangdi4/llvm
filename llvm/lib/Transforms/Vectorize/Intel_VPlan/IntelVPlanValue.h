@@ -115,7 +115,7 @@ protected:
         IsUnderlyingValueValid(UV ? true : false) {
     assert(BaseTy && "BaseTy can't be null!");
     if (UV && !UV->getName().empty())
-      Name = ("vp." + UV->getName()).str();
+      Name = (getVPNamePrefix() + UV->getName()).str();
   }
 #else
   VPValue(const unsigned char SC, Value *UV = nullptr)
@@ -139,7 +139,7 @@ protected:
     IsUnderlyingValueValid = true;
 
     if (!Val.getName().empty())
-      Name = ("vp." + Val.getName()).str();
+      Name = (getVPNamePrefix() + Val.getName()).str();
   }
 
 public:
@@ -188,13 +188,32 @@ public:
     if (NameRef.empty())
       return;
 
-    if (NameRef.startswith("vp."))
+    if (NameRef.startswith(getVPNamePrefix()))
       Name = std::string(NameRef);
     else
-      Name = ("vp." + NameRef).str();
+      Name = (getVPNamePrefix() + NameRef).str();
   }
   StringRef getName() const {
     return Name;
+  }
+  /// Return the VPNamePrefix to clients so that proper VPValue-names can be
+  /// generated.
+  static StringRef getVPNamePrefix() {
+    // FIXME: Define the VPNamePrefix in some analogue of the
+    // llvm::Context just like we plan for the 'Name' field.
+    static std::string VPNamePrefix = "vp.";
+    return VPNamePrefix;
+  }
+
+  /// Return the original llvm::Value name so that codegen clients can generate
+  /// appropriate names in output IR.
+  StringRef getOrigName() const {
+    StringRef NameRef(Name);
+
+    if (NameRef.startswith(getVPNamePrefix()))
+      return NameRef.substr(getVPNamePrefix().size());
+    else
+      return NameRef;
   }
 #endif
 

@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4  -S %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 %s | FileCheck %s
 
 ;void foo(int *ip, int n)
 ;{

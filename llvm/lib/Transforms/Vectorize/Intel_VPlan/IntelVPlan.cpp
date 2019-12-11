@@ -18,7 +18,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
-#include "IntelLoopVectorizationCodeGen.h"
+#include "IntelVPOCodeGen.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
@@ -1991,27 +1991,6 @@ void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
                   df_iterator<VPBlockBase *>::end(Region->getExit()))) {
     Block->setParent(Region);
   }
-}
-
-const VPLoopRegion *VPlanUtils::findNthLoopDFS(const VPlan *Plan, unsigned N) {
-  std::function<const VPLoopRegion *(const VPBlockBase *)> Dfs =
-      [&](const VPBlockBase *Block) -> const VPLoopRegion * {
-    if (const auto Loop = dyn_cast<const VPLoopRegion>(Block)) {
-      --N;
-      if (N == 0) {
-        return Loop;
-      }
-    }
-
-    if (const auto Region = dyn_cast<const VPRegionBlock>(Block))
-      for (const VPBlockBase *Block : depth_first(Region->getEntry()))
-        if (const VPLoopRegion *Loop = Dfs(Block))
-          return Loop;
-
-    return nullptr;
-  };
-
-  return Dfs(Plan->getEntry());
 }
 
 using VPDomTree = DomTreeBase<VPBlockBase>;

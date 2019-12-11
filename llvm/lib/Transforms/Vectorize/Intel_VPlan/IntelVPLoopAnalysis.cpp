@@ -604,7 +604,7 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   if (MemDescr->canRegisterize())
     return nullptr;
   AI = MemDescr->getMemoryPtr();
-  VPValue *Ret = Builder.createAllocaPrivate(AI->getType());
+  VPValue *Ret = Builder.createAllocaPrivate(AI);
   Plan.getVPlanDA()->markDivergent(*Ret);
   linkValue(&E, Ret);
   return Ret;

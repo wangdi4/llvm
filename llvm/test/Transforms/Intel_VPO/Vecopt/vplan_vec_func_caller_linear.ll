@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S < %s  | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-predicator -S < %s  | FileCheck %s
 
 ; CHECK-LABEL: vector.body
 ; CHECK: call <4 x i32> @_ZGVbN4l_foo

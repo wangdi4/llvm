@@ -42,18 +42,6 @@ public:
                                        Value2ValueMapTy &ValueMap,
                                        VPlanDivergenceAnalysis *DA = nullptr,
                                        Twine Prefix = Twine());
-
-  /// Clone given VPLoopRegion \p LR.
-  static VPLoopRegion *cloneLoopRegion(VPLoopRegion *LR, std::string Prefix,
-                                       Block2BlockMapTy &BlockMap,
-                                       Value2ValueMapTy &ValueMap,
-                                       VPlanDivergenceAnalysis *DA = nullptr);
-
-  /// Clone given VPRegionBlocks \p Region.
-  static VPRegionBlock *cloneRegion(VPRegionBlock *Region, std::string Prefix,
-                                    Block2BlockMapTy &BlockMap,
-                                    Value2ValueMapTy &ValueMap,
-                                    VPlanDivergenceAnalysis *DA = nullptr);
 };
 
 /// VPValueMapper is responsible to remap instructions within
@@ -67,13 +55,6 @@ private:
   VPCloneUtils::Value2ValueMapTy &Value2ValueMap;
 
   bool AssertForNonCloned;
-
-  void remapHCFG(VPBlockBase *Block);
-
-  /// Recursively visit all VPRegionBlocks and VPBasicBlocks and create
-  /// new VPLoop if BB has been cloned and in \p OriginalPlan same BB belongs
-  /// to some VPLoop.
-  void remapVPLoop(VPlan *Plan, const VPlan *OriginalPlan);
 
   /// As long as our VPBlockBase is not derived from VPValue, we cannot have
   /// single function to remap VPValue and VPBlockBase, like
@@ -96,33 +77,12 @@ private:
     return Map[Value] = Value;
   }
 
-  void updateLoopRegionsAfterCloning(VPlan *Plan);
-
-  void cloneVPLoop(VPlan *Plan, const VPlan *OriginalPlan);
-  bool entireLoopWasCloned(const VPLoop *Loop);
-
 public:
   explicit VPValueMapper(VPCloneUtils::Block2BlockMapTy &BlockMap,
                          VPCloneUtils::Value2ValueMapTy &ValueMap,
                          const bool AssertForNonCloned = false)
       : Block2BlockMap(BlockMap), Value2ValueMap(ValueMap),
         AssertForNonCloned(AssertForNonCloned) {}
-
-  /// Remap cloned VPBB and VPInstructions within \p Plan according to provided
-  /// \p BlockMap and \p ValueMap.
-  /// Has to pass \p OriginalPlan in order to update VPLoopInfo in \p Plan.
-  ///
-  /// Alternative solutions:
-  ///  - maintain own version of the VPLoopInfo during cloning and merging it
-  ///    with \p Plan's VPLoopInfo here doesn't work due to absence of such
-  ///    functionality within LoopInfoBase.
-  ///  - use VPLoopInfo->analyze() doesn't work because of issue with
-  ///    GraphTraits<VPBlockBase *>, which doesn't visit Entry of VPRegionBlock,
-  ///    which is essential to build dominator tree.
-  void remapPlan(VPlan *Plan, const VPlan *OriginalPlan) {
-    remapHCFG(Plan->getEntry());
-    remapVPLoop(Plan, OriginalPlan);
-  }
 
   void remapInstruction(VPInstruction *Inst);
 };

@@ -3338,8 +3338,6 @@ public:
     RSO << Prefix << NextOrdinal++;
     return RSO.str();
   }
-
-  static const VPLoopRegion *findNthLoopDFS(const VPlan *Plan, unsigned N);
 };
 
 /// A wrapper class to add VPlan related remarks for opt-report. Currently

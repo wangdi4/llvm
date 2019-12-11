@@ -305,7 +305,8 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   // edges.
   bool IsDivergent = DA->isDivergent(*Val) || DA->isDivergent(*Predicate);
   Val = Builder.createAnd(Predicate, Val,
-                          "vp." + Block->getName() + ".br." + Val->getName());
+                          VPValue::getVPNamePrefix() + Block->getName() +
+                              ".br." + Val->getName());
   if (IsDivergent)
     DA->markDivergent(*Val);
 

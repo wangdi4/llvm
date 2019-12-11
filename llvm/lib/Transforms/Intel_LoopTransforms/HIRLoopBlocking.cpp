@@ -75,12 +75,12 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     PrintBlockedLoops(OPT_SWITCH "-print-affected-loops", cl::init(false),
                       cl::ReallyHidden,
                       cl::desc("Print loops affected by " OPT_DESC " pass"));
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
@@ -857,12 +857,12 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips,
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (PrintBlockedLoops) {
       dbgs() << "== Before blocking in " << FuncName << " == \n";
       OutermostLoop->dump();
     }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     InnermostLoop->setIsUndoSinkingCandidate(false);
 
@@ -908,12 +908,12 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips,
     LLVM_DEBUG(dbgs() << "after hoist\n");
     LLVM_DEBUG(NewOutermostLoop->dump());
 
-#if !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (PrintBlockedLoops) {
       dbgs() << "== After blocking in " << FuncName << " == \n";
       NewOutermostLoop->dump();
     }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     // Invalidate
     NewOutermostLoop->getParentRegion()->setGenCode();
