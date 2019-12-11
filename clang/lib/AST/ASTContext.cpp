@@ -11013,6 +11013,7 @@ QualType ASTContext::getCorrespondingSignedFixedPointType(QualType Ty) const {
     llvm_unreachable("Unexpected unsigned fixed point type");
   }
 }
+<<<<<<< HEAD
 
 TargetAttr::ParsedTargetAttr
 ASTContext::filterFunctionTargetAttrs(const TargetAttr *TD) const {
@@ -11089,3 +11090,5 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
                            Target->getTargetOpts().Features);
   }
 }
+=======
+>>>>>>> 4b2490c0523a68c0dbc19b3d29553953c0e64ffd
