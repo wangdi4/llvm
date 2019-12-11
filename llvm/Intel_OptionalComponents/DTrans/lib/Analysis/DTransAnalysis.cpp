@@ -594,7 +594,7 @@ public:
     // refer to a valid element of the containing type. This is used when
     // tracking an address into a structure that does not start on a field
     // boundary.
-    static const size_t InvalidElement = ~1;
+    static const size_t InvalidElement = ~0;
 
     PointeeLoc(size_t ElementNum, size_t ByteOffset)
         : ElementNum(ElementNum), ByteOffset(ByteOffset) {}
@@ -5783,9 +5783,10 @@ public:
   getParentStructType(LocalPointerInfo::TypeAndPointeeLocPair &PointeePair,
                       Value *ValOp) {
     llvm::Type *ParentTy = PointeePair.first;
-    assert(PointeePair.second.getElementNum() !=
-      LocalPointerInfo::PointeeLoc::InvalidElement &&
-      "Unexpected use of invalid element");
+    assert((!ParentTy->isStructTy() ||
+            PointeePair.second.getElementNum() !=
+                LocalPointerInfo::PointeeLoc::InvalidElement) &&
+           "Unexpected use of invalid element");
 
     size_t Idx = PointeePair.second.getElementNum();
     if (PointeePair.first->isArrayTy() && Idx == 0) {
