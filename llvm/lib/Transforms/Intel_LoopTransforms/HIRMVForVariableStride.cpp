@@ -566,12 +566,11 @@ bool HIRMVForVariableStride::run() {
 
     LoopSetTy InnermostLoops;
     Analyzer MVAnalyzer(InnermostLoops);
-    // TODO: Get it to skip the innermost loop body either through
-    //       gatherInnermostLoop or adding such featrue to
-    //       HLPreOrderIterator
-    for (auto Node :
-         make_range(HLPreOrderIterator::begin(&(cast<HLRegion>(Reg))),
-                    HLPreOrderIterator::end(&(cast<HLRegion>(Reg))))) {
+    for (auto Node : make_range(
+             HLPreOrderIteratorSkipInnermostBody::begin(&(cast<HLRegion>(Reg))),
+             HLPreOrderIteratorSkipInnermostBody::end(
+                 &(cast<HLRegion>(Reg))))) {
+
       // Collect all candidate innermost loops for a region
       if (!isa<HLLoop>(Node))
         continue;
