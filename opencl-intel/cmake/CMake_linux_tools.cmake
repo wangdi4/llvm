@@ -56,7 +56,7 @@ set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS} -std=c++14" )
 
 # Linker switches
-set (INIT_LINKER_FLAGS          "-z noexecstack -z relro -z now" )
+set (ADD_CMAKE_EXE_LINKER_FLAGS          "-z noexecstack -z relro -z now" )
 
 # C switches
 set( CMAKE_C_FLAGS                          "${CMAKE_C_FLAGS}                         ${ADD_C_FLAGS}")
@@ -74,15 +74,18 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}  
 set( CMAKE_ASM_FLAGS                        "${CMAKE_ASM_FLAGS}                        ${ASM_BIT}")
 set( CMAKE_ASM_INCLUDE_DIR_FLAG             -I )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG             -o )
+# We use GCC as an assembler on Linux, so we have to specify '-c'
+# to the custom command that compiles the assembly sources.
+set( CMAKE_ASM_COMPILE_TO_OBJ_FLAG          -c )
 
 # Linker switches - EXE
-set( CMAKE_EXE_LINKER_FLAGS                 "${INIT_LINKER_FLAGS}                     ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_EXE_LINKER_FLAGS                 "${CMAKE_EXE_LINKER_FLAGS}                ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 set( CMAKE_EXE_LINKER_FLAGS_DEBUG           "${CMAKE_EXE_LINKER_FLAGS_DEBUG}          ${ADD_LINKER_FLAGS_DEBUG}           ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 set( CMAKE_EXE_LINKER_FLAGS_RELEASE         "${CMAKE_EXE_LINKER_FLAGS_RELEASE}        ${ADD_LINKER_FLAGS_RELEASE}         ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 set( CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO  "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} ${ADD_LINKER_FLAGS_RELWITHDEBINFO}  ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 
 # Linker switches - DLL
-set( CMAKE_SHARED_LINKER_FLAGS              "${INIT_LINKER_FLAGS}                     ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_SHARED_LINKER_FLAGS              "${CMAKE_EXE_LINKER_FLAGS}                ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 set( CMAKE_SHARED_LINKER_FLAGS_DEBUG        "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}       ${ADD_LINKER_FLAGS_DEBUG}           ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 set( CMAKE_SHARED_LINKER_FLAGS_RELEASE      "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}     ${ADD_LINKER_FLAGS_RELEASE}         ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 

@@ -35,6 +35,12 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
+if (NOT OPENCL_ASM_COMPILER)
+  # OPENCL_ASM_COMPILER defines the assembler program to build
+  # assembly sources. If it is not defined, then use the default.
+  set(OPENCL_ASM_COMPILER ${CMAKE_ASM_COMPILER})
+endif()
+
 # Due to some reason, CMAKE_SIZEOF_VOID_P is empty until enable_language is
 # called
 enable_language(C)

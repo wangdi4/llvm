@@ -19,7 +19,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST kernel_execute_64.asm )
     else (WIN32)
-        set (UTILS_ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
+        CREATE_ASM_RULES(UTILS_ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
     endif (WIN32)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
