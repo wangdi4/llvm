@@ -371,8 +371,6 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
 }
 
 void VPBasicBlock::execute(VPTransformState *State) {
-
-#if INTEL_CUSTOMIZATION
   // The community version and 'vpo' version of "execute" for VPBB diverge
   // considerably. Instead of having INTEL_CUSTOMIZATIONS every few lines of
   // code and make the code unreadable, we decided to seperate both the
@@ -434,11 +432,11 @@ void VPBasicBlock::execute(VPTransformState *State) {
   State->CFG.VPBB2IRBB[this] = NewBB;
   State->CFG.PrevVPBB = this;
 
-  for (VPRecipeBase &Recipe : Recipes)
-    Recipe.execute(*State);
+  for (VPInstruction &Inst : Instructions)
+    Inst.execute(*State);
 
-  // ILV's MaskValue is set when we find a BlockPredicateRecipe in
-  // VPBasicBlock's list of recipes. After generating code for all the
+  // ILV's MaskValue is set when we find a Pred Instruction in
+  // VPBasicBlock's list of instructions. After generating code for all the
   // VPBasicBlock's instructions, we have to reset MaskValue in order not to
   // propagate its value to the next VPBasicBlock.
   State->ILV->setMaskValue(nullptr);
@@ -462,51 +460,6 @@ void VPBasicBlock::execute(VPTransformState *State) {
   }
 
   LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
-
-#else
-
-  bool Replica = State->Instance &&
-                 !(State->Instance->Part == 0 && State->Instance->Lane == 0);
-  VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
-  VPBlockBase *SingleHPred = nullptr;
-  BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
-
-  // 1. Create an IR basic block, or reuse the last one if possible.
-  // The last IR basic block is reused, as an optimization, in three cases:
-  // A. the first VPBB reuses the loop header BB - when PrevVPBB is null;
-  // B. when the current VPBB has a single (hierarchical) predecessor which
-  //    is PrevVPBB and the latter has a single (hierarchical) successor; and
-  // C. when the current VPBB is an entry of a region replica - where PrevVPBB
-  //    is the exit of this region from a previous instance, or the predecessor
-  //    of this region.
-  if (PrevVPBB && /* A */
-      !((SingleHPred = getSingleHierarchicalPredecessor()) &&
-        SingleHPred->getExitBasicBlock() == PrevVPBB &&
-        PrevVPBB->getSingleHierarchicalSuccessor()) && /* B */
-      !(Replica && getPredecessors().empty())) {       /* C */
-    NewBB = createEmptyBasicBlock(State->CFG);
-    State->Builder.SetInsertPoint(NewBB);
-    // Temporarily terminate with unreachable until CFG is rewired.
-    UnreachableInst *Terminator = State->Builder.CreateUnreachable();
-    State->Builder.SetInsertPoint(Terminator);
-    // Register NewBB in its loop. In innermost loops its the same for all BB's.
-    Loop *L = State->LI->getLoopFor(State->CFG.LastBB);
-    L->addBasicBlockToLoop(NewBB, *State->LI);
-    State->CFG.PrevBB = NewBB;
-  }
-
-  // 2. Fill the IR basic block with IR instructions.
-  LLVM_DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
-                    << " in BB:" << NewBB->getName() << '\n');
-
-  State->CFG.VPBB2IRBB[this] = NewBB;
-  State->CFG.PrevVPBB = this;
-
-  for (VPRecipeBase &Recipe : Recipes)
-    Recipe.execute(*State);
-
-  LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
-#endif
 }
 
 VPRegionBlock::~VPRegionBlock() {
@@ -535,7 +488,7 @@ void VPRegionBlock::execute(VPTransformState *State) {
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
   // Set CondBit in NewBlock. Note that we are only setting the
   // successor selector pointer. The CondBit is kept in its
-  // original VPBB recipe list.
+  // original VPBB instructions list.
   if (getNumSuccessors() > 1) {
     assert(getCondBit() && "Missing CondBit");
     ToBB->setCondBit(getCondBit());
@@ -557,25 +510,15 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
                          const VPlanDivergenceAnalysis *DA,
                          const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
-  // Print name and predicate
-  OS << StrIndent << NamePrefix << getName() << " (BP: ";
-  if (getPredicateRecipe())
-    OS << *getPredicateRecipe();
-  else
-    OS << "NULL";
-  OS << ") :\n";
+  OS << StrIndent << NamePrefix << getName() << ":\n";
 
   // Print block body
   if (empty()) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
-    for (const VPRecipeBase &Recipe : *this) {
-      if (auto *Inst = dyn_cast<VPInstruction>(&Recipe)) {
-        OS << StrIndent << " ";
-        Inst->dump(OS, DA);
-        continue;
-      }
-      OS << StrIndent << " " << Recipe;
+    for (const VPInstruction &Inst : *this) {
+      OS << StrIndent << " ";
+      Inst.dump(OS, DA);
     }
   }
   const VPValue *CB = getCondBit();
@@ -633,38 +576,34 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-/// Return true if \p Recipe is a VPInstruction in a single-use chain of
+/// Return true if \p Inst is a VPInstruction in a single-use chain of
 /// instructions ending in block-predicate instruction that is the last
 /// instruction in the block (and thus not really masking anything).
-static bool isDeadPredicateInst(VPRecipeBase &Recipe) {
-  auto *Inst = dyn_cast<VPInstruction>(&Recipe);
-  if (!Inst)
-    return false;
-  unsigned Opcode = Inst->getOpcode();
+static bool isDeadPredicateInst(VPInstruction &Inst) {
+  unsigned Opcode = Inst.getOpcode();
   if (Opcode == VPInstruction::Pred) {
-    auto *BB = Inst->getParent();
-    return ++(Inst->getIterator()) == BB->end();
+    auto *BB = Inst.getParent();
+    return ++(Inst.getIterator()) == BB->end();
   }
 
   if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
     return false;
 
-  if (Inst->getNumUsers() != 1)
+  if (Inst.getNumUsers() != 1)
     return false;
 
-  return isDeadPredicateInst(*cast<VPInstruction>(*Inst->user_begin()));
+  return isDeadPredicateInst(*cast<VPInstruction>(*Inst.user_begin()));
 }
-
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
-  for (VPRecipeBase &Recipe : Recipes) {
-    if (isDeadPredicateInst(Recipe))
+  for (VPInstruction &Inst : Instructions) {
+    if (isDeadPredicateInst(Inst))
       // This is not just emitted code clean-up, but something required to
       // support our hacky search loop CG that crashes trying to emit code for
       // "and/not" instructions that use "icmp" decomposed from the HLLoop.
       continue;
-    Recipe.executeHIR(CG);
+    Inst.executeHIR(CG);
   }
 }
 
@@ -688,13 +627,7 @@ void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
   SetVector<const VPBlockBase *> SuccList;
 
   std::string StrIndent = std::string(2 * Indent, ' ');
-  // Print name and predicate
-  OS << StrIndent << "REGION: " << getName() << " (BP: ";
-  if (getPredicateRecipe())
-    OS << *getPredicateRecipe();
-  else
-    OS << "NULL";
-  OS << ")\n";
+  OS << StrIndent << "REGION: " << getName() << "\n";
 
   SuccList.insert(Entry);
   // Main loop for printing VPRegion blocks.
@@ -1409,10 +1342,8 @@ void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
             OS << "no loop found\n";
           return;
         }
-        for (const VPRecipeBase &Recipe : *Block) {
-          const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
-          if (!VPInst)
-            continue;
+        for (const VPInstruction &Inst : *Block) {
+          const auto *VPInst = &Inst;
           if (DumpVPlanLiveness > 2)
             OS << "Instruction: " << *VPInst << "\n";
           for (const VPValue *Op : VPInst->operands()) {
@@ -1537,8 +1468,8 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BasicBlock) {
   bumpIndent(1);
   OS << Indent << "\"" << DOT::EscapeString(BasicBlock->getName()) << ":\\n\"";
   bumpIndent(1);
-  for (const VPRecipeBase &Recipe : *BasicBlock)
-    Recipe.print(OS, Indent);
+  for (const VPInstruction &Inst : *BasicBlock)
+    Inst.print(OS, Indent);
 #if INTEL_CUSTOMIZATION
   const VPValue *CBV = BasicBlock->getCondBit();
   // Dump the CondBit
@@ -1597,236 +1528,6 @@ void VPlanPrinter::printAsIngredient(raw_ostream &O, Value *V) {
     V->printAsOperand(RSO, false);
   RSO.flush();
   O << DOT::EscapeString(IngredientString);
-}
-
-#if INTEL_CUSTOMIZATION
-void VPlan::printInst2Recipe() {
-  DenseMap<Instruction *, VPRecipeBase *>::iterator It, End;
-  for (It = Inst2Recipe.begin(), End = Inst2Recipe.end(); It != End; ++It) {
-    LLVM_DEBUG(errs() << "Instruction: " << *It->first << "\n");
-    std::string RecipeString;
-    raw_string_ostream RSO(RecipeString);
-    VPRecipeBase *Recipe = It->second;
-    Recipe->print(RSO, Twine()); // TODO: Twine
-    LLVM_DEBUG(errs() << "Recipe: " << RSO.str() << "\n");
-  }
-}
-#endif
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-#if INTEL_CUSTOMIZATION
-void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
-  const auto &IncomingPredicates = getIncomingPredicates();
-  unsigned NumIncoming = IncomingPredicates.size();
-  unsigned UF = 1;
-
-  for (unsigned UnrIndex = 0; UnrIndex < UF; ++UnrIndex) {
-    RegDDRef *PredDDRef = nullptr;
-
-    for (unsigned CurIncoming = 0; CurIncoming < NumIncoming; ++CurIncoming) {
-      auto IncomingPredRecipe = IncomingPredicates[CurIncoming];
-
-      if (IncomingPredRecipe->getVectorizedPredicateHIR().size() == 0)
-        IncomingPredRecipe->executeHIR(CG);
-
-      RegDDRef *CurIncomingPredDDRef =
-          IncomingPredRecipe->getVectorizedPredicateHIR()[UnrIndex];
-      if (!PredDDRef)
-        PredDDRef = CurIncomingPredDDRef;
-      else {
-        auto Inst = PredDDRef->getHLDDNode()->getHLNodeUtils().createOr(
-            PredDDRef->clone(), CurIncomingPredDDRef->clone(), "IncOr");
-        CG->addInstUnmasked(Inst);
-        PredDDRef = Inst->getOperandDDRef(0);
-      }
-    }
-    VectorizedPredicateHIR.push_back(PredDDRef);
-  }
-
-  // Set mask value to use to mask instructions in the block
-  CG->setCurMaskValue(VectorizedPredicateHIR[0]);
-}
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBlockPredicateRecipe::dump(raw_ostream &OS) const {
-  print(OS, "");
-  OS << "\n";
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-void VPBlockPredicateRecipe::execute(VPTransformState &State) {
-  const auto &IncomingPredicates = getIncomingPredicates();
-  auto NumIncoming = IncomingPredicates.size();
-  auto UF = State.UF;
-
-  for (unsigned UnrIndex = 0; UnrIndex < UF; ++UnrIndex) {
-    Value *PredValue = nullptr;
-
-    for (unsigned CurIncoming = 0; CurIncoming < NumIncoming; ++CurIncoming) {
-      auto IncomingPredRecipe = IncomingPredicates[CurIncoming];
-
-      if (IncomingPredRecipe->getVectorizedPredicate().size() == 0)
-        IncomingPredRecipe->execute(State);
-
-      auto CurIncomingPredVal =
-          IncomingPredRecipe->getVectorizedPredicate()[UnrIndex];
-      if (!PredValue)
-        PredValue = CurIncomingPredVal;
-      else
-        PredValue =
-            State.Builder.CreateOr(PredValue, CurIncomingPredVal, "IncOr");
-    }
-    VectorizedPredicate.push_back(PredValue);
-  }
-
-  // Set mask value to use to mask instructions in the block
-  State.ILV->setMaskValue(VectorizedPredicate[0]);
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBlockPredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
-  OS << Name << " = ";
-  // Predicate Inputs
-  if (!getIncomingPredicates().empty()) {
-    VPPredicateRecipeBase *LastPred = getIncomingPredicates().back();
-    for (VPPredicateRecipeBase *inputPredicate : getIncomingPredicates()) {
-      OS << inputPredicate->getName();
-      if (inputPredicate != LastPred) {
-        OS << " || ";
-      }
-    }
-  }
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-#if INTEL_CUSTOMIZATION
-void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
-  RegDDRef *PredMask =
-      PredecessorPredicate
-          ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
-          : nullptr;
-
-  // Get the vector mask value of the branch condition
-  RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
-  assert(VecCondMask && "ConditionValue is expected to be widened by now");
-
-  // Combine with the predecessor block mask if needed - a null predecessor
-  // mask implies allones(predecessor is active for all lanes).
-  RegDDRef *EdgeMask;
-  if (PredMask) {
-    auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createAnd(
-        VecCondMask->clone(), PredMask->clone(), "IfTPred");
-    CG->addInstUnmasked(Inst);
-    EdgeMask = Inst->getOperandDDRef(0);
-  } else
-    EdgeMask = VecCondMask;
-
-  VectorizedPredicateHIR.push_back(EdgeMask);
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPIfTruePredicateRecipe::dump(raw_ostream &OS) const {
-  print(OS, "");
-  OS << "\n";
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
-  llvm_unreachable("Recipe/LLVM-IR based codegen was removed!");
-}
-
-#if INTEL_CUSTOMIZATION
-void VPEdgePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
-  RegDDRef *PredMask =
-      PredecessorPredicate
-          ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
-          : nullptr;
-  CG->setCurMaskValue(PredMask);
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPEdgePredicateRecipe::dump(raw_ostream &OS) const {
-  if (PredecessorPredicate)
-    OS << Name << " = " << PredecessorPredicate->getName() << "\n";
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-void VPEdgePredicateRecipe::execute(VPTransformState &State) {
-  llvm_unreachable("Recipe/LLVM-IR based codegen was removed!");
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPEdgePredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
-  OS << " +\n" << Indent << "\"" << Name << " = ";
-  if (PredecessorPredicate)
-    OS << PredecessorPredicate->getName();
-  OS << "\\l\"";
-}
-
-void VPIfTruePredicateRecipe::print(raw_ostream &OS,
-                                    const Twine &Indent) const {
-  OS << Name;
-  OS << " = ";
-  if (PredecessorPredicate)
-    OS << PredecessorPredicate->getName() << " && ";
-
-  ConditionValue->printAsOperand(OS);
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-#if INTEL_CUSTOMIZATION
-void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
-  RegDDRef *PredMask =
-      PredecessorPredicate
-          ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
-          : nullptr;
-
-  // Get the vector mask value of the branch condition
-  RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
-  assert(VecCondMask && "ConditionValue is expected to be widened by now");
-  auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createNot(
-      VecCondMask->clone(), "IfFPred");
-  CG->addInstUnmasked(Inst);
-  VecCondMask = Inst->getOperandDDRef(0);
-
-  // Combine with the predecessor block mask if needed - a null predecessor
-  // mask implies allones(predecessor is active for all lanes).
-  RegDDRef *EdgeMask;
-  if (PredMask) {
-    auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createAnd(
-        VecCondMask->clone(), PredMask->clone(), "IfFPred");
-    CG->addInstUnmasked(Inst);
-    EdgeMask = Inst->getOperandDDRef(0);
-  } else
-    EdgeMask = VecCondMask;
-
-  VectorizedPredicateHIR.push_back(EdgeMask);
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPIfFalsePredicateRecipe::dump(raw_ostream &OS) const {
-  print(OS, "");
-  OS << "\n";
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
-  llvm_unreachable("Recipe/LLVM-IR based codegen was removed!");
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
-                                     const Twine &Indent) const {
-  OS << Name;
-  OS << " = ";
-  if (PredecessorPredicate)
-    OS << PredecessorPredicate->getName() << " && ";
-
-  OS << "!";
-  ConditionValue->printAsOperand(OS);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

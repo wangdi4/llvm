@@ -178,10 +178,6 @@ private:
   /// the block that was created for it.
   // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
 
-  /// Determine whether a newly-created recipe adds a second user to one of the
-  /// variants the values its ingredients use. This may cause the defining
-  /// recipe to generate that variant itself to serve all such users.
-  // void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
   /// The loop that we evaluate.
   Loop *TheLoop;
 

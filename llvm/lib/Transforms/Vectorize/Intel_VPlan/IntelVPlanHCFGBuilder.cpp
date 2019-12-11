@@ -258,7 +258,7 @@ void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
     if (VPDomTree.dominates(DefBlock, NewLoopLatch))
       continue;
 
-    for (VPInstruction &Def : DefBlock->vpinstructions()) {
+    for (VPInstruction &Def : *DefBlock) {
       // Check which definitions have uses in the loop header or outside of the
       // loop and collect all the uses that need to be updated by the SSA phi
       // node.
@@ -276,7 +276,7 @@ void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
 
       // Create the SSA phi node.
       VPBuilder VPBldr;
-      VPBldr.setInsertPoint(cast<VPInstruction>(&*NewLoopLatch->begin()));
+      VPBldr.setInsertPoint(&*NewLoopLatch->begin());
       VPPHINode *PreserveSSAPhi = VPBldr.createPhiInstruction(
           Def.getType(), Def.getName() + ".ssa.phi");
       // Fill-in the phi node with its operands. If the DefBlock is not one of
@@ -509,13 +509,13 @@ static void moveExitBlocksPhiNode(VPBasicBlock *ExitBlock,
     itNext = it;
     ++itNext;
     if (VPPHINode *ExitBlockVPPhi = dyn_cast<VPPHINode>(&*it)) {
-      ExitBlock->removeRecipe(ExitBlockVPPhi);
+      ExitBlock->removeInstruction(ExitBlockVPPhi);
       if (NewBlock->empty())
-        NewBlock->addRecipe(ExitBlockVPPhi);
+        NewBlock->addInstruction(ExitBlockVPPhi);
       else if (isa<VPPHINode>(&*NewBlock->begin()))
-        NewBlock->addRecipeAfter(ExitBlockVPPhi, &*NewBlock->begin());
+        NewBlock->addInstructionAfter(ExitBlockVPPhi, &*NewBlock->begin());
       else
-        NewBlock->addRecipe(ExitBlockVPPhi, &*NewBlock->begin());
+        NewBlock->addInstruction(ExitBlockVPPhi, &*NewBlock->begin());
     } else
       break;
   }
@@ -554,9 +554,10 @@ static bool hasVPPhiNode(VPBasicBlock *VPBB) {
 // Returns the first instruction of a basic block that is not a phi node.
 static VPInstruction *getFirstNonPhiVPInst(VPBasicBlock *LoopHeader) {
   VPInstruction *NonPhiVPInst = nullptr;
-  for (auto It = LoopHeader->begin(); It != LoopHeader->end(); ++It) {
-    if (!isa<VPPHINode>(It)) {
-      NonPhiVPInst = dyn_cast<VPInstruction>(It);
+  for (VPInstruction &InstRef : *LoopHeader) {
+    VPInstruction *Inst = &InstRef;
+    if (!isa<VPPHINode>(Inst)) {
+      NonPhiVPInst = Inst;
       break;
     }
   }
@@ -577,7 +578,7 @@ static VPPHINode *updatePhiNodeInLoopHeader(VPBasicBlock *LoopHeader,
   // Add the NewVPPhi before the first non phi instruction. If the basic-block
   // is empty or there are only phi instructions in it, then the NewVPPhi will
   // be added at the end of the basic block.
-  LoopHeader->addRecipe(NewVPPhi, NonPhiVPInst);
+  LoopHeader->addInstruction(NewVPPhi, NonPhiVPInst);
 
   // Get the predecessors of the loop header and add them in the new phi node of
   // the loop header.
@@ -855,7 +856,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitID = Pair.second;
       VPInstruction *CondBr =
           new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
-      IfBlock->appendRecipe(CondBr);
+      IfBlock->appendInstruction(CondBr);
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
@@ -969,7 +970,7 @@ bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
       // conservative if that's not true for some reason.
       return true;
 
-    for (auto &Inst : BasicBlock->vpinstructions()) {
+    for (auto &Inst : *BasicBlock) {
       for (auto *User : Inst.users()) {
         auto *UserInst = dyn_cast<VPInstruction>(User);
         if (!UserInst)
@@ -1186,8 +1187,8 @@ void VPlanHCFGBuilder::simplifyNonLoopRegions() {
       // TODO: WIP. The code below has to be revisited. It will enable the
       // construction of VPRegions that currently are not built because they
       // share entry/exit nodes with other VPRegions. This transformation would
-      // require to introduce new recipes to split original phi instructions
-      // that are in the problematic basic blocks.
+      // require to introduce new instructions to split original phi
+      // instructions that are in the problematic basic blocks.
 
       // VPBlockBase *PostDom =
       //    PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
@@ -1382,9 +1383,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              VPPostDomTree.print(dbgs()));
 
 #if INTEL_CUSTOMIZATION
-  // simplifyPlainCFG inserts empty blocks with CondBit recipes. This messes up
-  // determining the influence region of a branch instruction. i.e., the
-  // immediate post-dominator becomes this empty block instead of the actual
+  // simplifyPlainCFG inserts empty blocks with CondBit instructions. This
+  // messes up determining the influence region of a branch instruction. i.e.,
+  // the immediate post-dominator becomes this empty block instead of the actual
   // convergence point containing the phi. Running DA here allows reuse of the
   // current Dominator Trees and results in fewer modifications to the DA
   // algorithm since it was designed to run over a plain CFG. We should also
@@ -2198,7 +2199,7 @@ std::unique_ptr<VPRegionBlock> PlainCFGBuilder::buildPlainCFG() {
     createVPInstructionsForVPBB(VPBB, BB);
 
     // Set VPBB successors. We create empty VPBBs for successors if they don't
-    // exist already. Recipes will be created when the successor is visited
+    // exist already. Instructions will be created when the successor is visited
     // during the RPO traversal.
     Instruction *TI = BB->getTerminator();
     assert(TI && "Terminator expected");

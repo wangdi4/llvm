@@ -14,13 +14,13 @@
 ; CHECK-NEXT: Memory: float* [[X:%.*]]
 
 ; Check VPlan after VPLoopEntities transformation.
-; CHECK:         REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :
+; CHECK:         REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB1:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]] (BP: NULL) :
+; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Divergent] float* [[VP1:%.*]] = allocate-priv float*
 ; CHECK-NEXT:     [DA: Divergent] float [[VP2:%.*]] = reduction-init float 0.000000e+00
 ; CHECK-NEXT:     [DA: Divergent] store float [[VP2]] float* [[VP1]]
@@ -29,7 +29,7 @@
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]] (BP: NULL) :
+; CHECK-NEXT:    [[BB0]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP3]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] float [[VP_ADD7:%.*]] = phi  [ float [[VP2]], [[BB2]] ],  [ float [[VP_ADD:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Divergent] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
@@ -41,13 +41,13 @@
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]] (BP: NULL) :
+; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition([[BB0]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1000
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB0]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     [DA: Uniform]   float [[VP4:%.*]] = load float* [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   float [[VP5:%.*]] = reduction-final{fadd} float [[VP4]] float [[X_PROMOTED]]
 ; CHECK-NEXT:     [DA: Uniform]   store float [[VP5]] float* [[X]]
@@ -55,7 +55,7 @@
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]] (BP: NULL) :
+; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]

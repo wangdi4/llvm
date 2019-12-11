@@ -106,16 +106,14 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
     return false;
 
   SmallVector<const VPInstruction *, 1> Insts(
-      map_range(Block->vpinstructions(),
-                [](const VPInstruction &Inst) { return &Inst; }));
+      map_range(*Block, [](const VPInstruction &Inst) { return &Inst; }));
   if (Insts.size() != 1)
     return false;
   if (Insts[0]->getOpcode() != Instruction::And)
     return false;
 
   SmallVector<const VPInstruction *, 4> PredInsts(
-      map_range(SinglePred->vpinstructions(),
-                [](const VPInstruction &Inst) { return &Inst; }));
+      map_range(*SinglePred, [](const VPInstruction &Inst) { return &Inst; }));
   if (PredInsts.size() != 4)
     return false;
   if (PredInsts[0]->getOpcode() != VPInstruction::Pred)
@@ -141,10 +139,8 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
                                const bool AllowSpeculation) {
   bool HasIf = false;
 
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    const auto Inst = cast<const VPInstruction>(&Recipe);
+  for (const VPInstruction &InstRef : *Block) {
+    const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
@@ -272,10 +268,8 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
   // Item that is found in the list being searched.
   const RegDDRef *ListItemRef = nullptr;
 
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    const auto Inst = cast<const VPInstruction>(&Recipe);
+  for (const VPInstruction &InstRef : *Block) {
+    const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
@@ -440,17 +434,6 @@ bool VPlanIdioms::checkStructPtrEqThenNodes(const HLIf *If,
   return true;
 }
 
-// In some cases vectorizer creates additional basic block with mask
-// mask computations, which are safe to vectorize.
-bool VPlanIdioms::isSafeBlockForSearchLoop(const VPBasicBlock *Block) {
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    return false;
-  }
-  return true;
-}
-
 // Check that all VPInstructions in non-trivial exit block are supported.
 // This function is more important for what CG can handle, rather then for
 // vectorization legality.
@@ -552,7 +535,8 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
 
   if (const VPBlockBase *Succ = Header->getSingleSuccessor())
     if (const auto *BB = dyn_cast<VPBasicBlock>(Succ)) {
-      if (!isSafeBlockForSearchLoop(BB)) {
+      // Search loop idiom expects the successor block to be empty.
+      if (!BB->empty()) {
         LLVM_DEBUG(dbgs() << "    Search loop is unsafe.\n");
         return VPlanIdioms::Unsafe;
       }

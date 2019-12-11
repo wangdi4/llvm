@@ -47,18 +47,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]] (BP: NULL) :
+; CHECK-NEXT:    [[BB2]]:
 ;
 ; FIXME: CMPLRLLVM-10515: We depend on the iteration order of some container
 ; here. Has to be root-caused and fixed.
@@ -76,13 +76,13 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP11]]), [[BB3]](!i1 [[VP11]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]] (BP: NULL) :
+; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Divergent] i32 [[VP12:%.*]] = udiv i32 2 i32 [[VP7]]
 ; CHECK-NEXT:       [DA: Divergent] i32 [[VP13:%.*]] = bitcast i32 [[VP12]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]] (BP: NULL) :
+; CHECK-NEXT:    [[BB3]]:
 ;
 ; FIXME: CMPLRLLVM-10515: We depend on the iteration order of some container
 ; here. Has to be root-caused and fixed.
@@ -95,12 +95,12 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP16]]), [[BB5:BB[0-9]+]](!i1 [[VP16]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]] (BP: NULL) :
+; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]] (BP: NULL) :
+; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]

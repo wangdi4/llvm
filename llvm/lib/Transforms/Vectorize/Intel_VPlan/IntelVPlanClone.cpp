@@ -68,18 +68,14 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
                                             VPlanDivergenceAnalysis *DA) {
   VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix);
 
-  for (auto &Recipe : Block->getRecipes()) {
-    if (auto Inst = dyn_cast<VPInstruction>(&Recipe)) {
-      auto ClonedInst = Inst->clone();
-      ClonedBlock->appendRecipe(ClonedInst);
-      ValueMap.insert(std::make_pair(Inst, ClonedInst));
-      if (DA) {
-        if (DA->isDivergent(*Inst))
-          DA->markDivergent(*ClonedInst);
-        DA->updateVectorShape(ClonedInst, DA->getVectorShape(Inst)->clone());
-      }
-    } else {
-      llvm_unreachable("Don't know how to clone this type of recipe.");
+  for (auto &Inst : *Block) {
+    auto ClonedInst = Inst.clone();
+    ClonedBlock->appendInstruction(ClonedInst);
+    ValueMap.insert(std::make_pair(&Inst, ClonedInst));
+    if (DA) {
+      if (DA->isDivergent(Inst))
+        DA->markDivergent(*ClonedInst);
+      DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst)->clone());
     }
   }
 

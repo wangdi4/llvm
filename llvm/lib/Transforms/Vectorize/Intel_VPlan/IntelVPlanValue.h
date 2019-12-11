@@ -41,8 +41,6 @@ class VPUser;
 // Forward declaration (need them to friend them within VPInstruction)
 // TODO: This needs to be refactored
 class VPBasicBlock;
-class VPIfTruePredicateRecipe;
-class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
 class VPlan;
 class VPLoop;
@@ -56,10 +54,6 @@ class VPExternalUse;
 class VPValue {
 #if INTEL_CUSTOMIZATION
   // The following need access to the underlying IR Value
-  // TODO: This needs to be refactored. The VP*PredicateRecipe's will disappear
-  //       when they get represented with VPInstructions.
-  friend class VPIfTruePredicateRecipe;
-  friend class VPIfFalsePredicateRecipe;
   friend class VPlan;
   friend class VPBasicBlock;
   friend class VPlanPredicator;
