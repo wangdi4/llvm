@@ -130,7 +130,7 @@ static float fmrs(float a, float b, float c) {
 }
 
 
-static __m64f _mm64_add_ps(__m64f a, __m64f b, _MM_DISABLE_ENUM disable, _MM_SWIZZLE_ENUM swizzle1, _MM_SWIZZLE_ENUM swizzle2) { 
+static __m64f _mm64_add_ps(__m64f a, __m64f b, _MM_DISABLE_ENUM disable, _MM_SWIZZLE_ENUM swizzle1, _MM_SWIZZLE_ENUM swizzle2) {
   switch (swizzle1) {
   case _MM_SWIZZLE_NONE: break;
   case _MM_SWIZZLE_BCAST_LOW: a[1] = a[0]; break;
@@ -832,8 +832,127 @@ static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_blend_ps(unsigned char mask, _
 {
   return (__m64f)__builtin_csa_blend16x4(mask, a, b);
 }
+
+/*
+ * Half-Precision Vector Intrinsics
+ */
+
+/* Perform a floating-point addition on the corresponding half-precision floating-point
+   values in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_add_ph(OP1, OP2, D, SW1, SW2)                      \
+  (__m64h)(__builtin_csa_addf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                   (D), (SW1), (SW2)))
+
+/* Perform a floating-point subtraction on the corresponding half-precision floating-point
+   values in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_sub_ph(OP1, OP2, D, SW1, SW2)                      \
+  (__m64h)(__builtin_csa_subf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                   (D), (SW1), (SW2)))
+
+/* Perform a floating-point multiplication on the corresponding half-precision floating-point
+   values in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_mul_ph(OP1, OP2, D, SW1, SW2)                      \
+  (__m64h)(__builtin_csa_mulf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                   (D), (SW1), (SW2)))
+
+/* Perform a floating-point addition on the odd lanes of the input vectors, and a floating-point
+   subtraction of the even lanes of the input vectors. The swizzle and disable inputs modify the
+   operation. */
+#define _mm64_addsub_ph(OP1, OP2, D, SW1, SW2)                      \
+  (__m64h)(__builtin_csa_addsubf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                      (D), (SW1), (SW2)))
+
+/* Perform a floating-point subtraction on the odd lanes of the input vectors, and a floating-point
+   addition of the even lanes of the input vectors. The swizzle and disable inputs modify the
+   operation as described above. */
+#define _mm64_subadd_ph(OP1, OP2, D, SW1, SW2)                      \
+  (__m64h)(__builtin_csa_subaddf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                      (D), (SW1), (SW2)))
+
+/* Perform the op1 * op2 + op3 floating-point operation (with no intermediate rounding) on the
+   corresponding lanes of the input vectors. The swizzle and disable inputs modify the operation.
+   There is no swizzle parameter available for op3. */
+#define _mm64_fma_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
+  (__m64h)(__builtin_csa_fmaf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3),  \
+                                   (D), (SW1), (SW2)))
+
+/* Perform the op1 * op2 - op3 floating-point operation (with no intermediate rounding) on the
+   corresponding lanes of the input vectors. The swizzle and disable inputs modify the operation.
+   There is no swizzle parameter available for op3. */
+#define _mm64_fms_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
+  (__m64h)(__builtin_csa_fmsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                   (D), (SW1), (SW2)))
+
+/* Perform the op3 - op1 * op2 floating-point operation (with no intermediate rounding) on the
+   corresponding lanes of the input vectors. The swizzle and disable inputs modify the operation.
+   There is no swizzle parameter available for op3. */
+#define _mm64_fmrs_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
+  (__m64h)(__builtin_csa_fmrsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                    (D), (SW1), (SW2)))
+
+/* Perform the op1 * op2 + op3 floating-point operation (with no intermediate rounding) on the odd
+   lanes and the op1 * op2 - op3 operation on the even lanes of the input vectors. The swizzle and
+   disable inputs modify the operation. There is no swizzle parameter available for op3. */
+#define _mm64_fmas_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
+  (__m64h)(__builtin_csa_fmasf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                    (D), (SW1), (SW2)))
+
+/* Perform the op1 * op2 - op3 floating-point operation (with no intermediate rounding) on the odd
+   lanes and the op1 * op2 + op3 operation on the even lanes of the input vectors. The swizzle and
+   disable inputs modify the operation. There is no swizzle parameter available for op3. */
+#define _mm64_fmsa_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
+  (__m64h)(__builtin_csa_fmsaf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                    (D), (SW1), (SW2)))
+
+/*
+ * New Half-Precision Vector Intrinsics
+ */
+
+/* Perform the -(op1 * op2) - op3 floating-point operation (with no intermediate rounding)
+   on the corresponding lanes of the input vectors. The swizzle and disable inputs modify
+   the operation. There is no swizzle parameter available for op3. */
+#define _mm64_fnms_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
+  (__m64h)(__builtin_csa_fnmsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                    (D), (SW1), (SW2)))
+
+/* Compare the corresponding half-precision floating-point values and store the minimum,
+   for each lane in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_min_ph(OP1, OP2, D, SW1, SW2)                     \
+  (__m64h)(__builtin_csa_min16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                  (D), (SW1), (SW2)))
+
+/* Compare the corresponding half-precision floating-point values and store the maximum,
+   for each lane in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_max_ph(OP1, OP2, D, SW1, SW2)                     \
+  (__m64h)(__builtin_csa_max16x4 ((__m64h)(OP1), (__m64h)(OP2), \
+                                  (D), (SW1), (SW2)))
+
+/*
+ * New Single-Precision Vector Intrinsics
+ */
+
+/* Perform the -(op1 * op2) - op3 floating-point operation (with no intermediate rounding)
+   on the corresponding lanes of the input vectors. The swizzle and disable inputs modify
+   the operation. There is no swizzle parameter available for op3. */
+#define _mm64_fnms_ps(OP1, OP2, OP3, D, SW1, SW2)		                 \
+  (__m64f)(__builtin_csa_fnmsf32x2 ((__m64f)(OP1), (__m64f)(OP2), (__m64f)(OP3), \
+                                    (D), (SW1), (SW2)))
+
+/* Compare the corresponding single-precision floating-point values and store the minimum,
+   for each lane in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_min_ps(OP1, OP2, D, SW1, SW2)                     \
+  (__m64f)(__builtin_csa_min32x2 ((__m64f)(OP1), (__m64f)(OP2), \
+                                  (D), (SW1), (SW2)))
+
+/* Compares the corresponding single-precision floating-point values and store the maximum,
+   for each lane in the vector. The swizzle and disable inputs modify the operation. */
+#define _mm64_max_ps(OP1, OP2, D, SW1, SW2)                     \
+  (__m64f)(__builtin_csa_max32x2 ((__m64f)(OP1), (__m64f)(OP2), \
+                                  (D), (SW1), (SW2)))
+
 #endif /* __CSA__ */
 
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __CSAINTRIN_H */
+

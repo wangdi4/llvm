@@ -2552,8 +2552,11 @@ defm CMPNEF32X2: SimdCmpOp<CMPNE, Tf32x2>;
 defm CMPOF32X2:  SimdCmpOp<CMPO,  Tf32x2>;
 defm CMPUOF32X2: SimdCmpOp<CMPUO, Tf32x2>;
 
+// TODO: Hook these to int_csa_minf16x4 and int_csa_minf32x2
 defm MINF16X4  : SimdCmpOp<MIN, Tf16x4>;
 defm MINF32X2  : SimdCmpOp<MIN, Tf32x2>;
+
+// TODO: Hook these to int_csa_maxf16x4 and int_csa_maxf32x2
 defm MAXF16X4  : SimdCmpOp<MAX, Tf16x4>;
 defm MAXF32X2  : SimdCmpOp<MAX, Tf32x2>;
 
