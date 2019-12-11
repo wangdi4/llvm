@@ -3558,8 +3558,8 @@ static cl::opt<bool> IgnoreWraparound("hir-ignore-wraparound", cl::init(false),
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
                                 const HLNode *ParentNode,
                                 const bool FitsIn32Bits) {
-  assert(CE->getSrcType()->isIntegerTy() &&
-         "CE does not have an integer type!");
+  auto SrcTy = CE->getSrcType()->getScalarType();
+  assert(SrcTy->isIntegerTy() && "CE does not have an integer type!");
 
   if (IgnoreWraparound) {
     return false;
@@ -3582,7 +3582,7 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  if (FitsIn32Bits && CE->getSrcType()->getScalarSizeInBits() >= 32) {
+  if (FitsIn32Bits && SrcTy->getScalarSizeInBits() >= 32) {
     return false;
   }
 
@@ -3593,7 +3593,7 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return true;
   }
 
-  auto *IntTy = cast<IntegerType>(CE->getSrcType());
+  auto *IntTy = cast<IntegerType>(SrcTy);
   unsigned Size = IntTy->getPrimitiveSizeInBits();
 
   int64_t MaxValForSrcType = APInt::getMaxValue(Size).getZExtValue();

@@ -16,6 +16,9 @@
 ; Check to see that the main vector loop was vectorized with svml
 ; CHECK: call svml_cc void @__svml_sincosf4_mask
 
+; Check that the stride of vector ref argument of svml call is evaluated as 4 elements.
+; CHECK-SAME: <4 x float*> "stride"="4"
+
 ; Check to see that the remainder loop broadcasts the call arguments and uses svml to match the main vector loop.
 ; CHECK-LABEL: {{then.[0-9]+}}:
 ; CHECK: load float

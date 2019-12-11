@@ -25,6 +25,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Analysis/Directives.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"  // INTEL
 
 #define DEBUG_TYPE "IntrinsicUtils"
 
@@ -100,6 +101,22 @@ CallInst *IntrinsicUtils::createSimdDirectiveEnd(Module &M,
   CallInst *DirCall = CallInst::Create(DirIntrin, Arg, IntrinOpBundle);
   return DirCall;
 }
+
+bool IntrinsicUtils::isValueUsedBySimdPrivateClause(const Instruction *I,
+                                                      const Value *V) {
+  if (vpo::VPOAnalysisUtils::getDirectiveID(const_cast<Instruction *>(I)) !=
+      DIR_OMP_SIMD)
+    return false;
+  const CallInst *CI = cast<const CallInst>(I);
+  SmallVector<OperandBundleDef, 8> OpBundles;
+  CI->getOperandBundlesAsDefs(OpBundles);
+  return std::any_of(OpBundles.begin(), OpBundles.end(),
+                     [V](OperandBundleDef &B) {
+                       return vpo::VPOAnalysisUtils::getClauseID(B.getTag()) ==
+                                  QUAL_OMP_PRIVATE &&
+                              *B.input_begin() == V;
+                     });
+}
 #endif // INTEL_CUSTOMIZATION
 
 StringRef IntrinsicUtils::getDirectiveString(int Id) {
@@ -167,4 +184,18 @@ CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
   CI->eraseFromParent();
   return NewI;
 }
+
+#if INTEL_CUSTOMIZATION
+// Creates a clone of CI without private clauses for V.
+CallInst *IntrinsicUtils::removePrivateClauseForValue(CallInst *CI,
+                                                      const Value *V) {
+  assert(vpo::VPOAnalysisUtils::isBeginDirective(CI) && "Not a region entry directive!");
+  return removeOperandBundlesFromCall(
+      CI, [V](const OperandBundleDef &Bundle) {
+        return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
+                   QUAL_OMP_PRIVATE &&
+               *Bundle.input_begin() == V;
+      });
+}
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
