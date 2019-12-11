@@ -31,7 +31,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #endif // INTEL_CUSTOMIZATION
       IsUnsigned(false), IsComplex(false), IsConditional(false),
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
-      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false) {
+      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
+      IsIV(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -104,6 +105,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapAggrHead();
         else if (ModSubString[i] == "AGGR") // map chain (not head)
           setIsMapAggr();
+        else if (ModSubString[i] == "IV")
+          setIsIV();
         else
           llvm_unreachable("Unknown modifier string for clause");
       }
@@ -121,6 +124,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
   LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
   LLVM_DEBUG(dbgs() << "  Simd: " << getIsScheduleSimd());
+  LLVM_DEBUG(dbgs() << "  IsIV: " << getIsIV());
   LLVM_DEBUG(dbgs() << "\n");
 }
 

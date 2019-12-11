@@ -708,15 +708,18 @@ class LinearItem : public Item
 #if INTEL_CUSTOMIZATION
     HEXPR HStep; // Item's Step for HIR
 #endif // INTEL_CUSTOMIZATION
+    bool IsIV; // Linear clause is for a loop IV, whose value is being
+               // computed in each iteration using close-form computation on
+               // the normalized loop IV.
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
 #if INTEL_CUSTOMIZATION
     LinearItem(VAR Orig)
-        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr) {}
+        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr), IsIV(false) {}
 #else
-    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr) {}
+    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr), IsIV(false) {}
 #endif // INTEL_CUSTOMIZATION
     void setStep(EXPR S) { Step = S; }
     EXPR getStep() const { return Step; }
@@ -724,9 +727,13 @@ class LinearItem : public Item
     void setHStep(HEXPR S) { HStep = S; }
     template <IRKind IR = LLVMIR> ExprType<IR> getStep() const;
 #endif // INTEL_CUSTOMIZATION
+    void setIsIV(bool Flag) { IsIV = Flag; }
+    bool getIsIV() const { return IsIV; }
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsIV())
+        OS << "IV";
       OS << "(";
       printOrig(OS, PrintType);
       OS << ", ";

@@ -890,6 +890,7 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
+    LI->setIsIV(ClauseInfo.getIsIV());
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID())) {
