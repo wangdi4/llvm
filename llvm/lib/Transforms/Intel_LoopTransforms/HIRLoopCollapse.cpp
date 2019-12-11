@@ -603,6 +603,19 @@ static void adjustIVCoeffs(RegDDRef *Ref, unsigned StartDim, unsigned EndDim,
   }
 }
 
+static void updateProfDataforCollapsedLoop(HLLoop *OutermostLp,
+                                           HLLoop *CollapsedLp) {
+  // No Profile Data available
+  if (!OutermostLp->getProfileData() || !CollapsedLp->getProfileData())
+    return;
+
+  uint64_t OuterTrueWeight, OuterFalseWeight, InnerTrueWeight, InnerFalseWeight;
+  OutermostLp->extractProfileData(OuterTrueWeight, OuterFalseWeight);
+  CollapsedLp->extractProfileData(InnerTrueWeight, InnerFalseWeight);
+
+  CollapsedLp->setProfileData(InnerTrueWeight, OuterFalseWeight);
+}
+
 bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
@@ -717,6 +730,21 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   HIRInvalidationUtils::invalidateBody<HIRSafeReductionAnalysis>(ToCollapseLp);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<
       HIRSafeReductionAnalysis>(ToCollapseLp);
+
+  // Update Profile Data here.
+  // The new collapsed loop uses the loopexit count of the outer loop
+  // while keeping the backedge count of the inner loop. In the example
+  // collapsing i2-i3, would modify the i2 backedge count to 1000, while
+  // keeping the i2 loopexit count of 10.
+  // E.g.:  DO i1 = 0, 9, 1     !{!"branch_weights", 10, 1}
+  //          DO i2 = 0, 9, 1     !{!"branch_weights", 100, 10}
+  //            DO i3 = 0, 9, 1     !{!"branch_weights", 1000, 100}
+  //              ...
+  //            END LOOP
+  //          END LOOP
+  //        END LOOP
+  //
+  updateProfDataforCollapsedLoop(OrigOutermostLp, ToCollapseLp);
 
   ++HIRLoopNestsCollapsed;
 
