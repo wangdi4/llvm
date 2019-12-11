@@ -42,7 +42,7 @@ void initializeCSALoopInfoPassPass(PassRegistry &);
 class CSALoopInfo {
 public:
   CSALoopInfo() = default;
-  CSALoopInfo(const CSALoopInfo &) = delete;
+  CSALoopInfo(const CSALoopInfo &) = default;
   CSALoopInfo(CSALoopInfo &&) = default;
 
   typedef std::vector<MachineInstr *>::const_iterator iterator;
@@ -98,6 +98,8 @@ public:
   /// block is returned, and can be passed to addExitSwitch.
   unsigned addExit(unsigned SwitchBackedgeIndex);
   void addExitSwitch(unsigned ExitNum, MachineInstr *Switch);
+
+  void removePickSwitch(MachineInstr *Pick, MachineInstr *Switch);
 private:
   unsigned BackedgeIndex;
   std::vector<MachineInstr *> Picks;
@@ -123,7 +125,12 @@ public:
   using iterator = LoopsVec::const_iterator;
   inline iterator begin() const { return Loops.begin(); }
   inline iterator end() const { return Loops.end(); }
+  using riterator = LoopsVec::const_reverse_iterator;
+  inline riterator rbegin() const { return Loops.rbegin(); }
+  inline riterator rend() const { return Loops.rend(); }
+
   bool empty() const { return Loops.empty(); }
+  unsigned numLoops() const { return Loops.size(); }
 
   bool runOnMachineFunction(MachineFunction &F) override { return false; }
   void releaseMemory() override { Loops.clear(); }

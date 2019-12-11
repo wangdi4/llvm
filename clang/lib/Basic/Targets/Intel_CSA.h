@@ -68,6 +68,7 @@ public:
     IntPtrType  = SignedLong;
     IntMaxType  = SignedLong;
     Int64Type   = SignedLong;
+    HasFloat16  = true;
 
     // CSA supports atomics up to 8 bytes.
     MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;

@@ -34,6 +34,25 @@ void CSALoopInfo::addHeaderPick(MachineInstr *Pick) {
   Picks.push_back(Pick);
 }
 
+void CSALoopInfo::removePickSwitch(MachineInstr *Pick, MachineInstr *Switch) {
+  for (auto PIter = Picks.begin(); PIter != Picks.end(); PIter++) {
+    if ((*PIter) == Pick) {
+      Picks.erase(PIter);
+      break;
+    }
+  }
+
+  for (auto &Exit : Exits) {
+    auto &Switches = Exit.second;
+    for (auto SIter = Switches.begin(); SIter != Switches.end(); SIter++) {
+      if ((*SIter) == Switch) {
+        Switches.erase(SIter);
+        return;
+      }
+    }
+  }
+}
+
 #ifndef NDEBUG
 void CSALoopInfo::dump() const {
   print(dbgs());

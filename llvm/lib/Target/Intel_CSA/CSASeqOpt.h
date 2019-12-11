@@ -122,5 +122,176 @@ private:
   /// Add backedge annotations to the control inputs of REPEAT/STRIDE operations
   /// created by this pass.
   void annotateBackedges();
+
+  /// Apply loop carry collapse to the loops. Please refer to
+  /// https://jira.devtools.intel.com/browse/CMPLRLLVM-8598
+  /// for details.
+  void doLoopCarryCollapse();
+
+  // The value of this field is assigned to a newly created, collapsed, loop.
+  unsigned NextLoopId;
+
+  // This class handles the loop carry collapse optimization.
+  class LccCanvas {
+  public:
+    LccCanvas(CSASeqOpt *Parent, CSALoopInfoPass::riterator &Loop,
+              std::vector<CSALoopInfo> &NewLoops)
+      : Parent(Parent), TII(Parent->TII), MRI(Parent->MRI),
+        LMFI(Parent->LMFI), LI(Parent->LI),
+        OutermostLoop(Loop), NewLoops(NewLoops) {}
+
+    void startLCC();
+
+  private:
+    CSASeqOpt *Parent;
+    const CSAInstrInfo *TII;
+    MachineRegisterInfo *MRI;
+    CSAMachineFunctionInfo *LMFI;
+    CSALoopInfoPass &LI;
+
+    // This is the loop that starts this round of loop carry collapse.
+    const CSALoopInfoPass::riterator &OutermostLoop;
+
+    std::vector<CSALoopInfo> &NewLoops;
+
+    // Merge2Op is a section where a merge instruction's output
+    // is one of the inputs to an eligible operation.
+    // Op2Merge is a section where an eligible operation's output
+    // is one of the inputs to a merge instruction.
+    enum SectionType { If, Loop, MergeOp, OpMerge };
+
+    class Section {
+    public:
+      SectionType Type;
+      // Canonical is true for SectionType
+      //   'If' when Operand 0 of the switch instructionn is the fallthrough.
+      //   'Loop' when the backedge index is 1.
+      //   'MergeOp' when the identity of the op is operand 2.
+      //   'OpMerge' when the output the op feeds into operand 2 of merge.
+      // Canonical is false otherwise.
+      bool Canonical;
+      // HeadInstr is a switch instruction for 'If'
+      //                pick               for 'Loop'
+      //                merge              for 'MergeOp' and 'OpMerge'
+      MachineInstr *HeadInstr;
+      // TailInstr is a pick   instruction for 'If'
+      //                switch             for 'Loop'
+      //                op                 for 'MergeOp' and 'OpMerge'
+      MachineInstr *TailInstr;
+      // This is the predicate that drives the original if/loop/merge.
+      unsigned Predicate;
+      // This is the LIC that goes into the operator from a switch.
+      // Only effective for 'MergeOp' and 'OpMerge'.
+      unsigned SwitchToOp;
+      // This is the operand index of the LIC that goes from the
+      // head instruction of the outer construct to the operator.
+      // Only effective for 'MergeOp' and 'OpMerge'.
+      unsigned OpIdx;
+
+      Section(SectionType Type, bool Canonical, MachineInstr *HeadInstr,
+              MachineInstr *TailInstr, unsigned Predicate,
+              unsigned SwitchToOp = 0, unsigned OpIdx = 0)
+        : Type(Type), Canonical(Canonical), HeadInstr(HeadInstr),
+          TailInstr(TailInstr), Predicate(Predicate),
+          SwitchToOp(SwitchToOp), OpIdx(OpIdx) {}
+    };
+
+    enum Operation { TransformOutermostIfLoop,
+                     TransformOutermostLoop,
+                     TransformInnerIf,
+                     TransformInnerLoop,
+                     TransformInnerMergeOp,
+                     TransformInnerOpMerge };
+
+    class Region {
+    public:
+      Region(std::vector<Section> Sections,
+             std::vector<Operation> Operations,
+             unsigned W, unsigned X,
+             unsigned Y, unsigned Z )
+        : Sections(Sections), Operations(Operations),
+          W(W), X(X), Y(Y), Z(Z) {}
+      Region() : W(0), X(0), Y(0), Z(0) {};
+      std::vector<Section> Sections;
+      std::vector<Operation> Operations;
+      // Please refer to the graphs in the slide deck
+      // These are the input and output LICs of the loops and ifs that
+      // remain after loop carry collapse. The namings here comply with
+      // those used in the graphs in the slide deck
+      // https://sharepoint.amr.ith.intel.com/sites/KNPPath/SPATIAL_ACCELERATORS_WG_DOCLIB/CSA%20Compiler%20Transforms/Loop%20Carry%20Collapse.pptx
+      unsigned W, X, Y, Z;
+    };
+
+    Region CurrentRegion;
+
+    std::vector<Region> Regions;
+
+    bool isLoopLccEligible(const CSALoopInfo& Loop);
+    bool isPairLccEligible(MachineInstr *Pick, MachineInstr *Switch,
+                           unsigned BackedgeIndex);
+
+    // Collects the loop consists of LoopHead and LoopTail and
+    // an enclosing if for collapse.
+    // Returns true if successful, false otherwise.
+    bool addOutermostIfLoop(MachineInstr *LoopHead, MachineInstr *Looptail,
+                            unsigned BackedgeIndex);
+
+    // Collects the loop consists of LoopHead and LoopTail for collapse.
+    // Returns true if successful, false otherwise.
+    bool addOutermostLoop(MachineInstr *LoopHead, MachineInstr *Looptail,
+                          unsigned BackedgeIndex);
+
+    // Collects an if immediately enclosed by the innermost section
+    // collected so far.
+    // Returns true if successful, false otherwise.
+    bool addInnerIf();
+
+    // Collects Loop if it is immediately enclosed by the innermost section
+    // collected so far.
+    // Returns true if successful, false otherwise.
+    bool addInnerLoop(const CSALoopInfo& Loop);
+
+    // Returns true if Operation is an operation with identity;
+    // false otherhwise.
+    bool isOperationWithIdentity(MachineInstr *Operation);
+
+    // Returns true if Operation is stateless (i.e. has no side-effect);
+    // false otherhwise.
+    bool isOperationStateless(MachineInstr *Operation);
+
+    // Returns true if Merge has the identity of Operation as one of its
+    // inputs; false otherwise.
+    // Output parameter IdIdx is the index to the identity input if
+    // the function returns true.
+    bool getIdIdx(MachineInstr *Merge, MachineInstr *Operation,
+                  unsigned& IdIdx);
+
+    // Returns true if the two regions share the same predicate;
+    // false otherwise.
+    bool sharingPredicate(Region &Region1, Region &Region2);
+
+    MachineInstr *generatePredicate(Region &Region);
+
+    // The following transform functions emit the code for
+    // generating the predicate stream for the given sections.
+    MachineInstr *transformOutermostIfLoop(Section &IfSection, Section &LoopSection);
+    MachineInstr *transformOutermostLoop(Section &Section);
+    MachineInstr *transformInnerIf(MachineInstr *Instr, Section &Section);
+    MachineInstr *transformInnerMergeOp(MachineInstr *Instr, Section &Section);
+    MachineInstr *transformInnerOpMerge(MachineInstr *Instr, Section &Section);
+    MachineInstr *transformInnerLoop(MachineInstr *Instr, Section &Section);
+    MachineInstr *transformLoopPredicate(MachineInstr *LoopTail, bool Canonical);
+
+    // The pick and switch instructions created for the new
+    // loop are in the output parameters.
+    void reExpandIfLoop(MachineInstr *Instr, Region &Region,
+                        MachineInstr *&Pick, MachineInstr *&Switch);
+
+    auto assignLicGroup(unsigned Reg, ScaledNumber<uint64_t> Frequency,
+                        unsigned LoopId = 0);
+
+    void finalizeCurrentRegion();
+    void finalize();
+  };
 };
 } // namespace llvm
