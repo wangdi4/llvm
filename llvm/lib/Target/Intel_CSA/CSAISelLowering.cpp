@@ -345,6 +345,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
   setOperationAction(ISD::PREFETCH, MVT::Other, Custom);
   setOperationAction(ISD::ATOMIC_FENCE, MVT::Other, Custom);
+  setOperationAction(ISD::TRAP, MVT::Other, Custom);
 
   setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
   setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
@@ -413,6 +414,7 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::ATOMIC_LOAD_OR:
   case ISD::ATOMIC_LOAD_XOR:
   case ISD::ATOMIC_SWAP:
+  case ISD::TRAP:
     return LowerMemop(Op, DAG);
   case ISD::INTRINSIC_W_CHAIN:
   case ISD::INTRINSIC_VOID:
@@ -878,6 +880,11 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {{OPND, 0}, ORD},
       {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
     },
+    {
+      ISD::TRAP, CSA::Generic::TRAPHW, -1,
+      {ORD},
+      {ORD}
+    },
   };
   static const MemopRec ScratchpadMemopISDTable[] = {
     {
@@ -1043,6 +1050,9 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       } break;
       case ISD::ATOMIC_FENCE:
         Opcode = CSA::FENCE;
+        break;
+      case ISD::TRAP:
+        Opcode = CSA::TRAP0;
         break;
       default:
         llvm_unreachable("Add cases here for non-generic memops");

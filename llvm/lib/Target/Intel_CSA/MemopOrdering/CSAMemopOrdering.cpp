@@ -1356,6 +1356,10 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
          "Invalid query on mementry");
   assert(not isa<ReturnInst>(A.I) && "Invalid query on return");
 
+  if (AII and AII->getIntrinsicID() == Intrinsic::trap or
+      BII and BII->getIntrinsicID() == Intrinsic::trap)
+    return true;
+
   // Prefetches have very special ordering rules: nothing gets ordered after
   // prefetches...
   if (AII and AII->getIntrinsicID() == Intrinsic::prefetch)

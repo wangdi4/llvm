@@ -2405,6 +2405,13 @@ let hasSideEffects = 1 in {
     "trap\t$trapcode, $value", [], [], IIVir>;
 }
 
+def TRAPHW  : GenericOp<"traphw">;
+let mayLoad = 1, mayStore = 1 in {
+  def TRAP0 : FMTGEN<TRAPHW, Ti0,
+    (outs MemOrdDef:$outord), (ins MemOrdUse:$inord),
+    "ld64\t%ign, $outord, 0, 0, $inord # TRAP", [], [], IILD>;
+}
+
 // Floating-point simd instructions with two operands
 multiclass SimdOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
