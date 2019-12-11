@@ -32,7 +32,8 @@ define void @t(%struct.BltDepth* %depth, %struct.BltOp* %bop, i32 %mode) nounwin
 ; CHECK-NEXT:    xorl %ecx, %ecx
 ; CHECK-NEXT:    jmp LBB0_7
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  LBB0_5: ## in Loop: Header=BB0_4 Depth=1
+; CHECK-NEXT:  LBB0_5: ## %bb13088 ;INTEL
+; CHECK-NEXT:    ## in Loop: Header=BB0_4 Depth=1 ;INTEL
 ; CHECK-NEXT:    movl $65535, %ecx ## imm = 0xFFFF
 ; CHECK-NEXT:  LBB0_7: ## %bb13107
 ; CHECK-NEXT:    ## in Loop: Header=BB0_4 Depth=1
