@@ -837,6 +837,9 @@ __writemsr(unsigned int __register, unsigned long long __data) {
   __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
 }
 
+#define _readmsr(R) __readmsr(R)
+#define _writemsr(R, D) __writemsr(R, D)
+
 #endif /* !defined(_MSC_VER) && __has_extension(gnu_asm) */
 
 #undef __DEFAULT_FN_ATTRS
