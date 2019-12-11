@@ -32,7 +32,10 @@ function( compile INPUT_FILE OUTPUT_FILE_NAME)
 
 endfunction( compile )
 
-set(BE_TESTS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+# Set output directory of plugin targets, using `$<0:>` to avoid multi-
+# configuration generators (VS, Xcode) appending a per-configuration 
+# subdirectory to the specified directory.
+set(BE_TESTS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/$<0:>)
 
 add_subdirectory(OCLSamplePlugin)
 

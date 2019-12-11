@@ -21,6 +21,7 @@
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"
+#include "cl_heap.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_user_logger.h"
 #include <builtin_kernels.h>
@@ -816,14 +817,21 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 
     std::vector<cl_mem_obj_descriptor*> devMemObjects;
     unsigned int uiMemArgCount = pKernel->GetMemoryObjectArgumentCount();
-    devMemObjects.reserve(uiMemArgCount+cmdParams->uiNonArgSvmBuffersCount);
+    devMemObjects.reserve(uiMemArgCount + cmdParams->uiNonArgSvmBuffersCount +
+                          cmdParams->uiNonArgUsmBuffersCount);
 
     // Fill with SVM buffers
-    devMemObjects.resize(cmdParams->uiNonArgSvmBuffersCount);
+    devMemObjects.resize(cmdParams->uiNonArgSvmBuffersCount +
+                         cmdParams->uiNonArgUsmBuffersCount);
     for(cl_uint i=0;i<cmdParams->uiNonArgSvmBuffersCount;++i)
     {
         cmdParams->ppNonArgSvmBuffers[i]->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[i] );
     }
+    // Fill with USM buffers
+    unsigned int offset = cmdParams->uiNonArgSvmBuffersCount;
+    for (cl_uint i = 0; i < cmdParams->uiNonArgUsmBuffersCount; ++i)
+        cmdParams->ppNonArgUsmBuffers[i]->clDevMemObjGetDescriptor(
+            CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[offset + i]);
 
     std::vector<char> kernelParamsVec;
 
@@ -1332,6 +1340,69 @@ bool MigrateMemObject::Execute()
     return true;
 }
 
+///////////////////////////////////////////////////////////////////////////
+// OCL Migrate USM buffer execution
+
+cl_dev_err_code MigrateUSMMemObject::Create(TaskDispatcher* pTD,
+                                            cl_dev_cmd_desc* pCmd,
+                                            SharedPtr<ITaskBase>* pTask,
+                                            const SharedPtr<ITaskList>& pList)
+{
+    MigrateUSMMemObject* pCommand = new MigrateUSMMemObject(pTD, pCmd);
+    if (nullptr == pCommand)
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+#ifdef _DEBUG
+    cl_dev_err_code rc;
+    rc = pCommand->CheckCommandParams(pCmd);
+    assert(CL_DEV_SUCCESS == rc);
+#endif
+
+    assert(pTask);
+    *pTask = static_cast<ITaskBase*>(pCommand);
+
+    return CL_DEV_SUCCESS;
+}
+
+MigrateUSMMemObject::MigrateUSMMemObject(TaskDispatcher* pTD,
+    cl_dev_cmd_desc* pCmd) : CommandBaseClass<ITask>(pTD, pCmd)
+{
+}
+
+cl_dev_err_code MigrateUSMMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+    if ( sizeof(cl_dev_cmd_param_migrate_usm) != cmd->param_size )
+    {
+        return CL_DEV_INVALID_COMMAND_PARAM;
+    }
+
+    cl_dev_cmd_param_migrate_usm *cmdParams =
+        (cl_dev_cmd_param_migrate_usm*)(cmd->params);
+
+    if(nullptr == cmdParams->memObj)
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    if (0 != (cmdParams->flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
+                                   CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    return CL_DEV_SUCCESS;
+}
+
+bool MigrateUSMMemObject::Execute()
+{
+    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
+    return true;
+}
+
 // DeviceNDRange:
 
 AtomicCounter DeviceNDRange::sm_cmdIdCnt;
@@ -1340,7 +1411,7 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
         const void* pBlockLiteral, size_t stBlockSize,
         const size_t* pLocalSizes, size_t stLocalSizeCount,
         const _ndrange_t* pNDRange)
-{    
+{
     m_kernelMapEntry.pBEKernel = pKernel;
 #ifdef USE_ITT
     m_kernelMapEntry.ittTaskNameHandle = nullptr; //TODO: Need to see how to integrate ITT task here
@@ -1375,6 +1446,7 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
     char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size,
                                                     pKernel->GetArgumentBufferRequiredAlignment());
     m_paramKernel.uiNonArgSvmBuffersCount = 0;
+    m_paramKernel.uiNonArgUsmBuffersCount = 0;
     m_paramKernel.arg_size = total_size;
     m_paramKernel.arg_values = pAllocatedContext;
 
@@ -1501,3 +1573,57 @@ bool NativeKernelTask::Execute()
     return true;
 }
 #endif
+
+/////////////////////////////////////////////////////////////////////////
+// OCL advise USM mem command
+
+
+cl_dev_err_code AdviseUSMMemObject::Create(TaskDispatcher* pTD,
+                                           cl_dev_cmd_desc* pCmd,
+                                           SharedPtr<ITaskBase>* pTask,
+                                           const SharedPtr<ITaskList>& pList)
+{
+    AdviseUSMMemObject* pCommand = new AdviseUSMMemObject(pTD, pCmd);
+
+#ifdef _DEBUG
+    cl_dev_err_code rc;
+    rc = pCommand->CheckCommandParams(pCmd);
+    assert(CL_DEV_SUCCESS == rc);
+#endif
+
+    assert(pTask);
+    *pTask = static_cast<ITaskBase*>(pCommand);
+
+    return CL_DEV_SUCCESS;
+}
+
+AdviseUSMMemObject::AdviseUSMMemObject(TaskDispatcher* pTD,
+                                       cl_dev_cmd_desc* pCmd) :
+    CommandBaseClass<ITask>(pTD, pCmd)
+{
+}
+
+cl_dev_err_code AdviseUSMMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
+{
+    if (sizeof(cl_dev_cmd_param_advise_usm) != cmd->param_size)
+        return CL_DEV_INVALID_COMMAND_PARAM;
+
+    cl_dev_cmd_param_advise_usm *cmdParams =
+        (cl_dev_cmd_param_advise_usm*)(cmd->params);
+
+    if (nullptr == cmdParams->memObj)
+        return CL_DEV_INVALID_VALUE;
+
+    return CL_DEV_SUCCESS;
+}
+
+bool AdviseUSMMemObject::Execute()
+{
+    bool ret = true;
+
+    NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
+
+    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+
+    return ret;
+}

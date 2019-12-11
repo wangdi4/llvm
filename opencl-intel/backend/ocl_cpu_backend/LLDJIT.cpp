@@ -192,7 +192,7 @@ std::string LLDJIT::emitObject(Module *M) {
   llvm::legacy::PassManager PM;
   TM->addPassesToEmitFile(PM, ObjFile.OS(),
                           /*raw_pwrite_stream*/ nullptr,
-                          TargetMachine::CGFT_ObjectFile,
+                          CGFT_ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.
@@ -220,7 +220,8 @@ void LLDJIT::generateCodeForModule(Module *M) {
 
   std::string ObjectToLoad;
 
-  assert(M->getDataLayout() == getDataLayout() && "DataLayout Mismatch");
+  assert(TM->isCompatibleDataLayout(M->getDataLayout()) &&
+         "DataLayout Mismatch");
 
   // If the cache did not contain a suitable object, compile the object
   ObjectToLoad = emitObject(M);
@@ -391,7 +392,7 @@ void LLDJIT::buildDllFromObjs(
 
   Args.push_back(JumpTableObjectFile.FileName().c_str());
 
-  bool Success = lld::coff::link(Args, false);
+  bool Success = lld::coff::link(Args, false, llvm::outs(), llvm::errs());
   if (!Success) {
     // TODO: Currently, error message will be written to stdout.
     throw Exceptions::CompilerException("Linker failed");

@@ -312,7 +312,7 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
 
   // Create the new load
   LoadInst* loader = new LoadInst(caller->getArgOperand(1), "masked_load",
-      false, align, caller);
+      false, MaybeAlign(align), caller);
   VectorizerUtils::SetDebugLocBy(loader, caller);
   caller->replaceAllUsesWith(loader);
   // Replace predicate with control flow
@@ -334,7 +334,8 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   // Uniform mask for vector load.
   // Perform a single wide load and a single IF.
   if (!Mask->getType()->isVectorTy()) {
-    Instruction *loader = new LoadInst(Ptr, "vload", false, align, caller);
+    Instruction *loader = new LoadInst(Ptr, "vload", false, MaybeAlign(align),
+                                       caller);
     VectorizerUtils::SetDebugLocBy(loader, caller);
     toPredicate(loader, Mask);
     caller->replaceAllUsesWith(loader);
@@ -365,7 +366,8 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     // (not using type from pointer as this functionality is planned to be removed.
     Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
-    Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);
+    Instruction *loader = new LoadInst(GEP, "vload", false, MaybeAlign(align),
+                                       caller);
     Instruction* inserter = InsertElementInst::Create(
       Ret, loader, Idx, "vpack", caller);
     VectorizerUtils::SetDebugLocBy(GEP, caller);
@@ -442,7 +444,8 @@ void FuncResolver::resolveStoreScalar(CallInst* caller, unsigned align) {
 
   // Create new store
   StoreInst* st = new StoreInst(
-    caller->getArgOperand(1), caller->getArgOperand(2), false, align, caller);
+    caller->getArgOperand(1), caller->getArgOperand(2), false,
+    MaybeAlign(align), caller);
   VectorizerUtils::SetDebugLocBy(st, caller);
   // Replace predicator with contol flow
   toPredicate(st, caller->getArgOperand(0));
@@ -469,7 +472,8 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   // Uniform mask for vector store.
   // Perform a single wide store and a single IF.
   if (!Mask->getType()->isVectorTy()) {
-    Instruction *storer = new StoreInst(Data, Ptr, false, align, caller);
+    Instruction *storer = new StoreInst(Data, Ptr, false, MaybeAlign(align),
+                                        caller);
     VectorizerUtils::SetDebugLocBy(storer, caller);
     toPredicate(storer, Mask);
     caller->replaceAllUsesWith(storer);
@@ -495,7 +499,8 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
     Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vstore", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
-    Instruction *storer = new StoreInst(DataElem, GEP, false, align, caller);
+    Instruction *storer = new StoreInst(DataElem, GEP, false,
+                                        MaybeAlign(align), caller);
     VectorizerUtils::SetDebugLocBy(GEP, caller);
     VectorizerUtils::SetDebugLocBy(MaskBit, caller);
     VectorizerUtils::SetDebugLocBy(DataElem, caller);
@@ -590,12 +595,12 @@ void FuncResolver::resolveFunc(CallInst* caller) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
     //pcall starts with mask argument, skip it when setting original argument attributes.
-    as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
+    (void) as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
   }
   //set function attributes of pcall
-  as.addAttributes(func->getContext(), AttributeList::FunctionIndex, callAttr.getFnAttributes());
+  (void) as.addAttributes(func->getContext(), AttributeList::FunctionIndex, callAttr.getFnAttributes());
   //set return value attributes of pcall
-  as.addAttributes(func->getContext(), AttributeList::ReturnIndex, callAttr.getRetAttributes());
+  (void) as.addAttributes(func->getContext(), AttributeList::ReturnIndex, callAttr.getRetAttributes());
   pcall->setAttributes(as);
   VectorizerUtils::SetDebugLocBy(pcall, caller);
   caller->replaceAllUsesWith(pcall);

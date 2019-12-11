@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, skipNotGDB
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, expectedFailureCDB, skipNotGDBorCDB
 
 # Test usage of setting value for some variable types
 # (global, local, private, volatile, regular and pointers) in gdb
@@ -6,7 +6,7 @@ from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, skipN
 class TestVariableSetting(DebuggerTestCase):
     CLNAME = 'diffrent_declaration_types2.cl'
 
-    @skipNotGDB
+    @skipNotGDBorCDB
     def test_variables_setting(self):
     #
     # Test - some variable types (global, arguments, volatile, private)
@@ -53,8 +53,9 @@ class TestVariableSetting(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('globalInt'), '2')
         self.client.debug_run_finish()
 
-    @skipNotGDB
+    @skipNotGDBorCDB
     @expectedFailureGDB
+    @expectedFailureCDB
     # Expected to fail due to ClearQuest defect CSSD100014001
     # (setting __local variables has no effect on program execution)
     def test_local_variable_setting(self):

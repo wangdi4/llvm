@@ -45,7 +45,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl
 
 MemoryAllocator::~MemoryAllocator()
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MemoryAllocator Distructed"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("MemoryAllocator Destructed"));
 
 	if (0 != m_iLogHandle)
 	{

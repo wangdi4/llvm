@@ -245,6 +245,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_ulong* function_pointer_ret);
 
         ///////////////////////////////////////////////////////////////////////
+        // cl_intel_unified_shared_memory functions
+        ///////////////////////////////////////////////////////////////////////
+
+        void* USMHostAlloc(cl_context context,
+                           const cl_mem_properties_intel* properties,
+                           size_t size, cl_uint alignment,
+                           cl_int* errcode_ret);
+        void* USMDeviceAlloc(cl_context context, cl_device_id device,
+                             const cl_mem_properties_intel* properties,
+                             size_t size, cl_uint alignment,
+                             cl_int* errcode_ret);
+        void* USMSharedAlloc(cl_context context, cl_device_id device,
+                             const cl_mem_properties_intel* properties,
+                             size_t size, cl_uint alignment,
+                             cl_int* errcode_ret);
+        cl_int USMFree(cl_context context, const void* ptr);
+        cl_int GetMemAllocInfoINTEL(cl_context context, const void* ptr,
+                                    cl_mem_info_intel param_name,
+                                    size_t param_value_size, void* param_value,
+                                    size_t* param_value_size_ret);
+
+        // Set a pointer into a Unified Shared Memory allocation as an argument
+        // to a kernel
+        cl_int SetKernelArgUSMPointer(cl_kernel clKernel, cl_uint uiArgIndex,
+                                      const void* pArgValue);
+
+        ///////////////////////////////////////////////////////////////////////
         // Utility functions
         ///////////////////////////////////////////////////////////////////////
         void CommandQueueCreated( OclCommandQueue* queue );
@@ -315,6 +342,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_mem_int>              m_mapMemObjects;   // map list of all memory objects
         OCLObjectsMap<_cl_sampler_int>          m_mapSamplers;     // map list of all memory objects
         std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
+        // map list of all unified shared memory objects
+        std::map<void*, SharedPtr<Context> >    m_mapUSMBuffers;
 
         Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues; // set of all queues including invisible to user
         Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history

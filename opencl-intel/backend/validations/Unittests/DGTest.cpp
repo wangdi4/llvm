@@ -950,7 +950,7 @@ TEST(DataGenerator, RandomRangeTest)
                 int32_t lowValue;
                 do {
                     highValue = (int32_t)(rand() % std::numeric_limits<int32_t>::max() + 1);
-                    lowValue = (int32_t)(highValue - (rand() % (std::numeric_limits<int32_t>::max()+1)));
+                    lowValue = (int32_t)(highValue - (rand() % std::numeric_limits<int32_t>::max()));
                 } while (highValue <= lowValue);
                 testData.low.dI32 = lowValue;
                 testData.high.dI32 = highValue;
@@ -1023,7 +1023,7 @@ TEST(DataGenerator, RandomRangeTest)
                 int32_t lowValue;
                 do {
                     highValue = (int32_t)(-(rand() % std::numeric_limits<int32_t>::max() + 1));
-                    lowValue = (int32_t)(highValue-(rand() % (std::numeric_limits<int32_t>::max()+1)));
+                    lowValue = (int32_t)(highValue-(rand() % std::numeric_limits<int32_t>::max()));
                 } while (highValue <= lowValue);
                 testData.low.dI32 = lowValue;
                 testData.high.dI32 = highValue;
@@ -1707,7 +1707,7 @@ TYPED_TEST(DataGeneratorTypedSigned, GenerateRangedVectors)
 
     do {
         highValue = (TypeParam)(rand() % std::numeric_limits<TypeParam>::max() + 1);
-        lowValue = (TypeParam)(highValue-(rand() % (std::numeric_limits<TypeParam>::max()+1)));
+        lowValue = (TypeParam)(highValue-(rand() % std::numeric_limits<TypeParam>::max()));
     } while (highValue <= lowValue);
 
     if( typeSize == sizeof(int8_t))

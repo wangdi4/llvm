@@ -34,6 +34,7 @@
 #include "user_event.h"
 #include "cl_sys_info.h"
 #include "svm_buffer.h"
+#include "usm_buffer.h"
 #include "pipe.h"
 
 using namespace Intel::OpenCL::Utils;
@@ -1205,6 +1206,13 @@ cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel,
     pSrcKernel->GetNonArgSvmBuffers(svmBuffers);
     pNewKernel->SetNonArgSvmBuffers(svmBuffers);
 
+    // Unified shared memory
+    pNewKernel->SetUsmIndirectHost(pSrcKernel->IsUsmIndirectHost());
+    pNewKernel->SetUsmIndirectDevice(pSrcKernel->IsUsmIndirectDevice());
+    pNewKernel->SetUsmIndirectShared(pSrcKernel->IsUsmIndirectShared());
+    std::vector<SharedPtr<USMBuffer> > usmBuffers;
+    pSrcKernel->GetNonArgUsmBuffers(usmBuffers);
+    pNewKernel->SetNonArgUsmBuffers(usmBuffers);
 
     if (NULL != pNewKernel)
     {
@@ -2239,6 +2247,11 @@ void ContextModule::RemoveAllMemObjects( bool preserve_user_handles )
     }
     m_mapSVMBuffers.clear();
 
+    // Free unified shared memory
+    for(std::pair<void* const, SharedPtr<Context> > &p : m_mapUSMBuffers)
+        p.second->USMFree(p.first);
+    m_mapUSMBuffers.clear();
+
     // Remove all mapped regions
     MemObjListType mapped_list;
     m_setMappedMemObjects.getObjects( mapped_list );
@@ -3013,6 +3026,170 @@ cl_int ContextModule::GetDeviceFunctionPointer(cl_device_id device,
     }
 
     return error;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// cl_intel_unified_shared_memory functions
+//
+//////////////////////////////////////////////////////////////////////////////
+
+void* ContextModule::USMHostAlloc(cl_context context,
+                                  const cl_mem_properties_intel* properties,
+                                  size_t size, cl_uint alignment,
+                                  cl_int* errcode_ret)
+{
+    SharedPtr<Context> pContext = GetContext(context);
+    if (nullptr == pContext.GetPtr())
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_CONTEXT;
+        return nullptr;
+    }
+    if (0 == size)
+    {
+        LOG_ERROR(TEXT("size is 0"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_BUFFER_SIZE;
+        return nullptr;
+    }
+    if (alignment > 0 && (!IsPowerOf2(alignment) ||
+                          alignment > sizeof(cl_long16)))
+    {
+        LOG_ERROR(TEXT("invalid alignment"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_VALUE;
+        return nullptr;
+    }
+    void* pUsmBuf = pContext->USMHostAlloc(properties, size, alignment,
+                                           errcode_ret);
+    m_mapUSMBuffers[pUsmBuf] = pContext;
+    return pUsmBuf;
+}
+
+void* ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
+                                    const cl_mem_properties_intel* properties,
+                                    size_t size, cl_uint alignment,
+                                    cl_int* errcode_ret)
+{
+    SharedPtr<Context> pContext = GetContext(context);
+    if (nullptr == pContext.GetPtr())
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_CONTEXT;
+        return nullptr;
+    }
+    if (0 == size)
+    {
+        LOG_ERROR(TEXT("size is 0"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_BUFFER_SIZE;
+        return nullptr;
+    }
+    if (alignment > 0 &&
+        (!IsPowerOf2(alignment) || alignment > sizeof(cl_long16)))
+    {
+        LOG_ERROR(TEXT("invalid alignment"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_VALUE;
+        return nullptr;
+    }
+    void* pUsmBuf = pContext->USMDeviceAlloc(device, properties, size,
+                                             alignment, errcode_ret);
+    m_mapUSMBuffers[pUsmBuf] = pContext;
+    return pUsmBuf;
+}
+
+void* ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
+                                    const cl_mem_properties_intel* properties,
+                                    size_t size, cl_uint alignment,
+                                    cl_int* errcode_ret)
+{
+    SharedPtr<Context> pContext = GetContext(context);
+    if (nullptr == pContext.GetPtr())
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_CONTEXT;
+        return nullptr;
+    }
+    if (0 == size)
+    {
+        LOG_ERROR(TEXT("size is 0"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_BUFFER_SIZE;
+        return nullptr;
+    }
+    if (alignment > 0 &&
+        (!IsPowerOf2(alignment) || alignment > sizeof(cl_long16)))
+    {
+        LOG_ERROR(TEXT("invalid alignment"), "");
+        if (errcode_ret)
+            *errcode_ret = CL_INVALID_VALUE;
+        return nullptr;
+    }
+    void* pUsmBuf = pContext->USMSharedAlloc(device, properties, size,
+                                             alignment, errcode_ret);
+    m_mapUSMBuffers[pUsmBuf] = pContext;
+    return pUsmBuf;
+}
+
+cl_int ContextModule::USMFree(cl_context context, const void* ptr)
+{
+    SharedPtr<Context> pContext = GetContext(context);
+    if (nullptr == pContext.GetPtr())
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        return CL_INVALID_CONTEXT;
+    }
+    if (nullptr == ptr)
+    {
+        LOG_INFO(TEXT("ptr is nullptr. No action occurs."), "");
+        return CL_SUCCESS;
+    }
+    void *usmPtr = const_cast<void*>(ptr);
+    cl_err_code err = pContext->USMFree(usmPtr);
+    if (CL_SUCCESS == err)
+        m_mapUSMBuffers.erase(usmPtr);
+    return err;
+}
+
+cl_int ContextModule::GetMemAllocInfoINTEL(cl_context context, const void* ptr,
+                                           cl_mem_info_intel param_name,
+                                           size_t param_value_size,
+                                           void* param_value,
+                                           size_t* param_value_size_ret)
+{
+    SharedPtr<Context> pContext = GetContext(context);
+    if (nullptr == pContext.GetPtr())
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        return CL_INVALID_CONTEXT;
+    }
+    cl_err_code err = pContext->GetMemAllocInfoINTEL(ptr, param_name,
+        param_value_size, param_value, param_value_size_ret);
+    return err;
+}
+
+cl_int ContextModule::SetKernelArgUSMPointer(cl_kernel clKernel,
+                                             cl_uint uiArgIndex,
+                                             const void* pArgValue)
+{
+    SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject(
+        (_cl_kernel_int*)clKernel).StaticCast<Kernel>();
+    if (nullptr == pKernel.GetPtr())
+    {
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned nullptr"), clKernel,
+                  &pKernel);
+        return CL_INVALID_KERNEL;
+    }
+
+    cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*),
+                                            pArgValue, false, true);
+    return CL_ERR_OUT(err);
 }
 
 //////////////////////////////////////////////////////////////////////////////

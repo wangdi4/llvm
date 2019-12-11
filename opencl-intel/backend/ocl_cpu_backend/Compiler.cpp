@@ -28,6 +28,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -415,6 +416,10 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
         buildOptions.SetDenormalsZero(true);
     }
 
+    // Record the debug control flags.
+    m_debug = buildOptions.GetDebugInfoFlag();
+    m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
+
     materializeSpirTriple(pModule);
 
     std::unique_ptr<TargetMachine> targetMachine(GetTargetMachine(pModule));
@@ -431,7 +436,8 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             m_IRDumpBefore,
                                             m_IRDumpDir,
                                             targetMachine.get(),
-                                            buildOptions.GetDebugInfoFlag(),
+                                            m_debug,
+                                            m_useNativeDebugger,
                                             buildOptions.GetProfilingFlag(),
                                             buildOptions.GetDisableOpt(),
                                             buildOptions.GetRelaxedMath(),
@@ -478,10 +484,6 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
             optimizer.GetInvalidGlobals(
                 Optimizer::InvalidGVType::FPGA_DEPTH_IS_IGNORED));
     }
-
-    // Record the debug control flags.
-    m_debug = buildOptions.GetDebugInfoFlag();
-    m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
     //
     // Populate the build results

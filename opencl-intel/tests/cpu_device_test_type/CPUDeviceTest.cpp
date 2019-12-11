@@ -684,6 +684,7 @@ TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 }
 
 #ifndef _WIN32
+// Sporadic fails in Test_AffinityRootDevice [CORC-1930]
 TEST(CpuDeviceTestType, DISABLED_Test_AffinityRootDevice)   // ticket CSSD100020139
 {
 	EXPECT_TRUE(AffinityRootDeviceTest(pMask));

@@ -142,7 +142,7 @@ OclBuiltinImpl sub_group_shuffle_avx2v64 = OclBuiltinImpl<sub_group_shuffle_avx2
 OclBuiltinImpl sub_group_shuffle_avx2_v128 = OclBuiltinImpl<sub_group_shuffle_avx2, [v128f32, v128i32, v128u32], 0,
 [{
     $Arg1VarName = $Arg1VarName & $Arg2VarName;
-    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x16($Arg0VarName);
+    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x8($Arg0VarName);
 
     $Arg0BaseType#8 tmp1  = $Arg0VarName.lo.lo.lo.lo;
     $Arg0BaseType#8 tmp2  = $Arg0VarName.lo.lo.lo.hi;
@@ -178,7 +178,7 @@ OclBuiltinImpl sub_group_shuffle_avx2_v128 = OclBuiltinImpl<sub_group_shuffle_av
     $Arg0VarName.hi.hi.hi.lo = as_$Arg0BaseType#8(_mm256_permutevar8x32_ps(__builtin_astype(tmp15, __m256), __builtin_astype($Arg1VarName, __m256i)));
     $Arg0VarName.hi.hi.hi.hi = as_$Arg0BaseType#8(_mm256_permutevar8x32_ps(__builtin_astype(tmp16, __m256), __builtin_astype($Arg1VarName, __m256i)));
 
-    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x8($Arg0VarName);
+    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x16($Arg0VarName);
     return $Arg0VarName;
 }]>;
 
@@ -293,7 +293,7 @@ OclBuiltinImpl sub_group_shuffle_up_avx2_gen = OclBuiltinImpl<sub_group_shuffle_
 }]>;
 
 
-OclBuiltinImpl sub_group_shuffle_up_avx2_gen = OclBuiltinImpl<sub_group_shuffle_up_avx2,
+OclBuiltinImpl sub_group_shuffle_up_avx2_v8d64 = OclBuiltinImpl<sub_group_shuffle_up_avx2,
         [v8i64, v8u64, v8f64], 0,
 [{
      $Arg0Type res_cur, res_next;

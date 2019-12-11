@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -25,6 +25,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define MAX_LOOP_SIZE 1024
@@ -373,8 +374,9 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
     // Load from the buffer.
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
-    Value *transpValueLoad = new LoadInst(colorPointer,
-               "load.trnsp.val", false, FLOAT_X_WIDTH__ALIGNMENT, attr.m_call);
+    Value *transpValueLoad = new LoadInst(colorPointer, "load.trnsp.val", false,
+                                          MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
+                                          attr.m_call);
     LI->replaceAllUsesWith(transpValueLoad);
     LI->eraseFromParent();
   }
@@ -569,7 +571,7 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     new StoreInst(attr.m_colors[i], colorPointer, false,
-                  FLOAT_X_WIDTH__ALIGNMENT, attr.m_call);
+                  MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
   }
 
   // Prepare arguments for calling the stream sampler.
@@ -618,7 +620,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
       m_header->getParent()->getEntryBlock().getFirstNonPHI();
   for (unsigned i = 0; i < 4; ++i) {
     AllocaInst *AI = new AllocaInst(
-      arrTy, m_DL->getAllocaAddrSpace(), nullptr, FLOAT_X_WIDTH__ALIGNMENT,
+      arrTy, m_DL->getAllocaAddrSpace(), nullptr, MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
       "stream.read.alloca", loc);
     Instruction *ptr =
         GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);

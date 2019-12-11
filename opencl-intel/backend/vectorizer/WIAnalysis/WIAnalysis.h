@@ -126,6 +126,7 @@ private:
     /// @return Type of dependency.
     void calculate_dep(const Value* val);
     WIDependancy calculate_dep(const BinaryOperator* inst);
+    WIDependancy calculate_dep(const UnaryOperator* inst);
     WIDependancy calculate_dep(const CallInst* inst);
     WIDependancy calculate_dep(const GetElementPtrInst* inst);
     WIDependancy calculate_dep(const PHINode* inst);

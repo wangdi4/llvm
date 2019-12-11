@@ -355,6 +355,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
+        // if an exception is caught, the LLVM error handler should be removed safely
+        // on windows, the LLVM error handler will not be removed automatically and
+        // will cause assertion failure in debug mode
+        llvm::remove_fatal_error_handler();
+
         buildResult.LogS() << e.what() << "\n";
         buildResult.SetBuildResult( e.GetErrorCode());
         pProgram->SetBuildLog( buildResult.GetBuildLog() );

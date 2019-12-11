@@ -113,7 +113,7 @@ if (WIN32 AND NOT OPENCL_INTREE_BUILD)
     -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
     -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'
   )
-endif (WIN32)
+endif ()
 
 # See llvm commit adc4af6a5b70c31110559bdeb2f3f52646600b90
 # Author: Edwin Vane <edwin.vane@intel.com>
@@ -133,6 +133,9 @@ if (CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
 endif()
 
 if (OPENCL_INTREE_BUILD)
+# TODO: Temporarily diable warnings for OpenCL component when built in-tree on Windows, related to CORC-6069.
+  string(REGEX REPLACE "/WX" "/WX-" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/WX" "/WX-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   add_flag_if_supported("-Wno-cast-qual" CMPLR_NO_CAST_QUAL_FLAG)
   add_flag_if_supported("-Wno-discarded-qualifiers" CMPLR_NO_DISCARDED_QUALIFIERS)
 endif()

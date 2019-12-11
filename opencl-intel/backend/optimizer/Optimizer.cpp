@@ -112,8 +112,7 @@ FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
-llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
-                                  bool EnableVPlanVecForOpenCL);
+llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
@@ -354,7 +353,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isSPIRV,
                                        bool UseVplan) {
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M);
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
+                              pConfig->GetUseNativeDebuggerFlag());
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -484,7 +484,8 @@ static void populatePassesPostFailCheck(
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M);
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
+                              pConfig->GetUseNativeDebuggerFlag());
   bool UseTLSGlobals =
       (debugType == intel::Native) && !isFpgaEmulator && !isEyeQEmulator;
 
@@ -580,7 +581,7 @@ static void populatePassesPostFailCheck(
         PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
 
         // Prepare Function for VecClone and call VecClone
-        PM.add(createOCLVecClonePass(pConfig, UseVplan));
+        PM.add(createOCLVecClonePass(pConfig));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
         // Call VPlan
@@ -767,6 +768,11 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM.add(llvm::createPromoteMemoryToRegisterPass());
   }
+  // Only support CPU Device
+  if (debugType == intel::None && !isFpgaEmulator && !isEyeQEmulator) {
+    PM.add(llvm::createLICMPass());      // Hoist loop invariants
+    PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop form, e.g. memcpy
+  }
 
   // PrepareKernelArgsPass must run in debugging mode as well
   PM.add(createPrepareKernelArgsPass(UseTLSGlobals));
@@ -826,7 +832,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeOCLPasses(Registry);
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), pModule);
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), pModule,
+                              pConfig->GetUseNativeDebuggerFlag());
 
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
@@ -886,7 +893,7 @@ void Optimizer::Optimize() {
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_pModule->getTargetTriple());
-  if (!m_IsFpgaEmulator && !m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
+  if (!m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
       TargetTriple.isArch64Bit())
     materializerPM.add(createCoerceTypesPass());
 

@@ -133,7 +133,9 @@ bool KernelExecute_Dot_Test(const char* prog_file)
     krnlParam.arg_size = dispatch_prop.size;
     krnlParam.arg_values = ALIGNED_MALLOC(dispatch_prop.size, dispatch_prop.alignment);
     krnlParam.uiNonArgSvmBuffersCount = 0;
-    krnlParam.ppNonArgSvmBuffers = NULL;
+    krnlParam.ppNonArgSvmBuffers = nullptr;
+    krnlParam.uiNonArgUsmBuffersCount = 0;
+    krnlParam.ppNonArgUsmBuffers = nullptr;
     
     ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[0] = memObjA;
     ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[1] = memObjB;
@@ -276,7 +278,9 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     krnlParam.arg_size = dispatch_prop.size;
     krnlParam.arg_values = ALIGNED_MALLOC(dispatch_prop.size, dispatch_prop.alignment);
     krnlParam.uiNonArgSvmBuffersCount = 0;
-    krnlParam.ppNonArgSvmBuffers = NULL;
+    krnlParam.ppNonArgSvmBuffers = nullptr;
+    krnlParam.uiNonArgUsmBuffersCount = 0;
+    krnlParam.ppNonArgUsmBuffers = nullptr;
     
     ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[0] = memObjA;
     ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[1] = memObjB;
@@ -426,7 +430,9 @@ bool KernelExecute_Math_Test(const char* prog_file)
     krnlParam.arg_size = dispatch_prop.size;
     krnlParam.arg_values = ALIGNED_MALLOC(dispatch_prop.size, dispatch_prop.alignment);
     krnlParam.uiNonArgSvmBuffersCount = 0;
-    krnlParam.ppNonArgSvmBuffers = NULL;
+    krnlParam.ppNonArgSvmBuffers = nullptr;
+    krnlParam.uiNonArgUsmBuffersCount = 0;
+    krnlParam.ppNonArgUsmBuffers = nullptr;
     
     ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[0] = memObjA;
     ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[1] = memObjB;

@@ -168,6 +168,7 @@ bool clTracingCheckInvactiveHandleTest();
 bool clTracingCheckTooManyHandlesTest();
 bool clTracingFlowCheckTest();
 bool clTracingFunctionsEnabledCheckTest();
+bool clTracingArgumentsChangedCheckTest();
 bool clTracingFunctionsDisabledCheckTest();
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();

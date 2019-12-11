@@ -44,6 +44,12 @@ Device::Device(_cl_platform_id_int* platform) :
 
     m_hGLContext = 0;
     m_hHDC = 0;
+
+    m_usmHostCaps = 0;
+    m_usmDeviceCaps = 0;
+    m_usmSharedSingleCaps = 0;
+    m_usmSharedCrossCaps = 0;
+    m_usmSharedSystemCaps = 0;
 }
 
 Device::~Device()
@@ -287,8 +293,43 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-        cl_dev_err_code svm_dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES, sizeof(m_CL_DEVICE_SVM_CAPABILITIES), &m_CL_DEVICE_SVM_CAPABILITIES, nullptr);
-        m_bSvmSupported = CL_DEV_SUCCEEDED(svm_dev_err);
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES, sizeof(m_CL_DEVICE_SVM_CAPABILITIES), &m_CL_DEVICE_SVM_CAPABILITIES, nullptr);
+        m_bSvmSupported = CL_DEV_SUCCEEDED(dev_err);
+    }
+
+    if (CL_DEV_SUCCEEDED(dev_err))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId,
+            CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
+            sizeof(m_usmHostCaps), &m_usmHostCaps, nullptr);
+    }
+
+    if (CL_DEV_SUCCEEDED(dev_err))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId,
+            CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
+            sizeof(m_usmDeviceCaps), &m_usmDeviceCaps, nullptr);
+    }
+
+    if (CL_DEV_SUCCEEDED(dev_err))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId,
+            CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
+            sizeof(m_usmSharedSingleCaps), &m_usmSharedSingleCaps, nullptr);
+    }
+
+    if (CL_DEV_SUCCEEDED(dev_err))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId,
+            CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
+            sizeof(m_usmSharedCrossCaps), &m_usmSharedCrossCaps, nullptr);
+    }
+
+    if (CL_DEV_SUCCEEDED(dev_err))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId,
+            CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL,
+            sizeof(m_usmSharedSystemCaps), &m_usmSharedSystemCaps, nullptr);
     }
 
     // Here we still don't have DeviceAgent instance intialized.
@@ -440,6 +481,26 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
 Intel::OpenCL::TaskExecutor::ITaskExecutor* Device::clDevGetTaskExecutor()
 {
     return FrameworkProxy::Instance()->GetTaskExecutor();
+}
+
+cl_unified_shared_memory_capabilities_intel Device::GetUSMCapabilities(
+    cl_device_info param_name) const
+{
+    switch (param_name)
+    {
+        case CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL:
+            return m_usmHostCaps;
+        case CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL:
+            return m_usmDeviceCaps;
+        case CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL:
+            return m_usmSharedSingleCaps;
+        case CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL:
+            return m_usmSharedCrossCaps;
+        case CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL:
+            return m_usmSharedSystemCaps;
+        default:
+            return 0;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

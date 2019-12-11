@@ -1,4 +1,5 @@
-; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core -enable-vp-value-codegen=false < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core -enable-vp-value-codegen=true < %s -S -o - | FileCheck %s
 
 ; ModuleID = '<stdin>'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -18,21 +19,65 @@ entry:
   %slid.reverse = sub nuw i32 16, %slid
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
   %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !10
+  %1 = trunc i32 %0 to i16
+; CHECK: [[WIDE_LOAD_TRUNCi16:%.*]] = trunc <4 x i32> %wide.load to <4 x i16>
+  %2 = trunc i32 %0 to i8
+; CHECK: [[WIDE_LOAD_TRUNCi8:%.*]] = trunc <4 x i32> %wide.load to <4 x i8>
+  %3 = zext i32 %0 to i64
+; CHECK: [[WIDE_LOAD_TRUNCi64:%.*]] = zext <4 x i32> %wide.load to <4 x i64>
 
   %val = call i32 @_Z23intel_sub_group_shuffleij(i32 %0, i32 %slid.reverse)
   %val2 = call i32 @_Z23intel_sub_group_shufflejj(i32 %0, i32 %slid.reverse)
 ; CHECK: call <4 x i32> @_Z23intel_sub_group_shuffleDv4_iDv4_jS0_(<4 x i32> %wide.load, <4 x i32> [[SLID_REVERSE:%.*]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 ; CHECK: call <4 x i32> @_Z23intel_sub_group_shuffleDv4_jS_S_(<4 x i32> %wide.load, <4 x i32> [[SLID_REVERSE]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  %vec2 = insertelement <3 x i32> undef, i32 %0, i32 0
+  %val3 = call <3 x i32> @_Z23intel_sub_group_shuffleDv3_ij(<3 x i32> %vec2, i32 %slid.reverse)
+; CHECK: call <12 x i32> @_Z23intel_sub_group_shuffleDv12_iDv4_jS0_(<12 x i32> %wide.insert, <4 x i32> [[SLID_REVERSE]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  %vec3 = insertelement <16 x i16> undef, i16 %1, i32 0
+  %val4 = call <16 x i16> @_Z23intel_sub_group_shuffleDv16_sj(<16 x i16> %vec3, i32 %slid.reverse)
+; CHECK: call <64 x i16> @_Z23intel_sub_group_shuffleDv64_sDv4_jS0_(<64 x i16> %wide.insert{{[0-6]+}}, <4 x i32> [[SLID_REVERSE]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
-  %call3 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
+  %call2 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
 ; CHECK: [[VECTOR_ALL:%.*]] = call <4 x i32> @_Z13sub_group_allDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = tail call spir_func i32 @_Z16get_sub_group_idv()
+; TODO: VPValue-based CG does not preserve any attributes for serialized Calls.
+; Check JIRA : CMPLRLLVM-10806
+; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = {{call|tail call spir_func}} i32 @_Z16get_sub_group_idv()
 
-  %call4 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %call, i64 42, i32 %slid.reverse)
+  %call3 = tail call spir_func i64 @_Z19sub_group_broadcastlj(i64 %3, i32 0) #4
+  %call4 = tail call spir_func i32 @_Z19sub_group_broadcastij(i32 %0, i32 0) #4
+  %call5 = tail call spir_func i16 @_Z25intel_sub_group_broadcastsj(i16 %1, i32 0) #4
+  %call6 = tail call spir_func i8  @_Z25intel_sub_group_broadcastcj(i8 %2, i32 0) #4
+; CHECK: = call <4 x i64> @_Z19sub_group_broadcastDv4_ljDv4_j(<4 x i64> [[WIDE_LOAD_TRUNCi64]], i32 0, <4 x i64> <i64 -1, i64 -1, i64 -1, i64 -1>)
+; CHECK: = call <4 x i32> @_Z19sub_group_broadcastDv4_ijDv4_j(<4 x i32> %wide.load, i32 0, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+; CHECK: = call <4 x i16> @_Z25intel_sub_group_broadcastDv4_sjDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], i32 0, <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8> @_Z25intel_sub_group_broadcastDv4_cjDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], i32 0, <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+
+  %call7 = tail call spir_func i32 @_Z20sub_group_reduce_addi(i32 %0) #4
+  %call8 = tail call spir_func i16 @_Z26intel_sub_group_reduce_mins(i16 %1) #4
+  %call9 = tail call spir_func i8  @_Z26intel_sub_group_reduce_maxc(i8  %2) #4
+; CHECK: = call <4 x i32> @_Z20sub_group_reduce_addDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+; CHECK: = call <4 x i16> @_Z26intel_sub_group_reduce_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8>  @_Z26intel_sub_group_reduce_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+
+  %call10 = tail call spir_func i32 @_Z28sub_group_scan_exclusive_addi(i32 %0) #4
+  %call11 = tail call spir_func i16 @_Z34intel_sub_group_scan_exclusive_mins(i16 %1) #4
+  %call12 = tail call spir_func i8  @_Z34intel_sub_group_scan_exclusive_maxc(i8  %2) #4
+; CHECK: = call <4 x i32> @_Z28sub_group_scan_exclusive_addDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+; CHECK: = call <4 x i16> @_Z34intel_sub_group_scan_exclusive_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8> @_Z34intel_sub_group_scan_exclusive_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+
+  %call13 = tail call spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32 %0) #4
+  %call14 = tail call spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16 %1) #4
+  %call15 = tail call spir_func i8  @_Z34intel_sub_group_scan_inclusive_maxc(i8  %2) #4
+; CHECK: = call <4 x i32> @_Z28sub_group_scan_inclusive_addDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+; CHECK: = call <4 x i16> @_Z34intel_sub_group_scan_inclusive_minDv4_sDv4_j(<4 x i16> [[WIDE_LOAD_TRUNCi16]], <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>)
+; CHECK: = call <4 x i8> @_Z34intel_sub_group_scan_inclusive_maxDv4_cDv4_j(<4 x i8> [[WIDE_LOAD_TRUNCi8]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
+
+  %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %call, i64 42, i32 %slid.reverse)
 ; CHECK: = call <4 x i64> @_Z28intel_sub_group_shuffle_downDv4_lS_Dv4_jS0_(
 
-  %call5 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse)
+  %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse)
 ; CHECK: = call <16 x i32> @_Z28intel_sub_group_shuffle_downDv16_iS_Dv4_jS0_(
 
   %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %a)
@@ -40,15 +85,21 @@ entry:
   %blk_read.x2 = mul <2 x i32> %blk_read, <i32 2, i32 2>
   call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %b, <2 x i32> %blk_read.x2)
 ; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j(i32 addrspace(1)* [[LOAD_b:%.*]], <8 x i32> {{%.*}})
+  %short_ptr = bitcast i32 addrspace(1)* %a to i16 addrspace(1)*
+  %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr)
+; CHECK: call <8 x i16> @_Z32intel_sub_group_block_read_us2_4PU3AS1Kt(i16 addrspace(1)* {{%.*}})
+  %blk_read_short.x2 = mul <2 x i16> %blk_read_short, <i16 2, i16 2>
+  call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2)
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_t(i16 addrspace(1)* {{%.*}}, <8 x i16> {{%.*}})
 
-  %call6 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
+  %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
 ; CHECK: call <16 x i32> @_Z22intel_sub_group_ballotDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %tobool = icmp ne i32 %0, 0
-  %call7 = call i32 @intel_sub_group_ballot(i1 zeroext %tobool)
+  %call19 = call i32 @intel_sub_group_ballot(i1 zeroext %tobool)
 ; CHECK: call <4 x i32> @intel_sub_group_ballot_vf4(<4 x i1> zeroext {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
-  %mul = mul i32 %call3, 1000
+  %mul = mul i32 %call4, 1000
   %conv = zext i32 %mul to i64
   %add = add i64 %call, %conv
   %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %add
@@ -78,6 +129,27 @@ end:
 ; Function Attrs: convergent
 declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #1
 
+; Function Attrs: convergent
+declare spir_func i64 @_Z19sub_group_broadcastlj(i64, i32) local_unnamed_addr #1
+declare spir_func i32 @_Z19sub_group_broadcastij(i32, i32) local_unnamed_addr #1
+declare spir_func i16 @_Z25intel_sub_group_broadcastsj(i16, i32) local_unnamed_addr #1
+declare spir_func i8 @_Z25intel_sub_group_broadcastcj(i8, i32) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i32 @_Z20sub_group_reduce_addi(i32) local_unnamed_addr #1
+declare spir_func i16 @_Z26intel_sub_group_reduce_mins(i16) local_unnamed_addr #1
+declare spir_func i8  @_Z26intel_sub_group_reduce_maxc(i8) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i32 @_Z28sub_group_scan_exclusive_addi(i32) local_unnamed_addr #1
+declare spir_func i16 @_Z34intel_sub_group_scan_exclusive_mins(i16) local_unnamed_addr #1
+declare spir_func i8  @_Z34intel_sub_group_scan_exclusive_maxc(i8) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32) local_unnamed_addr #1
+declare spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16) local_unnamed_addr #1
+declare spir_func i8  @_Z34intel_sub_group_scan_inclusive_maxc(i8) local_unnamed_addr #1
+
 ; Function Attrs: convergent nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
 
@@ -92,6 +164,8 @@ declare i32 @intel_sub_group_ballot(i1 zeroext) local_unnamed_addr #1
 
 declare spir_func i32 @_Z23intel_sub_group_shuffleij(i32, i32) local_unnamed_addr #1
 declare spir_func i32 @_Z23intel_sub_group_shufflejj(i32, i32) local_unnamed_addr #1
+declare spir_func <3 x i32> @_Z23intel_sub_group_shuffleDv3_ij(<3 x i32>, i32) local_unnamed_addr #1
+declare spir_func <16 x i16> @_Z23intel_sub_group_shuffleDv16_sj(<16 x i16>, i32) local_unnamed_addr #1
 declare spir_func i32 @_Z22get_sub_group_local_idv() local_unnamed_addr #1
 declare spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64, i64, i32) local_unnamed_addr #1
 
@@ -99,6 +173,8 @@ declare spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32>,
 
 declare <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)*) local_unnamed_addr #1
 declare void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)*, <2 x i32>) local_unnamed_addr #1
+declare <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)*) local_unnamed_addr #1
+declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)*, <2 x i16>) local_unnamed_addr #1
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}
 attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false"  "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}

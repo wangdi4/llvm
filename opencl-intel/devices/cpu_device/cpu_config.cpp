@@ -201,10 +201,14 @@ const char* CPUDeviceConfig::GetExtensions() const
         m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
 
         // common Intel extensions
+        m_extensions += OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY " ";
         // TODO: The switch is required until subgroup implementation passes
         // the conformance test fully (meaning that masked kernel is integrated).
         if (GetUseNativeSubgroups()) {
             m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
+            m_extensions += OCL_EXT_INTEL_SUBGROUPS_CHAR " ";
+            m_extensions += OCL_EXT_INTEL_SUBGROUPS_SHORT " ";
+            m_extensions += OCL_EXT_INTEL_SUBGROUPS_LONG " ";
             m_extensions += OCL_EXT_INTEL_SPIRV_SUBGROUPS " ";
             m_extensions += OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE " ";
         }

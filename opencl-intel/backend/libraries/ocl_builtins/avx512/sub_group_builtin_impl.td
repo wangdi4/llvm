@@ -76,6 +76,13 @@ OclBuiltinImpl sub_group_broadcast_vector = OclBuiltinImpl<sub_group_broadcast_v
     return $Arg0VarName[$Arg1VarName];
   }]>;
 
+OclBuiltinImpl sub_group_broadcast_vector_cs = OclBuiltinImpl<sub_group_broadcast_vec_cs, [v4i8 , v8i8 , v16i8 ,
+                                                                                           v4u8 , v8u8 , v16u8 ,
+                                                                                           v4i16, v8i16, v16i16,
+                                                                                           v4u16, v8u16, v16u16], 0,
+  [{
+    return $Arg0VarName[$Arg1VarName];
+  }]>;
 //
 // Reductions
 //
@@ -186,6 +193,22 @@ OclBuiltinImpl sub_group_reduce_add_avx512fv16f64 = OclBuiltinImpl<sub_group_red
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_reduce_add_avx512fv16iu8 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [ v16i8, v16u8 ], 0,
+  [{
+   // TODO  get wrong result when using _mm_mask_reduce_add_epi8 intrinsic
+   // __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+   // return _mm_mask_reduce_add_epi8(mask, (__m128i)$Arg0VarName);
+   return convert_$ReturnType(sub_group_reduce_add(convert_int16($Arg0VarName), $Arg1VarName));
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx512fv16iu16 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [ v16i16, v16u16 ], 0,
+  [{
+   // TODO get wrong result when using _mm256_mask_reduce_add_epi16  intrinsic
+   // __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+   // return _mm256_mask_reduce_add_epi16(mask, (__m256i)$Arg0VarName);
+   return convert_$ReturnType(sub_group_reduce_add(convert_int16($Arg0VarName), $Arg1VarName));
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 OclBuiltinImpl sub_group_reduce_add_avx512fv8f64 = OclBuiltinImpl<sub_group_reduce_add_vec, [ v8f64 ], 0,
@@ -216,6 +239,20 @@ OclBuiltinImpl sub_group_reduce_add_avx512fv8iu32 = OclBuiltinImpl<sub_group_red
     return _mm512_mask_reduce_add_epi32(mask, (__m512i)num);
   }]>;
 
+OclBuiltinImpl sub_group_reduce_add_avx512fv8iu8 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [ v8i8, v8u8 ], 0,
+  [{
+    __mmask16 mask = (__mmask16)_mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#16 num;
+    num.lo = $Arg0VarName;
+    return _mm_mask_reduce_add_epi8(mask, (__m128i)num);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx512fv8iu16 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [ v8i16, v8u16 ], 0,
+  [{
+    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_add_epi16(mask, (__m128i)$Arg0VarName);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -227,6 +264,16 @@ OclBuiltinImpl sub_group_reduce_add_avx512fv4 = OclBuiltinImpl<sub_group_reduce_
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_reduce_add(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx512fv4_cs = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_reduce_add(temp_pred, temp_mask).lo;
   }]>;
 
 //VF 4 end
@@ -292,6 +339,30 @@ OclBuiltinImpl sub_group_reduce_min_avx512fv16f64 = OclBuiltinImpl<sub_group_red
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_reduce_min_avx512fv16i8 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v16i8 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_min_epi8(mask, (__m128i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx512fv16u8 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v16u8 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_min_epu8(mask, (__m128i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx512fv16i16 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v16i16 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm256_mask_reduce_min_epi16(mask, (__m256i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx512fv16u16 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v16u16 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm256_mask_reduce_min_epu16(mask, (__m256i)$Arg0VarName);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -340,6 +411,34 @@ OclBuiltinImpl sub_group_reduce_min_avx512fv8f64 = OclBuiltinImpl<sub_group_redu
     return _mm512_mask_reduce_min_pd(mask, (__m512d)$Arg0VarName);
   }]>;
 
+OclBuiltinImpl sub_group_reduce_min_avx512fv8i8 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v8i8 ], 0,
+  [{
+    __mmask16 mask = (__mmask16)_mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#16 num;
+    num.lo = $Arg0VarName;
+    return _mm_mask_reduce_min_epi8(mask, (__m128i)num);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx512fv8u8 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v8u8 ], 0,
+  [{
+    __mmask16 mask = (__mmask16)_mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#16 num;
+    num.lo = $Arg0VarName;
+    return _mm_mask_reduce_min_epu8(mask, (__m128i)num);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx512fv8i16 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v8i16 ], 0,
+  [{
+    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_min_epi16(mask, (__m128i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx512fv8u16 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v8u16 ], 0,
+  [{
+    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_min_epu16(mask, (__m128i)$Arg0VarName);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -353,6 +452,15 @@ OclBuiltinImpl sub_group_reduce_min_avx512fv4 = OclBuiltinImpl<sub_group_reduce_
     return sub_group_reduce_min(temp_pred, temp_mask).lo;
   }]>;
 
+OclBuiltinImpl sub_group_reduce_min_avx512fv4_cs = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_reduce_min(temp_pred, temp_mask).lo;
+  }]>;
 // VF 4 end
 
 // min end
@@ -417,6 +525,30 @@ OclBuiltinImpl sub_group_reduce_max_avx512fv16f64 = OclBuiltinImpl<sub_group_red
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_reduce_max_avx512fv16i8 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v16i8 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_max_epi8(mask, (__m128i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv16u8 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v16u8 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_max_epu8(mask, (__m128i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv16i16 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v16i16 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm256_mask_reduce_max_epi16(mask, (__m256i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv16u16 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v16u16 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm256_mask_reduce_max_epu16(mask, (__m256i)$Arg0VarName);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -464,6 +596,34 @@ OclBuiltinImpl sub_group_reduce_max_avx512fv8f64 = OclBuiltinImpl<sub_group_redu
     return _mm512_mask_reduce_max_pd(mask, (__m512d)$Arg0VarName);
   }]>;
 
+OclBuiltinImpl sub_group_reduce_max_avx512fv8i8 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v8i8 ], 0,
+  [{
+    __mmask16 mask = (__mmask16)_mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#16 num;
+    num.lo = $Arg0VarName;
+    return _mm_mask_reduce_max_epi8(mask, (__m128i)num);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv8u8 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v8u8 ], 0,
+  [{
+    __mmask16 mask = (__mmask16)_mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#16 num;
+    num.lo = $Arg0VarName;
+    return _mm_mask_reduce_max_epu8(mask, (__m128i)num);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv8i16 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v8i16 ], 0,
+  [{
+    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_max_epi16(mask, (__m128i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv8u16 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v8u16 ], 0,
+  [{
+    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    return _mm_mask_reduce_max_epu16(mask, (__m128i)$Arg0VarName);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -475,6 +635,16 @@ OclBuiltinImpl sub_group_reduce_max_avx512fv4 = OclBuiltinImpl<sub_group_reduce_
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_reduce_max(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx512fv4 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_reduce_max(temp_pred, temp_mask).lo;
   }]>;
 
 // VF 4 end
@@ -496,7 +666,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fiu32 = OclBuiltinImpl<sub_gro
     __v16si rotated = *((__v16si *)&masked_data);
     __v16si res = rotated;
 
-    #pragma clang unroll(full)
+#pragma clang unroll(full)
     for (int i = 0; i < 15; i++) {
       rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
       mask <<= 1;
@@ -516,7 +686,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512ff32 = OclBuiltinImpl<sub_grou
     __v16sf rotated = *((__v16sf *)&masked_data);
     __v16sf res = rotated;
 
-    #pragma clang unroll(full)
+#pragma clang unroll(full)
     for (int i = 0; i < 15; i++) {
       rotated = (__v16sf)_mm512_permutexvar_ps(rotate_mask, (__m512)res);
       mask <<= 1;
@@ -609,6 +779,45 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16ff64 = OclBuiltinImpl<sub_
     return *(($ReturnType *)&res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu8 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [ v16i8, v16u8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_maskz_mov_epi8(vmask, (__m128i) $Arg0VarName));
+
+    unsigned short mask = 0x01;
+
+    $Arg0Type rotated = masked_data;
+    $Arg0Type res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+      mask <<= 1;
+      res = as_$Arg0Type(_mm_mask_add_epi8((__m128i)res, mask, (__m128i)res, (__m128i)rotated));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu16 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [ v16i16, v16u16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_maskz_mov_epi16(vmask, (__m256i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    __m256i rotated = masked_data;
+    __m256i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+      mask <<= 1;
+      res = _mm256_mask_add_epi16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -623,7 +832,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8iu32 = OclBuiltinImpl<sub_
     __v8si rotated = *((__v8si *)&masked_data);
     __v8si res = rotated;
 
-    #pragma clang unroll(full)
+#pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8si)_mm256_permutexvar_epi32(rotate_mask, (__m256i)res);
       mask <<= 1;
@@ -643,7 +852,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8f32 = OclBuiltinImpl<sub_g
     __v8sf rotated = *((__v8sf *)&masked_data);
     __v8sf res = rotated;
 
-    #pragma clang unroll(full)
+#pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8sf)_mm256_permutexvar_ps(rotate_mask, (__m256)res);
       mask <<= 1;
@@ -663,7 +872,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8iu64 = OclBuiltinImpl<sub_
     __v8du rotated = *((__v8du *)&masked_data);
     __v8du res = rotated;
 
-    #pragma clang unroll(full)
+#pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
       mask <<= 1;
@@ -683,11 +892,41 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf8f64 = OclBuiltinImpl<sub_g
     __v8df rotated = *((__v8df *)&masked_data);
     __v8df res = rotated;
 
-    #pragma clang unroll(full)
+#pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
       rotated = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)res);
       mask <<= 1;
       res = (__v8df)_mm512_mask_add_pd((__m512d)res, mask, (__m512d)res, (__m512d)rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv8iu8 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [ v8i8, v8u8 ], 0,
+  [{
+    uint16 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#16 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_inclusive_add(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv8iu16 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [ v8i16, v8u16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_maskz_mov_epi16(vmask, (__m128i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+
+    __m128i rotated = masked_data;
+    __m128i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 7; i++) {
+      rotated = _mm_permutexvar_epi16(rotate_mask, res);
+      mask <<= 1;
+      res = _mm_mask_add_epi16(res, mask, res, rotated);
     }
     return *(($ReturnType *)&res);
   }]>;
@@ -703,6 +942,16 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf4 = OclBuiltinImpl<sub_grou
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_scan_inclusive_add(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx512fvf4_cs = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_inclusive_add(temp_pred, temp_mask).lo;
   }]>;
 
 // VF 4 end
@@ -891,6 +1140,84 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i64 = OclBuiltinImpl<sub_g
     return *(($ReturnType *)&res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u8 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v16u8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(UCHAR_MAX), vmask, (__m128i) $Arg0VarName));
+
+    unsigned short mask = 0x01;
+
+    $Arg0Type rotated = masked_data;
+    $Arg0Type res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+      res = as_$Arg0Type(_mm_mask_min_epu8((__m128i)res, mask, (__m128i)res, (__m128i)rotated));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i8 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v16i8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(CHAR_MAX), vmask, (__m128i) $Arg0VarName));
+
+    unsigned short mask = 0x01;
+
+    $Arg0Type rotated = masked_data;
+    $Arg0Type res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+      res = as_$Arg0Type(_mm_mask_min_epi8((__m128i)res, mask, (__m128i)res, (__m128i)rotated));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v16i16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(SHRT_MAX), vmask, (__m256i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    __m256i rotated = masked_data;
+    __m256i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+      res = _mm256_mask_min_epi16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v16u16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(USHRT_MAX), vmask, (__m256i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    __m256i rotated = masked_data;
+    __m256i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+      res = _mm256_mask_min_epu16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -1015,6 +1342,56 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512v8f64 = OclBuiltinImpl<sub_gro
     return *(($ReturnType *)&res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8iu8 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v8i8, v8u8 ], 0,
+  [{
+    uint16 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#16 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_inclusive_min(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8i16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v8i16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(SHRT_MAX), vmask, (__m128i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+
+    __m128i rotated = masked_data;
+    __m128i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 7; i++) {
+      mask <<= 1;
+      rotated = _mm_permutexvar_epi16(rotate_mask, res);
+      res = _mm_mask_min_epi16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8u16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v8u16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(USHRT_MAX), vmask, (__m128i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+
+    __m128i rotated = masked_data;
+    __m128i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 7; i++) {
+      mask <<= 1;
+      rotated = _mm_permutexvar_epi16(rotate_mask, res);
+      res = _mm_mask_min_epu16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -1026,6 +1403,16 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512v4 = OclBuiltinImpl<sub_group_
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_scan_inclusive_min(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512v4_cs = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_inclusive_min(temp_pred, temp_mask).lo;
   }]>;
 
 // VF 4 end
@@ -1215,6 +1602,84 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i64 = OclBuiltinImpl<sub_g
     return *(($ReturnType *)&res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i8 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v16i8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(CHAR_MIN), vmask, (__m128i) $Arg0VarName));
+
+    unsigned short mask = 0x01;
+
+    $Arg0Type rotated = masked_data;
+    $Arg0Type res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+      res = as_$Arg0Type(_mm_mask_max_epi8((__m128i)res, mask, (__m128i)res, (__m128i)rotated));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u8 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v16u8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_maskz_mov_epi8(vmask, (__m128i) $Arg0VarName));
+
+    unsigned short mask = 0x01;
+
+    $Arg0Type rotated = masked_data;
+    $Arg0Type res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+      res = as_$Arg0Type(_mm_mask_max_epu8((__m128i)res, mask, (__m128i)res, (__m128i)rotated));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i16 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v16i16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(SHRT_MIN), vmask, (__m256i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    __m256i rotated = masked_data;
+    __m256i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+      res = _mm256_mask_max_epi16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u16 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v16u16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_maskz_mov_epi16(vmask, (__m256i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    __m256i rotated = masked_data;
+    __m256i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) {
+      mask <<= 1;
+      rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+      res = _mm256_mask_max_epu16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf8i32 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [ v8i32 ], 0,
@@ -1338,6 +1803,56 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fvf8f64 = OclBuiltinImpl<sub_g
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv8iu8 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v8i8, v8u8 ], 0,
+  [{
+    uint16 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#16 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_inclusive_max(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv8i16 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v8i16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(SHRT_MIN), vmask, (__m128i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+
+    __m128i rotated = masked_data;
+    __m128i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 7; i++) {
+      mask <<= 1;
+      rotated = _mm_permutexvar_epi16(rotate_mask, res);
+      res = _mm_mask_max_epi16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv8u16 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v8u16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_maskz_mov_epi16(vmask, (__m128i) $Arg0VarName);
+
+    unsigned short mask = 0x01;
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+
+    __m128i rotated = masked_data;
+    __m128i res = rotated;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 7; i++) {
+      mask <<= 1;
+      rotated = _mm_permutexvar_epi16(rotate_mask, res);
+      res = _mm_mask_max_epu16(res, mask, res, rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -1349,6 +1864,16 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv4 = OclBuiltinImpl<sub_group
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_scan_inclusive_max(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv4_cs = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_inclusive_max(temp_pred, temp_mask).lo;
   }]>;
 
 // VF 4 end
@@ -1498,6 +2023,53 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16f64 = OclBuiltinImpl<sub_gr
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv16ui8 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [ v16i8, v16u8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_maskz_mov_epi8(vmask, (__m128i) $Arg0VarName));
+
+    unsigned short mask = 1;
+
+    $Arg0Type res = ($Arg0Type)0;
+    res[1] = masked_data[0];
+    $Arg0Type rotated_d = __builtin_shufflevector(masked_data, masked_data, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0Type rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        res = as_$Arg0Type(_mm_mask_add_epi8((__m128i)res, mask, (__m128i)rotated, (__m128i)rotated_d));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv16ui16 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [ v16i16, v16u16 ], 0,
+  [{
+
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_maskz_mov_epi16(vmask, (__m256i) $Arg0VarName);
+
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16hi res_ = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    res_[1] = masked_data[0];
+    __m256i res = (__m256i)res_;
+    __m256i rotated_d = _mm256_permutexvar_epi16(rotate_mask, masked_data);
+    __m256i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+        res = _mm256_mask_add_epi16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -1593,6 +2165,40 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8f64 = OclBuiltinImpl<sub_gr
     return as_$ReturnType(res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8ui8 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [ v8i8, v8u8 ], 0,
+  [{
+    uint16 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#16 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_exclusive_add(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8ui16 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [ v8i16, v8u16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_maskz_mov_epi16(vmask, (__m128i)$Arg0VarName);
+
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+    unsigned short mask = 1;
+
+    __v8hi res_ = {0, 0, 0, 0, 0, 0, 0, 0};
+    res_[1] = masked_data[0];
+    __m128i res = (__m128i)res_;
+    __m128i rotated_d = _mm_permutexvar_epi16(rotate_mask, masked_data);
+    __m128i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 6; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm_permutexvar_epi16(rotate_mask, res);
+        res = _mm_mask_add_epi16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -1606,6 +2212,16 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fvf4 = OclBuiltinImpl<sub_grou
     return sub_group_scan_exclusive_add(temp_pred, temp_mask).lo;
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_add_avx512fvf4_cs = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_exclusive_add(temp_pred, temp_mask).lo;
+  }]>;
+
 // VF 4 end
 
 // exclusive add end
@@ -1616,7 +2232,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fvf4 = OclBuiltinImpl<sub_grou
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512fui32 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [ v16u32 ], 0,
   [{
     __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
-    __m512i masked_data = _mm512_mask_mov_epi32(_mm512_set1_epi32(INT_MAX), vmask, (__m512i)$Arg0VarName);
+    __m512i masked_data = _mm512_mask_mov_epi32(_mm512_set1_epi32(UINT_MAX), vmask, (__m512i)$Arg0VarName);
 
     const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     unsigned short mask = 1;
@@ -1639,7 +2255,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fui32 = OclBuiltinImpl<sub_gro
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512fi32 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [ v16i32 ], 0,
   [{
     __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
-    __m512i masked_data = _mm512_mask_mov_epi32(_mm512_set1_epi32(UINT_MAX), vmask, (__m512i)$Arg0VarName);
+    __m512i masked_data = _mm512_mask_mov_epi32(_mm512_set1_epi32(INT_MAX), vmask, (__m512i)$Arg0VarName);
 
     const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     unsigned short mask = 1;
@@ -1823,6 +2439,102 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_gr
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16u8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v16u8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(UCHAR_MAX), vmask, (__m128i)$Arg0VarName));
+
+    unsigned short mask = 1;
+
+    $Arg0Type res = ($Arg0Type)(UCHAR_MAX);
+    res[1] = masked_data[0];
+    $Arg0Type rotated_d = __builtin_shufflevector(masked_data, masked_data, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    $Arg0Type rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        res = as_$Arg0Type(_mm_mask_min_epu8((__m128i)res, mask, (__m128i)rotated, (__m128i)rotated_d));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16i8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v16i8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(CHAR_MAX), vmask, (__m128i)$Arg0VarName));
+
+    unsigned short mask = 1;
+
+    $Arg0Type res = ($Arg0Type)(CHAR_MAX);
+    res[1] = masked_data[0];
+    $Arg0Type rotated_d = __builtin_shufflevector(masked_data, masked_data, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+
+    $Arg0Type rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        res = as_$Arg0Type(_mm_mask_min_epi8((__m128i)res, mask, (__m128i)rotated, (__m128i)rotated_d));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16u16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v16u16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(USHRT_MAX), vmask, (__m256i)$Arg0VarName);
+
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16hu res_ = ($Arg0Type)(USHRT_MAX);
+    res_[1] = masked_data[0];
+    __m256i res = (__m256i)res_;
+    __m256i rotated_d = _mm256_permutexvar_epi16(rotate_mask, masked_data);
+
+    __m256i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+        res = _mm256_mask_min_epu16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16i16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v16i16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(SHRT_MAX), vmask, (__m256i)$Arg0VarName);
+
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16hi res_ = ($Arg0Type)(SHRT_MAX);
+    res_[1] = masked_data[0];
+    __m256i res = (__m256i)res_;
+    __m256i rotated_d = _mm256_permutexvar_epi16(rotate_mask, masked_data);
+
+    __m256i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+        res = _mm256_mask_min_epi16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -1964,10 +2676,68 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fvf8f64 = OclBuiltinImpl<sub_g
     return as_$ReturnType(res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8ui8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v8u8, v8i8 ], 0,
+  [{
+    uint16 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#16 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_exclusive_min(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8u16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v8u16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(USHRT_MAX), vmask, (__m128i)$Arg0VarName);
+
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+    unsigned short mask = 1;
+
+    __v8hu res_ = ($Arg0Type)(USHRT_MAX);
+    res_[1] = masked_data[0];
+    __m128i res = (__m128i)res_;
+    __m128i rotated_d = _mm_permutexvar_epi16(rotate_mask, masked_data);
+    __m128i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 6; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm_permutexvar_epi16(rotate_mask, res);
+        res = _mm_mask_min_epu16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8i16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v8i16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(SHRT_MAX), vmask, (__m128i)$Arg0VarName);
+
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+    unsigned short mask = 1;
+
+    __v8hi res_ = ($Arg0Type)(SHRT_MAX);
+    res_[1] = masked_data[0];
+    __m128i res = (__m128i)res_;
+    __m128i rotated_d = _mm_permutexvar_epi16(rotate_mask, masked_data);
+    __m128i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 6; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm_permutexvar_epi16(rotate_mask, res);
+        res = _mm_mask_min_epi16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
-OclBuiltinImpl sub_group_scan_exclusive_min_avx512ffv4 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [ v4i32, v4u32, v4f32, v4i64, v4u64, v4f64 ], 0, 
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512ffv4 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec, [ v4i32, v4u32, v4f32, v4i64, v4u64, v4f64 ], 0,
   [{
     uint8 temp_mask;
     temp_mask.hi = 0;
@@ -1975,6 +2745,16 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512ffv4 = OclBuiltinImpl<sub_grou
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_scan_exclusive_min(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv4_cs = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_exclusive_min(temp_pred, temp_mask).lo;
   }]>;
 
 // VF 4 end
@@ -2193,6 +2973,96 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_gr
     return res;
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16u8 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v16u8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_maskz_mov_epi8(vmask, (__m128i)$Arg0VarName));
+    unsigned short mask = 1;
+
+    $Arg0Type res = ($Arg0Type)0;
+    res[1] = masked_data[0];
+    $Arg0Type rotated_d = __builtin_shufflevector(masked_data, masked_data, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0Type rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        res = as_$Arg0Type(_mm_mask_max_epu8((__m128i)res, mask, (__m128i)rotated, (__m128i)rotated_d));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16i8 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v16i8 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(CHAR_MIN), vmask, (__m128i)$Arg0VarName));
+    unsigned short mask = 1;
+
+    $Arg0Type res = ($Arg0Type)CHAR_MIN;
+    res[1] = masked_data[0];
+    $Arg0Type rotated_d = __builtin_shufflevector(masked_data, masked_data, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0Type rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = __builtin_shufflevector(res, res, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+        res = as_$Arg0Type(_mm_mask_max_epi8((__m128i)res, mask, (__m128i)rotated, (__m128i)rotated_d));
+    }
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16u16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v16u16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_maskz_mov_epi16(vmask, (__m256i)$Arg0VarName);
+
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16hu res_ = ($Arg0Type)0;
+    res_[1] = masked_data[0];
+    __m256i res = (__m256i)res_;
+    __m256i rotated_d = _mm256_permutexvar_epi16(rotate_mask, masked_data);
+    __m256i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+        res = _mm256_mask_max_epu16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv16i16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v16i16 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(SHRT_MIN), vmask, (__m256i)$Arg0VarName);
+
+    const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16hi res_ = ($Arg0Type)SHRT_MIN;
+    res_[1] = masked_data[0];
+    __m256i res = (__m256i)res_;
+    __m256i rotated_d = _mm256_permutexvar_epi16(rotate_mask, masked_data);
+    __m256i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm256_permutexvar_epi16(rotate_mask, res);
+        res = _mm256_mask_max_epi16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
 // VF 16 end
 // VF 8 begin
 
@@ -2334,6 +3204,64 @@ for (int i = 0; i < 6; i++) { // VF - 2 iterations
     return as_$ReturnType(res);
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv8ui8 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v8u8, v8i8 ], 0,
+  [{
+    uint16 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#16 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_exclusive_max(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv8u16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v8u16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_maskz_mov_epi16(vmask, (__m128i)$Arg0VarName);
+
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+    unsigned short mask = 1;
+
+    __v8hu res_ = ($Arg0Type)0;
+    res_[1] = masked_data[0];
+    __m128i res = (__m128i)res_;
+    __m128i rotated_d = _mm_permutexvar_epi16(rotate_mask, masked_data);
+    __m128i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 6; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm_permutexvar_epi16(rotate_mask, res);
+        res = _mm_mask_max_epu16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fv8i16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v8i16 ], 0,
+  [{
+    __mmask8 vmask = _mm256_cmp_epi16_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(SHRT_MIN), vmask, (__m128i)$Arg0VarName);
+
+    const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
+    unsigned short mask = 1;
+
+    __v8hi res_ = ($Arg0Type)SHRT_MIN;
+    res_[1] = masked_data[0];
+    __m128i res = (__m128i)res_;
+    __m128i rotated_d = _mm_permutexvar_epi16(rotate_mask, masked_data);
+    __m128i rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 6; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = _mm_permutexvar_epi16(rotate_mask, res);
+        res = _mm_mask_max_epi16(res, mask, rotated, rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+
 // VF 8 end
 // VF 4 begin
 
@@ -2345,6 +3273,16 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf4 = OclBuiltinImpl<sub_grou
     $Arg0BaseType#8 temp_pred;
     temp_pred.lo = $Arg0VarName;
     return sub_group_scan_exclusive_max(temp_pred, temp_mask).lo;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512fvf4_cs = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [ v4i8, v4u8, v4i16, v4u16 ], 0,
+  [{
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    $Arg0BaseType#8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    return intel_sub_group_scan_exclusive_max(temp_pred, temp_mask).lo;
   }]>;
 
 // VF 4 end
@@ -2369,6 +3307,24 @@ OclBuiltinImpl sub_group_shuffle_avx512fv16f32 = OclBuiltinImpl<sub_group_shuffl
     $Arg1VarName = $Arg1VarName & $Arg2VarName;
     return as_$ReturnType(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i),
                                                 __builtin_astype($Arg0VarName, __m512)));
+  }]>;
+
+// char and uchar
+OclBuiltinImpl sub_group_shuffle_avx512fv16iu8 = OclBuiltinImpl<sub_group_shuffle_avx512, [v16i8, v16u8], 0,
+  [{
+    $Arg1VarName = $Arg1VarName & $Arg2VarName;
+    __m512i tmp = _mm512_cvtepi8_epi32(__builtin_astype($Arg0VarName, __m128i));
+    tmp = _mm512_permutevar_epi32(__builtin_astype($Arg1VarName, __m512i), tmp);
+    return as_$ReturnType(_mm512_cvtepi32_epi8(tmp));
+  }]>;
+
+// short and ushort
+OclBuiltinImpl sub_group_shuffle_avx512fv16iu16 = OclBuiltinImpl<sub_group_shuffle_avx512, [v16i16, v16u16], 0,
+  [{
+    $Arg1VarName = $Arg1VarName & $Arg2VarName;
+    __m512i tmp = _mm512_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m256i));
+    tmp = _mm512_permutevar_epi32(__builtin_astype($Arg1VarName, __m512i), tmp);
+    return as_$ReturnType(_mm512_cvtepi32_epi16(tmp));
   }]>;
 
 // long, ulong, double
@@ -2398,6 +3354,31 @@ OclBuiltinImpl sub_group_shuffle_avx512fv32f32 = OclBuiltinImpl<sub_group_shuffl
      return dest;
  }]>;
 
+// char2, uchar2
+OclBuiltinImpl sub_group_shuffle_avx512fv32iu8 = OclBuiltinImpl<sub_group_shuffle_avx512, [v32i8, v32u8], 0,
+  [{
+    short16 tmp = intel_sub_group_shuffle(as_short16($Arg0VarName), $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// short2, short2
+OclBuiltinImpl sub_group_shuffle_avx512fv32iu16 = OclBuiltinImpl<sub_group_shuffle_avx512, [v32i16, v32u16], 0,
+  [{
+    int16 tmp = intel_sub_group_shuffle(as_int16($Arg0VarName), $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// long2, ulong2
+OclBuiltinImpl sub_group_shuffle_avx512fv32iu64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v32i64, v32u64], 0,
+  [{
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+                                                                       1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31);
+    $Arg0VarName.lo = intel_sub_group_shuffle($Arg0VarName.lo, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName.hi = intel_sub_group_shuffle($Arg0VarName.hi, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23,
+                                                                       8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31 );
+    return $Arg0VarName;
+  }]>;
 
 // float4, int4, uint4
 OclBuiltinImpl sub_group_shuffle_avx512f_v64fiu32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64f32, v64i32, v64u32], 0,
@@ -2417,6 +3398,39 @@ OclBuiltinImpl sub_group_shuffle_avx512f_v64fiu32 = OclBuiltinImpl<sub_group_shu
 
       $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x4($Arg0VarName);
       return $Arg0VarName;
+  }]>;
+
+// char4, uchar4
+OclBuiltinImpl sub_group_shuffle_avx512f_v64iu8 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64i8, v64u8], 0,
+  [{
+    int16 tmp = intel_sub_group_shuffle(as_int16($Arg0VarName), $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// short4, ushort4
+OclBuiltinImpl sub_group_shuffle_avx512f_v64iu16 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64i16, v64u16], 0,
+  [{
+    long16 tmp = intel_sub_group_shuffle(as_long16($Arg0VarName), $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// long4, ulong4
+OclBuiltinImpl sub_group_shuffle_avx512f_v64iu64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64i64, v64u64], 0,
+  [{
+    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_4x16($Arg0VarName);
+
+    $Arg0BaseType#16 tmp1 = $Arg0VarName.lo.lo;
+    $Arg0BaseType#16 tmp2 = $Arg0VarName.lo.hi;
+    $Arg0BaseType#16 tmp3 = $Arg0VarName.hi.lo;
+    $Arg0BaseType#16 tmp4 = $Arg0VarName.hi.hi;
+
+    $Arg0VarName.lo.lo = intel_sub_group_shuffle(tmp1, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName.lo.hi = intel_sub_group_shuffle(tmp2, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName.hi.lo = intel_sub_group_shuffle(tmp3, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName.hi.hi = intel_sub_group_shuffle(tmp4, $Arg1VarName, $Arg2VarName);
+
+    $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x4($Arg0VarName);
+    return $Arg0VarName;
   }]>;
 
 
@@ -2448,6 +3462,47 @@ OclBuiltinImpl sub_group_shuffle_avx512f_v128fiu32 = OclBuiltinImpl<sub_group_sh
       return $Arg0VarName;
   }]>;
 
+// char8, uchar8
+OclBuiltinImpl sub_group_shuffle_avx512f_v128iu8 = OclBuiltinImpl<sub_group_shuffle_avx512, [v128i8, v128u8], 0,
+  [{
+    long16 tmp = intel_sub_group_shuffle(as_long16($Arg0VarName), $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// short8, ushort8
+OclBuiltinImpl sub_group_shuffle_avx512f_v128iu16 = OclBuiltinImpl<sub_group_shuffle_avx512, [v128i16, v128u16], 0,
+  [{
+    int64 tmp = intel_sub_group_shuffle(__builtin_astype($Arg0VarName, int64),
+                                                         $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// long8, ulong8
+OclBuiltinImpl sub_group_shuffle_avx512f_v128iu64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v128i64, v128u64], 0,
+  [{
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x16($Arg0VarName);
+
+      $Arg0BaseType#16 tmp1 = $Arg0VarName.lo.lo.lo;
+      $Arg0BaseType#16 tmp2 = $Arg0VarName.lo.lo.hi;
+      $Arg0BaseType#16 tmp3 = $Arg0VarName.lo.hi.lo;
+      $Arg0BaseType#16 tmp4 = $Arg0VarName.lo.hi.hi;
+      $Arg0BaseType#16 tmp5 = $Arg0VarName.hi.lo.lo;
+      $Arg0BaseType#16 tmp6 = $Arg0VarName.hi.lo.hi;
+      $Arg0BaseType#16 tmp7 = $Arg0VarName.hi.hi.lo;
+      $Arg0BaseType#16 tmp8 = $Arg0VarName.hi.hi.hi;
+
+      $Arg0VarName.lo.lo.lo = intel_sub_group_shuffle(tmp1, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.lo.hi = intel_sub_group_shuffle(tmp2, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.hi.lo = intel_sub_group_shuffle(tmp3, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.hi.hi = intel_sub_group_shuffle(tmp4, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.lo.lo = intel_sub_group_shuffle(tmp5, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.lo.hi = intel_sub_group_shuffle(tmp6, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.hi.lo = intel_sub_group_shuffle(tmp7, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.hi.hi = intel_sub_group_shuffle(tmp8, $Arg1VarName, $Arg2VarName);
+
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x8($Arg0VarName);
+      return $Arg0VarName;
+  }]>;
 
 // float16, int16, uint16
 OclBuiltinImpl sub_group_shuffle_avx512f_v256fiu32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v256f32, v256i32, v256u32], 0,
@@ -2493,6 +3548,64 @@ OclBuiltinImpl sub_group_shuffle_avx512f_v256fiu32 = OclBuiltinImpl<sub_group_sh
       return $Arg0VarName;
   }]>;
 
+// char16, uchar16
+OclBuiltinImpl sub_group_shuffle_avx512f_v256iu8 = OclBuiltinImpl<sub_group_shuffle_avx512, [v256i8, v256u8], 0,
+  [{
+    int64 tmp = intel_sub_group_shuffle(__builtin_astype($Arg0VarName, int64),
+                                                         $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// short16, ushort16
+OclBuiltinImpl sub_group_shuffle_avx512f_v256iu16 = OclBuiltinImpl<sub_group_shuffle_avx512, [v256i16, v256u16], 0,
+  [{
+    int128 tmp = intel_sub_group_shuffle(__builtin_astype($Arg0VarName, int128),
+                                                          $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(tmp, $Arg0Type);
+  }]>;
+
+// long16, ulong16
+OclBuiltinImpl sub_group_shuffle_avx512f_v256iu64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v256i64, v256u64], 0,
+  [{
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x16($Arg0VarName);
+
+      $Arg0BaseType#16 tmp1  = $Arg0VarName.lo.lo.lo.lo;
+      $Arg0BaseType#16 tmp2  = $Arg0VarName.lo.lo.lo.hi;
+      $Arg0BaseType#16 tmp3  = $Arg0VarName.lo.lo.hi.lo;
+      $Arg0BaseType#16 tmp4  = $Arg0VarName.lo.lo.hi.hi;
+      $Arg0BaseType#16 tmp5  = $Arg0VarName.lo.hi.lo.lo;
+      $Arg0BaseType#16 tmp6  = $Arg0VarName.lo.hi.lo.hi;
+      $Arg0BaseType#16 tmp7  = $Arg0VarName.lo.hi.hi.lo;
+      $Arg0BaseType#16 tmp8  = $Arg0VarName.lo.hi.hi.hi;
+      $Arg0BaseType#16 tmp9  = $Arg0VarName.hi.lo.lo.lo;
+      $Arg0BaseType#16 tmp10 = $Arg0VarName.hi.lo.lo.hi;
+      $Arg0BaseType#16 tmp11 = $Arg0VarName.hi.lo.hi.lo;
+      $Arg0BaseType#16 tmp12 = $Arg0VarName.hi.lo.hi.hi;
+      $Arg0BaseType#16 tmp13 = $Arg0VarName.hi.hi.lo.lo;
+      $Arg0BaseType#16 tmp14 = $Arg0VarName.hi.hi.lo.hi;
+      $Arg0BaseType#16 tmp15 = $Arg0VarName.hi.hi.hi.lo;
+      $Arg0BaseType#16 tmp16 = $Arg0VarName.hi.hi.hi.hi;
+
+      $Arg0VarName.lo.lo.lo.lo = intel_sub_group_shuffle(tmp1, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.lo.lo.hi = intel_sub_group_shuffle(tmp2, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.lo.hi.lo = intel_sub_group_shuffle(tmp3, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.lo.hi.hi = intel_sub_group_shuffle(tmp4, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.hi.lo.lo = intel_sub_group_shuffle(tmp5, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.hi.lo.hi = intel_sub_group_shuffle(tmp6, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.hi.hi.lo = intel_sub_group_shuffle(tmp7, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.lo.hi.hi.hi = intel_sub_group_shuffle(tmp8, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.lo.lo.lo = intel_sub_group_shuffle(tmp9, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.lo.lo.hi = intel_sub_group_shuffle(tmp10, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.lo.hi.lo = intel_sub_group_shuffle(tmp11, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.lo.hi.hi = intel_sub_group_shuffle(tmp12, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.hi.lo.lo = intel_sub_group_shuffle(tmp13, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.hi.lo.hi = intel_sub_group_shuffle(tmp14, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.hi.hi.lo = intel_sub_group_shuffle(tmp15, $Arg1VarName, $Arg2VarName);
+      $Arg0VarName.hi.hi.hi.hi = intel_sub_group_shuffle(tmp16, $Arg1VarName, $Arg2VarName);
+
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x16($Arg0VarName);
+      return $Arg0VarName;
+  }]>;
 
 //
 // Shuffle xor
@@ -2500,7 +3613,12 @@ OclBuiltinImpl sub_group_shuffle_avx512f_v256fiu32 = OclBuiltinImpl<sub_group_sh
 OclBuiltinImpl sub_group_shuffle_xor_avx512_gen = OclBuiltinImpl<sub_group_shuffle_xor_avx512,
                [v16i32, v16u32, v16f32, v16i64, v16u64, v16f64,
                 v32i32, v32u32, v32f32, v64i32, v64u32, v64f32,
-                v128i32, v128u32, v128f32, v256i32, v256u32, v256f32], 0,
+                v128i32, v128u32, v128f32, v256i32, v256u32, v256f32,
+                v16i8, v16u8, v16i16, v16u16, v32i8, v32u8, v32i16,
+                v32u16, v32i64, v32u64, v64i8, v64u8, v64i16, v64u16,
+                v64i64, v64u64, v128i8, v128u8, v128i16, v128u16,
+                v128i64, v128u64, v256i8, v256u8, v256i16, v256u16,
+                v256i64, v256u64], 0,
   [{
     uint16 indexes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
     indexes = indexes ^ $Arg1VarName;
@@ -2545,6 +3663,281 @@ OclBuiltinImpl sub_group_shuffle_down_avx512_gen = OclBuiltinImpl<sub_group_shuf
     return *($Arg0Type*)&temp;
   }]>;
 
+// char, uchar
+OclBuiltinImpl sub_group_shuffle_down_avx512_v16iu8 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v16i8, v16u8], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    char$VecLength temp;
+    uint16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const uint max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes + $Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= $Arg3VarName;
+
+    // Get the mask for elements which < VF
+    int16 indexes_mask = sg_indexes < max_sg_size;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    char$VecLength ext_mask;
+    ext_mask = __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), char$VecLength);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg0VarName, sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((char$VecLength*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    res_next = intel_sub_group_shuffle($Arg1VarName, sg_indexes - max_sg_size, *(uint16*)&inv_indexes_mask);
+    temp = *((char$VecLength*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(char$VecLength*)&res_cur | *(char$VecLength*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v16iu8 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v16i8, v16u8], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    char$VecLength temp;
+    int16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const int max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes - *(int16*)&$Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= *(int16*)&$Arg3VarName;
+
+    // Get the mask for elements which >= 0
+    int16 indexes_mask = sg_indexes >= 0;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    char$VecLength ext_mask;
+    ext_mask = __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), char$VecLength);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg1VarName, *(uint16*)&sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((char$VecLength*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    int16 other_ind = sg_indexes + max_sg_size;
+    res_next = intel_sub_group_shuffle($Arg0VarName, *(uint16*)&other_ind, *(uint16*)&inv_indexes_mask);
+    temp = *((char$VecLength*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(char$VecLength*)&res_cur | *(char$VecLength*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+
+// short, ushort
+OclBuiltinImpl sub_group_shuffle_down_avx512_v16iu16 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v16i16, v16u16], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    short$VecLength temp;
+    uint16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const uint max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes + $Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= $Arg3VarName;
+
+    // Get the mask for elements which < VF
+    int16 indexes_mask = sg_indexes < max_sg_size;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    short$VecLength ext_mask;
+    ext_mask = __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), short$VecLength);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg0VarName, sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((short$VecLength*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    res_next = intel_sub_group_shuffle($Arg1VarName, sg_indexes - max_sg_size, *(uint16*)&inv_indexes_mask);
+    temp = *((short$VecLength*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(short$VecLength*)&res_cur | *(short$VecLength*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v16iu16 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v16i16, v16u16], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    short$VecLength temp;
+    int16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const int max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes - *(int16*)&$Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= *(int16*)&$Arg3VarName;
+
+    // Get the mask for elements which >= 0
+    int16 indexes_mask = sg_indexes >= 0;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    short$VecLength ext_mask;
+    ext_mask = __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), short$VecLength);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg1VarName, *(uint16*)&sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((short$VecLength*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    int16 other_ind = sg_indexes + max_sg_size;
+    res_next = intel_sub_group_shuffle($Arg0VarName, *(uint16*)&other_ind, *(uint16*)&inv_indexes_mask);
+    temp = *((short$VecLength*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(short$VecLength*)&res_cur | *(short$VecLength*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+
+// char2, uchar2
+OclBuiltinImpl sub_group_shuffle_down_avx512_v32iu8 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v32i8, v32u8], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_down(as_short16($Arg0VarName), as_short16($Arg1VarName),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v32iu8 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v32i8, v32u8], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_up(as_short16($Arg0VarName), as_short16($Arg1VarName),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+
+// char4, uchar4, short2, ushort2
+OclBuiltinImpl sub_group_shuffle_down_avx512_v64iu8_v32iu16 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v64i8, v64u8,
+                                                                                                             v32i16, v32u16], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_down(as_int16($Arg0VarName), as_int16($Arg1VarName),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v64iu8_v32iu16 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v64i8, v64u8,
+                                                                                                         v32i16, v32u16], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_up(as_int16($Arg0VarName), as_int16($Arg1VarName),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+
+// char8, uchar8, short4, ushort4
+OclBuiltinImpl sub_group_shuffle_down_avx512_v128iu8_v64iu16 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v128i8, v128u8,
+                                                                                                              v64i16, v64u16], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_down(__builtin_astype($Arg0VarName, int32),
+                                                         __builtin_astype($Arg1VarName, int32),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v128iu8_v64iu16 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v128i8, v128u8,
+                                                                                                          v64i16, v64u16], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_up(__builtin_astype($Arg0VarName, int32),
+                                                       __builtin_astype($Arg1VarName, int32),
+                                                       $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+
+// char16, uchar16, short8, ushort8, long2, ulong2
+OclBuiltinImpl sub_group_shuffle_down_avx512_v256iu8_v128iu16_v32iu64 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v256i8, v256u8,
+                                                                                                                       v128i16, v128u16,
+                                                                                                                       v32i64, v32u64], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_down(__builtin_astype($Arg0VarName, int64), __builtin_astype($Arg1VarName, int64),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v256iu8_v128iu16_v32iu64 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v256i8, v256u8,
+                                                                                                                   v128i16, v128u16,
+                                                                                                                   v32i64, v32u64], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_up(__builtin_astype($Arg0VarName, int64), __builtin_astype($Arg1VarName, int64),
+                                                       $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+
+// short16, ushort16, long4, ulong4
+OclBuiltinImpl sub_group_shuffle_down_avx512_v256iu16_v64iu64 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v256i16, v256u16,
+                                                                                                               v64i64, v64u64], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_down(__builtin_astype($Arg0VarName, int128),
+                                                         __builtin_astype($Arg1VarName, int128),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v256iu16_v64iu64 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v256i16, v256u16,
+                                                                                                           v64i64, v64u64], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_up(__builtin_astype($Arg0VarName, int128),
+                                                       __builtin_astype($Arg1VarName, int128),
+                                                       $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+
+// long8, ulong8
+OclBuiltinImpl sub_group_shuffle_down_avx512_v128iu64 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v128i64, v128u64], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_down(__builtin_astype($Arg0VarName, int256),
+                                                         __builtin_astype($Arg1VarName, int256),
+                                                         $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v128iu64 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v128i64, v128u64], 0,
+  [{
+    return __builtin_astype(intel_sub_group_shuffle_up(__builtin_astype($Arg0VarName, int256),
+                                                       __builtin_astype($Arg1VarName, int256),
+                                                       $Arg2VarName, $Arg3VarName), $Arg0Type);
+  }]>;
+
+// long16, ulong16
+OclBuiltinImpl sub_group_shuffle_down_avx512_v256iu64 = OclBuiltinImpl<sub_group_shuffle_down_avx512, [v256i64, v256u64], 0,
+  [{
+    $Arg0Type arg0 = __ocl_shuffle_transpose_$ReturnBaseType#_16x16($Arg0VarName);
+    $Arg0Type arg1 = __ocl_shuffle_transpose_$ReturnBaseType#_16x16($Arg1VarName);
+    $Arg0Type res;
+    res.lo.lo.lo.lo = intel_sub_group_shuffle_down(arg0.lo.lo.lo.lo, arg1.lo.lo.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.lo.lo.hi = intel_sub_group_shuffle_down(arg0.lo.lo.lo.hi, arg1.lo.lo.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.lo.lo.hi.lo = intel_sub_group_shuffle_down(arg0.lo.lo.hi.lo, arg1.lo.lo.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.lo.hi.hi = intel_sub_group_shuffle_down(arg0.lo.lo.hi.hi, arg1.lo.lo.hi.hi, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.lo.lo = intel_sub_group_shuffle_down(arg0.lo.hi.lo.lo, arg1.lo.hi.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.lo.hi = intel_sub_group_shuffle_down(arg0.lo.hi.lo.hi, arg1.lo.hi.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.hi.lo = intel_sub_group_shuffle_down(arg0.lo.hi.hi.lo, arg1.lo.hi.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.hi.hi = intel_sub_group_shuffle_down(arg0.lo.hi.hi.hi, arg1.lo.hi.hi.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.lo.lo = intel_sub_group_shuffle_down(arg0.hi.lo.lo.lo, arg1.hi.lo.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.lo.hi = intel_sub_group_shuffle_down(arg0.hi.lo.lo.hi, arg1.hi.lo.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.hi.lo = intel_sub_group_shuffle_down(arg0.hi.lo.hi.lo, arg1.hi.lo.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.hi.hi = intel_sub_group_shuffle_down(arg0.hi.lo.hi.hi, arg1.hi.lo.hi.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.lo.lo = intel_sub_group_shuffle_down(arg0.hi.hi.lo.lo, arg1.hi.hi.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.lo.hi = intel_sub_group_shuffle_down(arg0.hi.hi.lo.hi, arg1.hi.hi.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.hi.lo = intel_sub_group_shuffle_down(arg0.hi.hi.hi.lo, arg1.hi.hi.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.hi.hi = intel_sub_group_shuffle_down(arg0.hi.hi.hi.hi, arg1.hi.hi.hi.hi, $Arg2VarName, $Arg3VarName);
+    res = __ocl_shuffle_transpose_$ReturnBaseType#_16x16(res);
+    return res;
+  }]>;
+OclBuiltinImpl sub_group_shuffle_up_avx512_v256iu64 = OclBuiltinImpl<sub_group_shuffle_up_avx512, [v256i64, v256u64], 0,
+  [{
+    $Arg0Type arg0 = __ocl_shuffle_transpose_$ReturnBaseType#_16x16($Arg0VarName);
+    $Arg0Type arg1 = __ocl_shuffle_transpose_$ReturnBaseType#_16x16($Arg1VarName);
+    $Arg0Type res;
+    res.lo.lo.lo.lo = intel_sub_group_shuffle_up(arg0.lo.lo.lo.lo, arg1.lo.lo.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.lo.lo.hi = intel_sub_group_shuffle_up(arg0.lo.lo.lo.hi, arg1.lo.lo.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.lo.lo.hi.lo = intel_sub_group_shuffle_up(arg0.lo.lo.hi.lo, arg1.lo.lo.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.lo.hi.hi = intel_sub_group_shuffle_up(arg0.lo.lo.hi.hi, arg1.lo.lo.hi.hi, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.lo.lo = intel_sub_group_shuffle_up(arg0.lo.hi.lo.lo, arg1.lo.hi.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.lo.hi = intel_sub_group_shuffle_up(arg0.lo.hi.lo.hi, arg1.lo.hi.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.hi.lo = intel_sub_group_shuffle_up(arg0.lo.hi.hi.lo, arg1.lo.hi.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.lo.hi.hi.hi = intel_sub_group_shuffle_up(arg0.lo.hi.hi.hi, arg1.lo.hi.hi.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.lo.lo = intel_sub_group_shuffle_up(arg0.hi.lo.lo.lo, arg1.hi.lo.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.lo.hi = intel_sub_group_shuffle_up(arg0.hi.lo.lo.hi, arg1.hi.lo.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.hi.lo = intel_sub_group_shuffle_up(arg0.hi.lo.hi.lo, arg1.hi.lo.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.lo.hi.hi = intel_sub_group_shuffle_up(arg0.hi.lo.hi.hi, arg1.hi.lo.hi.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.lo.lo = intel_sub_group_shuffle_up(arg0.hi.hi.lo.lo, arg1.hi.hi.lo.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.lo.hi = intel_sub_group_shuffle_up(arg0.hi.hi.lo.hi, arg1.hi.hi.lo.hi, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.hi.lo = intel_sub_group_shuffle_up(arg0.hi.hi.hi.lo, arg1.hi.hi.hi.lo, $Arg2VarName, $Arg3VarName);
+    res.hi.hi.hi.hi = intel_sub_group_shuffle_up(arg0.hi.hi.hi.hi, arg1.hi.hi.hi.hi, $Arg2VarName, $Arg3VarName);
+    res = __ocl_shuffle_transpose_$ReturnBaseType#_16x16(res);
+    return res;
+  }]>;
 
 OclBuiltinImpl sub_group_shuffle_down_avx512_v16d64 = OclBuiltinImpl<sub_group_shuffle_down_avx512,
                [v16i64, v16u64, v16f64], 0,
@@ -2656,76 +4049,101 @@ OclBuiltinImpl sub_group_shuffle_up_avx512_v16d64 = OclBuiltinImpl<sub_group_shu
     return *($Arg0Type*)&temp;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v1u32 ], 0,
-  [{
-    const uint4 res = *(uint4*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 1, 2, 3));
-  }]>;
+//
+// Block read/write
+//
 
-OclBuiltinImpl intel_sub_group_block_read2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read2_4, [ v1u32 ], 0,
-  [{
-    const uint8 res = *(uint8*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 4,
-                                                           1, 5,
-                                                           2, 6,
-                                                           3, 7));
-  }]>;
+list<OclType> intel_sub_group_block_read_write_us_types = [ v1u64, v1u32, v1u16, v1u8 ];
 
-OclBuiltinImpl intel_sub_group_block_read4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read4_4, [ v1u32 ], 0,
+code BlockRead1_4 =
   [{
-    const uint16 res = *(uint16*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 4, 8,  12,
-                                                           1, 5, 9,  13,
-                                                           2, 6, 10, 14,
-                                                           3, 7, 11, 15));
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 1, 2, 3);
+  }];
+OclBuiltinImpl intel_sub_group_block_read1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v1u32 ], 0, BlockRead1_4>;
+OclBuiltinImpl intel_sub_group_block_read_us1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us1_4, intel_sub_group_block_read_write_us_types, 0, BlockRead1_4>;
 
-OclBuiltinImpl intel_sub_group_block_read8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_4, [ v1u32 ], 0,
+code BlockRead2_4 =
   [{
-    const uint32 res = *(uint32*)($Arg0VarName);
-    return ($ReturnType) __ocl_shuffle_transpose_uint_4x8(res);
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 4,
+                                             1, 5,
+                                             2, 6,
+                                             3, 7);
+  }];
+OclBuiltinImpl intel_sub_group_block_read2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read2_4, [ v1u32 ], 0, BlockRead2_4>;
+OclBuiltinImpl intel_sub_group_block_read_us2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us2_4, intel_sub_group_block_read_write_us_types, 0, BlockRead2_4>;
 
-OclBuiltinImpl intel_sub_group_block_read1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v1u32 ], 0,
+code BlockRead4_4 =
   [{
-    const uint8 res = *(uint8*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 1, 2, 3, 4, 5, 6, 7));
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 4, 8,  12,
+                                             1, 5, 9,  13,
+                                             2, 6, 10, 14,
+                                             3, 7, 11, 15);
+  }];
+OclBuiltinImpl intel_sub_group_block_read4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read4_4, [ v1u32 ], 0, BlockRead4_4>;
+OclBuiltinImpl intel_sub_group_block_read_us4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us4_4, intel_sub_group_block_read_write_us_types, 0, BlockRead4_4>;
 
-OclBuiltinImpl intel_sub_group_block_read2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read2_8, [ v1u32 ], 0,
+code BlockRead8_4 =
   [{
-    const uint16 res = *(uint16*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 8,
-                                                           1, 9,
-                                                           2, 10,
-                                                           3, 11,
-                                                           4, 12,
-                                                           5, 13,
-                                                           6, 14,
-                                                           7, 15));
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_4x8(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_4, [ v1u32 ], 0, BlockRead8_4>;
+OclBuiltinImpl intel_sub_group_block_read_us8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us8_4, intel_sub_group_block_read_write_us_types, 0, BlockRead8_4>;
 
-OclBuiltinImpl intel_sub_group_block_read4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read4_8, [ v1u32 ], 0,
+code BlockRead1_8 =
   [{
-    const uint32 res = *(uint32*)($Arg0VarName);
-    return ($ReturnType) __ocl_shuffle_transpose_uint_8x4(res);
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 1, 2, 3, 4, 5, 6, 7);
+  }];
+OclBuiltinImpl intel_sub_group_block_read1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v1u32 ], 0, BlockRead1_8>;
+OclBuiltinImpl intel_sub_group_block_read_us1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us1_8, intel_sub_group_block_read_write_us_types, 0, BlockRead1_8>;
 
-OclBuiltinImpl intel_sub_group_block_read8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v1u32 ], 0,
+code BlockRead2_8 =
   [{
-    const uint64 res = *(uint64*)($Arg0VarName);
-    return ($ReturnType) __ocl_shuffle_transpose_uint_8x8(res);
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 8,
+                                             1, 9,
+                                             2, 10,
+                                             3, 11,
+                                             4, 12,
+                                             5, 13,
+                                             6, 14,
+                                             7, 15);
+  }];
+OclBuiltinImpl intel_sub_group_block_read2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read2_8, [ v1u32 ], 0, BlockRead2_8>;
+OclBuiltinImpl intel_sub_group_block_read_us2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us2_8, intel_sub_group_block_read_write_us_types, 0, BlockRead2_8>;
 
-OclBuiltinImpl intel_sub_group_block_read1_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_16, [ v1u32 ], 0,
+code BlockRead4_8 =
   [{
-    const uint16 res = *(uint16*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15));
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_8x4(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read4_8, [ v1u32 ], 0, BlockRead4_8>;
+OclBuiltinImpl intel_sub_group_block_read_us4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us4_8, intel_sub_group_block_read_write_us_types, 0, BlockRead4_8>;
 
-OclBuiltinImpl intel_sub_group_block_read2_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read2_16, [ v1u32 ], 0,
+code BlockRead8_8 =
   [{
-    const uint32 res = *(uint32*)($Arg0VarName);
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_8x8(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v1u32 ], 0, BlockRead8_8>;
+OclBuiltinImpl intel_sub_group_block_read_us8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us8_8, intel_sub_group_block_read_write_us_types, 0, BlockRead8_8>;
+
+code BlockRead1_16 =
+  [{
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+  }];
+OclBuiltinImpl intel_sub_group_block_read1_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_16, [ v1u32 ], 0, BlockRead1_16>;
+OclBuiltinImpl intel_sub_group_block_read_us1_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us1_16, intel_sub_group_block_read_write_us_types, 0, BlockRead1_16>;
+
+
+code BlockRead2_16 =
+  [{
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
     return ($ReturnType)(__builtin_shufflevector(res, res, 0,  16,
                                                            1,  17,
                                                            2,  18,
@@ -2742,95 +4160,124 @@ OclBuiltinImpl intel_sub_group_block_read2_16_avx512f = OclBuiltinImpl<intel_sub
                                                            13, 29,
                                                            14, 30,
                                                            15, 31));
-  }]>;
+  }];
+OclBuiltinImpl intel_sub_group_block_read2_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read2_16, [ v1u32 ], 0, BlockRead2_16>;
+OclBuiltinImpl intel_sub_group_block_read_us2_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us2_16, intel_sub_group_block_read_write_us_types, 0, BlockRead2_16>;
 
-OclBuiltinImpl intel_sub_group_block_read4_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read4_16, [ v1u32 ], 0,
+code BlockRead4_16 =
   [{
-    const uint64 res = *(uint64*)($Arg0VarName);
-    return ($ReturnType) __ocl_shuffle_transpose_uint_16x4(res);
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_16x4(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read4_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read4_16, [ v1u32 ], 0, BlockRead4_16>;
+OclBuiltinImpl intel_sub_group_block_read_us4_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us4_16, intel_sub_group_block_read_write_us_types, 0, BlockRead4_16>;
 
-OclBuiltinImpl intel_sub_group_block_read8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_16, [ v1u32 ], 0,
+code BlockRead8_16 =
   [{
-    const uint128 res = *(uint128*)($Arg0VarName);
-    return ($ReturnType) __ocl_shuffle_transpose_uint_16x8(res);
-  }]>;
+    const $ReturnType res = *($ReturnType*)($Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_16x8(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_16, [ v1u32 ], 0, BlockRead8_16>;
+OclBuiltinImpl intel_sub_group_block_read_us8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us8_16, intel_sub_group_block_read_write_us_types, 0, BlockRead8_16>;
 
-OclBuiltinImpl intel_sub_group_block_write1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v1u32 ], 0,
+code BlockWrite1_4 =
   [{
-    uint4 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3);
-    *(uint4 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#4 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3);
+    *($Arg1BaseType#4*)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v1u32 ], 0, BlockWrite1_4>;
+OclBuiltinImpl intel_sub_group_block_write_us1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us1_4, intel_sub_group_block_read_write_us_types, 0, BlockWrite1_4>;
 
-OclBuiltinImpl intel_sub_group_block_write2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_4, [ v1u32 ], 0,
+code BlockWrite2_4 =
   [{
-    uint8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6,
-                                                                    1, 3, 5, 7);
-    *(uint8 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6,
+                                                                              1, 3, 5, 7);
+    *($Arg1BaseType#8*)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_4, [ v1u32 ], 0, BlockWrite2_4>;
+OclBuiltinImpl intel_sub_group_block_write_us2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us2_4, intel_sub_group_block_read_write_us_types, 0, BlockWrite2_4>;
 
-OclBuiltinImpl intel_sub_group_block_write4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_4, [ v1u32 ], 0,
+code BlockWrite4_4 =
   [{
-    uint16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 4, 8,  12,
-                                                                     1, 5, 9,  13,
-                                                                     2, 6, 10, 14,
-                                                                     3, 7, 11, 15);
-    *(uint16 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 4, 8,  12,
+                                                                               1, 5, 9,  13,
+                                                                               2, 6, 10, 14,
+                                                                               3, 7, 11, 15);
+    *($Arg1BaseType#16 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_4, [ v1u32 ], 0, BlockWrite4_4>;
+OclBuiltinImpl intel_sub_group_block_write_us4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us4_4, intel_sub_group_block_read_write_us_types, 0, BlockWrite4_4>;
 
-OclBuiltinImpl intel_sub_group_block_write8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_4, [ v1u32 ], 0,
+code BlockWrite8_4 =
   [{
-    uint32 res = __ocl_shuffle_transpose_uint_8x4($Arg1VarName);
-    *(uint32 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#32 res = __ocl_shuffle_transpose_$Arg1BaseType#_8x4($Arg1VarName);
+    *($Arg1BaseType#32 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_4, [ v1u32 ], 0, BlockWrite8_4>;
+OclBuiltinImpl intel_sub_group_block_write_us8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us8_4, intel_sub_group_block_read_write_us_types, 0, BlockWrite8_4>;
 
-OclBuiltinImpl intel_sub_group_block_write1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v1u32 ], 0,
+code BlockWrite1_8 =
   [{
-    uint8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7);
-    *(uint8 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7);
+    *($Arg1BaseType#8 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v1u32 ], 0, BlockWrite1_8>;
+OclBuiltinImpl intel_sub_group_block_write_us1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us1_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite1_8>;
 
-OclBuiltinImpl intel_sub_group_block_write2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_8, [ v1u32 ], 0,
+code BlockWrite2_8 =
   [{
-    uint16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6, 8, 10, 12, 14,
-                                                                     1, 3, 5, 7, 8, 11, 13, 15);
-    *(uint16 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6, 8, 10, 12, 14,
+                                                                               1, 3, 5, 7, 8, 11, 13, 15);
+    *($Arg1BaseType#16 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_8, [ v1u32 ], 0, BlockWrite2_8>;
+OclBuiltinImpl intel_sub_group_block_write_us2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us2_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite2_8>;
 
-OclBuiltinImpl intel_sub_group_block_write4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_8, [ v1u32 ], 0,
+code BlockWrite4_8 =
   [{
-    uint32 res = __ocl_shuffle_transpose_uint_4x8($Arg1VarName);
-    *(uint32 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#32 res = __ocl_shuffle_transpose_$Arg1BaseType#_4x8($Arg1VarName);
+    *($Arg1BaseType#32 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_8, [ v1u32 ], 0, BlockWrite4_8>;
+OclBuiltinImpl intel_sub_group_block_write_us4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us4_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite4_8>;
 
-OclBuiltinImpl intel_sub_group_block_write8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v1u32 ], 0,
+code BlockWrite8_8 =
   [{
-    uint64 res = __ocl_shuffle_transpose_uint_8x8($Arg1VarName);
-    *(uint64 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#64 res = __ocl_shuffle_transpose_$Arg1BaseType#_8x8($Arg1VarName);
+    *($Arg1BaseType#64 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v1u32 ], 0, BlockWrite8_8>;
+OclBuiltinImpl intel_sub_group_block_write_us8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us8_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite8_8>;
 
-OclBuiltinImpl intel_sub_group_block_write1_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_16, [ v1u32 ], 0,
+code BlockWrite1_16 =
   [{
-    uint16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
-    *(uint16 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+    *($Arg1BaseType#16 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write1_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_16, [ v1u32 ], 0, BlockWrite1_16>;
+OclBuiltinImpl intel_sub_group_block_write_us1_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us1_16, intel_sub_group_block_read_write_us_types, 0, BlockWrite1_16>;
 
-OclBuiltinImpl intel_sub_group_block_write2_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_16, [ v1u32 ], 0,
+code BlockWrite2_16 =
   [{
-    uint32 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-                                                                     1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31);
-    *(uint32 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#32 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+                                                                               1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31);
+    *($Arg1BaseType#32 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write2_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_16, [ v1u32 ], 0, BlockWrite2_16>;
+OclBuiltinImpl intel_sub_group_block_write_us2_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us2_16, intel_sub_group_block_read_write_us_types, 0, BlockWrite2_16>;
 
-OclBuiltinImpl intel_sub_group_block_write4_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_16, [ v1u32 ], 0,
+code BlockWrite4_16 =
   [{
-    uint64 res = __ocl_shuffle_transpose_uint_4x16($Arg1VarName);
-    *(uint64 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#64 res = __ocl_shuffle_transpose_$Arg1BaseType#_4x16($Arg1VarName);
+    *($Arg1BaseType#64 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write4_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_16, [ v1u32 ], 0, BlockWrite4_16>;
+OclBuiltinImpl intel_sub_group_block_write_us4_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us4_16, intel_sub_group_block_read_write_us_types, 0, BlockWrite4_16>;
 
-OclBuiltinImpl intel_sub_group_block_write8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_16, [ v1u32 ], 0,
+code BlockWrite8_16 =
   [{
-    uint128 res = __ocl_shuffle_transpose_uint_8x16($Arg1VarName);
-    *(uint128 *)($Arg0VarName) = res;
-  }]>;
-
+    $Arg1BaseType#128 res = __ocl_shuffle_transpose_$Arg1BaseType#_8x16($Arg1VarName);
+    *($Arg1BaseType#128 *)($Arg0VarName) = res;
+  }];
+OclBuiltinImpl intel_sub_group_block_write8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_16, [ v1u32 ], 0, BlockWrite8_16>;
+OclBuiltinImpl intel_sub_group_block_write_us8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us8_16, intel_sub_group_block_read_write_us_types, 0, BlockWrite8_16>;

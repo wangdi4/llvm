@@ -29,22 +29,6 @@ TEST_F(TestFPGABasic, ContextProperties) {
   ASSERT_NE(nullptr, context) << "createContext failed";
 }
 
-TEST_F(TestFPGABasic, INTELFPGACLDefine) {
-  const std::string program_sources = "                                      \n\
-    #ifndef INTELFPGA_CL                                                     \n\
-      #error \"INTELFPGA_CL define is missed!\"                              \n\
-    #elif (INTELFPGA_CL != 191)                                              \n\
-      #error \"INTELFPGA_CL contains a wrong version\"                       \n\
-    #endif                                                                   \n\
-    ";
-
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
-  cl_program program = createAndBuildProgram(context, program_sources);
-  ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-}
-
 TEST_F(TestFPGABasic, MemFlags) {
   cl_context context = createContext(device());
   ASSERT_NE(nullptr, context) << "createContext failed";

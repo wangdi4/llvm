@@ -15,6 +15,7 @@
 #define __SYCLPIPESHACK_H__
 
 #include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
 namespace intel {
 class SYCLPipesHack : public llvm::ModulePass {

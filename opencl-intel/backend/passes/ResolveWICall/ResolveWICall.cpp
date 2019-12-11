@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -24,6 +24,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -34,7 +35,7 @@ static llvm::cl::opt<bool> OptUniformWGSize(
     "uniform-wg-size", llvm::cl::init(false),
     llvm::cl::desc("The flag speficies work groups size as uniform"));
 
-extern cl::opt<bool> OptUseTLSGlobals;
+extern bool OptUseTLSGlobals;
 
 extern "C" {
 ModulePass *createResolveWICallPass(bool isUniformWGSize, bool useTLSGlobals) {
@@ -406,7 +407,7 @@ namespace intel {
       // store argument into address. Alignment forced to 1 to make vector
       // stores safe.
       //
-      (void) new StoreInst(arg, cast_instr, false, 1, pCall);
+      (void) new StoreInst(arg, cast_instr, false, Align(1), pCall);
 
       // This argument occupied some space in the buffer.
       // Advance the buffer pointer offset by its size to know where the next

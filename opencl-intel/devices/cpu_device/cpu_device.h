@@ -61,6 +61,9 @@ protected:
     cl_dev_cmd_list			    m_defaultCommandList;
     OpenCLBackendWrapper        m_backendWrapper;
 
+    // ID of (logical) CPU on which master thread is running
+    unsigned int                m_uiMasterHWId;
+
     unsigned long               m_numCores;           // Architectural data on the underlying HW
     unsigned int*               m_pComputeUnitMap;    // A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
     std::map<threadid_t, int>   m_threadToCore;       // Maps OS thread ID to core ID
@@ -89,8 +92,14 @@ protected:
     bool            AcquireComputeUnits(unsigned int* which, unsigned int how_many);
     void            ReleaseComputeUnits(unsigned int* which, unsigned int how_many);
 
-    // Affinity observer interface
-    void            NotifyAffinity(threadid_t tid, unsigned int core_index);
+    /** Affinity observer interface
+     * @param tid - Thread id
+     * @param core_index - Thread position (index) in tbb arena.
+     * @param relocate - Whether the previous thread pinned at core_index should
+     * be relocated to previous core of current thread.
+     */
+    void            NotifyAffinity(threadid_t tid, unsigned int core_index,
+                                   bool relocate = false);
 
     // Translate an "absolute" core (CPU core) to a core index
     // Needed to allow the user to limit the cores the CPU device will run on

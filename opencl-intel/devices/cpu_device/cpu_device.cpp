@@ -406,6 +406,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     clGetThreadAffinityMask(&myParentMask, myParentId);
     clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
+    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
     return CL_DEV_SUCCESS;
 }
 
@@ -448,68 +449,82 @@ void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
     }
 }
 
-void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
+void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
+                               bool relocate)
 {
     Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
-    // For FPGA emulation we allow to have more TBB workers than a
-    // number of CPU cores. This function wasn't written with this
-    // possibility in mind (we have an assert), so let's just leave
-    // extra workers without affinity settings.
-    if ((FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
-        && core_index >= m_numCores)
-    {
+    // Don't pin worker thread if
+    // * core_index is not less than m_numCores. For example, for FPGA emulator
+    //   we allow to have more TBB workers than the number of CPU cores.
+    // * it is mapped to the CPU core on which master thread is running.
+    if (core_index >= m_numCores ||
+        m_pComputeUnitMap[core_index] == m_uiMasterHWId)
         return;
-    }
-    assert(core_index < m_numCores && "Access outside core map size");
 
-    threadid_t   other_tid        = m_pCoreToThread[core_index];
-    int          my_prev_core_idx = m_threadToCore[tid];
-
-	// no change needed
-	if (other_tid == tid)
-	{
-	    return;
-	}
-    // The other tid is valid if there was another thread pinned to the core I want to move to
-    bool         other_valid      = (other_tid != INVALID_THREAD_HANDLE);
-    // Either I'm not relocating another thread, or I am. If I am, make sure that I'm relocating the thread which resides on the core I want to move to
-    // This assertion might fail if there's a bug that makes m_threadToCore desynch from m_pCoreToThread
-    bool bMapsAreConsistent = !other_valid || (int)core_index == m_threadToCore[other_tid];
-    assert(bMapsAreConsistent && "m_threadToCore and m_pCoreToThread mismatch");
-    if (!bMapsAreConsistent)
+    if (relocate)
     {
-        return;
-    }
+        threadid_t other_tid = m_pCoreToThread[core_index];
+        int my_prev_core_idx = m_threadToCore[tid];
 
-    //Update map with regard to myself
-    m_threadToCore[tid]         = core_index;
-    m_pCoreToThread[core_index] = tid;
+        // no change needed
+        if (other_tid == tid)
+            return;
 
-    //Set the caller's affinity as requested
-    clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
+        // The other tid is valid if there was another thread pinned to the core
+        // I want to move to.
+        bool other_valid = (other_tid != INVALID_THREAD_HANDLE);
+        // Either I'm not relocating another thread, or I am. If I am, make sure
+        // that I'm relocating the thread which resides on the core I want to
+        // move to.
+        // This assertion might fail if there's a bug that makes m_threadToCore
+        // desynch from m_pCoreToThread.
+        bool bMapsAreConsistent = !other_valid ||
+                                  (int)core_index == m_threadToCore[other_tid];
+        assert(bMapsAreConsistent &&
+               "m_threadToCore and m_pCoreToThread mismatch");
+        if (!bMapsAreConsistent)
+            return;
 
-    if (other_valid)
-    {
-        //Need to relocate the other thread to my previous core
-        m_threadToCore[other_tid] = my_prev_core_idx;
-        if ( -1 != my_prev_core_idx )
+        //Update map with regard to myself
+        m_threadToCore[tid]         = core_index;
+        m_pCoreToThread[core_index] = tid;
+
+        //Set the caller's affinity as requested
+        clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
+
+        if (other_valid)
         {
-            m_pCoreToThread[my_prev_core_idx] = other_tid;
-            clSetThreadAffinityToCore(m_pComputeUnitMap[my_prev_core_idx], other_tid);
+            //Need to relocate the other thread to my previous core
+            m_threadToCore[other_tid] = my_prev_core_idx;
+            if ( -1 != my_prev_core_idx )
+            {
+                m_pCoreToThread[my_prev_core_idx] = other_tid;
+                clSetThreadAffinityToCore(m_pComputeUnitMap[my_prev_core_idx],
+                                          other_tid);
+            }
+            else
+            {
+                // If current thread was not affinitize reset others thread
+                // affinity mask. TODO: Need to save the original mask of the
+                // thread and restore it in this case.
+                clResetThreadAffinityMask(other_tid);
+            }
         }
         else
-        {
-            // If current thread was not affinitize reset others thread affinity mask
-            // TODO: Need to save the original mask of the thread and restore it in this case
-            clResetThreadAffinityMask(other_tid);
-        }
+            m_pCoreToThread[my_prev_core_idx] = INVALID_THREAD_HANDLE;
     }
     else
     {
-        m_pCoreToThread[my_prev_core_idx] = INVALID_THREAD_HANDLE;
-    }
+        if (m_pCoreToThread[core_index] != tid)
+        {
+            // Update map
+            m_pCoreToThread[core_index] = tid;
 
+            //Set the caller's affinity as requested
+            clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
+        }
+    }
 }
 
 cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
@@ -1893,6 +1908,31 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             {
                 MEMCPY_S(paramVal, valSize, sizes.data(),
                         *pinternalRetunedValueSize);
+            }
+
+            break;
+        }
+        case CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL: // FALL THROUG
+        case CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL: // FALL THROUGH
+        case CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL: // FALL THROUGH
+        case CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL: // FALL THROUGH
+        case CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL:
+        {
+            *pinternalRetunedValueSize =
+                sizeof(cl_unified_shared_memory_capabilities_intel);
+
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+                return CL_DEV_INVALID_VALUE;
+
+            if (nullptr != paramVal)
+            {
+                cl_unified_shared_memory_capabilities_intel cap =
+                  CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL |
+                  CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL |
+                  CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ACCESS_INTEL |
+                  CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ATOMIC_ACCESS_INTEL;
+
+                *(cl_unified_shared_memory_capabilities_intel*)paramVal = cap;
             }
 
             break;

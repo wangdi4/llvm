@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,6 +23,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 
 #ifdef __DEBUG
 #include <string>
@@ -107,6 +108,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
             std::vector<int>(),
             "",
             nullptr,
+            false,
             false,
             false,
             false,
@@ -257,6 +259,7 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
             dumpIROptionBefore,
             dumpIRDir,
             nullptr,
+            false,
             false,
             false,
             false,

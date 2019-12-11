@@ -129,8 +129,9 @@ bool CoerceTypes::runOnFunction(Function *F) {
     KernelList(M).set(Kernels);
 
     // Patch users of the old function
-    for (User *Usr : F->users()) {
-      if (CallInst *CI = dyn_cast<CallInst>(Usr)) {
+    for (auto UI = F->user_begin(), UE = F->user_end(); UI != UE;) {
+      // Increment UI before eraseFromParent() to avoid operating on freed memory.
+      if (CallInst *CI = dyn_cast<CallInst>(*UI++)) {
         // replace call instruction
         SmallVector<Value *, 16> Args;
         size_t I = 0;

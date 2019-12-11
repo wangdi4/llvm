@@ -110,15 +110,17 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
                                               const ICLDevBackendOptions* pOptions,
                                               const char* pBuildOpts)
 {
+    if(nullptr == pProgram)
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    // if an exception is caught, this mutex should be unlocked safely
+    // on windows, this mutex will remain unlocked if it is locked in the try{} code block
+    std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
+
     try
     {
-        if(nullptr == pProgram)
-        {
-            return CL_DEV_INVALID_VALUE;
-        }
-
-        std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
-
         return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), pOptions, pBuildOpts);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )

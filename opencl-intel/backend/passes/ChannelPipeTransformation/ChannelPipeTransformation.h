@@ -16,6 +16,7 @@
 #define __CHANNEL_PIPE_TRANSFORMATION_H__
 
 #include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
 namespace intel {
 

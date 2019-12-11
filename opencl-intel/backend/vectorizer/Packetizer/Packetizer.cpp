@@ -51,7 +51,9 @@ EnableScatterGather_v4i8("gather-scatter-v4i8", cl::init(false), cl::Hidden,
 // explicit value, otherwise we will be erroneously increasing the alignment while packetizing
 static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType* PT) {
   if (!Alignment)
-    Alignment = std::max(1U, PT->getElementType()->getPrimitiveSizeInBits() / 8);
+    Alignment = std::max(
+        uint64_t(1U),
+        PT->getElementType()->getPrimitiveSizeInBits().getKnownMinSize() / 8);
   return Alignment;
 }
 
@@ -669,6 +671,9 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     case Instruction::FCmp :
       packetizeInstruction(dyn_cast<CmpInst>(I));
       break;
+    case Instruction::FNeg:
+      packetizeInstruction(dyn_cast<UnaryOperator>(I), false);
+      break;
     case Instruction::Trunc :
     case Instruction::ZExt :
     case Instruction::SExt :
@@ -909,6 +914,44 @@ void PacketizeFunction::packetizeInstruction(BinaryOperator *BI, bool supportsWr
   m_removedInsts.insert(BI);
 }
 
+void PacketizeFunction::packetizeInstruction(UnaryOperator *UI, bool supportsWrap)
+{
+  V_PRINT(packetizer, "\t\tUnaryOp Instruction\n");
+  V_ASSERT(UI && "instruction type dynamic cast failed");
+  V_ASSERT(1 == UI->getNumOperands() && "unary operator with num operands other than 1");
+
+  Type *origInstType = UI->getType();
+
+  // If instruction's return type is not primitive - cannot packetize
+  if (!origInstType->isFloatingPointTy()) {
+    V_PRINT(vectorizer_stat,
+            "<<<<NonPrimitiveCtr("
+                << __FILE__ << ":" << __LINE__
+                << "): " << Instruction::getOpcodeName(UI->getOpcode())
+                << " instruction's return type is not primitive\n");
+    V_STAT(m_nonPrimitiveCtr[UI->getOpcode()]++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
+    return duplicateNonPacketizableInst(UI);
+  }
+
+  bool has_NSW = (supportsWrap ? UI->hasNoSignedWrap() : false);
+  bool has_NUW = (supportsWrap ? UI->hasNoUnsignedWrap() : false);
+
+  // Obtain packetized arguments
+  Value *operand0;
+  obtainVectorizedValue(&operand0, UI->getOperand(0), UI);
+
+  // Generate packetized instruction
+  UnaryOperator *newVectorInst =
+    UnaryOperator::Create(UI->getOpcode(), operand0, UI->getName(), UI);
+  if (has_NSW) newVectorInst->setHasNoSignedWrap();
+  if (has_NUW) newVectorInst->setHasNoUnsignedWrap();
+
+  // Add new value/s to VCM
+  createVCMEntryWithVectorValue(UI, newVectorInst);
+  // Remove original instruction
+  m_removedInsts.insert(UI);
+}
 
 void PacketizeFunction::packetizeInstruction(CastInst * CI)
 {
@@ -1223,13 +1266,15 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   switch (MO.type) {
   case LOAD: {
     // Create a "vectorized" load
-    return new LoadInst(bitCastPtr, MO.Orig->getName(), false, MO.Alignment, MO.Orig);
+    return new LoadInst(bitCastPtr, MO.Orig->getName(), false,
+                        MaybeAlign(MO.Alignment), MO.Orig);
   }
   case STORE: {
     Value *vData;
     obtainVectorizedValue(&vData, MO.Data, MO.Orig);
     // Create a "vectorized" store
-    return new StoreInst(vData, bitCastPtr, false, MO.Alignment, MO.Orig);
+    return new StoreInst(vData, bitCastPtr, false, MaybeAlign(MO.Alignment),
+                         MO.Orig);
   }
   case PREFETCH: {
     // Leave the scalar pointer as prefetch argument, but increase number of elements in 16 times.
@@ -1872,16 +1917,28 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     Value *curScalarArg = CI->getArgOperand(argIndex);
     Type *curScalarArgType = curScalarArg->getType();
 
+    V_ASSERT(CI->getCalledFunction() && "Indirect call is not expected!");
+    if (m_rtServices->needsConcatenatedVectorParams(
+            CI->getCalledFunction()->getName()) &&
+        curScalarArgType->isVectorTy()) {
+      operand = handleParamSOAVPlanStyle(CI, curScalarArg);
+      if (!operand || operand->getType() != neededType) {
+        V_ASSERT(0 && "unsupported parameter type");
+        return false;
+      }
+      newArgs.push_back(operand);
+    }
     // In case current argument is a vector and runtime says we always
     // spread vector operands, then try to do it.
-    if (m_rtServices->alwaysSpreadVectorParams() && curScalarArgType->isVectorTy()) {
+    else if (m_rtServices->alwaysSpreadVectorParams() &&
+             curScalarArgType->isVectorTy()) {
       // here we assume that any scalar vector operand must be spread
       if (!spreadVectorParam(CI, curScalarArg, LibFuncTy, newArgs)){
         V_ASSERT (0 && "unsupported parameter type");
         return false;
       }
     } else if (neededType == curScalarArgType ||
-               VectorizerUtils::isOpaquePtrPair(neededType, curScalarArgType)){
+               VectorizerUtils::isOpaquePtrPair(neededType, curScalarArgType)) {
       // If a non-packetized argument is needed, simply use the first argument of
       // the received multi-scalar argument. In case the type of the parameter
       // is a struct, we use bitcast.
@@ -1971,10 +2028,16 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
     // are suported: return by pointers (a), return by array of vectors(b).
     // a.  <2 x float> foo(...) --> void foo4(..., <4 xfloat>*, <4 x float>*)
     // b.  <2 x float> foo(...) --> [2 x <4 x float>]] foo4(...)
-    // array of vectors , or it is the return is by pointers as last arguments.
+    // c.  <2 x float> foo(...) --> <8 x float> foo4(...)
+    // array of vectors , or it is the return is by pointers as last arguments,
+    // or VPlan style return type.
     if (newCall->getType()->isVoidTy()) {
       // return by pointers.
       return handleReturnByPointers(CI, newCall);
+    } else if (m_rtServices->needsConcatenatedVectorReturn(
+                   CI->getCalledFunction()->getName())) {
+      // return using array of vectors VPlan style
+      return handleReturnValueSOAVPlanStyle(CI, newCall);
     } else {
       // return using array of vectors.
       return handleReturnValueSOA(CI, newCall);
@@ -2034,6 +2097,50 @@ bool PacketizeFunction::handleReturnValueSOA(CallInst* CI, CallInst *soaRet){
 
   // Map the elements to fake extracts generated by the scalarizer to
   // the vector elemetns.
+  mapFakeExtractUsagesTo(CI, scalars);
+  return true;
+}
+
+bool PacketizeFunction::handleReturnValueSOAVPlanStyle(CallInst *CI,
+                                                       CallInst *soaRet) {
+  // first validate that the new call return is proper array of vectors.
+  V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
+  VectorType *aosType = cast<VectorType>(CI->getType());
+  Type *elementType = aosType->getElementType();
+  V_ASSERT(elementType && !elementType->isVectorTy() &&
+           "do not expect vector type");
+  unsigned soaTypeLength = aosType->getNumElements() * m_packetWidth;
+  VectorType *soaType =
+      VectorType::get(elementType, soaTypeLength);
+
+  if (soaType != soaRet->getType()) {
+    V_ASSERT(0 && "unsupported parameter type");
+    soaRet->eraseFromParent();
+    return false;
+  }
+
+  // Break, say, <8 x float> into 4 vectors of <2 x float>:
+  unsigned numElements = aosType->getNumElements();
+  SmallVector<Instruction *, MAX_INPUT_VECTOR_WIDTH> scalars;
+  for (unsigned i = 0; i < numElements; i++) {
+    Value *InsertInst =
+        ConstantVector::getSplat(m_packetWidth, UndefValue::get(elementType));
+    for (unsigned j = 0; j < m_packetWidth; j++) {
+      unsigned index = j * numElements + i;
+      Constant *indexVal =
+          ConstantInt::get(Type::getInt32Ty(CI->getContext()), index);
+      Value *extracted = ExtractElementInst::Create(soaRet, indexVal, "", CI);
+      Constant *jVal = ConstantInt::get(Type::getInt32Ty(CI->getContext()), j);
+      InsertInst =
+          InsertElementInst::Create(InsertInst, extracted, jVal, "", CI);
+    }
+    V_ASSERT(isa<Instruction>(InsertInst) &&
+             "InsertInst must be InsertElementInst");
+    scalars.push_back(cast<Instruction>(InsertInst));
+  }
+
+  // Map the elements to fake extracts generated by the scalarizer to
+  // the vector elements.
   mapFakeExtractUsagesTo(CI, scalars);
   return true;
 }
@@ -2106,6 +2213,48 @@ Value *PacketizeFunction::handleParamSOA(CallInst* CI, Value *scalarParam){
   unsigned numElements = soaType->getNumElements();
   for (unsigned i=0; i < numElements ; i++) {
     soaArr = InsertValueInst::Create(soaArr, multiOperands[i], i, "", CI);
+  }
+  return soaArr;
+}
+
+Value *PacketizeFunction::handleParamSOAVPlanStyle(CallInst *CI,
+                                                   Value *scalarParam) {
+  /// Here we handle vector argument to a scalar built-in by creating an
+  /// extended vector constructed by concatenating corresponding vectors
+  /// Scalar elements are obtained by fake insert calls added by the scalarizer.
+  /// foo(<2 float> %a) --> foo4(<8 x float> %a)
+  V_ASSERT(scalarParam->getType()->isVectorTy() && "expected vector type");
+  VectorType *aosType = cast<VectorType>(scalarParam->getType());
+  V_ASSERT(aosType->getElementType() &&
+           !aosType->getElementType()->isVectorTy() &&
+           "do not expect vector type");
+  unsigned soaTypeLength = aosType->getNumElements() * m_packetWidth;
+  VectorType *soaType =
+      VectorType::get(aosType->getElementType(), soaTypeLength);
+
+  // Try to find the source elements for the vector argument.
+  // In case of failure, need to duplicate the call.
+  SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
+  if (!obtainInsertElement(scalarParam, multiOperands,
+                           aosType->getNumElements(), CI)) {
+    V_ASSERT(false && "Store operations must be preceded by insertvalue insts");
+    return nullptr;
+  }
+
+  Value *soaArr = UndefValue::get(soaType);
+  unsigned numElements = aosType->getNumElements();
+  for (unsigned i = 0; i < numElements; i++) {
+    for (unsigned j = 0; j < m_packetWidth; j++) {
+      Value *ExtractIndexVal =
+          ConstantInt::get(Type::getInt32Ty(CI->getContext()), j);
+      Value *extracted =
+          ExtractElementInst::Create(multiOperands[i], ExtractIndexVal, "", CI);
+      unsigned InsertIndex = j * numElements + i;
+      Value *InsertIndexVal =
+          ConstantInt::get(Type::getInt32Ty(CI->getContext()), InsertIndex);
+      soaArr =
+          InsertElementInst::Create(soaArr, extracted, InsertIndexVal, "", CI);
+    }
   }
   return soaArr;
 }
@@ -2711,7 +2860,7 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
     unsigned int alignment = AI->getAlignment() * m_packetWidth;
 
     AllocaInst* newAlloca = new AllocaInst(
-      allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, "PackedAlloca", AI);
+      allocaType, m_pDL->getAllocaAddrSpace(), 0, MaybeAlign(alignment), "PackedAlloca", AI);
 
     Instruction *duplicateInsts[MAX_PACKET_WIDTH];
     // Set the new SOA-alloca instruction as scalar multi instructions
@@ -2807,7 +2956,8 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
     // Create the destination vectors that will contain the transposed matrix
     AllocaInst* alloca = Builder.CreateAlloca(destVecType);
     // Set alignment of funtion arguments, size in bytes of the destination vector
-    alloca->setAlignment((destVecType->getScalarSizeInBits() / 8) * numDestVectElems);
+    alloca->setAlignment(MaybeAlign((destVecType->getScalarSizeInBits() / 8) *
+                                    numDestVectElems));
     funcArgs.push_back(alloca);
   }
 

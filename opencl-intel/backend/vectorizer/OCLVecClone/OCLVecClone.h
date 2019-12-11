@@ -23,7 +23,7 @@
 using namespace llvm;
 
 namespace intel {
-class OCLVecClone : public VecClone {
+class OCLVecCloneImpl : public VecCloneImpl {
 private:
   // Configuration options
   const Intel::CPUId *CPUId;
@@ -52,10 +52,21 @@ private:
   };
 
 public:
-  static char ID;
-  bool EnableVPlanVecForOpenCL = false;
+  OCLVecCloneImpl(const Intel::CPUId *CPUId);
 
-  OCLVecClone(const Intel::CPUId *CPUId, bool EnableVPlanVecForOpenCL);
+  OCLVecCloneImpl();
+};
+
+class OCLVecClone : public ModulePass {
+  OCLVecCloneImpl Impl;
+
+protected:
+  bool runOnModule(Module &M) override;
+
+public:
+  static char ID;
+
+  OCLVecClone(const Intel::CPUId *CPUId);
 
   OCLVecClone();
 

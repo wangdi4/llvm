@@ -338,7 +338,6 @@ cl_err_code MemoryObject::CreateMappedRegion(
             pPrevMapping = it->first;
             break;
         }
-        it++;
     }
 
     bool full_overwrite = false;

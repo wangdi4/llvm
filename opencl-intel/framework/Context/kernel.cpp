@@ -19,6 +19,7 @@
 #include "sampler.h"
 #include "cl_shared_ptr.hpp"
 #include "svm_buffer.h"
+#include "usm_buffer.h"
 #include "Context.h"
 #include "context_module.h"
 #include "framework_proxy.h"
@@ -291,7 +292,6 @@ bool DeviceKernel::CheckKernelDefinition(const DeviceKernel * pKernel) const
 void KernelArg::Init( char* baseAddress, const cl_kernel_argument& clKernelArgType )
 {
     m_pValueLocation        = baseAddress + clKernelArgType.offset_in_bytes;
-    m_pSvmPtrArg            = nullptr;
     m_bValid                = false;
     m_clKernelArgType       = clKernelArgType;
 
@@ -914,8 +914,15 @@ cl_err_code Kernel::SetKernelArgInternal(cl_uint uiIndex, const KernelArg* arg)
         clArg.SetValue(sizeof(cl_mem), &value[0]);
     else if(arg->IsSvmPtr())
     {
-        char* backingStore = (char*)(*(SVMPointerArg**)&value[0])->GetBackingStoreData();
+        char* backingStore = (char*)(*(SharedPointerArg**)&value[0])->GetBackingStoreData();
         return SetKernelArg(uiIndex, valueSize, backingStore, true/*IsSvmPtr*/);
+    }
+    else if(arg->IsUsmPtr())
+    {
+        SharedPointerArg *arg = *(SharedPointerArg**)&value[0];
+        void* backingStore = arg->GetBackingStoreData();
+        return SetKernelArg(uiIndex, valueSize, backingStore,
+            false/*IsSvmPtr*/, true/*IsUsmPtr*/);
     }
     else
         return SetKernelArg(uiIndex, valueSize, &value[0], false/*IsSvmPtr*/);
@@ -925,7 +932,9 @@ cl_err_code Kernel::SetKernelArgInternal(cl_uint uiIndex, const KernelArg* arg)
     return ret;
 }
 
-cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr)
+cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
+                                 const void * pValue, bool bIsSvmPtr,
+                                 bool bIsUsmPtr)
 {
     LOG_DEBUG(TEXT("Enter SetKernelArg (uiIndex=%d, szSize=%d, pValue=%d"), uiIndex, szSize, pValue);
 
@@ -949,12 +958,17 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         // memory object
         if ( NULL == pValue )
         {
-            if (sizeof(cl_mem) != szSize)
+            if (bIsUsmPtr)
+                clArg.SetValue(szSize, nullptr);
+            else
             {
-                return CL_INVALID_ARG_SIZE;
+                if (sizeof(cl_mem) != szSize)
+                {
+                    return CL_INVALID_ARG_SIZE;
+                }
+                clArg.SetValue(sizeof(cl_mem), nullptr);
             }
-            clArg.SetValue(sizeof(cl_mem), nullptr);
-        } else 
+        } else
         {
             if (bIsSvmPtr)
             {
@@ -962,18 +976,32 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
                 // !!!!!!
                 // TODO: Why we need this wrapper, why just not put SVMBuffer inside or just vritual address
                 // !!!!!!
-                SharedPtr<SVMPointerArg> pSvmPtrArg;
-                if (NULL != pSvmBuf)
-                {
-                    pSvmPtrArg = SVMBufferPointerArg::Allocate(pSvmBuf.GetPtr(), pValue);
-                }
+                SharedPtr<SharedPointerArg> pSvmPtrArg;
+                if (nullptr != pSvmBuf.GetPtr())
+                    pSvmPtrArg = BufferPointerArg::Allocate(pSvmBuf.GetPtr(),
+                                                           pValue);
                 else
-                {
-                    pSvmPtrArg = SVMSystemPointerArg::Allocate(pValue);
-                }
-                SVMPointerArg* argVal = pSvmPtrArg.GetPtr();
-                clArg.SetValue(sizeof(SVMPointerArg*), &argVal );
+                    pSvmPtrArg = SystemPointerArg::Allocate(pValue);
+                SharedPointerArg* argVal = pSvmPtrArg.GetPtr();
+                clArg.SetValue(sizeof(SharedPointerArg*), &argVal );
                 clArg.SetSvmObject( pSvmPtrArg );
+            }
+            else if (bIsUsmPtr)
+            {
+                const SharedPtr<USMBuffer>& usmBuf =
+                    pContext->GetUSMBufferContainingAddr(
+                    const_cast<void*>(pValue));
+                SharedPtr<SharedPointerArg> usmPtrArg;
+                if (nullptr != usmBuf.GetPtr())
+                    usmPtrArg = BufferPointerArg::Allocate(usmBuf.GetPtr(),
+                                                           pValue);
+                else
+                    usmPtrArg = SystemPointerArg::Allocate(pValue);
+                if (nullptr == usmPtrArg.GetPtr())
+                    return CL_OUT_OF_HOST_MEMORY;
+                SharedPointerArg* argVal = usmPtrArg.GetPtr();
+                clArg.SetValue(sizeof(SharedPointerArg*), &argVal);
+                clArg.SetUsmObject(usmPtrArg);
             }
             else
             {
@@ -985,6 +1013,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
                 cl_mem clMemId = *((cl_mem*)(pValue));
                 LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%d)"), clMemId);
                 clArg.SetSvmObject( nullptr );
+                clArg.SetUsmObject(nullptr);
                 if (nullptr == clMemId)
                 {
                     clArg.SetValue(sizeof(cl_mem), nullptr);
@@ -1120,6 +1149,8 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         void* const pCmdListPtr = pQueue->GetDeviceCommandListPtr();
         clArg.SetValue(clArg.GetSize(), &pCmdListPtr);
     }
+    else if (bIsUsmPtr)
+        return CL_INVALID_ARG_VALUE;
     else
     {    // other type = check size
         if (szSize != clArgSize)
@@ -1343,4 +1374,17 @@ size_t Kernel::GetNonArgSvmBuffersCount() const
     return m_nonArgSvmBufs.size(); 
 }
 
+void Kernel::SetNonArgUsmBuffers(const std::vector<SharedPtr<USMBuffer> >& usmBufs)
+{
+    OclAutoWriter mutex(&m_rwlockUsm);
+    m_nonArgUsmBufs.resize(usmBufs.size());
+    std::copy(usmBufs.begin(), usmBufs.end(), m_nonArgUsmBufs.begin());
+}
+
+void Kernel::GetNonArgUsmBuffers(std::vector<SharedPtr<USMBuffer> >& usmBufs) const
+{
+    OclAutoReader mutex(&m_rwlockUsm);
+    usmBufs.resize(m_nonArgUsmBufs.size());
+    std::copy(m_nonArgUsmBufs.begin(), m_nonArgUsmBufs.end(), usmBufs.begin());
+}
 

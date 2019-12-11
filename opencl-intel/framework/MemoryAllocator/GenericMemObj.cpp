@@ -116,7 +116,8 @@ cl_err_code GenericMemObject::Initialize(
                                const size_t*            dimension,
                                const size_t*            pitches,
                                void*                    pHostPtr,
-                               cl_rt_memobj_creation_flags    creation_flags
+                               cl_rt_memobj_creation_flags creation_flags,
+                               size_t                      force_alignment
                                )
 {
     assert(0 == m_pParentObject); // Should never be called for sub mem objects!
@@ -242,6 +243,12 @@ cl_err_code GenericMemObject::Initialize(
         // add device agent to the list
         m_device_agents.push_back( dev->GetDeviceAgent() );
     }
+
+    // If force_alignment is not 0, e.g. in the case of USM allocations, assign
+    // it to preferred_alignment since memory allocation in
+    // GenericMemObjectBackingStore actually uses preferred_alignment.
+    if (0 != force_alignment)
+        preferred_alignment = force_alignment;
 
     if (m_device_descriptors.empty())
     {

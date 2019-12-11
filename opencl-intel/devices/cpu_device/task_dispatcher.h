@@ -60,7 +60,15 @@ typedef struct _cl_dev_internal_subdevice_id
 class IAffinityChangeObserver
 {
 public:
-    virtual void NotifyAffinity(threadid_t tid, unsigned int core_index) = 0;
+    /**
+     * Notify affinity change
+     * @param tid - Thread id
+     * @param core_index - Thread position (index) in tbb arena.
+     * @param relocate - Whether the previous thread pinned at core_index should
+     * be relocated to previous core of current thread.
+     */
+    virtual void NotifyAffinity(threadid_t tid, unsigned int core_index,
+                                bool relocate = false) = 0;
 };
 
 class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
@@ -98,10 +106,10 @@ public:
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
 
     unsigned int            GetNumThreads() const { return m_uiNumThreads;}
-	
+
     ITEDevice*              GetRootDevice() { return m_pRootDevice.GetPtr(); }
     // ITaskExecutorObserver
-    void*                   OnThreadEntry();
+    void*                   OnThreadEntry(bool registerThread);
     void                    OnThreadExit( void* currentThreadData );
     TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData );
 
@@ -184,9 +192,11 @@ public:
 	
     PREPARE_SHARED_PTR(AffinitizeThreads)
 
-    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer)
+    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads,
+                                                 cl_ulong timeOutInTicks)
     {
-        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks, observer)); 
+        return SharedPtr<AffinitizeThreads>(
+            new AffinitizeThreads(numThreads, timeOutInTicks));
     }
 
     virtual ~AffinitizeThreads();
@@ -212,16 +222,14 @@ public:
 
 protected:
     unsigned int                        m_numThreads;
-    cl_ulong                            m_timeOut;
+    cl_ulong                            m_startTime; // start time in nanoseconds
+    cl_ulong                            m_timeOut; // time out in nanoseconds
     Intel::OpenCL::Utils::AtomicCounter	m_barrier;
     volatile bool                       m_failed;
 
     Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
 
-    IAffinityChangeObserver*            m_pObserver;
-    unsigned int                        m_uiMasterHWId;
-
-    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer);
+    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks);
 };
 
 }}}

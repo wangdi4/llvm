@@ -11,7 +11,9 @@ endif()
 
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
-set(CCLANG_LIBRARY_VERSION "${LLVM_VERSION_MAJOR}.0")
+# align with the definition in ocl-clang.
+math(EXPR CCLANG_MAJOR_VERSION "${LLVM_VERSION_MAJOR} - 1")
+set( CCLANG_LIBRARY_VERSION "${PRODUCTVER_MAJOR}.${CCLANG_MAJOR_VERSION}.${PRODUCTVER_MINOR}" )
 
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
@@ -149,5 +151,9 @@ SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 
 if (NOT OPENCL_INTREE_BUILD)
   copy_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
+elseif (WIN32)
+  add_custom_command( TARGET ${TARGET_NAME}
+                      POST_BUILD
+                      COMMAND  ${CMAKE_COMMAND} -E copy ${COMMON_CLANG_FILES}  ${OCL_OUTPUT_LIBRARY_DIR})
 endif()
 install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-common_clang)

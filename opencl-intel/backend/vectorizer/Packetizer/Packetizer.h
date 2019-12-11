@@ -128,6 +128,7 @@ private:
   /// @brief Packetize an instruction
   /// @param I Instruction to packetize
   void packetizeInstruction(BinaryOperator *BI, bool supportsWrap);
+  void packetizeInstruction(UnaryOperator *UI, bool supportsWrap);
   void packetizeInstruction(CastInst *CI);
   void packetizeInstruction(CmpInst *CI);
   void packetizeInstruction(CallInst *CI);
@@ -408,6 +409,8 @@ private:
   /// @returns the parameter for packetized function
   Value *handleParamSOA(CallInst* CI, Value *scalarParam);
 
+  Value *handleParamSOAVPlanStyle(CallInst *CI, Value *scalarParam);
+
   /// @brief obtain the scalar elements of the vector param and add their
   ///        vectors to the arguments list.
   /// @param CI - scalar call.
@@ -424,6 +427,13 @@ private:
   /// @param soaRet return value (instruction Value) of packetized function
   /// @returns the parameter for packetized function
   bool handleReturnValueSOA (CallInst* CI, CallInst *soaRet);
+
+  /// @brief handles case when scalar return value is vector and packetized
+  ///        return value is SOA VPlan way
+  /// @param CI call instruction to be packetized
+  /// @param soaRet return value (instruction Value) of packetized functio
+  /// @returns the parameter for packetized function
+  bool handleReturnValueSOAVPlanStyle(CallInst *CI, CallInst *soaRet);
 
   /// @brief handles case when scalar built-in returns a vector and the
   ///        packetized built-in has return values by pointers.

@@ -39,11 +39,8 @@ void EyeQBuiltinLibrary::Load() {
   PathStr += '/';
 #endif
 
-  SmallVector<std::string, 4> EyeQBitExactEmulationRTLPaths;
-  EyeQBitExactEmulationRTLPaths.push_back(PathStr + "x86-64-shared-builtins-prime__fp-eyeqemu.bc");
-  EyeQBitExactEmulationRTLPaths.push_back(PathStr + "x86-64-shared-builtins-suppl__fp-eyeqemu.bc");
-  EyeQBitExactEmulationRTLPaths.push_back(PathStr + "x86-64-svml_math_lib_shared_prime-eyeqemu.bc");
-  EyeQBitExactEmulationRTLPaths.push_back(PathStr + "x86-64-svml_math_lib_shared_suppl-eyeqemu.bc");
+  SmallVector<std::string, 1> EyeQBitExactEmulationRTLPaths;
+  EyeQBitExactEmulationRTLPaths.push_back(PathStr + "eyeq-opencl-builtins-eyeqemu5.bc");
 
   for (const std::string &EyeQBitExactEmulationRTLPath : EyeQBitExactEmulationRTLPaths) {
     ErrorOr<std::unique_ptr<MemoryBuffer>> RTLBufferOrErr =
