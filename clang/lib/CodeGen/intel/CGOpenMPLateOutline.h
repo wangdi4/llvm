@@ -275,6 +275,7 @@ class OpenMPLateOutliner {
   llvm::DenseSet<const VarDecl *> MapRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
+  llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
@@ -291,6 +292,15 @@ public:
   ~OpenMPLateOutliner();
   bool isImplicitLastPrivate(const VarDecl *VD) {
    return isImplicit(VD) && ImplicitMap[VD] == ICK_lastprivate;
+  }
+  void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
+    for (auto MT : MapTemps) {
+      QualType Ty = MT.second->getType().getNonReferenceType();
+      Address A = CGF.CreateMemTemp(Ty, MT.second->getName() + ".map.ptr.tmp");
+      CGF.Builder.CreateStore(MT.first, A);
+      PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
+    }
+    PrivateScope.Privatize();
   }
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);

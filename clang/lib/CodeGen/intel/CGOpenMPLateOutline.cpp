@@ -1432,18 +1432,32 @@ void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
 }
 
 void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
+  llvm::SmallPtrSet<const VarDecl *, 2> ProcessedPtrVarDecls;
   for (const auto *E : C->varlists()) {
     // When there is a map-chain in the IR for the the map clause, the
     //  computations for various expressions used in the map-chain are to be
     //  emitted after the implicit task, and before the target directive
-    if (const VarDecl *PVD = getExplicitVarDecl(E)) {
+    if (const VarDecl *ExplicitVar = getExplicitVarDecl(E)) {
       if (isImplicitTask(OMPD_task)) {
-        ImplicitMap.insert(std::make_pair(PVD, ICK_shared));
+        ImplicitMap.insert(std::make_pair(ExplicitVar, ICK_shared));
         continue;
       } else {
-        addExplicit(PVD, /*IsMap=*/true);
+        addExplicit(ExplicitVar, /*IsMap=*/true);
       }
     }
+    while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
+      E = OASE->getBase()->IgnoreParenImpCasts();
+    while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+      E = ASE->getBase()->IgnoreParenImpCasts();
+    while (const auto *ME = dyn_cast<MemberExpr>(E))
+      E = ME->getBase()->IgnoreParenImpCasts();
+    const VarDecl *BaseVar = getExplicitVarDecl(E);
+    QualType Ty = E->getType().getNonReferenceType();
+    // The partial struct case, like p->x and p->y, all pieces
+    // are emitted when processing 'p' the first time.
+    if (BaseVar && Ty->isAnyPointerType() &&
+        !ProcessedPtrVarDecls.insert(BaseVar).second)
+      continue;
     SmallVector<CGOpenMPRuntime::MapInfo, 4> Info;
     {
       // Generate map values and emit outside the current directive.
@@ -1451,6 +1465,9 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
                                /*EmitClause=*/false);
       CGOpenMPRuntime::getLOMapInfo(Directive, CGF, C, E, Info);
     }
+    if (BaseVar && CurrentDirectiveKind == OMPD_target)
+      if (Ty->isAnyPointerType() && !Info[0].Base->hasName())
+        MapTemps.emplace_back(Info[0].Base, BaseVar);
     if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
       // This is the simple non-aggregate case.
       ClauseEmissionHelper CEH(*this, OMPC_map);
@@ -2414,6 +2431,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
+    CodeGenFunction::OMPPrivateScope MapClausePointerScope(*this);
+    Outliner.privatizeMappedPointers(MapClausePointerScope);
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
       OpenMPDirectiveKind NextKind =
