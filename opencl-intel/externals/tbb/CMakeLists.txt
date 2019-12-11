@@ -15,18 +15,13 @@ if (WIN32)
         set (TBB_BINARIES_OUTPUT_SRC_DIR
             ${CMAKE_CURRENT_SOURCE_DIR}/bin/VS2010${TBB_BINARIES_POSTFIX}/${OS}${ADDR}_${CMAKE_CFG_INTDIR}/)
     endif()
-    set (TBB_BINARIES_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR}/tbb)
+    set (TBB_BINARIES_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 
     # don't try to copy it using copy_to with Visual Studio Generator
     add_custom_target(tbb ALL
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_BINARIES_OUTPUT_SRC_DIR} ${TBB_BINARIES_OUTPUT_DIR}
         COMMENT "Copying tbb libraries from ${TBB_BINARIES_OUTPUT_SRC_DIR} to ${TBB_BINARIES_OUTPUT_DIR}")
-
-    install_to (${TBB_BINARIES_OUTPUT_DIR} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-tbb-ext)
 else (WIN32)
     copy_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/ DESTINATION lib)
-    install_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/
-                DESTINATION lib/${OUTPUT_ARCH_SUFF}
-                COMPONENT ocl-tbb-ext)
 endif (WIN32)
 
