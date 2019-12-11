@@ -331,6 +331,84 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
+// return the number of physical cpus (sockets) configured.
+////////////////////////////////////////////////////////////////////
+unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets()
+{
+    static unsigned int numCpuSockets = 0;
+    if (0 == numCpuSockets)
+    {
+        // TODO use hwloc to detect number of sockets
+
+        FILE *fp = fopen("/proc/cpuinfo", "r");
+        if (fp)
+        {
+            char *line = nullptr;
+            size_t len;
+            const char *s = "physical id";
+            while (getline(&line, &len, fp) != -1)
+            {
+                if (strncmp(line, s, strlen(s)) != 0)
+                    continue;
+
+                char *p = strchr(line, ':');
+                if (!p)
+                    continue;
+                unsigned int physicalID = 0;
+                sscanf(p + 1, "%u\n", &physicalID);
+                physicalID++;
+                if (numCpuSockets < physicalID)
+                    numCpuSockets = physicalID;
+            }
+            fclose(fp);
+        }
+        else
+            assert(false && "Failed to open /proc/cpuinfo");
+    }
+    return numCpuSockets;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return whether cpu is using hyper-threading
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::IsHyperThreadingEnabled()
+{
+    static int hyperThreadingEnabled = -1;
+    if (-1 == hyperThreadingEnabled)
+    {
+        // TODO use hwloc to detect hyper-threading
+
+        FILE *fp = fopen("/proc/cpuinfo", "r");
+        if (fp)
+        {
+            char *line = nullptr;
+            size_t len;
+            unsigned int siblings = 0;
+            unsigned int cpuCores = 0;
+            const char *s0 = "siblings";
+            const char *s1 = "cpu cores";
+            while (getline(&line, &len, fp) != -1 &&
+                   (0 == siblings || 0 == cpuCores))
+            {
+                char *p = strchr(line, ':');
+                if (!p)
+                    continue;
+                if (0 == siblings && strncmp(line, s0, strlen(s0)) == 0)
+                    sscanf(p + 1, "%u\n", &siblings);
+                if (0 == cpuCores && strncmp(line, s1, strlen(s1)) == 0)
+                    sscanf(p + 1, "%u\n", &cpuCores);
+            }
+            fclose(fp);
+            if (0 != siblings && 0 != cpuCores)
+                hyperThreadingEnabled = (siblings == (2 * cpuCores)) ? 1 : 0;
+        }
+        else
+            assert(false && "Failed to open /proc/cpuinfo");
+    }
+    return 1 == hyperThreadingEnabled;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of NUMA nodes on the system
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()

@@ -278,6 +278,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_pLogDescriptor(logDesc),
     m_iLogHandle (0),
     m_defaultCommandList(nullptr),
+    m_pinMaster(false),
     m_numCores(0),
     m_pComputeUnitMap(nullptr)
 #ifdef __HARD_TRAPPING__
@@ -392,13 +393,24 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     m_pCoreToThread.resize(m_numCores);
     m_pCoreInUse.resize(m_numCores);
 
-    //Todo: calculate the real map here
     for (unsigned int i = 0; i < m_numCores; i++)
     {
-        m_pComputeUnitMap[i] = i;
         m_pCoreToThread[i]   = INVALID_THREAD_HANDLE;
         m_pCoreInUse[i]      = false;
     }
+
+    // Calculate m_pComputeUnitMap
+    calculateComputeUnitMap();
+
+    return CL_DEV_SUCCESS;
+}
+
+void CPUDevice::calculateComputeUnitMap()
+{
+    // default mapping
+    for (unsigned int i = 0; i < m_numCores; i++)
+        m_pComputeUnitMap[i] = i;
+
 #ifndef WIN32
     //For Linux, respect the process affinity mask in determining which cores to run on
     affinityMask_t myParentMask;
@@ -407,7 +419,97 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
     m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
-    return CL_DEV_SUCCESS;
+
+    // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
+    // affinity, similar to OMP_PROC_BIND in OpenMP.
+    std::string env_dpcpp_affinity;
+    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(env_dpcpp_affinity,
+                                                      "DPCPP_CPU_CU_AFFINITY");
+    if (CL_FAILED(err))
+        return;
+
+    CPU_CU_AFFINITY affinity;
+    if ("close" == env_dpcpp_affinity)
+        affinity = CPU_CU_AFFINITY_CLOSE;
+    else if ("spread" == env_dpcpp_affinity)
+        affinity = CPU_CU_AFFINITY_SPREAD;
+    else if ("master" == env_dpcpp_affinity)
+        affinity = CPU_CU_AFFINITY_MASTER;
+    else
+        return;
+
+    // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
+    // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
+    // set correctly.
+    m_pinMaster = true;
+
+    const size_t numTbbThreads =
+        TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
+    const unsigned int numCpuSockets =
+        Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+    const unsigned long numCoresPerSocket = m_numCores / numCpuSockets;
+
+    // Assume there are 2 sockets, 20 cores per socket and 2 logical cpus
+    // (HT threads) per core.
+    // If DPCPP_CPU_NUM_CUS=80, master has the same effect as close:
+    //   master: S0: [T0=>HT0, ..., T39=>HT39] S1: [T40=>HT40, ..., T79=>HT79]
+    //   spread: S0: [T0=>HT0, T2=>HT1, ...]   S1: [T1=>HT40, T3=>HT41, ...]
+    //   close:  S0: [T0=>HT0, ..., T39=>HT39] S1: [T40=>HT40, ..., T79=>HT79]
+    // where S is socket, T is tbb thread and HT is hyper-thread CPU core.
+    // If DPCPP_CPU_NUM_CUS=40,
+    //   master: S0: [T0=>HT0, ..., T39=>HT39 ] S1: []
+    //   spread: S0: [T0=>HT0, T2=>HT2, ...]    S1: [T1=>HT40, T3=>HT42, ...]
+    //   close:  S0: [T0=>HT0, ..., T19=>HT38 ] S1: [T20=>HT40, ..., T39=>HT78]
+    std::vector<unsigned int> dpcppAffinityMap(m_numCores);
+    for (unsigned int i = 0; i < m_numCores; i++)
+        dpcppAffinityMap[i] = i;
+    if (Intel::OpenCL::Utils::IsHyperThreadingEnabled())
+    {
+        if (CPU_CU_AFFINITY_CLOSE == affinity &&
+            numTbbThreads <= (m_numCores / 2))
+        {
+            for (unsigned int i = 0; i < m_numCores / 2; i++)
+                dpcppAffinityMap[i] = 2 * i;
+        }
+        if (CPU_CU_AFFINITY_SPREAD == affinity)
+        {
+            if (numTbbThreads <= (m_numCores / 2))
+            {
+                // TODO: dpcppAffinityMap's values could be out of range if the
+                // number of cores in myParentMask is larger than numTbbThreads
+                // when numTbbThreads is set by DPCPP_CPU_NUM_CUS.
+                for (unsigned int i = 0; i < m_numCores; i++)
+                    dpcppAffinityMap[i] = (i % numCpuSockets) *
+                        numCoresPerSocket + (i / numCpuSockets) * 2;
+            }
+            else
+            {
+                for (unsigned int i = 0; i < m_numCores; i++)
+                    dpcppAffinityMap[i] = (i % numCpuSockets) *
+                        numCoresPerSocket + (i / numCpuSockets);
+            }
+        }
+    }
+    else
+    {
+        if (CPU_CU_AFFINITY_SPREAD == affinity)
+        {
+            for (unsigned int i = 0; i < m_numCores; i++)
+                dpcppAffinityMap[i] = (i % numCpuSockets) *
+                    numCoresPerSocket + (i / numCpuSockets);
+        }
+    }
+
+    for (unsigned int i = 0; i < m_numCores; i++)
+    {
+        if (dpcppAffinityMap[i] < m_numCores)
+            dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
+    }
+    for (unsigned int i = 0; i < m_numCores; i++)
+    {
+        if (dpcppAffinityMap[i] < m_numCores)
+            m_pComputeUnitMap[i] = dpcppAffinityMap[i];
+    }
 }
 
 bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
@@ -454,12 +556,16 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
 {
     Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
-    // Don't pin worker thread if
+    // Don't pin thread if
     // * core_index is not less than m_numCores. For example, for FPGA emulator
     //   we allow to have more TBB workers than the number of CPU cores.
-    // * it is mapped to the CPU core on which master thread is running.
-    if (core_index >= m_numCores ||
-        m_pComputeUnitMap[core_index] == m_uiMasterHWId)
+    // * pinning master thread is disabled and current thread is master.
+    //   See TaskDispatcher::OnThreadEntry.
+    // * pinning master thread is disabled, current thread is worker and it is
+    //   mapped to the CPU core on which master thread is running.
+    if (core_index >= m_numCores)
+        return;
+    if (!m_pinMaster && (m_pComputeUnitMap[core_index] == m_uiMasterHWId))
         return;
 
     if (relocate)

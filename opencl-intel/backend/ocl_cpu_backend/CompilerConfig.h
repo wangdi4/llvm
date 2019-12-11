@@ -61,6 +61,7 @@ public:
     CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_NOT_SET),
                      m_rtLoopUnrollFactor(1),
                      m_useVTune(false),
+                     m_serializeWorkGroups(false),
                      m_loadBuiltins(true),
                      m_DumpIROptionAfter(NULL),
                      m_DumpIROptionBefore(NULL),
@@ -77,6 +78,7 @@ public:
     ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
     int GetRTLoopUnrollFactor() const         { return m_rtLoopUnrollFactor; }
     bool GetUseVTune() const                  { return m_useVTune; }
+    bool GetSerializeWorkGroups() const       { return m_serializeWorkGroups; }
     bool GetLoadBuiltins() const              { return m_loadBuiltins; }
     size_t GetForcedPrivateMemorySize() const { return m_forcedPrivateMemorySize; }
     std::vector<int> GetIRDumpOptionsAfter() const
@@ -115,6 +117,7 @@ protected:
     ETransposeSize m_transposeSize;
     int         m_rtLoopUnrollFactor;
     bool        m_useVTune;
+    bool        m_serializeWorkGroups;
     bool        m_loadBuiltins;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;

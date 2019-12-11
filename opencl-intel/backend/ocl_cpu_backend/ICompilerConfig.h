@@ -69,6 +69,7 @@ public:
     virtual ETransposeSize GetTransposeSize() const = 0;
     virtual int GetRTLoopUnrollFactor() const = 0;
     virtual bool GetUseVTune() const = 0;
+    virtual bool GetSerializeWorkGroups() const = 0;
     virtual size_t GetForcedPrivateMemorySize() const = 0;
     // sets whether we need built-in module to be loaded for current compiler
     virtual bool GetLoadBuiltins() const = 0;

@@ -150,6 +150,7 @@ static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
+    m_serializeWorkGroups(config.GetSerializeWorkGroups()),
     m_targetDevice(config.TargetDevice()),
     m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
     m_statFileBaseName(config.GetStatFileBaseName())
@@ -502,7 +503,12 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   // global size = (2^32, 2^32, 2^32) and local size = reqd_work_group_size, we
   // need to serialize work-groups even if there is no fpga pipes/channels to
   // avoid grabbing all of available threads by work-groups of autorun kernels
-  bool needSerializeWGs =
+  //
+  // Work-groups are serialized in the following cases:
+  //   1. CL_CONFIG_CPU_TBB_NUM_WORKERS is 1
+  //   2. Kernel has FPGA pipe/channel
+  //   3. Kernel is FPGA autorun.
+  bool needSerializeWGs = m_serializeWorkGroups ||
       (skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get()) || isAutorun;
 
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
