@@ -1396,13 +1396,3 @@ void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     Converter->passToVPlan(Plan, Mapper);
   }
 }
-
-VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
-  assert(isa<VPBasicBlock>(VPLp->getHeader()) &&
-         "Expected VPBasicBlock as Loop header.");
-  HLLoop *HLLp = Header2HLLoop[cast<VPBasicBlock>(VPLp->getHeader())];
-  assert(HLLp && "Expected HLLoop");
-  VPLoopRegion *Loop =
-      new VPLoopRegionHIR(VPlanUtils::createUniqueName("loop"), VPLp, HLLp);
-  return Loop;
-}
