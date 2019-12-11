@@ -182,15 +182,10 @@ define i32 @loop_shared_header(i8* %exe, i32 %exesz, i32 %headsize, i32 %min, i3
 ; CHECK-NEXT:  # %bb.16: # %merge_other
 ; CHECK-NEXT:    # in Loop: Header=BB1_9 Depth=1
 ; CHECK-NEXT:    xorl %esi, %esi
-<<<<<<< HEAD
-; CHECK-NEXT:    jmp .LBB1_17
-; CHECK-NEXT:  .LBB1_16: # %if.end287.i ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB1_9 Depth=1
-=======
 ; CHECK-NEXT:    jmp .LBB1_18
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB1_17: # in Loop: Header=BB1_9 Depth=1
->>>>>>> 72942459d070cbfe6f3524e89c3ac37440be7890
+; CHECK-NEXT:  .LBB1_17: # %if.end287.i ;INTEL
+; CHECK-NEXT:    # in Loop: Header=BB1_9 Depth=1 ;INTEL
 ; CHECK-NEXT:    movb %dl, %sil
 ; CHECK-NEXT:    addl $3, %esi
 ; CHECK-NEXT:  .LBB1_18: # %outer_loop_latch
@@ -207,18 +202,9 @@ define i32 @loop_shared_header(i8* %exe, i32 %exesz, i32 %headsize, i32 %min, i3
 ; CHECK-NEXT:    jne .LBB1_21
 ; CHECK-NEXT:  # %bb.20: # %while.cond.us1412.i
 ; CHECK-NEXT:    decb %dl
-<<<<<<< HEAD
-; CHECK-NEXT:    jne .LBB1_26
-; CHECK-NEXT:  .LBB1_20: # %if.end41.us1436.i
-; CHECK-NEXT:  .LBB1_25: # %if.end19 ;INTEL
-; CHECK-NEXT:    movl $1, %ebx
-; CHECK-NEXT:    jmp .LBB1_26
-; CHECK-NEXT:  .LBB1_22: # %if.then99.i
-=======
 ; CHECK-NEXT:    jne .LBB1_27
 ; CHECK-NEXT:  .LBB1_21: # %if.end41.us1436.i
 ; CHECK-NEXT:  .LBB1_23: # %if.then99.i
->>>>>>> 72942459d070cbfe6f3524e89c3ac37440be7890
 ; CHECK-NEXT:    xorl %ebx, %ebx
 ; CHECK-NEXT:    movl $.str.6, %edi
 ; CHECK-NEXT:    xorl %eax, %eax
