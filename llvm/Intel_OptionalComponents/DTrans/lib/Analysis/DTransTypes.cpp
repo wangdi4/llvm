@@ -384,7 +384,7 @@ DTransTypeManager::getOrCreatePointerType(DTransType *PointeeTy) {
   if (Existing != PointerTypeInfoMap.end())
     return (*Existing).getSecond();
 
-  auto DTPtrTy = new DTransPointerType(PointeeTy);
+  auto DTPtrTy = new DTransPointerType(PointeeTy->getContext(), PointeeTy);
   PointerTypeInfoMap.insert(std::make_pair(PointeeTy, DTPtrTy));
   return DTPtrTy;
 }
@@ -447,11 +447,12 @@ DTransStructType *DTransTypeManager::getOrCreateLiteralStructType(
 
 DTransArrayType *DTransTypeManager::getOrCreateArrayType(DTransType *ElemType,
                                                          uint64_t Num) {
+  assert(ElemType && "getOrCreateArrayType must have non-null element type");
   auto Existing = ArrayTypeInfoMap.find(std::make_pair(ElemType, Num));
   if (Existing != ArrayTypeInfoMap.end())
     return (*Existing).getSecond();
 
-  auto *DTArrTy = new DTransArrayType(ElemType, Num);
+  auto *DTArrTy = new DTransArrayType(ElemType->getContext(), ElemType, Num);
   ArrayTypeInfoMap.insert(
       std::make_pair(std::make_pair(ElemType, Num), DTArrTy));
   return DTArrTy;
@@ -459,11 +460,12 @@ DTransArrayType *DTransTypeManager::getOrCreateArrayType(DTransType *ElemType,
 
 DTransVectorType *DTransTypeManager::getOrCreateVectorType(DTransType *ElemType,
                                                            uint64_t Num) {
+  assert(ElemType && "getOrCreateVectorType must have non-null element type");
   auto Existing = VecTypeInfoMap.find(std::make_pair(ElemType, Num));
   if (Existing != VecTypeInfoMap.end())
     return (*Existing).getSecond();
 
-  auto *DTVecTy = new DTransVectorType(ElemType, Num);
+  auto *DTVecTy = new DTransVectorType(ElemType->getContext(), ElemType, Num);
   VecTypeInfoMap.insert(std::make_pair(std::make_pair(ElemType, Num), DTVecTy));
   return DTVecTy;
 }

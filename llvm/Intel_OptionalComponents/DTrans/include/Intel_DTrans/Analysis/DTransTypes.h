@@ -221,9 +221,8 @@ private:
   // This is to ensure the DTransTypeManager can be responsible for all memory
   // allocations/deallocations of the types.
   friend class DTransTypeManager;
-  explicit DTransPointerType(DTransType *PointeeTy)
-      : DTransType(DTransPointerTypeID, PointeeTy->getContext()),
-        PointeeType(PointeeTy) {
+  explicit DTransPointerType(LLVMContext &Ctx, DTransType *PointeeTy)
+      : DTransType(DTransPointerTypeID, Ctx), PointeeType(PointeeTy) {
     assert(PointeeTy && "PointeeType cannot be nullptr");
   }
 
@@ -479,10 +478,9 @@ private:
 class DTransSequentialType : public DTransCompositeType {
 protected:
   // This may only be constructed via a derived class.
-  DTransSequentialType(DTransType::DTransTypeID ID, DTransType *DTType,
-                       uint64_t Num)
-      : DTransCompositeType(ID, DTType->getContext()), DTType(DTType),
-        Num(Num) {
+  DTransSequentialType(DTransType::DTransTypeID ID, LLVMContext &Ctx,
+                       DTransType *DTType, uint64_t Num)
+      : DTransCompositeType(ID, Ctx), DTType(DTType), Num(Num) {
     assert(DTType && "Sequential type must not be nullptr for DTrans type");
   }
 
@@ -524,8 +522,8 @@ private:
   // This is to ensure the DTransTypeManager can be responsible for all memory
   // allocations/deallocations of the types.
   friend class DTransTypeManager;
-  DTransArrayType(DTransType *DTType, uint64_t Num)
-      : DTransSequentialType(DTransType::DTransArrayTypeID, DTType, Num) {}
+  DTransArrayType(LLVMContext &Ctx, DTransType *DTType, uint64_t Num)
+      : DTransSequentialType(DTransType::DTransArrayTypeID, Ctx, DTType, Num) {}
 
   ~DTransArrayType() {}
 
@@ -551,8 +549,9 @@ private:
   // This is to ensure the DTransTypeManager is responsible for all memory
   // allocations/deallocations of the types.
   friend class DTransTypeManager;
-  DTransVectorType(DTransType *DTType, uint64_t Num)
-      : DTransSequentialType(DTransType::DTransVectorTypeID, DTType, Num) {}
+  DTransVectorType(LLVMContext &Ctx, DTransType *DTType, uint64_t Num)
+      : DTransSequentialType(DTransType::DTransVectorTypeID, Ctx, DTType, Num) {
+  }
 
   ~DTransVectorType() {}
 
