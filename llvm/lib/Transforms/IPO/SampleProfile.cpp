@@ -923,9 +923,14 @@ bool SampleProfileLoader::shouldInlineColdCallee(Instruction &CallInst) {
   if (Callee == nullptr)
     return false;
 
+#if INTEL_CUSTOMIZATION
+  InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(cast<CallBase>(CallInst), getInlineParams(),
-                    GetTTI(*Callee), GetAC, None, nullptr, nullptr);
+                    GetTTI(*Callee), GetAC, None, nullptr, ILIC, nullptr,
+                    nullptr, nullptr, nullptr);
+  delete ILIC;
+#endif // INTEL_CUSTOMIZATION
 
   return Cost.getCost() <= SampleColdCallSiteThreshold;
 }
