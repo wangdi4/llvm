@@ -1,4 +1,4 @@
-//===--------- MemInitTrimDownInfoImpl.h - DTransMemInitTrimDownInfoImpl --===//
+//===- StructOfArraysInfoImpl.h - common for SOAToAOS and MemInitTrimDown -===//
 //
 // Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
@@ -15,14 +15,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INTEL_DTRANS_TRANSFORMS_MEMINITTRIMDOWNINFOIMPL_H
-#define INTEL_DTRANS_TRANSFORMS_MEMINITTRIMDOWNINFOIMPL_H
+#ifndef INTEL_DTRANS_TRANSFORMS_STRUCTOFARRAYSINFOIMPL_H
+#define INTEL_DTRANS_TRANSFORMS_STRUCTOFARRAYSINFOIMPL_H
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 
-#define DTRANS_MEMINITTRIMDOWN "dtrans-meminittrimdown"
+#define DTRANS_STRUCTOFARRAYSINFO "dtrans-structofarraysinfo"
 
 namespace llvm {
 
@@ -30,8 +30,8 @@ class DominatorTree;
 
 namespace dtrans {
 
-using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
-using MemGetTLITy = std::function<const TargetLibraryInfo &(const Function &)>;
+using SOADominatorTreeType = std::function<DominatorTree &(Function &)>;
+using SOAGetTLITy = std::function<const TargetLibraryInfo &(const Function &)>;
 
 // Get class type of the given function if there is one.
 inline StructType *getClassType(const Function *F) {
@@ -58,7 +58,7 @@ inline bool isPtrToVFTable(Type *Ty) {
 }
 
 // Returns field type of DTy struct if it has only one field.
-inline Type *getMemInitSimpleBaseType(Type *DTy) {
+inline Type *getSOASimpleBaseType(Type *DTy) {
   assert(isa<StructType>(DTy) && "Expected StructType");
   StructType *STy = cast<StructType>(DTy);
   if (STy->getNumElements() != 1)
@@ -66,9 +66,9 @@ inline Type *getMemInitSimpleBaseType(Type *DTy) {
   return STy->getElementType(0);
 }
 
-// This is used to collect candidate for MemInitTrimDown and
+// This is used to collect candidate for SOAToAOS or MemInitTrimDown and
 // maintain information related to the candidate.
-class MemInitCandidateInfo {
+class SOACandidateInfo {
 
   // Max limit for number of fields in candidate struct.
   constexpr static int MaxNumElemsInCandidate = 4;
@@ -97,7 +97,7 @@ public:
                                   bool AllowOnlyDerived);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
   inline void collectFuncs(Module &M,
-                           SmallSet<Function *, 32> *MemInitCallSites);
+                           SmallSet<Function *, 32> *SOACallSites);
   inline void printCandidateInfo(void);
 
   using FieldPositionTy = SmallVector<int32_t, MaxNumElemsInCandidate>;
@@ -192,7 +192,7 @@ private:
   inline bool collectTypesIfVectorClass(Type *VTy, int32_t pos);
 };
 
-StructType *MemInitCandidateInfo::getValidStructTy(Type *Ty) {
+StructType *SOACandidateInfo::getValidStructTy(Type *Ty) {
   StructType *STy = dyn_cast<StructType>(Ty);
   if (!STy || STy->isLiteral() || !STy->isSized())
     return nullptr;
@@ -200,7 +200,7 @@ StructType *MemInitCandidateInfo::getValidStructTy(Type *Ty) {
 }
 
 // Returns type of pointee if 'Ty' is pointer.
-Type *MemInitCandidateInfo::getPointeeType(Type *Ty) {
+Type *SOACandidateInfo::getPointeeType(Type *Ty) {
   if (auto *PTy = dyn_cast_or_null<PointerType>(Ty))
     return PTy->getElementType();
   return nullptr;
@@ -208,7 +208,7 @@ Type *MemInitCandidateInfo::getPointeeType(Type *Ty) {
 
 // Returns true if 'Ty' is potential padding field that
 // is created to fill gaps in structs.
-bool MemInitCandidateInfo::isPotentialPaddingField(Type *Ty) {
+bool SOACandidateInfo::isPotentialPaddingField(Type *Ty) {
   ArrayType *ATy = dyn_cast<ArrayType>(Ty);
   if (!ATy || !ATy->getElementType()->isIntegerTy(8))
     return false;
@@ -220,7 +220,7 @@ bool MemInitCandidateInfo::isPotentialPaddingField(Type *Ty) {
 // Ex:
 //      %"MemoryManager" = type { i32 (...)** }
 //
-bool MemInitCandidateInfo::isStructWithNoRealData(Type *Ty) {
+bool SOACandidateInfo::isStructWithNoRealData(Type *Ty) {
   auto *STy = getValidStructTy(Ty);
   if (!STy || STy->getNumElements() > 1)
     return false;
@@ -238,7 +238,7 @@ bool MemInitCandidateInfo::isStructWithNoRealData(Type *Ty) {
 // Ex:
 //  %"ValueVectorOf.6" = type { i8, i32, i32, %"IC_Fld"**, %"MemoryManager"* }
 //
-bool MemInitCandidateInfo::isVectorLikeClass(Type *Ty, Type **ElemTy) {
+bool SOACandidateInfo::isVectorLikeClass(Type *Ty, Type **ElemTy) {
   auto *STy = getValidStructTy(Ty);
   if (!STy)
     return false;
@@ -294,7 +294,7 @@ bool MemInitCandidateInfo::isVectorLikeClass(Type *Ty, Type **ElemTy) {
 // Ex:
 //  %"RefArrayVectorOf" = type { %"BaseRefVectorOf.5" }
 //
-Type *MemInitCandidateInfo::getBaseClassOfSimpleDerivedClass(Type *Ty) {
+Type *SOACandidateInfo::getBaseClassOfSimpleDerivedClass(Type *Ty) {
   auto *STy = getValidStructTy(Ty);
   if (!STy)
     return nullptr;
@@ -305,15 +305,15 @@ Type *MemInitCandidateInfo::getBaseClassOfSimpleDerivedClass(Type *Ty) {
   return STy->getElementType(0);
 }
 
-// Returns true if given type is candidate for MemInitTrimDown.
+// Returns true if given type is candidate for MemInitTrimDown or SOAToAOS.
 //
 // Ex:
 //   %"FieldValueMap" = type { %"ValueVectorOf.6"*, %"ValueVectorOf.7"*,
 //                             %"RefArrayVectorOf"*, %"MemoryManager"* }
 //
 //   %"FieldValueMap" will be considered as candidate for MemInitTrimDown
-//   because it has only pointer fields that point to either potential
-//   vector classes (%"ValueVectorOf.6", %"ValueVectorOf.7" and
+//   or SOAToAOS because it has only pointer fields that point to either
+//   potential vector classes (%"ValueVectorOf.6", %"ValueVectorOf.7" and
 //   %"RefArrayVectorOf") or dummy class with no real data (%"MemoryManager").
 //
 //
@@ -332,7 +332,7 @@ Type *MemInitCandidateInfo::getBaseClassOfSimpleDerivedClass(Type *Ty) {
 //
 //   %"MemoryManager" is considered as dummy struct with no real data.
 //
-bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
+bool SOACandidateInfo::isCandidateType(Type *Ty) {
 
   auto STy = getValidStructTy(Ty);
   if (!STy)
@@ -366,13 +366,13 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
       return false;
   }
   if (CandidateFieldPositions.size() < MinNumCandidateVectors) {
-    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
       dbgs() << "  Failed: doesn't have minimum candidate vectors.\n";
     });
     return false;
   }
   if (NumNoDataPointers != 1) {
-    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
       dbgs() << "  Failed: Unexpected MemoryInterface Type.\n";
     });
     return false;
@@ -383,7 +383,7 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
 
 // Collects the element type of VTy at Pos if element type is a pointer
 // to vector class.
-bool MemInitCandidateInfo::collectTypesIfVectorClass(Type *VTy, int32_t Pos) {
+bool SOACandidateInfo::collectTypesIfVectorClass(Type *VTy, int32_t Pos) {
   // Check if it is simple derived class that doesn't have its own
   // fields.
   //
@@ -418,7 +418,7 @@ bool MemInitCandidateInfo::collectTypesIfVectorClass(Type *VTy, int32_t Pos) {
 //
 //  Base: %"BaseRefVectorOf.5" = type { i32 (...)**, i8, i32, i32,
 //                                      i16**, %"MemoryManager"* }
-Type *MemInitCandidateInfo::isSimpleVectorType(Type *Ty, int32_t Offset,
+Type *SOACandidateInfo::isSimpleVectorType(Type *Ty, int32_t Offset,
                                                bool AllowOnlyDerived) {
   auto STy = getValidStructTy(Ty);
   if (!STy)
@@ -438,7 +438,7 @@ Type *MemInitCandidateInfo::isSimpleVectorType(Type *Ty, int32_t Offset,
 // Collect member functions of candidate struct and member functions of
 // candidate vector field classes. 'AtLTO' indicates whether this routine
 // is called from LTO pass or not.
-bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
+bool SOACandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
   std::function<bool(Function * F, bool AtLTO,
                      SmallPtrSet<Function *, 32> &ProcessedFuncs)>
       CollectVectorMemberFunctions;
@@ -477,7 +477,7 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 
         // At LTO, only direct calls are expected in the member functions.
         if (AtLTO && !Callee) {
-          DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+          DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
             dbgs() << "  Failed: No indirect call is allowed.\n";
           });
           return false;
@@ -497,7 +497,7 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
         StructMethods.insert(&F);
 
   if (StructMethods.size() > MaxNumStructMethods) {
-    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
       dbgs() << "  Failed: Exceeding max limit for struct methods.\n";
     });
     return false;
@@ -507,7 +507,7 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
   // Collect member functions of all candidate vector fields.
   for (auto *F : StructMethods) {
     if (AtLTO && F->isDeclaration()) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: Missing definition for struct methods.\n";
       });
       return false;
@@ -523,20 +523,20 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
   for (auto Loc : CandidateFieldPositions) {
     if (CandidateFieldMemberFuncs[Loc].size() > MaxNumVectorMethods ||
         CandidateFieldMemberFuncs[Loc].size() < MinNumVectorMethods) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: Unexpected number of vector methods.\n";
       });
       return false;
     }
     for (auto *F : CandidateFieldMemberFuncs[Loc]) {
       if (F->isDeclaration()) {
-        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
           dbgs() << "  Failed: Missing definition for vector method.\n";
         });
         return false;
       }
       if (F->size() > MaxNumVectorMethodBBlocks) {
-        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
           dbgs() << "  Failed: Exceeding vector method size limit.\n";
         });
         return false;
@@ -554,8 +554,8 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 //   called directly)
 //   3. In struct methods, calls that are passed as arguments to other
 //      direct calls.
-void MemInitCandidateInfo::collectFuncs(
-    Module &M, SmallSet<Function *, 32> *MemInitFuncs) {
+void SOACandidateInfo::collectFuncs(
+    Module &M, SmallSet<Function *, 32> *SOAFuncs) {
   SmallPtrSet<Type *, 4> InterestedClasses;
 
   InterestedClasses.insert(SType);
@@ -566,7 +566,7 @@ void MemInitCandidateInfo::collectFuncs(
   for (auto &F : M)
     if (auto *CTy = getClassType(&F))
       if (InterestedClasses.count(CTy))
-        MemInitFuncs->insert(&F);
+        SOAFuncs->insert(&F);
 
   for (auto *F : struct_functions())
     for (Instruction &I : instructions(F)) {
@@ -580,14 +580,14 @@ void MemInitCandidateInfo::collectFuncs(
         auto *Callee = dtrans::getCalledFunction(*ACB);
         if (!Callee || Callee->isDeclaration())
           continue;
-        MemInitFuncs->insert(Callee);
+        SOAFuncs->insert(Callee);
       }
     }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void MemInitCandidateInfo::printCandidateInfo(void) {
+void SOACandidateInfo::printCandidateInfo(void) {
   dbgs() << "    Candidate: " << getStructName(SType) << "\n";
   for (auto Loc : CandidateFieldPositions) {
     dbgs() << " Member functions for " << Loc << " candidate field: \n";
@@ -603,4 +603,4 @@ void MemInitCandidateInfo::printCandidateInfo(void) {
 
 } // namespace llvm
 
-#endif // INTEL_DTRANS_TRANSFORMS_MEMINITTRIMDOWNINFOIMPL_H
+#endif // INTEL_DTRANS_TRANSFORMS_STRUCTOFARRAYSINFOIMPL_H

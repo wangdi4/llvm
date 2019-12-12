@@ -62,7 +62,7 @@
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #if INTEL_INCLUDE_DTRANS
-#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h" // INTEL
+#include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 #include <algorithm>
@@ -607,24 +607,24 @@ static void collectDtransFuncs(Module &M,
   SmallSet<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
   for (auto *TI : SOAToAOSCandidates) {
-    dtrans::MemInitCandidateInfo MemInfo;
+    dtrans::SOACandidateInfo MemInfo;
     if (!MemInfo.isCandidateType(TI))
       continue;
-    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
       dbgs() << "MemInitTrimDown transformation";
       dbgs() << "  Considering candidate: ";
       TI->print(dbgs(), true, true);
       dbgs() << "\n";
     });
     if (!MemInfo.collectMemberFunctions(M, false)) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: member functions collections.\n";
       });
       continue;
     }
 
     if (!MemInitFuncs.empty()) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: More than one candidate struct found.\n";
       });
       MemInitFuncs.clear();

@@ -242,8 +242,8 @@ class SOAToAOSPrepCandidateInfo {
 
 public:
   SOAToAOSPrepCandidateInfo(Module &M, const DataLayout &DL,
-                            DTransAnalysisInfo &DTInfo, MemGetTLITy GetTLI,
-                            MemInitDominatorTreeType GetDT)
+                            DTransAnalysisInfo &DTInfo, SOAGetTLITy GetTLI,
+                            SOADominatorTreeType GetDT)
       : M(M), DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT){};
 
   ~SOAToAOSPrepCandidateInfo() {
@@ -298,8 +298,8 @@ private:
   Module &M;
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  MemGetTLITy GetTLI;
-  MemInitDominatorTreeType GetDT;
+  SOAGetTLITy GetTLI;
+  SOADominatorTreeType GetDT;
 
   // ClassInfo for the candidate field class.
   ClassInfo *ClassI = nullptr;
@@ -310,12 +310,12 @@ private:
   ClassInfo *NewClassI = nullptr;
 
   // Info of candidate Struct.
-  MemInitCandidateInfo *CandI = nullptr;
+  SOACandidateInfo *CandI = nullptr;
 
   // Candidate Struct info is also recomputed for the candidate field after
   // 3rd transformation is done since layout of the types are completely
   // changed.
-  MemInitCandidateInfo *NewCandI = nullptr;
+  SOACandidateInfo *NewCandI = nullptr;
 
   // Candidate field class which is derived from BaseTy.
   StructType *DerivedTy = nullptr;
@@ -380,7 +380,7 @@ private:
 //
 bool SOAToAOSPrepCandidateInfo::isCandidateField(Type *Ty, unsigned Offset) {
 
-  std::unique_ptr<MemInitCandidateInfo> CandD(new MemInitCandidateInfo());
+  std::unique_ptr<SOACandidateInfo> CandD(new SOACandidateInfo());
 
   // Check if it is a candidate field.
   Type *DTy = CandD->isSimpleVectorType(Ty, Offset, /*AllowOnlyDerived*/ true);
@@ -398,7 +398,7 @@ bool SOAToAOSPrepCandidateInfo::isCandidateField(Type *Ty, unsigned Offset) {
 
   // Collect Derived and Base types.
   CandI = CandD.release();
-  Type *BTy = getMemInitSimpleBaseType(DTy);
+  Type *BTy = getSOASimpleBaseType(DTy);
   assert(BTy && "Unexpected Base Type");
   DerivedTy = dyn_cast<StructType>(DTy);
   BaseTy = dyn_cast<StructType>(BTy);
@@ -1073,7 +1073,7 @@ void SOAToAOSPrepCandidateInfo::postprocessFunction(Function &F,
 bool SOAToAOSPrepCandidateInfo::computeUpdatedCandidateInfo() {
 
   int32_t Off = getCandidateField();
-  std::unique_ptr<MemInitCandidateInfo> NewCandD(new MemInitCandidateInfo());
+  std::unique_ptr<SOACandidateInfo> NewCandD(new SOACandidateInfo());
   if (!NewCandD->isSimpleVectorType(NewStructTy, Off,
                                     /*AllowOnlyDerived*/ false))
     return false;
@@ -2247,7 +2247,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
 class SOAToAOSPrepareTransImpl : public DTransOptBase {
 public:
   SOAToAOSPrepareTransImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                           const DataLayout &DL, MemGetTLITy GetTLI,
+                           const DataLayout &DL, SOAGetTLITy GetTLI,
                            StringRef DepTypePrefix,
                            DTransTypeRemapper *TypeRemapper,
                            SOAToAOSPrepCandidateInfo *CandI)
@@ -2308,8 +2308,8 @@ void SOAToAOSPrepareTransImpl::postprocessFunction(Function &Func,
 class SOAToAOSPrepareImpl {
 public:
   SOAToAOSPrepareImpl(Module &M, const DataLayout &DL,
-                      DTransAnalysisInfo &DTInfo, MemGetTLITy GetTLI,
-                      MemInitDominatorTreeType GetDT)
+                      DTransAnalysisInfo &DTInfo, SOAGetTLITy GetTLI,
+                      SOADominatorTreeType GetDT)
       : M(M), DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT) {}
 
   ~SOAToAOSPrepareImpl() {
@@ -2328,8 +2328,8 @@ private:
   Module &M;
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  MemGetTLITy GetTLI;
-  MemInitDominatorTreeType GetDT;
+  SOAGetTLITy GetTLI;
+  SOADominatorTreeType GetDT;
   SmallPtrSet<SOAToAOSPrepCandidateInfo *, MaxNumCandidates> Candidates;
 
   bool gatherCandidateInfo(void);
@@ -2436,8 +2436,8 @@ bool SOAToAOSPrepareImpl::run(void) {
 } // end namespace soatoaos
 
 bool SOAToAOSPreparePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                  MemGetTLITy GetTLI, WholeProgramInfo &WPInfo,
-                                  dtrans::MemInitDominatorTreeType &GetDT) {
+                                  SOAGetTLITy GetTLI, WholeProgramInfo &WPInfo,
+                                  dtrans::SOADominatorTreeType &GetDT) {
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
@@ -2457,7 +2457,7 @@ PreservedAnalyses SOAToAOSPreparePass::run(Module &M,
   auto &WP = AM.getResult<WholeProgramAnalysis>(M);
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  MemInitDominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
+  SOADominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
@@ -2496,7 +2496,7 @@ public:
 
     auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
     DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    dtrans::MemInitDominatorTreeType GetDT =
+    dtrans::SOADominatorTreeType GetDT =
         [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
