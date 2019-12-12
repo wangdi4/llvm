@@ -12453,6 +12453,10 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
         Diag(Var->getLocation(), diag::note_private_extern);
       }
 
+      if (Context.getTargetInfo().allowDebugInfoForExternalVar() &&
+          !Var->isInvalidDecl() && !getLangOpts().CPlusPlus)
+        ExternalDeclarations.push_back(Var);
+
       return;
 
     case VarDecl::TentativeDefinition:

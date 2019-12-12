@@ -338,6 +338,10 @@ namespace clang {
       Gen->CompleteTentativeDefinition(D);
     }
 
+    void CompleteExternalDeclaration(VarDecl *D) override {
+      Gen->CompleteExternalDeclaration(D);
+    }
+
     void AssignInheritanceModel(CXXRecordDecl *RD) override {
       Gen->AssignInheritanceModel(RD);
     }
