@@ -22,6 +22,7 @@
 #include "intel/CGOpenMPLateOutline.h"
 #endif // INTEL_COLLAB
 #include "TargetInfo.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -31,7 +32,6 @@
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/SwiftCallingConv.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
@@ -39,12 +39,16 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CQ381541: IMF attributes support
 #include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/StringSet.h"
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#include "llvm/Transforms/Utils/Local.h"
+>>>>>>> 4035f5e5ee6ba9afe27a2ffdea3ba94421e6d597
 using namespace clang;
 using namespace CodeGen;
 

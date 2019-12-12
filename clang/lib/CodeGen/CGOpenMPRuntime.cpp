@@ -10,20 +10,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CGOpenMPRuntime.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
+<<<<<<< HEAD
 #include "CGOpenMPRuntime.h"
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/StmtVisitor.h"
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 4035f5e5ee6ba9afe27a2ffdea3ba94421e6d597
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
-#include "clang/CodeGen/ConstantInitBuilder.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/BitmaskEnum.h"
+#include "clang/CodeGen/ConstantInitBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Bitcode/BitcodeReader.h"
