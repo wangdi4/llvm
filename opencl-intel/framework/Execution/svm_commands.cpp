@@ -15,6 +15,7 @@
 #include "svm_commands.h"
 #include "command_queue.h"
 #include "context_module.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::Framework;

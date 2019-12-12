@@ -53,6 +53,9 @@ include(CheckCXXCompilerFlag)
 
 # Include functions for opencl targets
 include(CMakeFuncs)
+
+use_eh(TRUE)
+
 include(AddOpenCL)
 if (WIN32)
   include(CMake_windows_tools)
@@ -128,14 +131,10 @@ endif ()
 # Turn off missing field initializer warnings for gcc to avoid noise from
 # false positives with empty {}. Turn them on otherwise (they're off by
 # default for clang).
-check_cxx_compiler_flag(
-    "-Wmissing-field-initializers" CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
-if (CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
-  if (CMAKE_COMPILER_IS_GNUCXX)
-    add_definitions( -Wno-missing-field-initializers )
-  else()
-    add_definitions( -Wmissing-field-initializers )
-  endif()
+if (CMAKE_COMPILER_IS_GNUCXX)
+  add_flag_if_supported("-Wno-missing-field-initializers" CMPLR_NO_MISSING_FIELD_INITIALIZERS)
+else()
+  add_flag_if_supported("-Wmissing-field-initializers" CMPLR_MISSING_FIELD_INITIALIZERS)
 endif()
 
 if (OPENCL_INTREE_BUILD)

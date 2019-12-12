@@ -8,13 +8,15 @@ endif (BUILD_X64)
 # Microsoft Assembler setup - use private rules
 if (BUILD_X64)
     set( OPENCL_ASM_COMPILER           ml64 ) #OLD changed due to issues in TFW (didn't find asm compiler on win 64
-    set( CMAKE_ASM_FLAGS               /nologo /c /Zi) # do not quote this!!!!
+    set( CMAKE_ASM_FLAGS               /nologo /c /Zi /W3 /errorReport:prompt) # do not quote this!!!!
 else (BUILD_X64)
     set( OPENCL_ASM_COMPILER           ml )
-    set( CMAKE_ASM_FLAGS               /nologo /safeseh /c /coff /Zi) # do not quote this!!!!
+    set( CMAKE_ASM_FLAGS               /nologo /safeseh /c /coff /Zi /W3 /errorReport:prompt) # do not quote this!!!!
 endif (BUILD_X64)
 
 set( CMAKE_ASM_INCLUDE_DIR_FLAG    /I )
+set( CMAKE_ASM_OUTPUT_NAME_FLAG    /Fo )
+set( CMAKE_ASM_LINK_FLAG           /nologo )
 
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")

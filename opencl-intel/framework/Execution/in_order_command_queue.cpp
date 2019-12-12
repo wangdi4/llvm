@@ -19,6 +19,7 @@
 #include "events_manager.h"
 #include "ocl_command_queue.h"
 #include "Context.h"
+#include "cl_shared_ptr.hpp"
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;

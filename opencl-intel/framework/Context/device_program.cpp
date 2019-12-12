@@ -20,6 +20,7 @@
 #include "cl_sys_defines.h"
 #include "ElfReader.h"
 #include "cl_autoptr_ex.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
