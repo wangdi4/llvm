@@ -16,11 +16,8 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
-=======
 #include "llvm/Analysis/TargetLibraryInfo.h"
->>>>>>> 0be81968a283fd4161cb9ac9748d5ed200926292
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CheckedArithmetic.h"
 
