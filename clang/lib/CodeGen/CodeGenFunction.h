@@ -3572,8 +3572,9 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_COLLAB
-  void EmitLateOutlineOMPDirective(const OMPExecutableDirective &S,
-                                   OpenMPDirectiveKind Kind = OMPD_unknown);
+  void EmitLateOutlineOMPDirective(
+      const OMPExecutableDirective &S,
+      OpenMPDirectiveKind Kind = llvm::omp::OMPD_unknown);
 
   void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind Kind);

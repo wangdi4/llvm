@@ -466,7 +466,8 @@ public:
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
   bool inTargetVariantDispatchRegion() {
-    return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
+    return Outliner.getCurrentDirectiveKind() ==
+           llvm::omp::OMPD_target_variant_dispatch;
   }
   void enterTryStmt() { ++TryStmts; }
   void exitTryStmt() {

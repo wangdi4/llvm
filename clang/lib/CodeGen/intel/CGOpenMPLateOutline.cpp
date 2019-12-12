@@ -19,6 +19,7 @@
 #include "clang/AST/Attr.h"
 using namespace clang;
 using namespace CodeGen;
+using namespace llvm::omp;
 
 llvm::Value *
 OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {

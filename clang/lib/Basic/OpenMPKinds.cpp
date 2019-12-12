@@ -63,32 +63,6 @@ clang::getOpenMPContextSelectorName(OpenMPContextSelectorKind Kind) {
   llvm_unreachable("Invalid OpenMP context selector kind");
 }
 
-<<<<<<< HEAD
-OpenMPDirectiveKind clang::getOpenMPDirectiveKind(StringRef Str) {
-  return llvm::StringSwitch<OpenMPDirectiveKind>(Str)
-#define OPENMP_DIRECTIVE(Name) .Case(#Name, OMPD_##Name)
-#define OPENMP_DIRECTIVE_EXT(Name, Str) .Case(Str, OMPD_##Name)
-#include "clang/Basic/OpenMPKinds.def"
-      .Default(OMPD_unknown);
-}
-
-const char *clang::getOpenMPDirectiveName(OpenMPDirectiveKind Kind) {
-  assert(Kind <= OMPD_unknown);
-  switch (Kind) {
-  case OMPD_unknown:
-    return "unknown";
-#define OPENMP_DIRECTIVE(Name)                                                 \
-  case OMPD_##Name:                                                            \
-    return #Name;
-#define OPENMP_DIRECTIVE_EXT(Name, Str)                                        \
-  case OMPD_##Name:                                                            \
-    return Str;
-#include "clang/Basic/OpenMPKinds.def"
-    break;
-  }
-  llvm_unreachable("Invalid OpenMP directive kind");
-}
-
 #if INTEL_CUSTOMIZATION
 bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
   switch (DKind) {
@@ -124,8 +98,6 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> eb3e81f43f019cd90da87169aeff0eaddc4c9ecb
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified

@@ -1686,8 +1686,9 @@ class OMPTargetVariantDispatchDirective : public OMPExecutableDirective {
   OMPTargetVariantDispatchDirective(SourceLocation StartLoc,
                                     SourceLocation EndLoc, unsigned NumClauses)
       : OMPExecutableDirective(this, OMPTargetVariantDispatchDirectiveClass,
-                               OMPD_target_variant_dispatch, StartLoc, EndLoc,
-                               NumClauses, /*NumChildren=*/1) {}
+                               llvm::omp::OMPD_target_variant_dispatch,
+                               StartLoc, EndLoc, NumClauses,
+                               /*NumChildren=*/1) {}
 
   /// Build an empty directive.
   ///
@@ -1695,8 +1696,8 @@ class OMPTargetVariantDispatchDirective : public OMPExecutableDirective {
   ///
   explicit OMPTargetVariantDispatchDirective(unsigned NumClauses)
       : OMPExecutableDirective(this, OMPTargetVariantDispatchDirectiveClass,
-                               OMPD_target_variant_dispatch, SourceLocation(),
-                               SourceLocation(), NumClauses,
+                               llvm::omp::OMPD_target_variant_dispatch,
+                               SourceLocation(), SourceLocation(), NumClauses,
                                /*NumChildren=*/1) {}
 
 public:

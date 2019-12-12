@@ -95,7 +95,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #endif // INTEL_CUSTOMIZATION
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       if (requiresImplicitTask(*Dir))
-        return EmitLateOutlineOMPDirective(*Dir, OMPD_task);
+        return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_task);
 
     // Combined target directives
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
@@ -110,7 +110,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() ==
             Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_target);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_target);
     }
     // Combined teams directives
     if (S->getStmtClass() == Stmt::OMPTeamsDistributeDirectiveClass ||
@@ -120,20 +120,20 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() ==
             Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_teams);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_teams);
     }
     // Combined master/taskloop directives
     if (S->getStmtClass() == Stmt::OMPMasterTaskLoopDirectiveClass ||
         S->getStmtClass() == Stmt::OMPMasterTaskLoopSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_master);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_master);
     }
     // Combined parallel/master_taskloop directives
     if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
         S->getStmtClass() ==
             Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_parallel);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_parallel);
     }
     if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S))
       return EmitLateOutlineOMPLoopDirective(*LoopDir,
