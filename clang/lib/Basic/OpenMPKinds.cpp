@@ -18,6 +18,7 @@
 #include <cassert>
 
 using namespace clang;
+using namespace llvm::omp;
 
 OpenMPContextSelectorSetKind
 clang::getOpenMPContextSelectorSet(llvm::StringRef Str) {
@@ -62,6 +63,7 @@ clang::getOpenMPContextSelectorName(OpenMPContextSelectorKind Kind) {
   llvm_unreachable("Invalid OpenMP context selector kind");
 }
 
+<<<<<<< HEAD
 OpenMPDirectiveKind clang::getOpenMPDirectiveKind(StringRef Str) {
   return llvm::StringSwitch<OpenMPDirectiveKind>(Str)
 #define OPENMP_DIRECTIVE(Name) .Case(#Name, OMPD_##Name)
@@ -122,6 +124,8 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> eb3e81f43f019cd90da87169aeff0eaddc4c9ecb
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified
@@ -510,7 +514,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
                                         OpenMPClauseKind CKind,
                                         unsigned OpenMPVersion) {
-  assert(DKind <= OMPD_unknown);
+  assert(unsigned(DKind) <= unsigned(OMPD_unknown));
   assert(CKind <= OMPC_unknown);
   switch (DKind) {
   case OMPD_parallel:

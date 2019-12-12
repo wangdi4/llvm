@@ -11,12 +11,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef OPENMP_DIRECTIVE
-#  define OPENMP_DIRECTIVE(Name)
-#endif
-#ifndef OPENMP_DIRECTIVE_EXT
-#define OPENMP_DIRECTIVE_EXT(Name, Str)
-#endif
 #ifndef OPENMP_CLAUSE
 #  define OPENMP_CLAUSE(Name, Class)
 #endif
@@ -250,6 +244,7 @@ OPENMP_CONTEXT_SELECTOR(arch)
 #endif
 #endif // INTEL_COLLAB
 
+<<<<<<< HEAD
 // OpenMP directives.
 OPENMP_DIRECTIVE(threadprivate)
 OPENMP_DIRECTIVE(parallel)
@@ -374,6 +369,8 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(sections)
 OPENMP_DIRECTIVE_SPIR_SUBSET(section)
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> eb3e81f43f019cd90da87169aeff0eaddc4c9ecb
 // OpenMP clauses.
 OPENMP_CLAUSE(allocator, OMPAllocatorClause)
 OPENMP_CLAUSE(if, OMPIfClause)
@@ -1270,6 +1267,7 @@ OPENMP_MATCH_KIND(implementation)
 #undef OPENMP_SCHEDULE_KIND
 #undef OPENMP_PROC_BIND_KIND
 #undef OPENMP_DEFAULT_KIND
+<<<<<<< HEAD
 #undef OPENMP_DIRECTIVE
 #undef OPENMP_DIRECTIVE_EXT
 #if INTEL_CUSTOMIZATION
@@ -1277,6 +1275,8 @@ OPENMP_MATCH_KIND(implementation)
 #undef OPENMP_DIRECTIVE_TBB_SUBSET
 #undef OPENMP_DIRECTIVE_SPIR_SUBSET
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> eb3e81f43f019cd90da87169aeff0eaddc4c9ecb
 #undef OPENMP_CLAUSE
 #undef OPENMP_CRITICAL_CLAUSE
 #undef OPENMP_ORDERED_CLAUSE
