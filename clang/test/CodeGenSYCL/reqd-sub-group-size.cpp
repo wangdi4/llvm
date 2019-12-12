@@ -25,10 +25,20 @@ void bar() {
 
   Functor f;
   kernel<class kernel_name2>(f);
+
+  kernel<class kernel_name3>(
+  []() [[cl::intel_reqd_sub_group_size(4)]] {});
 }
 
+<<<<<<< HEAD
 // CHECK: define{{( dso_local)?}} spir_kernel void @{{.*}}kernel_name1{{.*}}() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE16:[0-9]+]]
 // CHECK: define{{( dso_local)?}} spir_kernel void @{{.*}}kernel_name2{{.*}}() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE8:[0-9]+]]
+=======
+// CHECK: define spir_kernel void @{{.*}}kernel_name1() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE16:[0-9]+]]
+// CHECK: define spir_kernel void @{{.*}}kernel_name2() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE8:[0-9]+]]
+// CHECK: define spir_kernel void @{{.*}}kernel_name3() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE4:[0-9]+]]
+>>>>>>> e42a6f0683d468bc5fb1c68ad6cbae447fbe2824
 // CHECK: ![[SGSIZE16]] = !{i32 16}
 // CHECK: ![[SGSIZE8]] = !{i32 8}
+// CHECK: ![[SGSIZE4]] = !{i32 4}
 
