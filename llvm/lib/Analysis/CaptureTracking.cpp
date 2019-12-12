@@ -306,7 +306,14 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
         break;
       }
 #endif // INTEL_CUSTOMIZATION
-
+#if INTEL_COLLAB
+      if (auto *II = dyn_cast<IntrinsicInst>(I)) {
+        // The region directive itself does not capture its arguments, and
+        // its use is not important here.
+        if (II->getIntrinsicID() == Intrinsic::directive_region_entry)
+          break;
+      }
+#endif // INTEL_COLLAB
       // Volatile operations effectively capture the memory location that they
       // load and store to.
       if (auto *MI = dyn_cast<MemIntrinsic>(Call))
