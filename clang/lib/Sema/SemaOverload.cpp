@@ -9920,6 +9920,7 @@ enum OverloadCandidateKind {
   oc_implicit_move_constructor,
   oc_implicit_copy_assignment,
   oc_implicit_move_assignment,
+  oc_implicit_equality_comparison,
   oc_inherited_constructor
 };
 
@@ -9948,6 +9949,9 @@ ClassifyOverloadCandidate(Sema &S, NamedDecl *Found, FunctionDecl *Fn,
   }();
 
   OverloadCandidateKind Kind = [&]() {
+    if (Fn->isImplicit() && Fn->getOverloadedOperator() == OO_EqualEqual)
+      return oc_implicit_equality_comparison;
+
     if (CRK & CRK_Reversed)
       return oc_reversed_binary_operator;
 
