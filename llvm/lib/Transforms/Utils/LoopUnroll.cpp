@@ -351,6 +351,8 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     return LoopUnrollResult::Unmodified;
   }
 
+//if (ULO.Count == 6) ULO.Count = 3;
+
   if (ULO.TripCount != 0)
     LLVM_DEBUG(dbgs() << "  Trip Count = " << ULO.TripCount << "\n");
   if (ULO.TripMultiple != 1)

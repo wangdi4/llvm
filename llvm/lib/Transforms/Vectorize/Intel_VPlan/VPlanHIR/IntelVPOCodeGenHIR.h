@@ -142,7 +142,8 @@ public:
                                  const OVLSGroup *Group,
                                  int64_t InterleaveFactor,
                                  int64_t InterleaveIndex,
-                                 const HLInst *GrpStartInst);
+                                 const HLInst *GrpStartInst,
+                                 const VPInstruction *VPInst);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer

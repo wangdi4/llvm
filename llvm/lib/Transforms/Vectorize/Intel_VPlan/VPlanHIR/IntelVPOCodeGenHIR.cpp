@@ -1919,12 +1919,10 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
   return WideStore;
 }
 
-HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
-                                              RegDDRef *Mask,
-                                              const OVLSGroup *Grp,
-                                              int64_t InterleaveFactor,
-                                              int64_t InterleaveIndex,
-                                              const HLInst *GrpStartInst) {
+HLInst *VPOCodeGenHIR::widenInterleavedAccess(
+    const HLInst *INode, RegDDRef *Mask, const OVLSGroup *Grp,
+    int64_t InterleaveFactor, int64_t InterleaveIndex,
+    const HLInst *GrpStartInst, const VPInstruction *VPInst) {
   auto CurInst = INode->getLLVMInstruction();
   HLInst *WideInst = nullptr;
 
@@ -1958,6 +1956,8 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
 
     WideInst = createInterleavedLoad(INode->getLvalDDRef(), WLoadRes,
                                      InterleaveFactor, InterleaveIndex, Mask);
+    // Map the generated DDRef to corresponding VPInstruction.
+    addVPValueWideRefMapping(VPInst, WideInst->getLvalDDRef());
   } else {
     assert(isa<StoreInst>(CurInst) &&
            "Unexpected interleaved access instruction");
@@ -2419,7 +2419,7 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     InterleaveAccess &= !refIsUnit(OrigLoop->getNestingLevel(), MemRef, this);
     if (InterleaveAccess) {
       widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor,
-                             InterleaveIndex, GrpStartInst);
+                             InterleaveIndex, GrpStartInst, VPInst);
       return;
     }
   }

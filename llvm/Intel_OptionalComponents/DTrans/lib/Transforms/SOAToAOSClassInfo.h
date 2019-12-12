@@ -22,7 +22,7 @@
 
 #include "SOAToAOSCommon.h"
 
-#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h"
+#include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h"
 
 namespace llvm {
 
@@ -102,9 +102,9 @@ public:
   using CapacityValuesTy = SmallPtrSet<Value *, 4>;
 
   ClassInfo(const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-            MemGetTLITy GetTLI, MemInitDominatorTreeType GetDT,
-            MemInitCandidateInfo *MICInfo, int32_t FieldIdx, bool RecognizeAll)
-      : DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT), MICInfo(MICInfo),
+            SOAGetTLITy GetTLI, SOADominatorTreeType GetDT,
+            SOACandidateInfo *SOACInfo, int32_t FieldIdx, bool RecognizeAll)
+      : DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT), SOACInfo(SOACInfo),
         FieldIdx(FieldIdx), RecognizeAll(RecognizeAll){};
 
   // Analyze each member function to detect functionality.
@@ -126,11 +126,11 @@ public:
   CallBase *getMemsetInCtor() { return MemsetInCtor; }
 
   // Returns type of field element array.
-  Type *getElementTy() { return MICInfo->getFieldElemTy(FieldIdx); }
+  Type *getElementTy() { return SOACInfo->getFieldElemTy(FieldIdx); }
 
   // Returns size of field element array.
   int64_t getElemTySize() {
-    return DL.getTypeAllocSize(MICInfo->getFieldElemTy(FieldIdx));
+    return DL.getTypeAllocSize(SOACInfo->getFieldElemTy(FieldIdx));
   }
 
   // Returns FinalFuncKind for given Fn.
@@ -144,12 +144,12 @@ public:
 
   // Returns true if F is member function of candidate struct.
   bool isCandidateStructMethod(Function *F) {
-    return MICInfo->isStructMethod(F);
+    return SOACInfo->isStructMethod(F);
   }
 
   // Returns true if F is member function of candidate field vector class.
   bool isCandidateMemberFunction(Function *F) {
-    return MICInfo->isMemberFunction(F, FieldIdx);
+    return SOACInfo->isMemberFunction(F, FieldIdx);
   }
 
   // Returns true if Ty represents address of element.
@@ -161,7 +161,7 @@ public:
   using VectorMethodSetTy = SmallPtrSet<Function *, 10>;
   typedef VectorMethodSetTy::const_iterator m_const_iterator;
   inline iterator_range<m_const_iterator> field_member_functions() {
-    return MICInfo->member_functions(FieldIdx);
+    return SOACInfo->member_functions(FieldIdx);
   }
 
   // Iterator for AllocsInCtor set.
@@ -181,11 +181,11 @@ public:
 private:
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  MemGetTLITy GetTLI;
-  MemInitDominatorTreeType GetDT;
+  SOAGetTLITy GetTLI;
+  SOADominatorTreeType GetDT;
 
   // Candidate struct info.
-  MemInitCandidateInfo *MICInfo;
+  SOACandidateInfo *SOACInfo;
 
   // Field position of potential vector class in candidate struct.
   int32_t FieldIdx;
