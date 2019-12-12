@@ -138,9 +138,11 @@ bool TypeMetadataReader::initialize(Module &M) {
       LLVM_DEBUG(dbgs() << "Failed to recover type info for struct: "
                         << *P.first << "\n");
       AllRecovered = false;
+      continue;
     }
 
     DTransStructType *DTStTy = TM.getStructType(P.first->getName());
+    assert(DTStTy && "Expected recovered type to have been created");
     if (DTStTy->getReconstructError()) {
       LLVM_DEBUG(dbgs() << "Errors with type info for struct: " << *P.first
                         << "\n");
@@ -249,8 +251,8 @@ DTransStructType *TypeMetadataReader::constructDTransStructType(MDNode *MD) {
       dbgs() << "Metadata structure: " << *MD << "\n";
     });
 
-    if (FieldCountU > ExistingType->getNumFields())
-      ExistingType->resizeFieldCount(FieldCountU);
+    if (FieldCountU > DTStTy->getNumFields())
+      DTStTy->resizeFieldCount(FieldCountU);
   }
 
   LLVM_DEBUG({

@@ -321,8 +321,7 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-  /// Loop header VPBasicBlock to HLLoop map. To be used when building loop
-  /// regions.
+  /// Loop header VPBasicBlock to HLLoop map.
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
 
   std::unique_ptr<VPRegionBlock>

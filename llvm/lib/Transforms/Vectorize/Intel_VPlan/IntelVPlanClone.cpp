@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanClone.h"
-#include "VPlanHIR/IntelVPLoopRegionHIR.h"
 
 namespace llvm {
 namespace vpo {
