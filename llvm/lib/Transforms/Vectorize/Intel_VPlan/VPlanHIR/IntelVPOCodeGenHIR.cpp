@@ -602,14 +602,25 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      // These intrinsics need the second argument to remain scalar(consequently
-      // loop invariant). Support to be added later.
-      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz ||
-          ID == Intrinsic::powi) {
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
-                             "ctlz/cttz/powi intrinsic\n");
-        IsHandled = false;
-        return;
+      // If the always scalar operand of vector intrinsic call is loop variant
+      // then we bail out of vectorization.
+      // TODO: In the future such calls should be serialized in outgoing vector
+      // code.
+      if (ID != Intrinsic::not_intrinsic) {
+        unsigned ArgOffset = Inst->hasLval() ? 1 : 0;
+        for (unsigned I = 0; I < Call->getNumArgOperands(); ++I) {
+          if (hasVectorInstrinsicScalarOpd(ID, I)) {
+            auto *OperandCE =
+                Inst->getOperandDDRef(ArgOffset + I)->getSingleCanonExpr();
+            if (!OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel())) {
+              LLVM_DEBUG(dbgs()
+                         << "VPLAN_OPTREPORT: Loop not handled - always scalar "
+                            "operand of vector intrinsic is loop variant\n");
+              IsHandled = false;
+              return;
+            }
+          }
+        }
       }
     }
   }
@@ -2328,6 +2339,25 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   for (unsigned i = ArgOffset; i < WideOps.size(); i++) {
     CallArgs.push_back(WideOps[i]);
     ArgTys.push_back(WideOps[i]->getDestType());
+  }
+
+  if (ID != Intrinsic::not_intrinsic) {
+    // Scalarize argument operands of intrinsic calls, if needed.
+    // TODO: For VPValue-based CG scalarization decision about operands should
+    // be done in general earlier. We should not blindly widen all operands of
+    // an instruction.
+    for (unsigned I = 0; I < CallArgs.size(); ++I) {
+      if (hasVectorInstrinsicScalarOpd(ID, I)) {
+        assert(CallArgs[I]->isTerminalRef() &&
+               "Scalar operand of intrinsic is not terminal ref.");
+        auto *OperandCE = CallArgs[I]->getSingleCanonExpr();
+        assert(OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel()) &&
+               "Scalar operand of intrinsic is loop variant.");
+        Type *OperandScalarTy = OperandCE->getDestType()->getScalarType();
+        OperandCE->setSrcAndDestType(OperandScalarTy);
+        ArgTys[I] = OperandScalarTy;
+      }
+    }
   }
 
   // Masked intrinsics will not have explicit mask parameter. They are handled
