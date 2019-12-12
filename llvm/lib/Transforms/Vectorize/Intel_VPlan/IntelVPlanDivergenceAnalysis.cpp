@@ -165,18 +165,6 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 }
 
 #if INTEL_CUSTOMIZATION
-// TODO: temporary until a getPhis() interface is added to VPlan and the
-// Phis are added during HCFG construction.
-static void getPhis(const VPBlockBase *Block,
-                    SmallVectorImpl<const VPInstruction *> &Phis) {
-  const VPBasicBlock *PhiBlock = cast<VPBasicBlock>(Block);
-  for (const VPInstruction &VPInst : *PhiBlock) {
-    unsigned OpCode = VPInst.getOpcode();
-    if (OpCode == Instruction::PHI)
-      Phis.push_back(&VPInst);
-  }
-}
-
 static bool hasDeterministicResult(const VPInstruction &I) {
   // As of now only a call instruction known to possibly have non-deterministic
   // result.
@@ -315,9 +303,7 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
     // phi nodes at the fringes of the dominance region
     if (!DT->dominates(&LoopHeader, UserBlock)) {
       // all PHI nodes of @userBlock become divergent
-      // source of divergence with the community due to VPlan not having a
-      // phis() interface for a block. This is the reason for the getPhis()
-      // function.
+      // source.
       pushPHINodes(*UserBlock, true);
       continue;
     }
@@ -356,14 +342,11 @@ void VPlanDivergenceAnalysis::pushPHINodes(const VPBlockBase &Block,
                                            bool PushAll) { // INTEL
 
 #if INTEL_CUSTOMIZATION
-  SmallVector<const VPInstruction *, 2> PhiNodes;
-  // Once again, no phis() interface in VPlan
-  getPhis(&Block, PhiNodes);
-  for (const auto *Phi : PhiNodes) {
-    if (isDivergent(*Phi) && !PushAll)
+  for (const auto &Phi : cast<VPBasicBlock>(Block).getVPPhis()) {
+    if (isDivergent(Phi) && !PushAll)
 #endif // INTEL_CUSTOMIZATION
       continue;
-    Worklist.push_back(Phi);
+    Worklist.push_back(&Phi);
   }
 }
 
@@ -1224,28 +1207,28 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShape(
   return NewShape;
 }
 
-void VPlanDivergenceAnalysis::initializeShapes(
-    SmallVectorImpl<const VPInstruction*> &PhiNodes) {
-
+void VPlanDivergenceAnalysis::initializePhiShapes(VPLoop *CandidateLoop) {
   // Initialize all outer loop phi induction nodes using the appropriate
   // strides. We could also initialize VPExternalDefs to uniform here, but
   // we can do that only the fly in computeVectorShapes() to avoid an
   // additional iteration over the instructions in the VPlan.
-  for (const auto *Phi : PhiNodes) {
+  for (const auto &Phi :
+       cast<VPBasicBlock>(CandidateLoop->getHeader())->getVPPhis()) {
     VPVectorShape *NewShape = nullptr;
-    if (const VPInduction *Ind = RegionLoopEntities->getInduction(Phi)) {
+    if (const VPInduction *Ind = RegionLoopEntities->getInduction(&Phi)) {
       const VPValue *Step = Ind->getStep();
       int StepInt = 0;
       if (auto *StepConst = dyn_cast<VPConstant>(Step)) {
         if (StepConst->isConstantInt())
           // If this is a pointer induction, compute the step-size in terms of
           // bytes, using the size of the pointee.
-          if (isa<PointerType>(Phi->getType())) {
+          if (isa<PointerType>(Phi.getType())) {
             unsigned TypeSizeInBytes =
-                getTypeSizeInBytes(Phi->getType()->getPointerElementType());
+                getTypeSizeInBytes(Phi.getType()->getPointerElementType());
             StepInt = TypeSizeInBytes * StepConst->getZExtValue();
-          } else
+          } else {
             StepInt = StepConst->getZExtValue();
+          }
 
         // IV's vector shape is determined based on its step value. For variable
         // step IVs, we choose Strided (unknown stride value).
@@ -1265,7 +1248,7 @@ void VPlanDivergenceAnalysis::initializeShapes(
       // of compute().
       NewShape = getRandomVectorShape();
 
-    updateVectorShape(Phi, NewShape);
+    updateVectorShape(&Phi, NewShape);
   }
 
   ReversePostOrderTraversal<VPBlockBase *> RPOT(RegionLoop->getHeader());
@@ -1356,13 +1339,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   SDA = new SyncDependenceAnalysis(CandidateLoop->getHeader(), VPDomTree,
                                    VPPostDomTree, *VPLInfo);
 
-#if INTEL_CUSTOMIZATION
-  // community code divergence due to no phis() interface
-  SmallVector<const VPInstruction *, 2> PhiNodes;
-  getPhis(CandidateLoop->getHeader(), PhiNodes);
-  for (const auto *Phi : PhiNodes) {
-#endif // INTEL_CUSTOMIZATION
-    markDivergent(*Phi);
+  for (const auto &Phi :
+       cast<VPBasicBlock>(CandidateLoop->getHeader())->getVPPhis()) {
+    markDivergent(Phi);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -1412,7 +1391,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #if INTEL_CUSTOMIZATION
   // Propagate linearity - start at vector loop candidate header phi nodes.
   UndefShape = std::make_unique<VPVectorShape>(VPVectorShape::Undef);
-  initializeShapes(PhiNodes);
+  initializePhiShapes(CandidateLoop);
 #endif // INTEL_CUSTOMIZATION
 
   computeImpl();
