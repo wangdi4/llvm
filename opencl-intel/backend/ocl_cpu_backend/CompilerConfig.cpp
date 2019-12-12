@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_sys_defines.h"
 #include "CompilerConfig.h"
 #include "OclTune.h"
 #include "PipeCommon.h"
@@ -73,20 +74,18 @@ void GlobalCompilerConfig::LoadConfig()
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
     // no need to fuse them all the way down to all passes
+
+    // If environment variable VOLCANO_STATS is set to any non-empty string,
+    // then IR containing statistic information will be dumped.
+    // If the environment variable is set to 'all' (case-insensitive), all
+    // statistic will be dumped, otherwise, only statistic with specified type
+    // will be dumped.
     if (const char *pEnv = getenv("VOLCANO_STATS"))
     {
-        intel::Statistic::enableStats();
-        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-        {
-            intel::Statistic::setCurrentStatType(pEnv);
-        }
-    }
-    if (const char *pEnv = getenv("VOLCANO_EQUALIZER_DUMP"))
-    {
-        intel::Statistic::enableStats();
-        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-        {
-            intel::Statistic::setCurrentStatType(pEnv);
+        if (pEnv[0] != 0) {
+            intel::Statistic::enableStats();
+            if (STRCASECMP("all", pEnv))
+                intel::Statistic::setCurrentStatType(pEnv);
         }
     }
 #endif // INTEL_PRODUCT_RELEASE
