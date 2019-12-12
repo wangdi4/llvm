@@ -209,6 +209,9 @@ void ARMTargetLowering::addTypeForNEON(MVT VT, MVT PromotedLdStVT,
       VT != MVT::v2i64 && VT != MVT::v1i64)
     for (auto Opcode : {ISD::ABS, ISD::SMIN, ISD::SMAX, ISD::UMIN, ISD::UMAX})
       setOperationAction(Opcode, VT, Legal);
+  if (!VT.isFloatingPoint())
+    for (auto Opcode : {ISD::SADDSAT, ISD::UADDSAT, ISD::SSUBSAT, ISD::USUBSAT})
+      setOperationAction(Opcode, VT, Legal);
 }
 
 void ARMTargetLowering::addDRTypeForNEON(MVT VT) {
@@ -5576,15 +5579,9 @@ SDValue ARMTargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
 Register ARMTargetLowering::getRegisterByName(const char* RegName, EVT VT,
                                               const MachineFunction &MF) const {
   Register Reg = StringSwitch<unsigned>(RegName)
-                     .Case("r6", ARM::R6)
-                     .Case("r7", ARM::R7)
-                     .Case("r8", ARM::R8)
-                     .Case("r9", ARM::R9)
-                     .Case("r10", ARM::R10)
-                     .Case("r11", ARM::R11)
-                     .Case("sp", ARM::SP)
-                     .Default(ARM::NoRegister);
-  if (Reg != ARM::NoRegister)
+                       .Case("sp", ARM::SP)
+                       .Default(0);
+  if (Reg)
     return Reg;
   report_fatal_error(Twine("Invalid register name \""
                               + StringRef(RegName)  + "\"."));
@@ -8996,6 +8993,12 @@ static SDValue LowerPredicateStore(SDValue Op, SelectionDAG &DAG) {
       ST->getMemOperand());
 }
 
+static bool isZeroVector(SDValue N) {
+  return (ISD::isBuildVectorAllZeros(N.getNode()) ||
+          (N->getOpcode() == ARMISD::VMOVIMM &&
+           isNullConstant(N->getOperand(0))));
+}
+
 static SDValue LowerMLOAD(SDValue Op, SelectionDAG &DAG) {
   MaskedLoadSDNode *N = cast<MaskedLoadSDNode>(Op.getNode());
   MVT VT = Op.getSimpleValueType();
@@ -9003,13 +9006,7 @@ static SDValue LowerMLOAD(SDValue Op, SelectionDAG &DAG) {
   SDValue PassThru = N->getPassThru();
   SDLoc dl(Op);
 
-  auto IsZero = [](SDValue PassThru) {
-    return (ISD::isBuildVectorAllZeros(PassThru.getNode()) ||
-      (PassThru->getOpcode() == ARMISD::VMOVIMM &&
-       isNullConstant(PassThru->getOperand(0))));
-  };
-
-  if (IsZero(PassThru))
+  if (isZeroVector(PassThru))
     return Op;
 
   // MVE Masked loads use zero as the passthru value. Here we convert undef to
@@ -9023,7 +9020,7 @@ static SDValue LowerMLOAD(SDValue Op, SelectionDAG &DAG) {
   SDValue Combo = NewLoad;
   if (!PassThru.isUndef() &&
       (PassThru.getOpcode() != ISD::BITCAST ||
-       !IsZero(PassThru->getOperand(0))))
+       !isZeroVector(PassThru->getOperand(0))))
     Combo = DAG.getNode(ISD::VSELECT, dl, VT, Mask, NewLoad, PassThru);
   return DAG.getMergeValues({Combo, NewLoad.getValue(1)}, dl);
 }
@@ -12746,6 +12743,39 @@ PerformPREDICATE_CASTCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) {
   return SDValue();
 }
 
+static SDValue PerformVCMPCombine(SDNode *N,
+                                  TargetLowering::DAGCombinerInfo &DCI,
+                                  const ARMSubtarget *Subtarget) {
+  if (!Subtarget->hasMVEIntegerOps())
+    return SDValue();
+
+  EVT VT = N->getValueType(0);
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+  ARMCC::CondCodes Cond =
+      (ARMCC::CondCodes)cast<ConstantSDNode>(N->getOperand(2))->getZExtValue();
+  SDLoc dl(N);
+
+  // vcmp X, 0, cc -> vcmpz X, cc
+  if (isZeroVector(Op1))
+    return DCI.DAG.getNode(ARMISD::VCMPZ, dl, VT, Op0,
+                           N->getOperand(2));
+
+  unsigned SwappedCond = getSwappedCondition(Cond);
+  if (isValidMVECond(SwappedCond, VT.isFloatingPoint())) {
+    // vcmp 0, X, cc -> vcmpz X, reversed(cc)
+    if (isZeroVector(Op0))
+      return DCI.DAG.getNode(ARMISD::VCMPZ, dl, VT, Op1,
+                             DCI.DAG.getConstant(SwappedCond, dl, MVT::i32));
+    // vcmp vdup(Y), X, cc -> vcmp X, vdup(Y), reversed(cc)
+    if (Op0->getOpcode() == ARMISD::VDUP && Op1->getOpcode() != ARMISD::VDUP)
+      return DCI.DAG.getNode(ARMISD::VCMP, dl, VT, Op1, Op0,
+                             DCI.DAG.getConstant(SwappedCond, dl, MVT::i32));
+  }
+
+  return SDValue();
+}
+
 /// PerformInsertEltCombine - Target-specific dag combine xforms for
 /// ISD::INSERT_VECTOR_ELT.
 static SDValue PerformInsertEltCombine(SDNode *N,
@@ -14426,6 +14456,8 @@ SDValue ARMTargetLowering::PerformDAGCombine(SDNode *N,
     return PerformARMBUILD_VECTORCombine(N, DCI);
   case ARMISD::PREDICATE_CAST:
     return PerformPREDICATE_CASTCombine(N, DCI);
+  case ARMISD::VCMP:
+    return PerformVCMPCombine(N, DCI, Subtarget);
   case ARMISD::SMULWB: {
     unsigned BitWidth = N->getValueType(0).getSizeInBits();
     APInt DemandedMask = APInt::getLowBitsSet(BitWidth, 16);

@@ -137,11 +137,16 @@ elseif( NOT OpenCL_LIBRARIES )
   if(MSVC)
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(OPENCL_ICD_LOADER_WDK "-DOPENCL_ICD_LOADER_REQUIRE_WDK=OFF")
+    set(AUX_CMAKE_FLAGS "${AUX_CMAKE_FLAGS} -DOPENCL_ICD_LOADER_REQUIRE_WDK=OFF")
   else()
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(OPENCL_ICD_LOADER_WDK "")
+  endif()
+  if (CMAKE_C_COMPILER)
+      set(AUX_CMAKE_FLAGS "${AUX_CMAKE_FLAGS} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+  endif()
+  if (CMAKE_CXX_COMPILER)
+      set(AUX_CMAKE_FLAGS "${AUX_CMAKE_FLAGS} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
   endif()
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build)
   ExternalProject_Add(ocl-icd
@@ -154,7 +159,7 @@ elseif( NOT OpenCL_LIBRARIES )
                -DOPENCL_ICD_LOADER_HEADERS_DIR=${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc
                -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
                -DCMAKE_INSTALL_LIBDIR:PATH=lib
-               ${OPENCL_ICD_LOADER_WDK}
+               ${AUX_CMAKE_FLAGS}
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
     BUILD_BYPRODUCTS ${OpenCL_LIBRARIES}
@@ -252,10 +257,26 @@ add_custom_target( sycl-toolchain
   COMMENT "Building SYCL compiler toolchain..."
 )
 
-add_subdirectory( test )
-add_subdirectory( unittests )
-add_subdirectory( tools )
+if (NOT DEFINED LLVM_INCLUDE_TESTS)
+  set(LLVM_INCLUDE_TESTS ON)
+endif()
+
+option(SYCL_INCLUDE_TESTS
+  "Generate build targets for the SYCL unit tests."
+  ${LLVM_INCLUDE_TESTS})
+
+# Plugin Library
 add_subdirectory( plugins )
+
+add_subdirectory(tools)
+
+if(SYCL_INCLUDE_TESTS)
+  if(EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include/gtest/gtest.h)
+    add_subdirectory(unittests)
+    list(APPEND SYCL_TEST_DEPS SYCLUnitTests)
+  endif()
+  add_subdirectory(test)
+endif()
 
 # Package deploy support
 # Listed here are component names contributing the package
@@ -324,3 +345,6 @@ endforeach( comp )
 add_custom_target(deploy-sycl-toolchain
   DEPENDS sycl-toolchain ${manifest_list}
 )
+
+# SYCL Runtime documentation
+add_subdirectory(doc)

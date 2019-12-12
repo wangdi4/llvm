@@ -921,7 +921,9 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
   if ((Args.hasArg(options::OPT_c) || Args.hasArg(options::OPT_S)) &&
       (EmitCovNotes || EmitCovData) && Output.isFilename()) {
     SmallString<128> OutputFilename;
-    if (Arg *FinalOutput = C.getArgs().getLastArg(options::OPT_o))
+    if (Arg *FinalOutput = C.getArgs().getLastArg(options::OPT__SLASH_Fo))
+      OutputFilename = FinalOutput->getValue();
+    else if (Arg *FinalOutput = C.getArgs().getLastArg(options::OPT_o))
       OutputFilename = FinalOutput->getValue();
     else
       OutputFilename = llvm::sys::path::filename(Output.getBaseInput());
@@ -2314,9 +2316,18 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   bool AssociativeMath = false;
   bool ReciprocalMath = false;
   bool SignedZeros = true;
-  bool TrappingMath = true;
+  bool TrappingMath = false; // Implemented via -ffp-exception-behavior
+  bool TrappingMathPresent = false; // Is trapping-math in args, and not
+                                    // overriden by ffp-exception-behavior?
+  bool RoundingFPMath = false;
+  bool RoundingMathPresent = false; // Is rounding-math in args?
+  // -ffp-model values: strict, fast, precise
+  StringRef FPModel = "";
+  // -ffp-exception-behavior options: strict, maytrap, ignore
+  StringRef FPExceptionBehavior = "";
   StringRef DenormalFPMath = "";
   StringRef FPContract = "";
+  bool StrictFPModel = false;
 
   if (const Arg *A = Args.getLastArg(options::OPT_flimited_precision_EQ)) {
     CmdArgs.push_back("-mlimit-float-precision");
@@ -2324,7 +2335,73 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   }
 
   for (const Arg *A : Args) {
-    switch (A->getOption().getID()) {
+    auto optID = A->getOption().getID();
+    bool PreciseFPModel = false;
+    switch (optID) {
+    default:
+      break;
+    case options::OPT_frounding_math:
+    case options::OPT_ftrapping_math:
+    case options::OPT_ffp_exception_behavior_EQ:
+      D.Diag(clang::diag::warn_drv_experimental_fp_control_incomplete_opt)
+          << A->getOption().getName();
+      break;
+    case options::OPT_ffp_model_EQ: {
+      D.Diag(clang::diag::warn_drv_experimental_fp_control_incomplete_opt)
+          << A->getOption().getName();
+      // If -ffp-model= is seen, reset to fno-fast-math
+      HonorINFs = true;
+      HonorNaNs = true;
+      // Turning *off* -ffast-math restores the toolchain default.
+      MathErrno = TC.IsMathErrnoDefault();
+      AssociativeMath = false;
+      ReciprocalMath = false;
+      SignedZeros = true;
+      // -fno_fast_math restores default denormal and fpcontract handling
+      DenormalFPMath = "";
+      FPContract = "";
+      StringRef Val = A->getValue();
+      if (OFastEnabled && !Val.equals("fast")) {
+          // Only -ffp-model=fast is compatible with OFast, ignore.
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+          << Args.MakeArgString("-ffp-model=" + Val)
+          << "-Ofast";
+        break;
+      }
+      StrictFPModel = false;
+      PreciseFPModel = true;
+      // ffp-model= is a Driver option, it is entirely rewritten into more
+      // granular options before being passed into cc1.
+      // Use the gcc option in the switch below.
+      if (!FPModel.empty() && !FPModel.equals(Val)) {
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+          << Args.MakeArgString("-ffp-model=" + FPModel)
+          << Args.MakeArgString("-ffp-model=" + Val);
+        FPContract = "";
+      }
+      if (Val.equals("fast")) {
+        optID = options::OPT_ffast_math;
+        FPModel = Val;
+        FPContract = "fast";
+      } else if (Val.equals("precise")) {
+        optID = options::OPT_ffp_contract;
+        FPModel = Val;
+        FPContract = "fast";
+        PreciseFPModel = true;
+      } else if (Val.equals("strict")) {
+        StrictFPModel = true;
+        optID = options::OPT_frounding_math;
+        FPExceptionBehavior = "strict";
+        FPModel = Val;
+        TrappingMath = true;
+      } else
+        D.Diag(diag::err_drv_unsupported_option_argument)
+            << A->getOption().getName() << Val;
+      break;
+      }
+    }
+
+    switch (optID) {
     // If this isn't an FP option skip the claim below
     default: continue;
 
@@ -2341,19 +2418,82 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     case options::OPT_fno_reciprocal_math:  ReciprocalMath = false;   break;
     case options::OPT_fsigned_zeros:        SignedZeros = true;       break;
     case options::OPT_fno_signed_zeros:     SignedZeros = false;      break;
-    case options::OPT_ftrapping_math:       TrappingMath = true;      break;
-    case options::OPT_fno_trapping_math:    TrappingMath = false;     break;
+    case options::OPT_ftrapping_math:
+      if (!TrappingMathPresent && !FPExceptionBehavior.empty() &&
+          !FPExceptionBehavior.equals("strict"))
+        // Warn that previous value of option is overridden.
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+          << Args.MakeArgString("-ffp-exception-behavior=" + FPExceptionBehavior)
+          << "-ftrapping-math";
+      TrappingMath = true;
+      TrappingMathPresent = true;
+      FPExceptionBehavior = "strict";
+      break;
+    case options::OPT_fno_trapping_math:
+      if (!TrappingMathPresent && !FPExceptionBehavior.empty() &&
+          !FPExceptionBehavior.equals("ignore"))
+        // Warn that previous value of option is overridden.
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+          << Args.MakeArgString("-ffp-exception-behavior=" + FPExceptionBehavior)
+          << "-fno-trapping-math";
+      TrappingMath = false;
+      TrappingMathPresent = true;
+      FPExceptionBehavior = "ignore";
+      break;
+
+    case options::OPT_frounding_math:
+      RoundingFPMath = true;
+      RoundingMathPresent = true;
+      break;
+
+    case options::OPT_fno_rounding_math:
+      RoundingFPMath = false;
+      RoundingMathPresent = false;
+      break;
 
     case options::OPT_fdenormal_fp_math_EQ:
       DenormalFPMath = A->getValue();
       break;
 
-    // Validate and pass through -fp-contract option.
+    // Validate and pass through -ffp-contract option.
     case options::OPT_ffp_contract: {
       StringRef Val = A->getValue();
-      if (Val == "fast" || Val == "on" || Val == "off")
+      if (PreciseFPModel) {
+        // -ffp-model=precise enables ffp-contract=fast as a side effect
+        // the FPContract value has already been set to a string literal
+        // and the Val string isn't a pertinent value.
+        ;
+      } else if (Val.equals("fast") || Val.equals("on") || Val.equals("off"))
         FPContract = Val;
       else
+        D.Diag(diag::err_drv_unsupported_option_argument)
+           << A->getOption().getName() << Val;
+      break;
+    }
+
+    // Validate and pass through -ffp-model option.
+    case options::OPT_ffp_model_EQ:
+      // This should only occur in the error case
+      // since the optID has been replaced by a more granular
+      // floating point option.
+      break;
+
+    // Validate and pass through -ffp-exception-behavior option.
+    case options::OPT_ffp_exception_behavior_EQ: {
+      StringRef Val = A->getValue();
+      if (!TrappingMathPresent && !FPExceptionBehavior.empty() &&
+          !FPExceptionBehavior.equals(Val))
+        // Warn that previous value of option is overridden.
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+          << Args.MakeArgString("-ffp-exception-behavior=" + FPExceptionBehavior)
+          << Args.MakeArgString("-ffp-exception-behavior=" + Val);
+      TrappingMath = TrappingMathPresent = false;
+      if (Val.equals("ignore") || Val.equals("maytrap"))
+        FPExceptionBehavior = Val;
+      else if (Val.equals("strict")) {
+        FPExceptionBehavior = Val;
+        TrappingMath = TrappingMathPresent = true;
+      } else
         D.Diag(diag::err_drv_unsupported_option_argument)
             << A->getOption().getName() << Val;
       break;
@@ -2373,12 +2513,14 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       ReciprocalMath = true;
       SignedZeros = false;
       TrappingMath = false;
+      FPExceptionBehavior = "";
       break;
     case options::OPT_fno_unsafe_math_optimizations:
       AssociativeMath = false;
       ReciprocalMath = false;
       SignedZeros = true;
       TrappingMath = true;
+      FPExceptionBehavior = "strict";
       // -fno_unsafe_math_optimizations restores default denormal handling
       DenormalFPMath = "";
       break;
@@ -2396,6 +2538,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       ReciprocalMath = true;
       SignedZeros = false;
       TrappingMath = false;
+      RoundingFPMath = false;
       // If fast-math is set then set the fp-contract mode to fast.
       FPContract = "fast";
       break;
@@ -2409,11 +2552,30 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       AssociativeMath = false;
       ReciprocalMath = false;
       SignedZeros = true;
-      TrappingMath = true;
+      TrappingMath = false;
+      RoundingFPMath = false;
       // -fno_fast_math restores default denormal and fpcontract handling
       DenormalFPMath = "";
       FPContract = "";
       break;
+    }
+    if (StrictFPModel) {
+      // If -ffp-model=strict has been specified on command line but
+      // subsequent options conflict then emit warning diagnostic.
+      if (HonorINFs && HonorNaNs &&
+        !AssociativeMath && !ReciprocalMath &&
+        SignedZeros && TrappingMath && RoundingFPMath &&
+        DenormalFPMath.empty() && FPContract.empty())
+        // OK: Current Arg doesn't conflict with -ffp-model=strict
+        ;
+      else {
+        StrictFPModel = false;
+        FPModel = "";
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+            << "-ffp-model=strict" <<
+            ((A->getNumValues() == 0) ?  A->getSpelling()
+            : Args.MakeArgString(A->getSpelling() + A->getValue()));
+      }
     }
 
     // If we handled this option claim it
@@ -2442,7 +2604,11 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   if (ReciprocalMath)
     CmdArgs.push_back("-freciprocal-math");
 
-  if (!TrappingMath)
+  if (TrappingMath) {
+    // FP Exception Behavior is also set to strict
+    assert(FPExceptionBehavior.equals("strict"));
+    CmdArgs.push_back("-ftrapping-math");
+  } else if (TrappingMathPresent)
     CmdArgs.push_back("-fno-trapping-math");
 
   if (!DenormalFPMath.empty())
@@ -2452,14 +2618,37 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   if (!FPContract.empty())
     CmdArgs.push_back(Args.MakeArgString("-ffp-contract=" + FPContract));
 
+  if (!RoundingFPMath)
+    CmdArgs.push_back(Args.MakeArgString("-fno-rounding-math"));
+
+  if (RoundingFPMath && RoundingMathPresent)
+    CmdArgs.push_back(Args.MakeArgString("-frounding-math"));
+
+  if (!FPExceptionBehavior.empty())
+    CmdArgs.push_back(Args.MakeArgString("-ffp-exception-behavior=" +
+                      FPExceptionBehavior));
+
   ParseMRecip(D, Args, CmdArgs);
 
   // -ffast-math enables the __FAST_MATH__ preprocessor macro, but check for the
   // individual features enabled by -ffast-math instead of the option itself as
   // that's consistent with gcc's behaviour.
   if (!HonorINFs && !HonorNaNs && !MathErrno && AssociativeMath &&
-      ReciprocalMath && !SignedZeros && !TrappingMath)
+      ReciprocalMath && !SignedZeros && !TrappingMath && !RoundingFPMath) {
     CmdArgs.push_back("-ffast-math");
+    if (FPModel.equals("fast")) {
+      if (FPContract.equals("fast"))
+        // All set, do nothing.
+        ;
+      else if (FPContract.empty())
+        // Enable -ffp-contract=fast
+        CmdArgs.push_back(Args.MakeArgString("-ffp-contract=fast"));
+      else
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+          << "-ffp-model=fast"
+          << Args.MakeArgString("-ffp-contract=" + FPContract);
+    }
+  }
 
   // Handle __FINITE_MATH_ONLY__ similarly.
   if (!HonorINFs && !HonorNaNs)
@@ -4584,9 +4773,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fexperimental_new_constant_interpreter))
     CmdArgs.push_back("-fexperimental-new-constant-interpreter");
 
-  if (Args.hasArg(options::OPT_fforce_experimental_new_constant_interpreter))
-    CmdArgs.push_back("-fforce-experimental-new-constant-interpreter");
-
   if (Arg *A = Args.getLastArg(options::OPT_fbracket_depth_EQ)) {
     CmdArgs.push_back("-fbracket-depth");
     CmdArgs.push_back(A->getValue());
@@ -5798,7 +5984,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     TC.getTriple().isOSBinFormatCOFF()) &&
                       !TC.getTriple().isPS4() &&
                       !TC.getTriple().isOSNetBSD() &&
-                      !Distro(D.getVFS()).IsGentoo() &&
+                      !Distro(D.getVFS(), TC.getTriple()).IsGentoo() &&
                       !TC.getTriple().isAndroid() &&
                        TC.useIntegratedAs()))
     CmdArgs.push_back("-faddrsig");
@@ -6947,15 +7133,70 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     }
 #endif // INTEL_CUSTOMIZATION
 
+    ArgStringList ForeachArgs;
+
     for (const InputInfo &I : Inputs) {
       assert(I.isFilename() && "Invalid input.");
-      WrapperArgs.push_back(I.getFilename());
+      std::string FileName(I.getFilename());
+      if (I.getType() == types::TY_Tempfilelist ||
+          I.getType() == types::TY_TempEntriesfilelist) {
+        ForeachArgs.push_back(
+            C.getArgs().MakeArgString("--in-file-list=" + FileName));
+        ForeachArgs.push_back(
+            C.getArgs().MakeArgString("--in-replace=" + FileName));
+
+        if (I.getType() == types::TY_TempEntriesfilelist) {
+          WrapperArgs.push_back(
+              C.getArgs().MakeArgString("-entries=" + FileName));
+          continue;
+        }
+      }
+      WrapperArgs.push_back(C.getArgs().MakeArgString(FileName));
     }
 
-    C.addCommand(std::make_unique<Command>(
+    auto Cmd = std::make_unique<Command>(
         JA, *this,
         TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-        WrapperArgs, None));
+        WrapperArgs, None);
+    if (!ForeachArgs.empty()) {
+      std::string ForeachOutName =
+          C.getDriver().GetTemporaryPath("wrapper-linker", "txt");
+      const char *ForeachOutput =
+          C.addTempFile(C.getArgs().MakeArgString(ForeachOutName));
+      SmallString<128> OutOpt("--out-file-list=");
+      OutOpt += ForeachOutput;
+
+      // Construct llvm-foreach command.
+      // The llvm-foreach command looks like this:
+      // llvm-foreach --in-file-list=a.list --in-replace='{}' -- echo '{}'
+      ForeachArgs.push_back(C.getArgs().MakeArgString(OutOpt));
+      ForeachArgs.push_back(
+          C.getArgs().MakeArgString("--out-replace=" + OutTmpName));
+      ForeachArgs.push_back(C.getArgs().MakeArgString("--"));
+
+      ForeachArgs.push_back(Cmd->getExecutable());
+      for (auto &Arg : WrapperArgs)
+        ForeachArgs.push_back(Arg);
+
+      SmallString<128> ForeachPath(C.getDriver().Dir);
+      llvm::sys::path::append(ForeachPath, "llvm-foreach");
+      const char *Foreach = C.getArgs().MakeArgString(ForeachPath);
+      C.addCommand(
+          std::make_unique<Command>(JA, *this, Foreach, ForeachArgs, None));
+
+      // Construct llvm-link command.
+      SmallString<128> InOpt("@");
+      InOpt += ForeachOutName;
+      ArgStringList LLVMLinkArgs{C.getArgs().MakeArgString("-o"),
+                                 WrapperFileName,
+                                 C.getArgs().MakeArgString(InOpt)};
+      SmallString<128> LLVMLinkPath(C.getDriver().Dir);
+      llvm::sys::path::append(LLVMLinkPath, "llvm-link");
+      const char *LLVMLink = C.getArgs().MakeArgString(LLVMLinkPath);
+      C.addCommand(
+          std::make_unique<Command>(JA, *this, LLVMLink, LLVMLinkArgs, None));
+    } else
+      C.addCommand(std::move(Cmd));
 
     // Construct llc command.
     // The output is an object file
@@ -7037,6 +7278,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 
   // The translator command looks like this:
   // llvm-spirv -o <file>.spv <file>.bc
+  ArgStringList ForeachArgs;
   ArgStringList TranslatorArgs;
 
   TranslatorArgs.push_back("-o");
@@ -7046,12 +7288,44 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     TranslatorArgs.push_back("-spirv-ext=+all");
   }
   for (auto I : Inputs) {
-    TranslatorArgs.push_back(I.getFilename());
+    std::string Filename(I.getFilename());
+    if (I.getType() == types::TY_Tempfilelist) {
+      ForeachArgs.push_back(
+          C.getArgs().MakeArgString("--in-file-list=" + Filename));
+      ForeachArgs.push_back(
+          C.getArgs().MakeArgString("--in-replace=" + Filename));
+      ForeachArgs.push_back(
+          C.getArgs().MakeArgString("--out-ext=spv"));
+    }
+    TranslatorArgs.push_back(C.getArgs().MakeArgString(Filename));
   }
 
-  C.addCommand(std::make_unique<Command>(JA, *this,
+  auto Cmd = std::make_unique<Command>(JA, *this,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      TranslatorArgs, None));
+      TranslatorArgs, None);
+
+  if (!ForeachArgs.empty()) {
+    // Construct llvm-foreach command.
+    // The llvm-foreach command looks like this:
+    // llvm-foreach a.list --out-replace=out "cp {} out"
+    // --out-file-list=list
+    std::string OutputFileName(Output.getFilename());
+    ForeachArgs.push_back(
+        TCArgs.MakeArgString("--out-file-list=" + OutputFileName));
+    ForeachArgs.push_back(
+        TCArgs.MakeArgString("--out-replace=" + OutputFileName));
+    ForeachArgs.push_back(TCArgs.MakeArgString("--"));
+    ForeachArgs.push_back(TCArgs.MakeArgString(Cmd->getExecutable()));
+
+    for (auto &Arg : Cmd->getArguments())
+      ForeachArgs.push_back(Arg);
+
+    SmallString<128> ForeachPath(C.getDriver().Dir);
+    llvm::sys::path::append(ForeachPath, "llvm-foreach");
+    const char *Foreach = C.getArgs().MakeArgString(ForeachPath);
+    C.addCommand(std::make_unique<Command>(JA, *this, Foreach, ForeachArgs, None));
+  } else
+    C.addCommand(std::move(Cmd));
 }
 
 void SPIRCheck::ConstructJob(Compilation &C, const JobAction &JA,
@@ -7081,3 +7355,46 @@ void SPIRCheck::ConstructJob(Compilation &C, const JobAction &JA,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
       CheckArgs, None));
 }
+
+void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
+                             const InputInfo &Output,
+                             const InputInfoList &Inputs,
+                             const llvm::opt::ArgList &TCArgs,
+                             const char *LinkingOutput) const {
+  // Construct sycl-post-link command.
+  assert(isa<SYCLPostLinkJobAction>(JA) && "Expecting SYCL post link job!");
+
+  // Variants of split command look like this:
+  // sycl-post-link input_file.bc -ir-files-list=ir.txt -o base_output - for
+  // IR files generation.
+  // sycl-post-link input_file.bc -txt-files-list=files.txt -o base_output - for
+  // entries files generation.
+
+  ArgStringList CmdArgs;
+  InputInfo Input = Inputs.front();
+  const char *InputFileName = Input.getFilename();
+
+  CmdArgs.push_back(InputFileName);
+  std::string OutputFileName(Output.getFilename());
+  if (Output.getType() == types::TY_Tempfilelist)
+    CmdArgs.push_back(TCArgs.MakeArgString("-ir-files-list=" + OutputFileName));
+  else if (Output.getType() == types::TY_TempEntriesfilelist)
+    CmdArgs.push_back(
+        TCArgs.MakeArgString("-txt-files-list=" + OutputFileName));
+  SmallString<128> TmpName;
+  llvm::sys::fs::createUniquePath("split-%%%%%%", TmpName,
+                                  /*MakeAbsolute*/ true);
+  CmdArgs.push_back(TCArgs.MakeArgString("-o"));
+  CmdArgs.push_back(TCArgs.MakeArgString(TmpName));
+
+  if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ))
+    if (A->getValue() == StringRef("per_kernel"))
+      CmdArgs.push_back("-one-kernel");
+
+  // All the inputs are encoded as commands.
+  C.addCommand(std::make_unique<Command>(
+      JA, *this,
+      TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
+      CmdArgs, None));
+}
+

@@ -11442,10 +11442,9 @@ void Sema::setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
   // Build an exception specification pointing back at this constructor.
   FunctionProtoType::ExtProtoInfo EPI = getImplicitMethodEPI(*this, SpecialMem);
 
-  if (getLangOpts().OpenCLCPlusPlus) {
-    // OpenCL: Implicitly defaulted special member are of the generic address
-    // space.
-    EPI.TypeQuals.addAddressSpace(LangAS::opencl_generic);
+  LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (AS != LangAS::Default) {
+    EPI.TypeQuals.addAddressSpace(AS);
   }
 
   auto QT = Context.getFunctionType(ResultTy, Args, EPI);
@@ -11855,7 +11854,7 @@ void Sema::ActOnFinishCXXMemberDecls() {
   }
 }
 
-void Sema::ActOnFinishCXXNonNestedClass(Decl *D) {
+void Sema::ActOnFinishCXXNonNestedClass() {
   referenceDLLExportedClassMethods();
 
   if (!DelayedDllExportMemberFunctions.empty()) {
@@ -12355,8 +12354,9 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
     return nullptr;
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  if (Context.getLangOpts().OpenCLCPlusPlus)
-    ArgType = Context.getAddrSpaceQualType(ArgType, LangAS::opencl_generic);
+  LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (AS != LangAS::Default)
+    ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
   bool Const = ClassDecl->implicitCopyAssignmentHasConstParam();
   if (Const)
@@ -12681,8 +12681,9 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
   // constructor rules.
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  if (Context.getLangOpts().OpenCLCPlusPlus)
-    ArgType = Context.getAddrSpaceQualType(ArgType, LangAS::opencl_generic);
+  LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (AS != LangAS::Default)
+    ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
   ArgType = Context.getRValueReferenceType(ArgType);
 
@@ -13059,8 +13060,9 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
   if (Const)
     ArgType = ArgType.withConst();
 
-  if (Context.getLangOpts().OpenCLCPlusPlus)
-    ArgType = Context.getAddrSpaceQualType(ArgType, LangAS::opencl_generic);
+  LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (AS != LangAS::Default)
+    ArgType = Context.getAddrSpaceQualType(ArgType, AS);
 
   ArgType = Context.getLValueReferenceType(ArgType);
 
@@ -13191,8 +13193,9 @@ CXXConstructorDecl *Sema::DeclareImplicitMoveConstructor(
   QualType ClassType = Context.getTypeDeclType(ClassDecl);
 
   QualType ArgType = ClassType;
-  if (Context.getLangOpts().OpenCLCPlusPlus)
-    ArgType = Context.getAddrSpaceQualType(ClassType, LangAS::opencl_generic);
+  LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (AS != LangAS::Default)
+    ArgType = Context.getAddrSpaceQualType(ClassType, AS);
   ArgType = Context.getRValueReferenceType(ArgType);
 
   bool Constexpr = defaultedSpecialMemberIsConstexpr(*this, ClassDecl,
@@ -14513,8 +14516,16 @@ Decl *Sema::BuildStaticAssertDeclaration(SourceLocation StaticAssertLoc,
       std::string InnerCondDescription;
       std::tie(InnerCond, InnerCondDescription) =
         findFailedBooleanCondition(Converted.get());
-      if (InnerCond && !isa<CXXBoolLiteralExpr>(InnerCond)
-                    && !isa<IntegerLiteral>(InnerCond)) {
+      if (InnerCond && isa<ConceptSpecializationExpr>(InnerCond)) {
+        // Drill down into concept specialization expressions to see why they
+        // weren't satisfied.
+        Diag(StaticAssertLoc, diag::err_static_assert_failed)
+          << !AssertMessage << Msg.str() << AssertExpr->getSourceRange();
+        ConstraintSatisfaction Satisfaction;
+        if (!CheckConstraintSatisfaction(InnerCond, Satisfaction))
+          DiagnoseUnsatisfiedConstraint(Satisfaction);
+      } else if (InnerCond && !isa<CXXBoolLiteralExpr>(InnerCond)
+                           && !isa<IntegerLiteral>(InnerCond)) {
         Diag(StaticAssertLoc, diag::err_static_assert_requirement_failed)
           << InnerCondDescription << !AssertMessage
           << Msg.str() << InnerCond->getSourceRange();

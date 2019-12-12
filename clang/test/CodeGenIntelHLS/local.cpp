@@ -44,7 +44,7 @@
 //CHECK: [[ANN43:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:2}{bank_bits:4}
 //CHECK: [[ANN44:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:2,10}{numbanks:2}{bank_bits:4}
 //CHECK: [[ANN45:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,16,8}{memory_layout:COMPACT}\00", section "llvm.metadata"
-//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:1}{bankwidth:4}{numbanks:8}{merge:merge_foo_one:depth}{max_concurrency:4}{bank_bits:2,3,4}
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:1}{bankwidth:4}{numbanks:8}{bank_bits:2,3,4}{merge:merge_foo_one:depth}{max_concurrency:4}
 //CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{bank_bits:4,3,2}
 //CHECK: @llvm.global.annotations = appending global{{.*}}@_ZL13global_const1 {{.*}}[[ANN4]]{{.*}}@_ZL13global_const2{{.*}}[[ANN7]]{{.*}}@_ZL13global_const3{{.*}}[[ANN8]]{{.*}}@_ZL13global_const5{{.*}}@_ZL13global_const6{{.*}}[[ANN5B]]{{.*}}@_ZL13global_const7{{.*}}[[ANN2]]{{.*}}@_ZL13global_const8{{.*}}[[ANN2]]{{.*}}@_ZL14global_const11{{.*}}[[ANN13]]{{.*}}@_ZL14global_const12{{.*}}[[ANN6]]{{.*}}@_ZL14global_const13{{.*}}[[ANN9]]{{.*}}@_ZL14global_const16{{.*}}[[ANN14]]{{.*}}@_ZL14global_const17{{.*}}[[ANN15]]{{.*}}@_ZL14global_const18{{.*}}[[ANN16]]{{.*}}@_ZL14global_const19{{.*}}[[ANN17]]{{.*}}@_ZL14global_const20{{.*}}[[ANN18]]
 

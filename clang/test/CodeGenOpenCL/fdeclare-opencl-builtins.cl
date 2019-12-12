@@ -1,6 +1,7 @@
 // RUN: %clang_cc1 -emit-llvm -o - -O0 -triple spir-unknown-unknown -fdeclare-opencl-builtins -finclude-default-header %s | FileCheck %s
 
 // INTEL_CUSTOMIZATION
+#include <stddef.h> // for size_t
 typedef float float4 __attribute__((ext_vector_type(4)));
 // end INTEL_CUSTOMIZATION
 
@@ -18,6 +19,13 @@ int test_const_attr(int a) {
 // CHECK: ret
 kernel void test_pure_attr(read_only image1d_t img) {
   float4 resf = read_imagef(img, 42);
+}
+
+// Test that builtins with only one prototype are mangled.
+// CHECK-LABEL: @test_mangling
+// CHECK: call i32 @_Z12get_local_idj
+kernel void test_mangling() {
+  size_t lid = get_local_id(0);
 }
 
 // CHECK: attributes [[ATTR_CONST]] =

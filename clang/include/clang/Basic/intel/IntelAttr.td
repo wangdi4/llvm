@@ -539,24 +539,6 @@ def MemoryLayout : Attr {
   let Documentation = [MemoryLayoutDocs];
 }
 
-// Variadic integral arguments.
-def BankBits : Attr {
-  let Spellings = [GNU<"bank_bits">];
-  let Args = [VariadicExprArgument<"Args">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
 def HLSLocalStaticVar : SubsetSubject<Var,
                               [{S->getStorageClass() == SC_Static &&
                                 S->getKind() != Decl::ImplicitParam &&

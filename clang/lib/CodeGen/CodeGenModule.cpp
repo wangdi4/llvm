@@ -78,6 +78,7 @@ static const char AnnotationSection[] = "llvm.metadata";
 
 static CGCXXABI *createCXXABI(CodeGenModule &CGM) {
   switch (CGM.getTarget().getCXXABI().getKind()) {
+  case TargetCXXABI::Fuchsia:
   case TargetCXXABI::GenericAArch64:
   case TargetCXXABI::GenericARM:
   case TargetCXXABI::iOS:
@@ -4077,10 +4078,8 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
 
     if (Scope && Scope->isWorkGroup())
       return LangAS::opencl_local;
-    if (!getenv("DISABLE_INFER_AS")) {
-      if (!D || D->getType().getAddressSpace() == LangAS::Default) {
-        return LangAS::opencl_global;
-      }
+    if (!D || D->getType().getAddressSpace() == LangAS::Default) {
+      return LangAS::opencl_global;
     }
   }
 
@@ -4109,7 +4108,7 @@ LangAS CodeGenModule::getStringLiteralAddressSpace() const {
   // OpenCL v1.2 s6.5.3: a string literal is in the constant address space.
   if (LangOpts.OpenCL)
     return LangAS::opencl_constant;
-  if (LangOpts.SYCLIsDevice && !getenv("DISABLE_INFER_AS"))
+  if (LangOpts.SYCLIsDevice)
     // If we keep a literal string in constant address space, the following code
     // becomes illegal:
     //
@@ -4281,17 +4280,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
             getContext());
     Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
   }
-  if (const auto *BBA = D->getAttr<BankBitsAttr>()) {
-    Out << '{' << BBA->getSpelling() << ':';
-    for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();
-         I != E; ++I) {
-      if (I != BBA->args_begin())
-        Out << ',';
-      llvm::APSInt BBAInt = (*I)->EvaluateKnownConstInt(getContext());
-      Out << BBAInt;
-    }
-    Out << '}';
-  }
   if (const auto *RWA = D->getAttr<ReadWriteModeAttr>()) {
     Out << '{' << "readwritememory:" << RWA->getType().upper() << '}';
   }
@@ -4389,8 +4377,20 @@ void CodeGenModule::generateIntelFPGAAnnotation(
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
   }
   if (const auto *NBA = D->getAttr<IntelFPGANumBanksAttr>()) {
-    llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
+    llvm::APSInt NBAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << NBA->getSpelling() << ':' << NBAInt << '}';
+  }
+  if (const auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
+    Out << '{' << BBA->getSpelling() << ':';
+    for (IntelFPGABankBitsAttr::args_iterator I = BBA->args_begin(),
+                                              E = BBA->args_end();
+         I != E; ++I) {
+      if (I != BBA->args_begin())
+        Out << ',';
+      llvm::APSInt BBAInt = (*I)->EvaluateKnownConstInt(getContext());
+      Out << BBAInt;
+    }
+    Out << '}';
   }
   if (const auto *MRA = D->getAttr<IntelFPGAMaxReplicatesAttr>()) {
     llvm::APSInt MRAInt = MRA->getValue()->EvaluateKnownConstInt(getContext());

@@ -554,6 +554,10 @@ def FeatureFastVectorShiftMasks
         "fast-vector-shift-masks", "HasFastVectorShiftMasks", "true",
         "Prefer a left/right vector logical shift pair over a shift+and pair">;
 
+def FeatureUseGLMDivSqrtCosts
+    : SubtargetFeature<"use-glm-div-sqrt-costs", "UseGLMDivSqrtCosts", "true",
+        "Use Goldmont specific floating point div/sqrt costs">;
+
 // Merge branches using three-way conditional code.
 def FeatureMergeToThreeWayBranch : SubtargetFeature<"merge-to-threeway-branch",
                                         "ThreewayBranchProfitable", "true",
@@ -573,12 +577,6 @@ def FeatureHasDSB : SubtargetFeature<"dsb", "HasDSB", "true",
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
 // Silvermont
 def ProcIntelSLM  : SubtargetFeature<"", "X86ProcFamily", "IntelSLM", "">;
-// Goldmont
-def ProcIntelGLM  : SubtargetFeature<"", "X86ProcFamily", "IntelGLM", "">;
-// Goldmont Plus
-def ProcIntelGLP  : SubtargetFeature<"", "X86ProcFamily", "IntelGLP", "">;
-// Tremont
-def ProcIntelTRM  : SubtargetFeature<"", "X86ProcFamily", "IntelTRM", "">;
 
 //===----------------------------------------------------------------------===//
 // Register File Description
@@ -887,7 +885,7 @@ def ProcessorFeatures {
                                                   FeatureXSAVES,
                                                   FeatureCLFLUSHOPT,
                                                   FeatureFSGSBase];
-  list<SubtargetFeature> GLMSpecificFeatures = [ProcIntelGLM,
+  list<SubtargetFeature> GLMSpecificFeatures = [FeatureUseGLMDivSqrtCosts,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> GLMInheritableFeatures =
     !listconcat(SLMInheritableFeatures, GLMAdditionalFeatures);
@@ -898,7 +896,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> GLPAdditionalFeatures = [FeaturePTWRITE,
                                                   FeatureRDPID,
                                                   FeatureSGX];
-  list<SubtargetFeature> GLPSpecificFeatures = [ProcIntelGLP];
+  list<SubtargetFeature> GLPSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
   list<SubtargetFeature> GLPInheritableFeatures =
     !listconcat(GLMInheritableFeatures, GLPAdditionalFeatures);
   list<SubtargetFeature> GLPFeatures =
@@ -910,7 +908,7 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureWAITPKG];
-  list<SubtargetFeature> TRMSpecificFeatures = [ProcIntelTRM];
+  list<SubtargetFeature> TRMSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
   list<SubtargetFeature> TRMFeatures =
     !listconcat(GLPInheritableFeatures, TRMAdditionalFeatures,
                 TRMSpecificFeatures);

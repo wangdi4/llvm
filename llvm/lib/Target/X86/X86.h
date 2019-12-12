@@ -170,6 +170,18 @@ void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
+
+namespace X86AS {
+enum : unsigned {
+  GS = 256,
+  FS = 257,
+  SS = 258,
+  PTR32_SPTR = 270,
+  PTR32_UPTR = 271,
+  PTR64 = 272
+};
+} // End X86AS namespace
+
 } // End llvm namespace
 
 #endif

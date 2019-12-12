@@ -3400,6 +3400,7 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   case X86::VCVTTSS2SI64Zrm: case X86::VCVTTSS2SI64Zrm_Int:
     if (ForcedVEXEncoding != VEXEncoding_EVEX)
       return Match_Unsupported;
+    break;
   }
 
   return Match_Success;

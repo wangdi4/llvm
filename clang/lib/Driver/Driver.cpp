@@ -3212,11 +3212,19 @@ class OffloadingActionBuilder final {
       // Append a new link action for each device.
       auto TC = ToolChains.begin();
       for (auto &LI : DeviceLinkerInputs) {
+#ifdef INTEL_CUSTOMIZATION
+        OffloadAction::DeviceDependences DeviceLinkDeps;
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_Image);
-        OffloadAction::DeviceDependences DeviceLinkDeps;
-        DeviceLinkDeps.add(*DeviceLinkAction, **TC, /*BoundArch=*/nullptr,
-		        Action::OFK_OpenMP);
+        if ((*TC)->getTriple().isSPIR()) {
+          auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+              DeviceLinkAction, types::TY_Image);
+          DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
+                             Action::OFK_OpenMP);
+        } else
+          DeviceLinkDeps.add(*DeviceLinkAction, **TC, /*BoundArch=*/nullptr,
+                             Action::OFK_OpenMP);
+#endif
         AL.push_back(C.MakeAction<OffloadAction>(DeviceLinkDeps,
             DeviceLinkAction->getType()));
         ++TC;
@@ -3251,8 +3259,11 @@ class OffloadingActionBuilder final {
     /// Flag to signal if the user requested device-only compilation.
     bool CompileDeviceOnly = false;
 
-    /// Flag to signal if the user requested the device object to be wrapped
+    /// Flag to signal if the user requested the device object to be wrapped.
     bool WrapDeviceOnlyBinary = false;
+
+    /// Flag to signal if the user requested device code split.
+    bool DeviceCodeSplit = false;
 
     /// The SYCL actions for the current input.
     ActionList SYCLDeviceActions;
@@ -3293,7 +3304,7 @@ class OffloadingActionBuilder final {
                          phases::ID CurPhase, phases::ID FinalPhase,
                          PhasesTy &Phases) override {
 
-      // FIXME: This adds the integrated header generation pass before the
+      // FIXME: This adds the integration header generation pass before the
       // Host compilation pass so the Host can use the header generated.  This
       // can be improved upon to where the header generation and spv generation
       // is done in the same step.  Currently, its not too efficient.
@@ -3335,9 +3346,12 @@ class OffloadingActionBuilder final {
             SYCLLinkBinary =
                 C.MakeAction<OffloadWrapperJobAction>(DeviceLinkAction,
                                                       types::TY_Object);
-          } else
-            SYCLLinkBinary = C.MakeAction<LinkJobAction>(SYCLLinkBinaryList,
+          } else {
+            auto *Link = C.MakeAction<LinkJobAction>(SYCLLinkBinaryList,
                                                          types::TY_Image);
+            SYCLLinkBinary = C.MakeAction<SPIRVTranslatorJobAction>(
+                Link, types::TY_Image);
+          }
 
           // Remove the SYCL actions as they are already connected to an host
           // action or fat binary.
@@ -3514,12 +3528,16 @@ class OffloadingActionBuilder final {
             }
           }
           if (!DeviceObjects.empty()) {
-            // link and wrap the device binary, but do not perform the
-            // backend compile.
+            // When aocx or aocr is found, there is an expectation that none of
+            // the other objects processed have any kernel. So, there
+            // is no need in device code split and backend compile here. Just
+            // link and wrap the device binary.
             auto *DeviceLinkAction =
-                C.MakeAction<LinkJobAction>(DeviceObjects, types::TY_SPIRV);
+                C.MakeAction<LinkJobAction>(DeviceObjects, types::TY_LLVM_BC);
+            auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+                DeviceLinkAction, types::TY_SPIRV);
             auto *DeviceWrappingAction = C.MakeAction<OffloadWrapperJobAction>(
-                DeviceLinkAction, types::TY_Object);
+                SPIRVTranslateAction, types::TY_Object);
             DA.add(*DeviceWrappingAction, **TC, /*BoundArch=*/nullptr,
                    Action::OFK_SYCL);
           }
@@ -3535,7 +3553,22 @@ class OffloadingActionBuilder final {
             LinkObjects.push_back(I);
         }
         auto *DeviceLinkAction =
-            C.MakeAction<LinkJobAction>(LinkObjects, types::TY_SPIRV);
+            C.MakeAction<LinkJobAction>(LinkObjects, types::TY_LLVM_BC);
+        ActionList WrapperInputs;
+        Action *SPIRVInput = DeviceLinkAction;
+        types::ID OutType = types::TY_SPIRV;
+        if (DeviceCodeSplit) {
+          auto *SplitAction = C.MakeAction<SYCLPostLinkJobAction>(
+              DeviceLinkAction, types::TY_Tempfilelist);
+          auto *EntryGenAction = C.MakeAction<SYCLPostLinkJobAction>(
+              DeviceLinkAction, types::TY_TempEntriesfilelist);
+          SPIRVInput = SplitAction;
+          WrapperInputs.push_back(EntryGenAction);
+          OutType = types::TY_Tempfilelist;
+        }
+        auto *SPIRVTranslateAction =
+            C.MakeAction<SPIRVTranslatorJobAction>(SPIRVInput, OutType);
+
         auto TT = SYCLTripleList[I];
         bool SYCLAOTCompile =
             (TT.getSubArch() != llvm::Triple::NoSubArch &&
@@ -3545,26 +3578,33 @@ class OffloadingActionBuilder final {
 
         // After the Link, wrap the files before the final host link
         if (SYCLAOTCompile) {
-          types::ID OutType = types::TY_Image;
-          if (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
-            OutType = FPGAOutType;
+          OutType = types::TY_Tempfilelist;
+          if (!DeviceCodeSplit) {
+            OutType = (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
+                          ? FPGAOutType
+                          : types::TY_Image;
+          }
           // Do the additional Ahead of Time compilation when the specific
           // triple calls for it (provided a valid subarch).
           Action *DeviceBECompileAction;
           ActionList BEActionList;
-          BEActionList.push_back(DeviceLinkAction);
+#if INTEL_CUSTOMIZATION
+          BEActionList.push_back(SPIRVTranslateAction);
+#endif // INTEL_CUSTOMIZATION
           if (!DeviceObjects.empty())
             for (const auto &A : DeviceObjects)
               BEActionList.push_back(A);
           DeviceBECompileAction =
               C.MakeAction<BackendCompileJobAction>(BEActionList, OutType);
+          WrapperInputs.push_back(DeviceBECompileAction);
           auto *DeviceWrappingAction = C.MakeAction<OffloadWrapperJobAction>(
-              DeviceBECompileAction, types::TY_Object);
+              WrapperInputs, types::TY_Object);
           DA.add(*DeviceWrappingAction, **TC, /*BoundArch=*/nullptr,
                  Action::OFK_SYCL);
         } else {
+          WrapperInputs.push_back(SPIRVTranslateAction);
           auto *DeviceWrappingAction = C.MakeAction<OffloadWrapperJobAction>(
-              DeviceLinkAction, types::TY_Object);
+              WrapperInputs, types::TY_Object);
           DA.add(*DeviceWrappingAction, **TC, /*BoundArch=*/nullptr,
                  Action::OFK_SYCL);
         }
@@ -3608,6 +3648,10 @@ class OffloadingActionBuilder final {
       Arg *SYCLLinkTargets = Args.getLastArg(
                                   options::OPT_fsycl_link_targets_EQ);
       WrapDeviceOnlyBinary = Args.hasArg(options::OPT_fsycl_link_EQ);
+      auto *DeviceCodeSplitArg =
+          Args.getLastArg(options::OPT_fsycl_device_code_split_EQ);
+      DeviceCodeSplit = DeviceCodeSplitArg &&
+                        DeviceCodeSplitArg->getValue() != StringRef("off");
       // Device only compilation for -fsycl-link (no FPGA) and
       // -fsycl-link-targets
       CompileDeviceOnly =
@@ -5349,7 +5393,9 @@ InputInfo Driver::BuildJobsForActionNoCache(
             continue;
           }
           if (JA->getType() == types::TY_FPGA_AOCO) {
-            TI = types::TY_Tempfilelist;
+#if INTEL_CUSTOMIZATION
+            TI = types::TY_TempAOCOfilelist;
+#endif // INTEL_CUSTOMIZATION
             Ext = "txt";
           }
         } else if (EffectiveTriple.getSubArch() !=
@@ -5592,7 +5638,7 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
     } else {
       TmpName = GetTemporaryPath(Split.first, Suffix);
     }
-    return C.addTempFile(C.getArgs().MakeArgString(TmpName));
+    return C.addTempFile(C.getArgs().MakeArgString(TmpName), JA.getType());
   }
 
   SmallString<128> BasePath(BaseInput);

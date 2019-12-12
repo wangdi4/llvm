@@ -56,10 +56,7 @@ public:
   enum X86ProcFamilyEnum {
     Others,
     IntelAtom,
-    IntelSLM,
-    IntelGLM,
-    IntelGLP,
-    IntelTRM
+    IntelSLM
   };
 
 protected:
@@ -506,6 +503,10 @@ protected:
   /// Processor supports Decoded Stream Buffer.
   bool HasDSB = false;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Use Goldmont specific floating point div/sqrt costs.
+  bool UseGLMDivSqrtCosts = false;
+
   /// What processor and OS we're targeting.
   Triple TargetTriple;
 
@@ -827,6 +828,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
   bool preferMaskRegisters() const { return PreferMaskRegisters; }
+  bool useGLMDivSqrtCosts() const { return UseGLMDivSqrtCosts; }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }
   unsigned getRequiredVectorWidth() const { return RequiredVectorWidth; }
@@ -859,11 +861,6 @@ public:
   /// TODO: to be removed later and replaced with suitable properties
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool isGLM() const {
-    return X86ProcFamily == IntelGLM ||
-           X86ProcFamily == IntelGLP ||
-           X86ProcFamily == IntelTRM;
-  }
   bool useSoftFloat() const { return UseSoftFloat; }
   bool useAA() const override { return UseAA; }
 
