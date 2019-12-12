@@ -929,7 +929,7 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
 
   if (auto *MSI = dyn_cast<MemSetInst>(MI)) {
     B.CreateMemSet(NewV, MSI->getValue(), MSI->getLength(),
-                   MSI->getDestAlignment(),
+                   MaybeAlign(MSI->getDestAlignment()),
                    false, // isVolatile
                    TBAA, ScopeMD, NoAliasMD);
   } else if (auto *MTI = dyn_cast<MemTransferInst>(MI)) {
