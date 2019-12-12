@@ -56,7 +56,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
 
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
       target_link_libraries(omptarget.rtl.level0
-          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE}
+          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} pthread
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
     elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
       target_link_libraries(omptarget.rtl.level0

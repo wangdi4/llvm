@@ -17,6 +17,7 @@
 #include <mutex>
 #include <omp.h>
 #include <string>
+#include <thread>
 #include <vector>
 #include <ze_api.h>
 #include "omptargetplugin.h"
@@ -46,6 +47,12 @@ static int DebugLevel = 0;
 #else
 #define DP(...)
 #endif // OMPTARGET_LEVEL0_DEBUG
+
+#define FATAL_ERROR(Msg)                                                       \
+  do {                                                                         \
+    fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);   \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
 
 /// For non-thread-safe functions
 #define CALL_ZE_RET_MTX(Ret, Fn, Mtx, ...)                                     \
@@ -174,6 +181,12 @@ struct RTLDeviceInfoTy {
   }
 };
 
+/// Libomptarget-defined handler and argument.
+struct AsyncEventTy {
+  void (*Handler)(void *);
+  void *Arg;
+};
+
 /// Loop descriptor
 typedef struct {
   int64_t Lb;     // The lower bound of the i-th loop
@@ -296,7 +309,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   ze_command_queue_desc_t cmdQueueDesc = {
     ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT,
     ZE_COMMAND_QUEUE_FLAG_NONE,
-    ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS,
+    ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
     ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
     0 // ordinal
   };
@@ -444,6 +457,82 @@ static int32_t executeCommand(ze_command_list_handle_t CmdList,
   return OFFLOAD_SUCCESS;
 }
 
+// Tasks to be done when completing an asynchronous command.
+static void endAsyncCommand(AsyncEventTy *Event,
+                            ze_command_list_handle_t CmdList,
+                            ze_fence_handle_t Fence) {
+  if (!Event || !Event->Handler || !Event->Arg) {
+    FATAL_ERROR("Invalid asynchronous offloading event");
+  }
+
+  DP("Calling asynchronous offloading event handler " DPxMOD " with argument "
+     DPxMOD "\n", DPxPTR(Event->Handler), DPxPTR(Event->Arg));
+
+  Event->Handler(Event->Arg);
+
+  // Clean up internal data
+  if (zeFenceDestroy(Fence) != ZE_RESULT_SUCCESS ||
+      zeCommandListDestroy(CmdList) != ZE_RESULT_SUCCESS)
+    FATAL_ERROR("Failed to finalize asynchronous command\n");
+}
+
+// Template for Asynchronous command execution.
+// We use a dedicated command list and a fence to invoke an asynchronous task.
+// A separate detached thread submits commands to the queue, waits until the
+// attached fence is signaled, and then invokes the clean-up routine.
+static int32_t beginAsyncCommand(ze_command_list_handle_t CmdList,
+                                 ze_command_queue_handle_t CmdQueue,
+                                 std::mutex &Mutex, AsyncEventTy *Event,
+                                 ze_fence_handle_t Fence) {
+  if (!Event || !Event->Handler || !Event->Arg) {
+    DP("Error: Failed to start asynchronous command -- invalid argument\n");
+    return OFFLOAD_FAIL;
+  }
+
+  CALL_ZE_RET_FAIL_MTX(zeCommandListClose, Mutex, CmdList);
+
+  // Spawn waiting thread
+  std::thread waiter([](AsyncEventTy *event, ze_command_list_handle_t cmdList,
+                        ze_fence_handle_t fence) {
+    // Wait until the fence is signaled.
+    zeFenceHostSynchronize(fence, UINT32_MAX);
+    // Invoke clean-up routine
+    endAsyncCommand(event, cmdList, fence);
+  }, Event, CmdList, Fence);
+
+  waiter.detach();
+
+  // Fence to be signaled on command-list completion.
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   Fence);
+
+  return OFFLOAD_SUCCESS;
+}
+
+// Create a fence
+static ze_fence_handle_t createFence(int32_t DeviceId) {
+  ze_fence_desc_t fenceDesc = {
+    ZE_FENCE_DESC_VERSION_CURRENT,
+    ZE_FENCE_FLAG_NONE
+  };
+  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
+  ze_fence_handle_t fence;
+  CALL_ZE_RET(0, zeFenceCreate, cmdQueue, &fenceDesc, &fence);
+  return fence;
+}
+
+// Create a command list
+static ze_command_list_handle_t createCmdList(int32_t DeviceId) {
+  ze_command_list_desc_t cmdListDesc = {
+    ZE_COMMAND_LIST_DESC_VERSION_CURRENT,
+    ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY
+  };
+  ze_command_list_handle_t cmdList;
+  auto deviceHandle = DeviceInfo.Devices[DeviceId];
+  CALL_ZE_RET(0, zeCommandListCreate, deviceHandle, &cmdListDesc, &cmdList);
+  return cmdList;
+}
+
 static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                           int64_t Size, void *AsyncEvent) {
   if (Size == 0)
@@ -457,9 +546,23 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   auto &mutex = DeviceInfo.Mutexes[DeviceId];
 
   if (AsyncEvent) {
-    // TODO
-    DP("Asynchronous data submit is not supported now\n");
-    return OFFLOAD_FAIL;
+    cmdList = createCmdList(DeviceId);
+    if (!cmdList) {
+      DP("Error: Asynchronous data submit failed -- invalid command list\n");
+      return OFFLOAD_FAIL;
+    }
+    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, TgtPtr,
+                         HstPtr, Size, nullptr);
+    auto fence = createFence(DeviceId);
+    if (!fence) {
+      DP("Error: Asynchronous data submit failed -- invalid fence\n");
+      return OFFLOAD_FAIL;
+    }
+    if (beginAsyncCommand(cmdList, cmdQueue, mutex,
+        static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
+      return OFFLOAD_FAIL;
+    DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
+       DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
     CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, TgtPtr,
                          HstPtr, Size, nullptr /* event handle */);
@@ -492,14 +595,31 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
+  // Add synthetic delay for experiments
+  addDataTransferLatency();
+
   auto cmdList = DeviceInfo.CmdLists[DeviceId];
   auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
   auto &mutex = DeviceInfo.Mutexes[DeviceId];
 
   if (AsyncEvent) {
-    // TODO
-    DP("Asynchronous data retrieve is not supported now\n");
-    return OFFLOAD_FAIL;
+    cmdList = createCmdList(DeviceId);
+    if (!cmdList) {
+      DP("Error: Asynchronous data retrieve failed -- invalid command list\n");
+      return OFFLOAD_FAIL;
+    }
+    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, HstPtr,
+                         TgtPtr, Size, nullptr);
+    auto fence = createFence(DeviceId);
+    if (!fence) {
+      DP("Error: Asynchronous data retrieve failed -- invalid fence\n");
+      return OFFLOAD_FAIL;
+    }
+    if (beginAsyncCommand(cmdList, cmdQueue, mutex,
+        static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
+      return OFFLOAD_FAIL;
+    DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
+       DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
     CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, HstPtr,
                          TgtPtr, Size, nullptr /* event handle */);
@@ -642,9 +762,23 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
 
   if (AsyncEvent) {
-    // TODO
-    DP("Asynchronous kernel submit is not supported now\n");
-    return OFFLOAD_FAIL;
+    cmdList = createCmdList(DeviceId);
+    if (!cmdList) {
+      DP("Error: Asynchronous execution failed -- invalid command list\n");
+      return OFFLOAD_FAIL;
+    }
+    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
+                         kernel, &groupDimensions, nullptr, 0, nullptr);
+    auto fence = createFence(DeviceId);
+    if (!fence) {
+      DP("Error: Asynchronous execution failed -- invalid fence\n");
+      return OFFLOAD_FAIL;
+    }
+    if (beginAsyncCommand(cmdList, cmdQueue, mutex,
+        static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
+      return OFFLOAD_FAIL;
+    DP("Asynchronous execution started for kernel " DPxMOD "\n",
+       DPxPTR(TgtEntryPtr));
   } else {
     CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
                          kernel, &groupDimensions, nullptr, 0, nullptr);
