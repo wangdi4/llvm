@@ -3787,8 +3787,19 @@ void DynCloneImpl::createEncodeDecodeFunctions(void) {
 }
 
 // Generate all instructions for encoder/decoder functions.
+//
+// Assume that max_int_15bit represents the maximum signed value that can
+// fit in 15 bits (16383), and min_int_15bit is the lowest value (-16383).
+// The following two functions will be created:
+//
 // i16 __DYN_encoder(i64 arg) {
 //   i16 RetVal, Max = max_int_15bit;
+//   i64 StartRange = min_int_15bit;
+//   i64 EndRange = max_int_15bit;
+//
+//   if (StartRange < arg  && arg < EndRange)
+//     return Trunc(arg);
+//
 //   switch(arg) {
 //     case C1: RetVal = Max;
 //     case C2: RetVal = Max+1;
@@ -3802,16 +3813,26 @@ void DynCloneImpl::createEncodeDecodeFunctions(void) {
 // i64 __DYN_decoder(i16 arg) {
 //   i16 Max = max_int_15bit;
 //   i64 RetVal;
+//   i16 StartRange = min_int_15bit;
+//   i16 EndRange = max_int_15bit;
+//
+//   if (StartRange < arg && arg < EndRange)
+//     return SExt(arg);
+//
 //   switch(arg) {
 //     case Max: RetVal = C1;
 //     case Max+1: RetVal = C2;
 //     case Max+2: RetVal = C3;
 //     ...
 //     default: RetVal = SExt(arg);
-//     };
+//   };
 //   return RetVal;
 // }
 //
+// The encoder function will check if the input i64 variable fits in a 15 bits
+// variable, then truncate it, else handle some special cases. The decoder
+// function takes an i16 and if it isn't any of the special cases, then
+// sign extends it to a signed i64.
 void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
   // Indicate this function doesn't use vectors. This prevents the inliner from
   // deleting it from the caller when merging attributes.
@@ -3819,7 +3840,30 @@ void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
 
   llvm::IntegerType *SrcType = cast<IntegerType>(F->arg_begin()->getType());
   llvm::IntegerType *DstType = cast<IntegerType>(F->getReturnType());
-  BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
+
+  BasicBlock *EntryBB = BasicBlock::Create(M.getContext(), "entry", F);
+  IRBuilder<> IRBEntry(EntryBB);
+
+  // Check if the input argument for the encoder function fits in signed
+  // 15 bits. If so then go to the default value, else go to the switch
+  // and case statement.
+  //
+  // On other words, if the input argument of the function fits in a
+  // signed 15 bits (-16383 to 16383) then truncate %arg from i64 to i16 or
+  // sign extend it from i16 to i64. Else, use the special cases.
+  int64_t Range = DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta;
+  int64_t MinVal = -(1ULL << (Range - 1));
+  int64_t MaxVal = (1ULL << (Range - 1)) - 1;
+
+  ConstantInt *MinDecodeValue = ConstantInt::get(SrcType, MinVal);
+  ConstantInt *MaxDecodeValue = ConstantInt::get(SrcType, MaxVal);
+
+  Value *MinCmpr = IRBEntry.CreateICmpSGT(F->arg_begin(), MinDecodeValue);
+  Value *MaxCmpr = IRBEntry.CreateICmpSLT(F->arg_begin(), MaxDecodeValue);
+
+  Value *EntryCmpr = IRBEntry.CreateAnd(MinCmpr, MaxCmpr);
+
+  BasicBlock *BB = BasicBlock::Create(M.getContext(), "switch_bb", F);
   IRBuilder<> IRB(BB);
   BasicBlock *DefaultBB = BasicBlock::Create(M.getContext(), "default", F);
   SwitchInst *SI =
@@ -3849,6 +3893,9 @@ void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
     IRBCase.CreateBr(ReturnBB);
     SI->addCase(CaseValue, CaseBB);
   }
+
+  // Connect the entry block with the switch-case block
+  IRBEntry.CreateCondBr(EntryCmpr, DefaultBB, BB);
 }
 
 bool DynCloneImpl::run(void) {
