@@ -23,11 +23,7 @@
 #include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
-<<<<<<< HEAD
-#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/StmtVisitor.h" // INTEL
-=======
->>>>>>> 4035f5e5ee6ba9afe27a2ffdea3ba94421e6d597
 #include "clang/Basic/PrettyStackTrace.h"
 using namespace clang;
 using namespace CodeGen;

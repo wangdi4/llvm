@@ -27,11 +27,13 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/Basic/CodeGenOptions.h"
+#include "clang/Basic/LangOptions.h" // INTEL
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/SwiftCallingConv.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSet.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
@@ -39,16 +41,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-// CQ381541: IMF attributes support
-#include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/StringSet.h"
-#endif // INTEL_CUSTOMIZATION
-
-=======
 #include "llvm/Transforms/Utils/Local.h"
->>>>>>> 4035f5e5ee6ba9afe27a2ffdea3ba94421e6d597
 using namespace clang;
 using namespace CodeGen;
 

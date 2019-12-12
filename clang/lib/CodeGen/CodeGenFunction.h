@@ -76,6 +76,7 @@ class ObjCAtThrowStmt;
 class ObjCAtSynchronizedStmt;
 class ObjCAutoreleasePoolStmt;
 class ReturnsNonNullAttr;
+class IntelInlineAttr; // INTEL
 
 namespace analyze_os_log {
 class OSLogBufferLayout;

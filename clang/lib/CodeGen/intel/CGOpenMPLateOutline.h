@@ -20,6 +20,9 @@
 #include "clang/AST/StmtOpenMP.h"
 
 namespace clang {
+
+class OMPCaptureNoInitAttr;
+
 namespace CodeGen {
 
 enum OMPAtomicClause {

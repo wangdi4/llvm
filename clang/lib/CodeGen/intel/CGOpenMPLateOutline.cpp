@@ -16,6 +16,7 @@
 #include "CGOpenMPLateOutline.h"
 #include "CGOpenMPRuntime.h"
 #include "CGCleanup.h"
+#include "clang/AST/Attr.h"
 using namespace clang;
 using namespace CodeGen;
 

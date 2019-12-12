@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "CodeGenFunction.h"
+#include "clang/AST/Attr.h"
 
 using namespace clang;
 using namespace CodeGen;

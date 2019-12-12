@@ -10,19 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-#include "CGDebugInfo.h" // INTEL
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
-#include "TargetInfo.h"
-#include "clang/AST/Expr.h"  // INTEL
-=======
 #include "CGDebugInfo.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/Attr.h"
->>>>>>> 4035f5e5ee6ba9afe27a2ffdea3ba94421e6d597
+#include "clang/AST/Expr.h"  // INTEL
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PrettyStackTrace.h"
