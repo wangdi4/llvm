@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// The format of this database matches clang/Basic/Builtins.def.
+// The format of this database matches clang/include/clang/Basic/Builtins.def
 
 // BUILTIN(__builtin_dummy, "UiUi", "n")
 
@@ -94,6 +94,15 @@ BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fnmsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_minf32x2,    "V2fV2fIcIcIc",       "ncV:64:")
 BUILTIN(__builtin_csa_maxf32x2,    "V2fV2fIcIcIc",       "ncV:64:")
+
+// New scalar intrinsics
+BUILTIN(__builtin_csa_clxmul8,     "UsUcUc",             "nc")
+BUILTIN(__builtin_csa_clxmul16,    "UiUsUs",             "nc")
+BUILTIN(__builtin_csa_clxmul32,    "LLiUiUi",            "nc")
+BUILTIN(__builtin_csa_rcp14f32,    "ff",                 "nc")
+BUILTIN(__builtin_csa_rcp14f64,    "dd",                 "nc")
+BUILTIN(__builtin_csa_rsqrt14f32,  "ff",                 "nc")
+BUILTIN(__builtin_csa_rsqrt14f64,  "dd",                 "nc")
 
 // LIC Queues Builtins
 BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")

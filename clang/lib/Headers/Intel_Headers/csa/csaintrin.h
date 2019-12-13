@@ -443,68 +443,7 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
 
 #ifdef __CSA__
 /*
- * Intrinsics for half-precision vectors
- */
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setzero_ph(void)
-{
-  return (__m64h){ 0.0f16, 0.0f16, 0.0f16, 0.0f16 };
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set_ph(_Float16 v3,
-                                                         _Float16 v2,
-                                                         _Float16 v1,
-                                                         _Float16 v0)
-{
-  return (__m64h){v0, v1, v2, v3};
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set1_ph(_Float16 v)
-{
-  return (__m64h){v, v, v, v};
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setr_ph(_Float16 v0,
-                                                          _Float16 v1,
-                                                          _Float16 v2,
-                                                          _Float16 v3)
-{
-  return (__m64h){v0, v1, v2, v3};
-}
-
-static __inline__ _Float16 __DEFAULT_FN_ATTRS _mm64_extract_ph(__m64h a, int i)
-{
-  return a[i];
-}
-
-#define _mm64_shuf_ph(A, B, M, N, O, P)                                   \
-  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(B), (M), (N), (O), (P)))
-
-#define _mm64_shuffle_ph(A, M) \
-  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(A), (M) & 0x3, ((M) >> 2) & 0x3, ((M) >> 4) & 0x3, ((M) >> 6) & 0x3))
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_castps_ph(__m64f a)
-{
-  return (__m64h)(a);
-}
-
-static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_castph_ps(__m64h a)
-{
-  return (__m64f)(a);
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_casti64_ph(__m64i a)
-{
-  return (__m64h)(a);
-}
-
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
-{
-  return (__m64i)(a);
-}
-
-/*
- * Integer vector Intrinsics
+ * Integer Vector Intrinsics
  */
 
 /* Add packed 8-bit integers in a and b, and return the result. */
@@ -614,6 +553,25 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epi8(__m64i a, __m64i b)
   return (__m64i)__builtin_csa_maxs8x8((__v8qi)a, (__v8qi)b);
 }
 
+/* Compare packed 16-bit integers in a and b, and return the packed maximum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epi16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_maxs16x4((__v4hi)a, (__v4hi)b);
+}
+
+/* Compare packed unsigned 8-bit integers in a and b, and return the packed maximum values. */
+
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epu8(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_maxu8x8((__v8qu)a, (__v8qu)b);
+}
+
+/* Compare packed unsigned 16-bit integers in a and b, and return the packed maximum values. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epu16(__m64i a, __m64i b)
+{
+  return (__m64i) __builtin_csa_maxu16x4((__v4hu)a, (__v4hu)b);
+}
+
 /* Compute the bitwise AND of corresponding 8-bit integers in a and b, and set the
    corresponding bit in the result if the result is non-zero. */
 static __inline__ int __DEFAULT_FN_ATTRS _mm64_test_epi8(__m64i a, __m64i b)
@@ -645,25 +603,6 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_abs_epi8(__m64i a)
 static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_abs_epi16(__m64i a)
 {
   return (__m64i)__builtin_csa_abs16x4((__v4hu)a);
-}
-
-/* Compare packed 16-bit integers in a and b, and return the packed maximum values. */
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epi16(__m64i a, __m64i b)
-{
-  return (__m64i) __builtin_csa_maxs16x4((__v4hi)a, (__v4hi)b);
-}
-
-/* Compare packed unsigned 8-bit integers in a and b, and return the packed maximum values. */
-
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epu8(__m64i a, __m64i b)
-{
-  return (__m64i) __builtin_csa_maxu8x8((__v8qu)a, (__v8qu)b);
-}
-
-/* Compare packed unsigned 16-bit integers in a and b, and return the packed maximum values. */
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_max_epu16(__m64i a, __m64i b)
-{
-  return (__m64i) __builtin_csa_maxu16x4((__v4hu)a, (__v4hu)b);
 }
 
 /* Create mask from the most significant bit of each 8-bit element in a, and return the result. */
@@ -837,6 +776,75 @@ static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_blend_ps(unsigned char mask, _
  * Half-Precision Vector Intrinsics
  */
 
+/* Return a vector where all floating-point values are set to a value of 0. */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setzero_ph(void)
+{
+  return (__m64h){ 0.0f16, 0.0f16, 0.0f16, 0.0f16 };
+}
+
+/* Set packed 16-bit floating-point values in the result with the supplied values. */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set_ph(_Float16 v3,
+                                                         _Float16 v2,
+                                                         _Float16 v1,
+                                                         _Float16 v0)
+{
+  return (__m64h){v0, v1, v2, v3};
+}
+
+/* Broadcast 16-bit floating-point value a to all elements of the result. */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set1_ph(_Float16 v)
+{
+  return (__m64h){v, v, v, v};
+}
+
+/* Set packed 16-bit floating-point values in the result with the supplied values in reverse order. */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setr_ph(_Float16 v0,
+                                                          _Float16 v1,
+                                                          _Float16 v2,
+                                                          _Float16 v3)
+{
+  return (__m64h){v0, v1, v2, v3};
+}
+
+/* Return the floating-point value in the corresponding lane of the vector. */
+static __inline__ _Float16 __DEFAULT_FN_ATTRS _mm64_extract_ph(__m64h a, int i)
+{
+  return a[i];
+}
+
+/* Return a new vector which is composed of 16-bit slices from the two input vectors. 
+   Each of the selectors determines the corresponding lane on in the input. */
+#define _mm64_shuf_ph(A, B, M, N, O, P)                                   \
+  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(B), (M), (N), (O), (P)))
+
+/* Shuffle 16-bit floating-point values in a using the control in imm8, and return the shuffled vector. */
+#define _mm64_shuffle_ph(A, M) \
+  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(A), (M) & 0x3, ((M) >> 2) & 0x3, ((M) >> 4) & 0x3, ((M) >> 6) & 0x3))
+
+/* Cast vector of type __m64f to type __m64h. */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_castps_ph(__m64f a)
+{
+  return (__m64h)(a);
+}
+
+/* Cast vector of type __m64h to type __m64f. */
+static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_castph_ps(__m64h a)
+{
+  return (__m64f)(a);
+}
+
+/* Cast vector of type __m64i to type __m64h. */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_casti64_ph(__m64i a)
+{
+  return (__m64h)(a);
+}
+
+/* Cast vector of type __m64h to type __m64i. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
+{
+  return (__m64i)(a);
+}
+
 /* Perform a floating-point addition on the corresponding half-precision floating-point
    values in the vector. The swizzle and disable inputs modify the operation. */
 #define _mm64_add_ph(OP1, OP2, D, SW1, SW2)                      \
@@ -949,6 +957,120 @@ static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_blend_ps(unsigned char mask, _
 #define _mm64_max_ps(OP1, OP2, D, SW1, SW2)                     \
   (__m64f)(__builtin_csa_max32x2 ((__m64f)(OP1), (__m64f)(OP2), \
                                   (D), (SW1), (SW2)))
+
+/*
+ * New Scalar Intrinsics
+ */
+
+/* Perform a carry-less multiplication of two 8-bit integers a and b, and return the 16-bit result. */
+static __inline__ unsigned short _clxmul8_16(unsigned char a, unsigned char b)
+{
+  return (unsigned short) __builtin_csa_clxmul8(a, b);
+}
+
+/* Perform a carry-less multiplication of two 16-bit integers a and b, and return the 32-bit result. */
+static __inline__ unsigned int _clxmul16_32(unsigned short a, unsigned short b)
+{
+  return (unsigned int) __builtin_csa_clxmul16(a, b);
+}
+
+/* Perform a carry-less multiplication of two 32-bit integers a and b, and return the 64-bit result. */
+static __inline__ unsigned __int64 _clxmul32_64(unsigned int a, unsigned int b)
+{
+  return (unsigned __int64) __builtin_csa_clxmul32(a, b);
+}
+
+/* Compute the approximate reciprocal of the single-precision floating-point value. The maximum
+   relative error for this approximation is less than 2^-14. */
+static __inline__ float _rcp14_ss(float a)
+{
+  return (float) __builtin_csa_rcp14f32(a);
+}
+
+/* Compute the approximate reciprocal of the double-precision floating-point value. The maximum
+   relative error for this approximation is less than 2^-14. */
+static __inline__ double _rcp14_sd(double a)
+{
+  return (double) __builtin_csa_rcp14f64(a);
+}
+
+/* Compute the approximate reciprocal square root of the single-precision floating-point value.
+   The maximum relative error for this approximation is less than 2^-14. */
+static __inline__ float _rsqrt14_ss(float a)
+{
+  return (float) __builtin_csa_rsqrt14f32(a);
+}
+
+/* Compute the approximate reciprocal square root of the double-precision floating-point value.
+   The maximum relative error for this approximation is less than 2^-14. */
+static __inline__ double _rsqrt14_sd(double a)
+{
+  return (double) __builtin_csa_rsqrt14f64(a);
+}
+
+/* Convert the half-precision floating-point value to a single-precision floating point value. */
+static __inline__ float _cvtsh_ss(unsigned short a)
+{
+  return (float)a;
+}
+
+/* Convert the single-precision (32-bit) floating-point value a to a half-precision (16-bit)
+   floating-point value, and store the result in dst. Rounding is done according to the rounding
+   parameter. However, rounding is currently ignored. */
+static __inline__ unsigned short _cvtss_sh(float a, const int rounding)
+{
+  return (unsigned short)a;
+}
+
+/* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
+   the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
+   from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written
+   to the corresponding bit in the output. */
+#define _ternlog_u1(A, B, C, IMM8) \
+  (unsigned char)(__builtin_ternlog_u1((unsigned char)(A), \
+                                       (unsigned char)(B), \
+                                       (unsigned char)(C), \
+                                       (IMM8)
+
+/* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
+   the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
+   from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
+   the corresponding bit in the output. */
+#define _ternlog_u8(A, B, C, IMM8) \
+  (unsigned char)(__builtin_ternlog_u8((unsigned char)(A), \
+                                       (unsigned char)(B), \
+                                       (unsigned char)(C), \
+                                       (IMM8)
+
+/* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
+   the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
+   from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
+   the corresponding bit in the output. */
+#define _ternlog_u16(A, B, C, IMM8) \
+  (unsigned short)(__builtin_ternlog_u16((unsigned short)(A), \
+                                         (unsigned short)(B), \
+                                         (unsigned short)(C), \
+                                         (IMM8)
+
+/* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
+   the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
+   from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
+   the corresponding bit in the output. */
+#define _ternlog_u32(A, B, C, IMM8) \
+  (unsigned int)(__builtin_ternlog_u32((unsigned int)(A), \
+                                       (unsigned int)(B), \
+                                       (unsigned int)(C), \
+                                       (IMM8)
+
+/* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
+   the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
+   from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
+   the corresponding bit in the output. */
+#define _ternlog_u64(A, B, C, IMM8) \
+  (unsigned __int64)(__builtin_ternlog_u64((unsigned __int64)(A), \
+                                           (unsigned __int64)(B), \
+                                           (unsigned __int64)(C), \
+                                           (IMM8)
 
 #endif /* __CSA__ */
 

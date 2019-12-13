@@ -507,7 +507,7 @@ def CSA_RETURN : PseudoInstCSA<
     "csa_return",
     [(CSARet CI0:$mem_ord)], [IsDataflow]>;
 
-class UnaryOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
+class UnaryOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
@@ -891,16 +891,15 @@ class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
-class ClxmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2,
+class ClxmulOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi, CSAOpInfo oi2,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
     (outs oi2.RC:$res),
     (ins  oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
-    [],
+    [(set oi2.RC:$res, (opNode oi.RCL:$op1, oi.RCL:$op2))],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
-
 
 class FModOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
@@ -2055,10 +2054,11 @@ def XMULU16 : XmulOp<XMUL, Tu16, Tu32, zext, IIMulI16>;
 def XMULS32 : XmulOp<XMUL, Ts32, Ts64, sext, IIMulI32>;
 def XMULU32 : XmulOp<XMUL, Tu32, Tu64, zext, IIMulI32>;
 
+// Carry-less multiplication
 def CLXMUL   : GenericOp<"clxmul">;
-def CLXMUL8  : ClxmulOp<CLXMUL, Ti8,  Ti16, IIMulI8>;
-def CLXMUL16 : ClxmulOp<CLXMUL, Ti16, Ti32, IIMulI16>;
-def CLXMUL32 : ClxmulOp<CLXMUL, Ti32, Ti64, IIMulI32>;
+def CLXMUL8  : ClxmulOp<CLXMUL, int_csa_clxmul8,  Ti8,  Ti16, IIMulI8>;
+def CLXMUL16 : ClxmulOp<CLXMUL, int_csa_clxmul16, Ti16, Ti32, IIMulI16>;
+def CLXMUL32 : ClxmulOp<CLXMUL, int_csa_clxmul32, Ti32, Ti64, IIMulI32>;
 
 // Atomic operations
 def ATMAND    : GenericOp<"atmand", [HasRMWAtomic]>;
@@ -2243,14 +2243,16 @@ def FMSORSF64    : ThreeArgRSOpR<FMSORS, Tf64, IIMathF64>;
 def FMRSORS      : GenericOp<"fmrsors">;
 def FMRSORSF32   : ThreeArgRSOpR<FMRSORS, Tf32, IIMathF32>;
 def FMRSORSF64   : ThreeArgRSOpR<FMRSORS, Tf64, IIMathF64>;
+
+// Approximate reciprocal
 def RCP14        : GenericOp<"rcp14", [HasRcpA]>;
-def RCP14F32     : UnaryNoPatOp<RCP14, Tf32, IIRcpAF32>;
-def RCP14F64     : UnaryNoPatOp<RCP14, Tf64, IIRcpAF64>;
+def RCP14F32     : UnaryOp<RCP14, int_csa_rcp14f32, Tf32, IIRcpAF32>;
+def RCP14F64     : UnaryOp<RCP14, int_csa_rcp14f64, Tf64, IIRcpAF64>;
+
+// Approximate reciprocal square root
 def RSQRT14      : GenericOp<"rsqrt14", [HasRSqrtA]>;
-def RSQRT14F32   : UnaryNoPatOp<RSQRT14, Tf32, IIRSqrtAF32>;
-def RSQRT14F64   : UnaryNoPatOp<RSQRT14, Tf64, IIRSqrtAF64>;
-
-
+def RSQRT14F32   : UnaryOp<RSQRT14, int_csa_rsqrt14f32, Tf32, IIRSqrtAF32>;
+def RSQRT14F64   : UnaryOp<RSQRT14, int_csa_rsqrt14f64, Tf64, IIRSqrtAF64>;
 
 // Unit - type only
 def UNIT : PseudoInstCSA<

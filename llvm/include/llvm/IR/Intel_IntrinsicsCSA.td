@@ -93,6 +93,28 @@ def int_csa_pipeline_loop_exit :
 def int_csa_pipelineable_loop_marker :
     Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
+// New scalar intrinsics
+def int_csa_clxmul8 : GCCBuiltin<"__builtin_csa_clxmul8">,
+    Intrinsic<[llvm_i16_ty], [llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_clxmul16 : GCCBuiltin<"__builtin_csa_clxmul16">,
+    Intrinsic<[llvm_i32_ty], [llvm_i16_ty, llvm_i16_ty], [IntrNoMem]>;
+
+def int_csa_clxmul32 : GCCBuiltin<"__builtin_csa_clxmul32">,
+    Intrinsic<[llvm_i64_ty], [llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
+
+def int_csa_rcp14f32: GCCBuiltin<"__builtin_csa_rcp14f32">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty], [IntrNoMem]>;
+
+def int_csa_rcp14f64: GCCBuiltin<"__builtin_csa_rcp14f64">,
+    Intrinsic<[llvm_double_ty], [llvm_double_ty], [IntrNoMem]>;
+
+def int_csa_rsqrt14f32: GCCBuiltin<"__builtin_csa_rsqrt14f32">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty], [IntrNoMem]>;
+
+def int_csa_rsqrt14f64: GCCBuiltin<"__builtin_csa_rsqrt14f64">,
+    Intrinsic<[llvm_double_ty], [llvm_double_ty], [IntrNoMem]>;
+
 // SIMD intrinsics (16x4).
 def int_csa_addf16x4 : GCCBuiltin<"__builtin_csa_addf16x4">,
     Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
@@ -345,4 +367,5 @@ def int_csa_pipeline_depth_token_return :
     [IntrInaccessibleMemOrArgMemOnly]>;
 
 }
+
 #endif // INTEL_FEATURE_CSA
