@@ -27,9 +27,13 @@ int main() {
 // CHECK: getelementptr inbounds %"class.{{.*}}.anon"{{.*}} !dbg [[LINE_A0:![0-9]+]]
 // CHECK: call spir_func void {{.*}}6__init{{.*}} !dbg [[LINE_A0]]
 // CHECK: call spir_func void @"_ZZ4mainENK3$_0clEv"{{.*}} !dbg [[LINE_B0:![0-9]+]]
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // CHECK: ret void
 // end INTEL_CUSTOMIZATION
+=======
+// CHECK: ret void
+>>>>>>> 1b2f0c9159eedb7e7c51e8f03021f4580c009938
 // CHECK: [[FILE:![0-9]+]] = !DIFile(filename: "{{.*}}debug-info-srcpos-kernel.cpp"{{.*}})
 // CHECK: [[KERNEL]] = {{.*}}!DISubprogram(name: "{{.*}}19use_kernel_for_test"
 // CHECK-SAME: scope: [[FILE]]
