@@ -737,7 +737,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
 VPConstant* VPlanDivergenceAnalysis::getConstantInt(int64_t Val) {
   LLVMContext &C = *Plan->getLLVMContext();
   ConstantInt *CInt = ConstantInt::get(Type::getInt64Ty(C), Val);
-  VPConstant *VPCInt = new VPConstant(CInt);
+  VPConstant *VPCInt = Plan->getVPConstant(CInt);
   return VPCInt;
 }
 
@@ -789,7 +789,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
         uint64_t NewStrideVal = Op1IntVal * Op0StrideIntVal;
         ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
                                                      NewStrideVal);
-        NewStride = new VPConstant(NewStrideInt);
+        NewStride = Plan->getVPConstant(NewStrideInt);
       }
 
       VPVectorShape::VPShapeDescriptor NewDesc;
@@ -816,7 +816,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
         uint64_t NewStrideVal = Op0StrideIntVal + Op1StrideIntVal;
         ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
                                                      NewStrideVal);
-        NewStride = new VPConstant(NewStrideInt);
+        NewStride = Plan->getVPConstant(NewStrideInt);
       }
       VPVectorShape::VPShapeDescriptor NewDesc = AddConversion[Desc0][Desc1];
       return new VPVectorShape(NewDesc, NewStride);
@@ -834,7 +834,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
         int64_t NewStrideVal = Op0StrideIntVal - Op1StrideIntVal;
         ConstantInt *NewStrideInt =
             ConstantInt::get(Type::getInt64Ty(C), NewStrideVal);
-        NewStride = new VPConstant(NewStrideInt);
+        NewStride = Plan->getVPConstant(NewStrideInt);
         VPVectorShape::VPShapeDescriptor NewDesc;
         switch (NewStrideVal) {
         case 0:

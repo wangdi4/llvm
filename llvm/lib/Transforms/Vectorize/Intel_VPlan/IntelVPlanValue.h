@@ -434,7 +434,6 @@ public:
 class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
-  friend class VPlanDivergenceAnalysis;
 
 protected:
   VPConstant(Constant *Const)
