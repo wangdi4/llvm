@@ -4705,6 +4705,7 @@ void llvm::WriteThinLinkBitcodeToFile(const Module &M, raw_ostream &Out,
   Out.write((char *)&Buffer.front(), Buffer.size());
 }
 
+#if !INTEL_PRODUCT_RELEASE
 static const char *getSectionNameForBitcode(const Triple &T) {
   switch (T.getObjectFormat()) {
   case Triple::MachO:
@@ -4826,3 +4827,4 @@ void llvm::EmbedBitcodeInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
       llvm::ConstantArray::get(ATy, UsedArray), "llvm.compiler.used");
   NewUsed->setSection("llvm.metadata");
 }
+#endif // INTEL_PRODUCT_RELEASE

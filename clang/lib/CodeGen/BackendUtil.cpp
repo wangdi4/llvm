@@ -1605,42 +1605,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 }
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-static const char* getSectionNameForBitcode(const Triple &T) {
-  switch (T.getObjectFormat()) {
-  case Triple::MachO:
-    return "__LLVM,__bitcode";
-  case Triple::COFF:
-  case Triple::ELF:
-  case Triple::Wasm:
-  case Triple::UnknownObjectFormat:
-    return ".llvmbc";
-  case Triple::XCOFF:
-    llvm_unreachable("XCOFF is not yet implemented");
-    break;
-  }
-  llvm_unreachable("Unimplemented ObjectFormatType");
-}
-
-static const char* getSectionNameForCommandline(const Triple &T) {
-  switch (T.getObjectFormat()) {
-  case Triple::MachO:
-    return "__LLVM,__cmdline";
-  case Triple::COFF:
-  case Triple::ELF:
-  case Triple::Wasm:
-  case Triple::UnknownObjectFormat:
-    return ".llvmcmd";
-  case Triple::XCOFF:
-    llvm_unreachable("XCOFF is not yet implemented");
-    break;
-  }
-  llvm_unreachable("Unimplemented ObjectFormatType");
-}
-
-=======
->>>>>>> c8e0bb3b2c24ef59556d81a275fb1f5db64899d3
 // With -fembed-bitcode, save a copy of the llvm IR as data in the
 // __LLVM,__bitcode section.
 void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,

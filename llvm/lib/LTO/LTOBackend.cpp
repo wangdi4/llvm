@@ -320,6 +320,7 @@ static cl::opt<bool> EmbedBitcode(
 static void EmitBitcodeSection(Module &M, Config &Conf) {
   if (!EmbedBitcode)
     return;
+#if !INTEL_PRODUCT_RELEASE
   SmallVector<char, 0> Buffer;
   raw_svector_ostream OS(Buffer);
   WriteBitcodeToFile(M, OS);
@@ -328,6 +329,7 @@ static void EmitBitcodeSection(Module &M, Config &Conf) {
       new SmallVectorMemoryBuffer(std::move(Buffer)));
   llvm::EmbedBitcodeInModule(M, Buf->getMemBufferRef(), /*EmbedBitcode*/ true,
                              /*EmbedMarker*/ false, /*CmdArgs*/ nullptr);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void codegen(Config &Conf, TargetMachine *TM, AddStreamFn AddStream,

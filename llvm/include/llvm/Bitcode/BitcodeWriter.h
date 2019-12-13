@@ -152,10 +152,12 @@ class raw_ostream;
                         const std::map<std::string, GVSummaryMapTy>
                             *ModuleToSummariesForIndex = nullptr);
 
+#if !INTEL_PRODUCT_RELEASE
   /// Save a copy of the llvm IR as data in the __LLVM,__bitcode section.
   void EmbedBitcodeInModule(Module &M, MemoryBufferRef Buf, bool EmbedBitcode,
                             bool EmbedMarker,
                             const std::vector<uint8_t> *CmdArgs);
+#endif // !INTEL_PRODUCT_RELEASE
 
 } // end namespace llvm
 
