@@ -1812,6 +1812,13 @@ static bool ShouldDiagnoseUnusedDecl(const NamedDecl *D) {
                 (VD->getInit()->isValueDependent() || !VD->evaluateValue()))
               return false;
           }
+
+          // Suppress the warning if we don't know how this is constructed, and
+          // it could possibly be non-trivial constructor.
+          if (Init->isTypeDependent())
+            for (const CXXConstructorDecl *Ctor : RD->ctors())
+              if (!Ctor->isTrivial())
+                return false;
         }
       }
     }
@@ -10064,13 +10071,15 @@ bool Sema::areMultiversionVariantFunctionsCompatible(
     Linkage = 5,
   };
 
-  if (OldFD && !OldFD->getType()->getAs<FunctionProtoType>()) {
+  if (NoProtoDiagID.getDiagID() != 0 && OldFD &&
+      !OldFD->getType()->getAs<FunctionProtoType>()) {
     Diag(OldFD->getLocation(), NoProtoDiagID);
     Diag(NoteCausedDiagIDAt.first, NoteCausedDiagIDAt.second);
     return true;
   }
 
-  if (!NewFD->getType()->getAs<FunctionProtoType>())
+  if (NoProtoDiagID.getDiagID() != 0 &&
+      !NewFD->getType()->getAs<FunctionProtoType>())
     return Diag(NewFD->getLocation(), NoProtoDiagID);
 
   if (!TemplatesSupported &&
