@@ -4,8 +4,12 @@
 
 ; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver \
 ; RUN: -vplan-force-vf=2 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
+; RUN: opt %s -S -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-driver" \
+; RUN: -vplan-force-vf=2 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
 
 ; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver \
+; RUN: -vplan-force-vf=8 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt %s -S -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-driver" \
 ; RUN: -vplan-force-vf=8 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 
 ; CHECK-VF2: [[wideExtract:%.*]] = shufflevector <4 x i32> [[VAR:%.*]], <4 x i32> undef, <2 x i32> <i32 0, i32 2>

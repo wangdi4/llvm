@@ -1,4 +1,5 @@
 ; RUN: opt < %s -VPlanDriver -vplan-build-vect-candidates=1000000 -disable-output
+; RUN: opt < %s -passes="vplan-driver" -vplan-build-vect-candidates=1000000 -disable-output
 
 @arr.float.1 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
 @arr.float.2 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16

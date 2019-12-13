@@ -3,6 +3,7 @@
 ; algorithm is executed.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <50>    + DO i1 = 0, %n + -1, 1   <DO_LOOP>

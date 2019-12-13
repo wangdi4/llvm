@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-build -debug -vplan-plain-dump=true -vplan-dump-liveness=1 %s  2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-build -debug -vplan-plain-dump=true -vplan-dump-liveness=1 %s 2>&1 | FileCheck %s
 
 ; verify live-in and live-out analysis
 ; CHECK:Live-in and Live-out info:

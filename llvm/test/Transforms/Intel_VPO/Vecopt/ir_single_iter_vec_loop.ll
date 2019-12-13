@@ -1,6 +1,7 @@
 ; Test to check that we make it obvious that vector loop backedge will never
 ; be taken when the scalar loop trip count is equal to VF.
 ; RUN: opt -S -VPlanDriver -vplan-build-vect-candidates=1 -vplan-force-vf=8 %s | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vplan-build-vect-candidates=1 -vplan-force-vf=8 %s | FileCheck %s
 ; CHECK-LABEL: vector.body
 ; CHECK: br i1 true, label {{.*}}, label %vector.body
 @arr = common dso_local local_unnamed_addr global i32* null, align 8

@@ -3,6 +3,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -VPlanDriver -debug-only=vplan-divergence-analysis -vplan-force-vf=2 %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver" -debug-only=vplan-divergence-analysis -vplan-force-vf=2 %s 2>&1 | FileCheck %s
 
 ; CHECK: Basic Block: {{BB[0-9]+}}
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VAL1:%vp.*]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[VAL2:%vp.*]], {{BB[0-9]+}} ]

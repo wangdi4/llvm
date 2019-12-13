@@ -2,7 +2,9 @@
 ; Test that vectorization does not kick in
 ; ModuleID = 't.c'
 ; RUN: opt -VPlanDriver -S < %s | FileCheck %s
+; RUN: opt -passes="vplan-driver" -S < %s | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -VPlanDriverHIR -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir,hir-cg" -S < %s | FileCheck %s
 ; CHECK-NOT: load <{{.*}} x i32>
 ; CHECK-NOT: add <{{.*}} x i32>
 ; CHECK-NOT: store <{{.*}} x i32>

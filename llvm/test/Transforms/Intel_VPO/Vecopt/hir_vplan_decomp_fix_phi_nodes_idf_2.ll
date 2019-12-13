@@ -35,6 +35,7 @@
 ; the new PHI node from both incoming VPBBs (effectively a no-op).
 
 ; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
