@@ -52,11 +52,11 @@ void h(int *hp, int *hp2, int *hq) {
 void bar();
 
 int var1;
-// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'int' is incompatible with type 'void (*)()'}}
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'int' is incompatible with type 'void ()'}}
 #pragma omp declare variant(var1) match(construct={target variant dispatch})
 void bar();
 
-// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'int' is incompatible with type 'void (*)()'}}
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'int' is incompatible with type 'void ()'}}
 #pragma omp declare variant(42) match(construct={target variant dispatch})
 void bar();
 
