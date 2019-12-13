@@ -1556,15 +1556,11 @@ private:
   /// the code, then put a barrier before the start and after the end of
   /// every parallel region, so that all the threads in the team wait for
   /// the master thread, and can see its update of team shared memory.
-  /// \p KernelEntryDir and \p KernelExitDir are correspondingly the entry and
-  /// exit directives for the WRegion whose outlined region \p kernelF is.
-  void guardSideEffectStatements(Function *KernelF,
-                                 SmallPtrSetImpl<Value *> &PrivateVariables,
-                                 Instruction *KernelEntryDir = nullptr,
-                                 Instruction *KernelExitDir = nullptr);
+  /// \p KernelF is an outlined function of region \p W.
+  void guardSideEffectStatements(WRegionNode *W, Function *KernelF);
 
   /// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-  void replacePrintfWithOCLBuiltin(Function *F);
+  void replacePrintfWithOCLBuiltin(Function *F) const;
 
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the

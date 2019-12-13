@@ -4217,6 +4217,25 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
                                      : EntryBB->getTerminator();
   IRBuilder<> BuilderInner(InsertPtForLoad);
   LoadInst *VRenamed = BuilderInner.CreateLoad(VAddr); // (3)
+  if (!InsertLoadInBeginningOfEntryBB)
+    // InstCombine may transform:
+    //   %1 = load float*, float** %.addr
+    //   store float* %1, float** %X
+    // into:
+    //   %1 = bitcast float** %.addr to i64*
+    //   %2 = load i64, i64* %1
+    //   %3 = bitcast float** %X to i64*
+    //   store i64 %2, i64* %3
+    //
+    // In this case VRenamed will be the %2 load of type i64,
+    // VOrig will have type float*, so we will not be able
+    // to restore the operand with just BitCasting float*
+    // value to i64. We could have used IntToPtr, but
+    // this will never be optimized. So we mark the load
+    // as volatile to prevent InstCombine transformation
+    // for this load.
+    VRenamed->setVolatile(true);
+
   VRenamed->setName(V->getName());
 
   // Replace uses of V with VRenamed

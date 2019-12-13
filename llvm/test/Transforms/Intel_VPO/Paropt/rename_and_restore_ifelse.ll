@@ -45,7 +45,7 @@ entry:
 ; PREPR: store i8** %y, i8*** [[YADDR1:%[a-zA-Z._0-9]+]]
 ; PREPR: "QUAL.OMP.FIRSTPRIVATE"(i8** %y)
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i8** %y, i8*** [[YADDR1]])
-; PREPR: [[YRENAMED1:%[a-zA-Z._0-9]+]] = load i8**, i8*** [[YADDR1]]
+; PREPR: [[YRENAMED1:%[a-zA-Z._0-9]+]] = load volatile i8**, i8*** [[YADDR1]]
 ; PREPR: load i8*, i8** [[YRENAMED1]]
 ; PREPR: "DIR.OMP.END.PARALLEL"
 
@@ -53,7 +53,7 @@ entry:
 ; PREPR: store i8** %y, i8*** [[YADDR2:%[a-zA-Z._0-9]+]]
 ; PREPR: "QUAL.OMP.FIRSTPRIVATE"(i8** %y)
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i8** %y, i8*** [[YADDR2]])
-; PREPR: [[YRENAMED2:%[a-zA-Z._0-9]+]] = load i8**, i8*** [[YADDR2]]
+; PREPR: [[YRENAMED2:%[a-zA-Z._0-9]+]] = load volatile i8**, i8*** [[YADDR2]]
 ; PREPR: load i8*, i8** [[YRENAMED2]]
 ; PREPR: "DIR.OMP.END.PARALLEL"
 

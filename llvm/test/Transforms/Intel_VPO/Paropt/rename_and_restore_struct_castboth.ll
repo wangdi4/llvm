@@ -39,14 +39,12 @@ entry:
 ; PREPR: store %struct._FourChars* %f, %struct._FourChars** [[FADDR]]
 ; PREPR: "QUAL.OMP.FIRSTPRIVATE"(%struct._FourChars* %f)
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(%struct._FourChars* %f, %struct._FourChars** [[FADDR]])
-; PREPR: [[FRENAMED:%[a-zA-Z._0-9]+]] = load %struct._FourChars*, %struct._FourChars** [[FADDR]]
+; PREPR: [[FRENAMED:%[a-zA-Z._0-9]+]] = load volatile %struct._FourChars*, %struct._FourChars** [[FADDR]]
 ; PREPR: [[FRENAMED_BC:%[a-zA-Z._0-9]+]] = bitcast %struct._FourChars* [[FRENAMED]] to i8*
 ; PREPR: call void @print_str(i8* [[FRENAMED_BC]])
 
-; Check for the IR modified by CSE + Instcombine
-; It's possible that the 'addr' of QUAL.OMP.OPERAND.ADDR is bitcast before a
-; store is done to it, and also before a load is done from it. This happens
-; after instcombine.
+; Check that the IR was not modified by CSE + Instcombine, except
+; bitcast converted to getelementptr
 
 ; INSTCMB: [[F:%[a-zA-Z._0-9]+]] = alloca i32
 ; INSTCMB: [[FCAST:%[a-zA-Z._0-9]+]] = bitcast i32* [[F]] to %struct._FourChars*
@@ -54,9 +52,9 @@ entry:
 ; INSTCMB: [[FADDR_CAST1:%[a-zA-Z._0-9]+]] = bitcast %struct._FourChars** [[FADDR]] to i32**
 ; INSTCMB: store i32* [[F]], i32** [[FADDR_CAST1]]
 ; INSTCMB: "QUAL.OMP.OPERAND.ADDR"(%struct._FourChars* [[FCAST]], %struct._FourChars** [[FADDR]])
-; INSTCMB: [[FADDR_CAST2:%[a-zA-Z._0-9]+]] = bitcast %struct._FourChars** [[FADDR]] to i8**
-; INSTCMB: [[FRENAMED:%[a-zA-Z._0-9]+]] = load i8*, i8** [[FADDR_CAST2]]
-; INSTCMB: call void @print_str(i8* [[FRENAMED]])
+; INSTCMB: [[FRENAMED:%[a-zA-Z._0-9]+]] = load volatile %struct._FourChars*, %struct._FourChars** [[FADDR]]
+; INSTCMB: [[FRENAMED_BC:%[a-zA-Z._0-9]+]] = getelementptr %struct._FourChars, %struct._FourChars* [[FRENAMED]], i64 0, i32 0
+; INSTCMB: call void @print_str(i8* [[FRENAMED_BC]])
 
 ; Check for restore-operands was able to undo the renaming:
 ; RESTR: [[F:%[a-zA-Z._0-9]+]] = alloca i32
@@ -64,7 +62,7 @@ entry:
 ; RESTR: "QUAL.OMP.FIRSTPRIVATE"(%struct._FourChars* [[FCAST]])
 ; RESTR-NOT: alloca %struct._FourChars*
 ; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
-; RESTR: [[FRENAMED:%[a-zA-Z._0-9]+]] = bitcast %struct._FourChars* [[FCAST]] to i8*
+; RESTR: [[FRENAMED:%[a-zA-Z._0-9]+]] = getelementptr %struct._FourChars, %struct._FourChars* [[FCAST]], i64 0, i32 0
 ; RESTR: call void @print_str(i8* [[FRENAMED]])
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"(%struct._FourChars* %f), "QUAL.OMP.NUM_THREADS"(i32 1) ]
   %2 = bitcast %struct._FourChars* %f to i8*
