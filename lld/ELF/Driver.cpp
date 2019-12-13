@@ -57,7 +57,6 @@
 #include "llvm/Support/Program.h"  // INTEL
 #include "llvm/Support/TarWriter.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
 #include <utility>
@@ -499,10 +498,6 @@ void LinkerDriver::main(ArrayRef<const char *> argsArr) {
   if (args.hasArg(OPT_version))
     return;
 
-  // Initialize time trace.
-  if (config->timeTraceEnabled)
-    timeTraceProfilerInitialize(config->timeTraceGranularity, config->progName);
-
   initLLVM();
   createFiles(args);
   if (errorCount())
@@ -530,33 +525,18 @@ void LinkerDriver::main(ArrayRef<const char *> argsArr) {
   switch (config->ekind) {
   case ELF32LEKind:
     link<ELF32LE>(args);
-    break;
+    return;
   case ELF32BEKind:
     link<ELF32BE>(args);
-    break;
+    return;
   case ELF64LEKind:
     link<ELF64LE>(args);
-    break;
+    return;
   case ELF64BEKind:
     link<ELF64BE>(args);
-    break;
+    return;
   default:
     llvm_unreachable("unknown Config->EKind");
-  }
-
-  if (config->timeTraceEnabled) {
-    std::string path = args.getLastArgValue(OPT_time_trace_file_eq);
-    if (path.empty())
-      path = (config->outputFile + ".time-trace").str();
-
-    std::error_code ec;
-    raw_fd_ostream os(path, errorCode, sys::fs::F_Text);
-    if (ec) {
-      error("cannot open " + path + ": " + ec.message());
-      return;
-    }
-    timeTraceProfilerWrite(os);
-    timeTraceProfilerCleanup();
   }
 }
 
@@ -999,9 +979,6 @@ static void readConfigs(opt::InputArgList &args) {
       getOldNewOptions(args, OPT_thinlto_object_suffix_replace_eq);
   config->thinLTOPrefixReplace =
       getOldNewOptions(args, OPT_thinlto_prefix_replace_eq);
-  config->timeTraceEnabled = args.hasArg(OPT_time_trace);
-  config->timeTraceGranularity =
-      args::getInteger(args, OPT_time_trace_granularity, 500);
   config->trace = args.hasArg(OPT_trace);
   config->undefined = args::getStrings(args, OPT_undefined);
   config->undefinedVersion =
@@ -1820,7 +1797,6 @@ static Symbol *addUndefined(StringRef name) {
 // Because all bitcode files that the program consists of are passed to
 // the compiler at once, it can do a whole-program optimization.
 template <class ELFT> void LinkerDriver::compileBitcodeFiles() {
-  llvm::TimeTraceScope timeScope("LTO");
   // Compile bitcode files and replace bitcode symbols.
   lto.reset(new BitcodeCompiler);
   for (BitcodeFile *file : bitcodeFiles)
@@ -1947,8 +1923,6 @@ template <class ELFT> static uint32_t getAndFeatures() {
 // Do actual linking. Note that when this function is called,
 // all linker scripts have already been parsed.
 template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
-  llvm::TimeTraceScope timeScope("ExecuteLinker");
-
   // If a -hash-style option was not given, set to a default value,
   // which varies depending on the target.
   if (!args.hasArg(OPT_hash_style)) {
@@ -1988,6 +1962,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // symbols that we need to the symbol table. This process might
   // add files to the link, via autolinking, these files are always
   // appended to the Files vector.
+<<<<<<< HEAD
  for (size_t i = 0; i < files.size(); ++i)
     parseFile(files[i]);
 #if INTEL_CUSTOMIZATION
@@ -1995,6 +1970,10 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   if (!gNULTOFiles.empty())
     doGnuLTOLinking<ELFT>();
 #endif // INTEL_CUSTOMIZATION
+=======
+  for (size_t i = 0; i < files.size(); ++i)
+    parseFile(files[i]);
+>>>>>>> 69da7e29dea659563f3b64edb7b45cb2aec817c2
 
   // Now that we have every file, we can decide if we will need a
   // dynamic symbol table.
@@ -2212,15 +2191,11 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // merging MergeInputSections into a single MergeSyntheticSection. From this
   // point onwards InputSectionDescription::sections should be used instead of
   // sectionBases.
-  {
-    llvm::TimeTraceScope timeScope("Merge input sections");
-    for (BaseCommand *base : script->sectionCommands)
-      if (auto *sec = dyn_cast<OutputSection>(base))
-        sec->finalizeInputSections();
-    llvm::erase_if(inputSections, [](InputSectionBase *s) {
-      return isa<MergeInputSection>(s);
-    });
-  }
+  for (BaseCommand *base : script->sectionCommands)
+    if (auto *sec = dyn_cast<OutputSection>(base))
+      sec->finalizeInputSections();
+  llvm::erase_if(inputSections,
+                 [](InputSectionBase *s) { return isa<MergeInputSection>(s); });
 
   // Two input sections with different output sections should not be folded.
   // ICF runs after processSectionCommands() so that we know the output sections.

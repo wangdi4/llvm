@@ -112,9 +112,6 @@ static lto::Config createConfig() {
   c.DebugPassManager = config->ltoDebugPassManager;
   c.DwoDir = config->dwoDir;
 
-  c.TimeTraceEnabled = config->timeTraceEnabled;
-  c.TimeTraceGranularity = config->timeTraceGranularity;
-
   c.CSIRProfile = config->ltoCSProfileFile;
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
 
