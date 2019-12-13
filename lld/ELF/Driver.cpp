@@ -1988,21 +1988,13 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // symbols that we need to the symbol table. This process might
   // add files to the link, via autolinking, these files are always
   // appended to the Files vector.
-<<<<<<< HEAD
-  for (size_t i = 0; i < files.size(); ++i)
+ for (size_t i = 0; i < files.size(); ++i)
     parseFile(files[i]);
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files
   if (!gNULTOFiles.empty())
     doGnuLTOLinking<ELFT>();
 #endif // INTEL_CUSTOMIZATION
-=======
-  {
-    llvm::TimeTraceScope timeScope("Parse input files");
-    for (size_t i = 0; i < files.size(); ++i)
-      parseFile(files[i]);
-  }
->>>>>>> af5ca40b47b3e85c3add81ccdc0b787c4bc355ae
 
   // Now that we have every file, we can decide if we will need a
   // dynamic symbol table.
