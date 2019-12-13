@@ -1865,50 +1865,6 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
     OS << "__unaligned";
     addSpace = true;
   }
-<<<<<<< HEAD
-  LangAS addrspace = getAddressSpace();
-  if (addrspace != LangAS::Default) {
-    if (addrspace != LangAS::opencl_private) {
-      if (addSpace)
-        OS << ' ';
-      addSpace = true;
-      switch (addrspace) {
-      case LangAS::opencl_global:
-      case LangAS::sycl_global:
-        OS << "__global";
-        break;
-      case LangAS::opencl_local:
-      case LangAS::sycl_local:
-        OS << "__local";
-        break;
-      case LangAS::opencl_private:
-        break;
-      case LangAS::sycl_private:
-        OS << "__private";
-        break;
-      case LangAS::opencl_constant:
-      case LangAS::sycl_constant:
-        OS << "__constant";
-        break;
-      case LangAS::opencl_generic:
-        OS << "__generic";
-        break;
-      case LangAS::cuda_device:
-        OS << "__device__";
-        break;
-      case LangAS::cuda_constant:
-        OS << "__constant__";
-        break;
-      case LangAS::cuda_shared:
-        OS << "__shared__";
-        break;
-      default:
-        OS << "__attribute__((address_space(";
-        OS << toTargetAddressSpace(addrspace);
-        OS << ")))";
-      }
-    }
-=======
   auto ASStr = getAddrSpaceAsString(getAddressSpace());
   if (!ASStr.empty()) {
     if (addSpace)
@@ -1919,7 +1875,6 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
       OS << "__attribute__((address_space(" << ASStr << ")))";
     else
       OS << ASStr;
->>>>>>> 2ba1f73a431de458c9e758ab1615c9e0972b4e98
   }
 
   if (Qualifiers::GC gc = getObjCGCAttr()) {
