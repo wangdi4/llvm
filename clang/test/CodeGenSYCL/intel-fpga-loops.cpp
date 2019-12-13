@@ -1,11 +1,37 @@
+// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -x c++ -triple spir64-unknown-linux-sycldevice -std=c++11 -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
+// INTEL_CUSTOMIZATION
+// CHECK: br label %for.cond, !llvm.loop ![[MD_X:[0-9]+]]
+// CHECK: br label %for.cond, !llvm.loop ![[MD_Y:[0-9]+]]
+// end INTEL_CUSTOMIZATION
 // CHECK: br label %for.cond, !llvm.loop ![[MD_A:[0-9]+]]
 // CHECK: br label %for.cond, !llvm.loop ![[MD_B:[0-9]+]]
 // CHECK: br label %for.cond, !llvm.loop ![[MD_C:[0-9]+]]
 // CHECK: br label %for.cond2, !llvm.loop ![[MD_D:[0-9]+]]
 // CHECK: br label %for.cond,  !llvm.loop ![[MD_E:[0-9]+]]
 // CHECK: br label %for.cond2, !llvm.loop ![[MD_F:[0-9]+]]
+
+// INTEL_CUSTOMIZATION
+// CHECK: ![[MD_X]] = distinct !{![[MD_X]], ![[MD_ivdep_X:[0-9]+]]}
+// CHECK-NEXT: ![[MD_ivdep_X]] = !{!"llvm.loop.ivdep.enable"}
+void bar() {
+  int a[10];
+  [[intelfpga::ivdep]]
+  for (int i = 0; i != 10; ++i)
+    a[i] = 0;
+}
+
+// CHECK: ![[MD_Y]] = distinct !{![[MD_Y]], ![[MD_ivdep_Y:[0-9]+]]}
+// CHECK-NEXT: ![[MD_ivdep_Y]] = !{!"llvm.loop.ivdep.safelen", i32 2}
+void car() {
+  int a[10];
+  [[intelfpga::ivdep(2)]]
+  for (int i = 0; i != 10; ++i)
+    a[i] = 0;
+}
+// end INTEL_CUSTOMIZATION
 
 // CHECK: ![[MD_A]] = distinct !{![[MD_A]], ![[MD_ii:[0-9]+]]}
 // CHECK-NEXT: ![[MD_ii]] = !{!"llvm.loop.ii.count", i32 2}
@@ -62,6 +88,10 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 
 int main() {
   kernel_single_task<class kernel_function>([]() {
+// INTEL_CUSTOMIZATION
+    bar();
+    car();
+// end INTEL_CUSTOMIZATION
     goo();
     zoo();
     boo<4>();
