@@ -1468,6 +1468,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     AccessSpecifier &AS, ParsedAttributesWithRange &Attrs,
     DeclSpec::TST TagType, Decl *Tag) {
   assert(Tok.is(tok::annot_pragma_openmp) && "Not an OpenMP directive!");
+  ParsingOpenMPDirectiveRAII DirScope(*this);
   ParenBraceBracketBalancer BalancerRAIIObj(*this);
 
   SourceLocation Loc = ConsumeAnnotationToken();
@@ -1839,6 +1840,7 @@ void Parser::skipUnsupportedTargetDirectives() {
 StmtResult
 Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   assert(Tok.is(tok::annot_pragma_openmp) && "Not an OpenMP directive!");
+  ParsingOpenMPDirectiveRAII DirScope(*this);
   ParenBraceBracketBalancer BalancerRAIIObj(*this);
   SmallVector<OMPClause *, 5> Clauses;
   SmallVector<llvm::PointerIntPair<OMPClause *, 1, bool>, OMPC_unknown + 1>
