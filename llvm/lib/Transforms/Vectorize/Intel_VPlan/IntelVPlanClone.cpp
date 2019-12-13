@@ -74,7 +74,7 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     if (DA) {
       if (DA->isDivergent(Inst))
         DA->markDivergent(*ClonedInst);
-      DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst)->clone());
+      DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst));
     }
   }
 

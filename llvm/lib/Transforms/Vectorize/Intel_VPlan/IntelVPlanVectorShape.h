@@ -46,6 +46,8 @@ public:
     //TODO: add assert to enforce stride as integer
   };
 
+  VPVectorShape() : VPVectorShape(VPShapeDescriptor::Undef) {}
+
   VPValue *getStride() const { return Stride; }
   void setStride(VPValue *S) { Stride = S; }
 
@@ -143,9 +145,10 @@ public:
     }
   }
 
-  static VPVectorShape* joinShapes(const VPVectorShape *Shape1, const VPVectorShape *Shape2);
-  static bool shapesHaveSameStride(const VPVectorShape *Shape1,
-                                   const VPVectorShape *Shape2);
+  static VPVectorShape joinShapes(VPVectorShape Shape1, VPVectorShape Shape2);
+  static bool shapesHaveSameStride(VPVectorShape Shape1, VPVectorShape Shape2);
+
+  static VPVectorShape getUndef() { return {VPShapeDescriptor::Undef}; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
