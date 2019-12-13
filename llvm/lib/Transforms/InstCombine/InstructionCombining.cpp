@@ -1204,7 +1204,15 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
 
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
-Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
+#if INTEL_CUSTOMIZATION
+// If TestOnly is true, then Descale will make no modifications: instead, it
+// will test whether or not Val can be Descaled. If it can be Descaled, a
+// non-zero value is returned, otherwise nullptr. False negatives may be
+// possible, but false positives are not possible. Any updates to NoSignedWrap
+// should be ignored.
+Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
+                             bool TestOnly) {
+#endif // INTEL_CUSTOMIZATION
   assert(isa<IntegerType>(Val->getType()) && "Can only descale integers!");
   assert(cast<IntegerType>(Val->getType())->getBitWidth() ==
          Scale.getBitWidth() && "Scale not compatible with value!");
@@ -1256,7 +1264,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   SmallVector<std::pair<Instruction *, Instruction *>, 4> DuplicatedInsts;
   bool Successful = false;
   auto AutoDelete = make_scope_exit([&]() {
-    if (!Successful) {
+    if (!TestOnly && !Successful) {
       for (auto &Pair : DuplicatedInsts) {
         Pair.first->replaceAllUsesWith(Pair.second);
         Pair.first->eraseFromParent();
@@ -1268,7 +1276,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   for (;; Op = Parent.first->getOperand(Parent.second)) { // Drill down
 #if INTEL_CUSTOMIZATION
     auto makeUniqueOp = [&](BinaryOperator *BO) {
-      if (!BO->hasOneUse()) {
+      if (!TestOnly && !BO->hasOneUse()) {
         Instruction *Clone = BO->clone();
         Clone->insertAfter(BO);
         DuplicatedInsts.push_back(std::make_pair(Clone, BO));
@@ -1334,6 +1342,63 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
           match(BO->getOperand(0), m_Zero())) {
         Parent = std::make_pair(makeUniqueOp(BO), 1);
         continue;
+      }
+
+      // We'll try to descale sums and differences, including sums implemented
+      // as bitwise ors. Conservatively, NSW is required of BinOp and cannot be
+      // required of the scaled version.
+      if (!RequireNoSignedWrap &&
+          (BO->getOpcode() == Instruction::Add ||
+           BO->getOpcode() == Instruction::Sub ||
+           (BO->getOpcode() == Instruction::Or &&
+            haveNoCommonBitsSet(BO->getOperand(0), BO->getOperand(1), DL))) &&
+          (BO->getOpcode() == Instruction::Or || BO->hasNoSignedWrap())) {
+
+        // We can descale if both operands can themselves be descaled. These
+        // Descale invocations are non-destructive.
+        bool LHSNoSignedWrap = false, RHSNoSignedWrap = false;
+        Value *LHS = BO->getOperand(0);
+        Value *RHS = BO->getOperand(1);
+        bool CanDescale = Descale(LHS, Scale, LHSNoSignedWrap, true) &&
+                          Descale(RHS, Scale, RHSNoSignedWrap, true);
+
+        // We now know whether or not we can succeed. Return a conclusion if in
+        // "TestOnly" mode.
+        if (TestOnly)
+          return CanDescale ? Val : nullptr;
+
+        if (CanDescale) {
+          // We know that we can descale both operands.
+          // Get the descaled Values.
+          LHSNoSignedWrap = RHSNoSignedWrap = false;
+          Value *RHSDescale, *LHSDescale;
+          RHSDescale = Descale(RHS, Scale, RHSNoSignedWrap);
+          LHSDescale = Descale(LHS, Scale, LHSNoSignedWrap);
+          assert(LHSDescale && RHSDescale &&
+                 "A Descale TestOnly returned a false positive");
+
+          // Build a descaled Value based on the descaled operands.
+          IRBuilderBase::InsertPointGuard Guard(Builder);
+          Builder.SetInsertPoint(BO);
+          if (BO->getOpcode() == Instruction::Add) {
+            Op = Builder.CreateAdd(LHSDescale, RHSDescale, BO->getName(),
+                                   BO->hasNoUnsignedWrap(),
+                                   BO->hasNoSignedWrap());
+          } else if (BO->getOpcode() == Instruction::Or) {
+            Op = Builder.CreateAdd(LHSDescale, RHSDescale, BO->getName(), true,
+                                   false);
+          } else {
+            assert(BO->getOpcode() == Instruction::Sub &&
+                   "Unexpected Descaled binary operation");
+            Op = Builder.CreateSub(LHSDescale, RHSDescale, BO->getName(),
+                                   BO->hasNoUnsignedWrap(),
+                                   BO->hasNoSignedWrap());
+          }
+
+          // Now we have multiplication by exactly the scale.
+          NoSignedWrap = false;
+          break;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1420,6 +1485,11 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
 #if INTEL_CUSTOMIZATION
   // If we reach this point, we know we can descale.
   Successful = true;
+  // No modifications have been made yet. If we're only testing if  Descaling
+  // is possible, return here. Otherwise, we proceed to potentially make
+  // changes.
+  if (TestOnly)
+    return Val;
 #endif // INTEL_CUSTOMIZATION
 
   // If Op is zero then Val = Op * Scale.

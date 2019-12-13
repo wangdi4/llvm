@@ -1051,7 +1051,12 @@ private:
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
-  Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap);
+#if INTEL_CUSTOMIZATION
+  // If "TestOnly" is true, then Descale makes no modifications and only tests
+  // whether or not a value can be descaled.
+  Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
+                 bool TestOnly = false);
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm
