@@ -3543,6 +3543,7 @@ class OffloadingActionBuilder final {
           }
           continue;
         }
+<<<<<<< HEAD
         ActionList DeviceObjects;
         ActionList LinkObjects;
         for (const auto &I : LI) {
@@ -3551,6 +3552,16 @@ class OffloadingActionBuilder final {
             DeviceObjects.push_back(I);
           else
             LinkObjects.push_back(I);
+=======
+        ActionList DeviceLibObjects;
+        ActionList LinkObjects;
+        for (const auto &Input : LI) {
+          // FPGA aoco does not go through the link, everything else does.
+          if (Input->getType() == types::TY_FPGA_AOCO)
+            DeviceLibObjects.push_back(Input);
+          else
+            LinkObjects.push_back(Input);
+>>>>>>> d39ab73afd6b6cfc805191a8d5a86c47ffb70f71
         }
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LinkObjects, types::TY_LLVM_BC);
@@ -3588,12 +3599,18 @@ class OffloadingActionBuilder final {
           // triple calls for it (provided a valid subarch).
           Action *DeviceBECompileAction;
           ActionList BEActionList;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           BEActionList.push_back(SPIRVTranslateAction);
 #endif // INTEL_CUSTOMIZATION
           if (!DeviceObjects.empty())
             for (const auto &A : DeviceObjects)
               BEActionList.push_back(A);
+=======
+          BEActionList.push_back(SPIRVTranslateAction);
+          for (const auto &A : DeviceLibObjects)
+            BEActionList.push_back(A);
+>>>>>>> d39ab73afd6b6cfc805191a8d5a86c47ffb70f71
           DeviceBECompileAction =
               C.MakeAction<BackendCompileJobAction>(BEActionList, OutType);
           WrapperInputs.push_back(DeviceBECompileAction);
@@ -4454,14 +4471,21 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       LinkerInputs.push_back(TLI);
   }
   const llvm::opt::OptTable &Opts = getOpts();
-  if (C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment() &&
-      Args.hasArg(options::OPT_foffload_static_lib_EQ)) {
+  for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
+    auto unbundleStaticLib = [&](types::ID T) {
+      Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+      Action *Current = C.MakeAction<InputAction>(*InputArg, T);
+      OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
+      OffloadBuilder.addDeviceDependencesToHostAction(
+          Current, InputArg, phases::Link, PL.back(), PL);
+    };
     // In MSVC environment offload-static-libs are handled slightly different
     // because of missing support for partial linking in the linker. We add an
     // unbundling action for each static archive which produces list files with
     // extracted objects. Device lists are then added to the appropriate device
     // link actions and host list is ignored since we are adding
     // offload-static-libs as normal libraries to the host link command.
+<<<<<<< HEAD
     for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
       SmallString<128> LibName(A->getValue());
 #if INTEL_CUSTOMIZATION
@@ -4497,6 +4521,17 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
           Current, InputArg, phases::Link, PL.back(), PL);
     }
   }
+=======
+    if (C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment())
+      unbundleStaticLib(types::TY_Archive);
+    // Pass along the -foffload-static-lib values to check if we need to
+    // add them for unbundling for FPGA AOT static lib usage.  Uses FPGA
+    // aoco type to differentiate if aoco unbundling is needed.
+    if (Args.hasArg(options::OPT_fintelfpga))
+      unbundleStaticLib(types::TY_FPGA_AOCO);
+  }
+
+>>>>>>> d39ab73afd6b6cfc805191a8d5a86c47ffb70f71
   // For an FPGA archive, we add the unbundling step above to take care of
   // the device side, but also unbundle here to extract the host side
   for (const auto &LI : LinkerInputs) {
@@ -5404,9 +5439,13 @@ InputInfo Driver::BuildJobsForActionNoCache(
             continue;
           }
           if (JA->getType() == types::TY_FPGA_AOCO) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
             TI = types::TY_TempAOCOfilelist;
 #endif // INTEL_CUSTOMIZATION
+=======
+            TI = types::TY_TempAOCOfilelist;
+>>>>>>> d39ab73afd6b6cfc805191a8d5a86c47ffb70f71
             Ext = "txt";
           }
         } else if (EffectiveTriple.getSubArch() !=
