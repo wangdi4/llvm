@@ -289,6 +289,9 @@ public:
   OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                      OpenMPDirectiveKind Kind);
   ~OpenMPLateOutliner();
+  bool isImplicitLastPrivate(const VarDecl *VD) {
+   return isImplicit(VD) && ImplicitMap[VD] == ICK_lastprivate;
+  }
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();
@@ -472,6 +475,9 @@ public:
   }
   bool inTryStmt() { return TryStmts > 0; }
   bool isLateOutlinedRegion() { return true; }
+  bool isImplicitLastPrivate(const VarDecl *VD) {
+    return Outliner.isImplicitLastPrivate(VD);
+  }
 
 private:
   /// CodeGen info about outer OpenMP region.

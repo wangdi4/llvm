@@ -1550,15 +1550,18 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
       if (CurrentDirectiveKind == OMPD_simd) {
-        if (CGF.IsPrivateCounter(PVD))
-          ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+        if (CGF.IsPrivateCounter(VD))
+          ImplicitMap.insert(std::make_pair(VD, ICK_unknown));
         else
-          ImplicitMap.insert(std::make_pair(PVD, ICK_lastprivate));
-      }
-      else
-        ImplicitMap.insert(std::make_pair(PVD, ICK_private));
+          ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
+      } else if (isOpenMPSimdDirective(LoopDir->getDirectiveKind()) &&
+                 !CGF.IsPrivateCounter(VD) &&
+                 LoopDir->getCollapsedNumber() > 1) {
+        ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
+      } else
+        ImplicitMap.insert(std::make_pair(VD, ICK_private));
     }
     for (const auto *C : LoopDir->getClausesOfKind<OMPOrderedClause>()) {
       if (!C->getNumForLoops())

@@ -405,6 +405,9 @@ public:
     virtual void exitTryStmt() { }
     virtual bool inTryStmt() { assert(false); return false; }
     virtual bool isLateOutlinedRegion() { return false; }
+    virtual bool isImplicitLastPrivate(const VarDecl *VD) {
+      assert(false); return false;
+    }
 #endif // INTEL_COLLAB
   private:
     /// The kind of captured statement being generated.
