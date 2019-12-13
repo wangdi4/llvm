@@ -3718,6 +3718,11 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
   if (LrClause.empty())
     return false;
 
+  assert((isa<WRNVecLoopNode>(W) ||
+          std::none_of(LrClause.items().begin(), LrClause.items().end(),
+                       [](LinearItem *LI) { return LI->getIsIV(); })) &&
+         "Unexpected: 'Linear:IV' found on a non-SIMD construct.");
+
   assert(LinearFiniBB && "genLinearCode: Null LinearFiniBB.");
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLinearCode\n");

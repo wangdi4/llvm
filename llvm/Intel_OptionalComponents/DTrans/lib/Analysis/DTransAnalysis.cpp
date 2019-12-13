@@ -7867,10 +7867,9 @@ private:
                       LocalPointerInfo::PointeeLoc::InvalidElement) &&
                  "Unexpected use of invalid element");
           size_t ElementNum = PointeePair.second.getElementNum();
-          dtrans::FieldInfo &FI =
-              ParentStInfo->getField(ElementNum);
+          dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
           if (IsLoad) {
-            FI.setRead(true);
+            FI.setRead(I);
             DTBCA.analyzeLoad(FI, I);
             if (!identifyUnusedValue(cast<LoadInst>(I)))
               FI.setValueUnused(false);
@@ -7936,7 +7935,7 @@ private:
               });
               FI.setBottomAllocFunction();
             }
-            FI.setWritten(true);
+            FI.setWritten(I);
             accumulateFrequency(FI, I);
             Value *V = cast<StoreInst>(&I)->getValueOperand();
             Instruction *II = dyn_cast<Instruction>(V);
@@ -8656,10 +8655,10 @@ private:
         auto &FieldInfo = StructInfo->getField(FieldNum);
 
         if (DstPtrToMember) {
-          FieldInfo.setWritten(true);
+          FieldInfo.setWritten(I);
         } else {
           assert(SrcPtrToMember);
-          FieldInfo.setRead(true);
+          FieldInfo.setRead(I);
         }
 
         return;
@@ -8760,12 +8759,21 @@ private:
         dtrans::MemfuncRegion RegionDesc;
         if (analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                                DstPrePadBytes, SetSize,
-                                               RegionDesc))
+                                               RegionDesc)) {
           createMemcpyOrMemmoveCallInfo(I, DstStructTy->getPointerTo(), Kind,
                                         RegionDesc, RegionDesc);
-        else
+
+          auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcStructTy);
+          auto *SrcParentStructTI = cast<dtrans::StructInfo>(SrcParentTI);
+          addFieldReaders(SrcParentStructTI, RegionDesc.FirstField,
+                          RegionDesc.LastField, I);
+        } else {
           markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
+          // In this case, the structure would have been set as BadMemFuncSize,
+          // so we do not need to set the readers. All fields will be set to
+          // BOTTOM for ModRef info during analysis.
+        }
         return;
       } else {
         LLVM_DEBUG(
@@ -8801,8 +8809,19 @@ private:
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
       auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+      auto *SrcPointeeTy = DestParentTy->getPointerElementType();
+      auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcPointeeTy);
+
       markAllFieldsWritten(ParentTI, I);
 
+      if (auto *SrcParentStructTI = dyn_cast<dtrans::StructInfo>(SrcParentTI)) {
+        // For memcpy/memmove, we do not mark the fields as read in order to
+        // allow for field deletion to identify the field as potentially
+        // unneeded. However, for analyzing ModRef information of the field, we
+        // need to collect the function as a reader.
+        unsigned LastFieldNum = SrcParentStructTI->getNumFields() - 1;
+        addFieldReaders(SrcParentStructTI, 0, LastFieldNum, I);
+      }
       // The copy/move is the complete aggregate of the source and destination,
       // which are the same types/
       dtrans::MemfuncRegion RegionDesc;
@@ -8817,13 +8836,25 @@ private:
     // from the 1st field.
     if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
       dtrans::MemfuncRegion RegionDesc;
+      llvm::Type *SrcPointeeTy = SrcParentTy->getPointerElementType();
+      auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcPointeeTy);
+      auto SrcParentStructTI = cast<dtrans::StructInfo>(SrcParentTI);
+
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc))
+                                             RegionDesc)) {
         createMemcpyOrMemmoveCallInfo(I, StructTy->getPointerTo(), Kind,
                                       RegionDesc, RegionDesc);
-      else
+
+        addFieldReaders(SrcParentStructTI, RegionDesc.FirstField,
+                        RegionDesc.LastField, I);
+      } else {
         markPointerWrittenWithMultipleValue(DstLPI, SetSize);
+
+        // In this case, the structure would have been set as BadMemFuncSize,
+        // so we do not need to set the readers. All fields will be set to
+        // BOTTOM for ModRef info during analysis.
+      }
 
       return;
     }
@@ -9118,7 +9149,7 @@ private:
 
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       for (auto &FI : StInfo->getFields()) {
-        FI.setWritten(true);
+        FI.setWritten(I);
         accumulateFrequency(FI, I);
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
         markAllFieldsWritten(ComponentTI, I);
@@ -9145,13 +9176,32 @@ private:
 
     for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
       auto &FI = StInfo->getField(Idx);
-      FI.setWritten(true);
+      FI.setWritten(I);
       accumulateFrequency(FI, I);
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
       markAllFieldsWritten(ComponentTI, I);
     }
 
     return;
+  }
+
+  // Update the fields of the structure \p StInfo from \p FirstField to \p
+  // LastField to indicate that a read occurs via a memset, memcpy, or memmove
+  // instruction by the function containing Instruction \p I.
+  void addFieldReaders(dtrans::StructInfo *StInfo, unsigned int FirstField,
+                       unsigned int LastField, Instruction &I) {
+    assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
+           "addFieldReaders with invalid field index");
+
+    Function *F = I.getFunction();
+    for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
+      auto &FI = StInfo->getField(Idx);
+      FI.addReader(F);
+
+      dtrans::TypeInfo *FieldInfo = DTInfo.getTypeInfo(FI.getLLVMType());
+      if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldInfo))
+        addFieldReaders(FieldStInfo, 0, FieldStInfo->getNumFields() - 1, I);
+    }
   }
 
   //
@@ -10539,6 +10589,20 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
   if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
     dbgs() << " (ignored)";
   dbgs() << "\n";
+  dbgs() << "    Readers: ";
+  dtrans::printCollectionSorted(dbgs(), Field.readers().begin(),
+                                Field.readers().end(), ", ",
+                                [](const Function *F) { return F->getName(); });
+  dbgs() << "\n";
+  dbgs() << "    Writers: ";
+  dtrans::printCollectionSorted(dbgs(), Field.writers().begin(),
+                                Field.writers().end(), ", ",
+                                [](const Function *F) { return F->getName(); });
+  dbgs() << "\n";
+  dbgs() << "    RWState: "
+         << (Field.isRWBottom() ? "bottom"
+                                : (Field.isRWComputed() ? "computed" : "top"))
+         << "\n";
 }
 
 // Interface routine to check if the field that is supposed to be loaded in the

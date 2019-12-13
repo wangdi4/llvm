@@ -1897,6 +1897,41 @@ example:
     function has not changed between the function prolog and eiplog. It is
     currently x86_64-specific.
 
+.. INTEL_CUSTOMIZATION
+
+``"kernel-call-once"``
+    This attribute indicates a kernel operation that in vector context
+    requires vectorization using only one call (e.g. calling an
+    existing vector variant twice while double VF pumping,
+    or serializing is not allowed).
+    Examples are work-group and sub-group reductions and broadcasts,
+    sub-group shuffles and block read/writes.
+
+``"kernel-uniform-call"``
+    This attribute indicates a kernel call operation that has uniform
+    arguments. The operation itself is also considered uniform, meaning that
+    the side effects that the operation might have are expected to
+    happen once in vector context.
+    Examples are work-group or sub-group barriers, work-group async copies
+    or work-group and sub-group pipe reservation/commits.
+
+``"kernel-convergent-call"``
+    This attribute indicates a kernel operaton that is guaranteed to be
+    under either all zero or all ones mask. In other words, either all
+    kernel work-items within work-group or sub-group must execute this
+    operation or none.
+    Vectorizer is required to put 'convergent' attrbiute for this call.
+    It is used to mark kernel synchronization operations, like work-group or
+    sub-group barriers, work-group async copies or pipe reservation/commits.
+
+``opencl-vec-uniform-return``
+    This attribute indicates that the return value is uniform,
+    and does not put restictions on whether it is returned as a scalar or a vector.
+    TODO: this attribute should be retired once uniform return is described
+    using vector variant.
+
+.. END INTEL_CUSTOMIZATION
+
 .. _glattrs:
 
 Global Attributes

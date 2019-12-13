@@ -373,7 +373,7 @@ class VPInstruction : public VPUser,
         return nullptr;
       return MastData->getNode();
     }
-    const loopopt::HLNode *getUnderlyingNode() const {
+    loopopt::HLNode *getUnderlyingNode() const {
       return const_cast<HIRSpecifics *>(this)->getUnderlyingNode();
     }
 
@@ -385,7 +385,7 @@ class VPInstruction : public VPUser,
     }
 
     /// Attach \p Def to this VPInstruction as its VPOperandHIR.
-    void setOperandDDR(loopopt::DDRef *Def) {
+    void setOperandDDR(const loopopt::DDRef *Def) {
       assert(!LHSHIROperand && "LHSHIROperand is already set!");
       LHSHIROperand.reset(new VPBlob(Def));
     }
@@ -406,7 +406,7 @@ class VPInstruction : public VPUser,
                                "to a master VPInstruction!");
       return MasterData.get<VPInstruction *>();
     }
-    const VPInstruction *getMaster() const {
+    VPInstruction *getMaster() const {
       return const_cast<HIRSpecifics *>(this)->getMaster();
     }
 
@@ -430,6 +430,36 @@ class VPInstruction : public VPUser,
     void printHIRFlags(raw_ostream &OS) const {
       OS << "IsMaster=" << isMaster() << " IsDecomp=" << isDecomposed()
          << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
+    }
+
+    void cloneFrom(const HIRSpecifics &HIR) {
+      if (HIR.isMaster()) {
+        setUnderlyingNode(HIR.getUnderlyingNode());
+        if (HIR.isValid())
+          setValid();
+      } else if (HIR.isDecomposed())
+        setMaster(HIR.getMaster());
+
+      // Copy the operand.
+      if (VPOperandHIR *HIROperand = HIR.getOperandHIR()) {
+        if (VPBlob *Blob = dyn_cast<VPBlob>(HIROperand))
+          setOperandDDR(Blob->getBlob());
+        else {
+          VPIndVar *IV = cast<VPIndVar>(HIROperand);
+          setOperandIV(IV->getIVLevel());
+        }
+      }
+
+      // Verify correctness of the cloned HIR.
+      assert(isMaster() == HIR.isMaster() &&
+             "Cloned isMaster() value should be equal to the original one");
+      assert(isDecomposed() == HIR.isDecomposed() &&
+             "Cloned isDecomposed() value should be equal to the original one");
+      assert(isSet() == HIR.isSet() &&
+             "Cloned isSet() value should be equal to the original one");
+      if (isSet())
+        assert(HIR.isValid() == isValid() &&
+               "Cloned isValid() value should be equal to the original one");
     }
   };
 #endif // INTEL_CUSTOMIZATION
@@ -475,6 +505,17 @@ private:
   /// modeled instruction.
   void generateInstruction(VPTransformState &State, unsigned Part);
 
+  void copyUnderlyingFrom(const VPInstruction &Inst) {
+#if INTEL_CUSTOMIZATION
+    HIR.cloneFrom(Inst.HIR);
+#endif // INTEL_CUSTOMIZATION
+    Value *V = Inst.getUnderlyingValue();
+    if (V)
+      setUnderlyingValue(*V);
+    if (!Inst.isUnderlyingIRValid())
+      invalidateUnderlyingIR();
+  }
+
 #if INTEL_CUSTOMIZATION
 protected:
   /// Return the underlying Instruction attached to this VPInstruction. Return
@@ -491,6 +532,14 @@ protected:
   /// not coming from the underlying IR.
   bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
 #endif
+
+  virtual VPInstruction *cloneImpl() const {
+    VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
+    for (auto &O : operands()) {
+      Cloned->addOperand(O);
+    }
+    return Cloned;
+  }
 
 public:
   VPInstruction(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
@@ -575,11 +624,9 @@ public:
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  virtual VPInstruction *clone() const {
-    VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
-    for (auto &O : operands()) {
-      Cloned->addOperand(O);
-    }
+  VPInstruction *clone() const {
+    VPInstruction *Cloned = cloneImpl();
+    Cloned->copyUnderlyingFrom(*this);
     return Cloned;
   }
 };
@@ -610,7 +657,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  virtual VPCmpInst *clone() const final {
+  virtual VPCmpInst *cloneImpl() const final {
     return new VPCmpInst(getOperand(0), getOperand(1), getPredicate());
   }
 
@@ -655,11 +702,8 @@ public:
     return VPI->getOpcode() == Instruction::Br;
   }
 
-  virtual VPBranchInst *clone() const final {
-    VPBranchInst *Cloned = new VPBranchInst(getType());
-    Cloned->HIR.setUnderlyingNode(
-        const_cast<loopopt::HLNode *>(HIR.getUnderlyingNode()));
-    return Cloned;
+  virtual VPBranchInst *cloneImpl() const final {
+    return new VPBranchInst(getType());
   }
 };
 
@@ -808,7 +852,7 @@ public:
   /// Create new PHINode and copy original incoming values to the newly created
   /// PHINode. Caller is responsible to replace these values with what is
   /// needed.
-  virtual VPPHINode *clone() const final {
+  virtual VPPHINode *cloneImpl() const final {
     VPPHINode *Cloned = new VPPHINode(getType());
     for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
       Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
@@ -927,7 +971,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  virtual VPGEPInstruction *clone() const final {
+  virtual VPGEPInstruction *cloneImpl() const final {
     VPGEPInstruction *Cloned =
         new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
     for (auto *O : make_range(op_begin()+1, op_end())) {

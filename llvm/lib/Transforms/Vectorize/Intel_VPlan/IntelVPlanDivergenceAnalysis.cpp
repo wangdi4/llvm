@@ -178,7 +178,7 @@ static void getPhis(const VPBlockBase *Block,
 }
 
 static bool hasDeterministicResult(const VPInstruction &I) {
-  // As of now only a call instruction known to possibly have non-deterministoic
+  // As of now only a call instruction known to possibly have non-deterministic
   // result.
   if (I.getOpcode() != Instruction::Call)
     return true;

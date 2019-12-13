@@ -241,6 +241,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK: Field info:
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
+; CHECK: Frequency
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Nested structure
 
@@ -249,9 +250,11 @@ declare noalias i8* @malloc(i64)
 ; CHECK: Field info:
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
+; CHECK: Frequency
 ; CHECK: Field info:
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
+; CHECK: Frequency
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Field address taken | Contains nested structure
 
