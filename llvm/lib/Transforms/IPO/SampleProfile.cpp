@@ -1983,7 +1983,8 @@ PreservedAnalyses SampleProfileLoaderPass::run(Module &M,
                                        : ProfileRemappingFileName,
       IsThinLTOPreLink, GetAssumptionCache, GetTTI);
 
-  SampleLoader.doInitialization(M);
+  if (!SampleLoader.doInitialization(M))
+    return PreservedAnalyses::all();
 
   ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
   CallGraph &CG = AM.getResult<CallGraphAnalysis>(M);
