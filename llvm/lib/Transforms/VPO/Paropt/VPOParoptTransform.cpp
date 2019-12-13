@@ -5915,7 +5915,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     //                |
 
     // FIXME: isolate this code into an utility routine.
-    if (isa<WRNWksLoopNode>(W) && W->getOrdered() == 0)
+    if ((isa<WRNWksLoopNode>(W) || isa<WRNParallelLoopNode>(W)) &&
+        W->getOrdered() == 0)
       // Dispatch fini must be emitted inside the loop,
       // so that it is executed on every iteration.
       VPOParoptUtils::genKmpcDispatchFini(W, IdentTy, LoadTid, Size,
