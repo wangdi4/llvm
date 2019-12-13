@@ -519,6 +519,28 @@ bool VPOAnalysisUtils::isDependClause(int ClauseID) {
   return false;
 }
 
+bool VPOAnalysisUtils::isInReductionClause(int ClauseID) {
+  switch(ClauseID) {
+    case QUAL_OMP_INREDUCTION_ADD:
+    case QUAL_OMP_INREDUCTION_SUB:
+    case QUAL_OMP_INREDUCTION_MUL:
+    case QUAL_OMP_INREDUCTION_AND:
+    case QUAL_OMP_INREDUCTION_OR:
+    case QUAL_OMP_INREDUCTION_BXOR:
+    case QUAL_OMP_INREDUCTION_BAND:
+    case QUAL_OMP_INREDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+    case QUAL_OMP_INREDUCTION_EQV:
+    case QUAL_OMP_INREDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
+    case QUAL_OMP_INREDUCTION_MAX:
+    case QUAL_OMP_INREDUCTION_MIN:
+    case QUAL_OMP_INREDUCTION_UDR:
+      return true;
+  }
+  return false;
+}
+
 bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
   switch(ClauseID) {
     case QUAL_OMP_REDUCTION_ADD:
@@ -529,10 +551,14 @@ bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
     case QUAL_OMP_REDUCTION_BXOR:
     case QUAL_OMP_REDUCTION_BAND:
     case QUAL_OMP_REDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+    case QUAL_OMP_REDUCTION_EQV:
+    case QUAL_OMP_REDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
     case QUAL_OMP_REDUCTION_MAX:
     case QUAL_OMP_REDUCTION_MIN:
     case QUAL_OMP_REDUCTION_UDR:
-    return true;
+      return true;
   }
   return false;
 }

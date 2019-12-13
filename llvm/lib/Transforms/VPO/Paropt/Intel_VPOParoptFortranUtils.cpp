@@ -94,7 +94,7 @@ void VPOParoptUtils::genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
                                          InsertBefore);
 }
 
-void VPOParoptUtils::genF90DVRedutionInitDstInfo(const Item *I,
+void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I,
                                                  Value *&DestArrayBeginOut,
                                                  Type *&DestElementTyOut,
                                                  Value *&NumElementsOut,
@@ -116,7 +116,7 @@ void VPOParoptUtils::genF90DVRedutionInitDstInfo(const Item *I,
   NumElementsOut = I->getF90DVNumElements();
 }
 
-void VPOParoptUtils::genF90DVRedutionFiniSrcDstInfo(const Item *I,
+void VPOParoptUtils::genF90DVReductionFiniSrcDstInfo(const Item *I,
                                                     Value *&SrcArrayBeginOut,
                                                     Value *&DestArrayBeginOut,
                                                     Type *&DestElementTyOut,
@@ -126,7 +126,7 @@ void VPOParoptUtils::genF90DVRedutionFiniSrcDstInfo(const Item *I,
 
   // Destination on reduction init code (local array) is the source for the
   // finish code.
-  VPOParoptUtils::genF90DVRedutionInitDstInfo(
+  VPOParoptUtils::genF90DVReductionInitDstInfo(
       I, SrcArrayBeginOut, DestElementTyOut, NumElementsOut, InsertBefore);
 
   IRBuilder<> Builder(InsertBefore);

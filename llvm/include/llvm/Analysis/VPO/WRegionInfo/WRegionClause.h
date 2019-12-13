@@ -515,8 +515,10 @@ public:
     WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    WRNReductionEqv,  // Fortran; currently unsupported
-    WRNReductionNeqv, // Fortran; currently unsupported
+#if INTEL_CUSTOMIZATION
+    WRNReductionEqv,  // Fortran
+    WRNReductionNeqv, // Fortran
+#endif // INTEL_CUSTOMIZATION
     WRNReductionMax,
     WRNReductionMin,
     WRNReductionUdr   // user-defined reduction
@@ -564,6 +566,14 @@ public:
         case QUAL_OMP_REDUCTION_BOR:
         case QUAL_OMP_INREDUCTION_BOR:
           return WRNReductionBor;
+#if INTEL_CUSTOMIZATION
+        case QUAL_OMP_REDUCTION_EQV:
+        case QUAL_OMP_INREDUCTION_EQV:
+          return WRNReductionEqv;
+        case QUAL_OMP_REDUCTION_NEQV:
+        case QUAL_OMP_INREDUCTION_NEQV:
+          return WRNReductionNeqv;
+#endif // INTEL_CUSTOMIZATION
         case QUAL_OMP_REDUCTION_MAX:
         case QUAL_OMP_INREDUCTION_MAX:
           return WRNReductionMax;
@@ -600,6 +610,12 @@ public:
           return QUAL_OMP_REDUCTION_BAND;
         case WRNReductionBor:
           return QUAL_OMP_REDUCTION_BOR;
+#if INTEL_CUSTOMIZATION
+        case WRNReductionEqv:
+          return QUAL_OMP_REDUCTION_EQV;
+        case WRNReductionNeqv:
+          return QUAL_OMP_REDUCTION_NEQV;
+#endif // INTEL_CUSTOMIZATION
         case WRNReductionMax:
           return QUAL_OMP_REDUCTION_MAX;
         case WRNReductionMin:
