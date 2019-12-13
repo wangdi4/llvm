@@ -1818,6 +1818,35 @@ bool Qualifiers::isEmptyWhenPrinted(const PrintingPolicy &Policy) const {
   return true;
 }
 
+std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
+  switch (AS) {
+  case LangAS::Default:
+    return "";
+  case LangAS::opencl_global:
+  case LangAS::sycl_global:
+    return "__global";
+  case LangAS::opencl_local:
+  case LangAS::sycl_local:
+    return "__local";
+  case LangAS::opencl_private:
+  case LangAS::sycl_private:
+    return "";
+  case LangAS::opencl_constant:
+  case LangAS::sycl_constant:
+    return "__constant";
+  case LangAS::opencl_generic:
+    return "__generic";
+  case LangAS::cuda_device:
+    return "__device__";
+  case LangAS::cuda_constant:
+    return "__constant__";
+  case LangAS::cuda_shared:
+    return "__shared__";
+  default:
+    return std::to_string(toTargetAddressSpace(AS));
+  }
+}
+
 // Appends qualifiers to the given string, separated by spaces.  Will
 // prefix a space if the string is non-empty.  Will not append a final
 // space.
@@ -1836,6 +1865,7 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
     OS << "__unaligned";
     addSpace = true;
   }
+<<<<<<< HEAD
   LangAS addrspace = getAddressSpace();
   if (addrspace != LangAS::Default) {
     if (addrspace != LangAS::opencl_private) {
@@ -1878,7 +1908,20 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
         OS << ")))";
       }
     }
+=======
+  auto ASStr = getAddrSpaceAsString(getAddressSpace());
+  if (!ASStr.empty()) {
+    if (addSpace)
+      OS << ' ';
+    addSpace = true;
+    // Wrap target address space into an attribute syntax
+    if (isTargetAddressSpace(getAddressSpace()))
+      OS << "__attribute__((address_space(" << ASStr << ")))";
+    else
+      OS << ASStr;
+>>>>>>> 2ba1f73a431de458c9e758ab1615c9e0972b4e98
   }
+
   if (Qualifiers::GC gc = getObjCGCAttr()) {
     if (addSpace)
       OS << ' ';
