@@ -24,8 +24,10 @@ add_ocl_unittest(
     tbb_num_workers.cpp
     multiple_devices.cpp
     fpga_features.cpp
+    ihc_synchronization.cpp
 
   LINK_LIBRARIES
     OpenCL
     test_utils
+    cl_sys_utils
 )
