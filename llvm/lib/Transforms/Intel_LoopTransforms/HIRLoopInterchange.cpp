@@ -74,12 +74,64 @@ static cl::opt<bool> DisableHIRLoopInterchange("disable-hir-loop-interchange",
                                                cl::init(false), cl::Hidden,
                                                cl::desc("Disable " OPT_DESC));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool>
+    PrintDiagFlag(OPT_SWITCH "-print-diag", cl::init(false), cl::ReallyHidden,
+                  cl::desc("Print Diag why " OPT_DESC " did not happen."));
+
+static cl::opt<std::string> PrintDiagFunc(
+    OPT_SWITCH "-print-diag-func", cl::ReallyHidden,
+    cl::desc("Print Diag why " OPT_DESC " did not happen for the function."));
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 static cl::opt<unsigned> SinkedPerfectLoopProfitablityTCThreshold(
     OPT_SWITCH "-sinked-perfect-profitability-tc-threshold", cl::init(16),
     cl::Hidden,
     cl::desc("TripCount threshold to enable " OPT_DESC
              " for sinked perfect loopnests"));
 namespace {
+
+enum DiagMsg {
+  NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES,
+  ALREADY_IN_RIGHT_ORDER,
+  BEST_LOCALITY_LOOP_CANNOT_BECOME_INNERMOST,
+  NUM_DIAGS
+};
+
+// Initialization-list for array can be used, but
+// explicit mapping between enum and msg were adopted for readablity.
+inline std::array<std::string, NUM_DIAGS> createDiagMap() {
+  std::array<std::string, NUM_DIAGS> Map;
+  Map[NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES] =
+      "MemRefs are in unit stride or non-linear Defs.";
+  Map[BEST_LOCALITY_LOOP_CANNOT_BECOME_INNERMOST] =
+      "Cannot move best locality loop as innermost.";
+  Map[ALREADY_IN_RIGHT_ORDER] =
+      "Current Loop nest is already most favorable to locality.";
+
+  return Map;
+}
+
+static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
+
+void PrintDiag(DiagMsg Msg, StringRef FuncName = "",
+               const HLLoop *Loop = nullptr,
+               StringRef Header = "No Interchange: ") {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (!PrintDiagFlag)
+    return;
+
+  if (!PrintDiagFunc.empty() && !FuncName.equals(PrintDiagFunc)) {
+    return;
+  }
+
+  dbgs() << "Func: " << FuncName << ", ";
+  dbgs() << Header << " " << DiagMap[Msg] << "\n";
+  if (Loop)
+    Loop->dump();
+#endif
+}
+
 typedef std::pair<HLLoop *, HLLoop *> CandidateLoopPair;
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
@@ -276,12 +328,13 @@ struct HIRLoopInterchange::CollectCandidateLoops final
   SmallVectorImpl<CandidateLoopPair> &CandidateLoops;
   HIRDDAnalysis &DDA;
   HLNode *SkipNode;
+  StringRef FuncName;
 
   CollectCandidateLoops(HIRLoopInterchange &LoopIP,
                         SmallVectorImpl<CandidateLoopPair> &CandidateLoops,
-                        HIRDDAnalysis &DDA)
+                        HIRDDAnalysis &DDA, StringRef FuncName)
       : LIP(LoopIP), CandidateLoops(CandidateLoops), DDA(DDA),
-        SkipNode(nullptr) {}
+        SkipNode(nullptr), FuncName(FuncName) {}
 
   void visit(HLLoop *Loop) {
     // Gather perfect loop nests
@@ -326,6 +379,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     if (IsPerfectNest) {
       // If the innermost loop is undosinking candidate, it was a near perfect
       // loop
+
       if (InnermostLoop->isUndoSinkingCandidate()) {
         if (isSinkedPerfectLoopProfitableForInterchange(Loop, InnermostLoop)) {
           CandidateLoops.push_back(
@@ -337,8 +391,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
 
       if (!HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
-        LLVM_DEBUG(
-            dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
+        PrintDiag(NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES, FuncName, Loop);
       } else {
         LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
         CandidateLoopPair LoopPair =
@@ -364,14 +417,15 @@ bool HIRLoopInterchange::run() {
   if (DisableHIRLoopInterchange)
     return false;
 
-  LLVM_DEBUG(dbgs() << "Loop Interchange for Function : "
+  LLVM_DEBUG(dbgs() << "Loop Interchange try for Function : "
                     << HIRF.getFunction().getName() << "\n");
 
   AnyLoopInterchanged = false;
 
   // 1) Walk all loops, look for outer loops that are perfectly nested
 
-  CollectCandidateLoops CCL(*this, CandidateLoops, DDA);
+  CollectCandidateLoops CCL(*this, CandidateLoops, DDA,
+                            HIRF.getFunction().getName());
   HIRF.getHLNodeUtils().visitAll(CCL);
 
   for (auto &Iter : CandidateLoops) {
@@ -409,6 +463,7 @@ bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
   LA.sortedLocalityLoops(Loop, SortedLoops);
 
   if (isInPresentOrder(SortedLoops)) {
+    PrintDiag(ALREADY_IN_RIGHT_ORDER, HIRF.getFunction().getName(), Loop);
     InterchangeNeeded = false;
   }
 
@@ -485,7 +540,9 @@ bool HIRLoopInterchange::isBestLocalityInInnermost(
                                      OutmostNestingLevel, DVs)) {
     return true;
   }
-  LLVM_DEBUG(dbgs() << "\nCannot move best locality loop as innermost\n");
+
+  PrintDiag(BEST_LOCALITY_LOOP_CANNOT_BECOME_INNERMOST,
+            HIRF.getFunction().getName(), Loop);
   return false;
 }
 
