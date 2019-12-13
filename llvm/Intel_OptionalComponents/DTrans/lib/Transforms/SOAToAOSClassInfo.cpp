@@ -2953,24 +2953,39 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
   //             %16 = shl i32 %NewCap, 2
   //             %41 = shl i32 %SVal, 2
   // MemsetSize: %43 = sub i32 %16, %41
+  //
+  // or
+  //
+  //             %42 = sub i32 %NewCap, %SVal
+  // MemsetSize: %43 = shl i32 %42, 2
+  //
   auto AllowedMemsetSizePatternTwo = [this](Value *MemsetSize, Value *NewCap,
                                             Value *SVal) -> bool {
     Value *SubLeft, *SubRight;
-    if (!match(MemsetSize, m_Sub(m_Value(SubLeft), m_Value(SubRight))))
-      return false;
-
     unsigned ElemSize = getElemTySize();
     int64_t Multiplier = 1;
-    const Value *OriginalSize = computeMultiplier(SubRight, &Multiplier);
-    if (!OriginalSize || Multiplier != ElemSize || OriginalSize != SVal)
-      return false;
-    Multiplier = 1;
-    const Value *IncreasedSize = computeMultiplier(SubLeft, &Multiplier);
-    if (!IncreasedSize || Multiplier != ElemSize || IncreasedSize != NewCap)
-      return false;
-    Visited.insert(cast<Instruction>(SubLeft));
-    Visited.insert(cast<Instruction>(SubRight));
-    return true;
+    if (match(MemsetSize, m_Sub(m_Value(SubLeft), m_Value(SubRight)))) {
+      const Value *OriginalSize = computeMultiplier(SubRight, &Multiplier);
+      if (!OriginalSize || Multiplier != ElemSize || OriginalSize != SVal)
+        return false;
+      Multiplier = 1;
+      const Value *IncreasedSize = computeMultiplier(SubLeft, &Multiplier);
+      if (!IncreasedSize || Multiplier != ElemSize || IncreasedSize != NewCap)
+        return false;
+      Visited.insert(cast<Instruction>(SubLeft));
+      Visited.insert(cast<Instruction>(SubRight));
+      return true;
+    } else {
+      Multiplier = 1;
+      const Value *SubSize = computeMultiplier(MemsetSize, &Multiplier);
+      if (SubSize && Multiplier == ElemSize &&
+          match(SubSize, m_Sub(m_Value(SubLeft), m_Value(SubRight))) &&
+          SubLeft == NewCap && SubRight == SVal) {
+        Visited.insert(cast<Instruction>(SubSize));
+        return true;
+      }
+    }
+    return false;
   };
 
   Visited.clear();
