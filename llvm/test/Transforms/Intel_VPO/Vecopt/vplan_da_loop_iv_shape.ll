@@ -1,8 +1,8 @@
 ; Test to check that DA initializes correct VectorShape for different types of IVs in loop.
 
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -S 2>&1 | FileCheck %s
-; RUN: opt %s -passes="vplan-driver" -debug-only=vplan-divergence-analysis -S 2>&1 | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-dump-da -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -S 2>&1 | FileCheck %s
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header><latch><exiting>
 ; CHECK: Basic Block: BB3
