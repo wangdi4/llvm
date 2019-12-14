@@ -454,6 +454,19 @@ pi_result OCL(piEnqueueMemBufferMap)(
   return ret_err;
 }
 
+// Special version of piKernelSetArg to accept pi_mem.
+pi_result OCL(piextKernelSetArgMemObj)(
+  pi_kernel         kernel,
+  pi_uint32         arg_index,
+  const pi_mem *    arg_value) {
+
+  return cast<pi_result>(clSetKernelArg(
+    cast<cl_kernel>(kernel),
+    cast<cl_uint>(arg_index),
+    cast<size_t>(sizeof(cl_mem)),
+    cast<const void*>(arg_value)));
+}
+
 pi_result piPluginInit(pi_plugin *PluginInit) {
   int CompareVersions = strcmp(PluginInit->PiVersion, SupportedVersion);
   if (CompareVersions < 0) {
@@ -517,6 +530,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piKernelGetSubGroupInfo, clGetKernelSubGroupInfo)
   _PI_CL(piKernelRetain, clRetainKernel)
   _PI_CL(piKernelRelease, clReleaseKernel)
+  _PI_CL(piextKernelSetArgMemObj, OCL(piextKernelSetArgMemObj))
   // Event
   _PI_CL(piEventCreate, OCL(piEventCreate))
   _PI_CL(piEventGetInfo, clGetEventInfo)

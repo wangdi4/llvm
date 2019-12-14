@@ -225,7 +225,10 @@ typedef enum {
   PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT    = CL_COMMAND_WRITE_BUFFER_RECT,
   PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT     = CL_COMMAND_COPY_BUFFER_RECT,
   PI_COMMAND_TYPE_USER                     = CL_COMMAND_USER,
-  PI_COMMAND_TYPE_MEM_BUFFER_FILL          = CL_COMMAND_FILL_BUFFER
+  PI_COMMAND_TYPE_MEM_BUFFER_FILL          = CL_COMMAND_FILL_BUFFER,
+  PI_COMMAND_TYPE_IMAGE_READ               = CL_COMMAND_READ_IMAGE,
+  PI_COMMAND_TYPE_IMAGE_WRITE              = CL_COMMAND_WRITE_IMAGE,
+  PI_COMMAND_TYPE_IMAGE_COPY               = CL_COMMAND_COPY_IMAGE
 } _pi_command_type;
 
 typedef enum {
@@ -618,10 +621,10 @@ pi_result piContextRelease(pi_context context);
 // Queue
 //
 pi_result piQueueCreate(
-  pi_context                  context,
-  pi_device                   device,
-  pi_queue_properties         properties,
-  pi_queue *                  queue);
+  pi_context          context,
+  pi_device           device,
+  pi_queue_properties properties,
+  pi_queue *          queue);
 
 pi_result piQueueGetInfo(
   pi_queue            command_queue,
@@ -768,6 +771,11 @@ pi_result piKernelSetArg(
   pi_uint32    arg_index,
   size_t       arg_size,
   const void * arg_value);
+
+pi_result piextKernelSetArgMemObj(
+  pi_kernel       kernel,
+  pi_uint32       arg_index,
+  const pi_mem *  arg_value);
 
 pi_result piKernelGetInfo(
   pi_kernel       kernel,

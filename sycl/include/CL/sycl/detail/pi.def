@@ -58,6 +58,7 @@ _PI_API(piProgramRelease)
 // Kernel
 _PI_API(piKernelCreate)
 _PI_API(piKernelSetArg)
+_PI_API(piextKernelSetArgMemObj)
 _PI_API(piKernelGetInfo)
 _PI_API(piKernelGetGroupInfo)
 _PI_API(piKernelGetSubGroupInfo)
