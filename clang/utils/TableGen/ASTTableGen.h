@@ -42,41 +42,50 @@
 namespace clang {
 namespace tblgen {
 
-/// An (optional) reference to a TableGen node representing a class
-/// in one of Clang's AST hierarchies.
-class ASTNode {
+class WrappedRecord {
   llvm::Record *Record;
+
+protected:
+  WrappedRecord(llvm::Record *record = nullptr) : Record(record) {}
+
+  llvm::Record *get() const {
+    assert(Record && "accessing null record");
+    return Record;
+  }
+
 public:
-  ASTNode(llvm::Record *record = nullptr) : Record(record) {}
+  llvm::Record *getRecord() const { return Record; }
 
   explicit operator bool() const { return Record != nullptr; }
 
-  llvm::Record *getRecord() const { return Record; }
-  llvm::StringRef getName() const {
-    assert(Record && "getting name of null record");
-    return Record->getName();
-  }
   llvm::ArrayRef<llvm::SMLoc> getLoc() const {
-    assert(Record && "getting location of null record");
-    return Record->getLoc();
-  }
-
-  /// Return the node for the base, if there is one.
-  ASTNode getBase() const {
-    assert(Record && "getting base of null record");
-    return Record->getValueAsOptionalDef(BaseFieldName);
-  }
-
-  /// Is the corresponding class abstract?
-  bool isAbstract() const {
-    assert(Record && "querying null record");
-    return Record->getValueAsBit(AbstractFieldName);
+    return get()->getLoc();
   }
 
   /// Does the node inherit from the given TableGen class?
   bool isSubClassOf(llvm::StringRef className) const {
-    assert(Record && "querying null record");
-    return Record->isSubClassOf(className);
+    return get()->isSubClassOf(className);
+  }
+};
+
+/// An (optional) reference to a TableGen node representing a class
+/// in one of Clang's AST hierarchies.
+class ASTNode : public WrappedRecord {
+public:
+  ASTNode(llvm::Record *record = nullptr) : WrappedRecord(record) {}
+
+  llvm::StringRef getName() const {
+    return get()->getName();
+  }
+
+  /// Return the node for the base, if there is one.
+  ASTNode getBase() const {
+    return get()->getValueAsOptionalDef(BaseFieldName);
+  }
+
+  /// Is the corresponding class abstract?
+  bool isAbstract() const {
+    return get()->getValueAsBit(AbstractFieldName);
   }
 
   friend bool operator<(ASTNode lhs, ASTNode rhs) {
@@ -101,6 +110,19 @@ public:
   llvm::StringRef getId() const;
   std::string getClassName() const;
   DeclNode getBase() const { return DeclNode(ASTNode::getBase().getRecord()); }
+
+  static llvm::StringRef getASTHierarchyName() {
+    return "Decl";
+  }
+  static llvm::StringRef getASTIdTypeName() {
+    return "Decl::Kind";
+  }
+  static llvm::StringRef getASTIdAccessorName() {
+    return "getKind";
+  }
+  static llvm::StringRef getTableGenNodeClassName() {
+    return DeclNodeClassName;
+  }
 };
 
 class TypeNode : public ASTNode {
@@ -110,6 +132,19 @@ public:
   llvm::StringRef getId() const;
   llvm::StringRef getClassName() const;
   TypeNode getBase() const { return TypeNode(ASTNode::getBase().getRecord()); }
+
+  static llvm::StringRef getASTHierarchyName() {
+    return "Type";
+  }
+  static llvm::StringRef getASTIdTypeName() {
+    return "Type::TypeClass";
+  }
+  static llvm::StringRef getASTIdAccessorName() {
+    return "getTypeClass";
+  }
+  static llvm::StringRef getTableGenNodeClassName() {
+    return TypeNodeClassName;
+  }
 };
 
 class StmtNode : public ASTNode {
@@ -119,6 +154,19 @@ public:
   std::string getId() const;
   llvm::StringRef getClassName() const;
   StmtNode getBase() const { return StmtNode(ASTNode::getBase().getRecord()); }
+
+  static llvm::StringRef getASTHierarchyName() {
+    return "Stmt";
+  }
+  static llvm::StringRef getASTIdTypeName() {
+    return "Stmt::StmtClass";
+  }
+  static llvm::StringRef getASTIdAccessorName() {
+    return "getStmtClass";
+  }
+  static llvm::StringRef getTableGenNodeClassName() {
+    return StmtNodeClassName;
+  }
 };
 
 /// A visitor for an AST node hierarchy.  Note that `base` can be null for
@@ -127,18 +175,19 @@ template <class NodeClass>
 using ASTNodeHierarchyVisitor =
   llvm::function_ref<void(NodeClass node, NodeClass base)>;
 
+void visitASTNodeHierarchyImpl(llvm::RecordKeeper &records,
+                               llvm::StringRef nodeClassName,
+                               ASTNodeHierarchyVisitor<ASTNode> visit);
+
+template <class NodeClass>
 void visitASTNodeHierarchy(llvm::RecordKeeper &records,
-                           llvm::StringRef nodeClassName,
-                           ASTNodeHierarchyVisitor<ASTNode> visit);
-
-void visitDeclNodeHierarchy(llvm::RecordKeeper &records,
-                            ASTNodeHierarchyVisitor<DeclNode> visit);
-
-void visitTypeNodeHierarchy(llvm::RecordKeeper &records,
-                            ASTNodeHierarchyVisitor<TypeNode> visit);
-
-void visitStmtNodeHierarchy(llvm::RecordKeeper &records,
-                            ASTNodeHierarchyVisitor<StmtNode> visit);
+                           ASTNodeHierarchyVisitor<NodeClass> visit) {
+  visitASTNodeHierarchyImpl(records, NodeClass::getTableGenNodeClassName(),
+                            [visit](ASTNode node, ASTNode base) {
+                              visit(NodeClass(node.getRecord()),
+                                    NodeClass(base.getRecord()));
+                            });
+}
 
 } // end namespace clang::tblgen
 } // end namespace clang
