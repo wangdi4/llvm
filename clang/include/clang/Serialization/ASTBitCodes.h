@@ -1040,6 +1040,7 @@ namespace serialization {
     /// constant describes a record for a specific type class in the
     /// AST. Note that DeclCode values share this code space.
     enum TypeCode {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       /// Intel specific type codes
       /// A ChannelType record.
@@ -1120,78 +1121,14 @@ namespace serialization {
 
       /// A SubstTemplateTypeParmType record.
       TYPE_SUBST_TEMPLATE_TYPE_PARM = 25,
+=======
+#define TYPE_BIT_CODE(CLASS_ID, CODE_ID, CODE_VALUE) \
+      TYPE_##CODE_ID = CODE_VALUE,
+#include "clang/Serialization/TypeBitCodes.def"
+>>>>>>> 139006ceb641f038a2b19cac1174316e57004ed6
 
-      /// An UnresolvedUsingType record.
-      TYPE_UNRESOLVED_USING = 26,
-
-      /// An InjectedClassNameType record.
-      TYPE_INJECTED_CLASS_NAME = 27,
-
-      /// An ObjCObjectType record.
-      TYPE_OBJC_OBJECT = 28,
-
-      /// An TemplateTypeParmType record.
-      TYPE_TEMPLATE_TYPE_PARM = 29,
-
-      /// An TemplateSpecializationType record.
-      TYPE_TEMPLATE_SPECIALIZATION = 30,
-
-      /// A DependentNameType record.
-      TYPE_DEPENDENT_NAME = 31,
-
-      /// A DependentTemplateSpecializationType record.
-      TYPE_DEPENDENT_TEMPLATE_SPECIALIZATION = 32,
-
-      /// A DependentSizedArrayType record.
-      TYPE_DEPENDENT_SIZED_ARRAY = 33,
-
-      /// A ParenType record.
-      TYPE_PAREN = 34,
-
-      /// A PackExpansionType record.
-      TYPE_PACK_EXPANSION = 35,
-
-      /// An AttributedType record.
-      TYPE_ATTRIBUTED = 36,
-
-      /// A SubstTemplateTypeParmPackType record.
-      TYPE_SUBST_TEMPLATE_TYPE_PARM_PACK = 37,
-
-      /// A AutoType record.
-      TYPE_AUTO = 38,
-
-      /// A UnaryTransformType record.
-      TYPE_UNARY_TRANSFORM = 39,
-
-      /// An AtomicType record.
-      TYPE_ATOMIC = 40,
-
-      /// A DecayedType record.
-      TYPE_DECAYED = 41,
-
-      /// An AdjustedType record.
-      TYPE_ADJUSTED = 42,
-
-      /// A PipeType record.
-      TYPE_PIPE = 43,
-
-      /// An ObjCTypeParamType record.
-      TYPE_OBJC_TYPE_PARAM = 44,
-
-      /// A DeducedTemplateSpecializationType record.
-      TYPE_DEDUCED_TEMPLATE_SPECIALIZATION = 45,
-
-      /// A DependentSizedExtVectorType record.
-      TYPE_DEPENDENT_SIZED_EXT_VECTOR = 46,
-
-      /// A DependentAddressSpaceType record.
-      TYPE_DEPENDENT_ADDRESS_SPACE = 47,
-
-      /// A dependentSizedVectorType record.
-      TYPE_DEPENDENT_SIZED_VECTOR = 48,
-
-      /// A type defined in a macro.
-      TYPE_MACRO_QUALIFIED = 49
+      /// An ExtQualType record.
+      TYPE_EXT_QUAL = 1
     };
 
     /// The type IDs for special types constructed by semantic
