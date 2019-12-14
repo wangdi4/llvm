@@ -1040,7 +1040,10 @@ namespace serialization {
     /// constant describes a record for a specific type class in the
     /// AST. Note that DeclCode values share this code space.
     enum TypeCode {
-<<<<<<< HEAD
+#define TYPE_BIT_CODE(CLASS_ID, CODE_ID, CODE_VALUE) \
+      TYPE_##CODE_ID = CODE_VALUE,
+#include "clang/Serialization/TypeBitCodes.def"
+
 #if INTEL_CUSTOMIZATION
       /// Intel specific type codes
       /// A ChannelType record.
@@ -1050,82 +1053,6 @@ namespace serialization {
       /// A DependentSizedArbPrecIntType record.
       TYPE_DEPENDENT_SIZED_ARBPRECINT = 1026,
 #endif // INTEL_CUSTOMIZATION
-      /// An ExtQualType record.
-      TYPE_EXT_QUAL = 1,
-
-      /// A ComplexType record.
-      TYPE_COMPLEX = 3,
-
-      /// A PointerType record.
-      TYPE_POINTER = 4,
-
-      /// A BlockPointerType record.
-      TYPE_BLOCK_POINTER = 5,
-
-      /// An LValueReferenceType record.
-      TYPE_LVALUE_REFERENCE = 6,
-
-      /// An RValueReferenceType record.
-      TYPE_RVALUE_REFERENCE = 7,
-
-      /// A MemberPointerType record.
-      TYPE_MEMBER_POINTER = 8,
-
-      /// A ConstantArrayType record.
-      TYPE_CONSTANT_ARRAY = 9,
-
-      /// An IncompleteArrayType record.
-      TYPE_INCOMPLETE_ARRAY = 10,
-
-      /// A VariableArrayType record.
-      TYPE_VARIABLE_ARRAY = 11,
-
-      /// A VectorType record.
-      TYPE_VECTOR = 12,
-
-      /// An ExtVectorType record.
-      TYPE_EXT_VECTOR = 13,
-
-      /// A FunctionNoProtoType record.
-      TYPE_FUNCTION_NO_PROTO = 14,
-
-      /// A FunctionProtoType record.
-      TYPE_FUNCTION_PROTO = 15,
-
-      /// A TypedefType record.
-      TYPE_TYPEDEF = 16,
-
-      /// A TypeOfExprType record.
-      TYPE_TYPEOF_EXPR = 17,
-
-      /// A TypeOfType record.
-      TYPE_TYPEOF = 18,
-
-      /// A RecordType record.
-      TYPE_RECORD = 19,
-
-      /// An EnumType record.
-      TYPE_ENUM = 20,
-
-      /// An ObjCInterfaceType record.
-      TYPE_OBJC_INTERFACE = 21,
-
-      /// An ObjCObjectPointerType record.
-      TYPE_OBJC_OBJECT_POINTER = 22,
-
-      /// a DecltypeType record.
-      TYPE_DECLTYPE = 23,
-
-      /// An ElaboratedType record.
-      TYPE_ELABORATED = 24,
-
-      /// A SubstTemplateTypeParmType record.
-      TYPE_SUBST_TEMPLATE_TYPE_PARM = 25,
-=======
-#define TYPE_BIT_CODE(CLASS_ID, CODE_ID, CODE_VALUE) \
-      TYPE_##CODE_ID = CODE_VALUE,
-#include "clang/Serialization/TypeBitCodes.def"
->>>>>>> 139006ceb641f038a2b19cac1174316e57004ed6
 
       /// An ExtQualType record.
       TYPE_EXT_QUAL = 1
