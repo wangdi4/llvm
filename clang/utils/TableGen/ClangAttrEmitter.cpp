@@ -117,14 +117,10 @@ static std::string ReadPCHRecord(StringRef type) {
               + std::string(type, 0, type.size()-1) + ">(Record.readInt())")
     .Case("TypeSourceInfo *", "Record.readTypeSourceInfo()")
     .Case("Expr *", "Record.readExpr()")
-<<<<<<< HEAD
-    .Case("IdentifierInfo *", "Record.getIdentifierInfo()")
+    .Case("IdentifierInfo *", "Record.readIdentifier()")
 #if INTEL_CUSTOMIZATION
     .Case("SourceLocation", "Record.readSourceLocation()")
 #endif  // INTEL_CUSTOMIZATION
-=======
-    .Case("IdentifierInfo *", "Record.readIdentifier()")
->>>>>>> 3ce3d23facf146698c4ef6107d1b9425b3ff5764
     .Case("StringRef", "Record.readString()")
     .Case("ParamIdx", "ParamIdx::deserialize(Record.readInt())")
     .Default("Record.readInt()");

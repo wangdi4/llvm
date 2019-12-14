@@ -6853,7 +6853,7 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     }
 
     // Reading the channel element type.
-    QualType ElementType = readType(*Loc.F, Record, Idx);
+    QualType ElementType = Record.readType();
     return Context.getChannelType(ElementType);
   }
   case TYPE_ARBPRECINT: {
@@ -6862,10 +6862,9 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
       return QualType();
     }
 
-    unsigned Idx = 0;
-    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
-    unsigned NumBits = Record[Idx++];
-    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+    QualType UnderlyingType = Record.readType();
+    unsigned NumBits = Record.readInt();
+    SourceLocation AttrLoc = Record.readSourceLocation();
 
     return Context.getArbPrecIntType(UnderlyingType, NumBits, AttrLoc);
   }
@@ -6875,10 +6874,9 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
       return QualType();
     }
 
-    unsigned Idx = 0;
-    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
-    Expr *NumBitsExpr = ReadExpr(*Loc.F);
-    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+    QualType UnderlyingType = Record.readType();
+    Expr *NumBitsExpr = Record.readExpr();
+    SourceLocation AttrLoc = Record.readSourceLocation();
 
     return Context.getDependentSizedArbPrecIntType(UnderlyingType, NumBitsExpr,
                                                    AttrLoc);
@@ -7258,14 +7256,14 @@ void TypeLocReader::VisitPipeTypeLoc(PipeTypeLoc TL) {
 }
 #if INTEL_CUSTOMIZATION
 void TypeLocReader::VisitChannelTypeLoc(ChannelTypeLoc TL) {
-  TL.setKWLoc(ReadSourceLocation());
+  TL.setKWLoc(readSourceLocation());
 }
 void TypeLocReader::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
-  TL.setNameLoc(ReadSourceLocation());
+  TL.setNameLoc(readSourceLocation());
 }
 void TypeLocReader::VisitDependentSizedArbPrecIntTypeLoc(
     DependentSizedArbPrecIntTypeLoc TL) {
-  TL.setNameLoc(ReadSourceLocation());
+  TL.setNameLoc(readSourceLocation());
 }
 #endif // INTEL_CUSTOMIZATION
 
