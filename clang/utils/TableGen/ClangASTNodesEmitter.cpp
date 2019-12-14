@@ -101,8 +101,8 @@ std::pair<ASTNode, ASTNode> ClangASTNodesEmitter::EmitNode(raw_ostream &OS,
     std::string NodeName = macroName(Child.getName());
 
 #if INTEL_CUSTOMIZATION
-    if (R->getValue("OpenGuard"))
-      OS << R->getValueAsString("OpenGuard") << "\n";
+    if (Child.getRecord()->getValue("OpenGuard"))
+      OS << Child.getRecord()->getValueAsString("OpenGuard") << "\n";
 #endif // INTEL_CUSTOMIZATION
     OS << "#ifndef " << NodeName << "\n";
     OS << "#  define " << NodeName << "(Type, Base) "
@@ -123,8 +123,8 @@ std::pair<ASTNode, ASTNode> ClangASTNodesEmitter::EmitNode(raw_ostream &OS,
 
     OS << "#undef " << NodeName << "\n"; // INTEL
 #if INTEL_CUSTOMIZATION
-    if (R->getValue("CloseGuard"))
-      OS << R->getValueAsString("CloseGuard") << "\n\n";
+    if (Child.getRecord()->getValue("CloseGuard"))
+      OS << Child.getRecord()->getValueAsString("CloseGuard") << "\n\n";
 #endif // INTEL_CUSTOMIZATION
   }
 
