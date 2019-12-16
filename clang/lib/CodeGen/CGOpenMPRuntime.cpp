@@ -7662,18 +7662,7 @@ public:
       // reference. References are ignored for mapping purposes.
       QualType Ty =
           I->getAssociatedDeclaration()->getType().getNonReferenceType();
-#if INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-      if ((!CGF.CGM.getLangOpts().OpenMPLateOutline ||
-           !CGF.CGM.getLangOpts().OpenMPLateOutlineTarget) &&
-          Ty->isAnyPointerType() && std::next(I) != CE) {
-#else
-      if (!CGF.CGM.getLangOpts().OpenMPLateOutline &&
-          Ty->isAnyPointerType() && std::next(I) != CE) {
-#endif  // INTEL_CUSTOMIZATION
-#else
       if (Ty->isAnyPointerType() && std::next(I) != CE) {
-#endif // INTEL_COLLAB
         BP = CGF.EmitLoadOfPointer(BP, Ty->castAs<PointerType>());
 
         // We do not need to generate individual map information for the
@@ -8866,33 +8855,45 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   MappableExprsHandler MEHandler(Dir, CGF);
 
   bool IsFirstComponentList = true;
+  MappableExprsHandler::MapBaseValuesArrayTy CurBasePointers;
   MappableExprsHandler::MapBaseValuesArrayTy BasePointers;
+  MappableExprsHandler::MapValuesArrayTy CurPointers;
   MappableExprsHandler::MapValuesArrayTy Pointers;
+  MappableExprsHandler::MapValuesArrayTy CurSizes;
   MappableExprsHandler::MapValuesArrayTy Sizes;
   MappableExprsHandler::MapFlagsArrayTy Types;
   MappableExprsHandler::StructRangeInfoTy PartialStruct;
 
-  while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
-    E = OASE->getBase()->IgnoreParenImpCasts();
-  while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
-    E = ASE->getBase()->IgnoreParenImpCasts();
-  while (const auto *ME = dyn_cast<MemberExpr>(E))
-    E = ME->getBase()->IgnoreParenImpCasts();
   // For this pointer, no decl for it, set to nullptr.
   const ValueDecl *VD =
       isa<CXXThisExpr>(E)
           ? nullptr
           : cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl())->getCanonicalDecl();
+
+  // Generate all the expressions related to VD for this clause.
   for (auto L : C->decl_component_lists(VD)) {
     assert(L.first == VD && "We got information for the wrong declaration??");
     assert(!L.second.empty() &&
            "Not expecting declaration with no component lists.");
     MEHandler.generateInfoForComponentList(
-        C->getMapType(), C->getMapTypeModifiers(), L.second, BasePointers,
-        Pointers, Sizes, Types, PartialStruct, IsFirstComponentList,
+        C->getMapType(), C->getMapTypeModifiers(), L.second, CurBasePointers,
+        CurPointers, CurSizes, Types, PartialStruct, IsFirstComponentList,
         C->isImplicit());
     IsFirstComponentList = false;
   }
+
+  // The partial struct case requires two steps.  The step above generates
+  // expressions for each partial piece.  The call to emitCombinedEntry
+  // creates the base that covers all the pieces.
+  if (PartialStruct.Base.isValid())
+      MEHandler.emitCombinedEntry(BasePointers, Pointers, Sizes, Types,
+                                  Types, PartialStruct);
+
+  // If a partial struct base was generated, it must be first
+  BasePointers.append(CurBasePointers.begin(), CurBasePointers.end());
+  Pointers.append(CurPointers.begin(), CurPointers.end());
+  Sizes.append(CurSizes.begin(), CurSizes.end());
+
   if (BasePointers.size() == 1) {
     // This is the simple non-aggregate case.
     llvm::Value *VBP = *BasePointers[0];
