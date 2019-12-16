@@ -1,4 +1,5 @@
 #include "CL/cl.h"
+#include "cl_cpu_detect.h"
 #include "cl_types.h"
 
 #include <fstream>
@@ -16,10 +17,12 @@ protected:
   cl_device_id m_device;
   cl_context m_context;
 
-  std::string m_CachedBinaryWihtouSectionFileName =
+  std::string m_CachedBinaryWithoutSectionFileName =
       "cached_binary_without_section.bin";
-  std::string m_CachedBinaryWihtWrongVersionFileName =
+  std::string m_CachedBinaryWithWrongVersionFileName =
       "cached_binary_with_wrong_version.bin";
+  std::string m_CachedBinaryWithCurrentVersionFileName =
+      "cached_binary_current_version.bin";
   std::string m_CachedBinaryUpToDateVersionFileName =
       "cached_binary_up_to_date.bin";
 
@@ -68,7 +71,8 @@ protected:
       ASSERT_FALSE(fout == NULL) << "Failed to open file.\n";
 
       fwrite(pBinaries, 1, binarySize, fout);
-      fclose(fout);
+      ASSERT_EQ(ferror(fout), 0) << "Error in writing to file " << filename;
+      ASSERT_EQ(fclose(fout), 0) << "Failed to close file " << filename;
     }
   }
 
@@ -97,7 +101,7 @@ protected:
 // which doesn't contain .ocl.ver section
 TEST_F(CheckBinaryVersionSuit, BinaryWithoutSectionTest) {
   std::vector<unsigned char> binary;
-  ReadBinary(m_CachedBinaryWihtouSectionFileName, binary);
+  ReadBinary(m_CachedBinaryWithoutSectionFileName, binary);
   ASSERT_NE(binary.size(), 0) << "Unable to read binary";
   std::size_t binarySize;
   binarySize = binary.size();
@@ -115,7 +119,7 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithoutSectionTest) {
 // which has FFFFFFF version
 TEST_F(CheckBinaryVersionSuit, BinaryWithWrongVersionTest) {
   std::vector<unsigned char> binary;
-  ReadBinary(m_CachedBinaryWihtWrongVersionFileName, binary);
+  ReadBinary(m_CachedBinaryWithWrongVersionFileName, binary);
   ASSERT_NE(binary.size(), 0) << "Unable to read binary";
   std::size_t binarySize;
   binarySize = binary.size();
@@ -127,6 +131,47 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithWrongVersionTest) {
       m_context, 1, &m_device, &binarySize,
       const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
   ASSERT_EQ(CL_INVALID_BINARY, rc) << "Failed to create program with binary";
+}
+
+// Trying to create program from cached binary file
+// which has current version
+TEST_F(CheckBinaryVersionSuit, BinaryWithCurrentVersionTest) {
+  // cached_binary_current_version.bin is generated on Linux. So we don't run
+  // this test on Windows.
+#ifndef _WIN32
+  // Check if the current CPU is supported.
+  if (Intel::OpenCL::Utils::IsCPUSupported() != CL_SUCCESS)
+    return;
+  std::vector<unsigned char> binary;
+  ReadBinary(m_CachedBinaryWithCurrentVersionFileName, binary);
+  ASSERT_NE(binary.size(), 0) << "Unable to read binary";
+  std::size_t binarySize;
+  binarySize = binary.size();
+  unsigned char *p_binary = binary.data();
+
+  cl_int binaryStatus;
+  cl_int rc;
+  cl_program program = clCreateProgramWithBinary(
+      m_context, 1, &m_device, &binarySize,
+      const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
+  std::string updateMsg =
+      "update " + m_CachedBinaryWithCurrentVersionFileName +
+      " according to following steps (only Linux is supported):\n"
+      "1. export CL_CONFIG_CPU_TARGET_ARCH=corei7\n"
+      "2. cd " + get_exe_dir() + "\n"
+      "3. ./framework_test_type --gtest_filter=*BinaryWithUpToDateVersionTest\n"
+      "4. copy " + m_CachedBinaryUpToDateVersionFileName + " to " +
+      m_CachedBinaryWithCurrentVersionFileName + " in source dir";
+  ASSERT_EQ(CL_SUCCESS, rc) << "Failed to create program. If "
+                               "OCL_CACHED_BINARY_VERSION has changed, please "
+                            << updateMsg;
+
+  rc = clBuildProgram(program, 1, &m_device, "", nullptr, nullptr);
+  ASSERT_EQ(CL_SUCCESS, rc)
+      << "Failed to build program. If program serialization has changed, "
+         "please increment OCL_CACHED_BINARY_VERSION and "
+      << updateMsg;
+#endif
 }
 
 // Trying to create program from cached binary file

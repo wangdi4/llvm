@@ -27,7 +27,8 @@ if (NOT OPENCL_INTREE_BUILD)
   set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 endif()
 
-# Version of cached binary
+# Version of cached binary.
+# This value should be incremented each time cached binary format changes.
 add_definitions(-DOCL_CACHED_BINARY_VERSION=5)
 
 remove_definitions( -D_UNICODE -DUNICODE )

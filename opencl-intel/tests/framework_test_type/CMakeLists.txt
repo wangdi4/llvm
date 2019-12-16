@@ -105,6 +105,7 @@ add_custom_command( TARGET ${TARGET}
 
 add_ocl_unittest_artifacts(
   FILES
+    cached_binary_current_version.bin
     cached_binary_without_section.bin
     cached_binary_with_wrong_version.bin
 )
