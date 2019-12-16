@@ -5693,19 +5693,34 @@ void CodeGenFunction::EmitLateOutlineOMPIterationVariable(
 
 void CodeGenFunction::EmitLateOutlineOMPFinals(const OMPLoopDirective &S) {
   // Emit final expressions for counters that are lastprivate.
+  //
+  // Also include implicit lastprivates that do not have clauses.
+  //
+  // [5.0 spec 2.19.1.1] The loop iteration variables in the associated
+  // for-loops of a simd construct with multiple associated for-loops are
+  // lastprivate.
+
   llvm::DenseMap<const VarDecl *, const Expr *> Finals;
   auto IC = S.counters().begin();
   for (const auto *E : S.finals()) {
-    const auto *D =
+    const auto *VD =
         cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())->getCanonicalDecl();
-    Finals[D] = E;
+    if (CapturedStmtInfo->isImplicitLastPrivate(VD))
+      EmitIgnoredExpr(E);
+    else
+      Finals[VD] = E;
     ++IC;
   }
-  for (const auto *C : S.getClausesOfKind<OMPLastprivateClause>()) {
-    for (const auto *E : C->varlists()) {
-      const auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      if (const auto *FinalExpr = Finals.lookup(PVD))
-        EmitIgnoredExpr(FinalExpr);
+
+  // Handle any non-implicit lastprivate iteration variables. The implicit
+  // case is already handled above.
+  if (!Finals.empty()) {
+    for (const auto *C : S.getClausesOfKind<OMPLastprivateClause>()) {
+      for (const auto *E : C->varlists()) {
+        const auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+        if (const auto *FinalExpr = Finals.lookup(VD))
+          EmitIgnoredExpr(FinalExpr);
+      }
     }
   }
 }
