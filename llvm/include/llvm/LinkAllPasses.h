@@ -214,6 +214,7 @@ namespace {
       (void) llvm::createPostDomOnlyViewerPass();
       (void) llvm::createPostDomViewerPass();
       (void) llvm::createReassociatePass();
+      (void) llvm::createRedundantDbgInstEliminationPass();
       (void) llvm::createRegionInfoPass();
       (void) llvm::createRegionOnlyPrinterPass();
       (void) llvm::createRegionOnlyViewerPass();
