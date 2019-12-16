@@ -300,6 +300,33 @@ public:
     return getCanonExprUtils().getTypeSizeInBytes(getDestType());
   }
 
+  // Returns true if the ref is AddressOf ref whose element type is sized.
+  bool isAddressOfSizedType() const {
+    if (!isAddressOf()) {
+      return false;
+    }
+
+    return getDestType()->getPointerElementType()->isSized();
+  }
+
+  // Returns size of element type. This is only applicable for AddressOf refs.
+  // For example it will return 8 bits for &(i8*)A[i1].
+  uint64_t getElementTypeSizeInBits() const {
+    assert(isAddressOfSizedType() && "Dereferenceable AddressOf ref expected!");
+
+    auto *ElementTy = getDestType()->getPointerElementType();
+    return getCanonExprUtils().getTypeSizeInBits(ElementTy);
+  }
+
+  // Returns size of element type. This is only applicable for AddressOf refs.
+  // For example it will return 1 byte for &(i8*)A[i1].
+  uint64_t getElementTypeSizeInBytes() const {
+    assert(isAddressOfSizedType() && "Dereferenceable AddressOf ref expected!");
+
+    auto *ElementTy = getDestType()->getPointerElementType();
+    return getCanonExprUtils().getTypeSizeInBytes(ElementTy);
+  }
+
   /// MemoryLocation for AA.
   MemoryLocation getMemoryLocation() const;
 
@@ -671,6 +698,9 @@ public:
   bool isStructurallyInvariantAtLevel(unsigned Level,
                                       bool IgnoreInnerIVs = false) const;
 
+  /// Returns true if the ref is structurally invariant in the HLRegion.
+  bool isStructurallyRegionInvariant() const;
+
   /// Returns true if the DDRef is a memory reference
   bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
@@ -1006,6 +1036,9 @@ public:
 
   /// Returns true if ref has an IV at \p Level.
   bool hasIV(unsigned Level) const;
+
+  /// Returns true if ref contains any IV.
+  bool hasIV() const;
 
   /// Returns the defined at level of the ref.
   unsigned getDefinedAtLevel() const override;
