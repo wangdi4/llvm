@@ -27,6 +27,14 @@ def warn_pragma_ivdep_is_used_for_emulator : Warning<
 def warn_pragma_expected_value : Warning<
   "expected value with '#pragma %0' - ignored">,
   InGroup<IgnoredPragmas>;
+def warn_pragma_expected_depth_independent_loop_fuse_clause : Warning<
+  "Invalid clause. Expected independent or depth value with '#pragma loop_fuse'"
+  " - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_multiple_loop_fuse_clause : Warning<
+  "%select{'depth'|'independent'}0 cannot appear "
+  "multiple times in '#pragma loop_fuse' - ignored">,
+  InGroup<IgnoredPragmas>;
 def warn_pragma_expected_safelen_array_ivdep_clause : Warning<
   "expected safelen or array value with '#pragma ivdep' - ignored">,
   InGroup<IgnoredPragmas>;

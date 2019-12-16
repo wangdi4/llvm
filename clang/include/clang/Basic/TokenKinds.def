@@ -823,6 +823,13 @@ PRAGMA_ANNOTATION(pragma_msstruct)
 // handles them.
 PRAGMA_ANNOTATION(pragma_align)
 
+#if INTEL_CUSTOMIZATION
+// Annotation for #pragma loop_fuse...
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+PRAGMA_ANNOTATION(pragma_loop_fuse)
+#endif // INTEL_CUSTOMIZATION
+
 // Annotation for #pragma weak id
 // The lexer produces these so that they only take effect when the parser
 // handles them.
