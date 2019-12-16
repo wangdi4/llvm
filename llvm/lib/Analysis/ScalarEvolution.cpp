@@ -10703,6 +10703,30 @@ Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
   if (C1 && C2 && RLess == RMore)
     return C2->getAPInt() - C1->getAPInt();
 
+#if INTEL_CUSTOMIZATION
+  // Compare (C1 + X + Y + Z) vs (C2 + X + Y + Z).
+  if (isa<SCEVAddExpr>(More) && isa<SCEVAddExpr>(Less)) {
+    auto MoreOps = cast<SCEVAddExpr>(More)->operands();
+    auto LessOps = cast<SCEVAddExpr>(Less)->operands();
+
+    if ((C2 = dyn_cast<SCEVConstant>(*MoreOps.begin())))
+      MoreOps = drop_begin(MoreOps, 1);
+
+    if ((C1 = dyn_cast<SCEVConstant>(*LessOps.begin())))
+      LessOps = drop_begin(LessOps, 1);
+
+    // Check if the ranges are the same.
+    if (std::equal(MoreOps.begin(), MoreOps.end(), LessOps.begin(),
+                   LessOps.end())) {
+      if (!C1)
+        return C2->getAPInt();
+      if (!C2)
+        return -C1->getAPInt();
+      return C2->getAPInt() - C1->getAPInt();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return None;
 }
 

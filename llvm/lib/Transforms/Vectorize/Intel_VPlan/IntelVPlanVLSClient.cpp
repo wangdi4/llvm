@@ -50,12 +50,18 @@ static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
 static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
                                                   const SCEV *RHS,
                                                   ScalarEvolution *SE) {
+  // If the types don't match, there's no sense trying to compute distance
+  // between pointers.
+  if (LHS->getType() !=RHS->getType())
+    return None;
+
   // computeConstantDifference has a significant advantage over getMinusSCEV: it
   // doesn't crash if LHS and RHS contain AddRecs for unrelated loops (e.g.
   // sibling loops).
   Optional<APInt> Difference = SE->computeConstantDifference(LHS, RHS);
   if (!Difference)
     return None;
+
   return Difference->getSExtValue();
 }
 
