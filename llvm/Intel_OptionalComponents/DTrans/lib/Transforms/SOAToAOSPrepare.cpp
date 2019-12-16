@@ -487,6 +487,7 @@ void SOAToAOSPrepCandidateInfo::removeDevirtTraces() {
 
 // Apply the below peephole transformations for vector member functions.
 //
+// Transform 1:
 // Before:
 //    %51 = shl i64 %50, 3
 //    %52 = add i64 %51, 8
@@ -495,26 +496,45 @@ void SOAToAOSPrepCandidateInfo::removeDevirtTraces() {
 //    %51 = add i64 %50, 1
 //    %52 = shl i64 %51, 3
 //
-// This helps DTransAnalysis to detect it as multiple of size of
-// the vector element (which is pointer).
+// Transform 2:
+// Before:
+//    %shl1 = shl i32 %48, 2
+//    %shl2 = shl i32 %49, 2
+//    %sub1 = sub i32 %shl1, %shl2
+//
+// After:
+//    %nsub = sub i32 %48, %49
+//    %nshl = shl i32 %nsub, 2
+//
+// These transformations help DTransAnalysis to detect it as multiple of
+// size of the vector element (which is pointer).
 //
 void SOAToAOSPrepCandidateInfo::applyPeepholeTransformations() {
   for (auto *F : ClassI->field_member_functions()) {
     SmallPtrSet<Instruction *, 2> AddSet;
+    SmallPtrSet<Instruction *, 2> SubSet;
     for (Instruction &I : instructions(F)) {
       Instruction *ShlI;
       Value *Val;
       const APInt *C1, *C2;
+      Instruction *Shl1, *Shl2;
+      Value *Val1, *Val2;
 
       if (match(&I, m_Add(m_OneUse(m_Instruction(ShlI)), m_APInt(C1))) &&
           match(ShlI, m_Shl(m_Value(Val), m_APInt(C2))) && *C1 == 8 && *C2 == 3)
         AddSet.insert(&I);
+      else if (match(&I, m_Sub(m_Instruction(Shl1), m_Instruction(Shl2))) &&
+               I.hasOneUse() &&
+               match(Shl1, m_Shl(m_Value(Val1), m_APInt(C1))) &&
+               match(Shl2, m_Shl(m_Value(Val2), m_APInt(C2))) && *C1 == *C2)
+        SubSet.insert(&I);
     }
 
+    // Transform 1:
     for (auto *I : AddSet) {
       auto *ShlI = cast<Instruction>(I->getOperand(0));
       DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
-        dbgs() << "   Peephole before: \n";
+        dbgs() << "   Peephole-1 before: \n";
         dbgs() << "         " << *ShlI << "\n";
         dbgs() << "         " << *I << "\n";
       });
@@ -532,6 +552,35 @@ void SOAToAOSPrepCandidateInfo::applyPeepholeTransformations() {
         dbgs() << "         " << *ShlI << "\n";
       });
     }
+
+    // Transform 2:
+    for (auto *I : SubSet) {
+      auto *Shl1 = cast<Instruction>(I->getOperand(0));
+      auto *Shl2 = cast<Instruction>(I->getOperand(1));
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "   Peephole-2 before: \n";
+        dbgs() << "         " << *Shl1 << "\n";
+        dbgs() << "         " << *Shl2 << "\n";
+        dbgs() << "         " << *I << "\n";
+      });
+      Value *NewSub = BinaryOperator::CreateSub(Shl1->getOperand(0),
+                                                Shl2->getOperand(0), "", I);
+      cast<BinaryOperator>(NewSub)->setHasNoSignedWrap(I->hasNoSignedWrap());
+      cast<BinaryOperator>(NewSub)->setHasNoUnsignedWrap(
+          I->hasNoUnsignedWrap());
+      Value *NewShl =
+          BinaryOperator::CreateShl(NewSub, Shl1->getOperand(1), "", I);
+      I->replaceAllUsesWith(NewShl);
+      I->eraseFromParent();
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
+        dbgs() << "   After: \n";
+        dbgs() << "         " << *NewSub << "\n";
+        dbgs() << "         " << *NewShl << "\n";
+      });
+    }
+    // Remove instructions that are dead due to the above transformations.
+    if (!SubSet.empty() || !AddSet.empty())
+      removeDeadInsts(F);
   }
 }
 
@@ -2106,11 +2155,10 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
   // Mark newly created member functions to help ClassInfo analysis
   // and SOAToAOS.
   auto *ElemTy = SetFunc->getArg(1)->getType();
-  DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
-      *SimpleCCtor, ElemTy);
-  DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
-      *SimpleSetElem, ElemTy);
-
+  DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(*SimpleCCtor,
+                                                             ElemTy);
+  DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(*SimpleSetElem,
+                                                             ElemTy);
 }
 
 // Reverse argument promotion for AppendFunc by converting pointer
