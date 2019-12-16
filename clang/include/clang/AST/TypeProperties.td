@@ -810,3 +810,48 @@ let Class = PipeType in {
 		return ctx.getPipeType(elementType, isReadOnly);
 	}]>;
 }
+
+// INTEL_CUSTOMIZATION
+let Class = ChannelType in {
+  def : Property<"elementType", QualType> {
+    let Read = [{ node->getElementType() }];
+  }
+
+  def : Creator<[{
+		return ctx.getChannelType(elementType);
+	}]>;
+}
+
+let Class = ArbPrecIntType in {
+  def : Property<"underlyingType", QualType> {
+    let Read = [{ node->getUnderlyingType() }];
+  }
+  def : Property<"numBits", UInt32> {
+    let Read = [{ node->getNumBits() }];
+  }
+  def : Property<"attributeLoc", SourceLocation> {
+    let Read = [{ node->getAttributeLoc() }];
+  }
+
+  def : Creator<[{
+    return ctx.getArbPrecIntType(underlyingType, numBits, attributeLoc);
+  }]>;
+}
+
+let Class = DependentSizedArbPrecIntType in {
+  def : Property<"underlyingType", QualType> {
+    let Read = [{ node->getUnderlyingType() }];
+  }
+  def : Property<"numBitsExpr", ExprRef> {
+    let Read = [{ node->getNumBitsExpr() }];
+  }
+  def : Property<"attributeLoc", SourceLocation> {
+    let Read = [{ node->getAttributeLoc() }];
+  }
+
+  def : Creator<[{
+    return ctx.getDependentSizedArbPrecIntType(underlyingType, numBitsExpr,
+                                               attributeLoc);
+  }]>;
+}
+// end INTEL_CUSTOMIZATION
