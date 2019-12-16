@@ -14225,6 +14225,52 @@ SDValue DAGCombiner::ForwardStoreValueToDirectLoad(LoadSDNode *LD) {
   return SDValue();
 }
 
+#if INTEL_FEATURE_CSA
+// The following two static functions are borrowed from
+//   lib/Target/Intel_CSA/CSAISelLowering.cpp.
+// If Chain is an inord node, the input to the node is returned and Chain is
+// updated to the node's chain input (making it convenient to remove the inord
+// node from the chain and let it get DCE'd). Otherwise, a null SDValue is
+// returned and Chain is left as-is.
+static SDValue getInord(SDValue &Chain) {
+  // A helper function checking if the SDValue is csa_inord intrinsic call.
+  auto isCsaInord = [](const SDValue &V) {
+    if (V->getOpcode() != ISD::INTRINSIC_VOID)
+      return false;
+    const auto IntrId = cast<ConstantSDNode>(V->getOperand(1));
+    return IntrId->getLimitedValue() == Intrinsic::csa_inord;
+  };
+
+  if (Chain->getOpcode() == ISD::TokenFactor) {
+    for (auto &Op : Chain->op_values()) {
+      if (isCsaInord(Op)) {
+        Chain = Op->getOperand(0);
+        return Op->getOperand(2);
+      }
+    }
+    return SDValue();
+  }
+
+  if (isCsaInord(Chain)) {
+    SDValue Result = Chain->getOperand(2);
+    Chain = Chain->getOperand(0);
+    return Result;
+  }
+  return SDValue();
+}
+
+static SDNode *getSingleUseOfValue(SDValue V) {
+  if (not V.hasOneUse())
+    return nullptr;
+  for (auto UseIt = V->use_begin(), UseEnd = V->use_end(); UseIt != UseEnd;
+       ++UseIt) {
+    if (UseIt.getUse().getResNo() == V.getResNo())
+      return *UseIt;
+  }
+  llvm_unreachable("SDValue::hasOneUse lied to us!");
+}
+#endif
+
 SDValue DAGCombiner::visitLOAD(SDNode *N) {
   LoadSDNode *LD  = cast<LoadSDNode>(N);
   SDValue Chain = LD->getChain();
@@ -14238,6 +14284,21 @@ SDValue DAGCombiner::visitLOAD(SDNode *N) {
     if (N->getValueType(1) == MVT::Other) {
       // Unindexed loads.
       if (!N->hasAnyUseOfValue(0)) {
+#if INTEL_FEATURE_CSA
+        // Here we update the uses of the inord and outord that go with
+        // the load to prepare for the load's removal.
+        SDValue Result = getInord(Chain);
+        if (Result) {
+          SDNode *const OutordNode = getSingleUseOfValue(SDValue(N, 1));
+          if (not OutordNode or
+            OutordNode->getOpcode() != ISD::INTRINSIC_W_CHAIN or
+            cast<ConstantSDNode>(OutordNode->getOperand(1))->getLimitedValue() !=
+            Intrinsic::csa_outord)
+            report_fatal_error("Outord node missing");
+          DAG.ReplaceAllUsesOfValueWith(SDValue{OutordNode, 0}, Result);
+          DAG.ReplaceAllUsesOfValueWith(SDValue{OutordNode, 1}, Chain);
+        }
+#endif
         // It's not safe to use the two value CombineTo variant here. e.g.
         // v1, chain2 = load chain1, loc
         // v2, chain3 = load chain2, loc
