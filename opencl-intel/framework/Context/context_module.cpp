@@ -2884,7 +2884,8 @@ void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t
         return nullptr;
     }
     void* pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
-    m_mapSVMBuffers[pSvmBuf] = pContext;
+    if (pSvmBuf)
+        m_mapSVMBuffers[pSvmBuf] = pContext;
     return pSvmBuf;
 }
 
@@ -3080,7 +3081,8 @@ void* ContextModule::USMHostAlloc(cl_context context,
     }
     void* pUsmBuf = pContext->USMHostAlloc(properties, size, alignment,
                                            errcode_ret);
-    m_mapUSMBuffers[pUsmBuf] = pContext;
+    if (pUsmBuf)
+        m_mapUSMBuffers[pUsmBuf] = pContext;
     return pUsmBuf;
 }
 
@@ -3114,7 +3116,8 @@ void* ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
     }
     void* pUsmBuf = pContext->USMDeviceAlloc(device, properties, size,
                                              alignment, errcode_ret);
-    m_mapUSMBuffers[pUsmBuf] = pContext;
+    if (pUsmBuf)
+        m_mapUSMBuffers[pUsmBuf] = pContext;
     return pUsmBuf;
 }
 
@@ -3148,7 +3151,8 @@ void* ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
     }
     void* pUsmBuf = pContext->USMSharedAlloc(device, properties, size,
                                              alignment, errcode_ret);
-    m_mapUSMBuffers[pUsmBuf] = pContext;
+    if (pUsmBuf)
+        m_mapUSMBuffers[pUsmBuf] = pContext;
     return pUsmBuf;
 }
 
