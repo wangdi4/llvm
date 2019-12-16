@@ -576,6 +576,10 @@ static __inline__ void __DEFAULT_FN_ATTRS
 __writemsr(unsigned long __register, unsigned __int64 __data) {
   __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
 }
+
+#define _readmsr(R) __readmsr(R)
+#define _writemsr(R, D) __writemsr(R, D)
+
 /* end INTEL_CUSTOMIZATION */
 #endif
 
