@@ -1044,16 +1044,6 @@ namespace serialization {
       TYPE_##CODE_ID = CODE_VALUE,
 #include "clang/Serialization/TypeBitCodes.def"
 
-#if INTEL_CUSTOMIZATION
-      /// Intel specific type codes
-      /// A ChannelType record.
-      TYPE_CHANNEL               = 1024,
-      /// An ArbPrecIntType record.
-      TYPE_ARBPRECINT            = 1025,
-      /// A DependentSizedArbPrecIntType record.
-      TYPE_DEPENDENT_SIZED_ARBPRECINT = 1026,
-#endif // INTEL_CUSTOMIZATION
-
       /// An ExtQualType record.
       TYPE_EXT_QUAL = 1
     };
