@@ -527,6 +527,7 @@ void DebugInfoPass::insertDbgDeclaraLocalCall(DbgDeclareInst* dbgDeclInstr, cons
     // The first argument is an alloca for the variable.
     // Take the alloca from the metadata and cast it to i8*
     Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
+    assert(dbgDeclInstr->getAddress() && "Value address shouldn't be null for llvm.dbg.addr intrinsic");
     CastInst* var_ref_cast = CastInst::CreatePointerCast(dbgDeclInstr->getAddress(), pointer_i8,
                                                          "", dbgDeclInstr);
     // Pass address of metadata description of the variable as an integral argument.

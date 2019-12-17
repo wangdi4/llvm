@@ -97,7 +97,8 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
   // some sanity checks
   V_ASSERT(fakeFuncType->getNumParams() == 4 && "unexpected num params in fake write image");
   V_ASSERT(CI && "CI should not be null");
-  V_ASSERT(CI->getCalledFunction() && "Indirect function is unexpected");
+  V_ASSERT(CI->getCalledFunction() && CI->getCalledFunction()->getFunctionType() &&
+      "Indirect function is unexpected");
   V_ASSERT(CI->getCalledFunction()->getFunctionType()->getNumParams() == 3 &&
       "unexpected num params in orig write image");
   V_ASSERT(CI->getType()->isVoidTy() && "write image should return void");
