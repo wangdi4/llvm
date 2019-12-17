@@ -578,7 +578,7 @@ public:
   IntelCET();
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
   void writePlt(uint8_t *buf, uint64_t gotPltEntryAddr, uint64_t pltEntryAddr,
-                int32_t index, unsigned relOff) const override;
+                int32_t index) const override;
   void writeIBTPlt(uint8_t *buf, size_t numEntries) const override;
 
   enum { IBTPltHeaderSize = 16 };
@@ -594,8 +594,7 @@ void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
 }
 
 void IntelCET::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
-                        uint64_t pltEntryAddr, int32_t index,
-                        unsigned relOff) const {
+                        uint64_t pltEntryAddr, int32_t index) const {
   const uint8_t inst[] = {
       0xf3, 0x0f, 0x1e, 0xfa,       // endbr64
       0xff, 0x25, 0,    0,    0, 0, // jmpq *got(%rip)
