@@ -442,6 +442,65 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
 
 
 #ifdef __CSA__
+/* Intrinsics for half-precision vectors */
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setzero_ph(void)
+{
+  return (__m64h){ 0.0f16, 0.0f16, 0.0f16, 0.0f16 };
+}
+
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set_ph(_Float16 v3,
+                                                         _Float16 v2,
+                                                         _Float16 v1,
+                                                         _Float16 v0)
+{
+  return (__m64h){v0, v1, v2, v3};
+}
+
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set1_ph(_Float16 v)
+{
+  return (__m64h){v, v, v, v};
+}
+
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setr_ph(_Float16 v0,
+                                                          _Float16 v1,
+                                                          _Float16 v2,
+                                                          _Float16 v3)
+{
+  return (__m64h){v0, v1, v2, v3};
+}
+
+static __inline__ _Float16 __DEFAULT_FN_ATTRS _mm64_extract_ph(__m64h a, int i)
+{
+  return a[i];
+}
+
+#define _mm64_shuf_ph(A, B, M, N, O, P)                                   \
+  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(B), (M), (N), (O), (P)))
+
+#define _mm64_shuffle_ph(A, M) \
+  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(A), (M) & 0x3, ((M) >> 2) & 0x3, ((M) >> 4) & 0x3, ((M) >> 6) & 0x3))
+
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_castps_ph(__m64f a)
+{
+  return (__m64h)(a);
+}
+
+static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_castph_ps(__m64h a)
+{
+  return (__m64f)(a);
+}
+
+static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_casti64_ph(__m64i a)
+{
+  return (__m64h)(a);
+}
+
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
+{
+  return (__m64i)(a);
+}
+
+
 /*
  * Integer vector Intrinsics
  */
