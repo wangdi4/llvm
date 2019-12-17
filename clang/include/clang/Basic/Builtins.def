@@ -433,12 +433,11 @@ BUILTIN(__builtin_islessgreater , "i.", "Fnct")
 BUILTIN(__builtin_isunordered   , "i.", "Fnct")
 
 // Unary FP classification
-<<<<<<< HEAD
-BUILTIN(__builtin_fpclassify, "iiiiii.", "Fnct")
-BUILTIN(__builtin_isfinite,   "i.", "Fnct")
-BUILTIN(__builtin_isinf,      "i.", "Fnct")
-BUILTIN(__builtin_isinf_sign, "i.", "Fnct")
-BUILTIN(__builtin_isnan,      "i.", "Fnct")
+BUILTIN(__builtin_fpclassify, "iiiiii.", "Fnc")
+BUILTIN(__builtin_isfinite,   "i.", "Fnc")
+BUILTIN(__builtin_isinf,      "i.", "Fnc")
+BUILTIN(__builtin_isinf_sign, "i.", "Fnc")
+BUILTIN(__builtin_isnan,      "i.", "Fnc")
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_isnanf,      "i.", "Fnc")
 BUILTIN(__builtin_isnanl,      "i.", "Fnc")
@@ -448,15 +447,7 @@ BUILTIN(__builtin_finite,   "i.", "Fnc")
 BUILTIN(__builtin_finitef,   "i.", "Fnc")
 BUILTIN(__builtin_finitel,   "i.", "Fnc")
 #endif // INTEL_CUSTOMIZATION
-BUILTIN(__builtin_isnormal,   "i.", "Fnct")
-=======
-BUILTIN(__builtin_fpclassify, "iiiiii.", "Fnc")
-BUILTIN(__builtin_isfinite,   "i.", "Fnc")
-BUILTIN(__builtin_isinf,      "i.", "Fnc")
-BUILTIN(__builtin_isinf_sign, "i.", "Fnc")
-BUILTIN(__builtin_isnan,      "i.", "Fnc")
 BUILTIN(__builtin_isnormal,   "i.", "Fnc")
->>>>>>> 3f22b4721e6c9859c392d9891411cbc8d9e10c70
 
 // FP signbit builtins
 BUILTIN(__builtin_signbit, "i.", "Fnc")
