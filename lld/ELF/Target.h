@@ -42,11 +42,15 @@ public:
   virtual void writePltHeader(uint8_t *buf) const {}
 
   virtual void writePlt(uint8_t *buf, uint64_t gotEntryAddr,
+<<<<<<< HEAD
                         uint64_t pltEntryAddr, int32_t index,
                         unsigned relOff) const {}
 #if INTEL_CUSTOMIZATION
   virtual void writeIBTPlt(uint8_t *buf, size_t numEntries) const {}
 #endif // INTEL_CUSTOMIZATION
+=======
+                        uint64_t pltEntryAddr, int32_t index) const {}
+>>>>>>> 90d195d026f5c90e26f09614e23d4112b3dfaaa1
   virtual void addPltHeaderSymbols(InputSection &isec) const {}
   virtual void addPltSymbols(InputSection &isec, uint64_t off) const {}
 
