@@ -4839,6 +4839,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPTargetTeamsDistributeSimdDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
     AllowedNameModifiers.push_back(OMPD_target);
+    if (LangOpts.OpenMP >= 50)
+      AllowedNameModifiers.push_back(OMPD_simd);
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
@@ -11046,6 +11048,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
         CaptureRegion = OMPD_target;
       break;
     case OMPD_teams_distribute_simd:
+    case OMPD_target_teams_distribute_simd:
       if (OpenMPVersion >= 50 &&
           (NameModifier == OMPD_unknown || NameModifier == OMPD_simd))
         CaptureRegion = OMPD_teams;
@@ -11058,7 +11061,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target:
     case OMPD_target_teams:
     case OMPD_target_teams_distribute:
-    case OMPD_target_teams_distribute_simd:
     case OMPD_distribute_parallel_for:
     case OMPD_task:
     case OMPD_taskloop:
