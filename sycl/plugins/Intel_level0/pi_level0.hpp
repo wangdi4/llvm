@@ -81,6 +81,8 @@ struct _pi_mem {
 struct _pi_event {
   // L0 event handle.
   ze_event_handle_t L0Event;
+  // L0 event pool handle.
+  ze_event_pool_handle_t L0EventPool;
 
   // Keeps the command-queue and command associated with the event.
   // These are NULL for the user events.
