@@ -43,17 +43,14 @@ public:
 
   virtual void writePlt(uint8_t *buf, uint64_t gotEntryAddr,
                         uint64_t pltEntryAddr, int32_t index) const {}
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  virtual void writeIBTPlt(uint8_t *buf, size_t numEntries) const {}
-#endif // INTEL_CUSTOMIZATION
-=======
   virtual void writeIplt(uint8_t *buf, uint64_t gotEntryAddr,
                          uint64_t pltEntryAddr, int32_t index) const {
     // All but PPC64 use the same format for .plt and .iplt entries.
     writePlt(buf, gotEntryAddr, pltEntryAddr, index);
   }
->>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
+#if INTEL_CUSTOMIZATION
+  virtual void writeIBTPlt(uint8_t *buf, size_t numEntries) const {}
+#endif // INTEL_CUSTOMIZATION
   virtual void addPltHeaderSymbols(InputSection &isec) const {}
   virtual void addPltSymbols(InputSection &isec, uint64_t off) const {}
 

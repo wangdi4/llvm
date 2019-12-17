@@ -2445,40 +2445,19 @@ void HashTableSection::writeTo(uint8_t *buf) {
 
 // On PowerPC64 the lazy symbol resolvers go into the `global linkage table`
 // in the .glink section, rather then the typical .plt section.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-PltSection::PltSection(bool isIplt)
-    : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ""),
-      isIplt(isIplt) {
-  bool isX86Ibt = (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT);
-
-  if (config->emachine == EM_PPC || config->emachine == EM_PPC64)
-    name = ".glink";
-  else if (isX86Ibt)
-    name = ".plt.sec";
-  else
-    name = ".plt";
-
-  headerSize = isIplt ? 0 : target->pltHeaderSize;
-
-  // A retpoline PLT always has a header even for IPLT.
-  if (config->zRetpolineplt)
-    headerSize = target->pltHeaderSize;
-=======
 PltSection::PltSection()
     : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".plt"),
       headerSize(target->pltHeaderSize) {
   if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
     name = ".glink";
-  }
->>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
+  } else if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) // INTEL
+    name = ".plt.sec";                                             // INTEL
 
   // The PLT needs to be writable on SPARC as the dynamic linker will
   // modify the instructions in the PLT entries.
   if (config->emachine == EM_SPARCV9)
     this->flags |= SHF_WRITE;
 }
-#endif // INTEL_CUSTOMIZATION
 
 void PltSection::writeTo(uint8_t *buf) {
   if (config->emachine == EM_PPC) {
@@ -2526,7 +2505,6 @@ void PltSection::addSymbols() {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This is an x86-only extra PLT section and used only when a security
 // enhancement feature called CET is enabled. In this comment, I'll explain what
@@ -2599,12 +2577,13 @@ size_t IBTPltSection::getSize() const {
 }
 
 #endif // INTEL_CUSTOMIZATION
-=======
+
 IpltSection::IpltSection()
     : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".plt") {
   if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
     name = ".glink";
-  }
+  } else if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) // INTEL
+    name = ".plt.sec";                                             // INTEL
 }
 
 void IpltSection::writeTo(uint8_t *buf) {
@@ -2633,7 +2612,6 @@ void IpltSection::addSymbols() {
     off += target->pltEntrySize;
   }
 }
->>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
 
 // The string hash function for .gdb_index.
 static uint32_t computeGdbHash(StringRef s) {

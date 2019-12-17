@@ -1188,14 +1188,10 @@ struct InStruct {
   SyntheticSection *partEnd;
   SyntheticSection *partIndex;
   PltSection *plt;
-<<<<<<< HEAD
-  PltSection *iplt;
+  IpltSection *iplt;
 #if INTEL_CUSTOMIZATION
   IBTPltSection *ibtPlt;
 #endif // INTEL_CUSTOMIZATION
-=======
-  IpltSection *iplt;
->>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
   PPC32Got2Section *ppc32Got2;
   RelocationBaseSection *relaPlt;
   RelocationBaseSection *relaIplt;
