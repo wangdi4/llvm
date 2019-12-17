@@ -60,7 +60,7 @@ typedef enum {
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 
-/* Functions for building and unpacking single-precision vectors */
+/* Functions for building and unpacking vectors */
 static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_pack_ps(float v0, float v1)
 {
   return (__m64f){v0, v1};
@@ -72,38 +72,6 @@ static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_setzero_ps(void)
 }
 
 static __inline__ float __DEFAULT_FN_ATTRS _mm64_extract_ps(__m64f a, int i)
-{
-  return a[i];
-}
-
-/* Functions for building and unpacking half-precision vectors */
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setzero_ph(void)
-{
-  return (__m64h){ 0.0f16, 0.0f16, 0.0f16, 0.0f16 };
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set_ph(_Float16 v3,
-                                                         _Float16 v2,
-                                                         _Float16 v1,
-                                                         _Float16 v0)
-{
-  return (__m64h){v0, v1, v2, v3};
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_set1_ph(_Float16 v)
-{
-  return (__m64h){v, v, v, v};
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_setr_ph(_Float16 v0,
-                                                          _Float16 v1,
-                                                          _Float16 v2,
-                                                          _Float16 v3)
-{
-  return (__m64h){v0, v1, v2, v3};
-}
-
-static __inline__ _Float16 __DEFAULT_FN_ATTRS _mm64_extract_ph(__m64h a, int i)
 {
   return a[i];
 }
@@ -471,32 +439,6 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
 
 #define _mm64_shuf_ps(A, B, M, N) \
   (__m64f)(__builtin_shufflevector((__m64f)(A), (__m64f)(B), (M), (N)))
-
-#define _mm64_shuf_ph(A, B, M, N, O, P)                                   \
-  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(B), (M), (N), (O), (P)))
-
-#define _mm64_shuffle_ph(A, M) \
-  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(A), (M) & 0x3, ((M) >> 2) & 0x3, ((M) >> 4) & 0x3, ((M) >> 6) & 0x3))
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_castps_ph(__m64f a)
-{
-  return (__m64h)(a);
-}
-
-static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_castph_ps(__m64h a)
-{
-  return (__m64f)(a);
-}
-
-static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_casti64_ph(__m64i a)
-{
-  return (__m64h)(a);
-}
-
-static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
-{
-  return (__m64i)(a);
-}
 
 
 #ifdef __CSA__
