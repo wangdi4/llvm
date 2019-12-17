@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OrderedInstructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -60,6 +61,7 @@ struct CSAIntrinsicCleaner : FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
   }
 
   bool runOnFunction(Function &) override;
@@ -100,7 +102,8 @@ bool CSAIntrinsicCleaner::runOnFunction(Function &F) {
     clean_spmd_worker_num(F) | clean_pipeline(F) | clean_pipeline_depth(F);
 }
 
-// convert init/write/read intrinsics to lower_init/lower_write/lower_read intrinsic
+  // convert init/preload/write/read intrinsics to
+  // lower_init/lower_preload/lower_write/lower_read intrinsic
 bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
 
   LLVMContext &CTX = F.getContext();
@@ -145,8 +148,21 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
       if (intrinsic->getIntrinsicID() != Intrinsic::csa_lic_init)
         continue;
       IntrinsicInst *write = nullptr, *read = nullptr;
+      bool sorting_p = false;
+      SmallVector<IntrinsicInst *, 4> preload_list;
+      Value *init_val, *other_val = nullptr;
       for (auto user : intrinsic->users()) {
         if (auto useIntrinsic = dyn_cast<IntrinsicInst>(user)) {
+          if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_preload) {
+            if (!init_val)
+              init_val = useIntrinsic->getOperand(1);
+            else
+              other_val = useIntrinsic->getOperand(1);
+            if (init_val != other_val)
+              sorting_p = true;
+            preload_list.push_back(useIntrinsic);
+            continue;
+          }
           if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_write) {
             if (write) {
               errorMessage("!! ERROR: Can only have one write for a LIC queue !!\n",
@@ -196,6 +212,41 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_init),
           { licID, I.getOperand(0), I.getOperand(1), I.getOperand(2) }, "", &I);
+      // sort the preload intrinsics by their location in the BBs
+      // as they get inserted in a non-deterministic
+      // order in preload_list
+      if (preload_list.size() > 0) {
+        if (sorting_p) {
+          auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+          OrderedInstructions Sorter(&DT);
+          bool MultiBB = false;
+          llvm::sort(preload_list.begin(), preload_list.end(),
+                     [&Sorter, &MultiBB](Instruction *A, Instruction *B) {
+                       return Sorter.dfsBefore(A, B);
+                     });
+        }
+        for(auto preload : preload_list) {
+          Value *Bitcasted = preload->getOperand(1);
+          Type * T = Bitcasted->getType();
+          if (!T->isIntegerTy()) {
+            if (T->isVectorTy())
+              Bitcasted = CastInst::Create(Instruction::BitCast, Bitcasted,
+                                         IntegerType::getInt64Ty(CTX), "", &I);
+            else
+              Bitcasted = CastInst::CreateBitOrPointerCast(Bitcasted,
+                          IntegerType::getIntNTy(CTX, T->getScalarSizeInBits()),
+                          "", &I);
+          }
+          if (T->getScalarSizeInBits() < 64) {
+            Bitcasted = CastInst::CreateZExtOrBitCast(Bitcasted,
+                                  IntegerType::getInt64Ty(CTX), "", &I);
+          }
+          CallInst::Create(
+              Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_preload),
+              { licID, Bitcasted }, "", &I);
+          preload->eraseFromParent();
+        }
+      }
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_write,
                                     write->getFunctionType()->getParamType(1)),
@@ -211,8 +262,9 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
     }
   }
 
-  for (auto I : toDelete)
+  for (auto I : toDelete) {
     I->eraseFromParent();
+  }
   return licNum != 0;
 }
 

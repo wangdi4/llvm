@@ -110,6 +110,7 @@ BUILTIN(__builtin_csa_rsqrt14f64,  "dd",                 "nc")
 
 // LIC Queues Builtins
 BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
+BUILTIN(__builtin_csa_lic_preload, "v.", "nt")
 BUILTIN(__builtin_csa_lic_write, "v.", "nt")
 BUILTIN(__builtin_csa_lic_read, "d.", "nt")
 

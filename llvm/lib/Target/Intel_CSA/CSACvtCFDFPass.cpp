@@ -2660,6 +2660,16 @@ void CSACvtCFDFPass::lowerLicQueue() {
         LicToReg[licNum] = LicReg;
         ToDelete.push_back(&MI);
       }
+      else if (MI.getOpcode() == CSA::CSA_LIC_PRELOAD) {
+        unsigned licNum = MI.getOperand(0).getImm();
+        unsigned reg =  LicToReg[licNum];
+        const auto InsertPoint   = std::next(MachineBasicBlock::iterator{MI});
+        MachineInstr *initInst = BuildMI(*MI.getParent(), InsertPoint,
+          MI.getDebugLoc(), TII->get(CSA::INIT64)).addDef(reg).
+          addImm(MI.getOperand(1).getImm());
+        initInst->setFlag(MachineInstr::NonSequential);
+        ToDelete.push_back(&MI);
+      }
       else if (MI.getOpcode() == CSA::CSA_LIC_WRITE) {
         unsigned licNum = MI.getOperand(0).getImm();
         unsigned reg =  LicToReg[licNum];

@@ -2692,6 +2692,12 @@ def CSA_LIC_INIT : PseudoInstCSA<
     "# .csa_lower_lic_init $lic, $size, $depth, $desired_depth",
     [(int_csa_lower_lic_init imm:$lic, imm:$size, imm:$depth, imm:$desired_depth)]>;
 
+def CSA_LIC_PRELOAD : PseudoInstCSA<
+    (outs),
+    (ins i32imm:$lic, i64imm:$val),
+    "# .csa_lower_lic_preload \t$lic, $val",
+    [(int_csa_lower_lic_preload imm:$lic, imm:$val)]>;
+
 def CSA_LIC_WRITE : PseudoInstCSA<
     (outs),
     (ins i32imm:$lic, CI64:$val),

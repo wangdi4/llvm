@@ -13949,7 +13949,15 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_init);
     return Builder.CreateCall(Callee, {X, Y, Z});
   }
-
+  case CSA::BI__builtin_csa_lic_preload: {
+    Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)),
+                                          Int32Ty);
+    const Expr *PtrArg = E->getArg(1);
+    Value *Y = EmitScalarExpr(PtrArg);
+    llvm::Type *OverloadTy = ConvertType(PtrArg->getType());
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_preload, {OverloadTy});
+    return Builder.CreateCall(Callee, {X, Y});
+  }
   case CSA::BI__builtin_csa_lic_write: {
     Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)),
                                           Int32Ty);
