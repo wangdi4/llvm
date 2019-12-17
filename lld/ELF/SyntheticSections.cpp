@@ -2445,6 +2445,7 @@ void HashTableSection::writeTo(uint8_t *buf) {
 
 // On PowerPC64 the lazy symbol resolvers go into the `global linkage table`
 // in the .glink section, rather then the typical .plt section.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 PltSection::PltSection(bool isIplt)
     : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ""),
@@ -2463,6 +2464,14 @@ PltSection::PltSection(bool isIplt)
   // A retpoline PLT always has a header even for IPLT.
   if (config->zRetpolineplt)
     headerSize = target->pltHeaderSize;
+=======
+PltSection::PltSection()
+    : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".plt"),
+      headerSize(target->pltHeaderSize) {
+  if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
+    name = ".glink";
+  }
+>>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
 
   // The PLT needs to be writable on SPARC as the dynamic linker will
   // modify the instructions in the PLT entries.
@@ -2477,10 +2486,9 @@ void PltSection::writeTo(uint8_t *buf) {
     return;
   }
 
-  // At beginning of PLT or retpoline IPLT, we have code to call the dynamic
+  // At beginning of PLT, we have code to call the dynamic
   // linker to resolve dynsyms at runtime. Write such code.
-  if (headerSize)
-    target->writePltHeader(buf);
+  target->writePltHeader(buf);
   size_t off = headerSize;
 
   for (size_t i = 0, e = entries.size(); i != e; ++i) {
@@ -2501,12 +2509,15 @@ size_t PltSection::getSize() const {
   return headerSize + entries.size() * target->pltEntrySize;
 }
 
-// Some architectures such as additional symbols in the PLT section. For
-// example ARM uses mapping symbols to aid disassembly
+bool PltSection::isNeeded() const {
+  // For -z retpolineplt, .iplt needs the .plt header.
+  return !entries.empty() || (config->zRetpolineplt && in.iplt->isNeeded());
+}
+
+// Used by ARM to add mapping symbols in the PLT section, which aid
+// disassembly.
 void PltSection::addSymbols() {
-  // The PLT may have symbols defined for the Header, the IPLT has no header
-  if (!isIplt)
-    target->addPltHeaderSymbols(*this);
+  target->addPltHeaderSymbols(*this);
 
   size_t off = headerSize;
   for (size_t i = 0; i < entries.size(); ++i) {
@@ -2515,6 +2526,7 @@ void PltSection::addSymbols() {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This is an x86-only extra PLT section and used only when a security
 // enhancement feature called CET is enabled. In this comment, I'll explain what
@@ -2587,6 +2599,41 @@ size_t IBTPltSection::getSize() const {
 }
 
 #endif // INTEL_CUSTOMIZATION
+=======
+IpltSection::IpltSection()
+    : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".plt") {
+  if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
+    name = ".glink";
+  }
+}
+
+void IpltSection::writeTo(uint8_t *buf) {
+  uint32_t off = 0;
+  for (const Symbol *sym : entries) {
+    target->writeIplt(buf + off, sym->getGotPltVA(), getVA() + off,
+                      sym->pltIndex);
+    off += target->ipltEntrySize;
+  }
+}
+
+size_t IpltSection::getSize() const {
+  return entries.size() * target->ipltEntrySize;
+}
+
+void IpltSection::addEntry(Symbol &sym) {
+  sym.pltIndex = entries.size();
+  entries.push_back(&sym);
+}
+
+// ARM uses mapping symbols to aid disassembly.
+void IpltSection::addSymbols() {
+  size_t off = 0;
+  for (size_t i = 0, e = entries.size(); i != e; ++i) {
+    target->addPltSymbols(*this, off);
+    off += target->pltEntrySize;
+  }
+}
+>>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
 
 // The string hash function for .gdb_index.
 static uint32_t computeGdbHash(StringRef s) {

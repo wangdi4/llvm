@@ -662,16 +662,15 @@ private:
   size_t size = 0;
 };
 
-// The PltSection is used for both the Plt and Iplt. The former usually has a
-// header as its first entry that is used at run-time to resolve lazy binding.
-// The latter is used for GNU Ifunc symbols, that will be subject to a
-// Target->IRelativeRel.
+// Used for PLT entries. It usually has a PLT header for lazy binding. Each PLT
+// entry is associated with a JUMP_SLOT relocation, which may be resolved lazily
+// at runtime.
 class PltSection : public SyntheticSection {
 public:
-  PltSection(bool isIplt);
+  PltSection();
   void writeTo(uint8_t *buf) override;
   size_t getSize() const override;
-  bool isNeeded() const override { return !entries.empty(); }
+  bool isNeeded() const override;
   void addSymbols();
   void addEntry(Symbol &sym);
 #if INTEL_CUSTOMIZATION
@@ -681,7 +680,22 @@ public:
 
 private:
   std::vector<const Symbol *> entries;
-  bool isIplt;
+};
+
+// Used for non-preemptible ifuncs. It does not have a header. Each entry is
+// associated with an IRELATIVE relocation, which will be resolved eagerly at
+// runtime. PltSection cannot can only contain entries associated with JUMP_SLOT
+// relocations, so IPLT entries are in a separate section.
+class IpltSection final : public SyntheticSection {
+  std::vector<const Symbol *> entries;
+
+public:
+  IpltSection();
+  void writeTo(uint8_t *buf) override;
+  size_t getSize() const override;
+  bool isNeeded() const override { return !entries.empty(); }
+  void addSymbols();
+  void addEntry(Symbol &sym);
 };
 
 #if INTEL_CUSTOMIZATION
@@ -1174,10 +1188,14 @@ struct InStruct {
   SyntheticSection *partEnd;
   SyntheticSection *partIndex;
   PltSection *plt;
+<<<<<<< HEAD
   PltSection *iplt;
 #if INTEL_CUSTOMIZATION
   IBTPltSection *ibtPlt;
 #endif // INTEL_CUSTOMIZATION
+=======
+  IpltSection *iplt;
+>>>>>>> 891a8655ab563055e21c1f8a3907f9c43fe5c583
   PPC32Got2Section *ppc32Got2;
   RelocationBaseSection *relaPlt;
   RelocationBaseSection *relaIplt;
