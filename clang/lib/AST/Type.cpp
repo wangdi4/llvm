@@ -1889,6 +1889,12 @@ bool Type::isIntegralOrUnscopedEnumerationType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Int128;
+
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   return isUnscopedEnumerationType();
 }
 
@@ -1899,11 +1905,6 @@ bool Type::isUnscopedEnumerationType() const {
   // considered complete.
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
-
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(CanonicalType))
-    return true;
-#endif // INTEL_CUSTOMIZATION
 
   return false;
 }

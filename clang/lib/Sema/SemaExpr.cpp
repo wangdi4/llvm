@@ -9743,18 +9743,14 @@ QualType Sema::CheckMultiplyDivideOperands(ExprResult &LHS, ExprResult &RHS,
                                /*AllowBothBool*/getLangOpts().AltiVec,
                                /*AllowBoolConversions*/false);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType())
     return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
 #endif // INTEL_CUSTOMIZATION
 
-  QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
-=======
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, IsCompAssign ? ACK_CompAssign : ACK_Arithmetic);
->>>>>>> 4b0029995853fe37d1dc95ef96f46697c743fcad
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
 
@@ -9782,18 +9778,14 @@ QualType Sema::CheckRemainderOperands(
     return InvalidOperands(Loc, LHS, RHS);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType())
     return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
 #endif // INTEL_CUSTOMIZATION
 
-  QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
-=======
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, IsCompAssign ? ACK_CompAssign : ACK_Arithmetic);
->>>>>>> 4b0029995853fe37d1dc95ef96f46697c743fcad
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
 
@@ -10100,7 +10092,6 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType()) {
@@ -10112,11 +10103,8 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
-=======
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, CompLHSTy ? ACK_CompAssign : ACK_Arithmetic);
->>>>>>> 4b0029995853fe37d1dc95ef96f46697c743fcad
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
 
@@ -10210,7 +10198,6 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType()) {
@@ -10222,11 +10209,8 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
-=======
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, CompLHSTy ? ACK_CompAssign : ACK_Arithmetic);
->>>>>>> 4b0029995853fe37d1dc95ef96f46697c743fcad
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
 
