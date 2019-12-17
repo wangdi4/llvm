@@ -673,11 +673,17 @@ public:
   size_t getSize() const override;
   bool isNeeded() const override { return !entries.empty(); }
   void addSymbols();
+<<<<<<< HEAD
   template <class ELFT> void addEntry(Symbol &sym);
 #if INTEL_CUSTOMIZATION
   size_t getNumEntries() { return entries.size(); }
   size_t headerSize = 0;
 #endif // INTEL_CUSTOMIZATION
+=======
+  void addEntry(Symbol &sym);
+
+  size_t headerSize;
+>>>>>>> 98afa2c1f1a040afc02be10d5a58bf7e87c38cc1
 
 private:
   std::vector<const Symbol *> entries;

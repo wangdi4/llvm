@@ -2498,7 +2498,7 @@ void PltSection::writeTo(uint8_t *buf) {
   }
 }
 
-template <class ELFT> void PltSection::addEntry(Symbol &sym) {
+void PltSection::addEntry(Symbol &sym) {
   sym.pltIndex = entries.size();
   entries.push_back(&sym);
 }
@@ -3705,11 +3705,6 @@ template void splitSections<ELF32LE>();
 template void splitSections<ELF32BE>();
 template void splitSections<ELF64LE>();
 template void splitSections<ELF64BE>();
-
-template void PltSection::addEntry<ELF32LE>(Symbol &Sym);
-template void PltSection::addEntry<ELF32BE>(Symbol &Sym);
-template void PltSection::addEntry<ELF64LE>(Symbol &Sym);
-template void PltSection::addEntry<ELF64BE>(Symbol &Sym);
 
 template class MipsAbiFlagsSection<ELF32LE>;
 template class MipsAbiFlagsSection<ELF32BE>;
