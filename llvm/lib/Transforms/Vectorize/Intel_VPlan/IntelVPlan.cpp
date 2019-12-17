@@ -828,6 +828,23 @@ void VPInstruction::execute(VPTransformState &State) {
     generateInstruction(State, Part);
 }
 
+bool VPInstruction::mayHaveSideEffects() const {
+  if (auto *Instr = getInstruction())
+    return Instr->mayHaveSideEffects();
+
+  // TODO: Probably should be unified with llvm::Instruction's opcode
+  // handling. Harder to do without INTEL_CUSTOMIZATION before VPlan
+  // upstreaming.
+  unsigned Opcode = getOpcode();
+  if (Instruction::isCast(Opcode) || Instruction::isShift(Opcode) ||
+      Instruction::isBitwiseLogicOp(Opcode) ||
+      Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
+      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr)
+    return false;
+
+  return true;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   switch (Opcode) {
