@@ -1115,7 +1115,7 @@ public:
         &getAnalysis<WholeProgramWrapperPass>().getResult();
 
     auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<const TargetLibraryInfoWrapperPass>().getTLI(F);
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
     // Implementation of the optimization
