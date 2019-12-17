@@ -21,6 +21,8 @@
 MODULE_ANALYSIS("callgraph", CallGraphAnalysis())
 #if INTEL_INCLUDE_DTRANS
 MODULE_ANALYSIS("dtransanalysis", DTransAnalysis())    // INTEL
+MODULE_ANALYSIS("dtrans-fieldmodref-analysis", DTransFieldModRefAnalysis()) // INTEL
+MODULE_ANALYSIS("dtrans-fieldmodref-result", DTransFieldModRefResult()) // INTEL
 MODULE_ANALYSIS("dtrans-immutable-analysis", DTransImmutableAnalysis()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_ANALYSIS("inlineaggressive", InlineAggAnalysis())    // INTEL

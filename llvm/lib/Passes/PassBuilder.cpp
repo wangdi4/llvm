@@ -1169,6 +1169,12 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
     // Andersen's IP alias analysis
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
+
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
+#endif // INTEL_INCLUDE_DTRANS
+
 #endif // INTEL_CUSTOMIZATION
   // Re-require GloblasAA here prior to function passes. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
