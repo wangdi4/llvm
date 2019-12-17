@@ -1231,30 +1231,6 @@ OclBuiltinImpl sub_group_shuffle_up_avx2_v8d64 = OclBuiltinImpl<sub_group_shuffl
      return *($Arg0Type*)&temp;
 }]>;
 
-OclBuiltinImpl intel_sub_group_block_read1_4_avx2 = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v1u32 ], 0,
-  [{
-    const uint4 res = *(uint4*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 1, 2, 3));
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_read2_4_avx2 = OclBuiltinImpl<intel_sub_group_block_read2_4, [ v1u32 ], 0,
-  [{
-    const uint8 res = *(uint8*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 4, 1, 5, 2, 6, 3, 7));
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_read4_4_avx2 = OclBuiltinImpl<intel_sub_group_block_read4_4, [ v1u32 ], 0,
-  [{
-    const uint16 res = *(uint16*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15));
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_read8_4_avx2 = OclBuiltinImpl<intel_sub_group_block_read8_4, [ v1u32 ], 0,
-  [{
-    const uint32 res = *(uint32*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 4, 8, 12, 16, 20, 24, 28, 1, 5, 9, 13, 17, 21, 25, 29, 2, 6, 10, 14, 18, 22, 26, 30, 3, 7, 11, 15, 19, 23, 27, 31));
-  }]>;
-
 OclBuiltinImpl intel_sub_group_block_read1_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v1u32 ], 0,
   [{
     const uint8 res = *(uint8*)($Arg0VarName);
@@ -1277,30 +1253,6 @@ OclBuiltinImpl intel_sub_group_block_read8_8_avx2 = OclBuiltinImpl<intel_sub_gro
   [{
     const uint64 res = *(uint64*)($Arg0VarName);
     return ($ReturnType)(__builtin_shufflevector(res, res, 0, 8, 16, 24, 32, 40, 48, 56, 1, 9, 17, 25, 33, 41, 49, 57, 2, 10, 18, 26, 34, 42, 50, 58, 3, 11, 19, 27, 35, 43, 51, 59, 4, 12, 20, 28, 36, 44, 52, 60, 5, 13, 21, 29, 37, 45, 53, 61, 6, 14, 22, 30, 38, 46, 54, 62, 7, 15, 23, 31, 39, 47, 55, 63));
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_write1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v1u32 ], 0,
-  [{
-    uint4 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3);
-    *(uint4 *)($Arg0VarName) = res;
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_write2_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_4, [ v1u32 ], 0,
-  [{
-    uint8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 4, 1, 5, 2, 6, 3, 7);
-    *(uint8 *)($Arg0VarName) = res;
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_write4_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_4, [ v1u32 ], 0,
-  [{
-    uint16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15);
-    *(uint16 *)($Arg0VarName) = res;
-  }]>;
-
-OclBuiltinImpl intel_sub_group_block_write8_4_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_4, [ v1u32 ], 0,
-  [{
-    uint32 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 4, 8, 12, 16, 20, 24, 28, 1, 5, 9, 13, 17, 21, 25, 29, 2, 6, 10, 14, 18, 22, 26, 30, 3, 7, 11, 15, 19, 23, 27, 31);
-    *(uint32 *)($Arg0VarName) = res;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v1u32 ], 0,
