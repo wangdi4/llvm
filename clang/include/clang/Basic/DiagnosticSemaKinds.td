@@ -6291,6 +6291,8 @@ def ext_typecheck_ordered_comparison_of_pointer_and_zero : Extension<
   "ordered comparison between pointer and zero (%0 and %1) is an extension">;
 def err_typecheck_ordered_comparison_of_pointer_and_zero : Error<
   "ordered comparison between pointer and zero (%0 and %1)">;
+def err_typecheck_three_way_comparison_of_pointer_and_zero : Error<
+  "three-way comparison between pointer and zero">;
 def ext_typecheck_ordered_comparison_of_function_pointers : ExtWarn<
   "ordered comparison of function pointers (%0 and %1)">,
   InGroup<DiagGroup<"ordered-compare-function-pointers">>;
@@ -6778,7 +6780,7 @@ def err_upcast_to_inaccessible_base : Error<
 def err_bad_dynamic_cast_not_ref_or_ptr : Error<
   "invalid target type %0 for dynamic_cast; target type must be a reference or pointer type to a defined class">;
 def err_bad_dynamic_cast_not_class : Error<"%0 is not a class type">;
-def err_bad_dynamic_cast_incomplete : Error<"%0 is an incomplete type">;
+def err_bad_cast_incomplete : Error<"%0 is an incomplete type">;
 def err_bad_dynamic_cast_not_ptr : Error<"cannot use dynamic_cast to convert from %0 to %1">;
 def err_bad_dynamic_cast_not_polymorphic : Error<"%0 is not polymorphic">;
 
@@ -10310,6 +10312,8 @@ def err_std_compare_type_not_supported : Error<
    "the type does not have the expected form}1">;
 def note_rewriting_operator_as_spaceship : Note<
   "while rewriting comparison as call to 'operator<=>' declared here">;
+def err_three_way_vector_comparison : Error<
+  "three-way comparison between vectors is not supported">;
 
 // Memory Tagging Extensions (MTE) diagnostics
 def err_memtag_arg_null_or_pointer : Error<
