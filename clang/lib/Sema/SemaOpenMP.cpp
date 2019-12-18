@@ -4948,16 +4948,13 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_from:
       case OMPC_use_device_ptr:
       case OMPC_is_device_ptr:
-<<<<<<< HEAD
+      case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-      case OMPC_nontemporal:
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -10968,16 +10965,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
   case OMPC_match:
-<<<<<<< HEAD
+  case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_nontemporal:
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12217,16 +12211,13 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_dynamic_allocators:
   case OMPC_device_type:
   case OMPC_match:
-<<<<<<< HEAD
+  case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_nontemporal:
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12407,16 +12398,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
   case OMPC_match:
-<<<<<<< HEAD
+  case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_nontemporal:
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12628,16 +12616,13 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
   case OMPC_match:
-<<<<<<< HEAD
+  case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_nontemporal:
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -17569,7 +17554,52 @@ OMPClause *Sema::ActOnOpenMPAllocateClause(
                                    ColonLoc, EndLoc, Vars);
 }
 
-<<<<<<< HEAD
+OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
+                                              SourceLocation StartLoc,
+                                              SourceLocation LParenLoc,
+                                              SourceLocation EndLoc) {
+  SmallVector<Expr *, 8> Vars;
+  for (Expr *RefExpr : VarList) {
+    assert(RefExpr && "NULL expr in OpenMP nontemporal clause.");
+    SourceLocation ELoc;
+    SourceRange ERange;
+    Expr *SimpleRefExpr = RefExpr;
+    auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
+    if (Res.second)
+      // It will be analyzed later.
+      Vars.push_back(RefExpr);
+    ValueDecl *D = Res.first;
+    if (!D)
+      continue;
+
+    auto *VD = dyn_cast<VarDecl>(D);
+
+    // OpenMP 5.0, 2.9.3.1 simd Construct, Restrictions.
+    // A list-item cannot appear in more than one nontemporal clause.
+    if (const Expr *PrevRef =
+            DSAStack->addUniqueNontemporal(D, SimpleRefExpr)) {
+      Diag(ELoc, diag::err_omp_used_in_clause_twice)
+          << 0 << getOpenMPClauseName(OMPC_nontemporal) << ERange;
+      Diag(PrevRef->getExprLoc(), diag::note_omp_explicit_dsa)
+          << getOpenMPClauseName(OMPC_nontemporal);
+      continue;
+    }
+
+    DeclRefExpr *Ref = nullptr;
+    if (!VD && isOpenMPCapturedDecl(D) && !CurContext->isDependentContext())
+      Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/true);
+    Vars.push_back((VD || !Ref || CurContext->isDependentContext())
+                       ? RefExpr->IgnoreParens()
+                       : Ref);
+  }
+
+  if (Vars.empty())
+    return nullptr;
+
+  return OMPNontemporalClause::Create(Context, StartLoc, LParenLoc, EndLoc,
+                                      Vars);
+}
+
 #if INTEL_CUSTOMIZATION
 OMPClause *Sema::ActOnOpenMPTileClause(ArrayRef<Expr *> Sizes,
                                        SourceLocation StartLoc,
@@ -17643,50 +17673,3 @@ OMPClause *Sema::ActOnOpenMPDataflowClause(Expr *StaticChunkSize,
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
-                                              SourceLocation StartLoc,
-                                              SourceLocation LParenLoc,
-                                              SourceLocation EndLoc) {
-  SmallVector<Expr *, 8> Vars;
-  for (Expr *RefExpr : VarList) {
-    assert(RefExpr && "NULL expr in OpenMP nontemporal clause.");
-    SourceLocation ELoc;
-    SourceRange ERange;
-    Expr *SimpleRefExpr = RefExpr;
-    auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
-    if (Res.second)
-      // It will be analyzed later.
-      Vars.push_back(RefExpr);
-    ValueDecl *D = Res.first;
-    if (!D)
-      continue;
-
-    auto *VD = dyn_cast<VarDecl>(D);
-
-    // OpenMP 5.0, 2.9.3.1 simd Construct, Restrictions.
-    // A list-item cannot appear in more than one nontemporal clause.
-    if (const Expr *PrevRef =
-            DSAStack->addUniqueNontemporal(D, SimpleRefExpr)) {
-      Diag(ELoc, diag::err_omp_used_in_clause_twice)
-          << 0 << getOpenMPClauseName(OMPC_nontemporal) << ERange;
-      Diag(PrevRef->getExprLoc(), diag::note_omp_explicit_dsa)
-          << getOpenMPClauseName(OMPC_nontemporal);
-      continue;
-    }
-
-    DeclRefExpr *Ref = nullptr;
-    if (!VD && isOpenMPCapturedDecl(D) && !CurContext->isDependentContext())
-      Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/true);
-    Vars.push_back((VD || !Ref || CurContext->isDependentContext())
-                       ? RefExpr->IgnoreParens()
-                       : Ref);
-  }
-
-  if (Vars.empty())
-    return nullptr;
-
-  return OMPNontemporalClause::Create(Context, StartLoc, LParenLoc, EndLoc,
-                                      Vars);
-}
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9

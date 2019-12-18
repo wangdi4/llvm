@@ -221,16 +221,13 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
   case OMPC_match:
-<<<<<<< HEAD
+  case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_nontemporal:
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
     break;
   }
 
@@ -1178,7 +1175,25 @@ OMPIsDevicePtrClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPIsDevicePtrClause(Sizes);
 }
 
-<<<<<<< HEAD
+OMPNontemporalClause *OMPNontemporalClause::Create(const ASTContext &C,
+                                                   SourceLocation StartLoc,
+                                                   SourceLocation LParenLoc,
+                                                   SourceLocation EndLoc,
+                                                   ArrayRef<Expr *> VL) {
+  // Allocate space for nontemporal variables.
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
+  auto *Clause =
+      new (Mem) OMPNontemporalClause(StartLoc, LParenLoc, EndLoc, VL.size());
+  Clause->setVarRefs(VL);
+  return Clause;
+}
+
+OMPNontemporalClause *OMPNontemporalClause::CreateEmpty(const ASTContext &C,
+                                                        unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
+  return new (Mem) OMPNontemporalClause(N);
+}
+
 #if INTEL_CUSTOMIZATION
 OMPTileClause *OMPTileClause::Create(const ASTContext &C,
                                      SourceLocation StartLoc,
@@ -1217,26 +1232,6 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
   return getTrailingObjects<Expr *>()[NumLoop];
 }
 #endif // INTEL_CUSTOMIZATION
-=======
-OMPNontemporalClause *OMPNontemporalClause::Create(const ASTContext &C,
-                                                   SourceLocation StartLoc,
-                                                   SourceLocation LParenLoc,
-                                                   SourceLocation EndLoc,
-                                                   ArrayRef<Expr *> VL) {
-  // Allocate space for nontemporal variables.
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
-  auto *Clause =
-      new (Mem) OMPNontemporalClause(StartLoc, LParenLoc, EndLoc, VL.size());
-  Clause->setVarRefs(VL);
-  return Clause;
-}
-
-OMPNontemporalClause *OMPNontemporalClause::CreateEmpty(const ASTContext &C,
-                                                        unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
-  return new (Mem) OMPNontemporalClause(N);
-}
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
 
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods

@@ -357,16 +357,13 @@ OPENMP_CLAUSE(reverse_offload, OMPReverseOffloadClause)
 OPENMP_CLAUSE(dynamic_allocators, OMPDynamicAllocatorsClause)
 OPENMP_CLAUSE(atomic_default_mem_order, OMPAtomicDefaultMemOrderClause)
 OPENMP_CLAUSE(allocate, OMPAllocateClause)
-<<<<<<< HEAD
+OPENMP_CLAUSE(nontemporal, OMPNontemporalClause)
 #if INTEL_CUSTOMIZATION
 OPENMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
 OPENMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-OPENMP_CLAUSE(nontemporal, OMPNontemporalClause)
->>>>>>> b6e7084e25ad0592b8e29ceea6462952e2ad79b9
 
 // Clauses allowed for OpenMP directive 'parallel'.
 OPENMP_PARALLEL_CLAUSE(if)
