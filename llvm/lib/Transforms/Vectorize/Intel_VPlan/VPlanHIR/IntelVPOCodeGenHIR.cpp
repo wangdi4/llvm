@@ -497,6 +497,14 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
+    if (Opcode == Instruction::Alloca) {
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(
+          dbgs() << "VPLAN_OPTREPORT: Loop not handled - alloca instruction\n");
+      IsHandled = false;
+      return;
+    }
+
     // Handling liveouts for privates/inductions is not implemented in
     // VPValue-based CG. The checks below enable the following -
     // 1. For full VPValue-based CG all reductions are supported.

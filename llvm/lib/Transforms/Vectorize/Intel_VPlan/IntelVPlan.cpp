@@ -829,8 +829,19 @@ void VPInstruction::execute(VPTransformState &State) {
 }
 
 bool VPInstruction::mayHaveSideEffects() const {
-  if (auto *Instr = getInstruction())
-    return Instr->mayHaveSideEffects();
+  if (auto *Instr = getInstruction()) {
+    if (Instr->mayHaveSideEffects())
+      return true;
+
+    // mayHaveSideEffects does not consider malloc/alloca to have side effects.
+    // Do more checks.
+    if (isa<AllocaInst>(Instr))
+      return true;
+
+    // FIXME: malloc-like routines.
+
+    return false;
+  }
 
   // TODO: Probably should be unified with llvm::Instruction's opcode
   // handling. Harder to do without INTEL_CUSTOMIZATION before VPlan
