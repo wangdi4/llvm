@@ -14,8 +14,7 @@
 namespace llvm {
 
 struct TimeTraceProfiler;
-extern thread_local std::unique_ptr<TimeTraceProfiler>
-    TimeTraceProfilerInstance;
+extern thread_local TimeTraceProfiler *TimeTraceProfilerInstance; // INTEL
 
 /// Initialize the time trace profiler.
 /// This sets up the global \p TimeTraceProfilerInstance
