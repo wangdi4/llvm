@@ -274,26 +274,31 @@ public:
   }
 
   // Reduction init/final
-  VPInstruction *createReductionInit(VPValue *Identity,
-                                     VPValue *Start = nullptr) {
+  VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
+                                     const Twine &Name = "") {
     VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
                                      : new VPReductionInit(Identity);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                         VPValue *StartValue, bool Sign) {
+                                         VPValue *StartValue, bool Sign,
+                                         const Twine &Name = "") {
     VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         const Twine &Name = "") {
     VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
@@ -303,9 +308,10 @@ public:
   VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
                                          VPValue *ParentExit,
                                          VPReductionFinal *ParentFinal,
-                                         bool Sign) {
+                                         bool Sign, const Twine &Name = "") {
     VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
@@ -313,31 +319,39 @@ public:
 
   // Induction init/final
   VPInstruction *createInductionInit(VPValue *Start, VPValue *Step,
-                                     Instruction::BinaryOps Opc) {
+                                     Instruction::BinaryOps Opc,
+                                     const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionInit(Start, Step, Opc);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPInstruction *createInductionInitStep(VPValue *Step,
-                                         Instruction::BinaryOps Opcode) {
+                                         Instruction::BinaryOps Opcode,
+                                         const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionInitStep(Step, Opcode);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createInductionFinal(VPValue *InducVec) {
+  VPInstruction *createInductionFinal(VPValue *InducVec,
+                                      const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionFinal(InducVec);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPInstruction *createInductionFinal(VPValue *Start, VPValue *Step,
-                                      Instruction::BinaryOps Opcode) {
+                                      Instruction::BinaryOps Opcode,
+                                      const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionFinal(Start, Step, Opcode);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;

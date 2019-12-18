@@ -686,12 +686,21 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     // Currently, we use broadcast-only for FP data types and min/max
     // reductions. For integers and pointers we use the broadcast-and-insert
     // method.
+    StringRef Name;
+    if (AI)
+      Name = AI->getName();
+    else {
+      VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
+      Name = PhiN ? PhiN->getName() : "";
+    }
     bool StartIncluded = !Ty->isFloatingPointTy();
     VPInstruction *Init =
         StartIncluded && !Reduction->isMinMax()
             ? Builder.createReductionInit(Identity,
-                                          Reduction->getRecurrenceStartValue())
-            : Builder.createReductionInit(Identity);
+                                          Reduction->getRecurrenceStartValue(),
+                                          Name + ".red.init")
+            : Builder.createReductionInit(Identity, nullptr /* Start */,
+                                          Name + ".red.init");
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
     Plan.getVPlanDA()->markDivergent(*Init);
@@ -713,13 +722,13 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       VPInstruction *ParentExit;
       VPReductionFinal *ParentFinal;
       std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
-      Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
-                                           Exit, ParentExit, ParentFinal,
-                                           Reduction->isSigned());
+      Final = Builder.createReductionFinal(
+          Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
+          Reduction->isSigned(), Name + ".red.final");
     } else {
       if (StartIncluded || Reduction->isMinMax()) {
-        Final =
-            Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit);
+        Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
+                                             Exit, Name + ".red.final");
       } else {
         // Create a load for Start value if it's a pointer.
         VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
@@ -729,10 +738,9 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
           FinalStartValue =
               Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
         }
-
-        Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
-                                             Exit, FinalStartValue,
-                                             Reduction->isSigned());
+        Final = Builder.createReductionFinal(
+            Reduction->getReductionOpcode(), Exit, FinalStartValue,
+            Reduction->isSigned(), Name + ".red.final");
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
     }
@@ -763,12 +771,21 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
-    VPInstruction *Init =
-        Builder.createInductionInit(Start, Induction->getStep(), Opc);
+    StringRef Name;
+    if (AI)
+      Name = AI->getName();
+    else {
+      VPPHINode *PhiN = getRecurrentVPHINode(*Induction);
+      Name = PhiN ? PhiN->getName() : "";
+    }
+    VPInstruction *Init = Builder.createInductionInit(
+        Start, Induction->getStep(), Opc, Name + ".ind.init");
     Plan.getVPlanDA()->markDivergent(*Init);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-    VPInstruction *InitStep =
-        Builder.createInductionInitStep(Induction->getStep(), Opc);
+
+    VPInstruction *InitStep = Builder.createInductionInitStep(
+        Induction->getStep(), Opc, Name + ".ind.init.step");
+
     if (!Induction->needCloseForm()) {
       auto &LinkedVals = Induction->getLinkedVPValues();
       for (auto *Val : LinkedVals)
@@ -791,8 +808,9 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
             : ExitInstr;
     VPInstruction *Final =
         IsExtract && Exit
-            ? Builder.createInductionFinal(Exit)
-            : Builder.createInductionFinal(Start, Induction->getStep(), Opc);
+            ? Builder.createInductionFinal(Exit, Name + ".ind.final")
+            : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
+                                           Name + ".ind.final");
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
 }
