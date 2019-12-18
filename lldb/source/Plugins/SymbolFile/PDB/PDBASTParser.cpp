@@ -16,7 +16,7 @@
 
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/ClangASTContext.h"
-#include "lldb/Symbol/ClangExternalASTSourceCommon.h"
+#include "lldb/Symbol/ClangASTMetadata.h"
 #include "lldb/Symbol/ClangUtil.h"
 #include "lldb/Symbol/Declaration.h"
 #include "lldb/Symbol/SymbolFile.h"
@@ -1207,7 +1207,7 @@ bool PDBASTParser::CompleteTypeFromUDT(
   if (!record_decl)
     return static_cast<bool>(compiler_type);
 
-  GetClangASTImporter().InsertRecordDecl(record_decl, layout_info);
+  GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
 
   return static_cast<bool>(compiler_type);
 }
