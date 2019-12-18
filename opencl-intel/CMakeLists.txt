@@ -181,6 +181,9 @@ else (WIN32)
     set (BUILD_PLATFORM "")
 endif (WIN32)
 
+set_property(GLOBAL PROPERTY CXX_STANDARD 14)
+set_property(GLOBAL PROPERTY C_STANDARD 99)
+
 if (OPENCL_INTREE_BUILD)
   get_target_property(COMMON_CLANG_H_LOC common_clang${BUILD_PLATFORM} SOURCE_DIR)
   if ((NOT COMMON_CLANG_H_LOC) OR
