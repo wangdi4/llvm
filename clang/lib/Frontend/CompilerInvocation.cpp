@@ -3870,9 +3870,13 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   if (LangOpts.OpenMPIsDevice)
     Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
 
-  // Set the triple of the host for SYCL device compile.
-  if (LangOpts.SYCLIsDevice)
+#if INTEL_CUSTOMIZATION
+  // Set the triple of the host for SYCL device compile and HLS IntelFPGA
+  // compile.
+  if (LangOpts.SYCLIsDevice ||
+      (LangOpts.HLS && T.getEnvironment() == llvm::Triple::IntelFPGA))
     Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Override value name discarding when asan or msan is used because the
   // backend passes depend on the name of the alloca in order to print out

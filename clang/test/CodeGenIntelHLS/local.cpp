@@ -25,11 +25,11 @@
 //CHECK: @_ZL14global_const17 = internal constant i32 0, align 4
 //CHECK: [[ANN15:@.str[\.]*[0-9]*]] = {{.*}}{memory:MLAB}{sizeinfo:4}{pump:2}
 //CHECK: @_ZL14global_const18 = internal constant i32 0, align 4
-//CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}
+//CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:0}
 //CHECK: @_ZL14global_const19 = internal constant i32 0, align 4
-//CHECK: [[ANN17:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}
+//CHECK: [[ANN17:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}
 //CHECK: @_ZL14global_const20 = internal constant i32 0, align 4
-//CHECK: [[ANN18:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:2}{memory_layout:PADDED}
+//CHECK: [[ANN18:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:2}{force_pow2_depth:1}
 //CHECK: [[ANN2A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:4}{bank_bits:5,4}
 //CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}
 //CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_concurrency:4}
@@ -38,12 +38,12 @@
 //CHECK: @[[Struct2:.*]] = internal global %struct.foo_five zeroinitializer, align 2
 //CHECK: [[ANN40:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1472,10}
 //CHECK: [[ANN41:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,120}
-//CHECK: [[ANN50:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1472,10}{memory_layout:COMPACT}
-//CHECK: [[ANN51:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1472,10}{memory_layout:PADDED}
+//CHECK: [[ANN50:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1472,10}{force_pow2_depth:0}
+//CHECK: [[ANN51:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1472,10}{force_pow2_depth:1}
 //CHECK: [[ANN42:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,16,8}{numbanks:2}{bank_bits:4}
 //CHECK: [[ANN43:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:2}{bank_bits:4}
 //CHECK: [[ANN44:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:2,10}{numbanks:2}{bank_bits:4}
-//CHECK: [[ANN45:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,16,8}{memory_layout:COMPACT}\00", section "llvm.metadata"
+//CHECK: [[ANN45:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,16,8}{force_pow2_depth:0}\00", section "llvm.metadata"
 //CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:1}{bankwidth:4}{numbanks:8}{bank_bits:2,3,4}{merge:merge_foo_one:depth}{max_concurrency:4}
 //CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{bank_bits:4,3,2}
 //CHECK: @llvm.global.annotations = appending global{{.*}}@_ZL13global_const1 {{.*}}[[ANN4]]{{.*}}@_ZL13global_const2{{.*}}[[ANN7]]{{.*}}@_ZL13global_const3{{.*}}[[ANN8]]{{.*}}@_ZL13global_const5{{.*}}@_ZL13global_const6{{.*}}[[ANN5B]]{{.*}}@_ZL13global_const7{{.*}}[[ANN2]]{{.*}}@_ZL13global_const8{{.*}}[[ANN2]]{{.*}}@_ZL14global_const11{{.*}}[[ANN13]]{{.*}}@_ZL14global_const12{{.*}}[[ANN6]]{{.*}}@_ZL14global_const13{{.*}}[[ANN9]]{{.*}}@_ZL14global_const16{{.*}}[[ANN14]]{{.*}}@_ZL14global_const17{{.*}}[[ANN15]]{{.*}}@_ZL14global_const18{{.*}}[[ANN16]]{{.*}}@_ZL14global_const19{{.*}}[[ANN17]]{{.*}}@_ZL14global_const20{{.*}}[[ANN18]]
@@ -60,9 +60,9 @@ const int __attribute__((__bankwidth__(4))) global_const12 = 0;
 const int __attribute__((merge("foo", "depth"))) global_const13 = 0;
 const int __attribute__((static_array_reset(1))) global_const16 = 0;
 const int __attribute__((doublepump, memory("MLAB"))) global_const17 = 0;
-const int __attribute__((__memory_layout__("compact"))) global_const18 = 0;
-const int __attribute__((__memory_layout__("padded"))) global_const19 = 0;
-const int __attribute__((doublepump, __memory_layout__("padded"))) global_const20 = 0;
+const int __attribute__((__force_pow2_depth__(0))) global_const18 = 0;
+const int __attribute__((__force_pow2_depth__(1))) global_const19 = 0;
+const int __attribute__((doublepump, __force_pow2_depth__(1))) global_const20 = 0;
 
 __attribute__((ihc_component))
 void foo_two() {
@@ -97,9 +97,9 @@ void foo_two() {
   //CHECK: llvm.var.annotation{{.*}}var_sixteen{{.*}}[[ANN15]]
   int __attribute__((doublepump, memory("MLAB"))) var_sixteen = 0;
   //CHECK: llvm.var.annotation{{.*}}var_seventeen{{.*}}[[ANN16]]
-  int __attribute__((__memory_layout__("compact"))) var_seventeen = 0;
+  int __attribute__((__force_pow2_depth__(0))) var_seventeen = 0;
   //CHECK: llvm.var.annotation{{.*}}var_eighteen{{.*}}[[ANN17]]
-  int __attribute__((__memory_layout__("padded"))) var_eighteen = 0;
+  int __attribute__((__force_pow2_depth__(1))) var_eighteen = 0;
 }
 
 template <int bankwidth, int numbanks, int readports, int writeports,
@@ -148,8 +148,8 @@ struct foo_three {
   int __attribute__((merge("foo", "depth"))) f13;
   int __attribute__((static_array_reset(1))) f16;
   int __attribute__((doublepump, memory("MLAB"))) f17;
-  int __attribute__((__memory_layout__("compact"))) f18;
-  int __attribute__((__memory_layout__("padded"))) f19;
+  int __attribute__((__force_pow2_depth__(0))) f18;
+  int __attribute__((__force_pow2_depth__(1))) f19;
 };
 
 static foo_three s1;
@@ -215,8 +215,8 @@ void bar2() {
 struct pack {
   int mem[120] __attribute__((memory));
   int reg[8];
-  int mem_one[120] __attribute__((__memory_layout__("compact")));
-  int mem_two[120] __attribute__((__memory_layout__("padded")));
+  int mem_one[120] __attribute__((__force_pow2_depth__(0)));
+  int mem_two[120] __attribute__((__force_pow2_depth__(1)));
 };
 
 int foo() {
@@ -226,9 +226,9 @@ int foo() {
   p1.mem[4] = 10;
   //CHECK: call [120 x i32]* @llvm.ptr.annotation.p0a120i32([120 x i32]* %mem, i8* getelementptr{{.*}}[[ANN41]]
   struct pack p3;
-  struct pack p4[10] __attribute__((__memory_layout__("compact")));
+  struct pack p4[10] __attribute__((__force_pow2_depth__(0)));
   //CHECK: call void @llvm.var.annotation(i8* %p42, i8* getelementptr{{.*}}[[ANN50]]
-  struct pack p5[10] __attribute__((__memory_layout__("padded")));
+  struct pack p5[10] __attribute__((__force_pow2_depth__(1)));
   //CHECK: call void @llvm.var.annotation(i8* %p53, i8* getelementptr{{.*}}[[ANN51]]
 
   return 0;
@@ -243,10 +243,10 @@ int main ()
   short c[10] __attribute__((bank_bits(4)));
   //CHECK: call void @llvm.var.annotation(i8* %c3, i8* getelementptr{{.*}}[[ANN44]]
 
-  int d[16][8] __attribute__((__memory_layout__("compact")));
+  int d[16][8] __attribute__((__force_pow2_depth__(0)));
   //CHECK: call void @llvm.var.annotation(i8* %d4, i8* getelementptr{{.*}}[[ANN45]]
 
-  int e __attribute__((__memory_layout__("padded")));
+  int e __attribute__((__force_pow2_depth__(1)));
   //CHECK: call void @llvm.var.annotation(i8* %e5, i8* getelementptr{{.*}}[[ANN17]]
 
   return 0;

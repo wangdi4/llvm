@@ -2475,37 +2475,38 @@ IR:
    }];
 }
 
-def MemoryLayoutDocs : Documentation {
+def ForcePow2DepthDocs : Documentation {
   let Category = DocCatIntelHLSAttributes;
-  let BugTracker = "CMPLRLLVM-10365";
+  let BugTracker = "CMPLRLLVM-11256";
   let RegressionTest = "";
   let Owner = "zahiraam";
   let Content = [{
-The 'memory_layout' attribute is applied to a variable in OpenCl and HSL. It
-takes a mandatory argument "type" which values are either "compact" or
-"padded".
+The 'force_pow2_depth' attribute is applied to a variable in OpenCl and HLS.
+It takes an integer argument between 0 and 1 that determines whether the memory
+implemented for the variable should have a power-of-2 depth or not.
 This attribute infers the 'memory' attribute, and it is illegal to apply it
 to the attribute 'register'.
 Syntax:
 
 .. code-block:: text
 
-   Type ::= 'compact' | 'padded';
-   __attribute__((memory_layout(<Type>)));
+   __attribute__((force_pow2_depth(n)));
+
+   where n is a non-negative integer constant between 0 and 1.
 
 Example:
 
 .. code-block:: c++
 
-   const int __attribute__((__memory_layout__("compact"))) gc = 0;
+   const int __attribute__((__force_pow2_depth__(0))) gc = 0;
 
    void foo ()
    {
-     int __attribute__((__memory_layout__("padded"))) lc;
+     int __attribute__((__force_pow2_depth__(1))) lc;
    }
 
    struct st {
-     int __attribute__((__memory_layout__("compact"))) f1;
+     int __attribute__((__force_pow2_depth__(0))) f1;
    };
 
    static st s1;
@@ -2517,46 +2518,51 @@ AST:
 
 .. code-block:: console
 
-  $ clang -cc1 -fhls -ast-dump.cpp t.cpp
+  $ clang -cc1 -fhls -ast-dump t.cpp
 
 .. code-block:: text
 
-   -VarDecl 0xf278e70 <t2.cpp:1:1, col:62> col:57 gc 'const int' cinit
-    -IntegerLiteral 0xf278f88 <col:62> 'int' 0
-    -IntelFPGAMemoryAttr 0x10661ed8 <<invalid sloc>> Implicit Default
-    `-MemoryLayoutAttr 0xf278ed8 <col:26, col:53> "compact"
+   -VarDecl 0xf5ec2d8 <t.cpp:1:1, col:57> col:52 gc 'const int' cinit
+    |-IntegerLiteral 0xf5ec430 <col:57> 'int' 0
+    |-IntelFPGAMemoryAttr 0xf5ec360 <<invalid sloc>> Implicit Default
+    `-ForcePow2DepthAttr 0xf5ec3b8 <col:26, col:48>
+      `-ConstantExpr 0xf5ec340 <col:47> 'int' Int: 0
+        `-IntegerLiteral 0xf5ec2a0 <col:47> 'int' 0
 
-    `-VarDecl 0xf2791a0 <col:6, col:55> col:55 lc 'int'
-    -IntelFPGAMemoryAttr 0x10662238 <<invalid sloc>> Implicit Default
-    `-MemoryLayoutAttr 0xf279208 <col:25, col:51> "padded"
+   -VarDecl 0xf5ec5d0 <col:3, col:48> col:48 lc 'int'
+    |-IntelFPGAMemoryAttr 0xf5ec658 <<invalid sloc>> Implicit Default
+    `-ForcePow2DepthAttr 0xf5ec6b0 <col:22, col:44>
+      `-ConstantExpr 0xf5ec638 <col:43> 'int' Int: 1
+        `-IntegerLiteral 0xf5ec598 <col:43> 'int' 1
 
-    -FieldDecl 0xf279480 <line:9:6, col:56> col:56 referenced f1 'int'
-    -IntelFPGAMemoryAttr 0x10662530 <<invalid sloc>> Implicit Default
-    `-MemoryLayoutAttr 0xf2794d0 <col:25, col:52> "compact"
-
+   -FieldDecl 0xf5ec8f0 <line:9:3, col:48> col:48 referenced f1 'int'
+    |-IntelFPGAMemoryAttr 0xf5ec960 <<invalid sloc>> Implicit Default
+     `-ForcePow2DepthAttr 0xf5ec9b8 <col:22, col:44>
+       `-ConstantExpr 0xf5ec940 <col:43> 'int' Int: 0
+         `-IntegerLiteral 0xf5ec8b8 <col:43> 'int' 0
 
 IR:
 
 .. code-block:: console
 
-  $ clang -fhls -emit-llvm -o - t.cpp
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
 
 .. code-block:: llvm
 
-   @.str = private unnamed_addr constant [24 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}\00"
-   @.str.2 = private unnamed_addr constant [23 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}\00"
+   @.str = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:0}\00"
+   @.str.2 = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}\00"
 
    define dso_local void @_Z3foov() #0 {
    entry:
      %lc = alloca i32, align 4
      %lc1 = bitcast i32* %lc to i8*
-     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([51 x i8], [51 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 5)
+     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 5)
      ret void
    }
 
    define dso_local void @_Z3barv() #0 {
    entry:
-     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([52 x i8], [52 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 9)
+     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
   store i32 0, i32* %0, align 4
      ret void
    }

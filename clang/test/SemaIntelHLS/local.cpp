@@ -70,15 +70,18 @@ __attribute__((__bank_bits__(2, 3, 4, 5))) const int global_const17 = 1;
 //CHECK: VarDecl {{.*}}global_const18
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-//CHECK: MemoryLayoutAttr{{.*}}"compact"
+//CHECK: ForcePow2DepthAttr
+//CHECK: IntegerLiteral{{.*}}0{{$}}
 
-__attribute__((__memory_layout__("compact"))) const int global_const18 = 1;
+__attribute__((__force_pow2_depth__(0))) const int global_const18 = 1;
 
 //CHECK: VarDecl{{.*}}global_const19
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-//CHECK: MemoryLayoutAttr{{.*}}"padded"
-__attribute__((__memory_layout__("padded"))) const int global_const19 = 1;
+//CHECK: ForcePow2DepthAttr
+//CHECK: IntegerLiteral{{.*}}1{{$}}
+
+__attribute__((__force_pow2_depth__(1))) const int global_const19 = 1;
 
 //CHECK: FunctionDecl{{.*}}foo1
 __attribute__((ihc_component))
@@ -233,14 +236,16 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}v_sixteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"padded"
-  __attribute__((__memory_layout__("padded")))
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}1{{$}}
+  __attribute__((__force_pow2_depth__(1)))
   static unsigned int v_sixteen[64];
 
   //CHECK: VarDecl{{.*}}v_seventeen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"compact"
-  __attribute__((__memory_layout__("compact")))
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}0{{$}}
+  __attribute__((__force_pow2_depth__(0)))
   static unsigned int v_seventeen[64];
 
   // diagnostics
@@ -601,20 +606,20 @@ void foo1()
   __attribute__((bank_bits(-1)))
   unsigned int bb_ten[4];
 
-  // memory_layout
-  // expected-error@+1{{'__memory_layout__' attribute argument must be 'compact', or 'padded'}}
-  __attribute__((__memory_layout__("blah"))) unsigned int ml_one[4];
+  // force_pow2_depth
+  //expected-error@+1{{'force_pow2_depth' attribute requires integer constant between 0 and 1 inclusive}}
+  __attribute__((__force_pow2_depth__(5))) unsigned int ml_one[4];
 
   //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}
   //expected-note@+1{{conflicting attribute is here}}
-   __attribute__((__register__)) __attribute__((__memory__("padded")))
+   __attribute__((__register__)) __attribute__((__memory__(1)))
   unsigned int ml_two[4];
 
-   //expected-warning@+1{{attribute 'memory_layout' is already applied}}
-   __attribute__((__memory_layout__("compact"))) __attribute__((__memory_layout__("padded"))) unsigned int ml_three[4];
+   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   __attribute__((__force_pow2_depth__(0))) __attribute__((__force_pow2_depth__(1))) unsigned int ml_three[4];
 
-   //expected-warning@+1{{attribute 'memory_layout' is already applied}}
-   __attribute__((__memory_layout__("padded"))) __attribute__((__memory_layout__("compact"))) unsigned int ml_four[4];
+   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   __attribute__((__force_pow2_depth__(1))) __attribute__((__force_pow2_depth__(0))) unsigned int ml_four[4];
 
 }
 //CHECK: ComponentAttr
@@ -844,14 +849,16 @@ struct foo {
 
   //CHECK: FieldDecl{{.*}}v_sixteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"padded"
-  __attribute__((__memory_layout__("padded"))) unsigned int v_sixteen[64];
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}1{{$}}
+  __attribute__((__force_pow2_depth__(1))) unsigned int v_sixteen[64];
 
 
   //CHECK: FieldDecl{{.*}}v_seventeen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"compact"
-  __attribute__((__memory_layout__("compact"))) unsigned int v_seventeen[64];
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}0{{$}}
+  __attribute__((__force_pow2_depth__(0))) unsigned int v_seventeen[64];
 
 };
 

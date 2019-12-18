@@ -530,13 +530,21 @@ def ReadWriteMode : Attr {
   let Documentation = [ReadWriteModeDocs];
 }
 
-def MemoryLayout : Attr {
-  let Spellings = [GNU<"memory_layout">];
-  let Args = [StringArgument<"Type">];
+def ForcePow2Depth : Attr {
+  let Spellings = [GNU<"force_pow2_depth">];
+  let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
   let LangOpts = [OpenCL, HLS];
-  let Documentation = [MemoryLayoutDocs];
+  let Documentation = [ForcePow2DepthDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1;
+    }
+  }];
 }
 
 def HLSLocalStaticVar : SubsetSubject<Var,

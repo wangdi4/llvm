@@ -823,7 +823,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
     // flags). Use underlying IR flags if any
-    if (auto *IRValue = VPInst->getUnderlyingValue()) {
+    if (isa<Instruction>(V) && VPInst->getUnderlyingValue()) {
+      auto *IRValue = VPInst->getUnderlyingValue();
       UnaryOperator *UnOp = cast<UnaryOperator>(IRValue);
       UnaryOperator *VecOp = cast<UnaryOperator>(V);
       VecOp->copyIRFlags(UnOp);
@@ -865,7 +866,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
     // flags). Use underlying IR flags if any
-    if (auto *IRValue = VPInst->getUnderlyingValue()) {
+    if (isa<Instruction>(V) && VPInst->getUnderlyingValue()) {
+      auto *IRValue = VPInst->getUnderlyingValue();
       BinaryOperator *BinOp = cast<BinaryOperator>(IRValue);
       BinaryOperator *VecOp = cast<BinaryOperator>(V);
       VecOp->copyIRFlags(BinOp);

@@ -4721,7 +4721,8 @@ void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
 
 #if INTEL_CUSTOMIZATION
   if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
-      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D))) {
+      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D)) ||
+      isa<ForcePow2DepthAttr>(TmpAttr)) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
           Context, IntelFPGAMemoryAttr::Default));
@@ -6067,28 +6068,17 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(S.Context, AL, Kind));
 }
 
-static void handleMemoryLayoutAttr(Sema &S, Decl *D,
-                                   const ParsedAttr &AL) {
+static void handleForcePow2DepthAttr(Sema &S, Decl *D,
+                                     const ParsedAttr &AL) {
+  checkForDuplicateAttribute<ForcePow2DepthAttr>(S, D, AL);
 
-  checkForDuplicateAttribute<MemoryLayoutAttr>(S, D, AL);
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
     return;
 
-  StringRef Str;
-  if (!S.checkStringLiteralArgumentAttr(AL, 0, Str))
-    return;
-
-  if (Str != "compact"  && Str != "padded") {
-    S.Diag(AL.getLoc(), diag::err_hls_memorylayout_arg_invalid) << AL;
-    return;
-  }
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  D->addAttr(::new (S.Context)
-             MemoryLayoutAttr(S.Context, AL, Str));
+  S.IntelFPGAAddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL,
+                                                         AL.getArgAsExpr(0));
 }
+
 
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
@@ -8825,8 +8815,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_MemoryLayout:
-    handleMemoryLayoutAttr(S, D, AL);
+  case ParsedAttr::AT_ForcePow2Depth:
+    handleForcePow2DepthAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGARegister:
     handleIntelFPGARegisterAttr(S, D, AL);

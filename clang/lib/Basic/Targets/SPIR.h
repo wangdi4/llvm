@@ -259,6 +259,39 @@ public:
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
 };
+
+// x86-64 SPIR64 Intelfpga Windows target
+class LLVM_LIBRARY_VISIBILITY WindowsX86_64_SPIR64INTELFpgaTargetInfo
+    : public WindowsTargetInfo<SPIR64INTELFpgaTargetInfo> {
+public:
+  WindowsX86_64_SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                                          const TargetOptions &Opts)
+      : WindowsTargetInfo<SPIR64INTELFpgaTargetInfo>(Triple, Opts) {
+    SizeType = UnsignedLongLong;
+    WCharType = SignedInt; // To match cllib's rule: wchar_size = 4 in SPIR
+  }
+
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::CharPtrBuiltinVaList;
+  }
+
+  CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
+    if (CC == CC_X86VectorCall)
+      // Permit CC_X86VectorCall which is used in Microsoft headers
+      return CCCR_OK;
+    return (CC == CC_SpirFunction || CC == CC_OpenCLKernel) ? CCCR_OK
+                                                            : CCCR_Warning;
+  }
+};
+
+// x86-64 SPIR64 Intelfpga Windows Visual Studio target
+class LLVM_LIBRARY_VISIBILITY MicrosoftX86_64_SPIR64INTELFpgaTargetInfo
+    : public WindowsX86_64_SPIR64INTELFpgaTargetInfo {
+public:
+  MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                                            const TargetOptions &Opts)
+      : WindowsX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts) {}
+};
 #endif // INTEL_CUSTOMIZATION
 
 // x86-32 SPIR Windows target

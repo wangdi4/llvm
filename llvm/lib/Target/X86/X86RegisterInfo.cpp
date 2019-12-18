@@ -467,7 +467,12 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
       return CSR_32_SVML_RegMask;
     if (IsWin64)
       return CSR_Win64_SVML_RegMask;
-    if (HasAVX512)
+    // Only use the AVX512 CSR list if there's a chance we're using ZMM
+    // registers. Otherwise we can assume we're using the older SSE/AVX SVML
+    // functions that preserve XMM/YMM 8-15.
+    // FIXME: This should be based off which function we're really calling.
+    // Perhaps by splitting the calling convention.
+    if (Subtarget.useAVX512Regs())
       return CSR_Lin64_SVML_AVX512_RegMask;
     return CSR_Lin64_SVML_RegMask;
 #endif // INTEL_CUSTOMIZATION
