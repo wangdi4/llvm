@@ -2302,8 +2302,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
 
   case LibFunc_under_wassert:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
-            FTy.getParamType(0)->isPointerTy(),
-            FTy.getParamType(1)->isPointerTy(),
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_obstack_begin:
