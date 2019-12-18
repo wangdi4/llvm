@@ -418,8 +418,8 @@ class IntelCET : public X86 {
 public:
   IntelCET();
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
-  void writePlt(uint8_t *buf, uint64_t gotPltEntryAddr, uint64_t pltEntryAddr,
-                int32_t index) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
   void writeIBTPlt(uint8_t *buf, size_t numEntries) const override;
 
   enum { IBTPltHeaderSize = 16 };
@@ -434,8 +434,8 @@ void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
   write32le(buf, va);
 }
 
-void IntelCET::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
-                        uint64_t pltEntryAddr, int32_t index) const {
+void IntelCET::writePlt(uint8_t *buf, const Symbol &sym,
+                        uint64_t pltEntryAddr) const {
   if (config->isPic) {
     const uint8_t inst[] = {
         0xf3, 0x0f, 0x1e, 0xfb,       // endbr32
@@ -443,7 +443,7 @@ void IntelCET::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
         0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
     };
     memcpy(buf, inst, sizeof(inst));
-    write32le(buf + 6, gotPltEntryAddr - in.gotPlt->getVA());
+    write32le(buf + 6, sym.getGotPltVA() - in.gotPlt->getVA());
     return;
   }
 
@@ -453,7 +453,7 @@ void IntelCET::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
       0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
   };
   memcpy(buf, inst, sizeof(inst));
-  write32le(buf + 6, gotPltEntryAddr);
+  write32le(buf + 6, sym.getGotPltVA());
 }
 
 void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
