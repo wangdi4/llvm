@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -662,13 +662,47 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
-void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
+unsigned VPOCodeGen::getPumpFactor(StringRef FnName, bool IsMasked) {
+  // Call can already be vectorized for current VF, pumping not needed.
+  if (TLI->isFunctionVectorizable(FnName, VF, IsMasked))
+    return 1;
+
+  // TODO: Pumping is supported only for simple SVML functions.
+  if (isOpenCLSinCos(FnName))
+    return 1;
+
+  // Check if function can be vectorized for a dummy low VF value. This is
+  // purely to identify and filter out non-SVML functions.
+  // TODO: This filtering is temporary until we start supporting pumping feature
+  // for SIMD functions with vector-variants.
+  StringRef VecFnName =
+      TLI->getVectorizedFunction(FnName, 4 /*dummy VF*/, IsMasked);
+  if (VecFnName.empty() || !isSVMLFunction(TLI, FnName, VecFnName))
+    return 1;
+
+  // Pumping can be done if function can be vectorized for any LowerVF starting
+  // from VF/2 -> 2.
+  assert(isPowerOf2_32(VF) &&
+         "Pumping analysis is not supported for non-power of two VF.");
+  unsigned LowerVF;
+  for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
+    if (TLI->isFunctionVectorizable(FnName, LowerVF, IsMasked))
+      break;
+  }
+
+  if (LowerVF > 1)
+    return VF / LowerVF;
+
+  return 1;
+}
+
+void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
-  assert(MaskValue && "Expected mask to be present");
+  assert(CallMaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
   assert(VecTy->getVectorNumElements() ==
-             MaskValue->getType()->getVectorNumElements() &&
+             CallMaskValue->getType()->getVectorNumElements() &&
          "Re-vectorization of SVML functions is not supported yet");
 
   if (VecTy->getBitWidth() < 512) {
@@ -679,7 +713,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
     VectorType *MaskTyExt = VectorType::get(
         IntegerType::get(OrigF->getContext(), VecTy->getScalarSizeInBits()),
         VecTy->getElementCount());
-    Value *MaskValueExt = Builder.CreateSExt(MaskValue, MaskTyExt);
+    Value *MaskValueExt = Builder.CreateSExt(CallMaskValue, MaskTyExt);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt);
   } else {
@@ -697,8 +731,8 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
     NewArgTys.push_back(VecTy);
     NewArgs.push_back(Undef);
 
-    NewArgTys.push_back(MaskValue->getType());
-    NewArgs.push_back(MaskValue);
+    NewArgTys.push_back(CallMaskValue->getType());
+    NewArgs.push_back(CallMaskValue);
 
     NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
     NewArgs.append(VecArgs.begin(), VecArgs.end());
@@ -1018,16 +1052,24 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
     bool IsMasked = MaskValue != nullptr;
+    unsigned PumpFactor = getPumpFactor(CalledFunc, IsMasked);
     if (callHasAttribute(VPInst, "kernel-uniform-call") &&
         callHasAttribute(VPInst, "kernel-convergent-call")) {
       // TODO: this case must be handled via VPlan to VPlan bypass
       // infrastructure.
       processPredicatedKernelConvergentUniformCall(VPInst);
     } else if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
-        ((matchVectorVariant(UnderlyingCI, IsMasked) ||
-          (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||
-        (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
-      vectorizeCallInstruction(VPInst);
+               PumpFactor > 1 ||
+               ((matchVectorVariant(UnderlyingCI, IsMasked) ||
+                 (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||
+               (isOpenCLReadChannel(CalledFunc) ||
+                isOpenCLWriteChannel(CalledFunc))) {
+      LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is pumped "
+                        << PumpFactor << "-way.\n");
+      assert(PumpFactor == 1 || !callHasAttribute(VPInst, "kernel-call-once") &&
+                                    "VPVALCG: Pumped vectorization of a kernel "
+                                    "called-once function is not allowed.");
+      vectorizeCallInstruction(VPInst, PumpFactor);
     } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       assert(!callHasAttribute(VPInst, "kernel-call-once") &&
@@ -1623,9 +1665,11 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
-                                   VectorVariant *VecVariant,
+                                   VectorVariant *VecVariant, unsigned PumpPart,
+                                   unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
+  unsigned PumpedVF = VF / PumpFactor;
   std::vector<VectorKind> Parms;
   if (VecVariant) {
     Parms = VecVariant->getParameters();
@@ -1650,7 +1694,11 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
       if (isOpenCLSelectMask(FnName, OrigArgIdx))
         return getOpenCLSelectVectorMask(Arg);
 
-      return getVectorValue(Arg);
+      Value *VecArg = getVectorValue(Arg);
+      VecArg = generateExtractSubVector(VecArg, PumpPart, PumpFactor, Builder);
+      assert(VecArg && "Vectorized call arg cannot be nullptr.");
+
+      return VecArg;
     }
     // Linear and uniform parameters for simd functions must be passed as
     // scalars according to the vector function abi. CodeGen currently
@@ -1660,6 +1708,12 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     // because this will be the starting value for which the stride will be
     // added. The same method applies to built-in functions for args that
     // need to be treated as uniform.
+
+    // TODO: To support pumping for linear arguments of vector-variants, special
+    // processing is needed to correctly update the linear argument for each
+    // PumpPart.
+    assert(PumpFactor == 1 && "Pumping feature is not implemented for SIMD "
+                              "functions with vector-variants.");
 
     assert(!isOpenCLSelectMask(FnName, OrigArgIdx) &&
            "OpenCL select mask parameter is linear/uniform?");
@@ -1684,19 +1738,31 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     VecArgTys.push_back(VecArg->getType());
   }
 
-  // Process mask parameters
-  StringRef VecFnName = TLI->getVectorizedFunction(FnName, VF, MaskValue);
-  if (MaskValue && !VecFnName.empty() &&
+  // Process mask parameters for current part being pumped.
+  bool IsMasked = MaskValue != nullptr;
+  // NOTE: We can potentially cache the subvector extracted for MaskValue with a
+  // map from {MaskValue, PumpPart, PumpFactor} to SubMaskValue. Since same mask
+  // might be used for multiple calls, this would prevent dead code. However
+  // this can be extended in general to all call arguments and might need a more
+  // central map similar to VectorMap/ScalarMap. This cache can be implemented
+  // in the future if we need very clean outgoing vector code.
+  Value *PumpPartMaskValue =
+      generateExtractSubVector(MaskValue, PumpPart, PumpFactor, Builder);
+  StringRef VecFnName = TLI->getVectorizedFunction(FnName, PumpedVF, IsMasked);
+  if (IsMasked && !VecFnName.empty() &&
       isSVMLFunction(TLI, FnName, VecFnName)) {
-    addMaskToSVMLCall(F, VecArgs, VecArgTys);
+    addMaskToSVMLCall(F, PumpPartMaskValue, VecArgs, VecArgTys);
     return;
   }
   if (!VecVariant || !VecVariant->isMasked())
     return;
 
-  Value *MaskToUse = MaskValue ? MaskValue
-                               : Constant::getAllOnesValue(VectorType::get(
-                                     Type::getInt1Ty(F->getContext()), VF));
+  assert(PumpFactor == 1 && "Pumping feature is not implemented for SIMD "
+                            "functions with vector-variants.");
+  Value *MaskToUse = PumpPartMaskValue
+                         ? PumpPartMaskValue
+                         : Constant::getAllOnesValue(VectorType::get(
+                               Type::getInt1Ty(F->getContext()), PumpedVF));
 
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
@@ -1722,13 +1788,13 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
   // characteristic type.
   Type *ScalarToType =
       IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-  VectorType *VecToType = VectorType::get(ScalarToType, VF);
+  VectorType *VecToType = VectorType::get(ScalarToType, PumpedVF);
   Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
   if (ScalarToType != CharacteristicType) {
-    Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
+    Type *MaskCastTy = VectorType::get(CharacteristicType, PumpedVF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
     VecArgs.push_back(MaskCast);
     VecArgTys.push_back(MaskCastTy);
@@ -2347,9 +2413,8 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
   return Builder.CreateSExt(Cmp, VecTy);
 }
 
-void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
-  SmallVector<Value *, 2> VecArgs;
-  SmallVector<Type *, 2> VecArgTys;
+void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
+                                          unsigned PumpFactor) {
   CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
   assert(UnderlyingCI &&
          "VPVALCG: Need underlying CallInst for call-site attributes.");
@@ -2362,6 +2427,8 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
 
   // OpenCL SinCos, would have a 'nullptr' MatchedVariant.
   if (isOpenCLSinCos(CalledFunc->getName())) {
+    assert(PumpFactor == 1 &&
+           "Pumping feature is not supported for OpenCL sincos.");
     vectorizeOpenCLSinCos(VPCall, IsMasked);
     return;
   }
@@ -2373,6 +2440,8 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
     // 2) A SIMD function is not a library function.
+    // TODO: When matchVectorVariant is updated to search based on specific VF,
+    // use VF/PumpFactor to support pumping feature.
     MatchedVariant = matchVectorVariant(UnderlyingCI, IsMasked);
     if (!MatchedVariant && !IsMasked) {
       // If non-masked version isn't available, try running the masked version
@@ -2381,65 +2450,87 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
       IsMasked = true;
     }
     assert(MatchedVariant && "Unexpected null matched vector variant");
+    assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
+                              "functions with vector variants.");
     LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
                       << "\n");
   }
 
-  vectorizeCallArgs(VPCall, MatchedVariant.get(), VecArgs, VecArgTys);
+  // Call results for each pumped part.
+  SmallVector<Value *, 4> CallResults;
 
-  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
-                                                Intrinsic::not_intrinsic,
-                                                MatchedVariant.get(), IsMasked);
-  assert(VectorF && "Can't create vector function.");
-  CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+  for (unsigned PumpPart = 0; PumpPart < PumpFactor; ++PumpPart) {
+    LLVM_DEBUG(dbgs() << "Pumping part " << PumpPart << "/" << PumpFactor
+                      << "\n");
+    SmallVector<Value *, 2> VecArgs;
+    SmallVector<Type *, 2> VecArgTys;
 
-  // TODO: investigate why attempting to copy fast math flags for __read_pipe
-  // fails. For now, just don't do the copy.
-  // TODO: Fast math flags are not represented in VPValue yet.
-  if (isa<FPMathOperator>(VecCall) &&
-      !isOpenCLReadChannel(CalledFunc->getName())) {
+    vectorizeCallArgs(VPCall, MatchedVariant.get(), PumpPart, PumpFactor,
+                      VecArgs, VecArgTys);
+
+    Function *VectorF = getOrInsertVectorFunction(
+        CalledFunc, VF / PumpFactor, VecArgTys, TLI, Intrinsic::not_intrinsic,
+        MatchedVariant.get(), IsMasked);
+    assert(VectorF && "Can't create vector function.");
+    CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+    CallResults.push_back(VecCall);
+
+    // TODO: investigate why attempting to copy fast math flags for __read_pipe
+    // fails. For now, just don't do the copy.
+    // TODO: Fast math flags are not represented in VPValue yet.
+    if (isa<FPMathOperator>(VecCall) &&
+        !isOpenCLReadChannel(CalledFunc->getName())) {
 #if 0
-    VecCall->copyFastMathFlags(Call);
+      VecCall->copyFastMathFlags(Call);
 #endif
+    }
+
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    // TODO: Call attributes are not represented in VPValue yet. Peek at
+    // underlying instruction.
+    copyRequiredAttributes(UnderlyingCI, VecCall);
+
+    // Set calling convention for SVML function calls.
+    if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
+      VecCall->setCallingConv(CallingConv::SVML);
+
+#if 0
+    // TODO: Need a VPValue based analysis for call arg memory references.
+    // VPValue-based stride info also needed.
+    Loop *Lp = LI->getLoopFor(Call->getParent());
+    analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
+#endif
+
+    // No blending is required here for masked simd function calls as of now for
+    // two reasons:
+    //
+    // 1) A select is already generated for call results that are live outside
+    //    of the predicated region by using the predicated region's mask. See
+    //    widenNonInductionPhi().
+    //
+    // 2) Currently, masked stores are always generated for call results stored
+    //    to memory within a predicated region. See vectorizeStoreInstruction().
+
+    if (isOpenCLReadChannel(CalledFunc->getName())) {
+      llvm_unreachable(
+          "VPVALCG: OpenCL read channel vectorization not uplifted.");
+#if 0
+      vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
+#endif
+    }
   }
 
-  // Make sure we don't lose attributes at the call site. E.g., IMF
-  // attributes are taken from call sites in MapIntrinToIml to refine
-  // SVML calls for precision.
-  // TODO: Call attributes are not represented in VPValue yet. Peek at
-  // underlying instruction.
-  copyRequiredAttributes(UnderlyingCI, VecCall);
-
-  // Set calling convention for SVML function calls.
-  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
-    VecCall->setCallingConv(CallingConv::SVML);
-
-#if 0
-  // TODO: Need a VPValue based analysis for call arg memory references.
-  // VPValue-based stride info also needed.
-  Loop *Lp = LI->getLoopFor(Call->getParent());
-  analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
-#endif
-
-  // No blending is required here for masked simd function calls as of now for
-  // two reasons:
-  //
-  // 1) A select is already generated for call results that are live outside of
-  //    the predicated region by using the predicated region's mask. See
-  //    widenNonInductionPhi().
-  //
-  // 2) Currently, masked stores are always generated for call results stored
-  //    to memory within a predicated region. See vectorizeStoreInstruction().
-
-  if (isOpenCLReadChannel(CalledFunc->getName())) {
-    llvm_unreachable(
-        "VPVALCG: OpenCL read channel vectorization not uplifted.");
-#if 0
-    vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
-#endif
+  if (PumpFactor > 1) {
+    // Combine the pumped call results to be used in original VF context.
+    assert(CallResults.size() >= 2 && isPowerOf2_32(CallResults.size()) &&
+           "Number of pumped vector calls to combine must be a power of 2 "
+           "(atleast 2^1)");
+    VPWidenMap[VPCall] = joinVectors(CallResults, Builder, "combined");
+  } else {
+    VPWidenMap[VPCall] = CallResults[0];
   }
-
-  VPWidenMap[VPCall] = VecCall;
 }
 
 Value *VPOCodeGen::getVectorValue(VPValue *V) {
