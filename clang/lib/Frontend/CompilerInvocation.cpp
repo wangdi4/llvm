@@ -338,7 +338,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
     StringRef CheckerAndPackageList = A->getValue();
     SmallVector<StringRef, 16> CheckersAndPackages;
     CheckerAndPackageList.split(CheckersAndPackages, ",");
-    for (const StringRef CheckerOrPackage : CheckersAndPackages)
+    for (const StringRef &CheckerOrPackage : CheckersAndPackages)
       Opts.CheckersAndPackages.emplace_back(CheckerOrPackage, IsEnabled);
   }
 
@@ -480,7 +480,7 @@ static void parseAnalyzerConfigs(AnalyzerOptions &AnOpts,
     SmallVector<StringRef, 16> CheckersAndPackages;
     AnOpts.RawSilencedCheckersAndPackages.split(CheckersAndPackages, ";");
 
-    for (const StringRef CheckerOrPackage : CheckersAndPackages) {
+    for (const StringRef &CheckerOrPackage : CheckersAndPackages) {
       if (Diags) {
         bool IsChecker = CheckerOrPackage.contains('.');
         bool IsValidName =
@@ -611,7 +611,7 @@ static void parseXRayInstrumentationBundle(StringRef FlagName, StringRef Bundle,
                                            XRayInstrSet &S) {
   llvm::SmallVector<StringRef, 2> BundleParts;
   llvm::SplitString(Bundle, BundleParts, ",");
-  for (const auto B : BundleParts) {
+  for (const auto &B : BundleParts) {
     auto Mask = parseXRayInstrValue(B);
     if (Mask == XRayInstrKind::None)
       if (B != "none")
