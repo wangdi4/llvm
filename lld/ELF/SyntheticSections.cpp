@@ -2450,13 +2450,9 @@ PltSection::PltSection()
       headerSize(target->pltHeaderSize) {
   if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
     name = ".glink";
-<<<<<<< HEAD
+    alignment = 4;
   } else if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) // INTEL
     name = ".plt.sec";                                             // INTEL
-=======
-    alignment = 4;
-  }
->>>>>>> 345f59667d846c4b77258e72c902f4aaf8add166
 
   // The PLT needs to be writable on SPARC as the dynamic linker will
   // modify the instructions in the PLT entries.
@@ -2587,13 +2583,9 @@ IpltSection::IpltSection()
     : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".iplt") {
   if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
     name = ".glink";
-<<<<<<< HEAD
+    alignment = 4;
   } else if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) // INTEL
     name = ".plt.sec";                                             // INTEL
-=======
-    alignment = 4;
-  }
->>>>>>> 345f59667d846c4b77258e72c902f4aaf8add166
 }
 
 void IpltSection::writeTo(uint8_t *buf) {
