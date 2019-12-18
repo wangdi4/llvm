@@ -269,6 +269,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_match:
+  case OMPC_nontemporal:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -478,6 +479,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_match:
+  case OMPC_nontemporal:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -488,6 +490,9 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
                                         unsigned OpenMPVersion) {
   assert(unsigned(DKind) <= unsigned(OMPD_unknown));
   assert(CKind <= OMPC_unknown);
+  // Nontemporal clause is not supported in OpenMP < 5.0.
+  if (OpenMPVersion < 50 && CKind == OMPC_nontemporal)
+    return false;
   switch (DKind) {
   case OMPD_parallel:
     switch (CKind) {
