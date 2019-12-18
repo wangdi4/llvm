@@ -1019,6 +1019,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     NumLoops = UncollapsedNDRange.size();
 
   assert(NumLoops != 0 && "Zero loops in loop construct.");
+  assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
@@ -1048,7 +1049,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
       BaseGep);
 
   for (unsigned I = 0; I < NumLoops; I++) {
-    Loop *L = WL->getWRNLoopInfo().getLoop(I);
+    // We assume that the innermost OpenMP loop stepping provides
+    // the best data locality. OpenCL execution assumes that the
+    // fastest changing dimension in ND-range is the 1st one.
+    // We need to specify the ND-range such that the 1st dimension
+    // corresponds to the innermost loop (with loop index NumLoops - 1).
+    unsigned Idx = NumLoops - I - 1;
+    Loop *L = WL->getWRNLoopInfo().getLoop(Idx);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 1)});
@@ -1062,7 +1069,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
       CloneUB = VPOParoptUtils::cloneInstructions(
           WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
     else
-      CloneUB = Builder.CreateLoad(UncollapsedNDRange[I]);
+      CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
