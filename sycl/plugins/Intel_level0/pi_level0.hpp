@@ -1,6 +1,7 @@
 #include <CL/sycl/detail/pi.h>
 #include <cassert>
 #include <iostream>
+#include <map>
 
 #include <level_zero/ze_api.h>
 
@@ -35,6 +36,48 @@ struct _pi_queue {
   void executeCommandList();
 };
 
+struct _pi_mem {
+  // PI memory is either buffer or image.
+  union {
+    // L0 memory handle is really just a naked pointer.
+    // It is just convenient to have it char * to simplify offset arithmetics.
+    //
+    char *L0Mem;
+
+    // L0 image handle.
+    ze_image_handle_t L0Image;
+  };
+
+  // TODO: see if there a better way to tag buffer vs. image.
+  bool IsMemImage;
+
+#ifndef NDEBUG
+  // Keep the descriptor of the image (for debugging purposes)
+  ze_image_desc_t L0ImageDesc;
+#endif // !NDEBUG
+
+  // Keeps pointer to the data for deferred image initialization from the host.
+  void *host_ptr;
+
+  // L0 doesn't do the reference counting, so we have to do.
+  pi_uint32 RefCount;
+
+  // Supplementary data to keep track of the mappings of this memory
+  // created with piEnqueueMemBufferMap and piEnqueueMemImageMap.
+  //
+  struct mapping {
+    // The offset in the buffer giving the start of the mapped region.
+    size_t offset;
+    // The size of the mapped region.
+    size_t size;
+  };
+  // The key is the host pointer representing an active mapping.
+  // The value is the information needed to maintain/undo the mapping.
+  // TODO: make this thread-safe.
+  //
+  std::map<void *, mapping> Mappings;
+};
+
 struct _pi_event {
   // L0 event handle.
   ze_event_handle_t L0Event;
@@ -60,7 +103,8 @@ struct _pi_program {
   // Keep the context of the program.
   pi_context Context;
 
-  // TODO: add ref-count.
+  // L0 doesn't do the reference counting, so we have to do.
+  pi_uint32 RefCount;
 };
 
 struct _pi_kernel {
@@ -69,6 +113,14 @@ struct _pi_kernel {
 
   // Keep the program of the kernel.
   pi_program Program;
+
+  // L0 doesn't do the reference counting, so we have to do.
+  pi_uint32 RefCount;
+};
+
+struct _pi_sampler {
+  // L0 sampler handle.
+  ze_sampler_handle_t L0Sampler;
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;

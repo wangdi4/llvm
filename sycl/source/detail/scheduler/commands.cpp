@@ -893,8 +893,14 @@ cl_int ExecCGCommand::enqueueImp() {
       case kernel_param_kind_t::kind_accessor: {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-        cl_mem MemArg = (cl_mem)AllocaCmd->getMemAllocation();
-        PI_CALL(piKernelSetArg)(Kernel, Arg.MIndex, sizeof(cl_mem), &MemArg);
+        RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
+
+        if (RT::useBackend(pi::Backend::SYCL_BE_PI_OTHER)) {
+          PI_CALL(piextKernelSetArgMemObj)(Kernel, Arg.MIndex, &MemArg);
+          break;
+        }
+        PI_CALL(piKernelSetArg)(
+            Kernel, Arg.MIndex, sizeof(RT::PiMem), &MemArg);
         break;
       }
       case kernel_param_kind_t::kind_std_layout: {
@@ -905,8 +911,13 @@ cl_int ExecCGCommand::enqueueImp() {
         sampler *SamplerPtr = (sampler *)Arg.MPtr;
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
-        PI_CALL(piKernelSetArg)(Kernel, Arg.MIndex, sizeof(cl_sampler),
-                                &Sampler);
+        if (RT::useBackend(pi::Backend::SYCL_BE_PI_OTHER)) {
+          PI_CALL(piextKernelSetArgMemObj)(Kernel, Arg.MIndex,
+                                           (const RT::PiMem*)&Sampler);
+          break;
+        }
+        PI_CALL(piKernelSetArg)(
+            Kernel, Arg.MIndex, sizeof(cl_sampler), &Sampler);
         break;
       }
       case kernel_param_kind_t::kind_pointer: {

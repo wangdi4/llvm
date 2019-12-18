@@ -787,18 +787,8 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   if (ID) {
-    // Generate a vector intrinsic. Remember, all intrinsics defined in
-    // Intrinsics.td that can be vectorized are those for which the return
-    // type matches the call arguments. Thus, TysForDecl should only contain
-    // 1 type in order to be able to generate the right declaration. Inserting
-    // multiple instances of this type will cause assertions when attempting
-    // to generate the declaration. This code will need to be changed to
-    // support different types of function signatures.
+    // Generate a vector intrinsic.
     assert(!RetTy->isVoidTy() && "Expected non-void function");
-    assert(
-        llvm::all_of(ArgTys,
-                     [&](Type *ArgTy) -> bool { return VecRetTy == ArgTy; }) &&
-        "Expected return type to match arg type");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
