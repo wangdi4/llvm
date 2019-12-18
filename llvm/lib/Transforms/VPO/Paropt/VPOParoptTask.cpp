@@ -217,7 +217,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   IRBuilder<> Builder(InsertPt);
 
   if (LprivI->getIsVla()) {
-    unsigned Align = DL.getABITypeAlignment(ScalarTy);
+    MaybeAlign Align(DL.getABITypeAlignment(ScalarTy));
     Builder.CreateMemCpy(Dst, Align, Src, Align,
                          LprivI->getNewThunkBufferSize());
   } else if (!VPOUtils::canBeRegisterized(ScalarTy, DL))
@@ -868,7 +868,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
       Size = Builder.getInt32(
           DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-    unsigned Align = DL.getABITypeAlignment(Src->getAllocatedType());
+    MaybeAlign Align(DL.getABITypeAlignment(Src->getAllocatedType()));
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
   }
 
@@ -1017,8 +1017,8 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
     Value *OrigCast =
         Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
 
-    unsigned Align = DL.getABITypeAlignment(
-        cast<PointerType>(OrigV->getType())->getElementType());
+    MaybeAlign Align(DL.getABITypeAlignment(
+        cast<PointerType>(OrigV->getType())->getElementType()));
 
     Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
                          FprivI->getThunkBufferSize());
