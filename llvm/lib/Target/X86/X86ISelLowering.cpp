@@ -18823,8 +18823,11 @@ static SDValue LowerI64IntToFP_AVX512DQ(SDValue Op, SelectionDAG &DAG,
 static SDValue LowerI64IntToFP16(SDValue Op, SelectionDAG &DAG,
                                  const X86Subtarget &Subtarget) {
   assert((Op.getOpcode() == ISD::SINT_TO_FP ||
+          Op.getOpcode() == ISD::STRICT_SINT_TO_FP ||
+          Op.getOpcode() == ISD::STRICT_UINT_TO_FP ||
           Op.getOpcode() == ISD::UINT_TO_FP) && "Unexpected opcode!");
-  SDValue Src = Op.getOperand(0);
+  bool IsStrict = Op->isStrictFPOpcode();
+  SDValue Src = Op.getOperand(IsStrict ? 1 : 0);
   MVT SrcVT = Src.getSimpleValueType();
   MVT VT = Op.getSimpleValueType();
 
@@ -18832,6 +18835,8 @@ static SDValue LowerI64IntToFP16(SDValue Op, SelectionDAG &DAG,
     return SDValue();
 
   assert(Subtarget.hasFP16() && "Expected FP16");
+  // FIXME: We may need strict FP support for FP16 in future.
+  assert(!IsStrict && "Strict FP hasn't been supported");
 
   // Pack the i64 into a vector, do the operation and extract.
 
