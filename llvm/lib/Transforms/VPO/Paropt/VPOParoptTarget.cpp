@@ -387,24 +387,18 @@ void VPOParoptTransform::guardSideEffectStatements(
   assert(isTargetSPIRV() &&
          "guardSideEffectStatements() called for non-SPIRV target.");
 
-  SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
-  SmallPtrSet<BasicBlock  *, 6> InsertedBarrierBlocks;
-
-  LLVM_DEBUG(dbgs() << "\n Before inserting master thread guard" << *KernelF);
-
   Instruction *ParDirectiveBegin    = nullptr;
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
-  CallInst *KernelEntryDir = cast<CallInst>(W->getEntryDirective());
-  CallInst *KernelExitDir = cast<CallInst>(W->getExitDirective());
+  CallInst *KernelEntryDir          = cast<CallInst>(W->getEntryDirective());
+  CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
-  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
+  SmallVector<Instruction *, 6> SideEffectInstructions;
+  SmallVector<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
-  SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
 
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
@@ -458,12 +452,15 @@ void VPOParoptTransform::guardSideEffectStatements(
                                  ParDirectiveExit->getParent(), TempParBBVec);
       ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
 
-      InsertBarrierAt.insert(ParDirectiveBegin);
+      // Insert a barrier after the region exit. This barrier synchronizes
+      // all side effects that might have happened inside the region
+      // with all the consumers of this side effects that are reachable
+      // from the region's exit. Note that we do not need a barrier
+      // before the region, since we insert barriers after all side effect
+      // instructions that may reach the region's entry.
+      InsertBarrierAt.push_back(ParDirectiveExit);
 
-      InsertBarrierAt.insert(ParDirectiveExit);
-
-      LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
-                        << "\n and after ::" << *ParDirectiveExit);
+      LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -519,76 +516,97 @@ void VPOParoptTransform::guardSideEffectStatements(
         if (ignoreSpecialOperands(&I))
           continue;
 
-        LLVM_DEBUG(dbgs() << "\n Instruction Has Sideeffect::" << I
-                          << "\n BasicBlock:: " << I.getParent());
+        LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
+                          << "\nBasicBlock: " << I.getParent());
         SideEffectInstructions.push_back(&I);
       }
     }
   }
 
-  for (auto I : SideEffectInstructions) {
+  auto I = SideEffectInstructions.begin();
+  auto IE = SideEffectInstructions.end();
+  Value *MasterCheckPredicate = nullptr;
 
-    // Get the basic block of the side effect instruction,
-    // then guard the block, and
-    // Make sure to ignore other side effect instructions
-    // within the block, since they are already guarded.
-    Instruction *InsertPt = I;
-    BasicBlock *ThisBB = InsertPt->getParent();
+  if (I != IE) {
+    // Prepare the master check predicate, which looks like
+    //   (get_local_id(0) == 0 && get_local_id(1) == 0 &&
+    //    get_local_id(2) == 0)
+    //
+    // TODO: we may optimize this later, based on the number of dimensions
+    //       used for the target region.
+    IRBuilder<> Builder(KernelEntryDir);
+    auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
 
-    // If BB already guarded continue
-    // FIXME: since we are splitting blocks, when we insert
-    //        the guards, an instruction following the already guarded
-    //        instruction originally from the same block will look
-    //        like beloning to a different block.
-    if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
-      continue;
+    for (unsigned Dim = 0; Dim < 3; ++Dim) {
+      auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
+      Value *LocalId = VPOParoptUtils::genOCLGenericCall(
+          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
+          { Arg }, KernelEntryDir);
+      Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
-    //   Split the Basic Block at InsertPt, into 2 blocks (1st and 2nd Block)
-    //   Insert a check, at the end of the 1st block
-    //   if the thread id is not equal to zero, then
-    //   jump to the successor block of 2nd block
-    //   else execute the 2nd block
+      if (!MasterCheckPredicate) {
+        MasterCheckPredicate = Predicate;
+        continue;
+      }
 
-    LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
-    Instruction* Term = InsertPt->getNextNonDebugInstruction();
+      MasterCheckPredicate = Builder.CreateAnd(MasterCheckPredicate, Predicate);
+    }
 
-    BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
+    MasterCheckPredicate->setName("is.master.thread");
+  }
 
-    // Create an empty bb before the Thenblock, that just jumps to it
-    auto ThenBlock = BasicBlock::Create(TailBlock->getContext(), "",
-                                        TailBlock->getParent(), TailBlock);
+  while (I != IE) {
 
-    // The unconditional branch instruction, that jumps to the single successor
-    auto GotoTail = BranchInst::Create(TailBlock, ThenBlock);
-    GotoTail->setDebugLoc(InsertPt->getDebugLoc());
-    IRBuilder<> Builder(InsertPt);
-    SmallVector<Value *, 3> Arg;
+    Instruction *StartI = *I;
+    // Collect a consecutive set of Instructions with side effects
+    // from the same block. We want to guard them all at once.
+    // Note that we cannot easily guard any intermediate instructions.
+    // For example, we cannot guard a store to addrspace(0), because
+    // we want it to be executed in each WI. We cannot guard
+    // loads from addrspace(1|3) as well, since they may be loading
+    // from the memory we are about to guard, and the memory may be outdated
+    // in non-master WIs.
+    while (std::next(I) != IE &&
+           *std::next(I) == (*I)->getNextNonDebugInstruction())
+      I = std::next(I);
 
-    // TODO: select dimension of thread_id,
-    initArgArray(&Arg, 0);
-    CallInst *LocalId = VPOParoptUtils::genOCLGenericCall(
-        "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Arg, InsertPt);
-    auto *ValueZero = ConstantInt::get(LocalId->getType(), 0);
-    auto IsThread0 = Builder.CreateICmpNE(LocalId, ValueZero);
-    SplitBlockAndInsertIfThen(IsThread0, InsertPt, false, nullptr, DT, LI,
-                              ThenBlock);
-    // Add the new split basic block, since it is already guarded
-    //SideEffectBasicBlocks.insert(InsertPt->getParent());
+    // I is pointing to the last instruction in the sequence.
+    Instruction *StopI = *I;
 
+    // Split the basic block after StopI, into 2 blocks (1st and 2nd Block).
+    // Insert a check, before StartI if the thread id is not equal to zero,
+    // then jump to the 2nd block, else jump to StartI. StopI will fall
+    // through to the 2nd block:
+    //   if(MasterCheckPredicate) {
+    //   master.thread.code:
+    //     <start instruction>
+    //     ...
+    //     <stop instruction>
+    //   }
+    //   master.thread.fallthru:
+
+    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n" <<
+               *StartI << "\nto:\n" << *StopI);
+
+    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+        MasterCheckPredicate, StartI, false, nullptr, DT, LI);
+    BasicBlock *ThenBB = ThenTerm->getParent();
+    ThenBB->setName("master.thread.code");
+    Instruction *ElseInst = StopI->getNextNonDebugInstruction();
+    BasicBlock *ElseBB = ElseInst->getParent();
+    ElseBB->setName("master.thread.fallthru");
+    ThenBB->getInstList().splice(
+        ThenTerm->getIterator(), StartI->getParent()->getInstList(),
+        StartI->getIterator(), ElseInst->getIterator());
     // Insert group barrier at the merge point.
-    // We cannot just put TailBlock->getFirstNonPHI() into
-    // InsertBarrierAt, because this will not work if two side-effect
-    // instructions are consecutive - the barrier for the first guard
-    // will be inserted in the "then" block for the second instruction.
-    InsertWorkGroupBarrier(TailBlock->getFirstNonPHI());
+    InsertBarrierAt.push_back(ElseBB->getFirstNonPHI());
 
-    SideEffectBasicBlocks.insert(InsertPt->getParent());
-    LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
+    I = std::next(I);
   }
 
   if (!SideEffectInstructions.empty()){
-    for (auto InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
+    for (auto *InsertPt : InsertBarrierAt) {
+      LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
       InsertWorkGroupBarrier(InsertPt);
     }
   }
@@ -659,10 +677,10 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // Please note that the name of NewF is updated in the
     // function registerTargetRegion.
     if (isTargetSPIRV()) {
-      LLVM_DEBUG(dbgs() << "\n Before guardSideEffectStatemets the function ::"
+      LLVM_DEBUG(dbgs() << "\nBefore guardSideEffectStatemets the function ::"
                  << *NewF);
       guardSideEffectStatements(W, NewF);
-      LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
+      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatemets the function ::"
                  << *NewF);
 
       // Make sure to run kernel finalization after guardSideEffectStatemets(),
@@ -670,7 +688,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // were left until this point for guardSideEffectStatemets() to work.
       // The extra directive call may prevent address space inferring.
       NewF = finalizeKernelFunction(W, NewF, NewCall);
-      LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
+      LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                  << *NewF);
     }
   }
