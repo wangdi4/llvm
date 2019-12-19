@@ -1575,6 +1575,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   if (EnableAndersen)
     PM.add(createAndersensAAWrapperPass());
+
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    PM.add(createDTransFieldModRefAnalysisWrapperPass());
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));

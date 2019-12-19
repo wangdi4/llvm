@@ -22,6 +22,7 @@
 // The new pass manager's PassRegistry.def needs to see the declarations
 // for each pass.
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
@@ -51,8 +52,13 @@ class PassManagerBase;
 
 void initializeDTransPasses(PassRegistry&);
 
+// Analysis passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
+void initializeDTransFieldModRefAnalysisWrapperPass(PassRegistry&);
+void initializeDTransFieldModRefResultWrapperPass(PassRegistry&);
 void initializeDTransImmutableAnalysisWrapperPass(PassRegistry &);
+
+// Transform passes
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
