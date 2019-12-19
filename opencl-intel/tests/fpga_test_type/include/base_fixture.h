@@ -322,10 +322,17 @@ protected:
    *  \param [in] device
    *  \returns command queue if created successfully, nullptr otherwise
    */
-  cl_command_queue createCommandQueue(cl_context context, cl_device_id device) {
+  cl_command_queue createCommandQueue(cl_context context, cl_device_id device,
+                                      bool use_out_of_order = false) {
     cl_int error = CL_SUCCESS;
-    cl_command_queue queue = clCreateCommandQueueWithProperties(context, device,
-        nullptr, &error);
+    cl_queue_properties queue_type[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0 };
+    cl_command_queue queue = (use_out_of_order)
+                                 ? clCreateCommandQueueWithProperties(
+                                       context, device, queue_type, &error)
+                                 : clCreateCommandQueueWithProperties(
+                                       context, device, nullptr, &error);
+
     EXPECT_EQ(CL_SUCCESS, error)
         << "clCreateCommandQueueWithProperties failed with error "
         << ErrToStr(error);
