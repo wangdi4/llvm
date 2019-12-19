@@ -465,6 +465,8 @@ const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "CSAISD::FMSUBADD";
   case CSAISD::Swizzle:
     return "CSAISD::Swizzle";
+  case CSAISD::VSetCC:
+    return "CSAISD::VSetCC";
   case CSAISD::GetVal:
     return "CSAISD::GetVal";
   case CSAISD::EntryPseudo:
@@ -1315,6 +1317,12 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
   case Intrinsic::csa_pipeline_depth_token_take:
   case Intrinsic::csa_pipeline_depth_token_return:
     return LowerMemop(Op, DAG);
+
+  case Intrinsic::csa_cmp8x8:
+  case Intrinsic::csa_cmp16x4:
+    return DAG.getNode(CSAISD::VSetCC, DL, MVT::i8,
+        Op->getOperand(1), Op->getOperand(2),
+        DAG.getCondCode((ISD::CondCode)Op->getConstantOperandVal(3)));
   default:
     break;
   }

@@ -411,6 +411,7 @@ def CSASubAdd : SDNode<"CSAISD::SUBADD", SDTFPBinOp>;
 def CSAFMAddSub : SDNode<"CSAISD::FMADDSUB", SDTFPTernaryOp>;
 def CSAFMSubAdd : SDNode<"CSAISD::FMSUBADD", SDTFPTernaryOp>;
 def CSASwizzleOp : SDNode<"CSAISD::Swizzle", SDT_CSASwizzle>;
+def CSAVSetCC : SDNode<"CSAISD::VSetCC", SDTSetCC>;
 
 let Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
@@ -623,6 +624,19 @@ class FloatCmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, ",
                floatFlags, ", $sig"),
     [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
+    !listconcat(preds,gen.Preds,oi.Preds), itin> {
+  let isCompare = 1;
+}
+
+class SimdCmpOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
+                CondCode cmp_opcode, InstrItinClass itin = NoItinerary,
+                list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs I8:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
+    [(set I8:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2),
+      cmp_opcode))],
     !listconcat(preds,gen.Preds,oi.Preds), itin> {
   let isCompare = 1;
 }
@@ -1520,9 +1534,6 @@ def CMPEQ16   : CmpOp<   CMPEQ,  seteq,  Ti16, IIALU>;
 def CMPEQ32   : CmpOp<   CMPEQ,  seteq,  Ti32, IIALU>;
 def CMPEQ64   : CmpOp<   CMPEQ,  seteq,  Ti64, IIALU>;
 
-def CMPEQ8X8  : CmpOp<   CMPEQ,  seteq,  Ti8x8, IIALU>;
-def CMPEQ16X4 : CmpOp<   CMPEQ,  seteq, Ti16x4, IIALU>;
-
 def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
 def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
 def CMPNE8    : CmpOp<   CMPNE,  setne,  Ti8,  IIALU>;
@@ -1530,11 +1541,26 @@ def CMPNE16   : CmpOp<   CMPNE,  setne,  Ti16, IIALU>;
 def CMPNE32   : CmpOp<   CMPNE,  setne,  Ti32, IIALU>;
 def CMPNE64   : CmpOp<   CMPNE,  setne,  Ti64, IIALU>;
 
-def CMPGTS8X8 : CmpOp<   CMPGT,  setgt,  Ts8x8,  IIALU>;
-def CMPGTU8X8 : CmpOp<   CMPGT,  setgt,  Tu8x8,  IIALU>;
-
-def CMPGTS16X4: CmpOp<   CMPGT,  setugt,  Ts16x4,  IIALU>;
-def CMPGTU16X4: CmpOp<   CMPGT,  setugt,  Tu16x4,  IIALU>;
+def CMPEQ8X8  : SimdCmpOp<CMPEQ, CSAVSetCC,  Ti8x8, SETEQ>;
+def CMPEQ16X4 : SimdCmpOp<CMPEQ, CSAVSetCC, Ti16x4, SETEQ>;
+def CMPNE8X8  : SimdCmpOp<CMPNE, CSAVSetCC,  Ti8x8, SETNE>;
+def CMPNE16X4 : SimdCmpOp<CMPNE, CSAVSetCC, Ti16x4, SETNE>;
+def CMPGTS8X8 : SimdCmpOp<CMPGT, CSAVSetCC,  Ts8x8, SETGT>;
+def CMPGTU8X8 : SimdCmpOp<CMPGT, CSAVSetCC,  Tu8x8, SETUGT>;
+def CMPGTS16X4: SimdCmpOp<CMPGT, CSAVSetCC, Ts16x4, SETGT>;
+def CMPGTU16X4: SimdCmpOp<CMPGT, CSAVSetCC, Tu16x4, SETUGT>;
+def CMPGES8X8 : SimdCmpOp<CMPGE, CSAVSetCC,  Ts8x8, SETGE>;
+def CMPGEU8X8 : SimdCmpOp<CMPGE, CSAVSetCC,  Tu8x8, SETUGE>;
+def CMPGES16X4: SimdCmpOp<CMPGE, CSAVSetCC, Ts16x4, SETGE>;
+def CMPGEU16X4: SimdCmpOp<CMPGE, CSAVSetCC, Tu16x4, SETUGE>;
+def CMPLTS8X8 : SimdCmpOp<CMPLT, CSAVSetCC,  Ts8x8, SETLT>;
+def CMPLTU8X8 : SimdCmpOp<CMPLT, CSAVSetCC,  Tu8x8, SETULT>;
+def CMPLTS16X4: SimdCmpOp<CMPLT, CSAVSetCC, Ts16x4, SETLT>;
+def CMPLTU16X4: SimdCmpOp<CMPLT, CSAVSetCC, Tu16x4, SETULT>;
+def CMPLES8X8 : SimdCmpOp<CMPLE, CSAVSetCC,  Ts8x8, SETLE>;
+def CMPLEU8X8 : SimdCmpOp<CMPLE, CSAVSetCC,  Tu8x8, SETULE>;
+def CMPLES16X4: SimdCmpOp<CMPLE, CSAVSetCC, Ts16x4, SETLE>;
+def CMPLEU16X4: SimdCmpOp<CMPLE, CSAVSetCC, Tu16x4, SETULE>;
 
 // Shift/add - itinerary depends on constant small shift amt - else IShft...
 def SLADD     : GenericOp<"sladd", [HasShAdd]>;
@@ -2479,30 +2505,19 @@ multiclass SimdTriOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo o
 }
 
 // Floating-point simd compare instructions
-multiclass SimdCmpOp<GenericOp gen, CSAOpInfo oi,
+multiclass SimdCmpOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oir,
+             SDPatternOperator node,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
   def "" : FMTGEN<gen, oi,
-    (outs oi.RC:$dst),
+    (outs oir.RC:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2, i8imm:$disable, i8imm:$swizzle1,
          i8imm:$swizzle2, FPOrderedOperand:$ord, FPSignalingOperand:$sig),
     !strconcat(gen.AsmString, oi.InstrSuffix,
         "\t$dst, $op1, $op2, $disable, $swizzle1, $swizzle2, $ord, $sig"),
-    [],
+    [(set oir.VT:$dst, (node oi.RCL:$op1, oi.RCL:$op2, timm:$disable,
+                             timm:$swizzle1, timm:$swizzle2, timm:$ord,
+                             timm:$sig))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-  /*
-  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
-                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
-      (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, imm:$swizzle2)>;
-  def : Pat<(oi.VT (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
-                           oi.RCL:$op2)),
-      (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, 0)>;
-  def : Pat<(oi.VT (opNode oi.RCL:$op1,
-                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
-      (!cast<Instruction>(NAME) $op1, $op2, 0, 0, imm:$swizzle2)>;
-  def : Pat<(oi.VT (opNode oi.RCL:$op1, oi.RCL:$op2)),
-      (!cast<Instruction>(NAME) $op1, $op2, 0, 0, 0)>;
-  */
 }
 
 def ADDSUB : GenericOp<"addsub">;
@@ -2536,31 +2551,40 @@ defm FMASF32X2: SimdTriOp<FMAS, CSAFMAddSub, int_csa_fmasf32x2, Tf32x2>;
 defm FMSAF32X2: SimdTriOp<FMSA, CSAFMSubAdd, int_csa_fmsaf32x2, Tf32x2>;
 defm FNMSF32X2: SimdTriOp<FNMS, fnms, int_csa_fnmsf32x2, Tf32x2>;
 
-defm CMPLTF16X4: SimdCmpOp<CMPLT, Tf16x4>;
-defm CMPLEF16X4: SimdCmpOp<CMPLE, Tf16x4>;
-defm CMPEQF16X4: SimdCmpOp<CMPEQ, Tf16x4>;
-defm CMPGTF16X4: SimdCmpOp<CMPGT, Tf16x4>;
-defm CMPGEF16X4: SimdCmpOp<CMPGE, Tf16x4>;
-defm CMPNEF16X4: SimdCmpOp<CMPNE, Tf16x4>;
-defm CMPOF16X4:  SimdCmpOp<CMPO,  Tf16x4>;
-defm CMPUOF16X4: SimdCmpOp<CMPUO, Tf16x4>;
+// Select comparison opcodes for floating point compares. There are 32 possible
+// compares, corresponding to 5 bits of (most to least significant bit)
+// signaling, unordered, less-than, greater-than, and equal. There are 8
+// instructions to map the last three bits, and the other two bits each
+// correspond to another operand.
+// The intrinsics use three parameters to control these 5 bits, and the SimdFrag
+// is a helper pattern for mapping distinct values of the 3-bit parameter to
+// separate instructions.
+class SimdFrag<SDPatternOperator intrin, int cmp> : PatFrag<
+  (ops node:$A, node:$B, node:$D, node:$S1, node:$S2, node:$O, node:$S),
+  (intrin $A, $B, cmp, $D, $S1, $S2, $O, $S)>;
 
-defm CMPLTF32X2: SimdCmpOp<CMPLT, Tf32x2>;
-defm CMPLEF32X2: SimdCmpOp<CMPLE, Tf32x2>;
-defm CMPEQF32X2: SimdCmpOp<CMPEQ, Tf32x2>;
-defm CMPGTF32X2: SimdCmpOp<CMPGT, Tf32x2>;
-defm CMPGEF32X2: SimdCmpOp<CMPGE, Tf32x2>;
-defm CMPNEF32X2: SimdCmpOp<CMPNE, Tf32x2>;
-defm CMPOF32X2:  SimdCmpOp<CMPO,  Tf32x2>;
-defm CMPUOF32X2: SimdCmpOp<CMPUO, Tf32x2>;
+defm CMPUOF16X4: SimdCmpOp<CMPUO, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 0>>;
+defm CMPEQF16X4: SimdCmpOp<CMPEQ, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 1>>;
+defm CMPGTF16X4: SimdCmpOp<CMPGT, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 2>>;
+defm CMPGEF16X4: SimdCmpOp<CMPGE, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 3>>;
+defm CMPLTF16X4: SimdCmpOp<CMPLT, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 4>>;
+defm CMPLEF16X4: SimdCmpOp<CMPLE, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 5>>;
+defm CMPNEF16X4: SimdCmpOp<CMPNE, Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 6>>;
+defm CMPOF16X4:  SimdCmpOp<CMPO,  Tf16x4, Ti8, SimdFrag<int_csa_cmpf16x4, 7>>;
 
-// TODO: Hook these to int_csa_minf16x4 and int_csa_minf32x2
-defm MINF16X4  : SimdCmpOp<MIN, Tf16x4>;
-defm MINF32X2  : SimdCmpOp<MIN, Tf32x2>;
+defm CMPUOF32X2: SimdCmpOp<CMPUO, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 0>>;
+defm CMPEQF32X2: SimdCmpOp<CMPEQ, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 1>>;
+defm CMPGTF32X2: SimdCmpOp<CMPGT, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 2>>;
+defm CMPGEF32X2: SimdCmpOp<CMPGE, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 3>>;
+defm CMPLTF32X2: SimdCmpOp<CMPLT, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 4>>;
+defm CMPLEF32X2: SimdCmpOp<CMPLE, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 5>>;
+defm CMPNEF32X2: SimdCmpOp<CMPNE, Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 6>>;
+defm CMPOF32X2:  SimdCmpOp<CMPO,  Tf32x2, Ti8, SimdFrag<int_csa_cmpf32x2, 7>>;
 
-// TODO: Hook these to int_csa_maxf16x4 and int_csa_maxf32x2
-defm MAXF16X4  : SimdCmpOp<MAX, Tf16x4>;
-defm MAXF32X2  : SimdCmpOp<MAX, Tf32x2>;
+defm MINF16X4  : SimdCmpOp<MIN, Tf16x4, Tf16x4, int_csa_minf16x4>;
+defm MINF32X2  : SimdCmpOp<MIN, Tf32x2, Tf32x2, int_csa_minf32x2>;
+defm MAXF16X4  : SimdCmpOp<MAX, Tf16x4, Tf16x4, int_csa_maxf16x4>;
+defm MAXF32X2  : SimdCmpOp<MAX, Tf32x2, Tf32x2, int_csa_maxf32x2>;
 
 // Pack, unpack
 def PACK: GenericOp<"pack">;

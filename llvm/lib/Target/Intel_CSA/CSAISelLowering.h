@@ -45,6 +45,10 @@ enum {
   FMADDSUB,
   FMSUBADD,
 
+  // Vector versions of setcc. These are like regular setcc, but it returns an
+  // i8 instead of an i1.
+  VSetCC,
+
   // Single-parameter swizzle for an operation.
   Swizzle,
 

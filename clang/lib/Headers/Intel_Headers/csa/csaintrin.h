@@ -57,6 +57,51 @@ typedef enum {
   _MM_DISABLE_BOTH = 3
 } _MM_DISABLE_ENUM;
 
+/* Comparison enum. These values should match the FP values of ISD::CondCode
+ * where possible. This matches up as follows (in terms of bits): S N U L G E
+ * The S bit is the signaling parameter.
+ * The N bit is don't-care-about-NaN, or signed integer comparison.
+ * The other bits are true if the result of the FP op is unordered, less,
+ * greater, or equal, respectively. */
+#define __CMP_S_BIT 0x80
+#define __CMP_N_BIT 0x10
+#define __CMP_U_BIT 0x08
+typedef enum {
+  _CMP_FALSE_OQ,
+  _CMP_EQ_OQ,
+  _CMP_GT_OQ,
+  _CMP_GE_OQ,
+  _CMP_LT_OQ,
+  _CMP_LE_OQ,
+  _CMP_NEQ_OQ,
+  _CMP_ORD_Q,
+  _CMP_UNORD_Q,
+  _CMP_EQ_UQ,
+  _CMP_NLE_UQ,
+  _CMP_NLT_UQ,
+  _CMP_NGE_UQ,
+  _CMP_NGT_UQ,
+  _CMP_NEQ_UQ,
+  _CMP_TRUE_UQ,
+
+  _CMP_FALSE_OS = _CMP_FALSE_OQ | __CMP_S_BIT,
+  _CMP_EQ_OS,
+  _CMP_GT_OS,
+  _CMP_GE_OS,
+  _CMP_LT_OS,
+  _CMP_LE_OS,
+  _CMP_NEQ_OS,
+  _CMP_ORD_S,
+  _CMP_UNORD_S,
+  _CMP_EQ_US,
+  _CMP_NLE_US,
+  _CMP_NLT_US,
+  _CMP_NGE_US,
+  _CMP_NGT_US,
+  _CMP_NEQ_US,
+  _CMP_TRUE_US,
+} _MM_CMP_ENUM;
+
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 
@@ -957,6 +1002,135 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
 #define _mm64_max_ps(OP1, OP2, D, SW1, SW2)                     \
   (__m64f)(__builtin_csa_max32x2 ((__m64f)(OP1), (__m64f)(OP2), \
                                   (D), (SW1), (SW2)))
+
+/* SIMD integer: we use a single intrinsic with comparison codes here. The
+ * mapping is based on ISD::CondCode, see the comment above _MM_CMP_ENUM. */
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpeq_epi8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_EQ_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpne_epi8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_NEQ_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpgt_epi8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_GT_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpge_epi8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_GE_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmplt_epi8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_LT_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmple_epi8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_LE_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpgt_epu8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_NLE_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpge_epu8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_NLT_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmplt_epu8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_NGE_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmple_epu8(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp8x8((__v8qi)a, (__v8qi)b, _CMP_NGT_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpeq_epi16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_EQ_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpne_epi16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_NEQ_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpgt_epi16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_GT_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpge_epi16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_GE_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmplt_epi16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_LT_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmple_epi16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_LE_OQ | __CMP_N_BIT);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpgt_epu16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_NLE_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmpge_epu16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_NLT_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmplt_epu16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_NGE_UQ);
+}
+
+static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmple_epu16(__m64i a, __m64i b)
+{
+  return __builtin_csa_cmp16x4((__v4hi)a, (__v4hi)b, _CMP_NGT_UQ);
+}
+
+/* Floating point comparisons: the LLVM intrinsic breaks the comparison
+ * parameter into three different parameters.
+ */
+#define _mm64_cmp_ph(A, B, CMP, D, S1, S2) \
+  (__builtin_csa_cmpf16x4((__m64h)(A), (__m64h)(B), (CMP) & 0x7, \
+                          (D), (S1), (S2), \
+                          ((CMP) & __CMP_U_BIT) == 0, \
+                          ((CMP) & __CMP_S_BIT) != 0))
+
+#define _mm64_cmp_ps(A, B, CMP, D, S1, S2) \
+  (__builtin_csa_cmpf32x2((__m64f)(A), (__m64f)(B), (CMP) & 0x7, \
+                          (D), (S1), (S2), \
+                          ((CMP) & __CMP_U_BIT) == 0, \
+                          ((CMP) & __CMP_S_BIT) != 0))
+
+#define _mm64_min_ph(A, B, D, S1, S2) \
+  ((__m64h)(__builtin_csa_minf16x4((__m64h)(A), (__m64h)(B), (D), (S1), (S2), 0, 0)))
+
+#define _mm64_max_ph(A, B, D, S1, S2) \
+  ((__m64h)(__builtin_csa_maxf16x4((__m64h)(A), (__m64h)(B), (D), (S1), (S2), 0, 0)))
+
+#define _mm64_min_ps(A, B, D, S1, S2) \
+  ((__m64f)(__builtin_csa_minf32x2((__m64f)(A), (__m64f)(B), (D), (S1), (S2), 0, 0)))
+
+#define _mm64_max_ps(A, B, D, S1, S2) \
+  ((__m64f)(__builtin_csa_maxf32x2((__m64f)(A), (__m64f)(B), (D), (S1), (S2), 0, 0)))
 
 /*
  * New Scalar Intrinsics

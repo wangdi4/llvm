@@ -39,7 +39,8 @@ BUILTIN(__builtin_csa_addsu8x8,    "V8cV8cV8c",          "ncV:64:")
 
 BUILTIN(__builtin_csa_addss16x4,   "V4sV4sV4s",          "ncV:64:")
 BUILTIN(__builtin_csa_addsu16x4,   "V4sV4sV4s",          "ncV:64:")
-
+BUILTIN(__builtin_csa_cmp8x8,      "cV8cV8cIc",          "ncV:64:")
+BUILTIN(__builtin_csa_cmp16x4,     "cV4sV4sIc",          "ncV:64:")
 BUILTIN(__builtin_csa_subss8x8,    "V8cV8cV8c",          "ncV:64:")
 BUILTIN(__builtin_csa_subsu8x8,    "V8cV8cV8c",          "ncV:64:")
 BUILTIN(__builtin_csa_subss16x4,   "V4sV4sV4s",          "ncV:64:")
@@ -78,8 +79,10 @@ BUILTIN(__builtin_csa_fmrsf16x4,   "V4hV4hV4hIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_fmasf16x4,   "V4hV4hV4hIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_fmsaf16x4,   "V4hV4hV4hIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_fnms16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")
-BUILTIN(__builtin_csa_minf16x4,    "V4hV4hIcIcIc",       "ncV:64:")
-BUILTIN(__builtin_csa_maxf16x4,    "V4hV4hIcIcIc",       "ncV:64:")
+BUILTIN(__builtin_csa_cmpf16x4,    "cV4hV4hIcIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_minf16x4,    "V4hV4hV4hIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_maxf16x4,    "V4hV4hV4hIcIcIcIbIb","ncV:64:")
+
 
 BUILTIN(__builtin_csa_addf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_subf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
@@ -92,10 +95,11 @@ BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fnmsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
-BUILTIN(__builtin_csa_minf32x2,    "V2fV2fIcIcIc",       "ncV:64:")
-BUILTIN(__builtin_csa_maxf32x2,    "V2fV2fIcIcIc",       "ncV:64:")
+BUILTIN(__builtin_csa_cmpf32x2,    "cV2fV2fIcIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_minf32x2,    "V2fV2fV2fIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_maxf32x2,    "V2fV2fV2fIcIcIcIbIb","ncV:64:")
 
-// New scalar intrinsics
+// Scalar intrinsics
 BUILTIN(__builtin_csa_clxmul8,     "UsUcUc",             "nc")
 BUILTIN(__builtin_csa_clxmul16,    "UiUsUs",             "nc")
 BUILTIN(__builtin_csa_clxmul32,    "LLiUiUi",            "nc")

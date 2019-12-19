@@ -118,6 +118,10 @@ void CSAInstPrinter::print##Asm##Operand(const MCInst *MI, unsigned OpNo, \
   static const char *names[] = { \
     __VA_ARGS__ \
   }; \
+  size_t count = sizeof(names) / sizeof(names[0]); \
+  /* Clip the value to the name size if it was sign extended. */ \
+  if (value & (1ULL << 63)) \
+    value = value % count; \
   assert(value < sizeof(names) / sizeof(names[0]) && \
     #Asm " operand is outside range of permissible values"); \
   O << names[value]; \
