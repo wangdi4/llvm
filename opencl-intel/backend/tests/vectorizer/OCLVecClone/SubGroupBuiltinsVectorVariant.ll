@@ -80,16 +80,16 @@ entry:
 ; CHECK: = call <16 x i32> @_Z28intel_sub_group_shuffle_downDv16_iS_Dv4_jS0_(
 
   %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %a)
-; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_4PU3AS1Kj(i32 addrspace(1)* [[LOAD_a:%.*]])
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_4PU3AS1KjDv4_j(i32 addrspace(1)* [[LOAD_a:%.*]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %blk_read.x2 = mul <2 x i32> %blk_read, <i32 2, i32 2>
   call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %b, <2 x i32> %blk_read.x2)
-; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j(i32 addrspace(1)* [[LOAD_b:%.*]], <8 x i32> {{%.*}})
+; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_jDv4_j(i32 addrspace(1)* [[LOAD_b:%.*]], <8 x i32> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %short_ptr = bitcast i32 addrspace(1)* %a to i16 addrspace(1)*
   %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr)
-; CHECK: call <8 x i16> @_Z32intel_sub_group_block_read_us2_4PU3AS1Kt(i16 addrspace(1)* {{%.*}})
+; CHECK: call <8 x i16> @_Z32intel_sub_group_block_read_us2_4PU3AS1KtDv4_j(i16 addrspace(1)* {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %blk_read_short.x2 = mul <2 x i16> %blk_read_short, <i16 2, i16 2>
   call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2)
-; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_t(i16 addrspace(1)* {{%.*}}, <8 x i16> {{%.*}})
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j(i16 addrspace(1)* {{%.*}}, <8 x i16> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
 ; CHECK: call <16 x i32> @_Z22intel_sub_group_ballotDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)

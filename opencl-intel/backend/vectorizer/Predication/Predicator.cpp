@@ -1045,10 +1045,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
         V_ASSERT(CI->getCalledFunction() &&
                  "Unexpected indirect function invocation");
         std::string funcname = CI->getCalledFunction()->getName().str();
-        bool hasNoSideEffect = m_rtServices->hasNoSideEffect(funcname);
-        bool allowsUnpredication =
-          m_rtServices->allowsUnpredicatedMemoryAccess(funcname);
-        if (!hasNoSideEffect && !allowsUnpredication)  {
+        if (!m_rtServices->hasNoSideEffect(funcname))  {
           m_toPredicate.push_back(I);
         }
       }

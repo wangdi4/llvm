@@ -31,12 +31,13 @@
 ///
 /// 3. Updates the metadata that later passes use.
 // ===--------------------------------------------------------------------=== //
-#include "OCLVecClone.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
+#include "NameMangleAPI.h"
 #include "OCLPrepareKernelForVecClone.h"
+#include "OCLVecClone.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
@@ -428,7 +429,7 @@ struct TypeInfo {
 };
 } // namespace
 
-//  The mangling part is probably duplicating existing code, but this is only a
+// The mangling part is probably duplicating existing code, but this is only a
 // temporary solution anyway and this simpler interface is enough currently.
 static std::string mangleTypes(std::vector<TypeInfo> Types) {
   SmallVector<TypeInfo, 2> SubstitutableTypes;
@@ -521,11 +522,12 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
   using BuiltinInfoList = std::vector<BuiltinInfo>;
 
-  const std::string BlockReadBaseName("intel_sub_group_block_read");
-  const std::string BlockWriteBaseName("intel_sub_group_block_write");
-
-  llvm::StringMap<const char *> SuffixMap{
-      {{"", "j"}, {"_ul", "m"}, {"_ui", "j"}, {"_us", "t"}, {"_uc", "h"}}};
+  std::map<std::string, reflection::TypePrimitiveEnum> SuffixMap{
+      {{"",    reflection::PRIMITIVE_UINT},
+       {"_ul", reflection::PRIMITIVE_ULONG},
+       {"_ui", reflection::PRIMITIVE_UINT},
+       {"_us", reflection::PRIMITIVE_USHORT},
+       {"_uc", reflection::PRIMITIVE_UCHAR}}};
 
   const char *BlockReadWriteSuffixes[] = {"", "_ul", "_ui", "_us", "_uc"};
   unsigned BlockReadWriteVecLengths[4] = {1, 2, 4, 8};
@@ -558,9 +560,27 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   // "intel_sub_group_block_read",
   //   "_us" -> "_Z29intel_sub_group_block_read_usPU3AS1Kt"
   auto ConstructReadMangledName = [&SuffixMap](const std::string &BaseName,
-                                               const std::string &Suffix) {
-    return "_Z" + std::to_string(BaseName.length()) + BaseName + "PU3AS1K" +
-           SuffixMap[Suffix];
+                                               const std::string &Suffix,
+                                               unsigned VF) {
+    reflection::FunctionDescriptor FuncDesc;
+    FuncDesc.name = BaseName;
+    reflection::TypePrimitiveEnum Primitive = SuffixMap[Suffix];
+
+    reflection::RefParamType PrimitiveTy(new reflection::PrimitiveType(Primitive));
+    reflection::RefParamType PointerPrimitivetTy(
+      new reflection::PointerType(
+        PrimitiveTy, {reflection::ATTR_GLOBAL, reflection::ATTR_CONST}));
+    FuncDesc.parameters.push_back(PointerPrimitivetTy);
+
+    std::string MangledParams;
+    if (VF != 1) {
+      // do not mask non-widened call
+      reflection::RefParamType UintTy(
+        new reflection::PrimitiveType(reflection::PRIMITIVE_UINT));
+      reflection::RefParamType MaskTy(new reflection::VectorType(UintTy, VF));
+      FuncDesc.parameters.push_back(MaskTy);
+    }
+    return mangle(FuncDesc);
   };
 
   // Example:
@@ -571,9 +591,31 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   auto ConstructWriteMangledName =
       [&SuffixMap](const std::string &BaseName, const std::string &Suffix,
                    unsigned OrigTypeVL, unsigned VF) {
-    return "_Z" + std::to_string(BaseName.length()) + BaseName + "PU3AS1" +
-           SuffixMap[Suffix] +
-           TypeInfo(SuffixMap[Suffix][0], OrigTypeVL * VF).str();
+    reflection::FunctionDescriptor FuncDesc;
+    FuncDesc.name = BaseName;
+
+    reflection::TypePrimitiveEnum Primitive = SuffixMap[Suffix];
+
+    reflection::RefParamType PrimitiveTy(new reflection::PrimitiveType(Primitive));
+    reflection::RefParamType PointerPrimitivetTy(
+      new reflection::PointerType(PrimitiveTy, {reflection::ATTR_GLOBAL}));
+    FuncDesc.parameters.push_back(PointerPrimitivetTy);
+
+    if (OrigTypeVL * VF == 1)
+      FuncDesc.parameters.push_back(PrimitiveTy);
+    else {
+      reflection::RefParamType VectorPrimitiveTy(
+        new reflection::VectorType(PrimitiveTy, OrigTypeVL * VF));
+      FuncDesc.parameters.push_back(VectorPrimitiveTy);
+    }
+    if (VF != 1) {
+      // do not mask non-widened call
+      reflection::RefParamType UintTy(
+        new reflection::PrimitiveType(reflection::PRIMITIVE_UINT));
+      reflection::RefParamType MaskTy(new reflection::VectorType(UintTy, VF));
+      FuncDesc.parameters.push_back(MaskTy);
+    }
+    return mangle(FuncDesc);
   };
 
   BuiltinInfoList ReadBuiltins;
@@ -589,10 +631,10 @@ static void addSpecialBuiltins(ContainerTy &Info) {
           ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 8);
       std::string ReadVF16Name =
           ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 16);
-      ReadBuiltins.push_back({ConstructReadMangledName(ReadBaseName, Suffix),
-                              {ConstructReadMangledName(ReadVF4Name, Suffix),
-                               ConstructReadMangledName(ReadVF8Name, Suffix),
-                               ConstructReadMangledName(ReadVF16Name, Suffix)}});
+      ReadBuiltins.push_back({ConstructReadMangledName(ReadBaseName, Suffix, 1),
+                              {ConstructReadMangledName(ReadVF4Name, Suffix, 4),
+                               ConstructReadMangledName(ReadVF8Name, Suffix, 8),
+                               ConstructReadMangledName(ReadVF16Name, Suffix, 16)}});
 
       const std::string BlockWriteBaseName("intel_sub_group_block_write");
       std::string WriteBaseName =
@@ -634,7 +676,7 @@ static void addSpecialBuiltins(ContainerTy &Info) {
 
   auto AddReadBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform()}, VF, Idx);
+    AddBuiltin(Builtin, true /*Masked*/, {VectorKind::uniform()}, VF, Idx);
   };
 
   for (auto &ReadBuiltin : ReadBuiltins) {
@@ -645,7 +687,7 @@ static void addSpecialBuiltins(ContainerTy &Info) {
 
   auto AddWriteBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform(), VectorKind::vector()},
+    AddBuiltin(Builtin, true /*Masked*/, {VectorKind::uniform(), VectorKind::vector()},
                VF, Idx);
   };
 
