@@ -576,7 +576,7 @@ def ArbPrecInt : TypeAttr {
   let Spellings = [Clang<"__ap_int">];
   let Subjects = SubjectList<[TypedefName], ErrorDiag>;
   let Args = [ExprArgument<"NumBits">];
-  let LangOpts = [OpenCL, HLS];
+  let LangOpts = [OpenCL, HLS, SYCLIsDevice];
   let Documentation = [ArbPrecIntDocs];
   let ASTNode = 0;
 }

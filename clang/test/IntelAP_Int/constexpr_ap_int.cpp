@@ -5,12 +5,22 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-linux-pc -fhls %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-linux-pc -fhls -std=c++17 %s -emit-llvm -o - | FileCheck %s
 
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl-is-device -std=c++17 %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device -std=c++17 %s -emit-llvm -o - | FileCheck %s
+
 typedef int int65_tt __attribute__((__ap_int(65)));
 constexpr int65_tt an_int = 17;
 
 using ap_uint = unsigned int __attribute__((__ap_int(77)));
 using ap_int = int __attribute__((__ap_int(77)));
 
+#ifndef SYCL_EXTERNAL
+#define SYCL_EXTERNAL
+#endif
+
+SYCL_EXTERNAL
 int65_tt foo() {
   return an_int;
   //CHECK: ret i65 17
@@ -41,6 +51,7 @@ constexpr ap_int s9 = s1&s2;
 constexpr ap_int s0 = s1^s2;
 constexpr ap_int sa = ~s1;
 
+SYCL_EXTERNAL
 ap_uint unsigned_usages(int i) {
   switch (i) {
   case 1:
@@ -80,6 +91,7 @@ ap_uint unsigned_usages(int i) {
   return 0;
 }
 
+SYCL_EXTERNAL
 ap_int signed_usages(int i) {
   switch (i) {
   case 1:

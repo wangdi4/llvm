@@ -1,11 +1,19 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-unknown-linux-gnu -fhls %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-pc-win32 -fhls %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-unknown-intelfpga -fhls %s -emit-llvm -o - | FileCheck %s
+
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
 // Ensure that we can cast an ap_int to bool.
 
 typedef int int65_tt __attribute__((__ap_int(65)));
 typedef unsigned int uint65_tt __attribute__((__ap_int(65)));
 
+#ifndef SYCL_EXTERNAL
+#define SYCL_EXTERNAL
+#endif
+
+SYCL_EXTERNAL
 bool test_ap_int_to_bool()
 {
   // CHECK: define
@@ -34,6 +42,7 @@ bool test_ap_int_to_bool()
   // CHECK: ret i1 %[[TO_BOOL_3]]
 }
 
+SYCL_EXTERNAL
 bool test_ap_uint_to_bool() {
   // CHECK: define
   // CHECK: %[[AP_INT:[a-zA-Z0-9_]+]] = alloca i65
@@ -64,6 +73,7 @@ bool test_ap_uint_to_bool() {
 template <unsigned int Bits>
 using ap_uint = unsigned int __attribute((__ap_int(Bits)));
 
+SYCL_EXTERNAL
 void test_ap_int_conversions() {
   ap_uint<5> s(0);
   // CHECK: store i5 0, i5* [[S:%.+]]
@@ -114,3 +124,4 @@ void test_ap_int_conversions() {
   // CHECK: [[FROM_BOOL2:%.+]] = zext i1 [[TO_BOOL4]]
   // CHECK: store i8 [[FROM_BOOL2]], i8* [[B1]]
 }
+

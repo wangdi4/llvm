@@ -1,4 +1,5 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s
 
 // CHECK: %[[L0:[0-9]+]] = load i4, i4* %x4_u, align 1
 // CHECK: %[[L1:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
@@ -29,6 +30,9 @@ typedef unsigned int uint43_tt __attribute__((__ap_int(43)));
 typedef unsigned int uint5_tt __attribute__((__ap_int(5)));
 typedef unsigned int uint4_tt __attribute__((__ap_int(4)));
 
+#ifdef SYCL_EXTERNAL
+SYCL_EXTERNAL
+#endif
 void foo(int shift_amount) {
   uint4_tt x4_u = 0;
   uint5_tt x5_u = 0;
