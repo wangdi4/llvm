@@ -176,7 +176,7 @@ private:
 
 #if INTEL_CUSTOMIZATION
   /// Initialize shapes before propagation.
-  void initializeShapes(SmallVectorImpl<const VPInstruction*> &PhiNodes);
+  void initializePhiShapes(VPLoop *CandidateLoop);
 
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape* OldShape, VPVectorShape* NewShape);

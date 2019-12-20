@@ -1707,6 +1707,23 @@ public:
     return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
+  auto getVPPhis() const {
+    auto AsVPPHINode = [](const VPInstruction &Instruction) -> const VPPHINode & {
+      return cast<VPPHINode>(Instruction);
+    };
+
+    // If the block is empty or if it has no PHIs, return null range
+    if (empty() || !isa<VPPHINode>(begin()))
+      return map_range(make_range(end(), end()), AsVPPHINode);
+
+    // Increment iterator till a non PHI VPInstruction is found
+    const_iterator It = begin();
+    while (It != end() && isa<VPPHINode>(It))
+      ++It;
+
+    return map_range(make_range(begin(), It), AsVPPHINode);
+  }
+
   VPBasicBlock(const std::string &Name, VPInstruction *Instruction = nullptr)
       : VPBlockBase(VPBasicBlockSC, Name), CBlock(nullptr), TBlock(nullptr),
         FBlock(nullptr), OriginalBB(nullptr) {
