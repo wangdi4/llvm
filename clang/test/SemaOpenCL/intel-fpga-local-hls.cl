@@ -124,8 +124,17 @@ void foo1()
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //expected-warning@+1{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   __attribute__((max_concurrency(4)))
   unsigned int v_five_two[64];
+
+  //CHECK: VarDecl{{.*}}v_five_three
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: PrivateCopiesAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((private_copies(4)))
+  unsigned int v_five_three[64];
 
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
@@ -303,11 +312,18 @@ void foo1()
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six[64];
 
+  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__max_concurrency__(16)))
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six_two[64];
+
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__register__))
+  __attribute__((__private_copies__(16)))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int reg_six_three[64];
 
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
@@ -408,6 +424,7 @@ void foo1()
   unsigned int bw_seven[64];
 
   // max_concurrency
+  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__max_concurrency__(16)))
   __attribute__((__register__))
@@ -421,16 +438,20 @@ void foo1()
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__max_concurrency__(8)))
   __attribute__((__max_concurrency__(16)))
   unsigned int mc_two[64];
 
+  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+1{{requires integer constant between 0 and 1048576}}
   __attribute__((__max_concurrency__(-4)))
   unsigned int mc_four[64];
 
   int i_max_concurrency = 32;
+  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+1{{expression is not an integer constant expression}}
   __attribute__((__max_concurrency__(i_max_concurrency)))
   unsigned int mc_five[64];
@@ -438,6 +459,38 @@ void foo1()
   //expected-error@+1{{'__max_concurrency__' attribute takes one argument}}
   __attribute__((__max_concurrency__(4,8)))
   unsigned int mc_six[64];
+
+  // private_copies
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__private_copies__(16)))
+  __attribute__((__register__))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int pc_one[64];
+
+  //CHECK: VarDecl{{.*}}pc_two
+  //CHECK: PrivateCopiesAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
+  //CHECK: PrivateCopiesAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+2{{is already applied}}
+  __attribute__((__private_copies__(8)))
+  __attribute__((__private_copies__(16)))
+  unsigned int pc_two[64];
+
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  __attribute__((__private_copies__(-4)))
+  unsigned int pc_four[64];
+
+  int i_private_copies = 32;
+  //expected-error@+1{{expression is not an integer constant expression}}
+  __attribute__((__private_copies__(i_private_copies)))
+  unsigned int pc_five[64];
+
+  //expected-error@+1{{'__private_copies__' attribute takes one argument}}
+  __attribute__((__private_copies__(4,8)))
+  unsigned int pc_six[64];
 
   // numbanks
   //expected-error@+2{{attributes are not compatible}}
@@ -590,6 +643,10 @@ kernel void foo2(
   __attribute__((__max_concurrency__(8)))
   __constant unsigned int loc_one[64] = { 1, 2, 3 };
 
+  //expected-error@+1{{applies to local non-const variables and non-static data members}}
+  __attribute__((__private_copies__(8)))
+  __constant unsigned int loc_two[64] = { 1, 2, 3 };
+
   __constant int __attribute__((doublepump)) local_const1 = 1;
   __constant int __attribute__((register)) local_const2 = 1;
   __constant int __attribute__((singlepump)) local_const3 = 1;
@@ -608,6 +665,10 @@ kernel void foo2(
 __attribute__((__max_concurrency__(8)))
 __constant unsigned int ext_two[64] = { 1, 2, 3 };
 
+//expected-error@+1{{applies to local non-const variables and non-static data members}}
+__attribute__((__private_copies__(8)))
+__constant unsigned int ext_three[64] = { 1, 2, 3 };
+
 void other2()
 {
   //expected-error@+1{{applies to functions and local non-const variables}}
@@ -616,6 +677,15 @@ void other2()
 
 //expected-error@+1{{applies to functions and local non-const variables}}
 void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}
+
+void other4()
+{
+  //expected-error@+1{{applies to local non-const variables and non-static data members}}
+  __attribute__((__private_copies__(8))) const int ext_six[64];
+}
+
+//expected-error@+1{{applies to local non-const variables and non-static data members}}
+void other5(__attribute__((__private_copies__(8))) int pfoo) {}
 
 struct foo {
   //CHECK: FieldDecl{{.*}}v_one

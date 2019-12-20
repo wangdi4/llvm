@@ -28,6 +28,7 @@
 //CHECK: @global_constant18
 //CHECK: [[ANN31:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}
 //CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_concurrency:4}
+//CHECK: [[ANN6B:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{private_copies:4}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:bar:width}
 //CHECK: [[ANN20:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,2}{simple_dual_port:1}
 //CHECK: [[ANN21:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:12}{max_replicates:2}
@@ -79,6 +80,10 @@ void foo_two() {
   //CHECK: %[[VAR_NINE_TWO1:var_nine_two[0-9]+]] = bitcast{{.*}}var_nine_two
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_NINE_TWO1]],{{.*}}[[ANN6A]]
   int __attribute__((__max_concurrency__(4))) var_nine_two;
+  //CHECK: %[[VAR_NINE_THREE:[0-9]+]] = bitcast{{.*}}var_nine_three
+  //CHECK: %[[VAR_NINE_THREE1:var_nine_three[0-9]+]] = bitcast{{.*}}var_nine_three
+  //CHECK: llvm.var.annotation{{.*}}%[[VAR_NINE_THREE1]],{{.*}}[[ANN6B]]
+  int __attribute__((__private_copies__(4))) var_nine_three;
   //CHECK: %[[VAR_TEN:[0-9]+]] = bitcast{{.*}}var_ten
   //CHECK: %[[VAR_TEN1:var_ten[0-9]+]] = bitcast{{.*}}var_ten
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_TEN1]],{{.*}}[[ANN7]]

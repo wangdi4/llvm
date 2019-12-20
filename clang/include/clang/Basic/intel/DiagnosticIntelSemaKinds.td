@@ -134,6 +134,10 @@ def err_hls_readwrite_arg_invalid : Error<
   "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
 def err_readwritememory_attribute_invalid : Error<
   "%0 attribute only applies to slave memory arguments">;
+def warn_max_concurrency_deprecated
+    : Warning<"attribute max_concurrency for variables is deprecated, use the "
+              "attribute private_copies instead">,
+      InGroup<IgnoredAttributes>;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
