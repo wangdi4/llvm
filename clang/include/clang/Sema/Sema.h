@@ -11046,15 +11046,6 @@ public:
     Ref_Compatible
   };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
-                                   SourceLocation Loc, bool IsCompAssign,
-                                   bool IsShift = false);
-  QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
-                                      SourceLocation Loc);
-#endif // INTEL_CUSTOMIZATION
-=======
   // Fake up a scoped enumeration that still contextually converts to bool.
   struct ReferenceConversionsScope {
     /// The conversions that would be performed on an lvalue of type T2 when
@@ -11071,7 +11062,14 @@ public:
     };
   };
   using ReferenceConversions = ReferenceConversionsScope::ReferenceConversions;
->>>>>>> 3ced23976aa8a86a17017c87821c873b4ca80bc2
+
+#if INTEL_CUSTOMIZATION
+  QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
+                                   SourceLocation Loc, bool IsCompAssign,
+                                   bool IsShift = false);
+  QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
+                                      SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
 
   ReferenceCompareResult
   CompareReferenceRelationship(SourceLocation Loc, QualType T1, QualType T2,
