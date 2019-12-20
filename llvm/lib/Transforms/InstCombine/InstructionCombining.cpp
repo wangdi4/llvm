@@ -138,19 +138,17 @@ static cl::opt<bool>
 EnableExpensiveCombines("expensive-combines",
                         cl::desc("Enable expensive instruction combines"));
 
-<<<<<<< HEAD
+static cl::opt<unsigned> LimitMaxIterations(
+    "instcombine-max-iterations",
+    cl::desc("Limit the maximum number of instruction combining iterations"),
+    cl::init(InstCombineDefaultMaxIterations));
+
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
 DisableTypeLoweringOpts("disable-type-lowering-opts",
                         cl::desc("Disable type lowering optimizations"));
 #endif // INTEL_CUSTOMIZATION
-=======
-static cl::opt<unsigned> LimitMaxIterations(
-    "instcombine-max-iterations",
-    cl::desc("Limit the maximum number of instruction combining iterations"),
-    cl::init(InstCombineDefaultMaxIterations));
->>>>>>> 406b6019cd2bd50924be11c634b058c01053fbd3
 
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
@@ -3653,20 +3651,13 @@ static bool combineInstructionsOverFunction(
     AssumptionCache &AC, TargetLibraryInfo &TLI, // INTEL
     TargetTransformInfo &TTI, DominatorTree &DT, // INTEL
     OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-<<<<<<< HEAD
-    ProfileSummaryInfo *PSI, bool ExpensiveCombines = true,
-    bool TypeLoweringOpts = true, LoopInfo *LI = nullptr) { // INTEL
-  auto &DL = F.getParent()->getDataLayout();
-  ExpensiveCombines |= EnableExpensiveCombines;
-  if (DisableTypeLoweringOpts)      // INTEL
-    TypeLoweringOpts = false;       // INTEL
-=======
     ProfileSummaryInfo *PSI, bool ExpensiveCombines, unsigned MaxIterations,
-    LoopInfo *LI) {
+    bool TypeLoweringOpts, LoopInfo *LI) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
   ExpensiveCombines |= EnableExpensiveCombines;
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
->>>>>>> 406b6019cd2bd50924be11c634b058c01053fbd3
+  if (DisableTypeLoweringOpts)      // INTEL
+    TypeLoweringOpts = false;       // INTEL
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -3717,11 +3708,16 @@ static bool combineInstructionsOverFunction(
   return MadeIRChange;
 }
 
-InstCombinePass::InstCombinePass(bool ExpensiveCombines)
-    : ExpensiveCombines(ExpensiveCombines), MaxIterations(LimitMaxIterations) {}
+#if INTEL_CUSTOMIZATION
+InstCombinePass::InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts)
+    : ExpensiveCombines(ExpensiveCombines), TypeLoweringOpts(TypeLoweringOpts),
+      MaxIterations(LimitMaxIterations) {}
 
-InstCombinePass::InstCombinePass(bool ExpensiveCombines, unsigned MaxIterations)
-    : ExpensiveCombines(ExpensiveCombines), MaxIterations(MaxIterations) {}
+InstCombinePass::InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts,
+                                 unsigned MaxIterations)
+    : ExpensiveCombines(ExpensiveCombines), TypeLoweringOpts(TypeLoweringOpts),
+      MaxIterations(MaxIterations) {}
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstCombinePass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
@@ -3741,16 +3737,11 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
-<<<<<<< HEAD
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        ExpensiveCombines,             // INTEL
+                                       MaxIterations,                 // INTEL
                                        TypeLoweringOpts, LI))         // INTEL
-=======
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE, BFI,
-                                       PSI, ExpensiveCombines, MaxIterations,
-                                       LI))
->>>>>>> 406b6019cd2bd50924be11c634b058c01053fbd3
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3807,37 +3798,28 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
       nullptr;
 
-<<<<<<< HEAD
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          ExpensiveCombines,             // INTEL
+                                         MaxIterations,                 // INTEL
                                          TypeLoweringOpts, LI);         // INTEL
-=======
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE, BFI,
-                                         PSI, ExpensiveCombines, MaxIterations,
-                                         LI);
->>>>>>> 406b6019cd2bd50924be11c634b058c01053fbd3
 }
 
 char InstructionCombiningPass::ID = 0;
 
-<<<<<<< HEAD
-InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines,  // INTEL
-                                                   bool TypeLoweringOpts)   // INTEL
-    : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),               // INTEL
-      TypeLoweringOpts(TypeLoweringOpts) {                                  // INTEL
-=======
-InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines)
+InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines, // INTEL
+                                                   bool TypeLoweringOpts)  // INTEL
     : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),
+      TypeLoweringOpts(TypeLoweringOpts),                                  // INTEL
       MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
 InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines,
+                                                   bool TypeLoweringOpts,  // INTEL
                                                    unsigned MaxIterations)
     : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),
-      MaxIterations(MaxIterations) {
->>>>>>> 406b6019cd2bd50924be11c634b058c01053fbd3
+      TypeLoweringOpts(TypeLoweringOpts), MaxIterations(MaxIterations) {   // INTEL
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -3870,12 +3852,14 @@ FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
                                                    bool TypeLoweringOpts) {
   return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts);
 }
-#endif // INTEL_CUSTOMIZATION
 
 FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
+                                                   bool TypeLoweringOpts,
                                                    unsigned MaxIterations) {
-  return new InstructionCombiningPass(ExpensiveCombines, MaxIterations);
+  return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts,
+                                      MaxIterations);
 }
+#endif // INTEL_CUSTOMIZATION
 
 void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInstructionCombiningPass());
