@@ -31,6 +31,7 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeOrdering.h"
+#include "clang/Basic/BitmaskEnum.h"
 #include "clang/Basic/ExpressionTraits.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenMPKinds.h"
@@ -11045,6 +11046,7 @@ public:
     Ref_Compatible
   };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc, bool IsCompAssign,
@@ -11052,12 +11054,28 @@ public:
   QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
                                       SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Fake up a scoped enumeration that still contextually converts to bool.
+  struct ReferenceConversionsScope {
+    /// The conversions that would be performed on an lvalue of type T2 when
+    /// binding a reference of type T1 to it, as determined when evaluating
+    /// whether T1 is reference-compatible with T2.
+    enum ReferenceConversions {
+      Qualification = 0x1,
+      Function = 0x2,
+      DerivedToBase = 0x4,
+      ObjC = 0x8,
+      ObjCLifetime = 0x10,
+
+      LLVM_MARK_AS_BITMASK_ENUM(/*LargestValue=*/ObjCLifetime)
+    };
+  };
+  using ReferenceConversions = ReferenceConversionsScope::ReferenceConversions;
+>>>>>>> 3ced23976aa8a86a17017c87821c873b4ca80bc2
 
   ReferenceCompareResult
   CompareReferenceRelationship(SourceLocation Loc, QualType T1, QualType T2,
-                               bool &DerivedToBase, bool &ObjCConversion,
-                               bool &ObjCLifetimeConversion,
-                               bool &FunctionConversion);
+                               ReferenceConversions *Conv = nullptr);
 
   ExprResult checkUnknownAnyCast(SourceRange TypeRange, QualType CastType,
                                  Expr *CastExpr, CastKind &CastKind,
