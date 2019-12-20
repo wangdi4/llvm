@@ -13,13 +13,12 @@
 #ifndef LLVM_TRANSFORMS_UTILS_INFERADDRESSSPACESUTILS_H
 #define LLVM_TRANSFORMS_UTILS_INFERADDRESSSPACESUTILS_H
 
-#if INTEL_CUSTOMIZATION
-#include "llvm/IR/Module.h"
-#endif  // INTEL_CUSTOMIZATION
-
 namespace llvm {
 
 class Function;
+#if INTEL_CUSTOMIZATION
+class Module;
+#endif  // INTEL_CUSTOMIZATION
 class TargetTransformInfo;
 
 // The utility performs the propagation of specific address space from

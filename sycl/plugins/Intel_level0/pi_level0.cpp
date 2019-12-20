@@ -1772,7 +1772,6 @@ pi_result L0(piSamplerCreate)(
       switch (*cur_property) {
         case PI_SAMPLER_PROPERTIES_NORMALIZED_COORDS:
           {
-            assert(sizeof(pi_bool) == sizeof(pi_sampler_properties));
             pi_bool cur_value_bool = pi_cast<pi_bool>(*(++cur_property));
 
             if (cur_value_bool == PI_TRUE)
@@ -1786,8 +1785,9 @@ pi_result L0(piSamplerCreate)(
 
         case PI_SAMPLER_PROPERTIES_ADDRESSING_MODE:
           {
-            assert(sizeof(pi_sampler_addressing_mode) == sizeof(pi_sampler_properties));
-            pi_sampler_addressing_mode cur_value_addressing_mode = pi_cast<pi_sampler_addressing_mode>(*(++cur_property));
+            pi_sampler_addressing_mode cur_value_addressing_mode =
+              pi_cast<pi_sampler_addressing_mode>(
+                pi_cast<pi_uint32>(*(++cur_property)));
 
             // TODO: add support for PI_SAMPLER_ADDRESSING_MODE_CLAMP_TO_EDGE
             if (cur_value_addressing_mode == PI_SAMPLER_ADDRESSING_MODE_NONE)
@@ -1807,8 +1807,9 @@ pi_result L0(piSamplerCreate)(
 
         case PI_SAMPLER_PROPERTIES_FILTER_MODE:
           {
-            pi_assert(sizeof(pi_sampler_filter_mode) == sizeof(pi_sampler_properties));
-            pi_sampler_filter_mode cur_value_filter_mode = pi_cast<pi_sampler_filter_mode>(*(++cur_property));
+            pi_sampler_filter_mode cur_value_filter_mode =
+              pi_cast<pi_sampler_filter_mode>(
+                pi_cast<pi_uint32>(*(++cur_property)));
 
             if (cur_value_filter_mode == PI_SAMPLER_FILTER_MODE_NEAREST)
               ze_sampler_desc.filterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
@@ -2553,18 +2554,20 @@ static ze_image_region_t getImageRegionHelper(
   ze_image_desc_t imageDesc = image->L0ImageDesc;
 #endif // !NDEBUG
 
-  assert(imageDesc.type == ZE_IMAGE_TYPE_1D && origin[1] == 0 && origin[2] == 0);
-  assert(imageDesc.type == ZE_IMAGE_TYPE_1DARRAY && origin[2] == 0);
-  assert(imageDesc.type == ZE_IMAGE_TYPE_2D && origin[2] == 0);
+  assert(imageDesc.type == ZE_IMAGE_TYPE_1D && origin[1] == 0 && origin[2] == 0 ||
+         imageDesc.type == ZE_IMAGE_TYPE_1DARRAY && origin[2] == 0 ||
+         imageDesc.type == ZE_IMAGE_TYPE_2D && origin[2] == 0 ||
+         imageDesc.type == ZE_IMAGE_TYPE_3D);
 
   uint32_t originX = pi_cast<uint32_t>(origin[0]);
   uint32_t originY = pi_cast<uint32_t>(origin[1]);
   uint32_t originZ = pi_cast<uint32_t>(origin[2]);
 
   assert (region[0] && region[1] && region[2]);
-  assert (imageDesc.type == ZE_IMAGE_TYPE_1D && region[1] == 1 && region[2] == 1);
-  assert (imageDesc.type == ZE_IMAGE_TYPE_1DARRAY && region[2] == 1);
-  assert (imageDesc.type == ZE_IMAGE_TYPE_2D && region[2] == 1);
+  assert (imageDesc.type == ZE_IMAGE_TYPE_1D && region[1] == 1 && region[2] == 1 ||
+          imageDesc.type == ZE_IMAGE_TYPE_1DARRAY && region[2] == 1 ||
+          imageDesc.type == ZE_IMAGE_TYPE_2D && region[2] == 1 ||
+          imageDesc.type == ZE_IMAGE_TYPE_3D);
 
   uint32_t width = pi_cast<uint32_t>(region[0]);
   uint32_t height = pi_cast<uint32_t>(region[1]);
@@ -2634,12 +2637,6 @@ static pi_result enqueueMemImageCommandHelper(
 
   ze_result_t ze_result;
 
-  // L0 does not support other values for row_pitch yet
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
-  //
-  assert(row_pitch == 0);
-  assert(slice_pitch == 0);
-
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = command_type;
@@ -2663,6 +2660,19 @@ static pi_result enqueueMemImageCommandHelper(
     const ze_image_region_t srcRegion =
       getImageRegionHelper(src_image, src_origin, region);
 
+    // TODO: L0 does not support row_pitch/slice_pitch for images yet.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
+    // Check that SYCL RT did not want pitch larger than default.
+    //
+#ifndef NDEBUG
+    assert(row_pitch == 0 ||
+           // special case RGBA image pitch equal to region's width
+           (src_image->L0ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
+            row_pitch == 4 * 4 * srcRegion.width));
+    assert(slice_pitch == 0 ||
+           slice_pitch == row_pitch * srcRegion.height);
+#endif // !NDEBUG
+
     ze_result = ZE_CALL(zeCommandListAppendImageCopyToMemory(
       command_queue->getCommandList(),
       dst,
@@ -2676,6 +2686,19 @@ static pi_result enqueueMemImageCommandHelper(
     enqueueMemImageDeferredInitHelper(command_queue, dst_image);
     const ze_image_region_t dstRegion =
       getImageRegionHelper(dst_image, dst_origin, region);
+
+    // TODO: L0 does not support row_pitch/slice_pitch for images yet.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
+    // Check that SYCL RT did not want pitch larger than default.
+    //
+#ifndef NDEBUG
+    assert(row_pitch == 0 ||
+           // special case RGBA image pitch equal to region's width
+           (dst_image->L0ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
+            row_pitch == 4 * 4 * dstRegion.width));
+    assert(slice_pitch == 0 ||
+           slice_pitch == row_pitch * dstRegion.height);
+#endif // !NDEBUG
 
     ze_result = ZE_CALL(zeCommandListAppendImageCopyFromMemory(
       command_queue->getCommandList(),

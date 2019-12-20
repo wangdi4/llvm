@@ -387,6 +387,11 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         DAL->AddFlagArg(A, Opts.getOption(options::OPT_Z_reserved_lib_cckext));
         continue;
       }
+#if INTEL_CUSTOMIZATION
+      if ((Args.hasArg(options::OPT__intel)) && (Value == "m")) {
+        DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
+      }
+#endif //INTEL_CUSTOMIZATION
     }
 
     // Pick up inputs via the -- option.

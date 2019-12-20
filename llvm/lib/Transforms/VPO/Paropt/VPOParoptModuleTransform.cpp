@@ -29,12 +29,12 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
-#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;

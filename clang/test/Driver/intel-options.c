@@ -57,3 +57,7 @@
 
 // RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
 // LIBMMT: "-defaultlib:libmmt"
+
+// Behavior with -lm
+// RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// CHECK-LIMF: "-limf" "-lm"

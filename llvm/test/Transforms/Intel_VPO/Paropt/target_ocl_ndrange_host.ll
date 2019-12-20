@@ -16,17 +16,17 @@
 ; CHECK: [[M1:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 1
 ; CHECK: store i64 0, i64* [[M1]]
 ; CHECK: [[M2:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 2
-; CHECK: [[UB1:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBPTR1]]
-; CHECK: [[UB1_:%[a-zA-Z._0-9]+]] = sext i32 [[UB1]] to i64
-; CHECK: store i64 [[UB1_]], i64* [[M2]]
+; CHECK: [[UB2:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBPTR2]]
+; CHECK: [[UB2_:%[a-zA-Z._0-9]+]] = sext i32 [[UB2]] to i64
+; CHECK: store i64 [[UB2_]], i64* [[M2]]
 ; CHECK: [[M3:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 3
 ; CHECK: store i64 1, i64* [[M3]]
 ; CHECK: [[M4:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 4
 ; CHECK: store i64 0, i64* [[M4]]
 ; CHECK: [[M5:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 5
-; CHECK: [[UB2:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBPTR2]]
-; CHECK: [[UB2_:%[a-zA-Z._0-9]+]] = sext i32 [[UB2]] to i64
-; CHECK: store i64 [[UB2_]], i64* [[M5]]
+; CHECK: [[UB1:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBPTR1]]
+; CHECK: [[UB1_:%[a-zA-Z._0-9]+]] = sext i32 [[UB1]] to i64
+; CHECK: store i64 [[UB1_]], i64* [[M5]]
 ; CHECK: [[M6:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 6
 ; CHECK: store i64 1, i64* [[M6]]
 

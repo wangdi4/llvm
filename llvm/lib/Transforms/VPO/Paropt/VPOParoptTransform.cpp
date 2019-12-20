@@ -376,27 +376,27 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   assert (LowerBnd->getType() == SchedStride->getType() &&
           "Expected LowerBnd and SchedStride to be of same type");
 
+  unsigned NumLoops = 0;
+  WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  if (!WT || WT->getUncollapsedNDRange().empty())
+    NumLoops = W->getWRNLoopInfo().getNormIVSize();
+  else
+    NumLoops = WT->getUncollapsedNDRange().size();
+
+  assert(NumLoops != 0 && "Zero loops in loop construct.");
+  assert(NumLoops <= 3 && "Max 3 loops in a loop nest for SPIR-V targets.");
+  assert(Idx < NumLoops && "Loop index is bigger than the number of loops "
+         "in a loop nest.");
+
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
   SmallVector<Value *, 3> Arg;
-  initArgArray(&Arg, Idx);
+  // Map the innermost loop to the 1st ND-range dimension.
+  initArgArray(&Arg, NumLoops - Idx - 1);
   bool MayHaveOMPCritical = W->mayHaveOMPCritical();
-
-  CallInst *LocalSize = nullptr;
-  if (MayHaveOMPCritical)
-    // Emulate SIMD1 by executing the same code in all SIMD channels
-    // of a sub-group.
-    LocalSize =
-        VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
-                                          Builder.getInt32Ty(),
-                                          {}, InsertPt);
-  else
-    LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                                  GeneralUtils::getSizeTTy(F),
-                                                  Arg, InsertPt);
 
   assert(((TeamLowerBnd && TeamUpperBnd) ||
           (!TeamLowerBnd && !TeamUpperBnd)) &&
@@ -428,6 +428,19 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
+    CallInst *LocalSize = nullptr;
+    if (MayHaveOMPCritical)
+      // Emulate SIMD1 by executing the same code in all SIMD channels
+      // of a sub-group.
+      LocalSize =
+          VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
+                                            Builder.getInt32Ty(),
+                                            {}, InsertPt);
+    else
+      LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+                                                    GeneralUtils::getSizeTTy(F),
+                                                    Arg, InsertPt);
+
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
       Value *ItSpace = Builder.CreateSub(UB, LB);
@@ -464,6 +477,9 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     Value *Ch = Builder.CreateSub(Chunk, ValueOne);
     NewUB = Builder.CreateAdd(LB, Ch);
   } else {
+    assert(!MayHaveOMPCritical &&
+           "SPMD mode cannot be used with omp critical.");
+
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
     CallInst *GlobalId =

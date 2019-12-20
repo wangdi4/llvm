@@ -34,7 +34,7 @@
 ; CHECK: store i64 [[UB3]], i64* [[M8]]
 ; CHECK: [[M9:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 9
 ; CHECK: store i64 1, i64* [[M9]]
-; CHECK: call void @__omp_offloading_804_35636bc_foo_l2({{.*}}i64* [[UBPTR1]],{{.*}}i64* [[UBPTR2]],{{.*}}i64* [[UBPTR3]]{{.*}})
+; CHECK: call void @__omp_offloading_804_35636bc_foo_l2({{.*}}i64* [[UBPTR3]],{{.*}}i64* [[UBPTR2]],{{.*}}i64* [[UBPTR1]]{{.*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
