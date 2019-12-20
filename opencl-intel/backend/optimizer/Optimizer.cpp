@@ -529,6 +529,7 @@ static void populatePassesPostFailCheck(
   PM.add(createDuplicateCalledKernelsPass());
 
   if (debugType == intel::None) {
+    PM.add(llvm::createCFGSimplificationPass());
     PM.add(createKernelAnalysisPass());
     PM.add(createCLWGLoopBoundariesPass());
     PM.add(llvm::createDeadCodeEliminationPass());

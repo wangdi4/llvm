@@ -13,6 +13,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
+    intel::initializeCLBuiltinLICMPass(Registry);
     intel::initializeCLWGLoopCreatorPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
@@ -39,8 +40,10 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeOclSyncFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
+    intel::initializeLocalBuffAnalysisPass(Registry);
     intel::initializeLocalBuffersWrapperPass(Registry);
     intel::initializeLocalBuffersWithDebugWrapperPass(Registry);
+    intel::initializeLoopStridedCodeMotionPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
     intel::initializeShiftZeroUpperBitsPass(Registry);
     intel::initializePrefetchPass(Registry);
@@ -51,6 +54,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
+    intel::initializeRemovePrefetchPass(Registry);
     intel::initializeResolveWICallPass(Registry);
     intel::initializeResolveSubGroupWICallPass(Registry);
     intel::initializeResolveBlockToStaticCallPass(Registry);
@@ -69,6 +73,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeInfiniteLoopCreatorPass(Registry);
     intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeImplicitGlobalIdPassPass(Registry);
+    intel::initializeImplicitArgsAnalysisPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
     intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeOCLVecClonePass(Registry);

@@ -1020,6 +1020,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
     assert(RV && "Invalid OclBuiltinImpl record.");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
+      assert(IV && "Invalid OclBuiltinImpl record.");
       if (StringInit *SI = dyn_cast<StringInit>(IV->getValue()))
         impl->m_Code = SI->getValue();
       else if(CodeInit *CI = dyn_cast<CodeInit>(IV->getValue()))
