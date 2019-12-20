@@ -79,17 +79,15 @@ tools = ['llvm-spirv']
 tool_dirs = [config.llvm_tools_dir]
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Ask llvm-config about assertions.
 llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
 # end INTEL_CUSTOMIZATION
-=======
+
 if "opencl-aot" in config.llvm_enable_projects:
     if 'PATH' in os.environ:
         print("Adding path to opencl-aot tool to PATH")
         os.environ['PATH'] = os.path.pathsep.join((os.getenv('PATH'), config.llvm_build_bins_dir))
->>>>>>> 4d3f536463dd5269259c17ddd4d1cb1c15cd4453
 
 get_device_count_by_type_path = os.path.join(config.llvm_binary_dir,
     "bin", "get_device_count_by_type")
