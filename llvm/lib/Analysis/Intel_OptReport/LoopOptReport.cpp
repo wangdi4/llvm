@@ -51,8 +51,11 @@ static void removeOptReportField(MDTuple *OptReport, StringRef Key) {
                  return cast<MDString>(Name)->getString() != Key;
                });
 
+  // Empty impl node doesn't need to be distinct (nothing to be modified
+  // in-place with replaceOperandWith).
   LLVMContext &Context = OptReport->getContext();
-  MDTuple *NewImpl = MDTuple::get(Context, Ops);
+  MDTuple *NewImpl = (Ops.size() > 1) ? MDTuple::getDistinct(Context, Ops)
+                                      : MDTuple::get(Context, Ops);
 
   assert(OptReport->isDistinct() &&
          "Operands can be safely replaced only in distinct metadata");
