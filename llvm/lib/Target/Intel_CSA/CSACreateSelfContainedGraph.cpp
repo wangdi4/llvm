@@ -758,7 +758,7 @@ bool isOMPOffloadCompile(Module &M) {
     // section mens we are doing OMP offload compilation
     if (GV->hasSection()) {
       StringRef sectionName = GV->getSection();
-      if (sectionName == ".omp_offloading.entries")
+      if (sectionName == "omp_offloading_entries")
         return true;
     }
   }
