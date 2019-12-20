@@ -419,7 +419,6 @@ if (NOT OPENCL_INTREE_BUILD)
     ocl-config
     ocl-cpu_device${BUILD_PLATFORM}
     ocl-task_executor${BUILD_PLATFORM}
-    ocl-tbb-ext
     ocl-common_clang
     ocl-builtins-shared
     ocl-cl_logger
