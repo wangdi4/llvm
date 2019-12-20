@@ -874,6 +874,8 @@ protected:
     DAK_Normal
   };
 
+  enum { NumScopeDepthOrObjCQualsBits = 7 };
+
   class ParmVarDeclBitfields {
     friend class ASTDeclReader;
     friend class ParmVarDecl;
@@ -895,8 +897,6 @@ protected:
 
     /// Whether this parameter is an ObjC method parameter or not.
     unsigned IsObjCMethodParam : 1;
-
-    enum { NumScopeDepthOrObjCQualsBits = 7 };
 
     /// If IsObjCMethodParam, a Decl::ObjCDeclQualifier.
     /// Otherwise, the number of function parameter scopes enclosing
@@ -1628,7 +1628,7 @@ public:
   }
 
   static constexpr unsigned getMaxFunctionScopeDepth() {
-    return (1u << ParmVarDeclBitfields::NumScopeDepthOrObjCQualsBits) - 1;
+    return (1u << NumScopeDepthOrObjCQualsBits) - 1;
   }
 
   /// Returns the index of this parameter in its prototype or method scope.
