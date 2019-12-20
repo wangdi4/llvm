@@ -1442,7 +1442,7 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-tbb-ext ocl-OpenCL
+      ocl-config ocl-cl_logger ocl-OpenCL
       ocl-svml ocl-gdb-plugin ocl-eyeq-builtins
       ocl-clang_compiler ocl-clang_compiler32 ocl-clang_compiler64
       ocl-intelocl ocl-intelocl32 ocl-intelocl64
@@ -1526,6 +1526,14 @@ if (INTEL_CUSTOMIZATION)
                          COMMAND "${CMAKE_COMMAND}"
                                  "-DCMAKE_INSTALL_COMPONENT=${comp}"
                                  -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                         # If ${comp} component does not exist, cmake
+                         # will just open and immediately close the manifest
+                         # file. This will not update the manifest file's ctime,
+                         # if the file is located on NFSv4 share drive.
+                         # We need to explicitly touch the file to force
+                         # executing all deploy actions down the dependency
+                         # chain.
+                         COMMAND ${CMAKE_COMMAND} -E touch ${manifest}
                          DEPENDS  ${chain_dep}
                          COMMENT "Deploying component ${comp}"
                          USES_TERMINAL)

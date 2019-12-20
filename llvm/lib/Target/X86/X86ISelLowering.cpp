@@ -2108,6 +2108,53 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   setPrefFunctionAlignment(Align(16));
 
   verifyIntrinsicTables();
+#if INTEL_CUSTOMIZATION
+  if (Subtarget.hasAVX512() &&
+      !Subtarget.useAVX512Regs() &&
+      Subtarget.getTargetTriple().isArch64Bit() &&
+      Subtarget.getTargetTriple().isOSLinux() &&
+      TM.Options.IntelAdvancedOptim) {
+    // 1. directly select Intel lib fun versions at compile time instead of
+    //    going dispatch table at run time.
+    // 2. preserve more registers across calls to Intel provided AVX2 lib fun
+    //    to eliminate unnecessary spill/reload since older AVX2 lib functions
+    //    are known to preserve XMM/YMM/ZMM 16-31.
+
+    // libimf
+    setLibcallName(RTLIB::CBRT_F32, "__libm_cbrtf_l9");
+    setLibcallName(RTLIB::LOG_F32,  "__libm_logf_l9");
+    setLibcallName(RTLIB::LOG_F64,  "__libm_log_l9");
+    setLibcallName(RTLIB::LOG2_F32, "__libm_log2f_l9");
+    setLibcallName(RTLIB::LOG2_F64, "__libm_log2_l9");
+    setLibcallName(RTLIB::LOG10_F32,"__libm_log10f_l9");
+    setLibcallName(RTLIB::EXP2_F32, "__libm_exp2f_l9");
+    setLibcallName(RTLIB::SIN_F32,  "__libm_sinf_l9");
+    setLibcallName(RTLIB::COS_F32,  "__libm_cosf_l9");
+    setLibcallName(RTLIB::TAN_F32,  "__libm_tanf_l9");
+    setLibcallName(RTLIB::ATAN_F32, "__libm_atanf_l9");
+    setLibcallName(RTLIB::ATAN2_F32,"__libm_atan2f_l9");
+
+    setLibcallCallingConv(RTLIB::CBRT_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::LOG_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::LOG_F64, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::LOG2_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::LOG2_F64, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::LOG10_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::EXP2_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::SIN_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::COS_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::TAN_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::ATAN_F32, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::ATAN2_F32, CallingConv::X86_AVX2_C);
+
+    // libirc
+    setLibcallName(RTLIB::INTEL_MEMCPY, "__intel_avx_rep_memcpy");
+    setLibcallName(RTLIB::INTEL_MEMSET, "__intel_avx_rep_memset");
+
+    setLibcallCallingConv(RTLIB::INTEL_MEMCPY, CallingConv::X86_AVX2_C);
+    setLibcallCallingConv(RTLIB::INTEL_MEMSET, CallingConv::X86_AVX2_C);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 // This has so far only been implemented for 64-bit MachO.

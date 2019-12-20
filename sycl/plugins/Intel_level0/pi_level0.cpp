@@ -73,6 +73,7 @@ void _pi_queue::executeCommandList()
   ZE_CALL(zeCommandListClose(L0CommandList));
   ZE_CALL(zeCommandQueueExecuteCommandLists(
     L0CommandQueue, 1, &L0CommandList, nullptr));
+  ZE_CALL(zeCommandListDestroy(L0CommandList));
 }
 
 ze_event_handle_t * _pi_event::createL0EventList(
@@ -830,6 +831,10 @@ pi_result L0(piQueueRetain)(pi_queue command_queue) {
 }
 
 pi_result L0(piQueueRelease)(pi_queue command_queue) {
+    // TODO: handle errors
+  ZE_CALL(zeCommandQueueDestroy(
+    command_queue->L0CommandQueue));
+
   return PI_SUCCESS;
 }
 
@@ -1556,6 +1561,7 @@ pi_result L0(piEventCreate)(
 
   auto PiEvent = new _pi_event;
   PiEvent->L0Event = ze_event;
+  PiEvent->L0EventPool = ze_event_pool;
   PiEvent->Queue = NULL;
   PiEvent->CommandType = PI_COMMAND_TYPE_USER;   // TODO: verify
   PiEvent->RefCount = 1;
@@ -1729,6 +1735,7 @@ pi_result L0(piEventRetain)(pi_event event) {
 pi_result L0(piEventRelease)(pi_event event) {
   if (--(event->RefCount) == 0) {
     ZE_CALL(zeEventDestroy(event->L0Event));
+    ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
     delete event;
   }
   return PI_SUCCESS;
@@ -1891,6 +1898,8 @@ pi_result L0(piEnqueueMemBufferRead)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
     queue->getCommandList(),
     num_events_in_wait_list,
@@ -1907,6 +1916,8 @@ pi_result L0(piEnqueueMemBufferRead)(
   ));
 
   if (blocking_read) {
+    // TODO: Currently unusable, rework following resolution of
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
     ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
       queue->getCommandList(),
       1,
@@ -1958,6 +1969,8 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
     command_queue->getCommandList(),
     num_events_in_wait_list,
@@ -2072,6 +2085,8 @@ pi_result L0(piEnqueueMemBufferWrite)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
     command_queue->getCommandList(),
     num_events_in_wait_list,
@@ -2088,6 +2103,8 @@ pi_result L0(piEnqueueMemBufferWrite)(
   ));
 
   if (blocking_write) {
+    // TODO: Currently unusable, rework following resolution of
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
     ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
       command_queue->getCommandList(),
       1,
@@ -2139,6 +2156,8 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
     command_queue->getCommandList(),
     num_events_in_wait_list,
@@ -2225,6 +2244,8 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
     (unsigned long)ze_event);
 
   if (blocking_write) {
+    // TODO: Currently unusable, rework following resolution of
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
     ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
       command_queue->getCommandList(),
       1,
@@ -2260,6 +2281,8 @@ pi_result L0(piEnqueueMemBufferCopy)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
     command_queue->getCommandList(),
     num_events_in_wait_list,
@@ -2331,6 +2354,8 @@ pi_result L0(piEnqueueMemBufferFill)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
     command_queue->getCommandList(),
     num_events_in_wait_list,
@@ -2391,6 +2416,8 @@ pi_result L0(piEnqueueMemBufferMap)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ZE_CALL(zeCommandListAppendWaitOnEvents(
     queue->getCommandList(),
     num_events_in_wait_list,
@@ -2422,6 +2449,8 @@ pi_result L0(piEnqueueMemBufferMap)(
   ));
 
   if (blocking_map) {
+    // TODO: Currently unusable, rework following resolution of
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
     ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
       queue->getCommandList(),
       1,
@@ -2463,6 +2492,8 @@ pi_result L0(piEnqueueMemUnmap)(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ZE_CALL(zeCommandListAppendWaitOnEvents(
     queue->getCommandList(),
     num_events_in_wait_list,
@@ -2618,6 +2649,8 @@ static pi_result enqueueMemImageCommandHelper(
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
+  // TODO: Currently unusable, rework following resolution of
+  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ZE_CALL(zeCommandListAppendWaitOnEvents(
     command_queue->getCommandList(),
     num_events_in_wait_list,
@@ -2679,6 +2712,8 @@ static pi_result enqueueMemImageCommandHelper(
   }
 
   if (is_blocking) {
+    // TODO: Currently unusable, rework following resolution of
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
     ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
       command_queue->getCommandList(),
       1,

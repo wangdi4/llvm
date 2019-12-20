@@ -1161,7 +1161,7 @@ bool HLLoop::isTriangularLoop() const {
   for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
     const RegDDRef *RRef = *I;
 
-    assert(RRef->isTerminalRef() && "non-terminal ref not expected in ztt!");
+    assert(!RRef->isMemRef() && "non-terminal ref not expected in ztt!");
 
     if (RRef->getSingleCanonExpr()->hasIV()) {
       return true;
