@@ -130,6 +130,21 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   return false;
 }
 
+static const char *getFormatStr(RT::PiDeviceBinaryType Format) {
+  switch (Format) {
+  case PI_DEVICE_BINARY_TYPE_NONE:
+    return "none";
+  case PI_DEVICE_BINARY_TYPE_NATIVE:
+    return "native";
+  case PI_DEVICE_BINARY_TYPE_SPIRV:
+    return "SPIR-V";
+  case PI_DEVICE_BINARY_TYPE_LLVMIR_BITCODE:
+    return "LLVM IR";
+  }
+  assert(false && "Unknown device image format");
+  return "unknown";
+}
+
 RT::PiProgram ProgramManager::createPIProgram(const DeviceImage &Img,
                                               const context &Context) {
   if (DbgProgMgr > 0)
@@ -165,7 +180,8 @@ RT::PiProgram ProgramManager::createPIProgram(const DeviceImage &Img,
                           : createBinaryProgram(Ctx, Img.BinaryStart, ImgSize);
 
   if (DbgProgMgr > 1)
-    std::cerr << "created native program: " << Res << "\n";
+    std::cerr << "created program: " << Res
+              << "; image format: " << getFormatStr(Format) << "\n";
 
   return Res;
 }
@@ -492,7 +508,8 @@ RT::PiDeviceBinaryType ProgramManager::getFormat(const DeviceImage &Img) const {
     for (const auto &Fmt : Fmts) {
       if (Hdr == Fmt.Magic) {
         if (DbgProgMgr > 1)
-          std::cerr << "determined image format: " << (int)Fmt.Fmt << "\n";
+          std::cerr << "determined image format: " << getFormatStr(Fmt.Fmt)
+                    << "\n";
         return Fmt.Fmt;
       }
     }
