@@ -3747,23 +3747,15 @@ static bool IsSlaveMemory(Sema &S, Decl *D) {
 #endif // INTEL_CUSTOMIZATION
 
 // Checks correctness of mutual usage of different work_group_size attributes:
-<<<<<<< HEAD
-// reqd_work_group_size, max_work_group_size. Values of reqd_work_group_size
-// arguments shall be equal or less than values coming from max_work_group_size.
-static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
-                                         const ParsedAttr &Attr,  // INTEL
-                                         uint32_t WGSize[3]) {    // INTEL
-  if (const SYCLIntelMaxWorkGroupSizeAttr *A =
-      D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-=======
 // reqd_work_group_size, max_work_group_size and max_global_work_dim.
 // Values of reqd_work_group_size arguments shall be equal or less than values
 // coming from max_work_group_size.
 // In case the value of 'max_global_work_dim' attribute equals to 0 we shall
 // ensure that if max_work_group_size and reqd_work_group_size attributes exist,
 // they hold equal values (1, 1, 1).
-static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &Attr,
-                                     uint32_t WGSize[3]) {
+static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
+                                         const ParsedAttr &Attr,  // INTEL
+                                         uint32_t WGSize[3]) {    // INTEL
   bool Result = true;
   auto checkZeroDim = [&S, &Attr](auto &A, size_t X, size_t Y, size_t Z,
                                   bool ReverseAttrs = false) -> bool {
@@ -3793,7 +3785,6 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &Attr,
                              /*ReverseAttrs=*/ true);
 
   if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
->>>>>>> 6441851202e453be6f16a84febf3acbe425488ad
     if (!(WGSize[0] <= A->getXDim() && WGSize[1] <= A->getYDim() &&
           WGSize[2] <= A->getZDim())) {
       S.Diag(Attr.getLoc(), diag::err_conflicting_sycl_function_attributes)
@@ -3913,8 +3904,8 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
 }
 
 // Handles max_global_work_dim.
-static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
+static void handleSYCLMaxGlobalWorkDimAttr(Sema &S, Decl *D,         // INTEL
+                                           const ParsedAttr &Attr) { // INTEL
   if (D->isInvalidDecl())
     return;
 
@@ -8528,7 +8519,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSYCLNumSimdWorkItemsAttr(S, D, AL); // INTEL
     break;
   case ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim:
-    handleMaxGlobalWorkDimAttr(S, D, AL);
+    handleSYCLMaxGlobalWorkDimAttr(S, D, AL); // INTEL
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
