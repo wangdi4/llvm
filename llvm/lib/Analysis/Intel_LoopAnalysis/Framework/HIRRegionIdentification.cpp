@@ -32,12 +32,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -1817,6 +1817,36 @@ static bool haveExpectedDistance(const Value *Val1, const Value *Val2,
   return false;
 }
 
+/// Returns true for GEP access of the form A[0].1 which end in a structure
+/// field access.
+static bool isTrailingStructFieldAccess(const Value *Ptr) {
+
+  // Trace through one bitcast.
+  if (auto *BitCast = dyn_cast<BitCastOperator>(Ptr)) {
+    Ptr = BitCast->getOperand(0);
+  }
+
+  auto *GEPOp = dyn_cast<GEPOperator>(Ptr);
+
+  if (!GEPOp) {
+    return false;
+  }
+
+  bool LastAccessIsStructTy = false;
+
+  // Check whether the last index type is structure or array.
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    if (isa<StructType>(I.getIndexedType())) {
+      LastAccessIsStructTy = true;
+
+    } else if (isa<ArrayType>(I.getIndexedType())) {
+      LastAccessIsStructTy = false;
+    }
+  }
+
+  return LastAccessIsStructTy;
+}
+
 static bool foundMatchingLoads(
     const LoadInst *LInst,
     SmallVectorImpl<std::pair<const LoadInst *, const Instruction *>>
@@ -1864,6 +1894,12 @@ static bool foundMatchingLoads(
 
   auto *Ptr = LInst->getPointerOperand();
   uint64_t LoadSize = DL.getTypeAllocSize(LInst->getType());
+
+  // Suppress loads of the form A[0].1. These are likely to be non-profitable
+  // strided accesses.
+  if (isTrailingStructFieldAccess(Ptr)) {
+    return false;
+  }
 
   for (auto &PrevEntry : CandidateLoads) {
 
@@ -1922,6 +1958,12 @@ foundMatchingStores(const StoreInst *SInst,
 
   uint64_t AllocSize =
       DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+
+  // Suppress stores of the form A[0].1. These are likely to be non-profitable
+  // strided accesses.
+  if (isTrailingStructFieldAccess(Ptr)) {
+    return false;
+  }
 
   for (auto *PrevStore : CandidateStores) {
     if (StoreVal != PrevStore->getValueOperand()) {
