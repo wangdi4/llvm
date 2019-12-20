@@ -248,6 +248,13 @@ private:
   /// shapes.
   void verifyVectorShapes(const VPLoop *VPLp);
 
+  /// Mark \p DivVal as a value that is non-divergent.
+  void markNonDivergent(const VPValue *DivVal);
+
+  // Mark all relevant loop-entities as Divergent.
+  template <typename EntitiesRange>
+  void markEntitiesAsDivergent(const EntitiesRange &Range);
+
   VPlan *Plan;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
@@ -256,6 +263,20 @@ private:
 
   // Provides information on uniform, linear, private(vector), etc.
   VPLoopEntityList *RegionLoopEntities;
+
+  // Internal list of privates/induction/reductions collected from
+  // Loop-entities, to help functions like markDivergent and isAlwaysUniform
+  // distinguish between regular VPExternalDefs and Private pointers and their
+  // aliases which are outside the Loop and also appear as 'VPExternalDefs' in
+  // the representation.
+  DenseSet<VPValue *> DivergentLoopEntities;
+
+  // Shape information of divergent values.
+  DenseMap<const VPValue *, std::unique_ptr<VPVectorShape>> VectorShapes;
+
+  // Undefined shapes are not stored in VectorShapes, but we need a singleton
+  // object to compare against other shapes.
+  std::unique_ptr<VPVectorShape> UndefShape;
 #endif // INTEL_CUSTOMIZATION
 
   VPDominatorTree *DT;
@@ -279,34 +300,8 @@ private:
   // Detected/marked divergent values.
   DenseSet<const VPValue *> DivergentValues;
 
-#if INTEL_CUSTOMIZATION
-  // Shape information of divergent values.
-  DenseMap<const VPValue *, std::unique_ptr<VPVectorShape>> VectorShapes;
-
-  // Undefined shapes are not stored in VectorShapes, but we need a singleton
-  // object to compare against other shapes.
-  std::unique_ptr<VPVectorShape> UndefShape;
-#endif // INTEL_CUSTOMIZATION
-
   // Internal worklist for divergence propagation.
   SmallVector<const VPInstruction *, 8> Worklist;
-
-#if INTEL_CUSTOMIZATION
-
-  /// Mark \p DivVal as a value that is non-divergent.
-  void markNonDivergent(const VPValue *DivVal);
-
-  // Internal list of privates/induction/reductions collected from
-  // Loop-entities, to help functions like markDivergent and isAlwaysUniform
-  // distinguish between regular VPExternalDefs and Private pointers and their
-  // aliases which are outside the Loop and also appear as 'VPExternalDefs' in
-  // the representation.
-  DenseSet<VPValue *> DivergentLoopEntities;
-
-  // Mark all relevant loop-entities as Divergent.
-  template <typename EntitiesRange>
-  void markEntitiesAsDivergent(const EntitiesRange &Range);
-#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace vpo
