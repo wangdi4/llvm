@@ -144,20 +144,18 @@ static cl::opt<unsigned> LimitMaxIterations(
     cl::desc("Limit the maximum number of instruction combining iterations"),
     cl::init(InstCombineDefaultMaxIterations));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
 DisableTypeLoweringOpts("disable-type-lowering-opts",
                         cl::desc("Disable type lowering optimizations"));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
     "instcombine-infinite-loop-threshold",
     cl::desc("Number of instruction combining iterations considered an "
              "infinite loop"),
     cl::init(InstCombineDefaultInfiniteLoopThreshold), cl::Hidden);
->>>>>>> c431c407ebcbbb526f4af93a549fa5b260a9b193
 
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
