@@ -103,21 +103,26 @@ decltype(piEventCreate) L0(piEventCreate);
 
 // No generic lambdas in C++11, so use this convinence macro.
 // NOTE: to be used in API returning "param_value".
-#define SET_PARAM_VALUE(value)          \
-{                                       \
-  typedef decltype(value) T;            \
-  if (param_value)                      \
-    *(T*)param_value = value;           \
-  if (param_value_size_ret)             \
-    *param_value_size_ret = sizeof(T);  \
-}
-#define SET_PARAM_VALUE_STR(value)                  \
-{                                                   \
-  if (param_value)                                  \
-    memcpy(param_value, value, param_value_size);   \
-  if (param_value_size_ret)                         \
-    *param_value_size_ret = strlen(value) + 1;      \
-}
+// NOTE: memset is used to clear all bytes in the memory allocated by SYCL RT
+// for value. This is a workaround for the problem when return type of the
+// parameter is incorrect in L0 plugin which can result in bad value. This
+// memset can be removed if it is necessary.
+#define SET_PARAM_VALUE(value)                                                 \
+  {                                                                            \
+    typedef decltype(value) T;                                                 \
+    memset(param_value, 0, param_value_size);                                  \
+    if (param_value)                                                           \
+      *(T *)param_value = value;                                               \
+    if (param_value_size_ret)                                                  \
+      *param_value_size_ret = sizeof(T);                                       \
+  }
+#define SET_PARAM_VALUE_STR(value)                                             \
+  {                                                                            \
+    if (param_value)                                                           \
+      memcpy(param_value, value, param_value_size);                            \
+    if (param_value_size_ret)                                                  \
+      *param_value_size_ret = strlen(value) + 1;                               \
+  }
 
 // TODO: Figure out how to pass these objects and eliminated these globals.
 ze_driver_handle_t ze_driver_global = {0};
@@ -366,17 +371,18 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint32{3});
   }
   else if (param_name == PI_DEVICE_MAX_WORK_GROUP_SIZE) {
-    SET_PARAM_VALUE(pi_uint32{ze_device_compute_properties.maxTotalGroupSize});
+    SET_PARAM_VALUE(pi_uint64{ze_device_compute_properties.maxTotalGroupSize});
   }
   else if (param_name == PI_DEVICE_MAX_WORK_ITEM_SIZES) {
-    // Make sure there is space to store the values in three dimensions
-    pi_assert(!(param_value_size <
-      (sizeof(ze_device_compute_properties.maxGroupSizeX) * 3)));
-    // TODO: Is there a SET_PARAM_VALUE() for vectors?
-     SET_PARAM_VALUE(pi_uint32{
-       (ze_device_compute_properties.maxGroupSizeX << 16) |
-       (ze_device_compute_properties.maxGroupSizeY << 8)  |
-       ze_device_compute_properties.maxGroupSizeZ});
+    struct {
+      size_t arr[3];
+    }  max_group_size = {
+      { ze_device_compute_properties.maxGroupSizeX,
+        ze_device_compute_properties.maxGroupSizeY,
+        ze_device_compute_properties.maxGroupSizeZ
+      }
+    };
+    SET_PARAM_VALUE(max_group_size);
   }
   else if (param_name == PI_DEVICE_MAX_CLOCK_FREQUENCY) {
     SET_PARAM_VALUE(pi_uint32{ze_device_properties.coreClockRate});
@@ -391,23 +397,18 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
       max_mem_alloc_size += ze_device_memory_properties[i].totalSize;
     }
-    SET_PARAM_VALUE(pi_uint32{max_mem_alloc_size});
+    SET_PARAM_VALUE(pi_uint64{max_mem_alloc_size});
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_SIZE) {
     // TODO: To confirm with spec.
-    uint32_t max_mem_alloc_size = 0;
+    uint32_t global_mem_size = 0;
     for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
-      max_mem_alloc_size += ze_device_memory_properties[i].totalSize;
+      global_mem_size += ze_device_memory_properties[i].totalSize;
     }
-    SET_PARAM_VALUE(pi_uint32{max_mem_alloc_size});
+    SET_PARAM_VALUE(pi_uint64{global_mem_size});
   }
   else if (param_name == PI_DEVICE_LOCAL_MEM_SIZE) {
-  // TODO: To confirm with spec.
-    uint32_t max_mem_alloc_size = 0;
-    for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
-      max_mem_alloc_size += ze_device_memory_properties[i].totalSize;
-    }
-    SET_PARAM_VALUE(pi_uint32{max_mem_alloc_size});
+    SET_PARAM_VALUE(pi_uint64{ze_device_compute_properties.maxSharedLocalMemory});
   }
   else if (param_name == PI_DEVICE_IMAGE_SUPPORT) {
     SET_PARAM_VALUE(pi_bool{ze_device_image_properties.supported});
@@ -424,16 +425,18 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR("Intel");
   }
   else if (param_name == PI_DRIVER_VERSION) {
-    // TODO: Is there a SET_PARAM_VALUE() for vectors?
     uint32_t ze_driver_version;
     pi_assert(ze_driver_global != nullptr);
     ZE_CALL(zeDriverGetDriverVersion(ze_driver_global, &ze_driver_version));
-    uint32_t ze_driver_version_major = ZE_DRIVER_MAJOR_VERSION(ze_driver_version);
-    uint32_t ze_driver_version_minor = ZE_DRIVER_MINOR_VERSION(ze_driver_version);
-     SET_PARAM_VALUE(pi_uint32{(ze_driver_version_major << 8) | ze_driver_version_minor});
+    std::string driver_version =
+        std::to_string(ZE_DRIVER_MAJOR_VERSION(ze_driver_version)) +
+        std::string(".") +
+        std::to_string(ZE_DRIVER_MINOR_VERSION(ze_driver_version));
+    SET_PARAM_VALUE_STR(driver_version.c_str());
   }
   else if (param_name == PI_DEVICE_VERSION) {
-    SET_PARAM_VALUE(pi_cast<pi_uint32>(ze_device_properties.version));
+    std::string version = std::to_string(pi_cast<pi_uint32>(ze_device_properties.version));
+    SET_PARAM_VALUE_STR(version.c_str());
   }
   else if (param_name == PI_DEVICE_PARTITION_MAX_SUB_DEVICES) {
     SET_PARAM_VALUE(pi_uint32{ze_device_properties.numTiles});
