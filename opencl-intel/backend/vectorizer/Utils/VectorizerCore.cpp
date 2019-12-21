@@ -252,7 +252,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm1.add(chooser);
 
 
+    fpm1.doInitialization();
     fpm1.run(F);
+    fpm1.doFinalization();
 
     // Decide on preliminary width.
     // If the kernel is not vectorizable, leave it as 0.
@@ -362,6 +364,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
     fpm2.doInitialization();
     fpm2.run(F);
+    fpm2.doFinalization();
 
     // If we reach the end of the function this means we choose to vectorize the kernel!!
     m_isFunctionVectorized = true;

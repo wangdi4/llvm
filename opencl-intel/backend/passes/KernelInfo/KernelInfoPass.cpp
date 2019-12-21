@@ -133,12 +133,14 @@ namespace intel {
     CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
 
     // Run on all scalar functions for handling and handle them
+    FPM.doInitialization();
     for ( CompilationUtils::FunctionSet::iterator fi = kernelsFunctionSet.begin(),
       fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
         Function *pFunc = dyn_cast<Function>(*fi);
         assert(pFunc && "got NULL kernel");
         FPM.run(*pFunc);
     }
+    FPM.doFinalization();
 
     return false;
   }
