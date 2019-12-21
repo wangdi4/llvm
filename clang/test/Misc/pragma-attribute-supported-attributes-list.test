@@ -169,14 +169,11 @@
 // CHECK-NEXT: Target (SubjectMatchRule_function)
 // CHECK-NEXT: TestTypestate (SubjectMatchRule_function_is_member)
 // CHECK-NEXT: TrivialABI (SubjectMatchRule_record)
-<<<<<<< HEAD
+// CHECK-NEXT: UseHandle (SubjectMatchRule_variable_is_parameter)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: UsesGlobalWorkOffset (SubjectMatchRule_function)
 // CHECK-NEXT: VecLenHint (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK-NEXT: UseHandle (SubjectMatchRule_variable_is_parameter)
->>>>>>> fe17b30a79572f0d50fe78f6a07d5194cbf90860
 // CHECK-NEXT: VecReturn (SubjectMatchRule_record)
 // CHECK-NEXT: VecTypeHint (SubjectMatchRule_function)
 // CHECK-NEXT: WarnUnused (SubjectMatchRule_record)
