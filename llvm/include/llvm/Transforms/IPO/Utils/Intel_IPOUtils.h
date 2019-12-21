@@ -1,6 +1,6 @@
 //===----  Intel_IPOUtils.h - IPO Utility Functions   --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,6 +19,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
+
+#include <sstream>
 
 namespace llvm {
 
@@ -197,7 +199,34 @@ private:
 
 public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string toString(void) const;
+  LLVM_DUMP_METHOD std::string toString(void) const {
+    std::ostringstream S;
+    S << "FunctionSignature Object: \n";
+
+    // unsigned MinNumArgs, MaxNumArgs:
+    S << "MinNumArgs: " << MinNumArgs << ", MaxNumArgs: " << MaxNumArgs
+      << "\n";
+
+    // unsigned MinNumIntArgs, MaxNumIntArgs:
+    S << "MinNumIntArgs: " << MinNumIntArgs << ", MaxNumIntArgs: "
+      << MaxNumIntArgs << "\n";
+
+    // std::vector<unsigned> NumPtrArgsV:
+    S << "NumPtrArgs: ";
+    for (auto V : NumPtrArgsV)
+      S << V << ", ";
+    S << "\n";
+
+    // unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
+    S << "MinNumDoublePtrArgs: " << MinNumDoublePtrArgs
+      << ", MaxNumDoublePtrArgs: " << MaxNumDoublePtrArgs << "\n";
+
+    // IsLeaf:
+    S << "IsLeaf: " << std::boolalpha << IsLeaf << "\n";
+
+    return S.str();
+  }
+
   LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
 #endif
 };

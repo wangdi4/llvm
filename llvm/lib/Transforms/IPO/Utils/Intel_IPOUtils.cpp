@@ -1,6 +1,6 @@
 //===----  Intel_IPOUtils.cpp - IPO Utility Functions   --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -128,35 +128,6 @@ bool IPOUtils::preserveOrSuppressInlineReport(Instruction *I, Instruction *NI) {
   }
   return false;
 }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-std::string FunctionSignatureMatcher::toString(void) const {
-  std::ostringstream S;
-  S << "FunctionSignature Object: \n";
-
-  // unsigned MinNumArgs, MaxNumArgs:
-  S << "MinNumArgs: " << MinNumArgs << ", MaxNumArgs,: " << MaxNumArgs << "\n";
-
-  // unsigned MinNumIntArgs, MaxNumIntArgs:
-  S << "MinNumIntArgs: " << MinNumIntArgs << ", MaxNumIntArgs,: "
-    << MaxNumIntArgs << "\n";
-
-  // std::vector<unsigned> NumPtrArgsV:
-  S << "NumPtrArgs: ";
-  for (auto V : NumPtrArgsV)
-    S << V << ", ";
-  S << "\n";
-
-  // unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
-  S << "MinNumDoublePtrArgs: " << MinNumDoublePtrArgs
-    << ", MaxNumDoublePtrArgs,: " << MaxNumDoublePtrArgs << "\n";
-
-  // IsLeaf:
-  S << "IsLeaf: " << std::boolalpha << IsLeaf << "\n";
-
-  return S.str();
-}
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 static Function *getCalledFunction(const CallBase &Call) {
   Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
@@ -753,7 +724,7 @@ bool IntelArgumentAlignmentUtils::valueRefersToArg(Value *Val, Value *Arg) {
       InsertInQueue(Operand);
     }
 
-    // All the values in a PHI Node must land at the input argument
+      // All the values in a PHI Node must land at the input argument
     else if (PHINode *PhiInst = dyn_cast<PHINode>(NewVal)) {
 
       unsigned NumIncomingVals = PhiInst->getNumIncomingValues();
@@ -765,12 +736,12 @@ bool IntelArgumentAlignmentUtils::valueRefersToArg(Value *Val, Value *Arg) {
       }
     }
 
-    // Collect the pointer from a PtrToIntInst
+      // Collect the pointer from a PtrToIntInst
     else if (PtrToIntInst *Ptr = dyn_cast<PtrToIntInst>(NewVal)) {
       InsertInQueue(Ptr->getOperand(0));
     }
 
-    // It the instruction is a Load or a BitCast then get the first operator
+      // If the instruction is a Load or a BitCast then get the first operator
     else if (isa<BitCastInst>(NewVal) || isa<LoadInst>(NewVal)) {
       Instruction *TempInst = cast<Instruction>(NewVal);
       Value *Operand = TempInst->getOperand(0);

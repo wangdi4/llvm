@@ -18,20 +18,20 @@
 ; *** Check section 1 ***
 ; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z6searchP7state_tiiiii.
-; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #5 !dbg !1029 {
+; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #5 !dbg [[DBG_0:![0-9]+]] {
 ; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg !1847
 ;
 
 ; *** Check section 2 ***
 ; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z7qsearchP7state_tiiii.
-; CHECK: define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #5 !dbg !2086 {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg !2326
+; CHECK: define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #5 !dbg [[DBG_0:![0-9]+]] {
+; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg [[SUPPRESS_PRINT:![0-9]+]]
 
 ; *** Check section 3 ***
 ; The LLVM-IR check below ensures the prefetch function is generated.
 ;
-; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #7 !dbg !2478 {
+; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #7 !dbg [[DBG_0:![0-9]+]] !InlRpt.Suppress [[SUPPRESS_PRINT:![0-9]+]] {
 ;
 ;
 
