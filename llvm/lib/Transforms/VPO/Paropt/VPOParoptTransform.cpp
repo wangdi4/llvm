@@ -3922,7 +3922,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
-        if (FprivI->getIsF90DopeVector())
+        if (!ForTask && FprivI->getIsF90DopeVector())
           VPOParoptUtils::genF90DVInitCode(FprivI);
 #endif // INTEL_CUSTOMIZATION
       } else if (!ForTask) { // && LprivI
@@ -4069,7 +4069,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
-        if (LprivI->getIsF90DopeVector())
+        if (!ForTask && LprivI->getIsF90DopeVector())
           VPOParoptUtils::genF90DVInitCode(LprivI);
 #endif // INTEL_CUSTOMIZATION
 
@@ -5111,7 +5111,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
                                            NewPrivInst);
 #if INTEL_CUSTOMIZATION
-        if (PrivI->getIsF90DopeVector())
+        if (!ForTask && PrivI->getIsF90DopeVector())
           VPOParoptUtils::genF90DVInitCode(PrivI);
 #endif // INTEL_CUSTOMIZATION
         if (ForTask && PrivI->getDestructor()) {

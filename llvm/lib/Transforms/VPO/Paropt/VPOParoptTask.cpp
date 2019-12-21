@@ -211,6 +211,13 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   if (LprivI->getIsByRef())
     Dst = new LoadInst(Dst, "", InsertPt);
 
+#if INTEL_CUSTOMIZATION
+  if (LprivI->getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVLastprivateCopyCall(Src, Dst, InsertPt);
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
   Type *ScalarTy = cast<PointerType>(Src->getType())->getElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
@@ -389,10 +396,28 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   unsigned PrivateCount = 0;
   unsigned SharedCount = 0;
+#if INTEL_CUSTOMIZATION
 
-  auto reserveFieldsForItemInPrivateThunk = [&PrivateThunkTypes, &PrivateCount,
-                                             &Builder, &SizeTTy,
-                                             &SizeTBitWidth](Item *I) {
+  auto reserveExtraFieldsForF90DVInPrivateThunk = [&](Item *I) {
+    if (!I->getIsF90DopeVector())
+      return;
+
+    // For F90 DVs, similar to VLAs, we allocate three spaces in the
+    // privates thunk, corresponding to the local copy of the DV, array size
+    // in bytes, and offset to the actual array in the task thunk buffer.
+    PrivateCount += 2;
+    PrivateThunkTypes.push_back(SizeTTy);
+    PrivateThunkTypes.push_back(SizeTTy);
+
+    StringRef NamePrefix = I->getOrig()->getName();
+    Value *ArraySizeInBytes =
+        VPOParoptUtils::genF90DVSizeCall(I->getOrig(), InsertBefore);
+    ArraySizeInBytes->setName(NamePrefix + ".array.size.in.bytes");
+    I->setThunkBufferSize(ArraySizeInBytes);
+  };
+#endif // INTEL_CUSTOMIZATION
+
+  auto reserveFieldsForItemInPrivateThunk = [&](Item *I) {
     Type *ElementTy = nullptr;
     Value *NumElements = nullptr;
     unsigned AddrSpace = 0;
@@ -400,9 +425,16 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     if (!NumElements) {
       PrivateThunkTypes.push_back(ElementTy);
       I->setPrivateThunkIdx(PrivateCount++);
+#if INTEL_CUSTOMIZATION
+      reserveExtraFieldsForF90DVInPrivateThunk(I);
+#endif // INTEL_CUSTOMIZATION
       return;
     }
 
+#if INTEL_CUSTOMIZATION
+    assert(!I->getIsF90DopeVector() && "Unexpected: array of dope vectors");
+
+#endif // INTEL_CUSTOMIZATION
     if (isa<ConstantInt>(NumElements)) {
       PrivateThunkTypes.push_back(ArrayType::get(
           ElementTy, cast<ConstantInt>(NumElements)->getZExtValue()));
@@ -523,6 +555,42 @@ bool VPOParoptTransform::genTaskInitCode(WRegionNode *W,
                              UBPtr, STPtr, LastIterGep, false);
 }
 
+// If an item has buffer space allocated for it at end of the thunk, make its
+// New field point to that buffer space.
+void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+    Item *I, StructType *KmpPrivatesTy, Value *PrivatesGep,
+    Value *TaskTWithPrivates, IRBuilder<> &Builder) {
+  if (!I->getIsVla())
+#if INTEL_CUSTOMIZATION
+    if (!I->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
+    return;
+
+  StringRef OrigName = I->getOrig()->getName();
+  Value *Zero = Builder.getInt32(0);
+
+  int NewVIdx = I->getPrivateThunkIdx();
+  Value *NewVGep = Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep,
+                                             {Zero, Builder.getInt32(NewVIdx)},
+                                             OrigName + ".gep");
+
+  Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
+      KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
+      OrigName + ".data.offset.gep");
+  Value *NewVDataOffset =
+      Builder.CreateLoad(NewVDataOffsetGep, OrigName + ".data.offset");
+
+  Type *Int8PtrTy = Builder.getInt8PtrTy();
+  Value *TaskThunkBasePtr = Builder.CreateBitCast(TaskTWithPrivates, Int8PtrTy,
+                                                  ".taskt.withprivates.base");
+  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
+                                      OrigName + ".priv.data");
+
+  Builder.CreateStore(NewVData, Builder.CreateBitCast(
+                                    NewVGep, PointerType::getUnqual(Int8PtrTy),
+                                    OrigName + ".priv.gep.cast"));
+}
+
 // Generate the code to replace the variables in the task loop with
 // the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
@@ -632,46 +700,15 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         Builder.CreateLoad(NewVDataSizeGep, OrigName + ".data.size"));
   };
 
-  // If an item is a VLA, make its New field point to its corresponding buffer
-  // space at the end of the thunk.
-  auto linkPrivateItemToBufferAtEndOfThunkIfVLA = [&Builder, &KmpPrivatesTy,
-                                                   &PrivatesGep,
-                                                   &DummyTaskTWithPrivates,
-                                                   &Zero](Item *I) {
-    if (!I->getIsVla())
-      return;
-
-    StringRef OrigName = I->getOrig()->getName();
-    int NewVIdx = I->getPrivateThunkIdx();
-    Value *NewVGep = Builder.CreateInBoundsGEP(
-        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx)},
-        OrigName + ".gep");
-
-    Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
-        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
-        OrigName + ".data.offset.gep");
-    Value *NewVDataOffset =
-        Builder.CreateLoad(NewVDataOffsetGep, OrigName + ".data.offset");
-
-    Type *Int8PtrTy = Builder.getInt8PtrTy();
-    Value *TaskThunkBasePtr = Builder.CreateBitCast(
-        DummyTaskTWithPrivates, Int8PtrTy, ".taskt.withprivates.base");
-    Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
-                                        OrigName + ".priv.data");
-
-    Builder.CreateStore(NewVData,
-                        Builder.CreateBitCast(NewVGep,
-                                              PointerType::getUnqual(Int8PtrTy),
-                                              OrigName + ".priv.gep.cast"));
-  };
-
   for (PrivateItem *PrivI : W->getPriv().items()) {
-    linkPrivateItemToBufferAtEndOfThunkIfVLA(PrivI);
+    linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+        PrivI, KmpPrivatesTy, PrivatesGep, DummyTaskTWithPrivates, Builder);
     setNewForItemFromPrivateThunk(PrivI);
   }
 
   for (FirstprivateItem *FprivI : W->getFpriv().items()) {
-    linkPrivateItemToBufferAtEndOfThunkIfVLA(FprivI);
+    linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+        FprivI, KmpPrivatesTy, PrivatesGep, DummyTaskTWithPrivates, Builder);
     setNewForItemFromPrivateThunk(FprivI);
   }
 
@@ -681,7 +718,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         LprivI->setNew(FprivI->getNew());
         LprivI->setNewThunkBufferSize(FprivI->getNewThunkBufferSize());
       } else {
-        linkPrivateItemToBufferAtEndOfThunkIfVLA(LprivI);
+        linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+            LprivI, KmpPrivatesTy, PrivatesGep, DummyTaskTWithPrivates, Builder);
         setNewForItemFromPrivateThunk(LprivI);
       }
 
@@ -894,6 +932,9 @@ Value *VPOParoptTransform::computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
 
   auto computeOffsetForItem = [&CurrentOffset, &Builder](Item *I) {
     if (!I->getIsVla())
+#if INTEL_CUSTOMIZATION
+      if (!I->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
       return;
 
     StringRef NamePrefix = I->getOrig()->getName();
@@ -930,12 +971,15 @@ void VPOParoptTransform::saveVLASizeAndOffsetToPrivatesThunk(
 
   auto saveSizeAndOffsetForItem = [&](Item *I) {
     if (!I->getIsVla())
+#if INTEL_CUSTOMIZATION
+      if (!I->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
       return;
 
     StringRef OrigName = I->getOrig()->getName();
     int NewVIdx = I->getPrivateThunkIdx();
 
-    // For VLA items, the privates thunk contains NewV, size and offset in three
+    // The privates thunk contains NewV, size and offset in three
     // consecutive locations beginning from the PrivateThunkIdx. Here we save
     // size and offset to the corresponding locations.
     Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
@@ -991,37 +1035,54 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
   const DataLayout &DL = InsertBefore->getModule()->getDataLayout();
 
   for (FirstprivateItem *FprivI : FprivClause.items()) {
+
+    assert(!FprivI->getThunkBufferOffset() ||
+           !FprivI->getIsByRef() && "Unexpected Byref + VLA operand.");
+
     Value *OrigV = FprivI->getOrig();
     StringRef NamePrefix = OrigV->getName();
 
-    if (!FprivI->getIsVla()) {
-      Value *NewVGep = Builder.CreateInBoundsGEP(
-          KmpPrivatesTy, KmpPrivatesGEP,
-          {Builder.getInt32(0), Builder.getInt32(FprivI->getPrivateThunkIdx())},
-          NamePrefix + ".priv.gep");
-      VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
-                                    FprivI->getCopyConstructor(),
-                                    FprivI->getIsByRef());
+    if (FprivI->getIsVla()) {
+      Type *Int8PtrTy = Builder.getInt8PtrTy();
+      Value *TaskThunkBasePtr = Builder.CreateBitCast(
+          KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
+
+      Value *NewData =
+          Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
+                            NamePrefix + ".priv.data");
+      Value *OrigCast =
+          Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
+
+      MaybeAlign Align(DL.getABITypeAlignment(
+          cast<PointerType>(OrigV->getType())->getElementType()));
+
+      Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
+                           FprivI->getThunkBufferSize());
       continue;
     }
 
-    assert(!FprivI->getIsByRef() && "Unexpected Byref + VLA operand.");
+    Value *NewVGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, KmpPrivatesGEP,
+        {Builder.getInt32(0), Builder.getInt32(FprivI->getPrivateThunkIdx())},
+        NamePrefix + ".priv.gep");
+#if INTEL_CUSTOMIZATION
 
-    Type *Int8PtrTy = Builder.getInt8PtrTy();
-    Value *TaskThunkBasePtr = Builder.CreateBitCast(
-        KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
+    if (FprivI->getIsF90DopeVector()) {
+      // We first link the private dope vector to the data buffer allocated for
+      // it, so that we can call f90_firstprivate_copy on it.
+      linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+          FprivI, KmpPrivatesTy, KmpPrivatesGEP, KmpTaskTTWithPrivates,
+          Builder);
 
-    Value *NewData =
-        Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
-                          NamePrefix + ".priv.data");
-    Value *OrigCast =
-        Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
+      VPOParoptUtils::genF90DVFirstprivateCopyCall(NewVGep, OrigV,
+                                                   InsertBefore);
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
-    MaybeAlign Align(DL.getABITypeAlignment(
-        cast<PointerType>(OrigV->getType())->getElementType()));
-
-    Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
-                         FprivI->getThunkBufferSize());
+    VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
+                                  FprivI->getCopyConstructor(),
+                                  FprivI->getIsByRef());
   }
 }
 
@@ -1595,6 +1656,10 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       genPrivatesGepForTask(TaskAllocCI, KmpTaskTTWithPrivatesTy, NewCall);
 
   saveVLASizeAndOffsetToPrivatesThunk(W, PrivatesGep, KmpPrivatesTy, NewCall);
+#if INTEL_CUSTOMIZATION
+  VPOParoptUtils::genF90DVInitForItemsInTaskPrivatesThunk(
+      W, PrivatesGep, KmpPrivatesTy, NewCall);
+#endif // INTEL_CUSTOMIZATION
   genFprivInitForTask(W, TaskAllocCI, PrivatesGep, KmpPrivatesTy, NewCall);
 
   IRBuilder<> Builder(NewCall);
