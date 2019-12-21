@@ -21,6 +21,12 @@ struct _pi_device {
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
+
+  // Create a new command list for executing on this device.
+  // It's caller's responsibility to remember and destroy the created
+  // command list when no longer needed.
+  //
+  ze_command_list_handle_t createCommandList();
 };
 
 struct _pi_context {
@@ -38,18 +44,18 @@ struct _pi_queue {
   // L0 command queue handle.
   ze_command_queue_handle_t L0CommandQueue;
 
-  // L0 command list for this queue.
-  ze_command_list_handle_t L0CommandList;
-
   // Keeps the PI context to which this queue belongs.
   pi_context Context;
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
 
-  // Methods for working with the queue's command list.
-  ze_command_list_handle_t getCommandList();
-  void executeCommandList();
+  // Attach a command list to this queue, close, and execute it.
+  // Note that this command list cannot be appended to after this.
+  // The "is_blocking" tells if the wait for completion is requested.
+  //
+  void executeCommandList(ze_command_list_handle_t L0CommandList,
+                          bool is_blocking = false);
 };
 
 struct _pi_mem {
@@ -96,6 +102,12 @@ struct _pi_event {
   ze_event_handle_t L0Event;
   // L0 event pool handle.
   ze_event_pool_handle_t L0EventPool;
+
+  // L0 command list where the command signaling this event was appended to.
+  // This is currently used to remember/destroy the command list after
+  // all commands in it are completed, i.e. this event signaled.
+  //
+  ze_command_list_handle_t L0CommandList;
 
   // Keeps the command-queue and command associated with the event.
   // These are NULL for the user events.

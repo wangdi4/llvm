@@ -45,14 +45,16 @@ static ze_result_t zeCallCheck(ze_result_t ze_result, const char *call_str, bool
 #define ZE_CALL(call)         zeCallCheck(call, #call, false)
 #define ZE_CALL_NOTHROW(call) zeCallCheck(call, #call, true)
 
-ze_command_list_handle_t _pi_queue::getCommandList()
+// Crate a new command list to be used in a PI call
+ze_command_list_handle_t _pi_device::createCommandList()
 {
   // Create the command list, because in L0 commands are added to
   // the command lists, and later are then added to the command queue.
   //
   // TODO: Fugire out how to lower the overhead of creating a new list
-  // for each command, if that appears to be important.
+  // for each PI command, if that appears to be important.
   //
+  ze_command_list_handle_t ze_command_list = nullptr;
   ze_command_list_desc_t ze_command_list_desc;
   ze_command_list_desc.version = ZE_COMMAND_LIST_DESC_VERSION_CURRENT;
 
@@ -60,20 +62,26 @@ ze_command_list_handle_t _pi_queue::getCommandList()
   // command was submitted to the queue?
   //
   ZE_CALL(zeCommandListCreate(
-    Context->Device->L0Device,
+    L0Device,
     &ze_command_list_desc,
-    &L0CommandList));
+    &ze_command_list));
 
-  return L0CommandList;
+  return ze_command_list;
 }
 
-void _pi_queue::executeCommandList()
+void _pi_queue::executeCommandList(ze_command_list_handle_t ze_command_list,
+                                   bool is_blocking)
 {
-  // Send the command list to the queue.
-  ZE_CALL(zeCommandListClose(L0CommandList));
+  // Close the command list and have it ready for dispatch.
+  ZE_CALL(zeCommandListClose(ze_command_list));
+  // Offload command list to the GPU for asynchronous execution
   ZE_CALL(zeCommandQueueExecuteCommandLists(
-    L0CommandQueue, 1, &L0CommandList, nullptr));
-  ZE_CALL(zeCommandListDestroy(L0CommandList));
+    L0CommandQueue, 1, &ze_command_list, nullptr));
+
+  if (is_blocking) {
+    // Wait until command lists attached to the command queue are executed.
+    ZE_CALL(zeCommandQueueSynchronize(L0CommandQueue, UINT32_MAX));
+  }
 }
 
 ze_event_handle_t * _pi_event::createL0EventList(
@@ -791,16 +799,6 @@ pi_result L0(piQueueCreate)(
     &ze_command_queue_desc,  // TODO: translate properties
     &ze_command_queue));
 
-  // Create the default command list for this command queue
-  ze_command_list_handle_t ze_command_list = 0;
-  ze_command_list_desc_t ze_command_list_desc;
-  ze_command_list_desc.version = ZE_COMMAND_LIST_DESC_VERSION_CURRENT;
-
-  ze_result = ZE_CALL(zeCommandListCreate(
-    ze_device,
-    &ze_command_list_desc,
-    &ze_command_list));
-
   auto L0PiQueue = new _pi_queue();
   L0PiQueue->L0CommandQueue = ze_command_queue;
   L0PiQueue->Context = context;
@@ -1493,9 +1491,14 @@ pi_result L0(piEnqueueKernelLaunch)(
 
   ZE_CALL(zeKernelSetGroupSize(kernel->L0Kernel, wg[0], wg[1], wg[2]));
 
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    queue->Context->Device->createCommandList();
+
   L0(piEventCreate)(kernel->Program->Context, event);
   (*event)->Queue = queue;
   (*event)->CommandType = PI_COMMAND_TYPE_NDRANGE_KERNEL;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
@@ -1504,7 +1507,7 @@ pi_result L0(piEnqueueKernelLaunch)(
 
   // Add the command to the command list
   ze_result_t result = ZE_CALL(zeCommandListAppendLaunchKernel(
-    queue->getCommandList(),
+    ze_command_list,
     kernel->L0Kernel,
     &thread_group_dimensions,
     ze_event,
@@ -1520,7 +1523,9 @@ pi_result L0(piEnqueueKernelLaunch)(
   }
   zePrint("\n");
 
-  queue->executeCommandList();
+  // Execute command list asynchronously, as the event will be used
+  // to track down its completion.
+  queue->executeCommandList(ze_command_list);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -1574,10 +1579,10 @@ pi_result L0(piEventCreate)(
   auto PiEvent = new _pi_event;
   PiEvent->L0Event = ze_event;
   PiEvent->L0EventPool = ze_event_pool;
-  PiEvent->Queue = NULL;
+  PiEvent->Queue = nullptr;
   PiEvent->CommandType = PI_COMMAND_TYPE_USER;   // TODO: verify
+  PiEvent->L0CommandList = nullptr;
   PiEvent->RefCount = 1;
-
 
   *ret_event = PiEvent;
   return PI_SUCCESS;
@@ -1667,6 +1672,16 @@ pi_result L0(piEventsWait)(
 
     // Check the result to be success.
     ZE_CALL(ze_result);
+
+    // NOTE: we are destroying associated command lists here to free
+    // resources sooner in case RT is not calling piEventRelease soon enough.
+    //
+    if (event_list[i]->L0CommandList) {
+      // Event has been signaled: Destroy the command list associated with the
+      // call that generated the event.
+      ZE_CALL(zeCommandListDestroy(event_list[i]->L0CommandList));
+      event_list[i]->L0CommandList = nullptr;
+    }
   }
   return PI_SUCCESS;
 }
@@ -1746,6 +1761,13 @@ pi_result L0(piEventRetain)(pi_event event) {
 
 pi_result L0(piEventRelease)(pi_event event) {
   if (--(event->RefCount) == 0) {
+    if (event->L0CommandList) {
+      // Destroy the command list associated with the call that generated
+      // the event.
+      //
+      ZE_CALL(zeCommandListDestroy(event->L0CommandList));
+      event->L0CommandList = nullptr;
+    }
     ZE_CALL(zeEventDestroy(event->L0Event));
     ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
     delete event;
@@ -1901,44 +1923,36 @@ pi_result L0(piEnqueueMemBufferRead)(
   pi_event *          event)
 {
   ze_result_t               ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(queue->Context, event);
   (*event)->Queue = queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_READ;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
   pi_assert(ze_result == 0);
 
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    queue->getCommandList(),
+    ze_command_list,
     dst,
     src->L0Mem + offset,
     size,
     ze_event
   ));
 
-  if (blocking_read) {
-    // TODO: Currently unusable, rework following resolution of
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
-    ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-      queue->getCommandList(),
-      1,
-      &ze_event
-    ));
-    pi_assert(ze_result == 0);
-  }
-
+  queue->executeCommandList(ze_command_list, blocking_read);
   zePrint("calling zeCommandListAppendMemoryCopy() with\n"
                   "  xe_event %lx\n"
                   "  num_events_in_wait_list %d:",
@@ -1948,7 +1962,6 @@ pi_result L0(piEnqueueMemBufferRead)(
   }
   zePrint("\n");
 
-  queue->executeCommandList();
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -1958,7 +1971,7 @@ pi_result L0(piEnqueueMemBufferRead)(
 pi_result L0(piEnqueueMemBufferReadRect)(
   pi_queue            command_queue,
   pi_mem              buffer,
-  pi_bool             blocking_read, // TODO: To implement
+  pi_bool             blocking_read,
   const size_t *      buffer_offset,
   const size_t *      host_offset,
   const size_t *      region,
@@ -1972,20 +1985,22 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   pi_event *          event) {
 
   ze_result_t ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_READ_RECT;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
@@ -2038,7 +2053,6 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   * is resolved 3D buffer copies must be spit into multiple 2D buffer copies in the
   * sycl plugin.
   */
-  ze_command_list_handle_t ze_command_list = command_queue->getCommandList();
   const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, width, height};
   const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, width, height};
 
@@ -2069,7 +2083,7 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   zePrint("calling zeCommandListAppendBarrier() with event %lx\n",
     pi_cast<std::uintptr_t>(ze_event));
 
-  command_queue->executeCommandList();
+  command_queue->executeCommandList(ze_command_list, blocking_read);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -2088,44 +2102,36 @@ pi_result L0(piEnqueueMemBufferWrite)(
   pi_event *         event) {
 
   ze_result_t               ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_WRITE;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
   pi_assert(ze_result == 0);
 
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    command_queue->getCommandList(),
+    ze_command_list,
     buffer->L0Mem + offset,
     ptr,
     size,
     ze_event
   ));
 
-  if (blocking_write) {
-    // TODO: Currently unusable, rework following resolution of
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
-    ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-      command_queue->getCommandList(),
-      1,
-      &ze_event
-    ));
-    pi_assert(ze_result == 0);
-  }
-
+  command_queue->executeCommandList(ze_command_list, blocking_write);
   zePrint("calling zeCommandListAppendMemoryCopy() with\n"
                   "  xe_event %lx\n"
                   "  num_events_in_wait_list %d:",
@@ -2135,7 +2141,6 @@ pi_result L0(piEnqueueMemBufferWrite)(
   }
   zePrint("\n");
 
-  command_queue->executeCommandList();
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -2159,20 +2164,22 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   pi_event *          event) {
 
   ze_result_t ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
@@ -2215,17 +2222,16 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   char *source_ptr = const_cast<char *>(static_cast<const char *>(ptr)) + srcOriginZ;
   char *destination_ptr = buffer->L0Mem + dstOriginZ;
 
-  /*
-  * Command List is Created for handling all enqueued Memory Copy Regions
-  * and 1 Barrier. Once command_queue->executeCommandList() is called the
-  * command list is closed & no more commands are added to this
-  * command list such that the barrier only blocks the Memory Copy Regions enqueued.
-  *
-  * Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
-  * is resolved 3D buffer copies must be spit into multiple 2D buffer copies in the
-  * sycl plugin.
-  */
-  ze_command_list_handle_t ze_command_list = command_queue->getCommandList();
+  //
+  // Command List is Created for handling all enqueued Memory Copy Regions
+  // and 1 Barrier. Once command_queue->executeCommandList() is called the
+  // command list is closed & no more commands are added to this
+  // command list such that the barrier only blocks the Memory Copy Regions enqueued.
+  //
+  // Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
+  // is resolved 3D buffer copies must be split into multiple 2D buffer copies in the
+  // sycl plugin.
+  //
   const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, width, height};
   const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, width, height};
 
@@ -2253,19 +2259,11 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
     nullptr
   ));
   pi_assert(ze_result == 0);
+
   zePrint("calling zeCommandListAppendBarrier() with event %lx\n",
     (unsigned long)ze_event);
 
-  if (blocking_write) {
-    // TODO: Currently unusable, rework following resolution of
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
-    ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-      command_queue->getCommandList(),
-      1,
-      &ze_event));
-  }
-
-  command_queue->executeCommandList();
+  command_queue->executeCommandList(ze_command_list, blocking_write);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -2284,27 +2282,29 @@ pi_result L0(piEnqueueMemBufferCopy)(
   pi_event *          event) {
 
   ze_result_t               ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_COPY;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
   pi_assert(ze_result == 0);
 
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    command_queue->getCommandList(),
+    ze_command_list,
     dst_buffer->L0Mem + dst_offset,
     src_buffer->L0Mem + src_offset,
     size,
@@ -2320,7 +2320,9 @@ pi_result L0(piEnqueueMemBufferCopy)(
   }
   zePrint("\n");
 
-  command_queue->executeCommandList();
+  // Execute command list asynchronously, as the event will be used
+  // to track down its completion.
+  command_queue->executeCommandList(ze_command_list);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -2357,20 +2359,22 @@ pi_result L0(piEnqueueMemBufferFill)(
   pi_event *         event) {
 
   ze_result_t               ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_FILL;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
@@ -2380,7 +2384,7 @@ pi_result L0(piEnqueueMemBufferFill)(
   assert((pattern_size > 0) && ((pattern_size & (pattern_size - 1)) == 0));
 
   ze_result = ZE_CALL(zeCommandListAppendMemoryFill(
-    command_queue->getCommandList(),
+    ze_command_list,
     buffer->L0Mem + offset,
     pattern,
     pattern_size,
@@ -2397,7 +2401,9 @@ pi_result L0(piEnqueueMemBufferFill)(
   }
   zePrint("\n");
 
-  command_queue->executeCommandList();
+  // Execute command list asynchronously, as the event will be used
+  // to track down its completion.
+  command_queue->executeCommandList(ze_command_list);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -2422,17 +2428,20 @@ pi_result L0(piEnqueueMemBufferMap)(
   pi_assert((map_flags & CL_MAP_READ) != 0);
   pi_assert((map_flags & CL_MAP_WRITE) != 0);
 
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    queue->Context->Device->createCommandList();
+
   L0(piEventCreate)(queue->Context, event);
   (*event)->Queue = queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_MAP;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ZE_CALL(zeCommandListAppendWaitOnEvents(
-    queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
@@ -2454,24 +2463,14 @@ pi_result L0(piEnqueueMemBufferMap)(
 
   ze_event_handle_t ze_event = (*event)->L0Event;
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    queue->getCommandList(),
+    ze_command_list,
     *ret_map,
     buffer->L0Mem + offset,
     size,
     ze_event
   ));
 
-  if (blocking_map) {
-    // TODO: Currently unusable, rework following resolution of
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
-    ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-      queue->getCommandList(),
-      1,
-      &ze_event
-    ));
-  }
-
-  queue->executeCommandList();
+  queue->executeCommandList(ze_command_list, blocking_map);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // Record the created mapping to facilitate its later unmap.
@@ -2497,18 +2496,20 @@ pi_result L0(piEnqueueMemUnmap)(
   pi_event *       event) {
 
   ze_result_t ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(queue->Context, event);
   (*event)->Queue = queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_UNMAP;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ZE_CALL(zeCommandListAppendWaitOnEvents(
-    queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
@@ -2529,7 +2530,7 @@ pi_result L0(piEnqueueMemUnmap)(
 
   ze_event_handle_t ze_event = (*event)->L0Event;
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    queue->getCommandList(),
+    ze_command_list,
     memobj->L0Mem + map_info.offset,
     mapped_ptr,
     map_info.size,
@@ -2539,7 +2540,10 @@ pi_result L0(piEnqueueMemUnmap)(
   // TODO: free the host memory allocated in piEnqueueMemBufferMap.
   // This is only OK to do so after the above copy is completed.
 
-  queue->executeCommandList();
+  // unmap operations are asynchronous, as one of the events
+  // in the event_wait_list is a user event which will be signaled after
+  // exiting this call.
+  queue->executeCommandList(ze_command_list);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
@@ -2606,20 +2610,22 @@ static pi_result enqueueMemImageCommandHelper(
   pi_event *        event) {
 
   ze_result_t ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
   (*event)->CommandType = command_type;
+  (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
 
   ze_event_handle_t *ze_event_wait_list =
     _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
 
-  // TODO: Currently unusable, rework following resolution of
-  // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
   ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(),
+    ze_command_list,
     num_events_in_wait_list,
     ze_event_wait_list
   ));
@@ -2643,7 +2649,7 @@ static pi_result enqueueMemImageCommandHelper(
 #endif // !NDEBUG
 
     ze_result = ZE_CALL(zeCommandListAppendImageCopyToMemory(
-      command_queue->getCommandList(),
+      ze_command_list,
       dst,
       src_image->L0Image,
       &srcRegion,
@@ -2669,7 +2675,7 @@ static pi_result enqueueMemImageCommandHelper(
 #endif // !NDEBUG
 
     ze_result = ZE_CALL(zeCommandListAppendImageCopyFromMemory(
-      command_queue->getCommandList(),
+      ze_command_list,
       dst_image->L0Image,
       src,
       &dstRegion,
@@ -2686,7 +2692,7 @@ static pi_result enqueueMemImageCommandHelper(
       getImageRegionHelper(dst_image, dst_origin, region);
 
     ze_result = ZE_CALL(zeCommandListAppendImageCopyRegion(
-      command_queue->getCommandList(),
+      ze_command_list,
       dst_image->L0Image,
       src_image->L0Image,
       &dstRegion,
@@ -2699,18 +2705,7 @@ static pi_result enqueueMemImageCommandHelper(
 
   }
 
-  if (is_blocking) {
-    // TODO: Currently unusable, rework following resolution of
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/315
-    ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-      command_queue->getCommandList(),
-      1,
-      &ze_event
-    ));
-    pi_assert(ze_result == 0);
-  }
-
-  command_queue->executeCommandList();
+  command_queue->executeCommandList(ze_command_list, is_blocking);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
   // TODO: translate errors
