@@ -128,7 +128,8 @@ STATISTIC(NumReassoc  , "Number of reassociations");
 DEBUG_COUNTER(VisitCounter, "instcombine-visit",
               "Controls which instructions are visited");
 
-static constexpr unsigned InstCombineDefaultMaxIterations = UINT_MAX - 1;
+static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
+static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 1000;
 
 static cl::opt<bool>
 EnableCodeSinking("instcombine-code-sinking", cl::desc("Enable code sinking"),
@@ -143,12 +144,20 @@ static cl::opt<unsigned> LimitMaxIterations(
     cl::desc("Limit the maximum number of instruction combining iterations"),
     cl::init(InstCombineDefaultMaxIterations));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
 DisableTypeLoweringOpts("disable-type-lowering-opts",
                         cl::desc("Disable type lowering optimizations"));
 #endif // INTEL_CUSTOMIZATION
+=======
+static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
+    "instcombine-infinite-loop-threshold",
+    cl::desc("Number of instruction combining iterations considered an "
+             "infinite loop"),
+    cl::init(InstCombineDefaultInfiniteLoopThreshold), cl::Hidden);
+>>>>>>> c431c407ebcbbb526f4af93a549fa5b260a9b193
 
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
@@ -3679,13 +3688,17 @@ static bool combineInstructionsOverFunction(
   unsigned Iteration = 0;
   while (true) {
     ++Iteration;
+
+    if (Iteration > InfiniteLoopDetectionThreshold) {
+      report_fatal_error(
+          "Instruction Combining seems stuck in an infinite loop after " +
+          Twine(InfiniteLoopDetectionThreshold) + " iterations.");
+    }
+
     if (Iteration > MaxIterations) {
       LLVM_DEBUG(dbgs() << "\n\n[IC] Iteration limit #" << MaxIterations
                         << " on " << F.getName()
                         << " reached; stopping before reaching a fixpoint\n");
-      LLVM_DEBUG(dbgs().flush());
-      assert(Iteration <= InstCombineDefaultMaxIterations &&
-             "InstCombine stuck in an infinite loop?");
       break;
     }
 
