@@ -694,9 +694,20 @@ pi_result L0(piContextCreate)(
     pi_throw("l0_piCreateContext: context should have exactly one device");
   }
 
+  pi_device device = *devices;
+
+  // Create the immediate command list to be used for initializations
+  ze_command_list_handle_t ze_command_list;
+  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(device);
+  ze_command_queue_desc_t ze_command_queue_desc = {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
+  ze_command_queue_desc.ordinal = 0;
+  ze_command_queue_desc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+  ZE_CALL(zeCommandListCreateImmediate(ze_device, &ze_command_queue_desc, &ze_command_list));
+
   auto L0PiContext = new _pi_context();
-  L0PiContext->Device = *devices;
+  L0PiContext->Device = device;
   L0PiContext->RefCount = 1;
+  L0PiContext->L0CommandListInit = ze_command_list;
 
   *ret_context = L0PiContext;
   return PI_SUCCESS;
@@ -737,6 +748,7 @@ pi_result L0(piContextRelease)(
   pi_context context) {
 
   if (--(context->RefCount) == 0) {
+    ZE_CALL(zeCommandListDestroy(context->L0CommandListInit));
     delete context;
   }
   return PI_SUCCESS;
@@ -867,9 +879,9 @@ pi_result piMemBufferCreate(
 
   if ((flags & PI_MEM_FLAGS_HOST_PTR_USE)  != 0 ||
       (flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
-
-    // TODO: how to PI_MEM_PROP_HOST_PTR_USE without the copy ?
-    memcpy(ptr, host_ptr, size);
+    // Initialize the buffer
+    ZE_CALL(zeCommandListAppendMemoryCopy(context->L0CommandListInit,
+                                          ptr, host_ptr, size, nullptr));
   }
   else if (flags == 0 ||
            (flags == PI_MEM_FLAGS_ACCESS_RW)) {
@@ -1030,14 +1042,9 @@ pi_result L0(piMemImageCreate)(
 
   if ((flags & PI_MEM_FLAGS_HOST_PTR_USE)  != 0 ||
       (flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
-
-    // TODO: how to initialize image once per context/device and not
-    // once per command list?
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/289
-    //
-    // TODO: at least make a copy of the data pointed by host_ptr.
-    //
-    L0PiImage->host_ptr = host_ptr;
+    // Initialize image
+    ZE_CALL(zeCommandListAppendImageCopyFromMemory(context->L0CommandListInit,
+                                                   hImage, host_ptr, nullptr, nullptr));
   }
 
   *ret_image = L0PiImage;
@@ -2577,48 +2584,6 @@ static ze_image_region_t getImageRegionHelper(
   return zeRegion;
 }
 
-static void enqueueMemImageDeferredInitHelper(
-  pi_queue  command_queue,
-  pi_mem    image) {
-  //
-  // Check if the source image is pending a deferred initialization from
-  // a host ptr. If such then enqueue such initialization first.
-  //
-  // TODO: can't this be optimized to just copy to/from image's host ptr
-  //       from/to the "ptr" of an image read/write request.
-  //       We'd need to know the exact shape (size, region) to do that.
-  //
-  if (!image->host_ptr) {
-    return;
-  }
-
-  pi_event init_event;
-  L0(piEventCreate)(command_queue->Context, &init_event);
-  init_event->Queue = command_queue;
-  init_event->CommandType = PI_COMMAND_TYPE_IMAGE_WRITE;
-
-  ze_event_handle_t ze_init_event = init_event->L0Event;
-  ZE_CALL(zeCommandListAppendImageCopyFromMemory(
-    command_queue->getCommandList(),
-    image->L0Image,
-    image->host_ptr,
-    nullptr, // dst region - means copy entire image
-    ze_init_event
-  ));
-
-  // Wait for the initialization to complete.
-  // TODO: make this non-blocking, if the entire request is such.
-  ZE_CALL(zeCommandListAppendWaitOnEvents(
-    command_queue->getCommandList(), 1, &ze_init_event));
-
-  piEventRelease(init_event);
-
-  // Reset the pointer idicating initialization had completed.
-  // TODO: do we need to repeat this initialization for every queue?
-  image->host_ptr = nullptr;
-  return;
-}
-
 // Helper function to implement image read/write/copy.
 static pi_result enqueueMemImageCommandHelper(
   pi_command_type   command_type,
@@ -2656,7 +2621,6 @@ static pi_result enqueueMemImageCommandHelper(
 
   if (command_type == PI_COMMAND_TYPE_IMAGE_READ) {
     pi_mem src_image = pi_cast<pi_mem>(const_cast<void*>(src));
-    enqueueMemImageDeferredInitHelper(command_queue, src_image);
     const ze_image_region_t srcRegion =
       getImageRegionHelper(src_image, src_origin, region);
 
@@ -2683,7 +2647,6 @@ static pi_result enqueueMemImageCommandHelper(
   }
   else if (command_type == PI_COMMAND_TYPE_IMAGE_WRITE) {
     pi_mem dst_image = pi_cast<pi_mem>(dst);
-    enqueueMemImageDeferredInitHelper(command_queue, dst_image);
     const ze_image_region_t dstRegion =
       getImageRegionHelper(dst_image, dst_origin, region);
 
@@ -2711,9 +2674,6 @@ static pi_result enqueueMemImageCommandHelper(
   else if (command_type == PI_COMMAND_TYPE_IMAGE_COPY) {
     pi_mem src_image = pi_cast<pi_mem>(const_cast<void*>(src));
     pi_mem dst_image = pi_cast<pi_mem>(dst);
-
-    enqueueMemImageDeferredInitHelper(command_queue, src_image);
-    enqueueMemImageDeferredInitHelper(command_queue, dst_image);
 
     const ze_image_region_t srcRegion =
       getImageRegionHelper(src_image, src_origin, region);

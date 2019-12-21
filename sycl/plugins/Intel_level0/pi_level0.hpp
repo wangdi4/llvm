@@ -16,6 +16,16 @@ struct _pi_context {
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
+
+  // Immediate L0 command list for this device, to be used for initializations.
+  // This is created synchronous so that initializations from host pointer
+  // observe blocking semantics.
+  //
+  // NOTE: there is some redundancy to create a list per context since we
+  // only need one for device, but it is handy to create/destroy it within
+  // a context.
+  //
+  ze_command_list_handle_t L0CommandListInit;
 };
 
 struct _pi_queue {
@@ -55,9 +65,6 @@ struct _pi_mem {
   // Keep the descriptor of the image (for debugging purposes)
   ze_image_desc_t L0ImageDesc;
 #endif // !NDEBUG
-
-  // Keeps pointer to the data for deferred image initialization from the host.
-  void *host_ptr;
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
