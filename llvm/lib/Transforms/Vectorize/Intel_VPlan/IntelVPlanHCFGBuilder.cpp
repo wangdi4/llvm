@@ -66,6 +66,14 @@ static cl::opt<bool>
     VPlanPrintPlainCFG("vplan-print-plain-cfg", cl::init(false),
                        cl::desc("Print plain dump after VPlan buildPlainCFG."));
 
+static cl::opt<bool> VPlanDotPlainCFG(
+    "vplan-dot-plain-cfg", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after VPlan buildPlainCFG."));
+
+static cl::opt<bool> VPlanDotLoopMassaging(
+    "vplan-dot-loop-massaging", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after loop massaging."));
+
 extern cl::opt<bool> EnableVPValueCodegen;
 #endif
 
@@ -1283,6 +1291,12 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
       Plan->dump();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
     }
+
+    if (VPlanDotLoopMassaging) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      outs() << *Plan;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    }
 #endif /* INTEL_CUSTOMIZATION */
 
     LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
@@ -1429,6 +1443,12 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     errs() << "Print after simplify plain CFG\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump();
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  }
+
+  if (VPlanDotPlainCFG) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    outs() << *Plan;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
