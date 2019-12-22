@@ -7,6 +7,22 @@
 
 // Define the types that are opaque in pi.h in a manner suitabale for L0 plugin
 
+struct _pi_device {
+  // L0 device handle.
+  ze_device_handle_t L0Device;
+
+  // Immediate L0 command list for this device, to be used for initializations.
+  // To be created as:
+  // - Immediate command list: So any command appended to it is immediately
+  //   offloaded to the device.
+  // - Synchronous: So implicit synchronization is made inside the level-zero
+  //   driver.
+  ze_command_list_handle_t L0CommandListInit;
+
+  // L0 doesn't do the reference counting, so we have to do.
+  pi_uint32 RefCount;
+};
+
 struct _pi_context {
   // L0 does not have notion of contexts.
   // Keep the device here (must be exactly one) to return it when PI context
@@ -16,16 +32,6 @@ struct _pi_context {
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
-
-  // Immediate L0 command list for this device, to be used for initializations.
-  // This is created synchronous so that initializations from host pointer
-  // observe blocking semantics.
-  //
-  // NOTE: there is some redundancy to create a list per context since we
-  // only need one for device, but it is handy to create/destroy it within
-  // a context.
-  //
-  ze_command_list_handle_t L0CommandListInit;
 };
 
 struct _pi_queue {
