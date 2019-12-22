@@ -1183,7 +1183,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
   V_ASSERT(BaseTy && "Base is not a pointer!");
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
-  
+
   MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
   SmallVector<Value*, 8> args;
@@ -1919,16 +1919,27 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     Type *curScalarArgType = curScalarArg->getType();
 
     V_ASSERT(CI->getCalledFunction() && "Indirect call is not expected!");
-    if (m_rtServices->needsConcatenatedVectorParams(
-            CI->getCalledFunction()->getName()) &&
+    const StringRef calleeName = CI->getCalledFunction()->getName();
+    if (m_rtServices->needsConcatenatedVectorParams(calleeName) &&
         curScalarArgType->isVectorTy()) {
-      operand = handleParamSOAVPlanStyle(CI, curScalarArg);
-      if (!operand || operand->getType() != neededType) {
-        V_ASSERT(0 && "unsupported parameter type");
-        return false;
+      if (calleeName.contains("14ocl_image2d") &&
+          calleeName.contains("intel_sub_group_block") &&
+          argIndex == 1){
+        VectorType *curScalarArgVecType = static_cast<VectorType*>(curScalarArgType);
+        V_ASSERT(curScalarArgVecType->getNumElements() == 2 &&
+                 curScalarArgVecType->getElementType()->isIntegerTy(32) &&
+                 "The second argument must be byte coordinate for image block r/w");
+        newArgs.push_back(curScalarArg);
+      } else {
+        operand = handleParamSOAVPlanStyle(CI, curScalarArg);
+        if (!operand || operand->getType() != neededType) {
+          V_ASSERT(0 && "unsupported parameter type");
+          return false;
+        }
+        newArgs.push_back(operand);
       }
-      newArgs.push_back(operand);
     }
+
     // In case current argument is a vector and runtime says we always
     // spread vector operands, then try to do it.
     else if (m_rtServices->alwaysSpreadVectorParams() &&

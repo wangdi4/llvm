@@ -583,6 +583,19 @@ static void addSpecialBuiltins(ContainerTy &Info) {
     return mangle(FuncDesc);
   };
 
+  auto ConstructReadImgMangledName = [](const std::string &BaseName,
+                                        reflection::TypePrimitiveEnum ImageTy) {
+    reflection::FunctionDescriptor FuncDesc;
+    FuncDesc.name = BaseName;
+
+    reflection::RefParamType ImageType(new reflection::PrimitiveType(ImageTy));
+    reflection::RefParamType IntType(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
+    reflection::RefParamType CoordType(new reflection::VectorType(IntType, 2));
+    FuncDesc.parameters.push_back(ImageType);
+    FuncDesc.parameters.push_back(CoordType);
+
+    return mangle(FuncDesc);
+  };
   // Example:
   // "intel_sub_group_block_write1_4, "", 1, 4 ->
   // "_Z30intel_sub_group_block_write1_4PU3AS1jDv4_j"
@@ -618,8 +631,35 @@ static void addSpecialBuiltins(ContainerTy &Info) {
     return mangle(FuncDesc);
   };
 
+  auto ConstructWriteImgMangledName =
+      [&SuffixMap](const std::string &BaseName, const std::string &Suffix,
+                   reflection::TypePrimitiveEnum ImageTy, unsigned OrigTypeVL, unsigned VF) {
+    reflection::FunctionDescriptor FuncDesc;
+    FuncDesc.name = BaseName;
+
+    reflection::RefParamType ImageType(new reflection::PrimitiveType(ImageTy));
+    reflection::RefParamType IntType(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
+    reflection::RefParamType CoordType(new reflection::VectorType(IntType, 2));
+    FuncDesc.parameters.push_back(ImageType);
+    FuncDesc.parameters.push_back(CoordType);
+
+    reflection::TypePrimitiveEnum Primitive = SuffixMap[Suffix];
+    reflection::RefParamType PrimitiveTy(new reflection::PrimitiveType(Primitive));
+    if (OrigTypeVL * VF == 1)
+      FuncDesc.parameters.push_back(PrimitiveTy);
+    else {
+      reflection::RefParamType VectorPrimitiveTy(
+        new reflection::VectorType(PrimitiveTy, OrigTypeVL * VF));
+      FuncDesc.parameters.push_back(VectorPrimitiveTy);
+    }
+
+    return mangle(FuncDesc);
+  };
+
   BuiltinInfoList ReadBuiltins;
   BuiltinInfoList WriteBuiltins;
+  BuiltinInfoList ReadImgBuiltins;
+  BuiltinInfoList WriteImgBuiltins;
   for (const char *Suffix : BlockReadWriteSuffixes) {
     for (auto OrigTypeVL : BlockReadWriteVecLengths) {
       const std::string BlockReadBaseName("intel_sub_group_block_read");
@@ -636,6 +676,17 @@ static void addSpecialBuiltins(ContainerTy &Info) {
                                ConstructReadMangledName(ReadVF8Name, Suffix, 8),
                                ConstructReadMangledName(ReadVF16Name, Suffix, 16)}});
 
+      ReadImgBuiltins.push_back(
+        {ConstructReadImgMangledName(ReadBaseName, reflection::PRIMITIVE_IMAGE_2D_RO_T),
+         {ConstructReadImgMangledName(ReadVF4Name, reflection::PRIMITIVE_IMAGE_2D_RO_T),
+          ConstructReadImgMangledName(ReadVF8Name, reflection::PRIMITIVE_IMAGE_2D_RO_T),
+          ConstructReadImgMangledName(ReadVF16Name, reflection::PRIMITIVE_IMAGE_2D_RO_T)}});
+      ReadImgBuiltins.push_back(
+        {ConstructReadImgMangledName(ReadBaseName, reflection::PRIMITIVE_IMAGE_2D_RW_T),
+         {ConstructReadImgMangledName(ReadVF4Name, reflection::PRIMITIVE_IMAGE_2D_RW_T),
+          ConstructReadImgMangledName(ReadVF8Name, reflection::PRIMITIVE_IMAGE_2D_RW_T),
+          ConstructReadImgMangledName(ReadVF16Name, reflection::PRIMITIVE_IMAGE_2D_RW_T)}});
+
       const std::string BlockWriteBaseName("intel_sub_group_block_write");
       std::string WriteBaseName =
           ConstructBaseName(BlockWriteBaseName, Suffix, OrigTypeVL);
@@ -650,6 +701,25 @@ static void addSpecialBuiltins(ContainerTy &Info) {
            {ConstructWriteMangledName(WriteVF4Name, Suffix, OrigTypeVL, 4),
             ConstructWriteMangledName(WriteVF8Name, Suffix, OrigTypeVL, 8),
             ConstructWriteMangledName(WriteVF16Name, Suffix, OrigTypeVL, 16)}});
+
+      WriteImgBuiltins.push_back(
+          {ConstructWriteImgMangledName(WriteBaseName, Suffix,
+                                        reflection::PRIMITIVE_IMAGE_2D_WO_T, OrigTypeVL, 1),
+           {ConstructWriteImgMangledName(WriteVF4Name, Suffix,
+                                         reflection::PRIMITIVE_IMAGE_2D_WO_T, OrigTypeVL, 4),
+            ConstructWriteImgMangledName(WriteVF8Name, Suffix,
+                                         reflection::PRIMITIVE_IMAGE_2D_WO_T, OrigTypeVL, 8),
+            ConstructWriteImgMangledName(WriteVF16Name, Suffix,
+                                         reflection::PRIMITIVE_IMAGE_2D_WO_T, OrigTypeVL, 16)}});
+      WriteImgBuiltins.push_back(
+          {ConstructWriteImgMangledName(WriteBaseName, Suffix,
+                                        reflection::PRIMITIVE_IMAGE_2D_RW_T, OrigTypeVL, 1),
+           {ConstructWriteImgMangledName(WriteVF4Name, Suffix,
+                                         reflection::PRIMITIVE_IMAGE_2D_RW_T, OrigTypeVL, 4),
+            ConstructWriteImgMangledName(WriteVF8Name, Suffix,
+                                         reflection::PRIMITIVE_IMAGE_2D_RW_T, OrigTypeVL, 8),
+            ConstructWriteImgMangledName(WriteVF16Name, Suffix,
+                                         reflection::PRIMITIVE_IMAGE_2D_RW_T, OrigTypeVL, 16)}});
     }
   }
 
@@ -685,6 +755,16 @@ static void addSpecialBuiltins(ContainerTy &Info) {
     AddReadBuiltin(ReadBuiltin, 16, 2);
   }
 
+  auto AddReadImgBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
+                                         unsigned Idx) -> void {
+    AddBuiltin(Builtin, false, {VectorKind::uniform(), VectorKind::uniform()}, VF, Idx);
+  };
+
+  for (auto &ReadImgBuiltin : ReadImgBuiltins) {
+    AddReadImgBuiltin(ReadImgBuiltin, 4, 0);
+    AddReadImgBuiltin(ReadImgBuiltin, 8, 1);
+    AddReadImgBuiltin(ReadImgBuiltin, 16, 2);
+  }
   auto AddWriteBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
     AddBuiltin(Builtin, true /*Masked*/, {VectorKind::uniform(), VectorKind::vector()},
@@ -695,6 +775,18 @@ static void addSpecialBuiltins(ContainerTy &Info) {
     AddWriteBuiltin(WriteBuiltin, 4, 0);
     AddWriteBuiltin(WriteBuiltin, 8, 1);
     AddWriteBuiltin(WriteBuiltin, 16, 2);
+  }
+
+  auto AddWriteImgBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
+                                unsigned Idx) -> void {
+    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform(), VectorKind::uniform(), VectorKind::vector()},
+               VF, Idx);
+  };
+
+  for (auto &WriteImgBuiltin : WriteImgBuiltins) {
+    AddWriteImgBuiltin(WriteImgBuiltin, 4, 0);
+    AddWriteImgBuiltin(WriteImgBuiltin, 8, 1);
+    AddWriteImgBuiltin(WriteImgBuiltin, 16, 2);
   }
 
   auto AddBallotBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,

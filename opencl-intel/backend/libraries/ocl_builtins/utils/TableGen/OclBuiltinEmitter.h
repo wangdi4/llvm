@@ -168,6 +168,8 @@ public:
 
   std::string getArgumentSGBlockOpSuffix(unsigned, const std::string&) const;
 
+  std::string getReturnSGBlockOpSuffix(const std::string&) const;
+
   std::string getReturnCGenType(const std::string& Generator, const std::string& TyName) const;
 
   std::string getArgumentCName(unsigned, const std::string&) const;

@@ -72,6 +72,9 @@ code Prolog = [{
             return __builtin_astype(x, ocl_char32);
         }
     #endif
+    __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__read_only image2d_t image, int2 coord);
+    __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__write_only image2d_t image, int2 coord);
+    __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__read_write image2d_t image, int2 coord);
 }];
 
 include "ssse3/common.td"

@@ -184,9 +184,13 @@ let Types = [ v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
         // scalar
         def intel_sub_group_block_read  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins cgpv1u32:$p), [], [], 1, 0>;
         def intel_sub_group_block_write : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins gpv1u32:$p, gentype:$data), [], [], 1, 0>;
+        def intel_sub_group_block_read_img  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_write_img : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype:$data), [], [], 1, 0>;
         foreach len = [ 2, 4, 8 ] in {
           def intel_sub_group_block_read#!cast<string>(len) : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins cgpv1u32:$p), [], [], 1, 0>;
           def intel_sub_group_block_write#!cast<string>(len) : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins gpv1u32:$p, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
+          def intel_sub_group_block_read#!cast<string>(len)#_img  : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+          def intel_sub_group_block_write#!cast<string>(len)#_img : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
         }
         // vector
         foreach len = [ 1, 2, 4, 8 ] in {
@@ -195,9 +199,109 @@ let Types = [ v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
               OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf, (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins cgpv1u32:$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
             def intel_sub_group_block_write#!cast<string>(len)#"_"#!cast<string>(vf) :
               OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins gpv1u32:$data, !cast<OclType>("v"#!mul(len, vf)#"u32"):$src, !cast<OclType>("v"#vf#"u32"):$vec_mask), [], [], 1, 0>;
+            def intel_sub_group_block_read#!cast<string>(len)#_#!cast<string>(vf)#_img :
+              OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf,  (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+            def intel_sub_group_block_write#!cast<string>(len)#_#!cast<string>(vf)#_img :
+              OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, !cast<OclType>("v"#!mul(len, vf)#"u32"):$data), [], [], 1, 0>;
           }
         }
       }
+
+  let Types = [ v1u32 ] in {
+        // scalar
+        def intel_sub_group_block_read_img_rw  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_write_img_rw : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype:$data), [], [], 1, 0>;
+        foreach len = [ 2, 4, 8 ] in {
+          def intel_sub_group_block_read#!cast<string>(len)#_img_rw  : OclBuiltin<"intel_sub_group_block_read"#len,  (outs !cast<OclType>("v"#len#"u32"):$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+          def intel_sub_group_block_write#!cast<string>(len)#_img_rw : OclBuiltin<"intel_sub_group_block_write"#len, (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#len#"u32"):$data), [], [], 1, 0>;
+        }
+        // vector
+        foreach len = [ 1, 2, 4, 8 ] in {
+          foreach vf = [ 4, 8, 16 ] in {
+            def intel_sub_group_block_read#!cast<string>(len)#_#!cast<string>(vf)#_img_rw :
+              OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf,  (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+            def intel_sub_group_block_write#!cast<string>(len)#_#!cast<string>(vf)#_img_rw :
+              OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, !cast<OclType>("v"#!mul(len, vf)#"u32"):$data), [], [], 1, 0>;
+          }
+        }
+      }
+
+      let Types = [ v1u64, v1u32, v1u16, v1u8 ] in {
+        def intel_sub_group_block_read_us_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix",   (outs gentype:$ret),  (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2", (outs gentype2:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4", (outs gentype4:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8", (outs gentype8:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        // vectorized
+        def intel_sub_group_block_read_us1_4_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#1_4",  (outs gentype4:$ret),  (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us1_8_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#1_8",  (outs gentype8:$ret),  (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us1_16_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#1_16", (outs gentype16:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_4_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2_4",  (outs gentype8:$ret),  (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_8_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2_8",  (outs gentype16:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_16_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2_16", (outs gentype32:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_4_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4_4",  (outs gentype16:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_8_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4_8",  (outs gentype32:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_16_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4_16", (outs gentype64:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_4_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8_4",  (outs gentype32:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_8_img  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8_8",  (outs gentype64:$ret), (ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_16_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8_16", (outs gentype128:$ret),(ins image2d_ro:$img, v2i32:$coord), [], [], 1, 0>;
+        // write
+        def intel_sub_group_block_write_us_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype2:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype4:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype8:$data), [], [], 1, 0>;
+        // vectorized
+        def intel_sub_group_block_write_us1_4_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#1_4",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype4:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us1_8_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#1_8",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype8:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us1_16_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#1_16", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_4_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2_4",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype8:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_8_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2_8",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_16_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2_16", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_4_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4_4",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_8_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4_8",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_16_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4_16", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype64:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_4_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_4",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_8_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_8",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype64:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_16_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_16",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype128:$data), [], [], 1, 0>;
+      }
+
+      let Types = [ v1u64, v1u32, v1u16, v1u8 ] in {
+        def intel_sub_group_block_read_us_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix",   (outs gentype:$ret),  (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2", (outs gentype2:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4", (outs gentype4:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8", (outs gentype8:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        // vectorized
+        def intel_sub_group_block_read_us1_4_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#1_4",  (outs gentype4:$ret),  (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us1_8_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#1_8",  (outs gentype8:$ret),  (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us1_16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#1_16", (outs gentype16:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_4_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2_4",  (outs gentype8:$ret),  (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_8_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2_8",  (outs gentype16:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2_16", (outs gentype32:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_4_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4_4",  (outs gentype16:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_8_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4_8",  (outs gentype32:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#4_16", (outs gentype64:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_4_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8_4",  (outs gentype32:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_8_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8_8",  (outs gentype64:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#8_16", (outs gentype128:$ret),(ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
+        // write
+        def intel_sub_group_block_write_us_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype2:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype4:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype8:$data), [], [], 1, 0>;
+        // vectorized
+        def intel_sub_group_block_write_us1_4_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#1_4",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype4:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us1_8_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#1_8",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype8:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us1_16_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#1_16", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_4_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2_4",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype8:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_8_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2_8",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_16_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#2_16", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_4_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4_4",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_8_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4_8",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_16_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#4_16", (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype64:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_4_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_4",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_8_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_8",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype64:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_16_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_16",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype128:$data), [], [], 1, 0>;
+      }
+
   // These are horribly inconvenient to represent in OpenCL TableGen.
   // Non-triviality comes from the need to represent the ret type for read and arg1 for write as multiple of base vector size and VF
   // and ushort
@@ -327,6 +431,68 @@ foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write
   }
 }
 
+foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write"] in {
+  foreach len = [ "1" ] in {
+    def func_name#_cell1_img  : MapCell<!cast<OclBuiltin>(func_name#"_img"), v1u32>;
+    def func_name#_cell4_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), v1u32>;
+    def func_name#_cell8_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), v1u32>;
+    def func_name#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), v1u32>;
+    def func_name#_vectorized_img : MapRow<[
+    !cast<MapCell>(func_name#"_cell1_img"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#"_cell4_img"),  //v4
+    !cast<MapCell>(func_name#"_cell8_img"),  //v8
+    !cast<MapCell>(func_name#"_cell16_img"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+  foreach len = [ "2", "4", "8" ] in {
+    def func_name#_#len#_cell1_img  : MapCell<!cast<OclBuiltin>(func_name#len#"_img"), v1u32>;
+    def func_name#_#len#_cell4_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), v1u32>;
+    def func_name#_#len#_cell8_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), v1u32>;
+    def func_name#_#len#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), v1u32>;
+    def func_name#_#len#_vectorized_img : MapRow<[
+    !cast<MapCell>(func_name#_#len#"_cell1_img"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#len#"_cell4_img"),  //v4
+    !cast<MapCell>(func_name#_#len#"_cell8_img"),  //v8
+    !cast<MapCell>(func_name#_#len#"_cell16_img"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+}
+
+foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write"] in {
+  foreach len = [ "1" ] in {
+    def func_name#_cell1_img_rw  : MapCell<!cast<OclBuiltin>(func_name#"_img_rw"), v1u32>;
+    def func_name#_cell4_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), v1u32>;
+    def func_name#_cell8_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), v1u32>;
+    def func_name#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), v1u32>;
+    def func_name#_vectorized_img_rw : MapRow<[
+    !cast<MapCell>(func_name#"_cell1_img_rw"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#"_cell4_img_rw"),  //v4
+    !cast<MapCell>(func_name#"_cell8_img_rw"),  //v8
+    !cast<MapCell>(func_name#"_cell16_img_rw"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+  foreach len = [ "2", "4", "8" ] in {
+    def func_name#_#len#_cell1_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#"_img_rw"), v1u32>;
+    def func_name#_#len#_cell4_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), v1u32>;
+    def func_name#_#len#_cell8_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), v1u32>;
+    def func_name#_#len#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), v1u32>;
+    def func_name#_#len#_vectorized_img_rw : MapRow<[
+    !cast<MapCell>(func_name#_#len#"_cell1_img_rw"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#len#"_cell4_img_rw"),  //v4
+    !cast<MapCell>(func_name#_#len#"_cell8_img_rw"),  //v8
+    !cast<MapCell>(func_name#_#len#"_cell16_img_rw"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+}
+
 foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
   foreach type = [ v1u64, v1u32, v1u16, v1u8 ] in {
     foreach len = [ "1" ] in {
@@ -354,6 +520,72 @@ foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_wr
       !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4"),  //v4
       !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8"),  //v8
       !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16"), //16
+      nullCell],
+      0,1>;          //not scalarizable, packetizable
+    }
+  }
+}
+
+foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
+  foreach type = [ v1u8, v1u16, v1u32, v1u64 ] in {
+    foreach len = [ "1" ] in {
+      def func_name#!cast<string>(type)#_cell1_img_rw  : MapCell<!cast<OclBuiltin>(func_name#"_img_rw"), type>;
+      def func_name#!cast<string>(type)#_cell4_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), type>;
+      def func_name#!cast<string>(type)#_cell8_img_rw  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), type>;
+      def func_name#!cast<string>(type)#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), type>;
+      def func_name#!cast<string>(type)#_vectorized_img_rw : MapRow<[
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell1_img_rw"),  //scalar
+      nullCell,
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell4_img_rw"),  //v4
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell8_img_rw"),  //v8
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell16_img_rw"), //16
+      nullCell],
+      0,1>;          //not scalarizable, packetizable
+    }
+    foreach len = [ "2", "4", "8" ] in {
+      def func_name#!cast<string>(type)#_#len#_cell1_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#"_img_rw"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell4_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img_rw"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell8_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img_rw"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell16_img_rw : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img_rw"), type>;
+      def func_name#!cast<string>(type)#_#len#_vectorized_img_rw : MapRow<[
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell1_img_rw"),  //scalar
+      nullCell,
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4_img_rw"),  //v4
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8_img_rw"),  //v8
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16_img_rw"), //16
+      nullCell],
+      0,1>;          //not scalarizable, packetizable
+    }
+  }
+}
+
+foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
+  foreach type = [ v1u8, v1u16, v1u32, v1u64 ] in {
+    foreach len = [ "1" ] in {
+      def func_name#!cast<string>(type)#_cell1_img  : MapCell<!cast<OclBuiltin>(func_name#"_img"), type>;
+      def func_name#!cast<string>(type)#_cell4_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), type>;
+      def func_name#!cast<string>(type)#_cell8_img  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), type>;
+      def func_name#!cast<string>(type)#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), type>;
+      def func_name#!cast<string>(type)#_vectorized_img : MapRow<[
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell1_img"),  //scalar
+      nullCell,
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell4_img"),  //v4
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell8_img"),  //v8
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell16_img"), //16
+      nullCell],
+      0,1>;          //not scalarizable, packetizable
+    }
+    foreach len = [ "2", "4", "8" ] in {
+      def func_name#!cast<string>(type)#_#len#_cell1_img : MapCell<!cast<OclBuiltin>(func_name#len#"_img"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell4_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"4_img"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell8_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"8_img"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell16_img : MapCell<!cast<OclBuiltin>(func_name#len#_#"16_img"), type>;
+      def func_name#!cast<string>(type)#_#len#_vectorized_img : MapRow<[
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell1_img"),  //scalar
+      nullCell,
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4_img"),  //v4
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8_img"),  //v8
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16_img"), //16
       nullCell],
       0,1>;          //not scalarizable, packetizable
     }
