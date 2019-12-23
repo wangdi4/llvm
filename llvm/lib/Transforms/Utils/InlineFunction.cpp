@@ -1576,7 +1576,7 @@ static void updateCallerBFI(BasicBlock *CallSiteBlock,
                             BlockFrequencyInfo *CalleeBFI,
                             const BasicBlock &CalleeEntryBlock) {
   SmallPtrSet<BasicBlock *, 16> ClonedBBs;
-  for (auto const &Entry : VMap) {
+  for (auto Entry : VMap) {
     if (!isa<BasicBlock>(Entry.first) || !Entry.second)
       continue;
     auto *OrigBB = cast<BasicBlock>(Entry.first);
@@ -1785,6 +1785,7 @@ void llvm::updateProfileCallee(
   // During inlining ?
   if (VMap) {
     uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
+<<<<<<< HEAD
     for (auto const &Entry : *VMap) { // INTEL
 #if INTEL_CUSTOMIZATION
       // Update intel_profx metadata, which can be on CallInst or InvokeInst
@@ -1792,6 +1793,9 @@ void llvm::updateProfileCallee(
         if (auto *Call = dyn_cast_or_null<CallBase>(Entry.second))
           Call->updateProfxWeight(cloneEntryCount, priorEntryCount);
 #endif // INTEL_CUSTOMIZATION
+=======
+    for (auto Entry : *VMap)
+>>>>>>> 098d3347e74ac89ea87744bf40ca98ade5e8468e
       if (isa<CallInst>(Entry.first))
         if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
           CI->updateProfWeight(cloneEntryCount, priorEntryCount);
