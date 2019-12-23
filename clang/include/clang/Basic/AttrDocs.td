@@ -2038,8 +2038,24 @@ is unspecified and is therefore considered infinite.
 In case of ivdep being applied both w/o an array variable and for a particular
 array, the array variables that were not designated a separate ivdep will receive
 the no-array ivdep's safelen, with the correspondent treatment by the backend.
+// INTEL_CUSTOMIZATION
+Note: this version of the attribute is not fully supported by the backend yet.
+// end INTEL_CUSTOMIZATION
   }];
 }
+
+// INTEL_CUSTOMIZATION
+def SYCLIntelFPGALegacyIVDepAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "ivdep";
+  let Content = [{
+This attribute applies to a loop. If no additional arguments are provided, it
+indicates that the backend may assume that the loop carries no dependences.
+If a safelen is provided then the backend may assume that all loop-carried
+dependences have a dependence distance of at least that length.
+  }];
+}
+// end INTEL_CUSTOMIZATION
 
 def SYCLIntelFPGAIIAttrDocs : Documentation {
   let Category = DocCatVariable;

@@ -90,6 +90,10 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
       S.Diag(A.getLoc(), diag::warn_attribute_too_few_arguments) << A << 1;
       return nullptr;
     }
+#if INTEL_CUSTOMIZATION
+    else if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep)
+      return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, nullptr);
+#endif // INTEL_CUSTOMIZATION
   }
 
   return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, A.getArgAsExpr(0));
@@ -177,6 +181,10 @@ Sema::BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
 template <typename FPGALoopAttrT>
 FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
                                                 Expr *E) {
+#if INTEL_CUSTOMIZATION
+  if (!E && A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep)
+    return new (Context) FPGALoopAttrT(Context, A, E);
+#endif // INTEL_CUSTOMIZATION
   if (!E)
     return nullptr;
 
@@ -205,6 +213,14 @@ FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
             << "'max_concurrency'" << /* non-negative */ 1;
         return nullptr;
       }
+#if INTEL_CUSTOMIZATION
+    } else if (A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep) {
+      if (Val <= 0) {
+        Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+            << "'ivdep'" << /* positive */ 0;
+        return nullptr;
+      }
+#endif // INTEL_CUSTOMIZATION
     } else {
       llvm_unreachable("unknown sycl fpga loop attr");
     }
@@ -214,6 +230,9 @@ FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
 }
 #if INTEL_CUSTOMIZATION
 
+template SYCLIntelFPGALegacyIVDepAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGALegacyIVDepAttr>(
+    const AttributeCommonInfo &, Expr *);
 template SYCLIntelFPGAIIAttr *
 Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAIIAttr>(
     const AttributeCommonInfo &, Expr *);
@@ -1292,6 +1311,10 @@ static void CheckForDuplicationSYCLLoopAttribute(
 
 static void CheckForIncompatibleSYCLLoopAttributes(
     Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
+#if INTEL_CUSTOMIZATION
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGALegacyIVDepAttr>(S, Attrs,
+                                                                     Range);
+#endif // INTEL_CUSTOMIZATION
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAIIAttr>(S, Attrs, Range);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxConcurrencyAttr>(
       S, Attrs, Range);
@@ -1386,6 +1409,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelInlineAttr(S, St, A, Range);
   case ParsedAttr::AT_IntelBlockLoop:
     return handleIntelBlockLoopAttr(S, St, A, AL, Range);
+  case ParsedAttr::AT_SYCLIntelFPGALegacyIVDep:
+    return handleIntelFPGALoopAttr<SYCLIntelFPGALegacyIVDepAttr>(S, A);
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
