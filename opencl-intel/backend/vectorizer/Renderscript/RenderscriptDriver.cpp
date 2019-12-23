@@ -194,7 +194,9 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
       ValueToValueMapTy vmap;
       Function *clone = CloneFunction(*fi, vmap, nullptr);
       clone->setName("__Vectorized_." + (*fi)->getName());
+      vectPM.doInitialization();
       vectPM.run(*clone);
+      vectPM.doFinalization();
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.
         vectFunc = clone;
@@ -216,7 +218,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 
 
   {
-      legacy::PassManager mpm;
+    legacy::PassManager mpm;
     mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);

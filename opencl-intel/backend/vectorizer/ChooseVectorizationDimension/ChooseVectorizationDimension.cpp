@@ -300,7 +300,9 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
       runWi.add(wi[dim]);
     }
   }
+  runWi.doInitialization();
   runWi.run(F);
+  runWi.doFinalization();
 
   // now analyse the results for each BB.
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++ it) {
