@@ -811,6 +811,12 @@ public:
   /// register if it is available.
   virtual unsigned getCSRFirstUseCost() const { return 0; }
 
+#if INTEL_CUSTOMIZATION
+  virtual unsigned getCSRFirstUseCost(const MachineFunction &MF) const {
+     return 0;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Returns true if the target requires (and can make use of) the register
   /// scavenger.
   virtual bool requiresRegisterScavenging(const MachineFunction &MF) const {

@@ -76,7 +76,19 @@ X86RegisterInfo::X86RegisterInfo(const Triple &TT)
     BasePtr = X86::ESI;
   }
 }
+#if INTEL_CUSTOMIZATION
+unsigned
+X86RegisterInfo::getCSRFirstUseCost(const MachineFunction &MF) const {
+  const TargetOptions &Options = MF.getTarget().Options;
+  const X86Subtarget *ST = &MF.getSubtarget<X86Subtarget>();
+  if (!Options.IntelAdvancedOptim)
+    return 0;
+  if (!ST->isTarget64BitLP64())
+    return 0;
 
+  return 1 << 14;
+}
+#endif // INTEL_CUSTOMIZATION
 bool
 X86RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
   // ExecutionDomainFix, BreakFalseDeps and PostRAScheduler require liveness.

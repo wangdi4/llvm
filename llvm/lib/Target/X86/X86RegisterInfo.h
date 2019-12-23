@@ -65,7 +65,9 @@ public:
   /// Code Generation virtual methods...
   ///
   bool trackLivenessAfterRegAlloc(const MachineFunction &MF) const override;
-
+#if INTEL_CUSTOMIZATION
+  unsigned getCSRFirstUseCost(const MachineFunction &MF) const override;
+#endif // INTEL_CUSTOMIZATION
   /// getMatchingSuperRegClass - Return a subclass of the specified register
   /// class A so that each register in it has a sub-register of the
   /// specified sub-register index which is in the specified register class B.
