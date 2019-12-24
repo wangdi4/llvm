@@ -2643,8 +2643,15 @@ static pi_result enqueueMemImageCommandHelper(
 #ifndef NDEBUG
     assert(row_pitch == 0 ||
            // special case RGBA image pitch equal to region's width
-           (src_image->L0ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
-            row_pitch == 4 * 4 * srcRegion.width));
+           (src_image->L0ImageDesc.format.layout ==
+                ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
+            row_pitch == 4 * 4 * srcRegion.width) ||
+           (src_image->L0ImageDesc.format.layout ==
+                ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16 &&
+            row_pitch == 4 * 2 * srcRegion.width) ||
+           (src_image->L0ImageDesc.format.layout ==
+                ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8 &&
+            row_pitch == 4 * srcRegion.width));
     assert(slice_pitch == 0 ||
            slice_pitch == row_pitch * srcRegion.height);
 #endif // !NDEBUG
@@ -2669,8 +2676,15 @@ static pi_result enqueueMemImageCommandHelper(
 #ifndef NDEBUG
     assert(row_pitch == 0 ||
            // special case RGBA image pitch equal to region's width
-           (dst_image->L0ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
-            row_pitch == 4 * 4 * dstRegion.width));
+           (dst_image->L0ImageDesc.format.layout ==
+                ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
+            row_pitch == 4 * 4 * dstRegion.width) ||
+           (dst_image->L0ImageDesc.format.layout ==
+                ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16 &&
+            row_pitch == 4 * 2 * dstRegion.width) ||
+           (dst_image->L0ImageDesc.format.layout ==
+                ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8 &&
+            row_pitch == 4 * dstRegion.width));
     assert(slice_pitch == 0 ||
            slice_pitch == row_pitch * dstRegion.height);
 #endif // !NDEBUG
