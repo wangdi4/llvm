@@ -118,9 +118,10 @@ decltype(piEventCreate) L0(piEventCreate);
 #define SET_PARAM_VALUE(value)                                                 \
   {                                                                            \
     typedef decltype(value) T;                                                 \
-    memset(param_value, 0, param_value_size);                                  \
-    if (param_value)                                                           \
+    if (param_value) {                                                         \
+      memset(param_value, 0, param_value_size);                                \
       *(T *)param_value = value;                                               \
+    }                                                                          \
     if (param_value_size_ret)                                                  \
       *param_value_size_ret = sizeof(T);                                       \
   }
