@@ -124,6 +124,18 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
 
 bool ClangLinkOptions::hasArg(int id) const { return m_pArgs->hasArg(id); }
 
+// Check whether the module contains OpenCL or DPCPP version metadata.
+// Add "not-ocl-dpcpp" attribute to functions from neither ocl nor dpcpp
+// binary.
+void addAttrForNoneOCLDPCPPCode(llvm::Module* M) {
+  if (M->getNamedMetadata("opencl.ocl.version") == nullptr &&
+          M->getNamedMetadata("spirv.Source") == nullptr) {
+    for (auto &F: M->getFunctionList()) {
+      F.addFnAttr("not-ocl-dpcpp", "true");
+    }
+  }
+}
+
 OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
                                 unsigned int uiNumBinaries,
                                 const size_t *puiBinariesSizes,
@@ -151,7 +163,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
       throw ModuleOr.takeError();
     }
     std::unique_ptr<llvm::Module> composite = std::move(ModuleOr.get());
-
+    // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+    // binary.
+    addAttrForNoneOCLDPCPPCode(composite.get());
     // Parse options
     ClangLinkOptions optionsParser(pszOptions);
 
@@ -165,6 +179,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
         throw ModuleOr.takeError();
       }
       std::unique_ptr<llvm::Module> module = std::move(ModuleOr.get());
+      // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+      // binary.
+      addAttrForNoneOCLDPCPPCode(module.get());
 
       if (llvm::Linker::linkModules(*composite, std::move(module))) {
         throw std::string("Linking has failed");
