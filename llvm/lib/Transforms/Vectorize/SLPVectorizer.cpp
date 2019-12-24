@@ -3751,7 +3751,7 @@ void BoUpSLP::removeFromVTreeAfter(int FromIdx) {
   for (int i = FromIdx, e = VectorizableTree.size(); i != e; ++i) {
     const TreeEntry &TE = *VectorizableTree[i].get();
     for (Value *V : TE.Scalars) {
-      if (TE.NeedToGather) {
+      if (TE.State == TreeEntry::NeedToGather) {
         MustGather.erase(V);
       } else {
         ScalarToTreeEntry.erase(V);
@@ -3788,7 +3788,7 @@ void BoUpSLP::replaySchedulerStateUpTo(
     const SmallVectorImpl<Value *> &OldBundleVL) {
   for (int i = 0; i < UntilIdx; ++i) {
     TreeEntry &TE = *VectorizableTree[i].get();
-    if (TE.NeedToGather)
+    if (TE.State == TreeEntry::NeedToGather)
       continue;
     assert(isa<Instruction>(TE.Scalars[0]) && "Instruction expected.");
     Instruction *VL0 = cast<Instruction>(TE.Scalars[0]);
@@ -3902,7 +3902,7 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
   // Iterate until we are done with all TEs of the multi node.
   while (!TEWorklist.empty()) {
     TreeEntry *TE = TEWorklist.front();
-    assert(!TE->NeedToGather && "Not vectorizable ?");
+    assert(TE->State != TreeEntry::NeedToGather && "Not vectorizable ?");
     assert((int)TE->Scalars.size() == Lanes && "Broken TE?");
     TEWorklist.pop_front();
 
