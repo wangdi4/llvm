@@ -981,13 +981,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
 
   if (WRLp->isOmpSIMDLoop() && !WRLp->isValidHIRSIMDRegion()) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    assert(false && "VPlan: Invalid HIR SIMD region for given loop");
-#else
+//#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+//    assert(false && "VPlan: Invalid HIR SIMD region for given loop");
+//#else
     WithColor::warning() << "Loop was not vectorized. Invalid SIMD region "
                             "detected for given loop\n";
     return false;
-#endif
+//#endif
   }
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
@@ -1101,6 +1101,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp) {
   if (HIRLoopStats->getSelfLoopStatistics(Lp).hasSwitches())
+    return false;
+
+  // Outerloop vectorization is not supported
+  if (!Lp->isInnermost())
+    return false;
+
+  // Unsupported HLLoop types for vectorization
+  if (!((Lp->isDo() || Lp->isDoMultiExit()) && Lp->isNormalized()))
     return false;
 
   return true;

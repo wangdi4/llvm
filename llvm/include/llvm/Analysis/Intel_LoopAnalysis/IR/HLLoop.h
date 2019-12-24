@@ -699,6 +699,17 @@ public:
   /// Checks whether SIMD directive is attached to the loop.
   bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
 
+  /// Checks whether SIMD directive is attached to the loop or its parents.
+  bool isInSIMDRegion() const {
+    const HLLoop *OuterLp = this;
+    while (OuterLp) {
+      if (OuterLp->isSIMD())
+        return true;
+      OuterLp = OuterLp->getParentLoop();
+    }
+    return false;
+  }
+
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.
   bool isVecLoop() const { return isSIMD() || hasDirective(DIR_VPO_AUTO_VEC); }
