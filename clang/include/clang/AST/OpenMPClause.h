@@ -6504,6 +6504,15 @@ class OMPNontemporalClause final
             OMPC_nontemporal, SourceLocation(), SourceLocation(),
             SourceLocation(), N) {}
 
+  /// Get the list of privatied copies if the member expression was captured by
+  /// one of the privatization clauses.
+  MutableArrayRef<Expr *> getPrivateRefs() {
+    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
+  }
+  ArrayRef<const Expr *> getPrivateRefs() const {
+    return llvm::makeArrayRef(varlist_end(), varlist_size());
+  }
+
 public:
   /// Creates clause with a list of variables \a VL.
   ///
@@ -6522,6 +6531,10 @@ public:
   /// \param N The number of variables.
   static OMPNontemporalClause *CreateEmpty(const ASTContext &C, unsigned N);
 
+  /// Sets the list of references to private copies created in private clauses.
+  /// \param VL List of references.
+  void setPrivateRefs(ArrayRef<Expr *> VL);
+
   child_range children() {
     return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
                        reinterpret_cast<Stmt **>(varlist_end()));
@@ -6529,6 +6542,16 @@ public:
 
   const_child_range children() const {
     auto Children = const_cast<OMPNontemporalClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range private_refs() {
+    return child_range(reinterpret_cast<Stmt **>(getPrivateRefs().begin()),
+                       reinterpret_cast<Stmt **>(getPrivateRefs().end()));
+  }
+
+  const_child_range private_refs() const {
+    auto Children = const_cast<OMPNontemporalClause *>(this)->private_refs();
     return const_child_range(Children.begin(), Children.end());
   }
 

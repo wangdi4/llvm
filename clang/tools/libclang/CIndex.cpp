@@ -2482,6 +2482,8 @@ void OMPClauseEnqueue::VisitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *C) 
 void OMPClauseEnqueue::VisitOMPNontemporalClause(
     const OMPNontemporalClause *C) {
   VisitOMPClauseList(C);
+  for (const auto *E : C->private_refs())
+    Visitor->AddStmt(E);
 }
 }
 
