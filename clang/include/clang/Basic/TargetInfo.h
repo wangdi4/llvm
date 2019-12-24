@@ -1392,7 +1392,6 @@ public:
 
   virtual void setAuxTarget(const TargetInfo *Aux) {}
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Should calls to variadic functions be diagnosed with error message?
   /// These should not be diagnosed for Microsoft headers.
@@ -1400,10 +1399,9 @@ public:
     return true;
   }
 #endif
-=======
+
   /// Whether target allows debuginfo types for decl only variables.
   virtual bool allowDebugInfoForExternalVar() const { return false; }
->>>>>>> 2188dfe32814af8211f924a90f94527749d4f87b
 
 protected:
   /// Copy type and layout related info.
