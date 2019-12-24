@@ -15,15 +15,28 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Support/CommandLine.h" // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
 #define DEBUG_TYPE "transform-warning"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> VPlanSIMDAssertDefault(
+    "vplan-simd-assert-default", cl::init(false),
+    cl::desc("Emits assert if pragma simd loop is not vectorized by VPlan"));
+#endif
+
 /// Emit warnings for forced (i.e. user-defined) loop transformations which have
 /// still not been performed.
+#if INTEL_CUSTOMIZATION
+static void
+warnAboutLoopLeftoverTransformations(Loop *L, Function *F,
+                                     OptimizationRemarkEmitter *ORE) {
+#else
 static void warnAboutLeftoverTransformations(Loop *L,
                                              OptimizationRemarkEmitter *ORE) {
+#endif
   if (hasUnrollTransformation(L) == TM_ForcedByUser) {
     LLVM_DEBUG(dbgs() << "Leftover unroll transformation\n");
     ORE->emit(
@@ -54,6 +67,17 @@ static void warnAboutLeftoverTransformations(Loop *L,
         getOptionalIntLoopAttribute(L, "llvm.loop.interleave.count");
 
     if (VectorizeWidth.getValueOr(0) != 1)
+#if INTEL_CUSTOMIZATION
+    {
+      if (VPlanSIMDAssertDefault)
+        F->getContext().diagnose(DiagnosticInfoUnsupported(
+            *F,
+             "loop not vectorized: the optimizer was unable to perform the "
+             "requested transformation; the transformation might be disabled "
+             "or specified as part of an unsupported transformation ordering",
+             L->getStartLoc()));
+      else
+#endif // INTEL_CUSTOMIZATION
       ORE->emit(
           DiagnosticInfoOptimizationFailure(DEBUG_TYPE,
                                             "FailedRequestedVectorization",
@@ -61,6 +85,7 @@ static void warnAboutLeftoverTransformations(Loop *L,
           << "loop not vectorized: the optimizer was unable to perform the "
              "requested transformation; the transformation might be disabled "
              "or specified as part of an unsupported transformation ordering");
+    } // INTEL
     else if (InterleaveCount.getValueOr(0) != 1)
       ORE->emit(
           DiagnosticInfoOptimizationFailure(DEBUG_TYPE,
@@ -86,7 +111,11 @@ static void warnAboutLeftoverTransformations(Loop *L,
 static void warnAboutLeftoverTransformations(Function *F, LoopInfo *LI,
                                              OptimizationRemarkEmitter *ORE) {
   for (auto *L : LI->getLoopsInPreorder())
+#if INTEL_CUSTOMIZATION
+    warnAboutLoopLeftoverTransformations(L, F, ORE);
+#else
     warnAboutLeftoverTransformations(L, ORE);
+#endif
 }
 
 // New pass manager boilerplate
