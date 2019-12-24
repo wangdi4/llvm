@@ -1883,7 +1883,7 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>())) {
 #endif // INTEL_CUSTOMIZATION
     llvm::StringMap<bool> FeatureMap;
-    getFunctionFeatureMap(FeatureMap, GD);
+    getContext().getFunctionFeatureMap(FeatureMap, GD);
 
     // Produce the canonical string for this set of features.
     for (const llvm::StringMap<bool>::value_type &Entry : FeatureMap)
@@ -6577,6 +6577,7 @@ void CodeGenModule::AddVTableTypeMetadata(llvm::GlobalVariable *VTable,
   }
 }
 
+<<<<<<< HEAD
 ParsedTargetAttr CodeGenModule::filterFunctionTargetAttrs(const TargetAttr *TD) {
   assert(TD != nullptr);
   ParsedTargetAttr ParsedAttr = TD->parse();
@@ -6642,6 +6643,8 @@ void CodeGenModule::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
   }
 }
 
+=======
+>>>>>>> 26aff0456e7268ab53a8f4af54dd6a8ea05fff89
 llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
   if (!SanStats)
     SanStats = std::make_unique<llvm::SanitizerStatReport>(&getModule());
