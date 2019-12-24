@@ -60,7 +60,7 @@ ze_command_list_handle_t _pi_queue::getCommandList()
   // command was submitted to the queue?
   //
   ZE_CALL(zeCommandListCreate(
-    pi_cast<ze_device_handle_t>(Context->Device),
+    Context->Device->L0Device,
     &ze_command_list_desc,
     &L0CommandList));
 
@@ -262,17 +262,40 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
   for (uint32_t i = 0; i < ze_device_count; ++i) {
     // TODO: add check for device type
     if (i < num_entries) {
-      devices[i] = pi_cast<pi_device>(ze_devices[i]);
+      auto L0PiDevice = new _pi_device();
+      L0PiDevice->L0Device = ze_devices[i];
+
+      // Create the immediate command list to be used for initializations
+      // Created as synchronous so level-zero performs implicit synchronization and
+      // there is no need to query for completion in the plugin
+      ze_device_handle_t ze_device = L0PiDevice->L0Device;
+      ze_command_queue_desc_t ze_command_queue_desc =
+          {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
+      ze_command_queue_desc.ordinal = 0;
+      ze_command_queue_desc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+      ZE_CALL(zeCommandListCreateImmediate(ze_device, &ze_command_queue_desc,
+                                           &L0PiDevice->L0CommandListInit));
+
+      devices[i] = L0PiDevice;
     }
   }
   return PI_SUCCESS;
 }
 
-pi_result L0(piDeviceRetain)(pi_device     device) {
+pi_result L0(piDeviceRetain)(pi_device device) {
+
+  ++(device->RefCount);
   return PI_SUCCESS;
 }
 
-pi_result L0(piDeviceRelease)(pi_device     device) {
+pi_result L0(piDeviceRelease)(pi_device device) {
+
+  if (--(device->RefCount) == 0) {
+    // Destroy the command list used for initializations
+    ZE_CALL(zeCommandListDestroy(device->L0CommandListInit));
+    delete device;
+  }
+
   return PI_SUCCESS;
 }
 
@@ -283,7 +306,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
                               size_t *        param_value_size_ret) {
 
   // TODO: cache device properties instead of querying L0 each time
-  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(device);
+  ze_device_handle_t ze_device = device->L0Device;
   ze_device_properties_t ze_device_properties;
   ze_device_properties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeDeviceGetProperties(
@@ -694,23 +717,12 @@ pi_result L0(piContextCreate)(
   // Return the device handle (only single device is allowed) as a context handle.
   //
   if (num_devices != 1) {
-    pi_throw("l0_piCreateContext: context should have exactly one device");
+    pi_throw("piCreateContext: context should have exactly one device");
   }
 
-  pi_device device = *devices;
-
-  // Create the immediate command list to be used for initializations
-  ze_command_list_handle_t ze_command_list;
-  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(device);
-  ze_command_queue_desc_t ze_command_queue_desc = {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
-  ze_command_queue_desc.ordinal = 0;
-  ze_command_queue_desc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
-  ZE_CALL(zeCommandListCreateImmediate(ze_device, &ze_command_queue_desc, &ze_command_list));
-
   auto L0PiContext = new _pi_context();
-  L0PiContext->Device = device;
+  L0PiContext->Device = *devices;
   L0PiContext->RefCount = 1;
-  L0PiContext->L0CommandListInit = ze_command_list;
 
   *ret_context = L0PiContext;
   return PI_SUCCESS;
@@ -734,7 +746,7 @@ pi_result L0(piContextGetInfo)(
   }
   else {
     // TODO: implement other parameters
-    pi_throw("l0_piGetContextInfo: unsuppported param_name.");
+    pi_throw("piGetContextInfo: unsuppported param_name.");
   }
 
   return PI_SUCCESS;
@@ -751,15 +763,10 @@ pi_result L0(piContextRelease)(
   pi_context context) {
 
   if (--(context->RefCount) == 0) {
-    ZE_CALL(zeCommandListDestroy(context->L0CommandListInit));
     delete context;
   }
   return PI_SUCCESS;
 }
-
-// TODO: make this thread-safe
-static std::map<ze_command_queue_handle_t,
-                ze_command_list_handle_t> ze_queue2list_map;
 
 pi_result L0(piQueueCreate)(
   pi_context                    context,
@@ -772,7 +779,7 @@ pi_result L0(piQueueCreate)(
   ze_command_queue_handle_t ze_command_queue;
 
   pi_assert(device == context->Device);
-  ze_device = pi_cast<ze_device_handle_t>(device);
+  ze_device = device->L0Device;
 
   ze_command_queue_desc_t ze_command_queue_desc =
     {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
@@ -793,8 +800,6 @@ pi_result L0(piQueueCreate)(
     ze_device,
     &ze_command_list_desc,
     &ze_command_list));
-
-  ze_queue2list_map[ze_command_queue] = ze_command_list;
 
   auto L0PiQueue = new _pi_queue();
   L0PiQueue->L0CommandQueue = ze_command_queue;
@@ -868,7 +873,7 @@ pi_result piMemBufferCreate(
   pi_assert((flags & PI_MEM_FLAGS_ACCESS_RW) != 0);
 
   void *ptr;
-  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(context->Device);
+  ze_device_handle_t ze_device = context->Device->L0Device;
 
   // TODO: translate errors
   ZE_CALL(zeDriverAllocDeviceMem(
@@ -882,8 +887,8 @@ pi_result piMemBufferCreate(
 
   if ((flags & PI_MEM_FLAGS_HOST_PTR_USE)  != 0 ||
       (flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
-    // Initialize the buffer
-    ZE_CALL(zeCommandListAppendMemoryCopy(context->L0CommandListInit,
+    // Initialize the buffer synchronously with immediate offload
+    ZE_CALL(zeCommandListAppendMemoryCopy(context->Device->L0CommandListInit,
                                           ptr, host_ptr, size, nullptr));
   }
   else if (flags == 0 ||
@@ -1031,9 +1036,7 @@ pi_result L0(piMemImageCreate)(
   };
 
   ze_image_handle_t hImage;
-  ZE_CALL(zeImageCreate(
-    pi_cast<ze_device_handle_t>(context->Device),
-    &imageDesc, &hImage));
+  ZE_CALL(zeImageCreate(context->Device->L0Device, &imageDesc, &hImage));
 
   auto L0PiImage = new _pi_mem();
   L0PiImage->L0Image = hImage;
@@ -1045,8 +1048,8 @@ pi_result L0(piMemImageCreate)(
 
   if ((flags & PI_MEM_FLAGS_HOST_PTR_USE)  != 0 ||
       (flags & PI_MEM_FLAGS_HOST_PTR_COPY) != 0) {
-    // Initialize image
-    ZE_CALL(zeCommandListAppendImageCopyFromMemory(context->L0CommandListInit,
+    // Initialize image synchronously with immediate offload
+    ZE_CALL(zeCommandListAppendImageCopyFromMemory(context->Device->L0CommandListInit,
                                                    hImage, host_ptr, nullptr, nullptr));
   }
 
@@ -1060,8 +1063,7 @@ pi_result L0(piProgramCreate)(
   size_t        length,
   pi_program *  program) {
 
-  ze_device_handle_t ze_device =
-    pi_cast<ze_device_handle_t>(context->Device);
+  ze_device_handle_t ze_device = context->Device->L0Device;
 
   ze_module_desc_t ze_module_desc;
   ze_module_desc.version = ZE_MODULE_DESC_VERSION_CURRENT;
@@ -1368,7 +1370,7 @@ pi_result L0(piKernelGetGroupInfo)(
   void *                     param_value,
   size_t *                   param_value_size_ret)
 {
-  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(device);
+  ze_device_handle_t ze_device = device->L0Device;
   ze_device_compute_properties_t ze_device_compute_properties;
   ze_device_compute_properties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeDeviceGetComputeProperties(
@@ -1541,7 +1543,7 @@ pi_result L0(piEventCreate)(
 
   // TODO: see if we can employ larger event pools for better efficency
   ze_event_pool_handle_t ze_event_pool;
-  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(context->Device);
+  ze_device_handle_t ze_device = context->Device->L0Device;
   ze_res = ZE_CALL(zeEventPoolCreate(
     ze_driver_global,
     &ze_event_pool_desc,
@@ -1759,7 +1761,7 @@ pi_result L0(piSamplerCreate)(
   const pi_sampler_properties *  sampler_properties,
   pi_sampler *                   ret_sampler) {
 
-  ze_device_handle_t ze_device = pi_cast<ze_device_handle_t>(context->Device);
+  ze_device_handle_t ze_device = context->Device->L0Device;
 
   ze_sampler_handle_t ze_sampler;
   ze_sampler_desc_t ze_sampler_desc =
