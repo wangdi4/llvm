@@ -1194,7 +1194,12 @@ OMPNontemporalClause *OMPNontemporalClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPNontemporalClause(N);
 }
 
-<<<<<<< HEAD
+void OMPNontemporalClause::setPrivateRefs(ArrayRef<Expr *> VL) {
+  assert(VL.size() == varlist_size() && "Number of private references is not "
+                                        "the same as the preallocated buffer");
+  std::copy(VL.begin(), VL.end(), varlist_end());
+}
+
 #if INTEL_CUSTOMIZATION
 OMPTileClause *OMPTileClause::Create(const ASTContext &C,
                                      SourceLocation StartLoc,
@@ -1234,14 +1239,6 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
-void OMPNontemporalClause::setPrivateRefs(ArrayRef<Expr *> VL) {
-  assert(VL.size() == varlist_size() && "Number of private references is not "
-                                        "the same as the preallocated buffer");
-  std::copy(VL.begin(), VL.end(), varlist_end());
-}
-
->>>>>>> 0860db966a7d2ab61b26e41426a55189986924b4
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods
 //===----------------------------------------------------------------------===//
