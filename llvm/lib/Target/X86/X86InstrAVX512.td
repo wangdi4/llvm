@@ -9142,7 +9142,6 @@ defm VCVTUQQ2PD : avx512_cvtqq2pd<0x7A, "vcvtuqq2pd", any_uint_to_fp,
                             X86VUintToFpRnd, SchedWriteCvtDQ2PD>, VEX_W, XS,
                             EVEX_CD8<64, CD8VF>;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 defm VCVTDQ2PH : avx512_cvtqq2ps<0x5B, "vcvtdq2ph", sint_to_fp, X86VSintToFP, X86VMSintToFP,
@@ -9156,22 +9155,14 @@ defm VCVTUDQ2PH : avx512_cvtqq2ps<0x7A, "vcvtudq2ph", uint_to_fp, X86VUintToFP, 
                             EVEX_CD8<32, CD8VF>;
 #endif // INTEL_FEATURE_ISA_FP16
 
-defm VCVTQQ2PS : avx512_cvtqq2ps<0x5B, "vcvtqq2ps", sint_to_fp, X86VSintToFP, X86VMSintToFP,
+defm VCVTQQ2PS : avx512_cvtqq2ps<0x5B, "vcvtqq2ps", any_sint_to_fp, X86VSintToFP, X86VMSintToFP,
                             X86VSintToFpRnd, avx512vl_f32_info, avx512vl_i64_info,
                             SchedWriteCvtDQ2PS>, VEX_W, PS,
                             EVEX_CD8<64, CD8VF>;
 
-defm VCVTUQQ2PS : avx512_cvtqq2ps<0x7A, "vcvtuqq2ps", uint_to_fp, X86VUintToFP, X86VMUintToFP,
+defm VCVTUQQ2PS : avx512_cvtqq2ps<0x7A, "vcvtuqq2ps", any_uint_to_fp, X86VUintToFP, X86VMUintToFP,
                             X86VUintToFpRnd, avx512vl_f32_info, avx512vl_i64_info,
                             SchedWriteCvtDQ2PS>, VEX_W, XD,
-=======
-defm VCVTQQ2PS : avx512_cvtqq2ps<0x5B, "vcvtqq2ps", any_sint_to_fp,
-                            X86VSintToFpRnd, SchedWriteCvtDQ2PS>, VEX_W, PS,
-                            EVEX_CD8<64, CD8VF>;
-
-defm VCVTUQQ2PS : avx512_cvtqq2ps<0x7A, "vcvtuqq2ps", any_uint_to_fp,
-                            X86VUintToFpRnd, SchedWriteCvtDQ2PS>, VEX_W, XD,
->>>>>>> 0d3f782e413c1b13d407f67afbb6330b1091fef0
                             EVEX_CD8<64, CD8VF>;
 #endif // INTEL_CUSTOMIZATION
 
