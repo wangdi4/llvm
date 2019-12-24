@@ -29539,8 +29539,16 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 
     assert(!VT.isVector() && "Vectors should have been handled above!");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if ((Subtarget.hasDQI() && VT == MVT::i64 &&
+         (SrcVT == MVT::f32 || SrcVT == MVT::f64)) ||
+        (Subtarget.hasFP16() && SrcVT == MVT::f16)) {
+#else // INTEL_FEATURE_ISA_FP16
     if (Subtarget.hasDQI() && VT == MVT::i64 &&
         (SrcVT == MVT::f32 || SrcVT == MVT::f64)) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       assert(!Subtarget.is64Bit() && "i64 should be legal");
       unsigned NumElts = Subtarget.hasVLX() ? 2 : 8;
       // If we use a 128-bit result we might need to use a target specific node.
@@ -29573,24 +29581,6 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
         Results.push_back(Chain);
       return;
     }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    if (Subtarget.hasFP16() && VT == MVT::i64 && SrcVT == MVT::f16) {
-      assert(!Subtarget.is64Bit() && "i64 should be legal");
-      SDValue ZeroIdx = DAG.getIntPtrConstant(0, dl);
-      SDValue Res = DAG.getNode(ISD::INSERT_VECTOR_ELT, dl, MVT::v8f16,
-                                DAG.getConstantFP(0.0, dl, MVT::v8f16), Src,
-                                ZeroIdx);
-      unsigned Opc = N->getOpcode() == ISD::FP_TO_SINT ? X86ISD::CVTTP2SI
-                                                       : X86ISD::CVTTP2UI;
-      Res = DAG.getNode(Opc, SDLoc(N), MVT::v2i64, Res);
-      Res = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, Res, ZeroIdx);
-      Results.push_back(Res);
-      return;
-    }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
 
     SDValue Chain;
     if (SDValue V = FP_TO_INTHelper(SDValue(N, 0), DAG, IsSigned, Chain)) {
