@@ -2372,9 +2372,6 @@ class OMPLastprivateClause final
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-#if INTEL_CUSTOMIZATION
-  /// \param IsConditional Is the conditional modifier present.
-#endif // INTEL_CUSTOMIZATION
   /// \param N Number of the variables in the clause.
   OMPLastprivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                        SourceLocation EndLoc, OpenMPLastprivateModifier LPKind,
