@@ -24,11 +24,7 @@ using namespace std::chrono;
 
 namespace llvm {
 
-<<<<<<< HEAD
-thread_local TimeTraceProfiler* TimeTraceProfilerInstance = nullptr; // INTEL
-=======
 TimeTraceProfiler *TimeTraceProfilerInstance = nullptr;
->>>>>>> 2e9bfa12ff344fc6717b1e890eaaec668ecb6e82
 
 typedef duration<steady_clock::rep, steady_clock::period> DurationType;
 typedef time_point<steady_clock> TimePointType;
@@ -196,33 +192,13 @@ void timeTraceProfilerInitialize(unsigned TimeTraceGranularity,
                                  StringRef ProcName) {
   assert(TimeTraceProfilerInstance == nullptr &&
          "Profiler should not be initialized");
-<<<<<<< HEAD
-  TimeTraceProfilerInstance = new TimeTraceProfiler( // INTEL
-=======
   TimeTraceProfilerInstance = new TimeTraceProfiler(
->>>>>>> 2e9bfa12ff344fc6717b1e890eaaec668ecb6e82
       TimeTraceGranularity, llvm::sys::path::filename(ProcName));
 }
 
 void timeTraceProfilerCleanup() {
-<<<<<<< HEAD
-  delete TimeTraceProfilerInstance;    // INTEL
-  TimeTraceProfilerInstance = nullptr; // INTEL
-  std::lock_guard<std::mutex> Lock(Mu);
-  ThreadTimeTraceProfilerInstances.clear();
-}
-
-// Finish TimeTraceProfilerInstance on a worker thread.
-// This doesn't remove the instance, just moves the pointer to global vector.
-void timeTraceProfilerFinishThread() {
-  std::lock_guard<std::mutex> Lock(Mu);
-  ThreadTimeTraceProfilerInstances.emplace_back( // INTEL
-     TimeTraceProfilerInstance);                 // INTEL
-  TimeTraceProfilerInstance = nullptr;           // INTEL
-=======
   delete TimeTraceProfilerInstance;
   TimeTraceProfilerInstance = nullptr;
->>>>>>> 2e9bfa12ff344fc6717b1e890eaaec668ecb6e82
 }
 
 void timeTraceProfilerWrite(raw_pwrite_stream &OS) {
