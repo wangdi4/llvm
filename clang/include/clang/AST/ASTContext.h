@@ -113,11 +113,7 @@ class ObjCPropertyDecl;
 class ObjCPropertyImplDecl;
 class ObjCProtocolDecl;
 class ObjCTypeParamDecl;
-<<<<<<< HEAD
-struct ParsedTargetAttr; // INTEL
-=======
 struct ParsedTargetAttr;
->>>>>>> 4b64e034612017fcc97b64d6031319cf18dbbb88
 class Preprocessor;
 class Stmt;
 class StoredDeclsMap;
