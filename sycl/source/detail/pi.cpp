@@ -96,17 +96,9 @@ bool bindPlugin(void *Library) {
 
   decltype(::piPluginInit) *PluginInitializeFunction = (decltype(
       &::piPluginInit))(getOsLibraryFuncAddress(Library, "piPluginInit"));
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (!PluginInitializeFunction) {
-    die("PI plugin does not expose piPluginInit");
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
   if (PluginInitializeFunction == nullptr)
     return false;
 
->>>>>>> 25c979038ebc6d042410f8da23bfc7a8fee7705f
   int err = PluginInitializeFunction(&PluginInformation);
 
   // TODO: Compare Supported versions and check for backward compatibility.
