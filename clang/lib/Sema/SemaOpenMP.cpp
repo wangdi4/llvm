@@ -12261,6 +12261,9 @@ getListOfPossibleValues(OpenMPClauseKind K, unsigned First, unsigned Last,
   llvm::raw_svector_ostream Out(Buffer);
   unsigned Bound = Last >= 2 ? Last - 2 : 0;
   unsigned Skipped = Exclude.size();
+#if INTEL_CUSTOMIZATION
+  bool HasMultipleValues = Last > First + Skipped + 1;
+#endif // INTEL_CUSTOMIZATION
   auto S = Exclude.begin(), E = Exclude.end();
   for (unsigned I = First; I < Last; ++I) {
     if (std::find(S, E, I) != E) {
@@ -12268,10 +12271,13 @@ getListOfPossibleValues(OpenMPClauseKind K, unsigned First, unsigned Last,
       continue;
     }
     Out << "'" << getOpenMPSimpleClauseTypeName(K, I) << "'";
-    if (I == Bound - Skipped)
-      Out << " or ";
-    else if (I != Bound + 1 - Skipped)
-      Out << ", ";
+#if INTEL_CUSTOMIZATION
+    if (HasMultipleValues)
+      if (I == Bound - Skipped)
+        Out << " or ";
+      else if (I != Bound + 1 - Skipped)
+        Out << ", ";
+#endif // INTEL_CUSTOMIZATION
   }
   return Out.str();
 }
@@ -12741,16 +12747,8 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     CXXScopeSpec &ReductionOrMapperIdScopeSpec,
     DeclarationNameInfo &ReductionOrMapperId, int ExtraModifier,
     ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
-<<<<<<< HEAD
-    ArrayRef<SourceLocation> MapTypeModifiersLoc, OpenMPMapClauseKind MapType,
-#if INTEL_CUSTOMIZATION
-    bool IsMapTypeImplicit,
-    bool IsLastprivateConditional, SourceLocation DepLinMapLoc) {
-#endif // INTEL_CUSTOMIZATION
-=======
     ArrayRef<SourceLocation> MapTypeModifiersLoc, bool IsMapTypeImplicit,
     SourceLocation DepLinMapLastLoc) {
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
   SourceLocation StartLoc = Locs.StartLoc;
   SourceLocation LParenLoc = Locs.LParenLoc;
   SourceLocation EndLoc = Locs.EndLoc;
@@ -12763,16 +12761,9 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     Res = ActOnOpenMPFirstprivateClause(VarList, StartLoc, LParenLoc, EndLoc);
     break;
   case OMPC_lastprivate:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    Res = ActOnOpenMPLastprivateClause(VarList, IsLastprivateConditional,
-#endif // INTEL_CUSTOMIZATION
-                                       StartLoc, LParenLoc, EndLoc);
-=======
     Res = ActOnOpenMPLastprivateClause(
         VarList, static_cast<OpenMPLastprivateModifier>(ExtraModifier),
         DepLinMapLastLoc, ColonLoc, StartLoc, LParenLoc, EndLoc);
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
     break;
   case OMPC_shared:
     Res = ActOnOpenMPSharedClause(VarList, StartLoc, LParenLoc, EndLoc);
@@ -13352,15 +13343,6 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
                                        buildPreInits(Context, ExprCaptures));
 }
 
-<<<<<<< HEAD
-OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
-#if INTEL_CUSTOMIZATION
-                                              bool IsConditional,
-#endif // INTEL_CUSTOMIZATION
-                                              SourceLocation StartLoc,
-                                              SourceLocation LParenLoc,
-                                              SourceLocation EndLoc) {
-=======
 OMPClause *Sema::ActOnOpenMPLastprivateClause(
     ArrayRef<Expr *> VarList, OpenMPLastprivateModifier LPKind,
     SourceLocation LPKindLoc, SourceLocation ColonLoc, SourceLocation StartLoc,
@@ -13374,7 +13356,6 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(
     return nullptr;
   }
 
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
   SmallVector<Expr *, 8> Vars;
   SmallVector<Expr *, 8> SrcExprs;
   SmallVector<Expr *, 8> DstExprs;
@@ -13419,24 +13400,20 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(
     // const-qualified type unless it is of class type with a mutable member.
     if (rejectConstNotMutableType(*this, D, Type, OMPC_lastprivate, ELoc))
       continue;
-#if INTEL_CUSTOMIZATION
-    if (IsConditional) {
-      bool VectorTypeAllowed = getLangOpts().OpenMPLateOutline;
-
-      if (!Type->isScalarType() &&
-          (!VectorTypeAllowed || !Type->isVectorType())) {
-        Diag(ELoc, diag::err_omp_unexpected_lastprivate_conditional)
-            << VectorTypeAllowed;
-        continue;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
 
     // OpenMP 5.0 [2.19.4.5 lastprivate Clause, Restrictions]
     // A list item that appears in a lastprivate clause with the conditional
     // modifier must be a scalar variable.
-    if (LPKind == OMPC_LASTPRIVATE_conditional && !Type->isScalarType()) {
-      Diag(ELoc, diag::err_omp_lastprivate_conditional_non_scalar);
+#if INTEL_CUSTOMIZATION
+    bool VectorTypeAllowed = getLangOpts().OpenMPLateOutline;
+    if (LPKind == OMPC_LASTPRIVATE_conditional && !Type->isScalarType() &&
+        (!VectorTypeAllowed || !Type->isVectorType())) {
+      if (VectorTypeAllowed)
+        Diag(ELoc, diag::err_omp_unexpected_lastprivate_conditional)
+            << VectorTypeAllowed;
+      else
+        Diag(ELoc, diag::err_omp_lastprivate_conditional_non_scalar);
+#endif // INTEL_CUSTOMIZATION
       bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==
                                VarDecl::DeclarationOnly;
       Diag(D->getLocation(),
@@ -13555,10 +13532,7 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(
                                       Vars, SrcExprs, DstExprs, AssignmentOps,
                                       LPKind, LPKindLoc, ColonLoc,
                                       buildPreInits(Context, ExprCaptures),
-                                      buildPostUpdate(*this, ExprPostUpdates),
-#if INTEL_CUSTOMIZATION
-                                      IsConditional);
-#endif // INTEL_CUSTOMIZATION
+                                      buildPostUpdate(*this, ExprPostUpdates));
 }
 
 OMPClause *Sema::ActOnOpenMPSharedClause(ArrayRef<Expr *> VarList,

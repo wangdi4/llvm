@@ -2360,19 +2360,12 @@ class OMPLastprivateClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  /// Is the conditional modifier present or not.
-  bool IsConditional;
-#endif // INTEL_CUSTOMIZATION
-=======
   /// Optional lastprivate kind, e.g. 'conditional', if specified by user.
   OpenMPLastprivateModifier LPKind;
   /// Optional location of the lasptrivate kind, if specified by user.
   SourceLocation LPKindLoc;
   /// Optional colon location, if specified by user.
   SourceLocation ColonLoc;
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
 
   /// Build clause with number of variables \a N.
   ///
@@ -2384,16 +2377,6 @@ class OMPLastprivateClause final
 #endif // INTEL_CUSTOMIZATION
   /// \param N Number of the variables in the clause.
   OMPLastprivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-                       SourceLocation EndLoc, bool IsConditional, unsigned N)
-#endif // INTEL_CUSTOMIZATION
-      : OMPVarListClause<OMPLastprivateClause>(OMPC_lastprivate, StartLoc,
-                                               LParenLoc, EndLoc, N),
-#if INTEL_CUSTOMIZATION
-        OMPClauseWithPostUpdate(this), IsConditional(IsConditional) {}
-#endif // INTEL_CUSTOMIZATION
-=======
                        SourceLocation EndLoc, OpenMPLastprivateModifier LPKind,
                        SourceLocation LPKindLoc, SourceLocation ColonLoc,
                        unsigned N)
@@ -2401,7 +2384,6 @@ class OMPLastprivateClause final
                                                LParenLoc, EndLoc, N),
         OMPClauseWithPostUpdate(this), LPKind(LPKind), LPKindLoc(LPKindLoc),
         ColonLoc(ColonLoc) {}
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
 
   /// Build an empty clause.
   ///
@@ -2410,9 +2392,7 @@ class OMPLastprivateClause final
       : OMPVarListClause<OMPLastprivateClause>(
             OMPC_lastprivate, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
-#if INTEL_CUSTOMIZATION
-        OMPClauseWithPostUpdate(this), IsConditional(false) {}
-#endif // INTEL_CUSTOMIZATION
+        OMPClauseWithPostUpdate(this) {}
 
   /// Get the list of helper expressions for initialization of private
   /// copies for lastprivate variables.
@@ -2503,14 +2483,8 @@ public:
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
          SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> SrcExprs,
          ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-         Stmt *PreInit, Expr *PostUpdate, bool IsConditional);
-#endif // INTEL_CUSTOMIZATION
-=======
          OpenMPLastprivateModifier LPKind, SourceLocation LPKindLoc,
          SourceLocation ColonLoc, Stmt *PreInit, Expr *PostUpdate);
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
 
   /// Creates an empty clause with the place for \a N variables.
   ///
@@ -2518,19 +2492,12 @@ public:
   /// \param N The number of variables.
   static OMPLastprivateClause *CreateEmpty(const ASTContext &C, unsigned N);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  /// Is this a conditional firstprivate clause?
-  bool isConditional() const LLVM_READONLY { return IsConditional; }
-#endif // INTEL_CUSTOMIZATION
-=======
   /// Lastprivate kind.
   OpenMPLastprivateModifier getKind() const { return LPKind; }
   /// Returns the location of the lastprivate kind.
   SourceLocation getKindLoc() const { return LPKindLoc; }
   /// Returns the location of the ':' symbol, if any.
   SourceLocation getColonLoc() const { return ColonLoc; }
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
 
   using helper_expr_iterator = MutableArrayRef<Expr *>::iterator;
   using helper_expr_const_iterator = ArrayRef<const Expr *>::iterator;

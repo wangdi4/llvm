@@ -418,25 +418,12 @@ void OMPLastprivateClause::setAssignmentOps(ArrayRef<Expr *> AssignmentOps) {
 OMPLastprivateClause *OMPLastprivateClause::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
     SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> SrcExprs,
-<<<<<<< HEAD
-    ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps, Stmt *PreInit,
-#if INTEL_CUSTOMIZATION
-    Expr *PostUpdate, bool IsConditional) {
-#endif // INTEL_CUSTOMIZATION
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size()));
-  OMPLastprivateClause *Clause =
-#if INTEL_CUSTOMIZATION
-      new (Mem) OMPLastprivateClause(StartLoc, LParenLoc, EndLoc, IsConditional,
-#endif // INTEL_CUSTOMIZATION
-                                     VL.size());
-=======
     ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps,
     OpenMPLastprivateModifier LPKind, SourceLocation LPKindLoc,
     SourceLocation ColonLoc, Stmt *PreInit, Expr *PostUpdate) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size()));
   OMPLastprivateClause *Clause = new (Mem) OMPLastprivateClause(
       StartLoc, LParenLoc, EndLoc, LPKind, LPKindLoc, ColonLoc, VL.size());
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
   Clause->setVarRefs(VL);
   Clause->setSourceExprs(SrcExprs);
   Clause->setDestinationExprs(DstExprs);

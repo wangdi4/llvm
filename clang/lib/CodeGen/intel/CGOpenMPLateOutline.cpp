@@ -776,7 +776,7 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
     if (IsRef)
       CSB.setByRef();
 #if INTEL_CUSTOMIZATION
-    if (Cl->isConditional())
+    if (Cl->getKind() == OMPC_LASTPRIVATE_conditional)
       CSB.setConditional();
 #endif // INTEL_CUSTOMIZATION
     addArg(CSB.getString());

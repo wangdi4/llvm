@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -DERRS -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu -verify %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-version=50 -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -DERRS -fopenmp -fopenmp-version=50 -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu -verify %s
 
 int main()
 {
@@ -28,11 +28,11 @@ int main()
 typedef struct Foo { int i; double d; } Foo;
 void bar()
 {
-  Foo agg;
+  Foo agg; //expected-note {{'agg' defined here}}
   unsigned int var = 0;
   int avar;
 
-  #pragma omp parallel for lastprivate(foo:avar) //expected-error {{incorrect lastprivate modifier, expected 'conditional'}}
+  #pragma omp parallel for lastprivate(foo:avar) //expected-error {{expected 'conditional' in OpenMP clause 'lastprivate'}}
   for (var = 0; var < 6; var++) {}
 
   #pragma omp parallel for lastprivate(conditional:agg) //expected-error {{expected 'scalar' or 'vector' in OpenMP clause 'lastprivate' with conditional modifier}}

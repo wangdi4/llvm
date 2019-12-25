@@ -3092,19 +3092,6 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 
     if (Tok.is(tok::colon))
       Data.ColonLoc = ConsumeToken();
-#if INTEL_CUSTOMIZATION
-  } else if (Kind == OMPC_lastprivate) {
-    // Handle the lastprivate modifier.
-    ColonProtectionRAIIObject ColonRAII(*this);
-    if (Tok.is(tok::identifier) && PP.LookAhead(0).is(tok::colon)) {
-      if (PP.getSpelling(Tok) == "conditional")
-        Data.IsLastprivateConditional = true;
-      else
-        Diag(Tok, diag::err_omp_unknown_lastprivate_modifier);
-      ConsumeToken();
-      ConsumeToken();
-    }
-#endif // INTEL_CUSTOMIZATION
   } else if (Kind == OMPC_to || Kind == OMPC_from) {
     if (Tok.is(tok::identifier)) {
       bool IsMapperModifier = false;
@@ -3294,18 +3281,9 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
   OMPVarListLocTy Locs(Loc, LOpen, Data.RLoc);
   return Actions.ActOnOpenMPVarListClause(
       Kind, Vars, Data.TailExpr, Locs, Data.ColonLoc,
-<<<<<<< HEAD
-      Data.ReductionOrMapperIdScopeSpec, Data.ReductionOrMapperId, Data.DepKind,
-      Data.LinKind, Data.MapTypeModifiers, Data.MapTypeModifiersLoc,
-#if INTEL_CUSTOMIZATION
-      Data.MapType, Data.IsMapTypeImplicit,
-      Data.IsLastprivateConditional, Data.DepLinMapLoc);
-#endif // INTEL_CUSTOMIZATION
-=======
       Data.ReductionOrMapperIdScopeSpec, Data.ReductionOrMapperId,
       Data.ExtraModifier, Data.MapTypeModifiers, Data.MapTypeModifiersLoc,
       Data.IsMapTypeImplicit, Data.DepLinMapLastLoc);
->>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
 }
 
 #if INTEL_CUSTOMIZATION
