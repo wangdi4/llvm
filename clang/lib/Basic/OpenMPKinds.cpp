@@ -210,6 +210,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
 #define OPENMP_DEVICE_TYPE_KIND(Name) .Case(#Name, OMPC_DEVICE_TYPE_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_DEVICE_TYPE_unknown);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -220,6 +221,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
         .Default(OMPC_DATAFLOW_MODIFIER_unknown);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_lastprivate:
+    return llvm::StringSwitch<OpenMPLastprivateModifier>(Str)
+#define OPENMP_LASTPRIVATE_KIND(Name) .Case(#Name, OMPC_LASTPRIVATE_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_LASTPRIVATE_unknown);
+>>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -233,7 +241,6 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_tile: // INTEL
   case OMPC_private:
   case OMPC_firstprivate:
-  case OMPC_lastprivate:
   case OMPC_shared:
   case OMPC_reduction:
   case OMPC_task_reduction:
@@ -416,6 +423,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'device_type' clause type");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -430,6 +438,18 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     llvm_unreachable("Invalid OpenMP 'dataflow' clause type");
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_lastprivate:
+    switch (Type) {
+    case OMPC_LASTPRIVATE_unknown:
+      return "unknown";
+#define OPENMP_LASTPRIVATE_KIND(Name)                                          \
+    case OMPC_LASTPRIVATE_##Name:                                              \
+      return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'lastprivate' clause type");
+>>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -443,7 +463,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_tile:    // INTEL
   case OMPC_private:
   case OMPC_firstprivate:
-  case OMPC_lastprivate:
   case OMPC_shared:
   case OMPC_reduction:
   case OMPC_task_reduction:

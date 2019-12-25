@@ -3091,18 +3091,21 @@ public:
     SourceLocation RLoc;
     CXXScopeSpec ReductionOrMapperIdScopeSpec;
     DeclarationNameInfo ReductionOrMapperId;
-    OpenMPDependClauseKind DepKind = OMPC_DEPEND_unknown;
-    OpenMPLinearClauseKind LinKind = OMPC_LINEAR_val;
+    int ExtraModifier = -1; ///< Additional modifier for linear, map, depend or
+                            ///< lastprivate clause.
     SmallVector<OpenMPMapModifierKind, OMPMapClause::NumberOfModifiers>
     MapTypeModifiers;
     SmallVector<SourceLocation, OMPMapClause::NumberOfModifiers>
     MapTypeModifiersLoc;
-    OpenMPMapClauseKind MapType = OMPC_MAP_unknown;
     bool IsMapTypeImplicit = false;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool IsLastprivateConditional = false;
 #endif // INTEL_CUSTOMIZATION
     SourceLocation DepLinMapLoc;
+=======
+    SourceLocation DepLinMapLastLoc;
+>>>>>>> 93dc40dddde40cff2f54b68c66abb00927cdbcea
   };
 
   /// Parses clauses with list.
