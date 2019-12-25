@@ -15,25 +15,20 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Threading.h"
-#include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <mutex>
 #include <string>
 #include <vector>
 
 using namespace std::chrono;
 
-namespace {
-std::mutex Mu;
-std::vector<std::unique_ptr<llvm::TimeTraceProfiler>>
-    ThreadTimeTraceProfilerInstances; // guarded by Mu
-} // namespace
-
 namespace llvm {
 
+<<<<<<< HEAD
 thread_local TimeTraceProfiler* TimeTraceProfilerInstance = nullptr; // INTEL
+=======
+TimeTraceProfiler *TimeTraceProfilerInstance = nullptr;
+>>>>>>> 2e9bfa12ff344fc6717b1e890eaaec668ecb6e82
 
 typedef duration<steady_clock::rep, steady_clock::period> DurationType;
 typedef time_point<steady_clock> TimePointType;
@@ -70,7 +65,7 @@ struct Entry {
 struct TimeTraceProfiler {
   TimeTraceProfiler(unsigned TimeTraceGranularity = 0, StringRef ProcName = "")
       : StartTime(steady_clock::now()), ProcName(ProcName),
-        Tid(llvm::get_threadid()), TimeTraceGranularity(TimeTraceGranularity) {}
+        TimeTraceGranularity(TimeTraceGranularity) {}
 
   void begin(std::string Name, llvm::function_ref<std::string()> Detail) {
     Stack.emplace_back(steady_clock::now(), TimePointType(), std::move(Name),
@@ -112,31 +107,22 @@ struct TimeTraceProfiler {
     Stack.pop_back();
   }
 
-  // Write events from this TimeTraceProfilerInstance and
-  // ThreadTimeTraceProfilerInstances.
   void Write(raw_pwrite_stream &OS) {
-    // Acquire Mutex as reading ThreadTimeTraceProfilerInstances.
-    std::lock_guard<std::mutex> Lock(Mu);
     assert(Stack.empty() &&
            "All profiler sections should be ended when calling Write");
-    assert(std::all_of(ThreadTimeTraceProfilerInstances.begin(),
-                       ThreadTimeTraceProfilerInstances.end(),
-                       [](const auto &TTP) { return TTP->Stack.empty(); }) &&
-           "All profiler sections should be ended when calling Write");
-
     json::OStream J(OS);
     J.objectBegin();
     J.attributeBegin("traceEvents");
     J.arrayBegin();
 
     // Emit all events for the main flame graph.
-    auto writeEvent = [&](auto &E, uint64_t Tid) {
+    for (const auto &E : Entries) {
       auto StartUs = E.getFlameGraphStartUs(StartTime);
       auto DurUs = E.getFlameGraphDurUs();
 
       J.object([&]{
         J.attribute("pid", 1);
-        J.attribute("tid", int64_t(Tid));
+        J.attribute("tid", 0);
         J.attribute("ph", "X");
         J.attribute("ts", StartUs);
         J.attribute("dur", DurUs);
@@ -145,73 +131,39 @@ struct TimeTraceProfiler {
           J.attributeObject("args", [&] { J.attribute("detail", E.Detail); });
         }
       });
-    };
-    for (const auto &E : Entries) {
-      writeEvent(E, this->Tid);
-    }
-    for (const auto &TTP : ThreadTimeTraceProfilerInstances) {
-      for (const auto &E : TTP->Entries) {
-        writeEvent(E, TTP->Tid);
-      }
     }
 
     // Emit totals by section name as additional "thread" events, sorted from
     // longest one.
-    // Find highest used thread id.
-    uint64_t MaxTid = this->Tid;
-    for (const auto &TTP : ThreadTimeTraceProfilerInstances) {
-      MaxTid = std::max(MaxTid, TTP->Tid);
-    }
-
-    // Combine all CountAndTotalPerName from threads into one.
-    StringMap<CountAndDurationType> AllCountAndTotalPerName;
-    auto combineStat = [&](auto &Stat) {
-      std::string Key = Stat.getKey();
-      auto Value = Stat.getValue();
-      auto &CountAndTotal = AllCountAndTotalPerName[Key];
-      CountAndTotal.first += Value.first;
-      CountAndTotal.second += Value.second;
-    };
-    for (const auto &Stat : CountAndTotalPerName) {
-      combineStat(Stat);
-    }
-    for (const auto &TTP : ThreadTimeTraceProfilerInstances) {
-      for (const auto &Stat : TTP->CountAndTotalPerName) {
-        combineStat(Stat);
-      }
-    }
-
+    int Tid = 1;
     std::vector<NameAndCountAndDurationType> SortedTotals;
-    SortedTotals.reserve(AllCountAndTotalPerName.size());
-    for (const auto &Total : AllCountAndTotalPerName)
-      SortedTotals.emplace_back(Total.getKey(), Total.getValue());
+    SortedTotals.reserve(CountAndTotalPerName.size());
+    for (const auto &E : CountAndTotalPerName)
+      SortedTotals.emplace_back(E.getKey(), E.getValue());
 
     llvm::sort(SortedTotals.begin(), SortedTotals.end(),
                [](const NameAndCountAndDurationType &A,
                   const NameAndCountAndDurationType &B) {
                  return A.second.second > B.second.second;
                });
-
-    // Report totals on separate threads of tracing file.
-    uint64_t TotalTid = MaxTid + 1;
-    for (const auto &Total : SortedTotals) {
-      auto DurUs = duration_cast<microseconds>(Total.second.second).count();
-      auto Count = AllCountAndTotalPerName[Total.first].first;
+    for (const auto &E : SortedTotals) {
+      auto DurUs = duration_cast<microseconds>(E.second.second).count();
+      auto Count = CountAndTotalPerName[E.first].first;
 
       J.object([&]{
         J.attribute("pid", 1);
-        J.attribute("tid", int64_t(TotalTid));
+        J.attribute("tid", Tid);
         J.attribute("ph", "X");
         J.attribute("ts", 0);
         J.attribute("dur", DurUs);
-        J.attribute("name", "Total " + Total.first);
+        J.attribute("name", "Total " + E.first);
         J.attributeObject("args", [&] {
           J.attribute("count", int64_t(Count));
           J.attribute("avg ms", int64_t(DurUs / Count / 1000));
         });
       });
 
-      ++TotalTid;
+      ++Tid;
     }
 
     // Emit metadata event with process name.
@@ -235,7 +187,6 @@ struct TimeTraceProfiler {
   StringMap<CountAndDurationType> CountAndTotalPerName;
   const TimePointType StartTime;
   const std::string ProcName;
-  const uint64_t Tid;
 
   // Minimum time granularity (in microseconds)
   const unsigned TimeTraceGranularity;
@@ -245,12 +196,16 @@ void timeTraceProfilerInitialize(unsigned TimeTraceGranularity,
                                  StringRef ProcName) {
   assert(TimeTraceProfilerInstance == nullptr &&
          "Profiler should not be initialized");
+<<<<<<< HEAD
   TimeTraceProfilerInstance = new TimeTraceProfiler( // INTEL
+=======
+  TimeTraceProfilerInstance = new TimeTraceProfiler(
+>>>>>>> 2e9bfa12ff344fc6717b1e890eaaec668ecb6e82
       TimeTraceGranularity, llvm::sys::path::filename(ProcName));
 }
 
-// Removes all TimeTraceProfilerInstances.
 void timeTraceProfilerCleanup() {
+<<<<<<< HEAD
   delete TimeTraceProfilerInstance;    // INTEL
   TimeTraceProfilerInstance = nullptr; // INTEL
   std::lock_guard<std::mutex> Lock(Mu);
@@ -264,6 +219,10 @@ void timeTraceProfilerFinishThread() {
   ThreadTimeTraceProfilerInstances.emplace_back( // INTEL
      TimeTraceProfilerInstance);                 // INTEL
   TimeTraceProfilerInstance = nullptr;           // INTEL
+=======
+  delete TimeTraceProfilerInstance;
+  TimeTraceProfilerInstance = nullptr;
+>>>>>>> 2e9bfa12ff344fc6717b1e890eaaec668ecb6e82
 }
 
 void timeTraceProfilerWrite(raw_pwrite_stream &OS) {
