@@ -101,10 +101,18 @@ typedef enum
 {
     TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC = 0,             // in TBB case - use auto_partitioner for TaskSets
     TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet
-    TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL,            // Use OpenCL specific partitioner
+    TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC,                  // in TBB case - use static_partitioner for TaskSets
+    TE_CMD_LIST_PREFERRED_SCHEDULING_UNEVEN_OPENCL,           // Use OpenCL specific partitioner
     
     TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
 } TE_CMD_LIST_PREFERRED_SCHEDULING;
+
+typedef enum
+{
+    CPU_CU_AFFINITY_CLOSE = 0,   // keep task close to the master task in contiguous threads/logical processors
+    CPU_CU_AFFINITY_SPREAD,      // distribute tasks evenly across threads/logical processors
+    CPU_CU_AFFINITY_MASTER       // put tasks in the same place as the master task
+} CPU_CU_AFFINITY;
 
 // TaskSets optimizations
 typedef enum 
@@ -143,6 +151,8 @@ struct CommandListCreationParam
 // Init task executor to use uiNumThreads for execution
 // if uiNumThreads == AUTO_THREADS, number of threads will be defined by implementation
 static const unsigned int TE_AUTO_THREADS = (unsigned int)(-1);
+// Mininum number of worker threads
+static const unsigned int TE_MIN_WORKER_THREADS = 1;
 static const unsigned int TE_MAX_LEVELS_COUNT = 2;
 static const unsigned int TE_UNKNOWN      = (unsigned int)(-1);
 enum TE_MASTERS_JOINING

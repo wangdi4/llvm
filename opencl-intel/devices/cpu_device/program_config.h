@@ -45,6 +45,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_enableNativeSubgroups(false),
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
+            m_serializeWorkGroups(false),
             m_forcedPrivateMemorySize(0),
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
             m_targetDevice(CPU_DEVICE)
@@ -54,7 +55,15 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         bool GetBooleanValue(int optionId, bool defaultValue) const
         {
-            return (CL_DEV_BACKEND_OPTION_USE_VTUNE == optionId) ? m_useVTune : defaultValue;
+            switch (optionId)
+            {
+                case CL_DEV_BACKEND_OPTION_USE_VTUNE:
+                    return m_useVTune;
+                case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
+                    return m_serializeWorkGroups;
+                default:
+                    return defaultValue;
+            }
         }
 
         virtual int GetIntValue(int optionId, int defaultValue) const
@@ -114,6 +123,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool m_enableNativeSubgroups;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
+        bool m_serializeWorkGroups;
         int  m_forcedPrivateMemorySize;
         int  m_channelDepthEmulationMode;
         DeviceMode  m_targetDevice;

@@ -63,6 +63,9 @@ protected:
 
     // ID of (logical) CPU on which master thread is running
     unsigned int                m_uiMasterHWId;
+    // Whether master thread will be pinned. Currently we only pin master thread
+    // if DPCPP_CPU_CU_AFFINITY env is correctly set.
+    bool                        m_pinMaster;
 
     unsigned long               m_numCores;           // Architectural data on the underlying HW
     unsigned int*               m_pComputeUnitMap;    // A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
@@ -86,6 +89,10 @@ protected:
 
     // Called once on init to cache information about the underlying architecture
     cl_dev_err_code QueryHWInfo();
+
+    // Calculate m_pComputeUnitMap based on DPCPP_CPU_CU_AFFINITY env
+    void            calculateComputeUnitMap();
+
     // The functions below are called when a set of cores is about to be "trapped" into a sub-device, or released from such
     // The acquire fails if one of the compute units requested is a part of another sub-device.
     // These are currently called on create/release command list (= command queue)
@@ -99,7 +106,10 @@ protected:
      * be relocated to previous core of current thread.
      */
     void            NotifyAffinity(threadid_t tid, unsigned int core_index,
-                                   bool relocate = false);
+                                   bool relocate = false) override;
+
+    // Check if master thread will be pinned.
+    bool            IsPinMasterAllowed() const override { return m_pinMaster; };
 
     // Translate an "absolute" core (CPU core) to a core index
     // Needed to allow the user to limit the cores the CPU device will run on
@@ -173,6 +183,13 @@ public:
     // Retrieves sizes/pointers of all global variables in a built program
     void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
         cl_prog_gv_map OUT &gvPtrs) const;
+
+    // Retrieves mapping between OpenCL-defined core ID and OS-defined core ID
+    void clDevGetComputeUnitMap(std::vector<unsigned>& OUT computeUnitMap)
+        const override {
+        std::copy(m_pComputeUnitMap, m_pComputeUnitMap + m_numCores,
+                  std::back_inserter(computeUnitMap));
+    }
 
     // NOTE: this function is not thread-safe by itself and caller is
     // responsible for performing synchronization

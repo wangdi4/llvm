@@ -271,54 +271,52 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
                                 tbb::global_control::max_allowed_parallelism));
     }
 
+    unsigned hardwareThreads = std::min(gWorker_threads,
+        (unsigned) Intel::OpenCL::Utils::GetNumberOfProcessors());
+    // TBB restrictions. Magic number 256 is obtained from TBB team. It
+    // means that TBB can create at least 256 workers, even on machines
+    // with small number of hardware threads.
+    unsigned maxThreads = std::max(4 * hardwareThreads, 256U);
+    // 1 main thread + 1 tbb worker
+    unsigned minThreads = 1 + TE_MIN_WORKER_THREADS;
+
     if (FPGA_EMU_DEVICE == deviceMode)
     {
-        int hardwareThreads =
-          std::min(gWorker_threads,
-                   (unsigned) Intel::OpenCL::Utils::GetNumberOfProcessors());
-
-        // TBB restrictions. Magic number 256 is obtained form TBB team. It
-        // means that TBB can create at least 256 workers, even on machines
-        // with small number of hardware threads.
-        int maxThreads = std::max(4 * hardwareThreads, 256);
-        int minThreads = 2; // 1 main thread + 1 tbb worker
-
-        // TODO: replace this variable with a variable from cl.cfg.
-        std::string env_num_workers;
-        cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(
-            env_num_workers, "OCL_TBB_NUM_WORKERS");
-        if (!CL_FAILED(err))
+        if (uiNumOfThreads != TE_AUTO_THREADS)
         {
-            int envNumThreads = std::stoi(env_num_workers);
-            if (envNumThreads < minThreads)
+            if (uiNumOfThreads < minThreads)
             {
                 LOG_ERROR(TEXT(
-                    "TBBTaskExecutor cannot be constructed with %d threads. "
-                    "Setting num threads to %d"), envNumThreads, minThreads);
+                    "TBBTaskExecutor cannot be constructed with %u threads. "
+                    "Setting num threads to %u"), uiNumOfThreads, minThreads);
                 gWorker_threads = minThreads;
             }
-            else if (envNumThreads > maxThreads)
+            else if (uiNumOfThreads > maxThreads)
             {
                 LOG_ERROR(TEXT(
-                    "TBBTaskExecutor cannot be constructed with %d threads. "
-                    "Setting num threads to %d"), envNumThreads, maxThreads);
+                    "TBBTaskExecutor cannot be constructed with %u threads. "
+                    "Setting num threads to %u"), uiNumOfThreads, maxThreads);
                 gWorker_threads = maxThreads;
             }
             else
             {
-                gWorker_threads = envNumThreads;
+                gWorker_threads = uiNumOfThreads;
             }
         }
         else
         {
             // Adjust number of threads required for an 'average' FPGA program
-            int averageThreads = 32;
+            unsigned averageThreads = 32;
 
             if (hardwareThreads < averageThreads)
             {
-                gWorker_threads = min(averageThreads, maxThreads);
+                gWorker_threads = std::min(averageThreads, maxThreads);
             }
         }
+    }
+    else
+    {
+        gWorker_threads = std::max(hardwareThreads, minThreads);
     }
 
     if (ulAdditionalRequiredStackSize == 0)

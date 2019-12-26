@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstring>
 #include <map>
+#include <vector>
 #include "CL/cl.h"
 #include "CL/cl_usm_ext.h"
 
@@ -1567,6 +1568,10 @@ public:
     */
     virtual void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
         cl_prog_gv_map OUT &gvPtrs) const = 0;
+
+    //! Retrieves mapping between OpenCL-defined core ID and OS-defined core ID
+    virtual void clDevGetComputeUnitMap(
+        std::vector<unsigned>& OUT computeUnitMap) const = 0;
 };
 
 

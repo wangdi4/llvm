@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <cl_device_api.h>
 #include <gtest/gtest.h>
+#include <random>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +67,10 @@ static TestKernel_param_t	gNativeKernelParam;
 volatile bool	gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
+
+std::string gDPCPPAffinity;
+unsigned int gNumProcessors;
+bool gUseHalfProcessors;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -718,14 +723,50 @@ TEST(CpuDeviceTestType, Test_mapTest)
 
 CPUTestCallbacks g_dev_callbacks;
 
+void initDpcppAffinity()
+{
+#ifdef _WIN32
+    gNumProcessors = TE_AUTO_THREADS;
+    gUseHalfProcessors = false;
+#else
+    // ENV variable must be set before TaskExecutor::init()
+
+    std::mt19937 rng(std::random_device{}());
+
+    // Tests of master, close and spread can't be executed concurrently in LIT
+    // and DPCPP_CPU_CU_AFFINITY must be set for all tests because CPU device
+    // instance is only initialized once even if there are multiple calls to
+    // clDevCreateDeviceInstance.
+    int idx = std::uniform_int_distribution<>{0, 2}(rng);
+    gDPCPPAffinity = (idx == 0) ? "close" : (idx == 1) ? "spread" : "master";
+    SETENV("DPCPP_CPU_CU_AFFINITY", gDPCPPAffinity.c_str());
+
+    gNumProcessors = (unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors();
+    unsigned numUsedProcessors = gNumProcessors;
+    gUseHalfProcessors = std::uniform_int_distribution<>{0, 1}(rng);
+    if (gUseHalfProcessors)
+        numUsedProcessors /= 2;
+
+    // DPCPP_CPU_NUM_CUS/CL_CONFIG_CPU_TBB_NUM_WORKERS must be set for all tests
+    // because TaskExecutor is only initialized once.
+    const char *envNumThreads = std::uniform_int_distribution<>{0, 1}(rng)
+                                ? "DPCPP_CPU_NUM_CUS"
+                                : "CL_CONFIG_CPU_TBB_NUM_WORKERS";
+    std::string numUsedProcessorsStr = std::to_string(numUsedProcessors);
+    SETENV(envNumThreads, numUsedProcessorsStr.c_str());
+#endif
+}
 
 int CPUDeviceTest_Main()
 {
+	initDpcppAffinity();
+
 	ITaskExecutor* pTaskExecutor = GetTaskExecutor();
 	EXPECT_TRUE(pTaskExecutor!=NULL);
 
 	// Initialize Task Executor
-	int iThreads = pTaskExecutor->Init(NULL, TE_AUTO_THREADS);
+	unsigned numThreads = gUseHalfProcessors ? (gNumProcessors/2) : gNumProcessors;
+	int iThreads = pTaskExecutor->Init(NULL, numThreads);
 	EXPECT_TRUE(iThreads>0);
 
 	//Create and Init the device

@@ -65,12 +65,14 @@ Offline Compilation section below for additional information).
 
 
 The following sets of environment variables affect the emulator's execution:
-    * OCL_TBB_NUM_WORKERS ([1..]): Indicates a maximum number of threads that
-      can be used by the emulator. The default value is 32, and the maximum
-      value is 255. Each thread is capable of running a single kernel. If the
-      application requires several kernels to execute simultaneously, the
-      OCL_TBB_NUM_WORKERS must be set to the number of kernels used or a higher
-      value.
+    * CL_CONFIG_CPU_TBB_NUM_WORKERS ([1..]): Indicates a maximum number of
+      threads that can be used by the emulator. The default value is 32, and the
+      maximum value is 256. Each thread is capable of running a single kernel.
+      If the application requires several kernels to execute simultaneously, the
+      CL_CONFIG_CPU_TBB_NUM_WORKERS must be set to the number of kernels used or
+      a higher value.
+      Note that OCL_TBB_NUM_WORKERS is deprecated in favor of
+      CL_CONFIG_CPU_TBB_NUM_WORKERS.
 
     * CL_CONFIG_CPU_TARGET_ARCH (core-avx2, skx): This variable can be set to
       force a SIMD instruction set used for OpenCL(TM) kernel compilation, where
@@ -242,8 +244,8 @@ A: The kernel used more __private or __local memory than the emulator supports
 
 Q: The kernels wait infinitely on channel calls or the program hangs.
 A: By default the emulator only supports up to 32 simultaneously running
-   kernels. Use the OCL_TBB_NUM_WORKERS environment variable to increase this
-   value.  See the DETAILS section for more information.
+   kernels. Use the CL_CONFIG_CPU_TBB_NUM_WORKERS environment variable to
+   increase this value.  See the DETAILS section for more information.
 
 Q: A CL_INVALID_PROGRAM_EXECUTABLE is returned from the clCreateKernel.
 A: A call to the clBuildProgram() was missed. This call is required by the
