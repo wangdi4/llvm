@@ -9144,23 +9144,23 @@ defm VCVTUQQ2PD : avx512_cvtqq2pd<0x7A, "vcvtuqq2pd", any_uint_to_fp,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-defm VCVTDQ2PH : avx512_cvtqq2ps<0x5B, "vcvtdq2ph", sint_to_fp, X86VSintToFP, X86VMSintToFP,
+defm VCVTDQ2PH : avx512_cvtqq2ps<0x5B, "vcvtdq2ph", sint_to_fp, X86any_VSintToFP, X86VMSintToFP,
                             X86VSintToFpRnd, avx512vl_f16_info, avx512vl_i32_info,
                             SchedWriteCvtDQ2PS, HasFP16>,
                             T_MAP5PS, EVEX_CD8<32, CD8VF>;
 
-defm VCVTUDQ2PH : avx512_cvtqq2ps<0x7A, "vcvtudq2ph", uint_to_fp, X86VUintToFP, X86VMUintToFP,
+defm VCVTUDQ2PH : avx512_cvtqq2ps<0x7A, "vcvtudq2ph", uint_to_fp, X86any_VUintToFP, X86VMUintToFP,
                             X86VUintToFpRnd, avx512vl_f16_info, avx512vl_i32_info,
                             SchedWriteCvtDQ2PS, HasFP16>, T_MAP5XD,
                             EVEX_CD8<32, CD8VF>;
 #endif // INTEL_FEATURE_ISA_FP16
 
-defm VCVTQQ2PS : avx512_cvtqq2ps<0x5B, "vcvtqq2ps", any_sint_to_fp, X86VSintToFP, X86VMSintToFP,
+defm VCVTQQ2PS : avx512_cvtqq2ps<0x5B, "vcvtqq2ps", any_sint_to_fp, X86any_VSintToFP, X86VMSintToFP,
                             X86VSintToFpRnd, avx512vl_f32_info, avx512vl_i64_info,
                             SchedWriteCvtDQ2PS>, VEX_W, PS,
                             EVEX_CD8<64, CD8VF>;
 
-defm VCVTUQQ2PS : avx512_cvtqq2ps<0x7A, "vcvtuqq2ps", any_uint_to_fp, X86VUintToFP, X86VMUintToFP,
+defm VCVTUQQ2PS : avx512_cvtqq2ps<0x7A, "vcvtuqq2ps", any_uint_to_fp, X86any_VUintToFP, X86VMUintToFP,
                             X86VUintToFpRnd, avx512vl_f32_info, avx512vl_i64_info,
                             SchedWriteCvtDQ2PS>, VEX_W, XD,
                             EVEX_CD8<64, CD8VF>;
@@ -9391,71 +9391,9 @@ let Predicates = [HasVLX] in {
             (VCVTUDQ2PDZ128rmkz VK2WM:$mask, addr:$src)>;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Move this block to avx512_cvtqq2ps
 #endif // INTEL_CUSTOMIZATION
-=======
-let Predicates = [HasDQI, HasVLX] in {
-  // Special patterns to allow use of X86VMSintToFP for masking. Instruction
-  // patterns have been disabled with null_frag.
-  def : Pat<(v4f32 (X86any_VSintToFP (v2i64 VR128X:$src))),
-            (VCVTQQ2PSZ128rr VR128X:$src)>;
-  def : Pat<(X86VMSintToFP (v2i64 VR128X:$src), (v4f32 VR128X:$src0),
-                           VK2WM:$mask),
-            (VCVTQQ2PSZ128rrk VR128X:$src0, VK2WM:$mask, VR128X:$src)>;
-  def : Pat<(X86VMSintToFP (v2i64 VR128X:$src), v4f32x_info.ImmAllZerosV,
-                           VK2WM:$mask),
-            (VCVTQQ2PSZ128rrkz VK2WM:$mask, VR128X:$src)>;
-
-  def : Pat<(v4f32 (X86any_VSintToFP (loadv2i64 addr:$src))),
-            (VCVTQQ2PSZ128rm addr:$src)>;
-  def : Pat<(X86VMSintToFP (loadv2i64 addr:$src), (v4f32 VR128X:$src0),
-                           VK2WM:$mask),
-            (VCVTQQ2PSZ128rmk VR128X:$src0, VK2WM:$mask, addr:$src)>;
-  def : Pat<(X86VMSintToFP (loadv2i64 addr:$src), v4f32x_info.ImmAllZerosV,
-                           VK2WM:$mask),
-            (VCVTQQ2PSZ128rmkz VK2WM:$mask, addr:$src)>;
-
-  def : Pat<(v4f32 (X86any_VSintToFP (v2i64 (X86VBroadcastld64 addr:$src)))),
-            (VCVTQQ2PSZ128rmb addr:$src)>;
-  def : Pat<(X86VMSintToFP (v2i64 (X86VBroadcastld64 addr:$src)),
-                           (v4f32 VR128X:$src0), VK2WM:$mask),
-            (VCVTQQ2PSZ128rmbk VR128X:$src0, VK2WM:$mask, addr:$src)>;
-  def : Pat<(X86VMSintToFP (v2i64 (X86VBroadcastld64 addr:$src)),
-                           v4f32x_info.ImmAllZerosV, VK2WM:$mask),
-            (VCVTQQ2PSZ128rmbkz VK2WM:$mask, addr:$src)>;
-
-  // Special patterns to allow use of X86VMUintToFP for masking. Instruction
-  // patterns have been disabled with null_frag.
-  def : Pat<(v4f32 (X86any_VUintToFP (v2i64 VR128X:$src))),
-            (VCVTUQQ2PSZ128rr VR128X:$src)>;
-  def : Pat<(X86VMUintToFP (v2i64 VR128X:$src), (v4f32 VR128X:$src0),
-                           VK2WM:$mask),
-            (VCVTUQQ2PSZ128rrk VR128X:$src0, VK2WM:$mask, VR128X:$src)>;
-  def : Pat<(X86VMUintToFP (v2i64 VR128X:$src), v4f32x_info.ImmAllZerosV,
-                           VK2WM:$mask),
-            (VCVTUQQ2PSZ128rrkz VK2WM:$mask, VR128X:$src)>;
-
-  def : Pat<(v4f32 (X86any_VUintToFP (loadv2i64 addr:$src))),
-            (VCVTUQQ2PSZ128rm addr:$src)>;
-  def : Pat<(X86VMUintToFP (loadv2i64 addr:$src), (v4f32 VR128X:$src0),
-                           VK2WM:$mask),
-            (VCVTUQQ2PSZ128rmk VR128X:$src0, VK2WM:$mask, addr:$src)>;
-  def : Pat<(X86VMUintToFP (loadv2i64 addr:$src), v4f32x_info.ImmAllZerosV,
-                           VK2WM:$mask),
-            (VCVTUQQ2PSZ128rmkz VK2WM:$mask, addr:$src)>;
-
-  def : Pat<(v4f32 (X86any_VUintToFP (v2i64 (X86VBroadcastld64 addr:$src)))),
-            (VCVTUQQ2PSZ128rmb addr:$src)>;
-  def : Pat<(X86VMUintToFP (v2i64 (X86VBroadcastld64 addr:$src)),
-                           (v4f32 VR128X:$src0), VK2WM:$mask),
-            (VCVTUQQ2PSZ128rmbk VR128X:$src0, VK2WM:$mask, addr:$src)>;
-  def : Pat<(X86VMUintToFP (v2i64 (X86VBroadcastld64 addr:$src)),
-                           v4f32x_info.ImmAllZerosV, VK2WM:$mask),
-            (VCVTUQQ2PSZ128rmbkz VK2WM:$mask, addr:$src)>;
-}
->>>>>>> 472bded3eda44eff84b259b2717e322dbdb7381e
 
 let Predicates = [HasDQI, NoVLX] in {
 def : Pat<(v2i64 (X86any_cvttp2si (v2f64 VR128X:$src1))),
