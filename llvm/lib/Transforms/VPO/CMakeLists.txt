@@ -12,6 +12,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # the INTEL_CUSTOMIZATION build.
   ../Intel_VPO/Vecopt/VPODirectiveCleanup.cpp
   Paropt/Intel_VPOParoptFortranUtils.cpp
+  Paropt/Intel_VPOParoptOptimizeDataSharing.cpp
   )
 
 # INTEL_FEATURE_CSA
