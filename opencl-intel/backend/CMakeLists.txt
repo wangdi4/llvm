@@ -36,15 +36,9 @@ remove_definitions( -D_UNICODE -DUNICODE )
 #
 # Settings for Linux compilation
 #
-if (NOT WIN32)
-    set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-    set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
-    endif()
-    add_definitions( ${WARNING_LEVEL} )
-endif (NOT WIN32)
+if (NOT WIN32 AND (CMAKE_BUILD_TYPE MATCHES "Release"))
+    add_definitions(-D_FORTIFY_SOURCE=2)
+endif()
 
 ###############################################################################################
 

@@ -16,11 +16,6 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-      set ( WARNING_LEVEL "${WARNING_LEVEL} -Werror")
-    endif()
-
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
@@ -32,7 +27,6 @@ if (NOT WIN32)
 
 
     # Compiler switches that CAN be modified during makefile generation and configuration-independent
-    add_definitions( ${WARNING_LEVEL} )
 
     # Linker switches
     set (ADD_LINKER_FLAGS_DEBUG   )

@@ -24,7 +24,7 @@
 
 #define MAX_SOURCE_SIZE 2048
 
-#ifdef GCC_VER_7X
+#if __GNUC__ > 7
   #pragma GCC diagnostic ignored "-Wmisleading-indentation"
 #endif
 
