@@ -21518,13 +21518,9 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
       assert(VT.getVectorNumElements() <= 16 || Subtarget.hasFP16());
 #else  // INTEL_FEATURE_ISA_FP16
       assert(VT.getVectorNumElements() <= 16);
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-      Opc = X86ISD::CMPM;
-=======
       Opc = IsStrict ? X86ISD::STRICT_CMPM : X86ISD::CMPM;
->>>>>>> a21beccea2020f950845cbb68db663d0737e174c
     } else {
       Opc = IsStrict ? X86ISD::STRICT_CMPP : X86ISD::CMPP;
       // The SSE/AVX packed FP comparison nodes are defined with a
