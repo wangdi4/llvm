@@ -273,7 +273,9 @@ bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
          name.contains("intel_sub_group_shuffle_down") ||
          name.contains("intel_sub_group_shuffle_xor") ||
          name.contains("intel_sub_group_shuffle_xor") ||
-         name.contains("intel_sub_group_shuffle");
+         name.contains("intel_sub_group_shuffle") ||
+         name.contains("intel_sub_group_block_read") ||
+         name.contains("intel_sub_group_block_write");
 }
 
 bool OpenclRuntime::needsConcatenatedVectorReturn(StringRef name) const {
@@ -285,13 +287,6 @@ bool OpenclRuntime::needsConcatenatedVectorReturn(StringRef name) const {
 bool OpenclRuntime::needsConcatenatedVectorParams(StringRef name) const {
   // So far these are the same functions as for ret value
   return needsConcatenatedVectorReturn(name);
-}
-
-bool OpenclRuntime::allowsUnpredicatedMemoryAccess(StringRef name) const {
-  // Per spec all work-items must hit this function
-  if (name.contains("intel_sub_group_block_"))
-    return true;
-  return false;
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
