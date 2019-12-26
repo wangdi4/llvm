@@ -15,6 +15,9 @@
 #include "ImplicitGIDPass.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -59,6 +62,9 @@ bool ImplicitGlobalIdPass::runOnFunction(Function& F)
   // Skip all functions without debug info (including built-ins, externals, etc)
   // We can't do anything for them
   if (!F.getSubprogram())
+    return false;
+
+  if (CompilationUtils::isGlobalCtorDtor(&F))
     return false;
 
   m_pSyncInstSet = 0;
