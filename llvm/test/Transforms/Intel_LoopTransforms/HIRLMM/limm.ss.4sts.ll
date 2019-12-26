@@ -60,13 +60,13 @@
 ; CHECK:        + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:        |   %0 = (@A)[0][i1];
 ; CHECK:        |   %limm = %0 + 1;
-; CHECK:        |   %limm2 = %0 + 1;
-; CHECK:        |   %limm4 = %0 + 1;
-; CHECK:        |   %limm6 = %0 + 1;
+; CHECK:        |   %limm5 = %0 + 1;
+; CHECK:        |   %limm7 = %0 + 1;
+; CHECK:        |   %limm9 = %0 + 1;
 ; CHECK:        + END LOOP
-; CHECK:           (@B)[0][3] = %limm6;
-; CHECK:           (@B)[0][2] = %limm4;
-; CHECK:           (@B)[0][1] = %limm2;
+; CHECK:           (@B)[0][3] = %limm9;
+; CHECK:           (@B)[0][2] = %limm7;
+; CHECK:           (@B)[0][1] = %limm5;
 ; CHECK:           (@B)[0][0] = %limm;
 ; CHECK:  END REGION
 ;
