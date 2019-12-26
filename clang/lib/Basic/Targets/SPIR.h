@@ -216,6 +216,7 @@ public:
                         MacroBuilder &Builder) const override;
 };
 
+<<<<<<< HEAD
 class LLVM_LIBRARY_VISIBILITY SPIR32SYCLDeviceTargetInfo
     : public SPIR32TargetInfo {
 public:
@@ -303,12 +304,14 @@ public:
 };
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> ab8e5fe15223b2519df506022233cb346e489dac
 // x86-32 SPIR Windows target
 class LLVM_LIBRARY_VISIBILITY WindowsX86_32SPIRTargetInfo
-    : public WindowsTargetInfo<SPIR32SYCLDeviceTargetInfo> {
+    : public WindowsTargetInfo<SPIR32TargetInfo> {
 public:
   WindowsX86_32SPIRTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : WindowsTargetInfo<SPIR32SYCLDeviceTargetInfo>(Triple, Opts) {
+      : WindowsTargetInfo<SPIR32TargetInfo>(Triple, Opts) {
     DoubleAlign = LongLongAlign = 64;
     WCharType = UnsignedShort;
   }
@@ -362,10 +365,10 @@ public:
 
 // x86-64 SPIR64 Windows target
 class LLVM_LIBRARY_VISIBILITY WindowsX86_64_SPIR64TargetInfo
-    : public WindowsTargetInfo<SPIR64SYCLDeviceTargetInfo> {
+    : public WindowsTargetInfo<SPIR64TargetInfo> {
 public:
   WindowsX86_64_SPIR64TargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : WindowsTargetInfo<SPIR64SYCLDeviceTargetInfo>(Triple, Opts) {
+      : WindowsTargetInfo<SPIR64TargetInfo>(Triple, Opts) {
     LongWidth = LongAlign = 32;
     DoubleAlign = LongLongAlign = 64;
     IntMaxType = SignedLongLong;
