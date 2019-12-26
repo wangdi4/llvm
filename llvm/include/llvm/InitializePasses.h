@@ -595,6 +595,8 @@ void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
+// Forced CMOV generation pass
+void initializeForcedCMOVGenerationLegacyPassPass(PassRegistry&);
 void initializeRAReportEmitterPass(PassRegistry&);
 void initializeVPOParoptOptimizeDataSharingPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
