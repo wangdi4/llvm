@@ -7,6 +7,7 @@
 ; Check that importing @globalfunc1 does not trigger loading all the global
 ; metadata for @globalfunc2 and @globalfunc3
 
+<<<<<<< HEAD
 ; RUN: llvm-lto -thinlto-action=import %t2.bc -thinlto-index=%t3.bc \
 ; RUN:          -o /dev/null -stats \
 ; RUN:  2>&1 | FileCheck %s -check-prefix=LAZY
@@ -21,6 +22,21 @@
 ; NOTLAZY: 82 bitcode-reader  - Number of Metadata records loaded
 ; NOTLAZY: 7 bitcode-reader  - Number of MDStrings loaded
 
+=======
+; RUN: (llvm-lto -thinlto-action=import %t2.bc -thinlto-index=%t3.bc -stats 2>&1 \
+; RUN:  | awk '{print "LAZY: " $0}' && \
+; RUN:  llvm-lto -thinlto-action=import %t2.bc -thinlto-index=%t3.bc -stats -disable-ondemand-mds-loading 2>&1 \
+; RUN:  | awk '{print "NOTLAZY: " $0}') \
+; RUN: | FileCheck %s
+
+; Check llvm-lto call with lazy loading enabled
+; CHECK: LAZY: [[#LAZY_RECORDS:]] bitcode-reader  - Number of Metadata records loaded
+; CHECK: LAZY: 2 bitcode-reader  - Number of MDStrings loaded
+
+; Check llvm-lto call with lazy loading disabled
+; CHECK: NOTLAZY: [[#LAZY_RECORDS+9]] bitcode-reader  - Number of Metadata records loaded
+; CHECK: NOTLAZY: 7 bitcode-reader  - Number of MDStrings loaded
+>>>>>>> 2e6c15d1e7a47f11fab2dd3a40fcff01906923ae
 
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.11.0"
