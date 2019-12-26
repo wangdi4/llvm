@@ -152,7 +152,11 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
   // Since this API is part of Pin, we need also to enable the environment
   // variable.
   //
+#if defined(_WIN32) || defined(_WIN64)
+  _putenv_s("ZE_ENABLE_PROGRAM_INSTRUMENTATION", "1");
+#else
   setenv("ZE_ENABLE_PROGRAM_INSTRUMENTATION", "1", 0);
+#endif
   ZE_CALL(zetInit(ZE_INIT_FLAG_NONE));
 
   // L0 does not have concept of platforms, return a fake one.
