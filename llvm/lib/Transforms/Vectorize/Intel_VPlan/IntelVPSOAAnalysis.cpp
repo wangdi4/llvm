@@ -112,11 +112,13 @@ bool VPSOAAnalysis::isPotentiallyUnsafeSafeBitCast(
 // private-pointer to and does not change the data-layout.
 bool VPSOAAnalysis::isSafePointerEscapeFunction(const VPInstruction *UseInst) {
 
+  auto *VPCall = dyn_cast<VPCallInstruction>(UseInst);
+
   // If this is not a call-instruction, return false.
-  if (UseInst->getOpcode() != Instruction::Call)
+  if (!VPCall)
     return false;
 
-  Function *CalleeFunc = getCalledFunction(UseInst);
+  Function *CalleeFunc = VPCall->getCalledFunction();
   // For indirect calls we will have a null CalledFunc.
   if (!CalleeFunc)
     return false;

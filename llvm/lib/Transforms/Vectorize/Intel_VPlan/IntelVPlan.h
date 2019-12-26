@@ -1573,7 +1573,7 @@ private:
 
   /// Tracks the decision taken on how to vectorize this VPCallInst for given
   /// VF.
-  CallVecScenarios VecScenario;
+  CallVecScenarios VecScenario = CallVecScenarios::Undefined;
 
 public:
   using CallVecScenariosTy = CallVecScenarios;
@@ -1648,6 +1648,9 @@ public:
   bool isOCLVecUniformReturn() const {
     return getOrigCallAttrs().hasFnAttribute("opencl-vec-uniform-return");
   }
+  bool isKernelUniformCall() const {
+    return getOrigCallAttrs().hasFnAttribute("kernel-uniform-call");
+  }
 
   /// Clear decision that was last computed for this call, and reset to initial
   /// state (Undef scenario) for new VF.
@@ -1681,6 +1684,9 @@ public:
     assert(!VecLibFn.empty() && "Invalid VecLibFn.");
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
+    assert(PumpFactor == 1 || !isKernelCallOnce() &&
+                                  "Pumped vectorization of a kernel "
+                                  "called-once function is not allowed.");
     VecScenario = CallVecScenarios::LibraryFunc;
     VecProperties.VectorLibraryFn = VecLibFn;
     VecProperties.PumpFactor = PumpFactor;
@@ -1692,6 +1698,9 @@ public:
     assert(VecVariant && "Can't set null vector variant.");
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
+    assert(PumpFactor == 1 || !isKernelCallOnce() &&
+                                  "Pumped vectorization of a kernel "
+                                  "called-once function is not allowed.");
     VecScenario = CallVecScenarios::VectorVariant;
     VecProperties.MatchedVecVariant = VecVariant.release();
     VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
@@ -1755,9 +1764,12 @@ public:
   }
 
   virtual VPCallInstruction *cloneImpl() const final {
-    // TODO: Implement cloneImpl specialization when VPCallInstruction is used
-    // by CFGBuilders and CG.
-    llvm_unreachable("Call instruction cloning not implemented.");
+    VPCallInstruction *Cloned = new VPCallInstruction(
+        getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
+        cast<CallInst>(getInstruction()) /* Clone gets same underlying Call */);
+    Cloned->VecScenario = VecScenario;
+    Cloned->VecProperties = VecProperties;
+    return Cloned;
   }
 };
 

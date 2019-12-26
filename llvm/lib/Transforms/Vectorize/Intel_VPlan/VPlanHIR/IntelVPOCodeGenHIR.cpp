@@ -3351,23 +3351,17 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  // TODO: Temporary fix to handle ssa_copy intrinsics in VPValue-based CG.
-  // Should be removed when we use VPHIRCopyInst.
-  if (VPInst->getOpcode() == Instruction::Call) {
-    if (getCalledFunction(VPInst)->getIntrinsicID() == Intrinsic::ssa_copy) {
-      NewInst = HLNodeUtilities.createCopyInst(
-          widenRef(VPInst->getOperand(0), getVF()), InstName);
-      addInst(NewInst, Mask);
-      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
-      return;
-    }
-  }
-
   // Skip widening the first select operand. The select instruction is generated
   // using operands of the instruction corresponding to the select mask.
   bool SkipFirstSelectOp = VPInst->getOpcode() == Instruction::Select;
   SmallVector<RegDDRef *, 6> RefOps;
-  for (const VPValue *Operand : VPInst->operands()) {
+  // For call instructions we need to widen only argument operands. Called
+  // value/function operand should not be included here for widening.
+  VPUser::const_operand_range OpRange =
+      isa<VPCallInstruction>(VPInst)
+          ? cast<VPCallInstruction>(VPInst)->arg_operands()
+          : VPInst->operands();
+  for (const VPValue *Operand : OpRange) {
     if (SkipFirstSelectOp) {
       SkipFirstSelectOp = false;
       continue;

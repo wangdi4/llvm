@@ -188,6 +188,12 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
         NewVPInst = VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
       else
         NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
+    } else if (auto *Call = dyn_cast<CallInst>(Inst)) {
+      // Build VPCallInstruction to represent Call instructions.
+      SmallVector<VPValue *, 3> ArgList(VPOperands.begin(),
+                                        VPOperands.end() - 1);
+      VPValue *CalledValue = getOrCreateVPOperand(Call->getCalledOperand());
+      NewVPInst = VPIRBuilder.createCall(CalledValue, ArgList, Call);
     } else
       // Build VPInstruction for any arbitraty Instruction without specific
       // representation in VPlan.

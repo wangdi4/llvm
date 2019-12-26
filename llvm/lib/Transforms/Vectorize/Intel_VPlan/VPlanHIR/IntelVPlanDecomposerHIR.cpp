@@ -807,30 +807,32 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       if (DDNode)
         NewVPInst->HIR.setUnderlyingNode(DDNode);
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
-      bool IsSubscriptInst = false;
       if (auto *IntrinCall = dyn_cast<IntrinsicInst>(Call)) {
         if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
           // TODO: This should be VPSubscriptInst in future.
           NewVPInst = cast<VPGEPInstruction>(VPOperands[0]);
           // Make subscript the master instruction since it was already created.
           NewVPInst->HIR.setUnderlyingNode(DDNode);
-          IsSubscriptInst = true;
+          return NewVPInst;
         }
       }
 
-      if (!IsSubscriptInst) {
-        assert(HInst->isCallInst() && "Underlying HLInst expected to be call.");
-        NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-            Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
-        // For direct calls, the called function should be added as last operand
-        // of the generated VPInstruction.
-        if (!HInst->isIndirectCallInst()) {
-          Function *F = Call->getCalledFunction();
-          assert(F && "Call HLInst does not have called function.");
-          VPValue *VPFunc = Plan->getVPConstant(F);
-          NewVPInst->addOperand(VPFunc);
-        }
+      assert(HInst->isCallInst() && "Underlying HLInst expected to be call.");
+      VPValue *CalledValue;
+      // For indirect calls, called value (function) is the last operand
+      // DDRef.
+      unsigned ArgOperandOffset = 0;
+      if (HInst->isIndirectCallInst()) {
+        CalledValue = VPOperands.back();
+        ArgOperandOffset = 1;
+      } else {
+        Function *F = Call->getCalledFunction();
+        assert(F && "Call HLInst does not have called function.");
+        CalledValue = Plan->getVPConstant(F);
       }
+      SmallVector<VPValue *, 4> ArgList(VPOperands.begin(),
+                                        VPOperands.end() - ArgOperandOffset);
+      NewVPInst = Builder.createCall(CalledValue, ArgList, HInst);
     } else
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(

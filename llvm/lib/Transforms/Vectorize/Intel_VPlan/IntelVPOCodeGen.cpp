@@ -682,14 +682,6 @@ bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
   return Idx == 2 && ScalarSelectSet.count(std::string(FnName));
 }
 
-bool VPOCodeGen::callHasAttribute(VPInstruction *VPInst,
-                                  StringRef AttrName) const {
-  if (const auto *UnderlyingValue = VPInst->getUnderlyingValue())
-    if (const auto *UnderlyingCI = dyn_cast<CallInst>(UnderlyingValue))
-      return UnderlyingCI->hasFnAttr(AttrName);
-  return false;
-}
-
 void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
@@ -978,7 +970,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
 
   case Instruction::Call: {
-    CallInst *UnderlyingCI = dyn_cast<CallInst>(VPInst->getUnderlyingValue());
+    VPCallInstruction *VPCall = cast<VPCallInstruction>(VPInst);
+    CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
     assert(UnderlyingCI &&
            "VPVALCG: Need underlying CallInst for call-site attributes.");
 
@@ -987,11 +980,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (isa<DbgInfoIntrinsic>(UnderlyingCI))
       return;
 
-    Function *F = getCalledFunction(VPInst);
+    Function *F = VPCall->getCalledFunction();
 
     if (!F) {
       // Indirect calls.
-      serializeWithPredication(VPInst);
+      serializeWithPredication(VPCall);
       return;
     }
 
@@ -1000,11 +993,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     StringRef CalledFunc = F->getName();
     bool IsMasked = MaskValue != nullptr;
     unsigned PumpFactor = getPumpFactor(CalledFunc, IsMasked);
-    if (callHasAttribute(VPInst, "kernel-uniform-call") &&
-        callHasAttribute(VPInst, "kernel-convergent-call")) {
+    if (VPCall->getVectorizationScenario() ==
+        VPCallInstruction::CallVecScenariosTy::DoNotWiden) {
       // TODO: this case must be handled via VPlan to VPlan bypass
       // infrastructure.
-      processPredicatedKernelConvergentUniformCall(VPInst);
+      processPredicatedKernelConvergentUniformCall(VPCall);
     } else if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
                PumpFactor > 1 ||
                ((matchVectorVariant(UnderlyingCI, IsMasked) ||
@@ -1013,16 +1006,16 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
                 isOpenCLWriteChannel(CalledFunc))) {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is pumped "
                         << PumpFactor << "-way.\n");
-      assert(PumpFactor == 1 || !callHasAttribute(VPInst, "kernel-call-once") &&
+      assert(PumpFactor == 1 || !VPCall->isKernelCallOnce() &&
                                     "VPVALCG: Pumped vectorization of a kernel "
                                     "called-once function is not allowed.");
-      vectorizeCallInstruction(VPInst, PumpFactor);
+      vectorizeCallInstruction(VPCall, PumpFactor);
     } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
-      assert(!callHasAttribute(VPInst, "kernel-call-once") &&
-             "VPVALCG: Serialization of a kernel called-once "
-             "function is not allowed.");
-      serializeWithPredication(VPInst);
+      assert(!VPCall->isKernelCallOnce() &&
+             "VPVALCG: Serialization of a kernel called-once function is not "
+             "allowed.");
+      serializeWithPredication(VPCall);
     }
     return;
   }
@@ -1528,7 +1521,8 @@ void VPOCodeGen::vectorizeCast(
     VPWidenMap[VPInst] = Builder.CreateAddrSpaceCast(VecOp, VecTy);
 }
 
-void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
+void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
+                                       bool IsMasked) {
   // If we encounter a call to OpenCL sincos function, i.e., a call to
   // _Z6sincosfPf, the code in Intel_SVMLEmitter.cpp, currently maps that call
   // to _Z14sincos_ret2ptrDv<VF>_fPS_S1_ variant. The following code correctly
@@ -1582,7 +1576,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
   VecArgTys.push_back(WideSinPtr->getType());
   VecArgTys.push_back(WideCosPtr->getType());
 
-  Function *CalledFunc = getCalledFunction(VPCall);
+  Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null call function.");
   Function *VectorF =
       getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
@@ -1614,7 +1608,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
   VPWidenMap[VPCall] = WideSinLoad;
 }
 
-void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
+void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
                                    VectorVariant *VecVariant, unsigned PumpPart,
                                    unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
@@ -1625,7 +1619,7 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     Parms = VecVariant->getParameters();
   }
 
-  Function *F = getCalledFunction(VPCall);
+  Function *F = VPCall->getCalledFunction();
   assert(F && "Function not found for call instruction");
   StringRef FnName = F->getName();
 
@@ -1674,10 +1668,7 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     return ScalarArg;
   };
 
-  // TODO: For a VPInstruction representing Call, all the Call argument operands
-  // are stored first. The last operand represents the called Function. Is this
-  // true in all cases? What about indirect calls?
-  unsigned NumArgOperands = VPCall->getNumOperands() - 1;
+  unsigned NumArgOperands = VPCall->arg_size();
 
   // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
   // functions return the results directly in a struct. The pointers should be
@@ -2404,8 +2395,8 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
   return Builder.CreateSExt(Cmp, VecTy);
 }
 
-void VPOCodeGen::generateStoreForSinCos(
-    VPInstruction *VPCall, Value *CallResult) {
+void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
+                                        Value *CallResult) {
   // Extract results in the structure returned from SVML sincos call and store
   // into the pointers provided by the scalar call, for example:
   // %sincos = call svml_cc { <16 x float>, <16 x float> } @__svml_sincosf16(
@@ -2468,12 +2459,12 @@ void VPOCodeGen::generateStoreForSinCos(
   storeVectorValue(ExtractCosInst, VPCall->getOperand(2), Alignment);
 }
 
-void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
+void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
                                           unsigned PumpFactor) {
   CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
   assert(UnderlyingCI &&
          "VPVALCG: Need underlying CallInst for call-site attributes.");
-  Function *CalledFunc = getCalledFunction(VPCall);
+  Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function.");
   bool IsMasked = MaskValue != nullptr;
 
@@ -3098,7 +3089,10 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
 
   unsigned Lanes =
       (!VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan)) ||
-       callHasAttribute(VPInst, "kernel-uniform-call") ? 1 : VF;
+              (isa<VPCallInstruction>(VPInst) &&
+               cast<VPCallInstruction>(VPInst)->isKernelUniformCall())
+          ? 1
+          : VF;
 
   for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
     SmallVector<Value *, 4> ScalarOperands;

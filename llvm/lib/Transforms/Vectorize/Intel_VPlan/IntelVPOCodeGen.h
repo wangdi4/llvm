@@ -122,7 +122,7 @@ public:
   /// Vectorize call arguments, or for simd functions scalarize if the arg
   /// is linear or uniform. If the call is being pumped by \p PumpFactor times,
   /// then the appropriate sub-vector is extracted for given \p PumpPart.
-  void vectorizeCallArgs(VPInstruction *VPCall, VectorVariant *VecVariant,
+  void vectorizeCallArgs(VPCallInstruction *VPCall, VectorVariant *VecVariant,
                          unsigned PumpPart, unsigned PumpFactor,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
@@ -290,9 +290,6 @@ private:
   /// Return true if \p FnName is the name of an OpenCL scalar select and \p Idx
   /// is the position of the mask argument.
   bool isOpenCLSelectMask(StringRef FnName, unsigned Idx);
-
-  /// Return true if \p VPInst call site has a \p AttrName attribute
-  bool callHasAttribute(VPInstruction *VPInst, StringRef AttrName) const;
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);
@@ -524,7 +521,7 @@ private:
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.
-  void generateStoreForSinCos(VPInstruction *VPCall, Value *CallResult);
+  void generateStoreForSinCos(VPCallInstruction *VPCall, Value *CallResult);
 
   // Widen call instruction parameters and return. If given \p VPCall cannot be
   // widened for current VF, but can be pumped with lower VF, then vectorize the
@@ -539,7 +536,7 @@ private:
   // %shuffle2 = shufflevector %0.vec, undef, <64, 65, ... 127>
   // %pump2 = call <64 x float> @__svml_sinf64(%shuffle2)
   // %combine = shufflevector %pump1, %pump2, <0, 1, ... 127>
-  void vectorizeCallInstruction(VPInstruction *VPCall, unsigned PumpFactor);
+  void vectorizeCallInstruction(VPCallInstruction *VPCall, unsigned PumpFactor);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(VPInstruction *VPInst);
@@ -550,7 +547,7 @@ private:
 
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
-  void vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked);
+  void vectorizeOpenCLSinCos(VPCallInstruction *VPCall, bool IsMasked);
 
   /// Store instructions that should be predicated, as a pair
   ///   <StoreInst, Predicate>
