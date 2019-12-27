@@ -47,8 +47,8 @@ void write_wrapper(__global channel char *inp, char data) {
   write_channel_intel(*inp, data); // expected-error{{invalid argument type '__global channel __generic char *' to unary expression}}
   void *tmp = &inp; // expected-error{{invalid argument type '__global channel __generic char *' to unary expression}}
 #else
-  write_channel_intel(*inp, data); // expected-error{{invalid argument type '__global channel char *' to unary expression}}
-  void *tmp = &inp; // expected-error{{invalid argument type '__global channel char *' to unary expression}}
+  write_channel_intel(*inp, data); // expected-error{{invalid argument type '__global channel __private char *' to unary expression}}
+  void *tmp = &inp; // expected-error{{invalid argument type '__global channel __private char *' to unary expression}}
 #endif
 }
 

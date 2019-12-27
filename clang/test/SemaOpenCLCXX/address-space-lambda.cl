@@ -1,12 +1,8 @@
 //RUN: %clang_cc1 %s -cl-std=clc++ -pedantic -ast-dump -verify | FileCheck %s
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'int (int){{( __attribute__.*)?}} const __generic'
+//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'int (__private int){{( __attribute__.*)?}} const __generic'
 // end INTEL_CUSTOMIZATION
-=======
-//CHECK: CXXMethodDecl {{.*}} constexpr operator() 'int (__private int) const __generic'
->>>>>>> 3e5a028c948a6f095302c98439021ddfbdc734e1
 auto glambda = [](auto a) { return a; };
 
 __kernel void test() {
@@ -35,13 +31,9 @@ __kernel void test() {
 }
 
 __kernel void test_qual() {
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const'
+//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void (){{( __attribute__.*)?}} const __private'
 // end INTEL_CUSTOMIZATION
-=======
-//CHECK: |-CXXMethodDecl {{.*}} constexpr operator() 'void () const __private'
->>>>>>> 3e5a028c948a6f095302c98439021ddfbdc734e1
   auto priv1 = []() __private {};
   priv1();
 // INTEL_CUSTOMIZATION
