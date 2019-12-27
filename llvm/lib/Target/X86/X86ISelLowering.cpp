@@ -29594,43 +29594,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     return;
   }
   case ISD::SINT_TO_FP:
-<<<<<<< HEAD
-  case ISD::STRICT_SINT_TO_FP: {
-    assert(Subtarget.hasDQI() && Subtarget.hasVLX() && "Requires AVX512DQVL!");
-    bool IsStrict = N->isStrictFPOpcode();
-    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    EVT VT = N->getSimpleValueType(0).getVectorElementType();
-    if (VT == MVT::f16) {
-      assert(!IsStrict && "Strict FP not supported on FP16!");
-      if (N->getValueType(0) == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
-        Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32,
-                          Src, DAG.getUNDEF(MVT::v2i32));
-      if (!isTypeLegal(Src.getValueType()))
-        return;
-      Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, MVT::v8f16, Src));
-      return;
-    }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-
-    if (N->getValueType(0) != MVT::v2f32 || Src.getValueType() != MVT::v2i64)
-      return;
-    if (IsStrict) {
-      SDValue Res =
-          DAG.getNode(X86ISD::STRICT_CVTSI2P, dl, {MVT::v4f32, MVT::Other},
-                      {N->getOperand(0), Src});
-      Results.push_back(Res);
-      Results.push_back(Res.getValue(1));
-    } else {
-      Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, MVT::v4f32, Src));
-    }
-    return;
-  }
-=======
   case ISD::STRICT_SINT_TO_FP:
->>>>>>> c91bf72e2cd0ec164c36b464b5af645538000b04
   case ISD::UINT_TO_FP:
   case ISD::STRICT_UINT_TO_FP: {
     bool IsStrict = N->isStrictFPOpcode();
@@ -29642,10 +29606,12 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 #if INTEL_FEATURE_ISA_FP16
     if (VT.getVectorElementType() == MVT::f16
         && Subtarget.hasFP16() && Subtarget.hasVLX()) {
+      assert(!IsStrict && "Strict FP not supported on FP16!");
       if (N->getValueType(0) == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
         Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32,
                           Src, DAG.getUNDEF(MVT::v2i32));
-      Results.push_back(DAG.getNode(X86ISD::CVTUI2P, dl, MVT::v8f16, Src));
+      unsigned Opc = IsSigned ? X86ISD::CVTSI2P : X86ISD::CVTUI2P;
+      Results.push_back(DAG.getNode(Opc, dl, MVT::v8f16, Src));
       return;
     }
 #endif // INTEL_FEATURE_ISA_FP16
