@@ -8284,6 +8284,7 @@ multiclass avx512_cvt_extend<bits<8> opc, string OpcodeStr,
              avx512_vcvt_fp_sae<opc, OpcodeStr, _dst.info512, _src.info256,
                                 X86vfpextSAE, sched.ZMM>, EVEX_V512;
   }
+<<<<<<< HEAD
   let Predicates = [prd, HasVLX] in {
     defm Z128 : avx512_vcvt_fpextend<opc, OpcodeStr, _dst.info128, _src.info128,
                                X86vfpext, sched.XMM, _dst.info128.BroadcastStr,
@@ -8309,6 +8310,21 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
   let Predicates = [prd] in {
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, _dst.info256, _src.info512, X86vfpround, sched.ZMM>,
              avx512_vcvt_fp_rc<opc, OpcodeStr, _dst.info256, _src.info512,
+=======
+  let Predicates = [HasVLX] in {
+    defm Z128 : avx512_vcvt_fpextend<opc, OpcodeStr, v2f64x_info, v4f32x_info,
+                               X86any_vfpext, sched.XMM, "{1to2}", "", f64mem>, EVEX_V128;
+    defm Z256 : avx512_vcvt_fpextend<opc, OpcodeStr, v4f64x_info, v4f32x_info, any_fpextend,
+                               sched.YMM>, EVEX_V256;
+  }
+}
+
+// Truncate Double to Float
+multiclass avx512_cvtpd2ps<bits<8> opc, string OpcodeStr, X86SchedWriteWidths sched> {
+  let Predicates = [HasAVX512] in {
+    defm Z : avx512_vcvt_fp<opc, OpcodeStr, v8f32x_info, v8f64_info, X86vfpround, sched.ZMM>,
+             avx512_vcvt_fp_rc<opc, OpcodeStr, v8f32x_info, v8f64_info,
+>>>>>>> 1a7b69f5dd32980a7e0b0841a99dc65b2b887203
                                X86vfproundRnd, sched.ZMM>, EVEX_V512;
 
     def : Pat<(_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
@@ -8600,6 +8616,7 @@ let Predicates = [HasFP16] in {
 let Predicates = [HasFP16, HasVLX] in {
   // Special patterns to allow use of X86vmfpround for masking. Instruction
   // patterns have been disabled with null_frag.
+<<<<<<< HEAD
   def : Pat<(v8f16 (X86vfpround (v4f64 VR256X:$src))),
             (VCVTPD2PHZ256rr VR256X:$src)>;
   def : Pat<(v8f16 (X86vmfpround (v4f64 VR256X:$src), (v8f16 VR128X:$src0),
@@ -8630,23 +8647,39 @@ let Predicates = [HasFP16, HasVLX] in {
   def : Pat<(v8f16 (X86vfpround (v2f64 VR128X:$src))),
             (VCVTPD2PHZ128rr VR128X:$src)>;
   def : Pat<(X86vmfpround (v2f64 VR128X:$src), (v8f16 VR128X:$src0),
+=======
+  def : Pat<(X86any_vfpround (v2f64 VR128X:$src)),
+            (VCVTPD2PSZ128rr VR128X:$src)>;
+  def : Pat<(X86vmfpround (v2f64 VR128X:$src), (v4f32 VR128X:$src0),
+>>>>>>> 1a7b69f5dd32980a7e0b0841a99dc65b2b887203
                           VK2WM:$mask),
             (VCVTPD2PHZ128rrk VR128X:$src0, VK2WM:$mask, VR128X:$src)>;
   def : Pat<(X86vmfpround (v2f64 VR128X:$src), v8f16x_info.ImmAllZerosV,
                           VK2WM:$mask),
             (VCVTPD2PHZ128rrkz VK2WM:$mask, VR128X:$src)>;
 
+<<<<<<< HEAD
   def : Pat<(v8f16 (X86vfpround (loadv2f64 addr:$src))),
             (VCVTPD2PHZ128rm addr:$src)>;
   def : Pat<(X86vmfpround (loadv2f64 addr:$src), (v8f16 VR128X:$src0),
+=======
+  def : Pat<(X86any_vfpround (loadv2f64 addr:$src)),
+            (VCVTPD2PSZ128rm addr:$src)>;
+  def : Pat<(X86vmfpround (loadv2f64 addr:$src), (v4f32 VR128X:$src0),
+>>>>>>> 1a7b69f5dd32980a7e0b0841a99dc65b2b887203
                           VK2WM:$mask),
             (VCVTPD2PHZ128rmk VR128X:$src0, VK2WM:$mask, addr:$src)>;
   def : Pat<(X86vmfpround (loadv2f64 addr:$src), v8f16x_info.ImmAllZerosV,
                           VK2WM:$mask),
             (VCVTPD2PHZ128rmkz VK2WM:$mask, addr:$src)>;
 
+<<<<<<< HEAD
   def : Pat<(v8f16 (X86vfpround (v2f64 (X86VBroadcastld64 addr:$src)))),
             (VCVTPD2PHZ128rmb addr:$src)>;
+=======
+  def : Pat<(X86any_vfpround (v2f64 (X86VBroadcastld64 addr:$src))),
+            (VCVTPD2PSZ128rmb addr:$src)>;
+>>>>>>> 1a7b69f5dd32980a7e0b0841a99dc65b2b887203
   def : Pat<(X86vmfpround (v2f64 (X86VBroadcastld64 addr:$src)),
                           (v8f16 VR128X:$src0), VK2WM:$mask),
             (VCVTPD2PHZ128rmbk VR128X:$src0, VK2WM:$mask, addr:$src)>;
