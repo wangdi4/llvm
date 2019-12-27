@@ -1140,6 +1140,8 @@ void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   case OMP_PROC_BIND_spread:
     addArg("QUAL.OMP.PROC_BIND.SPREAD");
     break;
+  case OMP_PROC_BIND_default:
+    break;
   case OMP_PROC_BIND_unknown:
     llvm_unreachable("Unknown proc_bind clause");
   }
