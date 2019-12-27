@@ -29594,6 +29594,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     return;
   }
   case ISD::SINT_TO_FP:
+<<<<<<< HEAD
   case ISD::STRICT_SINT_TO_FP: {
     assert(Subtarget.hasDQI() && Subtarget.hasVLX() && "Requires AVX512DQVL!");
     bool IsStrict = N->isStrictFPOpcode();
@@ -29627,10 +29628,14 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     }
     return;
   }
+=======
+  case ISD::STRICT_SINT_TO_FP:
+>>>>>>> c91bf72e2cd0ec164c36b464b5af645538000b04
   case ISD::UINT_TO_FP:
   case ISD::STRICT_UINT_TO_FP: {
-    assert(Subtarget.hasSSE2() && "Requires at least SSE2!");
     bool IsStrict = N->isStrictFPOpcode();
+    bool IsSigned = N->getOpcode() == ISD::SINT_TO_FP ||
+                    N->getOpcode() == ISD::STRICT_SINT_TO_FP;
     EVT VT = N->getValueType(0);
 #if INTEL_CUSTOMIZATION
     SDValue Src = N->getOperand(IsStrict ? 1 : 0);
@@ -29650,19 +29655,22 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     EVT SrcVT = Src.getValueType();
     if (Subtarget.hasDQI() && Subtarget.hasVLX() && SrcVT == MVT::v2i64) {
       if (IsStrict) {
-        SDValue Res =
-            DAG.getNode(X86ISD::STRICT_CVTUI2P, dl, {MVT::v4f32, MVT::Other},
-                        {N->getOperand(0), Src});
+        unsigned Opc = IsSigned ? X86ISD::STRICT_CVTSI2P
+                                : X86ISD::STRICT_CVTUI2P;
+        SDValue Res = DAG.getNode(Opc, dl, {MVT::v4f32, MVT::Other},
+                                  {N->getOperand(0), Src});
         Results.push_back(Res);
         Results.push_back(Res.getValue(1));
       } else {
-        Results.push_back(DAG.getNode(X86ISD::CVTUI2P, dl, MVT::v4f32, Src));
+        unsigned Opc = IsSigned ? X86ISD::CVTSI2P : X86ISD::CVTUI2P;
+        Results.push_back(DAG.getNode(Opc, dl, MVT::v4f32, Src));
       }
       return;
     }
     // FIXME: Is this safe for strict fp?
-    if (SrcVT != MVT::v2i32 || IsStrict)
+    if (SrcVT != MVT::v2i32 || IsSigned || IsStrict)
       return;
+    assert(Subtarget.hasSSE2() && "Requires at least SSE2!");
     SDValue ZExtIn = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v2i64, Src);
     SDValue VBias =
         DAG.getConstantFP(BitsToDouble(0x4330000000000000ULL), dl, MVT::v2f64);
