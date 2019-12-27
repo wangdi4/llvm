@@ -253,8 +253,8 @@ OclType::getExpandLoCPatternPtr() const
 {
   switch (m_VecLength) {
   // According to specification.
-  // "The suffixes .lo (or .even) and .hi (or .odd) for a 3-component vector type 
-  // operate as if the 3-component vector type is a 4-component vector type 
+  // "The suffixes .lo (or .even) and .hi (or .odd) for a 3-component vector type
+  // operate as if the 3-component vector type is a 4-component vector type
   // with the value in the w component
   // here we use ->s01 for good look of code since it will be used together with $ExpandHiPatternPtr
     case 3: return "->s01";
@@ -266,9 +266,9 @@ std::string
 OclType::getExpandHiCPatternPtr() const
 {
   switch (m_VecLength) {
-  // We don't use here ->hi since we don't want garbage 
-  // to get to s3 component of promoted type4 vector. 
-  // Getting garbage ther may lead to performance degradations. Since in case of float we can get there NaNs, denormals, etc  
+  // We don't use here ->hi since we don't want garbage
+  // to get to s3 component of promoted type4 vector.
+  // Getting garbage ther may lead to performance degradations. Since in case of float we can get there NaNs, denormals, etc
   case 3: return "->s2";
   }
   return "->hi";
@@ -368,8 +368,8 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Outs = R->getValueAsDag("Outs");
     assert(Outs && "Invalid OclBuiltin record without outs.");
 
-    assert(dyn_cast<DefInit>(Outs->getOperator()) && 
-      dyn_cast<DefInit>(Outs->getOperator())->getDef()->getName() == "outs" && 
+    assert(dyn_cast<DefInit>(Outs->getOperator()) &&
+      dyn_cast<DefInit>(Outs->getOperator())->getDef()->getName() == "outs" &&
       "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
@@ -384,8 +384,8 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Ins = R->getValueAsDag("Ins");
     assert(Ins && "Invalid OclBuiltin record without ins.");
 
-    assert(dyn_cast<DefInit>(Ins->getOperator()) && 
-      dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
+    assert(dyn_cast<DefInit>(Ins->getOperator()) &&
+      dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" &&
       "Invalid OclBuiltin record with invalid inputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
       const DefInit* DI = dyn_cast<DefInit>(Ins->getArg(i));
@@ -474,6 +474,17 @@ OclBuiltin::getArgumentSGBlockOpSuffix(unsigned i, const std::string& TyName) co
   const OclType* T = m_DB.getOclType(GT);
   assert(T && "Invalid type found.");
 
+  return T->getSGBlockOpSuffix();
+}
+
+std::string
+OclBuiltin::getReturnSGBlockOpSuffix(const std::string& TyName) const
+{
+  assert(m_Outputs.size() && "This function return void");
+  assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
+  const std::string& GT = m_Outputs[0].first->getGenType(TyName);
+  const OclType* T = m_DB.getOclType(GT);
+  assert(T && "Invalid type found.");
   return T->getSGBlockOpSuffix();
 }
 
@@ -785,7 +796,7 @@ void OclBuiltin::addAttribute(const OclBuiltinAttr& A){
   }
   m_Attrs.push_back(new OclBuiltinAttr(A));
 }
-  
+
 void OclBuiltin::removeAttribute(const OclBuiltinAttr& A){
   std::vector<const OclBuiltinAttr*>::iterator it = m_Attrs.begin(),
     e = m_Attrs.end();
@@ -1068,7 +1079,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
     std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions(GENERIC);
     const Record* Rec = m_Record = (Rs.size() > 0) ? Rs.front() :
       m_Records.getClass(GENERIC);
-    
+
     // One and only one single instance of OclBuiltins is defined.
     assert(Rs.size() < 2 && "More than 1 Generic are defined!");
 
@@ -1200,14 +1211,14 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       // '#' is concatenate mark - exit loop
       if (text[dpos] == '#')
           break;
-      // Skip 'alphanum'. 
+      // Skip 'alphanum'.
     } while (isalnum(text[dpos]) );
 
     std::string pat = text.substr(cpos, dpos - cpos);
 
     // replace $pat with real text
     std::string val;
-    
+
     bool hardcodedMacro = true;
     std::map<std::string, std::string>::const_iterator iter = customMacro.find(pat);
     if (iter != customMacro.end())
@@ -1220,8 +1231,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           val = iter->second;
           hardcodedMacro = false;
         }
-    } 
-    
+    }
+
     if(hardcodedMacro)
     {
         if ("$Target" == pat) {
@@ -1295,6 +1306,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 20 && "SGBlockOpSuffix" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentSGBlockOpSuffix(i, OT->getName());
+        } else if ("$Ret" == pat.substr(0, 4) && pat.size() == 19 && "SGBlockOpSuffix" == pat.substr(4)) {
+          val = OB->getReturnSGBlockOpSuffix(OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());

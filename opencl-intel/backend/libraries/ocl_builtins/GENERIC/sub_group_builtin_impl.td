@@ -125,6 +125,17 @@ code BlockWriteS0 =
     *$Arg0VarName = $Arg1VarName.s0;
   }];
 
+code BlockReadImg =
+  [{
+    $ReturnType* p = ($ReturnType*)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
+    return *p;
+  }];
+
+code BlockWriteImg =
+  [{
+    $Arg2Type* p = ($Arg2Type*)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
+    *p = $Arg2VarName;
+  }];
 
 // scalar types
 
@@ -133,6 +144,16 @@ OclBuiltinImpl intel_sub_group_block_read2_fake = OclBuiltinImpl<intel_sub_group
 OclBuiltinImpl intel_sub_group_block_read4_fake = OclBuiltinImpl<intel_sub_group_block_read4, sub_group_types_block_read_write_scalar, 0, BlockRead>;
 OclBuiltinImpl intel_sub_group_block_read8_fake = OclBuiltinImpl<intel_sub_group_block_read8, sub_group_types_block_read_write_scalar, 0, BlockRead>;
 
+
+OclBuiltinImpl intel_sub_group_block_read_img_fake  = OclBuiltinImpl<intel_sub_group_block_read_img,  sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read2_img_fake = OclBuiltinImpl<intel_sub_group_block_read2_img, sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read4_img_fake = OclBuiltinImpl<intel_sub_group_block_read4_img, sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read8_img_fake = OclBuiltinImpl<intel_sub_group_block_read8_img, sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+
+OclBuiltinImpl intel_sub_group_block_read_img_rw_fake  = OclBuiltinImpl<intel_sub_group_block_read_img_rw,  sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read2_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_read2_img_rw, sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read4_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_read4_img_rw, sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read8_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_read8_img_rw, sub_group_types_block_read_write_scalar, 0, BlockReadImg>;
 ///
 /// Block write
 ///
@@ -140,11 +161,19 @@ OclBuiltinImpl intel_sub_group_block_read8_fake = OclBuiltinImpl<intel_sub_group
 // scalar types
 
 OclBuiltinImpl intel_sub_group_block_write_fake = OclBuiltinImpl<intel_sub_group_block_write, sub_group_types_block_read_write_scalar, 0, BlockWrite>;
-
 OclBuiltinImpl intel_sub_group_block_write2_fake = OclBuiltinImpl<intel_sub_group_block_write2, sub_group_types_block_read_write_scalar, 0, BlockWriteS0>;
 OclBuiltinImpl intel_sub_group_block_write4_fake = OclBuiltinImpl<intel_sub_group_block_write4, sub_group_types_block_read_write_scalar, 0, BlockWriteS0>;
 OclBuiltinImpl intel_sub_group_block_write8_fake = OclBuiltinImpl<intel_sub_group_block_write8, sub_group_types_block_read_write_scalar, 0, BlockWriteS0>;
 
+OclBuiltinImpl intel_sub_group_block_write_img_fake = OclBuiltinImpl<intel_sub_group_block_write_img, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write2_img_fake = OclBuiltinImpl<intel_sub_group_block_write2_img, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write4_img_fake = OclBuiltinImpl<intel_sub_group_block_write4_img, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write8_img_fake = OclBuiltinImpl<intel_sub_group_block_write8_img, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+
+OclBuiltinImpl intel_sub_group_block_write_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write_img_rw, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write2_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write2_img_rw, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write4_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write4_img_rw, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write8_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write8_img_rw, sub_group_types_block_read_write_scalar, 0, BlockWriteImg>;
 //
 // Block read for uchar, ushort, uint, ulong
 //
@@ -159,3 +188,20 @@ OclBuiltinImpl intel_sub_group_block_write_us2_fake  = OclBuiltinImpl<intel_sub_
 OclBuiltinImpl intel_sub_group_block_write_us4_fake  = OclBuiltinImpl<intel_sub_group_block_write_us4, sub_group_types_block_read_write_scalar_us, 0, BlockWriteS0>;
 OclBuiltinImpl intel_sub_group_block_write_us8_fake  = OclBuiltinImpl<intel_sub_group_block_write_us8, sub_group_types_block_read_write_scalar_us, 0, BlockWriteS0>;
 
+OclBuiltinImpl intel_sub_group_block_read_us_img_fake  = OclBuiltinImpl<intel_sub_group_block_read_us_img, sub_group_types_block_read_write_scalar_us, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read_us2_img_fake = OclBuiltinImpl<intel_sub_group_block_read_us2_img, sub_group_types_block_read_write_scalar_us , 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read_us4_img_fake = OclBuiltinImpl<intel_sub_group_block_read_us4_img, sub_group_types_block_read_write_scalar_us , 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read_us8_img_fake = OclBuiltinImpl<intel_sub_group_block_read_us8_img, sub_group_types_block_read_write_scalar_us , 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_write_us_img_fake  = OclBuiltinImpl<intel_sub_group_block_write_us_img, sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write_us2_img_fake = OclBuiltinImpl<intel_sub_group_block_write_us2_img,sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write_us4_img_fake = OclBuiltinImpl<intel_sub_group_block_write_us4_img,sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write_us8_img_fake = OclBuiltinImpl<intel_sub_group_block_write_us8_img,sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+
+OclBuiltinImpl intel_sub_group_block_read_us_img_rw_fake  = OclBuiltinImpl<intel_sub_group_block_read_us_img_rw, sub_group_types_block_read_write_scalar_us, 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read_us2_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_read_us2_img_rw, sub_group_types_block_read_write_scalar_us , 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read_us4_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_read_us4_img_rw, sub_group_types_block_read_write_scalar_us , 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_read_us8_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_read_us8_img_rw, sub_group_types_block_read_write_scalar_us , 0, BlockReadImg>;
+OclBuiltinImpl intel_sub_group_block_write_us_img_rw_fake  = OclBuiltinImpl<intel_sub_group_block_write_us_img_rw, sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write_us2_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write_us2_img_rw,sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write_us4_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write_us4_img_rw,sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;
+OclBuiltinImpl intel_sub_group_block_write_us8_img_rw_fake = OclBuiltinImpl<intel_sub_group_block_write_us8_img_rw,sub_group_types_block_read_write_scalar_us , 0, BlockWriteImg>;

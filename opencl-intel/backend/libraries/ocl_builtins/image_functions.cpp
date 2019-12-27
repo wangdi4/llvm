@@ -228,6 +228,25 @@ __private void* __attribute__((overloadable)) __attribute__((const)) extract_pix
     return pixel;
 }
 
+__private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__read_only image2d_t image, int2 coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
+    // Use uint for pointer computations to avoid type overrun
+    __private void* pixel = (__private void*)pImage->pData+(uint)coord.x + (uint)coord.y * offset.y;
+    return pixel;
+}
+
+__private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__write_only image2d_t image, int2 coord)
+{
+    return extract_pixel_in_byte(__builtin_astype(image, __read_only image2d_t), coord);
+}
+
+__private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__read_write image2d_t image, int2 coord)
+{
+    return extract_pixel_in_byte(__builtin_astype(image, __read_only image2d_t), coord);
+}
+
 __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(__write_only image2d_t image, int2 coord)
 {
     return extract_pixel(__builtin_astype(image, __read_only image2d_t), coord);

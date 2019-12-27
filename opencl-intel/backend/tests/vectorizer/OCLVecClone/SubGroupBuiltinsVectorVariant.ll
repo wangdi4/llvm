@@ -3,11 +3,12 @@
 ; ModuleID = '<stdin>'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
-
+%opencl.image2d_ro_t.4 = type opaque
+%opencl.image2d_wo_t.5 = type opaque
 ; CHECK: declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #[[SCALAR_ALL_ATTR:.*]]
 
 ; Function Attrs: convergent nounwind
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !ocl_recommended_vector_length !15 {
+define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b, %opencl.image2d_ro_t.4 addrspace(1)* %c, %opencl.image2d_wo_t.5 addrspace(1)* %d) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !ocl_recommended_vector_length !15 {
 entry:
 ; CHECK-LABEL: vector.body
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, %vector.ph ], [ [[VEC_IND_NEXT:%.*]], %vector.body ]
@@ -91,6 +92,14 @@ entry:
   call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2)
 ; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j(i16 addrspace(1)* {{%.*}}, <8 x i16> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
+  %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %c, <2 x i32> <i32 0, i32 0>)
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer)
+   call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)* %d, <2 x i32> <i32 0, i32 0>, <2 x i32> <i32 4, i32 4>)
+; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i32> <i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>)
+  %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %c, <2 x i32> <i32 0, i32 0>)
+; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer)
+   call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)* %d, <2 x i32> <i32 0, i32 0>, <2 x i16> <i16 4, i16 4>)
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_t(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i16> <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>)
   %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
 ; CHECK: call <16 x i32> @_Z22intel_sub_group_ballotDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
@@ -175,6 +184,11 @@ declare void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)*, <2
 declare <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)*) local_unnamed_addr #1
 declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)*, <2 x i16>) local_unnamed_addr #1
 
+declare <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)*, <2 x i32>) local_unnamed_addr #1
+declare void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)*, <2 x i32>, <2 x i32>) local_unnamed_addr #1
+declare <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)*, <2 x i32>) local_unnamed_addr #1
+declare void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)*, <2 x i32>, <2 x i16>) local_unnamed_addr #1
+
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}
 attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false"  "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}
 attributes #2 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false"  "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}
@@ -204,5 +218,5 @@ attributes #4 = { convergent nounwind }
 !11 = !{!"int", !12, i64 0}
 !12 = !{!"omnipotent char", !13, i64 0}
 !13 = !{!"Simple C/C++ TBAA"}
-!14 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @a}
+!14 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, %opencl.image2d_ro_t.4 addrspace(1)*, %opencl.image2d_wo_t.5 addrspace(1)*)* @a}
 !15 = !{i32 4}
