@@ -3,6 +3,10 @@
 // RUN: %clangxx -fsycl-device-only -fsycl-unnamed-lambda -emit-llvm %s -DUSE_WRAPPER=1 -o %t2.bc
 // RUN: llvm-dis %t2.bc -o - | FileCheck %s
 
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// end INTEL_CUSTOMIZATION
+
 // Mangling of kernel lambda must be the same for both versions of half
 // CHECK: __unique_stable_name{{.*}} = private unnamed_addr constant [52 x i8] c"_ZTSN2cl4sycl6bufferINS0_4pairIDF16_NS0_5dummyEEEEE\00"
 
