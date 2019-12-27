@@ -51,6 +51,11 @@ static void removeOptReportField(MDTuple *OptReport, StringRef Key) {
                  return cast<MDString>(Name)->getString() != Key;
                });
 
+  // No need to modify OptReport if there's nothing to be removed (no \p Key
+  // field in the report).
+  if (OptReportImpl->getNumOperands() == Ops.size())
+    return;
+
   // Empty impl node doesn't need to be distinct (nothing to be modified
   // in-place with replaceOperandWith).
   LLVMContext &Context = OptReport->getContext();
