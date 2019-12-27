@@ -402,7 +402,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     // L0 spec defines only three dimensions
     SET_PARAM_VALUE(pi_uint32{3});
   }
-  else if (param_name == PI_DEVICE_MAX_WORK_GROUP_SIZE) {
+  else if (param_name == PI_DEVICE_INFO_MAX_WORK_GROUP_SIZE) {
     SET_PARAM_VALUE(pi_uint64{ze_device_compute_properties.maxTotalGroupSize});
   }
   else if (param_name == PI_DEVICE_MAX_WORK_ITEM_SIZES) {
@@ -466,7 +466,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
         std::to_string(ZE_DRIVER_MINOR_VERSION(ze_driver_version));
     SET_PARAM_VALUE_STR(driver_version.c_str());
   }
-  else if (param_name == PI_DEVICE_VERSION) {
+  else if (param_name == PI_DEVICE_INFO_VERSION) {
     std::string version = std::to_string(pi_cast<pi_uint32>(ze_device_properties.version));
     SET_PARAM_VALUE_STR(version.c_str());
   }
