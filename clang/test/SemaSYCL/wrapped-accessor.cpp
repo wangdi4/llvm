@@ -37,13 +37,7 @@ int main() {
 // CHECK: VarDecl {{.*}}'(lambda at {{.*}}wrapped-accessor.cpp{{.*}})'
 // CHECK-NEXT: InitListExpr
 // CHECK-NEXT: CXXConstructExpr {{.*}}AccWrapper<cl::sycl::accessor
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
 // CHECK-NEXT: ImplicitCastExpr {{.*}} 'const AccWrapper<cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer, cl::sycl::access::placeholder::false_t> >' lvalue <NoOp>
-// end INTEL_CUSTOMIZATION
-=======
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'const AccWrapper<cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer, cl::sycl::access::placeholder::false_t> >' lvalue <NoOp>
->>>>>>> 583ea7c338bc8ec8de1ebde4db6c3fe1fe4a755f
 // CHECK-NEXT: DeclRefExpr {{.*}} 'AccWrapper<cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer, cl::sycl::access::placeholder::false_t> >':'AccWrapper<cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer, cl::sycl::access::placeholder::false_t> >' lvalue ParmVar {{.*}} '_arg_' 'AccWrapper<cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer, cl::sycl::access::placeholder::false_t> >':'AccWrapper<cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::global_buffer, cl::sycl::access::placeholder::false_t> >'
 
 // Check that accessor field of the wrapper object is initialized using __init method
