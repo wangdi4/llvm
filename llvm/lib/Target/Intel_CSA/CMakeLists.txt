@@ -24,6 +24,7 @@ add_llvm_target(CSACodeGen
   CSAAllocUnitPass.cpp
   CSAAsmPrinter.cpp
   CSAAsmWrapOstream.cpp
+  CSABackedgeVerifier.cpp
   CSACreateSelfContainedGraph.cpp
   CSACvtCFDFPass.cpp
   CSADataflowCanonicalization.cpp
@@ -79,4 +80,3 @@ add_subdirectory(AsmParser)
 add_subdirectory(InstPrinter)
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
-add_subdirectory(FixupOmpEntries)

@@ -65,6 +65,11 @@ static cl::opt<bool>
                           cl::desc("CSA: Create Self Contained graphs."),
                           cl::init(false));
 
+static cl::opt<bool>
+    VerifyBackedges("csa-verify-backedges", cl::Hidden, cl::ZeroOrMore,
+                    cl::desc("CSA Specific: Verify a LIC with the csasim_backedge attribute does complete a cycle in the graph"),
+                    cl::init(false));
+
 bool csa_utils::isAlwaysDataFlowLinkageSet(void) {
   return AlwaysDataFlowLinkage;
 }
@@ -73,6 +78,9 @@ bool csa_utils::createSCG(void) {
   return CSACreateSCG;
 }
 
+bool csa_utils::verifyBackedges(void) {
+  return VerifyBackedges;
+}
 
 static MachineInstr *getPriorFormedInst(MachineInstr *currMI,
                                         MachineBasicBlock *mbb) {

@@ -172,6 +172,10 @@ void CSAMachineFunctionInfo::addLICAttribute(unsigned regno, const StringRef key
   getLICInfo(regno).attribs[key] = value;
 }
 
+void CSAMachineFunctionInfo::removeLICAttribute(unsigned regno, const StringRef key) const {
+  getLICInfo(regno).attribs.erase(key);
+}
+
 StringRef CSAMachineFunctionInfo::getLICAttribute(unsigned reg, StringRef key) const {
   if (getLICInfo(reg).attribs.count(key))
     return getLICInfo(reg).attribs[key];

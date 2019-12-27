@@ -173,6 +173,7 @@ public:
   /// Add key+value attribute to this LIC. The value is optional, the absence
   /// of which will generally be interpreted as a "1"/true.
   void addLICAttribute(unsigned reg, const StringRef key, const StringRef value = "") const;
+  void removeLICAttribute(unsigned regno, const StringRef key) const;
 
   /// Get an range-based iterator for the attributes currently set. These can
   /// be used to query the singular "getLICAttribute."

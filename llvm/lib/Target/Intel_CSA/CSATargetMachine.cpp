@@ -87,6 +87,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSACvtCFDFPassPass(PR);
   initializeCSADataflowCanonicalizationPassPass(PR);
   initializeCSADataflowVerifierPass(PR);
+  initializeCSABackedgeVerifierPass(PR);
   initializeCSADeadInstructionElimPass(PR);
   initializeCSAExpandInlineAsmPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
@@ -324,6 +325,10 @@ public:
         addPass(createCSACreateSelfContainedGraphPass(), false);
       else
         addPass(createCSAProcCallsPass(), false);
+    }
+
+    if (csa_utils::verifyBackedges()) {
+      addPass(createCSABackedgeVerifier(), false);
     }
   }
 

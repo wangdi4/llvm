@@ -25,6 +25,7 @@ void initializeCSAAllocUnitPassPass(PassRegistry &);
 void initializeCSACvtCFDFPassPass(PassRegistry &);
 void initializeCSADataflowCanonicalizationPassPass(PassRegistry &);
 void initializeCSADataflowVerifierPass(PassRegistry &);
+void initializeCSABackedgeVerifierPass(PassRegistry &);
 void initializeCSADeadInstructionElimPass(PassRegistry &);
 void initializeCSAExpandInlineAsmPass(PassRegistry &);
 void initializeCSAFortranIntrinsicsPass(PassRegistry &);
