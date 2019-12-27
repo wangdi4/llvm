@@ -1925,9 +1925,8 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       if (calleeName.contains("14ocl_image2d") &&
           calleeName.contains("intel_sub_group_block") &&
           argIndex == 1){
-        VectorType *curScalarArgVecType = static_cast<VectorType*>(curScalarArgType);
-        V_ASSERT(curScalarArgVecType->getNumElements() == 2 &&
-                 curScalarArgVecType->getElementType()->isIntegerTy(32) &&
+        V_ASSERT(curScalarArgType->getVectorNumElements() == 2 &&
+                 curScalarArgType->getVectorElementType()->isIntegerTy(32) &&
                  "The second argument must be byte coordinate for image block r/w");
         newArgs.push_back(curScalarArg);
       } else {
