@@ -23,6 +23,9 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Local.h"
+#endif // INTEL_CUSTOMIZATION
 
 #include <sstream>
 
@@ -463,7 +466,9 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
     assert(ArtificialEntry.getUniqueSuccessor() == PRegEntryBB);
     assert(PRegEntryBB->getUniquePredecessor() == &ArtificialEntry);
     PRegEntryBB->moveBefore(&ArtificialEntry);
-    ArtificialEntry.eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    llvm::MergeBasicBlockIntoOnlyPred(PRegEntryBB);
+#endif // INTEL_CUSTOMIZATION
   }
   LLVM_DEBUG(dbgs() << "PP Outlined function: " << *OutlinedFn << "\n");
   assert(&OutlinedFn->getEntryBlock() == PRegEntryBB);
