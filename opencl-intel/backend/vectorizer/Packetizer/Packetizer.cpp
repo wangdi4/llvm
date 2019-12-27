@@ -1929,6 +1929,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
         V_ASSERT(curScalarArgVecType->getNumElements() == 2 &&
                  curScalarArgVecType->getElementType()->isIntegerTy(32) &&
                  "The second argument must be byte coordinate for image block r/w");
+        (void)curScalarArgVecType; // INTEL
         newArgs.push_back(curScalarArg);
       } else {
         operand = handleParamSOAVPlanStyle(CI, curScalarArg);
