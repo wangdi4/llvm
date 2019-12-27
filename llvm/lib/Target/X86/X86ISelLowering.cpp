@@ -29596,27 +29596,24 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
   case ISD::SINT_TO_FP:
   case ISD::STRICT_SINT_TO_FP: {
     assert(Subtarget.hasDQI() && Subtarget.hasVLX() && "Requires AVX512DQVL!");
-<<<<<<< HEAD
-    SDValue Src = N->getOperand(0);
+    bool IsStrict = N->isStrictFPOpcode();
+    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     EVT VT = N->getSimpleValueType(0).getVectorElementType();
-    EVT NewVT = VT == MVT::f16 ? MVT::v8f16 : MVT::v4f32;
-    if (N->getValueType(0) == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
-      Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32,
-                        Src, DAG.getUNDEF(MVT::v2i32));
-    if (!isTypeLegal(Src.getValueType()))
+    if (VT == MVT::f16) {
+      assert(!IsStrict && "Strict FP not supported on FP16!");
+      if (N->getValueType(0) == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
+        Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32,
+                          Src, DAG.getUNDEF(MVT::v2i32));
+      if (!isTypeLegal(Src.getValueType()))
+        return;
+      Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, MVT::v8f16, Src));
       return;
-#else // INTEL_FEATURE_ISA_FP16
-    EVT NewVT = MVT::v4f32;
-    if (N->getValueType(0) != MVT::v2f32 || Src.getValueType() != MVT::v2i64)
-      return;
+    }
 #endif // INTEL_FEATURE_ISA_FP16
-    Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, NewVT, Src));
 #endif // INTEL_CUSTOMIZATION
-=======
-    bool IsStrict = N->isStrictFPOpcode();
-    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
+
     if (N->getValueType(0) != MVT::v2f32 || Src.getValueType() != MVT::v2i64)
       return;
     if (IsStrict) {
@@ -29628,7 +29625,6 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     } else {
       Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, MVT::v4f32, Src));
     }
->>>>>>> 4e6b0dd6818796b584a9c97f677d6d7e92e4b1c2
     return;
   }
   case ISD::UINT_TO_FP:
@@ -29637,7 +29633,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     bool IsStrict = N->isStrictFPOpcode();
     EVT VT = N->getValueType(0);
 #if INTEL_CUSTOMIZATION
-    SDValue Src = N->getOperand(0);
+    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
 #if INTEL_FEATURE_ISA_FP16
     if (VT.getVectorElementType() == MVT::f16
         && Subtarget.hasFP16() && Subtarget.hasVLX()) {
@@ -29650,11 +29646,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 #endif // INTEL_FEATURE_ISA_FP16
     if (VT != MVT::v2f32)
       return;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
-    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
->>>>>>> 4e6b0dd6818796b584a9c97f677d6d7e92e4b1c2
     EVT SrcVT = Src.getValueType();
     if (Subtarget.hasDQI() && Subtarget.hasVLX() && SrcVT == MVT::v2i64) {
       if (IsStrict) {
