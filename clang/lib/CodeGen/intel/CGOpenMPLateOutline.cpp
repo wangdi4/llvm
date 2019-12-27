@@ -1131,16 +1131,16 @@ void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
 void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_proc_bind);
   switch (Cl->getProcBindKind()) {
-  case OMPC_PROC_BIND_master:
+  case OMP_PROC_BIND_master:
     addArg("QUAL.OMP.PROC_BIND.MASTER");
     break;
-  case OMPC_PROC_BIND_close:
+  case OMP_PROC_BIND_close:
     addArg("QUAL.OMP.PROC_BIND.CLOSE");
     break;
-  case OMPC_PROC_BIND_spread:
+  case OMP_PROC_BIND_spread:
     addArg("QUAL.OMP.PROC_BIND.SPREAD");
     break;
-  case OMPC_PROC_BIND_unknown:
+  case OMP_PROC_BIND_unknown:
     llvm_unreachable("Unknown proc_bind clause");
   }
 }
