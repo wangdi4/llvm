@@ -29769,9 +29769,9 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
   }
   case ISD::STRICT_FP_ROUND:
   case ISD::FP_ROUND: {
-<<<<<<< HEAD
+    bool IsStrict = N->isStrictFPOpcode();
+    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
 #if INTEL_CUSTOMIZATION
-    SDValue Src = N->getOperand(0);
 #if INTEL_FEATURE_ISA_FP16
     EVT VT = N->getValueType(0);
     EVT NewVT = VT.getVectorElementType() == MVT::f16 ? MVT::v8f16
@@ -29784,23 +29784,16 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 #endif // INTEL_FEATURE_ISA_FP16
     if (!isTypeLegal(Src.getValueType()))
       return;
-    Results.push_back(DAG.getNode(X86ISD::VFPROUND, dl, NewVT, Src));
-#endif // INTEL_CUSTOMIZATION
-=======
-    bool IsStrict = N->isStrictFPOpcode();
-    SDValue Src = N->getOperand(IsStrict ? 1 : 0);
-    if (!isTypeLegal(Src.getValueType()))
-      return;
     SDValue V;
     if (IsStrict)
-      V = DAG.getNode(X86ISD::STRICT_VFPROUND, dl, {MVT::v4f32, MVT::Other},
-                      {N->getOperand(0), N->getOperand(1)});
+      V = DAG.getNode(X86ISD::STRICT_VFPROUND, dl, {NewVT, MVT::Other},
+                      {N->getOperand(0), Src});
     else
-      V = DAG.getNode(X86ISD::VFPROUND, dl, MVT::v4f32, N->getOperand(0));
+      V = DAG.getNode(X86ISD::VFPROUND, dl, NewVT, Src);
+#endif // INTEL_CUSTOMIZATION
     Results.push_back(V);
     if (IsStrict)
       Results.push_back(V.getValue(1));
->>>>>>> 1a7b69f5dd32980a7e0b0841a99dc65b2b887203
     return;
   }
   case ISD::FP_EXTEND: {
