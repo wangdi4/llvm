@@ -216,6 +216,7 @@ public:
                         MacroBuilder &Builder) const override;
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 class LLVM_LIBRARY_VISIBILITY SPIR32INTELFpgaTargetInfo
     : public SPIR32TargetInfo {
@@ -274,13 +275,42 @@ public:
       : WindowsX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts) {}
 };
 #endif // INTEL_CUSTOMIZATION
+=======
+class LLVM_LIBRARY_VISIBILITY SPIR32SYCLDeviceTargetInfo
+    : public SPIR32TargetInfo {
+public:
+  SPIR32SYCLDeviceTargetInfo(const llvm::Triple &Triple,
+                             const TargetOptions &Opts)
+      : SPIR32TargetInfo(Triple, Opts) {
+    // This is workaround for exception_ptr class.
+    // Exceptions is not allowed in sycl device code but we should be able
+    // to parse host code. So we allow compilation of exception_ptr but
+    // if exceptions are used in device code we should emit a diagnostic.
+    MaxAtomicInlineWidth = 32;
+  }
+};
+
+class LLVM_LIBRARY_VISIBILITY SPIR64SYCLDeviceTargetInfo
+    : public SPIR64TargetInfo {
+public:
+  SPIR64SYCLDeviceTargetInfo(const llvm::Triple &Triple,
+                             const TargetOptions &Opts)
+      : SPIR64TargetInfo(Triple, Opts) {
+    // This is workaround for exception_ptr class.
+    // Exceptions is not allowed in sycl device code but we should be able
+    // to parse host code. So we allow compilation of exception_ptr but
+    // if exceptions are used in device code we should emit a diagnostic.
+    MaxAtomicInlineWidth = 64;
+  }
+};
+>>>>>>> 2da19332759b544facf3f50b1ee2ee94d82e7e52
 
 // x86-32 SPIR Windows target
 class LLVM_LIBRARY_VISIBILITY WindowsX86_32SPIRTargetInfo
-    : public WindowsTargetInfo<SPIR32TargetInfo> {
+    : public WindowsTargetInfo<SPIR32SYCLDeviceTargetInfo> {
 public:
   WindowsX86_32SPIRTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : WindowsTargetInfo<SPIR32TargetInfo>(Triple, Opts) {
+      : WindowsTargetInfo<SPIR32SYCLDeviceTargetInfo>(Triple, Opts) {
     DoubleAlign = LongLongAlign = 64;
     WCharType = UnsignedShort;
   }
@@ -334,10 +364,10 @@ public:
 
 // x86-64 SPIR64 Windows target
 class LLVM_LIBRARY_VISIBILITY WindowsX86_64_SPIR64TargetInfo
-    : public WindowsTargetInfo<SPIR64TargetInfo> {
+    : public WindowsTargetInfo<SPIR64SYCLDeviceTargetInfo> {
 public:
   WindowsX86_64_SPIR64TargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : WindowsTargetInfo<SPIR64TargetInfo>(Triple, Opts) {
+      : WindowsTargetInfo<SPIR64SYCLDeviceTargetInfo>(Triple, Opts) {
     LongWidth = LongAlign = 32;
     DoubleAlign = LongLongAlign = 64;
     IntMaxType = SignedLongLong;
