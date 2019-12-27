@@ -23,6 +23,7 @@
 #include "MemoryObject.h"
 
 #include <CL/cl.h>
+#include <CL/cl_cmd_ext.h>
 #include <cl_types.h>
 #include <cl_device_api.h>
 #include <Logger.h>

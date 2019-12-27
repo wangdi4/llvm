@@ -116,7 +116,6 @@ protected:
     cl_context       m_context;
     cl_command_queue m_queue;
     cl_program       m_program;
-    clSetProgramSpecializationConstant_fn m_clSetProgramSpecializationConstant_fn;
     cl_int iRet = CL_SUCCESS;
 
     // The test variables. During execution of the tests the constant values
@@ -159,12 +158,6 @@ protected:
         m_queue =
             clCreateCommandQueueWithProperties(m_context, m_device, NULL, &iRet);
         ASSERT_OCL_SUCCESS(iRet, "clCreateCommandQueueWithProperties");
-
-        m_clSetProgramSpecializationConstant_fn =
-           (clSetProgramSpecializationConstant_fn)
-             clGetExtensionFunctionAddressForPlatform(m_platform,
-                      "clSetProgramSpecializationConstant");
-        ASSERT_NE(m_clSetProgramSpecializationConstant_fn, nullptr);
 
         std::ifstream spirv_file(get_exe_dir() + "spec_const.spv", std::fstream::binary);
         std::vector<char> spirv(std::istreambuf_iterator<char>{spirv_file}, {});
@@ -210,7 +203,7 @@ protected:
 
     template<typename T>
     void setSpecConst(unsigned id, T* val) {
-        iRet = m_clSetProgramSpecializationConstant_fn(m_program, id, sizeof(T), val);
+        iRet = clSetProgramSpecializationConstant(m_program, id, sizeof(T), val);
         ASSERT_OCL_SUCCESS(iRet, "clSetProgramSpecializationConstant");
     }
 
@@ -330,23 +323,23 @@ TEST_F(SpecializationConstant, Negative)
 {
     // program is not a valid program object created from a module in an
     // intermediate format (e.g. SPIR-V).
-    iRet = m_clSetProgramSpecializationConstant_fn(nullptr, 103, sizeof(int), &i);
+    iRet = clSetProgramSpecializationConstant(nullptr, 103, sizeof(int), &i);
     ASSERT_EQ(CL_INVALID_PROGRAM, iRet) << " clSetProgramSpecializationConstant returned wrong value. ";
 
     // spec_id is not a valid specialization constant ID
-    iRet = m_clSetProgramSpecializationConstant_fn(m_program, 555, sizeof(int), &i);
+    iRet = clSetProgramSpecializationConstant(m_program, 555, sizeof(int), &i);
     ASSERT_EQ(CL_INVALID_SPEC_ID, iRet) << " clSetProgramSpecializationConstant returned wrong value. ";
 
     // spec_size does not match the size of the specialization constant in the module
-    iRet = m_clSetProgramSpecializationConstant_fn(m_program, 101, sizeof(int), &i);
+    iRet = clSetProgramSpecializationConstant(m_program, 101, sizeof(int), &i);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clSetProgramSpecializationConstant returned wrong value. ";
 
     // 0 doesn't match the size of the int type
-    iRet = m_clSetProgramSpecializationConstant_fn(m_program, 103, 0, &i);
+    iRet = clSetProgramSpecializationConstant(m_program, 103, 0, &i);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clSetProgramSpecializationConstant returned wrong value. ";
 
     // spec_value is NULL
-    iRet = m_clSetProgramSpecializationConstant_fn(m_program, 103, sizeof(int), nullptr);
+    iRet = clSetProgramSpecializationConstant(m_program, 103, sizeof(int), nullptr);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clSetProgramSpecializationConstant returned wrong value. ";
 }
 

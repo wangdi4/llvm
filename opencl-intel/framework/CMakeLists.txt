@@ -24,7 +24,7 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export
         ${CL_API_HEADERS}
-        ${CMAKE_CURRENT_SOURCE_DIR}/icd
+        ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader/loader
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
@@ -37,8 +37,6 @@ include_directories ( BEFORE
 if (USE_ITT_INTERNAL)
 	add_definitions (-DUSE_ITT_INTERNAL)
 endif()
-
-add_subdirectory( icd )
 
 # these sub-directories must be added here in order to recieve the ITT definitions
 add_subdirectory( Platform )

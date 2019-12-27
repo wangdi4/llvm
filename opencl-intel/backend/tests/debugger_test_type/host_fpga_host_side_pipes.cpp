@@ -14,6 +14,7 @@
 
 #include "host_program_common.h"
 #include "test_utils.h"
+#include <CL/cl_fpga_ext.h>
 #include <stdexcept>
 
 #define CHECK(success, message)                 \

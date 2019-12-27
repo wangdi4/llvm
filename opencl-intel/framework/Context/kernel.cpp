@@ -31,7 +31,7 @@
 #include <Device.h>
 #include <assert.h>
 #include <cl_utils.h>
-#include <CL/cl_ext.h>
+#include <CL/cl_fpga_ext.h>
 
 
 using namespace Intel::OpenCL::Utils;

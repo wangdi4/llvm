@@ -17,6 +17,7 @@
 #include "cl_sys_defines.h"
 #include "cl_linux_utils.h"
 #include "cl_types.h"
+#include <CL/cl_ext_intel.h>
 #include <icd_dispatch.h>
 #include <string>
 #include <map>
@@ -227,7 +228,7 @@ struct SOCLCRTDispatchTable
 
 struct ocl_entry_points
 {
-    KHRicdVendorDispatch*                           icdDispatch;
+    cl_icd_dispatch*                                icdDispatch;
     SOCLCRTDispatchTable*                           crtDispatch;
 };
 
@@ -239,7 +240,7 @@ struct _crt_dispatch
 struct _cl_object : public _crt_dispatch
 {    
 	void * object;
-	KHRicdVendorDispatch *dispatch;
+	cl_icd_dispatch *dispatch;
 };
 
 struct _cl_platform_id_int : public _cl_platform_id, public _crt_dispatch

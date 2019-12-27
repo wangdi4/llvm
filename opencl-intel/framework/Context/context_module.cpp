@@ -22,6 +22,7 @@
 #include "ocl_itt.h"
 #include <platform_module.h>
 #include <Device.h>
+#include <CL/cl_fpga_ext.h>
 #include <cl_objects_map.h>
 #include <cl_utils.h>
 #include <assert.h>
