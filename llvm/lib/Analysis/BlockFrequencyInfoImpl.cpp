@@ -465,20 +465,38 @@ static void convertFloatingToInteger(BlockFrequencyInfoImplBase &BFI,
   // frequencies are scaled down to 1, making it impossible to differentiate
   // small, unequal numbers. When the spread between Min and Max frequencies
   // fits well within MaxBits, we make the scale be at least 8.
+#if INTEL_CUSTOMIZATION
+  const int MaxBits = 64;
+  int SpreadBits = (Max / Min).lg();
+#else // INTEL_CUSTOMIZATION
   const unsigned MaxBits = 64;
   const unsigned SpreadBits = (Max / Min).lg();
+#endif // INTEL_CUSTOMIZATION
+
   Scaled64 ScalingFactor;
   if (SpreadBits <= MaxBits - 3) {
     // If the values are small enough, make the scaling factor at least 8 to
     // allow distinguishing small values.
     ScalingFactor = Min.inverse();
     ScalingFactor <<= 3;
+#if INTEL_CUSTOMIZATION
+    SpreadBits += 3;
+#endif // INTEL_CUSTOMIZATION
   } else {
     // If the values need more than MaxBits to be represented, saturate small
     // frequency values down to 1 by using a scaling factor that benefits large
     // frequency values.
     ScalingFactor = Scaled64(1, MaxBits) / Max;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Some thresholds or registers' weight will overflow
+  // if the frequncy is too big.
+  int Shift = SpreadBits - (MaxBits - 7);
+  Shift = std::max(0, Shift);
+  Shift = std::min(7, Shift);
+  ScalingFactor >>= Shift;
+#endif // INTEL_CUSTOMIZATION
 
   // Translate the floats to integers.
   LLVM_DEBUG(dbgs() << "float-to-int: min = " << Min << ", max = " << Max

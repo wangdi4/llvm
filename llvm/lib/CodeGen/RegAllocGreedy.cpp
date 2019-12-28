@@ -2844,8 +2844,13 @@ void RAGreedy::aboutToRemoveInterval(LiveInterval &LI) {
 void RAGreedy::initializeCSRCost() {
   // We use the larger one out of the command-line option and the value report
   // by TRI.
+#if INTEL_CUSTOMIZATION
+  CSRCost = BlockFrequency(
+      std::max((unsigned)CSRFirstTimeCost, TRI->getCSRFirstUseCost(*MF)));
+#else // INTEL_CUSTOMIZATION
   CSRCost = BlockFrequency(
       std::max((unsigned)CSRFirstTimeCost, TRI->getCSRFirstUseCost()));
+#endif // INTEL_CUSTOMIZATION
   if (!CSRCost.getFrequency())
     return;
 
