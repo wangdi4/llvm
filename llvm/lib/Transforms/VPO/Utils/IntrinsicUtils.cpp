@@ -216,7 +216,8 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   if (AI && AI->isArrayAllocation())
     Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
 
-  return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
+  return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
+                                    MaybeAlign(Align), Size);
 }
 #if INTEL_CUSTOMIZATION
 

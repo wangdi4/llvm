@@ -16,8 +16,10 @@
 #include "CGOpenMPLateOutline.h"
 #include "CGOpenMPRuntime.h"
 #include "CGCleanup.h"
+#include "clang/AST/Attr.h"
 using namespace clang;
 using namespace CodeGen;
+using namespace llvm::omp;
 
 llvm::Value *
 OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
@@ -774,7 +776,7 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
     if (IsRef)
       CSB.setByRef();
 #if INTEL_CUSTOMIZATION
-    if (Cl->isConditional())
+    if (Cl->getKind() == OMPC_LASTPRIVATE_conditional)
       CSB.setConditional();
 #endif // INTEL_CUSTOMIZATION
     addArg(CSB.getString());
@@ -1129,16 +1131,18 @@ void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
 void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_proc_bind);
   switch (Cl->getProcBindKind()) {
-  case OMPC_PROC_BIND_master:
+  case OMP_PROC_BIND_master:
     addArg("QUAL.OMP.PROC_BIND.MASTER");
     break;
-  case OMPC_PROC_BIND_close:
+  case OMP_PROC_BIND_close:
     addArg("QUAL.OMP.PROC_BIND.CLOSE");
     break;
-  case OMPC_PROC_BIND_spread:
+  case OMP_PROC_BIND_spread:
     addArg("QUAL.OMP.PROC_BIND.SPREAD");
     break;
-  case OMPC_PROC_BIND_unknown:
+  case OMP_PROC_BIND_default:
+    break;
+  case OMP_PROC_BIND_unknown:
     llvm_unreachable("Unknown proc_bind clause");
   }
 }
@@ -1516,6 +1520,7 @@ void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
+void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can

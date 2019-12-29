@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.4.3)
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+  cmake_minimum_required(VERSION 3.13)
+endif()
 
 if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
@@ -40,7 +43,7 @@ if (WIN32)
   add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 endif()
 
-if (NOT LLDB_DISABLE_PYTHON)
+if (LLDB_ENABLE_PYTHON)
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE}
         -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib(True, False, ''))"
@@ -50,7 +53,9 @@ if (NOT LLDB_DISABLE_PYTHON)
   file(TO_CMAKE_PATH ${LLDB_PYTHON_DEFAULT_RELATIVE_PATH} LLDB_PYTHON_DEFAULT_RELATIVE_PATH)
   set(LLDB_PYTHON_RELATIVE_PATH ${LLDB_PYTHON_DEFAULT_RELATIVE_PATH}
     CACHE STRING "Path where Python modules are installed, relative to install prefix")
+endif ()
 
+if (LLDB_ENABLE_PYTHON OR LLDB_ENABLE_LUA)
   add_subdirectory(scripts)
 endif ()
 
@@ -91,7 +96,7 @@ if(LLDB_INCLUDE_TESTS)
   add_subdirectory(utils/lldb-dotest)
 endif()
 
-if (NOT LLDB_DISABLE_PYTHON)
+if (LLDB_ENABLE_PYTHON)
   get_target_property(lldb_scripts_dir swig_wrapper BINARY_DIR)
 
   if(LLDB_BUILD_FRAMEWORK)

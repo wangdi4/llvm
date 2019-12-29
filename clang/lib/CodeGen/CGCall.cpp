@@ -22,16 +22,18 @@
 #include "intel/CGOpenMPLateOutline.h"
 #endif // INTEL_COLLAB
 #include "TargetInfo.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/Basic/CodeGenOptions.h"
+#include "clang/Basic/LangOptions.h" // INTEL
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/SwiftCallingConv.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/ADT/StringSet.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
@@ -39,12 +41,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#if INTEL_CUSTOMIZATION
-// CQ381541: IMF attributes support
-#include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/StringSet.h"
-#endif // INTEL_CUSTOMIZATION
-
+#include "llvm/Transforms/Utils/Local.h"
 using namespace clang;
 using namespace CodeGen;
 
@@ -1911,17 +1908,20 @@ void CodeGenModule::ConstructAttributeList(
         if (Fn->isNoReturn())
           FuncAttrs.addAttribute(llvm::Attribute::NoReturn);
 
-        if (const auto *NBA = TargetDecl->getAttr<NoBuiltinAttr>()) {
-          bool HasWildcard = llvm::is_contained(NBA->builtinNames(), "*");
-          if (HasWildcard)
-            FuncAttrs.addAttribute("no-builtins");
-          else
-            for (StringRef BuiltinName : NBA->builtinNames()) {
-              SmallString<32> AttributeName;
-              AttributeName += "no-builtin-";
-              AttributeName += BuiltinName;
-              FuncAttrs.addAttribute(AttributeName);
-            }
+        const auto *NBA = Fn->getAttr<NoBuiltinAttr>();
+        bool HasWildcard = NBA && llvm::is_contained(NBA->builtinNames(), "*");
+        if (getLangOpts().NoBuiltin || HasWildcard)
+          FuncAttrs.addAttribute("no-builtins");
+        else {
+          auto AddNoBuiltinAttr = [&FuncAttrs](StringRef BuiltinName) {
+            SmallString<32> AttributeName;
+            AttributeName += "no-builtin-";
+            AttributeName += BuiltinName;
+            FuncAttrs.addAttribute(AttributeName);
+          };
+          llvm::for_each(getLangOpts().NoBuiltinFuncs, AddNoBuiltinAttr);
+          if (NBA)
+            llvm::for_each(NBA->builtinNames(), AddNoBuiltinAttr);
         }
       }
     }
@@ -4068,9 +4068,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           auto LV = I->getKnownLValue();
           auto AS = LV.getAddressSpace();
 
-          if ((!ArgInfo.getIndirectByVal() &&
-               (LV.getAlignment() >=
-                getContext().getTypeAlignInChars(I->Ty)))) {
+          if (!ArgInfo.getIndirectByVal() ||
+              (LV.getAlignment() < getContext().getTypeAlignInChars(I->Ty))) {
             NeedCopy = true;
           }
           if (!getLangOpts().OpenCL) {

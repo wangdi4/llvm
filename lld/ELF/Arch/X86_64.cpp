@@ -33,8 +33,8 @@ public:
   void writeGotPltHeader(uint8_t *buf) const override;
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
   void writePltHeader(uint8_t *buf) const override;
-  void writePlt(uint8_t *buf, uint64_t gotPltEntryAddr, uint64_t pltEntryAddr,
-                int32_t index, unsigned relOff) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
   void relocateOne(uint8_t *loc, RelType type, uint64_t val) const override;
 
   RelExpr adjustRelaxExpr(RelType type, const uint8_t *data,
@@ -61,8 +61,9 @@ X86_64::X86_64() {
   tlsGotRel = R_X86_64_TPOFF64;
   tlsModuleIndexRel = R_X86_64_DTPMOD64;
   tlsOffsetRel = R_X86_64_DTPOFF64;
-  pltEntrySize = 16;
   pltHeaderSize = 16;
+  pltEntrySize = 16;
+  ipltEntrySize = 16;
   trapInstr = {0xcc, 0xcc, 0xcc, 0xcc}; // 0xcc = INT3
 
   // Align to the large page size (known as a superpage or huge page).
@@ -157,9 +158,8 @@ void X86_64::writePltHeader(uint8_t *buf) const {
   write32le(buf + 8, gotPlt - plt + 4); // GOTPLT+16
 }
 
-void X86_64::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
-                      uint64_t pltEntryAddr, int32_t index,
-                      unsigned relOff) const {
+void X86_64::writePlt(uint8_t *buf, const Symbol &sym,
+                      uint64_t pltEntryAddr) const {
   const uint8_t inst[] = {
       0xff, 0x25, 0, 0, 0, 0, // jmpq *got(%rip)
       0x68, 0, 0, 0, 0,       // pushq <relocation index>
@@ -167,9 +167,9 @@ void X86_64::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
   };
   memcpy(buf, inst, sizeof(inst));
 
-  write32le(buf + 2, gotPltEntryAddr - pltEntryAddr - 6);
-  write32le(buf + 7, index);
-  write32le(buf + 12, -pltHeaderSize - pltEntrySize * index - 16);
+  write32le(buf + 2, sym.getGotPltVA() - pltEntryAddr - 6);
+  write32le(buf + 7, sym.pltIndex);
+  write32le(buf + 12, in.plt->getVA() - pltEntryAddr - 16);
 }
 
 RelType X86_64::getDynRel(RelType type) const {
@@ -578,8 +578,8 @@ class IntelCET : public X86_64 {
 public:
   IntelCET();
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
-  void writePlt(uint8_t *buf, uint64_t gotPltEntryAddr, uint64_t pltEntryAddr,
-                int32_t index, unsigned relOff) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
   void writeIBTPlt(uint8_t *buf, size_t numEntries) const override;
 
   enum { IBTPltHeaderSize = 16 };
@@ -594,16 +594,15 @@ void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
   write64le(buf, va);
 }
 
-void IntelCET::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
-                        uint64_t pltEntryAddr, int32_t index,
-                        unsigned relOff) const {
+void IntelCET::writePlt(uint8_t *buf, const Symbol &sym,
+                        uint64_t pltEntryAddr) const {
   const uint8_t inst[] = {
       0xf3, 0x0f, 0x1e, 0xfa,       // endbr64
       0xff, 0x25, 0,    0,    0, 0, // jmpq *got(%rip)
       0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
   };
   memcpy(buf, inst, sizeof(inst));
-  write32le(buf + 6, gotPltEntryAddr - pltEntryAddr - 10);
+  write32le(buf + 6, sym.getGotPltVA() - pltEntryAddr - 10);
 }
 
 void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
@@ -641,8 +640,8 @@ public:
   Retpoline();
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
   void writePltHeader(uint8_t *buf) const override;
-  void writePlt(uint8_t *buf, uint64_t gotPltEntryAddr, uint64_t pltEntryAddr,
-                int32_t index, unsigned relOff) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
 };
 
 class RetpolineZNow : public X86_64 {
@@ -650,14 +649,15 @@ public:
   RetpolineZNow();
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override {}
   void writePltHeader(uint8_t *buf) const override;
-  void writePlt(uint8_t *buf, uint64_t gotPltEntryAddr, uint64_t pltEntryAddr,
-                int32_t index, unsigned relOff) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
 };
 } // namespace
 
 Retpoline::Retpoline() {
   pltHeaderSize = 48;
   pltEntrySize = 32;
+  ipltEntrySize = 32;
 }
 
 void Retpoline::writeGotPlt(uint8_t *buf, const Symbol &s) const {
@@ -686,9 +686,8 @@ void Retpoline::writePltHeader(uint8_t *buf) const {
   write32le(buf + 9, gotPlt - plt - 13 + 16);
 }
 
-void Retpoline::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
-                         uint64_t pltEntryAddr, int32_t index,
-                         unsigned relOff) const {
+void Retpoline::writePlt(uint8_t *buf, const Symbol &sym,
+                         uint64_t pltEntryAddr) const {
   const uint8_t insn[] = {
       0x4c, 0x8b, 0x1d, 0, 0, 0, 0, // 0:  mov foo@GOTPLT(%rip), %r11
       0xe8, 0,    0,    0,    0,    // 7:  callq plt+0x20
@@ -699,18 +698,19 @@ void Retpoline::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
   };
   memcpy(buf, insn, sizeof(insn));
 
-  uint64_t off = pltHeaderSize + pltEntrySize * index;
+  uint64_t off = pltEntryAddr - in.plt->getVA();
 
-  write32le(buf + 3, gotPltEntryAddr - pltEntryAddr - 7);
+  write32le(buf + 3, sym.getGotPltVA() - pltEntryAddr - 7);
   write32le(buf + 8, -off - 12 + 32);
   write32le(buf + 13, -off - 17 + 18);
-  write32le(buf + 18, index);
+  write32le(buf + 18, sym.pltIndex);
   write32le(buf + 23, -off - 27);
 }
 
 RetpolineZNow::RetpolineZNow() {
   pltHeaderSize = 32;
   pltEntrySize = 16;
+  ipltEntrySize = 16;
 }
 
 void RetpolineZNow::writePltHeader(uint8_t *buf) const {
@@ -729,9 +729,8 @@ void RetpolineZNow::writePltHeader(uint8_t *buf) const {
   memcpy(buf, insn, sizeof(insn));
 }
 
-void RetpolineZNow::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
-                             uint64_t pltEntryAddr, int32_t index,
-                             unsigned relOff) const {
+void RetpolineZNow::writePlt(uint8_t *buf, const Symbol &sym,
+                             uint64_t pltEntryAddr) const {
   const uint8_t insn[] = {
       0x4c, 0x8b, 0x1d, 0,    0, 0, 0, // mov foo@GOTPLT(%rip), %r11
       0xe9, 0,    0,    0,    0,       // jmp plt+0
@@ -739,8 +738,8 @@ void RetpolineZNow::writePlt(uint8_t *buf, uint64_t gotPltEntryAddr,
   };
   memcpy(buf, insn, sizeof(insn));
 
-  write32le(buf + 3, gotPltEntryAddr - pltEntryAddr - 7);
-  write32le(buf + 8, -pltHeaderSize - pltEntrySize * index - 12);
+  write32le(buf + 3, sym.getGotPltVA() - pltEntryAddr - 7);
+  write32le(buf + 8, in.plt->getVA() - pltEntryAddr - 12);
 }
 
 static TargetInfo *getTargetInfo() {

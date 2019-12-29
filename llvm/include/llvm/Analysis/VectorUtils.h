@@ -181,7 +181,7 @@ class SCEV; // INTEL
 class Attribute; // INTEL
 
 namespace Intrinsic {
-enum ID : unsigned;
+typedef unsigned ID;
 }
 
 /// Identify if the intrinsic is trivially vectorizable.

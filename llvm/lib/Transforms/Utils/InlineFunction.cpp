@@ -1354,7 +1354,8 @@ static void HandleByValArgumentInit(Value *Dst, Value *Src, Module *M,
   // Always generate a memcpy of alignment 1 here because we don't know
   // the alignment of the src pointer.  Other optimizations can infer
   // better alignment.
-  Builder.CreateMemCpy(Dst, /*DstAlign*/1, Src, /*SrcAlign*/1, Size);
+  Builder.CreateMemCpy(Dst, /*DstAlign*/ Align::None(), Src,
+                       /*SrcAlign*/ Align::None(), Size);
 }
 
 /// When inlining a call site that has a byval argument,
@@ -1575,7 +1576,7 @@ static void updateCallerBFI(BasicBlock *CallSiteBlock,
                             BlockFrequencyInfo *CalleeBFI,
                             const BasicBlock &CalleeEntryBlock) {
   SmallPtrSet<BasicBlock *, 16> ClonedBBs;
-  for (auto const &Entry : VMap) {
+  for (auto Entry : VMap) {
     if (!isa<BasicBlock>(Entry.first) || !Entry.second)
       continue;
     auto *OrigBB = cast<BasicBlock>(Entry.first);
@@ -1784,7 +1785,7 @@ void llvm::updateProfileCallee(
   // During inlining ?
   if (VMap) {
     uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
-    for (auto const &Entry : *VMap) { // INTEL
+    for (auto Entry : *VMap) { // INTEL
 #if INTEL_CUSTOMIZATION
       // Update intel_profx metadata, which can be on CallInst or InvokeInst
       if (isa<CallBase>(Entry.first))

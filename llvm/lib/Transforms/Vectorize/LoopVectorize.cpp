@@ -59,8 +59,8 @@
 #include "VPRecipeBuilder.h"
 #include "VPlan.h"
 #include "VPlanHCFGBuilder.h"
-#include "VPlanHCFGTransforms.h"
 #include "VPlanPredicator.h"
+#include "VPlanTransforms.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -532,6 +532,9 @@ protected:
   /// Fix a reduction cross-iteration phi. This is the second phase of
   /// vectorizing this phi node.
   void fixReduction(PHINode *Phi);
+
+  /// Clear NSW/NUW flags from reduction instructions if necessary.
+  void clearReductionWrapFlags(RecurrenceDescriptor &RdxDesc);
 
   /// The Loop exit block may have single value PHI nodes with some
   /// incoming value. While vectorizing we only handled real values
@@ -1212,14 +1215,14 @@ public:
 
   /// Returns true if the target machine supports masked scatter operation
   /// for the given \p DataType.
-  bool isLegalMaskedScatter(Type *DataType) {
-    return TTI.isLegalMaskedScatter(DataType);
+  bool isLegalMaskedScatter(Type *DataType, MaybeAlign Alignment) {
+    return TTI.isLegalMaskedScatter(DataType, Alignment);
   }
 
   /// Returns true if the target machine supports masked gather operation
   /// for the given \p DataType.
-  bool isLegalMaskedGather(Type *DataType) {
-    return TTI.isLegalMaskedGather(DataType);
+  bool isLegalMaskedGather(Type *DataType, MaybeAlign Alignment) {
+    return TTI.isLegalMaskedGather(DataType, Alignment);
   }
 
   /// Returns true if the target machine can represent \p V as a masked gather
@@ -1230,7 +1233,9 @@ public:
     if (!LI && !SI)
       return false;
     auto *Ty = getMemInstValueType(V);
-    return (LI && isLegalMaskedGather(Ty)) || (SI && isLegalMaskedScatter(Ty));
+    MaybeAlign Align = getLoadStoreAlignment(V);
+    return (LI && isLegalMaskedGather(Ty, Align)) ||
+           (SI && isLegalMaskedScatter(Ty, Align));
   }
 
   /// Returns true if \p I is an instruction that will be scalarized with
@@ -3558,17 +3563,27 @@ void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
   // among all unrolled iterations, due to the order of their construction.
   Value *PreviousLastPart = getOrCreateVectorValue(Previous, UF - 1);
 
-  // Set the insertion point after the previous value if it is an instruction.
+  // Find and set the insertion point after the previous value if it is an
+  // instruction.
+  BasicBlock::iterator InsertPt;
   // Note that the previous value may have been constant-folded so it is not
-  // guaranteed to be an instruction in the vector loop. Also, if the previous
-  // value is a phi node, we should insert after all the phi nodes to avoid
-  // breaking basic block verification.
-  if (LI->getLoopFor(LoopVectorBody)->isLoopInvariant(PreviousLastPart) ||
-      isa<PHINode>(PreviousLastPart))
-    Builder.SetInsertPoint(&*LoopVectorBody->getFirstInsertionPt());
-  else
-    Builder.SetInsertPoint(
-        &*++BasicBlock::iterator(cast<Instruction>(PreviousLastPart)));
+  // guaranteed to be an instruction in the vector loop.
+  // FIXME: Loop invariant values do not form recurrences. We should deal with
+  //        them earlier.
+  if (LI->getLoopFor(LoopVectorBody)->isLoopInvariant(PreviousLastPart))
+    InsertPt = LoopVectorBody->getFirstInsertionPt();
+  else {
+    Instruction *PreviousInst = cast<Instruction>(PreviousLastPart);
+    if (isa<PHINode>(PreviousLastPart))
+      // If the previous value is a phi node, we should insert after all the phi
+      // nodes in the block containing the PHI to avoid breaking basic block
+      // verification. Note that the basic block may be different to
+      // LoopVectorBody, in case we predicate the loop.
+      InsertPt = PreviousInst->getParent()->getFirstInsertionPt();
+    else
+      InsertPt = ++PreviousInst->getIterator();
+  }
+  Builder.SetInsertPoint(&*InsertPt);
 
   // We will construct a vector for the recurrence by combining the values for
   // the current and previous iterations. This is the required shuffle mask.
@@ -3701,16 +3716,20 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
     }
   }
 
+  // Wrap flags are in general invalid after vectorization, clear them.
+  clearReductionWrapFlags(RdxDesc);
+
   // Fix the vector-loop phi.
 
   // Reductions do not have to start at zero. They can start with
   // any loop invariant values.
   BasicBlock *Latch = OrigLoop->getLoopLatch();
   Value *LoopVal = Phi->getIncomingValueForBlock(Latch);
+
   for (unsigned Part = 0; Part < UF; ++Part) {
     Value *VecRdxPhi = getOrCreateVectorValue(Phi, Part);
     Value *Val = getOrCreateVectorValue(LoopVal, Part);
-    // Make sure to add the reduction stat value only to the
+    // Make sure to add the reduction start value only to the
     // first unroll part.
     Value *StartVal = (Part == 0) ? VectorStart : Identity;
     cast<PHINode>(VecRdxPhi)->addIncoming(StartVal, LoopVectorPreHeader);
@@ -3845,6 +3864,37 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
   int SelfEdgeBlockIdx = (IncomingEdgeBlockIdx ? 0 : 1);
   Phi->setIncomingValue(SelfEdgeBlockIdx, BCBlockPhi);
   Phi->setIncomingValue(IncomingEdgeBlockIdx, LoopExitInst);
+}
+
+void InnerLoopVectorizer::clearReductionWrapFlags(
+    RecurrenceDescriptor &RdxDesc) {
+  RecurrenceDescriptor::RecurrenceKind RK = RdxDesc.getRecurrenceKind();
+  if (RK != RecurrenceDescriptor::RK_IntegerAdd &&
+      RK != RecurrenceDescriptor::RK_IntegerMult)
+    return;
+
+  Instruction *LoopExitInstr = RdxDesc.getLoopExitInstr();
+  assert(LoopExitInstr && "null loop exit instruction");
+  SmallVector<Instruction *, 8> Worklist;
+  SmallPtrSet<Instruction *, 8> Visited;
+  Worklist.push_back(LoopExitInstr);
+  Visited.insert(LoopExitInstr);
+
+  while (!Worklist.empty()) {
+    Instruction *Cur = Worklist.pop_back_val();
+    if (isa<OverflowingBinaryOperator>(Cur))
+      for (unsigned Part = 0; Part < UF; ++Part) {
+        Value *V = getOrCreateVectorValue(Cur, Part);
+        cast<Instruction>(V)->dropPoisonGeneratingFlags();
+      }
+
+    for (User *U : Cur->users()) {
+      Instruction *UI = cast<Instruction>(U);
+      if ((Cur != LoopExitInstr || OrigLoop->contains(UI->getParent())) &&
+          Visited.insert(UI).second)
+        Worklist.push_back(UI);
+    }
+  }
 }
 
 void InnerLoopVectorizer::fixLCSSAPHIs() {
@@ -4583,9 +4633,10 @@ bool LoopVectorizationCostModel::isScalarWithPredication(Instruction *I, unsigne
       return WideningDecision == CM_Scalarize;
     }
     const MaybeAlign Alignment = getLoadStoreAlignment(I);
-    return isa<LoadInst>(I) ?
-        !(isLegalMaskedLoad(Ty, Ptr, Alignment) || isLegalMaskedGather(Ty))
-      : !(isLegalMaskedStore(Ty, Ptr, Alignment) || isLegalMaskedScatter(Ty));
+    return isa<LoadInst>(I) ? !(isLegalMaskedLoad(Ty, Ptr, Alignment) ||
+                                isLegalMaskedGather(Ty, Alignment))
+                            : !(isLegalMaskedStore(Ty, Ptr, Alignment) ||
+                                isLegalMaskedScatter(Ty, Alignment));
   }
   case Instruction::UDiv:
   case Instruction::SDiv:
@@ -6238,7 +6289,7 @@ unsigned LoopVectorizationCostModel::getInstructionCost(Instruction *I,
     unsigned N = isScalarAfterVectorization(I, VF) ? VF : 1;
     return N * TTI.getArithmeticInstrCost(
                    I->getOpcode(), VectorTy, TargetTransformInfo::OK_AnyValue,
-                   Op2VK, TargetTransformInfo::OP_None, Op2VP, Operands);
+                   Op2VK, TargetTransformInfo::OP_None, Op2VP, Operands, I);
   }
   case Instruction::FNeg: {
     unsigned N = isScalarAfterVectorization(I, VF) ? VF : 1;
@@ -6246,7 +6297,7 @@ unsigned LoopVectorizationCostModel::getInstructionCost(Instruction *I,
                    I->getOpcode(), VectorTy, TargetTransformInfo::OK_AnyValue,
                    TargetTransformInfo::OK_AnyValue,
                    TargetTransformInfo::OP_None, TargetTransformInfo::OP_None,
-                   I->getOperand(0));
+                   I->getOperand(0), I);
   }
   case Instruction::Select: {
     SelectInst *SI = cast<SelectInst>(I);
@@ -7276,9 +7327,8 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
   }
 
   SmallPtrSet<Instruction *, 1> DeadInstructions;
-  VPlanHCFGTransforms::VPInstructionsToVPRecipes(
+  VPlanTransforms::VPInstructionsToVPRecipes(
       OrigLoop, Plan, Legal->getInductionVars(), DeadInstructions);
-
   return Plan;
 }
 

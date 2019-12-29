@@ -20,6 +20,9 @@
 #include "clang/AST/StmtOpenMP.h"
 
 namespace clang {
+
+class OMPCaptureNoInitAttr;
+
 namespace CodeGen {
 
 enum OMPAtomicClause {
@@ -234,6 +237,7 @@ class OpenMPLateOutliner {
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
+  void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -476,7 +480,8 @@ public:
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
   bool inTargetVariantDispatchRegion() {
-    return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
+    return Outliner.getCurrentDirectiveKind() ==
+           llvm::omp::OMPD_target_variant_dispatch;
   }
   void enterTryStmt() { ++TryStmts; }
   void exitTryStmt() {

@@ -41,9 +41,13 @@ public:
   // they are called. This function writes that code.
   virtual void writePltHeader(uint8_t *buf) const {}
 
-  virtual void writePlt(uint8_t *buf, uint64_t gotEntryAddr,
-                        uint64_t pltEntryAddr, int32_t index,
-                        unsigned relOff) const {}
+  virtual void writePlt(uint8_t *buf, const Symbol &sym,
+                        uint64_t pltEntryAddr) const {}
+  virtual void writeIplt(uint8_t *buf, const Symbol &sym,
+                         uint64_t pltEntryAddr) const {
+    // All but PPC32 and PPC64 use the same format for .plt and .iplt entries.
+    writePlt(buf, sym, pltEntryAddr);
+  }
 #if INTEL_CUSTOMIZATION
   virtual void writeIBTPlt(uint8_t *buf, size_t numEntries) const {}
 #endif // INTEL_CUSTOMIZATION
@@ -105,6 +109,7 @@ public:
   RelType tlsOffsetRel;
   unsigned pltEntrySize;
   unsigned pltHeaderSize;
+  unsigned ipltEntrySize;
 
   // At least on x86_64 positions 1 and 2 are used by the first plt entry
   // to support lazy loading.

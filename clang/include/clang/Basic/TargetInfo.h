@@ -948,12 +948,14 @@ public:
   bool validateInputConstraint(MutableArrayRef<ConstraintInfo> OutputConstraints,
                                ConstraintInfo &info) const;
 
-  virtual bool validateOutputSize(StringRef /*Constraint*/,
+  virtual bool validateOutputSize(const llvm::StringMap<bool> &FeatureMap,
+                                  StringRef /*Constraint*/,
                                   unsigned /*Size*/) const {
     return true;
   }
 
-  virtual bool validateInputSize(StringRef /*Constraint*/,
+  virtual bool validateInputSize(const llvm::StringMap<bool> &FeatureMap,
+                                 StringRef /*Constraint*/,
                                  unsigned /*Size*/) const {
     return true;
   }
@@ -1399,6 +1401,9 @@ public:
     return true;
   }
 #endif
+
+  /// Whether target allows debuginfo types for decl only variables.
+  virtual bool allowDebugInfoForExternalVar() const { return false; }
 
 protected:
   /// Copy type and layout related info.

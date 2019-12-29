@@ -17,6 +17,7 @@
 #include "CGCXXABI.h"
 #include "CGValue.h"
 #include "CodeGenFunction.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
@@ -28,7 +29,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm>    // std::sort
+#include <algorithm> // std::sort
 
 using namespace clang;
 using namespace CodeGen;
@@ -821,6 +822,12 @@ public:
         B.addAttribute("wasm-import-name", Attr->getImportName());
         Fn->addAttributes(llvm::AttributeList::FunctionIndex, B);
       }
+      if (const auto *Attr = FD->getAttr<WebAssemblyExportNameAttr>()) {
+        llvm::Function *Fn = cast<llvm::Function>(GV);
+        llvm::AttrBuilder B;
+        B.addAttribute("wasm-export-name", Attr->getExportName());
+        Fn->addAttributes(llvm::AttributeList::FunctionIndex, B);
+      }
     }
 
     if (auto *FD = dyn_cast_or_null<FunctionDecl>(D)) {
@@ -1223,6 +1230,10 @@ static void rewriteInputConstraintReferences(unsigned FirstIn,
     if (NumDollars % 2 != 0 && Pos < AsmString.size()) {
       // We have an operand reference.
       size_t DigitStart = Pos;
+      if (AsmString[DigitStart] == '{') {
+        OS << '{';
+        ++DigitStart;
+      }
       size_t DigitEnd = AsmString.find_first_not_of("0123456789", DigitStart);
       if (DigitEnd == std::string::npos)
         DigitEnd = AsmString.size();
@@ -5232,7 +5243,7 @@ public:
     CodeGenOptions::SignReturnAddressKeyValue Key = CGM.getCodeGenOpts().getSignReturnAddressKey();
     bool BranchTargetEnforcement = CGM.getCodeGenOpts().BranchTargetEnforcement;
     if (const auto *TA = FD->getAttr<TargetAttr>()) {
-      TargetAttr::ParsedTargetAttr Attr = TA->parse();
+      ParsedTargetAttr Attr = TA->parse();
       if (!Attr.BranchProtection.empty()) {
         TargetInfo::BranchProtectionInfo BPI;
         StringRef Error;

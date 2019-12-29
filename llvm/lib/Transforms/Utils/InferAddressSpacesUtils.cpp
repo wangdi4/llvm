@@ -109,6 +109,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -929,7 +930,7 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
 
   if (auto *MSI = dyn_cast<MemSetInst>(MI)) {
     B.CreateMemSet(NewV, MSI->getValue(), MSI->getLength(),
-                   MSI->getDestAlignment(),
+                   MaybeAlign(MSI->getDestAlignment()),
                    false, // isVolatile
                    TBAA, ScopeMD, NoAliasMD);
   } else if (auto *MTI = dyn_cast<MemTransferInst>(MI)) {
@@ -945,14 +946,14 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
 
     if (isa<MemCpyInst>(MTI)) {
       MDNode *TBAAStruct = MTI->getMetadata(LLVMContext::MD_tbaa_struct);
-      B.CreateMemCpy(Dest, MTI->getDestAlignment(), Src,
-                     MTI->getSourceAlignment(), MTI->getLength(),
+      B.CreateMemCpy(Dest, MTI->getDestAlign(), Src,
+                     MTI->getSourceAlign(), MTI->getLength(),
                      false, // isVolatile
                      TBAA, TBAAStruct, ScopeMD, NoAliasMD);
     } else {
       assert(isa<MemMoveInst>(MTI));
-      B.CreateMemMove(Dest, MTI->getDestAlignment(), Src,
-                      MTI->getSourceAlignment(), MTI->getLength(),
+      B.CreateMemMove(Dest, MTI->getDestAlign(), Src,
+                      MTI->getSourceAlign(), MTI->getLength(),
                       false, // isVolatile
                       TBAA, ScopeMD, NoAliasMD);
     }

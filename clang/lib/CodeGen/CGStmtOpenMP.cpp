@@ -19,13 +19,15 @@
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
+#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
-#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/StmtVisitor.h" // INTEL
 #include "clang/Basic/PrettyStackTrace.h"
 using namespace clang;
 using namespace CodeGen;
+using namespace llvm::omp;
 
 namespace {
 /// Lexical scope for OpenMP executable constructs, that handles correct codegen
@@ -1865,8 +1867,9 @@ static LValue EmitOMPHelperVar(CodeGenFunction &CGF,
 static void emitCommonSimdLoop(CodeGenFunction &CGF, const OMPLoopDirective &S,
                                const RegionCodeGenTy &SimdInitGen,
                                const RegionCodeGenTy &BodyCodeGen) {
-  auto &&ThenGen = [&SimdInitGen, &BodyCodeGen](CodeGenFunction &CGF,
-                                                PrePostActionTy &) {
+  auto &&ThenGen = [&S, &SimdInitGen, &BodyCodeGen](CodeGenFunction &CGF,
+                                                    PrePostActionTy &) {
+    CGOpenMPRuntime::NontemporalDeclsRAII NontemporalsRegion(CGF.CGM, S);
     CodeGenFunction::OMPLocalDeclMapRAII Scope(CGF);
     SimdInitGen(CGF);
 
@@ -3669,8 +3672,6 @@ void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
       if (RT.isStaticNonchunked(ScheduleKind,
                                 /* Chunked */ Chunk != nullptr) ||
           StaticChunked) {
-        if (isOpenMPSimdDirective(S.getDirectiveKind()))
-          EmitOMPSimdInit(S, /*IsMonotonic=*/true);
         CGOpenMPRuntime::StaticRTInput StaticInit(
             IVSize, IVSigned, /* Ordered = */ false, IL.getAddress(*this),
             LB.getAddress(*this), UB.getAddress(*this), ST.getAddress(*this),
@@ -3720,18 +3721,28 @@ void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
         //   IV = LB;
         // }
         //
-        EmitOMPInnerLoop(S, LoopScope.requiresCleanups(), Cond, IncExpr,
-                         [&S, LoopExit, &CodeGenLoop](CodeGenFunction &CGF) {
-                           CodeGenLoop(CGF, S, LoopExit);
-                         },
-                         [&S, StaticChunked](CodeGenFunction &CGF) {
-                           if (StaticChunked) {
-                             CGF.EmitIgnoredExpr(S.getCombinedNextLowerBound());
-                             CGF.EmitIgnoredExpr(S.getCombinedNextUpperBound());
-                             CGF.EmitIgnoredExpr(S.getCombinedEnsureUpperBound());
-                             CGF.EmitIgnoredExpr(S.getCombinedInit());
-                           }
-                         });
+        emitCommonSimdLoop(
+            *this, S,
+            [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+              if (isOpenMPSimdDirective(S.getDirectiveKind()))
+                CGF.EmitOMPSimdInit(S, /*IsMonotonic=*/true);
+            },
+            [&S, &LoopScope, Cond, IncExpr, LoopExit, &CodeGenLoop,
+             StaticChunked](CodeGenFunction &CGF, PrePostActionTy &) {
+              CGF.EmitOMPInnerLoop(
+                  S, LoopScope.requiresCleanups(), Cond, IncExpr,
+                  [&S, LoopExit, &CodeGenLoop](CodeGenFunction &CGF) {
+                    CodeGenLoop(CGF, S, LoopExit);
+                  },
+                  [&S, StaticChunked](CodeGenFunction &CGF) {
+                    if (StaticChunked) {
+                      CGF.EmitIgnoredExpr(S.getCombinedNextLowerBound());
+                      CGF.EmitIgnoredExpr(S.getCombinedNextUpperBound());
+                      CGF.EmitIgnoredExpr(S.getCombinedEnsureUpperBound());
+                      CGF.EmitIgnoredExpr(S.getCombinedInit());
+                    }
+                  });
+            });
         EmitBlock(LoopExit.getBlock());
         // Tell the runtime we are done.
         RT.emitForStaticFinish(*this, S.getBeginLoc(), S.getDirectiveKind());
@@ -4260,6 +4271,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_atomic_default_mem_order:
   case OMPC_device_type:
   case OMPC_match:
+  case OMPC_nontemporal:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -4688,7 +4700,8 @@ void CodeGenFunction::EmitOMPTeamsDistributeParallelForSimdDirective(
         CGF, OMPD_distribute, CodeGenDistribute, /*HasCancel=*/false);
     CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_teams);
   };
-  emitCommonOMPTeamsDirective(*this, S, OMPD_distribute_parallel_for, CodeGen);
+  emitCommonOMPTeamsDirective(*this, S, OMPD_distribute_parallel_for_simd,
+                              CodeGen);
   emitPostUpdateForReductionClause(*this, S,
                                    [](CodeGenFunction &) { return nullptr; });
 }

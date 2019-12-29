@@ -375,8 +375,8 @@ static bool isStaticLinkTimeConstant(RelExpr e, RelType type, const Symbol &sym,
             R_AARCH64_GOT_PAGE_PC, R_GOT_PC, R_GOTONLY_PC, R_GOTPLTONLY_PC,
             R_PLT_PC, R_TLSGD_GOT, R_TLSGD_GOTPLT, R_TLSGD_PC, R_PPC32_PLTREL,
             R_PPC64_CALL_PLT, R_PPC64_RELAX_TOC, R_RISCV_ADD, R_TLSDESC_CALL,
-            R_TLSDESC_PC, R_AARCH64_TLSDESC_PAGE, R_HINT, R_TLSLD_HINT,
-            R_TLSIE_HINT>(e))
+            R_TLSDESC_PC, R_AARCH64_TLSDESC_PAGE, R_TLSLD_HINT, R_TLSIE_HINT>(
+          e))
     return true;
 
   // These never do, except if the entire file is position dependent or if
@@ -714,12 +714,19 @@ static bool canSuggestExternCForCXX(StringRef ref, StringRef def) {
 // Suggest an alternative spelling of an "undefined symbol" diagnostic. Returns
 // the suggested symbol, which is either in the symbol table, or in the same
 // file of sym.
+template <class ELFT>
 static const Symbol *getAlternativeSpelling(const Undefined &sym,
                                             std::string &pre_hint,
                                             std::string &post_hint) {
-  // Build a map of local defined symbols.
   DenseMap<StringRef, const Symbol *> map;
-  if (sym.file && !isa<SharedFile>(sym.file)) {
+  if (auto *file = dyn_cast_or_null<ObjFile<ELFT>>(sym.file)) {
+    // If sym is a symbol defined in a discarded section, maybeReportDiscarded()
+    // will give an error. Don't suggest an alternative spelling.
+    if (file && sym.discardedSecIdx != 0 &&
+        file->getSections()[sym.discardedSecIdx] == &InputSection::discarded)
+      return nullptr;
+
+    // Build a map of local defined symbols.
     for (const Symbol *s : sym.file->getSymbols())
       if (s->isLocal() && s->isDefined())
         map.try_emplace(s->getName(), s);
@@ -865,8 +872,8 @@ static void reportUndefinedSymbol(const UndefinedDiag &undef,
 
   if (correctSpelling) {
     std::string pre_hint = ": ", post_hint;
-    if (const Symbol *corrected =
-            getAlternativeSpelling(cast<Undefined>(sym), pre_hint, post_hint)) {
+    if (const Symbol *corrected = getAlternativeSpelling<ELFT>(
+            cast<Undefined>(sym), pre_hint, post_hint)) {
       msg += "\n>>> did you mean" + pre_hint + toString(*corrected) + post_hint;
       if (corrected->file)
         msg += "\n>>> defined in: " + toString(corrected->file);
@@ -1011,10 +1018,10 @@ static void addRelativeReloc(InputSectionBase *isec, uint64_t offsetInSec,
                          expr, type);
 }
 
-template <class ELFT, class GotPltSection>
+template <class PltSection, class GotPltSection>
 static void addPltEntry(PltSection *plt, GotPltSection *gotPlt,
                         RelocationBaseSection *rel, RelType type, Symbol &sym) {
-  plt->addEntry<ELFT>(sym);
+  plt->addEntry(sym);
   gotPlt->addEntry(sym);
   rel->addReloc(
       {type, gotPlt, sym.getGotPltOffset(), !sym.isPreemptible, &sym, 0});
@@ -1190,7 +1197,7 @@ static void processRelocAux(InputSectionBase &sec, RelExpr expr, RelType type,
                     "' cannot be preempted; recompile with -fPIE" +
                     getLocation(sec, sym, offset));
       if (!sym.isInPlt())
-        addPltEntry<ELFT>(in.plt, in.gotPlt, in.relaPlt, target->pltRel, sym);
+        addPltEntry(in.plt, in.gotPlt, in.relaPlt, target->pltRel, sym);
       if (!sym.isDefined())
         replaceWithDefined(
             sym, in.plt,
@@ -1331,7 +1338,7 @@ static void scanReloc(InputSectionBase &sec, OffsetGetter &getOffset, RelTy *&i,
   if (!sym.isGnuIFunc() || sym.isPreemptible) {
     // If a relocation needs PLT, we create PLT and GOTPLT slots for the symbol.
     if (needsPlt(expr) && !sym.isInPlt())
-      addPltEntry<ELFT>(in.plt, in.gotPlt, in.relaPlt, target->pltRel, sym);
+      addPltEntry(in.plt, in.gotPlt, in.relaPlt, target->pltRel, sym);
 
     // Create a GOT slot if a relocation needs GOT.
     if (needsGot(expr)) {
@@ -1401,8 +1408,8 @@ static void scanReloc(InputSectionBase &sec, OffsetGetter &getOffset, RelTy *&i,
       // that's really needed to create the IRELATIVE is the section and value,
       // so ideally we should just need to copy those.
       auto *directSym = make<Defined>(cast<Defined>(sym));
-      addPltEntry<ELFT>(in.iplt, in.igotPlt, in.relaIplt, target->iRelativeRel,
-                        *directSym);
+      addPltEntry(in.iplt, in.igotPlt, in.relaIplt, target->iRelativeRel,
+                  *directSym);
       sym.pltIndex = directSym->pltIndex;
     }
     if (needsGot(expr)) {
@@ -1415,13 +1422,9 @@ static void scanReloc(InputSectionBase &sec, OffsetGetter &getOffset, RelTy *&i,
     } else if (!needsPlt(expr)) {
       // Make the ifunc's PLT entry canonical by changing the value of its
       // symbol to redirect all references to point to it.
-      unsigned entryOffset = sym.pltIndex * target->pltEntrySize;
-      if (config->zRetpolineplt)
-        entryOffset += target->pltHeaderSize;
-
       auto &d = cast<Defined>(sym);
       d.section = in.iplt;
-      d.value = entryOffset;
+      d.value = sym.pltIndex * target->ipltEntrySize;
       d.size = 0;
       // It's important to set the symbol type here so that dynamic loaders
       // don't try to call the PLT as if it were an ifunc resolver.

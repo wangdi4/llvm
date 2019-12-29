@@ -398,8 +398,12 @@ struct IRPosition {
   /// single attribute of any kind in \p AKs, there are "subsuming" positions
   /// that could have an attribute as well. This method returns all attributes
   /// found in \p Attrs.
+  /// \param IgnoreSubsumingPositions Flag to determine if subsuming positions,
+  ///                                 e.g., the function position if this is an
+  ///                                 argument position, should be ignored.
   void getAttrs(ArrayRef<Attribute::AttrKind> AKs,
-                SmallVectorImpl<Attribute> &Attrs) const;
+                SmallVectorImpl<Attribute> &Attrs,
+                bool IgnoreSubsumingPositions = false) const;
 
   /// Return the attribute of kind \p AK existing in the IR at this position.
   Attribute getAttr(Attribute::AttrKind AK) const {
@@ -819,6 +823,12 @@ struct Attributor {
     return true;
   }
 
+  /// Record that \p I is to be replaced with `unreachable` after information
+  /// was manifested.
+  void changeToUnreachableAfterManifest(Instruction *I) {
+    ToBeChangedToUnreachableInsts.insert(I);
+  }
+
   /// Record that \p I is deleted after information was manifested. This also
   /// triggers deletion of trivially dead istructions.
   void deleteAfterManifest(Instruction &I) { ToBeDeletedInsts.insert(&I); }
@@ -1026,6 +1036,9 @@ private:
   /// Uses we replace with a new value after manifest is done. We will remove
   /// then trivially dead instructions as well.
   DenseMap<Use *, Value *> ToBeChangedUses;
+
+  /// Instructions we replace with `unreachable` insts after manifest is done.
+  SmallPtrSet<Instruction *, 8> ToBeChangedToUnreachableInsts;
 
   /// Functions, blocks, and instructions we delete after manifest is done.
   ///
@@ -1682,6 +1695,32 @@ struct AAWillReturn
   static const char ID;
 };
 
+/// An abstract attribute for undefined behavior.
+struct AAUndefinedBehavior
+    : public StateWrapper<BooleanState, AbstractAttribute>,
+      public IRPosition {
+  AAUndefinedBehavior(const IRPosition &IRP) : IRPosition(IRP) {}
+
+  /// Return true if "undefined behavior" is assumed.
+  bool isAssumedToCauseUB() const { return getAssumed(); }
+
+  /// Return true if "undefined behavior" is assumed for a specific instruction.
+  virtual bool isAssumedToCauseUB(Instruction *I) const = 0;
+
+  /// Return true if "undefined behavior" is known.
+  bool isKnownToCauseUB() const { return getKnown(); }
+
+  /// Return an IR position, see struct IRPosition.
+  const IRPosition &getIRPosition() const override { return *this; }
+
+  /// Create an abstract attribute view for the position \p IRP.
+  static AAUndefinedBehavior &createForPosition(const IRPosition &IRP,
+                                                Attributor &A);
+
+  /// Unique ID (due to the unique address)
+  static const char ID;
+};
+
 /// An abstract interface to determine reachability of point A to B.
 struct AAReachability : public StateWrapper<BooleanState, AbstractAttribute>,
                         public IRPosition {
@@ -1840,7 +1879,9 @@ struct DerefState : AbstractState {
   /// ```
   /// In that case, AccessedBytesMap is `{0:4, 4:4, 8:4, 40:4}`.
   /// AccessedBytesMap is std::map so it is iterated in accending order on
-  /// key(Offset). So KnownBytes will be updated like this: |Access | KnownBytes
+  /// key(Offset). So KnownBytes will be updated like this:
+  ///
+  /// |Access | KnownBytes
   /// |(0, 4)| 0 -> 4
   /// |(4, 4)| 4 -> 8
   /// |(8, 4)| 8 -> 12

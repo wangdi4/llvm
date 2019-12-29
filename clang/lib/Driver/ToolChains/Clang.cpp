@@ -545,6 +545,8 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
   case llvm::Triple::ppc64le:
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64:
+  case llvm::Triple::amdgcn:
+  case llvm::Triple::r600:
     return !areOptimizationsEnabled(Args);
   default:
     break;
@@ -608,9 +610,9 @@ getFramePointerKind(const ArgList &Args, const llvm::Triple &Triple) {
   bool OmitFP = A && A->getOption().matches(options::OPT_fomit_frame_pointer);
   bool NoOmitFP =
       A && A->getOption().matches(options::OPT_fno_omit_frame_pointer);
-  bool KeepLeaf =
-      Args.hasFlag(options::OPT_momit_leaf_frame_pointer,
-                   options::OPT_mno_omit_leaf_frame_pointer, Triple.isPS4CPU());
+  bool KeepLeaf = Args.hasFlag(options::OPT_momit_leaf_frame_pointer,
+                               options::OPT_mno_omit_leaf_frame_pointer,
+                               Triple.isAArch64() || Triple.isPS4CPU());
   if (NoOmitFP || mustUseNonLeafFramePointerForTarget(Triple) ||
       (!OmitFP && useFramePointerForTargetByDefault(Args, Triple))) {
     if (KeepLeaf)
@@ -1422,6 +1424,116 @@ static bool isNoCommonDefault(const llvm::Triple &Triple) {
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return true;
+  }
+}
+
+static bool hasMultipleInvocations(const llvm::Triple &Triple,
+                                   const ArgList &Args) {
+  // Supported only on Darwin where we invoke the compiler multiple times
+  // followed by an invocation to lipo.
+  if (!Triple.isOSDarwin())
+    return false;
+  // If more than one "-arch <arch>" is specified, we're targeting multiple
+  // architectures resulting in a fat binary.
+  return Args.getAllArgValues(options::OPT_arch).size() > 1;
+}
+
+static bool checkRemarksOptions(const Driver &D, const ArgList &Args,
+                                const llvm::Triple &Triple) {
+  // When enabling remarks, we need to error if:
+  // * The remark file is specified but we're targeting multiple architectures,
+  // which means more than one remark file is being generated.
+  bool hasMultipleInvocations = ::hasMultipleInvocations(Triple, Args);
+  bool hasExplicitOutputFile =
+      Args.getLastArg(options::OPT_foptimization_record_file_EQ);
+  if (hasMultipleInvocations && hasExplicitOutputFile) {
+    D.Diag(diag::err_drv_invalid_output_with_multiple_archs)
+        << "-foptimization-record-file";
+    return false;
+  }
+  return true;
+}
+
+static void renderRemarksOptions(const ArgList &Args, ArgStringList &CmdArgs,
+                                 const llvm::Triple &Triple,
+                                 const InputInfo &Input,
+                                 const InputInfo &Output, const JobAction &JA) {
+  StringRef Format = "yaml";
+  if (const Arg *A = Args.getLastArg(options::OPT_fsave_optimization_record_EQ))
+    Format = A->getValue();
+
+  CmdArgs.push_back("-opt-record-file");
+
+  const Arg *A = Args.getLastArg(options::OPT_foptimization_record_file_EQ);
+  if (A) {
+    CmdArgs.push_back(A->getValue());
+  } else {
+    bool hasMultipleArchs =
+        Triple.isOSDarwin() && // Only supported on Darwin platforms.
+        Args.getAllArgValues(options::OPT_arch).size() > 1;
+
+    SmallString<128> F;
+
+    if (Args.hasArg(options::OPT_c) || Args.hasArg(options::OPT_S)) {
+      if (Arg *FinalOutput = Args.getLastArg(options::OPT_o))
+        F = FinalOutput->getValue();
+    } else {
+      if (Format != "yaml" && // For YAML, keep the original behavior.
+          Triple.isOSDarwin() && // Enable this only on darwin, since it's the only platform supporting .dSYM bundles.
+          Output.isFilename())
+        F = Output.getFilename();
+    }
+
+    if (F.empty()) {
+      // Use the input filename.
+      F = llvm::sys::path::stem(Input.getBaseInput());
+
+      // If we're compiling for an offload architecture (i.e. a CUDA device),
+      // we need to make the file name for the device compilation different
+      // from the host compilation.
+      if (!JA.isDeviceOffloading(Action::OFK_None) &&
+          !JA.isDeviceOffloading(Action::OFK_Host)) {
+        llvm::sys::path::replace_extension(F, "");
+        F += Action::GetOffloadingFileNamePrefix(JA.getOffloadingDeviceKind(),
+                                                 Triple.normalize());
+        F += "-";
+        F += JA.getOffloadingArch();
+      }
+    }
+
+    // If we're having more than one "-arch", we should name the files
+    // differently so that every cc1 invocation writes to a different file.
+    // We're doing that by appending "-<arch>" with "<arch>" being the arch
+    // name from the triple.
+    if (hasMultipleArchs) {
+      // First, remember the extension.
+      SmallString<64> OldExtension = llvm::sys::path::extension(F);
+      // then, remove it.
+      llvm::sys::path::replace_extension(F, "");
+      // attach -<arch> to it.
+      F += "-";
+      F += Triple.getArchName();
+      // put back the extension.
+      llvm::sys::path::replace_extension(F, OldExtension);
+    }
+
+    SmallString<32> Extension;
+    Extension += "opt.";
+    Extension += Format;
+
+    llvm::sys::path::replace_extension(F, Extension);
+    CmdArgs.push_back(Args.MakeArgString(F));
+  }
+
+  if (const Arg *A =
+          Args.getLastArg(options::OPT_foptimization_record_passes_EQ)) {
+    CmdArgs.push_back("-opt-record-passes");
+    CmdArgs.push_back(A->getValue());
+  }
+
+  if (!Format.empty()) {
+    CmdArgs.push_back("-opt-record-format");
+    CmdArgs.push_back(Format.data());
   }
 }
 
@@ -2340,15 +2452,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     switch (optID) {
     default:
       break;
-    case options::OPT_frounding_math:
-    case options::OPT_ftrapping_math:
-    case options::OPT_ffp_exception_behavior_EQ:
-      D.Diag(clang::diag::warn_drv_experimental_fp_control_incomplete_opt)
-          << A->getOption().getName();
-      break;
     case options::OPT_ffp_model_EQ: {
-      D.Diag(clang::diag::warn_drv_experimental_fp_control_incomplete_opt)
-          << A->getOption().getName();
       // If -ffp-model= is seen, reset to fno-fast-math
       HonorINFs = true;
       HonorNaNs = true;
@@ -2697,8 +2801,13 @@ static void RenderAnalyzerOptions(const ArgList &Args, ArgStringList &CmdArgs,
       CmdArgs.push_back("-analyzer-disable-checker=unix.Vfork");
     }
 
-    if (Triple.isOSDarwin())
+    if (Triple.isOSDarwin()) {
       CmdArgs.push_back("-analyzer-checker=osx");
+      CmdArgs.push_back(
+          "-analyzer-checker=security.insecureAPI.decodeValueOfObjCType");
+    }
+    else if (Triple.isOSFuchsia())
+      CmdArgs.push_back("-analyzer-checker=fuchsia");
 
     CmdArgs.push_back("-analyzer-checker=deadcode");
 
@@ -3423,7 +3532,7 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
 
   bool SplitDWARFInlining =
       Args.hasFlag(options::OPT_fsplit_dwarf_inlining,
-                   options::OPT_fno_split_dwarf_inlining, true);
+                   options::OPT_fno_split_dwarf_inlining, false);
 
   Args.ClaimAllArgs(options::OPT_g_Group);
 
@@ -3600,6 +3709,11 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
 
   // Adjust the debug info kind for the given toolchain.
   TC.adjustDebugInfoKind(DebugInfoKind, Args);
+
+  // When emitting remarks, we need at least debug lines in the output.
+  if (willEmitRemarks(Args) &&
+      DebugInfoKind <= codegenoptions::DebugDirectivesOnly)
+    DebugInfoKind = codegenoptions::DebugLineTablesOnly;
 
   RenderDebugEnablingArgs(Args, CmdArgs, DebugInfoKind, DWARFVersion,
                           DebuggerTuning);
@@ -4031,7 +4145,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // Disable all llvm IR level optimizations.
     CmdArgs.push_back("-disable-llvm-passes");
 
-    // Render target options such as -fuse-init-array on modern ELF platforms.
+    // Render target options.
     TC.addClangTargetOptions(Args, CmdArgs, JA.getOffloadingDeviceKind());
 
     // reject options that shouldn't be supported in bitcode
@@ -4920,6 +5034,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-fnoopenmp-use-tls");
       Args.AddLastArg(CmdArgs, options::OPT_fopenmp_simd,
                       options::OPT_fno_openmp_simd);
+      Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_enable_irbuilder);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_version_EQ);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_cuda_number_of_sm_EQ);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_cuda_blocks_per_sm_EQ);
@@ -4964,14 +5079,35 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   const XRayArgs &XRay = TC.getXRayArgs();
   XRay.addArgs(TC, Args, CmdArgs, InputType);
 
-  if (TC.SupportsProfiling())
+  if (TC.SupportsProfiling()) {
     Args.AddLastArg(CmdArgs, options::OPT_pg);
 
-  if (TC.SupportsProfiling())
-    Args.AddLastArg(CmdArgs, options::OPT_mfentry);
+    llvm::Triple::ArchType Arch = TC.getArch();
+    if (Arg *A = Args.getLastArg(options::OPT_mfentry)) {
+      if (Arch == llvm::Triple::systemz || Arch == llvm::Triple::x86 ||
+          Arch == llvm::Triple::x86_64)
+        A->render(Args, CmdArgs);
+      else
+        D.Diag(diag::err_drv_unsupported_opt_for_target)
+            << A->getAsString(Args) << TripleStr;
+    }
+    if (Arg *A = Args.getLastArg(options::OPT_mnop_mcount)) {
+      if (Arch == llvm::Triple::systemz)
+        A->render(Args, CmdArgs);
+      else
+        D.Diag(diag::err_drv_unsupported_opt_for_target)
+            << A->getAsString(Args) << TripleStr;
+    }
+    if (Arg *A = Args.getLastArg(options::OPT_mrecord_mcount)) {
+      if (Arch == llvm::Triple::systemz)
+        A->render(Args, CmdArgs);
+      else
+        D.Diag(diag::err_drv_unsupported_opt_for_target)
+            << A->getAsString(Args) << TripleStr;
+    }
+  }
 
-  if (TC.SupportsProfiling())
-    Args.AddLastArg(CmdArgs, options::OPT_mnop_mcount);
+  Args.AddLastArg(CmdArgs, options::OPT_mpacked_stack);
 
   if (Args.getLastArg(options::OPT_fapple_kext) ||
       (Args.hasArg(options::OPT_mkernel) && types::isCXX(InputType)))
@@ -4986,6 +5122,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_ftime_trace_granularity_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_ftrapv);
   Args.AddLastArg(CmdArgs, options::OPT_malign_double);
+  Args.AddLastArg(CmdArgs, options::OPT_fno_temp_file);
 
   if (Arg *A = Args.getLastArg(options::OPT_ftrapv_handler_EQ)) {
     CmdArgs.push_back("-ftrapv-handler");
@@ -5506,85 +5643,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fapple-pragma-pack");
 
   // Remarks can be enabled with any of the `-f.*optimization-record.*` flags.
-  if (Args.hasFlag(options::OPT_fsave_optimization_record,
-                   options::OPT_foptimization_record_file_EQ,
-                   options::OPT_fno_save_optimization_record, false) ||
-      Args.hasFlag(options::OPT_fsave_optimization_record_EQ,
-                   options::OPT_fno_save_optimization_record, false) ||
-      Args.hasFlag(options::OPT_foptimization_record_passes_EQ,
-                   options::OPT_fno_save_optimization_record, false)) {
-    CmdArgs.push_back("-opt-record-file");
-
-    const Arg *A = Args.getLastArg(options::OPT_foptimization_record_file_EQ);
-    if (A) {
-      CmdArgs.push_back(A->getValue());
-    } else {
-      bool hasMultipleArchs =
-          Triple.isOSDarwin() && // Only supported on Darwin platforms.
-          Args.getAllArgValues(options::OPT_arch).size() > 1;
-      SmallString<128> F;
-
-      if (Args.hasArg(options::OPT_c) || Args.hasArg(options::OPT_S)) {
-        if (Arg *FinalOutput = Args.getLastArg(options::OPT_o))
-          F = FinalOutput->getValue();
-      }
-
-      if (F.empty()) {
-        // Use the input filename.
-        F = llvm::sys::path::stem(Input.getBaseInput());
-
-        // If we're compiling for an offload architecture (i.e. a CUDA device),
-        // we need to make the file name for the device compilation different
-        // from the host compilation.
-        if (!JA.isDeviceOffloading(Action::OFK_None) &&
-            !JA.isDeviceOffloading(Action::OFK_Host)) {
-          llvm::sys::path::replace_extension(F, "");
-          F += Action::GetOffloadingFileNamePrefix(JA.getOffloadingDeviceKind(),
-                                                   Triple.normalize());
-          F += "-";
-          F += JA.getOffloadingArch();
-        }
-      }
-
-      // If we're having more than one "-arch", we should name the files
-      // differently so that every cc1 invocation writes to a different file.
-      // We're doing that by appending "-<arch>" with "<arch>" being the arch
-      // name from the triple.
-      if (hasMultipleArchs) {
-        // First, remember the extension.
-        SmallString<64> OldExtension = llvm::sys::path::extension(F);
-        // then, remove it.
-        llvm::sys::path::replace_extension(F, "");
-        // attach -<arch> to it.
-        F += "-";
-        F += Triple.getArchName();
-        // put back the extension.
-        llvm::sys::path::replace_extension(F, OldExtension);
-      }
-
-      std::string Extension = "opt.";
-      if (const Arg *A =
-              Args.getLastArg(options::OPT_fsave_optimization_record_EQ))
-        Extension += A->getValue();
-      else
-        Extension += "yaml";
-
-      llvm::sys::path::replace_extension(F, Extension);
-      CmdArgs.push_back(Args.MakeArgString(F));
-    }
-
-    if (const Arg *A =
-            Args.getLastArg(options::OPT_foptimization_record_passes_EQ)) {
-      CmdArgs.push_back("-opt-record-passes");
-      CmdArgs.push_back(A->getValue());
-    }
-
-    if (const Arg *A =
-            Args.getLastArg(options::OPT_fsave_optimization_record_EQ)) {
-      CmdArgs.push_back("-opt-record-format");
-      CmdArgs.push_back(A->getValue());
-    }
-  }
+  if (willEmitRemarks(Args) && checkRemarksOptions(D, Args, Triple))
+    renderRemarksOptions(Args, CmdArgs, Triple, Input, Output, JA);
 
   bool RewriteImports = Args.hasFlag(options::OPT_frewrite_imports,
                                      options::OPT_fno_rewrite_imports, false);
@@ -6023,8 +6083,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Output.getType() == types::TY_Dependencies) {
     // Handled with other dependency code.
   } else if (Output.isFilename()) {
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(Output.getFilename());
+    if (Output.getType() == clang::driver::types::TY_IFS_CPP ||
+        Output.getType() == clang::driver::types::TY_IFS) {
+      SmallString<128> OutputFilename(Output.getFilename());
+      llvm::sys::path::replace_extension(OutputFilename, "ifs");
+      CmdArgs.push_back("-o");
+      CmdArgs.push_back(Args.MakeArgString(OutputFilename));
+    } else {
+      CmdArgs.push_back("-o");
+      CmdArgs.push_back(Output.getFilename());
+    }
   } else {
     assert(Output.isNothing() && "Invalid output.");
   }
@@ -6868,27 +6936,6 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
       Triples += '-';
       Triples += CurDep->getOffloadingArch();
     }
-  }
-
-  // When bundling for FPGA with -fsycl-link a specific triple is formulated
-  // to match the FPGA binary.  We are also guaranteed only the single device
-  // and host object inputs.
-  const ToolChain *TCCheck = &getToolChain();
-  if (TCArgs.hasArg(options::OPT_fsycl_link_EQ) &&
-      TCCheck->getTriple().getSubArch() == llvm::Triple::SPIRSubArch_fpga) {
-    Triples = "-targets=";
-    llvm::Triple TT;
-    TT.setArchName(types::getTypeName(JA.getInputs()[0]->getType()));
-    TT.setVendorName("intel");
-    TT.setOS(llvm::Triple(TCCheck->getTriple()).getOS());
-    TT.setEnvironment(llvm::Triple::SYCLDevice);
-    Triples += "fpga-";
-    Triples += TT.normalize();
-    Triples += ",";
-    Triples += Action::GetOffloadKindName(Action::OFK_Host);
-    Triples += "-";
-    const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
-    Triples += HostTC->getTriple().normalize();
   }
   CmdArgs.push_back(TCArgs.MakeArgString(Triples));
 

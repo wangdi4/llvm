@@ -19,6 +19,7 @@
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
@@ -34,6 +35,7 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsPowerPC.h"
 #include "llvm/IR/Module.h"
 #include <cstdarg>
 
@@ -3355,10 +3357,10 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
                                                        expr->getRHS()))
     return CGF.Builder.CreateIntToPtr(index, pointer->getType());
 
-  if (width != DL.getTypeSizeInBits(PtrTy)) {
+  if (width != DL.getIndexTypeSizeInBits(PtrTy)) {
     // Zero-extend or sign-extend the pointer value according to
     // whether the index is signed or not.
-    index = CGF.Builder.CreateIntCast(index, DL.getIntPtrType(PtrTy), isSigned,
+    index = CGF.Builder.CreateIntCast(index, DL.getIndexType(PtrTy), isSigned,
                                       "idx.ext");
   }
 

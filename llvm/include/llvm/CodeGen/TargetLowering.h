@@ -951,6 +951,8 @@ public:
       default: llvm_unreachable("Unexpected FP pseudo-opcode");
 #define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)                   \
       case ISD::STRICT_##DAGN: EqOpc = ISD::DAGN; break;
+#define CMP_INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)               \
+      case ISD::STRICT_##DAGN: EqOpc = ISD::SETCC; break;
 #include "llvm/IR/ConstrainedOps.def"
     }
 
@@ -1537,16 +1539,6 @@ public:
   /// have to be legal as the hook is used before type legalization.
   virtual bool isSafeMemOpType(MVT /*VT*/) const { return true; }
 
-  /// Determine if we should use _setjmp or setjmp to implement llvm.setjmp.
-  bool usesUnderscoreSetJmp() const {
-    return UseUnderscoreSetJmp;
-  }
-
-  /// Determine if we should use _longjmp or longjmp to implement llvm.longjmp.
-  bool usesUnderscoreLongJmp() const {
-    return UseUnderscoreLongJmp;
-  }
-
   /// Return lower limit for number of blocks in a jump table.
   virtual unsigned getMinimumJumpTableEntries() const;
 
@@ -1945,18 +1937,6 @@ protected:
   /// Specify the target scheduling preference.
   void setSchedulingPreference(Sched::Preference Pref) {
     SchedPreferenceInfo = Pref;
-  }
-
-  /// Indicate whether this target prefers to use _setjmp to implement
-  /// llvm.setjmp or the version without _.  Defaults to false.
-  void setUseUnderscoreSetJmp(bool Val) {
-    UseUnderscoreSetJmp = Val;
-  }
-
-  /// Indicate whether this target prefers to use _longjmp to implement
-  /// llvm.longjmp or the version without _.  Defaults to false.
-  void setUseUnderscoreLongJmp(bool Val) {
-    UseUnderscoreLongJmp = Val;
   }
 
   /// Indicate the minimum number of blocks to generate jump tables.
@@ -2694,16 +2674,6 @@ private:
   /// instructions and should attempt to combine flow control instructions via
   /// predication.
   bool JumpIsExpensive;
-
-  /// This target prefers to use _setjmp to implement llvm.setjmp.
-  ///
-  /// Defaults to false.
-  bool UseUnderscoreSetJmp;
-
-  /// This target prefers to use _longjmp to implement llvm.longjmp.
-  ///
-  /// Defaults to false.
-  bool UseUnderscoreLongJmp;
 
   /// Information about the contents of the high-bits in boolean values held in
   /// a type wider than i1. See getBooleanContents.
@@ -4121,14 +4091,18 @@ public:
   /// Expand float to UINT conversion
   /// \param N Node to expand
   /// \param Result output after conversion
+  /// \param Chain output chain after conversion
   /// \returns True, if the expansion was successful, false otherwise
-  bool expandFP_TO_UINT(SDNode *N, SDValue &Result, SDValue &Chain, SelectionDAG &DAG) const;
+  bool expandFP_TO_UINT(SDNode *N, SDValue &Result, SDValue &Chain,
+                        SelectionDAG &DAG) const;
 
   /// Expand UINT(i64) to double(f64) conversion
   /// \param N Node to expand
   /// \param Result output after conversion
+  /// \param Chain output chain after conversion
   /// \returns True, if the expansion was successful, false otherwise
-  bool expandUINT_TO_FP(SDNode *N, SDValue &Result, SelectionDAG &DAG) const;
+  bool expandUINT_TO_FP(SDNode *N, SDValue &Result, SDValue &Chain,
+                        SelectionDAG &DAG) const;
 
   /// Expand fminnum/fmaxnum into fminnum_ieee/fmaxnum_ieee with quieted inputs.
   SDValue expandFMINNUM_FMAXNUM(SDNode *N, SelectionDAG &DAG) const;

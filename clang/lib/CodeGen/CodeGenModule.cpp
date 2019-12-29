@@ -52,6 +52,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
@@ -268,6 +269,14 @@ void CodeGenModule::createOpenMPRuntime() {
     else
       OpenMPRuntime.reset(new CGOpenMPRuntime(*this));
     break;
+  }
+
+  // The OpenMP-IR-Builder should eventually replace the above runtime codegens
+  // but we are not there yet so they both reside in CGModule for now and the
+  // OpenMP-IR-Builder is opt-in only.
+  if (LangOpts.OpenMPIRBuilder) {
+    OMPBuilder.reset(new llvm::OpenMPIRBuilder(TheModule));
+    OMPBuilder->initialize();
   }
 }
 
@@ -1077,7 +1086,7 @@ static void AppendTargetMangling(const CodeGenModule &CGM,
 
   Out << '.';
   const TargetInfo &Target = CGM.getTarget();
-  TargetAttr::ParsedTargetAttr Info =
+  ParsedTargetAttr Info =
       Attr->parse([&Target](StringRef LHS, StringRef RHS) {
         // Multiversioning doesn't allow "no-${feature}", so we can
         // only have "+" prefixes here.
@@ -1874,7 +1883,7 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>())) {
 #endif // INTEL_CUSTOMIZATION
     llvm::StringMap<bool> FeatureMap;
-    getFunctionFeatureMap(FeatureMap, GD);
+    getContext().getFunctionFeatureMap(FeatureMap, GD);
 
     // Produce the canonical string for this set of features.
     for (const llvm::StringMap<bool>::value_type &Entry : FeatureMap)
@@ -1885,7 +1894,7 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
     // get and parse the target attribute so we can get the cpu for
     // the function.
     if (TD) {
-      TargetAttr::ParsedTargetAttr ParsedAttr = TD->parse();
+      ParsedTargetAttr ParsedAttr = TD->parse();
       if (ParsedAttr.Architecture != "" &&
           getTarget().isValidCPUName(ParsedAttr.Architecture))
         TargetCPU = ParsedAttr.Architecture;
@@ -2492,15 +2501,19 @@ llvm::Constant *CodeGenModule::EmitAnnotateAttr(llvm::GlobalValue *GV,
                  *UnitGV = EmitAnnotationUnit(L),
                  *LineNoCst = EmitAnnotationLineNo(L);
 
-  llvm::Type *ResType = llvm::PointerType::getInt8PtrTy(
-      this->getLLVMContext(), GV->getType()->getPointerAddressSpace());
+  llvm::Constant *ASZeroGV = GV;
+  if (GV->getAddressSpace() != 0) {
+    ASZeroGV = llvm::ConstantExpr::getAddrSpaceCast(
+                   GV, GV->getValueType()->getPointerTo(0));
+  }
 
   // Create the ConstantStruct for the global annotation.
   llvm::Constant *Fields[4] = {
-      llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, ResType),
-      llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
-      llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy),
-      LineNoCst};
+    llvm::ConstantExpr::getBitCast(ASZeroGV, Int8PtrTy),
+    llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
+    llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy),
+    LineNoCst
+  };
   return llvm::ConstantStruct::getAnon(Fields);
 }
 
@@ -4057,6 +4070,10 @@ void CodeGenModule::EmitTentativeDefinition(const VarDecl *D) {
   EmitGlobalVarDefinition(D);
 }
 
+void CodeGenModule::EmitExternalDeclaration(const VarDecl *D) {
+  EmitExternalVarDeclaration(D);
+}
+
 CharUnits CodeGenModule::GetTargetTypeStoreSize(llvm::Type *Ty) const {
   return Context.toCharUnitsFromBits(
       getDataLayout().getTypeStoreSizeInBits(Ty));
@@ -4419,14 +4436,15 @@ void CodeGenModule::addGlobalIntelFPGAAnnotation(const VarDecl *VD,
                    *UnitGV = EmitAnnotationUnit(VD->getLocation()),
                    *LineNoCst = EmitAnnotationLineNo(VD->getLocation());
 
-    llvm::Type *ResType = llvm::PointerType::getInt8PtrTy(
-        this->getLLVMContext(), GV->getType()->getPointerAddressSpace());
-    llvm::Constant *C =
-        llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, ResType);
+    llvm::Constant *ASZeroGV = GV;
+    if (GV->getAddressSpace() != 0)
+      ASZeroGV = llvm::ConstantExpr::getAddrSpaceCast(
+          GV, GV->getValueType()->getPointerTo(0));
 
     // Create the ConstantStruct for the global annotation.
     llvm::Constant *Fields[4] = {
-        C, llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
+        llvm::ConstantExpr::getBitCast(ASZeroGV, Int8PtrTy),
+        llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
         llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy), LineNoCst};
     Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
   }
@@ -4716,6 +4734,19 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 #if INTEL_CUSTOMIZATION
   maybeEmitGlobalChannelMetadata(D, GV, *this);
 #endif // INTEL_CUSTOMIZATION
+}
+
+void CodeGenModule::EmitExternalVarDeclaration(const VarDecl *D) {
+  if (CGDebugInfo *DI = getModuleDebugInfo())
+    if (getCodeGenOpts().getDebugInfo() >= codegenoptions::LimitedDebugInfo) {
+      QualType ASTTy = D->getType();
+      llvm::Type *Ty = getTypes().ConvertTypeForMem(D->getType());
+      llvm::PointerType *PTy =
+          llvm::PointerType::get(Ty, getContext().getTargetAddressSpace(ASTTy));
+      llvm::Constant *GV = GetOrCreateLLVMGlobal(D->getName(), PTy, D);
+      DI->EmitExternalVariable(
+          cast<llvm::GlobalVariable>(GV->stripPointerCasts()), D);
+    }
 }
 
 static bool isVarDeclStrongDefinition(const ASTContext &Context,
@@ -6543,71 +6574,6 @@ void CodeGenModule::AddVTableTypeMetadata(llvm::GlobalVariable *VTable,
   if (NeedAllVtablesTypeId()) {
     llvm::Metadata *MD = llvm::MDString::get(getLLVMContext(), "all-vtables");
     VTable->addTypeMetadata(Offset.getQuantity(), MD);
-  }
-}
-
-TargetAttr::ParsedTargetAttr CodeGenModule::filterFunctionTargetAttrs(const TargetAttr *TD) {
-  assert(TD != nullptr);
-  TargetAttr::ParsedTargetAttr ParsedAttr = TD->parse();
-
-  ParsedAttr.Features.erase(
-      llvm::remove_if(ParsedAttr.Features,
-                      [&](const std::string &Feat) {
-                        return !Target.isValidFeatureName(
-                            StringRef{Feat}.substr(1));
-                      }),
-      ParsedAttr.Features.end());
-  return ParsedAttr;
-}
-
-
-// Fills in the supplied string map with the set of target features for the
-// passed in function.
-void CodeGenModule::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
-                                          GlobalDecl GD) {
-  StringRef TargetCPU = Target.getTargetOpts().CPU;
-  const FunctionDecl *FD = GD.getDecl()->getAsFunction();
-  if (const auto *TD = FD->getAttr<TargetAttr>()) {
-    TargetAttr::ParsedTargetAttr ParsedAttr = filterFunctionTargetAttrs(TD);
-
-    // Make a copy of the features as passed on the command line into the
-    // beginning of the additional features from the function to override.
-    ParsedAttr.Features.insert(ParsedAttr.Features.begin(),
-                            Target.getTargetOpts().FeaturesAsWritten.begin(),
-                            Target.getTargetOpts().FeaturesAsWritten.end());
-
-    if (ParsedAttr.Architecture != "" &&
-        Target.isValidCPUName(ParsedAttr.Architecture))
-      TargetCPU = ParsedAttr.Architecture;
-
-    // Now populate the feature map, first with the TargetCPU which is either
-    // the default or a new one from the target attribute string. Then we'll use
-    // the passed in features (FeaturesAsWritten) along with the new ones from
-    // the attribute.
-    Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU,
-                          ParsedAttr.Features);
-  } else if (const auto *SD = FD->getAttr<CPUSpecificAttr>()) {
-    llvm::SmallVector<StringRef, 32> FeaturesTmp;
-    Target.getCPUSpecificCPUDispatchFeatures(
-        SD->getCPUName(GD.getMultiVersionIndex())->getName(), FeaturesTmp);
-    std::vector<std::string> Features(FeaturesTmp.begin(), FeaturesTmp.end());
-    Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU, Features);
-#if INTEL_CUSTOMIZATION
-  // IntrinsicPromotion implementation.
-  } else if (const auto *TP = FD->getAttr<TargetPromotionAttr>()) {
-    std::vector<std::string> FeaturesTmp(Target.getTargetOpts().Features);
-    StringRef NewFeats(TP->getFeatures());
-    while (!NewFeats.empty()) {
-      std::pair<StringRef, StringRef> split = NewFeats.split(',');
-      FeaturesTmp.push_back(split.first);
-      NewFeats = split.second;
-    }
-
-    Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU, FeaturesTmp);
-#endif // INTEL_CUSTOMIZATION
-  } else {
-    Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU,
-                          Target.getTargetOpts().Features);
   }
 }
 

@@ -128,6 +128,9 @@ STATISTIC(NumReassoc  , "Number of reassociations");
 DEBUG_COUNTER(VisitCounter, "instcombine-visit",
               "Controls which instructions are visited");
 
+static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
+static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 1000;
+
 static cl::opt<bool>
 EnableCodeSinking("instcombine-code-sinking", cl::desc("Enable code sinking"),
                                               cl::init(true));
@@ -136,12 +139,23 @@ static cl::opt<bool>
 EnableExpensiveCombines("expensive-combines",
                         cl::desc("Enable expensive instruction combines"));
 
+static cl::opt<unsigned> LimitMaxIterations(
+    "instcombine-max-iterations",
+    cl::desc("Limit the maximum number of instruction combining iterations"),
+    cl::init(InstCombineDefaultMaxIterations));
+
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
 DisableTypeLoweringOpts("disable-type-lowering-opts",
                         cl::desc("Disable type lowering optimizations"));
 #endif // INTEL_CUSTOMIZATION
+
+static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
+    "instcombine-infinite-loop-threshold",
+    cl::desc("Number of instruction combining iterations considered an "
+             "infinite loop"),
+    cl::init(InstCombineDefaultInfiniteLoopThreshold), cl::Hidden);
 
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
@@ -2282,15 +2296,17 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     // of a bitcasted pointer to vector or array of the same dimensions:
     // gep (bitcast <c x ty>* X to [c x ty]*), Y, Z --> gep X, Y, Z
     // gep (bitcast [c x ty]* X to <c x ty>*), Y, Z --> gep X, Y, Z
-    auto areMatchingArrayAndVecTypes = [](Type *ArrTy, Type *VecTy) {
+    auto areMatchingArrayAndVecTypes = [](Type *ArrTy, Type *VecTy,
+                                          const DataLayout &DL) {
       return ArrTy->getArrayElementType() == VecTy->getVectorElementType() &&
-             ArrTy->getArrayNumElements() == VecTy->getVectorNumElements();
+             ArrTy->getArrayNumElements() == VecTy->getVectorNumElements() &&
+             DL.getTypeAllocSize(ArrTy) == DL.getTypeAllocSize(VecTy);
     };
     if (GEP.getNumOperands() == 3 &&
         ((GEPEltType->isArrayTy() && SrcEltType->isVectorTy() &&
-          areMatchingArrayAndVecTypes(GEPEltType, SrcEltType)) ||
+          areMatchingArrayAndVecTypes(GEPEltType, SrcEltType, DL)) ||
          (GEPEltType->isVectorTy() && SrcEltType->isArrayTy() &&
-          areMatchingArrayAndVecTypes(SrcEltType, GEPEltType)))) {
+          areMatchingArrayAndVecTypes(SrcEltType, GEPEltType, DL)))) {
 
       // Create a new GEP here, as using `setOperand()` followed by
       // `setSourceElementType()` won't actually update the type of the
@@ -3459,10 +3475,6 @@ bool InstCombiner::run() {
         // Move the name to the new instruction first.
         Result->takeName(I);
 
-        // Push the new instruction and any users onto the worklist.
-        Worklist.AddUsersToWorkList(*Result);
-        Worklist.Add(Result);
-
         // Insert the new instruction into the basic block...
         BasicBlock *InstParent = I->getParent();
         BasicBlock::iterator InsertPos = I->getIterator();
@@ -3473,6 +3485,10 @@ bool InstCombiner::run() {
           InsertPos = InstParent->getFirstInsertionPt();
 
         InstParent->getInstList().insert(InsertPos, Result);
+
+        // Push the new instruction and any users onto the worklist.
+        Worklist.AddUsersToWorkList(*Result);
+        Worklist.Add(Result);
 
         eraseInstFromFunction(*I);
       } else {
@@ -3644,10 +3660,11 @@ static bool combineInstructionsOverFunction(
     AssumptionCache &AC, TargetLibraryInfo &TLI, // INTEL
     TargetTransformInfo &TTI, DominatorTree &DT, // INTEL
     OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-    ProfileSummaryInfo *PSI, bool ExpensiveCombines = true,
-    bool TypeLoweringOpts = true, LoopInfo *LI = nullptr) { // INTEL
+    ProfileSummaryInfo *PSI, bool ExpensiveCombines, unsigned MaxIterations,
+    bool TypeLoweringOpts, LoopInfo *LI) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
   ExpensiveCombines |= EnableExpensiveCombines;
+  MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
   if (DisableTypeLoweringOpts)      // INTEL
     TypeLoweringOpts = false;       // INTEL
 
@@ -3668,9 +3685,23 @@ static bool combineInstructionsOverFunction(
     MadeIRChange = LowerDbgDeclare(F);
 
   // Iterate while there is work to do.
-  int Iteration = 0;
+  unsigned Iteration = 0;
   while (true) {
     ++Iteration;
+
+    if (Iteration > InfiniteLoopDetectionThreshold) {
+      report_fatal_error(
+          "Instruction Combining seems stuck in an infinite loop after " +
+          Twine(InfiniteLoopDetectionThreshold) + " iterations.");
+    }
+
+    if (Iteration > MaxIterations) {
+      LLVM_DEBUG(dbgs() << "\n\n[IC] Iteration limit #" << MaxIterations
+                        << " on " << F.getName()
+                        << " reached; stopping before reaching a fixpoint\n");
+      break;
+    }
+
     LLVM_DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                       << F.getName() << "\n");
 
@@ -3683,10 +3714,23 @@ static bool combineInstructionsOverFunction(
 
     if (!IC.run())
       break;
+
+    MadeIRChange = true;
   }
 
-  return MadeIRChange || Iteration > 1;
+  return MadeIRChange;
 }
+
+#if INTEL_CUSTOMIZATION
+InstCombinePass::InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts)
+    : ExpensiveCombines(ExpensiveCombines), TypeLoweringOpts(TypeLoweringOpts),
+      MaxIterations(LimitMaxIterations) {}
+
+InstCombinePass::InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts,
+                                 unsigned MaxIterations)
+    : ExpensiveCombines(ExpensiveCombines), TypeLoweringOpts(TypeLoweringOpts),
+      MaxIterations(MaxIterations) {}
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstCombinePass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
@@ -3709,6 +3753,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        ExpensiveCombines,             // INTEL
+                                       MaxIterations,                 // INTEL
                                        TypeLoweringOpts, LI))         // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
@@ -3769,15 +3814,25 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          ExpensiveCombines,             // INTEL
+                                         MaxIterations,                 // INTEL
                                          TypeLoweringOpts, LI);         // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
 
-InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines,  // INTEL
-                                                   bool TypeLoweringOpts)   // INTEL
-    : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),               // INTEL
-      TypeLoweringOpts(TypeLoweringOpts) {                                  // INTEL
+InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines, // INTEL
+                                                   bool TypeLoweringOpts)  // INTEL
+    : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),
+      TypeLoweringOpts(TypeLoweringOpts),                                  // INTEL
+      MaxIterations(InstCombineDefaultMaxIterations) {
+  initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
+}
+
+InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines,
+                                                   bool TypeLoweringOpts,  // INTEL
+                                                   unsigned MaxIterations)
+    : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),
+      TypeLoweringOpts(TypeLoweringOpts), MaxIterations(MaxIterations) {   // INTEL
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -3809,6 +3864,13 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
                                                    bool TypeLoweringOpts) {
   return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts);
+}
+
+FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
+                                                   bool TypeLoweringOpts,
+                                                   unsigned MaxIterations) {
+  return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts,
+                                      MaxIterations);
 }
 #endif // INTEL_CUSTOMIZATION
 

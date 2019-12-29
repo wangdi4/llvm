@@ -1143,6 +1143,15 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
+def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","max_global_work_dim">];
+  let Args = [UnsignedArgument<"Number">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
+  let PragmaAttributeSupport = 0;
+}
+
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1974,6 +1983,14 @@ def BPFPreserveAccessIndex : InheritableAttr,
   let LangOpts = [COnly];
 }
 
+def WebAssemblyExportName : InheritableAttr,
+                            TargetSpecificAttr<TargetWebAssembly> {
+  let Spellings = [Clang<"export_name">];
+  let Args = [StringArgument<"ExportName">];
+  let Documentation = [WebAssemblyExportNameDocs];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+}
+
 def WebAssemblyImportModule : InheritableAttr,
                               TargetSpecificAttr<TargetWebAssembly> {
   let Spellings = [Clang<"import_module">];
@@ -2537,16 +2554,6 @@ def Target : InheritableAttr {
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [TargetDocs];
   let AdditionalMembers = [{
-    struct ParsedTargetAttr {
-      std::vector<std::string> Features;
-      StringRef Architecture;
-      StringRef BranchProtection;
-      bool DuplicateArchitecture = false;
-      bool operator ==(const ParsedTargetAttr &Other) const {
-        return DuplicateArchitecture == Other.DuplicateArchitecture &&
-               Architecture == Other.Architecture && Features == Other.Features;
-      }
-    };
     ParsedTargetAttr parse() const {
       return parse(getFeaturesStr());
     }
@@ -3351,22 +3358,22 @@ def Win64 : IgnoredAttr {
 
 def Ptr32 : TypeAttr {
   let Spellings = [Keyword<"__ptr32">];
-  let Documentation = [Undocumented];
+  let Documentation = [Ptr32Docs];
 }
 
 def Ptr64 : TypeAttr {
   let Spellings = [Keyword<"__ptr64">];
-  let Documentation = [Undocumented];
+  let Documentation = [Ptr64Docs];
 }
 
 def SPtr : TypeAttr {
   let Spellings = [Keyword<"__sptr">];
-  let Documentation = [Undocumented];
+  let Documentation = [SPtrDocs];
 }
 
 def UPtr : TypeAttr {
   let Spellings = [Keyword<"__uptr">];
-  let Documentation = [Undocumented];
+  let Documentation = [UPtrDocs];
 }
 
 def MSInheritance : InheritableAttr {
@@ -3985,4 +3992,28 @@ def NoBuiltin : Attr {
   let Args = [VariadicStringArgument<"BuiltinNames">];
   let Subjects = SubjectList<[Function]>;
   let Documentation = [NoBuiltinDocs];
+}
+
+// FIXME: This attribute is not inheritable, it will not be propagated to
+// redecls. [[clang::lifetimebound]] has the same problems. This should be
+// fixed in TableGen (by probably adding a new inheritable flag).
+def AcquireHandle : DeclOrTypeAttr {
+  let Spellings = [Clang<"acquire_handle">];
+  let Args = [StringArgument<"HandleType">];
+  let Subjects = SubjectList<[Function, TypedefName, ParmVar]>;
+  let Documentation = [AcquireHandleDocs];
+}
+
+def UseHandle : InheritableParamAttr {
+  let Spellings = [Clang<"use_handle">];
+  let Args = [StringArgument<"HandleType">];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [UseHandleDocs];
+}
+
+def ReleaseHandle : InheritableParamAttr {
+  let Spellings = [Clang<"release_handle">];
+  let Args = [StringArgument<"HandleType">];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [ReleaseHandleDocs];
 }
