@@ -3090,6 +3090,12 @@ public:
       }
 
       return false;
+
+    } else if (BlobUtils::isConstantVectorBlob(SC) ||
+               BlobUtils::isConstantFPBlob(SC)) {
+      // Constants are not considered livein.
+      IsLiveIn = false;
+      return false;
     }
 
     return !isDone();
