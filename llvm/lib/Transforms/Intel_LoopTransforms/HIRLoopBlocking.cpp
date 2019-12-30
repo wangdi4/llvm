@@ -697,10 +697,39 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   // Now Different Outermost Loop is tried.
   // Outermost loop's level increased per try.
   // When the first legal/profitable loopnest is found, tries stop.
+  unsigned LoopNestDepth = InnermostLoop->getNestingLevel() -
+                           AdjustedHighestAncestor->getNestingLevel() + 1;
   for (HLLoop *Lp = AdjustedHighestAncestor; Lp != InnermostLoop;
        Lp = cast<HLLoop>(Lp->getFirstChild())) {
 
     LoopToStrip.clear();
+
+    // TODO: Find a way to avoid calling calcMaxVariantDimension inside loop
+    // body.
+    //       Maybe logic can be changed to
+    //       guarantee that MaxDimension monotously decreased.
+    unsigned MaxDimension =
+        calcMaxVariantDimension(Refs, Lp->getNestingLevel());
+    if (!DisableLoopDepthCheck) {
+      // A heuristic choice: Choose not to block. Stop here.
+      // This check is useful for blocking typical matrix multiplication.
+
+      if (LoopNestDepth <= MaxDimension) {
+        LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < LoopNestDepth "
+                          << MaxDimension << "," << LoopNestDepth << "\n");
+        // No more innerloop nest.
+        break;
+      }
+    }
+    LoopNestDepth--;
+
+    if (ConsecutiveDepth <= MaxDimension) {
+      LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
+                        << MaxDimension << "," << ConsecutiveDepth << "\n");
+      // No more innerloop nest.
+      break;
+    }
+    ConsecutiveDepth--;
 
     bool IsToStripmine = determineProfitableStripmineLoop(
         InnermostLoop, Lp, NumRefsWithSmallStrides, NumRefsMissingAtLevel,
