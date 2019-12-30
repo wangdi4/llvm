@@ -1,3 +1,4 @@
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -sycl-pipes-hack -verify -S %s -o - | FileCheck %s
 ; Compiled from:
 ; --------------
 ; #include <CL/sycl.hpp>
