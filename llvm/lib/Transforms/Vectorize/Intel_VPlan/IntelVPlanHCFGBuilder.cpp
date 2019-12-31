@@ -1154,111 +1154,6 @@ void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
   }
 }
 
-// Split basic blocks to increase the number of non-loop regions detected during
-// the construction of the hierarchical CFG.
-void VPlanHCFGBuilder::simplifyNonLoopRegions() {
-
-  assert(isa<VPRegionBlock>(Plan->getEntry()) &&
-         "VPlan entry is not a VPRegionBlock");
-  VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
-
-  SmallVector<VPBlockBase *, 32> WorkList;
-  SmallPtrSet<VPBlockBase *, 32> Visited;
-
-  WorkList.push_back(TopRegion->getEntry());
-
-  while (!WorkList.empty()) {
-
-    // Get Current and skip it if visited.
-    VPBlockBase *CurrentBlock = WorkList.back();
-    WorkList.pop_back();
-    if (Visited.count(CurrentBlock))
-      continue;
-
-    // Set Current to visited
-    Visited.insert(CurrentBlock);
-
-    // Potential VPRegion entry
-    if (CurrentBlock->getNumSuccessors() > 1) {
-
-      // Currently, this rule covers:
-      //   - Loop H with multiple successors
-      //   - Region exit that is another region entry
-      //   - Loop latch+exiting block with multiple predecessors
-      //
-      // TODO: skip single basic block loops?
-      if (CurrentBlock->getNumPredecessors() > 1) {
-        VPBlockUtils::splitBlockEnd(CurrentBlock, Plan->getVPLoopInfo(),
-                                    &VPDomTree, &VPPostDomTree);
-      }
-
-      // TODO: WIP. The code below has to be revisited. It will enable the
-      // construction of VPRegions that currently are not built because they
-      // share entry/exit nodes with other VPRegions. This transformation would
-      // require to introduce new instructions to split original phi
-      // instructions that are in the problematic basic blocks.
-
-      // VPBlockBase *PostDom =
-      //    PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
-      // VPBlockBase *Dom = DomTree.getNode(PostDom)->getIDom()->getBlock();
-      // assert(isa<VPBasicBlock>(PostDom) &&
-      //       "Expected VPBasicBlock as post-dominator");
-      // assert(isa<VPBasicBlock>(Dom) && "Expected VPBasicBlock as dominator");
-
-      // TODO: This condition is currently too generic. It needs refinement.
-      // However, if detecting more specific cases is expensive, we may want to
-      // leave as it is.
-      //
-      // When we need to insert a fake exit block:
-      //   - PostDom is exit of a region and entry of another region (PostDom
-      //   numSucc > 1)
-      //   - Dom != CurrentBlock:
-      //       - Nested region shares exit with parent region. We need a fake
-      //       exit for nested region to be created. With fake exit, Dom ==
-      //       CurrentBlock
-      //       - Dom != CurrentBlock even if we introduce the fake exit. We
-      //       won't create region for these cases so we don't want to introduce
-      //       fake exit. (TODO: We are currently introducing fake exit for this
-      //       case).
-      //       - Loops with multiple exiting blocks and region sharing exit
-      //       (TODO)
-      //       - Anything else?
-      //
-      // if (Dom != CurrentBlock || PostDom->getNumSuccessors() > 1) {
-
-      //  // New fake exit
-      //  VPBasicBlock *FakeExit = PlanUtils.createBasicBlock();
-      //  PlanUtils.setBlockParent(FakeExit, TopRegion);
-
-      //  // Set Predecessors
-      //  if (Dom != CurrentBlock) {
-      //    // Move only those predecessors from PostDom that are part of the
-      //    // nested region (i.e. they are dominated by Dom)
-      //    for (auto Pred : PostDom->getPredecessors()) {
-      //      if (DomTree.dominates(Dom, Pred)) {
-      //        PlanUtils.movePredecessor(Pred, PostDom /*From*/,
-      //                                  FakeExit /*To*/);
-      //      }
-      //    }
-      //  } else {
-      //    // All the predecessors will be in the same region. Move them all
-      //    from
-      //    // PostDom to FakeExit
-      //    PlanUtils.movePredecessors(PostDom, FakeExit);
-      //  }
-
-      //  // Add PostDom as single successor
-      //  PlanUtils.setSuccessor(FakeExit, PostDom);
-
-      //}
-    }
-
-    // Add successors to the worklist
-    for (VPBlockBase *Succ : CurrentBlock->getSuccessors())
-      WorkList.push_back(Succ);
-  }
-}
-
 // Main function that canonicalizes the plain CFG and applyies transformations
 // that enable the detection of more regions during the hierarchical CFG
 // construction.
@@ -1304,7 +1199,6 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
   }
 
   splitLoopsExit(TopLoop);
-  simplifyNonLoopRegions();
 }
 
 static TripCountInfo readIRLoopMetadata(Loop *Lp) {

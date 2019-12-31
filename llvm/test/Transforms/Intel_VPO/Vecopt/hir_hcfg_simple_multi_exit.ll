@@ -43,40 +43,34 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP12:%.*]] = getelementptr inbounds i32* [[CUR0]] i64 [[VP11]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP13:%.*]] = load i32* [[VP12]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP14:%.*]] = icmp i32 [[VP9]] i32 [[VP13]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP14]]), [[BB3]](!i1 [[VP14]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB2]]): [DA: Divergent] i1 [[VP14]] = icmp i32 [[VP9]] i32 [[VP13]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP14]]), [[BB3]](!i1 [[VP14]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Divergent] i32 [[VP2]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP15:%.*]] = icmp i32 [[VP2]] i32 [[VP0]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP15]]), [[BB6:BB[0-9]+]](!i1 [[VP15]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP15]]), [[BB5:BB[0-9]+]](!i1 [[VP15]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Uniform]   br for.end.loopexit
-; CHECK-NEXT:      SUCCESSORS(1):[[BB7]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;

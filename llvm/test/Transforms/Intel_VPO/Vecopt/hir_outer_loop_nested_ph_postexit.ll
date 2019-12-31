@@ -1,5 +1,4 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir" -hir-framework -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to build a VPlan for an outer loop with a nested loop
 ; which has pre-header and post-exit in HIR.
@@ -49,11 +48,6 @@
 ;   i64 %vp46912 = add i64 %vp46688 i64 2
 ;   i64 %vp47136 = add i64 %vp53280 i64 1
 ;   i1 %vp61936 = icmp i64 %vp47136 i64 %vp61776
-;  SUCCESSORS(1):BB11
-;
-;  BB11:
-;   <Empty Block>
-;   Condition(BB6): i1 %vp61936 = icmp i64 %vp47136 i64 %vp61776
 ;  SUCCESSORS(2):BB6(i1 %vp61936), BB7(!i1 %vp61936)
 
 ; Inner loop PH:
@@ -67,7 +61,7 @@
 
 ; Loop PE:
 ; CHECK:  [[PE]]:
-; CHECK-NEXT: i64 %vp{{[0-9]+}} = phi  [ i64 %vp{{[0-9]+}}, BB11 ]
+; CHECK-NEXT: i64 %vp{{[0-9]+}} = phi  [ i64 %vp{{[0-9]+}}, BB6 ]
 ; CHECK-NEXT: i64 %vp{{[0-9]+}} = bitcast i64 %vp{{[0-9]+}}
 
 

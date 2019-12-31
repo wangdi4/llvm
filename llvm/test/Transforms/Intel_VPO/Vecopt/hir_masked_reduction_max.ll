@@ -18,7 +18,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-entities-dump -vplan-print-after-hcfg < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPEntity with correct Exit PHI identified in the HCFG.
 ; CHECK-LABEL: Reduction list
@@ -27,7 +27,7 @@
 ; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP1:%.*]] = add i64 [[VP2:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP2:%.*]] = add i64 [[VP3:%.*]] i64 1
 ; CHECK-NEXT:    Linked values:{{.*}}
 ; CHECK-EMPTY:
 ; CHECK-EMPTY:
@@ -38,60 +38,48 @@
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = sext i32 [[N0:%.*]] to i64
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = add i64 [[VP3]] i64 -1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB0:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = sext i32 [[N0:%.*]] to i64
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP5:%.*]] = add i64 [[VP4]] i64 -1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB0:BB[0-9]*]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]:
-; CHECK-NEXT:     [DA: Divergent] float [[VP5:%.*]] = phi  [ float [[TMAX_0150]], [[BB2]] ],  [ float [[VP0]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP2]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP1]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Divergent] float* [[VP6:%.*]] = getelementptr inbounds [1000 x float]* @B i64 0 i64 [[VP2]]
+; CHECK-NEXT:     [DA: Divergent] float [[VP1:%.*]] = phi  [ float [[TMAX_0150]], [[BB2]] ],  [ float [[VP0]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP3]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP2]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Divergent] float* [[VP6:%.*]] = getelementptr inbounds [1000 x float]* @B i64 0 i64 [[VP3]]
 ; CHECK-NEXT:     [DA: Divergent] float [[VP7:%.*]] = load float* [[VP6]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = fcmp float [[VP7]] float 0.000000e+00
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8]]), [[BB3]](!i1 [[VP8]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB0]]): [DA: Divergent] i1 [[VP8]] = fcmp float [[VP7]] float 0.000000e+00
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP8]]), [[BB6:BB[0-9]+]](!i1 [[VP8]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Divergent] float [[VP9:%.*]] = phi  [ float [[VP5]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Divergent] float* [[VP10:%.*]] = getelementptr inbounds [1000 x float]* @C i64 0 i64 [[VP2]]
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       [DA: Divergent] float [[VP9:%.*]] = phi  [ float [[VP1]], [[BB0]] ]
+; CHECK-NEXT:       [DA: Divergent] float* [[VP10:%.*]] = getelementptr inbounds [1000 x float]* @C i64 0 i64 [[VP3]]
 ; CHECK-NEXT:       [DA: Divergent] float [[VP11:%.*]] = load float* [[VP10]]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP12:%.*]] = fcmp float [[VP11]] float [[VP9]]
 ; CHECK-NEXT:       [DA: Divergent] float [[VP13:%.*]] = select i1 [[VP12]] float [[VP11]] float [[VP9]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Divergent] float [[VP0]] = phi  [ float [[VP13]], [[BB5]] ],  [ float [[VP5]], [[BB4]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP1]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP14:%.*]] = icmp i64 [[VP1]] i64 [[VP4]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB4]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB6]]): [DA: Uniform]   i1 [[VP14]] = icmp i64 [[VP1]] i64 [[VP4]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB0]](i1 [[VP14]]), [[BB7:BB[0-9]+]](!i1 [[VP14]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:     [DA: Divergent] float [[VP0]] = phi  [ float [[VP13]], [[BB4]] ],  [ float [[VP1]], [[BB0]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP2]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP14:%.*]] = icmp i64 [[VP2]] i64 [[VP5]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB0]](i1 [[VP14]]), [[BB5:BB[0-9]+]](!i1 [[VP14]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
+; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
+; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
-
+;
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
