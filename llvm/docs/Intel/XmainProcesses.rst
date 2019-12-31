@@ -413,9 +413,9 @@ patch-extracting tool.
 
 .. code-block:: text
 
-   // INTEL_COLLAB
+   #if INTEL_COLLAB
     ...
-   // end INTEL_COLLAB
+   #endif // INTEL_COLLAB
 
 
 ``Marking an entire Intel-added file as COLLAB``
@@ -454,9 +454,9 @@ line in such files, it must coexist with the emacs marker:
 
 .. code-block:: text
 
-   // INTEL_COLLAB  -*- tablegen -*-
+   #if INTEL_COLLAB // -*- tablegen -*-
     ...
-   // end INTEL_COLLAB
+   #endif // INTEL_COLLAB
 
 ..
 

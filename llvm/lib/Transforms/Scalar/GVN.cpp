@@ -1026,6 +1026,45 @@ void GVN::AnalyzeLoadAvailability(LoadInst *LI, LoadDepVect &Deps,
 }
 
 #if INTEL_CUSTOMIZATION
+// We don't call into LTO here because ScalarOpt must build as a standalone
+// library with -slibs.
+static bool PaddedMallocGenerated(Module &M) {
+  return M.getFunction("__Intel_PaddedMallocInterface");
+}
+
+// This identifies the following pattern in the code when the Malloc Padding
+// is active to facilitate the Load PRE:
+//
+//     %PHI = phi i32 [ %l, %if.else ], [ %l, %while.end ], [ %s, %if.else10 ]
+//     %0 = zext i32 %phi to i64
+//     %1 = getelementptr inbounds i8, i8* %a, i64 %0
+//     %2 = load i8, i8* %1, align 1, !tbaa !19
+//
+// It returns the PHI node if such Load is found,
+// otherwise nullptr.
+PHINode *PREProfitableWithPaddedMalloc(LoadInst *LI) {
+  if (!PaddedMallocGenerated(*(LI->getModule()))) {
+    return nullptr;
+  }
+
+  if (!isa<GEPOperator>(LI->getPointerOperand())) {
+    return nullptr;
+  }
+
+  GEPOperator *GEP = dyn_cast<GEPOperator>(LI->getPointerOperand());
+  if (GEP->getNumIndices() == 1 && isa<ZExtInst>(GEP->getOperand(1))) {
+    ZExtInst *ZEI = dyn_cast<ZExtInst>(GEP->getOperand(1));
+    if (isa<PHINode>(ZEI->getOperand(0))) {
+      PHINode *PH = dyn_cast<PHINode>(ZEI->getOperand(0));
+      if (PH->getNumIncomingValues() == 3) {
+        return PH;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
 
   auto LoadBB = LI->getParent();
@@ -1043,6 +1082,11 @@ static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
   if (!Func->isPreLoopOpt()) {
     return true;
   }
+
+  // We don't want to suppress PRE when the padded malloc is active
+  // along with the specified pattern.
+  if (PREProfitableWithPaddedMalloc(LI))
+    return true;
 
   auto AddressInst = dyn_cast<Instruction>(LI->getPointerOperand());
 
@@ -1251,6 +1295,28 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
   unsigned NumUnavailablePreds = PredLoads.size() + CriticalEdgePred.size();
   assert(NumUnavailablePreds != 0 &&
          "Fully available value should already be eliminated!");
+
+#if INTEL_CUSTOMIZATION
+  PHINode *PH = PREProfitableWithPaddedMalloc(LI);
+  if (PH) {
+    if (NumUnavailablePreds == 2 && CriticalEdgePred.size() == 2 &&
+        (PH->getIncomingValueForBlock(CriticalEdgePred[0]) ==
+         PH->getIncomingValueForBlock(CriticalEdgePred[1]))) {
+      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, CriticalEdgePred,
+                                                 ".split", DT, this->LI);
+      if (NewBB) {
+        LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *LI
+                          << '\n');
+        CriticalEdgePred.clear();
+        PredLoads[NewBB] = nullptr;
+        NumUnavailablePreds = PredLoads.size() + CriticalEdgePred.size();
+        if (MD)
+          MD->invalidateCachedPredecessors();
+        InvalidBlockRPONumbers = true;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If this load is unavailable in multiple predecessors, reject it.
   // FIXME: If we could restructure the CFG, we could make a common pred with

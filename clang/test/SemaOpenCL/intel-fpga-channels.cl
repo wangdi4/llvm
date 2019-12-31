@@ -35,7 +35,7 @@ channel foo; // expected-error{{missing actual type specifier for channel}}
 
 struct incomplete;  // expected-note{{forward declaration of 'struct incomplete'}}
 
-channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type '__global channel struct incomplete'}}
+channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type 'channel struct incomplete'}}
 channel struct incomplete ch; // expected-error{{tentative definition has type '__global channel struct incomplete' that is never completed}}
 // expected-note@-4{{forward declaration of 'struct incomplete'}}
 channel struct incomplete; // expected-warning{{declaration does not declare anything}}
@@ -43,8 +43,13 @@ channel struct st; // expected-warning{{declaration does not declare anything}}
 channel int; // expected-warning{{declaration does not declare anything}}
 
 void write_wrapper(__global channel char *inp, char data) {
-  write_channel_intel(*inp, data); // expected-error{{invalid argument type 'channel char *' to unary expression}}
-  void *tmp = &inp; // expected-error{{invalid argument type 'channel char *' to unary expression}}
+#if __OPENCL_C_VERSION__ >= 200
+  write_channel_intel(*inp, data); // expected-error{{invalid argument type '__global channel __generic char *' to unary expression}}
+  void *tmp = &inp; // expected-error{{invalid argument type '__global channel __generic char *' to unary expression}}
+#else
+  write_channel_intel(*inp, data); // expected-error{{invalid argument type '__global channel __private char *' to unary expression}}
+  void *tmp = &inp; // expected-error{{invalid argument type '__global channel __private char *' to unary expression}}
+#endif
 }
 
 void read_channel(__global channel int *a) {

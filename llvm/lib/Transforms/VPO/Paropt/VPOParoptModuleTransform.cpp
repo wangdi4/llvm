@@ -34,6 +34,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -424,6 +425,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
+
+#if INTEL_CUSTOMIZATION
+  if (IsTargetSPIRV)
+    Changed |= InferAddrSpacesForGlobals(vpo::ADDRESS_SPACE_GENERIC, M);
+#endif  // INTEL_CUSTOMIZATION
 
   if (!DisableOffload) {
     // Emit offload entries table.

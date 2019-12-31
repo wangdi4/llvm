@@ -154,6 +154,12 @@ class MapIntrinToImlImpl {
   bool replaceVectorIDivAndRemWithSVMLCall(TargetTransformInfo *TTI,
                                            Function &F);
 
+  /// Legalize source and mask arguments when splitting an AVX512 SVML call to
+  /// a non-AVX512 one, or widening a non-AVX512 SVML call to AVX512
+  void legalizeAVX512MaskArgs(CallInst *CI, SmallVectorImpl<Value *> &Args,
+                              Value *MaskValue, unsigned LogicalVL,
+                              unsigned TargetVL, unsigned ScalarBitWidth);
+
 public:
   // Use TTI to provide information on the legal vector register size for the
   // target.

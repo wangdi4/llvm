@@ -12,8 +12,8 @@
 //    VPBlockBase, together implementing a Hierarchical CFG;
 // 2. Specializations of GraphTraits that allow VPBlockBase graphs to be treated
 //    as proper graphs for generic algorithms;
-// 3. Pure virtual VPRecipeBase and its pure virtual sub-classes
-//    represent base classes for recipes contained within VPBasicBlocks;
+// 3. VPInstruction and its  sub-classes represent instructions contained within
+//    VPBasicBlocks;
 // 4. The VPlan class holding a candidate for vectorization;
 // 5. The VPlanUtils class providing methods for building plans;
 // 6. The VPlanPrinter class providing a way to print a plan in dot format.
@@ -205,193 +205,9 @@ struct VPTransformState {
 #endif
 };
 
-/// VPRecipeBase is a base class modeling a sequence of one or more output IR
-/// instructions.
-class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
-  friend VPBasicBlock;
-  friend class VPCloneUtils;
-  friend class VPValueMapper;
-
-private:
-  const unsigned char SubclassID; /// Subclass identifier (for isa/dyn_cast).
-
-  /// Each VPRecipe belongs to a single VPBasicBlock.
-  VPBasicBlock *Parent;
-
-public:
-  /// An enumeration for keeping track of the concrete subclass of VPRecipeBase
-  /// that is actually instantiated. Values of this enumeration are kept in the
-  /// SubclassID field of the VPRecipeBase objects. They are used for concrete
-  /// type identification.
-  typedef enum {
-#if INTEL_CUSTOMIZATION
-    VPInstructionSC,
-
-    // Old recipes to be removed.
-    VPVectorizeOneByOneSC,
-    VPScalarizeOneByOneSC,
-    VPWidenIntInductionSC,
-    VPBuildScalarStepsSC,
-    VPInterleaveSC,
-    VPExtractMaskBitSC,
-    VPMergeScalarizeBranchSC,
-    VPBlockPredicatesRecipeSC,
-    VPIfTruePredicateRecipeSC,
-    VPIfFalsePredicateRecipeSC,
-    VPEdgePredicateRecipeSC,
-    VPUniformBranchSC,
-    VPLiveInBranchSC,
-    VPVectorizeBooleanSC,
-    VPUniformBooleanSC,
-    VPCmpBitSC,
-    VPPhiValueSC,
-    VPConstantSC,
-    VPBranchIfNotAllZeroRecipeSC,
-    VPMaskGenerationRecipeSC,
-    VPNonUniformBranchSC,
-#else
-    VPBlendSC,
-    VPBranchOnMaskSC,
-    VPInstructionSC,
-    VPInterleaveSC,
-    VPPredInstPHISC,
-    VPReplicateSC,
-    VPWidenIntOrFpInductionSC,
-    VPWidenMemoryInstructionSC,
-    VPWidenPHISC,
-    VPWidenSC,
-#endif // INTEL_CUSTOMIZATION
-
-  } VPRecipeTy;
-
-  VPRecipeBase(const unsigned char SC) : SubclassID(SC), Parent(nullptr) {}
-
-  virtual ~VPRecipeBase() {}
-
-  /// \return an ID for the concrete type of this object.
-  /// This is used to implement the classof checks. This should not be used
-  /// for any other purpose, as the values may change as LLVM evolves.
-  unsigned getVPRecipeID() const { return SubclassID; }
-
-  /// \return the VPBasicBlock which this VPRecipe belongs to.
-  VPBasicBlock *getParent() { return Parent; }
-  const VPBasicBlock *getParent() const { return Parent; }
-
-  /// The method which generates the output IR instructions that correspond to
-  /// this VPRecipe, thereby "executing" the VPlan.
-  virtual void execute(struct VPTransformState &State) = 0;
-#if INTEL_CUSTOMIZATION
-  virtual void executeHIR(VPOCodeGenHIR *CG) = 0;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void dump(raw_ostream &O) const = 0;
-
-  virtual void dump() const = 0;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Each recipe prints itself.
-  virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-};
-
-#if INTEL_CUSTOMIZATION
-class VPMaskGenerationRecipe : public VPRecipeBase {
-  friend class VPlanUtilsLoopVectorizer;
-
-private:
-  const Value *IncomingPred;
-  const Value *LoopBackedge;
-
-public:
-  VPMaskGenerationRecipe(const Value *Pred, const Value *Backedge)
-      : VPRecipeBase(VPMaskGenerationRecipeSC), IncomingPred(Pred),
-        LoopBackedge(Backedge) {}
-
-  ~VPMaskGenerationRecipe() {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPMaskGenerationRecipeSC;
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Print the recipe.
-  void print(raw_ostream &OS, const Twine &Indent) const override {
-    OS << " +\n" << Indent << "\"MaskGeneration";
-    OS << " " << *LoopBackedge << "\\l\"";
-  }
-
-  void dump(raw_ostream &OS) const override {
-    OS << *LoopBackedge << "\n";
-  }
-  void dump() const override {
-    dump(errs());
-  }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  void execute(struct VPTransformState &State) override {
-    // TODO: vectorizing this recipe should involve generating a mask for the
-    // instructions in the loop body. i.e., a phi instruction that has incoming
-    // values using IncomingPred and LoopBackedge.
-  }
-  void executeHIR(VPOCodeGenHIR *CG) override {}
-};
-
-/// A VPConstantRecipe is a recipe which represents a constant in VPlan.
-/// This recipe represents a scalar integer w/o any relation to the source IR.
-/// The usage of this recipe is mainly beneficial when we need to argue about
-/// new recipes altering the original structure of the code and introducing new
-/// commands. e.g. consider the single-exit loop massaging, we need to
-/// represent a new \phi with respect to new constant values and compares to
-/// those same values
-class VPConstantRecipe : public VPRecipeBase {
-public:
-  VPConstantRecipe(int val) : VPRecipeBase(VPConstantSC), val(val) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPConstantSC;
-  }
-
-  /// The method clones a uniform instruction that calculates condition
-  /// for uniform branch.
-  void execute(VPTransformState &State) override {}
-  void executeHIR(VPOCodeGenHIR *CG) override {}
-
-  Value *getValue(void) const {
-    // TODO after vectorize.
-    return nullptr;
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Print the recipe.
-  void print(raw_ostream &OS, const Twine &Indent) const override {
-    OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
-  }
-
-  void dump(raw_ostream &OS) const override {
-    OS << val << "\n";;
-  }
-  void dump() const override {
-    dump(errs());
-  }
-
-  std::string getName() const {
-    return std::string("Constant: ") += std::to_string(val);
-  };
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-private:
-  int val;
-   };
-#endif //INTEL_CUSTOMIZATION
-
-/// This is a concrete Recipe that models a single VPlan-level instruction.
-/// While as any Recipe it may generate a sequence of IR instructions when
-/// executed, these instructions would always form a single-def expression as
-/// the VPInstruction is also a single def-use vertex.
+/// Class to model a single VPlan-level instruction - it may generate a sequence
+/// of IR instructions when executed, these instructions would always form a
+/// single-def expression as the VPInstruction is also a single def-use vertex.
 ///
 #if INTEL_CUSTOMIZATION
 /// For HIR, we classify VPInstructions into 3 sub-types:
@@ -428,9 +244,11 @@ private:
 /// has sub-classes (VPCmpInst, VPPHINode, etc.) that would need to be
 /// replicated under the VPInstructionHIR.
 #endif
-class VPInstruction : public VPUser, public VPRecipeBase {
+class VPInstruction : public VPUser,
+  public ilist_node_with_parent<VPInstruction, VPBasicBlock> {
 #if INTEL_CUSTOMIZATION
   friend class HIRSpecifics;
+  friend class VPBasicBlock;
   friend class VPBuilder;
   friend class VPBranchInst;
   friend class VPBuilderHIR;
@@ -555,7 +373,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
         return nullptr;
       return MastData->getNode();
     }
-    const loopopt::HLNode *getUnderlyingNode() const {
+    loopopt::HLNode *getUnderlyingNode() const {
       return const_cast<HIRSpecifics *>(this)->getUnderlyingNode();
     }
 
@@ -567,7 +385,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     }
 
     /// Attach \p Def to this VPInstruction as its VPOperandHIR.
-    void setOperandDDR(loopopt::DDRef *Def) {
+    void setOperandDDR(const loopopt::DDRef *Def) {
       assert(!LHSHIROperand && "LHSHIROperand is already set!");
       LHSHIROperand.reset(new VPBlob(Def));
     }
@@ -588,7 +406,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
                                "to a master VPInstruction!");
       return MasterData.get<VPInstruction *>();
     }
-    const VPInstruction *getMaster() const {
+    VPInstruction *getMaster() const {
       return const_cast<HIRSpecifics *>(this)->getMaster();
     }
 
@@ -612,6 +430,36 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     void printHIRFlags(raw_ostream &OS) const {
       OS << "IsMaster=" << isMaster() << " IsDecomp=" << isDecomposed()
          << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
+    }
+
+    void cloneFrom(const HIRSpecifics &HIR) {
+      if (HIR.isMaster()) {
+        setUnderlyingNode(HIR.getUnderlyingNode());
+        if (HIR.isValid())
+          setValid();
+      } else if (HIR.isDecomposed())
+        setMaster(HIR.getMaster());
+
+      // Copy the operand.
+      if (VPOperandHIR *HIROperand = HIR.getOperandHIR()) {
+        if (VPBlob *Blob = dyn_cast<VPBlob>(HIROperand))
+          setOperandDDR(Blob->getBlob());
+        else {
+          VPIndVar *IV = cast<VPIndVar>(HIROperand);
+          setOperandIV(IV->getIVLevel());
+        }
+      }
+
+      // Verify correctness of the cloned HIR.
+      assert(isMaster() == HIR.isMaster() &&
+             "Cloned isMaster() value should be equal to the original one");
+      assert(isDecomposed() == HIR.isDecomposed() &&
+             "Cloned isDecomposed() value should be equal to the original one");
+      assert(isSet() == HIR.isSet() &&
+             "Cloned isSet() value should be equal to the original one");
+      if (isSet())
+        assert(HIR.isValid() == isValid() &&
+               "Cloned isValid() value should be equal to the original one");
     }
   };
 #endif // INTEL_CUSTOMIZATION
@@ -644,6 +492,9 @@ private:
   typedef unsigned char OpcodeTy;
   OpcodeTy Opcode;
 
+  /// Each VPInstruction belongs to a single VPBasicBlock.
+  VPBasicBlock *Parent = nullptr;
+
 #if INTEL_CUSTOMIZATION
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
@@ -653,6 +504,17 @@ private:
   /// Utility method serving execute(): generates a single instance of the
   /// modeled instruction.
   void generateInstruction(VPTransformState &State, unsigned Part);
+
+  void copyUnderlyingFrom(const VPInstruction &Inst) {
+#if INTEL_CUSTOMIZATION
+    HIR.cloneFrom(Inst.HIR);
+#endif // INTEL_CUSTOMIZATION
+    Value *V = Inst.getUnderlyingValue();
+    if (V)
+      setUnderlyingValue(*V);
+    if (!Inst.isUnderlyingIRValid())
+      invalidateUnderlyingIR();
+  }
 
 #if INTEL_CUSTOMIZATION
 protected:
@@ -671,33 +533,28 @@ protected:
   bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
 #endif
 
+  virtual VPInstruction *cloneImpl() const {
+    VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
+    for (auto &O : operands()) {
+      Cloned->addOperand(O);
+    }
+    return Cloned;
+  }
+
 public:
-#if INTEL_CUSTOMIZATION
   VPInstruction(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode) {
     assert(BaseTy && "BaseTy can't be null!");
   }
   VPInstruction(unsigned Opcode, Type *BaseTy,
                 std::initializer_list<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode) {
     assert(BaseTy && "BaseTy can't be null!");
   }
-#else
-  VPInstruction(unsigned Opcode, std::initializer_list<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands),
-        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {}
-#endif // INTEL_CUSTOMIZATION
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() == VPValue::VPInstructionSC;
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *R) {
-    return R->getVPRecipeID() == VPRecipeBase::VPInstructionSC;
   }
 
   unsigned getOpcode() const { return Opcode; }
@@ -730,20 +587,20 @@ public:
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
 
-  bool mayHaveSideEffects() const {
-    auto *Instr = getInstruction();
-    if (!Instr)
-      return true; // Without underlying IR return pessimistic answer.
-    return Instr->mayHaveSideEffects();
-  }
+  bool mayHaveSideEffects() const;
 #endif // INTEL_CUSTOMIZATION
+
+  /// \return the VPBasicBlock which this VPInstruction belongs to.
+  VPBasicBlock *getParent() { return Parent; }
+  const VPBasicBlock *getParent() const { return Parent; }
+  void setParent(VPBasicBlock *NewParent) { Parent = NewParent; }
 
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
-  void execute(VPTransformState &State) override;
+  virtual void execute(VPTransformState &State);
 #if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG) override;
+  virtual void executeHIR(VPOCodeGenHIR *CG);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
   void dump(raw_ostream &O) const override { dump(O, nullptr); };
@@ -755,20 +612,17 @@ public:
 #endif
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Dump the VPInstruction.
-  /// Print the Recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  /// Print the VPInstruction.
+  virtual void print(raw_ostream &O, const Twine &Indent) const;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr) const;
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  virtual VPInstruction *clone() const {
-    VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
-    for (auto &O : operands()) {
-      Cloned->addOperand(O);
-    }
+  VPInstruction *clone() const {
+    VPInstruction *Cloned = cloneImpl();
+    Cloned->copyUnderlyingFrom(*this);
     return Cloned;
   }
 };
@@ -799,11 +653,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  static bool classof(const VPRecipeBase *R) {
-    return isa<VPInstruction>(R) && classof(cast<VPInstruction>(R));
-  }
-
-  virtual VPCmpInst *clone() const final {
+  virtual VPCmpInst *cloneImpl() const final {
     return new VPCmpInst(getOperand(0), getOperand(1), getPredicate());
   }
 
@@ -848,11 +698,8 @@ public:
     return VPI->getOpcode() == Instruction::Br;
   }
 
-  virtual VPBranchInst *clone() const final {
-    VPBranchInst *Cloned = new VPBranchInst(getType());
-    Cloned->HIR.setUnderlyingNode(
-        const_cast<loopopt::HLNode *>(HIR.getUnderlyingNode()));
-    return Cloned;
+  virtual VPBranchInst *cloneImpl() const final {
+    return new VPBranchInst(getType());
   }
 };
 
@@ -998,17 +845,10 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  // FIXME: VPRecipeBase is going to be removed, so this classof
-  // should be removed. Right now it's needed to cast directly to VPPHINode
-  // during instruction traversal of VPBB
-  static inline bool classof(const VPRecipeBase *V) {
-    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
   /// Create new PHINode and copy original incoming values to the newly created
   /// PHINode. Caller is responsible to replace these values with what is
   /// needed.
-  virtual VPPHINode *clone() const final {
+  virtual VPPHINode *cloneImpl() const final {
     VPPHINode *Cloned = new VPPHINode(getType());
     for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
       Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
@@ -1127,11 +967,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  static bool classof(const VPRecipeBase *V) {
-    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
-  virtual VPGEPInstruction *clone() const final {
+  virtual VPGEPInstruction *cloneImpl() const final {
     VPGEPInstruction *Cloned =
         new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
     for (auto *O : make_range(op_begin()+1, op_end())) {
@@ -1458,300 +1294,6 @@ private:
 };
 #endif // INTEL_CUSTOMIZATION
 
-/// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
-/// generation/modeling. Concrete sub-classes represent block & edge predicates
-/// and their relations to one another.
-/// The predicate value and its generating VPPredicateRecipe are considered as
-/// one (in a similar manner to a value and its instruction in LLVM-IR).
-/// Moreover, a concrete predicate-recipe exists with the main purpose of
-/// generating a specific portion of the predicate generation sequence in the
-/// output-IR. While some recipe instances serve as the actual predicates for
-/// predicating instructions in a predicated VP-BB, other recipe instances may
-/// only exist as an intermediate recipe in the predicate generation process.
-///
-/// Predicate relations are defined as listed below:
-/// *** A predicate/edge-condition is represented in the definition as the set
-/// *** of active lanes.
-/// (a) Predicate(VP-BB): Either (1) the union across all incoming
-///     edge-predicates. Or (2) the \phi between them, this kind of case serves
-///     inner-loop predicate handling in the header of the loop.
-/// (b) Predicate(edge): the intersection between the source-BB predicate and
-///     the condition-predicate (where a condition-predicate is defined as
-///     the set of lanes choosing to traverse a given edge). E.g. given the
-///     true-edge of an if-statement, its condition-predicate is the set of
-///     lanes traversing it across all lanes (rather than only considering the
-///     active lanes). When the condition is void, the source-BB has only a
-///     single edge and its condition-predicate is set to all lanes.
-class VPPredicateRecipeBase : public VPRecipeBase {
-public:
-  /// Type definition for an array of vectorized masks. One per unroll
-  /// iteration.
-  typedef SmallVector<Value *, 2> VectorParts;
-  typedef SmallVector<loopopt::RegDDRef *, 2> HIRVectorParts;
-
-  /// Temporary, should be removed.
-  BasicBlock *SourceBB;
-
-protected:
-  /// The result after vectorizing. used for feeding future v-instructions.
-  VectorParts VectorizedPredicate;
-  HIRVectorParts VectorizedPredicateHIR;
-
-  /// Construct a VPPredicateRecipeBase.
-  VPPredicateRecipeBase(const unsigned char SC)
-    : VPRecipeBase(SC), VectorizedPredicate(), VectorizedPredicateHIR() {}
-
-  /// Predicate's name.
-  std::string Name;
-
-#if INTEL_CUSTOMIZATION
-  /// The predicate inputs - for debugging
-  std::string Inputs;
-#endif
-
-public:
-  /// Get the vectorized value. Must be used after vectorizing the concrete
-  /// recipe.
-  const VectorParts &getVectorizedPredicate() const {
-    return VectorizedPredicate;
-  }
-
-  const HIRVectorParts &getVectorizedPredicateHIR() const {
-    return VectorizedPredicateHIR;
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
-  }
-
-  // Get predicate's name.
-  std::string getName() const { return Name; }
-
-  // Set predicate's name.
-  void setName(std::string Name) { this->Name = Name; }
-};
-
-/// A VPBlockPredicateRecipe is a concrete VPPredicateRecipe recipe which
-/// models a block predicate. As defined above in Predicate relations (a.1.),
-/// this predicate is the union of all IncomingPredicates.
-class VPBlockPredicateRecipe : public VPPredicateRecipeBase {
-  friend class VPValueUtils;
-
-private:
-  /// The list of incoming edges to the block
-  SmallVector<VPPredicateRecipeBase *, 2> IncomingPredicates;
-
-  /// \brief Add Incoming Predicate.
-  void appendIncomingPredicate(VPPredicateRecipeBase *Incoming) {
-    assert(Incoming && "Cannot add nullptr incoming predicate!");
-    IncomingPredicates.push_back(Incoming);
-  }
-
-  /// \brief Remove Incoming Predicate.
-  void removeIncomingPredicate(VPPredicateRecipeBase *Incoming) {
-    assert(Incoming && "Cannot add nullptr incoming predicate!");
-    auto Pos = std::find(IncomingPredicates.begin(), IncomingPredicates.end(),
-                         Incoming);
-    assert(Pos && "Incoming does not exist!");
-    IncomingPredicates.erase(Pos);
-  }
-
-  /// \brief Clear list of incoming predicates
-  void clearIncomingPredicates() { IncomingPredicates.clear(); }
-
-public:
-  /// Construct a VPPredicateRecipeBase.
-  VPBlockPredicateRecipe()
-      : VPPredicateRecipeBase(VPBlockPredicatesRecipeSC), IncomingPredicates() {
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
-  }
-
-  const SmallVectorImpl<VPPredicateRecipeBase *> &
-  getIncomingPredicates(void) const {
-    return const_cast<VPBlockPredicateRecipe *>(this)->getIncomingPredicates();
-  }
-
-  SmallVectorImpl<VPPredicateRecipeBase *> &getIncomingPredicates(void) {
-    return IncomingPredicates;
-  }
-
-  void execute(VPTransformState &State) override;
-#if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG) override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override;
-
-  void dump() const override { dump(errs()); }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const Twine &Indent) const override;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-};
-
-/// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports
-/// predicate generation/modeling on edges. Concrete sub-classes represent
-/// if-statement edge predicates and select-statement edge predicates in the
-/// future.
-/// A VPEdgePredicateRecipeBase holds reference to edge's source-BB predicate
-/// and condition-predicate as illustrated in Predicate relations (b).
-class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
-protected:
-  /// A pointer to the recipe closest to the condition value
-  VPValue *ConditionValue;
-
-  /// A pointer to the predecessor block's predicate.
-  VPPredicateRecipeBase *PredecessorPredicate;
-
-  /// Construct a VPEdgePredicateRecipeBase.
-  VPEdgePredicateRecipeBase(const unsigned char SC, VPValue *CV,
-                            VPPredicateRecipeBase *PredecessorPredicate)
-      : VPPredicateRecipeBase(SC), ConditionValue(CV),
-        PredecessorPredicate(PredecessorPredicate) {}
-
-  /// A helper function which prints out the details of an edge predicate.
-  void printDetails(raw_ostream &O) const;
-
-public:
-  const VPPredicateRecipeBase *getPredecessorPredicate() const {
-    return const_cast<VPEdgePredicateRecipeBase *>(this)
-        ->getPredecessorPredicate();
-  }
-  VPPredicateRecipeBase *getPredecessorPredicate() {
-    return PredecessorPredicate;
-  }
-
-  // TODO: Private + utility
-  void setPredecessorPredicate(VPPredicateRecipeBase *Predicate) {
-    PredecessorPredicate = Predicate;
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPEdgePredicateRecipeSC;
-  }
-};
-
-class VPEdgePredicateRecipe : public VPEdgePredicateRecipeBase {
-public:
-  /// Construct a VPIfTruePredicateRecipe.
-  VPEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
-                        BasicBlock *From, BasicBlock *To)
-      : VPEdgePredicateRecipeBase(VPEdgePredicateRecipeSC, nullptr,
-                                  PredecessorPredicate),
-        FromBB(From), ToBB(To) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
-  }
-
-  void execute(VPTransformState &State) override;
-#if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG) override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override;
-
-  void dump() const override { dump(errs()); }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const Twine &Indent) const override;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-private:
-  BasicBlock *FromBB;
-  BasicBlock *ToBB;
-};
-
-/// A VPIfTruePredicateRecipe is a concrete recipe which represents the
-/// edge-predicate of the true-edged if-statement case.
-class VPIfTruePredicateRecipe : public VPEdgePredicateRecipeBase {
-
-public:
-  /// Construct a VPIfTruePredicateRecipe.
-  VPIfTruePredicateRecipe(VPValue *CV,
-                          VPPredicateRecipeBase *PredecessorPredicate,
-                          BasicBlock *From, BasicBlock *To)
-      : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, CV,
-                                  PredecessorPredicate),
-        FromBB(From), ToBB(To) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC;
-  }
-
-  void execute(VPTransformState &State) override;
-#if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG) override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override;
-
-  void dump() const override { dump(errs()); }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const Twine &Indent) const override;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-private:
-  BasicBlock *FromBB;
-  BasicBlock *ToBB;
-};
-
-/// A VPIfFalsePredicateRecipe is a concrete recipe which represents the
-/// edge-predicate of the false-edged if-statement case.
-class VPIfFalsePredicateRecipe : public VPEdgePredicateRecipeBase {
-public:
-  /// Construct a VPIfFalsePredicateRecipe.
-  VPIfFalsePredicateRecipe(VPValue *CV,
-                           VPPredicateRecipeBase *PredecessorPredicate,
-                           BasicBlock *From, BasicBlock *To)
-      : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, CV,
-                                  PredecessorPredicate),
-        FromBB(From), ToBB(To) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
-  }
-
-  void execute(VPTransformState &State) override;
-#if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG) override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override;
-
-  void dump() const override { dump(errs()); }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const Twine &Indent) const override;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-private:
-  BasicBlock *FromBB;
-  BasicBlock *ToBB;
-};
-
 /// VPBlockBase is the building block of the Hierarchical CFG. A VPBlockBase
 /// can be either a VPBasicBlock or a VPRegionBlock.
 ///
@@ -1792,9 +1334,6 @@ private:
 
   /// Successor selector, null for zero or single successor blocks.
   VPValue *CondBit = nullptr;
-
-  /// holds a predicate for a VPBlock.
-  VPPredicateRecipeBase *PredicateRecipe = nullptr;
 
   /// Current block predicate - null if the block does not need a predicate.
   VPValue *Predicate = nullptr;
@@ -2029,8 +1568,7 @@ public:
   /// Remove all the predecessor of this block.
   void clearPredecessors() { Predecessors.clear(); }
 
-  /// Remove all the successors of this block and set to null its condition bit
-  /// recipe.
+  /// Remove all the successors of this block and set its condition bit to null.
   void clearSuccessors() {
     Successors.clear();
     CondBit = nullptr;
@@ -2043,10 +1581,6 @@ public:
   const VPValue *getCondBit() const { return CondBit; }
 
   void setCondBit(VPValue *CB) { CondBit = CB; }
-
-  VPPredicateRecipeBase *getPredicateRecipe() const { return PredicateRecipe; }
-
-  void setPredicateRecipe(VPPredicateRecipeBase *R) { PredicateRecipe = R; }
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBlockBase in the vectorized version, thereby "executing" the VPlan.
@@ -2099,170 +1633,63 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
-#if INTEL_CUSTOMIZATION
-/// A VPPhiValueRecipe is a recipe which represents a new Phi in VPlan to
-/// facilitate the alteration of VPlan from its original source coded form.
-/// Currently the elements of the phi are constants in-order to generate the
-/// needed \phi for the single-exit loop massaging. However, this phi can be
-/// further enhanced to handle any type of value.
-class VPPhiValueRecipe : public VPRecipeBase {
-public:
-  VPPhiValueRecipe() : VPRecipeBase(VPPhiValueSC), Incoming(), Phi(nullptr) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPLiveInBranchSC;
-  }
-
-  /// The method clones a uniform instruction that calculates condition
-  /// for uniform branch.
-  void execute(VPTransformState &State) override {}
-  void executeHIR(VPOCodeGenHIR *CG) override {}
-
-  /// Return the phi value after vectorization.
-  Value *getValue(void) const {
-    return Phi;
-  }
-
-  /// Adds a new element to the resulting \phi.
-  void addIncomingValue(VPConstantRecipe IncomingValue,
-    VPBlockBase* IncomingBlock) {
-    Incoming.push_back(IncomingPair(IncomingValue, IncomingBlock));
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Print the recipe.
-  void print(raw_ostream &OS, const Twine &Indent) const override {
-    OS << " +\n" << Indent << "\"Phi ";
-
-    for (auto item : Incoming) {
-      OS << "[";
-      item.first.print(OS, Indent);
-      OS << ", " << item.second->getName() << "] ";
-    }
-
-    OS << "\\l\"";
-  }
-
-  void dump(raw_ostream &OS) const override {
-    OS << "Phi ";
-    for (auto Item : Incoming) {
-      Item.first.dump(OS);
-      OS << ", " << Item.second->getName() << " ";
-    }
-    OS << "\n";
-  }
-  void dump() const override {
-    dump(errs());
-  }
-
-  StringRef getName() const { return "Phi Recipe"; };
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  ~VPPhiValueRecipe() {
-    Phi->deleteValue();
-  }
-
-private:
-  typedef std::pair<VPConstantRecipe , VPBlockBase *> IncomingPair;
-  SmallVector<IncomingPair, 4> Incoming;
-  Value* Phi;
-};
-#endif //INTEL_CUSTOMIZATION
-
 /// VPBasicBlock serves as the leaf of the Hierarchical CFG. It represents a
 /// sequence of instructions that will appear consecutively in a basic block
 /// of the vectorized version. The VPBasicBlock takes care of the control-flow
 /// relations with other VPBasicBlock's and Regions. It holds a sequence of zero
-/// or more VPRecipe's that take care of representing the instructions.
-/// A VPBasicBlock that holds no VPRecipe's represents no instructions; this
-/// may happen, e.g., to support disjoint Regions and to ensure Regions have a
-/// single exit, possibly an empty one.
+/// or more VPInstructions that take care of representing the instructions.
+/// A VPBasicBlock that holds no instructions: this may happen, e.g., to support
+/// disjoint Regions and to ensure Regions have a single exit, possibly an empty
+/// one.
 ///
 /// Note that in contrast to the IR BasicBlock, a VPBasicBlock models its
 /// control-flow edges with successor and predecessor VPBlockBase directly,
 /// rather than through a Terminator branch or through predecessor branches that
 /// "use" the VPBasicBlock.
 class VPBasicBlock : public VPBlockBase {
+  friend class VPBlockUtils;
 public:
-  typedef iplist<VPRecipeBase> RecipeListTy;
+  using VPInstructionListTy = iplist<VPInstruction>;
 
 private:
-  /// The list of VPRecipes, held in order of instructions to generate.
-  RecipeListTy Recipes;
+  /// The list of VPInstructions, held in order of instructions to generate.
+  VPInstructionListTy Instructions;
 
 public:
   /// Instruction iterators...
-  typedef RecipeListTy::iterator iterator;
-  typedef RecipeListTy::const_iterator const_iterator;
-  typedef RecipeListTy::reverse_iterator reverse_iterator;
-  typedef RecipeListTy::const_reverse_iterator const_reverse_iterator;
+  using iterator = VPInstructionListTy::iterator;
+  using const_iterator = VPInstructionListTy::const_iterator;
+  using reverse_iterator = VPInstructionListTy::reverse_iterator;
+  using const_reverse_iterator = VPInstructionListTy::const_reverse_iterator;
 
   //===--------------------------------------------------------------------===//
-  /// Recipe iterator methods
+  /// Instruction iterator methods
   ///
-  inline iterator begin() { return Recipes.begin(); }
-  inline const_iterator begin() const { return Recipes.begin(); }
-  inline iterator end() { return Recipes.end(); }
-  inline const_iterator end() const { return Recipes.end(); }
+  inline iterator begin() { return Instructions.begin(); }
+  inline const_iterator begin() const { return Instructions.begin(); }
+  inline iterator end() { return Instructions.end(); }
+  inline const_iterator end() const { return Instructions.end(); }
 
-  inline reverse_iterator rbegin() { return Recipes.rbegin(); }
-  inline const_reverse_iterator rbegin() const { return Recipes.rbegin(); }
-  inline reverse_iterator rend() { return Recipes.rend(); }
-  inline const_reverse_iterator rend() const { return Recipes.rend(); }
+  inline reverse_iterator rbegin() { return Instructions.rbegin(); }
+  inline const_reverse_iterator rbegin() const { return Instructions.rbegin(); }
+  inline reverse_iterator rend() { return Instructions.rend(); }
+  inline const_reverse_iterator rend() const { return Instructions.rend(); }
 
-  inline size_t size() const { return Recipes.size(); }
-  inline bool empty() const { return Recipes.empty(); }
-  inline const VPRecipeBase &front() const { return Recipes.front(); }
-  inline VPRecipeBase &front() { return Recipes.front(); }
-  inline const VPRecipeBase &back() const { return Recipes.back(); }
-  inline VPRecipeBase &back() { return Recipes.back(); }
-
-  // Few helpers to make use of in decltype below.
-  static bool isVPInstruction(const VPRecipeBase &Recipe) {
-    return isa<VPInstruction>(Recipe);
-  }
-  static VPInstruction &asVPInstruction(VPRecipeBase &Recipe) {
-    return cast<VPInstruction>(Recipe);
-  }
-  static const VPInstruction &asConstVPInstruction(const VPRecipeBase &Recipe) {
-    return cast<VPInstruction>(Recipe);
-  }
-
-  // FIXME: Temporary filtered ranges until we get rid of recipes. Once
-  // that's done, they should be removed.
-  inline auto vpinstructions()
-      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
-                                              isVPInstruction),
-                            asVPInstruction)) {
-    return map_range(
-        make_filter_range(make_range(begin(), end()), isVPInstruction),
-        asVPInstruction);
-  }
-  inline auto vpinstructions() const
-      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
-                                              isVPInstruction),
-                            asConstVPInstruction)) {
-    return map_range(
-        make_filter_range(make_range(begin(), end()), isVPInstruction),
-        asConstVPInstruction);
-  }
-
-  /// \brief Return the underlying instruction list container.
-  ///
-  /// Currently you need to access the underlying instruction list container
-  /// directly if you want to modify it.
-  const RecipeListTy &getInstList() const { return Recipes; }
-  RecipeListTy &getInstList() { return Recipes; }
+  inline size_t size() const { return Instructions.size(); }
+  inline bool empty() const { return Instructions.empty(); }
+  inline const VPInstruction &front() const { return Instructions.front(); }
+  inline VPInstruction &front() { return Instructions.front(); }
+  inline const VPInstruction &back() const { return Instructions.back(); }
+  inline VPInstruction &back() { return Instructions.back(); }
 
   /// \brief Returns a pointer to a member of the instruction list.
-  static RecipeListTy VPBasicBlock::*getSublistAccess(VPRecipeBase *) {
-    return &VPBasicBlock::Recipes;
+  static VPInstructionListTy VPBasicBlock::*getSublistAccess(VPInstruction *) {
+    return &VPBasicBlock::Instructions;
   }
 
   auto getVPPhis() {
-    auto AsVPPHINode = [](VPRecipeBase &Recipe) -> VPPHINode & {
-      return cast<VPPHINode>(Recipe);
+    auto AsVPPHINode = [](VPInstruction &Instruction) -> VPPHINode & {
+      return cast<VPPHINode>(Instruction);
     };
 
     // If the block is empty or if it has no PHIs, return null range
@@ -2277,72 +1704,94 @@ public:
     return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
-  VPBasicBlock(const std::string &Name, VPRecipeBase *Recipe = nullptr)
-      : VPBlockBase(VPBasicBlockSC, Name), CBlock(nullptr), TBlock(nullptr),
-        FBlock(nullptr), OriginalBB(nullptr) {
-    if (Recipe)
-      appendRecipe(Recipe);
+  auto getVPPhis() const {
+    auto AsVPPHINode = [](const VPInstruction &Instruction) -> const VPPHINode & {
+      return cast<VPPHINode>(Instruction);
+    };
+
+    // If the block is empty or if it has no PHIs, return null range
+    if (empty() || !isa<VPPHINode>(begin()))
+      return map_range(make_range(end(), end()), AsVPPHINode);
+
+    // Increment iterator till a non PHI VPInstruction is found
+    const_iterator It = begin();
+    while (It != end() && isa<VPPHINode>(It))
+      ++It;
+
+    return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
-  ~VPBasicBlock() { Recipes.clear(); }
+  VPBasicBlock(const std::string &Name, VPInstruction *Instruction = nullptr)
+      : VPBlockBase(VPBasicBlockSC, Name), CBlock(nullptr), TBlock(nullptr),
+        FBlock(nullptr), OriginalBB(nullptr) {
+    if (Instruction)
+      appendInstruction(Instruction);
+  }
+
+  ~VPBasicBlock() { Instructions.clear(); }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *V) {
     return V->getVPBlockID() == VPBlockBase::VPBasicBlockSC;
   }
 
-  void insert(VPRecipeBase *Recipe, iterator InsertPt) {
-    assert(Recipe && "No recipe to append.");
-    assert(!Recipe->Parent && "Recipe already in VPlan");
-    Recipe->Parent = this;
-    Recipes.insert(InsertPt, Recipe);
+  void insert(VPInstruction *Instruction, iterator InsertPt) {
+    assert(Instruction && "No instruction to append.");
+    assert(!Instruction->Parent && "Instruction already in VPlan");
+    Instruction->Parent = this;
+    Instructions.insert(InsertPt, Instruction);
   }
 
-  /// Augment the existing recipes of a VPBasicBlock with an additional
-  /// \p Recipe as the last recipe.
-  void appendRecipe(VPRecipeBase *Recipe) { insert(Recipe, end()); }
+  /// Augment the existing instructions of a VPBasicBlock with an additional
+  /// \p Instruction as the last Instruction.
+  void appendInstruction(VPInstruction *Instruction) {
+    insert(Instruction, end());
+  }
 
 #if INTEL_CUSTOMIZATION
-  /// Add \p Recipe after \p After. If \p After is null, \p Recipe will be
-  /// inserted as the first recipe.
-  void addRecipeAfter(VPRecipeBase *Recipe, VPRecipeBase *After) {
-    Recipe->Parent = this;
+  /// Add \p Instruction after \p After. If \p After is null, \p Instruction
+  /// will be inserted as the first instruction.
+  void addInstructionAfter(VPInstruction *Instruction, VPInstruction *After) {
+    Instruction->Parent = this;
     if (!After) {
-      Recipes.insert(Recipes.begin(), Recipe);
+      Instructions.insert(Instructions.begin(), Instruction);
     } else {
-      Recipes.insertAfter(After->getIterator(), Recipe);
+      Instructions.insertAfter(After->getIterator(), Instruction);
     }
   }
 
-  /// Augment the existing recipes of a VPBasicBlock with an additional
-  /// \p Recipe at a position given by an existing recipe \p Before. If
-  /// \p Before is null, \p Recipe is appended as the last recipe.
-  void addRecipe(VPRecipeBase *Recipe, VPRecipeBase *Before = nullptr) {
-    Recipe->Parent = this;
+  /// Augment the existing instructions of a VPBasicBlock with an additional
+  /// \p Instruction at a position given by an existing instruction \p Before.
+  /// \p If Before is null, \p Instruction is appended as the last instruction.
+  void addInstruction(VPInstruction *Instruction,
+                      VPInstruction *Before = nullptr) {
+    Instruction->Parent = this;
     if (!Before) {
-      Recipes.insert(Recipes.end(), Recipe);
+      Instructions.insert(Instructions.end(), Instruction);
     } else {
       assert(Before->Parent == this &&
              "Insertion before point not in this basic block.");
-      Recipes.insert(Before->getIterator(), Recipe);
+      Instructions.insert(Before->getIterator(), Instruction);
     }
   }
 
   void moveConditionalEOBTo(VPBasicBlock *ToBB);
 #endif
 
-  /// Remove the recipe from VPBasicBlock's recipes.
-  void removeRecipe(VPRecipeBase *Recipe) { Recipes.remove(Recipe); }
+  /// Remove the instruction from VPBasicBlock's instructions.
+  void removeInstruction(VPInstruction *Instruction) {
+    Instructions.remove(Instruction);
+  }
 
-  /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
-  void eraseRecipe(VPRecipeBase *Recipe) {
-    // If Recipe is a VPInstruction, then we need to remove all its operands
-    // before erasing the VPInstruction. Else this breaks the use-def chains.
-    if (auto *VPI = dyn_cast<VPInstruction>(Recipe)) {
-      while (VPI->getNumOperands())
-        VPI->removeOperand(0);
-    }
-    Recipes.erase(Recipe);
+  /// Remove the instruction from VPBasicBlock's instructions and destroy
+  /// Instruction object.
+  void eraseInstruction(VPInstruction *Instruction) {
+    // We need to remove all instruction operands before erasing the
+    // VPInstruction. Else this breaks the use-def chains.
+    while (Instruction->getNumOperands())
+      Instruction->removeOperand(0);
+
+    Instructions.erase(Instruction);
   }
 
   /// The method which generates all new IR instructions that correspond to
@@ -2353,24 +1802,23 @@ public:
   void executeHIR(VPOCodeGenHIR *CG) override;
 #endif
 
-  /// Retrieve the list of VPRecipes that belong to this VPBasicBlock.
-  const RecipeListTy &getRecipes() const { return Recipes; }
-  RecipeListTy &getRecipes() { return Recipes; }
+  /// Retrieve the list of VPInstructions that belong to this VPBasicBlock.
+  const VPInstructionListTy &getInstructions() const { return Instructions; }
+  VPInstructionListTy &getInstructions() { return Instructions; }
 #if INTEL_CUSTOMIZATION
   /// Returns a range that iterates over non predicator related instructions
   /// in the VPBasicBlock.
-  auto getNonPredicateInstructions() const -> decltype(vpinstructions()) {
+  auto getNonPredicateInstructions() const {
     // New predicator uses VPInstructions to generate the block predicate.
     // Skip instructions until block-predicate instruction is seen if the block
     // has a predicate.
-    auto Range = vpinstructions();
 
     // No predicate instruction, return immediately.
     if(getPredicate() == nullptr)
-      return Range;
+      return make_range(begin(), end());
 
-    auto It = Range.begin();
-    auto ItEnd = Range.end();
+    auto It = begin();
+    auto ItEnd = end();
 
     assert(It != ItEnd &&
            "VPBasicBlock without VPInstructions can't have a predicate!");
@@ -2415,6 +1863,27 @@ public:
   }
 
 private:
+  /// Create an IR BasicBlock to hold the instructions vectorized from this
+  /// VPBasicBlock, and return it. Update the CFGState accordingly.
+  BasicBlock *createEmptyBasicBlock(VPTransformState *State);
+
+  /// Split this block before the VPInstruction pointer by the \p I, or before
+  /// the implicit [conditional] jump represented by the successors.
+  ///
+  /// This routine also updates the CFG accordingly, i.e. moves
+  /// successors/condition bits to the newly created block. If \p I points to a
+  /// VPPHINode, the split happens after the last VPPHINode in the current block
+  /// to preserve correctness.
+  ///
+  /// Block predicate instruction is NOT cloned, if original block contained,
+  /// only one of the blocks will have it.
+  ///
+  /// VPHINodes in the successors of this block are also updated. In case of
+  /// Blends, incoming blocks are updated in such a way that the block
+  /// containing the block-predicate instruction after the split is used.
+  VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
+
+private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
@@ -2426,13 +1895,6 @@ private:
   // something similar to LLVM IR's loop metadata on the backedge branch
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
-#endif
-  /// Create an IR BasicBlock to hold the instructions vectorized from this
-  /// VPBasicBlock, and return it. Update the CFGState accordingly.
-#if INTEL_CUSTOMIZATION
-  BasicBlock *createEmptyBasicBlock(VPTransformState *State);
-#else
-  BasicBlock *createEmptyBasicBlock(VPTransformState::CFGState &CFG);
 #endif
 };
 
@@ -2468,9 +1930,6 @@ private:
   /// dominator tree.
   unsigned Size;
 
-  /// Holds whether the control flow within the region is divergent or uniform.
-  bool IsDivergent;
-
   /// Traverse all the region VPBasicBlocks to recompute Size
   void recomputeSize();
 #endif
@@ -2489,7 +1948,7 @@ public:
   /// identification.
   VPRegionBlock(const unsigned char SC, const std::string &Name)
       : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
-        IsDivergent(true), RegionDT(nullptr), RegionPDT(nullptr) {}
+        RegionDT(nullptr), RegionPDT(nullptr) {}
 
   ~VPRegionBlock();
 
@@ -2532,10 +1991,6 @@ public:
   unsigned getSize() const { return Size; }
 
   void setSize(unsigned Sz) { Size = Sz; }
-
-  bool isDivergent() const { return IsDivergent; }
-
-  void setDivergent(bool IsDiv) { IsDivergent = IsDiv; }
 
   // TODO: This is weird. For some reason, DominatorTreeBase is using
   // A->getParent()->front() instead of using GraphTraints::getEntry. We may
@@ -2608,14 +2063,6 @@ protected:
 #endif
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
   std::unique_ptr<VPRegionBlock> Entry;
-
-#if INTEL_CUSTOMIZATION
-  /// The IR instructions which are to be transformed to fill the vectorized
-  /// version are held as ingredients inside the VPRecipe's of the VPlan. Hold a
-  /// reverse mapping to locate the VPRecipe an IR instruction belongs to. This
-  /// serves optimizations that operate on the VPlan.
-  DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
-#endif // INTEL_CUSTOMIZATION
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
@@ -2729,27 +2176,12 @@ public:
     Entry = std::move(Block);
   }
 
-#if INTEL_CUSTOMIZATION // Old interfaces. To be removed.
-  void setInst2Recipe(Instruction *I, VPRecipeBase *R) { Inst2Recipe[I] = R; }
-
-  void resetInst2Recipe(Instruction *I) { Inst2Recipe.erase(I); }
-
-  void resetInst2RecipeRange(BasicBlock::iterator B, BasicBlock::iterator E) {
-    for (auto It = B; It != E; ++It) {
-      resetInst2Recipe(&*It);
-    }
-  }
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printInst2Recipe();
-
   /// Print (in text format) VPlan blocks in order based on dominator tree.
   void dump(raw_ostream &OS, bool DumpDA = false) const;
   void dump() const;
   void dumpLivenessInfo(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-#endif // INTEL_CUSTOMIZATION
 
   const std::string &getName() const { return Name; }
 
@@ -2981,8 +2413,8 @@ private:
   /// \p Block, followed by printing the successor blocks themselves.
   void dumpEdges(const VPBlockBase *Block);
 
-  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
-  /// its successor blocks.
+  /// Print a given \p BasicBlock, including its instructions, followed by
+  /// printing its successor blocks.
   void dumpBasicBlock(const VPBasicBlock *BasicBlock);
 
   /// Print a given \p Region of the Plan.
@@ -3024,30 +2456,6 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
 // Set of print functions
 inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
   I.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRecipeBase &R) {
-  R.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPBlockPredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPEdgePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPIfTruePredicateRecipe &P) {
-  P.dump(OS);
-  return OS;
-}
-inline raw_ostream &operator<<(raw_ostream &OS,
-                               const VPIfFalsePredicateRecipe &P) {
-  P.dump(OS);
   return OS;
 }
 inline raw_ostream &operator<<(raw_ostream &OS, const VPBlockBase &BB) {
@@ -3238,13 +2646,22 @@ public:
     return false;
   }
 
-  static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
-                                      VPDominatorTree &DomTree);
+private:
+  static VPBasicBlock *splitBlock(VPBasicBlock *Block,
+                                  VPBasicBlock::iterator BeforeIt,
+                                  VPLoopInfo *VPLInfo,
+                                  VPDominatorTree *DomTree = nullptr,
+                                  VPPostDominatorTree *PostDomTree = nullptr);
 
-  static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
-                                  VPDominatorTree &DomTree,
-                                  VPPostDominatorTree &PostDomTree);
-
+public:
+  static VPBasicBlock *
+  splitBlockBegin(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                  VPDominatorTree *DomTree = nullptr,
+                  VPPostDominatorTree *PostDomTree = nullptr);
+  static VPBasicBlock *
+  splitBlockEnd(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                VPDominatorTree *DomTree = nullptr,
+                VPPostDominatorTree *PostDomTree = nullptr);
   //===----------------------------------------------------------------------===//
   // VPRegionBlock specific Utilities
   //===----------------------------------------------------------------------===//
@@ -3295,40 +2712,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
-#if INTEL_CUSTOMIZATION
-/// Class that provides utilities for VPValue and VPRecipe in VPlan.
-class VPValueUtils {
-public:
-  VPValueUtils() = delete;
-
-  //===----------------------------------------------------------------------===//
-  // VPRecipe specific Utilities
-  //===----------------------------------------------------------------------===//
-
-  /// \brief Add \p Incoming predicate to \p BlockPred.
-  static void appendIncomingToBlockPred(VPBlockPredicateRecipe *BlockPred,
-                                        VPPredicateRecipeBase *Incoming) {
-    if (Incoming)
-      BlockPred->appendIncomingPredicate(Incoming);
-  }
-
-  /// \brief Remove \p Incoming predicate from \p BlockPred.
-  static void removeIncomingFromBlockPred(VPBlockPredicateRecipe *BlockPred,
-                                          VPPredicateRecipeBase *Incoming) {
-    if (Incoming)
-      BlockPred->removeIncomingPredicate(Incoming);
-  }
-
-  /// \brief Clear list of incoming predicates from \p BlockPred.
-  static void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
-    BlockPred->clearIncomingPredicates();
-  }
-};
-#endif // INTEL_CUSTOMIZATION
-
 /// The VPlanUtils class provides common interfaces and functions that are
-/// required across different VPlan classes like VPBlockBase, VPRegionBlock
-/// and VPPredicateRecipe.
+/// required across different VPlan classes like VPBlockBase, VPRegionBlock.
 class VPlanUtils {
 private:
   /// Unique ID generator.
@@ -3345,8 +2730,6 @@ public:
     RSO << Prefix << NextOrdinal++;
     return RSO.str();
   }
-
-  static const VPLoopRegion *findNthLoopDFS(const VPlan *Plan, unsigned N);
 };
 
 /// A wrapper class to add VPlan related remarks for opt-report. Currently

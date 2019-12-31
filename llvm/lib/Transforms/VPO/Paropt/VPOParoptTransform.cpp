@@ -376,27 +376,27 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   assert (LowerBnd->getType() == SchedStride->getType() &&
           "Expected LowerBnd and SchedStride to be of same type");
 
+  unsigned NumLoops = 0;
+  WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  if (!WT || WT->getUncollapsedNDRange().empty())
+    NumLoops = W->getWRNLoopInfo().getNormIVSize();
+  else
+    NumLoops = WT->getUncollapsedNDRange().size();
+
+  assert(NumLoops != 0 && "Zero loops in loop construct.");
+  assert(NumLoops <= 3 && "Max 3 loops in a loop nest for SPIR-V targets.");
+  assert(Idx < NumLoops && "Loop index is bigger than the number of loops "
+         "in a loop nest.");
+
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
   SmallVector<Value *, 3> Arg;
-  initArgArray(&Arg, Idx);
+  // Map the innermost loop to the 1st ND-range dimension.
+  initArgArray(&Arg, NumLoops - Idx - 1);
   bool MayHaveOMPCritical = W->mayHaveOMPCritical();
-
-  CallInst *LocalSize = nullptr;
-  if (MayHaveOMPCritical)
-    // Emulate SIMD1 by executing the same code in all SIMD channels
-    // of a sub-group.
-    LocalSize =
-        VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
-                                          Builder.getInt32Ty(),
-                                          {}, InsertPt);
-  else
-    LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                                  GeneralUtils::getSizeTTy(F),
-                                                  Arg, InsertPt);
 
   assert(((TeamLowerBnd && TeamUpperBnd) ||
           (!TeamLowerBnd && !TeamUpperBnd)) &&
@@ -428,6 +428,19 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
+    CallInst *LocalSize = nullptr;
+    if (MayHaveOMPCritical)
+      // Emulate SIMD1 by executing the same code in all SIMD channels
+      // of a sub-group.
+      LocalSize =
+          VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
+                                            Builder.getInt32Ty(),
+                                            {}, InsertPt);
+    else
+      LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+                                                    GeneralUtils::getSizeTTy(F),
+                                                    Arg, InsertPt);
+
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
       Value *ItSpace = Builder.CreateSub(UB, LB);
@@ -464,6 +477,9 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     Value *Ch = Builder.CreateSub(Chunk, ValueOne);
     NewUB = Builder.CreateAdd(LB, Ch);
   } else {
+    assert(!MayHaveOMPCritical &&
+           "SPMD mode cannot be used with omp critical.");
+
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
     CallInst *GlobalId =
@@ -1863,11 +1879,17 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
     }
     break;
   case ReductionItem::WRNReductionAnd:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionEqv:
+#endif // INTEL_CUSTOMIZATION
     V = ConstantInt::get(ScalarTy, 1);
     break;
   case ReductionItem::WRNReductionOr:
   case ReductionItem::WRNReductionBxor:
   case ReductionItem::WRNReductionBor:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionNeqv:
+#endif // INTEL_CUSTOMIZATION
     V = ConstantInt::get(ScalarTy, 0);
     break;
   case ReductionItem::WRNReductionBand:
@@ -2104,6 +2126,9 @@ bool VPOParoptTransform::genReductionScalarFini(
     Res = Builder.CreateOr(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionBxor:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionNeqv:
+#endif // INTEL_CUSTOMIZATION
     Res = Builder.CreateXor(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionAnd:
@@ -2120,6 +2145,12 @@ bool VPOParoptTransform::genReductionScalarFini(
   case ReductionItem::WRNReductionMin:
     Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
     break;
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionEqv:
+    Res = Builder.CreateXor(Rhs1, Rhs2);
+    Res = Builder.CreateNot(Res);
+    break;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Reduction operator not yet supported!");
   }
@@ -3100,7 +3131,7 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
   } else
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVRedutionInitDstInfo(
+    VPOParoptUtils::genF90DVReductionInitDstInfo(
         &RedI, DestArrayBegin, DestElementTy, NumElements, InsertPt);
   } else
 #endif // INTEL_CUSTOMIZATION
@@ -3126,7 +3157,7 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
 
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVRedutionFiniSrcDstInfo(
+    VPOParoptUtils::genF90DVReductionFiniSrcDstInfo(
         &RedI, SrcArrayBegin, DestArrayBegin, DestElementTy, NumElements,
         InsertPt);
     return;
@@ -3703,6 +3734,11 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
   if (LrClause.empty())
     return false;
 
+  assert((isa<WRNVecLoopNode>(W) ||
+          std::none_of(LrClause.items().begin(), LrClause.items().end(),
+                       [](LinearItem *LI) { return LI->getIsIV(); })) &&
+         "Unexpected: 'Linear:IV' found on a non-SIMD construct.");
+
   assert(LinearFiniBB && "genLinearCode: Null LinearFiniBB.");
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLinearCode\n");
@@ -4197,6 +4233,25 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
                                      : EntryBB->getTerminator();
   IRBuilder<> BuilderInner(InsertPtForLoad);
   LoadInst *VRenamed = BuilderInner.CreateLoad(VAddr); // (3)
+  if (!InsertLoadInBeginningOfEntryBB)
+    // InstCombine may transform:
+    //   %1 = load float*, float** %.addr
+    //   store float* %1, float** %X
+    // into:
+    //   %1 = bitcast float** %.addr to i64*
+    //   %2 = load i64, i64* %1
+    //   %3 = bitcast float** %X to i64*
+    //   store i64 %2, i64* %3
+    //
+    // In this case VRenamed will be the %2 load of type i64,
+    // VOrig will have type float*, so we will not be able
+    // to restore the operand with just BitCasting float*
+    // value to i64. We could have used IntToPtr, but
+    // this will never be optimized. So we mark the load
+    // as volatile to prevent InstCombine transformation
+    // for this load.
+    VRenamed->setVolatile(true);
+
   VRenamed->setName(V->getName());
 
   // Replace uses of V with VRenamed
@@ -5876,7 +5931,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     //                |
 
     // FIXME: isolate this code into an utility routine.
-    if (isa<WRNWksLoopNode>(W) && W->getOrdered() == 0)
+    if ((isa<WRNWksLoopNode>(W) || isa<WRNParallelLoopNode>(W)) &&
+        W->getOrdered() == 0)
       // Dispatch fini must be emitted inside the loop,
       // so that it is executed on every iteration.
       VPOParoptUtils::genKmpcDispatchFini(W, IdentTy, LoadTid, Size,

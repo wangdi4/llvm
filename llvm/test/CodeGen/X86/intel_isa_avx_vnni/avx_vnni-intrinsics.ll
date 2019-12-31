@@ -10,7 +10,7 @@ declare <8 x i32> @llvm.x86.avx.vpdpbusd.256(<8 x i32>, <8 x i32>, <8 x i32>)
 define <8 x i32>@test_int_x86_avx_vpdpbusd_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpbusd_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpbusd %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x50,0xc2]
+; CHECK-NEXT:    {vex} vpdpbusd %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x50,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x i32> @llvm.x86.avx.vpdpbusd.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
   ret <8 x i32> %res
@@ -21,7 +21,7 @@ declare <4 x i32> @llvm.x86.avx.vpdpbusd.128(<4 x i32>, <4 x i32>, <4 x i32>)
 define <4 x i32>@test_int_x86_avx_vpdpbusd_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpbusd_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpbusd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x50,0xc2]
+; CHECK-NEXT:    {vex} vpdpbusd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x50,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <4 x i32> @llvm.x86.avx.vpdpbusd.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
   ret <4 x i32> %res
@@ -32,7 +32,7 @@ declare <8 x i32> @llvm.x86.avx.vpdpbusds.256(<8 x i32>, <8 x i32>, <8 x i32>)
 define <8 x i32>@test_int_x86_avx_vpdpbusds_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpbusds_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpbusds %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x51,0xc2]
+; CHECK-NEXT:    {vex} vpdpbusds %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x51,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x i32> @llvm.x86.avx.vpdpbusds.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
   ret <8 x i32> %res
@@ -43,7 +43,7 @@ declare <4 x i32> @llvm.x86.avx.vpdpbusds.128(<4 x i32>, <4 x i32>, <4 x i32>)
 define <4 x i32>@test_int_x86_avx_vpdpbusds_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpbusds_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpbusds %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x51,0xc2]
+; CHECK-NEXT:    {vex} vpdpbusds %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x51,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <4 x i32> @llvm.x86.avx.vpdpbusds.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
   ret <4 x i32> %res
@@ -54,7 +54,7 @@ declare <8 x i32> @llvm.x86.avx.vpdpwssd.256(<8 x i32>, <8 x i32>, <8 x i32>)
 define <8 x i32>@test_int_x86_avx_vpdpwssd_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpwssd_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpwssd %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x52,0xc2]
+; CHECK-NEXT:    {vex} vpdpwssd %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x52,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x i32> @llvm.x86.avx.vpdpwssd.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
   ret <8 x i32> %res
@@ -65,7 +65,7 @@ declare <4 x i32> @llvm.x86.avx.vpdpwssd.128(<4 x i32>, <4 x i32>, <4 x i32>)
 define <4 x i32>@test_int_x86_avx_vpdpwssd_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpwssd_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpwssd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x52,0xc2]
+; CHECK-NEXT:    {vex} vpdpwssd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x52,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <4 x i32> @llvm.x86.avx.vpdpwssd.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
   ret <4 x i32> %res
@@ -76,7 +76,7 @@ declare <8 x i32> @llvm.x86.avx.vpdpwssds.256(<8 x i32>, <8 x i32>, <8 x i32>)
 define <8 x i32>@test_int_x86_avx_vpdpwssds_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpwssds_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpwssds %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x53,0xc2]
+; CHECK-NEXT:    {vex} vpdpwssds %ymm2, %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x75,0x53,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x i32> @llvm.x86.avx.vpdpwssds.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
   ret <8 x i32> %res
@@ -87,8 +87,96 @@ declare <4 x i32> @llvm.x86.avx.vpdpwssds.128(<4 x i32>, <4 x i32>, <4 x i32>)
 define <4 x i32>@test_int_x86_avx_vpdpwssds_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
 ; CHECK-LABEL: test_int_x86_avx_vpdpwssds_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpdpwssds %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x53,0xc2]
+; CHECK-NEXT:    {vex} vpdpwssds %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x71,0x53,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <4 x i32> @llvm.x86.avx.vpdpwssds.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
+  ret <4 x i32> %res
+}
+
+declare <8 x i32> @llvm.x86.avx512.vpdpbusd.256(<8 x i32>, <8 x i32>, <8 x i32>)
+
+define <8 x i32>@test_int_x86_avx512_vpdpbusd_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpbusd_256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpbusd %ymm2, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x75,0x50,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <8 x i32> @llvm.x86.avx512.vpdpbusd.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
+  ret <8 x i32> %res
+}
+
+declare <4 x i32> @llvm.x86.avx512.vpdpbusd.128(<4 x i32>, <4 x i32>, <4 x i32>)
+
+define <4 x i32>@test_int_x86_avx512_vpdpbusd_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpbusd_128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpbusd %xmm2, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x71,0x50,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <4 x i32> @llvm.x86.avx512.vpdpbusd.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
+  ret <4 x i32> %res
+}
+
+declare <8 x i32> @llvm.x86.avx512.vpdpbusds.256(<8 x i32>, <8 x i32>, <8 x i32>)
+
+define <8 x i32>@test_int_x86_avx512_vpdpbusds_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpbusds_256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpbusds %ymm2, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x75,0x51,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <8 x i32> @llvm.x86.avx512.vpdpbusds.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
+  ret <8 x i32> %res
+}
+
+declare <4 x i32> @llvm.x86.avx512.vpdpbusds.128(<4 x i32>, <4 x i32>, <4 x i32>)
+
+define <4 x i32>@test_int_x86_avx512_vpdpbusds_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpbusds_128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpbusds %xmm2, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x71,0x51,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <4 x i32> @llvm.x86.avx512.vpdpbusds.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
+  ret <4 x i32> %res
+}
+
+declare <8 x i32> @llvm.x86.avx512.vpdpwssd.256(<8 x i32>, <8 x i32>, <8 x i32>)
+
+define <8 x i32>@test_int_x86_avx512_vpdpwssd_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpwssd_256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpwssd %ymm2, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x75,0x52,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <8 x i32> @llvm.x86.avx512.vpdpwssd.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
+  ret <8 x i32> %res
+}
+
+declare <4 x i32> @llvm.x86.avx512.vpdpwssd.128(<4 x i32>, <4 x i32>, <4 x i32>)
+
+define <4 x i32>@test_int_x86_avx512_vpdpwssd_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpwssd_128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpwssd %xmm2, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x71,0x52,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <4 x i32> @llvm.x86.avx512.vpdpwssd.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
+  ret <4 x i32> %res
+}
+
+declare <8 x i32> @llvm.x86.avx512.vpdpwssds.256(<8 x i32>, <8 x i32>, <8 x i32>)
+
+define <8 x i32>@test_int_x86_avx512_vpdpwssds_256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpwssds_256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpwssds %ymm2, %ymm1, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x75,0x53,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <8 x i32> @llvm.x86.avx512.vpdpwssds.256(<8 x i32> %x0, <8 x i32> %x1, <8 x i32> %x2)
+  ret <8 x i32> %res
+}
+
+declare <4 x i32> @llvm.x86.avx512.vpdpwssds.128(<4 x i32>, <4 x i32>, <4 x i32>)
+
+define <4 x i32>@test_int_x86_avx512_vpdpwssds_128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2) {
+; CHECK-LABEL: test_int_x86_avx512_vpdpwssds_128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    {vex} vpdpwssds %xmm2, %xmm1, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x71,0x53,0xc2]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <4 x i32> @llvm.x86.avx512.vpdpwssds.128(<4 x i32> %x0, <4 x i32> %x1, <4 x i32> %x2)
   ret <4 x i32> %res
 }

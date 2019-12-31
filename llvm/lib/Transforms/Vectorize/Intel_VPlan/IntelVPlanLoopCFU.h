@@ -17,19 +17,12 @@
 
 #ifdef INTEL_CUSTOMIZATION
 
-namespace llvm {
-namespace vpo {
-extern cl::opt<bool> DisableLCFUMaskRegion;
-}
-} // namespace llvm
-
 void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
-#ifdef VPlanPredicator
   // Community version stores VPlan reference - to minimize changes get a
   // pointer to the VPlan here.
   auto *Plan = &(this->Plan);
-#endif
+
   VPlanDivergenceAnalysis *VPDA = Plan->getVPlanDA();
 
   for (auto *SubLoop : VPL->getSubLoops()) {
@@ -73,7 +66,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
     VPValue *TopTest = SubLoopRegnPred->getCondBit();
     if (TopTest) {
-#ifdef VPlanPredicator
       auto *SubLoopRegnPredBlock = cast<VPBasicBlock>(SubLoopRegnPred);
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
@@ -86,7 +78,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
         if (Divergent)
           VPDA->markDivergent(*TopTest);
       }
-#endif // VPlanPredicator
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
     }
 
@@ -103,18 +94,23 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     VPPostDominatorTree *PDT = Parent->getPDT();
 
     // Create a SESE region with a loop/bypass inside.
-
     VPBasicBlock *RegionEntryBlock =
-        VPBlockUtils::splitBlock(SubLoopHeader, VPLI, *DT, *PDT);
-
+        VPBlockUtils::splitBlockBegin(SubLoopHeader, VPLI, DT, PDT);
     VPBasicBlock *NewLoopHeader =
-        VPBlockUtils::splitBlock(RegionEntryBlock, VPLI, *DT, *PDT);
+        VPBlockUtils::splitBlockBegin(RegionEntryBlock, VPLI, DT, PDT);
+    (void)NewLoopHeader;
 
+    // Latch might have changed during splitting.
+    SubLoopLatch = cast<VPBasicBlock>(SubLoop->getLoopLatch());
     VPBasicBlock *NewLoopLatch =
-        VPBlockUtils::splitBlock(SubLoopLatch, VPLI, *DT, *PDT);
+        VPBlockUtils::splitBlockEnd(SubLoopLatch, VPLI, DT, PDT);
 
-    // Note: SubLoopLatch becomes the mask region exit
-    VPBasicBlock *RegionExitBlock = SubLoopLatch;
+    VPBasicBlock *RegionExitBlock;
+    if (SubLoopLatch->empty())
+      RegionExitBlock = SubLoopLatch;
+    else
+      RegionExitBlock =
+          VPBlockUtils::splitBlockEnd(SubLoopLatch, VPLI, DT, PDT);
 
     // Remove the loop backedge condition from its original parent and place
     // in the region exit. Not needed for correctness, but easier to see
@@ -125,25 +121,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     if (dyn_cast<VPCmpInst>(BottomTest)) {
       VPBasicBlock *BottomTestBlock =
           cast<VPInstruction>(BottomTest)->getParent();
-      BottomTestBlock->removeRecipe(cast<VPInstruction>(BottomTest));
-      RegionExitBlock->addRecipe(cast<VPInstruction>(BottomTest));
-    }
-
-    // Move all instructions that are not phi nodes to the new loop body
-    // header block. These were the instructions that were part of the
-    // original loop header, but these instructions are now part of the loop
-    // body that need to be under mask.
-    SmallVector<VPRecipeBase *, 2> ToMove;
-    SmallVector<VPRecipeBase *, 2> SubLoopHeaderPhis;
-    for (auto &Inst : SubLoopHeader->vpinstructions()) {
-      if (!isa<VPPHINode>(Inst))
-        ToMove.push_back(&Inst);
-      else
-        SubLoopHeaderPhis.push_back(&Inst);
-    }
-    for (auto *Inst : ToMove) {
-      SubLoopHeader->removeRecipe(Inst);
-      NewLoopHeader->addRecipe(Inst);
+      BottomTestBlock->removeInstruction(cast<VPInstruction>(BottomTest));
+      RegionExitBlock->addInstruction(cast<VPInstruction>(BottomTest));
     }
 
     // Construct loop body mask and insert into the loop header
@@ -161,12 +140,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
       LoopBodyMask->addIncoming(One, SubLoopPreHeader);
     }
 
-#ifdef VPlanPredicator
-    // We are in the middle of transitioning to the new VPInstruction based
-    // predicator implementation and only plan to handle inner loop flow
-    // uniformity with the new predicator implementation. This code only
-    // kicks in in the new predicator where we define VPlanPredicator as
-    // NewVPlanPredicator.
     { // This scope is for the Guard (RAII)
       VPBuilder::InsertPointGuard Guard(Builder);
       Builder.setInsertPoint(RegionExitBlock);
@@ -238,7 +211,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
         // We will be adding instructions to the latch so do the copy to avoid
         // stale iterators.
         SmallVector<VPInstruction *, 16> Instructions(map_range(
-            BB->vpinstructions(),
+            *BB,
             // Can't have a vector of references - take the address.
             [](VPInstruction &VPInst) -> VPInstruction * { return &VPInst; }));
         for (VPInstruction *Inst : Instructions) {
@@ -272,7 +245,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
               // matter.
               assert(SubLoopHeader->getNumPredecessors() == 2 &&
                      "Expected exactly two predecessors for SubLoopHeader!");
-              SubLoopHeader->addRecipeAfter(NewPhi, nullptr /* be the first */);
+              SubLoopHeader->addInstructionAfter(NewPhi,
+                                                 nullptr /* be the first */);
 
               // Create the blend before population NewPhi's incoming values
               // that blend will be one of them.
@@ -318,8 +292,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
               LCSSAPhi = new VPPHINode(Inst->getType());
               LCSSAPhi->setName(Inst->getName() + ".live.out.lcssa");
               VPDA->markDivergent(*LCSSAPhi);
-              SubLoopExitBlock->addRecipeAfter(LCSSAPhi,
-                                               nullptr /* be the first */);
+              SubLoopExitBlock->addInstructionAfter(LCSSAPhi,
+                                                    nullptr /* be the first */);
               LCSSAPhi->addIncoming(Blend, NewLoopLatch);
             }
 
@@ -340,40 +314,15 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
         NewCondBit = Builder.createNot(NewCondBit);
       NewLoopLatch->setCondBit(NewCondBit);
     }
-#endif // VPlanPredicator
 
     LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
-    SubLoopHeader->addRecipe(LoopBodyMask);
+    SubLoopHeader->addInstruction(LoopBodyMask);
     RegionEntryBlock->setCondBit(LoopBodyMask);
 
     // Connect region entry/exit blocks so that predicate can be propagated
     // along mask=false path. i.e., this edge skips the loop body.
     RegionEntryBlock->appendSuccessor(RegionExitBlock);
     RegionExitBlock->appendPredecessor(RegionEntryBlock);
-
-    if (!DisableLCFUMaskRegion) {
-      VPRegionBlock *MaskRegion =
-          new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                            VPlanUtils::createUniqueName("mask_region"));
-      VPBlockUtils::insertRegion(MaskRegion, RegionEntryBlock, RegionExitBlock,
-                                 false);
-
-      auto *SubLoopRegion =
-          cast_or_null<VPLoopRegion>(SubLoop->getHeader()->getParent());
-
-      // The new region parent is the loop.
-      MaskRegion->setParent(SubLoopRegion);
-      SubLoop->addBasicBlockToLoop(MaskRegion, *VPLI);
-
-      // All blocks in the new region must have the parent set to the new
-      // region.
-      for (VPBlockBase *RegionBlock :
-           make_range(df_iterator<VPRegionBlock *>::begin(MaskRegion),
-                      df_iterator<VPRegionBlock *>::end(MaskRegion))) {
-        if (RegionBlock->getParent() == SubLoopRegion)
-          RegionBlock->setParent(MaskRegion);
-      }
-    }
 
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");

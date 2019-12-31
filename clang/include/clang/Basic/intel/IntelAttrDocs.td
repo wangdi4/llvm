@@ -321,22 +321,22 @@ interface.
   }];
 }
 
-def MemoryLayoutDocs : Documentation {
+def ForcePow2DepthDocs : Documentation {
  let Category = DocCatType;
   let Content = [{
-The memory_layout attribute provides the user of the FPGA HLD compiler
-explicit control over the layout of memory blocks used in a given memory
+The force_pow2_depth attribute provides the user of the FPGA HLD compiler
+explicit control over the geometry of memory blocks used in a given memory
 system.
 
 In the presence of this attribute, the compiler will:
 
 1. Automatically size the memory depth to the next largest power of 2 if
-memory_layout is set to "padded", and will prefer width-stitching of RAM
-blocks over depth-stitching.
+force_pow2_depth is set to 1, and will prefer width-stitching of RAM blocks
+over depth-stitching.
 
-2. Will not size the memory to the next largest power of 2 if memory_layout
-is set to "compact", and will prefer depth stitching instead of
-width-stitching if RAM usage can be lowered.
+2. Will not size the memory to the next largest power of 2 if force_pow2_depth
+is set to 0, and will prefer depth stitching instead of width-stitching if RAM
+usage can be lowered.
 
  }];
 }

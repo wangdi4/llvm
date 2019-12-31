@@ -98,8 +98,6 @@ public:
   DeclContextFindDeclByName(void *opaque_decl_ctx, ConstString name,
                             const bool ignore_imported_decls);
 
-  virtual bool DeclContextIsStructUnionOrClass(void *opaque_decl_ctx) = 0;
-
   virtual ConstString DeclContextGetName(void *opaque_decl_ctx) = 0;
 
   virtual ConstString
@@ -227,6 +225,8 @@ public:
 
   virtual CompilerType
   GetRValueReferenceType(lldb::opaque_compiler_type_t type);
+
+  virtual CompilerType GetAtomicType(lldb::opaque_compiler_type_t type);
 
   virtual CompilerType AddConstModifier(lldb::opaque_compiler_type_t type);
 

@@ -21,6 +21,8 @@
 MODULE_ANALYSIS("callgraph", CallGraphAnalysis())
 #if INTEL_INCLUDE_DTRANS
 MODULE_ANALYSIS("dtransanalysis", DTransAnalysis())    // INTEL
+MODULE_ANALYSIS("dtrans-fieldmodref-analysis", DTransFieldModRefAnalysis()) // INTEL
+MODULE_ANALYSIS("dtrans-fieldmodref-result", DTransFieldModRefResult()) // INTEL
 MODULE_ANALYSIS("dtrans-immutable-analysis", DTransImmutableAnalysis()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_ANALYSIS("inlineaggressive", InlineAggAnalysis())    // INTEL
@@ -107,11 +109,12 @@ MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,             // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
-MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())    // INTEL
+MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())   // INTEL
 MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
+MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())   // INTEL
 MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())           // INTEL
 MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())      // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
@@ -285,6 +288,7 @@ FUNCTION_PASS("loweratomic", LowerAtomicPass())
 FUNCTION_PASS("lower-expect", LowerExpectIntrinsicPass())
 FUNCTION_PASS("lower-guard-intrinsic", LowerGuardIntrinsicPass())
 FUNCTION_PASS("lower-constant-intrinsics", LowerConstantIntrinsicsPass())
+FUNCTION_PASS("lower-matrix-intrinsics", LowerMatrixIntrinsicsPass())
 FUNCTION_PASS("lower-widenable-condition", LowerWidenableConditionPass())
 FUNCTION_PASS("lower-subscript", LowerSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("guard-widening", GuardWideningPass())
@@ -339,6 +343,7 @@ FUNCTION_PASS("verify<loops>", LoopVerifierPass())
 FUNCTION_PASS("verify<memoryssa>", MemorySSAVerifierPass())
 FUNCTION_PASS("verify<regions>", RegionInfoVerifierPass())
 FUNCTION_PASS("verify<safepoint-ir>", SafepointIRVerifierPass())
+FUNCTION_PASS("verify<scalar-evolution>", ScalarEvolutionVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
@@ -390,11 +395,14 @@ FUNCTION_PASS("hir-post-vec-complete-unroll", loopopt::HIRPostVecCompleteUnrollP
 FUNCTION_PASS("hir-pre-vec-complete-unroll", loopopt::HIRPreVecCompleteUnrollPass())
 FUNCTION_PASS("hir-runtime-dd", loopopt::HIRRuntimeDDPass())
 FUNCTION_PASS("hir-scalarrepl-array", loopopt::HIRScalarReplArrayPass())
+FUNCTION_PASS("hir-pm-symbolic-tripcount-completeunroll", loopopt::HIRPMSymbolicTripCountCompleteUnrollPass())
 FUNCTION_PASS("hir-unroll-and-jam", loopopt::HIRUnrollAndJamPass())
 FUNCTION_PASS("hir-vec-dir-insert", loopopt::HIRVecDirInsertPass())
 FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
+FUNCTION_PASS("vplan-driver", vpo::VPlanDriverPass());
+FUNCTION_PASS("vplan-driver-hir", vpo::VPlanDriverHIRPass());
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
 FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())
 FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
@@ -407,6 +415,7 @@ FUNCTION_PASS("hir-sinking-for-perfect-loopnest", loopopt::HIRSinkingForPerfectL
 FUNCTION_PASS("hir-undo-sinking-for-perfect-loopnest", loopopt::HIRUndoSinkingForPerfectLoopnestPass())
 FUNCTION_PASS("hir-conditional-temp-sinking", loopopt::HIRConditionalTempSinkingPass())
 FUNCTION_PASS("hir-memory-reduction-sinking", loopopt::HIRMemoryReductionSinkingPass())
+FUNCTION_PASS("hir-rowwise-mv", loopopt::HIRRowWiseMVPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

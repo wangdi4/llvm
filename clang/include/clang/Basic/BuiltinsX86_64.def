@@ -243,6 +243,8 @@ TARGET_BUILTIN(__builtin_ia32_tile16move, "vIUcV16fV16fV16fV16fV16fV16fV16fV16fV
 TARGET_BUILTIN(__builtin_ia32_tilemovei, "V16fIUcIUc", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovee, "V16fIUcUi", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovex, "V16fIUcV4f", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowd2psei, "V16fIUcIi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowd2psee, "V16fIUcUi", "n", "amx-avx512")
 // AMX_LNC BF16-EVEX
 TARGET_BUILTIN(__builtin_ia32_tdpbf16pse, "vIUcIUcIUc", "n", "amx-bf16-evex")
 // AMX_LNC INT8-EVEX
@@ -256,6 +258,8 @@ TARGET_BUILTIN(__builtin_ia32_tileloaddt1e64, "vIUcvC*z", "n", "amx-tile-evex")
 TARGET_BUILTIN(__builtin_ia32_tilemove, "vIUcIUc", "n", "amx-tile-evex")
 TARGET_BUILTIN(__builtin_ia32_tilestorede64, "vIUcv*z", "n", "amx-tile-evex")
 TARGET_BUILTIN(__builtin_ia32_tilezeroe, "vUc", "n", "amx-tile-evex")
+// AMX_LNC ELEMENT-EVEX
+TARGET_BUILTIN(__builtin_ia32_tcvtd2pse, "vv*zIUc", "n", "amx-element-evex")
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION

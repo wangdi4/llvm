@@ -52,7 +52,7 @@ static cl::opt<unsigned> NumMemoryStreamsThreshold(
 
 // Threshold for min allowed number of trip count
 static cl::opt<uint64_t>
-    TripCountThreshold("hir-prefetching-trip-count-threshold", cl::init(100000),
+    TripCountThreshold("hir-prefetching-trip-count-threshold", cl::init(10000),
                        cl::Hidden, cl::desc("Threshold for trip count"));
 
 static cl::opt<unsigned> IterationDistance(
@@ -99,6 +99,54 @@ private:
 };
 } // namespace
 
+static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
+  bool HasVectorIndex = false;
+
+  for (auto *IndexCE :
+       make_range(FirstRef->canon_begin(), FirstRef->canon_end())) {
+    if (IndexCE->getSrcType()->isVectorTy()) {
+      HasVectorIndex = true;
+      break;
+    }
+  }
+
+  if (!HasVectorIndex) {
+    return FirstRef;
+  }
+
+  RegDDRef *RefClone = FirstRef->clone();
+
+  for (auto *IndexCE :
+       make_range(RefClone->canon_begin(), RefClone->canon_end())) {
+    BlobUtils &BU = IndexCE->getBlobUtils();
+
+    SmallVector<unsigned, 8> BlobIdxToRemove;
+    for (auto Blob : make_range(IndexCE->blob_begin(), IndexCE->blob_end())) {
+      Constant *VecConst;
+
+      if (BU.getBlob(Blob.Index)->getType()->isVectorTy()) {
+        assert(BU.isConstantVectorBlob(BU.getBlob(Blob.Index), &VecConst) &&
+               "The blob should be a constant vector blob");
+
+        // Extract the first element of the vector blob and substituting it in
+        // the CanonExpr
+        ConstantDataVector *CV = cast<ConstantDataVector>(VecConst);
+        int64_t SExtValue = CV->getElementAsAPInt(0).getSExtValue();
+        IndexCE->addConstant(Blob.Coeff * SExtValue, false);
+        BlobIdxToRemove.push_back(Blob.Index);
+      }
+    }
+
+    for (unsigned BI : BlobIdxToRemove) {
+      IndexCE->removeBlob(BI);
+    }
+
+    IndexCE->setSrcAndDestType(IndexCE->getSrcType()->getScalarType());
+  }
+
+  return RefClone;
+}
+
 // Collect the prefetching  candidates by computing the number of Streams in the
 // MemRefs
 void HIRPrefetching::collectPrefetchCandidates(
@@ -106,7 +154,13 @@ void HIRPrefetching::collectPrefetchCandidates(
     SmallVectorImpl<const RegDDRef *> &PrefetchCandidates) {
   const RegDDRef *FirstRef = RefGroup.front();
 
-  PrefetchCandidates.push_back(FirstRef);
+  const RegDDRef *ScalarRef = getScalarRef(FirstRef);
+
+  PrefetchCandidates.push_back(ScalarRef);
+
+  if (ScalarRef != FirstRef) {
+    return;
+  }
 
   const RegDDRef *PrevRef = FirstRef;
   const RegDDRef *CurRef = nullptr;
@@ -134,10 +188,19 @@ bool HIRPrefetching::doAnalysis(
     return false;
   }
 
+  if (!Lp->isDo()) {
+    return false;
+  }
+
   uint64_t TripCount = 0;
 
-  if (!Lp->isConstTripLoop(&TripCount)) {
-    return false;
+  bool IsConstTC = Lp->isConstTripLoop(&TripCount);
+
+  if (!IsConstTC) {
+    TripCount = Lp->getMaxTripCountEstimate();
+    if (TripCount == 0) {
+      TripCount = TripCountThreshold;
+    }
   }
 
   if (TripCount < TripCountThreshold) {

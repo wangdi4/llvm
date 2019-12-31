@@ -2,6 +2,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt %s -vplan-da-ignore-integer-overflow=true -debug-only=vplan-divergence-analysis -VPlanDriver -S -vplan-force-vf=4 2>&1 | FileCheck %s
+; RUN: opt %s -vplan-da-ignore-integer-overflow=true -debug-only=vplan-divergence-analysis -passes="vplan-driver" -S -vplan-force-vf=4 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Basic Block: BB3
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[IV_PHI:%vp.*]] = phi  [ i32 0, BB2 ],  [ i32 [[IV_PHI_ADD:%vp.*]], BB5 ]

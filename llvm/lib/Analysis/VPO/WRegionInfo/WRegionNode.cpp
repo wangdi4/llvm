@@ -890,6 +890,7 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
+    LI->setIsIV(ClauseInfo.getIsIV());
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID())) {
@@ -1201,6 +1202,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_INREDUCTION_BXOR:
   case QUAL_OMP_INREDUCTION_BAND:
   case QUAL_OMP_INREDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+  case QUAL_OMP_INREDUCTION_EQV:
+  case QUAL_OMP_INREDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
   case QUAL_OMP_INREDUCTION_MAX:
   case QUAL_OMP_INREDUCTION_MIN:
   case QUAL_OMP_INREDUCTION_UDR:
@@ -1214,6 +1219,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_BXOR:
   case QUAL_OMP_REDUCTION_BAND:
   case QUAL_OMP_REDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+  case QUAL_OMP_REDUCTION_EQV:
+  case QUAL_OMP_REDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
   case QUAL_OMP_REDUCTION_MAX:
   case QUAL_OMP_REDUCTION_MIN:
   case QUAL_OMP_REDUCTION_UDR: {

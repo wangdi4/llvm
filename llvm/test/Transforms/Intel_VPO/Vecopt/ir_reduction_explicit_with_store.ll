@@ -1,7 +1,7 @@
 ; Test to check that VPlan vectorizer legality recognizes explicit reductions with stores to the
 ; reduction variable inside the loop, while reduction is performed in register (using PHI node).
 
-; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-print-after-hcfg -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-print-after-hcfg -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 ; Check reduction is imported as VPReduction.
 ; CHECK-LABEL: Reduction list

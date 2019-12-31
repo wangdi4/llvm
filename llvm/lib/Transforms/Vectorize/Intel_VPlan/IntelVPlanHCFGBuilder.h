@@ -91,40 +91,14 @@ protected:
   /// Translate loop metadata from underlying IR to VPLoop data structure.
   virtual void populateVPLoopMetadata(VPLoopInfo *VPLInfo);
 
-  virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
-    assert(VPLp && "Expected a valid VPLoop.");
-    VPLoopRegion *Loop =
-        new VPLoopRegion(VPlanUtils::createUniqueName("loop"), VPLp);
-    return Loop;
-  }
-
   virtual void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts);
 
   void simplifyPlainCFG();
   void splitLoopsPreheader(VPLoop *VPLp);
-  // After the transformation, the dominance might break for values that are
-  // defined inside the loop body and are used in the loop header. In these
-  // cases, we might need to generate a phi node for this value.
-  void preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
-                                VPBasicBlock *NewLoopLatch,
-                                VPBasicBlock *OrigLoopLatch,
-                                VPBasicBlock *ExitingBlock);
   void singleExitWhileLoopCanonicalization(VPLoop *VPLp);
   void mergeLoopExits(VPLoop *VPLp);
   void splitLoopsExit(VPLoop *VPLp);
-  void simplifyNonLoopRegions();
   bool isBreakingSSA(VPLoop *VPL);
-
-  void buildLoopRegions();
-  void buildNonLoopRegions(VPRegionBlock *ParentRegion);
-
-  // Utility functions.
-  bool isNonLoopRegion(VPBlockBase *Entry, VPRegionBlock *ParentRegion,
-                       VPBlockBase *&Exit) const;
-  bool regionIsBackEdgeCompliant(const VPBlockBase *Entry,
-                                 const VPBlockBase *Exit,
-                                 VPRegionBlock *ParentRegion) const;
-  bool isDivergentBlock(VPBlockBase *Block) const;
 
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,

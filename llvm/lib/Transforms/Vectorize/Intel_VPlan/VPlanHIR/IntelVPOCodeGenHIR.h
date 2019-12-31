@@ -122,6 +122,11 @@ public:
                  int64_t InterleaveIndex = 0,
                  const HLInst *GrpStartInst = nullptr);
 
+  /// Adjust arguments passed to SVML functions to handle masks
+  void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<RegDDRef *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys,
+                         RegDDRef *MaskValue);
+
   // Given the function being called and the widened operands, generate and
   // return the widened call. The call arguments are returned in CallRegs
   // if they need to be analyzed for stride information. The flag HasLvalArg
@@ -137,7 +142,8 @@ public:
                                  const OVLSGroup *Group,
                                  int64_t InterleaveFactor,
                                  int64_t InterleaveIndex,
-                                 const HLInst *GrpStartInst);
+                                 const HLInst *GrpStartInst,
+                                 const VPInstruction *VPInst);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer

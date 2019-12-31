@@ -15,6 +15,7 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
   DTransUtils.cpp
   DTransAnalysis.cpp
   DTransAnnotator.cpp
+  DTransFieldModRef.cpp
   DTransImmutableAnalysis.cpp
   DTransTypes.cpp
   TypeMetadataReader.cpp

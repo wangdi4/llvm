@@ -22,12 +22,14 @@
 #include <fstream>
 #include <memory>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 
 enum class program_state { none, compiled, linked };
 
 namespace detail {
+
+using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 
 // Used to identify the module the user code, which included this header,
 // belongs to. Incurs some marginal inefficiency - there will be one copy
@@ -38,10 +40,10 @@ class program_impl {
 public:
   program_impl() = delete;
 
-  explicit program_impl(const context &Context)
-      : program_impl(Context, Context.get_devices()) {}
+  explicit program_impl(ContextImplPtr Context)
+      : program_impl(Context, Context->get_info<info::context::devices>()) {}
 
-  program_impl(const context &Context, vector_class<device> DeviceList)
+  program_impl(ContextImplPtr Context, vector_class<device> DeviceList)
       : Context(Context), Devices(DeviceList) {}
 
   // Kernels caching for linked programs won't be allowed due to only compiled
@@ -61,8 +63,7 @@ public:
     if (!is_host()) {
       DevicesSorted = sort_devices_by_cl_device_id(Devices);
     }
-    check_device_feature_support<
-        info::device::is_linker_available>(Devices);
+    check_device_feature_support<info::device::is_linker_available>(Devices);
     for (const auto &Prg : ProgramList) {
       Prg->throw_if_state_is_not(program_state::compiled);
       if (Prg->Context != Context) {
@@ -90,14 +91,14 @@ public:
         Programs.push_back(Prg->Program);
       }
       PI_CALL_THROW(piProgramLink, compile_program_error)(
-          detail::getSyclObjImpl(Context)->getHandleRef(), Devices.size(),
+          Context->getHandleRef(), Devices.size(),
           Devices.data(), LinkOptions.c_str(), Programs.size(), Programs.data(),
           nullptr, nullptr, &Program);
     }
   }
 
   // Kernel caching for programs created by interoperability c-tor isn't allowed
-  program_impl(const context &Context, RT::PiProgram Program)
+  program_impl(ContextImplPtr Context, RT::PiProgram Program)
       : Program(Program), Context(Context), IsLinkable(true) {
 
     // TODO handle the case when cl_program build is in progress
@@ -108,7 +109,8 @@ public:
     PI_CALL(piProgramGetInfo)(Program, CL_PROGRAM_DEVICES,
                               sizeof(RT::PiDevice) * NumDevices,
                               PiDevices.data(), nullptr);
-    vector_class<device> SyclContextDevices = Context.get_devices();
+    vector_class<device> SyclContextDevices =
+        Context->get_info<info::context::devices>();
 
     // Keep only the subset of the devices (associated with context) that
     // were actually used to create the program.
@@ -153,7 +155,7 @@ public:
     PI_CALL(piProgramRetain)(Program);
   }
 
-  program_impl(const context &Context, RT::PiKernel Kernel)
+  program_impl(ContextImplPtr Context, RT::PiKernel Kernel)
       : program_impl(
             Context,
             ProgramManager::getInstance().getClProgramFromClKernel(Kernel)) {}
@@ -177,15 +179,14 @@ public:
   RT::PiProgram &getHandleRef() { return Program; }
   const RT::PiProgram &getHandleRef() const { return Program; }
 
-  bool is_host() const { return Context.is_host(); }
+  bool is_host() const { return Context->is_host(); }
 
   template <typename KernelT>
   void compile_with_kernel_type(string_class CompileOptions = "") {
     throw_if_state_is_not(program_state::none);
-    // TODO Check for existence of kernel
     if (!is_host()) {
       OSModuleHandle M = OSUtil::getOSModuleHandle(AddressInThisModule);
-      create_cl_program_with_il(M);
+      create_pi_program_with_kernel_name(M, KernelInfo<KernelT>::getName());
       compile(CompileOptions);
     }
     State = program_state::compiled;
@@ -205,17 +206,16 @@ public:
   template <typename KernelT>
   void build_with_kernel_type(string_class BuildOptions = "") {
     throw_if_state_is_not(program_state::none);
-    // TODO Check for existence of kernel
     if (!is_host()) {
       OSModuleHandle M = OSUtil::getOSModuleHandle(AddressInThisModule);
       // If there are no build options, program can be safely cached
       if (is_cacheable_with_options(BuildOptions)) {
         IsProgramAndKernelCachingAllowed = true;
-        Program =
-            ProgramManager::getInstance().getBuiltOpenCLProgram(M, Context);
+        Program = ProgramManager::getInstance().getBuiltPIProgram(
+            M, get_context(), KernelInfo<KernelT>::getName());
         PI_CALL(piProgramRetain)(Program);
       } else {
-        create_cl_program_with_il(M);
+        create_pi_program_with_kernel_name(M, KernelInfo<KernelT>::getName());
         build(BuildOptions);
       }
     }
@@ -236,11 +236,10 @@ public:
   void link(string_class LinkOptions = "") {
     throw_if_state_is_not(program_state::compiled);
     if (!is_host()) {
-      check_device_feature_support<
-          info::device::is_linker_available>(Devices);
+      check_device_feature_support<info::device::is_linker_available>(Devices);
       vector_class<RT::PiDevice> Devices(get_pi_devices());
       PI_CALL_THROW(piProgramLink, compile_program_error)(
-          detail::getSyclObjImpl(Context)->getHandleRef(), Devices.size(),
+          Context->getHandleRef(), Devices.size(),
           Devices.data(), LinkOptions.c_str(), 1, &Program, nullptr, nullptr,
           &Program);
       this->LinkOptions = LinkOptions;
@@ -324,7 +323,11 @@ public:
     return Result;
   }
 
-  context get_context() const { return Context; }
+  context get_context() const {
+    if (is_host())
+      return context();
+    return createSyclObjFromImpl<context>(Context);
+  }
 
   vector_class<device> get_devices() const { return Devices; }
 
@@ -338,8 +341,7 @@ public:
 
 private:
   template <info::device param>
-  void check_device_feature_support(
-      const vector_class<device> &devices) {
+  void check_device_feature_support(const vector_class<device> &devices) {
     for (const auto &device : devices) {
       if (!device.get_info<param>()) {
         throw feature_not_supported(
@@ -348,9 +350,12 @@ private:
     }
   }
 
-  void create_cl_program_with_il(OSModuleHandle M) {
+  void create_pi_program_with_kernel_name(OSModuleHandle M,
+                                          const string_class &KernelName) {
     assert(!Program && "This program already has an encapsulated PI program");
-    Program = ProgramManager::getInstance().createOpenCLProgram(M, Context);
+    ProgramManager &PM = ProgramManager::getInstance();
+    DeviceImage &Img = PM.getDeviceImage(M, KernelName, get_context());
+    Program = PM.createPIProgram(Img, get_context());
   }
 
   void create_cl_program_with_source(const string_class &Source) {
@@ -358,13 +363,12 @@ private:
     const char *Src = Source.c_str();
     size_t Size = Source.size();
     PI_CALL(piclProgramCreateWithSource)(
-        detail::getSyclObjImpl(Context)->getHandleRef(), 1, &Src, &Size,
+        Context->getHandleRef(), 1, &Src, &Size,
         &Program);
   }
 
   void compile(const string_class &Options) {
-    check_device_feature_support<
-        info::device::is_compiler_available>(Devices);
+    check_device_feature_support<info::device::is_compiler_available>(Devices);
     vector_class<RT::PiDevice> Devices(get_pi_devices());
     RT::PiResult Err = PI_CALL_NOCHECK(piProgramCompile)(
         Program, Devices.size(), Devices.data(), Options.c_str(), 0, nullptr,
@@ -379,8 +383,7 @@ private:
   }
 
   void build(const string_class &Options) {
-    check_device_feature_support<
-        info::device::is_compiler_available>(Devices);
+    check_device_feature_support<info::device::is_compiler_available>(Devices);
     vector_class<RT::PiDevice> Devices(get_pi_devices());
     RT::PiResult Err =
         PI_CALL_NOCHECK(piProgramBuild)(Program, Devices.size(), Devices.data(),
@@ -401,6 +404,12 @@ private:
     return PiDevices;
   }
 
+  bool is_cacheable() const { return IsProgramAndKernelCachingAllowed; }
+
+  static bool is_cacheable_with_options(const string_class &Options) {
+    return Options.empty();
+  }
+
   bool has_cl_kernel(const string_class &KernelName) const {
     size_t Size;
     PI_CALL(piProgramGetInfo)(Program, CL_PROGRAM_KERNEL_NAMES, 0, nullptr,
@@ -419,22 +428,13 @@ private:
     return false;
   }
 
-  bool is_cacheable() const {
-    return IsProgramAndKernelCachingAllowed;
-  }
-
-  static bool
-  is_cacheable_with_options(const string_class &Options) {
-    return Options.empty();
-  }
-
   RT::PiKernel get_pi_kernel(const string_class &KernelName) const {
     RT::PiKernel Kernel;
 
     if (is_cacheable()) {
       OSModuleHandle M = OSUtil::getOSModuleHandle(AddressInThisModule);
 
-      Kernel = ProgramManager::getInstance().getOrCreateKernel(M, Context,
+      Kernel = ProgramManager::getInstance().getOrCreateKernel(M, get_context(),
                                                                KernelName);
     } else {
       RT::PiResult Err =
@@ -473,7 +473,7 @@ private:
 
   RT::PiProgram Program = nullptr;
   program_state State = program_state::none;
-  context Context;
+  ContextImplPtr Context;
   bool IsLinkable = false;
   vector_class<device> Devices;
   string_class CompileOptions;

@@ -14,6 +14,7 @@
 ; }
 ; 
 ; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -passes="vplan-driver" -S %s | FileCheck %s
 
 ; Test checks that the compilation does not assert
 ; CHECK: define void @foo

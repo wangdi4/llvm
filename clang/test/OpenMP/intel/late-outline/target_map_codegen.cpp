@@ -12,15 +12,19 @@ public:
 
 void B::start()
 {
+  // CHECK: %zoo.map.ptr.tmp  = alloca double*, align 8
+  // CHECK: %xoo.map.ptr.tmp  = alloca double*, align 8
+  // CHECK: [[L1:%.+]] = load double*, double** %zoo, align 8
+  // CHECK: [[L2:%.+]] = load double*, double** %xoo, align 8
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double** %zoo, double** %zoo, i64 8)
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGR"(double** %zoo, double* %arrayidx, i64 136)
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM:AGGRHEAD"(double** %xoo, double** %xoo, i64 8)
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM:AGGR"(double** %xoo, double* %arrayidx2, i64 48)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* [[L1]], double* %arrayidx, i64 136)
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:AGGRHEAD"(double* [[L2]], double* %arrayidx2, i64 48)
+  // CHECK-NEXT: store double* %0, double** %zoo.map.ptr.tmp, align 8
+  // CHECK-NEXT: store double* %2, double** %xoo.map.ptr.tmp, align 8
   #pragma omp target map(tofrom: zoo[7:17]) map(from: xoo[1:6])
   zoo[2] = 7,xoo[2] = 8;
- // CHECK: load double*, double** %zoo, align 8
- // CHECK: load double*, double** %xoo, align 8
+ // CHECK: load double*, double** %zoo{{.*}}, align 8
+ // CHECK: load double*, double** %xoo{{.*}}, align 8
  xoo[2] = 8;
  // CHECK-NOT: load double*, double** %xoo,
 }

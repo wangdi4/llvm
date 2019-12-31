@@ -96,14 +96,15 @@ bool bindPlugin(void *Library) {
 
   decltype(::piPluginInit) *PluginInitializeFunction = (decltype(
       &::piPluginInit))(getOsLibraryFuncAddress(Library, "piPluginInit"));
+  if (PluginInitializeFunction == nullptr)
+    return false;
+
   int err = PluginInitializeFunction(&PluginInformation);
 
   // TODO: Compare Supported versions and check for backward compatibility.
   // Make sure err is PI_SUCCESS.
   assert((err == PI_SUCCESS) && "Unexpected error when binding to Plugin.");
-#if INTEL_CUSTOMIZATION
   (void)err;
-#endif // INTEL_CUSTOMIZATION
 
   // TODO: Return a more meaningful value/enum.
   return true;

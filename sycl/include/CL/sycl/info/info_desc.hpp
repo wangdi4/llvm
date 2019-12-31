@@ -12,7 +12,7 @@
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/id.hpp>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 
 class program;
@@ -256,26 +256,17 @@ template <typename T, T param> class param_traits {};
 
 #include <CL/sycl/info/device_traits.def>
 
-PARAM_TRAITS_SPEC(context, reference_count, cl_uint)
-PARAM_TRAITS_SPEC(context, platform, cl::sycl::platform)
-PARAM_TRAITS_SPEC(context, devices, vector_class<cl::sycl::device>)
+#include <CL/sycl/info/context_traits.def>
 
-PARAM_TRAITS_SPEC(event, command_execution_status, event_command_status)
-PARAM_TRAITS_SPEC(event, reference_count, cl_uint)
+#include <CL/sycl/info/event_traits.def>
 
-PARAM_TRAITS_SPEC(event_profiling, command_submit, cl_ulong)
-PARAM_TRAITS_SPEC(event_profiling, command_start, cl_ulong)
-PARAM_TRAITS_SPEC(event_profiling, command_end, cl_ulong)
+#include <CL/sycl/info/event_profiling_traits.def>
 
 #include <CL/sycl/info/kernel_sub_group_traits.def>
 #include <CL/sycl/info/kernel_traits.def>
 #include <CL/sycl/info/kernel_work_group_traits.def>
 
-PARAM_TRAITS_SPEC(platform, profile, string_class)
-PARAM_TRAITS_SPEC(platform, version, string_class)
-PARAM_TRAITS_SPEC(platform, name, string_class)
-PARAM_TRAITS_SPEC(platform, vendor, string_class)
-PARAM_TRAITS_SPEC(platform, extensions, vector_class<string_class>)
+#include <CL/sycl/info/platform_traits.def>
 
 PARAM_TRAITS_SPEC(program, context, cl::sycl::context)
 PARAM_TRAITS_SPEC(program, devices, vector_class<cl::sycl::device>)

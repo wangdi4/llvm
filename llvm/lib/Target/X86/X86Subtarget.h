@@ -56,10 +56,7 @@ public:
   enum X86ProcFamilyEnum {
     Others,
     IntelAtom,
-    IntelSLM,
-    IntelGLM,
-    IntelGLP,
-    IntelTRM
+    IntelSLM
   };
 
 protected:
@@ -440,6 +437,7 @@ protected:
   bool HasAMXINT8EVEX = false;
   bool HasAMXTILEEVEX = false;
   bool HasAMXBF16EVEX = false;
+  bool HasAMXELEMENTEVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
@@ -505,6 +503,10 @@ protected:
   /// Processor supports Decoded Stream Buffer.
   bool HasDSB = false;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Use Goldmont specific floating point div/sqrt costs.
+  bool UseGLMDivSqrtCosts = false;
+
   /// What processor and OS we're targeting.
   Triple TargetTriple;
 
@@ -818,6 +820,7 @@ public:
   bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
   bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
   bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
+  bool hasAMXELEMENTEVEX() const { return HasAMXELEMENTEVEX; }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
@@ -825,6 +828,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
   bool preferMaskRegisters() const { return PreferMaskRegisters; }
+  bool useGLMDivSqrtCosts() const { return UseGLMDivSqrtCosts; }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }
   unsigned getRequiredVectorWidth() const { return RequiredVectorWidth; }
@@ -857,11 +861,6 @@ public:
   /// TODO: to be removed later and replaced with suitable properties
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool isGLM() const {
-    return X86ProcFamily == IntelGLM ||
-           X86ProcFamily == IntelGLP ||
-           X86ProcFamily == IntelTRM;
-  }
   bool useSoftFloat() const { return UseSoftFloat; }
   bool useAA() const override { return UseAA; }
 

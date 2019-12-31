@@ -26,14 +26,14 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
 class TargetLibraryInfo;
-class Function;
-class Instruction;
 class CallBase;
 class Type;
 class StructType;
@@ -70,7 +70,7 @@ public:
       : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
         ComplexUse(false), AddressTaken(false), SVKind(SVK_Complete),
         SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
-        SingleAllocFunction(nullptr), Frequency(0) {}
+        SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -109,8 +109,11 @@ public:
   llvm::Function *getSingleAllocFunction() {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
   }
-  void setRead(bool b) { Read = b; }
-  void setWritten(bool b) { Written = b; }
+  void setRead(Instruction &I) { Read = true; addReader(I.getFunction());  }
+  void setWritten(Instruction &I) {
+    Written = true;
+    addWriter(I.getFunction());
+  }
   void setValueUnused(bool b) {
     UnusedValue = b;
   }
@@ -162,6 +165,35 @@ public:
   //
   bool processNewSingleAllocFunction(llvm::Function *F);
 
+  // For tracking the set of functions that read/write the field.
+  typedef llvm::SmallPtrSet<Function*, 2> FunctionSet;
+  typedef llvm::SmallPtrSet<Function*, 2> &FunctionSetRef;
+
+  void addReader(Function *F) { Readers.insert(F); }
+  void addWriter(Function *F) { Writers.insert(F); }
+  FunctionSetRef readers() { return Readers; }
+  FunctionSetRef writers() { return Writers; }
+
+  // Lattice regarding the information contained within the Readers/Writers
+  // sets.
+  // RWK_Top - Initial state.
+  // RWK_Computed - After safety checks are performed, elements that are
+  //   resolved as being safe to rely on the Readers/Writers fields will be
+  //   marked as RWK_Computed.
+  // RWK_Bottom - Elements that are determined to not be safe.
+  //   This may also be used in the future to limit the size to the
+  //   Readers/Writers sets by going conservative if the sets become to large.
+  enum RW_Kind { RWK_Top, RWK_Computed, RWK_Bottom };
+  void setRWComputed() {
+    assert(!isRWBottom() && "State is already bottom.");
+    RWState = RWK_Computed;
+  }
+  void setRWBottom() { RWState = RWK_Bottom; }
+
+  bool isRWTop() const { return RWState == RWK_Top; }
+  bool isRWComputed() const { return RWState == RWK_Computed; }
+  bool isRWBottom() const { return RWState == RWK_Bottom; }
+
 private:
   llvm::Type *LLVMType;
   bool Read;
@@ -175,6 +207,14 @@ private:
   llvm::SmallPtrSet<llvm::Constant *, 2> ConstantIAValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
+  // For computing ModRef information for the field, these sets contain the
+  // functions that are known to directly read/write the field.
+  FunctionSet Readers;
+  FunctionSet Writers;
+
+  // Status for Readers/Writers information.
+  RW_Kind RWState;
+
   // It represents relative field access frequency and is used in
   // heuristics to enable transformations. Load/Store is considered as
   // field access. AddressTaken of struct or field is not considered as

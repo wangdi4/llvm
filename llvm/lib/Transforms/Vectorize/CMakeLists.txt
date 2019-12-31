@@ -6,14 +6,13 @@ add_llvm_component_library(LLVMVectorize
   Vectorize.cpp
   VPlan.cpp
   VPlanHCFGBuilder.cpp
-  VPlanHCFGTransforms.cpp
   VPlanPredicator.cpp
   VPlanSLP.cpp
+  VPlanTransforms.cpp
   VPlanVerifier.cpp
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp
   IntelMFReplacement.cpp
-  Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
   Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
@@ -25,7 +24,6 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
   Intel_VPlan/IntelVPlanIdioms.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
-  Intel_VPlan/IntelNewVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp

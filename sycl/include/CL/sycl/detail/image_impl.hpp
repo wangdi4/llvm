@@ -10,6 +10,7 @@
 
 #include <CL/sycl/detail/aligned_allocator.hpp>
 #include <CL/sycl/detail/common.hpp>
+#include <CL/sycl/detail/context_impl.hpp>
 #include <CL/sycl/detail/generic_type_traits.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/scheduler/scheduler.hpp>
@@ -20,7 +21,7 @@
 #include <CL/sycl/range.hpp>
 #include <CL/sycl/stl.hpp>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 
 // forward declarations
@@ -353,7 +354,7 @@ private:
 
   template <info::device Param>
   bool checkImageValueRange(const ContextImplPtr Context, const size_t Value) {
-    const auto &Devices = Context->get_devices();
+    const auto &Devices = Context->get_info<info::context::devices>();
     return Value >= 1 && std::all_of(Devices.cbegin(), Devices.cend(),
                                      [Value](const device &Dev) {
                                        return Value <= Dev.get_info<Param>();

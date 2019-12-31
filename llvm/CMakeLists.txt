@@ -65,7 +65,7 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;llgo;openmp;parallel-libs;polly;pstl")
+set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;llgo;mlir;openmp;parallel-libs;polly;pstl")
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_ALL_PROJECTS}), or \"all\".")
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
@@ -538,10 +538,6 @@ option(LLVM_BUILD_RUNTIME
 option(LLVM_BUILD_EXAMPLES
   "Build the LLVM example programs. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the LLVM examples" ON)
-
-if(LLVM_BUILD_EXAMPLES)
-  add_definitions(-DBUILD_EXAMPLES)
-endif(LLVM_BUILD_EXAMPLES)
 
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
@@ -1422,7 +1418,7 @@ if (INTEL_CUSTOMIZATION)
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
       # SYCL components
       opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
-      pi_opencl sycl-config-file
+      pi_opencl sycl-config-file opencl-aot
     )
 
     if (WIN32)
@@ -1446,7 +1442,7 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-tbb-ext ocl-OpenCL
+      ocl-config ocl-cl_logger ocl-OpenCL
       ocl-svml ocl-gdb-plugin ocl-eyeq-builtins
       ocl-clang_compiler ocl-clang_compiler32 ocl-clang_compiler64
       ocl-intelocl ocl-intelocl32 ocl-intelocl64
@@ -1530,6 +1526,14 @@ if (INTEL_CUSTOMIZATION)
                          COMMAND "${CMAKE_COMMAND}"
                                  "-DCMAKE_INSTALL_COMPONENT=${comp}"
                                  -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                         # If ${comp} component does not exist, cmake
+                         # will just open and immediately close the manifest
+                         # file. This will not update the manifest file's ctime,
+                         # if the file is located on NFSv4 share drive.
+                         # We need to explicitly touch the file to force
+                         # executing all deploy actions down the dependency
+                         # chain.
+                         COMMAND ${CMAKE_COMMAND} -E touch ${manifest}
                          DEPENDS  ${chain_dep}
                          COMMENT "Deploying component ${comp}"
                          USES_TERMINAL)

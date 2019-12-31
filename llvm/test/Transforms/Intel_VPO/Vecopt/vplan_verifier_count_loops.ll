@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug -S < %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -debug -S < %s
 ; TODO | FileCheck %s
 ; REQUIRES: asserts
 

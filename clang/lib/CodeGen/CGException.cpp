@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenFunction.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGObjCRuntime.h"
+#include "CodeGenFunction.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/AST/Mangle.h"
@@ -21,8 +21,9 @@
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
@@ -551,6 +552,10 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->enterTryStmt();
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().IntelCompat) {
     // CQ#372058 - associate landing pad in debug info with the end of the try
@@ -567,6 +572,10 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   } else
     EmitStmt(S.getTryBlock());
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->exitTryStmt();
+#endif // INTEL_COLLAB
   ExitCXXTryStmt(S);
 }
 

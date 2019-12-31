@@ -6,6 +6,7 @@
 ; for regular vectorization.
 
 ; RUN: opt -loopopt=0 -VPlanDriver -vpo-vplan-build-stress-test -vplan-print-after-hcfg -vplan-entities-dump < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt=0 -passes="vplan-driver" -vpo-vplan-build-stress-test -vplan-print-after-hcfg -vplan-entities-dump < %s 2>&1 | FileCheck %s
 
 ; Checks for Case 1
 ; CHECK-LABEL: Print after building H-CFG

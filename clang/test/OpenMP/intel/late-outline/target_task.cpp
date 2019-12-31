@@ -33,18 +33,22 @@ void foo2() {
   // CHECK: [[Y:%.+]] = alloca i32,
   // CHECK: [[YP:%.+]] = alloca i32*,
   // CHECK: [[SZ:%.+]] = alloca i32,
+  // CHECK: [[YPMAP:%.+]] = alloca i32*, align 8
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
   // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(i32* [[Y]])
   // CHECK-SAME: "QUAL.OMP.SHARED"(i32** [[YP]])
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[SZ]])
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[Y]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[YPMAP]])
+  // CHECK: [[MAPPTR:%.+]] = load i32*, i32** [[YP]]
   // CHECK: [[AI:%.+]] = getelementptr{{.*}}
   // CHECK: DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1)
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32** [[YP]], i32** [[YP]], i64 8)
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGR"(i32** [[YP]], i32* [[AI]], i64 %{{[0-9]+}})
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32* [[MAPPTR]], i32* [[AI]], i64 %4)
   // CHECK-SAME: "QUAL.OMP.NOWAIT"
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[YPMAP]])
+  // CHECK: store i32* %1, i32** [[YPMAP]], align 8
   // CHECK: DIR.OMP.END.TARGET
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target  map(tofrom:yp[0:size])  nowait depend(out:y)

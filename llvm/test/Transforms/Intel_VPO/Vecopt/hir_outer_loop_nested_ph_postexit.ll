@@ -30,12 +30,12 @@
 
 ; This is the inner loop we are checking in VPlan:
 ;
-;  BB5 (BP: NULL) :
+;  BB5:
 ;   float %vp61456 = sitofp i64 %vp53952
 ;   i64 %vp61776 = add i64 %m i64 -1
 ;  SUCCESSORS(1):BB6
 ;
-;  BB6 (BP: NULL) :
+;  BB6:
 ;   i64 %vp53280 = phi  [ i64 0, BB5 ],  [ i64 %vp8832, BB11 ]
 ;   float* %vp51760 = getelementptr [101 x float]* %a i64 %vp53952 i64 %vp53280
 ;   store float %vp61456 float* %vp51760
@@ -48,11 +48,6 @@
 ;   i64 %vp46912 = add i64 %vp46688 i64 2
 ;   i64 %vp47136 = add i64 %vp53280 i64 1
 ;   i1 %vp61936 = icmp i64 %vp47136 i64 %vp61776
-;  SUCCESSORS(1):BB11
-;
-;  BB11 (BP: NULL) :
-;   <Empty Block>
-;   Condition(BB6): i1 %vp61936 = icmp i64 %vp47136 i64 %vp61776
 ;  SUCCESSORS(2):BB6(i1 %vp61936), BB7(!i1 %vp61936)
 
 ; Inner loop PH:
@@ -61,12 +56,12 @@
 ; CHECK-NEXT:  SUCCESSORS(1):[[H:BB[0-9]+]]
 ;
 ; Loop header:
-; CHECK:  [[H]] (BP: NULL) :
+; CHECK:  [[H]]:
 ; CHECK:  SUCCESSORS(2):[[H]](i1 %vp{{[0-9]+}}), [[PE:BB[0-9]+]](!i1 %vp{{[0-9]+}})
 
 ; Loop PE:
-; CHECK:  [[PE]] (BP: NULL) :
-; CHECK-NEXT: i64 %vp{{[0-9]+}} = phi  [ i64 %vp{{[0-9]+}}, BB11 ]
+; CHECK:  [[PE]]:
+; CHECK-NEXT: i64 %vp{{[0-9]+}} = phi  [ i64 %vp{{[0-9]+}}, BB6 ]
 ; CHECK-NEXT: i64 %vp{{[0-9]+}} = bitcast i64 %vp{{[0-9]+}}
 
 

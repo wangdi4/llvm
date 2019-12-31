@@ -19,7 +19,8 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <x86intrin.h>
 #endif
-
+/* INTEL_CUSTOMIZATION */
+/*
 #if defined(__arm__)
 #include <armintr.h>
 #endif
@@ -27,7 +28,8 @@
 #if defined(__aarch64__)
 #include <arm64intr.h>
 #endif
-
+*/
+/* end INTEL_CUSTOMIZATION */
 /* For the definition of jmp_buf. */
 #if __STDC_HOSTED__
 #include <setjmp.h>
@@ -576,6 +578,10 @@ static __inline__ void __DEFAULT_FN_ATTRS
 __writemsr(unsigned long __register, unsigned __int64 __data) {
   __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
 }
+
+#define _readmsr(R) __readmsr(R)
+#define _writemsr(R, D) __writemsr(R, D)
+
 /* end INTEL_CUSTOMIZATION */
 #endif
 

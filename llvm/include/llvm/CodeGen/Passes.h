@@ -478,6 +478,10 @@ namespace llvm {
   // Expand fp128 operations into libcalls.
   FunctionPass *createFloat128ExpandPass();
 #endif // INTEL_CUSTOMIZATION
+
+  /// Create IR Type Promotion pass. \see TypePromotion.cpp
+  FunctionPass *createTypePromotionPass();
+
 } // End llvm namespace
 
 #endif

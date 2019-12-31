@@ -184,11 +184,12 @@ HLInst *HLNodeUtils::createNonLvalHLInst(Instruction *Inst) {
   return createHLInst(Inst);
 }
 
-HLInst *HLNodeUtils::createUnaryHLInst(
-    unsigned OpCode, RegDDRef *RvalRef, const Twine &Name, RegDDRef *LvalRef,
-    Type *DestTy, const UnaryInstruction *OrigUnInst) {
-  HLInst *HInst = createUnaryHLInstImpl(OpCode, RvalRef, Name, LvalRef, DestTy,
-                                        nullptr);
+HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
+                                       const Twine &Name, RegDDRef *LvalRef,
+                                       Type *DestTy,
+                                       const UnaryInstruction *OrigUnInst) {
+  HLInst *HInst =
+      createUnaryHLInstImpl(OpCode, RvalRef, Name, LvalRef, DestTy, nullptr);
   if (OrigUnInst) {
     UnaryInstruction *NewUnInstr = cast<UnaryInstruction>(
         const_cast<Instruction *>(HInst->getLLVMInstruction()));
@@ -1011,10 +1012,11 @@ HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
                       Name, LvalRef);
 }
 
-std::pair<HLInst *, CallInst *> HLNodeUtils::createCallImpl(
-    FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
-    const Twine &Name, RegDDRef *LvalRef, ArrayRef<OperandBundleDef> Bundle,
-    ArrayRef<RegDDRef *> BundelOps) {
+std::pair<HLInst *, CallInst *>
+HLNodeUtils::createCallImpl(FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
+                            const Twine &Name, RegDDRef *LvalRef,
+                            ArrayRef<OperandBundleDef> Bundle,
+                            ArrayRef<RegDDRef *> BundelOps) {
   bool HasReturn = !Func.getFunctionType()->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -3088,6 +3090,12 @@ public:
       }
 
       return false;
+
+    } else if (BlobUtils::isConstantVectorBlob(SC) ||
+               BlobUtils::isConstantFPBlob(SC)) {
+      // Constants are not considered livein.
+      IsLiveIn = false;
+      return false;
     }
 
     return !isDone();
@@ -3558,8 +3566,8 @@ static cl::opt<bool> IgnoreWraparound("hir-ignore-wraparound", cl::init(false),
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
                                 const HLNode *ParentNode,
                                 const bool FitsIn32Bits) {
-  assert(CE->getSrcType()->isIntegerTy() &&
-         "CE does not have an integer type!");
+  auto SrcTy = CE->getSrcType()->getScalarType();
+  assert(SrcTy->isIntegerTy() && "CE does not have an integer type!");
 
   if (IgnoreWraparound) {
     return false;
@@ -3582,7 +3590,7 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  if (FitsIn32Bits && CE->getSrcType()->getScalarSizeInBits() >= 32) {
+  if (FitsIn32Bits && SrcTy->getScalarSizeInBits() >= 32) {
     return false;
   }
 
@@ -3593,7 +3601,7 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return true;
   }
 
-  auto *IntTy = cast<IntegerType>(CE->getSrcType());
+  auto *IntTy = cast<IntegerType>(SrcTy);
   unsigned Size = IntTy->getPrimitiveSizeInBits();
 
   int64_t MaxValForSrcType = APInt::getMaxValue(Size).getZExtValue();
@@ -3830,6 +3838,67 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
 
   // NearPerfect is not perfect.
   return IsNearPerfect ? false : true;
+}
+
+const HLLoop *
+HLNodeUtils::getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
+                                                  bool &IsNearPerfect) {
+
+  assert(InnermostLoop);
+
+  // Inspect InnermostLoop
+  if (!InnermostLoop->isDo())
+    return nullptr;
+
+  // nullptr is returned for 1-level nest
+  // because isPerfectLoopNest returns false
+  // for innermost loop.
+  const HLLoop *ParentLoop = InnermostLoop->getParentLoop();
+  if (!ParentLoop)
+    return nullptr;
+
+  // TODO: triangluar is not allowed for now.
+  if (InnermostLoop->isTriangularLoop())
+    return nullptr;
+
+  auto IsNonHLInst = [](const HLNode &Node) { return !isa<HLInst>(&Node); };
+
+  // Pre- and Post- loops are allowed around innermost by being NearPerfect
+  // PreHeader and PostExits are not explicitly checked here, because
+  // they do have only inst by definition.
+  bool NonInstExist = std::any_of(ParentLoop->child_begin(),
+                                  InnermostLoop->getIterator(), IsNonHLInst) ||
+                      std::any_of(std::next(InnermostLoop->getIterator()),
+                                  ParentLoop->child_end(), IsNonHLInst);
+  if (NonInstExist) {
+    return InnermostLoop;
+  }
+
+  IsNearPerfect =
+      std::distance(ParentLoop->child_begin(), InnermostLoop->getIterator()) ||
+      std::distance(std::next(InnermostLoop->getIterator()),
+                    ParentLoop->child_end()) ||
+      InnermostLoop->hasPreheader() || InnermostLoop->hasPostexit();
+
+  // Scan from Innermost's ParentLoop and make sure no inter-loop HLNodes
+  const HLLoop *PrevLp = InnermostLoop;
+  const HLLoop *Lp = ParentLoop;
+  while (!(Lp->hasPreheader()) && !(Lp->hasPostexit()) &&
+         !(Lp->isTriangularLoop()) && Lp->isDo()) {
+    const HLLoop *ParLp = Lp->getParentLoop();
+    if (!ParLp) {
+      return Lp;
+    }
+
+    if (Lp != ParLp->getFirstChild() || Lp != ParLp->getLastChild()) {
+      return Lp;
+    }
+
+    PrevLp = Lp;
+    Lp = ParLp;
+  }
+
+  return PrevLp;
 }
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {

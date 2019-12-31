@@ -1,5 +1,4 @@
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=8 < %s | FileCheck %s
-; RUN: opt -S -VPlanDriver -vplan-force-vf=8 -enable-vp-value-codegen < %s | FileCheck %s
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

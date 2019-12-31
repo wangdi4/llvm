@@ -127,7 +127,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
 }
 
 // Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
   Function *PrintfDecl = MT->getPrintfDecl();
   if (!PrintfDecl)
     // no printf() found in the module
@@ -192,6 +192,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                                                      Function *Fn,
                                                      CallInst *&Call) {
 
+  assert(isTargetSPIRV() &&
+         "finalizeKernelFunction called for non-SPIRV target.");
+
   FunctionType *FnTy = Fn->getFunctionType();
   SmallVector<Type *, 8> ParamsTy;
 
@@ -248,28 +251,26 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs.erase(DI);
     FunctionDIs[NFn] = SP;
   }
-  if (isTargetSPIRV()) {
-    InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
+  InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
-    // We intentionally call the function below after InferAddrSpaces() to have
-    // the latter restructure addrspacecasts hidden inside GEP expressions.
-    // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
-    // addrspacecast in the printf's first argument would fail to find the cast.
-    // For example:
-    //   BEFORE:
-    //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
-    //     addrspace(4)* addrspacecast (
-    //       [25 x i8] addrspace(1)* @.str to
-    //       [25 x i8] addrspace(4)*
-    //     ), i64 0, i64 0)
-    //   AFTER:
-    //     i8 addrspace(4)* addrspacecast (
-    //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
-    //       addrspace(1)* @.str, i64 0, i64 0)
-    //     to i8 addrspace(4)*)
-    //
-    replacePrintfWithOCLBuiltin(NFn);
-  }
+  // We intentionally call the function below after InferAddrSpaces() to have
+  // the latter restructure addrspacecasts hidden inside GEP expressions.
+  // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
+  // addrspacecast in the printf's first argument would fail to find the cast.
+  // For example:
+  //   BEFORE:
+  //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
+  //     addrspace(4)* addrspacecast (
+  //       [25 x i8] addrspace(1)* @.str to
+  //       [25 x i8] addrspace(4)*
+  //     ), i64 0, i64 0)
+  //   AFTER:
+  //     i8 addrspace(4)* addrspacecast (
+  //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
+  //       addrspace(1)* @.str, i64 0, i64 0)
+  //     to i8 addrspace(4)*)
+  //
+  replacePrintfWithOCLBuiltin(NFn);
 
   return NFn;
 }
@@ -340,12 +341,10 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
 }
 
 /// This function ignores special instructions with side effect.
-/// Returns true if the store address is one of the \p PrivateVariables.
 /// Returns true if the call instruction is a special call.
 /// Returns true if the store address is an alloca instruction,
 /// that is allocated locally in the thread.
-static bool ignoreSpecialOperands(const Instruction *I,
-                                  SmallPtrSetImpl<Value *> &PrivateVariables) {
+static bool ignoreSpecialOperands(const Instruction *I) {
 
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
@@ -364,11 +363,17 @@ static bool ignoreSpecialOperands(const Instruction *I,
       return true;
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
+    const Value *RootPointer = StorePointer->stripPointerCasts();
     LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer);
-    if (isa<AllocaInst>(StorePointer)) {
-      return true;
-    }
-    if (PrivateVariables.find(StorePointer) != PrivateVariables.end())
+    // We must not guard stores through private pointers. The store must
+    // happen in each work item, so that the variable is initialized
+    // in each work item. For values privatized as local allocas RootPointer
+    // will be the AllocaInst with private address space, so there is no need
+    // for special handling of the regions' private values.
+    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE ||
+        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE)
       return true;
   }
   return false;
@@ -377,24 +382,23 @@ static bool ignoreSpecialOperands(const Instruction *I,
 /// Guard instructions that have side effects, so that only master thread
 /// (thread_id == 0) in each team executes it.
 void VPOParoptTransform::guardSideEffectStatements(
-    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables,
-    Instruction *KernelEntryDir, Instruction *KernelExitDir) {
+    WRegionNode *W, Function *KernelF) {
 
-  SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
-  SmallPtrSet<BasicBlock  *, 6> InsertedBarrierBlocks;
-
-  LLVM_DEBUG(dbgs() << "\n Before inserting master thread guard" << *KernelF);
+  assert(isTargetSPIRV() &&
+         "guardSideEffectStatements() called for non-SPIRV target.");
 
   Instruction *ParDirectiveBegin    = nullptr;
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
+  CallInst *KernelEntryDir          = cast<CallInst>(W->getEntryDirective());
+  CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
-  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
+  SmallVector<Instruction *, 6> SideEffectInstructions;
+  SmallVector<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
-  SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
-  SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
+  SmallVector<Instruction *, 10> EntryDirectivesToDelete;
+  SmallVector<Instruction *, 10> ExitDirectivesToDelete;
 
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
@@ -417,6 +421,22 @@ void VPOParoptTransform::guardSideEffectStatements(
   for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
        I != E; ++I) {
 
+    // Collect OpenMP directive calls so that we can delete them
+    // later.
+    if (VPOAnalysisUtils::isOpenMPDirective(&*I) &&
+        // Avoid deleting SIMD directives.
+        !isParOrTargetDirective(&*I, false, true) &&
+        // Target directives require special processing (see below).
+        &*I != KernelEntryDir && &*I != KernelExitDir) {
+      // Distinguish between entry and other directives, since
+      // we want to delete the entry directives after their
+      // exit companions.
+      if (VPOAnalysisUtils::isBeginDirective(&*I))
+        EntryDirectivesToDelete.push_back(&*I);
+      else
+        ExitDirectivesToDelete.push_back(&*I);
+    }
+
     if (isParOrTargetDirective(&*I) &&
         // Barriers must not be inserted around SIMD loops.
         // SIMD directives must not be removed either.
@@ -432,14 +452,15 @@ void VPOParoptTransform::guardSideEffectStatements(
                                  ParDirectiveExit->getParent(), TempParBBVec);
       ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
 
-      InsertBarrierAt.insert(ParDirectiveBegin);
+      // Insert a barrier after the region exit. This barrier synchronizes
+      // all side effects that might have happened inside the region
+      // with all the consumers of this side effects that are reachable
+      // from the region's exit. Note that we do not need a barrier
+      // before the region, since we insert barriers after all side effect
+      // instructions that may reach the region's entry.
+      InsertBarrierAt.push_back(ParDirectiveExit);
 
-      InsertBarrierAt.insert(ParDirectiveExit);
-
-      ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
-
-      LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
-                        << "\n and after ::" << *ParDirectiveExit);
+      LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -492,86 +513,123 @@ void VPOParoptTransform::guardSideEffectStatements(
           if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
             continue;
         }
-        if (ignoreSpecialOperands(&I, PrivateVariables))
+        if (ignoreSpecialOperands(&I))
           continue;
 
-        LLVM_DEBUG(dbgs() << "\n Instruction Has Sideeffect::" << I
-                          << "\n BasicBlock:: " << I.getParent());
+        LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
+                          << "\nBasicBlock: " << I.getParent());
         SideEffectInstructions.push_back(&I);
       }
     }
   }
 
-  for (auto I : SideEffectInstructions) {
+  auto I = SideEffectInstructions.begin();
+  auto IE = SideEffectInstructions.end();
+  Value *MasterCheckPredicate = nullptr;
 
-    // Get the basic block of the side effect instruction,
-    // then guard the block, and
-    // Make sure to ignore other side effect instructions
-    // within the block, since they are already guarded.
-    Instruction *InsertPt = I;
-    BasicBlock *ThisBB = InsertPt->getParent();
+  if (I != IE) {
+    // Prepare the master check predicate, which looks like
+    //   (get_local_id(0) == 0 && get_local_id(1) == 0 &&
+    //    get_local_id(2) == 0)
+    //
+    // TODO: we may optimize this later, based on the number of dimensions
+    //       used for the target region.
+    IRBuilder<> Builder(KernelEntryDir);
+    auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
 
-    // If BB already guarded continue
-    // FIXME: since we are splitting blocks, when we insert
-    //        the guards, an instruction following the already guarded
-    //        instruction originally from the same block will look
-    //        like beloning to a different block.
-    if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
-      continue;
+    for (unsigned Dim = 0; Dim < 3; ++Dim) {
+      auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
+      Value *LocalId = VPOParoptUtils::genOCLGenericCall(
+          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
+          { Arg }, KernelEntryDir);
+      Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
-    //   Split the Basic Block at InsertPt, into 2 blocks (1st and 2nd Block)
-    //   Insert a check, at the end of the 1st block
-    //   if the thread id is not equal to zero, then
-    //   jump to the successor block of 2nd block
-    //   else execute the 2nd block
+      if (!MasterCheckPredicate) {
+        MasterCheckPredicate = Predicate;
+        continue;
+      }
 
-    LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
-    Instruction* Term = InsertPt->getNextNonDebugInstruction();
+      MasterCheckPredicate = Builder.CreateAnd(MasterCheckPredicate, Predicate);
+    }
 
-    BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
+    MasterCheckPredicate->setName("is.master.thread");
+  }
 
-    // Create an empty bb before the Thenblock, that just jumps to it
-    auto ThenBlock = BasicBlock::Create(TailBlock->getContext(), "",
-                                        TailBlock->getParent(), TailBlock);
+  while (I != IE) {
 
-    // The unconditional branch instruction, that jumps to the single successor
-    auto GotoTail = BranchInst::Create(TailBlock, ThenBlock);
-    GotoTail->setDebugLoc(InsertPt->getDebugLoc());
-    IRBuilder<> Builder(InsertPt);
-    SmallVector<Value *, 3> Arg;
+    Instruction *StartI = *I;
+    // Collect a consecutive set of Instructions with side effects
+    // from the same block. We want to guard them all at once.
+    // Note that we cannot easily guard any intermediate instructions.
+    // For example, we cannot guard a store to addrspace(0), because
+    // we want it to be executed in each WI. We cannot guard
+    // loads from addrspace(1|3) as well, since they may be loading
+    // from the memory we are about to guard, and the memory may be outdated
+    // in non-master WIs.
+    while (std::next(I) != IE &&
+           *std::next(I) == (*I)->getNextNonDebugInstruction())
+      I = std::next(I);
 
-    // TODO: select dimension of thread_id,
-    initArgArray(&Arg, 0);
-    CallInst *LocalId = VPOParoptUtils::genOCLGenericCall(
-        "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Arg, InsertPt);
-    auto *ValueZero = ConstantInt::get(LocalId->getType(), 0);
-    auto IsThread0 = Builder.CreateICmpNE(LocalId, ValueZero);
-    SplitBlockAndInsertIfThen(IsThread0, InsertPt, false, nullptr, DT, LI,
-                              ThenBlock);
-    // Add the new split basic block, since it is already guarded
-    //SideEffectBasicBlocks.insert(InsertPt->getParent());
+    // I is pointing to the last instruction in the sequence.
+    Instruction *StopI = *I;
 
+    // Split the basic block after StopI, into 2 blocks (1st and 2nd Block).
+    // Insert a check, before StartI if the thread id is not equal to zero,
+    // then jump to the 2nd block, else jump to StartI. StopI will fall
+    // through to the 2nd block:
+    //   if(MasterCheckPredicate) {
+    //   master.thread.code:
+    //     <start instruction>
+    //     ...
+    //     <stop instruction>
+    //   }
+    //   master.thread.fallthru:
+
+    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n" <<
+               *StartI << "\nto:\n" << *StopI);
+
+    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+        MasterCheckPredicate, StartI, false, nullptr, DT, LI);
+    BasicBlock *ThenBB = ThenTerm->getParent();
+    ThenBB->setName("master.thread.code");
+    Instruction *ElseInst = StopI->getNextNonDebugInstruction();
+    BasicBlock *ElseBB = ElseInst->getParent();
+    ElseBB->setName("master.thread.fallthru");
+    ThenBB->getInstList().splice(
+        ThenTerm->getIterator(), StartI->getParent()->getInstList(),
+        StartI->getIterator(), ElseInst->getIterator());
     // Insert group barrier at the merge point.
-    // We cannot just put TailBlock->getFirstNonPHI() into
-    // InsertBarrierAt, because this will not work if two side-effect
-    // instructions are consecutive - the barrier for the first guard
-    // will be inserted in the "then" block for the second instruction.
-    InsertWorkGroupBarrier(TailBlock->getFirstNonPHI());
+    InsertBarrierAt.push_back(ElseBB->getFirstNonPHI());
 
-    SideEffectBasicBlocks.insert(InsertPt->getParent());
-    LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
+    I = std::next(I);
   }
 
   if (!SideEffectInstructions.empty()){
-    for (auto InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
+    for (auto *InsertPt : InsertBarrierAt) {
+      LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
       InsertWorkGroupBarrier(InsertPt);
     }
   }
 
-  for (auto BB : ParDirectiveExitBlocks) {
-    VPOUtils::stripDirectives(*BB);
-  }
+  // Delete the non-SIMD directives.
+  // The target directives will be removed by paroptTransforms().
+  for (auto *I : ExitDirectivesToDelete)
+    VPOUtils::stripDirectives(*I->getParent());
+  for (auto *I : EntryDirectivesToDelete)
+    VPOUtils::stripDirectives(*I->getParent());
+
+  // Remove all clauses from the "omp target" entry directive.
+  // The extra references in the clauses may prevent address space
+  // inferring. We cannot remove the directive call yet, because
+  // the removal in paroptTransforms() will complain.
+  OperandBundleDef B(VPOAnalysisUtils::getDirectiveString(KernelEntryDir),
+                     None);
+  // The following call clones the original directive call
+  // with just the directive name in the operand bundles.
+  auto *NewEntryDir = CallInst::Create(KernelEntryDir, { B }, KernelEntryDir);
+  KernelEntryDir->replaceAllUsesWith(NewEntryDir);
+  KernelEntryDir->eraseFromParent();
+  W->setEntryDirective(NewEntryDir);
 }
 
 // Generate the code for the directive omp target
@@ -615,38 +673,24 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   if (isa<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
-  }
 
-  // Please note that the name of NewF is updated in the
-  // function registerTargetRegion.
-  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation()) {
-    LLVM_DEBUG(dbgs() << "\n Before finalizeKernel Dump the function ::"
-                      << *NewF);
-    NewF = finalizeKernelFunction(W, NewF, NewCall);
-    LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
-                      << *NewF);
+    // Please note that the name of NewF is updated in the
+    // function registerTargetRegion.
+    if (isTargetSPIRV()) {
+      LLVM_DEBUG(dbgs() << "\nBefore guardSideEffectStatemets the function ::"
+                 << *NewF);
+      guardSideEffectStatements(W, NewF);
+      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatemets the function ::"
+                 << *NewF);
 
-    SmallPtrSet<Value *, 10> PrivateVariables;
-    if (W->canHavePrivate()) {
-      PrivateClause const &PrivClause = W->getPriv();
-      for (PrivateItem *PrivI : PrivClause.items()) {
-        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
-                          << PrivI->getOrig()->getName()
-                          << " New:: " << PrivI->getNew()->getName());
-        PrivateVariables.insert(PrivI->getNew());
-      }
-      for (auto *PrivI : W->getFpriv().items()) {
-        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
-                          << PrivI->getOrig()->getName()
-                          << " New:: " << PrivI->getNew()->getName());
-        PrivateVariables.insert(PrivI->getNew());
-      }
+      // Make sure to run kernel finalization after guardSideEffectStatemets(),
+      // which is responsible for cleaning up all directive calls that
+      // were left until this point for guardSideEffectStatemets() to work.
+      // The extra directive call may prevent address space inferring.
+      NewF = finalizeKernelFunction(W, NewF, NewCall);
+      LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
+                 << *NewF);
     }
-    guardSideEffectStatements(NewF, PrivateVariables, W->getEntryDirective(),
-                              W->getExitDirective());
-    LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
-                      << *NewF);
   }
 
   if (hasOffloadCompilation())
@@ -993,6 +1037,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     NumLoops = UncollapsedNDRange.size();
 
   assert(NumLoops != 0 && "Zero loops in loop construct.");
+  assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
@@ -1022,7 +1067,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
       BaseGep);
 
   for (unsigned I = 0; I < NumLoops; I++) {
-    Loop *L = WL->getWRNLoopInfo().getLoop(I);
+    // We assume that the innermost OpenMP loop stepping provides
+    // the best data locality. OpenCL execution assumes that the
+    // fastest changing dimension in ND-range is the 1st one.
+    // We need to specify the ND-range such that the 1st dimension
+    // corresponds to the innermost loop (with loop index NumLoops - 1).
+    unsigned Idx = NumLoops - I - 1;
+    Loop *L = WL->getWRNLoopInfo().getLoop(Idx);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 1)});
@@ -1036,7 +1087,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
       CloneUB = VPOParoptUtils::cloneInstructions(
           WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
     else
-      CloneUB = Builder.CreateLoad(UncollapsedNDRange[I]);
+      CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),

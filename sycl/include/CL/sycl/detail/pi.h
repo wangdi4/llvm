@@ -93,7 +93,7 @@ typedef enum {
   PI_DEVICE_VENDOR                        = CL_DEVICE_VENDOR,
   PI_DRIVER_VERSION                       = CL_DRIVER_VERSION,
   PI_DEVICE_PROFILE                       = CL_DEVICE_PROFILE,
-  PI_DEVICE_VERSION                       = CL_DEVICE_VERSION,
+  PI_DEVICE_INFO_VERSION                  = CL_DEVICE_VERSION,
   PI_DEVICE_OPENCL_C_VERSION              = CL_DEVICE_OPENCL_C_VERSION,
   PI_DEVICE_PREFERRED_INTEROP_USER_SYNC   = CL_DEVICE_PREFERRED_INTEROP_USER_SYNC,
   PI_DEVICE_PRINTF_BUFFER_SIZE            = CL_DEVICE_PRINTF_BUFFER_SIZE,
@@ -108,7 +108,7 @@ typedef enum {
   PI_DEVICE_INFO_MAX_COMPUTE_UNITS        = CL_DEVICE_MAX_COMPUTE_UNITS,
   PI_DEVICE_INFO_NAME                     = CL_DEVICE_NAME,
   PI_DEVICE_MAX_WORK_ITEM_DIMENSIONS      = CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
-  PI_DEVICE_MAX_WORK_GROUP_SIZE           = CL_DEVICE_MAX_WORK_GROUP_SIZE,
+  PI_DEVICE_INFO_MAX_WORK_GROUP_SIZE      = CL_DEVICE_MAX_WORK_GROUP_SIZE,
   PI_DEVICE_MAX_WORK_ITEM_SIZES           = CL_DEVICE_MAX_WORK_ITEM_SIZES,
   PI_DEVICE_SINGLE_FP_CONFIG              = CL_DEVICE_SINGLE_FP_CONFIG,
   PI_DEVICE_HALF_FP_CONFIG                = CL_DEVICE_HALF_FP_CONFIG,
@@ -225,7 +225,10 @@ typedef enum {
   PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT    = CL_COMMAND_WRITE_BUFFER_RECT,
   PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT     = CL_COMMAND_COPY_BUFFER_RECT,
   PI_COMMAND_TYPE_USER                     = CL_COMMAND_USER,
-  PI_COMMAND_TYPE_MEM_BUFFER_FILL          = CL_COMMAND_FILL_BUFFER
+  PI_COMMAND_TYPE_MEM_BUFFER_FILL          = CL_COMMAND_FILL_BUFFER,
+  PI_COMMAND_TYPE_IMAGE_READ               = CL_COMMAND_READ_IMAGE,
+  PI_COMMAND_TYPE_IMAGE_WRITE              = CL_COMMAND_WRITE_IMAGE,
+  PI_COMMAND_TYPE_IMAGE_COPY               = CL_COMMAND_COPY_IMAGE
 } _pi_command_type;
 
 typedef enum {
@@ -349,8 +352,16 @@ typedef _pi_sampler_addressing_mode pi_sampler_addressing_mode;
 typedef _pi_sampler_filter_mode     pi_sampler_filter_mode;
 typedef _pi_sampler_info            pi_sampler_info;
 
-// Opaque data type for compatibility with OpenMP.
-typedef void * _pi_offload_entry;
+// Entry type, matches OpenMP for compatibility
+struct _pi_offload_entry_struct {
+  void *addr;
+  char *name;
+  size_t size;
+  int32_t flags;
+  int32_t reserved;
+};
+
+typedef _pi_offload_entry_struct * _pi_offload_entry;
 
 /// Types of device binary.
 typedef uint8_t pi_device_binary_type;
@@ -422,7 +433,7 @@ struct pi_device_binary_struct {
   const unsigned char *BinaryStart;
   /// Pointer to the target code end
   const unsigned char *BinaryEnd;
-  /// the offload entry table (not used, for compatibility with OpenMP)
+  /// the offload entry table
   _pi_offload_entry EntriesBegin;
   _pi_offload_entry EntriesEnd;
 };
@@ -610,10 +621,10 @@ pi_result piContextRelease(pi_context context);
 // Queue
 //
 pi_result piQueueCreate(
-  pi_context                  context,
-  pi_device                   device,
-  pi_queue_properties         properties,
-  pi_queue *                  queue);
+  pi_context          context,
+  pi_device           device,
+  pi_queue_properties properties,
+  pi_queue *          queue);
 
 pi_result piQueueGetInfo(
   pi_queue            command_queue,
@@ -760,6 +771,11 @@ pi_result piKernelSetArg(
   pi_uint32    arg_index,
   size_t       arg_size,
   const void * arg_value);
+
+pi_result piextKernelSetArgMemObj(
+  pi_kernel       kernel,
+  pi_uint32       arg_index,
+  const pi_mem *  arg_value);
 
 pi_result piKernelGetInfo(
   pi_kernel       kernel,

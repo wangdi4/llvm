@@ -571,7 +571,7 @@ void VPLoopEntityList::dump(raw_ostream &OS,
     return nullptr;
   };
 
-  for (VPInstruction &VPInst : Preheader->vpinstructions()) {
+  for (VPInstruction &VPInst : *Preheader) {
     if (VPAllocatePrivate *VPAllocaPriv =
             dyn_cast<VPAllocatePrivate>(&VPInst)) {
 
@@ -604,7 +604,7 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   if (MemDescr->canRegisterize())
     return nullptr;
   AI = MemDescr->getMemoryPtr();
-  VPValue *Ret = Builder.createAllocaPrivate(AI->getType());
+  VPValue *Ret = Builder.createAllocaPrivate(AI);
   Plan.getVPlanDA()->markDivergent(*Ret);
   linkValue(&E, Ret);
   return Ret;
@@ -827,9 +827,8 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       auto *VPInst = ValInstPair.second;
       Builder.insert(VPInst);
       DA->markDivergent(*VPInst);
-      auto *VectorShape = DA->getVectorShape(VPOperand);
-      assert(VectorShape && "Expecting a valid value for vector-shape.");
-      DA->updateVectorShape(VPInst, VectorShape->clone());
+      auto VectorShape = DA->getVectorShape(VPOperand);
+      DA->updateVectorShape(VPInst, VectorShape);
     }
 
     // Now do the replacement. We first replace all instances of VPOperand
@@ -1563,7 +1562,7 @@ void VPLoopEntityList::VPSOAAnalysis::doSOAAnalysis() {
   // Iterate through all the instructions in the loop-preheader, and for
   // VPAllocatePrivate instruction check if that instruction itself or any of
   // its possible use, escapes.
-  for (VPInstruction &VInst : Preheader->vpinstructions()) {
+  for (VPInstruction &VInst : *Preheader) {
     if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst))
       if (!memoryEscapes(AllocaPriv))
         AllocaPriv->setSOASafe();

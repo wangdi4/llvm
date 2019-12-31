@@ -116,7 +116,7 @@ private:
       if (DTransSOAToAOSIgnoreClassInfo)
         return true;
 
-      std::unique_ptr<MemInitCandidateInfo> CandD(new MemInitCandidateInfo());
+      std::unique_ptr<SOACandidateInfo> CandD(new SOACandidateInfo());
       if (!CandD->isCandidateType(Struct) || !CandD->collectMemberFunctions(M))
         return false;
 
@@ -235,7 +235,7 @@ private:
         ArrayTransInfo;
 
     // These are used to keep class info of vector field classes.
-    MemInitCandidateInfo *ClassCandI = nullptr;
+    SOACandidateInfo *ClassCandI = nullptr;
     SmallVector<ClassInfo *, MaxNumFieldCandidates> ArraysClassInfo;
 
   private:

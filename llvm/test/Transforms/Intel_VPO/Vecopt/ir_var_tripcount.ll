@@ -1,5 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-IRCG
-; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=true  -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPCG
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 %s | FileCheck %s
 
 ;void foo(int *ip, int n)
 ;{
@@ -20,12 +19,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: %index = phi i64 [ 0,
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
 ; CHECK: store {{.*}} <4 x i32>
-; CHECK-IRCG: add <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-VPCG: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK: middle.block
 ; CHECK: scalar.ph
-; CHECK-IRCG: %bc.resume.val = phi i64 [ %n.vec, %middle.block ], [ 0, %for.body.preheader ]
-; CHECK-VPCG: %bc.resume.val = phi i64 [ 0, %for.body.preheader ], [ %{{.*}}, %middle.block ]
+; CHECK: %bc.resume.val = phi i64 [ 0, %for.body.preheader ], [ %{{.*}}, %middle.block ]
 ; CHECK: for.body:
 ; CHECK: %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ %bc.resume.val, %scalar.ph ]
 

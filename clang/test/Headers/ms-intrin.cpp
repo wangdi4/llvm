@@ -13,10 +13,15 @@
 // RUN:     -ffreestanding -emit-obj -o /dev/null -Werror \
 // RUN:     -isystem %S/Inputs/include %s
 
-// RUN: %clang_cc1 -triple thumbv7--windows \
+// INTEL_CUSTOMIZATION
+// intrin.h does not include ARM header files in xmain,
+// so prepend the RUN command with 'not':
+// RUN: not \
+// RUN: %clang_cc1 -triple thumbv7--windows                   \
 // RUN:     -fms-compatibility -fms-compatibility-version=17.00 \
 // RUN:     -ffreestanding -fsyntax-only -Werror \
 // RUN:     -isystem %S/Inputs/include %s
+// end INTEL_CUSTOMIZATION
 
 // REQUIRES: x86-registered-target
 

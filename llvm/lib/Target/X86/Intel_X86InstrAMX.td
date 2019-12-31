@@ -887,6 +887,37 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
 // end INTEL_FEATURE_ISA_AMX_FUTURE
 
 // INTEL_FEATURE_ISA_AMX_LNC
+//AMX-AVX512
+multiclass m_tcvtrowd2pse{
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
+    let SchedRW = [WriteSystem] in {
+      def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
+                    (ins VTILEX:$src1, i32u8imm:$src2),
+                    "tcvtrowd2pse\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    []>, TAXS, EVEX, EVEX_V512;
+      def rre : I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
+                  (ins VTILEX:$src1, GR32:$src2),
+                  "tcvtrowd2pse\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  []>, T8XS, EVEX_4V, EVEX_V512;
+    }
+  } // HasAMXAVX512, In64BitMode
+}
+
+defm TCVTROWD2PSE : m_tcvtrowd2pse;
+
+let Predicates = [HasAMXAVX512, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    let  usesCustomInserter = 1 in {
+      def PTCVTROWD2PSErri : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, i32u8imm:$src2),
+                                    [(set VR512:$dst, (int_x86_tcvtrowd2psei timm:$src1,
+                                      timm:$src2))]>;
+      def PTCVTROWD2PSErre : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, GR32:$src2),
+                                    [(set VR512:$dst, (int_x86_tcvtrowd2psee timm:$src1,
+                                      GR32:$src2))]>;
+    }
+  }
+}
+
 //AMX-BF16-EVEX
 let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
@@ -905,6 +936,19 @@ let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
     }
   }
 } // HasAMXBF16EVEX, In64BitMode
+
+//AMX-ELEMENT-EVEX
+let Predicates = [HasAMXELEMENTEVEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TCVTD2PSE : I<0xe1, MRMDestMemFSIB, (outs),
+                     (ins opaquemem:$dst, VTILEX:$src),
+                     "tcvtd2pse\t{$src, $dst|$dst, $src}",
+                     []>, EVEX, T_MAP5XS;
+    let usesCustomInserter = 1 in {
+      def PTCVTD2PSE : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
+    }
+  }
+} // HasAMXTILE, HasAMXELEMENTEVEX
 
 //AMX-FP16
 let Predicates = [HasAMXFP16, In64BitMode] in {

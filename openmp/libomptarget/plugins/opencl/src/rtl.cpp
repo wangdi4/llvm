@@ -63,9 +63,7 @@ typedef cl_int  (CL_API_CALL *clGetMemAllocInfoINTELTy)(
     size_t param_value_size,
     void* param_value,
     size_t* param_value_size_ret);
-
 #endif  // INTEL_CUSTOMIZATION
-
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
@@ -243,11 +241,15 @@ struct ProfileDataTy {
   void printData(int32_t deviceId, const char *deviceName, int64_t resolution) {
     fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s\n",
             deviceId, deviceName);
+    double total = 0.0;
     for (const auto &d : data) {
+      double time = 1e-9 * d.second * resolution;
       fprintf(stderr, "-- %s: %.3f %s\n", d.first.c_str(),
-              1e-9 * d.second * resolution,
-              resolution == 1000 ? "msec" : "usec");
+              time, resolution == 1000 ? "msec" : "usec");
+      total += time;
     }
+    fprintf(stderr, "-- Total: %.3f %s\n",
+            total, resolution == 1000 ? "msec" : "usec");
   }
 
   // for non-event profile
@@ -347,6 +349,9 @@ public:
   std::vector<ProfileDataTy> Profiles;
   std::vector<std::vector<char>> Names;
   std::mutex *Mutexes;
+
+  // Requires flags
+  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
   uint64_t flag;
   int32_t DataTransferLatency;
@@ -675,6 +680,12 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
+  DP("Initialize requires flags to %" PRId64 "\n", RequiresFlags);
+  DeviceInfo.RequiresFlags = RequiresFlags;
+  return RequiresFlags;
+}
+
 static void dumpImageToFile(
     const void *Image, size_t ImageSize, const char *Type) {
 #if INTEL_CUSTOMIZATION
@@ -766,6 +777,18 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_program program[3];
   cl_uint num_programs = 0;
   std::string compilation_options(DeviceInfo.CompilationOptions);
+#if INTEL_CUSTOMIZATION
+  cl_device_type device_type;
+
+  if (clGetDeviceInfo(DeviceInfo.deviceIDs[device_id],
+                      CL_DEVICE_TYPE, sizeof(device_type), &device_type,
+                      nullptr) == CL_SUCCESS &&
+      device_type == CL_DEVICE_TYPE_GPU)
+    // OpenCL CPU compiler complains about unsupported option.
+    // Intel Graphics compilers that do not support that option
+    // silently ignore it.
+    compilation_options += " -cl-intel-enable-global-relocation ";
+#endif // INTEL_CUSTOMIZATION
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
@@ -871,7 +894,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   if (!DeviceInfo.clGetMemAllocInfoINTELFn &&
       DeviceInfo.Extensions[device_id].GetMemAllocInfoINTELPointer ==
       ExtensionStatusEnabled &&
-      DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU) {
+      (DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU ||
+       DeviceInfo.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)) {
     // TODO: limit this to CPU devices for the time being.
     DeviceInfo.clGetMemAllocInfoINTELFn =
         reinterpret_cast<clGetMemAllocInfoINTELTy>(
@@ -1090,6 +1114,19 @@ int32_t __tgt_rtl_manifest_data_for_region(
 EXTERN void *__tgt_rtl_get_offload_pipe(int32_t device_id) {
   return (void *)DeviceInfo.Queues[device_id];
 }
+
+#if INTEL_CUSTOMIZATION
+EXTERN int32_t __tgt_rtl_is_managed_data(int32_t device_id, void *hst_ptr) {
+  if (!DeviceInfo.clGetMemAllocInfoINTELFn)
+    return 0;
+  cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_UNKNOWN_INTEL;
+  INVOKE_CL_RET(0, DeviceInfo.clGetMemAllocInfoINTELFn,
+                DeviceInfo.CTX[device_id], hst_ptr, CL_MEM_ALLOC_TYPE_INTEL,
+                sizeof(type), &type, nullptr);
+  // These two types do not need explicit data move.
+  return (type == CL_MEM_TYPE_HOST_INTEL || type == CL_MEM_TYPE_SHARED_INTEL);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static inline
 void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
@@ -1484,18 +1521,21 @@ static inline int32_t run_target_team_nd_region(
   int32_t work_dim = 1;
 
   if (loop_levels) {
+    // ND-range dimension 0 is the fastest changing one.
+    // It corresponds to the innermost OpenMP loop in a loop nest.
     work_dim = (int32_t)*loop_levels;
     assert(work_dim > 0 && work_dim <= 3 &&
            "ND-range parallelization requested "
            "with invalid number of dimensions.");
     if (work_dim == 1)
       // Keep the current local_size default for 1D cases.
-      local_work_size[work_dim - 1] = optimal_work_size;
+      local_work_size[0] = optimal_work_size;
     else
       // TODO: we should take into account the global size,
-      //       e.g. if the 3rd dimension is 32, it may make
-      //       sense to use (1, 8, 32) instead of (1, 1, 32).
-      local_work_size[work_dim - 1] = local_work_size_max;
+      //       e.g. if the 1st dimension is small, e.g. 8, it may make
+      //       sense to use (8, 2, 1) instead of (8, 1, 1),
+      //       assuming that optimal_work_size is 16.
+      local_work_size[0] = optimal_work_size;
   }
   else {
     local_work_size[0] = optimal_work_size;

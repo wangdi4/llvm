@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/scheduler/scheduler.hpp>
@@ -20,12 +19,11 @@
 
 #include <type_traits>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
 
 // Forward declarations
-class context_impl;
 class event_impl;
 
 using ContextImplPtr = shared_ptr_class<context_impl>;

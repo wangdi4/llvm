@@ -246,6 +246,11 @@ static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
 
+// Dead Array Element Ops Elimination
+static cl::opt<bool> EnableDeadArrayOpsElim(
+   "enable-dead-array-ops-elim", cl::init(true), cl::Hidden,
+   cl::desc("Enable Dead Array Ops Elimination"));
+
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
@@ -351,6 +356,10 @@ cl::opt<bool> FlattenedProfileUsed(
 cl::opt<bool> EnableOrderFileInstrumentation(
     "enable-order-file-instrumentation", cl::init(false), cl::Hidden,
     cl::desc("Enable order file instrumentation (default = off)"));
+
+static cl::opt<bool>
+    EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
+                 cl::desc("Enable lowering of the matrix intrinsics"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -1035,6 +1044,14 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createFloat2IntPass());
   MPM.add(createLowerConstantIntrinsicsPass());
 
+  if (EnableMatrix) {
+    MPM.add(createLowerMatrixIntrinsicsPass());
+    // CSE the pointer arithmetic of the column vectors.  This allows alias
+    // analysis to establish no-aliasing between loads and stores of different
+    // columns of the same matrix.
+    MPM.add(createEarlyCSEPass(false));
+  }
+
   addExtensionsToPM(EP_VectorizerStart, MPM);
 
   // Re-rotate loops in all our loop nests. These may have fallout out of
@@ -1499,6 +1516,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDeadArrayOpsElim)
+    PM.add(createDeadArrayOpsEliminationLegacyPass());
+
   if (RunLTOPartialInlining)
     PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
 #if INTEL_INCLUDE_DTRANS
@@ -1555,6 +1575,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   if (EnableAndersen)
     PM.add(createAndersensAAWrapperPass());
+
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    PM.add(createDTransFieldModRefAnalysisWrapperPass());
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
@@ -1818,7 +1843,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     if (OptLevel > 2) {
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRLoopConcatenationPass());
-        PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
+        PM.add(createHIRPMSymbolicTripCountCompleteUnrollLegacyPass());
       }
       PM.add(createHIRArrayTransposePass());
     }

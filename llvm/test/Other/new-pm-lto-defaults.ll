@@ -114,8 +114,9 @@
 ; CHECK-O2-NEXT: Running pass: RequireAnalysisPass<{{.*}}InlineAggAnalysis            ;INTEL
 ; CHECK-O2-NEXT: Running analysis: InlineAggAnalysis                                  ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
-; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: GlobalOptPass
+; CHECK-O2-NEXT: Running pass: DeadArrayOpsEliminationPass
 ; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-O2-NEXT: Running pass: PartialInlinerPass
 ; END INTEL_CUSTOMIZATION

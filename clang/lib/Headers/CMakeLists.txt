@@ -114,6 +114,7 @@ set(files
   altivec.h
   ammintrin.h
   arm_acle.h
+  arm_cmse.h
   armintr.h
   arm64intr.h
   avx2intrin.h
@@ -330,11 +331,47 @@ set_target_properties(clang-resource-headers PROPERTIES
 
 set(header_install_dir lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
 
+if(INTEL_CUSTOMIZATION)
+  # Avoid deploying header files for unsupported targets.
+  list(REMOVE_ITEM files
+    # ARM
+    arm_acle.h
+    armintr.h
+    arm64intr.h
+
+    # MIPS
+    msa.h
+
+    # SystemZ, PowerPC
+    altivec.h
+    s390intrin.h
+    htmintrin.h
+    htmxlintrin.h
+    vecintrin.h
+
+    # CUDA
+    # Note that openmp_wrappers depend on these files.
+    # We exclude openmp_wrappers below.
+    __clang_cuda_builtin_vars.h
+    __clang_cuda_cmath.h
+    __clang_cuda_complex_builtins.h
+    __clang_cuda_device_functions.h
+    __clang_cuda_intrinsics.h
+    __clang_cuda_libdevice_declares.h
+    __clang_cuda_math_forward_declares.h
+    __clang_cuda_runtime_wrapper.h
+    )
+  # Currently all generated files are for ARM.  Avoid deploying them.
+  set(generated_files)
+endif(INTEL_CUSTOMIZATION)
+
 install(
   FILES ${files} ${generated_files}
   DESTINATION ${header_install_dir}
   COMPONENT clang-resource-headers)
 
+if(NOT INTEL_CUSTOMIZATION)
+# Avoid deploying CUDA/NVPTX and PPC files.
 install(
   FILES ${cuda_wrapper_files}
   DESTINATION ${header_install_dir}/cuda_wrappers
@@ -349,6 +386,7 @@ install(
   FILES ${openmp_wrapper_files}
   DESTINATION ${header_install_dir}/openmp_wrappers
   COMPONENT clang-resource-headers)
+endif(NOT INTEL_CUSTOMIZATION)
 
 if (NOT LLVM_ENABLE_IDE)
   add_llvm_install_targets(install-clang-resource-headers

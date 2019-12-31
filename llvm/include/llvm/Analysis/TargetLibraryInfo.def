@@ -172,6 +172,12 @@ TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
 /// extern "C" void __stdcall _CxxThrowException(void* pExceptionObject, _ThrowInfo* pThrowInfo);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_CxxThrowException)
 TLI_DEFINE_STRING_INTERNAL("_CxxThrowException")
+/// _Ctypevec __cdecl _Getctype(void)
+TLI_DEFINE_ENUM_INTERNAL(under_Getctype)
+TLI_DEFINE_STRING_INTERNAL("_Getctype")
+/// _Cvtvec __cdecl _Getcvt(void)
+TLI_DEFINE_ENUM_INTERNAL(under_Getcvt)
+TLI_DEFINE_STRING_INTERNAL("_Getcvt")
 #endif // INTEL_CUSTOMIZATION
 /// int _IO_getc(_IO_FILE * __fp);
 TLI_DEFINE_ENUM_INTERNAL(under_IO_getc)
@@ -181,6 +187,12 @@ TLI_DEFINE_ENUM_INTERNAL(under_IO_putc)
 TLI_DEFINE_STRING_INTERNAL("_IO_putc")
 
 #if INTEL_CUSTOMIZATION
+/// _CRTIMP2_PURE int __CLRCALL_PURE_OR_CDECL _Tolower (int c, const _Ctypevec *ploc)
+TLI_DEFINE_ENUM_INTERNAL(under_Tolower)
+TLI_DEFINE_STRING_INTERNAL("_Tolower")
+/// _CRTIMP2_PURE int __CLRCALL_PURE_OR_CDECL _Toupper (int c, const _Ctypevec *ploc)
+TLI_DEFINE_ENUM_INTERNAL(under_Toupper)
+TLI_DEFINE_STRING_INTERNAL("_Toupper")
 /// size_t std::string::find_first_not_of(char const*, unsigned long, unsigned long) const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSs17find_first_not_ofEPKcmm)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSs17find_first_not_ofEPKcmm")
@@ -1120,6 +1132,9 @@ TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfscanf")
 /// int __stdio_common_vsprintf(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsprintf")
+/// int __stdio_common_vsprintf_s(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
+TLI_DEFINE_ENUM_INTERNAL(dunder_stdio_common_vsprintf_s)
+TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsprintf_s")
 /// int __stdio_common_vsscanf(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsscanf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsscanf")

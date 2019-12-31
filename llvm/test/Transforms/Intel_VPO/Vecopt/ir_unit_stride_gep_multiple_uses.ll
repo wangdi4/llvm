@@ -4,7 +4,7 @@
 ; vector GEP. This vector GEP is then reused to compute scalar address needed for places where
 ; the unit-stride GEP is used in memory pointer context.
 
-; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
 
 define i32 @multiple_uses(i32* %src, i32** %dest) {
 ; CHECK:       vector.body:

@@ -2,6 +2,7 @@
 ; is not necessarily defined in the predecessor VPBB, but the value rather flows in from another predecessor in the control flow.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir"  -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <73>    + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -42,46 +43,46 @@
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK:         [[BB1]] (BP: NULL) :
+; CHECK:         [[BB1]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK:         [[BB2]] (BP: NULL) :
+; CHECK:         [[BB2]]:
 ; CHECK-DAG:      i32 [[VP0:%.*]] = phi  [ i32 [[EXTERN_T2_069:%.*]], [[BB1]] ],  [ i32 [[LOOP_LATCH_PHI_T2:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-DAG:      i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK:         SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8:%vp.*]]), [[BB5:BB[0-9]+]](!i1 [[VP8]])
-; CHECK:           [[BB5]] (BP: NULL) :
+; CHECK:           [[BB5]]:
 ; CHECK:            i32 [[VP11:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK:           [[BB4]] (BP: NULL) :
+; CHECK:           [[BB4]]:
 ; CHECK:           SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP12:%vp.*]]), [[BB7:BB[0-9]+]](!i1 [[VP12]])
-; CHECK:             [[BB7]] (BP: NULL) :
+; CHECK:             [[BB7]]:
 ; CHECK:              i32 [[VP15:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK:              i32 [[VP16:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK:             [[BB6]] (BP: NULL) :
+; CHECK:             [[BB6]]:
 ; CHECK:              i32 [[VP17:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK:              i32 [[VP19:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
-; CHECK:           [[BB8]] (BP: NULL) :
+; CHECK:           [[BB8]]:
 ; CHECK-DAG:        i32 [[VP20:%.*]] = phi  [ i32 [[VP17]], [[BB6]] ],  [ i32 [[VP15]], [[BB7]] ]
 ; CHECK-DAG:        i32 [[VP21:%.*]] = phi  [ i32 [[VP19]], [[BB6]] ],  [ i32 [[VP16]], [[BB7]] ]
 ; CHECK:            i32 [[VP22:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:       i32 [[VP23:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK:         [[BB3]] (BP: NULL) :
+; CHECK:         [[BB3]]:
 ; CHECK-DAG:      i32 [[VP24:%.*]] = phi  [ i32 [[VP23]], [[BB8]] ],  [ i32 [[VP11]], [[BB5]] ]
 ; CHECK-DAG:      i32 [[LOOP_LATCH_PHI_T2]] = phi  [ i32 [[VP22]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
 ; CHECK:          i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp i64 [[VP3]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP39]]), [[BB9:BB[0-9]+]](!i1 [[VP39]])
-; CHECK:         [[BB9]] (BP: NULL) :
+; CHECK:         [[BB9]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
-; CHECK:         [[BB10]] (BP: NULL) :
+; CHECK:         [[BB10]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK:         END Region([[REGION0]])

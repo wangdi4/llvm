@@ -109,7 +109,7 @@ FunctionPass *createHIRLoopCollapsePass();
 
 /// createHIRSymbolicTripCountCompleteUnrollLegacyPass - This creates a HIR Loop
 /// pass that performs Loop based pattern matching.
-FunctionPass *createHIRSymbolicTripCountCompleteUnrollLegacyPass();
+FunctionPass *createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
 
 /// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.
@@ -181,6 +181,9 @@ FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
 FunctionPass *createHIRConditionalTempSinkingPass();
 /// Create pass that sinks loop invariant memory reductions.
 FunctionPass *createHIRMemoryReductionSinkingPass();
+
+/// Create pass that performs row-wise multiversioning.
+FunctionPass *createHIRRowWiseMVPass();
 } // namespace llvm
 
 #endif

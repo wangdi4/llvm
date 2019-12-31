@@ -63,6 +63,6 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
 //CHECK: [[ATFOO1A]] = !{!"mm_slave"}
-//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}
-//CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}{readwritememory:READONLY}"
+//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}{bank_bits:4,3,2}
+//CHECK-SAME: {internal_max_block_ram_depth:64}{readwritememory:READONLY}"
 //CHECK: [[LMSFOO1A]] = !{i32 32}

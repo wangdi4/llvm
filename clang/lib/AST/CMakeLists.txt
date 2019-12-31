@@ -1,8 +1,15 @@
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
   Core
+  FrontendOpenMP
   Support
   )
+
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(ASTContext.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# end INTEL_CUSTOMIZATION
 
 # FIXME: the entry points to the interpreter should be moved out of clangAST
 # into the parser or Sema in order to allow the interpreter to be moved to
@@ -14,6 +21,7 @@ clang_tablegen(Opcodes.inc
 
 add_clang_library(clangAST
   APValue.cpp
+  ASTConcept.cpp
   ASTConsumer.cpp
   ASTContext.cpp
   ASTDiagnostic.cpp

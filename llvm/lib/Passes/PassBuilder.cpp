@@ -93,6 +93,7 @@
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
@@ -171,6 +172,7 @@
 #include "llvm/Transforms/Scalar/LowerConstantIntrinsics.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerGuardIntrinsic.h"
+#include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
 #include "llvm/Transforms/Scalar/LowerWidenableCondition.h"
 #include "llvm/Transforms/Scalar/MakeGuardsExplicit.h"
 #include "llvm/Transforms/Scalar/MemCpyOptimizer.h"
@@ -225,6 +227,11 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitter.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
 
+// VPlan Vectorizer passes
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+
 // Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
@@ -263,7 +270,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPMSymbolicTripCountCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
@@ -276,6 +283,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMV.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -292,10 +300,7 @@
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
-#endif //INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 
@@ -341,13 +346,18 @@ static cl::opt<bool> EnableAndersen("enable-npm-andersen", cl::init(true),
 
 // Inline Aggressive Analysis
 static cl::opt<bool> EnableInlineAggAnalysis(
-    "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
-    cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
+   "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
+   cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
 
 // IP Cloning
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+
+// Dead Array Element Ops Elimination
+static cl::opt<bool> EnableDeadArrayOpsElim(
+   "enable-npm-dead-array-ops-elim", cl::init(true), cl::Hidden,
+   cl::desc("Enable Dead Array Ops Elimination for the new PM (default = on)"));
 
 // IPO Prefetch
 static cl::opt<bool> EnableIPOPrefetch(
@@ -1160,6 +1170,12 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
     // Andersen's IP alias analysis
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
+
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
+#endif // INTEL_INCLUDE_DTRANS
+
 #endif // INTEL_CUSTOMIZATION
   // Re-require GloblasAA here prior to function passes. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
@@ -1733,6 +1749,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // cases.
   if (EnableDTrans)
     MPM.addPass(IntelAdvancedFastCallPass());
+
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1740,6 +1757,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDeadArrayOpsElim)
+    MPM.addPass(DeadArrayOpsEliminationPass());
+
   // IPO-based prefetch
   if (EnableIPOPrefetch)
     MPM.addPass(IntelIPOPrefetchPass());

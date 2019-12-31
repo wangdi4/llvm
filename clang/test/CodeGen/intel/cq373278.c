@@ -11,7 +11,7 @@ __declspec(naked) int foo(void) {
 }
 
 __declspec(naked) int bar(void) {
-  // CHECK: "push $$42{{.+}}call qword ptr $0{{.+}}ret", "*m[[CLOBBERS:[a-zA-Z0-9@%{},~_ ]*\"]](i32 ()* @foo)
+  // CHECK: "push $$42{{.+}}call qword ptr ${0:P}{{.+}}ret", "*m[[CLOBBERS:[a-zA-Z0-9@%{},~_ ]*\"]](i32 ()* @foo)
   __asm {
     push 42
     call foo

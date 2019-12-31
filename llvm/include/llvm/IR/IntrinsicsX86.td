@@ -6130,6 +6130,12 @@ let TargetPrefix = "x86" in {
 // AMX_LNC - Intel LNC AMX extensions
 let TargetPrefix = "x86" in {
 //AMX-AVX512
+  def int_x86_tcvtrowd2psei : GCCBuiltin<"__builtin_ia32_tcvtrowd2psei">,
+                          Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                    [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtrowd2psee : GCCBuiltin<"__builtin_ia32_tcvtrowd2psee">,
+                          Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                    [ImmArg<0>]>;
   def int_x86_tile16move : GCCBuiltin<"__builtin_ia32_tile16move">,
               Intrinsic<[], [llvm_i8_ty, llvm_v16f32_ty,
                              llvm_v16f32_ty, llvm_v16f32_ty, llvm_v16f32_ty,
@@ -6151,6 +6157,10 @@ let TargetPrefix = "x86" in {
   def int_x86_tdpbf16pse : GCCBuiltin<"__builtin_ia32_tdpbf16pse">,
               Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
                         [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+//AMX-ELEMENT-EVEX
+  def int_x86_tcvtd2pse
+      : GCCBuiltin<"__builtin_ia32_tcvtd2pse">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
 
 //AMX-FP16
   def int_x86_tdpfp16ps : GCCBuiltin<"__builtin_ia32_tdpfp16ps">,

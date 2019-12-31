@@ -362,9 +362,9 @@ static void checkOptions() {
 
   if (config->emachine != EM_AARCH64) {
     if (config->pacPlt)
-      error("--pac-plt only supported on AArch64");
+      error("-z pac-plt only supported on AArch64");
     if (config->forceBTI)
-      error("--force-bti only supported on AArch64");
+      error("-z force-bti only supported on AArch64");
   }
 }
 
@@ -420,17 +420,18 @@ static GnuStackKind getZGnuStack(opt::InputArgList &args) {
 
 static bool isKnownZFlag(StringRef s) {
   return s == "combreloc" || s == "copyreloc" || s == "defs" ||
-         s == "execstack" || s == "global" || s == "hazardplt" ||
-         s == "ifunc-noplt" || s == "initfirst" || s == "interpose" ||
-         s == "keep-text-section-prefix" || s == "lazy" || s == "muldefs" ||
-         s == "separate-code" || s == "separate-loadable-segments" ||
-         s == "nocombreloc" || s == "nocopyreloc" || s == "nodefaultlib" ||
-         s == "nodelete" || s == "nodlopen" || s == "noexecstack" ||
-         s == "nognustack" ||
+         s == "execstack" || s == "force-bti" || s == "global" ||
+         s == "hazardplt" || s == "ifunc-noplt" || s == "initfirst" ||
+         s == "interpose" || s == "keep-text-section-prefix" || s == "lazy" ||
+         s == "muldefs" || s == "separate-code" ||
+         s == "separate-loadable-segments" || s == "nocombreloc" ||
+         s == "nocopyreloc" || s == "nodefaultlib" || s == "nodelete" ||
+         s == "nodlopen" || s == "noexecstack" || s == "nognustack" ||
          s == "nokeep-text-section-prefix" || s == "norelro" ||
          s == "noseparate-code" || s == "notext" || s == "now" ||
-         s == "origin" || s == "relro" || s == "retpolineplt" ||
-         s == "rodynamic" || s == "text" || s == "undefs" || s == "wxneeded" ||
+         s == "origin" || s == "pac-plt" || s == "relro" ||
+         s == "retpolineplt" || s == "rodynamic" || s == "text" ||
+         s == "undefs" || s == "wxneeded" ||
          s.startswith("common-page-size=") || s.startswith("max-page-size=") ||
          s.startswith("stack-size=");
 }
@@ -904,7 +905,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->fini = args.getLastArgValue(OPT_fini, "_fini");
   config->fixCortexA53Errata843419 = args.hasArg(OPT_fix_cortex_a53_843419);
   config->fixCortexA8 = args.hasArg(OPT_fix_cortex_a8);
-  config->forceBTI = args.hasArg(OPT_force_bti);
+  config->forceBTI = hasZOption(args, "force-bti");
   config->requireCET = args.hasArg(OPT_require_cet);
   config->gcSections = args.hasFlag(OPT_gc_sections, OPT_no_gc_sections, false);
   config->gnuUnique = args.hasFlag(OPT_gnu_unique, OPT_no_gnu_unique, true);
@@ -943,7 +944,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->optimize = args::getInteger(args, OPT_O, 1);
   config->orphanHandling = getOrphanHandling(args);
   config->outputFile = args.getLastArgValue(OPT_o);
-  config->pacPlt = args.hasArg(OPT_pac_plt);
+  config->pacPlt = hasZOption(args, "pac-plt");
   config->pie = args.hasFlag(OPT_pie, OPT_no_pie, false);
   config->printIcfSections =
       args.hasFlag(OPT_print_icf_sections, OPT_no_print_icf_sections, false);
@@ -1351,6 +1352,60 @@ void LinkerDriver::doGnuLTOLinking() {
     os.close();
   };
 
+  // Return true if the relocation command needs the flag
+  // -flinker-output=nolto-rel. Else return false. This is for supporting
+  // GCC9x +.
+  auto linkerOutputFlagNeeded = [](StringRef &gccCommand) {
+
+    // Create an empty temporary file to write the stderrs
+    SmallString<128> gccOutMessage;
+    int fd;
+    if (auto ec = sys::fs::createTemporaryFile("lld-gnu-lto-temp",
+                                               ".txt", fd, gccOutMessage))
+      fatal("cannot create a temporary file for gcc: " + ec.message());
+
+    std::string linkerOutputCmd = gccCommand.str() +
+                                  " -flinker-output=nolto-rel ";
+    SmallVector<StringRef, 0> newArgs;
+    StringRef(linkerOutputCmd).split(newArgs," ");
+
+    // Only write stderr
+    Optional<StringRef> redirects[3];
+    redirects[0] = None;
+    redirects[1] = None;
+    redirects[2] = gccOutMessage.str();
+
+    // Execute gcc -flinker-output=nolto-rel
+    sys::ExecuteAndWait(newArgs[0], newArgs, None, redirects, 0, 0,
+      nullptr, nullptr);
+
+    // Collect the buffer. We don't need to close it, MemoryBuffer reads
+    // the file and closes it.
+    auto mbOrErr = MemoryBuffer::getFile(gccOutMessage.str(), -1, false);
+    if (auto ec = mbOrErr.getError())
+      fatal("cannot open gcc result file: " + ec.message());
+
+    std::unique_ptr<MemoryBuffer> &memBuffer = *mbOrErr;
+
+    // The file should not be empty since we ran gcc without an input
+    // file. Therefore we should get at least "no input files" message.
+    if (memBuffer->getBufferSize() == 0)
+      fatal("incorrect gcc result file");
+
+    StringRef buffer = memBuffer->getBuffer();
+
+    // Different versions of GCC handle the message differently. GCC 5x
+    // doesn't support -flinker-output, while GCC6x + supports the linker
+    // output flag but doesn't support nolto-rel. We just need to make sure
+    // that the nolto-rel option is not in the output.
+    bool ret = buffer.find("nolto-rel") == StringRef::npos;
+
+    // delete temporary file
+    sys::fs::remove(gccCommand.str());
+
+    return ret;
+  };
+
   warn("GNU LTO files found in the command line.");
 
   // Find G++
@@ -1376,17 +1431,16 @@ void LinkerDriver::doGnuLTOLinking() {
     fatal("unable to generate the temporary files for GNU LTO");
 
   StringRef exec = saver.save(*exeOrErr);
-  std::string newCMD = exec.str() + " ";
 
   // Build the command g++ -r GNU-LTO-FILES -nostdlib
   //                    -nostartfiles -o /tmp/gnulto.o
-  newCMD += "-r ";
+  std::string gnuFlags = "-r ";
 
-  newCMD += gNULTOFilesCmd;
+  gnuFlags += gNULTOFilesCmd;
 
-  newCMD += "-nostdlib ";
-  newCMD += "-nostartfiles ";
-  newCMD += "-o ";
+  gnuFlags += "-nostdlib ";
+  gnuFlags += "-nostartfiles ";
+  gnuFlags += "-o ";
 
   // Create an unique temporary file to write the output
   SmallString<128> gNUOutputObj;
@@ -1396,8 +1450,19 @@ void LinkerDriver::doGnuLTOLinking() {
       fatal("cannot create a temporary file: " + ec.message());
 
   tempsVector.push_back(gNUOutputObj.str());
+  gnuFlags += gNUOutputObj.str().str();
 
-  newCMD += gNUOutputObj.str().str();
+  std::string newCMD = exec.str() + " ";
+
+  // Support for GNU GCC/G++ 9+. This flag tells the compiler to generate
+  // a real object when a relocatable object is created with GNU lto. If
+  // the flag is not used, the compiler will be invoked and will do LTO
+  // but it will merge the IR and will generate a new LTO object rather
+  // than a real object.
+  if (linkerOutputFlagNeeded(exec))
+    newCMD += "-flinker-output=nolto-rel ";
+
+  newCMD += gnuFlags;
 
   SmallVector<StringRef, 0> newArgs;
   StringRef(newCMD).split(newArgs," ");
@@ -1840,7 +1905,7 @@ template <class ELFT> static uint32_t getAndFeatures() {
   for (InputFile *f : objectFiles) {
     uint32_t features = cast<ObjFile<ELFT>>(f)->andFeatures;
     if (config->forceBTI && !(features & GNU_PROPERTY_AARCH64_FEATURE_1_BTI)) {
-      warn(toString(f) + ": --force-bti: file does not have BTI property");
+      warn(toString(f) + ": -z force-bti: file does not have BTI property");
       features |= GNU_PROPERTY_AARCH64_FEATURE_1_BTI;
     } else if (!features && config->requireCET)
       error(toString(f) + ": --require-cet: file is not compatible with CET");
@@ -1897,7 +1962,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // symbols that we need to the symbol table. This process might
   // add files to the link, via autolinking, these files are always
   // appended to the Files vector.
-  for (size_t i = 0; i < files.size(); ++i)
+ for (size_t i = 0; i < files.size(); ++i)
     parseFile(files[i]);
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files

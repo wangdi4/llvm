@@ -1,22 +1,18 @@
 ; Test DA divergence and vector shape propagation for the float, float version of mandelbrot kernel.
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug-only=vplan-divergence-analysis -enable-vp-value-codegen=false 2>&1 | FileCheck %s -check-prefixes=CHECK,CHECK-LLVM
-; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug-only=vplan-divergence-analysis -enable-vp-value-codegen=true 2>&1 | FileCheck %s -check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug-only=vplan-divergence-analysis 2>&1 | FileCheck %s
 
 ; For VPValue-based CG, loop private variables and their corresponding users are marked as divergent by DA.
 ; CHECK: Basic Block: [[BB1:BB[0-9]+]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi  [ i64 [[VAL2:%vp.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, BB2 ]
-; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL3:%vp.*]] = trunc i64 [[VAL1]] to i32
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL4:%vp.*]] = sitofp i32 [[VAL3]] to float
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL5:%vp.*]] = fmul float [[VAL4]] float 0x3F5063B3E0000000
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL6:%vp.*]] = fadd float [[VAL5]] float -2.000000e+00
 ; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL6]] float* %in_vals_tmp_real.priv.priv
-; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] store float %sub float* %in_vals_tmp_imagine.priv.priv
-; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] store float %sub float* %in_vals_tmp_imagine.priv.priv
+; CHECK-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT: Divergent: [Shape: Random] store float %sub float* %in_vals_tmp_imagine.priv.priv
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL7:%vp.*]] = fmul float [[VAL6]] float [[VAL6]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL8:%vp.*]] = fadd float %mul1.i float [[VAL7]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL9:%vp.*]] = call float [[VAL8]] float (float)* @sqrtf
@@ -51,10 +47,8 @@
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL28:%vp.*]] = phi  [ i32 1, [[BB1]] ],  [ i32 [[VAL27]], [[BB4]] ]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL29:%vp.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 %indvars.iv39 i64 [[VAL1]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL28]] i32* [[VAL29]]
-; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-LLVM-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-VPVAL-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2]] = add i64 [[VAL1]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i64 [[VAL2]] i64 3000
 

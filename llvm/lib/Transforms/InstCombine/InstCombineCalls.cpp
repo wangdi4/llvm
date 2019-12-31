@@ -40,6 +40,12 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsX86.h"
+#include "llvm/IR/IntrinsicsARM.h"
+#include "llvm/IR/IntrinsicsAArch64.h"
+#include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/IR/IntrinsicsAMDGPU.h"
+#include "llvm/IR/IntrinsicsPowerPC.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/PatternMatch.h"
@@ -2401,6 +2407,25 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
 
     break;
   }
+  case Intrinsic::copysign: {
+    if (SignBitMustBeZero(II->getArgOperand(1), &TLI)) {
+      // If we know that the sign argument is positive, reduce to FABS:
+      // copysign X, Pos --> fabs X
+      Value *Fabs = Builder.CreateUnaryIntrinsic(Intrinsic::fabs,
+                                                 II->getArgOperand(0), II);
+      return replaceInstUsesWith(*II, Fabs);
+    }
+    // TODO: There should be a ValueTracking sibling like SignBitMustBeOne.
+    const APFloat *C;
+    if (match(II->getArgOperand(1), m_APFloat(C)) && C->isNegative()) {
+      // If we know that the sign argument is negative, reduce to FNABS:
+      // copysign X, Neg --> fneg (fabs X)
+      Value *Fabs = Builder.CreateUnaryIntrinsic(Intrinsic::fabs,
+                                                 II->getArgOperand(0), II);
+      return replaceInstUsesWith(*II, Builder.CreateFNegFMF(Fabs, II));
+    }
+    break;
+  }
   case Intrinsic::fabs: {
     Value *Cond;
     Constant *LHS, *RHS;
@@ -3436,6 +3461,19 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     if (match(Arg, m_Intrinsic<Intrinsic::arm_mve_pred_v2i>(m_Value(ArgArg))) &&
         II->getType() == ArgArg->getType())
       return replaceInstUsesWith(*II, ArgArg);
+    Constant *XorMask;
+    if (match(Arg,
+              m_Xor(m_Intrinsic<Intrinsic::arm_mve_pred_v2i>(m_Value(ArgArg)),
+                    m_Constant(XorMask))) &&
+        II->getType() == ArgArg->getType()) {
+      if (auto *CI = dyn_cast<ConstantInt>(XorMask)) {
+        if (CI->getValue().trunc(16).isAllOnesValue()) {
+          auto TrueVector = Builder.CreateVectorSplat(
+              II->getType()->getVectorNumElements(), Builder.getTrue());
+          return BinaryOperator::Create(Instruction::Xor, ArgArg, TrueVector);
+        }
+      }
+    }
     KnownBits ScalarKnown(32);
     if (SimplifyDemandedBits(II, 0, APInt::getLowBitsSet(32, 16),
                              ScalarKnown, 0))
@@ -3480,7 +3518,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
 
     if (const ConstantFP *C = dyn_cast<ConstantFP>(Src)) {
       const APFloat &ArgVal = C->getValueAPF();
-      APFloat Val(ArgVal.getSemantics(), 1.0);
+      APFloat Val(ArgVal.getSemantics(), 1);
       APFloat::opStatus Status = Val.divide(ArgVal,
                                             APFloat::rmNearestTiesToEven);
       // Only do this if it was exact and therefore not dependent on the
@@ -4035,7 +4073,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
             return eraseInstFromFunction(CI);
 
           // Bail if we cross over an intrinsic with side effects, such as
-          // llvm.stacksave, llvm.read_register, or llvm.setjmp.
+          // llvm.stacksave, or llvm.read_register.
           if (II2->mayHaveSideEffects()) {
             CannotRemove = true;
             break;

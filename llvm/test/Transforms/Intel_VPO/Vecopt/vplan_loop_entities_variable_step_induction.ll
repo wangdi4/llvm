@@ -1,6 +1,7 @@
 ; Test to check that VPInduction descriptor is constructed for an auto-recognized induction with variable step.
 
 ; RUN: opt -loopopt=0 -VPlanDriver -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -debug -vplan-use-entity-instr -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt=0 -passes="vplan-driver" -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -debug -vplan-use-entity-instr -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK-LABEL: After insertion VPEntities instructions

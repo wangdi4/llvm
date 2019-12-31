@@ -150,6 +150,12 @@ define void @init() {
 ;
 
 ; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #1 {
+; CHECK: entry:
+; CHECK:  %1 = icmp sgt i64 [[ARG:%[0-9]+]], -16384
+; CHECK:  %2 = icmp slt i64 [[ARG:%[0-9]+]], 16383
+; CHECK:  %3 = and i1 %1, %2
+; CHECK:  br i1 %3, label %default, label %switch_bb
+; CHECK: switch_bb:
 ; CHECK:    switch i64 %0, label %default [
 ; CHECK:      i64 300000, label %case
 ; CHECK:      i64 2000000, label %case1
@@ -158,10 +164,10 @@ define void @init() {
 ; CHECK:      i64 4000015, label %case4
 ; CHECK:    ]
 ; CHECK:  default:
-; CHECK:    %1 = trunc i64 %0 to i16
+; CHECK:    %4 = trunc i64 [[ARG:%[0-9]+]] to i16
 ; CHECK:    br label %return
 ; CHECK:  return:
-; CHECK:    %phival = phi i16 [ %1, %default ], [ 16384, %case ], [ 16385, %case1 ], [ 16386, %case2 ], [ 16387, %case3 ], [ 16388, %case4 ]
+; CHECK:    %phival = phi i16 [ %4, %default ], [ 16384, %case ], [ 16385, %case1 ], [ 16386, %case2 ], [ 16387, %case3 ], [ 16388, %case4 ]
 ; CHECK:    ret i16 %phival
 ; CHECK:  case:
 ; CHECK:    br label %return
@@ -175,6 +181,12 @@ define void @init() {
 ; CHECK:    br label %return
 
 ; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #1 {
+; CHECK: entry:
+; CHECK:  %1 = icmp sgt i16 [[ARG:%[0-9]+]], -16384
+; CHECK:  %2 = icmp slt i16 [[ARG:%[0-9]+]], 16383
+; CHECK:  %3 = and i1 %1, %2
+; CHECK:  br i1 %3, label %default, label %switch_bb
+; CHECK: switch_bb:
 ; CHECK:  switch i16 [[ARG:%[0-9]+]], label %default [
 ; CHECK:  i16 16384, label %case
 ; CHECK:  i16 16385, label %case1

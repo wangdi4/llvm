@@ -93,6 +93,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLowerConstantIntrinsicsPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
   initializeLowerGuardIntrinsicLegacyPassPass(Registry);
+  initializeLowerMatrixIntrinsicsLegacyPassPass(Registry);
   initializeLowerWidenableConditionLegacyPassPass(Registry);
   initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeMemCpyOptLegacyPassPass(Registry);
@@ -101,6 +102,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeNaryReassociateLegacyPassPass(Registry);
   initializePartiallyInlineLibCallsLegacyPassPass(Registry);
   initializeReassociateLegacyPassPass(Registry);
+  initializeRedundantDbgInstEliminationPass(Registry);
   initializeRegToMemPass(Registry);
   initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeSCCPLegacyPassPass(Registry);

@@ -17,7 +17,7 @@
 #include <set>
 #include <vector>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
 
@@ -36,10 +36,10 @@ struct MemObjRecord {
   std::vector<AllocaCommandBase *> MAllocaCommands;
 
   // Contains latest read only commands working with memory object.
-  std::vector<Command *> MReadLeafs;
+  std::vector<Command *> MReadLeaves;
 
   // Contains latest write commands working with memory object.
-  std::vector<Command *> MWriteLeafs;
+  std::vector<Command *> MWriteLeaves;
 
   // The context which has the latest state of the memory object.
   ContextImplPtr MCurContext;
@@ -140,13 +140,13 @@ protected:
     // Removes MemObjRecord for memory object passed.
     void removeRecordForMemObj(SYCLMemObjI *MemObject);
 
-    // Add new command to leafs if needed.
-    void AddNodeToLeafs(MemObjRecord *Record, Command *Cmd,
-                        access::mode AccessMode);
+    // Add new command to leaves if needed.
+    void AddNodeToLeaves(MemObjRecord *Record, Command *Cmd,
+                         access::mode AccessMode);
 
-    // Removes commands from leafs.
-    void UpdateLeafs(const std::set<Command *> &Cmds, MemObjRecord *Record,
-                     access::mode AccessMode);
+    // Removes commands from leaves.
+    void UpdateLeaves(const std::set<Command *> &Cmds, MemObjRecord *Record,
+                      access::mode AccessMode);
 
     std::vector<SYCLMemObjI *> MMemObjs;
 
@@ -156,8 +156,7 @@ protected:
     // the Queue. Can insert copy/map/unmap operations depending on the source
     // and destination.
     Command *insertMemoryMove(MemObjRecord *Record, Requirement *Req,
-                             const QueueImplPtr &Queue,
-                             bool UseExclusiveQueue = false);
+                              const QueueImplPtr &Queue);
 
     UpdateHostRequirementCommand *
     insertUpdateHostReqCmd(MemObjRecord *Record, Requirement *Req,

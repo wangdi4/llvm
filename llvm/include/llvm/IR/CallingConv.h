@@ -244,6 +244,8 @@ namespace CallingConv {
 #if INTEL_CUSTOMIZATION
     /// \brief SVML for intel compiler
     SVML = 100,
+    /// \brief Calling convention for functions only touch AVX2 vector registers
+    X86_AVX2_C = 101,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

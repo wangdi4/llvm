@@ -629,30 +629,34 @@ void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
 
     // Check to see if we have a partial register.
     if (LessThanFullVector) {
+      // If it's an undef, then just use an undef value with legal type
+      if (isa<UndefValue>(NewArg)) {
+        NewArg = UndefValue::get(LegalVecArgType);
+      } else {
+        SmallVector<Constant *, 4> Splat;
 
-      SmallVector<Constant *, 4> Splat;
+        // Build a mask vector that repeats the number of elements difference
+        // between the partial vector and the legal full vector. e.g., partial
+        // vl=2, legal vl=4, build a mask vector of <0, 1, 0, 1>. The svml call
+        // will operate on all 4 elements, but only the lower two will be used.
 
-      // Build a mask vector that repeats the number of elements difference
-      // between the partial vector and the legal full vector. e.g., partial
-      // vl=2, legal vl=4, build a mask vector of <0, 1, 0, 1>. The svml call
-      // will operate on all 4 elements, but only the lower two will be used.
-
-      for (unsigned J = 0; J < LegalNumElems / NumElems; ++J) {
-        for (unsigned K = 0; K < NumElems; ++K) {
-          Constant *ConstVal =
-              ConstantInt::get(Type::getInt32Ty(Func->getContext()), K);
-          Splat.push_back(ConstVal);
+        for (unsigned J = 0; J < LegalNumElems / NumElems; ++J) {
+          for (unsigned K = 0; K < NumElems; ++K) {
+            Constant *ConstVal =
+                ConstantInt::get(Type::getInt32Ty(Func->getContext()), K);
+            Splat.push_back(ConstVal);
+          }
         }
-      }
 
-      // Insert the shuffle that duplicates the elements and use this
-      // instruction as the new svml call argument.
-      Value *Undef = UndefValue::get(VecArgType);
-      Value *Mask = ConstantVector::get(Splat);
-      ShuffleVectorInst *ShuffleInst =
-          new ShuffleVectorInst(NewArg, Undef, Mask, "shuffle.dup");
-      ShuffleInst->insertBefore(InsertPt);
-      NewArg = ShuffleInst;
+        // Insert the shuffle that duplicates the elements and use this
+        // instruction as the new svml call argument.
+        Value *Undef = UndefValue::get(VecArgType);
+        Value *Mask = ConstantVector::get(Splat);
+        ShuffleVectorInst *ShuffleInst =
+            new ShuffleVectorInst(NewArg, Undef, Mask, "shuffle.dup");
+        ShuffleInst->insertBefore(InsertPt);
+        NewArg = ShuffleInst;
+      }
     }
 
     NewArgs.push_back(NewArg);
@@ -1057,9 +1061,63 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
   return Dirty;
 }
 
+void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
+    CallInst *CI, SmallVectorImpl<Value *> &Args, Value *MaskValue,
+    unsigned LogicalVL, unsigned TargetVL, unsigned ScalarBitWidth) {
+  if (TargetVL < LogicalVL) {
+    assert(LogicalVL * ScalarBitWidth >= 512 &&
+           "Expecting source to be more than 512-bit wide");
+    // If we are splitting a call to masked 512-bit SVML function, create
+    // a new mask parameter and get rid of the source parameter which is
+    // absent in non-512bit SVML functions.
+    IntegerType *NewMaskElementType =
+        IntegerType::getIntNTy(CI->getContext(), ScalarBitWidth);
+    VectorType *NewMaskType = VectorType::get(NewMaskElementType, LogicalVL);
+
+    Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
+    Constant *Ones = ConstantVector::getSplat(
+        LogicalVL, ConstantInt::get(NewMaskElementType, -1));
+    Value *NewMask =
+        SelectInst::Create(MaskValue, Ones, Zeros, "select.maskcvt", CI);
+
+    assert(Args.size() > 2 && "Too few arguments in SVML call");
+    assert(Args[0]->getType() == CI->getType() && "Invalid source argument");
+    assert(Args[1]->getType() ==
+               VectorType::get(IntegerType::getInt1Ty(CI->getContext()),
+                               LogicalVL) &&
+           "Invalid mask argument");
+
+    Args.erase(Args.begin(), Args.begin() + 2);
+    Args.push_back(NewMask);
+  } else if (TargetVL > LogicalVL) {
+    assert(TargetVL * ScalarBitWidth == 512 &&
+           "Expecting target to be 512-bit wide");
+    // On the other hand if we are widening a masked non-512-bit SVML
+    // function call to 512-bit, convert and reposition the mask
+    // parameter and create a new source parameter.
+    VectorType *OldMaskType = cast<VectorType>(MaskValue->getType());
+    Constant *Splat = ConstantVector::getSplat(
+        LogicalVL, ConstantInt::get(OldMaskType->getElementType(), -1));
+    Value *NewMask =
+        new ICmpInst(CI, ICmpInst::ICMP_EQ, MaskValue, Splat, "icmp.maskcvt");
+
+    Type *CallType = CI->getType();
+    Value *Source = UndefValue::get(CallType);
+
+    assert(Args.size() >= 2 && "Too few arguments in SVML call");
+    assert(Args.back()->getType() ==
+               VectorType::get(
+                   IntegerType::getIntNTy(CI->getContext(), ScalarBitWidth),
+                   LogicalVL) &&
+           "Invalid mask argument");
+
+    Args.pop_back();
+    Args.insert(Args.begin(), NewMask);
+    Args.insert(Args.begin(), Source);
+  }
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   return Impl.runImpl(F, TTI, TLI);
@@ -1225,6 +1283,22 @@ bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI,
         FT = CI->getFunctionType();
       }
 
+      // Masked SVML functions with 512-bit VL differs from other functions
+      // in position and type of mask argument, they also have a source
+      // argument. Such calls require special treatment when splitting.
+      bool CallIsAVX512 = (LogicalVL * ScalarBitWidth) >= 512;
+      bool NewCallIsAVX512 = (TargetVL * ScalarBitWidth) == 512;
+      Value *SourceArg = nullptr;
+      Value *MaskArg = nullptr;
+      bool HasMask = FuncName.find("mask") != StringRef::npos;
+      if (HasMask) {
+        SourceArg = CallIsAVX512 ? Args[0] : nullptr;
+        MaskArg = CallIsAVX512 ? Args[1] : Args.back();
+        if (CallIsAVX512 ^ NewCallIsAVX512)
+          legalizeAVX512MaskArgs(CI, Args, MaskArg, LogicalVL, TargetVL,
+                                 ScalarBitWidth);
+      }
+
       // FT will point to the legal FunctionType based on target register
       // size requirements. This FunctionType is used to create the call
       // to the svml function.
@@ -1306,6 +1380,16 @@ bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI,
           // explicitly. See generateSinCosStore().
           Instruction *FinalResult =
               combineCallResults(NumRet, WorkList, &InsertPt);
+
+          // If a masked AVX512 call is split to non-AVX512 calls (which don't
+          // have source argument), the source have to be combined into the
+          // result explicitly.
+          if (SourceArg && MaskArg && !NewCallIsAVX512) {
+            FinalResult = SelectInst::Create(MaskArg, FinalResult, SourceArg, "select.merge");
+            FinalResult->insertAfter(InsertPt);
+            InsertPt = FinalResult;
+          }
+
           CI->replaceAllUsesWith(FinalResult);
         }
       } else {
@@ -1355,7 +1439,6 @@ bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI,
         // %3 = bitcast float* %2 to <2 x float>*
         // store <2 x float> %part, <2 x float>* %3, align 4
         SmallVector<Value *, 8> NewArgs;
-        SmallVector<Value *, 8> Args(CI->args());
         generateNewArgsFromPartialVectors(Args, FT->params(), TargetVL, NewArgs,
                                           InsertPt);
 

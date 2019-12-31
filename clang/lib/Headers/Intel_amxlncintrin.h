@@ -40,6 +40,10 @@
 #define _tile_tilemovrowei(tsrc1, tsrc2)  __builtin_ia32_tilemovei(tsrc1, tsrc2)
 #define _tile_tilemovrowee(tsrc1, tsrc2)  __builtin_ia32_tilemovee(tsrc1, tsrc2)
 #define _tile_tilemovrowex(tsrc1, tsrc2)  __builtin_ia32_tilemovex(tsrc1, tsrc2)
+#define _tile_cvtrowd2psei(tsrc1, src2)                                        \
+  __builtin_ia32_tcvtrowd2psei(tsrc1, src2)
+#define _tile_cvtrowd2psee(tsrc1, src2)                                        \
+  __builtin_ia32_tcvtrowd2psee(tsrc1, src2)
 
 // BF16EVEX
 #define _tile_dpbf16pse(tsrc1_dst, tsrc2, tsrc3)                               \
@@ -66,6 +70,10 @@
   (__SIZE_TYPE__)(stride))
 #define _tile_tilemove(tdst, tsrc)  __builtin_ia32_tilemove(tdst, tsrc)
 #define _tile_zeroe(tile)       __builtin_ia32_tilezeroe(tile)
+
+//AMX_LNC ELEMENTEVEX
+#define _tile_cvtd2pse(base, stride, tsrc)                                    \
+  __builtin_ia32_tcvtd2pse(base, stride, tsrc)
 
 #endif /* __x86_64__ */
 #endif /* __AMX_LNCINTRIN_H */

@@ -20,6 +20,9 @@
 #include "clang/AST/StmtOpenMP.h"
 
 namespace clang {
+
+class OMPCaptureNoInitAttr;
+
 namespace CodeGen {
 
 enum OMPAtomicClause {
@@ -234,6 +237,7 @@ class OpenMPLateOutliner {
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
+  void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -275,6 +279,7 @@ class OpenMPLateOutliner {
   llvm::DenseSet<const VarDecl *> MapRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
+  llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
@@ -289,6 +294,18 @@ public:
   OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                      OpenMPDirectiveKind Kind);
   ~OpenMPLateOutliner();
+  bool isImplicitLastPrivate(const VarDecl *VD) {
+   return isImplicit(VD) && ImplicitMap[VD] == ICK_lastprivate;
+  }
+  void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
+    for (auto MT : MapTemps) {
+      QualType Ty = MT.second->getType().getNonReferenceType();
+      Address A = CGF.CreateMemTemp(Ty, MT.second->getName() + ".map.ptr.tmp");
+      CGF.Builder.CreateStore(MT.first, A);
+      PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
+    }
+    PrivateScope.Privatize();
+  }
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();
@@ -463,15 +480,27 @@ public:
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
   bool inTargetVariantDispatchRegion() {
-    return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
+    return Outliner.getCurrentDirectiveKind() ==
+           llvm::omp::OMPD_target_variant_dispatch;
   }
-  bool isLateOutlinedRegion() { return true; } // INTEL
+  void enterTryStmt() { ++TryStmts; }
+  void exitTryStmt() {
+    assert(TryStmts > 0);
+    --TryStmts;
+  }
+  bool inTryStmt() { return TryStmts > 0; }
+  bool isLateOutlinedRegion() { return true; }
+  bool isImplicitLastPrivate(const VarDecl *VD) {
+    return Outliner.isImplicitLastPrivate(VD);
+  }
 
 private:
   /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &D;
+  /// Nesting of C++ 'try' statements in the OpenMP region.
+  unsigned TryStmts = 0;
 };
 
 /// RAII for emitting code of OpenMP constructs.

@@ -25,7 +25,7 @@ endif()
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being
 # used.
-  add_openmp_testsuite(check-libomptarget "Running libomptarget tests" ${CMAKE_CURRENT_BINARY_DIR} DEPENDS omptarget)
+  add_openmp_testsuite(check-libomptarget "Running libomptarget tests" ${CMAKE_CURRENT_BINARY_DIR} DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS})
 # end INTEL_CUSTOMIZATION
 
 # Configure the lit.site.cfg.in file

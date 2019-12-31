@@ -497,6 +497,14 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
+    if (Opcode == Instruction::Alloca) {
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(
+          dbgs() << "VPLAN_OPTREPORT: Loop not handled - alloca instruction\n");
+      IsHandled = false;
+      return;
+    }
+
     // Handling liveouts for privates/inductions is not implemented in
     // VPValue-based CG. The checks below enable the following -
     // 1. For full VPValue-based CG all reductions are supported.
@@ -602,14 +610,25 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      // These intrinsics need the second argument to remain scalar(consequently
-      // loop invariant). Support to be added later.
-      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz ||
-          ID == Intrinsic::powi) {
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
-                             "ctlz/cttz/powi intrinsic\n");
-        IsHandled = false;
-        return;
+      // If the always scalar operand of vector intrinsic call is loop variant
+      // then we bail out of vectorization.
+      // TODO: In the future such calls should be serialized in outgoing vector
+      // code.
+      if (ID != Intrinsic::not_intrinsic) {
+        unsigned ArgOffset = Inst->hasLval() ? 1 : 0;
+        for (unsigned I = 0; I < Call->getNumArgOperands(); ++I) {
+          if (hasVectorInstrinsicScalarOpd(ID, I)) {
+            auto *OperandCE =
+                Inst->getOperandDDRef(ArgOffset + I)->getSingleCanonExpr();
+            if (!OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel())) {
+              LLVM_DEBUG(dbgs()
+                         << "VPLAN_OPTREPORT: Loop not handled - always scalar "
+                            "operand of vector intrinsic is loop variant\n");
+              IsHandled = false;
+              return;
+            }
+          }
+        }
       }
     }
   }
@@ -1622,10 +1641,9 @@ void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
         // The following code will yield a type of double. This type is used
         // to determine the stride in elements.
         Type *ArgTy = Args[I]->getDestType();
-        PointerType *PtrTy = cast<PointerType>(ArgTy);
-        VectorType *VecTy = cast<VectorType>(PtrTy->getElementType());
-        PointerType *ElemPtrTy = cast<PointerType>(VecTy->getElementType());
-        Type *ElemTy = ElemPtrTy->getElementType();
+        assert(isa<VectorType>(ArgTy) && "Expected vector of pointers");
+        PointerType *PtrTy = cast<PointerType>(ArgTy->getScalarType());
+        Type *ElemTy = PtrTy->getElementType();
         unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
         unsigned ElemStride = ByteStride / ElemSize;
         AttrList.addAttribute("stride",
@@ -1920,12 +1938,10 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
   return WideStore;
 }
 
-HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
-                                              RegDDRef *Mask,
-                                              const OVLSGroup *Grp,
-                                              int64_t InterleaveFactor,
-                                              int64_t InterleaveIndex,
-                                              const HLInst *GrpStartInst) {
+HLInst *VPOCodeGenHIR::widenInterleavedAccess(
+    const HLInst *INode, RegDDRef *Mask, const OVLSGroup *Grp,
+    int64_t InterleaveFactor, int64_t InterleaveIndex,
+    const HLInst *GrpStartInst, const VPInstruction *VPInst) {
   auto CurInst = INode->getLLVMInstruction();
   HLInst *WideInst = nullptr;
 
@@ -1949,11 +1965,18 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
       // Set the result of the wide load and add the same to VLS Group load map.
       WLoadRes = WideLoad->getLvalDDRef();
       VLSGroupLoadMap[Grp] = WLoadRes;
+
+      DEBUG_WITH_TYPE("ovls",
+                      dbgs() << "Emitted a group-wide vector LOAD for Group#"
+                             << Grp->getDebugId() << ":\n  ");
+      DEBUG_WITH_TYPE("ovls", WideLoad->dump());
     } else
       WLoadRes = (*It).second;
 
     WideInst = createInterleavedLoad(INode->getLvalDDRef(), WLoadRes,
                                      InterleaveFactor, InterleaveIndex, Mask);
+    // Map the generated DDRef to corresponding VPInstruction.
+    addVPValueWideRefMapping(VPInst, WideInst->getLvalDDRef());
   } else {
     assert(isa<StoreInst>(CurInst) &&
            "Unexpected interleaved access instruction");
@@ -1990,6 +2013,11 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
           createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
                                  InterleaveFactor, Mask);
       propagateMetadata(Grp, WideInst->getOperandDDRef(0));
+
+      DEBUG_WITH_TYPE("ovls",
+                      dbgs() << "Emitted a group-wide vector STORE for Group#"
+                             << Grp->getDebugId() << ":\n  ");
+      DEBUG_WITH_TYPE("ovls", WideInst->dump());
     }
   }
 
@@ -2235,6 +2263,56 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
   return WideInst;
 }
 
+void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
+                                      SmallVectorImpl<RegDDRef *> &VecArgs,
+                                      SmallVectorImpl<Type *> &VecArgTys,
+                                      RegDDRef *MaskValue) {
+  assert(MaskValue && "Expected mask to be present");
+  VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
+
+  if (VecTy->getBitWidth() < 512) {
+    // For 128-bit and 256-bit masked calls, mask value is appended to the
+    // parameter list. For example:
+    //
+    //  %sin.vec = call <4 x float> @__svml_sinf4_mask(<4 x float>, <4 x i32>)
+    VectorType *MaskTyExt =
+        VectorType::get(IntegerType::get(Context, VecTy->getScalarSizeInBits()),
+                        VecTy->getElementCount());
+    HLInst *MaskValueExt =
+        MainLoop->getHLNodeUtils().createSExt(MaskTyExt, MaskValue->clone());
+    addInst(MaskValueExt, nullptr);
+    VecArgTys.push_back(MaskTyExt);
+    VecArgs.push_back(MaskValueExt->getLvalDDRef()->clone());
+  } else {
+    // Compared with 128-bit and 256-bit calls, 512-bit masked calls need extra
+    // pass-through source parameters. We don't care about masked-out lanes, so
+    // just pass undef for that parameter. For example:
+    //
+    // %sin.vec = call { <16 x float>, <16 x float> } @__svml_sinf16_mask(
+    //            <16 x float>, <16 x i1>, <16 x float>)
+    SmallVector<Type *, 1> NewArgTys;
+    SmallVector<RegDDRef *, 1> NewArgs;
+
+    Constant *Undef = UndefValue::get(VecTy);
+    RegDDRef *UndefDDRef =
+        MaskValue->getDDRefUtils().createConstDDRef(Undef);
+
+    NewArgTys.push_back(VecTy);
+    NewArgs.push_back(UndefDDRef);
+
+    CanonExpr *CE = MaskValue->getSingleCanonExpr();
+    NewArgTys.push_back(CE->getDestType());
+    NewArgs.push_back(MaskValue->clone());
+
+    NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
+    for (RegDDRef *Arg : VecArgs)
+      NewArgs.push_back(Arg->clone());
+
+    VecArgTys = std::move(NewArgTys);
+    VecArgs = std::move(NewArgs);
+  }
+}
+
 HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
                                  SmallVectorImpl<RegDDRef *> &WideOps,
                                  RegDDRef *Mask,
@@ -2271,15 +2349,42 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     ArgTys.push_back(WideOps[i]->getDestType());
   }
 
-  bool Masked = false;
+  if (ID != Intrinsic::not_intrinsic) {
+    // Scalarize argument operands of intrinsic calls, if needed.
+    // TODO: For VPValue-based CG scalarization decision about operands should
+    // be done in general earlier. We should not blindly widen all operands of
+    // an instruction.
+    for (unsigned I = 0; I < CallArgs.size(); ++I) {
+      if (hasVectorInstrinsicScalarOpd(ID, I)) {
+        assert(CallArgs[I]->isTerminalRef() &&
+               "Scalar operand of intrinsic is not terminal ref.");
+        auto *OperandCE = CallArgs[I]->getSingleCanonExpr();
+        assert(OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel()) &&
+               "Scalar operand of intrinsic is loop variant.");
+        Type *OperandScalarTy = OperandCE->getDestType()->getScalarType();
+        OperandCE->setSrcAndDestType(OperandScalarTy);
+        ArgTys[I] = OperandScalarTy;
+      }
+    }
+  }
+
   // Masked intrinsics will not have explicit mask parameter. They are handled
   // like other BinOp HLInsts i.e. execute on all lanes and extract active lanes
   // during HIR-CG.
-  if (Mask && ID == Intrinsic::not_intrinsic) {
-    auto CE = Mask->getSingleCanonExpr();
-    ArgTys.push_back(CE->getDestType());
-    CallArgs.push_back(Mask->clone());
-    Masked = true;
+  bool Masked = Mask && ID == Intrinsic::not_intrinsic;
+  if (Masked) {
+    StringRef VecFuncName =
+        TLI->getVectorizedFunction(Fn->getName(), VF, Masked);
+    // Masks of SVML function calls need special treatment, it's different from
+    // the normal case for AVX512.
+    if (!VecFuncName.empty() &&
+        isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
+      addMaskToSVMLCall(Fn, CallArgs, ArgTys, Mask);
+    } else {
+      auto CE = Mask->getSingleCanonExpr();
+      ArgTys.push_back(CE->getDestType());
+      CallArgs.push_back(Mask->clone());
+    }
   }
 
   Function *VectorF =
@@ -2352,7 +2457,7 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     InterleaveAccess &= !refIsUnit(OrigLoop->getNestingLevel(), MemRef, this);
     if (InterleaveAccess) {
       widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor,
-                             InterleaveIndex, GrpStartInst);
+                             InterleaveIndex, GrpStartInst, VPInst);
       return;
     }
   }
@@ -2650,13 +2755,14 @@ static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
     AddrRef = PtrOp;
     AddrRef->setAddressOf(false);
   } else {
-    // PtrOp is an invariant blob - we need to generate a
-    // reference of the form blob[0].
+    // PtrOp is an invariant blob or value computed inside loop - we need to
+    // generate a reference of the form blob[0].
     assert(PtrOp->isSelfBlob() && "Expected self blob DDRef");
     auto &HIRF = HNU.getHIRFramework();
     llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
     auto Is64Bit = TargetTriple.isArch64Bit();
-    AddrRef = DDU.createMemRef(PtrOp->getSelfBlobIndex());
+    AddrRef =
+        DDU.createMemRef(PtrOp->getSelfBlobIndex(), PtrOp->getDefinedAtLevel());
     auto Int32Ty = Type::getInt32Ty(HNU.getContext());
     auto Int64Ty = Type::getInt64Ty(HNU.getContext());
     auto Zero = CEU.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
@@ -3380,7 +3486,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
       // corresponding to this instruction gets used as the condition bit
       // value for the conditional branch. We need a mapping between this
       // VPValue and the widened value so that we can generate code for the
-      // predicate recipes.
+      // predication related instructions.
       WInst = widenIfNode(HIf, nullptr);
       addVPValueWideRefMapping(VPInst, WInst->getOperandDDRef(0));
       return;

@@ -2,7 +2,7 @@
 ; Test inner control flow uniformity where the inner loop is a while loop without loop index.
 
 ; REQUIRES: asserts
-; RUN: opt -S < %s -VPlanDriver -enable-vp-value-codegen -vplan-print-after-loop-cfu -disable-output | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -15,97 +15,85 @@ declare void @llvm.directive.region.exit(token) nounwind
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr #0 {
 ; CHECK-LABEL:  After inner loop control flow transformation
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]] (BP: NULL) :
+; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP114:%.*]] = icmp i32 [[VP2]] i32 0
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP114]]), [[BB3]](!i1 [[VP_CMP114]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]] (BP: NULL) :
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB2]]): [DA: Divergent] i1 [[VP_CMP114]] = icmp i32 [[VP2]] i32 0
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_CMP114]]), [[BB6:BB[0-9]+]](!i1 [[VP_CMP114]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]] (BP: NULL) :
+; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Divergent] i32* [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:       [DA: Divergent] i32 [[VP_OUTER_IV_TRUNC:%.*]] = trunc i64 [[VP_OUTER_IV]] to i32
+; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB5]]:
+; CHECK-NEXT:       [DA: Divergent] i32 [[VP_INNER_REC:%.*]] = phi  [ i32 [[VP2]], [[BB4]] ],  [ i32 [[VP_INNER_REC_NEXT:%.*]], [[BB6:BB[0-9]+]] ]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP114]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP_INNER_REC:%.*]] = phi  [ i32 [[VP2]], [[BB5]] ],  [ i32 [[VP_INNER_REC_NEXT:%.*]], [[BB8:BB[0-9]+]] ]
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP114]], [[BB5]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]] (BP: NULL) :
+; CHECK-NEXT:      [[BB7]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB7]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP114]], [[BB5]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB8]] ]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB11:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:       Condition([[BB5]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP114]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB6]] ]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB9:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB10]] (BP: NULL) :
+; CHECK-NEXT:        [[BB8]]:
 ; CHECK-NEXT:         [DA: Divergent] i32 [[VP_MUL:%.*]] = mul i32 [[VP_INNER_REC]] i32 [[VP_OUTER_IV_TRUNC]]
 ; CHECK-NEXT:         [DA: Divergent] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:         [DA: Divergent] i32 [[VP_INNER_REC_NEXT]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:        SUCCESSORS(1):[[BB11]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB9]]
+; CHECK-NEXT:        SUCCESSORS(1):[[BB9]]
+; CHECK-NEXT:        PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB11]] (BP: NULL) :
+; CHECK-NEXT:      [[BB9]]:
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_INNER_EXITCOND:%.*]] = icmp i32 [[VP_INNER_REC_NEXT]] i32 0
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXITCOND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP4:%.*]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]] (BP: NULL) :
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB11]]): [DA: Uniform]   i1 [[VP4]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB7]](i1 [[VP4]]), [[BB12:BB[0-9]+]](!i1 [[VP4]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB11]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB12]] (BP: NULL) :
-; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]] (BP: NULL) :
+; CHECK-NEXT:      [[BB6]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:       Condition([[BB9]]): [DA: Uniform]   i1 [[VP4]] = not i1 [[VP3]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP4]]), [[BB10:BB[0-9]+]](!i1 [[VP4]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB10]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_OUTER_EXITCOND:%.*]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[M_SEXT0:%.*]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB12]] [[BB4]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP_OUTER_EXITCOND]]), [[BB2]](!i1 [[VP_OUTER_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB10]] [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]] (BP: NULL) :
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB6]]): [DA: Uniform]   i1 [[VP_OUTER_EXITCOND]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[M_SEXT0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB13:BB[0-9]+]](i1 [[VP_OUTER_EXITCOND]]), [[BB2]](!i1 [[VP_OUTER_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB13]] (BP: NULL) :
+; CHECK-NEXT:    [[BB11]]:
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP5:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB14:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB14]] (BP: NULL) :
+; CHECK-NEXT:    [[BB12]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;

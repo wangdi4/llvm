@@ -21,29 +21,29 @@
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK:         [[BB1]] (BP: NULL) :
+; CHECK:         [[BB1]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK:         [[BB2]] (BP: NULL) :
+; CHECK:         [[BB2]]:
 ; CHECK-NEXT:     i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK:          i32 [[VP4:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK:         SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP6:%vp.*]]), [[BB3]](!i1 [[VP6]])
-; CHECK:           [[BB4]] (BP: NULL) :
+; CHECK:           [[BB4]]:
 ; CHECK:            i32 [[VP9:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK:         [[BB3]] (BP: NULL) :
+; CHECK:         [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = phi  [ i32 [[VP9]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]
 ; CHECK:          i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     i1 [[VP24:%.*]] = icmp i64 [[VP1]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP24]]), [[BB5:BB[0-9]+]](!i1 [[VP24]])
-; CHECK:         [[BB5]] (BP: NULL) :
+; CHECK:         [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK:         [[BB6]] (BP: NULL) :
+; CHECK:         [[BB6]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK:         END Region([[REGION0]])

@@ -485,7 +485,7 @@ bool VPOVectorizationLegality::canVectorize() {
         }
 
         if (isExplicitReductionPhi(Phi)) {
-          if (EnableVPValueCodegen && !VPlanUseVPEntityInstructions) {
+          if (!VPlanUseVPEntityInstructions) {
             LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions without "
                                  "VPLoopEntities.\n");
             return false;
@@ -496,7 +496,7 @@ bool VPOVectorizationLegality::canVectorize() {
 
         RecurrenceDescriptor RedDes;
         if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
-          if (EnableVPValueCodegen && !VPlanUseVPEntityInstructions) {
+          if (!VPlanUseVPEntityInstructions) {
             LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions without "
                                  "VPLoopEntities.\n");
             return false;

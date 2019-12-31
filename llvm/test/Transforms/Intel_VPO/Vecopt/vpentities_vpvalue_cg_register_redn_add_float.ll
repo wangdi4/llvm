@@ -32,7 +32,7 @@
 
 
 ; Fully VPValue-based LLVM-IR codegen
-; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -vplan-use-entity-instr -enable-vp-value-codegen -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -vplan-use-entity-instr -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
 
 ; CHECK-LLVMIR-LABEL: @foo_float
 ; CHECK-LLVMIR-LABEL: vector.body:

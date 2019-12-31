@@ -379,7 +379,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
 
 unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   unsigned Cost = 0;
-  for (const VPInstruction &VPInst : VPBB->vpinstructions()) {
+  for (const VPInstruction &VPInst : *VPBB) {
     unsigned InstCost = getCost(&VPInst);
     if (InstCost == UnknownCost)
       continue;
@@ -429,7 +429,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
   else
     OS << VPBBCost << '\n';
 
-  for (const VPInstruction &VPInst : VPBB->vpinstructions()) {
+  for (const VPInstruction &VPInst : *VPBB) {
     unsigned Cost = getCost(&VPInst);
     if (Cost == UnknownCost)
       OS << "  Unknown cost for ";

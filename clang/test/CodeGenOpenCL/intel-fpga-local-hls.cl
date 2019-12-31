@@ -24,9 +24,9 @@
 //CHECK: global_constant16
 //CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}
 //CHECK: @global_constant17
-//CHECK: [[ANN30:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}
+//CHECK: [[ANN30:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:0}
 //CHECK: @global_constant18
-//CHECK: [[ANN31:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}
+//CHECK: [[ANN31:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}
 //CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_concurrency:4}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:bar:width}
 //CHECK: [[ANN20:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,2}{simple_dual_port:1}
@@ -46,8 +46,8 @@ constant int __attribute__((internal_max_block_ram_depth(32))) global_constant11
 constant int __attribute__((doublepump, memory("MLAB"))) global_constant14 = 0;
 constant int __attribute__((max_replicates(2))) global_constant15 = 0;
 constant int __attribute__((simple_dual_port)) global_constant16 = 0;
-constant int __attribute__((__memory_layout__("compact"))) global_constant17 = 0;
-constant int __attribute__((__memory_layout__("padded"))) global_constant18 = 0;
+constant int __attribute__((__force_pow2_depth__(0))) global_constant17 = 0;
+constant int __attribute__((__force_pow2_depth__(1))) global_constant18 = 0;
 
 //__attribute__((ihc_component))
 void foo_two() {
@@ -110,11 +110,11 @@ void foo_two() {
   //CHECK: %[[VAR_SEVENTEEN:[0-9]+]] = bitcast{{.*}}var_seventeen
   //CHECK: %[[VAR_SEVENTEEN15:var_seventeen[0-9]+]] = bitcast{{.*}}var_seventeen
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_SEVENTEEN15]],{{.*}}[[ANN30]]
-  int __attribute__((__memory_layout__("compact"))) var_seventeen;
+  int __attribute__((__force_pow2_depth__(0))) var_seventeen;
   //CHECK: %[[VAR_EIGHTEEN:[0-9]+]] = bitcast{{.*}}var_eighteen
   //CHECK: %[[VAR_EIGHTEEN16:var_eighteen[0-9]+]] = bitcast{{.*}}var_eighteen
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_EIGHTEEN16]],{{.*}}[[ANN31]]
-  int __attribute__((__memory_layout__("padded"))) var_eighteen;
+  int __attribute__((__force_pow2_depth__(1))) var_eighteen;
 }
 
 struct foo_three{
@@ -130,8 +130,8 @@ struct foo_three{
   int __attribute__((doublepump, memory("MLAB"))) f14;
   int __attribute__((max_replicates(2))) f15;
   int __attribute__((simple_dual_port)) f16;
-  int __attribute__((__memory_layout__("compact"))) f17;
-  int __attribute__((__memory_layout__("compact"))) f18;
+  int __attribute__((__force_pow2_depth__(0))) f17;
+  int __attribute__((__force_pow2_depth__(0))) f18;
 };
 
 void bar() {

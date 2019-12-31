@@ -1,7 +1,6 @@
 ; Test for predicated uniform loads in VPlan vectorizer codegen.
 
 ; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 | FileCheck %s
-; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen | FileCheck %s
 
 ; CHECK:       vector.body:
 ; CHECK:         [[MASK:%.*]] = icmp eq <2 x i64> [[VEC_IV:%.*]], <i64 42, i64 42>

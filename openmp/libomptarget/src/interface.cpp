@@ -571,10 +571,10 @@ EXTERN int __tgt_get_interop_property(
   __tgt_interop_obj *interop = (__tgt_interop_obj *)interop_obj;
   switch (property_id) {
   case INTEROP_DEVICE_ID:
-    *property_value = (void *)interop->device_id;
+    *property_value = (void *)&interop->device_id;
     break;
   case INTEROP_IS_ASYNC:
-    *property_value = (void *)interop->is_async;
+    *property_value = (void *)&interop->is_async;
     break;
   case INTEROP_ASYNC_OBJ:
     *property_value = interop->async_obj;

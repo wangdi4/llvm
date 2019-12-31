@@ -2302,14 +2302,14 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
         if (!BBI->use_empty())
           TranslateMap[&*BBI] = N;
       }
-      // Insert the new instruction into its new home.
-      if (N)
+      if (N) {
+        // Insert the new instruction into its new home.
         EdgeBB->getInstList().insert(InsertPt, N);
 
-      // Register the new instruction with the assumption cache if necessary.
-      if (auto *II = dyn_cast_or_null<IntrinsicInst>(N))
-        if (II->getIntrinsicID() == Intrinsic::assume)
-          AC->registerAssumption(II);
+        // Register the new instruction with the assumption cache if necessary.
+        if (AC && match(N, m_Intrinsic<Intrinsic::assume>()))
+          AC->registerAssumption(cast<IntrinsicInst>(N));
+      }
     }
 
     // Loop over all of the edges from PredBB to BB, changing them to branch
@@ -4133,8 +4133,23 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_label:
-    case Intrinsic::lifetime_end:
+#if INTEL_CUSTOMIZATION
       break;
+    // There is a problem where a lifetime_end intrinsic that is the only
+    // user of a PHI node in the cleanup pad we're deleting can invalidate
+    // the assumptions we're making below. Until a robust solution is
+    // implemented, we just avoid deleting the empty cleanup pad in this
+    // situation.
+    //
+    // In general, we shouldn't just let the lifetime end marker get deleted
+    // so as a temporary workaround until a better solution is implemented
+    // we just avoid deleting the empty cleanup pad if it contains
+    // lifetime end intrinsics.
+    //
+    // See CMPLRLLVM-11251.
+    case Intrinsic::lifetime_end:
+      return false;
+#endif
     default:
       return false;
     }

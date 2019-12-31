@@ -146,6 +146,7 @@ void initializeDAHPass(PassRegistry&);
 void initializeDCELegacyPassPass(PassRegistry&);
 void initializeDSELegacyPassPass(PassRegistry&);
 void initializeDataFlowSanitizerPass(PassRegistry&);
+void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&); // INTEL
 void initializeDeadInstEliminationPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDelinearizationPass(PassRegistry&);
@@ -302,6 +303,7 @@ void initializeLowerIntrinsicsPass(PassRegistry&);
 void initializeLowerInvokeLegacyPassPass(PassRegistry&);
 void initializeLowerSwitchPass(PassRegistry&);
 void initializeLowerTypeTestsPass(PassRegistry&);
+void initializeLowerMatrixIntrinsicsLegacyPassPass(PassRegistry &);
 void initializeMIRCanonicalizerPass(PassRegistry &);
 void initializeMIRNamerPass(PassRegistry &);
 void initializeMIRPrintingPassPass(PassRegistry&);
@@ -392,6 +394,7 @@ void initializeRABasicPass(PassRegistry&);
 void initializeRAGreedyPass(PassRegistry&);
 void initializeReachingDefAnalysisPass(PassRegistry&);
 void initializeReassociateLegacyPassPass(PassRegistry&);
+void initializeRedundantDbgInstEliminationPass(PassRegistry&);
 void initializeRegAllocFastPass(PassRegistry&);
 void initializeRegBankSelectPass(PassRegistry&);
 void initializeRegToMemPass(PassRegistry&);
@@ -455,6 +458,7 @@ void initializeTargetTransformInfoWrapperPassPass(PassRegistry&);
 void initializeThreadSanitizerLegacyPassPass(PassRegistry&);
 void initializeTwoAddressInstructionPassPass(PassRegistry&);
 void initializeTypeBasedAAWrapperPassPass(PassRegistry&);
+void initializeTypePromotionPass(PassRegistry&);
 void initializeUnifyFunctionExitNodesPass(PassRegistry&);
 void initializeUnpackMachineBundlesPass(PassRegistry&);
 void initializeUnreachableBlockElimLegacyPassPass(PassRegistry&);
@@ -533,7 +537,7 @@ void initializeHIRRuntimeDDLegacyPassPass(PassRegistry&);
 void initializeHIRLoopReversalLegacyPassPass(PassRegistry&);
 void initializeHIRLMMLegacyPassPass(PassRegistry&);
 void initializeHIRLoopCollapseLegacyPassPass(PassRegistry&);
-void initializeHIRSymbolicTripCountCompleteUnrollLegacyPassPass(PassRegistry&);
+void initializeHIRPMSymbolicTripCountCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRScalarReplArrayLegacyPassPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenWrapperPassPass(PassRegistry&);
@@ -556,6 +560,7 @@ void initializeHIRSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
+void initializeHIRRowWiseMVLegacyPassPass(PassRegistry &);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
@@ -614,7 +619,6 @@ void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
 void initializeMathLibraryFunctionsReplacementLegacyPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
-void initializeASFixerPass(PassRegistry&);
 } // end namespace llvm
 
 #endif // LLVM_INITIALIZEPASSES_H

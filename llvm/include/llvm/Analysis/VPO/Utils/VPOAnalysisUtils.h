@@ -85,9 +85,15 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
 ///      Modifier = "AGGRHEAD"
 ///      Id = QUAL_OMP_MAP_TOFROM
+///
+/// 6. LINEAR clause on original loop's IV. Example:
+///      FullName = "QUAL.OMP.LINEAR:IV"
+///      BaseName = "QUAL.OMP.LINEAR"
+///      Modifier = "IV"
+///      Id = QUAL_OMP_LINEAR
 #if INTEL_CUSTOMIZATION
 ///
-/// 6. F90 Dope Vector operands. Example:
+/// 7. F90 Dope Vector operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:F90_DV"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "F90_DV"
@@ -125,6 +131,7 @@ private:
   // Map clause for aggregate objects
   bool IsMapAggrHead:1;
   bool IsMapAggr:1;
+  bool IsIV:1;
 
 public:
 
@@ -146,6 +153,7 @@ public:
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
+  void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
 
   // Getters
@@ -167,6 +175,7 @@ public:
   void setIsF90DopeVector() {IsF90DopeVector = true; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
 #endif // INTEL_CUSTOMIZATION
+  bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }
 };
 
@@ -296,6 +305,10 @@ public:
     /// Return true iff the ClauseID represents a DEPEND clause,
     /// such as QUAL_OMP_DEPEND_IN
     static bool isDependClause(int ClauseID);
+
+    /// Return true iff the ClauseID represents a INREDUCTION clause,
+    /// such as QUAL_OMP_INREDUCTION_ADD
+    static bool isInReductionClause(int ClauseID);
 
     /// Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD

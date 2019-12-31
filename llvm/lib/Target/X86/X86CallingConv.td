@@ -1318,6 +1318,12 @@ def CSR_NoRegs : CalleeSavedRegs<(add)>;
 
 def CSR_32 : CalleeSavedRegs<(add ESI, EDI, EBX, EBP)>;
 def CSR_64 : CalleeSavedRegs<(add RBX, R12, R13, R14, R15, RBP)>;
+#if INTEL_CUSTOMIZATION
+def CSR_64_AVX2 : CalleeSavedRegs<(add RBX, R12, R13, R14, R15, RBP,
+                                     (sequence "XMM%u", 16, 31),
+                                     (sequence "YMM%u", 16, 31),
+                                     (sequence "ZMM%u", 16, 31))>;
+#endif // INTEL_CUSTOMIZATION
 
 def CSR_64_SwiftError : CalleeSavedRegs<(sub CSR_64, R12)>;
 

@@ -52,7 +52,6 @@
 ; Check that SPMD execution scheme is applied (since sinf()
 ; is a known LibFunc call):
 ; CHECK-LABEL: define{{.*}}@__omp_offloading_804_356a5e8_test3_l24
-; CHECK: call i64 @_Z14get_local_sizej
 ; CHECK: call i64 @_Z13get_global_idj
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

@@ -2,10 +2,18 @@
 
 set(L0 "${CMAKE_SYCL_USE_LEVEL0}")
 if (NOT DEFINED L0_INCLUDE_DIR)
-  set (L0_INCLUDE_DIR "${L0}/usr/include")
+  if (UNIX)
+    set (L0_INCLUDE_DIR "${L0}/usr/include")
+  else()
+    set (L0_INCLUDE_DIR "${L0}/include")
+  endif()
 endif()
 if (NOT DEFINED L0_LIBRARY)
-  set (L0_LIBRARY "${L0}/usr/lib/liblevel_zero.so")
+  if (UNIX)
+    set (L0_LIBRARY "${L0}/usr/lib/liblevel_zero.so")
+  else()
+    set (L0_LIBRARY "${L0}/level_zero64.lib")
+  endif()
 endif()
 
 include_directories("${L0_INCLUDE_DIR}")
@@ -21,9 +29,12 @@ add_library(pi_level0 SHARED
 add_dependencies(sycl-toolchain pi_level0)
 
 target_link_libraries(pi_level0 PRIVATE "${L0_LIBRARY}")
-target_link_libraries(pi_level0 PRIVATE pthread)
+if (UNIX)
+  target_link_libraries(pi_level0 PRIVATE pthread)
+endif()
 
 add_common_options(pi_level0)
 
 install(TARGETS pi_level0
-  LIBRARY DESTINATION "lib" COMPONENT pi_level0)
+    LIBRARY DESTINATION "lib" COMPONENT pi_level0
+    RUNTIME DESTINATION "bin" COMPONENT pi_level0)

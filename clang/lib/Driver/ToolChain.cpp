@@ -322,6 +322,12 @@ Tool *ToolChain::getSPIRCheck() const {
   return SPIRCheck.get();
 }
 
+Tool *ToolChain::getSYCLPostLink() const {
+  if (!SYCLPostLink)
+    SYCLPostLink.reset(new tools::SYCLPostLink(*this));
+  return SYCLPostLink.get();
+}
+
 Tool *ToolChain::getBackendCompiler() const {
   if (!BackendCompiler)
     BackendCompiler.reset(buildBackendCompiler());
@@ -369,6 +375,9 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::SPIRCheckJobClass:
     return getSPIRCheck();
+
+  case Action::SYCLPostLinkJobClass:
+    return getSYCLPostLink();
 
   case Action::BackendCompileJobClass:
     return getBackendCompiler();
@@ -881,7 +890,7 @@ void ToolChain::addExternCSystemIncludeIfExists(const ArgList &DriverArgs,
 /*static*/ void ToolChain::addSystemIncludes(const ArgList &DriverArgs,
                                              ArgStringList &CC1Args,
                                              ArrayRef<StringRef> Paths) {
-  for (const auto Path : Paths) {
+  for (const auto &Path : Paths) {
     CC1Args.push_back("-internal-isystem");
     CC1Args.push_back(DriverArgs.MakeArgString(Path));
   }

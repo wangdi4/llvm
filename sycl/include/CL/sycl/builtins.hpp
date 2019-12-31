@@ -17,7 +17,7 @@
 // TODO Decide whether to mark functions with this attribute.
 #define __NOEXC /*noexcept*/
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 #ifdef __SYCL_DEVICE_ONLY__
 #define __sycl_std
@@ -27,7 +27,7 @@ namespace __sycl_std = __host_std;
 } // namespace sycl
 } // namespace cl
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 /* ----------------- 4.13.3 Math functions. ---------------------------------*/
 // genfloat acos (genfloat x)
@@ -1303,7 +1303,7 @@ detail::enable_if_t<
     detail::is_geninteger<T>::value && detail::is_igeninteger<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // geninteger select (geninteger a, geninteger b, ugeninteger c)
@@ -1312,7 +1312,7 @@ detail::enable_if_t<
     detail::is_geninteger<T>::value && detail::is_ugeninteger<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // genfloatf select (genfloatf a, genfloatf b, genint c)
@@ -1321,7 +1321,7 @@ detail::enable_if_t<
     detail::is_genfloatf<T>::value && detail::is_genint<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // genfloatf select (genfloatf a, genfloatf b, ugenint c)
@@ -1330,7 +1330,7 @@ detail::enable_if_t<
     detail::is_genfloatf<T>::value && detail::is_ugenint<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // genfloatd select (genfloatd a, genfloatd b, igeninteger64 c)
@@ -1339,7 +1339,7 @@ detail::enable_if_t<
     detail::is_genfloatd<T>::value && detail::is_igeninteger64bit<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // genfloatd select (genfloatd a, genfloatd b, ugeninteger64 c)
@@ -1348,7 +1348,7 @@ detail::enable_if_t<
     detail::is_genfloatd<T>::value && detail::is_ugeninteger64bit<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // genfloath select (genfloath a, genfloath b, igeninteger16 c)
@@ -1357,7 +1357,7 @@ detail::enable_if_t<
     detail::is_genfloath<T>::value && detail::is_igeninteger16bit<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 // genfloath select (genfloath a, genfloath b, ugeninteger16 c)
@@ -1366,7 +1366,7 @@ detail::enable_if_t<
     detail::is_genfloath<T>::value && detail::is_ugeninteger16bit<T2>::value, T>
 select(T a, T b, T2 c) __NOEXC {
   detail::check_vector_size<T, T2>();
-  return __sycl_std::__invoke_Select<T>(detail::select_arg_c_t<T2>(c), b, a);
+  return __sycl_std::__invoke_select<T>(a, b, c);
 }
 
 namespace native {

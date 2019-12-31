@@ -1890,17 +1890,17 @@ bool Type::isIntegralOrUnscopedEnumerationType() const {
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Int128;
 
-  // Check for a complete enum type; incomplete enum types are not properly an
-  // enumeration type in the sense required here.
-  // C++0x: However, if the underlying type of the enum is fixed, it is
-  // considered complete.
-  if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
-    return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
-
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
+
+  return isUnscopedEnumerationType();
+}
+
+bool Type::isUnscopedEnumerationType() const {
+  if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
+    return !ET->getDecl()->isScoped();
 
   return false;
 }
@@ -3151,6 +3151,12 @@ FunctionProtoType::FunctionProtoType(QualType result, ArrayRef<QualType> params,
     *getTrailingObjects<Qualifiers>() = epi.TypeQuals;
   } else {
     FunctionTypeBits.HasExtQuals = 0;
+  }
+
+  // Fill in the Ellipsis location info if present.
+  if (epi.Variadic) {
+    auto &EllipsisLoc = *getTrailingObjects<SourceLocation>();
+    EllipsisLoc = epi.EllipsisLoc;
   }
 }
 

@@ -19,9 +19,9 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD]] = add i64 [[VP_ADD_PHI]] i64 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_OUTER_LOOP_INDUCTION_PHI]], [[BB0]] ],  [ i64 [[VP_INNER_LOOP_INDUCTION:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_OUTER_LOOP_INDUCTION_PHI]], [[BB0]] ],  [ i64 [[VP_INNER_LOOP_INDUCTION:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Uniform] i64 [[VP_SUB:%.*]] = sub i64 [[VP_INNER_LOOP_INDUCTION_PHI]] i64 [[VP_ADD_PHI]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION]] = add i64 [[VP_INNER_LOOP_INDUCTION_PHI]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION]] = add i64 [[VP_INNER_LOOP_INDUCTION_PHI]] i64 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION]] = add i64 [[VP_OUTER_LOOP_INDUCTION_PHI]] i64 1

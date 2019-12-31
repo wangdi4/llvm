@@ -16,8 +16,10 @@
 #include "CGOpenMPLateOutline.h"
 #include "CGOpenMPRuntime.h"
 #include "CGCleanup.h"
+#include "clang/AST/Attr.h"
 using namespace clang;
 using namespace CodeGen;
+using namespace llvm::omp;
 
 llvm::Value *
 OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
@@ -56,9 +58,9 @@ OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
     CodeGenFunction::RunCleanupsScope Scope(NewCGF);
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
         NewCGF.GetAddrOfLocalVar(&Dst), PtrTy->getAs<PointerType>());
-    NewCGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(), Ty.getQualifiers(),
-                         /*IsInitializer=*/true);
-    NewCGF.Builder.CreateStore(ArgLVal.getPointer(), NewCGF.ReturnValue);
+    NewCGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(NewCGF),
+                            Ty.getQualifiers(), /*IsInitializer=*/true);
+    NewCGF.Builder.CreateStore(ArgLVal.getPointer(NewCGF), NewCGF.ReturnValue);
   }
   NewCGF.FinishFunction();
   return Fn;
@@ -96,9 +98,9 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty) {
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
                                                  NewCGF.GetAddrOfLocalVar(&Dst),
                                                  PtrTy->getAs<PointerType>());
-    NewCGF.emitDestroy(ArgLVal.getAddress(), Ty,
-                    NewCGF.getDestroyer(Ty.isDestructedType()),
-                    NewCGF.needsEHCleanup(Ty.isDestructedType()));
+    NewCGF.emitDestroy(ArgLVal.getAddress(NewCGF), Ty,
+                       NewCGF.getDestroyer(Ty.isDestructedType()),
+                       NewCGF.needsEHCleanup(Ty.isDestructedType()));
   }
   NewCGF.FinishFunction();
   return Fn;
@@ -199,8 +201,8 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
     LValue ArgLVal = NewCGF.EmitLoadOfPointerLValue(
         NewCGF.GetAddrOfLocalVar(&DstDecl), ObjPtrTy->getAs<PointerType>());
-    NewCGF.EmitAnyExprToMem(RebuiltCCE, ArgLVal.getAddress(),
-                         Ty.getQualifiers(), /*IsInitializer=*/true);
+    NewCGF.EmitAnyExprToMem(RebuiltCCE, ArgLVal.getAddress(NewCGF),
+                            Ty.getQualifiers(), /*IsInitializer=*/true);
   }
   NewCGF.FinishFunction();
 
@@ -254,14 +256,12 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
   NewCGF.StartFunction(FD, C.VoidTy, Fn, FI, Args);
 
   auto DestAddr = NewCGF.EmitLoadOfPointerLValue(
-                                            NewCGF.GetAddrOfLocalVar(&DstDecl),
-                                            ObjPtrTy->getAs<PointerType>())
-                      .getAddress();
+                             NewCGF.GetAddrOfLocalVar(&DstDecl),
+                             ObjPtrTy->getAs<PointerType>()).getAddress(NewCGF);
 
   auto SrcAddr = NewCGF.EmitLoadOfPointerLValue(
-                                            NewCGF.GetAddrOfLocalVar(&SrcDecl),
-                                            ObjPtrTy->getAs<PointerType>())
-                     .getAddress();
+                            NewCGF.GetAddrOfLocalVar(&SrcDecl),
+                            ObjPtrTy->getAs<PointerType>()).getAddress(NewCGF);
 
   auto *SrcVD = cast<VarDecl>(cast<DeclRefExpr>(SrcExpr)->getDecl());
   auto *DestVD = cast<VarDecl>(cast<DeclRefExpr>(DstExpr)->getDecl());
@@ -350,7 +350,7 @@ Address OpenMPLateOutliner::emitOMPArraySectionExpr(const Expr *E,
                                                     ArraySectionTy *AS) {
   const Expr *Base = getArraySectionBase(E, &CGF, AS);
   QualType BaseTy = Base->getType();
-  Address BaseAddr = CGF.EmitLValue(Base).getAddress();
+  Address BaseAddr = CGF.EmitLValue(Base).getAddress(CGF);
   if (BaseTy->isVariablyModifiedType()) {
     for (auto &ASD : *AS) {
       if (const ArrayType *AT = BaseTy->getAsArrayTypeUnsafe()) {
@@ -407,7 +407,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
   } else {
     assert(E->isGLValue());
-    llvm::Value *V = CGF.EmitLValue(E).getPointer();
+    llvm::Value *V = CGF.EmitLValue(E).getPointer(CGF);
     if (IsRef) {
       auto *LI = dyn_cast<llvm::LoadInst>(V);
       assert(LI && "expected load instruction for reference type");
@@ -776,7 +776,7 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
     if (IsRef)
       CSB.setByRef();
 #if INTEL_CUSTOMIZATION
-    if (Cl->isConditional())
+    if (Cl->getKind() == OMPC_LASTPRIVATE_conditional)
       CSB.setConditional();
 #endif // INTEL_CUSTOMIZATION
     addArg(CSB.getString());
@@ -1131,16 +1131,18 @@ void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
 void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_proc_bind);
   switch (Cl->getProcBindKind()) {
-  case OMPC_PROC_BIND_master:
+  case OMP_PROC_BIND_master:
     addArg("QUAL.OMP.PROC_BIND.MASTER");
     break;
-  case OMPC_PROC_BIND_close:
+  case OMP_PROC_BIND_close:
     addArg("QUAL.OMP.PROC_BIND.CLOSE");
     break;
-  case OMPC_PROC_BIND_spread:
+  case OMP_PROC_BIND_spread:
     addArg("QUAL.OMP.PROC_BIND.SPREAD");
     break;
-  case OMPC_PROC_BIND_unknown:
+  case OMP_PROC_BIND_default:
+    break;
+  case OMP_PROC_BIND_unknown:
     llvm_unreachable("Unknown proc_bind clause");
   }
 }
@@ -1434,18 +1436,32 @@ void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
 }
 
 void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
+  llvm::SmallPtrSet<const VarDecl *, 2> ProcessedPtrVarDecls;
   for (const auto *E : C->varlists()) {
     // When there is a map-chain in the IR for the the map clause, the
     //  computations for various expressions used in the map-chain are to be
     //  emitted after the implicit task, and before the target directive
-    if (const VarDecl *PVD = getExplicitVarDecl(E)) {
+    if (const VarDecl *ExplicitVar = getExplicitVarDecl(E)) {
       if (isImplicitTask(OMPD_task)) {
-        ImplicitMap.insert(std::make_pair(PVD, ICK_shared));
+        ImplicitMap.insert(std::make_pair(ExplicitVar, ICK_shared));
         continue;
       } else {
-        addExplicit(PVD, /*IsMap=*/true);
+        addExplicit(ExplicitVar, /*IsMap=*/true);
       }
     }
+    while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
+      E = OASE->getBase()->IgnoreParenImpCasts();
+    while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+      E = ASE->getBase()->IgnoreParenImpCasts();
+    while (const auto *ME = dyn_cast<MemberExpr>(E))
+      E = ME->getBase()->IgnoreParenImpCasts();
+    const VarDecl *BaseVar = getExplicitVarDecl(E);
+    QualType Ty = E->getType().getNonReferenceType();
+    // The partial struct case, like p->x and p->y, all pieces
+    // are emitted when processing 'p' the first time.
+    if (BaseVar && Ty->isAnyPointerType() &&
+        !ProcessedPtrVarDecls.insert(BaseVar).second)
+      continue;
     SmallVector<CGOpenMPRuntime::MapInfo, 4> Info;
     {
       // Generate map values and emit outside the current directive.
@@ -1453,6 +1469,9 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
                                /*EmitClause=*/false);
       CGOpenMPRuntime::getLOMapInfo(Directive, CGF, C, E, Info);
     }
+    if (BaseVar && CurrentDirectiveKind == OMPD_target)
+      if (Ty->isAnyPointerType() && !Info[0].Base->hasName())
+        MapTemps.emplace_back(Info[0].Base, BaseVar);
     if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
       // This is the simple non-aggregate case.
       ClauseEmissionHelper CEH(*this, OMPC_map);
@@ -1501,6 +1520,7 @@ void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
+void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -1552,15 +1572,18 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
       if (CurrentDirectiveKind == OMPD_simd) {
-        if (CGF.IsPrivateCounter(PVD))
-          ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+        if (CGF.IsPrivateCounter(VD))
+          ImplicitMap.insert(std::make_pair(VD, ICK_unknown));
         else
-          ImplicitMap.insert(std::make_pair(PVD, ICK_lastprivate));
-      }
-      else
-        ImplicitMap.insert(std::make_pair(PVD, ICK_private));
+          ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
+      } else if (isOpenMPSimdDirective(LoopDir->getDirectiveKind()) &&
+                 !CGF.IsPrivateCounter(VD) &&
+                 LoopDir->getCollapsedNumber() > 1) {
+        ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
+      } else
+        ImplicitMap.insert(std::make_pair(VD, ICK_private));
     }
     for (const auto *C : LoopDir->getClausesOfKind<OMPOrderedClause>()) {
       if (!C->getNumForLoops())
@@ -2011,6 +2034,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
     return true;
@@ -2402,6 +2426,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
     llvm_unreachable("Combined directives not handled here");
@@ -2411,6 +2436,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
+    CodeGenFunction::OMPPrivateScope MapClausePointerScope(*this);
+    Outliner.privatizeMappedPointers(MapClausePointerScope);
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
       OpenMPDirectiveKind NextKind =
@@ -2479,7 +2506,7 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
       if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
         if (isa<OMPCapturedExprDecl>(VD)) {
           PrivScope.addPrivateNoTemps(VD, [this, VD]() -> Address {
-            return EmitLValue(VD->getAnyInitializer()).getAddress();
+            return EmitLValue(VD->getAnyInitializer()).getAddress(*this);
           });
         }
       }

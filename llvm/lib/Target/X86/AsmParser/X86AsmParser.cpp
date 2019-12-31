@@ -2371,6 +2371,12 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         ForcedVEXEncoding = VEXEncoding_VEX2;
       else if (Prefix == "vex3")
         ForcedVEXEncoding = VEXEncoding_VEX3;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      else if (Prefix == "vex")
+        ForcedVEXEncoding = VEXEncoding_VEX2;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
       else if (Prefix == "evex")
         ForcedVEXEncoding = VEXEncoding_EVEX;
       else
@@ -2884,6 +2890,15 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
     }
   }
 
+  // Mark the operands of a call instruction.  These need to be handled
+  // differently when referenced in MS-style inline assembly.
+  if (Name.startswith("call") || Name.startswith("lcall")) {
+    for (size_t i = 1; i < Operands.size(); ++i) {
+      X86Operand &Op = static_cast<X86Operand &>(*Operands[i]);
+      Op.setCallOperand(true);
+    }
+  }
+
   if (Flags)
     Operands.push_back(X86Operand::CreatePrefix(Flags, NameLoc, NameLoc));
   return false;
@@ -3358,6 +3373,32 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   // EVEX encoding.
   // FIXME: We really need a way to break the ambiguity.
   switch (Opc) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  case X86::VPDPBUSDSYrm:
+  case X86::VPDPBUSDSYrr:
+  case X86::VPDPBUSDSrm:
+  case X86::VPDPBUSDSrr:
+  case X86::VPDPBUSDYrm:
+  case X86::VPDPBUSDYrr:
+  case X86::VPDPBUSDrm:
+  case X86::VPDPBUSDrr:
+  case X86::VPDPWSSDSYrm:
+  case X86::VPDPWSSDSYrr:
+  case X86::VPDPWSSDSrm:
+  case X86::VPDPWSSDSrr:
+  case X86::VPDPWSSDYrm:
+  case X86::VPDPWSSDYrr:
+  case X86::VPDPWSSDrm:
+  case X86::VPDPWSSDrr:
+    // These instructions are only available with {vex2} or {vex3} prefix
+    if (ForcedVEXEncoding != VEXEncoding_VEX2 &&
+        ForcedVEXEncoding != VEXEncoding_VEX3)
+      return Match_Unsupported;
+    break;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   case X86::VCVTSD2SIZrm_Int:
   case X86::VCVTSD2SI64Zrm_Int:
   case X86::VCVTSS2SIZrm_Int:
@@ -3368,6 +3409,7 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   case X86::VCVTTSS2SI64Zrm: case X86::VCVTTSS2SI64Zrm_Int:
     if (ForcedVEXEncoding != VEXEncoding_EVEX)
       return Match_Unsupported;
+    break;
   }
 
   return Match_Success;

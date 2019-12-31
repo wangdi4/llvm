@@ -214,6 +214,7 @@ namespace {
       (void) llvm::createPostDomOnlyViewerPass();
       (void) llvm::createPostDomViewerPass();
       (void) llvm::createReassociatePass();
+      (void) llvm::createRedundantDbgInstEliminationPass();
       (void) llvm::createRegionInfoPass();
       (void) llvm::createRegionOnlyPrinterPass();
       (void) llvm::createRegionOnlyViewerPass();
@@ -337,7 +338,7 @@ namespace {
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
-      (void) llvm::createHIRSymbolicTripCountCompleteUnrollLegacyPass();
+      (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
@@ -358,6 +359,7 @@ namespace {
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
+      (void)llvm::createHIRRowWiseMVPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

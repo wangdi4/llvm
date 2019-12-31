@@ -9,8 +9,7 @@
 ///
 /// \file
 /// This file provides a VPlan-based builder utility analogous to IRBuilder.
-/// It provides an instruction-level API for generating VPInstructions while
-/// abstracting away the Recipe manipulation details.
+/// It provides an instruction-level API for generating VPInstructions.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANBUILDER_H
@@ -344,10 +343,11 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createAllocaPrivate(Type *Ty) {
-    VPInstruction *NewVPInst = new VPAllocatePrivate(Ty);
+  VPInstruction *createAllocaPrivate(const VPValue *AI) {
+    VPInstruction *NewVPInst = new VPAllocatePrivate(AI->getType());
     if (BB)
       BB->insert(NewVPInst, InsertPt);
+    NewVPInst->setName(AI->getName());
     return NewVPInst;
   }
 

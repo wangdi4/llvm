@@ -50,7 +50,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilderHIR.h"
-#include "IntelVPLoopRegionHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -289,7 +288,7 @@ private:
 
   /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
   /// is populated in this phase to keep the information necessary to create
-  /// VPLoopRegionHIR's later in the H-CFG construction process.
+  /// entity descriptors.
   SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
 
   /// Output TopRegion. Owned during the PlainCFG build process, moved
@@ -471,7 +470,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   VPBasicBlock *Header = ActiveVPBB;
   assert(Header && "Expected VPBasicBlock for loop header.");
 
-  // Map loop header VPBasicBlock with HLLoop for later loop region detection.
+  // Map loop header VPBasicBlock with HLLoop.
   Header2HLLoop[Header] = HLp;
 
   // Materialize the Loop IV and IV Start.
@@ -1395,14 +1394,4 @@ void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     BaseConverter *Converter = dyn_cast<BaseConverter>(Cvt.get());
     Converter->passToVPlan(Plan, Mapper);
   }
-}
-
-VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
-  assert(isa<VPBasicBlock>(VPLp->getHeader()) &&
-         "Expected VPBasicBlock as Loop header.");
-  HLLoop *HLLp = Header2HLLoop[cast<VPBasicBlock>(VPLp->getHeader())];
-  assert(HLLp && "Expected HLLoop");
-  VPLoopRegion *Loop =
-      new VPLoopRegionHIR(VPlanUtils::createUniqueName("loop"), VPLp, HLLp);
-  return Loop;
 }

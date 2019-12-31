@@ -7,6 +7,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   Coroutines
   Coverage
+  FrontendOpenMP
   IPO
   IRReader
   AggressiveInstCombine
@@ -24,7 +25,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
-  ASFixer
   )
 
 # INTEL_CUSTOMIZATION

@@ -60,7 +60,7 @@ PreservedAnalyses PrintFunctionPass::run(Function &F,
     if (forcePrintModuleIR())
       OS << Banner << " (function: " << F.getName() << ")\n" << *F.getParent();
     else
-      OS << Banner << static_cast<Value &>(F);
+      OS << Banner << '\n' << static_cast<Value &>(F);
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return PreservedAnalyses::all();

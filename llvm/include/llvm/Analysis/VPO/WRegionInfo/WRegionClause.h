@@ -515,8 +515,10 @@ public:
     WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    WRNReductionEqv,  // Fortran; currently unsupported
-    WRNReductionNeqv, // Fortran; currently unsupported
+#if INTEL_CUSTOMIZATION
+    WRNReductionEqv,  // Fortran
+    WRNReductionNeqv, // Fortran
+#endif // INTEL_CUSTOMIZATION
     WRNReductionMax,
     WRNReductionMin,
     WRNReductionUdr   // user-defined reduction
@@ -564,6 +566,14 @@ public:
         case QUAL_OMP_REDUCTION_BOR:
         case QUAL_OMP_INREDUCTION_BOR:
           return WRNReductionBor;
+#if INTEL_CUSTOMIZATION
+        case QUAL_OMP_REDUCTION_EQV:
+        case QUAL_OMP_INREDUCTION_EQV:
+          return WRNReductionEqv;
+        case QUAL_OMP_REDUCTION_NEQV:
+        case QUAL_OMP_INREDUCTION_NEQV:
+          return WRNReductionNeqv;
+#endif // INTEL_CUSTOMIZATION
         case QUAL_OMP_REDUCTION_MAX:
         case QUAL_OMP_INREDUCTION_MAX:
           return WRNReductionMax;
@@ -600,6 +610,12 @@ public:
           return QUAL_OMP_REDUCTION_BAND;
         case WRNReductionBor:
           return QUAL_OMP_REDUCTION_BOR;
+#if INTEL_CUSTOMIZATION
+        case WRNReductionEqv:
+          return QUAL_OMP_REDUCTION_EQV;
+        case WRNReductionNeqv:
+          return QUAL_OMP_REDUCTION_NEQV;
+#endif // INTEL_CUSTOMIZATION
         case WRNReductionMax:
           return QUAL_OMP_REDUCTION_MAX;
         case WRNReductionMin:
@@ -692,15 +708,18 @@ class LinearItem : public Item
 #if INTEL_CUSTOMIZATION
     HEXPR HStep; // Item's Step for HIR
 #endif // INTEL_CUSTOMIZATION
+    bool IsIV; // Linear clause is for a loop IV, whose value is being
+               // computed in each iteration using close-form computation on
+               // the normalized loop IV.
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
 #if INTEL_CUSTOMIZATION
     LinearItem(VAR Orig)
-        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr) {}
+        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr), IsIV(false) {}
 #else
-    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr) {}
+    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr), IsIV(false) {}
 #endif // INTEL_CUSTOMIZATION
     void setStep(EXPR S) { Step = S; }
     EXPR getStep() const { return Step; }
@@ -708,9 +727,13 @@ class LinearItem : public Item
     void setHStep(HEXPR S) { HStep = S; }
     template <IRKind IR = LLVMIR> ExprType<IR> getStep() const;
 #endif // INTEL_CUSTOMIZATION
+    void setIsIV(bool Flag) { IsIV = Flag; }
+    bool getIsIV() const { return IsIV; }
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsIV())
+        OS << "IV";
       OS << "(";
       printOrig(OS, PrintType);
       OS << ", ";

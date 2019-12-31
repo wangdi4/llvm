@@ -194,7 +194,12 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // maps are respected.
     // In addition to the mapping rules above, the close map
     // modifier forces the mapping of the variable to the device.
+#if INTEL_COLLAB
+    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+        !HasCloseModifier && is_managed_data(HstPtrBegin)) {
+#else
     if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
+#endif // INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
       IsHostPtr = true;
@@ -535,6 +540,12 @@ void *DeviceTy::get_offload_pipe(void) {
   if (!RTL->get_offload_pipe)
     return nullptr;
   return RTL->get_offload_pipe(RTLDeviceID);
+}
+
+int32_t DeviceTy::is_managed_data(void *HstPtr) {
+  if (!RTL->is_managed_data)
+    return 0;
+  return RTL->is_managed_data(RTLDeviceID, HstPtr);
 }
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not

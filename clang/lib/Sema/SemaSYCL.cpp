@@ -184,6 +184,19 @@ static bool IsSyclMathFunc(unsigned BuiltinID) {
   return true;
 }
 
+static bool isKnownGoodDecl(const Decl *D) {
+  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    const IdentifierInfo *II = FD->getIdentifier();
+    const DeclContext *DC = FD->getDeclContext();
+    if (II && II->isStr("__spirv_ocl_printf") &&
+        !FD->isDefined() &&
+        FD->getLanguageLinkage() == CXXLanguageLinkage &&
+        DC->getEnclosingNamespaceContext()->isTranslationUnit())
+      return true;
+  }
+  return false;
+}
+
 class MarkDeviceFunction : public RecursiveASTVisitor<MarkDeviceFunction> {
 public:
   MarkDeviceFunction(Sema &S)
@@ -312,8 +325,12 @@ public:
   }
 
   bool VisitDeclRefExpr(DeclRefExpr *E) {
+    Decl* D = E->getDecl();
+    if (isKnownGoodDecl(D))
+      return true;
+
     CheckSYCLType(E->getType(), E->getSourceRange());
-    if (VarDecl *VD = dyn_cast<VarDecl>(E->getDecl())) {
+    if (VarDecl *VD = dyn_cast<VarDecl>(D)) {
       bool IsConst = VD->getType().getNonReferenceType().isConstQualified();
       if (!IsConst && VD->isStaticDataMember())
         SemaRef.Diag(E->getExprLoc(), diag::err_sycl_restrict)
@@ -426,18 +443,42 @@ public:
 
       if (auto *A = FD->getAttr<IntelReqdSubGroupSizeAttr>())
         Attrs.insert(A);
-      else if (auto *A = FD->getAttr<ReqdWorkGroupSizeAttr>())
+      if (auto *A = FD->getAttr<ReqdWorkGroupSizeAttr>())
         Attrs.insert(A);
-      else if (auto *A = FD->getAttr<SYCLIntelKernelArgsRestrictAttr>()) {
-        // Allow the intel::kernel_args_restrict only on the lambda (function
-        // object) function, that is called directly from a kernel (i.e. the one
-        // passed to the parallel_for function). Emit a warning and ignore all
-        // other cases.
+      // Allow the following kernel attributes only on lambda functions and
+      // function objects that are called directly from a kernel (i.e. the one
+      // passed to the parallel_for function). For all other cases,
+      // emit a warning and ignore.
+      if (auto *A = FD->getAttr<SYCLIntelKernelArgsRestrictAttr>()) {
         if (ParentFD == SYCLKernel) {
           Attrs.insert(A);
         } else {
           SemaRef.Diag(A->getLocation(), diag::warn_attribute_ignored) << A;
           FD->dropAttr<SYCLIntelKernelArgsRestrictAttr>();
+        }
+      }
+      if (auto *A = FD->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
+        if (ParentFD == SYCLKernel) {
+          Attrs.insert(A);
+        } else {
+          SemaRef.Diag(A->getLocation(), diag::warn_attribute_ignored) << A;
+          FD->dropAttr<SYCLIntelNumSimdWorkItemsAttr>();
+        }
+      }
+      if (auto *A = FD->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
+        if (ParentFD == SYCLKernel) {
+          Attrs.insert(A);
+        } else {
+          SemaRef.Diag(A->getLocation(), diag::warn_attribute_ignored) << A;
+          FD->dropAttr<SYCLIntelMaxWorkGroupSizeAttr>();
+        }
+      }
+      if (auto *A = FD->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
+        if (ParentFD == SYCLKernel) {
+          Attrs.insert(A);
+        } else {
+          SemaRef.Diag(A->getLocation(), diag::warn_attribute_ignored) << A;
+          FD->dropAttr<SYCLIntelMaxGlobalWorkDimAttr>();
         }
       }
 
@@ -487,18 +528,6 @@ private:
       // clang crash.
       if (!CRD->hasDefinition())
         return true;
-
-      if (CRD->isPolymorphic()) {
-        // Exceptions aren't allowed in SYCL device code.
-        if (SemaRef.getLangOpts().SYCLIsDevice) {
-          SemaRef.SYCLDiagIfDeviceCode(CRD->getLocation(),
-                                       diag::err_sycl_restrict)
-              << Sema::KernelHavePolymorphicClass;
-          SemaRef.SYCLDiagIfDeviceCode(Loc.getBegin(),
-                                       diag::note_sycl_used_here);
-        }
-        return false;
-      }
 
       for (const auto &Field : CRD->fields()) {
         if (!CheckSYCLType(Field->getType(), Field->getSourceRange(),
@@ -873,7 +902,7 @@ static CompoundStmt *CreateOpenCLKernelBody(Sema &S,
                 ParamType->getPointeeType().getAddressSpace())
           DRE = ImplicitCastExpr::Create(S.Context, FieldType,
                                          CK_AddressSpaceConversion, DRE,
-                                         nullptr, VK_LValue);
+                                         nullptr, VK_RValue);
         InitializationKind InitKind =
             InitializationKind::CreateCopy(SourceLocation(), SourceLocation());
         InitializationSequence InitSeq(S, Entity, InitKind, DRE);
@@ -1338,7 +1367,10 @@ void Sema::MarkDevice(void) {
           }
           break;
         }
-        case attr::Kind::SYCLIntelKernelArgsRestrict: {
+        case attr::Kind::SYCLIntelKernelArgsRestrict:
+        case attr::Kind::SYCLIntelNumSimdWorkItems:
+        case attr::Kind::SYCLIntelMaxGlobalWorkDim:
+        case attr::Kind::SYCLIntelMaxWorkGroupSize: {
           SYCLKernel->addAttr(A);
           break;
         }
@@ -1606,6 +1638,7 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   O << "// This is auto-generated SYCL integration header.\n";
   O << "\n";
 
+  O << "#include <CL/sycl/detail/defines.hpp>\n";
   O << "#include <CL/sycl/detail/kernel_desc.hpp>\n";
 
   O << "\n";
@@ -1619,7 +1652,7 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   }
   O << "\n";
 
-  O << "namespace cl {\n";
+  O << "__SYCL_INLINE namespace cl {\n";
   O << "namespace sycl {\n";
   O << "namespace detail {\n";
 

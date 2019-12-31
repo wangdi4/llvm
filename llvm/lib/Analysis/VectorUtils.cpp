@@ -787,18 +787,8 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   if (ID) {
-    // Generate a vector intrinsic. Remember, all intrinsics defined in
-    // Intrinsics.td that can be vectorized are those for which the return
-    // type matches the call arguments. Thus, TysForDecl should only contain
-    // 1 type in order to be able to generate the right declaration. Inserting
-    // multiple instances of this type will cause assertions when attempting
-    // to generate the declaration. This code will need to be changed to
-    // support different types of function signatures.
+    // Generate a vector intrinsic.
     assert(!RetTy->isVoidTy() && "Expected non-void function");
-    assert(
-        llvm::all_of(ArgTys,
-                     [&](Type *ArgTy) -> bool { return VecRetTy == ArgTy; }) &&
-        "Expected return type to match arg type");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
@@ -1626,4 +1616,48 @@ void VFABI::getVectorVariantNames(
 #endif
     VariantMappings.push_back(S);
   }
+}
+
+bool VFShape::hasValidParameterList() const {
+  for (unsigned Pos = 0, NumParams = Parameters.size(); Pos < NumParams;
+       ++Pos) {
+    assert(Parameters[Pos].ParamPos == Pos && "Broken parameter list.");
+
+    switch (Parameters[Pos].ParamKind) {
+    default: // Nothing to check.
+      break;
+    case VFParamKind::OMP_Linear:
+    case VFParamKind::OMP_LinearRef:
+    case VFParamKind::OMP_LinearVal:
+    case VFParamKind::OMP_LinearUVal:
+      // Compile time linear steps must be non-zero.
+      if (Parameters[Pos].LinearStepOrPos == 0)
+        return false;
+      break;
+    case VFParamKind::OMP_LinearPos:
+    case VFParamKind::OMP_LinearRefPos:
+    case VFParamKind::OMP_LinearValPos:
+    case VFParamKind::OMP_LinearUValPos:
+      // The runtime linear step must be referring to some other
+      // parameters in the signature.
+      if (Parameters[Pos].LinearStepOrPos >= int(NumParams))
+        return false;
+      // The linear step parameter must be marked as uniform.
+      if (Parameters[Parameters[Pos].LinearStepOrPos].ParamKind !=
+          VFParamKind::OMP_Uniform)
+        return false;
+      // The linear step parameter can't point at itself.
+      if (Parameters[Pos].LinearStepOrPos == int(Pos))
+        return false;
+      break;
+    case VFParamKind::GlobalPredicate:
+      // The global predicate must be the unique. Can be placed anywhere in the
+      // signature.
+      for (unsigned NextPos = Pos + 1; NextPos < NumParams; ++NextPos)
+        if (Parameters[NextPos].ParamKind == VFParamKind::GlobalPredicate)
+          return false;
+      break;
+    }
+  }
+  return true;
 }

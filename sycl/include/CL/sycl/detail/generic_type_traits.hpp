@@ -18,7 +18,7 @@
 #include <limits>
 #include <type_traits>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
 
@@ -483,18 +483,6 @@ template <typename T> struct RelationalReturnType {
   using type = common_rel_ret_t<T>;
 #endif
 };
-
-// Used for select built-in function
-template <typename T> struct SelectWrapperTypeArgC {
-#ifdef __SYCL_DEVICE_ONLY__
-  using type = Boolean<TryToGetNumElements<T>::value>;
-#else
-  using type = T;
-#endif
-};
-
-template <typename T>
-using select_arg_c_t = typename SelectWrapperTypeArgC<T>::type;
 
 template <typename T> using rel_ret_t = typename RelationalReturnType<T>::type;
 
