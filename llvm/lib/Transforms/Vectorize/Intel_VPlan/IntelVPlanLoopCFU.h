@@ -94,18 +94,23 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     VPPostDominatorTree *PDT = Parent->getPDT();
 
     // Create a SESE region with a loop/bypass inside.
-
     VPBasicBlock *RegionEntryBlock =
-        VPBlockUtils::splitBlock(SubLoopHeader, VPLI, *DT, *PDT);
-
+        VPBlockUtils::splitBlockBegin(SubLoopHeader, VPLI, DT, PDT);
     VPBasicBlock *NewLoopHeader =
-        VPBlockUtils::splitBlock(RegionEntryBlock, VPLI, *DT, *PDT);
+        VPBlockUtils::splitBlockBegin(RegionEntryBlock, VPLI, DT, PDT);
+    (void)NewLoopHeader;
 
+    // Latch might have changed during splitting.
+    SubLoopLatch = cast<VPBasicBlock>(SubLoop->getLoopLatch());
     VPBasicBlock *NewLoopLatch =
-        VPBlockUtils::splitBlock(SubLoopLatch, VPLI, *DT, *PDT);
+        VPBlockUtils::splitBlockEnd(SubLoopLatch, VPLI, DT, PDT);
 
-    // Note: SubLoopLatch becomes the mask region exit
-    VPBasicBlock *RegionExitBlock = SubLoopLatch;
+    VPBasicBlock *RegionExitBlock;
+    if (SubLoopLatch->empty())
+      RegionExitBlock = SubLoopLatch;
+    else
+      RegionExitBlock =
+          VPBlockUtils::splitBlockEnd(SubLoopLatch, VPLI, DT, PDT);
 
     // Remove the loop backedge condition from its original parent and place
     // in the region exit. Not needed for correctness, but easier to see
@@ -118,23 +123,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
           cast<VPInstruction>(BottomTest)->getParent();
       BottomTestBlock->removeInstruction(cast<VPInstruction>(BottomTest));
       RegionExitBlock->addInstruction(cast<VPInstruction>(BottomTest));
-    }
-
-    // Move all instructions that are not phi nodes to the new loop body
-    // header block. These were the instructions that were part of the
-    // original loop header, but these instructions are now part of the loop
-    // body that need to be under mask.
-    SmallVector<VPInstruction *, 2> ToMove;
-    SmallVector<VPInstruction *, 2> SubLoopHeaderPhis;
-    for (auto &Inst : *SubLoopHeader) {
-      if (!isa<VPPHINode>(Inst))
-        ToMove.push_back(&Inst);
-      else
-        SubLoopHeaderPhis.push_back(&Inst);
-    }
-    for (auto *Inst : ToMove) {
-      SubLoopHeader->removeInstruction(Inst);
-      NewLoopHeader->addInstruction(Inst);
     }
 
     // Construct loop body mask and insert into the loop header

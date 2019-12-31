@@ -98,148 +98,89 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 }
 
 #if INTEL_CUSTOMIZATION
-VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
-                                           VPLoopInfo *VPLInfo,
-                                           VPDominatorTree &DomTree) {
-  VPBasicBlock *BB = Block->getExitBasicBlock();
-  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  BB->moveConditionalEOBTo(NewBlock);
-  NewBlock->moveTripCountInfoFrom(BB);
-  insertBlockAfter(NewBlock, BB);
-
-  // Add NewBlock to VPLoopInfo
-  if (VPLoop *Loop = VPLInfo->getLoopFor(BB)) {
-    Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
-  }
-
-
-  // Update incoming block of VPPHINodes in successors, if any
-  for (auto &Successor : NewBlock->getHierarchicalSuccessors()) {
-    // Iterate over all VPPHINodes in Successor. Successor can be a region so
-    // we should take its entry.
-    // NOTE: Here we assume that all VPPHINodes are always placed at the top of
-    // its parent VPBasicBlock
-    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
-      if (VPN.getBlend())
-        continue;
-
-      // Transform the VPBBUsers vector of the PHI node by replacing any
-      // occurrence of Block with NewBlock
-      llvm::transform(VPN.blocks(), VPN.block_begin(),
-                      [BB, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
-                        if (A == BB)
-                          return NewBlock;
-                        return A;
-                      });
-    }
-  }
-
-  if (Block != BB)
-    // No DomTree updates because it's not recursive.
-    return NewBlock;
-
-  // Update dom information
-
-  VPDomTreeNode *BlockDT = DomTree.getNode(Block);
-  assert(BlockDT && "Expected node in dom tree!");
-  SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
-                                                  BlockDT->end());
-  // Block is NewBlock's idom.
-  VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
-
-  // NewBlock dominates all other nodes dominated by Block.
-  for (VPDomTreeNode *Child : BlockDTChildren)
-    DomTree.changeImmediateDominator(Child, NewBlockDT);
-
-  return NewBlock;
-}
-
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
 // PostDomTree accordingly.
-VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
+VPBasicBlock *VPBlockUtils::splitBlock(VPBasicBlock *Block,
+                                       VPBasicBlock::iterator BeforeIt,
                                        VPLoopInfo *VPLInfo,
-                                       VPDominatorTree &DomTree,
-                                       VPPostDominatorTree &PostDomTree) {
-  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  if (auto *BB = dyn_cast<VPBasicBlock>(Block)) {
-    BB->moveConditionalEOBTo(NewBlock);
-    NewBlock->moveTripCountInfoFrom(BB);
-  }
-  insertBlockAfter(NewBlock, Block);
+                                       VPDominatorTree *DomTree,
+                                       VPPostDominatorTree *PostDomTree) {
+  VPBasicBlock *NewBlock = Block->splitBlock(BeforeIt);
 
   // Add NewBlock to VPLoopInfo
   if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
     Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
   }
+  if (DomTree) {
+    // Update dom information
+    VPDomTreeNode *BlockDT = DomTree->getNode(Block);
+    assert(BlockDT && "Expected node in dom tree!");
+    SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
+                                                    BlockDT->end());
+    // Block is NewBlock's idom.
+    VPDomTreeNode *NewBlockDT = DomTree->addNewBlock(NewBlock, Block /*IDom*/);
 
-  // Update incoming block of VPPHINodes in successors, if any
-  for (auto &Successor : NewBlock->getSuccessors()) {
-    // Iterate over all VPPHINodes in Successor. Successor can be a region so
-    // we should take its entry.
-    // NOTE: Here we assume that all VPPHINodes are always placed at the top of
-    // its parent VPBasicBlock
-    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
-      // Transform the VPBBUsers vector of the PHI node by replacing any
-      // occurrence of Block with NewBlock
-      llvm::transform(VPN.blocks(), VPN.block_begin(),
-                      [Block, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
-                        if (A == cast<VPBasicBlock>(Block))
-                          return NewBlock;
-                        return A;
-                      });
+    // NewBlock dominates all other nodes dominated by Block.
+    for (VPDomTreeNode *Child : BlockDTChildren)
+      DomTree->changeImmediateDominator(Child, NewBlockDT);
+  }
+
+  if (PostDomTree) {
+    // Update postdom information
+    VPDomTreeNode *NewBlockPDT;
+    if (VPBlockBase *NewBlockSucc = NewBlock->getSingleSuccessor()) {
+      // NewBlock has a single successor. That successor is NewBlock's ipostdom.
+      NewBlockPDT = PostDomTree->addNewBlock(NewBlock, NewBlockSucc /*IDom*/);
+    } else {
+      // NewBlock has multiple successors. NewBlock's ipostdom is the nearest
+      // common post-dominator of both successors.
+
+      // TODO: getSuccessor(0)
+      auto &Successors = NewBlock->getSuccessors();
+      VPBlockBase *Succ1 = *Successors.begin();
+      VPBlockBase *Succ2 = *std::next(Successors.begin());
+
+      NewBlockPDT = PostDomTree->addNewBlock(
+          NewBlock, PostDomTree->findNearestCommonDominator(Succ1, Succ2));
+    }
+
+    VPDomTreeNode *BlockPDT = PostDomTree->getNode(Block);
+    assert(BlockPDT && "Expected node in post-dom tree!");
+
+    // TODO: remove getBlock?
+    if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {
+      // Block's old ipostdom is the same as NewBlock's ipostdom. Block's new
+      // ipostdom is NewBlock
+      PostDomTree->changeImmediateDominator(BlockPDT, NewBlockPDT);
+
+    } else {
+      // Otherwise, Block's new ipostdom is the nearest common post-dominator of
+      // NewBlock and Block's old ipostdom
+      PostDomTree->changeImmediateDominator(
+          BlockPDT,
+          PostDomTree->getNode(PostDomTree->findNearestCommonDominator(
+              NewBlock, BlockPDT->getIDom()->getBlock())));
     }
   }
 
-  // Update dom information
-
-  VPDomTreeNode *BlockDT = DomTree.getNode(Block);
-  assert(BlockDT && "Expected node in dom tree!");
-  SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
-                                                  BlockDT->end());
-  // Block is NewBlock's idom.
-  VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
-
-  // NewBlock dominates all other nodes dominated by Block.
-  for (VPDomTreeNode *Child : BlockDTChildren)
-    DomTree.changeImmediateDominator(Child, NewBlockDT);
-
-  // Update postdom information
-
-  VPDomTreeNode *NewBlockPDT;
-  if (VPBlockBase *NewBlockSucc = NewBlock->getSingleSuccessor()) {
-    // NewBlock has a single successor. That successor is NewBlock's ipostdom.
-    NewBlockPDT = PostDomTree.addNewBlock(NewBlock, NewBlockSucc /*IDom*/);
-  } else {
-    // NewBlock has multiple successors. NewBlock's ipostdom is the nearest
-    // common post-dominator of both successors.
-
-    // TODO: getSuccessor(0)
-    auto &Successors = NewBlock->getSuccessors();
-    VPBlockBase *Succ1 = *Successors.begin();
-    VPBlockBase *Succ2 = *std::next(Successors.begin());
-
-    NewBlockPDT = PostDomTree.addNewBlock(
-        NewBlock, PostDomTree.findNearestCommonDominator(Succ1, Succ2));
-  }
-
-  VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
-  assert(BlockPDT && "Expected node in post-dom tree!");
-
-  // TODO: remove getBlock?
-  if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {
-    // Block's old ipostdom is the same as NewBlock's ipostdom. Block's new
-    // ipostdom is NewBlock
-    PostDomTree.changeImmediateDominator(BlockPDT, NewBlockPDT);
-
-  } else {
-    // Otherwise, Block's new ipostdom is the nearest common post-dominator of
-    // NewBlock and Block's old ipostdom
-    PostDomTree.changeImmediateDominator(
-        BlockPDT, PostDomTree.getNode(PostDomTree.findNearestCommonDominator(
-                      NewBlock, BlockPDT->getIDom()->getBlock())));
-  }
-
   return NewBlock;
+}
+
+VPBasicBlock *VPBlockUtils::splitBlockBegin(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                                       VPDominatorTree *DomTree,
+                                       VPPostDominatorTree *PostDomTree) {
+  auto BB = cast<VPBasicBlock>(Block);
+  return splitBlock(BB, BB->begin(), VPLInfo, DomTree, PostDomTree);
+}
+
+VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBlockBase *Block,
+                                          VPLoopInfo *VPLInfo,
+                                          VPDominatorTree *DomTree,
+                                          VPPostDominatorTree *PostDomTree) {
+  // TODO: Once terminators are implemented, we should split before the
+  // terminator, not before the end iterator.
+  auto BB = cast<VPBasicBlock>(Block);
+  return splitBlock(BB, BB->end(), VPLInfo, DomTree, PostDomTree);
 }
 #endif
 
@@ -605,6 +546,78 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
       continue;
     Inst.executeHIR(CG);
   }
+}
+
+VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
+  std::string NewName = NewBBName.str();
+  if (NewName.empty())
+    NewName = VPlanUtils::createUniqueName("BB");
+
+  VPBasicBlock *NewBlock = new VPBasicBlock(NewName);
+  moveConditionalEOBTo(NewBlock);
+  NewBlock->moveTripCountInfoFrom(this);
+  VPBlockUtils::insertBlockAfter(NewBlock, this);
+
+  auto End = end();
+
+  while (I != End && isa<VPPHINode>(*I))
+    ++I;
+
+  NewBlock->Instructions.splice(NewBlock->end(), Instructions, I, end());
+  // TODO: Make it automatical via splice above.
+  for (VPInstruction &VPInst : *NewBlock)
+    VPInst.setParent(NewBlock);
+
+  // Once instructions have been moved, determine which block has a
+  // block-predicate instruction now.
+  VPValue *OrigPredicate = getPredicate();
+
+  auto IsBlockPredicateForBlock = [](const VPUser *U,
+                                     const VPBasicBlock *Block) -> bool {
+    auto *Inst = dyn_cast<VPInstruction>(U);
+    if (!Inst)
+      return false;
+    return Inst->getOpcode() == VPInstruction::Pred &&
+           Inst->getParent() == Block;
+  };
+  auto HasBlockPredicate = [=](const VPBasicBlock *Block) {
+    return OrigPredicate != nullptr &&
+           llvm::any_of(OrigPredicate->users(), [=](const VPUser *U) {
+             return IsBlockPredicateForBlock(U, Block);
+           });
+  };
+
+  bool NewBlockHasPredicate = HasBlockPredicate(NewBlock);
+  if (NewBlockHasPredicate) {
+    setPredicate(nullptr);
+    NewBlock->setPredicate(OrigPredicate);
+  }
+  assert((!OrigPredicate || HasBlockPredicate(this) ||
+          HasBlockPredicate(NewBlock)) &&
+         "Block predicate was lost!");
+
+  // Update incoming block of VPPHINodes in successors, if any
+  for (auto &Successor : NewBlock->getSuccessors()) {
+    // Iterate over all VPPHINodes in Successor. Successor can be a region so
+    // we should take its entry.
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
+      if (VPN.getBlend() && !NewBlockHasPredicate)
+        // Don't update incoming blocks for a blend. They are needed for their
+        // predicates only, and the predicate wasn't copied into the new block.
+        continue;
+
+      // Transform the VPBBUsers vector of the PHI node by replacing any
+      // occurrence of Block with NewBlock
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
+                      [this, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
+                        if (A == cast<VPBasicBlock>(this))
+                          return NewBlock;
+                        return A;
+                      });
+    }
+  }
+
+  return NewBlock;
 }
 
 void VPRegionBlock::computeDT(void) {

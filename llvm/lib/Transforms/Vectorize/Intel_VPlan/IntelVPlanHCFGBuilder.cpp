@@ -161,7 +161,7 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
   //    - has multiple predecessors (it's a potential exit of another region).
   //    - is loop H of another loop.
   if (!WRLp || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
-    VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree);
+    VPBlockUtils::splitBlockEnd(PH, VPLInfo, &VPDomTree, &VPPostDomTree);
   }
 
   // Apply simplification to subloops
@@ -1040,8 +1040,8 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
 
   // Create new loop latch
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
-  VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
-      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
+  VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlockEnd(
+      OrigLoopLatch, VPLInfo, &VPDomTree, &VPPostDomTree);
   NewLoopLatch->setName(VPlanUtils::createUniqueName("new.loop.latch"));
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
@@ -1146,7 +1146,7 @@ void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
   if (!PotentialH ||
       (VPLInfo->isLoopHeader(PotentialH) &&
        VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit))
-    VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree);
+    VPBlockUtils::splitBlockEnd(Exit, VPLInfo, &VPDomTree, &VPPostDomTree);
 
   // Apply simplification to subloops
   for (auto VPSL : VPL->getSubLoops()) {
@@ -1188,8 +1188,8 @@ void VPlanHCFGBuilder::simplifyNonLoopRegions() {
       //
       // TODO: skip single basic block loops?
       if (CurrentBlock->getNumPredecessors() > 1) {
-        VPBlockUtils::splitBlock(CurrentBlock, Plan->getVPLoopInfo(), VPDomTree,
-                                 VPPostDomTree);
+        VPBlockUtils::splitBlockEnd(CurrentBlock, Plan->getVPLoopInfo(),
+                                    &VPDomTree, &VPPostDomTree);
       }
 
       // TODO: WIP. The code below has to be revisited. It will enable the
