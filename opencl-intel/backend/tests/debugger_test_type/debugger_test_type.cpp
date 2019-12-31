@@ -303,8 +303,10 @@ int main(int argc, char** argv)
                 build_flags += gworkitem;
                 build_flags += " ";
             }
+            // As debug and optimization flag decoupled, we need to pass
+            // both "-g" and "-cl-opt-disable" to get complete debug info
             if (options.get("debug_build") != "off") {
-                build_flags += "-g ";
+                build_flags += "-g -cl-opt-disable ";
             }
             build_flags += string("-s \"") + cl_file_name + "\"";
             DTT_LOG("Build flags: " + build_flags);
