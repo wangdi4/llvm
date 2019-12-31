@@ -8,7 +8,15 @@
 ;     for (int j = 0; j <= 23; ++j);
 ; }
 
-; CHECK: [[GID0:%[a-zA-Z._0-9]+]] = call i64 @_Z13get_global_idj(i32 1)
+; CHECK: [[GID0:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z13get_global_idj(i32 0)
+
+; CHECK: [[GID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z13get_global_idj(i32 1)
+; CHECK: [[BND1:%[a-zA-Z._0-9]+]] = trunc i64 [[GID1]] to i32
+; CHECK: store i32 [[BND1]], i32* [[LBNDPTR1:%[a-zA-Z._0-9]+]]
+; CHECK: store i32 [[BND1]], i32* [[UBNDPTR1:%[a-zA-Z._0-9]+]]
+; CHECK: [[LBND1:%[a-zA-Z._0-9]+]] = load i32, i32* [[LBNDPTR1]]
+; CHECK: [[UBND1:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBNDPTR1]]
+; CHECK: icmp sle i32 [[LBND1]], [[UBND1]]
 
 ; CHECK: [[BND0:%[a-zA-Z._0-9]+]] = trunc i64 [[GID0]] to i32
 ; CHECK: store i32 [[BND0]], i32* [[LBNDPTR0:%[a-zA-Z._0-9]+]]
@@ -17,16 +25,8 @@
 ; CHECK: [[UBND0:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBNDPTR0]]
 ; CHECK: icmp sle i32 [[LBND0]], [[UBND0]]
 
-; CHECK: [[GID1:%[a-zA-Z._0-9]+]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK: [[BND1:%[a-zA-Z._0-9]+]] = trunc i64 [[GID1]] to i32
-; CHECK: store i32 [[BND1]], i32* [[LBNDPTR1:%[a-zA-Z._0-9]+]]
-; CHECK: store i32 [[BND1]], i32* [[UBNDPTR1:%[a-zA-Z._0-9]+]]
-; CHECK: [[LBND1:%[a-zA-Z._0-9]+]] = load i32, i32* [[LBNDPTR1]]
-; CHECK: [[UBND1:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBNDPTR1]]
-; CHECK: icmp sle i32 [[LBND1]], [[UBND1]]
-
-; CHECK: icmp sle i32 %{{.*}}, [[UBND0]]
 ; CHECK: icmp sle i32 %{{.*}}, [[UBND1]]
+; CHECK: icmp sle i32 %{{.*}}, [[UBND0]]
 
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

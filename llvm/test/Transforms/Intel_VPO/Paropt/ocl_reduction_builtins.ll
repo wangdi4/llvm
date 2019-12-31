@@ -4,46 +4,46 @@
 ; Original code (see at the end of the file).
 
 ; Signed add:
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_addi(i32
-; CHECK-DAG: void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call i64 @_Z20sub_group_reduce_addl(i64
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_addi(i32
+; CHECK-DAG: spir_func void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* {{.*}}, i32
+; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_addl(i64
 
 ; Unsigned add:
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_addi(i32
-; CHECK-DAG: void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call i64 @_Z20sub_group_reduce_addl(i64
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_addi(i32
+; CHECK-DAG: spir_func void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* {{.*}}, i32
+; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_addl(i64
 
 ; FP add:
-; CHECK-DAG: call void @__kmpc_atomic_float4_add(float addrspace(4)* {{.*}}, float
-; CHECK-DAG: call double @_Z20sub_group_reduce_addd(double
+; CHECK-DAG: call spir_func void @__kmpc_atomic_float4_add(float addrspace(4)* {{.*}}, float
+; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_addd(double
 
 ; Signed min:
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_mini(i32
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_mini(i32
-; CHECK-DAG: call i64 @_Z20sub_group_reduce_minl(i64
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_mini(i32
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_mini(i32
+; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_minl(i64
 
 ; Unsigned min:
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_minj(i32
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_minj(i32
-; CHECK-DAG: call i64 @_Z20sub_group_reduce_minm(i64
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_minj(i32
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_minj(i32
+; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_minm(i64
 
 ; FP min:
-; CHECK-DAG: call float @_Z20sub_group_reduce_minf(float
-; CHECK-DAG: call double @_Z20sub_group_reduce_mind(double
+; CHECK-DAG: call spir_func float @_Z20sub_group_reduce_minf(float
+; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_mind(double
 
 ; Signed max:
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_maxi(i32
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_maxi(i32
-; CHECK-DAG: call i64 @_Z20sub_group_reduce_maxl(i64
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxi(i32
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxi(i32
+; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_maxl(i64
 
 ; Unsigned max:
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_maxj(i32
-; CHECK-DAG: call i32 @_Z20sub_group_reduce_maxj(i32
-; CHECK-DAG: call i64 @_Z20sub_group_reduce_maxm(i64
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxj(i32
+; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxj(i32
+; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_maxm(i64
 
 ; FP max:
-; CHECK-DAG: call float @_Z20sub_group_reduce_maxf(float
-; CHECK-DAG: call double @_Z20sub_group_reduce_maxd(double
+; CHECK-DAG: call spir_func float @_Z20sub_group_reduce_maxf(float
+; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_maxd(double
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

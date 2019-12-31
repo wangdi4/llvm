@@ -1296,6 +1296,10 @@ public:
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
+  /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
+  /// do nothing.
+  static void setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV);
+
   /// \name Helper methods for generating calls.
   /// @{
 

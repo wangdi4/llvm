@@ -844,7 +844,19 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 
   CallInst *Call =
       genCall(FnName, RetType, FnArgs, ArgType, InsertPt);
+  setFuncCallingConv(Call, true);
   return Call;
+}
+
+// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
+// do nothing.
+void VPOParoptUtils::setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV) {
+  if (!IsTargetSPIRV)
+    return;
+
+  CI->setCallingConv(CallingConv::SPIR_FUNC);
+  if (auto *CF = CI->getCalledFunction())
+    CF->setCallingConv(CallingConv::SPIR_FUNC);
 }
 
 // Call to i32 __cxa_atexit(void (i8*)*
@@ -3408,6 +3420,14 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
       return false;
 
   // Now insert the calls in the IR.
+  if (IsTargetSPIRV) {
+    // __kmpc_[end_]critical calls must be convergent for SPIR-V targets.
+    BeginCritical->getCalledFunction()->setConvergent();
+    setFuncCallingConv(BeginCritical, IsTargetSPIRV);
+    EndCritical->getCalledFunction()->setConvergent();
+    setFuncCallingConv(EndCritical, IsTargetSPIRV);
+  }
+
   BeginCritical->insertBefore(BeginInst);
   if (EndInst->isTerminator())
     EndCritical->insertBefore(EndInst);
@@ -4242,8 +4262,9 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
 
   StringRef Name = MapEntry->second;
 
-  auto HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
-                        &*Builder.GetInsertPoint());
+  auto *HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
+                         &*Builder.GetInsertPoint());
+  setFuncCallingConv(HRCall, true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ <<
              ": SPIRV horizontal reduction is used "

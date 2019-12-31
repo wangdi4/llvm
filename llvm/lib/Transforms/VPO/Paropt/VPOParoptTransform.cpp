@@ -266,6 +266,12 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
          "genOCLDistParLoopBoundUpdateCode: W is not a loop-type WRN");
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLDistParLoopBoundUpdateCode: Expect non-empty loop.");
+  // Insert calls outside of the outer loop to enable more loop
+  // optimizations, e.g. invariant hoisting.
+  Loop *OuterLoop = W->getWRNLoopInfo().getLoop(0);
+  assert(OuterLoop && "genOCLDistParLoopBoundUpdateCode: no outer loop found.");
+  Instruction *CallsInsertPt =
+      cast<Instruction>(OuterLoop->getLoopPreheader()->getTerminator());
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
@@ -278,7 +284,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   CallInst *NumGroupsCall =
       VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
                                         GeneralUtils::getSizeTTy(F),
-                                        Arg, InsertPt);
+                                        Arg, CallsInsertPt);
   Value *LB = Builder.CreateLoad(LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd);
   // LB and UB have the type of the canonical induction variable.
@@ -315,7 +321,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   CallInst *GroupIdCall =
       VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
                                         GeneralUtils::getSizeTTy(F),
-                                        Arg, InsertPt);
+                                        Arg, CallsInsertPt);
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
@@ -332,7 +338,15 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Value *Ch = Builder.CreateSub(Chunk, ValueOne);
   Value *NewUB = Builder.CreateAdd(LB, Ch);
 
-  Value *Compare = Builder.CreateICmp(ICmpInst::ICMP_ULT, NewUB, UB);
+  // Compare bounds using signed/unsigned comparison based on the ZTT compare.
+  // This helps optimizing CFG after Paropt. If ZTT is not found, then
+  // use unsigned comparison.
+  ICmpInst *ZTTCmpInst =
+      WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
+  bool IsSignedZTT = ZTTCmpInst ? ZTTCmpInst->isSigned() : false;
+
+  Value *Compare = Builder.CreateICmp(
+      IsSignedZTT ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT, NewUB, UB);
   Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       Compare, InsertPt, false,
       MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
@@ -390,6 +404,12 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLLoopBoundUpdateCode: Expect non-empty loop.");
+  // Insert calls outside of the outer loop to enable more loop
+  // optimizations, e.g. invariant hoisting.
+  Loop *OuterLoop = W->getWRNLoopInfo().getLoop(0);
+  assert(OuterLoop && "genOCLLoopBoundUpdateCode: no outer loop found.");
+  Instruction *CallsInsertPt =
+      cast<Instruction>(OuterLoop->getLoopPreheader()->getTerminator());
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
@@ -435,11 +455,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       LocalSize =
           VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
                                             Builder.getInt32Ty(),
-                                            {}, InsertPt);
+                                            {}, CallsInsertPt);
     else
       LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
                                                     GeneralUtils::getSizeTTy(F),
-                                                    Arg, InsertPt);
+                                                    Arg, CallsInsertPt);
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
@@ -461,11 +481,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       LocalId =
           VPOParoptUtils::genOCLGenericCall("_Z16get_sub_group_idv",
                                             Builder.getInt32Ty(),
-                                            {}, InsertPt);
+                                            {}, CallsInsertPt);
     else
       LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
                                                   GeneralUtils::getSizeTTy(F),
-                                                  Arg, InsertPt);
+                                                  Arg, CallsInsertPt);
 
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
@@ -485,13 +505,21 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     CallInst *GlobalId =
       VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
                                         GeneralUtils::getSizeTTy(F),
-                                        Arg, InsertPt);
+                                        Arg, CallsInsertPt);
     Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
     Builder.CreateStore(GlobalIdCasted, LowerBnd);
     NewUB = GlobalIdCasted;
   }
 
-  Value *Compare = Builder.CreateICmp(ICmpInst::ICMP_ULT, NewUB, UB);
+  // Compare bounds using signed/unsigned comparison based on the ZTT compare.
+  // This helps optimizing CFG after Paropt. If ZTT is not found, then
+  // use unsigned comparison.
+  ICmpInst *ZTTCmpInst =
+      WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
+  bool IsSignedZTT = ZTTCmpInst ? ZTTCmpInst->isSigned() : false;
+
+  Value *Compare = Builder.CreateICmp(
+      IsSignedZTT ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT, NewUB, UB);
   Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       Compare, InsertPt, false,
       MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
