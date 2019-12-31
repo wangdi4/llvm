@@ -176,6 +176,14 @@ private:
   /// Returns (and creates if needed) the trip count of the widened loop.
   Value *getOrCreateVectorTripCount(Loop *L);
 
+  /// Helper function to generate and insert a scalar LLVM instruction from
+  /// VPInstruction based on its opcode and scalar versions of its operands.
+  // TODO: Currently we don't populate IR flags/metadata information for the
+  // instructions generated below. Update after VPlan has internal
+  // representation for them.
+  Value *generateSerialInstruction(VPInstruction *VPInst,
+                                   ArrayRef<Value *> ScalarOperands);
+
   /// Serialize instruction that requires predication.
   void serializeWithPredication(VPInstruction *VPInst);
 

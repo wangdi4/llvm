@@ -128,14 +128,8 @@ static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
   return VectorType::get(VPInstTy->getScalarType(), NumElts);
 }
 
-/// Helper function to generate and insert a scalar LLVM instruction from
-/// VPInstruction based on its opcode and scalar versions of its operands.
-// TODO: Currently we don't populate IR flags/metadata information for the
-// instructions generated below. Update after VPlan has internal representation
-// for them.
-static Value *generateSerialInstruction(IRBuilder<> &Builder,
-                                        VPInstruction *VPInst,
-                                        ArrayRef<Value *> ScalarOperands) {
+Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
+                                             ArrayRef<Value *> ScalarOperands) {
   SmallVector<Value *, 4> Ops(ScalarOperands.begin(), ScalarOperands.end());
   Value *SerialInst = nullptr;
   if (Instruction::isBinaryOp(VPInst->getOpcode())) {
@@ -187,10 +181,24 @@ static Value *generateSerialInstruction(IRBuilder<> &Builder,
     assert(ScalarOperands.size() == 2 &&
            "ExtractElement instruction should have two operands.");
     SerialInst = Builder.CreateExtractElement(Ops[0], Ops[1]);
+  } else if (VPInst->getOpcode() == Instruction::Alloca) {
+    assert(ScalarOperands.size() == 1 &&
+           "Alloca instruction should have one operand.");
+    auto *Ty = cast<PointerType>(VPInst->getType());
+    AllocaInst *SerialAlloca = Builder.CreateAlloca(
+        Ty->getElementType(), Ty->getAddressSpace(), Ops[0]);
+    // TODO: We don't represent alignment in VPInstruction, so underlying
+    // instruction must exist!
+    auto *OrigAlloca = cast<AllocaInst>(VPInst->getUnderlyingValue());
+    SerialAlloca->setAlignment(MaybeAlign{OrigAlloca->getAlignment()});
+    SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
+    SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
+    SerialInst = SerialAlloca;
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
-    llvm_unreachable("Currently serialization of only binop instructions, "
-                     "load, call, gep is supported.");
+    llvm_unreachable(
+        "Currently serialization of only binop instructions, "
+        "load, call, gep, insert/extract-element, alloca is supported.");
   }
 
   return SerialInst;
@@ -707,6 +715,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
+  case Instruction::Alloca: {
+    serializeWithPredication(VPInst);
+    return;
+  }
+
   case Instruction::GetElementPtr: {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
@@ -724,8 +737,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         ScalarOperands.push_back(ScalarOp);
       }
 
-      Value *ScalarGep =
-          generateSerialInstruction(Builder, VPInst, ScalarOperands);
+      Value *ScalarGep = generateSerialInstruction(VPInst, ScalarOperands);
       ScalarGep->setName("scalar.gep");
       VPScalarMap[VPInst][0] = ScalarGep;
       break;
@@ -2775,8 +2787,7 @@ void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
     ScalarOperands.push_back(ScalarOp);
   }
 
-  Value *SerialInstruction =
-      generateSerialInstruction(Builder, VPInst, ScalarOperands);
+  Value *SerialInstruction = generateSerialInstruction(VPInst, ScalarOperands);
   VPScalarMap[VPInst][0] = SerialInstruction;
 
   PredicatedInstructions.push_back(
@@ -2806,8 +2817,7 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
       ScalarOperands.push_back(ScalarOp);
     }
 
-    Value *SerialInst =
-        generateSerialInstruction(Builder, VPInst, ScalarOperands);
+    Value *SerialInst = generateSerialInstruction(VPInst, ScalarOperands);
     assert(SerialInst && "Instruction not serialized.");
     VPScalarMap[VPInst][Lane] = SerialInst;
     PredicatedInstructions.push_back(
@@ -2835,8 +2845,7 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
       ScalarOperands.push_back(ScalarOp);
     }
 
-    Value *SerialInst =
-        generateSerialInstruction(Builder, VPInst, ScalarOperands);
+    Value *SerialInst = generateSerialInstruction(VPInst, ScalarOperands);
     assert(SerialInst && "Instruction not serialized.");
     VPScalarMap[VPInst][Lane] = SerialInst;
     LLVM_DEBUG(dbgs() << "LVCG: SerialInst: "; SerialInst->dump());

@@ -166,17 +166,20 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
 #if INTEL_CUSTOMIZATION
 static bool hasDeterministicResult(const VPInstruction &I) {
-  // As of now only a call instruction known to possibly have non-deterministic
-  // result.
-  if (I.getOpcode() != Instruction::Call)
-    return true;
-
   if (I.getType()->isVoidTy())
     return true;
 
-  // Check whether a call instruction may have a side effect as indicator of
-  // possible non-determinism. It is actually a bit pessimistic approach since
-  // non-determinism is only a subset of possible side effects.
+  // Be conservative and assume any instruction with side effects can produce
+  // non-deterministic value. An example of an instruction with side effects but
+  // still producing deterministic value is a function like
+  //
+  //    define i32* @foo(i32* %ptr) {
+  //      store i32 42, i32* %ptr
+  //      ret i32* %ptr
+  //    }
+  //
+  // However, we currently don't have an easy way to detect such determinism and
+  // use conservative approach.
   return !I.mayHaveSideEffects();
 }
 #endif // INTEL_CUSTOMIZATION

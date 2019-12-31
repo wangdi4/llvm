@@ -587,12 +587,7 @@ public:
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
 
-  bool mayHaveSideEffects() const {
-    auto *Instr = getInstruction();
-    if (!Instr)
-      return true; // Without underlying IR return pessimistic answer.
-    return Instr->mayHaveSideEffects();
-  }
+  bool mayHaveSideEffects() const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \return the VPBasicBlock which this VPInstruction belongs to.

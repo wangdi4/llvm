@@ -828,6 +828,34 @@ void VPInstruction::execute(VPTransformState &State) {
     generateInstruction(State, Part);
 }
 
+bool VPInstruction::mayHaveSideEffects() const {
+  if (auto *Instr = getInstruction()) {
+    if (Instr->mayHaveSideEffects())
+      return true;
+
+    // mayHaveSideEffects does not consider malloc/alloca to have side effects.
+    // Do more checks.
+    if (isa<AllocaInst>(Instr))
+      return true;
+
+    // FIXME: malloc-like routines.
+
+    return false;
+  }
+
+  // TODO: Probably should be unified with llvm::Instruction's opcode
+  // handling. Harder to do without INTEL_CUSTOMIZATION before VPlan
+  // upstreaming.
+  unsigned Opcode = getOpcode();
+  if (Instruction::isCast(Opcode) || Instruction::isShift(Opcode) ||
+      Instruction::isBitwiseLogicOp(Opcode) ||
+      Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
+      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr)
+    return false;
+
+  return true;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   switch (Opcode) {
