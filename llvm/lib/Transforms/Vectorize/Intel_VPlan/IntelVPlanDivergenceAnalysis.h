@@ -81,11 +81,11 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Return the vector shape for \p V.
-  VPVectorShape* getVectorShape(const VPValue *V) const;
+  VPVectorShape getVectorShape(const VPValue *V) const;
 
   /// Updates the vector shape for \p V, if necessary.
   /// Returns true if the shape was updated.
-  bool updateVectorShape(const VPValue *V, VPVectorShape* Shape);
+  bool updateVectorShape(const VPValue *V, VPVectorShape Shape);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const VPLoop *VPLp);
@@ -179,56 +179,56 @@ private:
   void initializePhiShapes(VPLoop *CandidateLoop);
 
   /// Returns true if OldShape is not equal to NewShape.
-  bool shapesAreDifferent(VPVectorShape* OldShape, VPVectorShape* NewShape);
+  bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
   /// Set any remaining shapes for instructions that stayed uniform after
   /// divergence propagation.
   void setVectorShapesForUniforms(const VPLoop *VPLp);
 
   /// Compute vector shape of \p I.
-  VPVectorShape* computeVectorShape(const VPInstruction *I);
+  VPVectorShape computeVectorShape(const VPInstruction *I);
 
   /// Computes vector shapes for all binary instructions. E.g., add, sub, etc.
-  VPVectorShape* computeVectorShapeForBinaryInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForBinaryInst(const VPInstruction *I);
 
   /// Computes vector shapes for cast instructions, sitofp, sext, ptrtoint, etc.
-  VPVectorShape* computeVectorShapeForCastInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForCastInst(const VPInstruction *I);
 
   /// Computes vector shapes for gep instructions.
-  VPVectorShape* computeVectorShapeForGepInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForGepInst(const VPInstruction *I);
 
   /// Computes vector shapes for phi nodes.
-  VPVectorShape* computeVectorShapeForPhiNode(const VPPHINode *Phi);
+  VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);
 
   /// Computes vector shape for load instructions.
-  VPVectorShape* computeVectorShapeForLoadInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForLoadInst(const VPInstruction *I);
 
   /// Computes vector shape for store instructions.
-  VPVectorShape* computeVectorShapeForStoreInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForStoreInst(const VPInstruction *I);
 
   /// Computes vector shape for the different types of cmp instructions.
-  VPVectorShape* computeVectorShapeForCmpInst(const VPCmpInst *I);
+  VPVectorShape computeVectorShapeForCmpInst(const VPCmpInst *I);
 
   /// Computes vector shape for extract element instructions.
-  VPVectorShape* computeVectorShapeForInsertExtractInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForInsertExtractInst(const VPInstruction *I);
 
   /// Computes vector shape for select instructions.
-  VPVectorShape* computeVectorShapeForSelectInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForSelectInst(const VPInstruction *I);
 
   /// Computes vector shape for call instructions.
-  VPVectorShape* computeVectorShapeForCallInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForCallInst(const VPInstruction *I);
 
   /// Returns a uniform vector shape.
-  VPVectorShape* getUniformVectorShape();
+  VPVectorShape getUniformVectorShape();
 
   /// Returns a random vector shape.
-  VPVectorShape* getRandomVectorShape();
+  VPVectorShape getRandomVectorShape();
 
   /// Returns a sequential vector shape with the given stride.
-  VPVectorShape *getSequentialVectorShape(uint64_t Stride);
+  VPVectorShape getSequentialVectorShape(uint64_t Stride);
 
   /// Returns a strided vector shape with the given stride.
-  VPVectorShape *getStridedVectorShape(uint64_t Stride);
+  VPVectorShape getStridedVectorShape(uint64_t Stride);
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
   bool getConstantIntVal(VPValue *V, uint64_t &IntVal);
@@ -272,11 +272,7 @@ private:
   DenseSet<VPValue *> DivergentLoopEntities;
 
   // Shape information of divergent values.
-  DenseMap<const VPValue *, std::unique_ptr<VPVectorShape>> VectorShapes;
-
-  // Undefined shapes are not stored in VectorShapes, but we need a singleton
-  // object to compare against other shapes.
-  std::unique_ptr<VPVectorShape> UndefShape;
+  DenseMap<const VPValue *, VPVectorShape> VectorShapes;
 #endif // INTEL_CUSTOMIZATION
 
   VPDominatorTree *DT;

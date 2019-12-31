@@ -827,9 +827,8 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       auto *VPInst = ValInstPair.second;
       Builder.insert(VPInst);
       DA->markDivergent(*VPInst);
-      auto *VectorShape = DA->getVectorShape(VPOperand);
-      assert(VectorShape && "Expecting a valid value for vector-shape.");
-      DA->updateVectorShape(VPInst, VectorShape->clone());
+      auto VectorShape = DA->getVectorShape(VPOperand);
+      DA->updateVectorShape(VPInst, VectorShape);
     }
 
     // Now do the replacement. We first replace all instances of VPOperand
