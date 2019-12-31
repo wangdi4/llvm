@@ -394,6 +394,8 @@ void HLIf::verify() const {
                getParentLoop()->getFirstChild() &&
            "Could not find unknown loop's backedge!");
     assert(!hasElseChildren() && "Unexpected bottom test structure!");
+    assert((getNumPredicates() == 1) &&
+           "Single predicate allowed in unknown loop's bottom test!");
   }
 
   HLDDNode::verify();

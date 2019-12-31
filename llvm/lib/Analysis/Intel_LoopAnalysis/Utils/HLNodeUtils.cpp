@@ -4846,3 +4846,84 @@ MDNode *HLNodeUtils::swapProfMetadata(LLVMContext &Context,
 
   return MDNode::get(Context, Ops);
 }
+
+namespace {
+
+class TempDefFinder final : public HLNodeVisitorBase {
+  SmallSet<unsigned, 4> &TempSymbases;
+  SmallVector<unsigned, 4> FoundTempDefs;
+
+public:
+  TempDefFinder(SmallSet<unsigned, 4> &TempSymbases)
+      : TempSymbases(TempSymbases) {}
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  void visit(const HLInst *Inst);
+
+  SmallVector<unsigned, 4> getFoundTempDefs() const { return FoundTempDefs; }
+};
+
+void TempDefFinder::visit(const HLInst *Inst) {
+  auto LvalRef = Inst->getLvalDDRef();
+
+  if (!LvalRef || !LvalRef->isTerminalRef()) {
+    return;
+  }
+
+  unsigned TempDefSB = LvalRef->getSymbase();
+
+  if (TempSymbases.count(TempDefSB)) {
+    FoundTempDefs.push_back(TempDefSB);
+  }
+}
+
+} // namespace
+
+void HLNodeUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
+                                            const HLLoop *OrigLoop) {
+  // Creation of a new cloned loop (remainder loop, for example) can result in
+  // additional liveouts from the lexically first loop. Consider this example
+  // where t1 is livein but not liveout of the loop- DO i1
+  //   t1 = t1 + ...
+  // END DO
+  //
+  // After creating main and remainder loop, t1 becomes liveout of main loop.
+  //
+  // DO i1  << main loop
+  //   t1 = t1 + ...
+  // END DO
+  //
+  // DO i2  << remainder loop
+  //   t1 = t1 + ...
+  // END DO
+
+  if (!OrigLoop) {
+    OrigLoop = LiveoutLoop;
+  }
+
+  SmallSet<unsigned, 4> LiveoutCandidates;
+
+  // Collect liveins which are not liveout of the loop.
+  for (auto It = OrigLoop->live_in_begin(), E = OrigLoop->live_in_end();
+       It != E; ++It) {
+    unsigned Symbase = *It;
+
+    if (!OrigLoop->isLiveOut(Symbase)) {
+      LiveoutCandidates.insert(Symbase);
+    }
+  }
+
+  if (LiveoutCandidates.empty()) {
+    return;
+  }
+
+  TempDefFinder TDF(LiveoutCandidates);
+
+  HLNodeUtils::visitRange(TDF, OrigLoop->child_begin(), OrigLoop->child_end());
+
+  for (unsigned LiveoutSB : TDF.getFoundTempDefs()) {
+    LiveoutLoop->addLiveOutTemp(LiveoutSB);
+  }
+}

@@ -272,7 +272,7 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
 
       // Add loop liveouts for every pre-loop and post-loop except the last one.
       if (PreLoop || I < E - 1) {
-        HIRTransformUtils::addCloningInducedLiveouts(NewLoop);
+        HLNodeUtils::addCloningInducedLiveouts(NewLoop);
       }
     } else {
       // Empty loop
@@ -472,7 +472,7 @@ HLLoop *HIRLoopFusion::fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates) {
 
   // Add possible new liveouts because of post loop.
   if (HasPostLoop) {
-    HIRTransformUtils::addCloningInducedLiveouts(FirstLoop);
+    HLNodeUtils::addCloningInducedLiveouts(FirstLoop);
   }
 
   return FirstLoop;

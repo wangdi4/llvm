@@ -1657,6 +1657,21 @@ public:
   /// Swap the two operands of ProfData MDNode.
   /// ProfData is always branch_weights.
   static MDNode *swapProfMetadata(LLVMContext &Context, MDNode *ProfData);
+
+  /// Utility to add additional liveouts to the loops induced by cloning. For
+  /// example, some temps can becomes liveout from the main loop to remainder
+  /// loop after unrolling/vectorization.
+  /// \p LiveoutLoop is the one to which additional liveout need to be added.
+  /// \p OrigLoop is used to find definitions of temps which can become liveout.
+  /// Default value of null indicates that it is the same as LiveoutLoop. This
+  /// is a separate parameter because sometimes the cloned Liveout loop is empty
+  /// so it cannot be used for traversal.
+  //
+  /// Please note that this is conservative behavior as we do not check whether
+  /// the temp is really livein into the second loop. This can be refined later
+  /// if it causes performance regressions.
+  static void addCloningInducedLiveouts(HLLoop *LiveoutLoop,
+                                        const HLLoop *OrigLoop = nullptr);
 };
 
 } // End namespace loopopt
