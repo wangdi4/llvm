@@ -26,6 +26,7 @@
 #include "out_of_order_command_queue.h"
 #include "Device.h"
 #include "cl_logger.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;

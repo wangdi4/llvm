@@ -484,7 +484,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     bLoadRes = m_dllTBBLib.Load(tbbPath.c_str());
     if ( !bLoadRes )
     {
-        LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath);
+        LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath.c_str());
     }
 #endif
 

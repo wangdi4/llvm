@@ -358,43 +358,48 @@ endfunction(ocl_replace_compiler_option_to_dynamic)
 #
 # Set compiler RTTI options according to the given flag
 #
-function(use_rtti val)
-    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+macro(use_rtti val)
+    #  !!! Don't change the order! ICX matches both MSVC and Clang, but it uses MSVC flags !!!
+    if (MSVC) # ICX/MSVC
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+        endif()
+    else() # GCC/Clang
         if( ${val} )
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
         else()
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
         endif()
-    else(MSVC)
-        if( ${val} )
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
-        else()
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
-        endif()
     endif()
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
-endfunction(use_rtti)
+endmacro(use_rtti)
 
 #
 # Set compiler Exception Handling options according to the given flag
 #
-function(use_eh val)
-    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+macro(use_eh val)
+    #  !!! Don't change the order! ICX matches both MSVC and Clang, but it uses MSVC flag !!!
+    if (MSVC) # ICX/MSVC
+        if( ${val} )
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "")
+              set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+              add_definitions( /D_HAS_EXCEPTIONS=1 )
+        else()
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "")
+              set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHs-c-")
+              add_definitions( /D_HAS_EXCEPTIONS=0 )
+        endif()
+    else() # GCC/Clang
         if( ${val} )
             remove_definitions( -fno-exceptions )
         else()
             add_definitions( -fno-exceptions )
         endif()
-    else(MSVC)
-        if( ${val} )
-              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
-              add_definitions( /D_HAS_EXCEPTIONS=1 )
-        else()
-              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
-              add_definitions( /D_HAS_EXCEPTIONS=0 )
-        endif()
     endif()
-endfunction(use_eh)
+endmacro(use_eh)
 
 # Set of functions used to add unittests
 # TODO: reuse in backend

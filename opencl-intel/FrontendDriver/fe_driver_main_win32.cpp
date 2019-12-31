@@ -75,7 +75,7 @@ bool LoadCommonClang()
     clangPath += CCLANG_LIB_NAME;
 
     if (!m_dlClangLib->Load(clangPath.c_str())) {
-      LogErrorA("Faild to load common clang from %s", clangPath);
+      LogErrorA("Faild to load common clang from %s", clangPath.c_str());
       return false;
     }
   }

@@ -57,22 +57,6 @@ if (NOT WIN32)
 
 endif (NOT WIN32)
 
-#
-# Settings for Windows compilation
-#
-if (WIN32)
-
-    # Assember and its flags
-    set( CMAKE_ASM_FLAGS /c /nologo /W3 /Zi /errorReport:prompt)
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG   /I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG   /Fo )
-    get_filename_component( CMAKE_ASM_COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY )
-    set ( OPENCL_ASM_COMPILER "${CMAKE_ASM_COMPILER_DIR}/ml64.exe" )
-    set( CMAKE_ASM_LINK_FLAG "/nologo")
-
-endif (WIN32)
-
-
 use_rtti(FALSE)
 
 # Create target project

@@ -15,6 +15,7 @@
 #include "Context.h"
 #include "program_for_link.h"
 #include "cl_logger.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "kernel.h"
 #include "sampler.h"

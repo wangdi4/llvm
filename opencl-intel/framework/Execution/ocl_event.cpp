@@ -17,6 +17,7 @@
 
 #include "ocl_event.h"
 #include "command_queue.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Framework;
 
