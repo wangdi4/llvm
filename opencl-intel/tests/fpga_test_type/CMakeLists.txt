@@ -25,6 +25,7 @@ add_ocl_unittest(
     multiple_devices.cpp
     fpga_features.cpp
     ihc_synchronization.cpp
+    kernel_serialization.cpp
 
   LINK_LIBRARIES
     OpenCL

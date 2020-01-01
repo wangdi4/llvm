@@ -124,6 +124,31 @@ protected:
   }
 
   /**
+   *  \brief Enqueues single work-item (task) OpenCL kernel in out-of-order
+   *  queue
+   *
+   *  This function is a helper, \see enqueueNDRange for detailed description
+   */
+  template<typename... Args>
+  bool enqueueOOOTask(const std::string &kernel_name, Args... args) {
+    assert(nullptr != m_program && "no valid program object created!");
+    cl_kernel kernel = parent_t::createKernel(m_program, kernel_name);
+    EXPECT_TRUE(kernel != nullptr) << "createKernel failed";
+    if (nullptr == kernel) {
+      return false;
+    }
+
+    cl_command_queue queue = getOrCreateOOOQueue();
+    if (nullptr == queue) {
+      return false;
+    }
+
+    const size_t one = 1;
+
+    return enqueueNDRange(0, 1, &one, &one, queue, kernel, args...);
+  }
+
+  /**
    *  \brief Finishes command queue associated with a \c kernel_name identifier
    *
    *  Use \c kernel_name passed previously to \c enqueueNDRange or
@@ -209,11 +234,13 @@ protected:
   }
 
   cl_context getContext() const { return m_context; }
+  cl_command_queue getOOOQueue() const { return m_out_of_order_queue; }
   cl_device_id getDevice() const { return parent_t::device(); }
 
 private:
   cl_context m_context = nullptr;
   cl_program m_program = nullptr;
+  cl_command_queue m_out_of_order_queue = nullptr;
 
   std::map<std::string, cl_command_queue> m_queues;
 
@@ -247,8 +274,8 @@ private:
 
   cl_command_queue getOrCreateQueue(const std::string &kernel_name) {
     if (m_queues.find(kernel_name) == m_queues.end()) {
-      cl_command_queue queue =
-          parent_t::createCommandQueue(m_context, parent_t::device());
+      cl_command_queue queue = parent_t::createCommandQueue(
+          m_context, parent_t::device());
       EXPECT_TRUE(nullptr != queue) << "createCommandQueue failed";
       if (nullptr == queue) {
         return nullptr;
@@ -258,6 +285,14 @@ private:
     }
 
     return m_queues[kernel_name];
+  }
+
+  cl_command_queue getOrCreateOOOQueue() {
+    if (!m_out_of_order_queue)
+      m_out_of_order_queue =
+          parent_t::createCommandQueue(m_context, parent_t::device(), true);
+
+    return m_out_of_order_queue;
   }
 };
 

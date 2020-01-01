@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "cl_framework.h"
 #include <Logger.h>
 #include "iexecution.h"
@@ -193,6 +195,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
         OCLObjectsMap<_cl_command_queue_int, _cl_context_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
+        // Binding between a kernel to enqueue and an event assosiated with
+        // the kernel. Need for kernel serialization on FPGA emulator.
+        std::map<std::string, cl_event*> m_OclKernelEventMap;
         EventsManager*      m_pEventsManager;                                                   // Placeholder for all active events.
 
         ocl_entry_points *	m_pOclEntryPoints;
