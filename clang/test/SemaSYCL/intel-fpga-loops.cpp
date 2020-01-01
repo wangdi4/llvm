@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -x c++ -fsycl-is-device -std=c++11 -fsyntax-only -verify -pedantic %s
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -fsycl-is-device -fsyntax-only -verify -pedantic %s
+>>>>>>> 756deb8037eee668a42aefde8d3e0c6c31faa14f
 
 // Test for Intel FPGA loop attributes applied not to a loop
 void foo() {

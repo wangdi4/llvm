@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang -I %S/Inputs -std=c++11 -fsycl-device-only -Xclang -fsycl-int-header=%t.h %s -c -o %t.spv
+=======
+// RUN: %clang -I %S/Inputs -fsycl-device-only -Xclang -fsycl-int-header=%t.h %s -c -o %t.spv
+>>>>>>> 756deb8037eee668a42aefde8d3e0c6c31faa14f
 // RUN: FileCheck %s --input-file=%t.h
 
 // Checks that functors are supported as SYCL kernels.
