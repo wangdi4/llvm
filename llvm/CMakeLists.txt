@@ -1372,7 +1372,8 @@ if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
   add_subdirectory(utils/llvm-locstats)
 endif()
 
-<<<<<<< HEAD
+process_llvm_pass_plugins()
+
 if (INTEL_CUSTOMIZATION)
   if (INTEL_CMAKE_DEPLOY)
 
@@ -1547,6 +1548,3 @@ if (INTEL_CUSTOMIZATION)
     add_custom_target(deploy DEPENDS ${manifest})
   endif()
 endif (INTEL_CUSTOMIZATION)
-=======
-process_llvm_pass_plugins()
->>>>>>> 24ab9b537e61b3fe5e6a1019492ff6530d82a3ee

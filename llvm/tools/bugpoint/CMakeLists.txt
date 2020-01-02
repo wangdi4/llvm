@@ -49,7 +49,6 @@ add_llvm_tool(bugpoint
   SUPPORT_PLUGINS
   )
 export_executable_symbols(bugpoint)
-<<<<<<< HEAD
 
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
@@ -64,11 +63,3 @@ if (p)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-
-if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
-  target_link_libraries(bugpoint PRIVATE Polly)
-  # Ensure LLVMTarget can resolve dependences in Polly.
-  target_link_libraries(bugpoint PRIVATE LLVMTarget)
-endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
-=======
->>>>>>> 24ab9b537e61b3fe5e6a1019492ff6530d82a3ee

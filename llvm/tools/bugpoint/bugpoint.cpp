@@ -164,7 +164,6 @@ int main(int argc, char **argv) {
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
@@ -180,12 +179,6 @@ int main(int argc, char **argv) {
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
 
-#ifdef LINK_POLLY_INTO_TOOLS
-  polly::initializePollyPasses(Registry);
-#endif
-
-=======
->>>>>>> 24ab9b537e61b3fe5e6a1019492ff6530d82a3ee
   if (std::getenv("bar") == (char*) -1) {
     InitializeAllTargets();
     InitializeAllTargetMCs();
