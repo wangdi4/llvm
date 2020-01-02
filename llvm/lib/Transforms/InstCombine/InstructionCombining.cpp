@@ -1700,7 +1700,6 @@ Instruction *InstCombiner::narrowMathIfNoOverflow(BinaryOperator &BO) {
   return CastInst::Create(CastOpc, NarrowBO, BO.getType());
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // TODO: Can it be merged into combineMetadata* in Local.h?
 
@@ -1737,7 +1736,7 @@ static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
   NewGEP->setMetadata(LLVMContext::MD_intel_tbaa, MergedTBAA);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
   // At least one GEP must be inbounds.
   if (!GEP1.isInBounds() && !GEP2.isInBounds())
@@ -1746,7 +1745,6 @@ bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
   return (GEP1.isInBounds() || GEP1.hasAllZeroIndices()) &&
          (GEP2.isInBounds() || GEP2.hasAllZeroIndices());
 }
->>>>>>> 8dd9a1361958f0cc53d100124e158cbe691c4628
 
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
@@ -2048,11 +2046,10 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       Indices.append(GEP.idx_begin()+1, GEP.idx_end());
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Handle merging of IntelTBAA nodes and update all users accordingly.
     if (!Indices.empty()) {
-      auto NewGEP = GEP.isInBounds() && Src->isInBounds()
+      auto NewGEP = isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP))
                         ? GetElementPtrInst::CreateInBounds(
                               Src->getSourceElementType(), Src->getOperand(0),
                               Indices, GEP.getName())
@@ -2063,16 +2060,6 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       return NewGEP;
 #endif // INTEL_CUSTOMIZATION
     }
-=======
-    if (!Indices.empty())
-      return isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP))
-                 ? GetElementPtrInst::CreateInBounds(
-                       Src->getSourceElementType(), Src->getOperand(0), Indices,
-                       GEP.getName())
-                 : GetElementPtrInst::Create(Src->getSourceElementType(),
-                                             Src->getOperand(0), Indices,
-                                             GEP.getName());
->>>>>>> 8dd9a1361958f0cc53d100124e158cbe691c4628
   }
 
   if (GEP.getNumIndices() == 1) {
