@@ -42,7 +42,13 @@ namespace intel {
       TLSGlobals.insert(GV);
     }
     for (auto &GVar : M.globals()) {
-      if (TLSGlobals.count(&GVar) ||
+      // According to llvm/LangRef, unreferenced globals of common, weak and
+      // weak_odr linkage may not be discarded.
+      bool MayNotDiscardLinkage =
+        IS_ADDR_SPACE_GLOBAL(GVar.getType()->getAddressSpace()) &&
+        (GVar.hasCommonLinkage() || GVar.hasExternalLinkage() ||
+         GVar.hasWeakLinkage() || GVar.hasWeakODRLinkage());
+      if (TLSGlobals.count(&GVar) || MayNotDiscardLinkage ||
           (GVar.hasName() && GVar.getName().startswith("llvm.")))
         continue;
       GVar.setLinkage(GlobalValue::InternalLinkage);

@@ -110,10 +110,10 @@ bool fission_buildMultipleSubDevices_test(){
         return bResult;
     }
 
-    while (!uiBuildDone);
+    while (!uiBuildDone) {}
 
     // Check that program was built for both devices
-	cl_build_status build_status;
+    cl_build_status build_status;
 
     for (int i = 0; i < 2; ++i)
     {

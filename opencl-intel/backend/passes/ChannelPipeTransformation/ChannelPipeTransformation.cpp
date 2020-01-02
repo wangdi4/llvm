@@ -328,6 +328,10 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
 
     VMap[&ChannelGV] = PipeGV;
 
+    // ChannelGV is replaced with PipeGV. We set ChannelGV linkage to internal
+    // so that it is eliminated later by globaldce pass.
+    ChannelGV.setLinkage(GlobalValue::InternalLinkage);
+
     Changed = true;
   }
 
