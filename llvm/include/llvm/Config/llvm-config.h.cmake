@@ -17,6 +17,7 @@
 /* Define if LLVM_ENABLE_DUMP is enabled */
 #cmakedefine LLVM_ENABLE_DUMP
 
+<<<<<<< HEAD
 /* Define if we link Polly to the tools */
 #cmakedefine LINK_POLLY_INTO_TOOLS
 
@@ -25,6 +26,8 @@
 #cmakedefine01 INTEL_INCLUDE_DTRANS
 /* end INTEL_CUSTOMIZATION */
 
+=======
+>>>>>>> 24ab9b537e61b3fe5e6a1019492ff6530d82a3ee
 /* Target triple LLVM will generate code for by default */
 #cmakedefine LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}"
 

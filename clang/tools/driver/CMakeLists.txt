@@ -132,6 +132,7 @@ if(CLANG_ORDER_FILE AND
     set_target_properties(clang PROPERTIES LINK_DEPENDS ${CLANG_ORDER_FILE})
   endif()
 endif()
+<<<<<<< HEAD
 
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
@@ -150,3 +151,5 @@ endif()
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(clang PRIVATE Polly)
 endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
+=======
+>>>>>>> 24ab9b537e61b3fe5e6a1019492ff6530d82a3ee
