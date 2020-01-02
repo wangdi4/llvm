@@ -1260,7 +1260,7 @@ bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
   MachineBasicBlock::iterator MII = MBB.begin();
 
   // Add live-in registers as live.
-  for (const MachineBasicBlock::RegisterMaskPair LI : MBB.liveins())
+  for (const MachineBasicBlock::RegisterMaskPair &LI : MBB.liveins())
     if (MRI->isAllocatable(LI.PhysReg))
       definePhysReg(MII, LI.PhysReg, regReserved);
 

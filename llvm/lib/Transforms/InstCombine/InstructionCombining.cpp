@@ -2019,6 +2019,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
       // Update the GEP in place if possible.
       if (Src->getNumOperands() == 2) {
+        GEP.setIsInBounds(GEP.isInBounds() && Src->isInBounds());
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
         // TODO: INTEL: Should we drop all the metadata and upstream?
