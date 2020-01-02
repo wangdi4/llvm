@@ -1700,6 +1700,7 @@ Instruction *InstCombiner::narrowMathIfNoOverflow(BinaryOperator &BO) {
   return CastInst::Create(CastOpc, NarrowBO, BO.getType());
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // TODO: Can it be merged into combineMetadata* in Local.h?
 
@@ -1736,6 +1737,16 @@ static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
   NewGEP->setMetadata(LLVMContext::MD_intel_tbaa, MergedTBAA);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
+  // At least one GEP must be inbounds.
+  if (!GEP1.isInBounds() && !GEP2.isInBounds())
+    return false;
+
+  return (GEP1.isInBounds() || GEP1.hasAllZeroIndices()) &&
+         (GEP2.isInBounds() || GEP2.hasAllZeroIndices());
+}
+>>>>>>> 8dd9a1361958f0cc53d100124e158cbe691c4628
 
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
@@ -2019,7 +2030,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
       // Update the GEP in place if possible.
       if (Src->getNumOperands() == 2) {
-        GEP.setIsInBounds(GEP.isInBounds() && Src->isInBounds());
+        GEP.setIsInBounds(isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP)));
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
         // TODO: INTEL: Should we drop all the metadata and upstream?
@@ -2037,6 +2048,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       Indices.append(GEP.idx_begin()+1, GEP.idx_end());
     }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Handle merging of IntelTBAA nodes and update all users accordingly.
     if (!Indices.empty()) {
@@ -2051,6 +2063,16 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       return NewGEP;
 #endif // INTEL_CUSTOMIZATION
     }
+=======
+    if (!Indices.empty())
+      return isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP))
+                 ? GetElementPtrInst::CreateInBounds(
+                       Src->getSourceElementType(), Src->getOperand(0), Indices,
+                       GEP.getName())
+                 : GetElementPtrInst::Create(Src->getSourceElementType(),
+                                             Src->getOperand(0), Indices,
+                                             GEP.getName());
+>>>>>>> 8dd9a1361958f0cc53d100124e158cbe691c4628
   }
 
   if (GEP.getNumIndices() == 1) {
