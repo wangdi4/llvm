@@ -1,12 +1,8 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 -triple spir64-unknown-linux-sycldevice  -std=c++11 -fsycl-is-device -disable-llvm-passes -emit-llvm -x c++ %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -fsycl-is-device -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 // INTEL CUSTOMIZATION:
 // Mark this test as expected fail in initial merge of SYCL to xmain
 // XFAIL: windows-msvc
 // END INTEL CUSTOMIZATION
-=======
-// RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -fsycl-is-device -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
->>>>>>> 756deb8037eee668a42aefde8d3e0c6c31faa14f
 
 struct SpaceWaster {
   int i, j;

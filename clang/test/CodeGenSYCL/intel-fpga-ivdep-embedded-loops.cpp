@@ -1,10 +1,4 @@
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -x c++ -triple spir64-unknown-linux-sycldevice -std=c++11 -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
-// end INTEL_CUSTOMIZATION
-=======
 // RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
->>>>>>> 756deb8037eee668a42aefde8d3e0c6c31faa14f
 
 // Accesses from the inner loop only, various global safelens for the outer and the inner loops.
 //
