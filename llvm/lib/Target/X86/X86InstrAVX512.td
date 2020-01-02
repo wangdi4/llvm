@@ -10040,13 +10040,13 @@ multiclass avx512_rndscale_scalar<bits<8> opc, string OpcodeStr,
   }
 
   let Predicates = [HasAVX512] in {
-    def : Pat<(X86VRndScale _.FRC:$src1, timm:$src2),
+    def : Pat<(X86any_VRndScale _.FRC:$src1, timm:$src2),
               (_.EltVT (!cast<Instruction>(NAME##r) (_.EltVT (IMPLICIT_DEF)),
                _.FRC:$src1, timm:$src2))>;
   }
 
   let Predicates = [HasAVX512, OptForSize] in {
-    def : Pat<(X86VRndScale (_.ScalarLdFrag addr:$src1), timm:$src2),
+    def : Pat<(X86any_VRndScale (_.ScalarLdFrag addr:$src1), timm:$src2),
               (_.EltVT (!cast<Instruction>(NAME##m) (_.EltVT (IMPLICIT_DEF)),
                addr:$src1, timm:$src2))>;
   }
@@ -11328,7 +11328,12 @@ multiclass avx512_common_unary_fp_sae_packed_imm_all<string OpcodeStr,
 defm VREDUCE   : avx512_common_unary_fp_sae_packed_imm_all<"vreduce", 0x56, 0x56,
                               X86VReduce, X86VReduceSAE, SchedWriteFRnd, HasDQI>;
 defm VRNDSCALE : avx512_common_unary_fp_sae_packed_imm_all<"vrndscale", 0x08, 0x09,
+<<<<<<< HEAD
                               X86VRndScale, X86VRndScaleSAE, SchedWriteFRnd, HasAVX512>;
+=======
+                              X86any_VRndScale, X86VRndScaleSAE, SchedWriteFRnd, HasAVX512>,
+                              AVX512AIi8Base, EVEX;
+>>>>>>> 8af492ade1bc5367ae529e451b9c9cd9e3d55e53
 defm VGETMANT : avx512_common_unary_fp_sae_packed_imm_all<"vgetmant", 0x26, 0x26,
                               X86VGetMant, X86VGetMantSAE, SchedWriteFRnd, HasAVX512>;
 #endif // INTEL_CUSTOMIZATION
