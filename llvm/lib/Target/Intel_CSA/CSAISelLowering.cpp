@@ -293,7 +293,8 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::FP_TO_UINT, VT, Expand);
     setOperationAction(ISD::SINT_TO_FP, VT, Expand);
     setOperationAction(ISD::UINT_TO_FP, VT, Expand);
-    setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+    if (isTypeLegal(VT))
+      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
   }
 
   for (MVT VT : MVT::integer_fixedlen_vector_valuetypes()) {
@@ -313,7 +314,8 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::FP_TO_UINT, VT, Expand);
     setOperationAction(ISD::SINT_TO_FP, VT, Expand);
     setOperationAction(ISD::UINT_TO_FP, VT, Expand);
-    setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+    if (isTypeLegal(VT))
+      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
 
     // AND/OR/XOR: bitcast to integers to do the math.
     MVT IntegerVT = MVT::getIntegerVT(VT.getSizeInBits());
