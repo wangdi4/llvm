@@ -114,15 +114,6 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
     return CL_DEV_SUCCESS;
 }
 
-size_t Program::GetGlobalVariableTotalSize() const
-{
-    size_t globalVariableTotalSize = 0;
-    for (auto &item : m_globalVariableSizes)
-        globalVariableTotalSize += item.second;
-
-    return globalVariableTotalSize;
-}
-
 const llvm::StringMap<size_t>& Program::GetGlobalVariableSizes() const
 {
     return m_globalVariableSizes;
@@ -187,13 +178,18 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
             currentKernel->Serialize(ost, stats);
         }
     }
+
+    // Global variables
+    unsigned long long int tmp =
+        (unsigned long long int)m_globalVariableTotalSize;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     unsigned int gvCount = (unsigned int)m_globalVariableSizes.size();
     Serializer::SerialPrimitive<unsigned int>(&gvCount, ost);
     for (auto &gv : m_globalVariableSizes)
     {
         std::string name = gv.first().str();
         Serializer::SerialString(name, ost);
-        unsigned long long int tmp = (unsigned long long int)gv.second;
+        tmp = (unsigned long long int)gv.second;
         Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     }
 }
@@ -216,13 +212,17 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
             m_kernels->AddKernel(currentKernel);
         }
     }
+
+    // Global variables
+    unsigned long long int tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_globalVariableTotalSize = (size_t)tmp;
     unsigned int gvCount;
     Serializer::DeserialPrimitive<unsigned int>(&gvCount, ist);
     for (unsigned int i = 0; i < gvCount; ++i)
     {
         std::string name;
         Serializer::DeserialString(name, ist);
-        unsigned long long int tmp;
         Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
         m_globalVariableSizes[name] = (size_t)tmp;
     }

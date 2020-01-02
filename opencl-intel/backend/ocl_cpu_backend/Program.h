@@ -144,16 +144,26 @@ public:
      *  otherwise
      *      0 will be returned
      */
-    virtual size_t GetGlobalVariableTotalSize() const;
+    virtual size_t GetGlobalVariableTotalSize() const {
+        return m_globalVariableTotalSize;
+    }
 
     /**
-     * Gets sizes of global variables
+     * Sets the total amount of storage, in bytes, used by
+     * program variables in the global address space.
+     */
+    void SetGlobalVariableTotalSize(size_t size) {
+        m_globalVariableTotalSize = size;
+    }
+
+    /**
+     * Gets sizes of non-internal global variables.
      * @return a map from global variable name to its size in bytes
      */
     virtual const llvm::StringMap<size_t>& GetGlobalVariableSizes() const;
 
     /**
-     * Set sizes of global variables
+     * Set sizes of non-internal global variables.
      * @param sizes a map from global variable name to its size in bytes
      */
     void SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes);
@@ -221,7 +231,9 @@ protected:
     std::auto_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
     RuntimeServiceSharedPtr m_RuntimeService;
-    // Map from global variable name to its size in bytes
+    // Total size, in bytes, of program variables in the global address space
+    size_t            m_globalVariableTotalSize;
+    // Map from global variable (with non-internal linkage) name to its size.
     llvm::StringMap<size_t> m_globalVariableSizes;
 
 private:

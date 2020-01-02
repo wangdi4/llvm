@@ -387,19 +387,30 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     // Collect sizes of global variables
     if (!spModule->global_empty())
     {
+        size_t GlobalVariableTotalSize = 0;
         llvm::StringMap<size_t> GlobalVariableSizes;
         const llvm::DataLayout &DL = spModule->getDataLayout();
-        for (auto I = spModule->global_begin(), E = spModule->global_end();
-            I != E; ++I)
+        for (auto &GV : spModule->globals())
         {
-            llvm::PointerType *PT = llvm::cast<llvm::PointerType>(I->getType());
+            llvm::PointerType *PT = GV.getType();
             if (!IS_ADDR_SPACE_GLOBAL(PT->getAddressSpace()))
                 continue;
-            const llvm::GlobalVariable *GV = &*I;
+
             size_t Size = DL.getTypeAllocSize(PT->getContainedType(0));
-            GlobalVariableSizes[GV->getName()] = Size;
+            GlobalVariableTotalSize += Size;
+
+            // Global variable with common or external linkage
+            // (supported in SPIR 2.0) in global address space can be queried
+            // by cl_intel_global_variable_pointers extension.
+            // BTW, available_externally linkage is also supported in SPIR 2.0,
+            // however, currently there is no use case of this linkage in the
+            // extension.
+            if (!GV.hasCommonLinkage() && !GV.hasExternalLinkage())
+                continue;
+
+            GlobalVariableSizes[GV.getName()] = Size;
         }
-        // Set the sizes of global (address space) variables used by the program
+        pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
         pProgram->SetGlobalVariableSizes(GlobalVariableSizes);
     }
 }
