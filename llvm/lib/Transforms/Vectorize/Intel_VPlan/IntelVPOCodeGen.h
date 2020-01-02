@@ -115,11 +115,6 @@ public:
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
 
-  /// Helper wrapper to find the best smid function variant for a given \p Call.
-  /// \p Masked parameter tells whether we need a masked version or not.
-  std::unique_ptr<VectorVariant> matchVectorVariant(const CallInst *Call,
-                                                    bool Masked);
-
   /// Vectorize call arguments, or for simd functions scalarize if the arg
   /// is linear or uniform. If the call is being pumped by \p PumpFactor times,
   /// then the appropriate sub-vector is extracted for given \p PumpPart.
@@ -145,10 +140,6 @@ public:
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
 private:
-  /// Find the best simd function variant.
-  std::unique_ptr<VectorVariant>
-  matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked);
-
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.
   bool needScalarCode(VPInstruction *V);
@@ -512,10 +503,6 @@ private:
   // Utility to get VPValue that is broadcasted if the input \p V is a splat
   // vector. Functionality is same as VectorUtils::getSplatValue.
   const VPValue *getOrigSplatVPValue(const VPValue *V);
-
-  // Determine if scalar function \p FnName should be vectorized by pumping
-  // feature. If yes, then the factor to pump by is returned, 1 otherwise.
-  unsigned getPumpFactor(StringRef FnName, bool IsMasked);
 
   /// Adjust arguments passed to SVML functions to handle masks. \p
   /// CallMaskValue defines the mask being applied to the current SVML call

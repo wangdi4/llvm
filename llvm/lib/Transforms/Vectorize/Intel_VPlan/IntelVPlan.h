@@ -42,8 +42,8 @@
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanAlignmentAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
-#include "IntelVPlanValueTracking.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanValueTracking.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
@@ -51,6 +51,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -61,7 +62,6 @@ namespace llvm {
 class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
-class VectorVariant; // INTEL
 //}
 
 namespace vpo {
@@ -1721,6 +1721,18 @@ private:
     // Specifies if masked version of a vector variant should be used to
     // vectorize the unmasked call (using all-true mask).
     unsigned UseMaskedForUnmasked : 1;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    void print(raw_ostream &OS) const {
+      std::string VecVariantName =
+          MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
+      OS << "  VecVariant: " << VecVariantName << "\n";
+      OS << "  UseMaskForUnmasked: " << UseMaskedForUnmasked << "\n";
+      OS << "  VecLibFn: " << VectorLibraryFn << "\n";
+      OS << "  PumpFactor: " << PumpFactor << "\n";
+    }
+    void dump() const { print(outs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   } VecProperties;
 
   enum class CallVecScenarios {
@@ -1748,21 +1760,6 @@ private:
   /// VF.
   CallVecScenarios VecScenario = CallVecScenarios::Undefined;
 
-  /// Helper utility to access underlying CallInst corresponding to this
-  /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
-  const CallInst *getUnderlyingCallInst() const {
-    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction())) {
-      return IRCall;
-    } else if (auto *HIRCall = HIR.getUnderlyingNode()) {
-      assert(isa<loopopt::HLInst>(HIRCall) &&
-             "Underlying HIR DDNode for Call is not HLInst.");
-      return cast<loopopt::HLInst>(HIRCall)->getCallInst();
-    } else {
-      llvm_unreachable(
-          "VPlan created a new VPCallInstruction without underlying IR.");
-    }
-  }
-
 public:
   using CallVecScenariosTy = CallVecScenarios;
 
@@ -1779,6 +1776,18 @@ public:
     // serialized.
     if (OrigCall->hasFnAttr("kernel-uniform-call"))
       VecScenario = CallVecScenarios::DoNotWiden;
+  }
+
+  /// Helper utility to access underlying CallInst corresponding to this
+  /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
+  const CallInst *getUnderlyingCallInst() const {
+    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction()))
+      return IRCall;
+    else if (auto *HIRCall = HIR.getUnderlyingNode())
+      return cast<loopopt::HLInst>(HIRCall)->getCallInst();
+    else
+      llvm_unreachable(
+          "VPlan created a new VPCallInstruction without underlying IR.");
   }
 
   /// Helper function to access CalledValue (last operand).
@@ -1916,6 +1925,34 @@ public:
   const_operand_range arg_operands(void) const {
     return make_range(op_begin(), op_end() - 1);
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &O) const;
+
+  void dumpVecProperties(raw_ostream &OS) const {
+    OS << "For VF=" << VecProperties.VF << "\n";
+    OS << "  Decision: ";
+    switch (VecScenario) {
+    case CallVecScenarios::LibraryFunc:
+      OS << "LibraryFunc";
+      break;
+    case CallVecScenarios::VectorVariant:
+      OS << "VectorVariant";
+      break;
+    case CallVecScenarios::Serialization:
+      OS << "Serialize";
+      break;
+    case CallVecScenarios::DoNotWiden:
+      OS << "DoNotWiden";
+      break;
+    default:
+      llvm_unreachable("Unexpected VecScenario.");
+    }
+    OS << "\n";
+    VecProperties.print(OS);
+    OS << "\n";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {

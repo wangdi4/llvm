@@ -18,21 +18,22 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanAllZeroBypass.h"
+#include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanClone.h"
 #include "IntelVPlanCostModel.h"
+#include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
+#include "IntelVPlanIdioms.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
-#include "IntelVPSOAAnalysis.h"
+#include "IntelVPlanUtils.h"
+#include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
-#include "IntelVPlanClone.h"
-#include "IntelVPlanCostModelProprietary.h"
-#include "IntelVPlanIdioms.h"
-#include "IntelVPlanUtils.h"
-#include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -83,12 +84,17 @@ static cl::opt<bool> PrintAfterAllZeroBypass(
 static cl::opt<bool> DotAfterAllZeroBypass(
     "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after all zero bypass insertion."));
+
+static cl::opt<bool> PrintAfterCallVecDecisions(
+    "vplan-print-after-call-vec-decisions", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after analyzing calls for vectorization decisions."));
 #else
 static constexpr bool PrintAfterLoopCFU = false;
 static constexpr bool PrintAfterLinearization = false;
 static constexpr bool DotAfterLinearization = false;
 static constexpr bool PrintAfterAllZeroBypass = false;
 static constexpr bool DotAfterAllZeroBypass = false;
+static constexpr bool PrintAfterCallVecDecisions = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -306,6 +312,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     BestUF = 1;
     LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
                       << ", selecting it.\n");
+
     return ForcedVF;
   }
 
@@ -717,8 +724,15 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // 2. Widen each instruction in the old loop to a new one in the new loop.
   VPCallbackILV CallbackILV;
 
+  // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
+  VPlanCallVecDecisions CallVecDecisions(*Plan);
+  CallVecDecisions.run(BestVF, TLI, TTI);
+  std::string Label("CallVecDecisions analysis for VF=" +
+                    std::to_string(BestVF));
+  VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,
                          CallbackILV, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();

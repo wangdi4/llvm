@@ -476,6 +476,18 @@ inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
 void getFunctionsToVectorize(
   Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
 
+/// Find the best simd function variant.
+std::unique_ptr<VectorVariant>
+matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked,
+                       unsigned VF, const TargetTransformInfo *TTI);
+
+/// Helper wrapper to find the best simd function variant for a given \p Call.
+/// \p Masked parameter tells whether we need a masked version or not.
+/// TODO: Wrapper still needed?
+std::unique_ptr<VectorVariant>
+matchVectorVariant(const CallInst *Call, bool Masked, unsigned VF,
+                   const TargetTransformInfo *TTI);
+
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
 /// This function will insert functions for library calls, intrinsics, and simd
@@ -512,8 +524,14 @@ std::string typeToString(Type *Ty);
 
 /// \brief Returns true if \p VFnName is a SVML vector function for a given
 /// vectorizable scalar function \p FnName.
-bool isSVMLFunction(TargetLibraryInfo *TLI, StringRef FnName,
+bool isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
                     StringRef VFnName);
+
+/// Determine if scalar function \p FnName should be vectorized by pumping
+/// feature for the chosen \p VF. If yes, then the factor to pump by is
+/// returned, 1 otherwise.
+unsigned getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
+                       const TargetLibraryInfo *TLI);
 
 /// \brief A helper function that returns value after skipping 'bitcast' and
 /// 'addrspacecast' on pointers.

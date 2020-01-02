@@ -431,6 +431,10 @@ void VPInstruction::print(raw_ostream &O,
     cast<VPBlendInst>(this)->print(O);
     return;
   }
+  case Instruction::Call: {
+    cast<VPCallInstruction>(this)->print(O);
+    break;
+  }
   case Instruction::GetElementPtr:
     PrintOpcodeWithInBounds(cast<const VPGEPInstruction>(this));
     break;
@@ -523,6 +527,8 @@ void VPInstruction::print(raw_ostream &O,
         O << "}";
       }
     }
+  } else if (isa<VPCallInstruction>(this)) {
+    // Nothing to print, operands are already printed for these instructions.
   } else {
     if (getOpcode() == VPInstruction::AllocatePrivate) {
       O << " ";
@@ -973,6 +979,50 @@ void VPTerminator::print(raw_ostream &O) const {
     if (I > 0)
       O << ", ";
     O << Successors[I]->getName();
+  }
+}
+
+void VPCallInstruction::print(raw_ostream &O) const {
+  O << getOpcodeName(getOpcode());
+  for (const VPValue *Arg : arg_operands()) {
+    O << " ";
+    Arg->printAsOperand(O);
+  }
+  O << " ";
+  VPValue *CalledValue = getCalledValue();
+  bool IsMasked = getParent()->getPredicate() != nullptr;
+  switch (VecScenario) {
+  case CallVecScenarios::Undefined:
+  case CallVecScenarios::DoNotWiden: {
+    CalledValue->printAsOperand(O);
+    break;
+  }
+  case CallVecScenarios::Serialization: {
+    CalledValue->printAsOperand(O);
+    O << " [Serial]";
+    break;
+  }
+  // For library function based vectorization, the expected vector library
+  // function name that will be used by CG is printed.
+  case CallVecScenarios::LibraryFunc: {
+    O << getVectorLibraryFunc();
+    O << " [x " << getPumpFactor() << "]";
+    if (IsMasked)
+      O << " [@CurrMask]";
+    break;
+  }
+  // For vector-varant based vectorization, the matched variant function name
+  // that will be used by CG is printed.
+  case CallVecScenarios::VectorVariant: {
+    O << getVectorVariant()->toString();
+    O << " [x " << getPumpFactor() << "]";
+    IsMasked = IsMasked || shouldUseMaskedVariantForUnmasked();
+    if (IsMasked)
+      O << " [@CurrMask]";
+    break;
+  }
+  default:
+    llvm_unreachable("Unexpected VecScenario.");
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
