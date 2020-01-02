@@ -12259,9 +12259,6 @@ getListOfPossibleValues(OpenMPClauseKind K, unsigned First, unsigned Last,
   SmallString<256> Buffer;
   llvm::raw_svector_ostream Out(Buffer);
   unsigned Skipped = Exclude.size();
-#if INTEL_CUSTOMIZATION
-  bool HasMultipleValues = Last > First + Skipped + 1;
-#endif // INTEL_CUSTOMIZATION
   auto S = Exclude.begin(), E = Exclude.end();
   for (unsigned I = First; I < Last; ++I) {
     if (std::find(S, E, I) != E) {
@@ -12269,20 +12266,10 @@ getListOfPossibleValues(OpenMPClauseKind K, unsigned First, unsigned Last,
       continue;
     }
     Out << "'" << getOpenMPSimpleClauseTypeName(K, I) << "'";
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    if (HasMultipleValues)
-      if (I == Bound - Skipped)
-        Out << " or ";
-      else if (I != Bound + 1 - Skipped)
-        Out << ", ";
-#endif // INTEL_CUSTOMIZATION
-=======
     if (I + Skipped + 2 == Last)
       Out << " or ";
     else if (I + Skipped + 1 != Last)
       Out << ", ";
->>>>>>> 87a004d0f8c2fe5c4577d81b4306c35e77f21f9a
   }
   return Out.str();
 }
