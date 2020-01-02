@@ -22,6 +22,7 @@
 
 ; Check that loop is vectorized if fabs vectorization is explicitly enabled by switch.
 ; VEC:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
+; VEC-NEXT:       |   %llvm.fabs.v4f64 = undef
 ; VEC-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
 ; VEC-NEXT:       |   %wide.cmp. = %.vec == %key;
 ; VEC-NEXT:       |   %llvm.fabs.v4f64 = @llvm.fabs.v4f64(%.vec); Mask = @{%wide.cmp.}
