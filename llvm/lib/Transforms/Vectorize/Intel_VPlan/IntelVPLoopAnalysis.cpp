@@ -705,6 +705,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
         Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
             ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
             : Reduction->getLoopExitInstr());
+    Plan.getVPlanDA()->markDivergent(*Exit);
 
     VPReductionFinal *Final = nullptr;
     if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
