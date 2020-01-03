@@ -440,7 +440,7 @@ define <4 x float> @knownbits_smax_smin_shuffle_uitofp(<4 x i32> %a0) {
 ; X32-NEXT:    vpblendw {{.*#+}} xmm1 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
 ; X32-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; X32-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
-; X32-NEXT:    vaddps {{\.LCPI.*}}, %xmm0, %xmm0
+; X32-NEXT:    vsubps {{\.LCPI.*}}, %xmm0, %xmm0
 ; X32-NEXT:    vaddps %xmm0, %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
@@ -452,7 +452,7 @@ define <4 x float> @knownbits_smax_smin_shuffle_uitofp(<4 x i32> %a0) {
 ; X64-NEXT:    vpblendw {{.*#+}} xmm1 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
 ; X64-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
-; X64-NEXT:    vaddps {{.*}}(%rip), %xmm0, %xmm0
+; X64-NEXT:    vsubps {{.*}}(%rip), %xmm0, %xmm0
 ; X64-NEXT:    vaddps %xmm0, %xmm1, %xmm0
 ; X64-NEXT:    retq
   %1 = call <4 x i32> @llvm.x86.sse41.pminsd(<4 x i32> %a0, <4 x i32> <i32 0, i32 -65535, i32 -65535, i32 0>)
@@ -550,7 +550,7 @@ define <4 x float> @knownbits_abs_uitofp(<4 x i32> %a0) {
 ; X32-NEXT:    vpblendw {{.*#+}} xmm1 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
 ; X32-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; X32-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
-; X32-NEXT:    vaddps {{\.LCPI.*}}, %xmm0, %xmm0
+; X32-NEXT:    vsubps {{\.LCPI.*}}, %xmm0, %xmm0
 ; X32-NEXT:    vaddps %xmm0, %xmm1, %xmm0
 ; X32-NEXT:    retl
 ;
@@ -560,7 +560,7 @@ define <4 x float> @knownbits_abs_uitofp(<4 x i32> %a0) {
 ; X64-NEXT:    vpblendw {{.*#+}} xmm1 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
 ; X64-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],mem[1],xmm0[2],mem[3],xmm0[4],mem[5],xmm0[6],mem[7]
-; X64-NEXT:    vaddps {{.*}}(%rip), %xmm0, %xmm0
+; X64-NEXT:    vsubps {{.*}}(%rip), %xmm0, %xmm0
 ; X64-NEXT:    vaddps %xmm0, %xmm1, %xmm0
 ; X64-NEXT:    retq
   %1 = sub <4 x i32> zeroinitializer, %a0
