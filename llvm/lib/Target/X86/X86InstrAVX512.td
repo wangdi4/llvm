@@ -8284,6 +8284,7 @@ multiclass avx512_cvt_extend<bits<8> opc, string OpcodeStr,
              avx512_vcvt_fp_sae<opc, OpcodeStr, _dst.info512, _src.info256,
                                 X86vfpextSAE, sched.ZMM>, EVEX_V512;
   }
+<<<<<<< HEAD
   let Predicates = [prd, HasVLX] in {
     defm Z128 : avx512_vcvt_fpextend<opc, OpcodeStr, _dst.info128, _src.info128,
                                X86any_vfpext, sched.XMM, _dst.info128.BroadcastStr,
@@ -8309,6 +8310,21 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
   let Predicates = [prd] in {
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, _dst.info256, _src.info512, X86any_vfpround, sched.ZMM>,
              avx512_vcvt_fp_rc<opc, OpcodeStr, _dst.info256, _src.info512,
+=======
+  let Predicates = [HasVLX] in {
+    defm Z128 : avx512_vcvt_fpextend<opc, OpcodeStr, v2f64x_info, v4f32x_info,
+                               X86any_vfpext, sched.XMM, "{1to2}", "", f64mem>, EVEX_V128;
+    defm Z256 : avx512_vcvt_fpextend<opc, OpcodeStr, v4f64x_info, v4f32x_info, any_fpextend,
+                               sched.YMM>, EVEX_V256;
+  }
+}
+
+// Truncate Double to Float
+multiclass avx512_cvtpd2ps<bits<8> opc, string OpcodeStr, X86SchedWriteWidths sched> {
+  let Predicates = [HasAVX512] in {
+    defm Z : avx512_vcvt_fp<opc, OpcodeStr, v8f32x_info, v8f64_info, X86any_vfpround, sched.ZMM>,
+             avx512_vcvt_fp_rc<opc, OpcodeStr, v8f32x_info, v8f64_info,
+>>>>>>> 3186b18b998124a6b577f8274a10b7ee8b634c18
                                X86vfproundRnd, sched.ZMM>, EVEX_V512;
 
     def : Pat<(_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
@@ -8337,6 +8353,7 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
                        _dst.info256.ImmAllZerosV),
               (!cast<Instruction>(NAME # "Zrmbkz") maskRC512:$mask, addr:$src)>;
   }
+<<<<<<< HEAD
   let Predicates = [prd, HasVLX] in {
     defm Z128 : avx512_vcvt_fp<opc, OpcodeStr, _dst.info128, _src.info128,
                                null_frag, sched.XMM, _src.info128.BroadcastStr, "{x}",
@@ -8403,6 +8420,15 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
               (!cast<Instruction>(NAME # "Z128rmbkz") maskRC128:$mask, addr:$src)>;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  let Predicates = [HasVLX] in {
+    defm Z128 : avx512_vcvt_fp<opc, OpcodeStr, v4f32x_info, v2f64x_info,
+                               null_frag, sched.XMM, "{1to2}", "{x}", f128mem, VK2WM>,
+                               EVEX_V128;
+    defm Z256 : avx512_vcvt_fp<opc, OpcodeStr, v4f32x_info, v4f64x_info, X86any_vfpround,
+                               sched.YMM, "{1to4}", "{y}">, EVEX_V256;
+  }
+>>>>>>> 3186b18b998124a6b577f8274a10b7ee8b634c18
 
   def : InstAlias<OpcodeStr##"x\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Z128rr") VR128X:$dst, VR128X:$src), 0, "att">;
