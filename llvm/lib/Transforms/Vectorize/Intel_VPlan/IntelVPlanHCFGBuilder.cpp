@@ -334,8 +334,8 @@ void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
 // The merge loop exit transformation is applied to the inner loops of a loop
 // nest. It consists of the mergeLoopExits function and six support functions
 // (getBlocksExitBlock, updateBlocksPhiNode, moveExitBlocksPhiNode,
-// removeBlockFromVPPhiNode, allPredsInLoop, hasVPPhiNode, getFirstNonPhiVPInst,
-// updatePhiNodeInLoopHeader).
+// removeBlockFromVPPhiNode, allPredsInLoop, hasVPPhiNode,
+// getFirstNonPhiVPInst).
 //
 // The algorithm has three steps:
 // 1. A new loop latch is created. All the side exits are redirected to the new
@@ -570,42 +570,6 @@ static VPInstruction *getFirstNonPhiVPInst(VPBasicBlock *LoopHeader) {
   return NonPhiVPInst;
 }
 
-// Adds a new phi node in the loop header for the backedge from the new loop
-// latch.
-static VPPHINode *updatePhiNodeInLoopHeader(VPBasicBlock *LoopHeader,
-                                            VPBasicBlock *NewLoopLatch,
-                                            VPPHINode *NewLatchVPPhi,
-                                            VPlan *Plan) {
-
-  // Find the location where we should emit the new phi node.
-  VPInstruction *NonPhiVPInst = getFirstNonPhiVPInst(LoopHeader);
-  Type *Ty = Type::getInt32Ty(*Plan->getLLVMContext());
-  VPPHINode *NewVPPhi = new VPPHINode(Ty);
-  // Add the NewVPPhi before the first non phi instruction. If the basic-block
-  // is empty or there are only phi instructions in it, then the NewVPPhi will
-  // be added at the end of the basic block.
-  LoopHeader->addInstruction(NewVPPhi, NonPhiVPInst);
-
-  // Get the predecessors of the loop header and add them in the new phi node of
-  // the loop header.
-  auto &LoopHeaderPreds = LoopHeader->getPredecessors();
-  unsigned PhiValue = 0;
-  assert(LoopHeaderPreds.size() <= 2 &&
-         "The loop header can have up to 2 predecessors!");
-  for (unsigned i = 0; i < LoopHeaderPreds.size(); i++) {
-    if (LoopHeaderPreds[i] == NewLoopLatch)
-      NewVPPhi->addIncoming(NewLatchVPPhi, NewLoopLatch);
-    else {
-      VPBasicBlock *Pred = dyn_cast<VPBasicBlock>(LoopHeaderPreds[i]);
-      VPConstant *PhiValueConst =
-          Plan->getVPConstant(ConstantInt::get(NewVPPhi->getType(), PhiValue));
-      NewVPPhi->addIncoming(PhiValueConst, Pred);
-      PhiValue++;
-    }
-  }
-  return NewVPPhi;
-}
-
 void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
@@ -674,6 +638,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPBldr.setInsertPoint(NewLoopLatch);
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPPHINode *ExitIDVPPhi = VPBldr.createPhiInstruction(Ty32, "exit.id.phi");
+  ExitIDVPPhi->addIncoming(Plan->getVPConstant(ConstantInt::get(Ty32, ExitID)),
+                           cast<VPBasicBlock>(OrigLoopLatch));
   // TODO: Merge loop exits transformation should only be kicked in for inner
   // loops that have a divergent exiting edge.
   VPlanDA->markDivergent(*ExitIDVPPhi);
@@ -694,13 +660,6 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
   VPlanDA->markDivergent(*NewCondBit);
-
-  // Add the original loop latch in the NewLoopLatch's phi node.
-  VPPHINode *NewLoopHeaderPhiNode =
-      updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, ExitIDVPPhi, Plan);
-  ExitIDVPPhi->addIncoming(NewLoopHeaderPhiNode,
-                           cast<VPBasicBlock>(OrigLoopLatch));
-  VPlanDA->markDivergent(*NewLoopHeaderPhiNode);
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
