@@ -2168,6 +2168,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   setPrefFunctionAlignment(Align(16));
 
   verifyIntrinsicTables();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Subtarget.hasAVX512() &&
       !Subtarget.useAVX512Regs() &&
@@ -2215,6 +2216,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setLibcallCallingConv(RTLIB::INTEL_MEMSET, CallingConv::X86_AVX2_C);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+
+  // Default to having -disable-strictnode-mutation on
+  IsStrictFPEnabled = true;
+>>>>>>> 60333a531799c0d0db1c3995bc784d2b314920ff
 }
 
 // This has so far only been implemented for 64-bit MachO.
