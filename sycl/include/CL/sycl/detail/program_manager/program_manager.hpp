@@ -42,7 +42,9 @@ using DeviceImage = pi_device_binary_struct;
 struct ImageDeleter;
 
 enum DeviceLibExt {
-  cl_intel_devicelib_assert = 0
+  cl_intel_devicelib_assert = 0,
+  cl_intel_devicelib_math,
+  cl_intel_devicelib_complex
 };
 
 // Provides single loading and building OpenCL programs with unique contexts
