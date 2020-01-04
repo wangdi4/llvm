@@ -1717,19 +1717,11 @@ def VCVTPD2PSrm : VPDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
 
 def VCVTPD2PSYrr : VPDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR256:$src),
                         "cvtpd2ps\t{$src, $dst|$dst, $src}",
-<<<<<<< HEAD
-                        [(set VR128:$dst, (v4f32 (X86vfpround (v4f64 VR256:$src))))]>, // INTEL
+                        [(set VR128:$dst, (v4f32 (X86any_vfpround (v4f64 VR256:$src))))]>, // INTEL
                         VEX, VEX_L, Sched<[WriteCvtPD2PSY]>, VEX_WIG;
 def VCVTPD2PSYrm : VPDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f256mem:$src),
                         "cvtpd2ps{y}\t{$src, $dst|$dst, $src}",
-                        [(set VR128:$dst, (v4f32 (X86vfpround (loadv4f64 addr:$src))))]>, // INTEL
-=======
-                        [(set VR128:$dst, (X86any_vfpround VR256:$src))]>,
-                        VEX, VEX_L, Sched<[WriteCvtPD2PSY]>, VEX_WIG;
-def VCVTPD2PSYrm : VPDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f256mem:$src),
-                        "cvtpd2ps{y}\t{$src, $dst|$dst, $src}",
-                        [(set VR128:$dst, (X86any_vfpround (loadv4f64 addr:$src)))]>,
->>>>>>> 3186b18b998124a6b577f8274a10b7ee8b634c18
+                        [(set VR128:$dst, (v4f32 (X86any_vfpround (loadv4f64 addr:$src))))]>, // INTEL
                         VEX, VEX_L, Sched<[WriteCvtPD2PSY.Folded]>, VEX_WIG;
 } // Predicates = [HasAVX, NoVLX]
 
