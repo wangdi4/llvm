@@ -19,19 +19,19 @@
 ; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z6searchP7state_tiiiii.
 ; CHECK: define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #3 !dbg !1029 {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg !1855
+; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg !1853
 ;
 
 ; *** Check section 2 ***
 ; The LLVM-IR check below ensure that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z7qsearchP7state_tiiii.
-; CHECK: define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #3 !dbg !2094 {
-; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg !2334
+; CHECK: define internal i32 @_Z7qsearchP7state_tiiii(%struct.state_t* %0, i32 %1, i32 %2, i32 %3, i32 %4) #3 !dbg !2092 {
+; CHECK: call void @Prefetch.Backbone(%struct.state_t* %0), !dbg !2332
 
 ; *** Check section 3 ***
 ; The LLVM-IR check below ensures the prefetch function is generated.
 ;
-; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #7 !dbg !2494 {
+; CHECK: define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #7 !dbg !2492 {
 ;
 ;
 
@@ -588,13 +588,13 @@ define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2
   %28 = bitcast [240 x i32]* %16 to i8*, !dbg !1130
   call void @llvm.lifetime.start.p0i8(i64 960, i8* nonnull %28) #7, !dbg !1130
   call void @llvm.dbg.declare(metadata [240 x i32]* %16, metadata !1069, metadata !DIExpression()), !dbg !1131
-  %29 = icmp slt i32 %3, 1, !dbg !1132
+  %29 = xor i1 0, true; ** hacked, original is : %29 = icmp slt i32 %3, 1, !dbg !1132;
   br i1 %29, label %34, label %30, !dbg !1134
 
 30:                                               ; preds = %6
   %31 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0, i32 14, !dbg !1135, !intel-tbaa !968
   %32 = load i32, i32* %31, align 8, !dbg !1135, !tbaa !968
-  %33 = icmp sgt i32 %32, 59, !dbg !1136
+  %33 = xor i1 0, true; ** hacked, original : %33 = icmp sgt i32 %32, 59, !dbg !1136;
   br i1 %33, label %34, label %36, !dbg !1137
 
 34:                                               ; preds = %30, %6

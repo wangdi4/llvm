@@ -1,6 +1,6 @@
 //===----  Intel_IPOPrefetch.cpp - Intel IPO Prefetch   --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1253,21 +1253,21 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
 
   // 2 Position Descriptions, each needs precise customization
   static PositionDescription PDA[] = {
-      PositionDescription(nullptr    /* Function * */,
-                          54   /* NumLoad: 54 */,
+      PositionDescription(nullptr    /* Function */,
+                          54   /* NumLoad */,
                           5    /* NumStore */,
-                          68  /* NumBranch */,
-                          55    /* NumCmp */,
-                          23     /* NumCall */,
-                          6   /* NumInstrinsic */),
+                          68   /* NumBranch */,
+                          55   /* NumCmp */,
+                          23   /* NumCall */,
+                          6    /* NumInstrinsic */),
 
-      PositionDescription(nullptr     /* Function * */,
-                          144   /* NumLoad: 144 */,
+      PositionDescription(nullptr     /* Function */,
+                          144   /* NumLoad */,
                           39    /* NumStore */,
-                          133  /* NumBranch */,
-                          141    /* NumCmp */,
-                          62      /* NumCall */,
-                          14   /* NumInstrinsic */),
+                          133   /* NumBranch */,
+                          139   /* NumCmp */,
+                          62    /* NumCall */,
+                          14    /* NumInstrinsic */),
 
   };
 
