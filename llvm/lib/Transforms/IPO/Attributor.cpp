@@ -1793,20 +1793,6 @@ static int64_t getKnownNonNullAndDerefBytesForUse(
       return std::max(int64_t(0), DerefBytes);
     }
   }
-  if (const Value *Base =
-          GetPointerBaseWithConstantOffset(UseV, Offset, DL,
-                                           /*AllowNonInbounds*/ false)) {
-    if (Base == &AssociatedValue) {
-      // As long as we only use known information there is no need to track
-      // dependences here.
-      auto &DerefAA = A.getAAFor<AADereferenceable>(
-          QueryingAA, IRPosition::value(*Base), /* TrackDependence */ false);
-      IsNonNull |= (!NullPointerIsDefined && DerefAA.isKnownNonNull());
-      IsNonNull |= (!NullPointerIsDefined && (Offset != 0));
-      int64_t DerefBytes = DerefAA.getKnownDereferenceableBytes();
-      return std::max(int64_t(0), DerefBytes - std::max(int64_t(0), Offset));
-    }
-  }
 
   return 0;
 }
@@ -3481,7 +3467,8 @@ static unsigned int getKnownAlignForUse(Attributor &A,
   // We need to follow common pointer manipulation uses to the accesses they
   // feed into.
   if (isa<CastInst>(I)) {
-    TrackUse = true;
+    // Follow all but ptr2int casts.
+    TrackUse = !isa<PtrToIntInst>(I);
     return 0;
   }
   if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
@@ -4276,7 +4263,8 @@ struct AAValueSimplifyImpl : AAValueSimplify {
     // NOTE: Associated value will be returned in a pessimistic fixpoint and is
     // regarded as known. That's why`indicateOptimisticFixpoint` is called.
     SimplifiedAssociatedValue = &getAssociatedValue();
-    return indicateOptimisticFixpoint();
+    indicateOptimisticFixpoint();
+    return ChangeStatus::CHANGED;
   }
 
 protected:
@@ -5708,13 +5696,6 @@ ChangeStatus Attributor::run(Module &M) {
       BUILD_STAT_NAME(AAIsDead, BasicBlock) += ToBeDeletedBlocks.size();
     }
 
-    STATS_DECL(AAIsDead, Function, "Number of dead functions deleted.");
-    for (Function *Fn : ToBeDeletedFunctions) {
-      Fn->replaceAllUsesWith(UndefValue::get(Fn->getType()));
-      Fn->eraseFromParent();
-      STATS_TRACK(AAIsDead, Function);
-    }
-
     // Identify dead internal functions and delete them. This happens outside
     // the other fixpoint analysis as we might treat potentially dead functions
     // as live to lower the number of iterations. If they happen to be dead, the
@@ -5732,23 +5713,32 @@ ChangeStatus Attributor::run(Module &M) {
         if (!F)
           continue;
 
-        if (!checkForAllCallSites([](AbstractCallSite ACS) { return false; },
-                                  *F, true, nullptr))
+        if (!checkForAllCallSites(
+                [this](AbstractCallSite ACS) {
+                  return ToBeDeletedFunctions.count(
+                      ACS.getInstruction()->getFunction());
+                },
+                *F, true, nullptr))
           continue;
 
-        STATS_TRACK(AAIsDead, Function);
         ToBeDeletedFunctions.insert(F);
-        F->deleteBody();
-        F->replaceAllUsesWith(UndefValue::get(F->getType()));
-        F->eraseFromParent();
         InternalFns[u] = nullptr;
         FoundDeadFn = true;
       }
     }
   }
 
+  STATS_DECL(AAIsDead, Function, "Number of dead functions deleted.");
+  BUILD_STAT_NAME(AAIsDead, Function) += ToBeDeletedFunctions.size();
+
   // Rewrite the functions as requested during manifest.
   ManifestChange = ManifestChange | rewriteFunctionSignatures();
+
+  for (Function *Fn : ToBeDeletedFunctions) {
+    Fn->deleteBody();
+    Fn->replaceAllUsesWith(UndefValue::get(Fn->getType()));
+    Fn->eraseFromParent();
+  }
 
   if (VerifyMaxFixpointIterations &&
       IterationCounter != MaxFixpointIterations) {
@@ -5902,8 +5892,9 @@ ChangeStatus Attributor::rewriteFunctionSignatures() {
     NewFn->getBasicBlockList().splice(NewFn->begin(),
                                       OldFn->getBasicBlockList());
 
-    // Set of all "call-like" instructions that invoke the old function.
-    SmallPtrSet<Instruction *, 8> OldCallSites;
+    // Set of all "call-like" instructions that invoke the old function mapped
+    // to their new replacements.
+    SmallVector<std::pair<CallBase *, CallBase *>, 8> CallSitePairs;
 
     // Callback to create a new "call-like" instruction for a given one.
     auto CallSiteReplacementCreator = [&](AbstractCallSite ACS) {
@@ -5955,7 +5946,6 @@ ChangeStatus Attributor::rewriteFunctionSignatures() {
       }
 
       // Copy over various properties and the new attributes.
-      OldCB->replaceAllUsesWith(NewCB);
       uint64_t W;
       if (OldCB->extractProfTotalWeight(W))
         NewCB->setProfWeight(W);
@@ -5966,10 +5956,7 @@ ChangeStatus Attributor::rewriteFunctionSignatures() {
           Ctx, OldCallAttributeList.getFnAttributes(),
           OldCallAttributeList.getRetAttributes(), NewArgOperandAttributes));
 
-      bool Inserted = OldCallSites.insert(OldCB).second;
-      assert(Inserted && "Call site was old twice!");
-      (void)Inserted;
-
+      CallSitePairs.push_back({OldCB, NewCB});
       return true;
     };
 
@@ -5996,11 +5983,15 @@ ChangeStatus Attributor::rewriteFunctionSignatures() {
     }
 
     // Eliminate the instructions *after* we visited all of them.
-    for (Instruction *OldCallSite : OldCallSites)
-      OldCallSite->eraseFromParent();
+    for (auto &CallSitePair : CallSitePairs) {
+      CallBase &OldCB = *CallSitePair.first;
+      CallBase &NewCB = *CallSitePair.second;
+      OldCB.replaceAllUsesWith(&NewCB);
+      OldCB.eraseFromParent();
+    }
 
-    assert(OldFn->getNumUses() == 0 && "Unexpected leftover uses!");
-    OldFn->eraseFromParent();
+    ToBeDeletedFunctions.insert(OldFn);
+
     Changed = ChangeStatus::CHANGED;
   }
 
