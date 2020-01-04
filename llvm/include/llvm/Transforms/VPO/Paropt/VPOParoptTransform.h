@@ -579,6 +579,13 @@ private:
                              Instruction *&NewOmpLBInstOut,
                              Instruction *&NewOmpZttInstOut);
 
+  /// If an item has space allocated in the buffer at the end of the task's
+  /// thunk (such as VLAs), make its New field in the privates thunk point to
+  /// its corresponding buffer space.
+  void linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+      Item *I, StructType *KmpPrivatesTy, Value *PrivatesGep,
+      Value *TaskTWithPrivates, IRBuilder<> &Builder);
+
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,

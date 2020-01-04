@@ -524,6 +524,42 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
   return true;
 }
 
+bool RegDDRef::isStructurallyRegionInvariant() const {
+
+  if (hasIV()) {
+    return false;
+  }
+
+  auto &BU = getBlobUtils();
+  auto *Reg = getHLDDNode()->getParentRegion();
+
+  for (auto *BlobRef : make_range(blob_begin(), blob_end())) {
+
+    // Takes care of blobs defined inside loops.
+    if (BlobRef->getDefinedAtLevel() != 0) {
+      return false;
+    }
+
+    auto *TempBlob = BU.getBlob(BlobRef->getBlobIndex());
+    auto *BlobVal = BlobUtils::getTempBlobValue(TempBlob);
+
+    auto *Inst = dyn_cast<Instruction>(BlobVal);
+
+    // Takes care of undef/global values.
+    if (!Inst) {
+      continue;
+    }
+
+    // Takes care of instructions outside any loops including the ones created
+    // by HIR transformations.
+    if (!Reg->isLiveIn(BlobRef->getSymbase())) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool RegDDRef::isSelfBlob() const {
   if (!isTerminalRef()) {
     return false;
@@ -1575,6 +1611,17 @@ bool RegDDRef::hasIV(unsigned Level) const {
 
   for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {
     if ((*CEIt)->hasIV(Level)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool RegDDRef::hasIV() const {
+
+  for (auto *IndexCE : make_range(canon_begin(), canon_end())) {
+    if (IndexCE->hasIV()) {
       return true;
     }
   }

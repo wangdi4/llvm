@@ -1117,6 +1117,9 @@ public:
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);
 
+  /// Returns true if the first iteration of the loop can be peeled.
+  bool canPeelFirstIteration() const;
+
   /// Peels the first iteration of the loop and inserts the peel loop before
   /// this loop. Ztt, loop preheader and postexit are extracted before cloning
   /// this loop to generate the peel loop. If \p UpdateMainLoop is true, this
@@ -1124,6 +1127,9 @@ public:
   /// executed again. Otherwise, this loop's UB and DDRefs won't be updated and
   /// the loop will redundantly execute the iterations executed by the peel
   /// loop.
+  //
+  /// NOTE: Peeling can fail for unknown loops in which case it returns nullptr
+  /// and leaves the original loop unchanged.
   HLLoop *peelFirstIteration(bool UpdateMainLoop = true);
 
   /// Peels the current loop to align memory accesses to the memref \p

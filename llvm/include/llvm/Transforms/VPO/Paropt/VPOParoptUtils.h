@@ -797,6 +797,16 @@ public:
   /// \name Utilities specific to Fortran dope vectors.
   /// @{
 
+  /// Emit and return a call to `data_size =_f90_dope_vector_size(DV)`, which
+  /// returns the size of the array (in bytes) described by the dope vector.
+  static CallInst *genF90DVSizeCall(Value * DV, Instruction * InsertBefore);
+
+  /// Emit and return a call to `data_size = _f90_dope_vector_init(OrigDV,
+  /// NewDV)`, which initializes NewDV using OrigDV, and returns the size of the
+  /// array (in bytes) described by the dope vectors.
+  static CallInst *genF90DVInitCall(Value *OrigDV, Value *NewDV,
+                                    Instruction *InsertBefore);
+
   /// Emit code to initialize the local copy of \p I, where \p I is an F90 dope
   /// vector. The code looks like: \code
   ///   %size = call i64 @_f90_dope_vector_init(NewV, OrigV)
@@ -807,6 +817,14 @@ public:
   /// The emitted code is inserted after the alloca NewV, which is the local
   /// dope vector corresponding to \p I, and OrigV is the original.
   static void genF90DVInitCode(Item *I);
+
+  /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
+  /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
+  /// before `__kmpc_taskloop` or `__kmpc_omp_task`.
+  static void
+  genF90DVInitForItemsInTaskPrivatesThunk(WRegionNode *W, Value *KmpPrivatesGEP,
+                                          StructType *KmpPrivatesTy,
+                                          Instruction *InsertBefore);
 
   /// Emit a call to `_f90_firstprivate_copy(NewV, OrigV)`. The
   /// call is inserted before \p InsertBefore.

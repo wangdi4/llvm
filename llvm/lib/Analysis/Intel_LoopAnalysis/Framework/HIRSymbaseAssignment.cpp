@@ -81,9 +81,20 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
   AAMDNodes AANodes;
   Ref->getAAMetadata(AANodes);
 
+  LocationSize LocSize = MemoryLocation::UnknownSize;
+
+  if (!Ref->isFake() && (!Ref->isAddressOf() || Ref->isAddressOfSizedType()) &&
+      Ref->isStructurallyRegionInvariant()) {
+
+    uint64_t RefSize = Ref->isAddressOf() ? Ref->getElementTypeSizeInBytes()
+                                          : Ref->getDestTypeSizeInBytes();
+    LocSize = LocationSize::precise(RefSize);
+  }
+
   // We want loop carried disam, so use a store of unknown size
-  // to simulate read/write of all mem accessed by loop
-  AST.add(Ptr, MemoryLocation::UnknownSize, AANodes);
+  // to simulate read/write of all mem accessed by loop unless the ref is
+  // invariant in the region.
+  AST.add(Ptr, LocSize, AANodes);
 }
 
 void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {

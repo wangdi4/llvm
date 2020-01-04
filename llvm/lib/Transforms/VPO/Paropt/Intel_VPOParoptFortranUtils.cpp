@@ -20,6 +20,33 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+CallInst *VPOParoptUtils::genF90DVSizeCall(Value *DV,
+                                           Instruction *InsertBefore) {
+  IRBuilder<> Builder(InsertBefore);
+
+  auto *DVCast = Builder.CreateBitCast(DV, Builder.getInt8PtrTy());
+  CallInst *DataSize =
+      genCall(InsertBefore->getModule(), "_f90_dope_vector_size",
+              Builder.getInt64Ty(), {DVCast});
+  DataSize->insertBefore(InsertBefore);
+  return DataSize;
+}
+
+CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
+                                           Instruction *InsertBefore) {
+  IRBuilder<> Builder(InsertBefore);
+
+  Type *Int8PtrTy = Builder.getInt8PtrTy();
+  auto *NewDVCast = Builder.CreateBitCast(NewDV, Int8PtrTy);
+  auto *OrigDVCast = Builder.CreateBitCast(OrigDV, Int8PtrTy);
+  CallInst *DataSize =
+      genCall(InsertBefore->getModule(), "_f90_dope_vector_init",
+              Builder.getInt64Ty(), {NewDVCast, OrigDVCast});
+  DataSize->insertBefore(InsertBefore);
+  DataSize->setName(".dv.init");
+  return DataSize;
+}
+
 void VPOParoptUtils::genF90DVInitCode(Item *I) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
@@ -35,12 +62,7 @@ void VPOParoptUtils::genF90DVInitCode(Item *I) {
       (cast<Instruction>(NewV))->getParent()->getTerminator();
   IRBuilder<> Builder(InsertPt);
 
-  Type *Int8PtrTy = Builder.getInt8PtrTy();
-  auto *NewVCast = Builder.CreateBitCast(NewV, Int8PtrTy);
-  auto *OrigVCast = Builder.CreateBitCast(OrigV, Int8PtrTy);
-  CallInst *DataSize = genCall(InsertPt->getModule(), "_f90_dope_vector_init",
-                               Builder.getInt64Ty(), {NewVCast, OrigVCast});
-  DataSize->insertBefore(InsertPt);
+  CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt);
 
   // Get base address from the dope vector.
   auto *Zero = Builder.getInt32(0);
@@ -67,6 +89,41 @@ void VPOParoptUtils::genF90DVInitCode(Item *I) {
                       ElementTy->getPrimitiveSizeInBits() / 8),
       NamePrefix + ".num_elements");
   I->setF90DVNumElements(NumElements);
+}
+
+void VPOParoptUtils::genF90DVInitForItemsInTaskPrivatesThunk(
+    WRegionNode *W, Value *KmpPrivatesGEP, StructType *KmpPrivatesTy,
+    Instruction *InsertBefore) {
+
+  assert(W->getIsTask() && "WRegion is not a task.");
+
+  IRBuilder<> Builder(InsertBefore);
+
+  auto genF90DVInitCallForItem = [&](Item *I) {
+    if (!I->getIsF90DopeVector())
+      return;
+
+    Value *OrigV = I->getOrig();
+    StringRef NamePrefix = OrigV->getName();
+    Value *NewVGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, KmpPrivatesGEP,
+        {Builder.getInt32(0), Builder.getInt32(I->getPrivateThunkIdx())},
+        NamePrefix + ".priv.gep");
+    genF90DVInitCall(OrigV, NewVGep, InsertBefore);
+  };
+
+  for (PrivateItem *PrivI : W->getPriv().items())
+    genF90DVInitCallForItem(PrivI);
+
+  for (FirstprivateItem *FprivI : W->getFpriv().items())
+    genF90DVInitCallForItem(FprivI);
+
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LprivI : W->getLpriv().items()) {
+      if (LprivI->getInFirstprivate())
+        continue;
+      genF90DVInitCallForItem(LprivI);
+    }
 }
 
 void VPOParoptUtils::genF90DVFirstOrLastprivateCopyCallImpl(

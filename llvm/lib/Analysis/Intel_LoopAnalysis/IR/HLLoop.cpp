@@ -1666,9 +1666,73 @@ void HLLoop::shiftLoopBodyRegDDRefs(int64_t Amount) {
       });
 }
 
+bool HLLoop::canPeelFirstIteration() const {
+  if (!isUnknown()) {
+    return true;
+  }
+
+  // Handle any bottom test where the operands are linear at level.
+  // For example-
+  //
+  // + UNKNOWN LOOP i1
+  // | L:
+  // | <i1 = 0>
+  // |
+  // | if (i1 < A[0]) {
+  // |   < i1 = i1 + 1>
+  // |   goto L;
+  // | }
+  //
+  // In general, any bottom test which can be modified to act as the ZTT
+  // condition for rest of the loop iterations after peeling can be handled.
+  //
+  // After peeling the loops will look like this-
+  //
+  // + UNKNOWN LOOP i1        // Peel loop
+  // | L.peel:
+  // | <i1 = 0>
+  // |
+  // | if (undef false undef) {   // 'false' bottom test to force loop exit.
+  // |   < i1 = i1 + 1>
+  // |   goto L.peel;
+  // | }
+  //
+  // if (0 < A[0]) {          // ZTT formed by replacing IV by 0 in bottom test.
+  //   + UNKNOWN LOOP i1      // Modified main loop
+  //   | L:
+  //   | <i1 = 0>
+  //   |
+  //   | if (i1 + 1 < A[0]) {     // Shifted IV by 1.
+  //   |   < i1 = i1 + 1>
+  //   |   goto L;
+  //   | }
+  // }
+
+  auto *BottomTest = getBottomTest();
+
+  unsigned Level = getNestingLevel();
+
+  for (auto *Ref :
+       make_range(BottomTest->ddref_begin(), BottomTest->ddref_end())) {
+    if (!Ref->isLinearAtLevel(Level)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
-  assert(!isUnknown() && isNormalized() &&
-         "Unsupported loop in 1st iteration peeling!");
+  assert(isNormalized() && "Unsupported loop in 1st iteration peeling!");
+
+  // When 'UpdateMainLoop' is false, the peel loop executes a redundant
+  // iteration which is also executed by the main loop. Since this is always
+  // doable, we don't need to check canPeelFirstIteration().
+  if (UpdateMainLoop && !canPeelFirstIteration()) {
+    return nullptr;
+  }
+
+  bool IsUnknown = isUnknown();
 
   // Extract Ztt, preheader and postexit from this loop before cloning it so
   // that the peel loop doesn't include them.
@@ -1676,22 +1740,60 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   extractPreheaderAndPostexit();
 
   HLLoop *PeelLoop = clone();
-  getHLNodeUtils().insertBefore(this, PeelLoop);
+  HLNodeUtils::insertBefore(this, PeelLoop);
 
-  // Since the loop is normalized, set peel loop UB to 0 so that it executes
-  // just one iteration.
-  PeelLoop->getUpperDDRef()->clear();
+  if (IsUnknown) {
+    // Change the peel loop's bottom test condition to false to force loop to
+    // exit after one iteration.
+    auto *PeelBottomTest = PeelLoop->getBottomTest();
+    auto *PredI = PeelBottomTest->pred_begin();
+    PeelBottomTest->replacePredicate(PredI, PredicateTy::FCMP_FALSE);
+
+    auto *LHS = PeelBottomTest->getPredicateOperandDDRef(PredI, true);
+    auto *UndefOp = getDDRefUtils().createUndefDDRef(LHS->getDestType());
+
+    PeelBottomTest->setPredicateOperandDDRef(UndefOp, PredI, true);
+    PeelBottomTest->setPredicateOperandDDRef(UndefOp->clone(), PredI, false);
+
+  } else {
+    // Since the loop is normalized, set peel loop UB to 0 so that it executes
+    // just one iteration.
+    PeelLoop->getUpperDDRef()->clear();
+  }
 
   // Update this loop's UB and DDRefs to avoid execution of peeled iteration
   // only if UpdateMainLoop is true.
   if (UpdateMainLoop) {
-    getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
-    shiftLoopBodyRegDDRefs(1);
+    if (!IsUnknown) {
+      auto *Upper = getUpperDDRef();
+      Upper->getSingleCanonExpr()->addConstant(-1, true /*IsMath*/);
+      Upper->makeConsistent();
 
-    // Original loop requires a new ztt because the it may only have a single
-    // iteration, now executed by the peel loop.
-    createZtt(false /*IsOverWrite*/, isNSW());
+      shiftLoopBodyRegDDRefs(1);
+
+      // Original loop requires a new ztt because it may only have a single
+      // iteration, now executed by the peel loop.
+      createZtt(false /*IsOverWrite*/, isNSW());
+
+    } else {
+      // Clone of the bottom test can act as the ztt for rest of the iterations
+      // if we replace IV by zero.
+      auto *Ztt = getBottomTest()->cloneEmpty();
+
+      unsigned Level = getNestingLevel();
+      for (auto *Ref : make_range(Ztt->ddref_begin(), Ztt->ddref_end())) {
+        Ref->replaceIVByConstant(Level, 0);
+        Ref->makeConsistent({}, Level - 1);
+      }
+
+      HLNodeUtils::insertBefore(this, Ztt);
+      HLNodeUtils::moveAsFirstThenChild(Ztt, this);
+
+      shiftLoopBodyRegDDRefs(1);
+    }
   }
+
+  HLNodeUtils::addCloningInducedLiveouts(PeelLoop, this);
 
   return PeelLoop;
 }

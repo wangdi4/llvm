@@ -49,7 +49,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND:%.*]], [[BB7]] ],  [ i64 undef, [[BB5]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND:%.*]], [[BB7]] ],  [ i1 undef, [[BB5]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB7]] ],  [ i64 0, [[BB5]] ]
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP2:%.*]] = phi  [ i32 [[VP_EXIT_ID_PHI:%.*]], [[BB7]] ],  [ i32 0, [[BB5]] ]
+; CHECK-NEXT:       [DA: Divergent] i32 [[VP2:%.*]] = phi  [ i32 [[VP_EXIT_ID_PHI:%.*]], [[BB7]] ],  [ i32 0, [[BB5]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB5]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB7]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB7]] [[BB5]]
@@ -79,7 +79,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:          PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_EXIT_ID_PHI]] = phi  [ i32 [[VP2]], [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:         [DA: Divergent] i32 [[VP_EXIT_ID_PHI]] = phi  [ i32 [[VP2]], [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:         [DA: Divergent] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB11]] ]
 ; CHECK-NEXT:         [DA: Divergent] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB11]] ]
 ; CHECK-NEXT:         [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB11]] ]

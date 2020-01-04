@@ -661,7 +661,15 @@ ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
 
   // Link program call returns a new program object if all parameters are valid,
   // or NULL otherwise. Release the original (user) program.
-  Program.reset(LinkedProg);
+#if INTEL_CUSTOMIZATION
+  // LinkedProg is not expected to be nullptr in case of success. But currently
+  // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
+  // is built during piProgramCreate.
+  // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
+  // implemented in L0 plugin.
+  if (LinkedProg)
+#endif // INTEL_CUSTOMIZATION
+    Program.reset(LinkedProg);
   if (Error != PI_SUCCESS) {
     if (LinkedProg) {
       // A non-trivial error occurred during linkage: get a build log, release

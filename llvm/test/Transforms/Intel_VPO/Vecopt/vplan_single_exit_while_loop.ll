@@ -50,7 +50,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 true, [[BB7]] ],  [ i1 false, [[BB6]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 true, [[BB7]] ],  [ i1 false, [[BB6]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB8:BB[0-9]+]](!i1 [[VP_TAKEBACKEDGECOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB7]] [[BB6]]
 ; CHECK-EMPTY:
