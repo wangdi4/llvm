@@ -52,6 +52,7 @@ add_llvm_tool(opt
   )
 export_executable_symbols(opt)
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(opt PRIVATE LLVMIntel_DTrans)
@@ -65,3 +66,8 @@ if (p)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
+=======
+if(LLVM_BUILD_EXAMPLES)
+    target_link_libraries(opt PRIVATE ExampleIRTransforms)
+endif(LLVM_BUILD_EXAMPLES)
+>>>>>>> 0bb22b91ea335b964b99862834164b0b3a866eb4
