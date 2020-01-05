@@ -584,7 +584,8 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   };
 
   auto ConstructReadImgMangledName = [](const std::string &BaseName,
-                                        reflection::TypePrimitiveEnum ImageTy) {
+                                        reflection::TypePrimitiveEnum ImageTy,
+                                        unsigned VF) {
     reflection::FunctionDescriptor FuncDesc;
     FuncDesc.name = BaseName;
 
@@ -594,6 +595,13 @@ static void addSpecialBuiltins(ContainerTy &Info) {
     FuncDesc.parameters.push_back(ImageType);
     FuncDesc.parameters.push_back(CoordType);
 
+    if (VF != 1) {
+      // do not mask non-widened call
+      reflection::RefParamType UintTy(
+        new reflection::PrimitiveType(reflection::PRIMITIVE_UINT));
+      reflection::RefParamType MaskTy(new reflection::VectorType(UintTy, VF));
+      FuncDesc.parameters.push_back(MaskTy);
+    }
     return mangle(FuncDesc);
   };
   // Example:
@@ -653,6 +661,13 @@ static void addSpecialBuiltins(ContainerTy &Info) {
       FuncDesc.parameters.push_back(VectorPrimitiveTy);
     }
 
+    if (VF != 1) {
+      // do not mask non-widened call
+      reflection::RefParamType UintTy(
+        new reflection::PrimitiveType(reflection::PRIMITIVE_UINT));
+      reflection::RefParamType MaskTy(new reflection::VectorType(UintTy, VF));
+      FuncDesc.parameters.push_back(MaskTy);
+    }
     return mangle(FuncDesc);
   };
 
@@ -677,15 +692,15 @@ static void addSpecialBuiltins(ContainerTy &Info) {
                                ConstructReadMangledName(ReadVF16Name, Suffix, 16)}});
 
       ReadImgBuiltins.push_back(
-        {ConstructReadImgMangledName(ReadBaseName, reflection::PRIMITIVE_IMAGE_2D_RO_T),
-         {ConstructReadImgMangledName(ReadVF4Name, reflection::PRIMITIVE_IMAGE_2D_RO_T),
-          ConstructReadImgMangledName(ReadVF8Name, reflection::PRIMITIVE_IMAGE_2D_RO_T),
-          ConstructReadImgMangledName(ReadVF16Name, reflection::PRIMITIVE_IMAGE_2D_RO_T)}});
+        {ConstructReadImgMangledName(ReadBaseName, reflection::PRIMITIVE_IMAGE_2D_RO_T, 1),
+         {ConstructReadImgMangledName(ReadVF4Name, reflection::PRIMITIVE_IMAGE_2D_RO_T, 4),
+          ConstructReadImgMangledName(ReadVF8Name, reflection::PRIMITIVE_IMAGE_2D_RO_T, 8),
+          ConstructReadImgMangledName(ReadVF16Name, reflection::PRIMITIVE_IMAGE_2D_RO_T, 16)}});
       ReadImgBuiltins.push_back(
-        {ConstructReadImgMangledName(ReadBaseName, reflection::PRIMITIVE_IMAGE_2D_RW_T),
-         {ConstructReadImgMangledName(ReadVF4Name, reflection::PRIMITIVE_IMAGE_2D_RW_T),
-          ConstructReadImgMangledName(ReadVF8Name, reflection::PRIMITIVE_IMAGE_2D_RW_T),
-          ConstructReadImgMangledName(ReadVF16Name, reflection::PRIMITIVE_IMAGE_2D_RW_T)}});
+        {ConstructReadImgMangledName(ReadBaseName, reflection::PRIMITIVE_IMAGE_2D_RW_T, 1),
+         {ConstructReadImgMangledName(ReadVF4Name, reflection::PRIMITIVE_IMAGE_2D_RW_T, 4),
+          ConstructReadImgMangledName(ReadVF8Name, reflection::PRIMITIVE_IMAGE_2D_RW_T, 8),
+          ConstructReadImgMangledName(ReadVF16Name, reflection::PRIMITIVE_IMAGE_2D_RW_T, 16)}});
 
       const std::string BlockWriteBaseName("intel_sub_group_block_write");
       std::string WriteBaseName =
@@ -757,7 +772,7 @@ static void addSpecialBuiltins(ContainerTy &Info) {
 
   auto AddReadImgBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                          unsigned Idx) -> void {
-    AddBuiltin(Builtin, false, {VectorKind::uniform(), VectorKind::uniform()}, VF, Idx);
+    AddBuiltin(Builtin, true, {VectorKind::uniform(), VectorKind::uniform()}, VF, Idx);
   };
 
   for (auto &ReadImgBuiltin : ReadImgBuiltins) {
@@ -779,7 +794,7 @@ static void addSpecialBuiltins(ContainerTy &Info) {
 
   auto AddWriteImgBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform(), VectorKind::uniform(), VectorKind::vector()},
+    AddBuiltin(Builtin, true /*Masked*/, {VectorKind::uniform(), VectorKind::uniform(), VectorKind::vector()},
                VF, Idx);
   };
 

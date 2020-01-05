@@ -9,13 +9,13 @@ target triple = "spir64-unknown-unknown"
 define spir_kernel void @test(%opencl.image2d_rw_t addrspace(1)* %image) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 {
 entry:
   %call = tail call spir_func <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_rwDv2_i(%opencl.image2d_rw_t addrspace(1)* %image, <2 x i32> <i32 1, i32 1>) #2
-; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_rwDv2_i(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}})
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_rwDv2_iDv4_j(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   tail call spir_func void @_Z28intel_sub_group_block_write214ocl_image2d_rwDv2_iDv2_j(%opencl.image2d_rw_t addrspace(1)* %image, <2 x i32> <i32 1, i32 1>, <2 x i32> %call) #2
-; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_rwDv2_iDv8_j(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}}, <8 x i32> {{%.*}})
+; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_rwDv2_iDv8_jDv4_j(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}}, <8 x i32> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
  %call1 = tail call spir_func <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_rwDv2_i(%opencl.image2d_rw_t addrspace(1)* %image, <2 x i32> <i32 1, i32 1>) #2
-; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_rwDv2_i(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}})
+; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_rwDv2_iDv4_j(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   tail call spir_func void @_Z31intel_sub_group_block_write_us214ocl_image2d_rwDv2_iDv2_t(%opencl.image2d_rw_t addrspace(1)* %image, <2 x i32> <i32 1, i32 1>, <2 x i16> %call1) #2
-; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_rwDv2_iDv8_t(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}}, <8 x i16> {{%.*}})
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_rwDv2_iDv8_tDv4_j(%opencl.image2d_rw_t addrspace(1)* {{%.*}}, <2 x i32> {{%.*}}, <8 x i16> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   ret void
 }
 ; Function Attrs: convergent
