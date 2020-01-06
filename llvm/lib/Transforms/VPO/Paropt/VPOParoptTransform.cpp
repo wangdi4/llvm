@@ -396,7 +396,6 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   SmallVector<Value *, 3> Arg;
   // Map the innermost loop to the 1st ND-range dimension.
   initArgArray(&Arg, NumLoops - Idx - 1);
-  bool MayHaveOMPCritical = W->mayHaveOMPCritical();
 
   assert(((TeamLowerBnd && TeamUpperBnd) ||
           (!TeamLowerBnd && !TeamUpperBnd)) &&
@@ -425,6 +424,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // All operands of math expressions below will be of LBType
   auto LBType = LB->getType();
   Value *NewUB = nullptr;
+  bool MayHaveOMPCritical = W->mayHaveOMPCritical();
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
@@ -5019,7 +5019,7 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
 }
 
 llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
-    const WRegionNode *W) const {
+    const WRegionNode *W, const Item *I) const {
   if (!isTargetSPIRV())
     return llvm::None;
 
@@ -5030,6 +5030,9 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   // Objects declared inside "omp target" must be accessible by all teams,
   // so they have to be __global.
   if (isa<WRNTargetNode>(W))
+#if INTEL_CUSTOMIZATION
+    if (!I->getIsWILocal())
+#endif  // INTEL_CUSTOMIZATION
     return vpo::ADDRESS_SPACE_GLOBAL;
 
   return vpo::ADDRESS_SPACE_PRIVATE;
@@ -5095,7 +5098,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // InsertPt at every iteration of this for-loop.
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
         if (!ForTask) {
-          auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W);
+          auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, PrivI);
           NewPrivInst =
               genPrivatizationAlloca(PrivI, InsertPt, ".priv", AllocaAddrSpace);
         } else {

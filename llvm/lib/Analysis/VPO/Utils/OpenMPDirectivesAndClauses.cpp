@@ -27,7 +27,7 @@ using namespace llvm::vpo;
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
-      IsF90DopeVector(false),
+      IsF90DopeVector(false), IsWILocal(false),
 #endif // INTEL_CUSTOMIZATION
       IsUnsigned(false), IsComplex(false), IsConditional(false),
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
@@ -92,6 +92,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "F90_DV")
           setIsF90DopeVector();
+        else if (ModSubString[i] == "WILOCAL")
+          setIsWILocal();
 #endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
@@ -119,6 +121,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "  ByRef: " << getIsByRef());
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  F90_DV: " << getIsF90DopeVector());
+  LLVM_DEBUG(dbgs() << "  WILOCAL: " << getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
   LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());

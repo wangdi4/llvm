@@ -112,6 +112,7 @@ class Item
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
     EXPR F90DVNumElements; // number of elements in the F90 DV
+    bool IsWILocal = false;
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
                      // the offset into the thunk for the new var
@@ -182,6 +183,8 @@ class Item
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
     void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
     EXPR getF90DVNumElements() const   { return F90DVNumElements; }
+    void setIsWILocal(bool Flag)       { IsWILocal = Flag; }
+    bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {

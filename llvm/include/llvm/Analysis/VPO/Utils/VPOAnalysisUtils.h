@@ -98,6 +98,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "F90_DV"
 ///      Id = QUAL_OMP_PRIVATE
+///
+/// 8. WI local operands of clauses implying privatization. Example:
+///      FullName = "QUAL.OMP.PRIVATE:WILOCAL
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "WILOCAL"
+///      Id = QUAL_OMP_PRIVATE
 #endif // INTEL_CUSTOMIZATION
 ///
 /// Id is the enum corresponding to BaseName.
@@ -116,6 +122,7 @@ private:
   bool IsNonPod:1;
 #if INTEL_CUSTOMIZATION
   bool IsF90DopeVector:1;
+  bool IsWILocal:1;
 #endif // INTEL_CUSTOMIZATION
   bool IsUnsigned:1;     // needed by min/max reduction
   bool IsComplex:1;
@@ -174,6 +181,8 @@ public:
 #if INTEL_CUSTOMIZATION
   void setIsF90DopeVector() {IsF90DopeVector = true; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
+  void setIsWILocal() { IsWILocal = true; }
+  bool getIsWILocal() const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
   bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }

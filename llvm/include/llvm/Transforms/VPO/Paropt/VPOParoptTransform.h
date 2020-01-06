@@ -155,6 +155,11 @@ public:
   bool isModeOmpNoFECollapse() { return Mode & vpo::OmpNoFECollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
+#if INTEL_CUSTOMIZATION
+  /// Top level interface for data sharing optimization.
+  bool optimizeDataSharing();
+#endif  // INTEL_CUSTOMIZATION
+
 private:
   /// A reference to the parent module transform object. It can be NULL if
   /// paropt transform is construted from a function pass.
@@ -408,13 +413,13 @@ private:
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
       bool PreserveAddressSpace = true);
 
-  /// Returns address space that should be used for privatizing variables
-  /// referenced in PRIVATE clauses of the given region \p W.
+  /// Returns address space that should be used for privatizing variable
+  /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
   /// If the return value is llvm::None, then the address space
   /// should be equal to default alloca address space, as defined
   /// by DataLayout.
   llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
-      const WRegionNode *W) const;
+      const WRegionNode *W, const Item *I) const;
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
@@ -1756,7 +1761,11 @@ private:
   /// "omp critical".
   void setMayHaveOMPCritical(WRegionNode *W) const;
 
+  /// If the given region is an OpenMP loop construct with collapse
+  /// clause, then the method will collapse the loop nest accordingly.
+  /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
+
 };
 
 } /// namespace vpo

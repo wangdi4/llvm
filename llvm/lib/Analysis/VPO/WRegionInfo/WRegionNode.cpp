@@ -694,6 +694,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
     if (ClauseInfo.getIsF90DopeVector())
       C.back()->setIsF90DopeVector(true);
+    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
   }
 }
@@ -731,6 +732,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
 #if INTEL_CUSTOMIZATION
     if (ClauseInfo.getIsF90DopeVector())
       Item->setIsF90DopeVector(true);
+    Item->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else
@@ -747,6 +749,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
     if (ClauseInfo.getIsF90DopeVector())
       C.back()->setIsF90DopeVector(true);
+    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
 }
@@ -1263,12 +1266,18 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       getWRNLoopInfo().addNormUB(V);
     }
     break;
-    case QUAL_OMP_OFFLOAD_NDRANGE:
-      for (unsigned I = 0; I < NumArgs; ++I) {
-        Value *V = Args[I];
-        addUncollapsedNDRangeDimension(V);
-      }
-      break;
+  case QUAL_OMP_OFFLOAD_NDRANGE:
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = Args[I];
+      addUncollapsedNDRangeDimension(V);
+    }
+    break;
+  case QUAL_OMP_JUMP_TO_END_IF:
+    // Nothing to parse for this auxiliary clause.
+    // It may exist after VPO Paropt prepare and before
+    // VPO Paropt transform to guarantee that DCE does not
+    // remove unreachable region exit directives.
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
