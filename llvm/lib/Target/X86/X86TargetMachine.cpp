@@ -72,6 +72,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
 #endif // INTEL_CUSTOMIZATION
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeX86SplitVectorValueTypePass(PR);  // INTEL
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
   initializeFixupBWInstPassPass(PR);
@@ -488,6 +489,9 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
+  if (getOptLevel() >= CodeGenOpt::Default &&
+      TM->Options.IntelAdvancedOptim)
+    addPass(createX86SplitVectorValueTypePass());
   if (getOptLevel() == CodeGenOpt::Aggressive &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());
