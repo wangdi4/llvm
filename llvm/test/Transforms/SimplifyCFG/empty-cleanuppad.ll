@@ -407,10 +407,6 @@ return:                                           ; preds = %invoke.cont, %catch
 ; CHECK-LABEL: define i32 @f9()
 ; CHECK: entry:
 ; CHECK:   invoke void @"\01??1S2@@QEAA@XZ"(
-; INTEL_CUSTOMIZATION
-;   deleting this cleanuppad is suppressed because of the lifetime.end
-; CHECK:   cleanuppad
-; end INTEL_CUSTOMIZATION
 ; CHECK: catch.dispatch:
 ; CHECK: }
 define i32 @f9() personality i32 (...)* @__CxxFrameHandler3 {
@@ -474,10 +470,10 @@ cleanupret2:
 ; CHECK:   invoke void @g()
 ; FIXME -- As a temporary workaround, we're not deleting the cleanup pad.
 ;          Long term, we should delete the cleanup pad and sink the intrinsic.
-; CHECK: ehcleanup:
-; CHECK:   phi
-; CHECK:   cleanuppad
-; CHECK:   lifetime.end
+; CHECK-NOT: ehcleanup:
+; CHECK-NOT:   phi
+; CHECK-NOT:   cleanuppad
+; CHECK-NOT:   lifetime.end
 ; CHECK: catch.dispatch:
 ; CHECK:   catchswitch
 ; CHECK: catch:
@@ -512,13 +508,6 @@ catch:                                            ; preds = %catch.dispatch
 return:                                           ; preds = %invoke.cont, %catch.cont
   ret void
 }
-
-; FIXME -- When lifetime_end support is properly implemented, we'll need other
-;          variations of f11 -- one where ehcleanup dominates its successor,
-;          one where the lifetime intrinsic isn't using a PHI node, one where
-;          the empty cleanup pad contains a lifetime end but unwinds to caller,
-;          etc.
-
 ; end INTEL_CUSTOMIZATION
 
 %struct.S = type { i8 }
