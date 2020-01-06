@@ -842,6 +842,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   UBCE->divide(StripmineSize);
   UBCE->simplify(true, true);
 
+  UBRef->makeConsistent({}, Level);
+
   RegDDRef *InnerLBRef =
       UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
 
