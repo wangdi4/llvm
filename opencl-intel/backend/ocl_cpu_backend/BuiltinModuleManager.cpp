@@ -20,7 +20,8 @@
 #include "CPUBuiltinLibrary.h"
 #include "EyeQBuiltinLibrary.h"
 
-void RegisterCPUBIFunctions(void);
+llvm::Error RegisterCPUBIFunctions(
+    Intel::OpenCL::DeviceBackend::LLJIT2* LLJIT = nullptr);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -42,7 +43,9 @@ void BuiltinModuleManager::Init()
     assert(!s_pInstance);
     s_pInstance = new BuiltinModuleManager();
     // TODO: need to move this function from the Manager Initialization
-    RegisterCPUBIFunctions();
+    auto Err = RegisterCPUBIFunctions();
+    if (Err)
+        assert(false && "RegisterCPUBIFunctions failed");
 }
 
 void BuiltinModuleManager::Terminate()
@@ -87,6 +90,12 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
 BuiltinLibrary* BuiltinModuleManager::GetOrLoadEyeQLibrary(Intel::CPUId cpuId)
 {
     return GetOrLoadDeviceLibrary<EyeQBuiltinLibrary>(cpuId);
+}
+
+llvm::Error BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(
+    LLJIT2 *LLJIT)
+{
+    return RegisterCPUBIFunctions(LLJIT);
 }
 
 }}}

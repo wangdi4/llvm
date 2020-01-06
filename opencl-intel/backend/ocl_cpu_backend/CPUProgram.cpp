@@ -15,8 +15,9 @@
 #define NOMINMAX
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "CPUProgram.h"
 #include "BitCodeContainer.h"
+#include "CompilationUtils.h"
+#include "CPUProgram.h"
 #include "Kernel.h"
 #include "ObjectCodeCache.h"
 
@@ -60,12 +61,29 @@ cl_ulong CPUProgram::GetFunctionPointerFor(const char *FunctionName) const {
 }
 
 void CPUProgram::GetGlobalVariablePointers(cl_prog_gv_map &GVs) const {
+    assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
     const llvm::StringMap<size_t> Sizes = GetGlobalVariableSizes();
     for (const auto &Size : Sizes)
     {
-        std::string Name = Size.first().str();
-        void *Addr = reinterpret_cast<void*>(
-            (intptr_t)(m_pExecutionEngine->getGlobalValueAddress(Name)));
+        llvm::StringRef Name = Size.first();
+        void *Addr;
+        if (m_pExecutionEngine)
+        {
+            Addr = reinterpret_cast<void*>((intptr_t)(
+                m_pExecutionEngine->getGlobalValueAddress(Name.str())));
+        }
+        else
+        {
+            auto Sym = m_LLJIT->lookupLinkerMangled(Name);
+            if (llvm::Error Err = Sym.takeError())
+            {
+                llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+                throw Exceptions::CompilerException(
+                    "Failed to get address of global variable " + Name.str());
+            }
+            Addr = reinterpret_cast<void*>(
+                static_cast<uintptr_t>(Sym->getAddress()));
+        }
         cl_prog_gv_prop Prop = { Size.second, Addr };
         GVs[Name] = Prop;
     }

@@ -17,6 +17,7 @@
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
 #include "ICompilerConfig.h"
+#include "LLJIT2.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/raw_ostream.h"
@@ -178,6 +179,9 @@ public:
 
     // Get the latest execution engine
     virtual void *GetExecutionEngine() = 0;
+
+    // Create LLJIT instance
+    virtual std::unique_ptr<LLJIT2> CreateLLJIT() = 0;
 
     // Get Function Address Resolver
     virtual void *GetFunctionAddressResolver() { return NULL; }

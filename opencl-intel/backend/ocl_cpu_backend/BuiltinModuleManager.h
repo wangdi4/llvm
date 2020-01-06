@@ -15,6 +15,7 @@
 #pragma once
 #include <map>
 #include "CPUDetect.h"
+#include "LLJIT2.h"
 
 namespace llvm
 {
@@ -61,6 +62,11 @@ public:
      * Creates the builtins module for the given cpu using the given LLVMContext
      */
     BuiltinModules*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
+
+    /**
+     * Register symbols of CPU builtins to LLJIT.
+     */
+    llvm::Error RegisterCPUBIFunctionsToLLJIT(LLJIT2 *LLJIT);
 
 private:
     template <typename DeviceBuiltinLibrary>

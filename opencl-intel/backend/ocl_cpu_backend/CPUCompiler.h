@@ -56,6 +56,9 @@ public:
     // Get execution engine
     void *GetExecutionEngine() override { return m_pExecEngine; }
 
+    // Create LLJIT instance
+    std::unique_ptr<LLJIT2> CreateLLJIT() override;
+
     void DumpJIT( llvm::Module* pModule, const std::string& filename,
                   llvm::CodeGenFileType genType =
                   llvm::CGFT_AssemblyFile) const;

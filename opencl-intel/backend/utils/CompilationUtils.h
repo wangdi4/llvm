@@ -669,6 +669,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //         ctor/dtor for pipes. See TODO inside the implementation
     static bool isGlobalCtorDtor(Function *F);
 
+    /// @brief Get global Ctor/Dtor names sorted by priority
+    static void getGlobalCtorDtorNames(const llvm::Module &M,
+                                       std::vector<std::string> &CtorNames,
+                                       std::vector<std::string> &DtorNames);
+
     /// @brief Returns true if the function is a block invoke kernel
     static bool isBlockInvocationKernel(Function *F);
 

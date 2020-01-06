@@ -19,6 +19,7 @@
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 #include "ICLDevBackendProgram.h"
+#include "LLJIT2.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
 #include "llvm/ADT/StringMap.h"
@@ -169,6 +170,25 @@ public:
     void SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes);
 
     /**
+     * Record name and priority of global ctors and dtors
+     */
+    void RecordCtorDtors(const llvm::Module &M);
+
+    /**
+     * Return names of global ctors
+     */
+    const std::vector<std::string>& GetGlobalCtors() {
+        return m_globalCtors;
+    }
+
+    /**
+     * Return names of global dtors
+     */
+    const std::vector<std::string>& GetGlobalDtors() {
+        return m_globalDtors;
+    }
+
+    /**
      * Sets the Object Code Container (program will take ownership of the container)
      */
     void SetObjectCodeContainer(ObjectCodeContainer* objCodeContainer);
@@ -203,6 +223,10 @@ public:
 
     virtual void SetExecutionEngine(void *eE) {}
 
+    virtual void SetLLJIT(std::unique_ptr<LLJIT2> LLJIT) = 0;
+
+    virtual LLJIT2* GetLLJIT() = 0;
+
     /// get runtime service
     RuntimeServiceSharedPtr GetRuntimeService() const{
       return m_RuntimeService;
@@ -224,6 +248,11 @@ public:
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
     virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
+    /**
+     * Checks if this program has an object binary to be loaded from
+     */
+    bool HasCachedExecutable() const;
+
 protected:
     ObjectCodeContainer* m_pObjectCodeContainer;
     BitCodeContainer* m_pIRCodeContainer;
@@ -235,6 +264,10 @@ protected:
     size_t            m_globalVariableTotalSize;
     // Map from global variable (with non-internal linkage) name to its size.
     llvm::StringMap<size_t> m_globalVariableSizes;
+    // Names of global ctors sorted by priority
+    std::vector<std::string> m_globalCtors;
+    // Names of global dtors sorted by priority
+    std::vector<std::string> m_globalDtors;
 
 private:
     // Disable copy ctor and assignment operator

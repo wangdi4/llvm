@@ -1,10 +1,58 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #include "CL/cl.h"
 #include "cl_types.h"
 #include <stdio.h>
 #include "FrameworkTest.h"
+#include "TestsHelpClasses.h"
+#include <gtest/gtest.h>
 #include <memory>
 
 extern cl_device_type gDeviceType;
+
+static void testGetProgramBuildInfo(cl_device_id device, cl_program *programs,
+                                    int numPrograms)
+{
+    std::vector<size_t> gvSizes(numPrograms); // global variable sizes
+    for (int i = 0; i < numPrograms; i++)
+    {
+        // CL_PROGRAM_BUILD_STATUS
+        cl_build_status status;
+        cl_int err = clGetProgramBuildInfo(programs[i], device,
+            CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, nullptr);
+        ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+        ASSERT_EQ(CL_BUILD_SUCCESS, status);
+
+        // CL_PROGRAM_BINARY_TYPE
+        cl_program_binary_type type;
+        err = clGetProgramBuildInfo(programs[i], device, CL_PROGRAM_BINARY_TYPE,
+                                    sizeof(type), &type, nullptr);
+        ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+        ASSERT_EQ(CL_PROGRAM_BINARY_TYPE_EXECUTABLE, type);
+
+        // CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE
+        err = clGetProgramBuildInfo(programs[i], device,
+            CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE, sizeof(gvSizes[i]),
+            &gvSizes[i], nullptr);
+        ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+        if (i > 0)
+        {
+            ASSERT_TRUE(0 != gvSizes[i] && gvSizes[0] == gvSizes[i]);
+        }
+    }
+}
 
 bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
 {
@@ -109,10 +157,12 @@ bool clCheckJITSaveLoadTest()
 {
     bool bResult = true;
     const char *ocl_test_program[] = {\
+    "typedef struct { char c; int i; } foo;"
+    "global foo v = { 'a', 5 };"
     "__kernel void test_kernel(__global int* pBuff0, __global int* pBuff1, __global int* pBuff2)"\
     "{"\
     "    size_t id = get_global_id(0);"\
-    "    pBuff0[id] = pBuff1[id] ? 5 : pBuff2[id];"\
+    "    pBuff0[id] = pBuff1[id] ? v.i : pBuff2[id];"\
     "}"
     };
 
@@ -160,7 +210,8 @@ bool clCheckJITSaveLoadTest()
     printf("context = %p\n", (void*)context);
 
     cl_program clProg;
-    bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-denorms-are-zero", &clProg);
+    bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program,
+        NULL, "-cl-std=CL2.0 -cl-denorms-are-zero", &clProg);
     if (!bResult)
     {
         clReleaseContext(context);
@@ -285,6 +336,10 @@ bool clCheckJITSaveLoadTest()
         ret = TestRun(clBinaryProg2, context, devices[0]);
         printf("test e: binary progarm (2nd level) run %s\n", ret ? "PASS" : "FAIL");
         bResult &= ret;
+
+        // Test clGetProgramBuildInfo
+        cl_program programs[] = { clProg, clBinaryProg, clBinaryProg2 };
+        testGetProgramBuildInfo(devices[0], programs, 3);
 
         // Release
         clReleaseProgram(clBinaryProg2);

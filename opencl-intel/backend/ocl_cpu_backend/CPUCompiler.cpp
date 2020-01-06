@@ -385,6 +385,33 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
 }
 
+std::unique_ptr<LLJIT2> CPUCompiler::CreateLLJIT() {
+    // Create LLJIT instance
+    auto LLJIT = LLJIT2Builder().create();
+    if (!LLJIT)
+        throw Exceptions::CompilerException("Failed to create LLJIT");
+
+    // Enable searching for symbols in the current process.
+    char GlobalPrefix = '\0';
+    auto Generator =
+        llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+            GlobalPrefix);
+    if (!Generator)
+        throw Exceptions::CompilerException(
+            "Failed to create DynamicLibrarySearchGenerator");
+    (void)(*LLJIT)->getMainJITDylib().addGenerator(std::move(*Generator));
+
+    // Add builtin function symbols
+    if (auto Err =
+            BuiltinModuleManager::GetInstance()->RegisterCPUBIFunctionsToLLJIT(
+                (*LLJIT).get())) {
+        llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+        throw Exceptions::CompilerException("Failed to add builtin symbols");
+    }
+
+    return std::move(*LLJIT);
+}
+
 bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
     bool hasCUs =
         (pModule->debug_compile_units_begin() !=

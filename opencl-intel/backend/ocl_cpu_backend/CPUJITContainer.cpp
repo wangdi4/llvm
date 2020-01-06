@@ -12,10 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CompilationUtils.h"
 #include "CPUJITContainer.h"
+#include "CPUProgram.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "CPUProgram.h"
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
@@ -78,21 +79,22 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
         m_pProps = stats->GetBackendFactory()->CreateKernelJITProperties();
         m_pProps->Deserialize(ist, stats);
     }
-    
+
     if(m_pModule)
-    {
         m_pModule = (llvm::Module*)stats->GetPointerMark("pModule");
-        if(m_pModule && m_pFunction)
-        {
-            m_pFunction = m_pModule->getFunction(name.c_str());
-        }
-    }
-    
+
     CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
     if(pProgram && m_pFuncCode && m_pFunction)
     {
+        auto sym = pProgram->GetLLJIT()->lookupLinkerMangled(name);
+        if (llvm::Error err = sym.takeError())
+        {
+            llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+            throw Exceptions::CompilerException(
+                "Failed to get address of kernel " + name);
+        }
         m_pFuncCode = reinterpret_cast<const void*>(
-            pProgram->GetExecutionEngine()->getFunctionAddress(m_pFunction->getName().str()));
+            static_cast<uintptr_t>(sym->getAddress()));
     }
 }
 

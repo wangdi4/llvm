@@ -55,7 +55,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     assert(pCache && "Object Cache is null");
     assert(pProgram && "Program Object is null");
 
-    if(pCache->getCachedModule().empty() || nullptr == pCache->getCachedObject())
+    if(!pCache->isObjectAvailable())
     {
         pProgram->SetObjectCodeContainer(nullptr);
         return ;
@@ -68,8 +68,8 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
         SERIALIZE_PERSISTENT_IMAGE, pProgram, &serializationSize);
 
     size_t irSize = pProgram->GetProgramIRCodeContainer()->GetCodeSize();
-    size_t optModuleSize = pCache->getCachedModule().size();
-    size_t objSize = pCache->getCachedObject()->getBufferSize();
+    std::unique_ptr<llvm::MemoryBuffer> cachedObject = pCache->getObject(nullptr);
+    size_t objSize = cachedObject->getBufferSize();
 
     CLElfLib::E_EH_MACHINE bitOS = m_compiler.GetCpuId().Is64BitOS() ? CLElfLib::EM_X86_64 : CLElfLib::EM_860;
 
@@ -98,12 +98,8 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
         &(metaStart[0]), serializationSize);
     pWriter->AddSection(g_metaSectionName, &(metaStart[0]), serializationSize);
 
-    // fill the raw module bits
-    const std::string& optModule = pCache->getCachedModule();
-    pWriter->AddSection(g_optSectionName, &optModule[0], optModuleSize);
-
     // fill the Object bits
-    const char* objStart = pCache->getCachedObject()->getBuffer().data();
+    const char* objStart = cachedObject->getBuffer().data();
     pWriter->AddSection(g_objSectionName, objStart, objSize);
 
     // fill the Version section
@@ -134,7 +130,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     // get sizes
     CacheBinaryReader reader(pCachedObject,cacheSize);
     size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
-    size_t optModuleSize = reader.GetSectionSize(g_optSectionName);
+    size_t irSize = reader.GetSectionSize(g_irSectionName);
     size_t objectSize = reader.GetSectionSize(g_objSectionName);
 
     // get the buffers entries
@@ -143,9 +139,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     const char* serializationBuffer = (const char*)reader.GetSectionData(g_metaSectionName);
     assert(serializationBuffer && "Serialization Buffer is null");
-
-    const char* optModuleBuffer = (const char*)reader.GetSectionData(g_optSectionName);
-    assert(optModuleBuffer && "OptModule Buffer is null");
 
     const char* objectBuffer = (const char*)reader.GetSectionData(g_objSectionName);
     assert(objectBuffer && "Object Buffer is null");
@@ -157,23 +150,27 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     // update the builtin module
     pProgram->SetBuiltinModule(GetCompiler()->GetBuiltinModuleList());
 
-    // parse the optimized module
-    llvm::StringRef data = llvm::StringRef(optModuleBuffer, optModuleSize);
+    // parse the IR bit code
+    llvm::StringRef data = llvm::StringRef(bitCodeBuffer, irSize);
     std::unique_ptr<llvm::MemoryBuffer> Buffer = llvm::MemoryBuffer::getMemBufferCopy(data);
 
     Compiler* pCompiler = GetCompiler();
     llvm::Module* pModule = pCompiler->ParseModuleIR(Buffer.get());
-    pCompiler->CreateExecutionEngine(pModule);
-
-    llvm::ExecutionEngine* pEngine = (llvm::ExecutionEngine*)GetCompiler()->GetExecutionEngine();
 
     // create cache manager
-    pProgram->SetExecutionEngine(pEngine);
     pProgram->SetModule(pModule);
 
     ObjectCodeCache* pCache = new ObjectCodeCache((llvm::Module*)pProgram->GetModule(), objectBuffer, objectSize);
-    pEngine->setObjectCache(pCache);
     static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
+
+    // create LLJIT
+    std::unique_ptr<LLJIT2> LLJIT = pCompiler->CreateLLJIT();
+    llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr));
+    if (err) {
+        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        throw Exceptions::CompilerException("Failed to add object to LLJIT");
+    }
+    pProgram->SetLLJIT(std::move(LLJIT));
 
     // deserialize the management objects
     std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
@@ -413,6 +410,9 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
         pProgram->SetGlobalVariableSizes(GlobalVariableSizes);
     }
+
+    // Record global Ctor/Dtor names
+    pProgram->RecordCtorDtors(*spModule);
 }
 
 IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
@@ -432,9 +432,24 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
   // set in RuntimeService new BlockToKernelMapper object
   pProgram->GetRuntimeService()->SetBlockToKernelMapper(pMapper);
 
+  // Run static constructors
   CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
-  pCPUProgram->GetExecutionEngine()->finalizeObject();
-  pCPUProgram->GetExecutionEngine()->runStaticConstructorsDestructors(
-      /*isDtors=*/false);
+  llvm::ExecutionEngine *executionEngine = pCPUProgram->GetExecutionEngine();
+  LLJIT2 *LLJIT = pCPUProgram->GetLLJIT();
+  assert(((executionEngine && !LLJIT) || (!executionEngine && LLJIT)) &&
+    "Only one of MCJIT and LLJIT should be enabled");
+  if (executionEngine) {
+    executionEngine->finalizeObject();
+    executionEngine->runStaticConstructorsDestructors(/*isDtors=*/false);
+  }
+  else {
+    llvm::Error err = pProgram->HasCachedExecutable()
+                          ? LLJIT->runConstructors(pProgram->GetGlobalCtors())
+                          : LLJIT->runConstructors();
+    if (err) {
+      llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+      throw Exceptions::CompilerException("Failed to run LLJIT constructors");
+    }
+  }
 }
 }}} // namespace
