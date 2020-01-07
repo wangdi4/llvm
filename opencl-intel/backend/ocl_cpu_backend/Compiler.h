@@ -217,6 +217,7 @@ protected:
     std::string              m_IRDumpDir;
     bool                     m_dumpHeuristicIR;
     bool                     m_debug;
+    bool                     m_disableOptimization;
     bool                     m_useNativeDebugger;
 
     static bool s_globalStateInitialized;

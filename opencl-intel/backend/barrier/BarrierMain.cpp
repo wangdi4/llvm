@@ -45,8 +45,8 @@ namespace intel {
 
   char intel::BarrierMain::ID = 0;
 
-  BarrierMain::BarrierMain(DebuggingServiceType debugType, bool useTLSGlobals)
-      : ModulePass(ID), m_debugType(debugType), m_useTLSGlobals(useTLSGlobals) {
+  BarrierMain::BarrierMain(unsigned optLevel, DebuggingServiceType debugType, bool useTLSGlobals)
+      : ModulePass(ID), m_optLevel(optLevel), m_debugType(debugType), m_useTLSGlobals(useTLSGlobals) {
   }
 
   bool BarrierMain::runOnModule(Module &M) {
@@ -54,8 +54,7 @@ namespace intel {
 
     barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
-    if( m_debugType == None ) {
-      //In DBG mode do not run extra llvm optimizations
+    if( m_optLevel > 0 ) {
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
     }
 
@@ -83,7 +82,7 @@ namespace intel {
     barrierModulePM.add(createVerifierPass());
 #endif
 
-    if( m_debugType == None ) {
+    if( m_optLevel > 0 ) {
       //In DBG mode do not run extra llvm optimizations
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
     }
@@ -106,9 +105,9 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-Pass *createBarrierMainPass(intel::DebuggingServiceType debugType,
+Pass *createBarrierMainPass(unsigned optLevel, intel::DebuggingServiceType debugType,
                             bool useTLSGlobals) {
-  return new intel::BarrierMain(debugType, useTLSGlobals);
+  return new intel::BarrierMain(optLevel, debugType, useTLSGlobals);
   }
 
   void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {

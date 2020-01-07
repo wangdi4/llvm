@@ -322,6 +322,7 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpDir(config.GetDumpIRDir()),
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
     m_debug(false),
+    m_disableOptimization(false),
     m_useNativeDebugger(false)
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
@@ -374,7 +375,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   }
 
   llvm::CodeGenOpt::Level CGOptLevel =
-    m_debug ? llvm::CodeGenOpt::None : llvm::CodeGenOpt::Default;
+    m_disableOptimization ? llvm::CodeGenOpt::None : llvm::CodeGenOpt::Default;
 
   llvm::EngineBuilder Builder;
 
@@ -418,6 +419,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
 
     // Record the debug control flags.
     m_debug = buildOptions.GetDebugInfoFlag();
+    m_disableOptimization = buildOptions.GetDisableOpt();
     m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
     materializeSpirTriple(pModule);
