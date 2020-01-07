@@ -814,7 +814,7 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_blend_epi16(unsigned char mask
    is picked from a if its corresponding bit in the mask is 0, and from b if it is 1. */
 static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_blend_ps(unsigned char mask, __m64f a, __m64f b)
 {
-  return (__m64f)__builtin_csa_blend16x4(mask, a, b);
+  return (__m64f)__builtin_csa_blend32x2(mask, a, b);
 }
 
 /*
