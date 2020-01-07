@@ -180,7 +180,8 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void *get_offload_pipe(void);
+  void *create_offload_pipe(bool);
+  int32_t release_offload_pipe(void *);
   int32_t is_managed_data(void *);
 #endif // INTEL_COLLAB
 private:

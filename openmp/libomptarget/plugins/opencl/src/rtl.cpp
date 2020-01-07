@@ -361,6 +361,7 @@ public:
   std::vector<ExtensionsTy> Extensions;
   std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
+  std::vector<cl_command_queue> QueuesOOO; // out-of-order queues
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::map<void *, BufferInfoTy> > Buffers;
   std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
@@ -371,7 +372,7 @@ public:
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
-  uint64_t flag;
+  uint64_t Flags;
   int32_t DataTransferLatency;
   int32_t DataTransferMethod;
   int64_t ProfileResolution;
@@ -388,11 +389,13 @@ public:
 
   // Limit for the number of WIs in a WG.
   int32_t OMPThreadLimit = -1;
-  static const uint64_t LinkDeviceRTLFlag              = 1ULL << 0;
-  static const uint64_t CollectDataTransferLatencyFlag = 1ULL << 1;
-  static const uint64_t EnableProfileFlag              = 1ULL << 2;
+  static const uint64_t LinkDeviceRTLFlag                    = 1ULL << 0;
+  static const uint64_t CollectDataTransferLatencyFlag       = 1ULL << 1;
+  static const uint64_t EnableProfileFlag                    = 1ULL << 2;
+  static const uint64_t UseInteropQueueInorderAsyncFlag      = 1ULL << 3;
+  static const uint64_t UseInteropQueueInorderSharedSyncFlag = 1ULL << 4;
 
-  RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0),
+  RTLDeviceInfoTy() : numDevices(0), Flags(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
 #ifdef OMPTARGET_OPENCL_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
@@ -411,7 +414,7 @@ public:
     if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
-        flag |= CollectDataTransferLatencyFlag;
+        Flags |= CollectDataTransferLatencyFlag;
         int32_t usec = std::stoi(value.substr(2).c_str());
         DataTransferLatency = (usec > 0) ? usec : 0;
       }
@@ -451,7 +454,7 @@ public:
 
     if (env = std::getenv("LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL"))
       if (std::stoi(env) != 0)
-        flag |= LinkDeviceRTLFlag;
+        Flags |= LinkDeviceRTLFlag;
 
     // Read LIBOMPTARGET_PROFILE
     ProfileResolution = 1000;
@@ -460,9 +463,30 @@ public:
       std::string token;
       while (std::getline(value, token, ',')) {
         if (token == "T" || token == "1")
-          flag |= EnableProfileFlag;
+          Flags |= EnableProfileFlag;
         else if (token == "unit_usec" || token == "usec")
           ProfileResolution = 1000000;
+      }
+    }
+
+    // Read LIBOMPTARGET_INTEROP_PIPE
+    // Two independent options can be specified as follows.
+    // -- inorder_async: use a new in-order queue for asynchronous case
+    //    (default: shared out-of-order queue)
+    // -- inorder_shared_sync: use the existing shared in-order queue for
+    //    synchronous case (default: new in-order queue).
+    if (env = std::getenv("LIBOMPTARGET_INTEROP_PIPE")) {
+      std::istringstream value(env);
+      std::string token;
+      DP("LIBOMPTARGET_INTEROP_PIPE=%s was set\n", env);
+      while (std::getline(value, token, ',')) {
+        if (token == "inorder_async") {
+          Flags |= UseInteropQueueInorderAsyncFlag;
+          DP("    enabled in-order asynchronous separate queue\n");
+        } else if (token == "inorder_shared_sync") {
+          Flags |= UseInteropQueueInorderSharedSyncFlag;
+          DP("    enabled in-order synchronous shared queue\n");
+        }
       }
     }
 
@@ -473,7 +497,7 @@ public:
 
   ~RTLDeviceInfoTy() {
     // Print profiles
-    if (flag & EnableProfileFlag)
+    if (Flags & EnableProfileFlag)
       for (uint32_t i = 0; i < numDevices; i++)
         Profiles[i].printData(i, Names[i].data(), ProfileResolution);
     delete[] Mutexes;
@@ -510,7 +534,7 @@ extern "C" {
 #endif
 
 static inline void addDataTransferLatency() {
-  if ((DeviceInfo.flag & RTLDeviceInfoTy::CollectDataTransferLatencyFlag) != 0)
+  if ((DeviceInfo.Flags & RTLDeviceInfoTy::CollectDataTransferLatencyFlag) != 0)
     return;
   double goal = omp_get_wtime() + 1e-6 * DeviceInfo.DataTransferLatency;
   // Naive spinning should be enough
@@ -617,6 +641,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Extensions.resize(DeviceInfo.numDevices);
   DeviceInfo.CTX.resize(DeviceInfo.numDevices);
   DeviceInfo.Queues.resize(DeviceInfo.numDevices);
+  DeviceInfo.QueuesOOO.resize(DeviceInfo.numDevices);
   DeviceInfo.FuncGblEntries.resize(DeviceInfo.numDevices);
   DeviceInfo.Buffers.resize(DeviceInfo.numDevices);
   DeviceInfo.ImplicitArgs.resize(DeviceInfo.numDevices);
@@ -679,19 +704,21 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
     return OFFLOAD_FAIL;
   }
 
-  cl_queue_properties qprops[3] = {0};
-  if (DeviceInfo.flag & RTLDeviceInfoTy::EnableProfileFlag) {
-    qprops[0] = CL_QUEUE_PROPERTIES;
+  cl_queue_properties qprops[3] = {CL_QUEUE_PROPERTIES, 0, 0};
+  if (DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag)
     qprops[1] = CL_QUEUE_PROFILING_ENABLE;
-  }
 
-  DeviceInfo.Queues[device_id] = clCreateCommandQueueWithProperties(
-      DeviceInfo.CTX[device_id], DeviceInfo.deviceIDs[device_id], qprops,
-      &status);
+  auto deviceID = DeviceInfo.deviceIDs[device_id];
+  auto context = DeviceInfo.CTX[device_id];
+  DeviceInfo.Queues[device_id] =
+      clCreateCommandQueueWithProperties(context, deviceID, qprops, &status);
   if (status != 0) {
     DP("Error: Failed to create CommandQueue: %d\n", status);
     return OFFLOAD_FAIL;
   }
+
+  // Out-of-order queue will be created on demand.
+  DeviceInfo.QueuesOOO[device_id] = nullptr;
 
   DeviceInfo.Extensions[device_id].getExtensionsInfoForDevice(device_id);
 
@@ -810,7 +837,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
-  if ((DeviceInfo.flag & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
+  if ((DeviceInfo.Flags & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
     std::string device_rtl_path = getDeviceRTLPath();
     std::ifstream device_rtl(device_rtl_path, std::ios::binary);
 
@@ -1075,7 +1102,7 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       }
     }
 
-    if (DeviceInfo.flag & RTLDeviceInfoTy::EnableProfileFlag) {
+    if (DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag) {
       const char *event_name;
       switch (cmd) {
       case CL_COMMAND_NDRANGE_KERNEL:
@@ -1129,8 +1156,64 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void *__tgt_rtl_get_offload_pipe(int32_t device_id) {
-  return (void *)DeviceInfo.Queues[device_id];
+EXTERN void *__tgt_rtl_create_offload_pipe(int32_t device_id, bool is_async) {
+  // Return a shared in-order queue for synchronous case if requested
+  if (!is_async && DeviceInfo.Flags &
+                   RTLDeviceInfoTy::UseInteropQueueInorderSharedSyncFlag) {
+    DP("%s returns the shared in-order queue " DPxMOD "\n", __func__,
+       DPxPTR(DeviceInfo.Queues[device_id]));
+    return (void *)DeviceInfo.Queues[device_id];
+  }
+
+  cl_int status;
+  cl_command_queue queue;
+  auto deviceId = DeviceInfo.deviceIDs[device_id];
+  auto context = DeviceInfo.CTX[device_id];
+
+  // Return a shared out-of-order queue for asynchronous case by default
+  if (is_async &&
+      !(DeviceInfo.Flags & RTLDeviceInfoTy::UseInteropQueueInorderAsyncFlag)) {
+    queue = DeviceInfo.QueuesOOO[device_id];
+    if (!queue) {
+      cl_queue_properties qprops[3] =
+          {CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+      queue = clCreateCommandQueueWithProperties(context, deviceId, qprops,
+                                                 &status);
+      DP("%s creates a shared out-of-order queue " DPxMOD "\n", __func__,
+         DPxPTR(queue));
+      if (status != CL_SUCCESS) {
+        DP("Error: Failed to create interop command queue: %d\n", status);
+        return nullptr;
+      }
+      DeviceInfo.QueuesOOO[device_id] = queue;
+    }
+    DP("%s returns a shared out-of-order queue " DPxMOD "\n", __func__,
+       DPxPTR(queue));
+    return (void *)queue;
+  }
+
+  // Return a new in-order queue for other cases
+  queue = clCreateCommandQueueWithProperties(context, deviceId, nullptr,
+                                             &status);
+  if (status != CL_SUCCESS) {
+    DP("Error: Failed to create interop command queue\n");
+    return nullptr;
+  }
+  DP("%s creates and returns a separate in-order queue " DPxMOD "\n", __func__,
+     DPxPTR(queue));
+  return (void *)queue;
+}
+
+// Release the command queue if it is a new in-order command queue.
+EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t device_id, void *pipe) {
+  cl_command_queue queue = (cl_command_queue)pipe;
+  if (queue != DeviceInfo.QueuesOOO[device_id] &&
+      queue != DeviceInfo.Queues[device_id]) {
+    INVOKE_CL_RET_FAIL(clReleaseCommandQueue, queue);
+    DP("%s releases a separate in-order queue " DPxMOD "\n",__func__,
+       DPxPTR(queue));
+  }
+  return OFFLOAD_SUCCESS;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1251,7 +1334,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   addDataTransferLatency();
 
   uint64_t profile_enabled =
-      DeviceInfo.flag & RTLDeviceInfoTy::EnableProfileFlag;
+      DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag;
 
   AsyncDataTy *async_data = nullptr;
   if (async_event && ((AsyncEventTy *)async_event)->handler) {
@@ -1268,7 +1351,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       if (clGetDeviceAndHostTimer(id, &device_begin, &host_begin) !=
               CL_SUCCESS) {
         profile_enabled = 0;
-        DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
+        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
                 "is disabled due to invalid timer", device_id,
                 DeviceInfo.Names[device_id].data());
@@ -1283,7 +1366,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     if (profile_enabled) {
       if (clGetDeviceAndHostTimer(id, &device_end, &host_end) != CL_SUCCESS) {
         profile_enabled = 0;
-        DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
+        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
                 "is disabled due to invalid timer", device_id,
                 DeviceInfo.Names[device_id].data());
@@ -1359,7 +1442,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
   addDataTransferLatency();
 
   uint64_t profile_enabled =
-      DeviceInfo.flag & RTLDeviceInfoTy::EnableProfileFlag;
+      DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag;
 
   AsyncDataTy *async_data = nullptr;
   if (async_event && ((AsyncEventTy *)async_event)->handler) {
@@ -1376,7 +1459,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       if (clGetDeviceAndHostTimer(id, &device_begin, &host_begin) !=
               CL_SUCCESS) {
         profile_enabled = 0;
-        DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
+        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
                 "is disabled due to invalid timer", device_id,
                 DeviceInfo.Names[device_id].data());
@@ -1391,7 +1474,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     if (profile_enabled) {
       if (clGetDeviceAndHostTimer(id, &device_end, &host_end) != CL_SUCCESS) {
         profile_enabled = 0;
-        DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
+        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
                 "is disabled due to invalid timer", device_id,
                 DeviceInfo.Names[device_id].data());
@@ -1731,7 +1814,7 @@ static inline int32_t run_target_team_nd_region(
                          DeviceInfo.Queues[device_id], 0, nullptr, nullptr);
     }
   } else {
-    if (DeviceInfo.flag & RTLDeviceInfoTy::EnableProfileFlag) {
+    if (DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag) {
       std::vector<char> buf;
       size_t buf_size;
       INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
