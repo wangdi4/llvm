@@ -132,11 +132,8 @@ void Program::FreeUSMForGVPointers()
         for (const auto &gv : gvs)
         {
             cl_int err = m_pContext->USMFree(gv.second.pointer);
-            assert(CL_SUCCEEDED(err) &&
-                   "Failed to free USM for global variable pointer");
-            //Need to following to provide a fake use when assert is disabled
-            //for release build.
-            (void) err;
+            if (CL_FAILED(err))
+                assert(false && "Fail to free USM for global variable pointer");
         }
     }
 }

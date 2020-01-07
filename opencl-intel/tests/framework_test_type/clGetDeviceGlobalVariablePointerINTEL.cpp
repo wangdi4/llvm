@@ -56,6 +56,21 @@ protected:
     EXPECT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
+  void CheckBuildError(cl_program &program, cl_int err) {
+    if (CL_SUCCESS != err) {
+      size_t logSize = 0;
+      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG, 0,
+                                  nullptr, &logSize);
+      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+      std::string log("", logSize);
+      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,
+                                  logSize, &log[0], nullptr);
+      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
+      FAIL() << log << "\n";
+    }
+    ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+  }
+
   // Build program from source and check global variable names.
   // gvName is global variable and negativeName is not.
   void TestBuildProgram(const char *source, cl_program &program,
@@ -86,7 +101,7 @@ protected:
     // Build program
     err = clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr,
                          nullptr);
-    EXPECT_OCL_SUCCESS(err, "clBuildProgram");
+    ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
 
     if (CL_SUCCESS != err) {
       size_t logSize = 0;
@@ -145,7 +160,7 @@ protected:
 
     err = clBuildProgram(program1, 1, &m_device, "-cl-std=CL2.0", nullptr,
                          nullptr);
-    ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+    ASSERT_NO_FATAL_FAILURE(CheckBuildError(program1, err));
 
     size_t size;
     void *ptr;
@@ -172,6 +187,7 @@ protected:
       m_clGetDeviceGlobalVariablePointerINTEL;
 };
 
+// Test clGetDeviceGlobalVariablePointerINTEL within a program.
 TEST_F(GVPointerExtensionTest, singleProgram) {
   cl_int err;
 
@@ -246,6 +262,59 @@ TEST_F(GVPointerExtensionTest, singleProgram) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
+// Unreferenced global variable should be queryable by
+// clGetDeviceGlobalVariablePointerINTEL.
+TEST_F(GVPointerExtensionTest, singleProgramUnreferencedGlobal) {
+  // Build program
+  const char *source = "global uchar x;";
+  cl_int err;
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err =
+      clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
+
+  // Get global variable pointer
+  size_t gvSize;
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, "x", &gvSize,
+                                                &gvPtr);
+  EXPECT_OCL_SUCCESS(err, "clGetDeviceGlobalVariablePointerINTEL");
+  EXPECT_NE(nullptr, gvPtr)
+      << "clGetDeviceGlobalVariablePointerINTEL must return a non-nullptr "
+         "value via global_variable_pointer_ret on success";
+  EXPECT_EQ(sizeof(cl_uchar), gvSize);
+}
+
+// Static global variable has internal linkage and should not be queryable by
+// clGetDeviceGlobalVariablePointerINTEL.
+TEST_F(GVPointerExtensionTest, singleProgramStaticGlobal) {
+  // Build program
+  const char *source = "static global int x = 0;\n"
+                       "kernel void test(global int* dst) {\n"
+                       "  if (get_global_id(0) == 0)\n"
+                       "    *dst = x;\n"
+                       "}";
+  cl_int err;
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err =
+      clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
+
+  // Get global variable pointer
+  void *gvPtr;
+  err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program, "x", nullptr,
+                                                &gvPtr);
+  EXPECT_EQ(CL_INVALID_ARG_VALUE, err)
+      << "clGetDeviceGlobalVariablePointerINTEL must return "
+         "CL_INVALID_ARG_VALUE if global_variable_name is static global";
+}
+
+// Test indirect access to global variable address queried by
+// clGetDeviceGlobalVariablePointerINTEL.
 TEST_F(GVPointerExtensionTest, singleProgramIndirectAccess) {
   cl_int err;
 
@@ -268,7 +337,7 @@ TEST_F(GVPointerExtensionTest, singleProgramIndirectAccess) {
   ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
   err =
       clBuildProgram(program, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
-  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program, err));
 
   // Get global variable pointer
   size_t gvSize;
@@ -321,6 +390,8 @@ TEST_F(GVPointerExtensionTest, singleProgramIndirectAccess) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
+// Test indirect access to global variable address queried by
+// clGetDeviceGlobalVariablePointerINTEL from another program.
 TEST_F(GVPointerExtensionTest, crossProgramsIndirectAccess) {
   cl_int err;
 
@@ -342,7 +413,7 @@ TEST_F(GVPointerExtensionTest, crossProgramsIndirectAccess) {
   ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
   err =
       clBuildProgram(program1, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
-  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program1, err));
 
   // Get global variable pointer from the first program
   size_t gvSize;
@@ -373,7 +444,7 @@ TEST_F(GVPointerExtensionTest, crossProgramsIndirectAccess) {
   ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
   err =
       clBuildProgram(program2, 1, &m_device, "-cl-std=CL2.0", nullptr, nullptr);
-  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+  ASSERT_NO_FATAL_FAILURE(CheckBuildError(program2, err));
 
   // Create kernel from the second program
   cl_kernel kernel = clCreateKernel(program2, "test2", &err);
