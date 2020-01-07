@@ -58,7 +58,7 @@ static void host_multi_ndrange_internal(
     //
     try {
         vector<cl::Device> devices(1, device);
-        string build_flags = "-g ";
+        string build_flags = "-g -cl-opt-disable ";
         const char* gworkitem = getWorkitemFocus();
         if (gworkitem) {
             build_flags += "-gworkitem=";
