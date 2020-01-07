@@ -352,6 +352,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
             dumpOptions.GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE,""));
     }
 
+#ifndef INTEL_PRODUCT_RELEASE
     // if the user requested -dump-opt-llvm, print the IR of this module
     if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
         (nullptr != (p = strstr(options, "-dump-opt-llvm="))))
@@ -360,6 +361,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         ProgramDumpConfig dumpOptions(p);
         m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
     }
+#endif
 
     if ( nullptr != buildStatus )
     {
