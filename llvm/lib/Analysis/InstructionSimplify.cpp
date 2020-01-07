@@ -511,6 +511,45 @@ static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+/// If we have a comparison with two select instructions which have the same
+/// condition, try to simplify the comparison by seeing whether sibling branches
+/// of select instructions result in the same value. Returns the common value if
+/// so, otherwise returns null.
+static Value *threadCmpOverTwoSelects(CmpInst::Predicate Pred, Value *LHS,
+                                      Value *RHS, const SimplifyQuery &Q,
+                                      unsigned MaxRecurse) {
+  // Recursion is always used, so bail out at once if we already hit the limit.
+  if (!MaxRecurse--)
+    return nullptr;
+
+  assert(isa<SelectInst>(LHS) && isa<SelectInst>(RHS) &&
+         "Not comparing with a select instruction!");
+  Value *Cond, *A, *B, *C, *D;
+  // Check if both selects have the same condition
+  if (!(match(LHS, m_Select(m_Value(Cond), m_Value(A), m_Value(B))) &&
+        match(RHS, m_Select(m_Specific(Cond), m_Value(C), m_Value(D)))))
+    return nullptr;
+
+  // Try to simplify icmp with TRUE branches of both selects
+  Value *TCmp = simplifyCmpSelTrueCase(Pred, A, C, Cond, Q, MaxRecurse);
+  if (!TCmp)
+    return nullptr;
+
+  // Try to simplify icmp with FALSE branches of both selects
+  Value *FCmp = simplifyCmpSelFalseCase(Pred, B, D, Cond, Q, MaxRecurse);
+  if (!FCmp)
+    return nullptr;
+
+  // If both sides simplified to the same value, then use it as the result of
+  // the original comparison.
+  if (TCmp == FCmp)
+    return TCmp;
+
+  return handleOtherCmpSelSimplifications(TCmp, FCmp, Cond, Q, MaxRecurse);
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// In the case of a binary operation with an operand that is a PHI instruction,
 /// try to simplify the binop by seeing whether evaluating it on the incoming
 /// phi values yields the same result for every value. If so returns the common
@@ -3492,6 +3531,15 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // If the comparison is with the result of two select instructions which have
+  // the same condition, check whether comparing sibling branches of two selects
+  // always yields the same value.
+  if (isa<SelectInst>(LHS) && isa<SelectInst>(RHS))
+    if (Value *V = threadCmpOverTwoSelects(Pred, LHS, RHS, Q, MaxRecurse))
+      return V;
+#endif // INTEL_CUSTOMIZATION
+
   // If the comparison is with the result of a select instruction, check whether
   // comparing with either branch of the select always yields the same value.
   if (isa<SelectInst>(LHS) || isa<SelectInst>(RHS))
@@ -3680,6 +3728,15 @@ static Value *SimplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       break;
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // If the comparison is with the result of two select instructions which have
+  // the same condition, check whether comparing sibling branches of two selects
+  // always yields the same value.
+  if (isa<SelectInst>(LHS) && isa<SelectInst>(RHS))
+    if (Value *V = threadCmpOverTwoSelects(Pred, LHS, RHS, Q, MaxRecurse))
+      return V;
+#endif // INTEL_CUSTOMIZATION
 
   // If the comparison is with the result of a select instruction, check whether
   // comparing with either branch of the select always yields the same value.
