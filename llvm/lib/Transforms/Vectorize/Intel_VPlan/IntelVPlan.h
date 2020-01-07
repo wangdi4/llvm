@@ -44,6 +44,7 @@
 #include "IntelVPlanLoopInfo.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
@@ -309,6 +310,11 @@ class VPInstruction : public VPUser,
     // VPInstruction.
     std::unique_ptr<VPOperandHIR> LHSHIROperand;
 
+    // Used to save the symbase of the scalar memref corresponding to a
+    // load/store instruction. Vector memref generated during vector CG is
+    // assigned the same symbase.
+    unsigned Symbase = loopopt::InvalidSymbase;
+
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
     ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
@@ -432,6 +438,9 @@ class VPInstruction : public VPUser,
          << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
     }
 
+    void setSymbase(unsigned SB) { Symbase = SB; }
+    unsigned getSymbase(void) const { return Symbase; }
+
     void cloneFrom(const HIRSpecifics &HIR) {
       if (HIR.isMaster()) {
         setUnderlyingNode(HIR.getUnderlyingNode());
@@ -449,6 +458,7 @@ class VPInstruction : public VPUser,
           setOperandIV(IV->getIVLevel());
         }
       }
+      setSymbase(HIR.getSymbase());
 
       // Verify correctness of the cloned HIR.
       assert(isMaster() == HIR.isMaster() &&
@@ -499,6 +509,24 @@ private:
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
   HIRSpecifics HIR;
+
+  void setSymbase(unsigned Symbase) {
+    assert(Opcode == Instruction::Store ||
+           Opcode == Instruction::Load &&
+               "setSymbase called for invalid VPInstruction");
+    assert(Symbase != loopopt::InvalidSymbase &&
+           "Unexpected invalid symbase assignment");
+    HIR.setSymbase(Symbase);
+  }
+
+  unsigned getSymbase(void) const {
+    assert(Opcode == Instruction::Store ||
+           Opcode == Instruction::Load &&
+               "getSymbase called for invalid VPInstruction");
+    assert(HIR.Symbase != loopopt::InvalidSymbase &&
+           "Unexpected invalid symbase");
+    return HIR.getSymbase();
+  }
 #endif
 
   /// Utility method serving execute(): generates a single instance of the
