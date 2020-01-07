@@ -93,13 +93,13 @@ entry:
 ; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j(i16 addrspace(1)* {{%.*}}, <8 x i16> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %c, <2 x i32> <i32 0, i32 0>)
-; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer)
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_iDv4_j(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
    call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)* %d, <2 x i32> <i32 0, i32 0>, <2 x i32> <i32 4, i32 4>)
-; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i32> <i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>)
+; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_jDv4_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i32> <i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %c, <2 x i32> <i32 0, i32 0>)
-; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer)
+; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_iDv4_j(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
    call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)* %d, <2 x i32> <i32 0, i32 0>, <2 x i16> <i16 4, i16 4>)
-; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_t(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i16> <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>)
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_tDv4_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i16> <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
 ; CHECK: call <16 x i32> @_Z22intel_sub_group_ballotDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
