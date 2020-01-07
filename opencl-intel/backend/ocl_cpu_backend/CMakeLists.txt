@@ -225,6 +225,7 @@ set( BACKEND_PASSES
     PipeIOTransformation
     CleanupWrappedKernels
     CoerceTypes
+    RemoveAtExit
     PipeOrdering
     PipeSupport
     OclFunctionAttrs

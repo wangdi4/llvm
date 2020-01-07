@@ -181,6 +181,7 @@ llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createAddTLSGlobalsPass();
 llvm::ModulePass *createCoerceTypesPass();
+llvm::ModulePass *createRemoveAtExitPass();
 }
 
 using namespace intel;
@@ -894,7 +895,9 @@ void Optimizer::Optimize() {
   if (!m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
       TargetTriple.isArch64Bit())
     materializerPM.add(createCoerceTypesPass());
-
+  if (m_IsFpgaEmulator) {
+    materializerPM.add(createRemoveAtExitPass());
+  }
   materializerPM.run(*m_pModule);
   m_PreFailCheckPM.run(*m_pModule);
 
