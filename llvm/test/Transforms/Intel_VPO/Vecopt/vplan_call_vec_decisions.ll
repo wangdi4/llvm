@@ -77,14 +77,14 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.1 ]
   %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @src, i64 0, i64 %indvars.iv
   %1 = load float, float* %arrayidx, align 4
-  ; User call without SIMD variants, should be serialized for always.
+  ; User call without SIMD variants, should be serialized always.
   %serial.call = call float @bar(float %1) #1
   ; User call with SIMD variant available for VF=4 but masked, should use
   ; masked variant with all-zero mask.

@@ -108,4 +108,6 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // TODO: Deterministic function calls with no side effects that operate on
   // uniform operands need to be marked as DoNotWiden.
   VPCall->setShouldBeSerialized();
+  // TODO:
+  // 1. OpenCLReadChannel/OpenCLWriteChannel calls?
 }

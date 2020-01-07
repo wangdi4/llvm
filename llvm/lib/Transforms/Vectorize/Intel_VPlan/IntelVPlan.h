@@ -1821,6 +1821,9 @@ public:
   /// Clear decision that was last computed for this call, and reset to initial
   /// state (Undef scenario) for new VF.
   void resetVecScenario(unsigned NewVF) {
+    // Record VF for which new vectorization scenario and properties will be
+    // recorded.
+    VecProperties.VF = NewVF;
     // DoNotWiden is used only for kernel uniform calls today i.e. the property
     // is not VF-dependent. Hence it need not be reset here.
     if (VecScenario == CallVecScenarios::DoNotWiden)
@@ -1831,9 +1834,6 @@ public:
     VecProperties.VectorLibraryFn = None;
     VecProperties.PumpFactor = 1;
     VecProperties.UseMaskedForUnmasked = 0;
-    // Record VF for which new vectorization scenario and properties will be
-    // recorded.
-    VecProperties.VF = NewVF;
   }
 
   /// Setter functions for different possible states of VecScenario.
