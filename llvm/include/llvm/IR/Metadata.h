@@ -642,31 +642,21 @@ public:
 /// A collection of metadata nodes that might be associated with a
 /// memory access used by the alias-analysis infrastructure.
 struct AAMDNodes {
-<<<<<<< HEAD
-  explicit AAMDNodes(MDNode *T = nullptr, MDNode *S = nullptr,
-#if INTEL_CUSTOMIZATION
-                     MDNode *N = nullptr,
-                     MDNode *P = nullptr, MDNode *I = nullptr)
-      : TBAA(T), Scope(S), NoAlias(N), StdContainerPtr(P),
-        StdContainerPtrIter(I) { 
-  } 
-#endif // INTEL_CUSTOMIZATION
-
-  bool operator==(const AAMDNodes &A) const {
-    return TBAA == A.TBAA && Scope == A.Scope && NoAlias == A.NoAlias &&
-#if INTEL_CUSTOMIZATION
-           StdContainerPtr == A.StdContainerPtr &&
-           StdContainerPtrIter == A.StdContainerPtrIter;
-#endif // INTEL_CUSTOMIZATION
-=======
   explicit AAMDNodes() = default;
-  explicit AAMDNodes(MDNode *T, MDNode *TS, MDNode *S, MDNode *N)
-      : TBAA(T), TBAAStruct(TS), Scope(S), NoAlias(N) {}
+#if INTEL_CUSTOMIZATION
+  explicit AAMDNodes(MDNode *T, MDNode *TS, MDNode *S, MDNode *N, MDNode *P,
+                     MDNode *I)
+      : TBAA(T), TBAAStruct(TS), Scope(S), NoAlias(N), StdContainerPtr(P),
+        StdContainerPtrIter(I) {}
+#endif // INTEL_CUSTOMIZATION
 
   bool operator==(const AAMDNodes &A) const {
     return TBAA == A.TBAA && TBAAStruct == A.TBAAStruct && Scope == A.Scope &&
+#if INTEL_CUSTOMIZATION
+           StdContainerPtr == A.StdContainerPtr &&
+           StdContainerPtrIter == A.StdContainerPtrIter &&
+#endif // INTEL_CUSTOMIZATION
            NoAlias == A.NoAlias;
->>>>>>> a7929533300535547f8484f7e38765234a7e7c93
   }
 
   bool operator!=(const AAMDNodes &A) const { return !(*this == A); }
@@ -689,10 +679,10 @@ struct AAMDNodes {
 
 #if INTEL_CUSTOMIZATION
   /// The tag for std container ptr.
-  MDNode *StdContainerPtr;
+  MDNode *StdContainerPtr = nullptr;
 
   /// The tag for std container ptr iterator.
-  MDNode *StdContainerPtrIter;
+  MDNode *StdContainerPtrIter = nullptr;
 #endif // INTEL_CUSTOMIZATION
   /// Given two sets of AAMDNodes that apply to the same pointer,
   /// give the best AAMDNodes that are compatible with both (i.e. a set of
@@ -714,12 +704,12 @@ template<>
 struct DenseMapInfo<AAMDNodes> {
   static inline AAMDNodes getEmptyKey() {
     return AAMDNodes(DenseMapInfo<MDNode *>::getEmptyKey(),
-                     nullptr, nullptr, nullptr);
+                     nullptr, nullptr, nullptr, nullptr, nullptr); // INTEL
   }
 
   static inline AAMDNodes getTombstoneKey() {
     return AAMDNodes(DenseMapInfo<MDNode *>::getTombstoneKey(),
-                     nullptr, nullptr, nullptr);
+                     nullptr, nullptr, nullptr, nullptr, nullptr); // INTEL
   }
 
   static unsigned getHashValue(const AAMDNodes &Val) {

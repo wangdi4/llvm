@@ -534,16 +534,13 @@ void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
     N.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
     N.Scope = getMetadata(LLVMContext::MD_alias_scope);
     N.NoAlias = getMetadata(LLVMContext::MD_noalias);
-<<<<<<< HEAD
+  }
 
 #if INTEL_CUSTOMIZATION
   N.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
 
   N.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
 #endif // INTEL_CUSTOMIZATION
-=======
-  }
->>>>>>> a7929533300535547f8484f7e38765234a7e7c93
 }
 
 static const MDNode *createAccessTag(const MDNode *AccessType) {
