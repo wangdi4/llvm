@@ -47,7 +47,6 @@ public:
   X86MCCodeEmitter &operator=(const X86MCCodeEmitter &) = delete;
   ~X86MCCodeEmitter() override = default;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   bool isIceCodeMode(const MCSubtargetInfo &STI) const {
@@ -55,10 +54,9 @@ public:
   }
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-=======
+
   void emitPrefix(const MCInst &MI, raw_ostream &OS,
                   const MCSubtargetInfo &STI) const override;
->>>>>>> 5173bfcbc4873fa12d14de0a0a4e6ac9ce960b5e
 
   void encodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
@@ -670,6 +668,13 @@ void X86MCCodeEmitter::emitPrefixImpl(uint64_t TSFlags, unsigned &CurOp,
   // Emit the address size opcode prefix as needed.
   bool need_address_override;
   uint64_t AdSize = TSFlags & X86II::AdSizeMask;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (isIceCodeMode(STI) && AdSize == X86II::AdSize32) {
+    need_address_override = false;
+  } else
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   if ((STI.hasFeature(X86::Mode16Bit) && AdSize == X86II::AdSize32) ||
       (STI.hasFeature(X86::Mode32Bit) && AdSize == X86II::AdSize16) ||
       (STI.hasFeature(X86::Mode64Bit) && AdSize == X86II::AdSize32)) {
@@ -1454,62 +1459,6 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
   // Used if a register is encoded in 7:4 of immediate.
   unsigned I8RegNum = 0;
 
-<<<<<<< HEAD
-  // Determine where the memory operand starts, if present.
-  int MemoryOperand = X86II::getMemoryOperandNo(TSFlags);
-  if (MemoryOperand != -1)
-    MemoryOperand += CurOp;
-
-  // Emit segment override opcode prefix as needed.
-  if (MemoryOperand >= 0)
-    emitSegmentOverridePrefix(CurByte, MemoryOperand + X86::AddrSegmentReg, MI,
-                              OS);
-
-  // Emit the repeat opcode prefix as needed.
-  if (TSFlags & X86II::REP || Flags & X86::IP_HAS_REPEAT)
-    emitByte(0xF3, CurByte, OS);
-  if (Flags & X86::IP_HAS_REPEAT_NE)
-    emitByte(0xF2, CurByte, OS);
-
-  // Emit the address size opcode prefix as needed.
-  bool need_address_override;
-  uint64_t AdSize = TSFlags & X86II::AdSizeMask;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (isIceCodeMode(STI) && AdSize == X86II::AdSize32) {
-    need_address_override = false;
-  } else
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-  if ((STI.hasFeature(X86::Mode16Bit) && AdSize == X86II::AdSize32) ||
-      (STI.hasFeature(X86::Mode32Bit) && AdSize == X86II::AdSize16) ||
-      (STI.hasFeature(X86::Mode64Bit) && AdSize == X86II::AdSize32)) {
-    need_address_override = true;
-  } else if (MemoryOperand < 0) {
-    need_address_override = false;
-  } else if (STI.hasFeature(X86::Mode64Bit)) {
-    assert(!is16BitMemOperand(MI, MemoryOperand, STI));
-    need_address_override = is32BitMemOperand(MI, MemoryOperand);
-  } else if (STI.hasFeature(X86::Mode32Bit)) {
-    assert(!is64BitMemOperand(MI, MemoryOperand));
-    need_address_override = is16BitMemOperand(MI, MemoryOperand, STI);
-  } else {
-    assert(STI.hasFeature(X86::Mode16Bit));
-    assert(!is64BitMemOperand(MI, MemoryOperand));
-    need_address_override = !is16BitMemOperand(MI, MemoryOperand, STI);
-  }
-
-  if (need_address_override)
-    emitByte(0x67, CurByte, OS);
-
-  bool Rex = false;
-  if (Encoding == 0)
-    Rex = emitOpcodePrefix(TSFlags, CurByte, MemoryOperand, MI, Desc, STI, OS);
-  else
-    emitVEXOpcodePrefix(TSFlags, CurByte, MemoryOperand, MI, Desc, OS);
-
-=======
->>>>>>> 5173bfcbc4873fa12d14de0a0a4e6ac9ce960b5e
   uint8_t BaseOpcode = X86II::getBaseOpcodeFor(TSFlags);
 
   if ((TSFlags & X86II::OpMapMask) == X86II::ThreeDNow)
