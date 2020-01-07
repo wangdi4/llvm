@@ -422,6 +422,10 @@ static const char* getDeviceLibFilename(DeviceLibExt Extension) {
   switch (Extension) {
   case cl_intel_devicelib_assert:
     return "libsycl-fallback-cassert.spv";
+  case cl_intel_devicelib_math:
+    return "libsycl-fallback-cmath.spv";
+  case cl_intel_devicelib_complex:
+    return "libsycl-fallback-complex.spv";
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -430,6 +434,10 @@ static const char* getDeviceLibExtensionStr(DeviceLibExt Extension) {
   switch (Extension) {
   case cl_intel_devicelib_assert:
     return "cl_intel_devicelib_assert";
+  case cl_intel_devicelib_math:
+    return "cl_intel_devicelib_math";
+  case cl_intel_devicelib_complex:
+    return "cl_intel_devicelib_complex";
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -577,7 +585,9 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
   // particular program in order to allow us do a more fine-grained check here.
   // Require *all* possible devicelib extensions for now.
   std::pair<DeviceLibExt, bool> RequiredDeviceLibExt[] = {
-      {cl_intel_devicelib_assert, /* is fallback loaded? */ false}
+      {cl_intel_devicelib_assert, /* is fallback loaded? */ false},
+      {cl_intel_devicelib_math, false},
+      {cl_intel_devicelib_complex, false}
   };
 
   // Load a fallback library for an extension if at least one device does not
