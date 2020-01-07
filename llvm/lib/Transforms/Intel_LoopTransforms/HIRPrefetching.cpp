@@ -125,8 +125,10 @@ static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
       Constant *VecConst;
 
       if (BU.getBlob(Blob.Index)->getType()->isVectorTy()) {
-        assert(BU.isConstantVectorBlob(BU.getBlob(Blob.Index), &VecConst) &&
-               "The blob should be a constant vector blob");
+        bool IsConstVec =
+            BU.isConstantVectorBlob(BU.getBlob(Blob.Index), &VecConst);
+        (void)IsConstVec;
+        assert(IsConstVec && "The blob should be a constant vector blob");
 
         // Extract the first element of the vector blob and substituting it in
         // the CanonExpr
