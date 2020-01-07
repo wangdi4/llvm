@@ -191,7 +191,15 @@ bool clCheckJITSaveTest()
             {
                 FILE * fout;
                 fout = fopen(g_BINFILENAME, "wb");
+                if (!fout) {
+                    printf("Failed to open %s\n", g_BINFILENAME);
+                    return false;
+                }
                 fwrite(pBinaries[0], 1, binarySizes[0], fout);
+                if (ferror(fout)) {
+                    printf("Failed to write %s\n", g_BINFILENAME);
+                    return false;
+                }
                 fclose(fout);
                 printf("Saved successfully!! [size = %zu] \n", sumBinariesSize);
             }

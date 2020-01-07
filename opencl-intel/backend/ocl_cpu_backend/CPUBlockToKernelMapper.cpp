@@ -12,8 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "cpublocktokernelmapper"
-
 #include "Program.h"
 #include "CPUProgram.h"
 #include "Kernel.h"
@@ -26,6 +24,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <assert.h>
+
+#define DEBUG_TYPE "cpublocktokernelmapper"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

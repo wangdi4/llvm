@@ -82,7 +82,7 @@ add_library(${TARGET_NAME} STATIC
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
-target_link_libraries(${TARGET_NAME} name_mangle LLVMSupport)
+target_link_libraries(${TARGET_NAME} name_mangle LLVMOrcJIT LLVMSupport)
 
 if (OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)

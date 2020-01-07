@@ -15,6 +15,7 @@
 
 #include "ExecutionContext.h"
 #include "ICLDevBackendServiceFactory.h"
+#include "LLJIT2.h"
 #include "cpu_dev_limits.h"
 #include "SystemInfo.h"
 #include "llvm/ADT/StringRef.h"
@@ -103,11 +104,22 @@ class IDeviceCommandManager;
 class IBlockToKernelMapper;
 #include "opencl20_ext_execution.h"
 
-// Register BI functions defined above
-#define REGISTER_BI_FUNCTION(name,ptr) \
-  llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
-void RegisterCPUBIFunctions(void)
+// Register BI functions defined above to JIT.
+//   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
+//   LLJIT: use defineAbsolute for each function.
+#define REGISTER_BI_FUNCTION(name, ptr)                                        \
+  if (LLJIT) {                                                                 \
+    if (auto Err = LLJIT->defineAbsolute(                                      \
+            name, llvm::JITEvaluatedSymbol(                                    \
+                      llvm::pointerToJITTargetAddress(&ptr), flag)))           \
+      return Err;                                                              \
+  } else {                                                                     \
+    llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name),                \
+                                         (void *)(intptr_t)ptr);               \
+  }
+llvm::Error RegisterCPUBIFunctions(Intel::OpenCL::DeviceBackend::LLJIT2 *LLJIT)
 {
+    llvm::JITSymbolFlags flag;
 
     REGISTER_BI_FUNCTION("dbg_print",cpu_dbg_print)
     REGISTER_BI_FUNCTION("lprefetch",cpu_lprefetch)
@@ -134,4 +146,6 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
     REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
     REGISTER_BI_FUNCTION("__emutls_get_address",__opencl_emutls_get_address)
+
+    return llvm::Error::success();
 }

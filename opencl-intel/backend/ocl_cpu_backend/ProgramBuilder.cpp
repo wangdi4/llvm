@@ -31,7 +31,6 @@
 #include "MetadataAPI.h"
 #include "BitCodeContainer.h"
 #include "CompilationUtils.h"
-#include "cache_binary_handler.h"
 #include "ObjectCodeContainer.h"
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
@@ -132,21 +131,6 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 }
 } //namespace Utils
 
-using namespace Intel::OpenCL::ELFUtils;
-
-// checks if the given program has an object binary to be loaded from
-static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
-  assert(pProgram && "pProgram is null");
-  if (!pProgram->GetObjectCodeContainer())
-    return false;
-
-  const char *pObject =
-      (const char *)pProgram->GetObjectCodeContainer()->GetCode();
-  size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
-  CacheBinaryReader reader(pObject, objectSize);
-  return reader.IsCachedObject();
-}
-
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
@@ -245,7 +229,8 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 {
     try
     {
-        assert(!checkIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
+        assert(!pProgram->HasCachedExecutable() &&
+               "Program must not be loaded from cache");
         pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
     }
     catch(Exceptions::CompilerException& e)
@@ -263,7 +248,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
     try
     {
-        if(checkIfProgramHasCachedExecutable(pProgram))
+        if(pProgram->HasCachedExecutable())
         {
              std::string log = "Reload Program Binary Object.";
              ReloadProgramFromCachedExecutable(pProgram);

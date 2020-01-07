@@ -13,12 +13,14 @@
 // License.
 
 #include "BitCodeContainer.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
+#include "ObjectCodeContainer.h"
 #include "Program.h"
+#include "Serializer.h"
+#include "cache_binary_handler.h"
 #include "cl_device_api.h"
 #include "exceptions.h"
-#include "ObjectCodeContainer.h"
-#include "Serializer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
@@ -124,6 +126,10 @@ void Program::SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes)
     m_globalVariableSizes = sizes;
 }
 
+void Program::RecordCtorDtors(const llvm::Module &M) {
+    CompilationUtils::getGlobalCtorDtorNames(M, m_globalCtors, m_globalDtors);
+}
+
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)
 {
     delete m_pObjectCodeContainer;
@@ -192,6 +198,17 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
         tmp = (unsigned long long int)gv.second;
         Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     }
+
+    // Global Ctor Names
+    unsigned int ctorCount = (unsigned int)m_globalCtors.size();
+    Serializer::SerialPrimitive<unsigned int>(&ctorCount, ost);
+    for (const std::string &ctor : m_globalCtors)
+        Serializer::SerialString(ctor, ost);
+    // Global Dtor Names
+    unsigned int dtorCount = (unsigned int)m_globalDtors.size();
+    Serializer::SerialPrimitive<unsigned int>(&dtorCount, ost);
+    for (const std::string &dtor : m_globalDtors)
+        Serializer::SerialString(dtor, ost);
 }
 
 void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -226,5 +243,34 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
         Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
         m_globalVariableSizes[name] = (size_t)tmp;
     }
+
+    // Global Ctor Names
+    unsigned int ctorCount;
+    Serializer::DeserialPrimitive<unsigned int>(&ctorCount, ist);
+    for (unsigned int i = 0; i < ctorCount; ++i)
+    {
+        std::string name;
+        Serializer::DeserialString(name, ist);
+        m_globalCtors.push_back(name);
+    }
+    // Global Dtor Names
+    unsigned int dtorCount;
+    Serializer::DeserialPrimitive<unsigned int>(&dtorCount, ist);
+    for (unsigned int i = 0; i < dtorCount; ++i)
+    {
+        std::string name;
+        Serializer::DeserialString(name, ist);
+        m_globalDtors.push_back(name);
+    }
+}
+
+bool Program::HasCachedExecutable() const
+{
+    if (!m_pObjectCodeContainer)
+        return false;
+    Intel::OpenCL::ELFUtils::CacheBinaryReader reader(
+        m_pObjectCodeContainer->GetCode(),
+        m_pObjectCodeContainer->GetCodeSize());
+    return reader.IsCachedObject();
 }
 }}}

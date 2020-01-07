@@ -22,13 +22,13 @@
 
 #include "CL/cl.h"
 
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/DebugInfo.h"
-
-#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Metadata.h"
 
 using namespace Intel::MetadataAPI;
 
@@ -1719,6 +1719,35 @@ bool CompilationUtils::isGlobalCtorDtor(Function *F) {
   // TODO: implement good solution based on value of @llvm.global_ctors variable
   return F->getName() == "__pipe_global_ctor" ||
          F->getName() == "__pipe_global_dtor";
+}
+
+static void getCtorDtorNames(
+    const llvm::iterator_range<llvm::orc::CtorDtorIterator> &CtorDtors,
+    std::vector<std::string> &CtorDtorNames) {
+  if (CtorDtors.empty())
+    return;
+
+  std::map<unsigned, std::vector<const llvm::Function *>> CtorDtorsByPriority;
+  for (const auto &CtorDtor : CtorDtors) {
+    assert(CtorDtor.Func && CtorDtor.Func->hasName() &&
+           "Ctor/Dtor must be a named function");
+    if (CtorDtor.Data &&
+        llvm::cast<llvm::GlobalValue>(CtorDtor.Data)->isDeclaration())
+      continue;
+    CtorDtorsByPriority[CtorDtor.Priority].push_back(CtorDtor.Func);
+  }
+
+  for (auto &KV : CtorDtorsByPriority) {
+    for (auto &Func : KV.second)
+      CtorDtorNames.push_back(Func->getName().str());
+  }
+}
+
+void CompilationUtils::getGlobalCtorDtorNames(
+    const llvm::Module &M, std::vector<std::string> &CtorNames,
+    std::vector<std::string> &DtorNames) {
+  getCtorDtorNames(llvm::orc::getConstructors(M), CtorNames);
+  getCtorDtorNames(llvm::orc::getDestructors(M), DtorNames);
 }
 
 bool CompilationUtils::isBlockInvocationKernel(Function *F) {
