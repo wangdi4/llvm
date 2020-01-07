@@ -147,6 +147,14 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     assert(ScalarOperands.size() == 1 &&
            "Load VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateLoad(Ops[0]);
+    if (auto *Underlying = VPInst->getUnderlyingValue()) {
+      auto *NewLoad = cast<LoadInst>(SerialInst);
+      auto *Load = cast<LoadInst>(Underlying);
+      NewLoad->setVolatile(Load->isVolatile());
+      NewLoad->setOrdering(Load->getOrdering());
+      NewLoad->setSyncScopeID(Load->getSyncScopeID());
+      NewLoad->setAlignment(MaybeAlign{Load->getAlignment()});
+    }
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
@@ -724,9 +732,29 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
     // optimization.
+    auto IsSimpleLoadStoreFrom = [this](const VPValue *V,
+                                        const VPValue *Ptr) -> bool {
+      if (getLoadStorePointerOperand(V) != Ptr)
+        return false;
+
+      auto *VPInst = cast<VPInstruction>(V);
+
+      // FIXME: Represent volatile/atomic property in VPInstruction itself,
+      // without using underlying LLVM instruction.
+      auto *Underlying = VPInst->getUnderlyingValue();
+      if (!Underlying)
+        return true;
+
+      unsigned Opcode = VPInst->getOpcode();
+
+      if (Opcode == Instruction::Load)
+        return cast<LoadInst>(Underlying)->isSimple();
+
+      return cast<StoreInst>(Underlying)->isSimple();
+    };
     if (all_of(VPInst->users(),
                [&](VPUser *U) -> bool {
-                 return getLoadStorePointerOperand(U) == VPInst;
+                 return IsSimpleLoadStoreFrom(U, VPInst);
                }) &&
         getVPValueConsecutivePtrStride(VPInst, Plan) &&
         VPlanUseDAForUnitStride) {
@@ -1887,6 +1915,13 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   // Pointer operand of Load is always the first operand.
   VPValue *Ptr = VPInst->getOperand(0);
   int LinStride = 0;
+
+  // TODO: First-class representation for volatile/atomic property inside
+  // VPInstruction's subclass.
+  if (auto *Underlying = VPInst->getUnderlyingValue()) {
+    if (!cast<LoadInst>(Underlying)->isSimple())
+      return serializeWithPredication(VPInst);
+  }
 
   // Handle vectorization of a linear value load.
   if (isVPValueLinear(Ptr, &LinStride)) {
