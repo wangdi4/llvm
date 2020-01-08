@@ -19,6 +19,12 @@ struct _pi_device {
   //   driver.
   ze_command_list_handle_t L0CommandListInit;
 
+  // Indicates if this is a root-device or a sub-device.
+  // Technically this information can be queried from a device handle, but it
+  // seems better to just keep it here.
+  //
+  bool IsSubDevice;
+
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
 
