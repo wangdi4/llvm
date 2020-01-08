@@ -2346,6 +2346,49 @@ def minline_all_stringops : Flag<["-"], "minline-all-stringops">, Group<clang_ig
 def mno_inline_all_stringops : Flag<["-"], "mno-inline-all-stringops">, Group<clang_ignored_m_Group>;
 def malign_double : Flag<["-"], "malign-double">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Align doubles to two words in structs (x86 only)">;
+def malign_branch_boundary_EQ
+    : Joined<["-"], "malign-branch-boundary=">,
+      Group<m_Group>,
+      Flags<[DriverOption, HelpHidden]>,
+      HelpText<"Specify the boundary's size to align branches">, DocBrief<[{
+          Control how the assembler should align branches with NOP or segment
+          override prefix. If the boundary's size is not 0, it should be a power
+          of 2 and no less than 32. Branches will be aligned to prevent from
+          being across or against the boundary of specified size. The default
+          value 0 does not  align branches.}]>;
+def malign_branch_EQ
+    : Joined<["-"], "malign-branch=">,
+      Group<m_Group>,
+      Flags<[DriverOption, HelpHidden]>,
+      HelpText<"Specify types of branches to align (plus separated list of jcc,"
+      " fused, jmp, call, ret, indirect)">, DocBrief<[{Specify types of branches
+      to align (plus separated list of types). The branches's types are
+      combination of jcc, fused, jmp, call, ret, indirect. jcc indicates
+      conditional jumps, fused indicates fused conditional jumps, jmp indicates
+      unconditional jumps, call indicates direct and indirect calls, ret
+      indicates rets, indirect indicates indirect jumps.}]>;
+def malign_branch_prefix_size_EQ
+    : Joined<["-"], "malign-branch-prefix-size=">,
+      Group<m_Group>,
+      Flags<[DriverOption, HelpHidden]>,
+      HelpText<"Specify the maximum number(no more than 5) of prefixes on an "
+      "instruction to align branches">;
+def mbranches_within_32B_boundaries
+    : Flag<["-"], "mbranches-within-32B-boundaries">,
+      Group<m_Group>,
+      Flags<[DriverOption]>,
+      HelpText<
+          "Aligns conditional jumps, fused conditional jumps, and unconditional"
+          " jumps within 32 byte boundary with up to 5 segment prefixes on an "
+          "instruction">, DocBrief<[{Aligns conditional jumps, fused conditional
+          jumps, and unconditional jumps within 32 byte boundary with up to 5
+          segment prefixes on an instruction. It is equivalent to
+          -malign-branch-boundary=32, -malign-branch=fused+jcc+jmp,
+          -malign-branch-prefix-size=5.}]>;
+def mno_branches_within_32B_boundaries
+    : Flag<["-"], "mno-branches-within-32B-boundaries">,
+      Group<m_Group>,
+      Flags<[DriverOption]>;
 def mfloat_abi_EQ : Joined<["-"], "mfloat-abi=">, Group<m_Group>, Values<"soft,softfp,hard">;
 def mfpmath_EQ : Joined<["-"], "mfpmath=">, Group<m_Group>;
 def mfpu_EQ : Joined<["-"], "mfpu=">, Group<m_Group>;

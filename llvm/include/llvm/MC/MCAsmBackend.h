@@ -51,6 +51,8 @@ public:
   /// emitting the instruction.
   virtual void alignBranchesBegin(MCObjectStreamer &OS, const MCInst &Inst) {}
   virtual void alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {}
+  /// Check if the target need to do instruction alignment.
+  virtual bool needAlign(MCObjectStreamer &OS) const { return false; }
 
   /// lifetime management
   virtual void reset() {}
