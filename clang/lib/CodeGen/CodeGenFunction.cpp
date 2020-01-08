@@ -2681,19 +2681,11 @@ static void CreateMultiVersionResolverReturn(CodeGenModule &CGM,
 }
 
 void CodeGenFunction::EmitMultiVersionResolver(
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
     bool IsCpuDispatch) {
 #endif // INTEL_CUSTOMIZATION
-  assert((getContext().getTargetInfo().getTriple().getArch() ==
-              llvm::Triple::x86 ||
-          getContext().getTargetInfo().getTriple().getArch() ==
-              llvm::Triple::x86_64) &&
-=======
-    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
   assert(getContext().getTargetInfo().getTriple().isX86() &&
->>>>>>> ab1bcda851d95aeec03ffc1218bf9cae261a9280
          "Only implemented for x86 targets");
 
   bool SupportsIFunc = getContext().getTargetInfo().supportsIFunc();
