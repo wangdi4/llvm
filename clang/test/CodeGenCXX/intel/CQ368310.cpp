@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -o - -std=c++11 -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility-enable=AllowMissingTypename -emit-llvm -o - -std=c++11 -verify -o - %s | FileCheck %s
 
 template <class T>
 struct X

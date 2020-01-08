@@ -274,10 +274,11 @@ def AllowMissingTypenameDocs : Documentation {
   let RegressionTest = "cfeCpp/cq117771";
   let Owner = "";
   let CompatVersions = "";
+  let Default = 0;
   let Content = [{
 Microsoft allows you to leave off typename in some contexts.  Clang also
 allows this in MSVCCompat mode.  See isMicrosoftMissingTypename in
-SemaDecl.cpp.
+SemaDecl.cpp. This behavior is off-by-default.
 
 The Intel compiler allows this in more cases than Clang and in some cases
 more than Microsoft.
