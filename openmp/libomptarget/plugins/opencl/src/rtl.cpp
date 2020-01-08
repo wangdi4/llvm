@@ -832,7 +832,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     // OpenCL CPU compiler complains about unsupported option.
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
-    compilation_options += " -cl-intel-enable-global-relocation ";
+    compilation_options += " -cl-take-global-address ";
 #endif // INTEL_CUSTOMIZATION
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
