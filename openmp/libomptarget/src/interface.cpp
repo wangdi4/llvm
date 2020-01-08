@@ -540,7 +540,7 @@ EXTERN void *__tgt_create_interop_obj(
   obj->is_async = is_async;
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
-  obj->pipe = Device.get_offload_pipe();
+  obj->pipe = Device.create_offload_pipe(is_async);
 
   return obj;
 }
@@ -551,9 +551,12 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
 
   assert(!IsOffloadDisabled() &&
           "Freeing interop object with Offload Disabled.");
-  if (IsOffloadDisabled())
+  if (IsOffloadDisabled() || !interop_obj)
     return OFFLOAD_FAIL;
 
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
+  DeviceTy &Device = Devices[obj->device_id];
+  Device.release_offload_pipe(obj->pipe);
   free(interop_obj);
 
   return OFFLOAD_SUCCESS;

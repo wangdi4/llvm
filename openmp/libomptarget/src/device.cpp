@@ -536,10 +536,17 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ThreadLimit, LoopTripCount, AsyncData);
 }
 
-void *DeviceTy::get_offload_pipe(void) {
-  if (!RTL->get_offload_pipe)
+void *DeviceTy::create_offload_pipe(bool IsAsync) {
+  if (!RTL->create_offload_pipe)
     return nullptr;
-  return RTL->get_offload_pipe(RTLDeviceID);
+  return RTL->create_offload_pipe(RTLDeviceID, IsAsync);
+}
+
+int32_t DeviceTy::release_offload_pipe(void *Pipe) {
+  if (RTL->release_offload_pipe)
+    return RTL->release_offload_pipe(RTLDeviceID, Pipe);
+  else
+    return OFFLOAD_SUCCESS;
 }
 
 int32_t DeviceTy::is_managed_data(void *HstPtr) {
