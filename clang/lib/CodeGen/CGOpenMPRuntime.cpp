@@ -9864,6 +9864,7 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
   // Try to detect target regions in the function.
 #if INTEL_COLLAB
   if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
+    StringRef Name = CGM.getMangledName(GD);
     bool HasTargetRegions =
         scanForTargetRegionsFunctions(FD->getBody(), Name);
 
@@ -10166,7 +10167,6 @@ bool CGOpenMPRuntime::markAsGlobalTarget(GlobalDecl GD) {
     return true;
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Prevent emission of functions used outside a target region but inside
   // a function that has a target region.  Lambda call functions that contain
@@ -10175,10 +10175,7 @@ bool CGOpenMPRuntime::markAsGlobalTarget(GlobalDecl GD) {
       !isLambdaCallWithTarget(D))
     return true;
 #endif // INTEL_COLLAB
-  return !AlreadyEmittedTargetFunctions.insert(Name).second;
-=======
   return !AlreadyEmittedTargetDecls.insert(D).second;
->>>>>>> 45588428910a7cbcf58317b874dad18b580c9ce5
 }
 
 llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
