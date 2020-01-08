@@ -486,7 +486,7 @@ TEST(FrameworkTestType, Test_GenStats)
     EXPECT_TRUE(cl_GenStats());
 }
 
-TEST(FrameworkTestType, DISABLED_clDoNotVectorizeUnreachable)
+TEST(FrameworkTestType, Test_clDoNotVectorizeUnreachable)
 {
     EXPECT_TRUE(clDoNotVectorizeUnreachable());
 }
