@@ -1703,6 +1703,13 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
     }
     PM.add(createVPORestoreOperandsPass());
     PM.add(createVPOCFGRestructuringPass());
+#if INTEL_CUSTOMIZATION
+    PM.add(createVPOParoptOptimizeDataSharingPass());
+    // No need to rerun VPO CFG restructuring, since
+    // VPOParoptOptimizeDataSharing does not modify CFG,
+    // and keeps the basic blocks with directive calls
+    // consistent.
+#endif  // INTEL_CUSTOMIZATION
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

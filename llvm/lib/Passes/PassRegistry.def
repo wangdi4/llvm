@@ -416,6 +416,7 @@ FUNCTION_PASS("hir-undo-sinking-for-perfect-loopnest", loopopt::HIRUndoSinkingFo
 FUNCTION_PASS("hir-conditional-temp-sinking", loopopt::HIRConditionalTempSinkingPass())
 FUNCTION_PASS("hir-memory-reduction-sinking", loopopt::HIRMemoryReductionSinkingPass())
 FUNCTION_PASS("hir-rowwise-mv", loopopt::HIRRowWiseMVPass())
+FUNCTION_PASS("vpo-paropt-optimize-data-sharing", VPOParoptOptimizeDataSharingPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

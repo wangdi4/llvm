@@ -236,36 +236,54 @@ typedef struct {
 
 /// Profile data
 struct ProfileDataTy {
-  std::map<std::string, double> data;
+  struct TimingsTy {
+    double host = 0.0;
+    double device = 0.0;
+  };
+
+  std::map<std::string, TimingsTy> data;
 
   void printData(int32_t deviceId, const char *deviceName, int64_t resolution) {
     fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s\n",
             deviceId, deviceName);
-    double total = 0.0;
+    const char *units = resolution == 1000 ? "msec" : "usec";
+    fprintf(stderr, "-- Name:\tHost Time (%s)\tDevice Time (%s)\n",
+            units, units);
+    double host_total = 0.0;
+    double device_total = 0.0;
     for (const auto &d : data) {
-      double time = 1e-9 * d.second * resolution;
-      fprintf(stderr, "-- %s: %.3f %s\n", d.first.c_str(),
-              time, resolution == 1000 ? "msec" : "usec");
-      total += time;
+      double host_time = 1e-9 * d.second.host * resolution;
+      double device_time = 1e-9 * d.second.device * resolution;
+      fprintf(stderr, "-- %s:\t%.3f\t%.3f\n", d.first.c_str(),
+              host_time, device_time);
+      host_total += host_time;
+      device_total += device_time;
     }
-    fprintf(stderr, "-- Total: %.3f %s\n",
-            total, resolution == 1000 ? "msec" : "usec");
+    fprintf(stderr, "-- Total:\t%.3f\t%.3f\n", host_total, device_total);
   }
 
   // for non-event profile
-  void update(const char *name, cl_ulong elapsed) {
+  void update(
+      const char *name, cl_ulong host_elapsed, cl_ulong device_elapsed) {
     std::string key(name);
-    data[key] += elapsed;
+    TimingsTy &timings = data[key];
+    timings.host += host_elapsed;
+    timings.device += device_elapsed;
   }
 
   // for event profile
   void update(const char *name, cl_event event) {
-    cl_ulong begin = 0, end = 0;
+    cl_ulong host_begin = 0, host_end = 0;
     clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_QUEUED,
-                            sizeof(cl_ulong), &begin, nullptr);
+                            sizeof(cl_ulong), &host_begin, nullptr);
     clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_COMPLETE,
-                            sizeof(cl_ulong), &end, nullptr);
-    update(name, end - begin);
+                            sizeof(cl_ulong), &host_end, nullptr);
+    cl_ulong device_begin = 0, device_end = 0;
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
+                            sizeof(cl_ulong), &device_begin, nullptr);
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END,
+                            sizeof(cl_ulong), &device_end, nullptr);
+    update(name, host_end - host_begin, device_end - device_begin);
   }
 }; // ProfileDataTy
 
@@ -1244,9 +1262,11 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   case DATA_TRANSFER_METHOD_SVMMAP: {
     // No asynchronous data copy here since we use map/unmap as explicit
     // synchronization points.
-    cl_ulong begin, end, dummy;
+    cl_ulong device_begin, device_end;
+    cl_ulong host_begin, host_end;
     if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &begin, &dummy) != CL_SUCCESS) {
+      if (clGetDeviceAndHostTimer(id, &device_begin, &host_begin) !=
+              CL_SUCCESS) {
         profile_enabled = 0;
         DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
@@ -1261,14 +1281,15 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
 
     if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &end, &dummy) != CL_SUCCESS) {
+      if (clGetDeviceAndHostTimer(id, &device_end, &host_end) != CL_SUCCESS) {
         profile_enabled = 0;
         DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
                 "is disabled due to invalid timer", device_id,
                 DeviceInfo.Names[device_id].data());
       } else {
-        DeviceInfo.Profiles[device_id].update("DATA-WRITE", end - begin);
+        DeviceInfo.Profiles[device_id].update(
+            "DATA-WRITE", host_end - host_begin, device_end - device_begin);
       }
     }
   } break;
@@ -1349,9 +1370,11 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
   case DATA_TRANSFER_METHOD_SVMMAP: {
     // No asynchronous data copy here since we use map/unmap as explicit
     // synchronization points.
-    cl_ulong begin, end, dummy;
+    cl_ulong device_begin, device_end;
+    cl_ulong host_begin, host_end;
     if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &begin, &dummy) != CL_SUCCESS) {
+      if (clGetDeviceAndHostTimer(id, &device_begin, &host_begin) !=
+              CL_SUCCESS) {
         profile_enabled = 0;
         DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
@@ -1366,14 +1389,15 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
 
     if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &end, &dummy) != CL_SUCCESS) {
+      if (clGetDeviceAndHostTimer(id, &device_end, &host_end) != CL_SUCCESS) {
         profile_enabled = 0;
         DeviceInfo.flag &= ~RTLDeviceInfoTy::EnableProfileFlag;
         WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
                 "is disabled due to invalid timer", device_id,
                 DeviceInfo.Names[device_id].data());
       } else {
-        DeviceInfo.Profiles[device_id].update("DATA-READ", end - begin);
+        DeviceInfo.Profiles[device_id].update(
+            "DATA-READ", host_end - host_begin, device_end - device_begin);
       }
     }
   } break;

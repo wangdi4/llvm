@@ -18,6 +18,7 @@ using namespace llvm;
 void llvm::initializeVPOTransforms(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeVPODirectiveCleanupPass(Registry);
+  initializeVPOParoptOptimizeDataSharingPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeVPOParoptLoopCollapsePass(Registry);
   initializeVPOParoptPreparePass(Registry);

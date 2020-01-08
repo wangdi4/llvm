@@ -42,7 +42,7 @@
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Uniform]   float [[VP4:%.*]] = load float* [[VP1]]
+; CHECK-NEXT:     [DA: Divergent] float [[VP4:%.*]] = load float* [[VP1]]
 ; CHECK-NEXT:     [DA: Uniform]   float [[VP5:%.*]] = reduction-final{fadd} float [[VP4]] float [[X_PROMOTED]]
 ; CHECK-NEXT:     [DA: Uniform]   store float [[VP5]] float* [[X]]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP6:%.*]] = induction-final{add} i64 0 i64 1

@@ -320,11 +320,9 @@ void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
         PreserveSSAPhi->addIncoming(ValueToUse, cast<VPBasicBlock>(Pred));
       }
 
-      // Update DA for PreserveSSAPhi. To update the DA information of a phi
-      // node, the DA algorithm checks the DA info of each of its operands.
+      // Update DA for PreserveSSAPhi.
       VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-      if (VPlanDA->isDivergent(Def))
-        VPlanDA->markDivergent(*PreserveSSAPhi);
+      VPlanDA->markDivergent(*PreserveSSAPhi);
 
       // Finally, update the uses of the definition with the SSA phi node.
       for (auto *Use : UsesToUpdate)
@@ -653,13 +651,6 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
                                   : OrigLoopLatch->getSuccessors()[0];
     ExitExitingBlocksMap[LatchExitBlock] = OrigLoopLatch;
   }
-  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-  // The divergence information is later used to set the new condition bit
-  // that merge loops exits transformation introduces.
-  bool IsDivergent =
-      llvm::any_of(ExitingBlocks, [VPlanDA](VPBlockBase *ExitingBlock) {
-        return VPlanDA->isDivergent(*ExitingBlock->getCondBit());
-      });
 
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
@@ -681,7 +672,12 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
+  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPPHINode *ExitIDVPPhi = VPBldr.createPhiInstruction(Ty32, "exit.id.phi");
+  // TODO: Merge loop exits transformation should only be kicked in for inner
+  // loops that have a divergent exiting edge.
+  VPlanDA->markDivergent(*ExitIDVPPhi);
+
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
   VPPHINode *NewCondBit =
@@ -697,16 +693,14 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   }
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
-  // We should only mark divergent values. DA checks if a value is in
-  // DivergentValues set. If it is not there, then the value is considered
-  // uniform.
-  if (IsDivergent)
-    VPlanDA->markDivergent(*NewCondBit);
+  VPlanDA->markDivergent(*NewCondBit);
 
   // Add the original loop latch in the NewLoopLatch's phi node.
   VPPHINode *NewLoopHeaderPhiNode =
       updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, ExitIDVPPhi, Plan);
-  ExitIDVPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
+  ExitIDVPPhi->addIncoming(NewLoopHeaderPhiNode,
+                           cast<VPBasicBlock>(OrigLoopLatch));
+  VPlanDA->markDivergent(*NewLoopHeaderPhiNode);
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
@@ -862,9 +856,12 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       const auto &Pair = ExitBlockIDPairs[i];
       VPBlockBase *ExitBlock = Pair.first;
       VPConstant *ExitID = Pair.second;
-      VPInstruction *CondBr =
-          new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
+      auto *CondBr = new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
       IfBlock->appendInstruction(CondBr);
+      // The condition bit of the cascaded if block depends on ExitIDVPPhi.
+      // Since ExitIDVPPhi is marked as divergent, CondBr should also be marked
+      // as divergent.
+      VPlanDA->markDivergent(*CondBr);
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
@@ -1068,14 +1065,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   NewLoopLatch->setCondBit(TakeBackedgeCond);
   // Update DA.
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-  VPInstruction *OldCondBit =
-      dyn_cast_or_null<VPInstruction>(ExitingBlock->getCondBit());
-  assert(OldCondBit && "ExitingBlock does not have a CondBit\n");
-  // We should only mark divergent values. DA checks if a value is in
-  // DivergentValues set. If it is not there, then the value is considered
-  // uniform.
-  if (VPlanDA->isDivergent(*OldCondBit))
-    VPlanDA->markDivergent(*TakeBackedgeCond);
+  VPlanDA->markDivergent(*TakeBackedgeCond);
 
   // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
   // recalculating it.

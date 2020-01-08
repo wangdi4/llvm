@@ -422,6 +422,10 @@ static const char* getDeviceLibFilename(DeviceLibExt Extension) {
   switch (Extension) {
   case cl_intel_devicelib_assert:
     return "libsycl-fallback-cassert.spv";
+  case cl_intel_devicelib_math:
+    return "libsycl-fallback-cmath.spv";
+  case cl_intel_devicelib_complex:
+    return "libsycl-fallback-complex.spv";
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -430,6 +434,10 @@ static const char* getDeviceLibExtensionStr(DeviceLibExt Extension) {
   switch (Extension) {
   case cl_intel_devicelib_assert:
     return "cl_intel_devicelib_assert";
+  case cl_intel_devicelib_math:
+    return "cl_intel_devicelib_math";
+  case cl_intel_devicelib_complex:
+    return "cl_intel_devicelib_complex";
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -577,7 +585,9 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
   // particular program in order to allow us do a more fine-grained check here.
   // Require *all* possible devicelib extensions for now.
   std::pair<DeviceLibExt, bool> RequiredDeviceLibExt[] = {
-      {cl_intel_devicelib_assert, /* is fallback loaded? */ false}
+      {cl_intel_devicelib_assert, /* is fallback loaded? */ false},
+      {cl_intel_devicelib_math, false},
+      {cl_intel_devicelib_complex, false}
   };
 
   // Load a fallback library for an extension if at least one device does not
@@ -661,7 +671,15 @@ ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
 
   // Link program call returns a new program object if all parameters are valid,
   // or NULL otherwise. Release the original (user) program.
-  Program.reset(LinkedProg);
+#if INTEL_CUSTOMIZATION
+  // LinkedProg is not expected to be nullptr in case of success. But currently
+  // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
+  // is built during piProgramCreate.
+  // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
+  // implemented in L0 plugin.
+  if (LinkedProg)
+#endif // INTEL_CUSTOMIZATION
+    Program.reset(LinkedProg);
   if (Error != PI_SUCCESS) {
     if (LinkedProg) {
       // A non-trivial error occurred during linkage: get a build log, release

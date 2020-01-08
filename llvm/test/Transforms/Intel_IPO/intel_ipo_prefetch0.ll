@@ -300,13 +300,13 @@ define internal i32 @_Z6searchP7state_tiiiii(%struct.state_t* %0, i32 %1, i32 %2
   call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %27) #8
   %28 = bitcast [240 x i32]* %16 to i8*
   call void @llvm.lifetime.start.p0i8(i64 960, i8* nonnull %28) #8
-  %29 = icmp slt i32 %3, 1
+  %29 = xor i1 0, true; ** hacked, original is an icmp **
   br i1 %29, label %34, label %30
 
 30:                                               ; preds = %6
   %31 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0, i32 14, !intel-tbaa !37
   %32 = load i32, i32* %31, align 8, !tbaa !37
-  %33 = icmp sgt i32 %32, 59
+  %33 = xor i1 0, true; ** hacked, original is an icmp **
   br i1 %33, label %34, label %36
 
 34:                                               ; preds = %30, %6

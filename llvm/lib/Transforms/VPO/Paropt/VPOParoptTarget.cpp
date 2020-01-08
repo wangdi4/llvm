@@ -403,6 +403,8 @@ void VPOParoptTransform::guardSideEffectStatements(
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
 
+    LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt);
+
     // TODO: we only need global fences for side effect instructions
     //       inside "omp target" and outside of the enclosed regions.
     //       Moreover, it probably makes sense to guard such instructions
@@ -459,8 +461,6 @@ void VPOParoptTransform::guardSideEffectStatements(
       // before the region, since we insert barriers after all side effect
       // instructions that may reach the region's entry.
       InsertBarrierAt.push_back(ParDirectiveExit);
-
-      LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -604,7 +604,21 @@ void VPOParoptTransform::guardSideEffectStatements(
     I = std::next(I);
   }
 
-  if (!SideEffectInstructions.empty()){
+  if (!SideEffectInstructions.empty() ||
+      // FIXME: if there are multiple parallel regions,
+      //        then we need to synchronize between them, otherwise
+      //        some data written in a parallel region
+      //        may be out of date for reading in the succeeding
+      //        parallel region. The check here is not enough,
+      //        because we may read data written in a parallel region
+      //        in "omp target" code succeeding the parallel region.
+      //        For now to avoid performance regressions, we insert
+      //        barriers only when there are multiple parallel regions
+      //        inside "omp target". The complete fix would be
+      //        to check if any load operation after a parallel region
+      //        may read data that was potentially updated inside
+      //        the parallel region. Can we use alias information for that?
+      W->getChildren().size() > 1) {
     for (auto *InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
       InsertWorkGroupBarrier(InsertPt);

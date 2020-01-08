@@ -676,11 +676,11 @@ void HIROptVarPredicate::splitLoop(
   }
 
   if (FirstLoopNeeded && (SecondLoopNeeded || ThirdLoopNeeded)) {
-    HIRTransformUtils::addCloningInducedLiveouts(Loop);
+    HLNodeUtils::addCloningInducedLiveouts(Loop);
   }
 
   if (SecondLoop && ThirdLoopNeeded) {
-    HIRTransformUtils::addCloningInducedLiveouts(SecondLoop);
+    HLNodeUtils::addCloningInducedLiveouts(SecondLoop);
   }
 
   LoopOptReportBuilder &LORBuilder =

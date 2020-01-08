@@ -381,6 +381,7 @@ namespace {
       (void) llvm::createCSALowerParallelIntrinsicsWrapperPass();
       (void) llvm::createCSAGraphSplitterPass();
   #endif  // INTEL_FEATURE_CSA
+      (void) llvm::createVPOParoptOptimizeDataSharingPass();
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB

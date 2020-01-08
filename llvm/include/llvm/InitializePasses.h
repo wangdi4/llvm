@@ -593,6 +593,7 @@ void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 void initializeRAReportEmitterPass(PassRegistry&);
+void initializeVPOParoptOptimizeDataSharingPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

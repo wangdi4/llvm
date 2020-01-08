@@ -4133,23 +4133,8 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_label:
-#if INTEL_CUSTOMIZATION
-      break;
-    // There is a problem where a lifetime_end intrinsic that is the only
-    // user of a PHI node in the cleanup pad we're deleting can invalidate
-    // the assumptions we're making below. Until a robust solution is
-    // implemented, we just avoid deleting the empty cleanup pad in this
-    // situation.
-    //
-    // In general, we shouldn't just let the lifetime end marker get deleted
-    // so as a temporary workaround until a better solution is implemented
-    // we just avoid deleting the empty cleanup pad if it contains
-    // lifetime end intrinsics.
-    //
-    // See CMPLRLLVM-11251.
     case Intrinsic::lifetime_end:
-      return false;
-#endif
+      break;
     default:
       return false;
     }
@@ -4220,10 +4205,19 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
       // The iterator must be incremented here because the instructions are
       // being moved to another block.
       PHINode *PN = cast<PHINode>(I++);
-      if (PN->use_empty())
-        // If the PHI node has no uses, just leave it.  It will be erased
-        // when we erase BB below.
+#if INTEL_CUSTOMIZATION
+      if (PN->use_empty() ||
+          std::all_of(PN->user_begin(), PN->user_end(),
+                      [&BB](const Value *V) {
+                        if (auto *I = dyn_cast<Instruction>(V))
+                          return I->getParent() == BB;
+                        return false;
+                      }))
+        // If the PHI node has no uses or all of its uses are in this basic
+        // block (meaning they are debug or lifetime intrinsics), just leave
+        // it.  It will be erased when we erase BB below.
         continue;
+#endif // INTEL_CUSTOMIZATION
 
       // Otherwise, sink this PHI node into UnwindDest.
       // Any predecessors to UnwindDest which are not already represented
