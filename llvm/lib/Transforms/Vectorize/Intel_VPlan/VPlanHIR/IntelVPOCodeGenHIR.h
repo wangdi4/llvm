@@ -272,12 +272,29 @@ public:
   }
 
   // Add the given instruction at the end of the main loop and mask
-  // it with the provided mask value if non-null.
+  // it with the provided mask value if non-null. If the masked instruction
+  // writes into a loop private temp ref, then initialize the temp with undef
+  // value in loop header to prevent any backedge flows introduced by selects
+  // during lowering.
   void addInst(HLNode *Node, RegDDRef *Mask) {
     if (Mask) {
       HLInst *Inst = dyn_cast<HLInst>(Node);
       assert(Inst && "Only HLInst can have a mask.");
       Inst->setMaskDDRef(Mask->clone());
+
+      // Initialize Lval temp to undef if it's private per loop iteration.
+      RegDDRef *LvalRef = Inst->getLvalDDRef();
+      if (LvalRef && LvalRef->isTerminalRef() &&
+          !MainLoop->isLiveIn(LvalRef->getSymbase()) &&
+          InitializedPrivateTempSymbases.insert(LvalRef->getSymbase()).second) {
+        auto &DDU = OrigLoop->getDDRefUtils();
+        auto &HNU = OrigLoop->getHLNodeUtils();
+        RegDDRef *Init = DDU.createUndefDDRef(LvalRef->getDestType());
+        auto InitInst = HNU.createCopyInst(Init, "priv.init", LvalRef->clone());
+        // We handle only innermost loop vectorization today, so initialize
+        // temp in MainLoop header.
+        HLNodeUtils::insertAsFirstChild(MainLoop, InitInst);
+      }
     }
 
     if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
@@ -460,6 +477,10 @@ private:
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // created to represent within vector loop.
   DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
+
+  // Set of masked private temp symbases that have been initialized to undef in
+  // vector loop header.
+  SmallSet<unsigned, 16> InitializedPrivateTempSymbases;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
