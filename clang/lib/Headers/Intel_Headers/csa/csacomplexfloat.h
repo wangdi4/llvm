@@ -26,6 +26,26 @@
 
 #pragma once
 
+// Note that csaintrin.h provides x86 implementations of selected CSA
+// intrinsics used in this file.  If this header file were being provided
+// for general use across platforms, the normal way to code optimized bodies
+// might be:
+//  routine
+//    #ifdef __CSA__
+//      csa builtin and/or asm optimized version
+//    #else
+//      generic version
+//    #endif
+// HOWEVER, the purpose of being able to use the header for x86 is not good
+// performance, but rather answers that are as close to CSA answers as possible
+// so that CSA algorithms can at least in some cases be tested in equivalent
+// form on x86.
+#ifndef __CSA__
+#pragma message("Warning: csacomplexfloat.h for x86 is only for testing CSA")
+#pragma message("algorithms, not for any real code.  It tries to produce")
+#pragma message("the same results using CSA intrinsic implementations for x86")
+#endif
+
 #include <stdint.h>
 #include <csa/csaintrin.h>
 #include <cmath>
@@ -76,6 +96,11 @@ public:
   void real(float r) { m_value[0] = r; }
   void imag(float i) { m_value[1] = i; }
 
+  ComplexFloat& operator = (float rhs) {
+    *this = _mm64_pack_ps(rhs, 0.0f);
+    return *this;
+  }
+
   ComplexFloat getConj() const {
     // Flip the imaginary sign bit.
     union {
@@ -89,24 +114,18 @@ public:
 
   friend ComplexFloat conj(ComplexFloat value) { return value.getConj(); }
 
-#ifdef __CSA__
   friend ComplexFloat round(ComplexFloat value)
   {
-    // Calling roundf or std::round is an expensive function call. Call the asm directly.
-    ComplexFloat cf;
-    asm("roundf32 %0, %1" : "=d"(cf.m_value[0]) : "d"(value.m_value[0]));
-    asm("roundf32 %0, %1" : "=d"(cf.m_value[1]) : "d"(value.m_value[1]));
-    return cf;
+    #ifdef __CSA__
+      // Calling roundf or std::round is an expensive function call. Call the asm directly.
+      ComplexFloat cf;
+      asm("roundf32 %0, %1" : "=d"(cf.m_value[0]) : "d"(value.m_value[0]));
+      asm("roundf32 %0, %1" : "=d"(cf.m_value[1]) : "d"(value.m_value[1]));
+      return cf;
+    #else
+      return ComplexFloat( std::round(value.real()), std::round(value.imag()) );
+    #endif
   }
-#else
-friend ComplexFloat round(ComplexFloat value)
-  {
-    ComplexFloat cf;
-    cf.m_value[0] = std::round(value.m_value[0]);
-    cf.m_value[1] = std::round(value.m_value[1]);
-    return cf;
-  }
-#endif
 
   // Given a + bi compute a * a + b * b;
   friend float norm(ComplexFloat value) {
@@ -124,55 +143,74 @@ friend ComplexFloat round(ComplexFloat value)
   }
 
   // Given (a + bi) compute conj(a+bi)/(aa+bb)
-#ifdef __CSA__
   friend ComplexFloat rcp(ComplexFloat value) {
-    // Compute r * r and i * i
-    const auto sqr = _mm64_mul_ps(value.m_value, value.m_value,
-                                  _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
-                                  _MM_SWIZZLE_NONE);
+    #ifdef __CSA__
+      // Compute r * r and i * i
+      const auto sqr = _mm64_mul_ps(value.m_value, value.m_value,
+                                    _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
+                                    _MM_SWIZZLE_NONE);
 
-    // Add together to get the norm.
-    const auto norm =
-       _mm64_add_ps(sqr, sqr, _MM_DISABLE_NONE,
-                    _MM_SWIZZLE_INTERCHANGE, _MM_SWIZZLE_NONE);
+      // Add together to get the norm.
+      const auto norm =
+         _mm64_add_ps(sqr, sqr, _MM_DISABLE_NONE,
+                      _MM_SWIZZLE_INTERCHANGE, _MM_SWIZZLE_NONE);
 
-    // Use a little inline assembly to get at the appropriate rcp instruction.
-    float rcpNorm;
-    asm("rcp14f32 %0, %1" : "=d"(rcpNorm) : "c"(norm));
+      // Use a little inline assembly to get at the appropriate rcp instruction.
+      float rcpNorm;
+      asm("rcp14f32 %0, %1" : "=d"(rcpNorm) : "c"(norm));
 
-    ComplexFloat cj = value.getConj();
+      ComplexFloat cj = value.getConj();
 
-    // Multiply the conjugate by the rcp.
-    return _mm64_mul_ps(cj.m_value, _mm64_pack_ps(rcpNorm, 0.0f),
-                        _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
-                        _MM_SWIZZLE_BCAST_LOW);
+      // Multiply the conjugate by the rcp.
+      return _mm64_mul_ps(cj.m_value, _mm64_pack_ps(rcpNorm, 0.0f),
+                          _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
+                          _MM_SWIZZLE_BCAST_LOW);
+    #else
+      ComplexFloat cf;
+      auto a = value.m_value[0];
+      auto b = value.m_value[1];
+      cf.m_value[0] = a/(a*a + b*b);
+      cf.m_value[1] = -b/(a*a + b*b);
+      return cf;
+    #endif
   }
-#else
-  friend ComplexFloat rcp(ComplexFloat value) {
-    ComplexFloat cf;
-    auto a = value.m_value[0];
-    auto b = value.m_value[1];
-    cf.m_value[0] = a/(a*a + b*b);
-    cf.m_value[1] = -b/(a*a + b*b);
-    return cf;
-  }
-#endif
 
   /// Perform a fused-multiply-add, equivalent to a * b + c.
-  // :TODO: Ideally the compiler would have a peephole enabling it to do this itself, but until that
-  // is added use an explicit method instead.
+  // :TODO: Ideally the compiler would have a peephole enabling it to do this
+  // itself, but until that is added use an explicit method instead.
+  // Computes: (aR + aI i) * (bR + bI i) + (cR + cI i)
+  // from the CSA code is (real,imag):
+  //   result of fmas_ps: (       aI*bI-cR,       (aI*bR+cI)i )
+  //   result of fmas_ps: ( aR*bR-aI*bI+cR, (aR*bI+aI*bR+cI)i )
   friend ComplexFloat fma(ComplexFloat a, ComplexFloat b, ComplexFloat c)
   {
     // return a * b + c;
-    const auto t = _mm64_fma_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
-                                 _MM_SWIZZLE_BCAST_HIGH, _MM_SWIZZLE_INTERCHANGE);
+    // handles a.imag * b.real and a.imag * b.imag (which is negative, hence fmas)
+    const auto t = _mm64_fmas_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
+                                _MM_SWIZZLE_BCAST_HIGH, _MM_SWIZZLE_INTERCHANGE);
+    // handles a.real * b.real and a.real * b.imag
     return _mm64_fmas_ps(a.m_value, b.m_value, t, _MM_DISABLE_NONE,
                          _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
   }
 
+  /// Perform a simplified fused-multply-add or scale, equivalent to s (scalar) * b + c.
+  // :TODO: Ideally the compiler would have a peephole enabling it to do this
+  // itself, but until that is added use an explicit method instead.
+  friend ComplexFloat fma(float s, ComplexFloat b, ComplexFloat c)
+  {
+    ComplexFloat sC(s,0);
+    // handles sC.real * b.real and sC.real * b.imag
+    return _mm64_fma_ps(sC.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
+                         _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
+  }
+
   /// Perform a fused-multiply-, equivalent to c - a * b .
-  // :TODO: Ideally the compiler would have a peephole enabling it to do this itself, but until that
-  // is added use an explicit method instead.
+  // :TODO: Ideally the compiler would have a peephole enabling it to do this
+  // itself, but until that is added use an explicit method instead.
+  // Computes: - ((aR + aI i) * (bR + bI i)) + (cR + cI i)
+  // from the CSA code is (real,imag):
+  //   result of fmsa_ps: (        aI*bI+cR,       (aI*bR-cI)i )
+  //   result of fms_ps:  ( -aR*bR-aI*bI+cR, (aR*bI-aI*bR+cI)i )
   inline friend ComplexFloat fmrs(ComplexFloat a, ComplexFloat b, ComplexFloat c)
   {
     // return c - a * b ;
@@ -180,10 +218,10 @@ friend ComplexFloat round(ComplexFloat value)
     const auto t = _mm64_fmsa_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
                                  _MM_SWIZZLE_BCAST_HIGH, _MM_SWIZZLE_INTERCHANGE);
     return _mm64_fms_ps(a.m_value, b.m_value, t, _MM_DISABLE_NONE,
-                         _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
+                        _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
   }
 
-  // Given (a + bi) * (c + di):
+  // for: (a + bi) * (c + di):
   // Compute b * (d, c) => bd, bc
   // Compute a * (c, d) => ac, ad
   // Add/sub together =>  ac - bd, ad + bc
@@ -196,7 +234,10 @@ friend ComplexFloat round(ComplexFloat value)
   }
   ComplexFloat& operator *= (ComplexFloat rhs) { *this = *this * rhs; return *this; }
 
-  // Compute (a + bi) * conj(c + di)
+  // for: (a + bi) * conj(c + di)
+  // Compute a * (c, d) => (ac, ad)
+  // Compute (bd - ac, bc + ad)
+  // Add/sub together =>  ac - bd, ad + bc
   friend ComplexFloat mulByConj(ComplexFloat lhs, ComplexFloat rhs) {
     const auto t = _mm64_mul_ps(lhs.m_value, rhs.m_value, _MM_DISABLE_NONE,
                                 _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
@@ -208,8 +249,8 @@ friend ComplexFloat round(ComplexFloat value)
 
   friend ComplexFloat operator*(ComplexFloat lhs, float rhs) {
     return _mm64_mul_ps(lhs.m_value, _mm64_pack_ps(rhs, 0.0f),
-                        _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
-                        _MM_SWIZZLE_BCAST_LOW);
+                          _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
+                          _MM_SWIZZLE_BCAST_LOW);
   }
   friend ComplexFloat operator*(float lhs, ComplexFloat rhs) { return rhs * lhs; }
   ComplexFloat& operator *= (float rhs) { *this = *this * rhs; return *this; }
@@ -228,7 +269,6 @@ friend ComplexFloat round(ComplexFloat value)
   friend ComplexFloat operator+(float lhs, ComplexFloat rhs) { return rhs + lhs; }
   ComplexFloat& operator += (float rhs) { *this = *this + rhs; return *this; }
 
-
   friend ComplexFloat operator-(ComplexFloat lhs, ComplexFloat rhs) {
     return _mm64_sub_ps(lhs.m_value, rhs.m_value, _MM_DISABLE_NONE,
                         _MM_SWIZZLE_NONE, _MM_SWIZZLE_NONE);
@@ -241,9 +281,10 @@ friend ComplexFloat round(ComplexFloat value)
   friend ComplexFloat operator-(ComplexFloat lhs, float rhs) {
     return _mm64_sub_ps(lhs.m_value, _mm64_pack_ps(rhs, 0.0f),
                         _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
-                        _MM_SWIZZLE_BCAST_LOW);
+                        _MM_SWIZZLE_NONE);
   }
   ComplexFloat& operator -= (float rhs) { *this = *this - rhs; return *this; }
+
 #ifndef __CSA__
   friend std::ostream& operator<<(std::ostream& os, const ComplexFloat& rhs) {
 
