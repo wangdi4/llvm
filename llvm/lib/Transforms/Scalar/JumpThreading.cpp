@@ -1818,52 +1818,6 @@ FindMostPopularDest(BasicBlock *BB,
   return MostPopularDest;
 }
 
-// Try to evaluate the value of V when the control flows from PredPredBB to
-// BB->getSinglePredecessor() and then on to BB.
-Constant *JumpThreadingPass::EvaluateOnPredecessorEdge(BasicBlock *BB,
-                                                       BasicBlock *PredPredBB,
-                                                       Value *V) {
-  BasicBlock *PredBB = BB->getSinglePredecessor();
-  assert(PredBB && "Expected a single predecessor");
-
-  if (Constant *Cst = dyn_cast<Constant>(V)) {
-    return Cst;
-  }
-
-  // Consult LVI if V is not an instruction in BB or PredBB.
-  Instruction *I = dyn_cast<Instruction>(V);
-  if (!I || (I->getParent() != BB && I->getParent() != PredBB)) {
-    if (DTU->hasPendingDomTreeUpdates())
-      LVI->disableDT();
-    else
-      LVI->enableDT();
-    return LVI->getConstantOnEdge(V, PredPredBB, PredBB, nullptr);
-  }
-
-  // Look into a PHI argument.
-  if (PHINode *PHI = dyn_cast<PHINode>(V)) {
-    if (PHI->getParent() == PredBB)
-      return dyn_cast<Constant>(PHI->getIncomingValueForBlock(PredPredBB));
-    return nullptr;
-  }
-
-  // If we have a CmpInst, try to fold it for each incoming edge into PredBB.
-  if (CmpInst *CondCmp = dyn_cast<CmpInst>(V)) {
-    if (CondCmp->getParent() == BB) {
-      Constant *Op0 =
-          EvaluateOnPredecessorEdge(BB, PredPredBB, CondCmp->getOperand(0));
-      Constant *Op1 =
-          EvaluateOnPredecessorEdge(BB, PredPredBB, CondCmp->getOperand(1));
-      if (Op0 && Op1) {
-        return ConstantExpr::getCompare(CondCmp->getPredicate(), Op0, Op1);
-      }
-    }
-    return nullptr;
-  }
-
-  return nullptr;
-}
-
 bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                                                ConstantPreference Preference,
                                                Instruction *CxtI) {
@@ -1873,6 +1827,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     return false;
 
   PredValueInfoTy PredValues;
+<<<<<<< HEAD
   // bool Changed = false;                                              // INTEL
   ThreadRegionInfoTy RegionInfo;                                        // INTEL
   if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
@@ -1882,6 +1837,10 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     // BB and its sole predecessor.
     return MaybeThreadThroughTwoBasicBlocks(BB, Cond);
   }
+=======
+  if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues, Preference, CxtI))
+    return false;
+>>>>>>> 2d258ed931cdf47a7d1dcf08ad963b5452a8670f
 
   assert(!PredValues.empty() && !RegionInfo.empty() &&                  // INTEL
          "ComputeValueKnownInPredecessors returned true with no "       // INTEL
@@ -2374,6 +2333,7 @@ JumpThreadingPass::CloneInstructions(BasicBlock::iterator BI,
   return ValueMapping;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// We intend to thread an edge into the region across a group of blocks to an
 /// outgoing edge of the region. In order to do this, we have to duplicate all
@@ -2678,6 +2638,9 @@ void JumpThreadingPass::ThreadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
 /// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
 /// across a region of blocks.  Transform the IR to reflect this change.
+=======
+/// TryThreadEdge - Thread an edge if it's safe and profitable to do so.
+>>>>>>> 2d258ed931cdf47a7d1dcf08ad963b5452a8670f
 bool JumpThreadingPass::TryThreadEdge(
     const ThreadRegionInfo &RegionInfo,
     const SmallVectorImpl<BasicBlock *> &PredBBs, BasicBlock *SuccBB) {
