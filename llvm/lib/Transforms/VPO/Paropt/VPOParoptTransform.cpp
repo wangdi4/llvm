@@ -3142,6 +3142,54 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
+// For array sections, generate a base + offset GEP corresponding to the
+// section's starting address.
+Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
+    Value *Orig, const ArraySectionInfo &ArrSecInfo,
+    Instruction *InsertBefore) {
+
+  // Example for an array section on a pointer to an array:
+  //
+  //   static int (*yarrptr)[3][4][5];
+  //   #pragma omp parallel for reduction(+:yarrptr[3][1][2:2][1:3])
+  //
+
+  // Generated IR for starting address for the above example:
+  //
+  //   %_yarrptr.load = load [3 x [4 x [5 x i32]]]*, @_yarrptr          ; (1)
+  //   %_yarrptr.load.cast = bitcast %_yarrptr.load to i32*             ; (2)
+  //   %_yarrptr.load.cast.plus.offset = gep %_yarrptr.load.cast, 211   ; (3)
+  //
+  //   %_yarrptr.load.cast.plus.offset is the final BeginAddr.
+
+  Value *BeginAddr = Orig;
+  IRBuilder<> Builder(InsertBefore);
+
+  if (ArrSecInfo.getBaseIsPointer())
+    BeginAddr =
+        Builder.CreateLoad(BeginAddr, BeginAddr->getName() + ".load"); // (1)
+
+  assert(BeginAddr && isa<PointerType>(BeginAddr->getType()) &&
+         "Illegal Begin Addr for array section.");
+
+  auto *BeginAddrPointerTy = BeginAddr->getType();
+  assert(isa<PointerType>(BeginAddrPointerTy) &&
+         "Array section begin address must have pointer type.");
+  BeginAddr = Builder.CreateBitCast(
+      BeginAddr,
+      PointerType::get(
+          ArrSecInfo.getElementType(),
+          cast<PointerType>(BeginAddrPointerTy)->getAddressSpace()),
+      BeginAddr->getName() + ".cast"); //                                 (2)
+  BeginAddr = Builder.CreateGEP(BeginAddr, ArrSecInfo.getOffset(),
+                                BeginAddr->getName() + ".plus.offset"); //(3)
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Gep for array section opnd '";
+             Orig->printAsOperand(dbgs()); dbgs() << "':: ";
+             BeginAddr->printAsOperand(dbgs()); dbgs() << "'\n");
+  return BeginAddr;
+}
+
 // For array [section] reduction init loop, compute the base address of the
 // destination array, number of elements, and destination element type.
 void VPOParoptTransform::genAggrReductionInitDstInfo(
@@ -3244,39 +3292,19 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   //   %_yarrptr.load.cast.plus.offset = gep %_yarrptr.load.cast, 211   ; (3)
   //
   //   %_yarrptr.load.cast.plus.offset is the final DestArrayBegin.
-
-  DestArrayBegin = OldV;
-  bool ArraySectionBaseIsPtr = ArrSecInfo.getBaseIsPointer();
-  if (ArraySectionBaseIsPtr)
-    DestArrayBegin = Builder.CreateLoad(
-        DestArrayBegin, DestArrayBegin->getName() + ".load"); //          (1)
-
-  assert(DestArrayBegin && isa<PointerType>(DestArrayBegin->getType()) &&
-         "Illegal Destination Array for reduction fini.");
-
-  auto *DestPointerTy = DestArrayBegin->getType();
-  assert(isa<PointerType>(DestPointerTy) &&
-         "Reduction destination must have pointer type.");
-  DestArrayBegin = Builder.CreateBitCast(
-      DestArrayBegin,
-      PointerType::get(DestElementTy,
-                       cast<PointerType>(DestPointerTy)->getAddressSpace()),
-      DestArrayBegin->getName() + ".cast"); //                            (2)
-  DestArrayBegin =
-      Builder.CreateGEP(DestArrayBegin, ArrSecInfo.getOffset(),
-                        DestArrayBegin->getName() + ".plus.offset"); //   (3)
+  DestArrayBegin = VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
+      OldV, ArrSecInfo, InsertPt);
 }
 
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
-    Item &CI, Instruction *InsertPt) {
-
+    Item &I, Instruction *InsertPt) {
   bool IsArraySection = false;
   ArraySectionInfo *ArrSecInfo = nullptr;
 
-  if (auto *RI = dyn_cast<ReductionItem>(&CI)) {
+  if (auto *RI = dyn_cast<ReductionItem>(&I)) {
     IsArraySection = RI->getIsArraySection();
     ArrSecInfo = &RI->getArraySectionInfo();
-  } else if (auto *MI = dyn_cast<MapItem>(&CI)) {
+  } else if (auto *MI = dyn_cast<MapItem>(&I)) {
     IsArraySection = MI->getIsArraySection();
     ArrSecInfo = &MI->getArraySectionInfo();
   } else
@@ -3286,13 +3314,25 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   if (!IsArraySection)
     return;
 
+  assert(ArrSecInfo && "No array section info.");
+  computeArraySectionTypeOffsetSize(I.getOrig(), *ArrSecInfo, I.getIsByRef(),
+                                    InsertPt);
+}
+
+void VPOParoptTransform::computeArraySectionTypeOffsetSize(
+    Value *Orig, ArraySectionInfo &ArrSecInfo, bool IsByRef,
+    Instruction *InsertPt) {
+
+  const auto &ArraySectionDims = ArrSecInfo.getArraySectionDims();
+  if (ArraySectionDims.empty())
+    return;
+
   IRBuilder<> Builder(InsertPt);
 
-  Value *Orig = CI.getOrig();
   Type *CITy = Orig->getType();
   Type *ElemTy = cast<PointerType>(CITy)->getElementType();
 
-  if (CI.getIsByRef())
+  if (IsByRef)
     // Strip away one pointer for by-refs.
     ElemTy = cast<PointerType>(ElemTy)->getElementType();
 
@@ -3337,7 +3377,6 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   uint64_t ArraySizeTillDim = 1;
   Value *ArrSecSize = Builder.getIntN(PtrSz, 1);
   Value *ArrSecOff = Builder.getIntN(PtrSz, 0);
-  const auto &ArraySectionDims = ArrSecInfo->getArraySectionDims();
   const int NumDims = ArraySectionDims.size();
 
   // We go through the array section dims in the reverse order to go from lower
@@ -3376,6 +3415,9 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
       continue; // If `BaseIsPointer`, getElmentType() has already been called
                 // once, so we skip it in the last iteration.
 
+    assert(!ArrayDims.empty() &&
+           "Unexpected: Is the array section non-contiguous?");
+
     ArraySizeTillDim *= ArrayDims.pop_back_val();
     ElemTy = cast<ArrayType>(ElemTy)->getElementType();
   }
@@ -3384,14 +3426,14 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   assert(!isa<PointerType>(ElemTy) && !isa<ArrayType>(ElemTy) &&
          "Unexpected array section element type.");
 
-  ArrSecInfo->setSize(ArrSecSize);
-  ArrSecInfo->setOffset(ArrSecOff);
-  ArrSecInfo->setElementType(ElemTy);
-  ArrSecInfo->setBaseIsPointer(BaseIsPointer);
+  ArrSecInfo.setSize(ArrSecSize);
+  ArrSecInfo.setOffset(ArrSecOff);
+  ArrSecInfo.setElementType(ElemTy);
+  ArrSecInfo.setBaseIsPointer(BaseIsPointer);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Operand '";
              Orig->printAsOperand(dbgs()); dbgs() << "':: ";
-             ArrSecInfo->print(dbgs(), false); dbgs() << "\n");
+             ArrSecInfo.print(dbgs(), false); dbgs() << "\n");
 }
 
 Value *

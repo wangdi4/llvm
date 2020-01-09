@@ -1374,31 +1374,50 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
   const DataLayout DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
   for (DependItem *DepI : DepClause.items()) {
+    Value *Orig = DepI->getOrig();
+    Value *Size = nullptr;
+    Value *BasePtr = Orig;
+    Type *IntPtrTy = Builder.getIntPtrTy(DL);
+
+    // TODO: Paropt doesn't support code generation for non-contiguous sections,
+    // the plan is for the frontend to send us an array section in this form:
+    // "(0, i64 %number_of_elements_from_start_to_end, 1)
+    // %gep_with_starting_offset".
+    computeArraySectionTypeOffsetSize(Orig, DepI->getArraySectionInfo(),
+                                      DepI->getIsByRef(), InsertBefore);
 
     Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
         KmpTaskTDependVecTy, DummyTaskTDependVec,
-        {Builder.getInt32(0), Builder.getInt32(Count++)});
+        {Builder.getInt32(0), Builder.getInt32(Count++)}, ".dep.struct");
 
-    Value *Gep =
-        Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                  {Builder.getInt32(0), Builder.getInt32(0)});
-    Builder.CreateStore(
-        Builder.CreatePtrToInt(DepI->getOrig(),
-                               DL.getIntPtrType(DepI->getOrig()->getType())),
-        Gep);
+    if (DepI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = DepI->getArraySectionInfo();
+      BasePtr =
+          genBasePlusOffsetGEPForArraySection(Orig, ArrSecInfo, InsertBefore);
+      Value *NumElements = ArrSecInfo.getSize();
+      Value *ElementSize = Builder.getIntN(
+          DL.getPointerSizeInBits(),
+          DL.getTypeSizeInBits(ArrSecInfo.getElementType()) / 8);
+      Size = Builder.CreateMul(NumElements, ElementSize,
+                               Orig->getName() + ".size.in.bytes");
+    } else
+      Size = Builder.getIntN(
+          DL.getPointerSizeInBits(),
+          DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+
+    Value *Gep = Builder.CreateInBoundsGEP(
+        KmpTaskDependInfoTy, BaseTaskTDependGep,
+        {Builder.getInt32(0), Builder.getInt32(0)}, ".dep.base.ptr");
+    Builder.CreateStore(Builder.CreatePtrToInt(BasePtr, IntPtrTy), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                    {Builder.getInt32(0), Builder.getInt32(1)});
-    Builder.CreateStore(
-        (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
-            ? Builder.getInt64(DL.getTypeAllocSize(
-                  DepI->getOrig()->getType()->getPointerElementType()))
-            : Builder.getInt32(DL.getTypeAllocSize(
-                  DepI->getOrig()->getType()->getPointerElementType())),
-        Gep);
+                                    {Builder.getInt32(0), Builder.getInt32(1)},
+                                    ".dep.num.bytes");
+    Builder.CreateStore(Size, Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                    {Builder.getInt32(0), Builder.getInt32(2)});
+                                    {Builder.getInt32(0), Builder.getInt32(2)},
+                                    ".dep.flags");
     Builder.CreateStore(Builder.getInt8(DepI->getIsIn() ? 0x1 : 0x3), Gep);
   }
 
@@ -1505,6 +1524,16 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
     return;
   for (DependItem *DepI : DepClause.items()) {
     resetValueInOmpClauseGeneric(W, DepI->getOrig());
+    if (DepI->getIsArraySection()) {
+      const auto &ArraySectionDims =
+          DepI->getArraySectionInfo().getArraySectionDims();
+
+      for (const auto &Dim : ArraySectionDims) {
+        resetValueInOmpClauseGeneric(W, std::get<0>(Dim));
+        resetValueInOmpClauseGeneric(W, std::get<1>(Dim));
+        resetValueInOmpClauseGeneric(W, std::get<2>(Dim));
+      }
+    }
   }
 }
 

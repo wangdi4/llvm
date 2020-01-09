@@ -862,7 +862,13 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
   C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
 
   if (ClauseInfo.getIsArraySection()) {
-    //TODO: Parse array section arguments.
+    Value *V = Args[0];
+    C.add(V);
+    DependItem *DI = C.back();
+    DI->setIsIn(IsIn);
+    DI->setIsByRef(ClauseInfo.getIsByRef());
+    ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
+    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {

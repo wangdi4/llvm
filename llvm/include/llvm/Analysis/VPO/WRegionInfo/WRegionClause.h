@@ -1027,20 +1027,19 @@ class DependItem
     VAR   Base;           // scalar item or base of array section
     bool  IsByRef;        // true if Base is by-reference
     bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
-    bool  IsArraySection; // if true, then lb, length, stride below are used
     EXPR  LowerBound;     // null if unspecified
     EXPR  Length;         // null if unspecified
     EXPR  Stride;         // null if unspecified
+    ArraySectionInfo ArrSecInfo;
 
   public:
-    DependItem(VAR V=nullptr) : Base(V), IsByRef(false), IsIn(true),
-    IsArraySection(false), LowerBound(nullptr), Length(nullptr),
-    Stride(nullptr) {}
+    DependItem(VAR V = nullptr)
+        : Base(V), IsByRef(false), IsIn(true), LowerBound(nullptr),
+          Length(nullptr), Stride(nullptr) {}
 
     void setOrig(VAR V)         { Base = V; }
     void setIsByRef(bool Flag)  { IsByRef = Flag; }
     void setIsIn(bool Flag)     { IsIn = Flag; }
-    void setIsArrSec(bool Flag) { IsArraySection = Flag; }
     void setLb(EXPR Lb)         { LowerBound = Lb;   }
     void setLength(EXPR Len)    { Length = Len;  }
     void setStride(EXPR Str)    { Stride = Str;  }
@@ -1048,14 +1047,22 @@ class DependItem
     VAR  getOrig()      const   { return Base; }
     bool getIsByRef()   const   { return IsByRef; }
     bool getIsIn()      const   { return IsIn; }
-    bool getIsArrSec()  const   { return IsArraySection; }
     EXPR getLb()        const   { return LowerBound; }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
+    ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
+    const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
+    bool getIsArraySection() const {
+      return !ArrSecInfo.getArraySectionDims().empty();
+    };
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())
         OS << "BYREF";
+      if (getIsArraySection()) {
+        OS << " ";
+        ArrSecInfo.print(OS, PrintType);
+      }
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
