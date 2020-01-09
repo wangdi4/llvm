@@ -87,6 +87,7 @@ void _pi_queue::executeCommandList(ze_command_list_handle_t ze_command_list,
   ZE_CALL(zeCommandQueueExecuteCommandLists(
     L0CommandQueue, 1, &ze_command_list, nullptr));
 
+  // TODO: add a global control to make every command blocking for debugging.
   if (is_blocking) {
     // Wait until command lists attached to the command queue are executed.
     ZE_CALL(zeCommandQueueSynchronize(L0CommandQueue, UINT32_MAX));
