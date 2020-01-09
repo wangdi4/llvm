@@ -352,6 +352,20 @@ typedef _pi_sampler_addressing_mode pi_sampler_addressing_mode;
 typedef _pi_sampler_filter_mode     pi_sampler_filter_mode;
 typedef _pi_sampler_info            pi_sampler_info;
 
+// For compatibility with OpenCL define this not as enum.
+typedef intptr_t pi_device_partition_property;
+static const pi_device_partition_property
+  PI_DEVICE_PARTITION_EQUALLY = CL_DEVICE_PARTITION_EQUALLY;
+static const pi_device_partition_property
+  PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN = CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN;
+
+// For compatibility with OpenCL define this not as enum.
+typedef pi_bitfield pi_device_affinity_domain;
+static const pi_device_affinity_domain
+  PI_DEVICE_AFFINITY_DOMAIN_NUMA = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
+static const pi_device_affinity_domain
+  PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE = CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE;
+
 // Entry type, matches OpenMP for compatibility
 struct _pi_offload_entry_struct {
   void *addr;
@@ -563,7 +577,7 @@ pi_result piDeviceRelease(pi_device device);
 
 pi_result piDevicePartition(
   pi_device     device,
-  const cl_device_partition_property * properties, // TODO: untie from OpenCL
+  const pi_device_partition_property * properties,
   pi_uint32     num_devices,
   pi_device *   out_devices,
   pi_uint32 *   out_num_devices);

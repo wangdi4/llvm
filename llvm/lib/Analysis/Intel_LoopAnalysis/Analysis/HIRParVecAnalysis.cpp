@@ -542,7 +542,8 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
       IdAnalysis.gatherIdioms(IList, DDA->getGraph(Loop), *SRA, Loop);
     }
     DDWalk DDW(*TLI, *DDA, *SRA, Loop, this, IList); // Legality checker.
-    Loop->getHLNodeUtils().visit(DDW, Loop); // This can change isDone() status.
+    // This can change isDone() status.
+    HLNodeUtils::visitRange(DDW, Loop->child_begin(), Loop->child_end());
   }
   if (isDone()) {
     // Necessary analysis is all complete.

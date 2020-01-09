@@ -1,3 +1,15 @@
+//
+// TODO: Refactor this code for upstream, taking these general guidelines
+//       into consideration:
+//
+// 1. Use more C++ where it makes sense, e.g. constructors/destructors or
+//    encapsulating some functionalities of PI objects.
+// 2. Settle/follow a convention for naming L0/PI handles.
+// 3. Make this code not throwing exception, but return any errors in result.
+// 4. Make this code more robust, assert of assumptions and supported features.
+// 5. Make this code thread-safe.
+// 6. Address TODO comments in the code.
+//
 #include "pi_level0.hpp"
 #include <map>
 #include <memory>
@@ -277,6 +289,8 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
     if (i < num_entries) {
       auto L0PiDevice = new _pi_device();
       L0PiDevice->L0Device = ze_devices[i];
+      L0PiDevice->IsSubDevice = false;
+      L0PiDevice->RefCount = 1;
 
       // Create the immediate command list to be used for initializations
       // Created as synchronous so level-zero performs implicit synchronization and
@@ -295,14 +309,20 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
   return PI_SUCCESS;
 }
 
-pi_result L0(piDeviceRetain)(pi_device device) {
-
-  ++(device->RefCount);
+pi_result L0(piDeviceRetain)(pi_device device)
+{
+  // The root-device ref-count remains unchanged (always 1).
+  if (device->IsSubDevice) {
+    ++(device->RefCount);
+  }
   return PI_SUCCESS;
 }
 
-pi_result L0(piDeviceRelease)(pi_device device) {
-
+pi_result L0(piDeviceRelease)(pi_device device)
+{
+  // TODO: OpenCL says root-device ref-count remains unchanged (1),
+  // but when would we free the device's data?
+  //
   if (--(device->RefCount) == 0) {
     // Destroy the command list used for initializations
     ZE_CALL(zeCommandListDestroy(device->L0CommandListInit));
@@ -478,24 +498,46 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint32{ze_device_properties.numTiles});
   }
   else if (param_name == PI_DEVICE_REFERENCE_COUNT) {
-    if (ze_device_properties.isSubdevice == 0) {
-      SET_PARAM_VALUE(pi_uint32{1});
+    SET_PARAM_VALUE(pi_uint32{device->RefCount});
+  }
+  else if (param_name == PI_DEVICE_PARTITION_PROPERTIES) {
+    //
+    // It is debatable if SYCL sub-device and partitioning APIs sufficient to
+    // expose Level0 sub-devices / tiles?  We start with support of
+    // "partition_by_affinity_domain" and "numa" but if that doesn't seem to be
+    // a good fit we could look at adding a more descriptive partitioning type.
+    //
+    // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/239.
+    //
+    struct {
+      pi_device_partition_property arr[2];
+    }  partition_properties = {
+      { PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, 0 }
+    };
+    SET_PARAM_VALUE(partition_properties);
+  }
+  else if (param_name == PI_DEVICE_PARTITION_AFFINITY_DOMAIN) {
+    SET_PARAM_VALUE(pi_device_affinity_domain{
+      PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE});
+  }
+  else if (param_name == PI_DEVICE_PARTITION_TYPE) {
+    if (device->IsSubDevice) {
+      struct {
+        pi_device_partition_property arr[3];
+      }  partition_properties = {
+        { PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
+          PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE, 0 }
+      };
+      SET_PARAM_VALUE(partition_properties);
     }
     else {
-      SET_PARAM_VALUE(pi_uint32{ze_device_properties.subdeviceId});
+      // For root-device there is no partitioning to report.
+      SET_PARAM_VALUE(pi_device_partition_property{0});
     }
   }
 
   // Everything under here is not supported yet
 
-  else if (param_name == PI_DEVICE_PARTITION_AFFINITY_DOMAIN) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_PARTITION_AFFINITY_DOMAIN in piGetDeviceInfo");
-  }
-  else if (param_name == PI_DEVICE_PARTITION_TYPE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_PARTITION_TYPE in piGetDeviceInfo");
-  }
   else if (param_name == PI_DEVICE_OPENCL_C_VERSION) {
     // TODO: To find out correct value
     pi_throw("Unsupported PI_DEVICE_OPENCL_C_VERSION in piGetDeviceInfo");
@@ -507,14 +549,6 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_PRINTF_BUFFER_SIZE) {
     // TODO: To find out correct value
     pi_throw("Unsupported PI_DEVICE_PRINTF_BUFFER_SIZE in piGetDeviceInfo");
-  }
-  else if (param_name == PI_DEVICE_PARTITION_PROPERTIES) {
-    // TODO: Whatever partitioning we decide is supported by L0 should be
-    // returned here (and supported in piDevicePartition), none for now.
-    // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/239.
-    // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/295.
-    //
-    SET_PARAM_VALUE(intptr_t{0});
   }
   else if (param_name == PI_DEVICE_PROFILE) {
     // TODO: To find out correct value
@@ -686,12 +720,51 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
 
 pi_result L0(piDevicePartition)(
   pi_device     device,
-  const cl_device_partition_property * properties,
+  const pi_device_partition_property * properties,
   pi_uint32     num_devices,
   pi_device *   out_devices,
-  pi_uint32 *   out_num_devices) {
+  pi_uint32 *   out_num_devices)
+{
+  // Other partitioning ways are not supported by L0
+  if (properties[0] != PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN ||
+      properties[1] != PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE) {
+    return PI_INVALID_VALUE;
+  }
 
-  pi_throw("piDevicePartition not implemented");
+  // Get the number of subdevices/tiles available.
+  // TODO: maybe add interface to create the specified # of subdevices.
+  uint32_t count = 0;
+  ZE_CALL(zeDeviceGetSubDevices(device->L0Device, &count, nullptr));
+
+  // Check that the requested/allocated # of sub-devices is the same
+  // as was reported by the above call.
+  // TODO: we may want to support smaller/larger # devices too.
+  if (count != num_devices) {
+    pi_throw("piDevicePartition: unsupported # of sub-devices requested");
+  }
+
+  if (out_num_devices) {
+    *out_num_devices = count;
+  }
+
+  if (!out_devices) {
+    // If we are not given the buffer, we are done.
+    return PI_SUCCESS;
+  }
+
+  auto ze_subdevices = new ze_device_handle_t[count];
+  ZE_CALL(zeDeviceGetSubDevices(device->L0Device, &count, ze_subdevices));
+
+  // Wrap the L0 sub-devices into PI sub-devices, and write them out.
+  for (uint32_t i = 0; i < count; ++i) {
+    auto L0PiDevice = new _pi_device();
+    L0PiDevice->L0Device = ze_subdevices[i];
+    L0PiDevice->IsSubDevice = true;
+    L0PiDevice->RefCount = 1;
+    out_devices[i] = L0PiDevice;
+  }
+  delete[] ze_subdevices;
+
   return PI_SUCCESS;
 }
 
