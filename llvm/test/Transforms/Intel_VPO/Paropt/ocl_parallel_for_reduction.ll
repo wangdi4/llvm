@@ -27,12 +27,12 @@
 ; CHECK: Critical section was generated for reduction update(s)
 
 ; CHECK: define dso_local spir_kernel void @__omp_offloading_
-; CHECK-DAG: call void @__kmpc_atomic_fixed4_add
-; CHECK-DAG: call void @__kmpc_atomic_fixed4_add
-; CHECK-DAG: call void @__kmpc_atomic_fixed4_mul
-; CHECK-DAG: call void @__kmpc_atomic_fixed4_andb
-; CHECK-DAG: call void @__kmpc_atomic_fixed4_orb
-; CHECK-DAG: call void @__kmpc_atomic_fixed4_xor
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_add
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_add
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_mul
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_andb
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_orb
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_xor
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

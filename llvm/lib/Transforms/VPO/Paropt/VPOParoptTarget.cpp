@@ -409,13 +409,16 @@ void VPOParoptTransform::guardSideEffectStatements(
     //       inside "omp target" and outside of the enclosed regions.
     //       Moreover, it probably makes sense to guard such instructions
     //       with (get_group_id() == 0) vs (get_local_id() == 0).
-    VPOParoptUtils::genOCLGenericCall(
-        "_Z18work_group_barrierj", Type::getVoidTy(C),
-        // CLK_LOCAL_MEM_FENCE  == 1
-        // CLK_GLOBAL_MEM_FENCE == 2
-        // CLK_IMAGE_MEM_FENCE  == 4
-        { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
-        InsertPt);
+    CallInst *CI =
+        VPOParoptUtils::genOCLGenericCall(
+            "_Z18work_group_barrierj", Type::getVoidTy(C),
+            // CLK_LOCAL_MEM_FENCE  == 1
+            // CLK_GLOBAL_MEM_FENCE == 2
+            // CLK_IMAGE_MEM_FENCE  == 4
+            { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
+            InsertPt);
+    // work_group_barrier() is a convergent call.
+    CI->getCalledFunction()->setConvergent();
   };
 
   // Find the parallel region begin and end directives,
@@ -424,10 +427,11 @@ void VPOParoptTransform::guardSideEffectStatements(
        I != E; ++I) {
 
     // Collect OpenMP directive calls so that we can delete them
-    // later.
+    // later. We may want to keep SIMD directives at some point,
+    // but right now they are not supported for SPIR-V targets.
+    // Moreover, llvm-spirv is not able to translate llvm.directive.region
+    // intrinsic calls.
     if (VPOAnalysisUtils::isOpenMPDirective(&*I) &&
-        // Avoid deleting SIMD directives.
-        !isParOrTargetDirective(&*I, false, true) &&
         // Target directives require special processing (see below).
         &*I != KernelEntryDir && &*I != KernelExitDir) {
       // Distinguish between entry and other directives, since
@@ -441,7 +445,6 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     if (isParOrTargetDirective(&*I) &&
         // Barriers must not be inserted around SIMD loops.
-        // SIMD directives must not be removed either.
         !isParOrTargetDirective(&*I, false, true)) {
 
       ParDirectiveBegin = &*I;
@@ -625,7 +628,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
   }
 
-  // Delete the non-SIMD directives.
+  // Delete the directives.
   // The target directives will be removed by paroptTransforms().
   for (auto *I : ExitDirectivesToDelete)
     VPOUtils::stripDirectives(*I->getParent());

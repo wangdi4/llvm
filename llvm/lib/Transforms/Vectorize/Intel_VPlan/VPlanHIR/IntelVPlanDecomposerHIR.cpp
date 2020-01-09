@@ -441,6 +441,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
         Instruction::Load, {MemOpVPI},
         cast<PointerType>(MemOpVPI->getType())->getElementType());
 
+    // Save away scalar memref symbase for later use.
+    cast<VPInstruction>(MemOpVPI)->setSymbase(Ref->getSymbase());
+
     // FIXME: This special-casing for loads that are HLInst is becoming more
     // complicated than expected since we also have to special-case
     // createVPInstruction. I think that special-case this code to avoid
@@ -674,6 +677,13 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
       // standalone loads.
       NewVPInst->HIR.setOperandDDR(LvalDDR);
+
+      // Save away scalar memref symbase for later use.
+      if (NewVPInst->getOpcode() == Instruction::Store) {
+        assert(LvalDDR->isMemRef() &&
+               "Expected Lval of a store HLInst to be a memref");
+        NewVPInst->setSymbase(LvalDDR->getSymbase());
+      }
 
       if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {
         VPExternalUse *User = Plan->getVPExternalUseForDDRef(LvalDDR);

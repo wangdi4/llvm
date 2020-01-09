@@ -2746,7 +2746,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
                                    DDRefUtils &DDU, CanonExprUtils &CEU,
                                    Type *VecRefDestTy, unsigned AddressSpace,
-                                   unsigned VF) {
+                                   unsigned VF, unsigned ScalSymbase) {
   RegDDRef *AddrRef;
   if (PtrOp->isAddressOf()) {
     // We generate an addressof ref from the GEP instruction. For
@@ -2774,6 +2774,7 @@ static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
     AddrRef->addDimension(Zero);
   }
   AddrRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
+  AddrRef->setSymbase(ScalSymbase);
   return AddrRef;
 }
 
@@ -3266,8 +3267,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     auto VecRefDestTy = VectorType::get(RefDestTy, VF);
     unsigned AddressSpace =
         cast<PointerType>(VPInst->getOperand(0)->getType())->getAddressSpace();
-    RegDDRef *AddrRef = getPointerOperand(WideOps[0], HNU, DDU, CEU,
-                                          VecRefDestTy, AddressSpace, VF);
+    RegDDRef *AddrRef =
+        getPointerOperand(WideOps[0], HNU, DDU, CEU, VecRefDestTy, AddressSpace,
+                          VF, VPInst->getSymbase());
     // TODO - Alignment information needs to be obtained from VPInstruction.
     // For now we are forcing alignment based on RefDestTy.
     setRefAlignment(RefDestTy, AddrRef);
@@ -3279,8 +3281,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     auto VecRefDestTy = WideOps[0]->getDestType();
     unsigned AddressSpace =
         cast<PointerType>(VPInst->getOperand(1)->getType())->getAddressSpace();
-    RegDDRef *AddrRef = getPointerOperand(WideOps[1], HNU, DDU, CEU,
-                                          VecRefDestTy, AddressSpace, VF);
+    RegDDRef *AddrRef =
+        getPointerOperand(WideOps[1], HNU, DDU, CEU, VecRefDestTy, AddressSpace,
+                          VF, VPInst->getSymbase());
     // TODO - Alignment information needs to be obtained from VPInstruction.
     // For now we are forcing alignment based on scalar type of value being
     // stored.

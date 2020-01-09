@@ -10,10 +10,10 @@
 ; to IV's type (i64). Verify that this situation is properly handled and
 ; that no type-mismatch assertions occur.
 
-; CHECK: [[NUMTHREADS:%[0-9]+]] = call i64 @_Z14get_local_sizej(i32 0)
+; CHECK: [[NUMTHREADS:%[0-9]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: %{{.*}} = mul i64 [[NUMTHREADS]], 7
 ;
-; CHECK: [[LOCALID:%[0-9]+]] = call i64 @_Z12get_local_idj(i32 0)
+; CHECK: [[LOCALID:%[0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: %{{.*}} = mul i64 [[LOCALID]], 7
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
