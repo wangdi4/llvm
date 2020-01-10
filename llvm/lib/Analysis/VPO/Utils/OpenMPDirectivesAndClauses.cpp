@@ -85,7 +85,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       }
     } else
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
-        if (ModSubString[i] == "ARRSECT")
+        if (ModSubString[i] == "ALWAYS")
+          setIsAlways();
+        else if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
         else if (ModSubString[i] == "BYREF")
           setIsByRef();

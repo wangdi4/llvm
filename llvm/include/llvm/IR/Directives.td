@@ -242,6 +242,7 @@ def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
 def "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR" : Clause;
+def "QUAL.OMP.MAP" : Clause;
 def "QUAL.OMP.MAP.TO" : Clause;
 def "QUAL.OMP.MAP.FROM" : Clause;
 def "QUAL.OMP.MAP.TOFROM" : Clause;
