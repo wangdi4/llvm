@@ -17,12 +17,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; correctly.
 ;
 ; CHECK: define dso_local void @foo()
-; CHECK: [[BC0:%[0-9]+]] = bitcast [491 x %struct.b*]* %perm to i8*
-; CHECK: %add.ptr = getelementptr inbounds i8, i8* [[BC0]], i64 1
-; CHECK: [[BC1:%[0-9]+]] = bitcast i8* %add.ptr to %struct.b**
+; CHECK: [[BC0:%[0-9]+]] = bitcast [491 x %struct.b*]* %perm to %struct.b**
+; CHECK: %add.ptr = getelementptr inbounds %struct.b*, %struct.b** [[BC0]], i64 1
+; CHECK: %bc1 = bitcast %struct.b** %add.ptr to i8*
+; CHECK: [[BC1:%[0-9]+]] = bitcast i8* %bc1 to %struct.b**
 ; CHECK: [[GEP0:%[0-9]+]] = getelementptr %struct.b*, %struct.b** [[BC1]], i64 60
 ; CHECK: [[BC2:%[0-9]+]] = bitcast %struct.b** [[GEP0]] to i8*
-; CHECK:  call void @s_qsort{{.*}}(i8* %add.ptr, i64 490, i8* [[BC2]])
+; CHECK:  call void @s_qsort{{.*}}(i8* %bc1, i64 490, i8* [[BC2]])
 
 ; Checks that recursion call in cloned s_qsort is controlled under
 ; new condition by changing CFG.
@@ -78,9 +79,10 @@ entry:
   br label %BB1
 
 BB1:
-  %0 = bitcast [491 x %struct.b*]* %perm to i8*
-  %add.ptr = getelementptr inbounds i8, i8* %0, i64 1
-  call void @s_qsort(i8* nonnull %add.ptr, i64 490)
+  %0 = bitcast [491 x %struct.b*]* %perm to %struct.b**
+  %add.ptr = getelementptr inbounds %struct.b*, %struct.b** %0, i64 1
+  %bc1 = bitcast %struct.b** %add.ptr to i8*
+  call void @s_qsort(i8* nonnull %bc1, i64 490)
   br label %BB2
 
 BB2:

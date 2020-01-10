@@ -32,6 +32,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"  // INTEL
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
@@ -306,6 +307,7 @@ namespace {
       (void)llvm::createMathLibraryFunctionsReplacementPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
+      (void) llvm::createArrayUseWrapperPass();
       // HIR passes
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();

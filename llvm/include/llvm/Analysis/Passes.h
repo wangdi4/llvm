@@ -108,6 +108,12 @@ namespace llvm {
   // order.
   //
   FunctionPass *createLoopOptReportEmitterLegacyPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createArrayUseWrapperPass - This analysis is to analyze what range of the
+  // array is used after a given point.
+  FunctionPass *createArrayUseWrapperPass();
 #endif // INTEL_CUSTOMIZATION
 
   //===--------------------------------------------------------------------===//

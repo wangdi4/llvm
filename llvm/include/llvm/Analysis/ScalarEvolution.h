@@ -738,6 +738,14 @@ public:
   bool isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
                  const BranchInst *ZttInst, bool Inverse);
   
+  // NOTE--the below function should be called as part of getRange. However,
+  // this does appear to impact compile time, so it is being reserved for
+  // consumers who really care about tighter bounds.
+
+  /// Try to bound a range for a loop-varying, but non-affine, SCEV representing
+  /// a PHI by finding bounds on how much it can grow each loop iteration.
+  ConstantRange getRangeBoundedByLoop(const PHINode &Phi);
+
 #endif  // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.

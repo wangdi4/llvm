@@ -34,6 +34,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -1758,9 +1759,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDeadArrayOpsElim)
-    MPM.addPass(DeadArrayOpsEliminationPass());
-
   // IPO-based prefetch
   if (EnableIPOPrefetch)
     MPM.addPass(IntelIPOPrefetchPass());
@@ -1807,6 +1805,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDeadArrayOpsElim)
+    MPM.addPass(DeadArrayOpsEliminationPass());
+
   if (EnableMultiVersioning)
     FPM.addPass(MultiVersioningPass());
 #endif // INTEL_CUSTOMIZATION
