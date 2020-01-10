@@ -775,10 +775,8 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
       CSB.setNonPod();
     if (IsRef)
       CSB.setByRef();
-#if INTEL_CUSTOMIZATION
     if (Cl->getKind() == OMPC_LASTPRIVATE_conditional)
       CSB.setConditional();
-#endif // INTEL_CUSTOMIZATION
     addArg(CSB.getString());
     addArg(E, IsRef);
     if (!IsPODType) {
