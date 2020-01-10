@@ -1516,9 +1516,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  if (EnableDeadArrayOpsElim)
-    PM.add(createDeadArrayOpsEliminationLegacyPass());
-
   if (RunLTOPartialInlining)
     PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
 #if INTEL_INCLUDE_DTRANS
@@ -1557,6 +1554,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createSROAPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDeadArrayOpsElim)
+    PM.add(createDeadArrayOpsEliminationLegacyPass());
+
   PM.add(createCorrelatedValuePropagationPass());
 
   if (EnableMultiVersioning)

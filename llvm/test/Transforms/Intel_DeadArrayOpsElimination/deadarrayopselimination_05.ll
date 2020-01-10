@@ -1,11 +1,12 @@
 ; This test verifies that transformations for DeadArrayOpsElimination
-; optimization are done correctly. "-dead-array-ops-functions" is used to
-; indicate s_qsort is Qsort function and used high index for %perm is 60.
+; optimization are done correctly. "s_qsort" is treated as Qsort function
+; since it is marked with "is-qsort". Array Analysis helps to detect that
+; only first 20 elements of the array are really used after "s_qsort"
+; call in "foo".
 ; Note that the functions don't have any valid IR or meaning.
 
-; REQUIRES: asserts
-; RUN: opt < %s -S -deadarrayopselimination -dead-array-ops-functions="s_qsort,60"   -mtriple=i686-- -mattr=+avx2 -whole-program-assume  -enable-intel-advanced-opts 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,60"  -mtriple=i686-- -mattr=+avx2 -whole-program-assume  -enable-intel-advanced-opts 2>&1 | FileCheck %s
+; RUN: opt < %s -S -deadarrayopselimination  -mtriple=i686-- -mattr=+avx2 -whole-program-assume  -enable-intel-advanced-opts 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='module(deadarrayopselimination)' -mtriple=i686-- -mattr=+avx2 -whole-program-assume  -enable-intel-advanced-opts 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -18,7 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: %add.ptr = getelementptr inbounds %struct.b*, %struct.b** [[BC0]], i64 1
 ; CHECK: %bc1 = bitcast %struct.b** %add.ptr to i8*
 ; CHECK: [[BC1:%[0-9]+]] = bitcast i8* %bc1 to %struct.b**
-; CHECK: [[GEP0:%[0-9]+]] = getelementptr %struct.b*, %struct.b** [[BC1]], i64 60
+; CHECK: [[GEP0:%[0-9]+]] = getelementptr %struct.b*, %struct.b** [[BC1]], i64 20
 ; CHECK: [[BC2:%[0-9]+]] = bitcast %struct.b** [[GEP0]] to i8*
 ; CHECK:  call void @s_qsort{{.*}}(i8* %bc1, i64 490, i8* [[BC2]])
 
@@ -35,7 +36,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.b = type { i32, i32 }
 
-define internal void @s_qsort(i8* %arg, i64 %arg1) {
+define internal void @s_qsort(i8* %arg, i64 %arg1) #0 {
 entry:
   %t1 = add i64 %arg1, 1
   %t5 = getelementptr inbounds i8, i8* %arg, i64 1
@@ -68,10 +69,22 @@ BB1:
   %0 = bitcast [491 x %struct.b*]* %perm to %struct.b**
   %add.ptr = getelementptr inbounds %struct.b*, %struct.b** %0, i64 1
   %bc1 = bitcast %struct.b** %add.ptr to i8*
-  call void @s_qsort(i8* nonnull %bc1, i64 490)
+  call void @s_qsort(i8* nonnull %bc1, i64 490) #0
   br label %BB2
 
 BB2:
+  br label %loop
+
+loop:
+  %iv = phi i64 [ 0, %BB2 ], [ %iv.next, %loop ]
+  %iv.next = add i64 %iv, 1
+  %ptr = getelementptr inbounds %struct.b*, %struct.b** %0, i64 %iv
+  %pbc = bitcast %struct.b** %ptr to i8**
+  %p1 = load i8*, i8** %pbc
+  %cmp = icmp eq i64 %iv, 20
+  br i1 %cmp, label %exit, label %loop
+
+exit:
   ret void
 }
 
@@ -81,3 +94,4 @@ entry:
   ret i32 0
 }
 
+attributes #0 = { "is-qsort" }
