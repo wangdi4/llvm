@@ -549,7 +549,6 @@ pi_result OCL(piEnqueueMemBufferMap)(
   return ret_err;
 }
 
-<<<<<<< HEAD
 // Special version of piKernelSetArg to accept pi_mem.
 pi_result OCL(piextKernelSetArgMemObj)(
   pi_kernel         kernel,
@@ -561,7 +560,8 @@ pi_result OCL(piextKernelSetArgMemObj)(
     cast<cl_uint>(arg_index),
     cast<size_t>(sizeof(cl_mem)),
     cast<const void*>(arg_value)));
-=======
+}
+
 //
 // USM
 //
@@ -940,7 +940,6 @@ pi_result OCL(piKernelSetExecInfo)(pi_kernel kernel,
     return cast<pi_result>(clSetKernelExecInfo(
         cast<cl_kernel>(kernel), param_name, param_value_size, param_value));
   }
->>>>>>> 807bc9ba04a6f89fba4a05fe25137b1661e3708b
 }
 
 pi_result piPluginInit(pi_plugin *PluginInit) {
@@ -1006,12 +1005,9 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piKernelGetSubGroupInfo, clGetKernelSubGroupInfo)
   _PI_CL(piKernelRetain, clRetainKernel)
   _PI_CL(piKernelRelease, clReleaseKernel)
-<<<<<<< HEAD
   _PI_CL(piextKernelSetArgMemObj, OCL(piextKernelSetArgMemObj))
-=======
   _PI_CL(piKernelSetExecInfo, OCL(piKernelSetExecInfo))
   _PI_CL(piextKernelSetArgPointer, OCL(piextKernelSetArgPointer))
->>>>>>> 807bc9ba04a6f89fba4a05fe25137b1661e3708b
   // Event
   _PI_CL(piEventCreate, OCL(piEventCreate))
   _PI_CL(piEventGetInfo, clGetEventInfo)

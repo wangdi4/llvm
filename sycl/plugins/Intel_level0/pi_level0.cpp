@@ -2935,6 +2935,94 @@ pi_result L0(piextGetDeviceFunctionPointer)(
   pi_throw("piextGetDeviceFunctionPointer: not implemented");
 }
 
+pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
+                                pi_usm_mem_properties *properties, size_t size,
+                                pi_uint32 alignment) {
+
+  pi_throw("piextUSMHostAlloc: not implemented");
+}
+
+pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
+                                  pi_device device,
+                                  pi_usm_mem_properties *properties,
+                                  size_t size, pi_uint32 alignment) {
+
+  pi_throw("piextUSMDeviceAlloc: not implemented");
+}
+
+pi_result L0(piextUSMSharedAlloc)(void **result_ptr, pi_context context,
+                                  pi_device device,
+                                  pi_usm_mem_properties *properties,
+                                  size_t size, pi_uint32 alignment) {
+
+  pi_throw("piextUSMSharedAlloc: not implemented");
+}
+
+pi_result L0(piextUSMFree)(pi_context context, void *ptr) {
+
+  pi_throw("piextUSMFree: not implemented");
+}
+
+pi_result L0(piextKernelSetArgPointer)(pi_kernel kernel, pi_uint32 arg_index,
+                                       size_t arg_size,
+                                       const void *arg_value) {
+
+  pi_throw("piextKernelSetArgPointer: not implemented");
+}
+
+pi_result L0(piextUSMEnqueueMemset)(pi_queue queue, void *ptr, pi_int32 value,
+                                    size_t count,
+                                    pi_uint32 num_events_in_waitlist,
+                                    const pi_event *events_waitlist,
+                                    pi_event *event) {
+
+  pi_throw("piextUSMEnqueueMemset: not implemented");
+}
+
+pi_result L0(piextUSMEnqueueMemcpy)(pi_queue queue, pi_bool blocking,
+                                    void *dst_ptr, const void *src_ptr,
+                                    size_t size,
+                                    pi_uint32 num_events_in_waitlist,
+                                    const pi_event *events_waitlist,
+                                    pi_event *event) {
+
+  pi_throw("piextUSMEnqueueMemcpy: not implemented");
+}
+
+pi_result L0(piextUSMEnqueuePrefetch)(pi_queue queue, const void *ptr,
+                                      size_t size,
+                                      pi_usm_migration_flags flags,
+                                      pi_uint32 num_events_in_waitlist,
+                                      const pi_event *events_waitlist,
+                                      pi_event *event) {
+
+  pi_throw("piextUSMEnqueuePrefetch: not implemented");
+}
+
+pi_result L0(piextUSMEnqueueMemAdvise)(pi_queue queue, const void *ptr,
+                                       size_t length, int advice,
+                                       pi_event *event) {
+
+  pi_throw("piextUSMEnqueueMemAdvise: not implemented");
+}
+
+pi_result L0(piextUSMGetMemAllocInfo)(pi_context context, const void *ptr,
+                                      pi_mem_info param_name,
+                                      size_t param_value_size,
+                                      void *param_value,
+                                      size_t *param_value_size_ret) {
+
+  pi_throw("piextUSMGetMemAllocInfo: not implemented");
+}
+
+pi_result L0(piKernelSetExecInfo)(pi_kernel kernel,
+                                  pi_kernel_exec_info param_name,
+                                  size_t param_value_size,
+                                  const void *param_value) {
+
+  pi_throw("piKernelSetExecInfo: not implemented");
+}
+
 pi_result L0(piPluginInit)(pi_plugin *PluginInit)
 {
   // TODO: handle versioning/targets properly.
