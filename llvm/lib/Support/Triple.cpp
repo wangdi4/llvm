@@ -434,7 +434,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     // FIXME: Do we need to support these?
     .Cases("i786", "i886", "i986", Triple::x86)
     .Cases("amd64", "x86_64", "x86_64h", Triple::x86_64)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     .Case("csa", Triple::csa)
@@ -443,10 +442,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("x86_icecode", Triple::x86_icecode)
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-    .Cases("powerpc", "ppc", "ppc32", Triple::ppc)
-=======
     .Cases("powerpc", "powerpcspe", "ppc", "ppc32", Triple::ppc)
->>>>>>> c2c98c97990b824270af9ebb56c607c773a5d1f0
     .Cases("powerpc64", "ppu", "ppc64", Triple::ppc64)
     .Cases("powerpc64le", "ppc64le", Triple::ppc64le)
     .Case("xscale", Triple::arm)
