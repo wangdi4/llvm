@@ -145,7 +145,9 @@ public:
 
     SPIRSubArch_fpga,
     SPIRSubArch_gen,
-    SPIRSubArch_x86_64
+    SPIRSubArch_x86_64,
+
+    PPCSubArch_spe
   };
   enum VendorType {
     UnknownVendor,
