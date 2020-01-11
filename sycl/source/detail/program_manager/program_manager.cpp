@@ -197,14 +197,13 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
     return true;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Assume all versions of the "other" backend have a compiler.
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
   if (pi::useBackend(pi::SYCL_BE_PI_OTHER))
     return true;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   vector_class<device> Devices = C.get_devices();
 
   // Program type is SPIR-V, so we need a device compiler to do JIT.
@@ -212,7 +211,6 @@ static bool isDeviceBinaryTypeSupported(const context &C,
     if (!D.get_info<info::device::is_compiler_available>())
       return false;
   }
->>>>>>> 284d7d2500ce2064b73effa1342c00f2b05ba71f
 
   // OpenCL 2.1 and greater require clCreateProgramWithIL
   if (pi::useBackend(pi::SYCL_BE_PI_OPENCL) &&
