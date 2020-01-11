@@ -84,6 +84,12 @@ typedef enum : pi_uint64 {
   PI_DEVICE_TYPE_ACC = CL_DEVICE_TYPE_ACCELERATOR
 } _pi_device_type;
 
+typedef enum {
+  PI_NONE = CL_NONE,
+  PI_READ_ONLY_CACHE = CL_READ_ONLY_CACHE,
+  PI_READ_WRITE_CACHE = CL_READ_WRITE_CACHE
+} _pi_device_mem_cache_type;
+
 // TODO: populate and sync with cl::sycl::info::device
 typedef enum {
   PI_DEVICE_INFO_TYPE                     = CL_DEVICE_TYPE,
@@ -337,6 +343,7 @@ const pi_queue_properties PI_QUEUE_ON_DEVICE_DEFAULT =
 typedef _pi_result                  pi_result;
 typedef _pi_platform_info           pi_platform_info;
 typedef _pi_device_type             pi_device_type;
+typedef _pi_device_mem_cache_type   pi_device_mem_cache_type;
 typedef _pi_device_info             pi_device_info;
 typedef _pi_context_info            pi_context_info;
 typedef _pi_queue_info              pi_queue_info;

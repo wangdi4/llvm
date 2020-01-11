@@ -135,6 +135,10 @@ private:
     // Debug location of the load/store instruction.
     DebugLoc MemDbgLoc;
 
+    // For some refs, dummy gep inst is constructed to be used for alias
+    // analysis and is cached here.
+    GetElementPtrInst *DummyGepLoc;
+
     // Comparators to sort MDNodes.
     struct MDKindCompareLess;
     struct MDKindCompareEqual;
@@ -265,6 +269,19 @@ private:
                            CanonExpr *StrideCE = nullptr,
                            Type *DimTy = nullptr);
 
+  /// Returns true if the GEP ref has a 'known' location (address range). An
+  /// unattached or fake ref's location is unknown.
+  bool hasKnownLocation() const;
+
+  /// Returns true if a GEP representing the ref can be created for alias
+  /// analyis.
+  bool canCreateLocationGEP() const;
+
+  /// Returns a GEP Inst which represents the ref, for alias analysis.
+  /// Asserts that canCreateLocationGEP() is true.
+  /// The GEP Inst is cached for reuse.
+  GetElementPtrInst *getOrCreateLocationGEP() const;
+
 public:
   /// Returns HLDDNode this DDRef is attached to.
   const HLDDNode *getHLDDNode() const override { return Node; };
@@ -327,7 +344,12 @@ public:
     return getCanonExprUtils().getTypeSizeInBytes(ElementTy);
   }
 
-  /// MemoryLocation for AA.
+  /// Returns a pointer val which can act as the location pointer for the GEP
+  /// ref for alias analysis.
+  /// Sets \p IsPrecise to true if the pointer is a precise location for ref.
+  Value *getLocationPtr(bool &IsPrecise) const;
+
+  /// MemoryLocation for Alias Analysis, only valid for memrefs.
   MemoryLocation getMemoryLocation() const;
 
   /// Returns address spaces for GEP DDRefs.
@@ -385,6 +407,9 @@ public:
 
   /// Returns true if the Ref accesses a structure.
   bool accessesStruct() const;
+
+  /// Returns underlying LLVM value of the base. Only applicable to GEP refs.
+  Value *getBaseValue() const;
 
   /// Returns underlying LLVM value of the base if it is a temp, otherwise
   /// returns nullptr.

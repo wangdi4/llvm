@@ -231,6 +231,10 @@ static cl::opt<unsigned> NAryOperandStrengthenThreshold(
      "scalar-evolution-nary-operand-strengthen-threshold", cl::Hidden,
      cl::desc("Maximum operands to analyze for NoWrap flag strengthening"),
      cl::init(4));
+
+static cl::opt<bool> PrintLoopRangeBounds(
+    "scalar-evolution-print-loop-range-bounds", cl::Hidden, cl::init(false),
+    cl::desc("Print out the call getRangeBoundedByLoop in addition"));
 #endif //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -6483,6 +6487,72 @@ ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
   return TrueRange.unionWith(FalseRange);
 }
 
+#if INTEL_CUSTOMIZATION
+ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
+  const SCEV *SCEVPhi = getExistingSCEV(const_cast<PHINode*>(&HeaderPhi));
+  assert(SCEVPhi && "Must query SCEV before calling this method");
+
+  Loop *PhiLoop = LI.getLoopFor(HeaderPhi.getParent());
+  assert(PhiLoop && "SCEV must be from a PHI node");
+  assert(HeaderPhi.getParent() == PhiLoop->getHeader() &&
+      "PHI must be in the header of the loop");
+
+  unsigned BitWidth = getTypeSizeInBits(SCEVPhi->getType());
+  BasicBlock *Latch = PhiLoop->getLoopLatch();
+  BasicBlock *Predecessor = PhiLoop->getLoopPredecessor();
+  if (!Latch || !Predecessor)
+    return ConstantRange::getFull(BitWidth);
+
+  // Get the range implied by the value before the loop starts, as well as the
+  // number of times the loop could be executed. If we can't get any clues about
+  // those values, bail out of this process.
+  const SCEV *Start = getSCEV(HeaderPhi.getIncomingValueForBlock(Predecessor));
+  ConstantRange StartSRange = getRangeRef(Start, HINT_RANGE_SIGNED);
+  const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(PhiLoop);
+  if (StartSRange.isFullSet() || isa<SCEVCouldNotCompute>(MaxBECount))
+    return ConstantRange::getFull(BitWidth);
+  MaxBECount = getTruncateOrZeroExtend(MaxBECount, SCEVPhi->getType());
+  APInt MaxBECountValue = getUnsignedRangeMax(MaxBECount);
+
+  // Check if there is a PHI node in the loop body. If there isn't, then we bail
+  // out of further analysis.
+  PHINode *LatchValue = dyn_cast<PHINode>(
+      HeaderPhi.getIncomingValueForBlock(Latch));
+  if (!LatchValue || !PhiLoop->contains(LatchValue))
+    return ConstantRange::getFull(BitWidth);
+
+  // Get a bound on the amount that this value could change over the course of a
+  // loop iteration.
+  ConstantRange IncSRange = ConstantRange::getEmpty(BitWidth);
+  ConstantRange IncURange = ConstantRange::getEmpty(BitWidth);
+  for (auto &Op : LatchValue->operands()) {
+    const SCEV *Inc = getMinusSCEV(getSCEV(Op), SCEVPhi);
+    IncSRange = IncSRange.unionWith(getRangeRef(Inc, HINT_RANGE_SIGNED));
+    IncURange = IncURange.unionWith(getRangeRef(Inc, HINT_RANGE_UNSIGNED));
+  }
+
+  // Now we know the starting values, and bounds on the increment. Akin to the
+  // method for getRangeForAffineAR above, use the helper method to compute the
+  // range of possible values.
+
+  // If Step can be both positive and negative, we need to find ranges for the
+  // maximum absolute step values in both directions and union them.
+  ConstantRange SR =
+      getRangeForAffineARHelper(IncSRange.getSignedMin(), StartSRange,
+                                MaxBECountValue, BitWidth, /* Signed = */ true);
+  SR = SR.unionWith(getRangeForAffineARHelper(IncSRange.getSignedMax(),
+                                              StartSRange, MaxBECountValue,
+                                              BitWidth, /* Signed = */ true));
+
+  // Next, consider step unsigned.
+  ConstantRange UR = getRangeForAffineARHelper(IncURange.getUnsignedMax(),
+      getUnsignedRange(Start), MaxBECountValue, BitWidth, /* Signed = */ false);
+
+  // Finally, intersect signed and unsigned ranges.
+  return SR.intersectWith(UR, ConstantRange::Smallest);
+}
+#endif // INTEL_CUSTOMIZATION
+
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
   if (isa<ConstantExpr>(V)) return SCEV::FlagAnyWrap;
   const BinaryOperator *BinOp = cast<BinaryOperator>(V);
@@ -12459,6 +12529,18 @@ void ScalarEvolution::print(raw_ostream &OS) const {
           }
 
           OS << " }";
+
+#if INTEL_CUSTOMIZATION
+          if (PrintLoopRangeBounds && L->getHeader() == I.getParent()) {
+            if (auto *Phi = dyn_cast<PHINode>(&I)) {
+              // We may have cleared it from the cache, so get it again to
+              // ensure that it exists.
+              SE.getSCEV(Phi);
+              OS << "\t\tRefined range bounds: "
+                << SE.getRangeBoundedByLoop(*Phi);
+            }
+          }
+#endif // INTEL_CUSTOMIZATION
         }
 
         OS << "\n";

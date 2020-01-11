@@ -25,10 +25,6 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 
-bool COMMAND_TYPE_READ  = false;
-bool COMMAND_TYPE_WRITE = false;
-bool COMMAND_TYPE_COPY  = false;
-
 bool ZE_DEBUG = false;
 
 static void zePrint(const char *format, ... ) {
@@ -539,12 +535,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   // Everything under here is not supported yet
 
   else if (param_name == PI_DEVICE_OPENCL_C_VERSION) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_OPENCL_C_VERSION in piGetDeviceInfo");
+    SET_PARAM_VALUE_STR("");
   }
   else if (param_name == PI_DEVICE_PREFERRED_INTEROP_USER_SYNC) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_PREFERRED_INTEROP_USER_SYNC in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_PRINTF_BUFFER_SIZE) {
     // TODO: To find out correct value
@@ -556,7 +550,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   }
   else if (param_name == PI_DEVICE_BUILT_IN_KERNELS) {
     // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_BUILT_IN_KERNELS in piGetDeviceInfo");
+    SET_PARAM_VALUE_STR("");
   }
   else if (param_name == PI_DEVICE_QUEUE_PROPERTIES) {
     // TODO: To find out correct value
@@ -591,8 +585,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_throw("Unsupported PI_DEVICE_MAX_CONSTANT_BUFFER_SIZE in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_CACHE_TYPE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_GLOBAL_MEM_CACHE_TYPE in piGetDeviceInfo");
+    SET_PARAM_VALUE(PI_READ_WRITE_CACHE);
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_CACHELINE_SIZE) {
     // TODO: To find out correct value
@@ -607,8 +600,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_throw("Unsupported PI_DEVICE_MAX_PARAMETER_SIZE in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_MEM_BASE_ADDR_ALIGN) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MEM_BASE_ADDR_ALIGN in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint32{8});
   }
   else if (param_name == PI_DEVICE_MAX_SAMPLERS) {
     // TODO: To find out correct value
@@ -674,8 +666,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_throw("Unsupported PI_DEVICE_IMAGE_MAX_BUFFER_SIZE in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_IMAGE_MAX_ARRAY_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_IMAGE_MAX_ARRAY_SIZE in piGetDeviceInfo");
+    SET_PARAM_VALUE(size_t{ze_device_image_properties.maxImageArraySlices});
   }
   //
   // Handle SIMD widths.
