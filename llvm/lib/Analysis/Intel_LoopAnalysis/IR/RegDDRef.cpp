@@ -445,6 +445,9 @@ bool RegDDRef::canCreateLocationGEP() const {
     return false;
   }
 
+  // getIndexedType requires element type.
+  BaseTy = BaseTy->getPointerElementType();
+
   for (unsigned I = getNumDimensions(); I > 0; --I) {
     auto *LowerCE = getDimensionLower(I);
 

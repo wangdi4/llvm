@@ -20,7 +20,11 @@ class Function;
 namespace loopopt {
 
 class HIRLMMPass : public PassInfoMixin<HIRLMMPass> {
+  bool LoopNestHoistingOnly;
+
 public:
+  HIRLMMPass(bool LoopNestHoistingOnly = false)
+      : LoopNestHoistingOnly(LoopNestHoistingOnly) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
