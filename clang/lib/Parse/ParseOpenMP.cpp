@@ -2817,7 +2817,7 @@ OMPClause *Parser::ParseOpenMPExprListClause(OpenMPClauseKind Kind,
   while (IsComma ||
          (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))) {
     SourceLocation ELoc = Tok.getLocation();
-    ExprResult LHS(ParseCastExpression(false, false, NotTypeCast));
+    ExprResult LHS(ParseCastExpression(AnyCastExpr, false, NotTypeCast));
     ExprResult Val = ParseRHSOfBinaryExpression(LHS, prec::Conditional);
     Val =
         Actions.ActOnFinishFullExpr(Val.get(), ELoc, /*DiscardedValue*/ false);
