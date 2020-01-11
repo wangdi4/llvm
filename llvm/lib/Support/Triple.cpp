@@ -83,6 +83,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case fpga_aoco:      return "fpga_aoco";
   case fpga_aocr:      return "fpga_aocr";
   case fpga_aocx:      return "fpga_aocx";
+  case ve:             return "ve";
   }
 
   llvm_unreachable("Invalid ArchType!");
@@ -172,6 +173,8 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
   case fpga_aoco:
   case fpga_aocr:
   case fpga_aocx:      return "fpga";
+
+  case ve:          return "ve";
   }
 }
 
@@ -360,6 +363,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("fpga_aoco", fpga_aoco)
     .Case("fpga_aocr", fpga_aocr)
     .Case("fpga_aocx", fpga_aocx)
+    .Case("ve", ve)
     .Default(UnknownArch);
 }
 
@@ -499,6 +503,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("fpga_aoco", Triple::fpga_aoco)
     .Case("fpga_aocr", Triple::fpga_aocr)
     .Case("fpga_aocx", Triple::fpga_aocx)
+    .Case("ve", Triple::ve)
     .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -787,6 +792,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::fpga_aoco:
   case Triple::fpga_aocr:
   case Triple::fpga_aocx:
+  case Triple::ve:
     return Triple::ELF;
 
   case Triple::ppc:
@@ -1381,6 +1387,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::spir64:
   case llvm::Triple::wasm64:
   case llvm::Triple::renderscript64:
+  case llvm::Triple::ve:
     return 64;
   }
   llvm_unreachable("Invalid architecture value");
@@ -1409,6 +1416,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::msp430:
   case Triple::systemz:
   case Triple::ppc64le:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case Triple::csa:
@@ -1417,6 +1425,9 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
+=======
+  case Triple::ve:
+>>>>>>> 0417fd636078dc3a6bd9bf30196b58179cd652dc
     T.setArch(UnknownArch);
     break;
 
@@ -1523,6 +1534,7 @@ Triple Triple::get64BitArchVariant() const {
 #endif  // INTEL_CUSTOMIZATION
   case Triple::wasm64:
   case Triple::renderscript64:
+  case Triple::ve:
     // Already 64-bit.
     break;
 
@@ -1589,6 +1601,7 @@ Triple Triple::getBigEndianArchVariant() const {
 #endif  // INTEL_CUSTOMIZATION
   case Triple::renderscript32:
   case Triple::renderscript64:
+  case Triple::ve:
 
   // ARM is intentionally unsupported here, changing the architecture would
   // drop any arch suffixes.
@@ -1688,6 +1701,7 @@ bool Triple::isLittleEndian() const {
   case Triple::tcele:
   case Triple::renderscript32:
   case Triple::renderscript64:
+  case Triple::ve:
     return true;
   default:
     return false;
