@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 // REQUIRES: opencl-aot
 // XFAIL: *
+=======
+// REQUIRES: opencl-aot, cpu
+
+>>>>>>> abc6a59855c4959f386a22e8352c029faad4937f
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
