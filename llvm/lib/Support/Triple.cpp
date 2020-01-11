@@ -31,18 +31,15 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case armeb:          return "armeb";
   case avr:            return "avr";
   case bpfeb:          return "bpfeb";
-<<<<<<< HEAD
+  case bpfel:          return "bpfel";
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case csa:            return "csa";
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-=======
-  case bpfel:          return "bpfel";
   case fpga_aoco:      return "fpga_aoco";
   case fpga_aocr:      return "fpga_aocr";
   case fpga_aocx:      return "fpga_aocx";
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
   case hexagon:        return "hexagon";
   case hsail64:        return "hsail64";
   case hsail:          return "hsail";
@@ -266,24 +263,16 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case GNUEABI: return "gnueabi";
   case GNUEABIHF: return "gnueabihf";
   case GNUX32: return "gnux32";
+#if INTEL_CUSTOMIZATION
+  case IntelFPGA: return "intelfpga";
+  case IntelEyeQ: return "inteleyeq";
+#endif // INTEL_CUSTOMIZATION
   case Itanium: return "itanium";
   case MSVC: return "msvc";
   case MacABI: return "macabi";
   case Musl: return "musl";
   case MuslEABI: return "musleabi";
   case MuslEABIHF: return "musleabihf";
-<<<<<<< HEAD
-  case MSVC: return "msvc";
-  case Itanium: return "itanium";
-  case Cygnus: return "cygnus";
-  case CoreCLR: return "coreclr";
-#if INTEL_CUSTOMIZATION
-  case IntelFPGA: return "intelfpga";
-  case IntelEyeQ: return "inteleyeq";
-#endif // INTEL_CUSTOMIZATION
-  case Simulator: return "simulator";
-=======
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
   case SYCLDevice: return "sycldevice";
   case Simulator: return "simulator";
   }
@@ -761,6 +750,11 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::avr:
   case Triple::bpfeb:
   case Triple::bpfel:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::fpga_aoco:
   case Triple::fpga_aocr:
   case Triple::fpga_aocx:
@@ -794,22 +788,12 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::tce:
   case Triple::tcele:
   case Triple::thumbeb:
-<<<<<<< HEAD
-  case Triple::xcore:
+  case Triple::ve:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  case Triple::csa:
-#endif  // INTEL_FEATURE_CSA
 #if INTEL_FEATURE_ICECODE
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-  case Triple::fpga_aoco:
-  case Triple::fpga_aocr:
-  case Triple::fpga_aocx:
-=======
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
-  case Triple::ve:
   case Triple::xcore:
     return Triple::ELF;
 
@@ -1383,6 +1367,11 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::amdil64:
   case llvm::Triple::bpfeb:
   case llvm::Triple::bpfel:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::hsail64:
   case llvm::Triple::le64:
   case llvm::Triple::mips64:
@@ -1393,26 +1382,16 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::renderscript64:
   case llvm::Triple::riscv64:
   case llvm::Triple::sparcv9:
-<<<<<<< HEAD
-  case llvm::Triple::systemz:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  case llvm::Triple::csa:
-#endif  // INTEL_FEATURE_CSA
-#if INTEL_FEATURE_ICECODE
-  case llvm::Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
-  case llvm::Triple::x86_64:
-  case llvm::Triple::amdil64:
-  case llvm::Triple::hsail64:
-=======
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
   case llvm::Triple::spir64:
   case llvm::Triple::systemz:
   case llvm::Triple::ve:
   case llvm::Triple::wasm64:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  case llvm::Triple::x86_icecode:
+#endif // INTEL_FEATURE_ICECODE
+#endif  // INTEL_CUSTOMIZATION
     return 64;
   }
   llvm_unreachable("Invalid architecture value");
@@ -1438,21 +1417,20 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::avr:
   case Triple::bpfeb:
   case Triple::bpfel:
-  case Triple::msp430:
-  case Triple::ppc64le:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case Triple::csa:
 #endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+  case Triple::msp430:
+  case Triple::ppc64le:
+  case Triple::systemz:
+  case Triple::ve:
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-=======
-  case Triple::systemz:
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
-  case Triple::ve:
     T.setArch(UnknownArch);
     break;
 
@@ -1537,6 +1515,11 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::amdil64:
   case Triple::bpfeb:
   case Triple::bpfel:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::hsail64:
   case Triple::le64:
   case Triple::mips64:
@@ -1549,23 +1532,14 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::sparcv9:
   case Triple::spir64:
   case Triple::systemz:
-<<<<<<< HEAD
+  case Triple::ve:
+  case Triple::wasm64:
   case Triple::x86_64:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  case Triple::csa:
-#endif  // INTEL_FEATURE_CSA
 #if INTEL_FEATURE_ICECODE
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-  case Triple::wasm64:
-  case Triple::renderscript64:
-=======
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
-  case Triple::ve:
-  case Triple::wasm64:
-  case Triple::x86_64:
     // Already 64-bit.
     break;
 
@@ -1602,6 +1576,11 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::amdil64:
   case Triple::amdil:
   case Triple::avr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::hexagon:
   case Triple::hsail64:
   case Triple::hsail:
@@ -1623,20 +1602,12 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::wasm64:
   case Triple::x86:
   case Triple::x86_64:
-  case Triple::xcore:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  case Triple::csa:
-#endif  // INTEL_FEATURE_CSA
 #if INTEL_FEATURE_ICECODE
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-  case Triple::renderscript32:
-  case Triple::renderscript64:
-=======
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
+  case Triple::xcore:
   case Triple::ve:
 
   // ARM is intentionally unsupported here, changing the architecture would
@@ -1701,6 +1672,11 @@ bool Triple::isLittleEndian() const {
   case Triple::arm:
   case Triple::avr:
   case Triple::bpfel:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::hexagon:
   case Triple::hsail64:
   case Triple::hsail:
@@ -1729,22 +1705,12 @@ bool Triple::isLittleEndian() const {
   case Triple::wasm64:
   case Triple::x86:
   case Triple::x86_64:
-  case Triple::xcore:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  case Triple::csa:
-#endif  // INTEL_FEATURE_CSA
 #if INTEL_FEATURE_ICECODE
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-  case Triple::tcele:
-  case Triple::renderscript32:
-  case Triple::renderscript64:
-  case Triple::ve:
-=======
->>>>>>> 3b4091f90acfa7950f5b26fea6518c68936aa130
+  case Triple::xcore:
     return true;
   default:
     return false;
