@@ -201,11 +201,8 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
 
 namespace {
 
-<<<<<<< HEAD
 typedef SmallVector<InlineReason,2> InlineReasonVector;  // INTEL
 
-=======
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   typedef InstVisitor<CallAnalyzer, bool> Base;
   friend class InstVisitor<CallAnalyzer, bool>;
@@ -238,7 +235,6 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 
   /// Tunable parameters that control the analysis.
   const InlineParams &Params;
-<<<<<<< HEAD
 
   /// Upper bound for the inlining cost. Bonuses are being applied to account
   /// for speculative "expected profit" of the inlining decision.
@@ -271,20 +267,6 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   // Set of candidate call sites for dtrans.
   SmallSet<Function *, 20> *FuncsForDTrans;
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  /// Upper bound for the inlining cost. Bonuses are being applied to account
-  /// for speculative "expected profit" of the inlining decision.
-  int Threshold;
-
-  /// Inlining cost measured in abstract units, accounts for all the
-  /// instructions expected to be executed for a given function invocation.
-  /// Instructions that are statically proven to be dead based on call-site
-  /// arguments are not counted here.
-  int Cost = 0;
-
-  bool ComputeFullInlineCost;
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
   bool IsCallerRecursive = false;
   bool IsRecursiveCall = false;
@@ -378,12 +360,8 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// attributes and callee hotness for PGO builds. The Callee is explicitly
   /// passed to support analyzing indirect calls whose target is inferred by
   /// analysis.
-<<<<<<< HEAD
   void updateThreshold(CallBase &Call, Function &Callee,  // INTEL
     InlineReasonVector &YesReasonVector);                 // INTEL
-=======
-  void updateThreshold(CallBase &Call, Function &Callee);
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
   /// Return true if size growth is allowed when inlining the callee at \p Call.
   bool allowSizeGrowth(CallBase &Call);
@@ -453,7 +431,6 @@ public:
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
                ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-<<<<<<< HEAD
                Function &Callee, CallBase &Call,   // INTEL
                TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
@@ -461,16 +438,12 @@ public:
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
                SmallSet<Function *, 20> *FForDTrans, // INTEL
                const InlineParams &Params,         // INTEL
-=======
-               Function &Callee, CallBase &Call, const InlineParams &Params,
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
                bool BoostIndirect = true)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCall(Call), Params(Params), Threshold(Params.DefaultThreshold),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
@@ -485,13 +458,7 @@ public:
   int getCost() { return Cost; }
   int getEarlyExitThreshold() { return EarlyExitThreshold; }  // INTEL
   int getEarlyExitCost() { return EarlyExitCost; }            // INTEL
-=======
-        BoostIndirectCalls(BoostIndirect), EnableLoadElimination(true) {}
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
-
-  int getThreshold() { return Threshold; }
-  int getCost() { return Cost; }
 
   // Keep a bunch of stats about the cost savings found so we can print them
   // out when debugging.
@@ -1043,7 +1010,6 @@ CallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
   return None;
 }
 
-<<<<<<< HEAD
 void CallAnalyzer::updateThreshold(CallBase &Call, Function &Callee, // INTEL
   InlineReasonVector &YesReasonVector) {                             // INTEL
 
@@ -1070,9 +1036,6 @@ void CallAnalyzer::updateThreshold(CallBase &Call, Function &Callee, // INTEL
   };
 #endif // INTEL_CUSTOMIZATION
 
-=======
-void CallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
   // If no size growth is allowed for this inlining, set Threshold to 0.
   if (!allowSizeGrowth(Call)) {
     Threshold = 0;
@@ -1535,15 +1498,10 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
       IndirectCallParams.DefaultThreshold =
           InlineConstants::IndirectCallThreshold;
       CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
-<<<<<<< HEAD
                       TLI, ILIC, AI, CallSitesForFusion,   // INTEL
                       FuncsForDTrans,                  //INTEL
                       IndirectCallParams, false);
       if (CA.analyze(TTI, nullptr)) { // INTEL
-=======
-                      IndirectCallParams, false);
-      if (CA.analyze()) {
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
         // We were able to inline the indirect call! Subtract the cost from the
         // threshold to get the bonus we want to apply, but don't go below zero.
         Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -1680,7 +1638,6 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   // Maximum valid cost increased in this function.
   int CostUpperBound = INT_MAX - InlineConstants::InstrCost - 1;
 
-<<<<<<< HEAD
   // Exit early for a large switch, assuming one case needs at least one
   // instruction.
   // FIXME: This is not true for a bit test, but ignore such case for now to
@@ -1698,8 +1655,6 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
   unsigned JumpTableSize = 0;
   BlockFrequencyInfo *BFI = GetBFI ? &((*GetBFI)(F)) : nullptr;
   unsigned NumCaseCluster =
@@ -1879,7 +1834,6 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
     // Check if we've passed the maximum possible threshold so we don't spin in
     // huge basic blocks that will never inline.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Cost >= Threshold) {
       if (!ComputeFullInlineCost)
@@ -3879,10 +3833,6 @@ static bool preferToDelayInlineDecision(Function *Caller,
     if (!PrepareForLTO)
       QueuedCallers.insert(Caller);
     return true;
-=======
-    if (Cost >= Threshold && !ComputeFullInlineCost)
-      return false;
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
   }
   return false;
 }
@@ -4281,7 +4231,6 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
 /// INTEL The Intel version also sets the value of *Reason to be the principal
 /// INTEL the call site would be inlined or not inlined.
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
                                    InlineReason *Reason) {
@@ -4296,8 +4245,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   EarlyExitThreshold = INT_MAX; // INTEL
   static SmallPtrSet<Function *, 10> QueuedCallers; // INTEL
 
-=======
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
 
@@ -4312,16 +4259,11 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   assert(NumVectorInstructions == 0);
 
   // Update the threshold based on callsite properties
-<<<<<<< HEAD
   updateThreshold(CandidateCall, F, YesReasonVector); // INTEL
-=======
-  updateThreshold(CandidateCall, F);
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
   // While Threshold depends on commandline options that can take negative
   // values, we want to enforce the invariant that the computed threshold and
   // bonuses are non-negative.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // There is nothing in updateThreshold() to put a lower limit of 0 on the
   // Threshold when -inline-threshold is specified as < 0. Commenting this
@@ -4339,17 +4281,11 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   bool FoundForgivable = false;                          // INTEL
   bool SubtractedBonus = false;                          // INTEL
   bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false); // INTEL
-=======
-  assert(Threshold >= 0);
-  assert(SingleBBBonus >= 0);
-  assert(VectorBonus >= 0);
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
   // the rest of the function body.
   Threshold += (SingleBBBonus + VectorBonus);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   Function *Callee = CandidateCall.getCalledFunction();
   if (Callee && InlineForXmain) {
@@ -4410,21 +4346,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  // Give out bonuses for the callsite, as the instructions setting them up
-  // will be gone after inlining.
-  addCost(-getCallsiteCost(CandidateCall, DL));
-
-  // If this function uses the coldcc calling convention, prefer not to inline
-  // it.
-  if (F.getCallingConv() == CallingConv::Cold)
-    Cost += InlineConstants::ColdccPenalty;
-
-  // Check if we're done. This can happen due to bonuses and penalties.
-  if (Cost >= Threshold && !ComputeFullInlineCost)
-    return "high cost";
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
   // Give out bonuses for the callsite, as the instructions setting them up
   // will be gone after inlining.
@@ -4530,7 +4451,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   for (unsigned Idx = 0; Idx != BBWorklist.size(); ++Idx) {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Cost >= Threshold) {
       if (!ComputeFullInlineCost)
@@ -4541,10 +4461,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
       }
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (Cost >= Threshold && !ComputeFullInlineCost)
-      break;
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
     BasicBlock *BB = BBWorklist[Idx];
     if (BB->empty())
@@ -4637,7 +4553,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
     // have them as well. Note that we assume any basic blocks which existed
     // due to branches or switches which folded above will also fold after
     // inlining.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (InlineForXmain) {
       if (TI->getNumSuccessors() > 1) {
@@ -4663,13 +4578,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
       }
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (SingleBB && TI->getNumSuccessors() > 1) {
-      // Take off the bonus we applied to the threshold.
-      Threshold -= SingleBBBonus;
-      SingleBB = false;
-    }
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
   }
 
 #if INTEL_CUSTOMIZATION
@@ -4709,27 +4617,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
     addCost(NumLoops * InlineConstants::CallPenalty);
   }
 
-<<<<<<< HEAD
-=======
-  // Loops generally act a lot like calls in that they act like barriers to
-  // movement, require a certain amount of setup, etc. So when optimising for
-  // size, we penalise any call sites that perform loops. We do this after all
-  // other costs here, so will likely only be dealing with relatively small
-  // functions (and hence DT and LI will hopefully be cheap).
-  if (Caller->hasMinSize()) {
-    DominatorTree DT(F);
-    LoopInfo LI(DT);
-    int NumLoops = 0;
-    for (Loop *L : LI) {
-      // Ignore loops that will not be executed
-      if (DeadBlocks.count(L->getHeader()))
-        continue;
-      NumLoops++;
-    }
-    addCost(NumLoops * InlineConstants::CallPenalty);
-  }
-
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
   // We applied the maximum possible vector bonus at the beginning. Now,
   // subtract the excess bonus, if any, from the Threshold before
   // comparing against Cost.
@@ -4738,7 +4625,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   else if (NumVectorInstructions <= NumInstructions / 2)
     Threshold -= VectorBonus / 2;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (NumVectorInstructions > NumInstructions / 10) {
     YesReasonVector.push_back(InlrVectorBonus);
@@ -4754,9 +4640,6 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
     return "not profitable";
   return true;
 #endif // INTEL_CUSTOMIZATION
-=======
-  return Cost < std::max(1, Threshold);
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4936,7 +4819,6 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Caller->getName() << ")\n");
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee,
-<<<<<<< HEAD
                   Call, TLI, ILIC, AI, CallSitesForFusion,   // INTEL
                   FuncsForDTrans, Params);               // INTEL
 #if INTEL_CUSTOMIZATION
@@ -4944,10 +4826,6 @@ InlineCost llvm::getInlineCost(
   InlineResult ShouldInline = CA.analyze(CalleeTTI, &Reason);
   assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
-=======
-                  Call, Params);
-  InlineResult ShouldInline = CA.analyze();
->>>>>>> 338a601612ca36e112b14f622eb310985b93192a
 
   LLVM_DEBUG(CA.dump());
 
