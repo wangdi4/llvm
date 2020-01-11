@@ -1416,7 +1416,6 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::msp430:
   case Triple::systemz:
   case Triple::ppc64le:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case Triple::csa:
@@ -1425,9 +1424,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
-=======
   case Triple::ve:
->>>>>>> 0417fd636078dc3a6bd9bf30196b58179cd652dc
     T.setArch(UnknownArch);
     break;
 
