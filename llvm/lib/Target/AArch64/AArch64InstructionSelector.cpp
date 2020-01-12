@@ -260,9 +260,12 @@ private:
                                              MachineIRBuilder &MIB) const;
   ComplexRendererFns selectArithExtendedRegister(MachineOperand &Root) const;
 
-  void renderTruncImm(MachineInstrBuilder &MIB, const MachineInstr &MI) const;
-  void renderLogicalImm32(MachineInstrBuilder &MIB, const MachineInstr &I) const;
-  void renderLogicalImm64(MachineInstrBuilder &MIB, const MachineInstr &I) const;
+  void renderTruncImm(MachineInstrBuilder &MIB, const MachineInstr &MI,
+                      int OpIdx = -1) const;
+  void renderLogicalImm32(MachineInstrBuilder &MIB, const MachineInstr &I,
+                          int OpIdx = -1) const;
+  void renderLogicalImm64(MachineInstrBuilder &MIB, const MachineInstr &I,
+                          int OpIdx = -1) const;
 
   // Materialize a GlobalValue or BlockAddress using a movz+movk sequence.
   void materializeLargeCMVal(MachineInstr &I, const Value *V,
@@ -3703,15 +3706,44 @@ bool AArch64InstructionSelector::tryOptVectorDup(MachineInstr &I) const {
   // We're done, now find out what kind of splat we need.
   LLT VecTy = MRI.getType(I.getOperand(0).getReg());
   LLT EltTy = VecTy.getElementType();
-  if (VecTy.getSizeInBits() != 128 || EltTy.getSizeInBits() < 32) {
-    LLVM_DEBUG(dbgs() << "Could not optimize splat pattern < 128b yet");
+  if (EltTy.getSizeInBits() < 32) {
+    LLVM_DEBUG(dbgs() << "Could not optimize splat pattern < 32b elts yet");
     return false;
   }
   bool IsFP = ScalarRB->getID() == AArch64::FPRRegBankID;
-  static const unsigned OpcTable[2][2] = {
-      {AArch64::DUPv4i32gpr, AArch64::DUPv2i64gpr},
-      {AArch64::DUPv4i32lane, AArch64::DUPv2i64lane}};
-  unsigned Opc = OpcTable[IsFP][EltTy.getSizeInBits() == 64];
+  unsigned Opc = 0;
+  if (IsFP) {
+    switch (EltTy.getSizeInBits()) {
+    case 32:
+      if (VecTy.getNumElements() == 2) {
+        Opc = AArch64::DUPv2i32lane;
+      } else {
+        Opc = AArch64::DUPv4i32lane;
+        assert(VecTy.getNumElements() == 4);
+      }
+      break;
+    case 64:
+      assert(VecTy.getNumElements() == 2 && "Unexpected num elts");
+      Opc = AArch64::DUPv2i64lane;
+      break;
+    }
+  } else {
+    switch (EltTy.getSizeInBits()) {
+    case 32:
+      if (VecTy.getNumElements() == 2) {
+        Opc = AArch64::DUPv2i32gpr;
+      } else {
+        Opc = AArch64::DUPv4i32gpr;
+        assert(VecTy.getNumElements() == 4);
+      }
+      break;
+    case 64:
+      assert(VecTy.getNumElements() == 2 && "Unexpected num elts");
+      Opc = AArch64::DUPv2i64gpr;
+      break;
+    }
+  }
+  assert(Opc && "Did not compute an opcode for a dup");
 
   // For FP splats, we need to widen the scalar reg via undef too.
   if (IsFP) {
@@ -4822,25 +4854,29 @@ AArch64InstructionSelector::selectArithExtendedRegister(
 }
 
 void AArch64InstructionSelector::renderTruncImm(MachineInstrBuilder &MIB,
-                                                const MachineInstr &MI) const {
+                                                const MachineInstr &MI,
+                                                int OpIdx) const {
   const MachineRegisterInfo &MRI = MI.getParent()->getParent()->getRegInfo();
-  assert(MI.getOpcode() == TargetOpcode::G_CONSTANT && "Expected G_CONSTANT");
+  assert(MI.getOpcode() == TargetOpcode::G_CONSTANT && OpIdx == -1 &&
+         "Expected G_CONSTANT");
   Optional<int64_t> CstVal = getConstantVRegVal(MI.getOperand(0).getReg(), MRI);
   assert(CstVal && "Expected constant value");
   MIB.addImm(CstVal.getValue());
 }
 
 void AArch64InstructionSelector::renderLogicalImm32(
-    MachineInstrBuilder &MIB, const MachineInstr &I) const {
-  assert(I.getOpcode() == TargetOpcode::G_CONSTANT && "Expected G_CONSTANT");
+  MachineInstrBuilder &MIB, const MachineInstr &I, int OpIdx) const {
+  assert(I.getOpcode() == TargetOpcode::G_CONSTANT && OpIdx == -1 &&
+         "Expected G_CONSTANT");
   uint64_t CstVal = I.getOperand(1).getCImm()->getZExtValue();
   uint64_t Enc = AArch64_AM::encodeLogicalImmediate(CstVal, 32);
   MIB.addImm(Enc);
 }
 
 void AArch64InstructionSelector::renderLogicalImm64(
-    MachineInstrBuilder &MIB, const MachineInstr &I) const {
-  assert(I.getOpcode() == TargetOpcode::G_CONSTANT && "Expected G_CONSTANT");
+  MachineInstrBuilder &MIB, const MachineInstr &I, int OpIdx) const {
+  assert(I.getOpcode() == TargetOpcode::G_CONSTANT && OpIdx == -1 &&
+         "Expected G_CONSTANT");
   uint64_t CstVal = I.getOperand(1).getCImm()->getZExtValue();
   uint64_t Enc = AArch64_AM::encodeLogicalImmediate(CstVal, 64);
   MIB.addImm(Enc);
