@@ -104,8 +104,8 @@ public:
                                         // no signed wrap.
     IsExact      = 1 << 13,             // Instruction supports division is
                                         // known to be exact.
-<<<<<<< HEAD
-    FPExcept     = 1 << 14,             // Instruction may raise floating-point
+    NoFPExcept   = 1 << 14,             // Instruction does not raise
+                                        // floatint-point exceptions.
                                         // exceptions.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -113,10 +113,6 @@ public:
     RasReplayable = 1 << 16,            // Instruction can be replayed
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-    NoFPExcept   = 1 << 14,             // Instruction does not raise
-                                        // floatint-point exceptions.
->>>>>>> f0fd11df7d5488e2747f26a3bfcf62459fee54ad
   };
 
 private:
