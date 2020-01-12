@@ -7338,16 +7338,13 @@ getOrCreateVectorValues(Value *V, unsigned Part) {
       return ILV.getOrCreateVectorValue(V, Part);
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-=======
 Value *LoopVectorizationPlanner::VPCallbackILV::getOrCreateScalarValue(
     Value *V, const VPIteration &Instance) {
   return ILV.getOrCreateScalarValue(V, Instance);
 }
 
->>>>>>> 8647a72c4a52e0386c0397ce3fbd38121c18b873
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n"
     << Indent << "\"INTERLEAVE-GROUP with factor " << IG->getFactor() << " at ";
