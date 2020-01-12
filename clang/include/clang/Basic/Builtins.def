@@ -1743,12 +1743,19 @@ BUILTIN(__builtin_char_memchr, "c*cC*iz", "n")
 BUILTIN(__builtin_dump_struct, "ivC*v*", "tn")
 BUILTIN(__builtin_preserve_access_index, "v.", "t")
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 BUILTIN(__intel_castf32_u32, "Uif", "nc")
 BUILTIN(__intel_castu32_f32, "fUi", "nc")
 BUILTIN(__intel_castu64_f64, "dUWi", "nc")
 BUILTIN(__intel_castf64_u64, "UWid", "nc")
 #endif  // INTEL_CUSTOMIZATION
+=======
+// Alignment builtins (uses custom parsing to support pointers and integers)
+BUILTIN(__builtin_is_aligned, "bvC*z", "nct")
+BUILTIN(__builtin_align_up, "v*vC*z", "nct")
+BUILTIN(__builtin_align_down, "v*vC*z", "nct")
+>>>>>>> 8c387cbea76b169f1f8ecc7693797e96567ed896
 
 // Safestack builtins
 BUILTIN(__builtin___get_unsafe_stack_start, "v*", "Fn")
