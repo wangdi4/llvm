@@ -24,8 +24,6 @@ protected:
         m_queue    = ::CL_base::GetQueue();
     }
 
-    void CheckExtensions();
-
     void QueryInvalidParamNameFromCQueue_Negative();
 
     void ZeroLocalSize();
