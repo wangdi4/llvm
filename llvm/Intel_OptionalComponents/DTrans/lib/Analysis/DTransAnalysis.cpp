@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -5674,6 +5674,11 @@ public:
                             << "  bad type for element zero load:\n"
                             << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
+          auto *TI = DTInfo.getOrCreateTypeInfo(AliasTy);
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+            dtrans::FieldInfo &FI = ParentStInfo->getField(0);
+            FI.setMismatchedElementAccess();
+          }
         }
       }
       // We expect that all cases will either find a pointer to a pointer alias
@@ -7816,8 +7821,8 @@ private:
                 PointeePair.second.getElementNum() !=
                     LocalPointerInfo::PointeeLoc::InvalidElement) &&
                "Unexpected use of invalid element");
-        llvm::Type *FieldTy =
-            CompTy->getTypeAtIndex(PointeePair.second.getElementNum());
+        size_t ElementNum = PointeePair.second.getElementNum();
+        llvm::Type *FieldTy = CompTy->getTypeAtIndex(ElementNum);
 
         // If this field is an aggregate, and this is not a nested
         // element zero access, mark this as a whole structure reference.
@@ -7832,16 +7837,36 @@ private:
         //
         //   (1) FieldTy is a pointer type and ValTy is pointer-sized integer
         //   (2) FieldTy is a pointer type and ValTy is i8*
-        //   (3) ValTy matches the type of element zero of FieldTy
-        //   (4) FieldTy is a pointer type and ValTy is a pointer to the type
+        //   (3) FieldTy is a pointer type that does not point to an aggregate
+        //       type, and ValTy is a pointer to a pointer-sized integer.
+        //   (4) ValTy matches the type of element zero of FieldTy
+        //   (5) FieldTy is a pointer type and ValTy is a pointer to the type
         //       of element zero of the type pointed to by FieldTy
+        //
+        // Examples of the mismatched element access safety check:
+        //   - Loading a field declared as an double as a i64 should trigger
+        //     the safety check.
+        //   - Loading a field declared as an i8* as a %struct.foo* should
+        //     trigger the safety check.
+        //   - However, loading a field declared as double* as an i64* should be
+        //     treated as safe.
+        //   - Trigger the safety check if a field is a pointer to a structure
+        //     type, but used as an i64* (this may be more conservative than
+        //     necessary).
+        bool IsAggregateTy =
+            FieldTy->isPointerTy() &&
+            FieldTy->getPointerElementType()->isAggregateType();
+        bool AggrTyPtrAsPtrSizedInt =
+            IsAggregateTy && (ValTy == PtrSizeIntPtrTy);
         if ((FieldTy != ValTy) &&
-            (!FieldTy->isPointerTy() ||
-             (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy)) &&
-            !dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
-                                         ValTy->getPointerTo()) &&
-            !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
-                                                   ValTy->getPointerTo())) {
+            (((!FieldTy->isPointerTy() ||
+               (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy &&
+                ValTy != PtrSizeIntPtrTy)) &&
+              !dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
+                                           ValTy->getPointerTo()) &&
+              !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
+                                                     ValTy->getPointerTo())) ||
+             AggrTyPtrAsPtrSizedInt)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
           LLVM_DEBUG(dbgs() << "  " << I << "\n");
 
@@ -7850,12 +7875,21 @@ private:
             // ParentTy.
             setBaseTypeInfoSafetyData(ParentTy,
                                       dtrans::MismatchedElementAccess);
+            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+              for (auto &FI : ParentStInfo->getFields())
+                FI.setMismatchedElementAccess();
+            }
           } else {
             // Set safety issue to the ParentTy and to the impacted field type
             // only.
-            DTInfo.getOrCreateTypeInfo(ParentTy)->setSafetyData(
-                dtrans::MismatchedElementAccess);
+            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+            TI->setSafetyData(dtrans::MismatchedElementAccess);
             setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
+            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+              dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
+              FI.setMismatchedElementAccess();
+            }
           }
         }
 
@@ -10527,6 +10561,9 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
 
   if (Field.isAddressTaken())
     dbgs() << " AddressTaken";
+
+  if (Field.isMismatchedElementAccess())
+    dbgs() << " MismatchedElementAccess";
 
   dbgs() << "\n";
   dbgs() << "    Frequency: " << Field.getFrequency();

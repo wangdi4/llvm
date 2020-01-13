@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -68,8 +68,8 @@ class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
-        ComplexUse(false), AddressTaken(false), SVKind(SVK_Complete),
-        SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
+        ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
+        SVKind(SVK_Complete), SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
         SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
@@ -79,6 +79,7 @@ public:
   bool isValueUnused() const { return UnusedValue && isRead(); }
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
+  bool isMismatchedElementAccess() const { return MismatchedElementAccess; }
   bool isNoValue() const {
     return SVKind == SVK_Complete && ConstantValues.empty();
   }
@@ -119,6 +120,7 @@ public:
   }
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
+  void setMismatchedElementAccess() { MismatchedElementAccess = true; }
   void setSingleAllocFunction(llvm::Function *F) {
     assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
     SAFKind = SAFK_Single;
@@ -201,6 +203,11 @@ private:
   bool UnusedValue;
   bool ComplexUse;
   bool AddressTaken;
+
+  // Tracks whether this field triggered the mismatched element access safety
+  // check on the structure.
+  bool MismatchedElementAccess;
+
   SingleValueKind SVKind;
   llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
   SingleValueKind SVIAKind;
