@@ -138,11 +138,17 @@ if (MSVC)
 
   add_sycl_rt_library(sycld ${SYCL_SOURCES})
   target_compile_options(sycld PRIVATE ${SYCL_CXX_FLAGS_DEBUG})
+# INTEL_CUSTOMIZATION
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
   string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
   string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
   string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+
+# Don't link statically against standard C++ library
+  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 
 # Workaround for bug in GCC version 5 and higher.
 # More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
@@ -151,6 +157,7 @@ else()
     target_link_libraries(sycl PRIVATE gcc_s gcc)
   endif()
 
+# end INTEL_CUSTOMIZATION
 endif()
 
 # INTEL_CUSTOMIZATION
