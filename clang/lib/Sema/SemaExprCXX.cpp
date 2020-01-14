@@ -6436,71 +6436,6 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
       Composite2 = Composite1;
   }
 
-<<<<<<< HEAD
-  // Rewrap the composites as pointers or member pointers with the union CVRs.
-  auto MOC = MemberOfClass.rbegin();
-  for (unsigned CVR : llvm::reverse(QualifierUnion)) {
-    Qualifiers Quals = Qualifiers::fromCVRMask(CVR);
-    auto Classes = *MOC++;
-    if (Classes.first && Classes.second) {
-      // Rebuild member pointer type
-      Composite1 = Context.getMemberPointerType(
-          Context.getQualifiedType(Composite1, Quals), Classes.first);
-      Composite2 = Context.getMemberPointerType(
-          Context.getQualifiedType(Composite2, Quals), Classes.second);
-    } else {
-      // Rebuild pointer type
-      Composite1 =
-          Context.getPointerType(Context.getQualifiedType(Composite1, Quals));
-      Composite2 =
-          Context.getPointerType(Context.getQualifiedType(Composite2, Quals));
-    }
-  }
-
-  struct Conversion {
-    Sema &S;
-    Expr *&E1, *&E2;
-    QualType Composite;
-    InitializedEntity Entity;
-    InitializationKind Kind;
-    InitializationSequence E1ToC, E2ToC;
-    bool Viable;
-
-  Conversion(Sema &S, SourceLocation Loc, Expr *&E1, Expr *&E2,
-             QualType Composite, bool AllowGnuPermissive)
-      : S(S), E1(E1), E2(E2), Composite(Composite),
-        Entity(InitializedEntity::InitializeTemporary(Composite)),
-        Kind(InitializationKind::CreateCopy(Loc, SourceLocation())),
-        E1ToC(S, Entity, Kind, E1, /*TopLevelOfInitList=*/false,      // INTEL
-              /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive),// INTEL
-        E2ToC(S, Entity, Kind, E2, /*TopLevelOfInitList=*/false,      // INTEL
-              /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive),// INTEL
-        Viable(E1ToC && E2ToC) {}
-
-  bool perform() {
-    ExprResult E1Result = E1ToC.Perform(S, Entity, Kind, E1);
-    if (E1Result.isInvalid())
-      return true;
-    E1 = E1Result.getAs<Expr>();
-
-    ExprResult E2Result = E2ToC.Perform(S, Entity, Kind, E2);
-    if (E2Result.isInvalid())
-      return true;
-    E2 = E2Result.getAs<Expr>();
-
-    return false;
-    }
-  };
-
-  // Try to convert to each composite pointer type.
-  Conversion C1(*this, Loc, E1, E2, Composite1, AllowGnuPermissive); // INTEL
-  if (C1.Viable && Context.hasSameType(Composite1, Composite2)) {
-    if (ConvertArgs && C1.perform())
-      return QualType();
-    return C1.Composite;
-  }
-  Conversion C2(*this, Loc, E1, E2, Composite2, AllowGnuPermissive); // INTEL
-=======
   // At this point, either the inner types are the same or we have failed to
   // find a composite pointer type.
   if (!Context.hasSameType(Composite1, Composite2))
@@ -6523,12 +6458,15 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
     InitializationKind Kind =
         InitializationKind::CreateCopy(Loc, SourceLocation());
 
-    InitializationSequence E1ToC(*this, Entity, Kind, E1);
+    InitializationSequence E1ToC(
+        *this, Entity, Kind, E1, /*TopLevelOfInitList=*/false,   // INTEL
+        /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive); // INTEL
     if (!E1ToC)
       return QualType();
->>>>>>> 9a6f4d451ca7aa06b94a407015fbadb456bc09ef
 
-    InitializationSequence E2ToC(*this, Entity, Kind, E2);
+    InitializationSequence E2ToC(
+        *this, Entity, Kind, E2, /*TopLevelOfInitList=*/false,   // INTEL
+        /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive); // INTEL
     if (!E2ToC)
       return QualType();
 
