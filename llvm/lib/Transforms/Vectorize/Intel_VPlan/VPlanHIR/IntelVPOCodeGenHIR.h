@@ -61,7 +61,11 @@ public:
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
-        SearchLoopPeelArrayRef(SearchLoopPeelArrayRef) {}
+        SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
+        BlobUtilities(Loop->getBlobUtils()),
+        CanonExprUtilities(Loop->getCanonExprUtils()),
+        DDRefUtilities(Loop->getDDRefUtils()),
+        HLNodeUtilities(Loop->getHLNodeUtils()) {}
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -208,8 +212,7 @@ public:
                         const Twine &Name = "cast");
 
   HLInst *createZExt(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
-    HLInst *ZExtInst =
-        MainLoop->getHLNodeUtils().createZExt(Ty, Ref->clone(), Name);
+    HLInst *ZExtInst = HLNodeUtilities.createZExt(Ty, Ref->clone(), Name);
     addInstUnmasked(ZExtInst);
     return ZExtInst;
   }
@@ -287,10 +290,10 @@ public:
       if (LvalRef && LvalRef->isTerminalRef() &&
           !MainLoop->isLiveIn(LvalRef->getSymbase()) &&
           InitializedPrivateTempSymbases.insert(LvalRef->getSymbase()).second) {
-        auto &DDU = OrigLoop->getDDRefUtils();
-        auto &HNU = OrigLoop->getHLNodeUtils();
-        RegDDRef *Init = DDU.createUndefDDRef(LvalRef->getDestType());
-        auto InitInst = HNU.createCopyInst(Init, "priv.init", LvalRef->clone());
+        RegDDRef *Init =
+            DDRefUtilities.createUndefDDRef(LvalRef->getDestType());
+        auto InitInst =
+            HLNodeUtilities.createCopyInst(Init, "priv.init", LvalRef->clone());
         // We handle only innermost loop vectorization today, so initialize
         // temp in MainLoop header.
         HLNodeUtils::insertAsFirstChild(MainLoop, InitInst);
@@ -348,6 +351,12 @@ public:
   // if one is not found.
   RegDDRef *widenRef(const VPValue *VPVal, unsigned VF);
 
+  // Given a widened ref corresponding to the pointer operand of
+  // a load/store instruction, setup and return the pointer operand
+  // for use in generating the load/store HLInst.
+  RegDDRef *getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
+                              unsigned AddressSpace, unsigned ScalSymbase);
+
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
 
@@ -362,7 +371,7 @@ public:
 
   void createHLIf(const CmpInst::Predicate Pred, RegDDRef *LhsRef,
                   RegDDRef *RhsRef) {
-    HLDDNode *If = MainLoop->getHLNodeUtils().createHLIf(Pred, LhsRef, RhsRef);
+    HLDDNode *If = HLNodeUtilities.createHLIf(Pred, LhsRef, RhsRef);
     addInst(If, nullptr);
     addInsertRegion(If);
   }
@@ -463,6 +472,12 @@ private:
   // Array memref that needs to be aligned (if necessary) in the peel loop
   // generated for a vectorized search loop.
   const RegDDRef *SearchLoopPeelArrayRef = nullptr;
+
+  // References to miscellaneous HIR creation utilities objects.
+  BlobUtils &BlobUtilities;
+  CanonExprUtils &CanonExprUtilities;
+  DDRefUtils &DDRefUtilities;
+  HLNodeUtils &HLNodeUtilities;
 
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 

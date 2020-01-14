@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:   User Candidate: s_qsort  491
 ; CHECK:  DeadArrayOpsElimi: Considering qsort function: s_qsort
-; CHECK:    First Call:   call void @s_qsort(i8* nonnull %add.ptr, i64 490)
+; CHECK:    First Call:   call void @s_qsort(i8* nonnull %bc1, i64 490)
 ; CHECK:    Recursion Call:   tail call fastcc void @s_qsort(i8* %t6, i64 %t3)
 ; CHECK:    ArraySize: 490
 ; CHECK:    failed: no partial use of array
@@ -53,9 +53,10 @@ entry:
   br label %BB1
 
 BB1:
-  %0 = bitcast [491 x %struct.b*]* %perm to i8*
-  %add.ptr = getelementptr inbounds i8, i8* %0, i64 1
-  call void @s_qsort(i8* nonnull %add.ptr, i64 490)
+  %0 = bitcast [491 x %struct.b*]* %perm to %struct.b**
+  %add.ptr = getelementptr inbounds %struct.b*, %struct.b** %0, i64 1
+  %bc1 = bitcast %struct.b** %add.ptr to i8*
+  call void @s_qsort(i8* nonnull %bc1, i64 490)
   br label %BB2
 
 BB2:

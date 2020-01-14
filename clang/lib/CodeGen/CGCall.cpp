@@ -4575,6 +4575,31 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       TargetDecl->hasAttr<MSAllocatorAttr>())
     getDebugInfo()->addHeapAllocSiteMetadata(CI, RetTy, Loc);
 
+#if INTEL_CUSTOMIZATION
+  // Assign scopes to function arguments. They will be stored as a list in
+  // "intel.args.alias.scope" metadata.
+  if (std::any_of(
+          IRCallArgs.begin(), IRCallArgs.end(),
+          [this](llvm::Value *Ptr) { return NoAliasPtrMap.count(Ptr) != 0; })) {
+    SmallVector<llvm::Metadata *, 16> ArgsNoAliasScopes;
+    ArgsNoAliasScopes.reserve(IRCallArgs.size());
+
+    for (auto *Arg : IRCallArgs) {
+      llvm::MDNode *Scope = nullptr;
+
+      auto I = NoAliasPtrMap.find(Arg);
+      if (I != NoAliasPtrMap.end()) {
+        Scope = I->second;
+      }
+
+      ArgsNoAliasScopes.push_back(Scope);
+    }
+
+    CI->setMetadata("intel.args.alias.scope",
+                    llvm::MDNode::get(getLLVMContext(), ArgsNoAliasScopes));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // 4. Finish the call.
 
   // If the call doesn't return, finish the basic block and clear the

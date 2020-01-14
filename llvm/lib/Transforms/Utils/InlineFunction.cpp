@@ -979,7 +979,11 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
     if (Arg.hasNoAliasAttr() && !Arg.use_empty())
       NoAliasArgs.push_back(&Arg);
 
-  if (NoAliasArgs.empty())
+#if INTEL_CUSTOMIZATION
+  MDNode *ArgAliasScopeList = CS->getMetadata("intel.args.alias.scope");
+#endif // INTEL_CUSTOMIZATION
+
+  if (NoAliasArgs.empty() && !ArgAliasScopeList) // INTEL
     return;
 
   // To do a good job, if a noalias variable is captured, we need to know if
@@ -1017,6 +1021,32 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
     MDNode *NewScope = MDB.createAnonymousAliasScope(NewDomain, Name);
     NewScopes.insert(std::make_pair(A, NewScope));
   }
+
+#if INTEL_CUSTOMIZATION
+  // Look for alias.scopes defined in argument metadata.
+  if (ArgAliasScopeList) {
+    for (int I = 0, E = ArgAliasScopeList->getNumOperands(); I < E; ++I) {
+      MDNode *ArgScope =
+          dyn_cast_or_null<MDNode>(ArgAliasScopeList->getOperand(I));
+      if (!ArgScope) {
+        continue;
+      }
+
+      auto *Arg = CalledFunc->getArg(I);
+      MDNode *&Scope = NewScopes[Arg];
+      if (!Scope) {
+        Scope = ArgScope;
+      } else {
+        Scope = MDNode::concatenate(Scope, ArgScope);
+      }
+
+      if (std::find(NoAliasArgs.begin(), NoAliasArgs.end(), Arg) ==
+          NoAliasArgs.end()) {
+        NoAliasArgs.push_back(Arg);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Iterate over all new instructions in the map; for all memory-access
   // instructions, add the alias scope metadata.
@@ -1110,7 +1140,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
         if (const Argument *A = dyn_cast<Argument>(V)) {
-          if (!A->hasNoAliasAttr())
+          if (NewScopes.count(A) == 0) // INTEL
             UsesAliasingPtr = true;
         } else {
           UsesAliasingPtr = true;

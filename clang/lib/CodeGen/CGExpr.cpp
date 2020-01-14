@@ -1684,6 +1684,23 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
 
   CGM.DecorateInstructionWithTBAA(Load, TBAAInfo);
 
+#if INTEL_CUSTOMIZATION
+  // If pointer is loaded from restrict-qualified alloca, track it as
+  // restrict pointer.
+  auto NAP = NoAliasSlotMap.find(Addr.getPointer());
+  if (NAP != NoAliasSlotMap.end()) {
+    NoAliasPtrMap.try_emplace(Load, NAP->second);
+  }
+
+  // Assign alias.scope metadata if Load address is based on restrict-qualified
+  // pointer.
+  auto NAI = NoAliasPtrMap.find(Addr.getPointer());
+  if (NAI != NoAliasPtrMap.end()) {
+    Load->setMetadata(llvm::LLVMContext::MD_alias_scope, NAI->second);
+    getCurNoAliasScope().addMemInst(Load);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (EmitScalarRangeCheck(Load, Ty, Loc)) {
     // In order to prevent the optimizer from throwing away the check, don't
     // attach range metadata to the load.
@@ -1775,6 +1792,15 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   }
 
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
+
+#if INTEL_CUSTOMIZATION
+  // Assign alias.scope if Store is made to a restrict-qualified pointer.
+  auto NAI = NoAliasPtrMap.find(Addr.getPointer());
+  if (NAI != NoAliasPtrMap.end()) {
+    Store->setMetadata(llvm::LLVMContext::MD_alias_scope, NAI->second);
+    getCurNoAliasScope().addMemInst(Store);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
@@ -3464,6 +3490,15 @@ static const Expr *isSimpleArrayDecayOperand(const Expr *E) {
   return SubExpr;
 }
 
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::recordNoAliasPtr(llvm::Value *BasePtr, llvm::Value *Ptr) {
+  auto NAP = NoAliasPtrMap.find(BasePtr);
+  if (NAP != NoAliasPtrMap.end()) {
+    NoAliasPtrMap.insert(std::make_pair(Ptr, NAP->second));
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
                                           llvm::Value *ptr,
                                           ArrayRef<llvm::Value*> indices,
@@ -3476,7 +3511,11 @@ static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
                                       CodeGenFunction::NotSubtraction, loc,
                                       name);
   } else {
-    return CGF.Builder.CreateGEP(ptr, indices, name);
+#if INTEL_CUSTOMIZATION
+    auto GEPVal = CGF.Builder.CreateGEP(ptr, indices, name);
+    CGF.recordNoAliasPtr(ptr, GEPVal);
+    return GEPVal;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -4134,15 +4173,26 @@ static Address emitAddrOfZeroSizeField(CodeGenFunction &CGF, Address Base,
 /// The resulting address doesn't necessarily have the right type.
 static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
                                       const FieldDecl *field) {
-  if (field->isZeroSize(CGF.getContext()))
-    return emitAddrOfZeroSizeField(CGF, base, field);
+
+#if INTEL_CUSTOMIZATION
+  if (field->isZeroSize(CGF.getContext())) {
+    Address Addr = emitAddrOfZeroSizeField(CGF, base, field);
+    CGF.recordNoAliasPtr(base.getPointer(), Addr.getPointer());
+    return Addr;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   const RecordDecl *rec = field->getParent();
 
   unsigned idx =
     CGF.CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field);
 
-  return CGF.Builder.CreateStructGEP(base, idx, field->getName());
+#if INTEL_CUSTOMIZATION
+  Address Addr = CGF.Builder.CreateStructGEP(base, idx, field->getName());
+  CGF.recordNoAliasPtr(base.getPointer(), Addr.getPointer());
+
+  return Addr;
+#endif // INTEL_CUSTOMIZATION
 }
 
 static Address emitPreserveStructAccess(CodeGenFunction &CGF, Address base,

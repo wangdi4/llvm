@@ -20,6 +20,7 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/StmtVisitor.h"
+#include "llvm/ADT/DenseMap.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -1974,8 +1975,14 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   // we need to use a different call here.  We use isVolatile to indicate when
   // either the source or the destination is volatile.
 
-  DestPtr = Builder.CreateElementBitCast(DestPtr, Int8Ty);
-  SrcPtr = Builder.CreateElementBitCast(SrcPtr, Int8Ty);
+#if INTEL_CUSTOMIZATION
+  auto DestPtrI8 = Builder.CreateElementBitCast(DestPtr, Int8Ty);
+  auto SrcPtrI8 = Builder.CreateElementBitCast(SrcPtr, Int8Ty);
+  recordNoAliasPtr(DestPtr.getPointer(), DestPtrI8.getPointer());
+  recordNoAliasPtr(SrcPtr.getPointer(), SrcPtrI8.getPointer());
+  SrcPtr = SrcPtrI8;
+  DestPtr = DestPtrI8;
+#endif // INTEL_CUSTOMIZATION
 
   // Don't do any of the memmove_collectable tests if GC isn't set.
   if (CGM.getLangOpts().getGC() == LangOptions::NonGC) {
@@ -2011,4 +2018,21 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
         Dest.getTBAAInfo(), Src.getTBAAInfo());
     CGM.DecorateInstructionWithTBAA(Inst, TBAAInfo);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Assign alias.scope metadata if both pointers are restrict-qualified.
+  // Note: It's better to emit field-by-field copy in case of restrict pointers.
+  auto SrcNoAliasI = NoAliasPtrMap.find(SrcPtr.getPointer());
+  auto DstNoAliasI = NoAliasPtrMap.find(DestPtr.getPointer());
+
+  if (SrcNoAliasI != NoAliasPtrMap.end() &&
+      DstNoAliasI != NoAliasPtrMap.end()) {
+
+    Inst->setMetadata(
+        llvm::LLVMContext::MD_alias_scope,
+        llvm::MDNode::concatenate(SrcNoAliasI->second, DstNoAliasI->second));
+
+    getCurNoAliasScope().addMemCpyInst(Inst);
+  }
+#endif // INTEL_CUSTOMIZATION
 }

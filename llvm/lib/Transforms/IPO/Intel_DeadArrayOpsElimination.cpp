@@ -1,6 +1,6 @@
 //===------- Intel_DeadArrayOpsElimination.cpp ----------------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -68,7 +68,9 @@
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/MDBuilder.h"
@@ -80,6 +82,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
+
+using DeadArrayUseType = std::function<ArrayUse &(Function &)>;
 
 #define DEAD_ARRAY_OPS_ELIMI "deadarrayopselimination"
 
@@ -102,7 +106,8 @@ static cl::list<std::string> DeadArrayOpsFunctions("dead-array-ops-functions",
 // Class that has all the info related to each candidate.
 class CandidateInfo {
 public:
-  CandidateInfo(Module &M) : M(M) {}
+  CandidateInfo(Module &M, DeadArrayUseType &GetAUse)
+      : M(M), GetAUse(GetAUse) {}
   bool isValidCandidate(Function *F);
   bool isOnlyPartOfArrayUsed(int64_t HI);
   int64_t getArrayUsedHighIdx(void);
@@ -110,6 +115,8 @@ public:
 
 private:
   Module &M;
+
+  DeadArrayUseType GetAUse;
 
   // Size of array that is passed to qsort. For now, only local arrays are
   // supported. This holds the size of array from allocation (i.e Alloca).
@@ -149,8 +156,9 @@ private:
 class DeadArrayOpsElimImpl {
 
 public:
-  DeadArrayOpsElimImpl(Module &M, WholeProgramInfo &WPInfo)
-      : M(M), WPInfo(WPInfo){};
+  DeadArrayOpsElimImpl(Module &M, WholeProgramInfo &WPInfo,
+                       DeadArrayUseType &GetAUse)
+      : M(M), WPInfo(WPInfo), GetAUse(GetAUse){};
   ~DeadArrayOpsElimImpl() {
     for (auto *C : Candidates)
       delete C;
@@ -160,6 +168,7 @@ public:
 private:
   Module &M;
   WholeProgramInfo &WPInfo;
+  DeadArrayUseType &GetAUse;
 
   // Max number of candidates allowed.
   constexpr static int MaxNumCandidates = 2;
@@ -367,7 +376,7 @@ void CandidateInfo::wrapRecursionCallUnderCond() {
       SplitBlockAndInsertIfThen(Cond, RecursionCall, false, BranchWeights);
   BasicBlock *SortBB = NewInst->getParent();
   BasicBlock *SuccBB = SortBB->getSingleSuccessor();
-  (void) SuccBB;
+  (void)SuccBB;
   assert(SuccBB && "The split block should have a single successor");
   RecursionCall->removeFromParent();
   SortBB->getInstList().insert(SortBB->getFirstInsertionPt(), RecursionCall);
@@ -569,6 +578,13 @@ bool CandidateInfo::applySanityChecks(void) {
 //
 //
 bool CandidateInfo::isLocalArrayPassedAsFirstArg(void) {
+  auto IsPtrToStruct = [](Type *Ty) {
+    auto *PtrTy = dyn_cast<PointerType>(Ty);
+    if (PtrTy && PtrTy->getPointerElementType()->isStructTy())
+      return true;
+    return false;
+  };
+
   assert(FirstCall && "Expected first call to qsort function");
   unsigned PtrIncrement = 0;
   Value *FirstArg = FirstCall->getArgOperand(0);
@@ -576,11 +592,32 @@ bool CandidateInfo::isLocalArrayPassedAsFirstArg(void) {
     return false;
   // Skip Bitcasts.
   Value *ArrayArg = FirstArg->stripPointerCasts();
-  // Check if ArrayArg is like "GEP Ptr, 1"
+  // Check if ArrayArg is like
+  //
+  // %0 = bitcast [491 x %struct.b*]* %perm to %struct.b**
+  // %add.ptr = getelementptr %struct.b*, %struct.b** %0, i64 1
+  //
+  // or
+  //
+  // %add.ptr = getelementptr [491 x %struct.b*], [491 x %struct.b*]* %0, i64 0,
+  // i64 1
+  //
   if (auto *GEP = dyn_cast<GetElementPtrInst>(ArrayArg)) {
-    if (GEP->getNumIndices() != 1)
+    Value *GEPOp;
+    if (GEP->getNumIndices() == 1) {
+      if (!IsPtrToStruct(GEP->getSourceElementType()))
+        return false;
+      GEPOp = GEP->getOperand(1);
+
+    } else if (GEP->getNumIndices() == 2) {
+      auto *ATy = dyn_cast<ArrayType>(GEP->getSourceElementType());
+      if (!ATy || !IsPtrToStruct(ATy->getElementType()))
+        return false;
+      GEPOp = GEP->getOperand(2);
+    } else {
       return false;
-    auto *OpC = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    }
+    auto *OpC = dyn_cast<ConstantInt>(GEPOp);
     if (!OpC || !OpC->isOne())
       return false;
     PtrIncrement = 1;
@@ -613,10 +650,35 @@ bool CandidateInfo::isLocalArrayPassedAsFirstArg(void) {
 }
 
 // Get used high index for the array using "Array Range Analysis".
-// For now, returns -1.
-// TODO: Once Array Range Analysis is available, this needs to
-// be fixed.
-int64_t CandidateInfo::getArrayUsedHighIdx(void) { return -1; }
+// Returns -1 if unable to detect Range Info or the array is not
+// partially used after Qsort call.
+int64_t CandidateInfo::getArrayUsedHighIdx(void) {
+  Function *F = FirstCall->getFunction();
+  ArrayUse &AU = (GetAUse)(*F);
+  Value *FirstArg = FirstCall->getArgOperand(0);
+  const ArrayUseInfo *AUI = AU.getSourceArray(FirstArg);
+  if (!AUI) {
+    DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI,
+                    { dbgs() << "    Array Use Info: Failed \n"; });
+    return -1;
+  }
+  ArrayRangeInfo ARI = AUI->getRangeUseAfterPoint(FirstCall);
+  if (ARI.isEmpty() || ARI.isFull()) {
+    DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI,
+                    { dbgs() << "    Array Use Info: Full or Empty \n"; });
+    return -1;
+  }
+  auto *HIdx = dyn_cast<SCEVConstant>(ARI.getHighIndex());
+  if (!HIdx) {
+    DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI,
+                    { dbgs() << "    Array Use Info: Not constant \n"; });
+    return -1;
+  }
+  int64_t HighIdx = HIdx->getAPInt().getSExtValue();
+  DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI,
+                  { dbgs() << "    Array Use High Idx:" << HighIdx << "\n"; });
+  return HighIdx;
+}
 
 // Basic checks are done for UsedHighIndex.
 // TODO: May need to add some heuristics for UsedHighIndex if we need
@@ -698,7 +760,7 @@ void DeadArrayOpsElimImpl::gatherCandidates(void) {
   for (auto &F : M.functions()) {
     if (!IsCandidate(&F))
       continue;
-    std::unique_ptr<CandidateInfo> CandD(new CandidateInfo(M));
+    std::unique_ptr<CandidateInfo> CandD(new CandidateInfo(M, GetAUse));
     if (!CandD->isValidCandidate(&F))
       continue;
     int64_t HighIdx;
@@ -761,6 +823,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addRequired<ArrayUseWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
@@ -770,7 +833,10 @@ public:
     if (skipModule(M))
       return false;
     auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    DeadArrayOpsElimImpl DeadArrayElim(M, WPInfo);
+    DeadArrayUseType GetAUse = [this](Function &F) -> ArrayUse & {
+      return this->getAnalysis<ArrayUseWrapperPass>(F).getArrayUse();
+    };
+    DeadArrayOpsElimImpl DeadArrayElim(M, WPInfo, GetAUse);
     return DeadArrayElim.run();
   }
 };
@@ -782,6 +848,7 @@ INITIALIZE_PASS_BEGIN(DeadArrayOpsEliminationLegacyPass,
                       "deadarrayopselimination", "DeadArrayOpsElimination",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ArrayUseWrapperPass)
 INITIALIZE_PASS_END(DeadArrayOpsEliminationLegacyPass,
                     "deadarrayopselimination", "DeadArrayOpsElimination", false,
                     false)
@@ -795,7 +862,12 @@ DeadArrayOpsEliminationPass::DeadArrayOpsEliminationPass(void) {}
 PreservedAnalyses DeadArrayOpsEliminationPass::run(Module &M,
                                                    ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  DeadArrayOpsElimImpl DeadArrayElim(M, WPInfo);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  DeadArrayUseType GetAUse = [&FAM](Function &F) -> ArrayUse & {
+    return FAM.getResult<ArrayUseAnalysis>(F);
+  };
+
+  DeadArrayOpsElimImpl DeadArrayElim(M, WPInfo, GetAUse);
   if (!DeadArrayElim.run())
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();

@@ -208,6 +208,16 @@ static const char *getCLErrorName(int error) {
     }                                                                          \
   } while (false)
 
+#define INVOKE_CL_EXIT_FAIL(fn, ...)                                           \
+  do {                                                                         \
+    cl_int rc = fn(__VA_ARGS__);                                               \
+    if (rc != CL_SUCCESS) {                                                    \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #fn, rc,    \
+         getCLErrorName(rc));                                                  \
+      exit(EXIT_FAILURE);                                                      \
+    }                                                                          \
+  } while (false)
+
 #define INVOKE_CL_RET_FAIL(fn, ...) INVOKE_CL_RET(OFFLOAD_FAIL, fn, __VA_ARGS__)
 #define INVOKE_CL_RET_NULL(fn, ...) INVOKE_CL_RET(NULL, fn, __VA_ARGS__)
 
@@ -225,6 +235,7 @@ struct FuncOrGblEntryTy {
   __tgt_target_table Table;
   std::vector<__tgt_offload_entry> Entries;
   std::vector<cl_kernel> Kernels;
+  cl_program Program;
 };
 
 /// Loop descriptor
@@ -500,6 +511,23 @@ public:
     if (Flags & EnableProfileFlag)
       for (uint32_t i = 0; i < numDevices; i++)
         Profiles[i].printData(i, Names[i].data(), ProfileResolution);
+#ifndef _WIN32
+    // Release resources. There is no safe way of making OpenCL calls in a
+    // global object constructor or destructor on Windows -- only non-Windows
+    // platforms are handled here.
+    for (uint32_t i = 0; i < numDevices; i++) {
+      for (auto kernel : FuncGblEntries[i].Kernels) {
+        if (kernel)
+          INVOKE_CL_EXIT_FAIL(clReleaseKernel, kernel);
+      }
+      INVOKE_CL_EXIT_FAIL(clReleaseProgram, FuncGblEntries[i].Program);
+      INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, Queues[i]);
+      if (QueuesOOO[i]) {
+        INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, QueuesOOO[i]);
+      }
+      INVOKE_CL_EXIT_FAIL(clReleaseContext, CTX[i]);
+    }
+#endif // !defined(_WIN32)
     delete[] Mutexes;
   }
 };
@@ -1073,6 +1101,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
 #endif // OMPTARGET_OPENCL_DEBUG
   }
+
+  // Release intermediate programs and store the final program.
+  for (uint32_t i = 0; i < num_programs; i++) {
+    INVOKE_CL_EXIT_FAIL(clReleaseProgram, program[i]);
+  }
+  DeviceInfo.FuncGblEntries[device_id].Program = program[2];
 
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
   table.EntriesBegin = &(entries[0]);

@@ -4896,6 +4896,7 @@ CodeGenFunction::EmitCheckedInBoundsGEP(Value *Ptr, ArrayRef<Value *> IdxList,
                                         bool SignedIndices, bool IsSubtraction,
                                         SourceLocation Loc, const Twine &Name) {
   Value *GEPVal = Builder.CreateInBoundsGEP(Ptr, IdxList, Name);
+  recordNoAliasPtr(Ptr, GEPVal); // INTEL
 
   // If the pointer overflow sanitizer isn't enabled, do nothing.
   if (!SanOpts.has(SanitizerKind::PointerOverflow))

@@ -214,6 +214,7 @@ FUNCTION_ANALYSIS("soatoaos-struct-methods", dtrans::SOAToAOSStructMethodsCheckD
 #endif // INTEL_INCLUDE_DTRANS
 
 #if INTEL_CUSTOMIZATION
+FUNCTION_ANALYSIS("array-use", ArrayUseAnalysis())
 FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
 FUNCTION_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 FUNCTION_ANALYSIS("hir-region-identification", loopopt::HIRRegionIdentificationAnalysis())
@@ -355,6 +356,9 @@ FUNCTION_PASS("msan", MemorySanitizerPass({}))
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
 FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+FUNCTION_PASS("print<array-use>", ArrayUsePrinterPass(dbgs()))
+#endif
 FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificationPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs(), true))

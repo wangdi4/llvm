@@ -101,6 +101,7 @@ void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
+void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeAttributorLegacyPassPass(PassRegistry&);

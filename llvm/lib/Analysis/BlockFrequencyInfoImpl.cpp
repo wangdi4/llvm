@@ -492,9 +492,9 @@ static void convertFloatingToInteger(BlockFrequencyInfoImplBase &BFI,
 #if INTEL_CUSTOMIZATION
   // Some thresholds or registers' weight will overflow
   // if the frequncy is too big.
-  int Shift = SpreadBits - (MaxBits - 7);
+  int Shift = SpreadBits - (MaxBits - 6);
   Shift = std::max(0, Shift);
-  Shift = std::min(7, Shift);
+  Shift = std::min(6, Shift);
   ScalingFactor >>= Shift;
 #endif // INTEL_CUSTOMIZATION
 
