@@ -1422,7 +1422,6 @@ def fms_extensions : Flag<["-"], "fms-extensions">, Group<f_Group>, Flags<[CC1Op
   HelpText<"Accept some non-standard constructs supported by the Microsoft compiler">;
 def fms_compatibility : Flag<["-"], "fms-compatibility">, Group<f_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Enable full Microsoft Visual C++ compatibility">;
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // CQ#368119 - support for '/Z7' and '/Zi' options.
 def fms_debug_info_file_type: Joined<["-"], "fms-debug-info-file-type=">,
@@ -1433,10 +1432,7 @@ def fms_debug_info_pdb_file: Joined<["-"], "fms-debug-info-pdb-file=">,
 def fms_debug_info_obj_file: Joined<["-"], "fms-debug-info-obj-file=">,
   Group<f_Group>, Flags<[CC1Option]>, MetaVarName<"<file>">;
 // endif INTEL_CUSTOMIZATION
-def fms_volatile : Joined<["-"], "fms-volatile">, Group<f_Group>, Flags<[CC1Option]>;
-=======
 def fms_volatile : Flag<["-"], "fms-volatile">, Group<f_Group>, Flags<[CC1Option]>;
->>>>>>> 1d2cd2c0b7d978e22a50e918af708ba67e87c2c1
 def fmsc_version : Joined<["-"], "fmsc-version=">, Group<f_Group>, Flags<[DriverOption, CoreOption]>,
   HelpText<"Microsoft compiler version number to report in _MSC_VER (0 = don't define it (default))">;
 def fms_compatibility_version
