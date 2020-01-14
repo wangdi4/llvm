@@ -8321,32 +8321,6 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, _dst.info256, _src.info512, X86any_vfpround, sched.ZMM>,
              avx512_vcvt_fp_rc<opc, OpcodeStr, _dst.info256, _src.info512,
                                X86vfproundRnd, sched.ZMM>, EVEX_V512;
-
-    def : Pat<(_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
-              (!cast<Instruction>(NAME # "Zrr") VR512:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
-                       VR256X:$src0),
-              (!cast<Instruction>(NAME # "Zrrk") VR256X:$src0, maskRC512:$mask, VR512:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
-                       _dst.info256.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Zrrkz") maskRC512:$mask, VR512:$src)>;
-
-    def : Pat<(_dst.info256.VT (any_fpround (loadVT512 addr:$src))),
-              (!cast<Instruction>(NAME # "Zrm") addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (loadVT512 addr:$src))), VR256X:$src0),
-              (!cast<Instruction>(NAME # "Zrmk") VR256X:$src0, maskRC512:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (loadVT512 addr:$src))),
-                       _dst.info256.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Zrmkz") maskRC512:$mask, addr:$src)>;
-
-    def : Pat<(_dst.info256.VT (any_fpround (_src.info512.VT (bcast512 addr:$src)))),
-              (!cast<Instruction>(NAME # "Zrmb") addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (any_fpround (_src.info512.VT (bcast512 addr:$src))),
-                       (_dst.info256.VT VR256X:$src0)),
-              (!cast<Instruction>(NAME # "Zrmbk") VR256X:$src0, maskRC512:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (any_fpround (_src.info512.VT (bcast512 addr:$src))),
-                       _dst.info256.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Zrmbkz") maskRC512:$mask, addr:$src)>;
   }
   let Predicates = [prd, HasVLX] in {
     defm Z128 : avx512_vcvt_fp<opc, OpcodeStr, _dst.info128, _src.info128,
@@ -8354,35 +8328,6 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
                                f128mem, maskRC128>, EVEX_V128;
     defm Z256 : avx512_vcvt_fp<opc, OpcodeStr, _dst.info128, _src.info256, X86any_vfpround,
                                sched.YMM, _src.info256.BroadcastStr, "{y}">, EVEX_V256;
-
-    def : Pat<(_dst.info128.VT (any_fpround (_src.info256.VT VR256X:$src))),
-              (!cast<Instruction>(NAME # "Z256rr") VR256X:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (_src.info256.VT VR256X:$src))),
-                       VR128X:$src0),
-              (!cast<Instruction>(NAME # "Z256rrk") VR128X:$src0, maskRC256:$mask, VR256X:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (_src.info256.VT VR256X:$src))),
-                       _dst.info128.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Z256rrkz") maskRC256:$mask, VR256X:$src)>;
-
-    def : Pat<(_dst.info128.VT (any_fpround (loadVT256 addr:$src))),
-              (!cast<Instruction>(NAME # "Z256rm") addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (loadVT256 addr:$src))),
-                       VR128X:$src0),
-              (!cast<Instruction>(NAME # "Z256rmk") VR128X:$src0, maskRC256:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (loadVT256 addr:$src))),
-                       _dst.info128.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Z256rmkz") maskRC256:$mask, addr:$src)>;
-
-    def : Pat<(_dst.info128.VT (any_fpround (_src.info256.VT (bcast256 addr:$src)))),
-              (!cast<Instruction>(NAME # "Z256rmb") addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask,
-                       (_dst.info128.VT (any_fpround (_src.info256.VT (bcast256 addr:$src)))),
-                       VR128X:$src0),
-              (!cast<Instruction>(NAME # "Z256rmbk") VR128X:$src0, maskRC256:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask,
-                       (_dst.info128.VT (any_fpround (_src.info256.VT (bcast256 addr:$src)))),
-                       _dst.info128.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Z256rmbkz") maskRC256:$mask, addr:$src)>;
 
     // Special patterns to allow use of X86vmfpround for masking. Instruction
     // patterns have been disabled with null_frag.
@@ -8460,7 +8405,6 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
 defm VCVTPD2PS : avx512_cvt_trunc<0x5A, "vcvtpd2ps",
                                   avx512vl_f32_info, avx512vl_f64_info, SchedWriteCvtPD2PS>,
                                   VEX_W, PD, EVEX_CD8<64, CD8VF>;
-<<<<<<< HEAD
 defm VCVTPS2PD : avx512_cvt_extend<0x5A, "vcvtps2pd",
                                    avx512vl_f64_info, avx512vl_f32_info, SchedWriteCvtPS2PD>,
                                    PS, EVEX_CD8<32, CD8VH>;
@@ -8578,44 +8522,7 @@ defm VCVTPD2PH : avx512_cvtpd2ph<0x5A, "vcvtpd2ph", SchedWriteCvtPD2PS>,
 defm VCVTPH2PD : avx512_cvtph2pd<0x5A, "vcvtph2pd", SchedWriteCvtPS2PD>,
                                  T_MAP5PS, EVEX_CD8<16, CD8VQ>;
 
-let Predicates = [HasFP16] in {
-  def : Pat<(v8f16 (fpround (v8f64 VR512:$src))),
-            (VCVTPD2PHZrr VR512:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (v8f64 VR512:$src))),
-                     VR128X:$src0),
-            (VCVTPD2PHZrrk VR128X:$src0, VK8WM:$mask, VR512:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (v8f64 VR512:$src))),
-                     v8f16x_info.ImmAllZerosV),
-            (VCVTPD2PHZrrkz VK8WM:$mask, VR512:$src)>;
-
-  def : Pat<(v8f16 (fpround (loadv8f64 addr:$src))),
-            (VCVTPD2PHZrm addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (loadv8f64 addr:$src))),
-                     VR128X:$src0),
-            (VCVTPD2PHZrmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (loadv8f64 addr:$src))),
-                     v8f16x_info.ImmAllZerosV),
-            (VCVTPD2PHZrmkz VK8WM:$mask, addr:$src)>;
-
-  def : Pat<(v8f16 (fpround (v8f64 (X86VBroadcastld64 addr:$src)))),
-            (VCVTPD2PHZrmb addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask,
-                     (fpround (v8f64 (X86VBroadcastld64 addr:$src))),
-                     (v8f16 VR128X:$src0)),
-            (VCVTPD2PHZrmbk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask,
-                     (fpround (v8f64 (X86VBroadcastld64 addr:$src))),
-                     v8f16x_info.ImmAllZerosV),
-            (VCVTPD2PHZrmbkz VK8WM:$mask, addr:$src)>;
-}
-
 let Predicates = [HasFP16, HasVLX] in {
-=======
-defm VCVTPS2PD : avx512_cvtps2pd<0x5A, "vcvtps2pd", SchedWriteCvtPS2PD>,
-                                  PS, EVEX_CD8<32, CD8VH>;
-
-let Predicates = [HasVLX] in {
->>>>>>> 9cc9120969fd9f7f6a99321c7d94133a32927a3a
   // Special patterns to allow use of X86vmfpround for masking. Instruction
   // patterns have been disabled with null_frag.
   def : Pat<(v8f16 (X86any_vfpround (v4f64 VR256X:$src))),
