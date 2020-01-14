@@ -70,6 +70,12 @@ static cl::opt<bool>
                     cl::desc("CSA Specific: Verify a LIC with the csasim_backedge attribute does complete a cycle in the graph"),
                     cl::init(false));
 
+static cl::opt<bool>
+ReportWarningForExtCalls("csa-report-ext-calls-as-warning",
+          cl::Hidden, cl::ZeroOrMore,
+          cl::desc("CSA Specific: Report external calls as warnings"),
+          cl::init(false));
+
 bool csa_utils::isAlwaysDataFlowLinkageSet(void) {
   return AlwaysDataFlowLinkage;
 }
@@ -80,6 +86,10 @@ bool csa_utils::createSCG(void) {
 
 bool csa_utils::verifyBackedges(void) {
   return VerifyBackedges;
+}
+
+bool csa_utils::reportWarningForExtCalls(void) {
+  return ReportWarningForExtCalls;
 }
 
 static MachineInstr *getPriorFormedInst(MachineInstr *currMI,

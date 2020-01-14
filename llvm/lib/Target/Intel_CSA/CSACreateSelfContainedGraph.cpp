@@ -825,8 +825,12 @@ bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
   MMI = &getAnalysis<MachineModuleInfoWrapperPass>().getMMI();
   OffloadRegionRoots.clear();
   EntryToReturnMap.clear();
-  if (hasUnsupportedCalls(M,MMI))
-    report_fatal_error("This module has unsupported calls");
+  if (hasUnsupportedCalls(M,MMI)) {
+    if (csa_utils::reportWarningForExtCalls())
+      errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
+    else
+      report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
+  }
   cleanupInitializerFunctions(M, MMI);
   IsOpenMPOffload = isOMPOffloadCompile(M);
   if (IsOpenMPOffload)

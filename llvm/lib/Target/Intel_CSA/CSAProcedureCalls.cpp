@@ -56,11 +56,6 @@ ProcCallsPass("csa-proc-calls-pass",
           cl::desc("CSA Specific: Optimize data-flow to data-flow procedure calls"),
           cl::init(1));
 
-static cl::opt<bool>
-ReportWarningForExtCalls("csa-report-ext-calls-as-warning",
-          cl::Hidden, cl::ZeroOrMore,
-          cl::desc("CSA Specific: Report external calls as warnings"),
-          cl::init(false));
 #define DEBUG_TYPE "csa-proc-calls"
 
 typedef struct call_site_info {
@@ -277,7 +272,7 @@ static void getCalleeName(StringRef &callee_name, MachineInstr *MI, const Module
         callee_name = MO.getSymbolName();
       }
     } else {
-      if (ReportWarningForExtCalls) {
+      if (csa_utils::reportWarningForExtCalls()) {
         callee_name = "dummy_func";
         errs() << "WARNING: Indirect calls not yet supported! May generate code with incomplete linkage!\n";
       } else
@@ -291,7 +286,7 @@ static void getCalleeName(StringRef &callee_name, MachineInstr *MI, const Module
           callee_name = MO.getSymbolName();
         }
       } else {
-        if (ReportWarningForExtCalls) {
+        if (csa_utils::reportWarningForExtCalls()) {
           callee_name = "dummy_func";
           errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
         } else
