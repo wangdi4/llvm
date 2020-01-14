@@ -351,6 +351,7 @@ ENUM_CODEGENOPT(VecLib, VectorLibrary, 3, NoLibrary)
 /// The default TLS model to use.
 ENUM_CODEGENOPT(DefaultTLSModel, TLSModel, 2, GeneralDynamicTLSModel)
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CQ#368119
 /// The kind of file to emit MS debug info into.
@@ -364,6 +365,10 @@ CODEGENOPT(NoAliasForPtrArgs, 1, 0)
 
 CODEGENOPT(DisableCpuDispatchIFuncs, 1, 0) ///< -disable-cpudispatch-ifuncs
 #endif // INTEL_CUSTOMIZATION
+=======
+/// Bit size of immediate TLS offsets (0 == use the default).
+VALUE_CODEGENOPT(TLSSize, 8, 0)
+>>>>>>> 10c11e4e2d05cf0e8f8251f50d84ce77eb1e9b8d
 
 /// Number of path components to strip when emitting checks. (0 == full
 /// filename)
