@@ -192,20 +192,14 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
 
   std::pair<ArrayRef<uint8_t>, uint64_t> R(Bytes, Address);
 
-<<<<<<< HEAD
-  int Ret = decodeInstruction(&InternalInstr, &R, LoggerFn, (void *)&VStream,
+  int Ret = decodeInstruction(&InternalInstr, &R, (const void *)MII.get(),
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
-                              (const void *)MII.get(), Address, fMode,
-                              isIceCode);
+                              Address, fMode, isIceCode);
 #else // INTEL_FEATURE_ICECODE
-                              (const void *)MII.get(), Address, fMode);
+                              Address, fMode);
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-=======
-  int Ret = decodeInstruction(&InternalInstr, &R, (const void *)MII.get(),
-                              Address, fMode);
->>>>>>> 179abb091d8a1d67115d21b54001d10250756042
 
   if (Ret) {
     Size = InternalInstr.readerCursor - Address;
