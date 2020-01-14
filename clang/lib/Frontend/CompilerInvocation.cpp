@@ -1284,7 +1284,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
-<<<<<<< HEAD
+  Opts.TLSSize = getLastArgIntValue(Args, OPT_mtls_size_EQ, 0, Diags);
+
 #if INTEL_CUSTOMIZATION
   Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options);
 
@@ -1312,9 +1313,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // isIntelCompat(LangOptions::FArgumentNoalias)
   Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
 #endif // INTEL_CUSTOMIZATION
-=======
-  Opts.TLSSize = getLastArgIntValue(Args, OPT_mtls_size_EQ, 0, Diags);
->>>>>>> 10c11e4e2d05cf0e8f8251f50d84ce77eb1e9b8d
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
     StringRef Val = A->getValue();
