@@ -217,17 +217,12 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
 
   std::pair<ArrayRef<uint8_t>, uint64_t> R(Bytes, Address);
 
-<<<<<<< HEAD
-  int Ret = decodeInstruction(&InternalInstr, regionReader, (const void *)&R,
-                              LoggerFn, (void *)&VStream,
+  int Ret = decodeInstruction(&InternalInstr, &R, LoggerFn, (void *)&VStream,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
                               (const void *)MII.get(), Address, fMode,
                               isIceCode);
 #else // INTEL_FEATURE_ICECODE
-=======
-  int Ret = decodeInstruction(&InternalInstr, &R, LoggerFn, (void *)&VStream,
->>>>>>> a5994c789a2982a770254ae1607b5b4cb641f73c
                               (const void *)MII.get(), Address, fMode);
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION

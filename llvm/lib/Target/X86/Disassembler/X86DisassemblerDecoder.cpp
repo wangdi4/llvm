@@ -630,13 +630,9 @@ static bool readOpcode(struct InternalInstruction* insn) {
 #else // INTEL_FEATURE_ISA_FP16
       dbgprintf(insn, "Unhandled mm field for instruction (0x%hhx)",
                 mmFromEVEX2of4(insn->vectorExtensionPrefix[1]));
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-      return -1;
-=======
       return true;
->>>>>>> a5994c789a2982a770254ae1607b5b4cb641f73c
     case VEX_LOB_0F:
       insn->opcodeType = TWOBYTE;
       return consume(insn, insn->opcode);
@@ -645,21 +641,17 @@ static bool readOpcode(struct InternalInstruction* insn) {
       return consume(insn, insn->opcode);
     case VEX_LOB_0F3A:
       insn->opcodeType = THREEBYTE_3A;
-<<<<<<< HEAD
-      return consumeByte(insn, &insn->opcode);
+      return consume(insn, insn->opcode);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     case VEX_LOB_0F39:
       insn->opcodeType = THREEBYTE_39;
-      return consumeByte(insn, &insn->opcode);
+      return consume(insn, insn->opcode);
     case VEX_LOB_0F3B:
       insn->opcodeType = THREEBYTE_3B;
-      return consumeByte(insn, &insn->opcode);
+      return consume(insn, insn->opcode);
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-=======
-      return consume(insn, insn->opcode);
->>>>>>> a5994c789a2982a770254ae1607b5b4cb641f73c
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_3B) {
     switch (mmmmmFromVEX2of3(insn->vectorExtensionPrefix[1])) {
@@ -675,19 +667,15 @@ static bool readOpcode(struct InternalInstruction* insn) {
       return consume(insn, insn->opcode);
     case VEX_LOB_0F3A:
       insn->opcodeType = THREEBYTE_3A;
-<<<<<<< HEAD
-      return consumeByte(insn, &insn->opcode);
+      return consume(insn, insn->opcode);
 #if INTEL_CUSTOMIZATION
     case VEX_LOB_0F39:
       insn->opcodeType = THREEBYTE_39;
-      return consumeByte(insn, &insn->opcode);
+      return consume(insn, insn->opcode);
     case VEX_LOB_0F3B:
       insn->opcodeType = THREEBYTE_3B;
-      return consumeByte(insn, &insn->opcode);
-#endif // INTEL_CUSTOMIZATION
-=======
       return consume(insn, insn->opcode);
->>>>>>> a5994c789a2982a770254ae1607b5b4cb641f73c
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_2B) {
     insn->opcodeType = TWOBYTE;
@@ -1980,25 +1968,19 @@ static int readOperands(struct InternalInstruction* insn) {
  * @return          - 0 if the instruction's memory could be read; nonzero if
  *                    not.
  */
-<<<<<<< HEAD
-int llvm::X86Disassembler::decodeInstruction(
-    struct InternalInstruction *insn, byteReader_t reader,
-    const void *readerArg, dlog_t logger, void *loggerArg, const void *miiArg,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    uint64_t startLoc, DisassemblerMode mode, bool isIceCode) {
-#else // INTEL_FEATURE_ICECODE
-    uint64_t startLoc, DisassemblerMode mode) {
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-=======
 int llvm::X86Disassembler::decodeInstruction(struct InternalInstruction *insn,
                                              const void *readerArg,
                                              dlog_t logger, void *loggerArg,
                                              const void *miiArg,
                                              uint64_t startLoc,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+                                             DisassemblerMode mode,
+                                             bool isIceCode) {
+#else // INTEL_FEATURE_ICECODE
                                              DisassemblerMode mode) {
->>>>>>> a5994c789a2982a770254ae1607b5b4cb641f73c
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   memset(insn, 0, sizeof(struct InternalInstruction));
 
   insn->readerArg = readerArg;
