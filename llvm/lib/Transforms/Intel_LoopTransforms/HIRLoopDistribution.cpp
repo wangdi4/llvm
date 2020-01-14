@@ -119,11 +119,17 @@ bool HIRLoopDistribution::run() {
     bool AllowScalarExpansion = false;
     bool CreateControlNodes = false;
 
+    // Sparse array reduction info is needed to create the DistPPGraph
+    // and in findDistPoints while breaking the PiBlock Recurrences.
+    SARA.computeSparseArrayReductionChains(Lp);
+
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       CreateControlNodes = true;
 
       TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
                     HLR.getSelfLoopResource(Lp).getNumFPMemOps();
+
+      TotalMemOps += 3 * SARA.getNumSparseArrayReductionChains(Lp);
 
       if (TotalMemOps >= ScalarExpansionCost) {
         AllowScalarExpansion = true;
@@ -134,10 +140,6 @@ bool HIRLoopDistribution::run() {
                         << (AllowScalarExpansion ? "" : "non-")
                         << "profitable for scalar expansion\n");
     }
-
-    // Sparse array reduction info is needed to create the DistPPGraph
-    // and in findDistPoints while breaking the PiBlock Recurrences.
-    SARA.computeSparseArrayReductionChains(Lp);
 
     std::unique_ptr<PiGraph> PG(new PiGraph(
         Lp, DDA, SARA, AllowScalarExpansion, CreateControlNodes));

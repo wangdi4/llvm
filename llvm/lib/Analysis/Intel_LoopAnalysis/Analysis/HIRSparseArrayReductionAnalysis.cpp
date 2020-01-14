@@ -47,7 +47,7 @@
 //   ...
 //   faction(j) = tx12 + t30
 //   =>
-//   tx12 = 0.0 – t11
+//   tx12 = 0.0 - t11
 //   ...
 //   tempx =  tx12 + t30
 //   faction(j) += tempx
@@ -233,7 +233,7 @@ static bool isMatchedLoadPattern(const RegDDRef *RDDRef,
   // Properties checked on the load at instruction <3> | %0 = (@a1)[0][i1];
   // a1[i1] should have no incoming edges from the same loop.
   if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
-      return false;
+    return false;
   }
 
   const RegDDRef *RRef = SrcInst->getRvalDDRef();
@@ -258,7 +258,6 @@ static bool isMatchedLoadPattern(const RegDDRef *RDDRef,
 
   auto I = RRef->canon_begin();
   auto E = RRef->canon_end();
-
 
   if ((*I)->numIVs() != 1) {
     return false;
@@ -642,7 +641,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
   // Each group should have the same base.
   // The ddref should be non-linear
   // and the parent of the ddrefs are within the same loop.
-  if (!StoreRef->isNonLinear() || StoreNode->getParent() != Loop) {
+  if (!StoreRef->isNonLinear() || StoreNode->getLexicalParentLoop() != Loop) {
     return;
   }
 

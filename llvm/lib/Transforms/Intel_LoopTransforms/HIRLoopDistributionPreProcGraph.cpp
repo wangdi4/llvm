@@ -458,7 +458,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
                          bool AllowScalarExpansion,
                          bool CreateControlNodes) {
   const unsigned MaxDistPPSize = 128;
-  const unsigned MaxDDEdges = 300;
+  const unsigned MaxDDEdges = 600;
 
   DistributionNodeCreator NodeCreator(this, CreateControlNodes,
                                       AllowScalarExpansion);
@@ -504,6 +504,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
 
   if (TotalEdges > MaxDDEdges) {
     setInvalid("Too many DD edges for proper analysis");
+    LLVM_DEBUG(dbgs() << TotalEdges << " < " << MaxDDEdges << "\n");
     return;
   }
 
