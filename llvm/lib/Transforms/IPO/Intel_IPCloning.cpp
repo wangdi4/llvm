@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -92,10 +92,8 @@ static cl::opt<bool> ForceIFSwitchHeuristic(
           "ip-gen-cloning-force-if-switch-heuristic", cl::init(false),
           cl::ReallyHidden);
 
-// This switch will be enabled (and removed) once the associated loop opt work
-// for CMPLRLLVM-8680 is complete.
 static cl::opt<bool> EnableMorphologyCloning(
-          "ip-gen-cloning-enable-morphology", cl::init(false),
+          "ip-gen-cloning-enable-morphology", cl::init(true),
           cl::ReallyHidden);
 
 // Do not qualify a routine for cloning under the "if" heuristic unless we
