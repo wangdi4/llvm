@@ -759,22 +759,7 @@ struct InternalInstruction {
 /// Decode one instruction and store the decoding results in
 /// a buffer provided by the consumer.
 /// \return          Nonzero if there was an error during decode, 0 otherwise.
-<<<<<<< HEAD
-int decodeInstruction(InternalInstruction *insn,
-                      const void *readerArg,
-                      const void *miiArg,
-                      uint64_t startLoc,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-                      DisassemblerMode mode,
-                      bool isIceCode);
-#else // INTEL_FEATURE_ICECODE
-                      DisassemblerMode mode);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-=======
 int decodeInstruction(InternalInstruction *insn, const MCInstrInfo *mii);
->>>>>>> 1e8ce7492e91aa6db269334d12187c7ae854dccb
 
 /// Print a message to debugs()
 /// \param file The name of the file printing the debug message.

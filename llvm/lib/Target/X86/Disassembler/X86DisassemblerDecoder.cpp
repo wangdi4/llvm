@@ -1953,41 +1953,9 @@ static int readOperands(struct InternalInstruction* insn) {
  *                    not.
  */
 int llvm::X86Disassembler::decodeInstruction(struct InternalInstruction *insn,
-<<<<<<< HEAD
-                                             const void *readerArg,
-                                             const void *miiArg,
-                                             uint64_t startLoc,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-                                             DisassemblerMode mode,
-                                             bool isIceCode) {
-#else // INTEL_FEATURE_ICECODE
-                                             DisassemblerMode mode) {
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-  memset(insn, 0, sizeof(struct InternalInstruction));
-
-  insn->readerArg = readerArg;
-  insn->startLocation = startLoc;
-  insn->readerCursor = startLoc;
-  insn->mode = mode;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  insn->isIceCode = isIceCode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-  insn->numImmediatesConsumed = 0;
-
-  if (readPrefixes(insn)       ||
-      readOpcode(insn)         ||
-      getID(insn, miiArg)      ||
-      insn->instructionID == 0 ||
-      readOperands(insn))
-=======
                                              const MCInstrInfo *mii) {
   if (readPrefixes(insn) || readOpcode(insn) || getID(insn, mii) ||
       insn->instructionID == 0 || readOperands(insn))
->>>>>>> 1e8ce7492e91aa6db269334d12187c7ae854dccb
     return -1;
 
   insn->operands = x86OperandSets[insn->spec->operands];
