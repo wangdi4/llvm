@@ -4901,17 +4901,6 @@ static Optional<BinaryOp> MatchBinaryOp(Value *V, DominatorTree &DT) {
   if (!Op)
     return None;
 
-  // Recognise intrinsic loop.decrement.reg, and as this has exactly the same
-  // semantics as a Sub, return a binary sub expression.
-  if (auto *II = dyn_cast<IntrinsicInst>(V)) {
-    switch (II->getIntrinsicID()) {
-    case Intrinsic::loop_decrement_reg:
-      return BinaryOp(Instruction::Sub, II->getOperand(0), II->getOperand(1));
-    default:
-      return None;
-    }
-  }
-
   // Implementation detail: all the cleverness here should happen without
   // creating new SCEV expressions -- our caller knowns tricks to avoid creating
   // SCEV expressions when possible, and we should not break that.
@@ -4979,6 +4968,12 @@ static Optional<BinaryOp> MatchBinaryOp(Value *V, DominatorTree &DT) {
   default:
     break;
   }
+
+  // Recognise intrinsic loop.decrement.reg, and as this has exactly the same
+  // semantics as a Sub, return a binary sub expression.
+  if (auto *II = dyn_cast<IntrinsicInst>(V))
+    if (II->getIntrinsicID() == Intrinsic::loop_decrement_reg)
+      return BinaryOp(Instruction::Sub, II->getOperand(0), II->getOperand(1));
 
   return None;
 }
@@ -6118,11 +6113,12 @@ ScalarEvolution::getRangeRef(const SCEV *S,
   if (const SCEVAddRecExpr *AddRec = dyn_cast<SCEVAddRecExpr>(S)) {
     // If there's no unsigned wrap, the value will never be less than its
     // initial value.
-    if (AddRec->hasNoUnsignedWrap())
-      if (const SCEVConstant *C = dyn_cast<SCEVConstant>(AddRec->getStart()))
-        if (!C->getValue()->isZero())
-          ConservativeResult = ConservativeResult.intersectWith(
-              ConstantRange(C->getAPInt(), APInt(BitWidth, 0)), RangeType);
+    if (AddRec->hasNoUnsignedWrap()) {
+      APInt UnsignedMinValue = getUnsignedRangeMin(AddRec->getStart());
+      if (!UnsignedMinValue.isNullValue())
+        ConservativeResult = ConservativeResult.intersectWith(
+            ConstantRange(UnsignedMinValue, APInt(BitWidth, 0)), RangeType);
+    }
 
     // If there's no signed wrap, and all the operands except initial value have
     // the same sign or zero, the value won't ever be:
