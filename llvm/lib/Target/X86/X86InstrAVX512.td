@@ -8460,6 +8460,7 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
 defm VCVTPD2PS : avx512_cvt_trunc<0x5A, "vcvtpd2ps",
                                   avx512vl_f32_info, avx512vl_f64_info, SchedWriteCvtPD2PS>,
                                   VEX_W, PD, EVEX_CD8<64, CD8VF>;
+<<<<<<< HEAD
 defm VCVTPS2PD : avx512_cvt_extend<0x5A, "vcvtps2pd",
                                    avx512vl_f64_info, avx512vl_f32_info, SchedWriteCvtPS2PD>,
                                    PS, EVEX_CD8<32, CD8VH>;
@@ -8609,6 +8610,12 @@ let Predicates = [HasFP16] in {
 }
 
 let Predicates = [HasFP16, HasVLX] in {
+=======
+defm VCVTPS2PD : avx512_cvtps2pd<0x5A, "vcvtps2pd", SchedWriteCvtPS2PD>,
+                                  PS, EVEX_CD8<32, CD8VH>;
+
+let Predicates = [HasVLX] in {
+>>>>>>> 9cc9120969fd9f7f6a99321c7d94133a32927a3a
   // Special patterns to allow use of X86vmfpround for masking. Instruction
   // patterns have been disabled with null_frag.
   def : Pat<(v8f16 (X86any_vfpround (v4f64 VR256X:$src))),
