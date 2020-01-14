@@ -179,29 +179,12 @@ X86GenericDisassembler::X86GenericDisassembler(
   llvm_unreachable("Invalid CPU mode");
 }
 
-namespace {
-struct Region {
-  ArrayRef<uint8_t> Bytes;
-  uint64_t Base;
-  Region(ArrayRef<uint8_t> Bytes, uint64_t Base) : Bytes(Bytes), Base(Base) {}
-};
-} // end anonymous namespace
-
 /// A callback function that wraps the readByte method from Region.
 ///
 /// @param Arg      - The generic callback parameter.  In this case, this should
 ///                   be a pointer to a Region.
 /// @param Byte     - A pointer to the byte to be read.
 /// @param Address  - The address to be read.
-static int regionReader(const void *Arg, uint8_t *Byte, uint64_t Address) {
-  auto *R = static_cast<const Region *>(Arg);
-  ArrayRef<uint8_t> Bytes = R->Bytes;
-  unsigned Index = Address - R->Base;
-  if (Bytes.size() <= Index)
-    return -1;
-  *Byte = Bytes[Index];
-  return 0;
-}
 
 /// logger - a callback function that wraps the operator<< method from
 ///   raw_ostream.
@@ -232,8 +215,9 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
   if (&VStream == &nulls())
     LoggerFn = nullptr; // Disable logging completely if it's going to nulls().
 
-  Region R(Bytes, Address);
+  std::pair<ArrayRef<uint8_t>, uint64_t> R(Bytes, Address);
 
+<<<<<<< HEAD
   int Ret = decodeInstruction(&InternalInstr, regionReader, (const void *)&R,
                               LoggerFn, (void *)&VStream,
 #if INTEL_CUSTOMIZATION
@@ -241,6 +225,9 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
                               (const void *)MII.get(), Address, fMode,
                               isIceCode);
 #else // INTEL_FEATURE_ICECODE
+=======
+  int Ret = decodeInstruction(&InternalInstr, &R, LoggerFn, (void *)&VStream,
+>>>>>>> a5994c789a2982a770254ae1607b5b4cb641f73c
                               (const void *)MII.get(), Address, fMode);
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
