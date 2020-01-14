@@ -25,8 +25,10 @@ define void @test_1(i32* nocapture %ary) {
 ; CHECK:       load volatile i32
 ;
 ; CHECK:       call void @llvm.masked.scatter.v4i32.v4p0i32
-; TODO: atomic store should have been serialized:
-; CHECK:       call void @llvm.masked.scatter.v4i32.v4p0i32
+; CHECK:       store atomic i32 {{.*}} unordered, align 4
+; CHECK:       store atomic i32 {{.*}} unordered, align 4
+; CHECK:       store atomic i32 {{.*}} unordered, align 4
+; CHECK:       store atomic i32 {{.*}} unordered, align 4
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -64,14 +66,16 @@ define void @test_2(i32* nocapture %ary) {
 ; CHECK-NEXT:    #3 <4 x 32> SLoad:
 ; CHECK-NEXT:    #4 <4 x 32> SStore:
 ;
-; CHECK:       load atomic i32, {{.*}} unordered
-; CHECK:       load atomic i32, {{.*}} unordered
-; CHECK:       load atomic i32, {{.*}} unordered
-; CHECK:       load atomic i32, {{.*}} unordered
+; CHECK:       load atomic i32, {{.*}} unordered, align 4
+; CHECK:       load atomic i32, {{.*}} unordered, align 4
+; CHECK:       load atomic i32, {{.*}} unordered, align 4
+; CHECK:       load atomic i32, {{.*}} unordered, align 4
 ; CHECK:       call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32
 ;
-; TODO: volatile store should have been serialized:
-; CHECK:       call void @llvm.masked.scatter.v4i32.v4p0i32
+; CHECK:       store volatile i32
+; CHECK:       store volatile i32
+; CHECK:       store volatile i32
+; CHECK:       store volatile i32
 ; CHECK:       call void @llvm.masked.scatter.v4i32.v4p0i32
 ;
 entry:
