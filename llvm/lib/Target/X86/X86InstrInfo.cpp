@@ -4841,11 +4841,17 @@ static MachineInstr *FuseInst(MachineFunction &MF, unsigned Opcode,
 
   updateOperandRegConstraints(MF, *NewMI, TII);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // FIXME: This needs to be open sourced.
   if (MI.getFlag(MachineInstr::MIFlag::NoFPExcept))
     NewMI->setFlag(MachineInstr::MIFlag::NoFPExcept);
 #endif
+=======
+  // Copy the NoFPExcept flag from the instruction we're fusing.
+  if (MI.getFlag(MachineInstr::MIFlag::NoFPExcept))
+    NewMI->setFlag(MachineInstr::MIFlag::NoFPExcept);
+>>>>>>> b1dcd84c7ea3c97ddd73f629441be24791f23624
 
   MachineBasicBlock *MBB = InsertPt->getParent();
   MBB->insert(InsertPt, NewMI);
