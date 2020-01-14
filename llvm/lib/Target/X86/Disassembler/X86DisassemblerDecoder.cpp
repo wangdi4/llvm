@@ -313,53 +313,6 @@ static bool isREX(struct InternalInstruction *insn, uint8_t prefix) {
 }
 
 /*
-<<<<<<< HEAD
- * setPrefixPresent - Marks that a particular prefix is present as mandatory
- *
- * @param insn      - The instruction to be marked as having the prefix.
- * @param prefix    - The prefix that is present.
- */
-static void setPrefixPresent(struct InternalInstruction *insn, uint8_t prefix) {
-  uint8_t nextByte;
-  switch (prefix) {
-  case 0xf0:
-    insn->hasLockPrefix = true;
-    break;
-  case 0xf2:
-  case 0xf3:
-    if (lookAtByte(insn, &nextByte))
-      break;
-    // TODO:
-    //  1. There could be several 0x66
-    //  2. if (nextByte == 0x66) and nextNextByte != 0x0f then
-    //      it's not mandatory prefix
-    //  3. if (nextByte >= 0x40 && nextByte <= 0x4f) it's REX and we need
-    //     0x0f exactly after it to be mandatory prefix
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
-        insn->isIceCode)
-#else // INTEL_FEATURE_ICECODE
-    if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-      // The last of 0xf2 /0xf3 is mandatory prefix
-      insn->mandatoryPrefix = prefix;
-    insn->repeatPrefix = prefix;
-    break;
-  case 0x66:
-    if (lookAtByte(insn, &nextByte))
-      break;
-    // 0x66 can't overwrite existing mandatory prefix and should be ignored
-    if (!insn->mandatoryPrefix && (nextByte == 0x0f || isREX(insn, nextByte)))
-      insn->mandatoryPrefix = prefix;
-    break;
-  }
-}
-
-/*
-=======
->>>>>>> fcad5b298c7859d7f10908fab7b82983e286bb8d
  * readPrefixes - Consumes all of an instruction's prefix bytes, and marks the
  *   instruction as having them.  Also sets the instruction's default operand,
  *   address, and other relevant data sizes to report operands correctly.
@@ -444,7 +397,14 @@ static int readPrefixes(struct InternalInstruction* insn) {
       //      it's not mandatory prefix
       //  3. if (nextByte >= 0x40 && nextByte <= 0x4f) it's REX and we need
       //     0x0f exactly after it to be mandatory prefix
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+      if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
+          insn->isIceCode)
+#else // INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
         // The last of 0xf2 /0xf3 is mandatory prefix
         insn->mandatoryPrefix = byte;
       insn->repeatPrefix = byte;
