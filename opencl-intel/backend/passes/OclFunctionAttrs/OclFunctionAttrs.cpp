@@ -164,7 +164,7 @@ namespace intel{
 
   OclSyncFunctionAttrs::OclSyncFunctionAttrs() : ModulePass(ID) {}
   OCL_INITIALIZE_PASS(OclSyncFunctionAttrs, "ocl-syncfunctionattrs",
-    "Mark and propogate synchronize function with relevent attributes", false, false)
+    "Mark and propagate synchronize function with relevent attributes", false, false)
 
   bool OclSyncFunctionAttrs::runOnModule(Module &M) {
     CompilationUtils::FunctionSet oclSyncBuiltins;
@@ -194,6 +194,10 @@ namespace intel{
         pFunc->setAttributes(pFunc->getAttributes()
           .addAttribute(pFunc->getContext(),
                         AttributeList::FunctionIndex, Attribute::Convergent)
+          .addAttribute(pFunc->getContext(),
+                        AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL)
+          .addAttribute(pFunc->getContext(),
+                        AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CALL_ONCE)
           .removeAttribute(pFunc->getContext(),
                            AttributeList::FunctionIndex, Attribute::NoDuplicate));
         Changed = true;
@@ -206,6 +210,10 @@ namespace intel{
           CI->setAttributes(CI->getAttributes()
             .addAttribute(CI->getContext(),
                           AttributeList::FunctionIndex, Attribute::Convergent)
+            .addAttribute(CI->getContext(),
+                          AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL)
+            .addAttribute(CI->getContext(),
+                          AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CALL_ONCE)
             .removeAttribute(CI->getContext(),
                              AttributeList::FunctionIndex, Attribute::NoDuplicate));
     return Changed;
