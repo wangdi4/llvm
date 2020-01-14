@@ -150,6 +150,14 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
     dec =
         &THREEDNOW_MAP_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
+#if INTEL_CUSTOMIZATION
+  case THREEBYTE_39:
+    dec = &THREEBYTE39_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
+  case THREEBYTE_3B:
+    dec = &THREEBYTE3B_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   switch (dec->modrm_type) {
@@ -166,6 +174,13 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs + ((modRM & 0x38) >> 3) + 8];
     return modRMTable[dec->instructionIDs + ((modRM & 0x38) >> 3)];
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case MODRM_SPLITREGM:
+    assert(modFromModRM(modRM) == 0x3);
+    return modRMTable[dec->instructionIDs+(modRM & 0x7)];
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   case MODRM_SPLITMISC:
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs + (modRM & 0x3f) + 8];
@@ -237,6 +252,11 @@ static int readPrefixes(struct InternalInstruction *insn) {
       // - it is followed by a "mov mem, reg" (opcode 0x88/0x89) or
       //                       "mov mem, imm" (opcode 0xc6/0xc7) instructions.
       // then it should be disassembled as an xrelease not rep.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+      if (!insn->isIceCode)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       if (byte == 0xf3 && (nextByte == 0x88 || nextByte == 0x89 ||
                            nextByte == 0xc6 || nextByte == 0xc7)) {
         insn->xAcquireRelease = true;
@@ -269,7 +289,14 @@ static int readPrefixes(struct InternalInstruction *insn) {
       //      it's not mandatory prefix
       //  3. if (nextByte >= 0x40 && nextByte <= 0x4f) it's REX and we need
       //     0x0f exactly after it to be mandatory prefix
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+      if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
+          insn->isIceCode)
+#else // INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
         // The last of 0xf2 /0xf3 is mandatory prefix
         insn->mandatoryPrefix = byte;
       insn->repeatPrefix = byte;
@@ -330,7 +357,13 @@ static int readPrefixes(struct InternalInstruction *insn) {
     }
 
     if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0) &&
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+        ((~byte1 & 0x8) == 0x8) && ((byte2 & 0x4) == 0x4)) {
+#else // INTEL_FEATURE_ISA_FP16
         ((~byte1 & 0xc) == 0xc) && ((byte2 & 0x4) == 0x4)) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       insn->vectorExtensionType = TYPE_EVEX;
     } else {
       --insn->readerCursor; // unconsume byte1
@@ -733,6 +766,31 @@ static int readModRM(struct InternalInstruction *insn) {
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+#define TMM_TYPE(prefix)                                                       \
+    case TYPE_TMM:                                                             \
+      return prefix##_TMM0 + index;
+#else // INTEL_FEATURE_ISA_AMX
+#define TMM_TYPE(prefix)
+#endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX_LNC
+#define TMM_TYPE_PAIR(prefix)                                                  \
+    case TYPE_TMM_PAIR:                                                        \
+      return prefix##_TMM0_TMM1 + (index / 2 );
+
+// We don't use tuple registers here. Just pick either ZMM0 or ZMM16.
+#define ZMM16_TYPE_TUPLES(prefix)                                              \
+    case TYPE_ZMM16_TUPLES:                                                    \
+      return prefix##_ZMM0 + (index / 16) * 16;
+#else // INTEL_FEATURE_ISA_AMX_LNC
+#define TMM_TYPE_PAIR(prefix)
+#define ZMM16_TYPE_TUPLES(prefix)
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 #define GENERIC_FIXUP_FUNC(name, base, prefix, mask)                           \
   static uint16_t name(struct InternalInstruction *insn, OperandType type,     \
                        uint8_t index, uint8_t *valid) {                        \
@@ -774,6 +832,9 @@ static int readModRM(struct InternalInstruction *insn) {
       return prefix##_YMM0 + index;                                            \
     case TYPE_XMM:                                                             \
       return prefix##_XMM0 + index;                                            \
+    TMM_TYPE(prefix)                                                           \
+    TMM_TYPE_PAIR(prefix)                                                      \
+    ZMM16_TYPE_TUPLES(prefix)                                                  \
     case TYPE_VK:                                                              \
       index &= 0xf;                                                            \
       if (index > 7)                                                           \
@@ -805,6 +866,7 @@ static int readModRM(struct InternalInstruction *insn) {
       return prefix##_ZMM0 + index;                                            \
     }                                                                          \
   }
+#endif // INTEL_CUSTOMIZATION
 
 // Consult an operand type to determine the meaning of the reg or R/M field. If
 // the operand is an XMM operand, for example, an operand would be XMM0 instead
@@ -868,11 +930,25 @@ static bool readOpcode(struct InternalInstruction *insn) {
 
   insn->opcodeType = ONEBYTE;
   if (insn->vectorExtensionType == TYPE_EVEX) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    switch (mmmFromEVEX2of4(insn->vectorExtensionPrefix[1])) {
+#else // INTEL_FEATURE_ISA_FP16
     switch (mmFromEVEX2of4(insn->vectorExtensionPrefix[1])) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     default:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      LLVM_DEBUG(
+          dbgs() << format("Unhandled mmm field for instruction (0x%hhx)",
+                           mmmFromEVEX2of4(insn->vectorExtensionPrefix[1])));
+#else // INTEL_FEATURE_ISA_FP16
       LLVM_DEBUG(
           dbgs() << format("Unhandled mm field for instruction (0x%hhx)",
                            mmFromEVEX2of4(insn->vectorExtensionPrefix[1])));
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       return true;
     case VEX_LOB_0F:
       insn->opcodeType = TWOBYTE;
@@ -883,6 +959,16 @@ static bool readOpcode(struct InternalInstruction *insn) {
     case VEX_LOB_0F3A:
       insn->opcodeType = THREEBYTE_3A;
       return consume(insn, insn->opcode);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    case VEX_LOB_0F39:
+      insn->opcodeType = THREEBYTE_39;
+      return consume(insn, insn->opcode);
+    case VEX_LOB_0F3B:
+      insn->opcodeType = THREEBYTE_3B;
+      return consume(insn, insn->opcode);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_3B) {
     switch (mmmmmFromVEX2of3(insn->vectorExtensionPrefix[1])) {
@@ -900,6 +986,14 @@ static bool readOpcode(struct InternalInstruction *insn) {
     case VEX_LOB_0F3A:
       insn->opcodeType = THREEBYTE_3A;
       return consume(insn, insn->opcode);
+#if INTEL_CUSTOMIZATION
+    case VEX_LOB_0F39:
+      insn->opcodeType = THREEBYTE_39;
+      return consume(insn, insn->opcode);
+    case VEX_LOB_0F3B:
+      insn->opcodeType = THREEBYTE_3B;
+      return consume(insn, insn->opcode);
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_2B) {
     insn->opcodeType = TWOBYTE;
@@ -962,7 +1056,13 @@ static bool readOpcode(struct InternalInstruction *insn) {
       LLVM_DEBUG(dbgs() << "Didn't find a three-byte escape prefix");
       insn->opcodeType = TWOBYTE;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  } else if (insn->mandatoryPrefix && !insn->isIceCode)
+#else // INTEL_FEATURE_ICECODE
   } else if (insn->mandatoryPrefix)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     // The opcode with mandatory prefix must start with opcode escape.
     // If not it's legacy repeat prefix
     insn->mandatoryPrefix = 0;
@@ -1035,7 +1135,36 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   case THREEDNOW_MAP:
     decision = &THREEDNOW_MAP_SYM;
     break;
+#if INTEL_CUSTOMIZATION
+  case THREEBYTE_39:
+    decision = &THREEBYTE39_SYM;
+    break;
+  case THREEBYTE_3B:
+    decision = &THREEBYTE3B_SYM;
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  // For part of IceCode instructions that use AdSize32, we can't get such
+  // information from the binary due to lacking the prefix 0x67.
+  // Here we define a new operand type TYPE_M32 to indicate such information,
+  // and hack to modify the addressSize before emitting operand.
+  if (insn->isIceCode) {
+    *instructionID = decode(insn->opcodeType, insnCtx, insn->opcode, 0);
+    if (*instructionID) {
+      auto spec = specifierForUID(*instructionID);
+      for (const auto &Op : x86OperandSets[spec->operands])
+        if (Op.encoding == ENCODING_RM) {
+          if ((OperandType)Op.type == TYPE_M32)
+            insn->addressSize = 4;
+          break;
+        }
+    }
+  }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   if (decision->opcodeDecisions[insnCtx]
           .modRMDecisions[insn->opcode]
@@ -1065,6 +1194,13 @@ static int getInstructionID(struct InternalInstruction *insn,
 
   if (insn->mode == MODE_64BIT)
     attrMask |= ATTR_64BIT;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (insn->isIceCode)
+    attrMask |= ATTR_CE;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   if (insn->vectorExtensionType != TYPE_NO_VEX_XOP) {
     attrMask |= (insn->vectorExtensionType == TYPE_EVEX) ? ATTR_EVEX : ATTR_VEX;
@@ -1146,7 +1282,13 @@ static int getInstructionID(struct InternalInstruction *insn,
       attrMask |= ATTR_OPSIZE;
     if (insn->hasAdSize)
       attrMask |= ATTR_ADSIZE;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    if (insn->opcodeType == ONEBYTE && !insn->isIceCode) {
+#else // INTEL_FEATURE_ICECODE
     if (insn->opcodeType == ONEBYTE) {
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       if (insn->repeatPrefix == 0xf3 && (insn->opcode == 0x90))
         // Special support for PAUSE
         attrMask |= ATTR_XS;
