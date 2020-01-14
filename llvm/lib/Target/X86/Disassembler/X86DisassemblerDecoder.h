@@ -19,6 +19,9 @@
 #include "llvm/Support/X86DisassemblerDecoderCommon.h"
 
 namespace llvm {
+
+class MCInstrInfo;
+
 namespace X86Disassembler {
 
 // Accessor functions for various fields of an Intel instruction
@@ -627,7 +630,7 @@ struct InstructionSpecifier {
 /// The x86 internal instruction, which is produced by the decoder.
 struct InternalInstruction {
   // Opaque value passed to the reader
-  const void* readerArg;
+  llvm::ArrayRef<uint8_t> bytes;
   // The address of the next byte to read via the reader
   uint64_t readerCursor;
 
@@ -755,14 +758,8 @@ struct InternalInstruction {
 
 /// Decode one instruction and store the decoding results in
 /// a buffer provided by the consumer.
-/// \param insn      The buffer to store the instruction in.  Allocated by the
-///                  consumer.
-/// \param readerArg An argument to pass to the reader for storing context
-///                  specific to the consumer.  May be NULL.
-/// \param startLoc  The address (in the reader's address space) of the first
-///                  byte in the instruction.
-/// \param mode      The mode (16-bit, 32-bit, 64-bit) to decode in.
 /// \return          Nonzero if there was an error during decode, 0 otherwise.
+<<<<<<< HEAD
 int decodeInstruction(InternalInstruction *insn,
                       const void *readerArg,
                       const void *miiArg,
@@ -775,6 +772,9 @@ int decodeInstruction(InternalInstruction *insn,
                       DisassemblerMode mode);
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
+=======
+int decodeInstruction(InternalInstruction *insn, const MCInstrInfo *mii);
+>>>>>>> 1e8ce7492e91aa6db269334d12187c7ae854dccb
 
 /// Print a message to debugs()
 /// \param file The name of the file printing the debug message.
