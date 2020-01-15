@@ -283,16 +283,9 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
   if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
     auto &HT = *lr.Entry;
     if (ForceDelete)
-<<<<<<< HEAD
-      HT.RefCount = 1;
-    if (--HT.RefCount <= 0) {
-      assert(HT.RefCount == 0 && "did not expect a negative ref count");
-      DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
-=======
       HT.resetRefCount();
     if (HT.decRefCount() == 0) {
-      DP("Deleting tgt data " DPxMOD " of size %ld\n",
->>>>>>> e244145ab08ae79ea3d22c2fe479ec084dbd7742
+      DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
           DPxPTR(HT.TgtPtrBegin), Size);
       RTL->data_delete(RTLDeviceID, (void *)HT.TgtPtrBegin);
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
