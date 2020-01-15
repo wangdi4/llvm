@@ -410,6 +410,7 @@ void X86::relaxTlsLdToLe(uint8_t *loc, RelType type, uint64_t val) const {
   memcpy(loc - 2, inst, sizeof(inst));
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // If Intel CET (Control-Flow Enforcement Technology) is enabled,
 // we have to emit special PLT entries containing endbr32 instructions.
@@ -417,11 +418,21 @@ namespace {
 class IntelCET : public X86 {
 public:
   IntelCET();
+=======
+// If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
+// entries containing endbr32 instructions. A PLT entry will be split into two
+// parts, one in .plt.sec (writePlt), and the other in .plt (writeIBTPlt).
+namespace {
+class IntelIBT : public X86 {
+public:
+  IntelIBT();
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
   void writePlt(uint8_t *buf, const Symbol &sym,
                 uint64_t pltEntryAddr) const override;
   void writeIBTPlt(uint8_t *buf, size_t numEntries) const override;
 
+<<<<<<< HEAD
   enum { IBTPltHeaderSize = 16 };
 };
 } // namespace
@@ -429,13 +440,27 @@ public:
 IntelCET::IntelCET() { pltHeaderSize = 0; }
 
 void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
+=======
+  static const unsigned IBTPltHeaderSize = 16;
+};
+} // namespace
+
+IntelIBT::IntelIBT() { pltHeaderSize = 0; }
+
+void IntelIBT::writeGotPlt(uint8_t *buf, const Symbol &s) const {
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   uint64_t va =
       in.ibtPlt->getVA() + IBTPltHeaderSize + s.pltIndex * pltEntrySize;
   write32le(buf, va);
 }
 
+<<<<<<< HEAD
 void IntelCET::writePlt(uint8_t *buf, const Symbol &sym,
                         uint64_t pltEntryAddr) const {
+=======
+void IntelIBT::writePlt(uint8_t *buf, const Symbol &sym,
+                        uint64_t /*pltEntryAddr*/) const {
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   if (config->isPic) {
     const uint8_t inst[] = {
         0xf3, 0x0f, 0x1e, 0xfb,       // endbr32
@@ -456,7 +481,11 @@ void IntelCET::writePlt(uint8_t *buf, const Symbol &sym,
   write32le(buf + 6, sym.getGotPltVA());
 }
 
+<<<<<<< HEAD
 void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
+=======
+void IntelIBT::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   writePltHeader(buf);
   buf += IBTPltHeaderSize;
 
@@ -467,14 +496,21 @@ void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
       0x66, 0x90,                // nop
   };
 
+<<<<<<< HEAD
   for (size_t i = 0; i != numEntries; ++i) {
+=======
+  for (size_t i = 0; i < numEntries; ++i) {
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
     memcpy(buf, inst, sizeof(inst));
     write32le(buf + 5, i * sizeof(object::ELF32LE::Rel));
     write32le(buf + 10, -pltHeaderSize - sizeof(inst) * i - 30);
     buf += sizeof(inst);
   }
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
 namespace {
 class RetpolinePic : public X86 {
@@ -619,12 +655,19 @@ TargetInfo *getX86TargetInfo() {
     return &t;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
     static IntelCET t;
     return &t;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
+    static IntelIBT t;
+    return &t;
+  }
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
   static X86 t;
   return &t;

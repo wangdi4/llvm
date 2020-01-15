@@ -48,9 +48,13 @@ public:
     // All but PPC32 and PPC64 use the same format for .plt and .iplt entries.
     writePlt(buf, sym, pltEntryAddr);
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual void writeIBTPlt(uint8_t *buf, size_t numEntries) const {}
 #endif // INTEL_CUSTOMIZATION
+=======
+  virtual void writeIBTPlt(uint8_t *buf, size_t numEntries) const {}
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   virtual void addPltHeaderSymbols(InputSection &isec) const {}
   virtual void addPltSymbols(InputSection &isec, uint64_t off) const {}
 

@@ -515,12 +515,20 @@ template <class ELFT> void createSyntheticSections() {
       /*sort=*/false);
   add(in.relaIplt);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
     in.ibtPlt = make<IBTPltSection>();
     add(in.ibtPlt);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if ((config->emachine == EM_386 || config->emachine == EM_X86_64) &&
+      (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT)) {
+    in.ibtPlt = make<IBTPltSection>();
+    add(in.ibtPlt);
+  }
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
   in.plt = make<PltSection>();
   add(in.plt);

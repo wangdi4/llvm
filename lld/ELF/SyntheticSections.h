@@ -665,6 +665,14 @@ private:
 // Used for PLT entries. It usually has a PLT header for lazy binding. Each PLT
 // entry is associated with a JUMP_SLOT relocation, which may be resolved lazily
 // at runtime.
+//
+// On PowerPC, this section contains lazy symbol resolvers. A branch instruction
+// jumps to a PLT call stub, which will then jump to the target (BIND_NOW) or a
+// lazy symbol resolver.
+//
+// On x86 when IBT is enabled, this section (.plt.sec) contains PLT call stubs.
+// A call instruction jumps to a .plt.sec entry, which will then jump to the
+// target (BIND_NOW) or a .plt entry.
 class PltSection : public SyntheticSection {
 public:
   PltSection();
@@ -673,10 +681,16 @@ public:
   bool isNeeded() const override;
   void addSymbols();
   void addEntry(Symbol &sym);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   size_t getNumEntries() { return entries.size(); }
   size_t headerSize = 0;
 #endif // INTEL_CUSTOMIZATION
+=======
+  size_t getNumEntries() const { return entries.size(); }
+
+  size_t headerSize = 0;
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
 private:
   std::vector<const Symbol *> entries;
@@ -698,15 +712,24 @@ public:
   void addEntry(Symbol &sym);
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 // This is x86-only.
 class IBTPltSection : public SyntheticSection {
 public:
   IBTPltSection();
+<<<<<<< HEAD
   void writeTo(uint8_t *buf) override;
   size_t getSize() const override;
 };
 #endif // INTEL_CUSTOMIZATION
+=======
+  void writeTo(uint8_t *Buf) override;
+  size_t getSize() const override;
+};
+>>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
 class GdbIndexSection final : public SyntheticSection {
 public:
@@ -1193,6 +1216,7 @@ struct InStruct {
   IBTPltSection *ibtPlt;
 #endif // INTEL_CUSTOMIZATION
   PPC32Got2Section *ppc32Got2;
+  IBTPltSection *ibtPlt;
   RelocationBaseSection *relaPlt;
   RelocationBaseSection *relaIplt;
   StringTableSection *shStrTab;
