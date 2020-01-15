@@ -614,6 +614,14 @@ public:
   /// Iterator version of replaceIVByConstant().
   void replaceIVByConstant(iv_iterator IVI, int64_t Val);
 
+  /// Replaces the IV at loop level \p OldLevel to with an IV at \p NewLevel.
+  ///
+  /// If there are existing coefficients for the IV at \p NewLevel, the
+  /// coeficients from \p OldLevel will be added to those. For instance, given
+  /// the CE `%N * i1 + 2 * i2` a call to `replaceIV(2, 1)` will transform it
+  /// to `(2 + %N) * i1`.
+  void replaceIV(unsigned OldLevel, unsigned NewLevel);
+
   /// Returns the index associated with this blob iterator.
   unsigned getBlobIndex(const_blob_iterator CBlobI) const;
 

@@ -425,6 +425,16 @@ private:
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
                                    Value *NewPrivInst);
 
+  /// For array sections, generate a base + offset GEP corresponding to the
+  /// section's starting address. \p Orig is the base of the array section
+  /// coming from the frontend, \p ArrSecInfo is the data structure containg the
+  /// starting offset, size and stride for various dimensions of the section.
+  /// The generated GEP is inserted before \p InsertBefore.
+  static Value *
+  genBasePlusOffsetGEPForArraySection(Value *Orig,
+                                      const ArraySectionInfo &ArrSecInfo,
+                                      Instruction *InsertBefore);
+
   /// \name Reduction Specific Functions
   /// {@
 
@@ -467,6 +477,13 @@ private:
   /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
   /// Instructions, which is done \b before \p InsertPt.
   void computeArraySectionTypeOffsetSize(Item &CI, Instruction *InsertPt);
+
+  /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
+  /// ArraySectionInfo \p ArrSecInfo. \p Orig is the base of the array section.
+  /// The code emitted is inserted \b before \p InsertPt.
+  void computeArraySectionTypeOffsetSize(Value *Orig,
+                                         ArraySectionInfo &ArrSecInfo,
+                                         bool IsByRef, Instruction *InsertPt);
 
   /// Transform all array sections in \p W region's map clauses
   /// into map chains. New instructions to compute parameters of
