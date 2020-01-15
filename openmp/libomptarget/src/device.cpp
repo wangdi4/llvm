@@ -384,7 +384,7 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   DataMapMtx.lock();
 
   for (auto &HT : HostDataToTargetMap) {
-    if (!CONSIDERED_INF(HT.RefCount))
+    if (!HT.isRefCountInf())
       continue;
 
     void *TgtPtrBegin = reinterpret_cast<void *>(HT.TgtPtrBegin);
