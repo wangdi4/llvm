@@ -611,7 +611,6 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
           return SI && SI->getPointerOperand() != &LI &&
                  !SI->getPointerOperand()->isSwiftError();
         })) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // For DTRANS and other optimizations that require the type info to be
       // intact, we want to delay modifying some load/store sequences that
@@ -639,13 +638,8 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
           return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-      LoadInst *NewLoad = combineLoadToNewType(
-          IC, LI,
-          Type::getIntNTy(LI.getContext(), DL.getTypeStoreSizeInBits(Ty)));
-=======
       LoadInst *NewLoad = IC.combineLoadToNewType(
           LI, Type::getIntNTy(LI.getContext(), DL.getTypeStoreSizeInBits(Ty)));
->>>>>>> b4dd928ffbb8232d6909b640d3affcd531681ffb
       // Replace all the stores with stores of the newly loaded value.
       for (auto UI = LI.user_begin(), UE = LI.user_end(); UI != UE;) {
         auto *SI = cast<StoreInst>(*UI++);
