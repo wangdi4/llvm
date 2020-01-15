@@ -151,13 +151,7 @@ void X86_64::writePltHeader(uint8_t *buf) const {
   };
   memcpy(buf, pltData, sizeof(pltData));
   uint64_t gotPlt = in.gotPlt->getVA();
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   uint64_t plt = in.ibtPlt ? in.ibtPlt->getVA() : in.plt->getVA();
-#endif // INTEL_CUSTOMIZATION
-=======
-  uint64_t plt = in.ibtPlt ? in.ibtPlt->getVA() : in.plt->getVA();
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   write32le(buf + 2, gotPlt - plt + 2); // GOTPLT+8
   write32le(buf + 8, gotPlt - plt + 4); // GOTPLT+16
 }
@@ -574,15 +568,6 @@ bool X86_64::adjustPrologueForCrossSplitStack(uint8_t *loc, uint8_t *end,
   return false;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-// If Intel CET (Control-Flow Enforcement Technology) is enabled,
-// we have to emit special PLT entries containing endbr64 instructions.
-namespace {
-class IntelCET : public X86_64 {
-public:
-  IntelCET();
-=======
 // If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
 // entries containing endbr64 instructions. A PLT entry will be split into two
 // parts, one in .plt.sec (writePlt), and the other in .plt (writeIBTPlt).
@@ -590,21 +575,11 @@ namespace {
 class IntelIBT : public X86_64 {
 public:
   IntelIBT();
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
   void writePlt(uint8_t *buf, const Symbol &sym,
                 uint64_t pltEntryAddr) const override;
   void writeIBTPlt(uint8_t *buf, size_t numEntries) const override;
 
-<<<<<<< HEAD
-  enum { IBTPltHeaderSize = 16 };
-};
-} // namespace
-
-IntelCET::IntelCET() { pltHeaderSize = 0; }
-
-void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
-=======
   static const unsigned IBTPltHeaderSize = 16;
 };
 } // namespace
@@ -612,38 +587,23 @@ void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
 IntelIBT::IntelIBT() { pltHeaderSize = 0; }
 
 void IntelIBT::writeGotPlt(uint8_t *buf, const Symbol &s) const {
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   uint64_t va =
       in.ibtPlt->getVA() + IBTPltHeaderSize + s.pltIndex * pltEntrySize;
   write64le(buf, va);
 }
 
-<<<<<<< HEAD
-void IntelCET::writePlt(uint8_t *buf, const Symbol &sym,
-                        uint64_t pltEntryAddr) const {
-  const uint8_t inst[] = {
-=======
 void IntelIBT::writePlt(uint8_t *buf, const Symbol &sym,
                         uint64_t pltEntryAddr) const {
   const uint8_t Inst[] = {
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
       0xf3, 0x0f, 0x1e, 0xfa,       // endbr64
       0xff, 0x25, 0,    0,    0, 0, // jmpq *got(%rip)
       0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
   };
-<<<<<<< HEAD
-  memcpy(buf, inst, sizeof(inst));
-  write32le(buf + 6, sym.getGotPltVA() - pltEntryAddr - 10);
-}
-
-void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
-=======
   memcpy(buf, Inst, sizeof(Inst));
   write32le(buf + 6, sym.getGotPltVA() - pltEntryAddr - 10);
 }
 
 void IntelIBT::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
   writePltHeader(buf);
   buf += IBTPltHeaderSize;
 
@@ -661,10 +621,6 @@ void IntelIBT::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
     buf += sizeof(inst);
   }
 }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
 // These nonstandard PLT entries are to migtigate Spectre v2 security
 // vulnerability. In order to mitigate Spectre v2, we want to avoid indirect
@@ -793,19 +749,10 @@ static TargetInfo *getTargetInfo() {
     return &t;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
-    static IntelCET t;
-    return &t;
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
   if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
     static IntelIBT t;
     return &t;
   }
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
   static X86_64 t;
   return &t;

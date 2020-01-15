@@ -681,16 +681,9 @@ public:
   bool isNeeded() const override;
   void addSymbols();
   void addEntry(Symbol &sym);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  size_t getNumEntries() { return entries.size(); }
-  size_t headerSize = 0;
-#endif // INTEL_CUSTOMIZATION
-=======
   size_t getNumEntries() const { return entries.size(); }
 
   size_t headerSize = 0;
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
 private:
   std::vector<const Symbol *> entries;
@@ -712,24 +705,13 @@ public:
   void addEntry(Symbol &sym);
 };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 // This is x86-only.
 class IBTPltSection : public SyntheticSection {
 public:
   IBTPltSection();
-<<<<<<< HEAD
-  void writeTo(uint8_t *buf) override;
-  size_t getSize() const override;
-};
-#endif // INTEL_CUSTOMIZATION
-=======
   void writeTo(uint8_t *Buf) override;
   size_t getSize() const override;
 };
->>>>>>> 7cd429f27d4886bb841ed0e3702e970f5f6cccd1
 
 class GdbIndexSection final : public SyntheticSection {
 public:
@@ -1212,9 +1194,6 @@ struct InStruct {
   SyntheticSection *partIndex;
   PltSection *plt;
   IpltSection *iplt;
-#if INTEL_CUSTOMIZATION
-  IBTPltSection *ibtPlt;
-#endif // INTEL_CUSTOMIZATION
   PPC32Got2Section *ppc32Got2;
   IBTPltSection *ibtPlt;
   RelocationBaseSection *relaPlt;
