@@ -3,7 +3,7 @@
 ; by VPValue-based code generator.
 
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -debug-only=vplan-divergence-analysis 2>&1 < %s -S | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
 
 ; CHECK: Printing Divergence info for Loop
 ; CHECK-EMPTY:

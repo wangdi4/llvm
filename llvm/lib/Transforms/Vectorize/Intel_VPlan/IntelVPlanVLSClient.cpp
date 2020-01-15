@@ -170,6 +170,8 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     if (IterInst->getOpcode() == Instruction::Load ||
         IterInst->getOpcode() == Instruction::Store) {
       auto *IterSCEV = getSCEVForVPValue(getLoadStorePointerOperand(IterInst));
+      if (isa<SCEVCouldNotCompute>(IterSCEV))
+        return false;
 
       // Constant distance between From and IterInst implies that the strides of
       // IterInst and From are the same.

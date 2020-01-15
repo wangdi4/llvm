@@ -1,8 +1,8 @@
 ; Test to check that DA marks StructType pointer GEPs with appropriate shape.
 
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -vplan-force-vf=4 -S 2>&1 | FileCheck %s
-; RUN: opt %s -passes="vplan-driver" -debug-only=vplan-divergence-analysis -vplan-force-vf=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
 ; Check DA results
 ; CHECK-LABEL: Basic Block: BB3
