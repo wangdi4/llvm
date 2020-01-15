@@ -21,11 +21,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include <llvm/IR/IntrinsicInst.h>
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 
 #include <memory>
 
@@ -1101,6 +1102,55 @@ HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
   std::tie(HInst, Call) = createCallImpl(StackrestoreFunc, Ops);
 
   Call->setDebugLoc(AddrArg->getDebugLoc());
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
+                                   HLRegion *Region, StringRef Message) {
+  auto &Ctx = getContext();
+  auto &DRU = getDDRefUtils();
+
+  if (!TLI.has(LibFunc_puts))
+    return nullptr;
+
+  StringRef PutsName = TLI.getName(LibFunc_puts);
+  FunctionCallee PutsCallee = getModule().getOrInsertFunction(
+      PutsName, Type::getInt32Ty(Ctx), Type::getInt8PtrTy(Ctx, 0));
+  inferLibFuncAttributes(&getModule(), PutsName, TLI);
+
+  GlobalVariable *ConstStr =
+      DummyIRBuilder->CreateGlobalString(Message, "hir.str");
+
+  unsigned ConstStrBlobIndex = InvalidBlobIndex;
+  getBlobUtils().createGlobalVarBlob(ConstStr, true, &ConstStrBlobIndex);
+  assert(ConstStrBlobIndex != InvalidBlobIndex);
+
+  Region->addLiveInTemp(getBlobUtils().getTempBlobSymbase(ConstStrBlobIndex),
+                        ConstStr);
+
+  Type *IntPtr = getDataLayout().getIntPtrType(Ctx, 0);
+
+  RegDDRef *ConstStrRef =
+      DRU.createAddressOfRef(ConstStrBlobIndex, 0, GenericRvalSymbase);
+
+  auto &CU = getCanonExprUtils();
+  ConstStrRef->addDimension(CU.createCanonExpr(IntPtr, 0));
+  ConstStrRef->addDimension(CU.createCanonExpr(IntPtr, 0));
+
+  {
+    SmallVector<BlobDDRef *, 8> NewBlobs;
+    ConstStrRef->updateBlobDDRefs(NewBlobs);
+  }
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(PutsCallee, {ConstStrRef});
+
+  if (const Function *F =
+          dyn_cast<Function>(PutsCallee.getCallee()->stripPointerCasts())) {
+    Call->setCallingConv(F->getCallingConv());
+  }
 
   return HInst;
 }

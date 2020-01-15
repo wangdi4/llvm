@@ -869,6 +869,10 @@ public:
   /// Creates a new stackrestore intrinsic call.
   HLInst *createStackrestore(RegDDRef *AddrArg);
 
+  /// Creates a 'puts' debug call.
+  HLInst *createDbgPuts(const TargetLibraryInfo &TLI, HLRegion *Region,
+                        StringRef Message);
+
   /// Creates a new vector reduce intrinsic call for FP min/max reduction.
   HLInst *createFPMinMaxVectorReduce(RegDDRef *VecRef,
                                      Intrinsic::ID VecReduceIntrin,

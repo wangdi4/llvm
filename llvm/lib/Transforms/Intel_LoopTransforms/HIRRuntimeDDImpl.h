@@ -221,7 +221,8 @@ private:
                         SmallVectorImpl<unsigned> &NewLiveinSymbases);
 
   // \brief Modifies HIR implementing specified tests.
-  static void generateHLNodes(LoopContext &Context);
+  static void generateHLNodes(LoopContext &Context,
+                              const TargetLibraryInfo &TLI);
 
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(LoopContext &Context);
