@@ -14,7 +14,7 @@ define void @test_1(i32* nocapture %ary) {
 ;    ary[i + 1] = t1; // <- atomic store
 ;  }
 ;
-; CHECK:       Recieved a vector of memrefs (2):
+; CHECK:       Received a vector of memrefs (2):
 ; CHECK-NEXT:    #1 <4 x 32> SLoad:
 ; CHECK-NEXT:    #2 <4 x 32> SStore:
 ;
@@ -62,7 +62,7 @@ define void @test_2(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ;
-; CHECK:       Recieved a vector of memrefs (2):
+; CHECK:       Received a vector of memrefs (2):
 ; CHECK-NEXT:    #3 <4 x 32> SLoad:
 ; CHECK-NEXT:    #4 <4 x 32> SStore:
 ;

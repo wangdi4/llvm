@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 ;
 ; Check that no memrefs are created.
-; CHECK:  Recieved a vector of memrefs (0)
+; CHECK:  Received a vector of memrefs (0)
 ;
 define void @foo(<64 x i32>* nocapture %ary) {
 entry:
