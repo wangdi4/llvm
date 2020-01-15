@@ -4466,11 +4466,11 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         // updated to the proper library name
         if (A->getValue() == StringRef("libmkl_sycl")) {
           LibName = C.getDefaultToolChain().GetMKLLibPath();
-          llvm::sys::path::append(LibName, "libmkl_sycl.lib");
+          llvm::sys::path::append(LibName, "mkl_sycl.lib");
         }
         if (A->getValue() == StringRef("libdaal_sycl")) {
           LibName = C.getDefaultToolChain().GetDAALLibPath();
-          llvm::sys::path::append(LibName, "libdaal_sycl.lib");
+          llvm::sys::path::append(LibName, "daal_sycl.lib");
         }
       }
       Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
