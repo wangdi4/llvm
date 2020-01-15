@@ -1700,6 +1700,7 @@ Instruction *InstCombiner::narrowMathIfNoOverflow(BinaryOperator &BO) {
   return CastInst::Create(CastOpc, NarrowBO, BO.getType());
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // TODO: Can it be merged into combineMetadata* in Local.h?
 
@@ -1738,6 +1739,9 @@ static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
 #endif // INTEL_CUSTOMIZATION
 
 bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
+=======
+static bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
+>>>>>>> df186507e1d07c3ddba091a076ba7a33dbdc5867
   // At least one GEP must be inbounds.
   if (!GEP1.isInBounds() && !GEP2.isInBounds())
     return false;
