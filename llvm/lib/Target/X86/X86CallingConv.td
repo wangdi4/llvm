@@ -386,6 +386,10 @@ def RetCC_X86_Win64_C : CallingConv<[
   // The X86-Win64 calling convention always returns __m64 values in RAX.
   CCIfType<[x86mmx], CCBitConvertToType<i64>>,
 
+  // GCC returns FP values in RAX on Win64.
+  CCIfType<[f32], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i32>>>,
+  CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
+
   // Otherwise, everything is the same as 'normal' X86-64 C CC.
   CCDelegateTo<RetCC_X86_64_C>
 ]>;
@@ -756,7 +760,6 @@ def CC_X86_Win64_C : CallingConv<[
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-
   // 256 bit vectors are passed by pointer
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -781,6 +784,16 @@ def CC_X86_Win64_C : CallingConv<[
   // The first 4 MMX vector arguments are passed in GPRs.
   CCIfType<[x86mmx], CCBitConvertToType<i64>>,
 
+  // If SSE was disabled, pass FP values smaller than 64-bits as integers in
+  // GPRs or on the stack.
+  CCIfType<[f32], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i32>>>,
+  CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
+
+  // The first 4 FP/Vector arguments are passed in XMM registers.
+  CCIfType<[f32, f64],
+           CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
+                                   [RCX , RDX , R8  , R9  ]>>,
+
   // The first 4 integer arguments are passed in integer registers.
   CCIfType<[i8 ], CCAssignToRegWithShadow<[CL  , DL  , R8B , R9B ],
                                           [XMM0, XMM1, XMM2, XMM3]>>,
@@ -798,6 +811,7 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfType<[i64], CCAssignToRegWithShadow<[RCX , RDX , R8  , R9  ],
                                           [XMM0, XMM1, XMM2, XMM3]>>,
 
+<<<<<<< HEAD
   // The first 4 FP/Vector arguments are passed in XMM registers.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -809,6 +823,8 @@ def CC_X86_Win64_C : CallingConv<[
            CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
                                    [RCX , RDX , R8  , R9  ]>>,
 
+=======
+>>>>>>> 40cd26c7008183e01d8276396339aea2a99d83d7
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
 #if INTEL_CUSTOMIZATION
