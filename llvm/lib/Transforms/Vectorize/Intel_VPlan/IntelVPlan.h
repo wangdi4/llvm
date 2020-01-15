@@ -323,7 +323,7 @@ class VPInstruction : public VPUser,
     ///      holding the actual HIR data.
     ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
     ///      We use a void pointer to represent this case.
-    PointerUnion3<MasterVPInstData *, VPInstruction *, void *> MasterData =
+    PointerUnion<MasterVPInstData *, VPInstruction *, void *> MasterData =
         (int *)nullptr;
 
     // Return the VPInstruction data of this VPInstruction if it's a master or
