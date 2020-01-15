@@ -187,12 +187,8 @@ static bool IsSyclMathFunc(unsigned BuiltinID) {
   }
   return true;
 }
-<<<<<<< HEAD
-static bool isKnownGoodDecl(const Decl *D) {
-=======
 
 bool Sema::isKnownGoodSYCLDecl(const Decl *D) {
->>>>>>> f537293244e6a05ed852d3679e79f1629d256115
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
     const IdentifierInfo *II = FD->getIdentifier();
     const DeclContext *DC = FD->getDeclContext();
