@@ -5268,13 +5268,12 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     return !DisambiguatingWithExpression ||
            !isStartOfObjCClassMessageMissingOpenBracket();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // CQ381345: OpenCL is not supported in Intel compatibility mode.
   case tok::kw___generic:
     return !getLangOpts().IntelCompat;
 #endif // INTEL_CUSTOMIZATION
-=======
+
     // placeholder-type-specifier
   case tok::annot_template_id: {
     TemplateIdAnnotation *TemplateId = takeTemplateIdAnnotation(Tok);
@@ -5282,7 +5281,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
         (NextToken().is(tok::kw_auto) || NextToken().is(tok::kw_decltype));
   }
 
->>>>>>> ff1e0fce817e01f0288fad6a2607dd173180aabd
   case tok::kw___declspec:
   case tok::kw___cdecl:
   case tok::kw___stdcall:

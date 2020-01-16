@@ -952,13 +952,9 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
     : ConstantArrayTypes(this_()), FunctionProtoTypes(this_()),
       TemplateSpecializationTypes(this_()),
       DependentTemplateSpecializationTypes(this_()),
-<<<<<<< HEAD
-      SubstTemplateTemplateParmPacks(this_()), SourceMgr(SM), LangOpts(LOpts),
-      DisabledFPContract(false), // INTEL
-=======
       SubstTemplateTemplateParmPacks(this_()),
       CanonTemplateTemplateParms(this_()), SourceMgr(SM), LangOpts(LOpts),
->>>>>>> ff1e0fce817e01f0288fad6a2607dd173180aabd
+      DisabledFPContract(false), // INTEL
       SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
       XRayFilter(new XRayFunctionFilter(LangOpts.XRayAlwaysInstrumentFiles,
                                         LangOpts.XRayNeverInstrumentFiles,
