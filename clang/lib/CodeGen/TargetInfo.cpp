@@ -1838,17 +1838,13 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 }
 
 void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   ASTContext &Context = getContext();
   if (doOpenCLClassification(FI, Context))
     return;
 #endif // INTEL_CUSTOMIZATION
 
-  CCState State(FI.getCallingConvention());
-=======
   CCState State(FI);
->>>>>>> 8e780252a7284be45cf1ba224cabd884847e8e92
   if (IsMCUABI)
     State.FreeRegs = 3;
   else if (State.CC == llvm::CallingConv::X86_FastCall)
