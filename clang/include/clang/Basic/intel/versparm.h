@@ -1,6 +1,6 @@
 //==--- versparm.h - Xmain-specific version information --------*- C++ -*---==//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,7 +10,7 @@
 #define VERSTR(x)  #x
 #define XSTR(x)    VERSTR(x)
 
-#define XMAIN_VERSION_NUMBER   "201900"
+#define XMAIN_VERSION_NUMBER   "202100"
 #define XMAIN_VERSION_STRING   "x.0"
 #define XMAIN_VERSION_MINOR     x
 #define XMAIN_VERSION_UPDATE    0

@@ -587,12 +587,13 @@ public:
   bool hasIVConstCoeff(const_iv_iterator ConstIVIter) const;
 
   /// Adds to the existing blob/constant IV coefficients at a particular loop
-  /// level. The new IV coefficient looks something like (C1 * b1 + C2 * b2).
-  /// Index can be set to zero if only a constant needs to be added. For example
-  /// if the canon expr looks like (2 * n) * i1 before change, it will be
-  /// modified to (3 + 2 * n) * i1 after a call to addIV(1, 0, 3). If IsMathAdd
-  /// is set to true (default is false), it performs mathematical addition by
-  /// considering denominator in addition.
+  /// level. The new IV coefficient looks something like `(C1 * b1 + C2 * b2)`.
+  /// \p Index can be set to #InvalidBlobIndex if only a constant needs to be
+  /// added. For example if the canon expr looks like `(2 * n) * i1` before
+  /// change, it will be modified to `(3 + 2 * n) * i1` after a call to
+  /// `addIV(1, InvalidBlobIndex, 3)`. If \p IsMathAdd is set to true (default
+  /// is false), it performs mathematical addition by considering denominator in
+  /// addition.
   void addIV(unsigned Lvl, unsigned Index, int64_t Coeff,
              bool IsMathAdd = false);
   /// Iterator version of addIV().
