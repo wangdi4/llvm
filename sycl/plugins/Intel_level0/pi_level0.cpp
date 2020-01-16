@@ -1539,27 +1539,54 @@ pi_result L0(piEnqueueKernelLaunch)(
   pi_event *        event)
 {
   ze_thread_group_dimensions_t thread_group_dimensions {1, 1, 1};
-  uint32_t wg[3] = {1, 1, 1};
+  uint32_t wg[3];
 
-  // TODO: is using {1,1,1} OK when local_work_size is NULL?
+  // global_work_size of unused dimensions must be set to 1
+  if (work_dim < 3) {
+    pi_assert(global_work_size[2] == 1);
+  }
+  if (work_dim < 2) {
+    pi_assert(global_work_size[1] == 1);
+  }
+  if (local_work_size) {
+    wg[0]= pi_cast<uint32_t>(local_work_size[0]);
+    wg[1]= pi_cast<uint32_t>(local_work_size[1]);
+    wg[2]= pi_cast<uint32_t>(local_work_size[2]);
+  } else {
+    ZE_CALL(zeKernelSuggestGroupSize(kernel->L0Kernel, global_work_size[0],
+             global_work_size[1], global_work_size[2], &wg[0], &wg[1], &wg[2]));
+  }
+
   // TODO: assert if sizes do not fit into 32-bit?
   switch (work_dim) {
   case 3:
-    wg[2] = local_work_size ? pi_cast<uint32_t>(local_work_size[2]) : 1;
-    thread_group_dimensions.groupCountZ = pi_cast<uint32_t>(global_work_size[2] / wg[2]);
-    // fallthru
+    thread_group_dimensions.groupCountX =
+                                pi_cast<uint32_t>(global_work_size[0] / wg[0]);
+    thread_group_dimensions.groupCountY =
+                                pi_cast<uint32_t>(global_work_size[1] / wg[1]);
+    thread_group_dimensions.groupCountZ =
+                                pi_cast<uint32_t>(global_work_size[2] / wg[2]);
+    break;
   case 2:
-    wg[1] = local_work_size ? pi_cast<uint32_t>(local_work_size[1]) : 1;
-    thread_group_dimensions.groupCountY = pi_cast<uint32_t>(global_work_size[1] / wg[1]);
-    // fallthru
+    thread_group_dimensions.groupCountX =
+                                pi_cast<uint32_t>(global_work_size[0] / wg[0]);
+    thread_group_dimensions.groupCountY =
+                                pi_cast<uint32_t>(global_work_size[1] / wg[1]);
+    wg[2] = 1;
+    break;
   case 1:
-    wg[0] = local_work_size ? pi_cast<uint32_t>(local_work_size[0]) : 1;
-    thread_group_dimensions.groupCountX = pi_cast<uint32_t>(global_work_size[0] / wg[0]);
+    thread_group_dimensions.groupCountX =
+                                pi_cast<uint32_t>(global_work_size[0] / wg[0]);
+    wg[1] = wg[2] = 1;
     break;
 
   default:
     pi_throw("piEnqueueKernelLaunch: unsupported work_dim");
   }
+
+  pi_assert(global_work_size[0] == (thread_group_dimensions.groupCountX * wg[0]));
+  pi_assert(global_work_size[1] == (thread_group_dimensions.groupCountY * wg[1]));
+  pi_assert(global_work_size[2] == (thread_group_dimensions.groupCountZ * wg[2]));
 
   ZE_CALL(zeKernelSetGroupSize(kernel->L0Kernel, wg[0], wg[1], wg[2]));
 
