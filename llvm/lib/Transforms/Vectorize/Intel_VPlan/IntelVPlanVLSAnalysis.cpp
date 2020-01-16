@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #endif // INTEL_CUSTOMIZATION
@@ -39,6 +40,11 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
     AccKind = OVLSAccessKind::SStore;
     AccessSize = DL.getTypeAllocSizeInBits(VPInst->getOperand(0)->getType());
   }
+
+  // Skip volatile and atomic memory accesses.
+  if (auto *I = dyn_cast_or_null<Instruction>(VPInst->getUnderlyingValue()))
+    if (isVolatileOrAtomic(I))
+      return nullptr;
 
   OVLSType Ty(AccessSize, VF);
 

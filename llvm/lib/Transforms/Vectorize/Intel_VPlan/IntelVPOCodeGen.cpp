@@ -155,6 +155,18 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       NewLoad->setSyncScopeID(Load->getSyncScopeID());
       NewLoad->setAlignment(MaybeAlign{Load->getAlignment()});
     }
+  } else if (VPInst->getOpcode() == Instruction::Store) {
+    assert(ScalarOperands.size() == 2 &&
+           "Store VPInstruction has incorrect number of operands.");
+    SerialInst = Builder.CreateStore(Ops[0], Ops[1]);
+    if (auto *Underlying = VPInst->getUnderlyingValue()) {
+      auto *NewStore = cast<StoreInst>(SerialInst);
+      auto *OldStore = cast<StoreInst>(Underlying);
+      NewStore->setVolatile(OldStore->isVolatile());
+      NewStore->setOrdering(OldStore->getOrdering());
+      NewStore->setSyncScopeID(OldStore->getSyncScopeID());
+      NewStore->setAlignment(MaybeAlign{OldStore->getAlignment()});
+    }
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
@@ -206,7 +218,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable(
         "Currently serialization of only binop instructions, "
-        "load, call, gep, insert/extract-element, alloca is supported.");
+        "load, store, call, gep, insert/extract-element, alloca is supported.");
   }
 
   return SerialInst;
@@ -2113,6 +2125,10 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   VPValue *Ptr = VPInst->getOperand(1);
   unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
 
+  if (auto *Underlying = VPInst->getUnderlyingValue())
+    if (!cast<StoreInst>(Underlying)->isSimple())
+      return serializeWithPredication(VPInst);
+
   // Handle vectorization of a linear value store.
   if (isVPValueLinear(Ptr)) {
     llvm_unreachable("VPVALCG: Vectorization of linear store not uplifted.");
@@ -2126,13 +2142,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // vectorized code.
   // TODO: Extend the optimization for masked uniform stores too. Will need
   // all-zero check (like masked uniform load) and functionality to find out
-  // last unmasked lane for divergent data operand. This optimization is also
-  // disabled for volatile/atomic stores.
-  bool IsSimpleStore = true;
-  if (Instruction *I = VPInst->getInstruction())
-    IsSimpleStore = cast<StoreInst>(I)->isSimple();
-
-  if (isVPValueUniform(Ptr, Plan) && !MaskValue && IsSimpleStore) {
+  // last unmasked lane for divergent data operand.
+  if (isVPValueUniform(Ptr, Plan) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
     VPValue *DataOp = VPInst->getOperand(0);
     // Extract last lane of data operand to generate scalar store. For uniform
