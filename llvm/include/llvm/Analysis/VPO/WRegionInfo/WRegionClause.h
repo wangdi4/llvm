@@ -808,15 +808,20 @@ private:
   Value *BasePtr;
   Value *SectionPtr;
   Value *Size;
+  uint64_t MapTypes;
 public:
   MapAggrTy(Value *BP, Value *SP, Value *Sz) : BasePtr(BP), SectionPtr(SP),
                                                Size(Sz) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT) : BasePtr(BP),
+                                SectionPtr(SP), Size(Sz), MapTypes(MT) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
+  void setMapTypes(uint64_t MT) { MapTypes = MT;}
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
+  uint64_t getMapTypes() const { return MapTypes; }
 };
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
@@ -958,13 +963,16 @@ public:
         Value *BasePtr = Aggr->getBasePtr();
         Value *SectionPtr = Aggr->getSectionPtr();
         Value *Size = Aggr->getSize();
+        uint64_t MapTypes = Aggr->getMapTypes();
         OS << "<" ;
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
         SectionPtr->printAsOperand(OS, PrintType);
         OS << ", ";
         Size->printAsOperand(OS, PrintType);
-        OS << "> ";
+        OS << ", ";
+        OS << MapTypes;
+        OS <<  "> ";
       }
       OS << ") ";
     } else if (getIsArraySection()) {

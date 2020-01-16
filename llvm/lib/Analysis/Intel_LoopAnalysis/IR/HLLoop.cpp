@@ -1030,7 +1030,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
   return ParentLp->getNestingLevel();
 }
 
-void HLLoop::replaceByFirstIteration() {
+void HLLoop::replaceByFirstIteration(bool ExtractPostexit) {
   unsigned Level = getNestingLevel();
   const RegDDRef *LB = getLowerDDRef();
 
@@ -1038,7 +1038,10 @@ void HLLoop::replaceByFirstIteration() {
   SmallPtrSet<HLLoop *, 8> InnerLoops;
 
   extractZtt(Level - 1);
-  extractPreheaderAndPostexit();
+  extractPreheader();
+  if (ExtractPostexit) {
+    extractPostexit();
+  }
 
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),

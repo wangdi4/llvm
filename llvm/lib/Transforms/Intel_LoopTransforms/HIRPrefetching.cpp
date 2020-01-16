@@ -94,12 +94,13 @@ private:
                   SmallVectorImpl<const RegDDRef *> &PrefetchCandidates);
 
   void collectPrefetchCandidates(
-      RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride,
+      RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
       SmallVectorImpl<const RegDDRef *> &PrefetchCandidates);
 };
 } // namespace
 
-static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
+static const RegDDRef *getScalarRef(const RegDDRef *FirstRef,
+                                    unsigned &VecNumElements) {
   bool HasVectorIndex = false;
 
   for (auto *IndexCE :
@@ -134,6 +135,7 @@ static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
         // the CanonExpr
         ConstantDataVector *CV = cast<ConstantDataVector>(VecConst);
         int64_t SExtValue = CV->getElementAsAPInt(0).getSExtValue();
+        VecNumElements = CV->getNumElements();
         IndexCE->addConstant(Blob.Coeff * SExtValue, false);
         BlobIdxToRemove.push_back(Blob.Index);
       }
@@ -152,18 +154,33 @@ static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
 // Collect the prefetching  candidates by computing the number of Streams in the
 // MemRefs
 void HIRPrefetching::collectPrefetchCandidates(
-    RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride,
+    RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
     SmallVectorImpl<const RegDDRef *> &PrefetchCandidates) {
   const RegDDRef *FirstRef = RefGroup.front();
+  unsigned VecNumElements = 0;
 
-  const RegDDRef *ScalarRef = getScalarRef(FirstRef);
+  const RegDDRef *ScalarRef = getScalarRef(FirstRef, VecNumElements);
 
   PrefetchCandidates.push_back(ScalarRef);
 
-  if (ScalarRef != FirstRef) {
+  unsigned ScalarRefSize = ScalarRef->getDestTypeSizeInBytes();
+
+  // When the stride exceeds trip count, we need to create multiple scalar refs
+  // for vector refs as they belong to different memory streams
+  if (VecNumElements > 0 && Stride / ScalarRefSize >= TripCount) {
+    for (unsigned I = 1; I < VecNumElements; ++I) {
+      RegDDRef *StrideRef = ScalarRef->clone();
+      StrideRef->shift(Level, I);
+      PrefetchCandidates.push_back(StrideRef);
+    }
+  }
+
+  // TODO: Compare the stride with the other vector refs in the ref group
+  if (VecNumElements > 0) {
     return;
   }
 
+  // Rest of the code is precessing scalar refs case
   const RegDDRef *PrevRef = FirstRef;
   const RegDDRef *CurRef = nullptr;
 
@@ -231,7 +248,8 @@ bool HIRPrefetching::doAnalysis(
 
     Stride = std::abs(ConstStride);
 
-    collectPrefetchCandidates(RefGroup, TripCount, Stride, PrefetchCandidates);
+    collectPrefetchCandidates(RefGroup, TripCount, Stride, Level,
+                              PrefetchCandidates);
   }
 
   if (PrefetchCandidates.size() < NumMemoryStreamsThreshold &&

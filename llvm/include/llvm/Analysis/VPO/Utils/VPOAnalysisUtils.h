@@ -106,6 +106,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Id = QUAL_OMP_PRIVATE
 #endif // INTEL_CUSTOMIZATION
 ///
+/// 9.  ALWAYS modifier for map clause. Example:
+///      FullName = "QUAL.OMP.MAP:ALWAYS"
+///      BaseName = "QUAL.OMP.MAP"
+///      Modifier = "ALWAYS"
+///      Id = QUAL_OMP_MAP
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -117,6 +123,7 @@ private:
   // These properties are extracted from the Modifier substring
 
   // Data properties
+  bool IsAlways:1;
   bool IsArraySection:1;
   bool IsByRef:1;
   bool IsNonPod:1;
@@ -150,6 +157,7 @@ public:
   void setBaseName(StringRef S) { BaseName = S; }
   void setModifier(StringRef S) { Modifier = S; }
   void setId(int N) { Id = N; }
+  void setIsAlways()               { IsAlways = true; }
   void setIsArraySection()         { IsArraySection = true; }
   void setIsByRef()                { IsByRef = true; }
   void setIsNonPod()               { IsNonPod = true; }
@@ -168,6 +176,7 @@ public:
   StringRef getBaseName() const { return BaseName; }
   StringRef getModifier() const { return Modifier; }
   int getId() const { return Id; }
+  bool getIsAlways() const { return IsAlways; }
   bool getIsArraySection() const { return IsArraySection; }
   bool getIsByRef() const { return IsByRef; }
   bool getIsNonPod() const { return IsNonPod; }

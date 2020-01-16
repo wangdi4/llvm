@@ -567,7 +567,7 @@ public:
   void removePostexit();
 
   /// Replaces the loop with its body and IVs with the lower bound.
-  void replaceByFirstIteration();
+  void replaceByFirstIteration(bool ExtractPostexit = true);
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }

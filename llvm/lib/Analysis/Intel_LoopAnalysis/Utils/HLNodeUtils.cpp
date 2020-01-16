@@ -4600,7 +4600,8 @@ public:
 
       LORBuilder(*Loop).preserveLostLoopOptReport();
 
-      Loop->replaceByFirstIteration();
+      // Do not extract postexit as they will become dead nodes because of goto.
+      Loop->replaceByFirstIteration(false);
       RedundantEarlyExitLoops++;
 
       // Have to handle the label again in the context of parent loop.

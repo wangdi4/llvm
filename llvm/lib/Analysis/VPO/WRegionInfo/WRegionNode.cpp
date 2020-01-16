@@ -819,7 +819,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
     // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
-    assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+    assert((NumArgs == 3 || NumArgs == 4) && "Malformed MAP:AGGR[HEAD] clause");
 
     assert (MapKind != MapItem::WRNMapUpdateTo &&
             MapKind != MapItem::WRNMapUpdateFrom &&
@@ -829,7 +829,13 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     Value *BasePtr = (Value *)Args[0];
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
-    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
+    uint64_t MapTypes = 0;
+    if (NumArgs == 4) {
+      assert(isa<ConstantInt>(Args[3]) && "IR is corrupt");
+      ConstantInt *CI = dyn_cast<ConstantInt>(Args[3]);
+      MapTypes = CI->getZExtValue();
+    }
+    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapTypes);
 
     MapItem *MI;
     if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
