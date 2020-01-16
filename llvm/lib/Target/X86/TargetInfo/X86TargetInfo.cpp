@@ -27,7 +27,7 @@ Target &llvm::getTheX86_IceCodeTarget() {
 #endif  // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
 
-extern "C" void LLVMInitializeX86TargetInfo() {
+extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetInfo() {
   RegisterTarget<Triple::x86, /*HasJIT=*/true> X(
       getTheX86_32Target(), "x86", "32-bit X86: Pentium-Pro and above", "X86");
 
