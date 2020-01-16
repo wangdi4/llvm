@@ -89,18 +89,22 @@ entry:
 ; CHECK-NOT: call token @llvm.directive.region.exit()
 
 ; Look for allocation of local copies for byref firstprivates.
+; CHECK: [[YREF_ADDR:%[a-zA-Z._0-9]+]] = load i32**, i32*** %yref_addr
+; CHECK: [[Y_ARR_REF_ADDR:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]**, [10 x [10 x float]]*** %y_arr_ref_addr
+; CHECK: [[Y_ARR_REF:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]**, [10 x [10 x float]]*** %y_arr_ref.addr
+; CHECK: [[YREF:%[a-zA-Z._0-9]+]] = load i32**, i32*** %yref.addr
 ; CHECK: [[YREF_ARR_LOCAL:%y_arr_ref.addr.lpriv]] = alloca [10 x [10 x float]]
 ; CHECK: [[YREF_LOCAL:%yref.addr.lpriv]] = alloca i32
 ; CHECK: store [10 x [10 x float]]* [[YREF_ARR_LOCAL]], [10 x [10 x float]]** [[YREF_ARR_LOCAL_ADDR:%[a-zA-Z._0-9]+]]
 ; CHECK: store i32* [[YREF_LOCAL]], i32** [[YREF_LOCAL_ADDR:%[a-zA-Z._0-9]+]]
 
 ; Look for initialization of local copies of byref firstprivates.
-; CHECK: [[L0:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** %y_arr_ref.addr
+; CHECK: [[L0:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** [[Y_ARR_REF]]
 ; CHECK: [[B1:%[a-zA-Z._0-9]+]]  = bitcast [10 x [10 x float]]* [[YREF_ARR_LOCAL]] to i8*
 ; CHECK: [[B2:%[a-zA-Z._0-9]+]] = bitcast [10 x [10 x float]]* [[L0]] to i8*
 ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8*{{.*}}[[B1]], i8*{{.*}}[[B2]], i64 400, i1 false)
 
-; CHECK: [[L1:%[a-zA-Z._0-9]+]] = load i32*, i32** %yref.addr
+; CHECK: [[L1:%[a-zA-Z._0-9]+]] = load i32*, i32** [[YREF]]
 ; CHECK: [[L2:%[a-zA-Z._0-9]+]] = load i32, i32* [[L1]]
 ; CHECK: store i32 [[L2]], i32* [[YREF_LOCAL]]
 
@@ -119,7 +123,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %14 = load i32*, i32** %yref.addr, align 8
   %cmp2 = icmp ne i32* %13, %14
 ; Look for use of local 'yref' instead of the original inside the region.
-; CHECK: [[L3:%[a-zA-Z._0-9]+]] = load i32*, i32** %yref_addr
+; CHECK: [[L3:%[a-zA-Z._0-9]+]] = load i32*, i32** [[YREF_ADDR]]
 ; CHECK: [[L4:%[a-zA-Z._0-9]+]] = load i32*, i32** [[YREF_LOCAL_ADDR]]
 ; CHECK: icmp ne i32* [[L3]], [[L4]]
   br i1 %cmp2, label %cond.true, label %cond.false
@@ -136,7 +140,7 @@ cond.end:                                         ; preds = %cond.false, %cond.t
   %16 = load [10 x [10 x float]]*, [10 x [10 x float]]** %y_arr_ref.addr, align 8
   %cmp3 = icmp ne [10 x [10 x float]]* %15, %16
 ; Look for use of local 'y_arr_ref' instead of the original inside the region.
-; CHECK: [[L5:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** %y_arr_ref_addr
+; CHECK: [[L5:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** [[Y_ARR_REF_ADDR]]
 ; CHECK: [[L6:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** [[YREF_ARR_LOCAL_ADDR]]
 ; CHECK: icmp ne [10 x [10 x float]]* [[L5]], [[L6]]
   br i1 %cmp3, label %cond.true4, label %cond.false5
@@ -201,11 +205,11 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   ret void
 ; Look for lastprivate copyout instructions.
-; CHECK: [[L7:%[a-zA-Z._0-9]+]] = load i32*, i32** %yref.addr
+; CHECK: [[L7:%[a-zA-Z._0-9]+]] = load i32*, i32** [[YREF]]
 ; CHECK: [[L8:%[a-zA-Z._0-9]+]] = load i32, i32* [[YREF_LOCAL]]
 ; CHECK: store i32 [[L8]], i32* [[L7]]
 
-; CHECK: [[L9:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** %y_arr_ref.addr
+; CHECK: [[L9:%[a-zA-Z._0-9]+]] = load [10 x [10 x float]]*, [10 x [10 x float]]** [[Y_ARR_REF]]
 ; CHECK: [[B3:%[a-zA-Z._0-9]+]] = bitcast [10 x [10 x float]]* [[L9]] to i8*
 ; CHECK: [[B4:%[a-zA-Z._0-9]+]] = bitcast [10 x [10 x float]]* [[YREF_ARR_LOCAL]] to i8*
 ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8*{{.*}}[[B3]], i8*{{.*}}[[B4]], i64 400, i1 false)

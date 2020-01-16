@@ -24,6 +24,7 @@
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -43,6 +44,7 @@
 
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -188,6 +190,130 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
     }
 }
 
+// RewriteKernelArgumentAddrSpace use FindHomeInstructions to locate the
+// parameter homing instructions inserted into the function entry block by
+// CodeExtractor.
+//
+static bool FindHomeInstructions(Value *Arg, AllocaInst *&AI, StoreInst *&SI) {
+  // Homed parameters have one user: a store to the homed stack location.
+  if (!Arg->hasOneUse())
+    return false;
+
+  // Make sure the one user is indeed a store instruction.
+  SI = dyn_cast<StoreInst>(*Arg->user_begin());
+  if (!SI)
+    return false;
+
+  // A store to the home stack location is expected to be in the entry block.
+  if (SI->getParent() != &SI->getFunction()->getEntryBlock())
+    return false;
+
+  // The store writes to an alloca for the home stack location.
+  AI = dyn_cast<AllocaInst>(SI->getPointerOperand());
+  if (!AI)
+    return false;
+
+  // The alloca for the home stack location shoud be in the entry block too.
+  if (AI->getParent() != &AI->getFunction()->getEntryBlock())
+    return false;
+
+  // The parameter value will be homed by a single store instruction created
+  // by CodeExtractor. The only other user should be a single load instruction.
+  for (User *U : AI->users()) {
+    StoreInst *S = dyn_cast<StoreInst>(U);
+    if (S && S == SI)
+      continue;
+    if (isa<LoadInst>(U))
+      continue;
+    return false;
+  }
+
+  return true;
+}
+
+// When VPOParoptTransform::finalizeKernelFunction() below changes the address
+// space of the kernel parameters, this code updates the parameter home
+// location created by CodeExtractor. Changing the address space of the
+// parameter home is necessary for the InferAddrSpaceForGlobals optimization
+// to work properly.
+//
+//   BEFORE
+//   ------
+//   define void @offload(float addrspace(1)* %0) #2 {
+//   newFuncRoot:
+//     %.addr = alloca float addrspace(4)*, align 8
+//     store float addrspace(4)* %0, float addrspace(4)** %.addr
+//     %1 = load float addrspace(4)*, float addrspace(4)** %.addr
+//     ...
+//   }
+//
+//   AFTER
+//   -----
+//   define void @offload(float addrspace(1)* %0) #2 {
+//   newFuncRoot:
+//     %.addr = alloca float addrspace(1)*, align 8
+//     store float addrspace(1)* %0, float addrspace(1)** %.addr
+//     %2 = load float addrspace(1)*, float addrspace(1)** %.addr
+//     %3 = addrspacecast float addrspace(1)* %2 to float addrspace(4)*
+//     ...
+//   }
+//
+// If the parameter is not homed, the parameter is addrspacecast'd and RAUW'd.
+//
+//   BEFORE
+//   ------
+//   define void @offload(float addrspace(1)* %0) #2 {
+//     ...
+//   }
+//
+//   AFTER
+//   -----
+//   define void @offload(float addrspace(1)* %0) #2 {
+//     %1 = addrspacecast float addrspace(1)* %0 to float addrspace(4)*
+//     ...
+//   }
+//
+static void RewriteKernelArgumentAddrSpace(Argument *Old, Argument *New) {
+  PointerType *OTy = cast<PointerType>(Old->getType());
+  PointerType *NTy = cast<PointerType>(New->getType());
+
+  // This routine is only used when parameters change address spaces.
+  assert(OTy->getAddressSpace() != NTy->getAddressSpace());
+
+  // If the old parameter was homed, find the instructions which home it.
+  StoreInst *OSI = nullptr;
+  AllocaInst *OAI = nullptr;
+  if (FindHomeInstructions(Old, OAI, OSI)) {
+    IRBuilder<> Builder(OAI);
+    AllocaInst *NAI = Builder.CreateAlloca(NTy);
+    NAI->takeName(OAI);
+    NAI->setAlignment(MaybeAlign(OAI->getAlignment()));
+    Builder.CreateStore(New, NAI);
+    SmallVector<LoadInst*,2> LoadsToErase;
+    for (User *U : OAI->users()) {
+      // There is currently one load instruction inserted by CodeExtractor.
+      // But if there was more, we'd need to do this for all of them.
+      if (LoadInst *OLI = dyn_cast<LoadInst>(U)) {
+        LoadInst *NLI = Builder.CreateLoad(NTy, NAI);
+        Value *ASI = Builder.CreatePointerBitCastOrAddrSpaceCast(NLI, OTy);
+        OLI->replaceAllUsesWith(ASI);
+        LoadsToErase.push_back(OLI);
+      }
+    }
+    for (LoadInst *LI : LoadsToErase)
+      LI->eraseFromParent();
+    Module &M = *New->getParent()->getParent();
+    DIBuilder DIB(M, false);
+    replaceDbgDeclareForAlloca(OAI, NAI, DIB, DIExpression::ApplyOffset, 0);
+    OSI->eraseFromParent();
+    OAI->eraseFromParent();
+  } else {
+    IRBuilder<> Builder(New->getParent()->getEntryBlock().getFirstNonPHI());
+    Value *ASI = Builder.CreatePointerBitCastOrAddrSpaceCast(New, OTy);
+    Old->replaceAllUsesWith(ASI);
+  }
+}
+
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                                                      Function *Fn,
                                                      CallInst *&Call) {
@@ -218,6 +344,11 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   NFn->takeName(Fn);
   NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
 
+  // Everything including the routine name has been moved to the new routine.
+  // Do the same with the debug information.
+  NFn->setSubprogram(Fn->getSubprogram());
+  Fn->setSubprogram(nullptr);
+
   IRBuilder<> Builder(NFn->getEntryBlock().getFirstNonPHI());
   Function::arg_iterator NewArgI = NFn->arg_begin();
   for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
@@ -235,22 +366,13 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
       assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
              "finalizeKernelFunction: OpenCL global addrspaces can only be "
              "casted to generic.");
-      NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
-    }
-    I->replaceAllUsesWith(NewArgV);
+      RewriteKernelArgumentAddrSpace(I, ArgV);
+    } else
+      I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
     ++NewArgI;
   }
 
-  DenseMap<const Function *, DISubprogram *> FunctionDIs;
-
-  auto DI = FunctionDIs.find(Fn);
-  if (DI != FunctionDIs.end()) {
-    DISubprogram *SP = DI->second;
-
-    FunctionDIs.erase(DI);
-    FunctionDIs[NFn] = SP;
-  }
   InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
   // We intentionally call the function below after InferAddrSpaces() to have
