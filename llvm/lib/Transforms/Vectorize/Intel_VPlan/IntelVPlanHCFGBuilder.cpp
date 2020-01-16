@@ -955,7 +955,7 @@ VPBasicBlock *PlainCFGBuilder::getOrCreateVPBB(BasicBlock *BB) {
   if (BlockIt == BB2VPBB.end()) {
     // New VPBB
     LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
-    VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+    VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);
     Plan->insertAtBack(VPBB);
@@ -1236,13 +1236,13 @@ void PlainCFGBuilder::buildPlainCFG() {
   // 4. Set the EntryBlock and the ExitBlock of SESE region.
   // Create EntryBlock.
   VPBasicBlock *PlanEntryBB =
-      new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+      new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
   Plan->insertAtFront(PlanEntryBB);
   VPBlockUtils::connectBlocks(PlanEntryBB, PreheaderVPBB);
 
   // Create ExitBlock.
   VPBasicBlock *NewPlanExitBB =
-      new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+      new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
   Plan->insertAtBack(NewPlanExitBB);
 
   // Update CFG for ExitBlock.
@@ -1255,7 +1255,7 @@ void PlainCFGBuilder::buildPlainCFG() {
     assert(LoopExits.size() > 1 && "Wrong number of exit blocks");
 
     VPBasicBlock *LandingPad =
-        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+        new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
     LandingPad->insertBefore(NewPlanExitBB);
 
     // Connect multiple exits to landing pad

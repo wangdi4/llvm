@@ -706,8 +706,8 @@ const Twine VPlanPrinter::getUID(const VPBasicBlock *BB) {
 }
 
 const Twine VPlanPrinter::getOrCreateName(const VPBasicBlock *BB) {
-  const std::string &Name = BB->getName();
-  if (!Name.empty())
+  const Twine &Name = BB->getName();
+  if (!Name.isTriviallyEmpty())
     return Name;
   return "VPB" + Twine(getOrCreateBID(BB));
 }
@@ -901,7 +901,7 @@ void VPlanPrinter::dumpEdges(const VPBasicBlock *BB) {
 void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
   OS << Indent << getUID(BB) << " [label =\n";
   bumpIndent(1);
-  OS << Indent << "\"" << DOT::EscapeString(BB->getName()) << ":\\n\"";
+  OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
   bumpIndent(1);
   for (const VPInstruction &Inst : *BB)
     Inst.print(OS, Indent);
@@ -912,7 +912,7 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
     OS << " +\n" << Indent << " \"CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
       CBI->printAsOperand(OS);
-      OS << " (" << DOT::EscapeString(CBI->getParent()->getName()) << ")\\l\"";
+      OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")\\l\"";
     } else {
       CBV->printAsOperand(OS);
     }

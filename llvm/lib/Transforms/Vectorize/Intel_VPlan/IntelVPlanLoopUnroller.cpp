@@ -55,15 +55,9 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(Latch && "Expected single latch block");
   VPBasicBlock *CurrentLatch = Latch;
 
-  struct CloneData {
-    VPCloneUtils::Block2BlockMapTy BlockMap;
-    VPCloneUtils::Value2ValueMapTy ValueMap;
-  };
-
-  SmallVector<CloneData, 8> Clones(UF - 1);
+  SmallVector<VPCloneUtils::Value2ValueMapTy, 8> Clones(UF - 1);
   for (unsigned Part = 0; Part < UF - 1; Part++) {
-    CloneData &Data = Clones[Part];
-    VPCloneUtils::cloneBlocksRange(Header, Latch, Data.BlockMap, Data.ValueMap,
+    VPCloneUtils::cloneBlocksRange(Header, Latch, Clones[Part],
                                    Plan.getVPlanDA());
   }
 
@@ -99,9 +93,7 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   //     |                 |
   //     Latch Clone #2 ---+
   for (unsigned Part = 0; Part < UF - 1; Part++) {
-    CloneData &Data = Clones[Part];
-    VPCloneUtils::Block2BlockMapTy &BlockMap = Data.BlockMap;
-    VPCloneUtils::Value2ValueMapTy &ValueMap = Data.ValueMap;
+    VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[Part];
 
     VPCloneUtils::Value2ValueMapTy ReverseMap;
     for (auto It : ValueMap)
@@ -109,11 +101,8 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
     assert(ReverseMap.size() == ValueMap.size() &&
            "Expecting unique values only in ValueMap");
 
-    VPBasicBlock *ClonedHeader = BlockMap[Header];
-    assert(ClonedHeader && "Header expected to be successfully cloned");
-
-    VPBasicBlock *ClonedLatch = BlockMap[Latch];
-    assert(ClonedLatch && "Latch expected to be successfully cloned");
+    auto *ClonedHeader = cast<VPBasicBlock>(ValueMap[Header]);
+    auto *ClonedLatch = cast<VPBasicBlock>(ValueMap[Latch]);
 
     // Process induction/reduction PHI nodes.
     std::set<VPInstruction *> InstToRemove;
@@ -167,10 +156,9 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
       ClonedHeader->eraseInstruction(It);
 
     // Remap operands.
-    VPValueMapper Mapper(BlockMap, ValueMap);
+    VPValueMapper Mapper(ValueMap);
     for (VPBasicBlock *Block : VPL->blocks()) {
-      auto ClonedBlock = BlockMap[Block];
-      assert(ClonedBlock && "All blocks expected to be successfully cloned");
+      auto *ClonedBlock = cast<VPBasicBlock>(ValueMap[Block]);
 
       for (VPInstruction &Inst : *ClonedBlock) {
         Mapper.remapInstruction(&Inst);
@@ -208,13 +196,15 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
     CurrentLatch = ClonedLatch;
   }
 
+  // TODO: Implement as part of some earlier traversal to save compile time.
   // Add all cloned blocks into the loop.
-  for (auto Data : Clones)
-    for (auto Pair : Data.BlockMap)
-      VPL->addBasicBlockToLoop(Pair.second, *VPLI);
+  for (auto &ValueMap : Clones)
+    for (auto Pair : ValueMap)
+      if (isa<VPBasicBlock>(Pair.first))
+        VPL->addBasicBlockToLoop(cast<VPBasicBlock>(Pair.second), *VPLI);
 
   // Replace uses of live-outs with the last unrolling part clone of them.
-  VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[UF - 2].ValueMap;
+  VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[UF - 2];
   for (auto It : LiveOutUsers)
     It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
 

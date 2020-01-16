@@ -344,7 +344,7 @@ void mergeLoopExits(VPLoop *VPL) {
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
   VPBasicBlock *NewLoopLatch =
-      new VPBasicBlock(VPlanUtils::createUniqueName("new.loop.latch"));
+      new VPBasicBlock(VPlanUtils::createUniqueName("new.loop.latch"), Plan);
   OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
   NewLoopLatch->moveTripCountInfoFrom(OrigLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
@@ -411,8 +411,8 @@ void mergeLoopExits(VPLoop *VPL) {
     if (ExitBlock == LatchExitBlock) {
       VPBasicBlock *IntermediateBB = nullptr;
       if (ExitingBlock == LoopHeader) {
-        IntermediateBB =
-            new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
+        IntermediateBB = new VPBasicBlock(
+            VPlanUtils::createUniqueName("intermediate.bb"), Plan);
         VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
         IntermediateBB->insertBefore(ExitBlock);
         VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, IntermediateBB);
@@ -467,8 +467,8 @@ void mergeLoopExits(VPLoop *VPL) {
         continue;
       }
 
-      VPBasicBlock *IntermediateBB =
-          new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
+      VPBasicBlock *IntermediateBB = new VPBasicBlock(
+          VPlanUtils::createUniqueName("intermediate.bb"), Plan);
       IntermediateBB->insertBefore(ExitBlock);
       VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
       // Remove ExitBlock from ExitingBlock's successors and add a new
@@ -511,8 +511,8 @@ void mergeLoopExits(VPLoop *VPL) {
   SmallVector<VPBasicBlock *, 2> CascadedIfBlocks;
 
   if (ExitBlocks.size() > 1) {
-    VPBasicBlock *IfBlock =
-        new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
+    VPBasicBlock *IfBlock = new VPBasicBlock(
+        VPlanUtils::createUniqueName("cascaded.if.block"), Plan);
     CascadedIfBlocks.push_back(IfBlock);
     // Update the predecessors of the IfBlock.
     if (LatchExitBlock)
@@ -531,8 +531,8 @@ void mergeLoopExits(VPLoop *VPL) {
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
-        NextIfBlock =
-            new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
+        NextIfBlock = new VPBasicBlock(
+            VPlanUtils::createUniqueName("cascaded.if.block"), Plan);
         CascadedIfBlocks.push_back(NextIfBlock);
       } else {
         // For for-loops, the NextIfBlock is the LatchExitBlock.
