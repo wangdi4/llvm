@@ -4487,25 +4487,21 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
     InlineResult IR = analyzeBlock(BB, EphValues);
     if (!IR) {
       *ReasonAddr = NinlrNotProfitable;
-      if (IsRecursiveCall) {
+      if (IsRecursiveCall)
         *ReasonAddr = NinlrRecursive;
-      }
-      if (ExposesReturnsTwice) {
+      if (ExposesReturnsTwice)
         *ReasonAddr = NinlrReturnsTwice;
-      }
-      if (HasDynamicAlloca) {
+      if (HasDynamicAlloca)
         *ReasonAddr = NinlrDynamicAlloca;
-      }
-      if (HasIndirectBr) {
+      if (HasIndirectBr)
         *ReasonAddr = NinlrIndirectBranch;
-      }
-      if (HasUninlineableIntrinsic) {
+      if (HasUninlineableIntrinsic)
         *ReasonAddr = NinlrCallsLocalEscape;
-      }
+      if (InitsVargArgs)
+        *ReasonAddr = NinlrVarargs;
       if (IsCallerRecursive &&
-          AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
+          AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller)
         *ReasonAddr = NinlrTooMuchStack;
-      }
       if (!ComputeFullInlineCost || (*ReasonAddr) != NinlrNotProfitable)
         return IR;
       if (EarlyExitCost == INT_MAX) {
