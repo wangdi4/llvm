@@ -708,9 +708,14 @@ void SafeStack::moveDynamicAllocasToUnsafeStack(
 
 bool SafeStack::ShouldInlinePointerAddress(CallSite &CS) {
   Function *Callee = CS.getCalledFunction();
+<<<<<<< HEAD
   InlineReportTypes::InlineReason Reason;      // INTEL
   if (CS.hasFnAttr(Attribute::AlwaysInline) && // INTEL
       isInlineViable(*Callee, Reason))         // INTEL
+=======
+  if (CS.hasFnAttr(Attribute::AlwaysInline) &&
+      isInlineViable(*Callee).isSuccess())
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
     return true;
   if (Callee->isInterposable() || Callee->hasFnAttribute(Attribute::NoInline) ||
       CS.isNoInline())

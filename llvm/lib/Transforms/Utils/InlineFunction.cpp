@@ -1898,12 +1898,13 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
   // FIXME: we don't inline callbr yet.
   if (isa<CallBrInst>(TheCall))
-    return false;
+    return InlineResult::failure("We don't inline callbr yet.");
 
   // If IFI has any state in it, zap it before we fill it in.
   IFI.reset();
 
   Function *CalledFunc = CS.getCalledFunction();
+<<<<<<< HEAD
   if (!CalledFunc ||              // Can't inline external function or indirect
 #if INTEL_CUSTOMIZATION
       CalledFunc->isDeclaration() ||  // call
@@ -1928,6 +1929,11 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     }
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (!CalledFunc ||               // Can't inline external function or indirect
+      CalledFunc->isDeclaration()) // call!
+    return InlineResult::failure("external or indirect");
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
 
   // The inliner does not know how to inline through calls with operand bundles
   // in general ...
@@ -1940,8 +1946,13 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       // ... and "funclet" operand bundles.
       if (Tag == LLVMContext::OB_funclet)
         continue;
+<<<<<<< HEAD
       *Reason = NinlrOpBundles; // INTEL
       return "unsupported operand bundle";
+=======
+
+      return InlineResult::failure("unsupported operand bundle");
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
     }
   }
 
@@ -1959,10 +1970,15 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   if (CalledFunc->hasGC()) {
     if (!Caller->hasGC())
       Caller->setGC(CalledFunc->getGC());
+<<<<<<< HEAD
     else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL
       *Reason = NinlrMismatchedGC; // INTEL
       return "incompatible GC";
     } // INTEL
+=======
+    else if (CalledFunc->getGC() != Caller->getGC())
+      return InlineResult::failure("incompatible GC");
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   }
 
   // Get the personality function from the callee if it contains a landing pad.
@@ -1985,10 +2001,15 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // inlining. Otherwise, we can't inline.
     // TODO: This isn't 100% true. Some personality functions are proper
     //       supersets of others and can be used in place of the other.
+<<<<<<< HEAD
     else if (CalledPersonality != CallerPersonality) { // INTEL
       *Reason = NinlrMismatchedPersonality; // INTEL
       return "incompatible personality";
     } // INTEL
+=======
+    else if (CalledPersonality != CallerPersonality)
+      return InlineResult::failure("incompatible personality");
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   }
 
   // We need to figure out which funclet the callsite was in so that we may
@@ -2012,20 +2033,30 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
             // Ok, the call site is within a cleanuppad.  Let's check the callee
             // for catchpads.
             for (const BasicBlock &CalledBB : *CalledFunc) {
+<<<<<<< HEAD
               if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL
                 *Reason = NinlrMSVCEH; // INTEL
                 return "catch in cleanup funclet";
               } // INTEL
+=======
+              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI()))
+                return InlineResult::failure("catch in cleanup funclet");
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
             }
           }
         } else if (isAsynchronousEHPersonality(Personality)) {
           // SEH is even less tolerant, there may not be any sort of exceptional
           // funclet in the callee.
           for (const BasicBlock &CalledBB : *CalledFunc) {
+<<<<<<< HEAD
             if (CalledBB.isEHPad()) { // INTEL
               *Reason = NinlrSEH; // INTEL
               return "SEH in cleanup funclet";
             } // INTEL
+=======
+            if (CalledBB.isEHPad())
+              return InlineResult::failure("SEH in cleanup funclet");
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
           }
         }
       }
@@ -2665,8 +2696,12 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     Returns[0]->eraseFromParent();
 
     // We are now done with the inlining.
+<<<<<<< HEAD
     *Reason = InlrNoReason; // INTEL
     return true;
+=======
+    return InlineResult::success();
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   }
 
   // Otherwise, we have the normal case, of more than one block to inline or
@@ -2828,7 +2863,11 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     }
   }
 
+<<<<<<< HEAD
   *Reason = InlrNoReason; // INTEL
   return true;
+=======
+  return InlineResult::success();
+>>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
 }
 
