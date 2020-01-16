@@ -790,7 +790,13 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
 
   // The first 4 FP/Vector arguments are passed in XMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[f16, f32, f64],
+#else
   CCIfType<[f32, f64],
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
            CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
                                    [RCX , RDX , R8  , R9  ]>>,
 
@@ -811,20 +817,6 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfType<[i64], CCAssignToRegWithShadow<[RCX , RDX , R8  , R9  ],
                                           [XMM0, XMM1, XMM2, XMM3]>>,
 
-<<<<<<< HEAD
-  // The first 4 FP/Vector arguments are passed in XMM registers.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  CCIfType<[f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8f32, v4f32, v2f64],
-#else // INTEL_FEATURE_ISA_FP16
-  CCIfType<[f32, f64, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-           CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
-                                   [RCX , RDX , R8  , R9  ]>>,
-
-=======
->>>>>>> 40cd26c7008183e01d8276396339aea2a99d83d7
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
 #if INTEL_CUSTOMIZATION
