@@ -86,7 +86,7 @@
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl:cluster -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-CLUSTER %s
-// CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
+// CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
 // CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
 // CHECK-MKL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a"
 // CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=host-x86_64-unknown-linux-gnu,sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs={{.+\.o}},[[LISTLIN:.+\.txt]]" "-unbundle"
@@ -105,7 +105,7 @@
 // CHECK-MKL-LIN-TBB: "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-SEQUENTIAL: "--start-group" "-lmkl_intel_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-CLUSTER: "--start-group" "-lmkl_intel_lp64" "-lmkl_cdft_core" "-lmkl_scalapack_lp64" "-lmkl_blacs_intelmpi_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
-// CHECK-MKL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}mkli{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.lib"
+// CHECK-MKL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}mkli{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib"
 // CHECK-MKL-WIN: "-libpath:{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64"
 
 // TBB tests
@@ -147,7 +147,7 @@
 // CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=daal_core" "--dependent-lib=daal_thread"
 // CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=daal_core" "--dependent-lib=daal_sequential"
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}daal{{/|\\\\}}include"
-// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}libdaal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
+// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}daal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
 // CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
 // CHECK-DAAL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libdaal_sycl.a"
 // CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=host-x86_64-unknown-linux-gnu,sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs={{.+\.o}},[[LISTLIN:.+\.txt]]" "-unbundle"
@@ -158,5 +158,5 @@
 // CHECK-DAAL-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" "-L{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
 // CHECK-DAAL-LIN-PARALLEL: "--start-group" "-ldaal_core" "-ldaal_thread" "--end-group" "-ltbb"
 // CHECK-DAAL-LIN-SEQUENTIAL: "--start-group" "-ldaal_core" "-ldaal_sequential" "--end-group" "-ltbb"
-// CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libdaal_sycl.lib"
+// CHECK-DAAL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}daal_sycl.lib"
 // CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64"
