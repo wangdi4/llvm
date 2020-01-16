@@ -3,6 +3,10 @@
 // RUN: not %clangxx -c -target x86_64-unknown-linux-gnu -fsycl %s \
 // RUN: 2>&1 | FileCheck %s
 
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// end INTEL_CUSTOMIZATION
+
 void foo() {
   foobar s;
 }
