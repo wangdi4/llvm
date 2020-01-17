@@ -793,7 +793,7 @@ def CC_X86_Win64_C : CallingConv<[
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   CCIfType<[f16, f32, f64],
-#else
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[f32, f64],
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
