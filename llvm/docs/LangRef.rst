@@ -5334,6 +5334,10 @@ Note that the fields need not be contiguous. In this example, there is a
 4 byte gap between the two fields. This gap represents padding which
 does not carry useful data and need not be preserved.
 
+.. INTEL_CUSTOMIZATION
+.. _noalias_metadata:
+.. END INTEL_CUSTOMIZATION
+
 '``noalias``' and '``alias.scope``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
