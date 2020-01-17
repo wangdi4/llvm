@@ -9,6 +9,7 @@
 // 4. Make this code more robust, assert of assumptions and supported features.
 // 5. Make this code thread-safe.
 // 6. Address TODO comments in the code.
+// 7. Cover PI API with unittests
 //
 #include "pi_level0.hpp"
 #include <map>
@@ -970,6 +971,8 @@ pi_result piMemBufferCreate(
   L0PiMem->L0Mem = pi_cast<char*>(ptr);
   L0PiMem->RefCount = 1;
   L0PiMem->IsMemImage = false;
+  L0PiMem->MapHostPtr = (flags & PI_MEM_FLAGS_HOST_PTR_USE) ?
+      pi_cast<char*>(host_ptr): nullptr;
   *ret_mem = L0PiMem;
 
   return PI_SUCCESS;
@@ -2523,12 +2526,28 @@ pi_result L0(piEnqueueMemBufferMap)(
   // memory and thus is accessible from the host as is. Can we get SYCL RT
   // to predict/allocate in shared memory from the beginning?
   //
-  ZE_CALL(zeDriverAllocHostMem(
-    ze_driver_global,
-    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
-    size,
-    1, // TODO: alignment
-    ret_map));
+  if (buffer->MapHostPtr) {
+    // NOTE: borrowing below semantics from OpenCL as SYCL RT relies on it.
+    // It is also better for performance.
+    //
+    // "If the buffer object is created with CL_MEM_USE_HOST_PTR set in
+    // mem_flags, the following will be true:
+    // - The host_ptr specified in clCreateBuffer is guaranteed to contain the
+    //   latest bits in the region being mapped when the clEnqueueMapBuffer
+    //   command has completed.
+    // - The pointer value returned by clEnqueueMapBuffer will be derived from
+    //   the host_ptr specified when the buffer object is created."
+    //
+    *ret_map = buffer->MapHostPtr + offset;
+  }
+  else {
+    ZE_CALL(zeDriverAllocHostMem(
+      ze_driver_global,
+      ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
+      size,
+      1, // TODO: alignment
+      ret_map));
+  }
 
   ze_event_handle_t ze_event = (*event)->L0Event;
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
@@ -2594,8 +2613,8 @@ pi_result L0(piEnqueueMemUnmap)(
   if (it == memobj->Mappings.end()) {
     pi_throw("piEnqueueMemUnmap: unknown memory mapping");
   }
-  // TODO: remove this mapping from active.
   auto map_info = it->second;
+  memobj->Mappings.erase(it);
 
   ze_event_handle_t ze_event = (*event)->L0Event;
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
@@ -2606,8 +2625,10 @@ pi_result L0(piEnqueueMemUnmap)(
     ze_event
   ));
 
-  // TODO: free the host memory allocated in piEnqueueMemBufferMap.
-  // This is only OK to do so after the above copy is completed.
+  if (!memobj->MapHostPtr) {
+    // TODO: free the host memory allocated in piEnqueueMemBufferMap.
+    // This is only OK to do so after the above copy is completed.
+  }
 
   // unmap operations are asynchronous, as one of the events
   // in the event_wait_list is a user event which will be signaled after
