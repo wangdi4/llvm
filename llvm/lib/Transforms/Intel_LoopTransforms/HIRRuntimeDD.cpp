@@ -791,6 +791,20 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
   return OK;
 }
 
+static bool isStarEdge(const DDEdge &Edge) {
+  for (DVKind Kind : Edge.getDV()) {
+    if (Kind == DVKind::NONE) {
+      break;
+    }
+
+    if (Kind == DVKind::ALL) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
     DenseMap<RegDDRef *, unsigned> &RefGroupIndex,
@@ -806,6 +820,11 @@ RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
 
     for (const DDEdge *Edge : DDG.outgoing(SrcRef)) {
       assert(!Edge->isInput() && "Input edges are unexpected");
+
+      // Do not multiversion if the dependency is well defined.
+      if (!isStarEdge(*Edge)) {
+        continue;
+      }
 
       RegDDRef *DstRef = cast<RegDDRef>(Edge->getSink());
       auto GroupBI = RefGroupIndex.find(DstRef);
