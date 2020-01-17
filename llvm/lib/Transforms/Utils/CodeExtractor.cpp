@@ -31,11 +31,14 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -1515,6 +1518,7 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
       MDBuilder(TI->getContext()).createBranchWeights(BranchWeights));
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool definedInFunction(const Function *F, Value *V) {
   if (Instruction *I = dyn_cast_or_null<Instruction>(V))
@@ -1835,6 +1839,130 @@ void CodeExtractor::updateDebugInfoAfterCodeExtraction(
   RewrittenValues.clear();
 }
 #endif // INTEL_COLLAB
+=======
+/// Erase debug info intrinsics which refer to values in \p F but aren't in
+/// \p F.
+static void eraseDebugIntrinsicsWithNonLocalRefs(Function &F) {
+  for (Instruction &I : instructions(F)) {
+    SmallVector<DbgVariableIntrinsic *, 4> DbgUsers;
+    findDbgUsers(DbgUsers, &I);
+    for (DbgVariableIntrinsic *DVI : DbgUsers)
+      if (DVI->getFunction() != &F)
+        DVI->eraseFromParent();
+  }
+}
+
+/// Fix up the debug info in the old and new functions by pointing line
+/// locations and debug intrinsics to the new subprogram scope, and by deleting
+/// intrinsics which point to values outside of the new function.
+static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
+                                         CallInst &TheCall) {
+  DISubprogram *OldSP = OldFunc.getSubprogram();
+  LLVMContext &Ctx = OldFunc.getContext();
+
+  // See llvm.org/PR44560, OpenMP passes an invalid subprogram to CodeExtractor.
+  bool NeedWorkaroundForOpenMPIRBuilderBug =
+      OldSP && OldSP->getRetainedNodes()->isTemporary();
+
+  if (!OldSP || NeedWorkaroundForOpenMPIRBuilderBug) {
+    // Erase any debug info the new function contains.
+    stripDebugInfo(NewFunc);
+    // Make sure the old function doesn't contain any non-local metadata refs.
+    eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
+    return;
+  }
+
+  // Create a subprogram for the new function. Leave out a description of the
+  // function arguments, as the parameters don't correspond to anything at the
+  // source level.
+  assert(OldSP->getUnit() && "Missing compile unit for subprogram");
+  DIBuilder DIB(*OldFunc.getParent(), /*AllowUnresolvedNodes=*/false,
+                OldSP->getUnit());
+  auto SPType = DIB.createSubroutineType(DIB.getOrCreateTypeArray(None));
+  DISubprogram::DISPFlags SPFlags = DISubprogram::SPFlagDefinition |
+                                    DISubprogram::SPFlagOptimized |
+                                    DISubprogram::SPFlagLocalToUnit;
+  auto NewSP = DIB.createFunction(
+      OldSP->getUnit(), NewFunc.getName(), NewFunc.getName(), OldSP->getFile(),
+      /*LineNo=*/0, SPType, /*ScopeLine=*/0, DINode::FlagZero, SPFlags);
+  NewFunc.setSubprogram(NewSP);
+
+  // Debug intrinsics in the new function need to be updated in one of two
+  // ways:
+  //  1) They need to be deleted, because they describe a value in the old
+  //     function.
+  //  2) They need to point to fresh metadata, e.g. because they currently
+  //     point to a variable in the wrong scope.
+  SmallDenseMap<DINode *, DINode *> RemappedMetadata;
+  SmallVector<Instruction *, 4> DebugIntrinsicsToDelete;
+  for (Instruction &I : instructions(NewFunc)) {
+    auto *DII = dyn_cast<DbgInfoIntrinsic>(&I);
+    if (!DII)
+      continue;
+
+    // Point the intrinsic to a fresh label within the new function.
+    if (auto *DLI = dyn_cast<DbgLabelInst>(&I)) {
+      DILabel *OldLabel = DLI->getLabel();
+      DINode *&NewLabel = RemappedMetadata[OldLabel];
+      if (!NewLabel)
+        NewLabel = DILabel::get(Ctx, NewSP, OldLabel->getName(),
+                                OldLabel->getFile(), OldLabel->getLine());
+      DLI->setArgOperand(0, MetadataAsValue::get(Ctx, NewLabel));
+      continue;
+    }
+
+    // If the location isn't a constant or an instruction, delete the
+    // intrinsic.
+    auto *DVI = cast<DbgVariableIntrinsic>(DII);
+    Value *Location = DVI->getVariableLocation();
+    if (!Location ||
+        (!isa<Constant>(Location) && !isa<Instruction>(Location))) {
+      DebugIntrinsicsToDelete.push_back(DVI);
+      continue;
+    }
+
+    // If the variable location is an instruction but isn't in the new
+    // function, delete the intrinsic.
+    Instruction *LocationInst = dyn_cast<Instruction>(Location);
+    if (LocationInst && LocationInst->getFunction() != &NewFunc) {
+      DebugIntrinsicsToDelete.push_back(DVI);
+      continue;
+    }
+
+    // Point the intrinsic to a fresh variable within the new function.
+    DILocalVariable *OldVar = DVI->getVariable();
+    DINode *&NewVar = RemappedMetadata[OldVar];
+    if (!NewVar)
+      NewVar = DIB.createAutoVariable(
+          NewSP, OldVar->getName(), OldVar->getFile(), OldVar->getLine(),
+          OldVar->getType(), /*AlwaysPreserve=*/false, DINode::FlagZero,
+          OldVar->getAlignInBits());
+    DVI->setArgOperand(1, MetadataAsValue::get(Ctx, NewVar));
+  }
+  for (auto *DII : DebugIntrinsicsToDelete)
+    DII->eraseFromParent();
+  DIB.finalizeSubprogram(NewSP);
+
+  // Fix up the scope information attached to the line locations in the new
+  // function.
+  for (Instruction &I : instructions(NewFunc)) {
+    if (const DebugLoc &DL = I.getDebugLoc())
+      I.setDebugLoc(DebugLoc::get(DL.getLine(), DL.getCol(), NewSP));
+
+    // Loop info metadata may contain line locations. Fix them up.
+    auto updateLoopInfoLoc = [&Ctx,
+                              NewSP](const DILocation &Loc) -> DILocation * {
+      return DILocation::get(Ctx, Loc.getLine(), Loc.getColumn(), NewSP,
+                             nullptr);
+    };
+    updateLoopMetadataDebugLocations(I, updateLoopInfoLoc);
+  }
+  if (!TheCall.getDebugLoc())
+    TheCall.setDebugLoc(DebugLoc::get(0, 0, OldSP));
+
+  eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
+}
+>>>>>>> 360abb7ee56f1524b6e2951a4fda36296d5b3582
 
 Function *
 CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
@@ -2096,6 +2224,11 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
       }
     }
 
+<<<<<<< HEAD
+=======
+  fixupDebugInfoPostExtraction(*oldFunction, *newFunction, *TheCall);
+
+>>>>>>> 360abb7ee56f1524b6e2951a4fda36296d5b3582
   // Mark the new function `noreturn` if applicable. Terminators which resume
   // exception propagation are treated as returning instructions. This is to
   // avoid inserting traps after calls to outlined functions which unwind.
