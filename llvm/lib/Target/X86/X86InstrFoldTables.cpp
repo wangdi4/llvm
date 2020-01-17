@@ -6743,6 +6743,21 @@ llvm::lookupFoldTable(unsigned RegOp, unsigned OpNum) {
   return lookupFoldTableImpl(FoldTable, RegOp);
 }
 
+#if INTEL_CUSTOMIZATION
+const X86MemoryFoldTableEntry *llvm::lookupBroadcastFoldTable(unsigned RegOp,
+                                                              unsigned OpNum) {
+  ArrayRef<X86MemoryFoldTableEntry> FoldTable;
+  if (OpNum == 2)
+    FoldTable = makeArrayRef(BroadcastFoldTable2);
+  else if (OpNum == 3)
+    FoldTable = makeArrayRef(BroadcastFoldTable3);
+  else
+    return nullptr;
+
+  return lookupFoldTableImpl(FoldTable, RegOp);
+}
+#endif
+
 namespace {
 
 // This class stores the memory unfolding tables. It is instantiated as a

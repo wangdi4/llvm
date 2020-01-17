@@ -89,6 +89,13 @@ const X86MemoryFoldTableEntry *lookupTwoAddrFoldTable(unsigned RegOp);
 // operand OpNum.
 const X86MemoryFoldTableEntry *lookupFoldTable(unsigned RegOp, unsigned OpNum);
 
+#if INTEL_CUSTOMIZATION
+// Look up the broadcast folding table entry for folding a broadcast with
+// operand OpNum.
+const X86MemoryFoldTableEntry *lookupBroadcastFoldTable(unsigned RegOp,
+                                                        unsigned OpNum);
+#endif
+
 // Look up the memory unfolding table entry for this instruction.
 const X86MemoryFoldTableEntry *lookupUnfoldTable(unsigned MemOp);
 

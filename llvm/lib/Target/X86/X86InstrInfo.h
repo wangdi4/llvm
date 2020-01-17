@@ -454,6 +454,15 @@ public:
                                       unsigned Size, unsigned Alignment,
                                       bool AllowCommute) const;
 
+#if INTEL_CUSTOMIZATION
+  MachineInstr *foldMemoryBroadcast(MachineFunction &MF, MachineInstr &MI,
+                                    unsigned OpNum,
+                                    ArrayRef<MachineOperand> MOs,
+                                    MachineBasicBlock::iterator InsertPt,
+                                    unsigned Size, unsigned Alignment,
+                                    bool AllowCommute) const;
+#endif
+
   bool isHighLatencyDef(int opc) const override;
 
   bool hasHighOperandLatency(const TargetSchedModel &SchedModel,
