@@ -877,11 +877,7 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   InlineReason Reason; // INTEL
   if (SkipCostAnalysis)
-<<<<<<< HEAD
-    return isInlineViable(*Callee, Reason); // INTEL
-=======
-    return isInlineViable(*Callee).isSuccess();
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+    return isInlineViable(*Callee, Reason).isSuccess(); // INTEL
 
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);

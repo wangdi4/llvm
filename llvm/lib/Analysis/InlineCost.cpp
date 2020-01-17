@@ -250,16 +250,12 @@ protected:
   /// Called at the end of the analysis of the callsite. Return the outcome of
   /// the analysis, i.e. 'InlineResult(true)' if the inlining may happen, or
   /// the reason it can't.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual InlineResult finalizeAnalysis(InlineReason *ReasonAddr) {
-    return true;
+    return InlineResult::success();;
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  virtual InlineResult finalizeAnalysis() { return InlineResult::success(); }
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   /// Called when we're about to start processing a basic block, and every time
   /// we are done processing an instruction. Return true if there is no point in
   /// continuing the analysis (e.g. we've determined already the call site is
@@ -270,17 +266,13 @@ protected:
   /// contexts propagated).  It checks callsite-specific information. Return a
   /// reason analysis can't continue if that's the case, or 'true' if it may
   /// continue.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual InlineResult onAnalysisStart(const TargetTransformInfo &CalleeTTI,
                                        InlineReason *ReasonAddr) {
-    return true;
+    return InlineResult::success();
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  virtual InlineResult onAnalysisStart() { return InlineResult::success(); }
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   /// Called if the analysis engine decides SROA cannot be done for the given
   /// alloca.
   virtual void onDisableSROA(AllocaInst *Arg) {}
@@ -2854,15 +2846,10 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       /// to instantiate the derived class.
 #if INTEL_CUSTOMIZATION
       InlineCostCallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F,
-<<<<<<< HEAD
                                 Call, TLI, ILIC, AI, CallSitesForFusion,
                                 FuncsForDTrans, IndirectCallParams, false);
 #endif // INTEL_CUSTOMIZATION
-      if (CA.analyze(TTI, nullptr)) { // INTEL
-=======
-                                Call, IndirectCallParams, false);
-      if (CA.analyze().isSuccess()) {
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+      if (CA.analyze(TTI, nullptr).isSuccess()) { // INTEL
         // We were able to inline the indirect call! Subtract the cost from the
         // threshold to get the bonus we want to apply, but don't go below zero.
         Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -2967,13 +2954,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_CUSTOMIZATION
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InlineResult finalizeAnalysis(InlineReason *ReasonAddr) override {
 #endif // INTEL_CUSTOMIZATION
-=======
-  InlineResult finalizeAnalysis() override {
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
     // Loops generally act a lot like calls in that they act like barriers to
     // movement, require a certain amount of setup, etc. So when optimising for
     // size, we penalise any call sites that perform loops. We do this after all
@@ -3001,7 +2984,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     else if (NumVectorInstructions <= NumInstructions / 2)
       Threshold -= VectorBonus / 2;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (NumVectorInstructions > NumInstructions / 10)
       YesReasonVector.push_back(InlrVectorBonus);
@@ -3011,14 +2993,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     else
       *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
     if (!IsProfitable)
-      return "not profitable";
-    return true;
+      return InlineResult::failure("not profitable");
+    return InlineResult::success();
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (Cost < std::max(1, Threshold))
-      return InlineResult::success();
-    return InlineResult::failure("Cost over threshold.");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   }
 
   bool shouldStop() override {
@@ -3087,57 +3064,57 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       if (ProfCount && ProfCount.getValue() == 0) {
         if (!Callee->hasLinkOnceODRLinkage()) {
           *ReasonAddr = NinlrColdProfile;
-          return false;
+        return InlineResult::failure("not profitable");
         }
         NoReasonVector.push_back(NinlrColdProfile);
       }
       if (preferCloningToInlining(CandidateCall, *ILIC, PrepareForLTO)) {
         *ReasonAddr = NinlrPreferCloning;
-        return "prefer cloning";
+        return InlineResult::failure("not profitable");
       }
       if (preferMultiversioningToInlining(CandidateCall, CalleeTTI, *ILIC,
           PrepareForLTO)) {
         *ReasonAddr = NinlrPreferMultiversioning;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferDTransToInlining(CandidateCall, FuncsForDTrans,
           PrepareForLTO)) {
         *ReasonAddr = NinlrPreferSOAToAOS;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferNotToInlineForStackComputations(CandidateCall, TLI)) {
         *ReasonAddr = NinlrStackComputations;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferNotToInlineForSwitchComputations(CandidateCall, *ILIC)) {
         *ReasonAddr = NinlrSwitchComputations;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferNotToInlineForRecProgressionClone(Callee)) {
         *ReasonAddr = NinlrRecursive;
-        return false;
+        return InlineResult::failure("recursive");
       }
       if (preferToDelayInlineDecision(CandidateCall.getCaller(), PrepareForLTO,
           &QueuedCallers)) {
         *ReasonAddr = NinlrDelayInlineDecision;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferPartialInlineOutlinedFunc(Callee)) {
         *ReasonAddr = NinlrPreferPartialInline;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferToIntelPartialInline(*Callee, PrepareForLTO, *ILIC)) {
         *ReasonAddr = NinlrDelayInlineDecision;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (preferNotToInlineEHIntoLoop(CandidateCall, *ILIC)) {
         *ReasonAddr = NinlrCalleeHasExceptionHandling;
-        return false;
+        return InlineResult::failure("not profitable");
       }
       if (CandidateCall.getCaller() == Callee &&
         Callee->hasFnAttribute("no-more-recursive-inlining")) {
         *ReasonAddr = NinlrRecursive;
-        return false;
+        return InlineResult::failure("recursive");
       }
     }
 #endif // INTEL_CUSTOMIZATION
@@ -3180,12 +3157,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       Cost += InlineConstants::ColdccPenalty;
 
     // Check if we're done. This can happen due to bonuses and penalties.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Cost >= Threshold) {
       if (!ComputeFullInlineCost) {
         *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
-        return "high cost";
+        return InlineResult::failure("high cost");
       }
       if (EarlyExitCost == INT_MAX) {
         EarlyExitCost = Cost;
@@ -3193,13 +3169,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
    }
 #endif // INTEL_CUSTOMIZATION
-    return true;
-=======
-    if (Cost >= Threshold && !ComputeFullInlineCost)
-      return InlineResult::failure("high cost");
-
     return InlineResult::success();
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   }
 
 public:
@@ -4432,46 +4402,29 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
     using namespace ore;
     // If the visit this instruction detected an uninlinable pattern, abort.
-<<<<<<< HEAD
-    InlineResult IR;
+    InlineResult IR = InlineResult::success();
 #if INTEL_CUSTOMIZATION
     if (IsRecursiveCall) {
       *ReasonAddr = NinlrRecursive;
-      IR = "recursive";
+      IR = InlineResult::failure("recursive");
     } else if (ExposesReturnsTwice) {
       *ReasonAddr = NinlrReturnsTwice;
-      IR = "exposes returns twice";
+      IR = InlineResult::failure("exposes returns twice");
     } else if (HasDynamicAlloca){
       *ReasonAddr = NinlrDynamicAlloca;
-      IR = "dynamic alloca";
+      IR = InlineResult::failure("dynamic alloca");
     } else if (HasIndirectBr) {
       *ReasonAddr = NinlrIndirectBranch;
-      IR = "indirect branch";
+      IR = InlineResult::failure("indirect branch");
     } else if (HasUninlineableIntrinsic) {
       *ReasonAddr = NinlrCallsLocalEscape;
-      IR = "uninlinable intrinsic";
+      IR = InlineResult::failure("uninlinable intrinsic");
     } else if (InitsVargArgs) {
       *ReasonAddr = NinlrVarargs;
-      IR = "varargs";
+      IR = InlineResult::failure("varargs");
     }
 #endif // INTEL_CUSTOMIZATION
-    if (!IR) {
-=======
-    InlineResult IR = InlineResult::success();
-    if (IsRecursiveCall)
-      IR = InlineResult::failure("recursive");
-    else if (ExposesReturnsTwice)
-      IR = InlineResult::failure("exposes returns twice");
-    else if (HasDynamicAlloca)
-      IR = InlineResult::failure("dynamic alloca");
-    else if (HasIndirectBr)
-      IR = InlineResult::failure("indirect branch");
-    else if (HasUninlineableIntrinsic)
-      IR = InlineResult::failure("uninlinable intrinsic");
-    else if (InitsVargArgs)
-      IR = InlineResult::failure("varargs");
     if (!IR.isSuccess()) {
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
@@ -4488,13 +4441,9 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // the caller stack usage dramatically.
     if (IsCallerRecursive &&
         AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
-<<<<<<< HEAD
       *ReasonAddr = NinlrTooMuchStack; // INTEL
-      InlineResult IR = "recursive and allocates too much stack space";
-=======
       auto IR =
           InlineResult::failure("recursive and allocates too much stack space");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
@@ -4506,19 +4455,14 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
       return IR;
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (shouldStop()) {
       if (*ReasonAddr == InlrNoReason)
         *ReasonAddr = NinlrNotProfitable;
-      return false;
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
-    if (shouldStop())
       return InlineResult::failure(
           "Call site analysis is not favorable to inlining.");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   return InlineResult::success();
@@ -4710,25 +4654,16 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   TempReason = NinlrNoReason;
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
   auto Result = onAnalysisStart(CalleeTTI, ReasonAddr); // INTEL
-  if (!Result)
+  if (!Result.isSuccess())
     return Result;
 
 #if INTEL_CUSTOMIZATION
   if (F.empty()) {
     *ReasonAddr = InlrEmptyFunction;
-    return true;
+    return InlineResult::success();
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  auto Result = onAnalysisStart();
-  if (!Result.isSuccess())
-    return Result;
-
-  if (F.empty())
-    return InlineResult::success();
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
 
   Function *Caller = CandidateCall.getFunction();
   // Check if the caller function is recursive itself.
@@ -4802,27 +4737,17 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
     // FIXME: pr/39560: continue relaxing this overt restriction.
     if (BB->hasAddressTaken())
       for (User *U : BlockAddress::get(&*BB)->users())
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         if (!isa<CallBrInst>(*U)) {
           *ReasonAddr = NinlrBlockAddress;
-          return "blockaddress used outside of callbr";
+          return InlineResult::failure("blockaddress used outside of callbr");
         }
 #endif // INTEL_CUSTOMIZATION
 
     // Analyze the cost of this block. If we blow through the threshold, this
     // returns false, and we can bail on out.
     InlineResult IR = analyzeBlock(BB, EphValues, ReasonAddr); // INTEL
-    if (!IR)
-=======
-        if (!isa<CallBrInst>(*U))
-          return InlineResult::failure("blockaddress used outside of callbr");
-
-    // Analyze the cost of this block. If we blow through the threshold, this
-    // returns false, and we can bail on out.
-    InlineResult IR = analyzeBlock(BB, EphValues);
     if (!IR.isSuccess())
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
       return IR;
 
     Instruction *TI = BB->getTerminator();
@@ -4876,16 +4801,11 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall) {
     *ReasonAddr = NinlrDuplicateCall;
-    return "noduplicate";
-  }
-=======
-  if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
     return InlineResult::failure("noduplicate");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+  }
 
   return finalizeAnalysis(ReasonAddr);
 #endif // INTEL_CUSTOMIZATION
@@ -5008,26 +4928,19 @@ InlineCost llvm::getInlineCost(
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (Call.hasFnAttr(Attribute::AlwaysInline)) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
-    if (IsViable)
+    if (IsViable.isSuccess())
       return llvm::InlineCost::getAlways("always inline attribute",
                                          InlrAlwaysInline);
     assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever(IsViable.message,
+    return llvm::InlineCost::getNever(IsViable.getFailureReason(),
                                       Reason);
-=======
-    auto IsViable = isInlineViable(*Callee);
-    if (IsViable.isSuccess())
-      return llvm::InlineCost::getAlways("always inline attribute");
-    return llvm::InlineCost::getNever(IsViable.getFailureReason());
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
   }
   if (Call.hasFnAttr("always-inline-recursive")) {
     InlineReason Reason = InlrNoReason;
-    if (isInlineViable(*Callee, Reason))
+    if (isInlineViable(*Callee, Reason).isSuccess())
       return llvm::InlineCost::getAlways("always inline recursive attribute",
                                          InlrAlwaysInlineRecursive);
     assert(IsNotInlinedReason(Reason));
@@ -5084,17 +4997,11 @@ InlineCost llvm::getInlineCost(
   LLVM_DEBUG(CA.dump());
 
   // Check if there was a reason to force inlining or no inlining.
-<<<<<<< HEAD
-  if (!ShouldInline && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(ShouldInline.message, Reason); // INTEL
-  if (ShouldInline && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways("empty function", Reason);    // INTEL
-=======
   if (!ShouldInline.isSuccess() && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(ShouldInline.getFailureReason());
+    return InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
+                                Reason);                         // INTEL
   if (ShouldInline.isSuccess() && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways("empty function");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+    return InlineCost::getAlways("empty function", Reason);    // INTEL
 
 #if INTEL_CUSTOMIZATION
   return llvm::InlineCost::get(CA.getCost(),
@@ -5108,29 +5015,19 @@ InlineResult llvm::isInlineViable(Function &F, // INTEL
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches.
-<<<<<<< HEAD
            if (isa<IndirectBrInst>(BI->getTerminator())) { // INTEL
       Reason = NinlrIndirectBranch; // INTEL
-      return "contains indirect branches";
-    } // INTEL
-=======
-    if (isa<IndirectBrInst>(BI->getTerminator()))
       return InlineResult::failure("contains indirect branches");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+    } // INTEL
 
     // Disallow inlining of blockaddresses which are used by non-callbr
     // instructions.
     if (BI->hasAddressTaken())
       for (User *U : BlockAddress::get(&*BI)->users())
-<<<<<<< HEAD
         if (!isa<CallBrInst>(*U)) { // INTEL
           Reason = NinlrBlockAddress; // INTEL
-          return "blockaddress used outside of callbr";
-        } // INTEL
-=======
-        if (!isa<CallBrInst>(*U))
           return InlineResult::failure("blockaddress used outside of callbr");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+        } // INTEL
 
     for (auto &II : *BI) {
       CallBase *Call = dyn_cast<CallBase>(&II);
@@ -5138,28 +5035,18 @@ InlineResult llvm::isInlineViable(Function &F, // INTEL
         continue;
 
       // Disallow recursive calls.
-<<<<<<< HEAD
       if (&F == Call->getCalledFunction()) { // INTEL
         Reason = NinlrRecursive; // INTEL
-        return "recursive call";
-      } // INTEL
-=======
-      if (&F == Call->getCalledFunction())
         return InlineResult::failure("recursive call");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+      } // INTEL
 
       // Disallow calls which expose returns-twice to a function not previously
       // attributed as such.
       if (!ReturnsTwice && isa<CallInst>(Call) &&
-<<<<<<< HEAD
           cast<CallInst>(Call)->canReturnTwice()) { // INTEL
         Reason = NinlrReturnsTwice; // INTEL
-        return "exposes returns-twice attribute";
-      } // INTEL
-=======
-          cast<CallInst>(Call)->canReturnTwice())
         return InlineResult::failure("exposes returns-twice attribute");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+      } // INTEL
 
       if (Call->getCalledFunction())
         switch (Call->getCalledFunction()->getIntrinsicID()) {
@@ -5168,33 +5055,21 @@ InlineResult llvm::isInlineViable(Function &F, // INTEL
         case llvm::Intrinsic::icall_branch_funnel:
           // Disallow inlining of @llvm.icall.branch.funnel because current
           // backend can't separate call targets from call arguments.
-<<<<<<< HEAD
           Reason = NinlrCallsLocalEscape; // INTEL
-          return "disallowed inlining of @llvm.icall.branch.funnel";
-        case llvm::Intrinsic::localescape:
-          // Disallow inlining functions that call @llvm.localescape. Doing this
-          // correctly would require major changes to the inliner.
-          Reason = NinlrCallsLocalEscape; // INTEL
-          return "disallowed inlining of @llvm.localescape";
-        case llvm::Intrinsic::vastart:
-          // Disallow inlining of functions that initialize VarArgs with
-          // va_start.
-          Reason = NinlrVarargs; // INTEL
-          return "contains VarArgs initialized with va_start";
-=======
           return InlineResult::failure(
               "disallowed inlining of @llvm.icall.branch.funnel");
         case llvm::Intrinsic::localescape:
           // Disallow inlining functions that call @llvm.localescape. Doing this
           // correctly would require major changes to the inliner.
+          Reason = NinlrCallsLocalEscape; // INTEL
           return InlineResult::failure(
               "disallowed inlining of @llvm.localescape");
         case llvm::Intrinsic::vastart:
           // Disallow inlining of functions that initialize VarArgs with
           // va_start.
+          Reason = NinlrVarargs; // INTEL
           return InlineResult::failure(
               "contains VarArgs initialized with va_start");
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
         }
     }
   }

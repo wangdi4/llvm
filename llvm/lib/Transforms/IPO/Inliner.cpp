@@ -319,14 +319,9 @@ static InlineResult InlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-<<<<<<< HEAD
   InlineResult IR = InlineFunction(CS, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
                                    InsertLifetime);          // INTEL
-  if (!IR)
-=======
-  InlineResult IR = InlineFunction(CS, IFI, &AAR, InsertLifetime);
   if (!IR.isSuccess())
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
     return IR;
 
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
@@ -893,7 +888,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         // Attempt to inline the function.
         using namespace ore;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         IR.beginUpdate(CS);
         MDIR.beginUpdate(CS);
@@ -913,36 +907,23 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                                AARGetter,
                                                ImportedFunctionsStats,
                                                &Reason);
-        if (!LIR) {
+        if (!LIR.isSuccess()) {
           IR.endUpdate();
           IR.setReasonNotInlined(CS, Reason);
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(CS, Reason);
-          setInlineRemark(CS, std::string(LIR) + "; " + inlineCostStr(*OIC));
+          setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " +
+                                  inlineCostStr(*OIC));
           if (CallSitesForFusion) {
             CallSitesForFusion->clear();
           }
 #endif // INTEL_CUSTOMIZATION
-=======
-
-        InlineResult IR = InlineCallIfPossible(
-            CS, InlineInfo, InlinedArrayAllocas, InlineHistoryID,
-            InsertLifetime, AARGetter, ImportedFunctionsStats);
-        if (!IR.isSuccess()) {
-          setInlineRemark(CS, std::string(IR.getFailureReason()) + "; " +
-                                  inlineCostStr(*OIC));
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
                                             Block)
                    << NV("Callee", Callee) << " will not be inlined into "
-<<<<<<< HEAD
-                   << NV("Caller", Caller) << ": " // INTEL
-                   << NV("Reason", LIR.message);   // INTEL
-=======
-                   << NV("Caller", Caller) << ": "
-                   << NV("Reason", IR.getFailureReason());
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+                   << NV("Caller", Caller) << ": "            // INTEL
+                   << NV("Reason", LIR.getFailureReason());   // INTEL
           });
           continue;
         }
@@ -1455,7 +1436,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       using namespace ore;
 
-<<<<<<< HEAD
       Report.beginUpdate(CS);  // INTEL
       MDReport->beginUpdate(CS); // INTEL
       InlineReason Reason = NinlrNoReason; // INTEL
@@ -1468,25 +1448,14 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
       InlineResult LIR = InlineFunction(CS, IFI, &Report, MDReport, // INTEL
                                         &Reason);                    // INTEL
-      if (!LIR) { // INTEL
-        setInlineRemark(CS, std::string(LIR) + "; " // INTEL
+      if (!LIR.isSuccess()) { // INTEL
+        setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " // INTEL
             + inlineCostStr(*OIC));                 // INTEL
         ORE.emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
                  << NV("Callee", &Callee) << " will not be inlined into "
-                 << NV("Caller", &F) << ": "    // INTEL
-                 << NV("Reason", LIR.message);  // INTEL
-=======
-      InlineResult IR = InlineFunction(CS, IFI);
-      if (!IR.isSuccess()) {
-        setInlineRemark(CS, std::string(IR.getFailureReason()) + "; " +
-                                inlineCostStr(*OIC));
-        ORE.emit([&]() {
-          return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
-                 << NV("Callee", &Callee) << " will not be inlined into "
                  << NV("Caller", &F) << ": "
-                 << NV("Reason", IR.getFailureReason());
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
+                 << NV("Reason", LIR.getFailureReason()); // INTEL
         });
         Report.endUpdate(); // INTEL
         Report.setReasonNotInlined(CS, Reason); // INTEL

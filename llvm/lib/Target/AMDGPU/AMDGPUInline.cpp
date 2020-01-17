@@ -190,15 +190,10 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
     return llvm::InlineCost::getNever("incompatible");
 
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
-    if (IsViable)
-=======
-    auto IsViable = isInlineViable(*Callee);
     if (IsViable.isSuccess())
->>>>>>> 5466597fee379b44f643cee0e0632fdef8fb6b21
       return llvm::InlineCost::getAlways("alwaysinline viable");
     return llvm::InlineCost::getNever(IsViable.getFailureReason());
   }
