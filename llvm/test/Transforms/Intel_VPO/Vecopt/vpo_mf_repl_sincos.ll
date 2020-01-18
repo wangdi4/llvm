@@ -355,14 +355,14 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
 ; CHECK-NOT: ret2ptr
 ; CHECK: [[ANGLELO:%[a-z0-9.]+]] = shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[SINCOSLO:%[a-z0-9.]+]] = call{{.*}}svml_sincosf8_ha{{.*}}[[ANGLELO]]
-; CHECK-DAG: [[SINCOS1:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 1
-; CHECK-DAG: [[SINCOS0:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 0
 ; CHECK: [[ANGLEHI:%[a-z0-9.]+]] = shufflevector{{.*}}<i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[SINCOSHI:%[a-z0-9.]+]] = call{{.*}}svml_sincosf8_ha{{.*}}[[ANGLEHI]]
-; CHECK: [[SINCOS3:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 1
-; CHECK-DAG: [[COMBHI:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS1]]{{.*}}[[SINCOS3]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-; CHECK-DAG: [[SINCOS2:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 0
+; CHECK: [[SINCOS0:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 0
+; CHECK: [[SINCOS2:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 0
 ; CHECK: [[COMBLO:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS0]]{{.*}}[[SINCOS2]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[SINCOS1:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 1
+; CHECK: [[SINCOS3:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 1
+; CHECK: [[COMBHI:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS1]]{{.*}}[[SINCOS3]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: fmul{{.*}}[[COMBLO]]
 ; CHECK: fadd{{.*}}[[COMBHI]]
 
