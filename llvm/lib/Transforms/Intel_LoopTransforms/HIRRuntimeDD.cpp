@@ -666,10 +666,11 @@ static bool computeDelinearizationValidityConditions(
 
     // Generate:
     //   Size[i] > 1
-    RegDDRef *DimSizeRef = DRU.createConstDDRef(Sizes[I]->getType(), 0);
-    DimSizeRef->getSingleCanonExpr()->addBlob(BU.findOrInsertBlob(Sizes[I]), 1);
+    auto SizeBlob = Sizes[E - I - 1];
+    RegDDRef *DimSizeRef = DRU.createConstDDRef(SizeBlob->getType(), 0);
+    DimSizeRef->getSingleCanonExpr()->addBlob(BU.findOrInsertBlob(SizeBlob), 1);
     DimSizeRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
-    RegDDRef *OneRef = DRU.createConstDDRef(Sizes[I]->getType(), 1);
+    RegDDRef *OneRef = DRU.createConstDDRef(SizeBlob->getType(), 1);
     Conditions.emplace_back(DimSizeRef, CmpInst::ICMP_SGT, OneRef);
 
     // Generate:
