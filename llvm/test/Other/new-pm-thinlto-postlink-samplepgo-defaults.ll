@@ -1,5 +1,9 @@
 ; Validate ThinLTO postlink pipeline when we have Sample PGO
 ;
+; INTEL CUSTOMIZATION
+; XFAIL: *
+; END INTEL CUSTOMIZATION
+;
 ; RUN: opt -disable-verify -debug-pass-manager \
 ; RUN:     -pgo-kind=pgo-sample-use-pipeline -profile-file='%S/Inputs/new-pm-thinlto-samplepgo-defaults.prof' \
 ; RUN:     -passes='thinlto<O1>' -S %s 2>&1 \

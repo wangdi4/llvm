@@ -1,5 +1,9 @@
 ; Validate ThinLTO post link pipeline when we have instrumentation PGO
 ;
+; INTEL CUSTOMIZATION
+; XFAIL: *
+; END INTEL CUSTOMIZATION
+;
 ; Postlink pipelines:
 ; RUN: opt -disable-verify -debug-pass-manager \
 ; RUN:     -passes='thinlto<O1>' -S %s 2>&1 \

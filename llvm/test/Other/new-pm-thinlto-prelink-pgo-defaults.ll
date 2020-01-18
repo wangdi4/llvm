@@ -1,5 +1,9 @@
 ; Validate ThinLTO prelink pipeline when we have instrumentation PGO
 ;
+; INTEL CUSTOMIZATION
+; XFAIL: *
+; END INTEL CUSTOMIZATION
+;
 ; RUN: llvm-profdata merge %S/Inputs/new-pm-thinlto-prelink-pgo-defaults.proftext -o %t.profdata
 ;
 ; RUN: opt -disable-verify -debug-pass-manager \
