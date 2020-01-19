@@ -117,9 +117,12 @@ bool CoerceTypes::runOnFunction(Function *F) {
     NewF->copyMetadata(F, 0);
     copyAttributesAndArgNames(F, NewF, NewArgTypePairs);
     NewF->setSubprogram(F->getSubprogram());
-    if (!F->isDeclaration())
+    NewF->setComdat(F->getComdat());
+    if (!F->isDeclaration()) {
       moveFunctionBody(F, NewF, NewArgTypePairs);
-
+      // F becomes a declaration and it should not contain Comdat.
+      F->setComdat(nullptr);
+    }
     // Replace F with NewF in KernelList module Metadata (if any)
     llvm::Module *M = F->getParent();
     assert(M && "Module is NULL");
