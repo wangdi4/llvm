@@ -163,6 +163,24 @@ private:
   // Also populates PsadbwPatternInsts with pattern instructions.
   unsigned getPsadwbPatternCost();
 
+  // getGatherScatterCost() interfaces calculate the sum of TTI costs of
+  // load and store instructions that are not unit load or store (i.e.
+  // most likely are implemented with gather or scatter HW instructions
+  // or just serialized).
+  //
+  // Note that g/s cost is collected with a separate pass though VPlan, not
+  // inside getCost(VPInstruction) routine in a dedicated accumulator, because
+  // getCost(VPInstruction) can be called multiple times for the same
+  // VPInstruction from various heuristics and we don't want getCost() to have
+  // a side effect of updating acc.
+  //
+  // As a cost of such approach we need to keep details of walk through VPlan
+  // in sync with walk though VPlan in main getCost() routines.  Such, the same
+  // weights should be applied on blocks when block frequency info is deployed.
+  unsigned getGatherScatterCost(const VPInstruction *VPInst);
+  unsigned getGatherScatterCost(const VPBasicBlock *VPBlock);
+  unsigned getGatherScatterCost();
+
   // FIXME: This is a temporary workaround until proper cost modeling is
   // implemented.
   //

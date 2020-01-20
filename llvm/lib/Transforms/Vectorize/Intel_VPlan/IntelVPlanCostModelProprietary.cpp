@@ -29,13 +29,22 @@
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
-static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(true),
-                               cl::desc("Consider cost returned by OVLSCostModel "
-                                        "for optimized gathers and scatters."));
+static cl::opt<bool> UseOVLSCM(
+  "vplan-cm-use-ovlscm", cl::init(true),
+  cl::desc("Consider cost returned by OVLSCostModel "
+           "for optimized gathers and scatters."));
+
 static cl::opt<unsigned> BoolInstsBailOut(
-    "vplan-cost-model-i1-bail-out-limit", cl::init(45), cl::Hidden,
-    cl::desc("Don't vectorize if number of boolean computations in the VPlan "
-             "is higher than the threshold."));
+  "vplan-cost-model-i1-bail-out-limit", cl::init(45), cl::Hidden,
+  cl::desc("Don't vectorize if number of boolean computations in the VPlan "
+           "is higher than the threshold."));
+
+static cl::opt<unsigned> CMGatherScatterThreshold(
+  "vplan-cm-gather-scatter-threshold", cl::init(100), // is off currently
+  cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
+           "percent of whole loop price the price of gather/scatter is "
+           "doubled to make it harder to choose in favor of "
+           "loop with gathers/scatters."));
 
 static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
     "vplan-cost-model-number-of-spills-per-extra-reg", cl::init(2), cl::Hidden,
@@ -465,6 +474,45 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
   return Cost;
 }
 
+unsigned VPlanCostModelProprietary::getGatherScatterCost() {
+  if (VF == 1)
+    return 0;
+
+  unsigned Cost = 0;
+  for (auto *Block : depth_first(Plan->getEntryBlock()))
+    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
+    // correctly scale the cost of the basic block.
+    Cost += getGatherScatterCost(Block);
+  return Cost;
+}
+
+unsigned VPlanCostModelProprietary::getGatherScatterCost(
+  const VPBasicBlock *VPBlock) {
+  if (VF == 1)
+    return 0;
+
+  unsigned Cost = 0;
+  for (const VPInstruction &VPInst : *VPBlock)
+    Cost += getGatherScatterCost(&VPInst);
+  return Cost;
+}
+
+unsigned VPlanCostModelProprietary::getGatherScatterCost(
+  const VPInstruction *VPInst) {
+  if (VF == 1)
+    return 0;
+
+  bool NegativeStride;
+  if ((VPInst->getOpcode() == Instruction::Load ||
+       VPInst->getOpcode() == Instruction::Store) &&
+      !isUnitStrideLoadStore(VPInst, NegativeStride))
+    // NOTE:
+    // VLS groups are ignored here.  We may want to take into consideration
+    // that some memrefs are parts of VLS groups eventually.
+    return VPlanCostModel::getLoadStoreCost(VPInst);
+  return 0;
+}
+
 // Right now it calls for VPlanCostModel::getCost(VPBB), but later we may want
 // to have more precise cost estimation for VPBB.
 unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
@@ -690,11 +738,18 @@ unsigned VPlanCostModelProprietary::getCost() {
     return UnknownCost;
   }
 
+  unsigned TTICost = Cost;
+  unsigned GatherScatterCost = getGatherScatterCost();
+  // Double GatherScatter cost contribution in case Gathers/Scatters take too
+  // much to make it harder to choose this VF.
+  if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
+    Cost += GatherScatterCost;
+
   Cost += getSpillFillCost();
 
   // Go though all instructions again to find obvious SLP patterns.
   if (CheckForSLPExtraCost())
-    Cost *= VF;
+    Cost += (VF - 1) * TTICost;
 
   // getPsadwbPatternCost() can return more than we have in Cost, so check for
   // underflow.
@@ -806,8 +861,11 @@ void VPlanCostModelProprietary::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
   VPInst->print(OS);
-  // TODO: Attributes yet to be populated.
+
   std::string Attributes = "";
+
+  if (getGatherScatterCost(VPInst) > 0)
+    Attributes += "GS ";
 
   if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
     if (ProcessedOVLSGroups.count(Group) != 0)
@@ -823,13 +881,17 @@ void VPlanCostModelProprietary::printForVPInstruction(
 
 void VPlanCostModelProprietary::printForVPBasicBlock(
   raw_ostream &OS, const VPBasicBlock *VPBB) {
-  unsigned SpillFillCost = getSpillFillCost(VPBB);
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
-    getCostNumberString(getCost(VPBB));
+    getCostNumberString(getCost(VPBB)) << '\n';
 
+  unsigned GatherScatterCost = getGatherScatterCost(VPBB);
+  if (GatherScatterCost > 0)
+    OS << "total cost includes GS Cost: " << GatherScatterCost << '\n';
+
+  unsigned SpillFillCost = getSpillFillCost(VPBB);
   if (SpillFillCost > 0)
-    OS << ", extra spill/fill cost: " << SpillFillCost;
-  OS << '\n';
+    OS << "Block spill/fill standalone cost (not included into total cost): "
+       << SpillFillCost << '\n';
 
   // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
   // TODO: The code should be revisited once the assumption is changed.
@@ -845,27 +907,32 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
 
 void VPlanCostModelProprietary::print(
   raw_ostream &OS, const std::string &Header) {
+  unsigned GatherScatterCost = getGatherScatterCost();
   unsigned SpillFillCost = getSpillFillCost();
+  unsigned TTICost = VPlanCostModel::getCost();
   OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
-  OS << "Total Cost: " << getCost();
+  OS << "Total VPlan Cost: " << getCost() << '\n';
+  OS << "VPlan Base Cost before adjustments: " << TTICost << '\n';
 
+  if (GatherScatterCost > 0)
+    OS << "VPlan Base Cost includes Total VPlan GS Cost: " <<
+      GatherScatterCost << '\n';
+  if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
+    OS << "Total VPlan GS Cost is bumped: +" << GatherScatterCost << '\n';
+  if (CheckForSLPExtraCost())
+    OS << "SLP breaking penalty cost: +" << (VF - 1) * TTICost << '\n';
   if (SpillFillCost)
-    OS << ", spill/fill cost: +" << SpillFillCost;
-
+    OS << "Total VPlan spill/fill cost: +" << SpillFillCost << '\n';
   unsigned PsadbwCostAdj = getPsadwbPatternCost();
   if (PsadbwCostAdj > 0)
-    OS << ", PSADBW pattern adjustment: -"  << PsadbwCostAdj;
-
-  OS << '\n';
-
-  if (CheckForSLPExtraCost())
-    OS << "SLP breaking penalty applied.\n";
+    OS << "PSADBW pattern adjustment: -"  << PsadbwCostAdj << '\n';
 
   LLVM_DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
     printForVPBasicBlock(OS, Block);
+  OS << '\n';
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
