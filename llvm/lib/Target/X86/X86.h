@@ -138,17 +138,15 @@ FunctionPass *createX86DiscriminateMemOpsPass();
 /// This pass applies profiling information to insert cache prefetches.
 FunctionPass *createX86InsertPrefetchPass();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Return a pass that generate LEA instructions for removing redundant address
 /// recalculations by Optimize LEA optimization.
 FunctionPass *createX86GenerateLEAs();
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// This pass insert wait instruction after X87 instructions which could raise
 /// fp exceptions when strict-fp enabled.
 FunctionPass *createX86InsertX87waitPass();
->>>>>>> 8fdafb7dced812b2dc0af77f9668bfe23b4ffb0b
 
 InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
                                                   X86Subtarget &,
