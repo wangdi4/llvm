@@ -1,10 +1,7 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-=======
 ; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
->>>>>>> 0b21d552620dd593ddc93a93b5e779d5950f4a24
+; INTEL_CUSTOMIZATION
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHKSS
+; end INTEL_CUSTOMIZATION
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
 
@@ -370,8 +367,7 @@ entry:
   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
   ret void
 
-<<<<<<< HEAD
-; INTEL
+; INTEL_CUSTOMIZATION
 ; More generic reg-exps
 ; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
@@ -393,43 +389,23 @@ entry:
 ; CHECK: Both ModRef:   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: NoModRef:   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
 ; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
-=======
-; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #8 [ "unknown"() ]
-; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #8 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessiblememonly_func() #9 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %q        <->  call void @an_inaccessiblememonly_func() #9 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ]
-; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #8 [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #9 [ "unknown"() ]
-; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #8 [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ]
-; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #8 [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessiblememonly_func() #9 [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #8 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessiblememonly_func() #9 [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ]
-; CHECK: NoModRef:   call void @an_inaccessiblememonly_func() #9 [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #8 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #9 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):   call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ] <->   call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ]
-; CHECK: Both ModRef:   call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ] <->   call void @a_readonly_func(i8* %p) #8 [ "unknown"() ]
-; CHECK: NoModRef:   call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #9 [ "unknown"() ]
-; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #11 [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #10 [ "unknown"() ]
->>>>>>> 0b21d552620dd593ddc93a93b5e779d5950f4a24
 }
 
 
-; CHECK:      attributes #0 = { argmemonly nounwind willreturn writeonly }
-; CHECK-NEXT: attributes #1 = { argmemonly nounwind willreturn }
-; CHECK-NEXT: attributes #2 = { noinline nounwind readonly }
-; CHECK-NEXT: attributes #3 = { noinline nounwind writeonly }
-; CHECK-NEXT: attributes #4 = { nounwind ssp }
-; CHECK-NEXT: attributes #5 = { inaccessiblememonly nounwind }
-; CHECK-NEXT: attributes #6 = { inaccessiblemem_or_argmemonly nounwind }
-; CHECK-NEXT: attributes #7 = { argmemonly nounwind }
-; CHECK-NEXT: attributes #8 = { readonly }
-; CHECK-NEXT: attributes #9 = { inaccessiblememonly }
-; CHECK-NEXT: attributes #10 = { inaccessiblemem_or_argmemonly }
-; CHECK-NEXT: attributes #11 = { argmemonly }
+; CHECK:      attributes #{{.*}} = { argmemonly nounwind willreturn writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind willreturn }
+; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind readonly }
+; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { nounwind ssp }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly nounwind }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly nounwind }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind }
+; CHKSS-NEXT: attributes #{{.*}} = { nounwind readnone speculatable }
+; CHECK-NEXT: attributes #{{.*}} = { readonly }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly }
+; end INTEL_CUSTOMIZATION
 
 attributes #0 = { argmemonly nounwind }
 attributes #1 = { noinline nounwind readonly }
