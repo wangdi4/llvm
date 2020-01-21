@@ -45,4 +45,3 @@ define void @proc1() #0 {
 
 ; Function Attrs: nounwind
 declare dso_local noalias i8* @calloc(i64, i64)
-attributes #0 = { "target-features"="+avx2" }
