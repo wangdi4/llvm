@@ -1523,9 +1523,7 @@ define void @test_reuse_idom(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]]:
-; TODO: We should be able to use VP4 directly here, without re-computing the "or".
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = or i1 [[VP_BB7_BR_VP_BB2_VARYING]] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP8]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB6_ADD:%.*]] = add i32 [[VP_LD]] i32 6
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB14:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
@@ -1542,7 +1540,7 @@ define void @test_reuse_idom(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]]:
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP10:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP9:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB16:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
