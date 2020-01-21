@@ -8129,11 +8129,13 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
 }
 
 bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
+  bool Changed = false;
+
   if (!deviceTriplesHasSPIRV())
-    return false;
+    return Changed;
 
   if (!VPOParoptUtils::mayUseSPMDMode(W))
-    return false;
+    return Changed;
 
   WRegionNode *WTarget =
       WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
@@ -8146,8 +8148,16 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
           "with \"target\" to get optimal performance";
       ORE.emit(R);
     }
-    return false;
+    return Changed;
   }
+
+  // Check if there is an enclosing teams region.
+  WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
+
+  if (!WTeams && !VPOParoptUtils::getSPIRImplicitMultipleTeams())
+    // "omp target parallel for" is not allowed to use multiple WGs implicitly.
+    // It has to use one team/WG by specification.
+    return Changed;
 
   // It is not really necessary to generate ND-range parameter
   // during SPIR compilation, because it is only used in host code
@@ -8157,15 +8167,16 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
   auto *NDInfoAI = genTgtLoopParameter(WTarget, W);
 
   if (!NDInfoAI)
-    return false;
+    return Changed;
 
   // NDInfoAI is not null here, so we've made some changed to IR
   // inside genTgtLoopParameter().
+  Changed = true;
 
-  // Check if there is an inclosing teams region with num_teams() clause.
-  // num_teams() overrules ImplicitSIMDSPMDES mode.
-  WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
-
+  // "omp teams" with num_teams() clause overrules ImplicitSIMDSPMDES mode.
+  //
+  // Emit opt-report only if we can actually use ND-range parallelization,
+  // i.e. NDInfoAI is not null, otherwise, the report will be misleading.
   if (WTeams && WTeams->getNumTeams()) {
     if (isTargetSPIRV()) {
       // Emit opt-report only during SPIR compilation.
@@ -8174,12 +8185,12 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
           "specifying num_teams";
       ORE.emit(R);
     }
-    return true;
+    return Changed;
   }
 
   // Finally set ND-range info for the target region.
   WTarget->setParLoopNdInfoAlloca(NDInfoAI);
-  return true;
+  return Changed;
 }
 
 void VPOParoptTransform::setMayHaveOMPCritical(WRegionNode *W) const {
