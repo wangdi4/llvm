@@ -568,11 +568,6 @@ TEST(FrameworkTestType, Test_clTracingFunctionsDisabledCheckTest)
     EXPECT_TRUE(clTracingFunctionsDisabledCheckTest());
 }
 
-TEST_F(CL, Test_CheckExtensions)
-{
-    CheckExtensions();
-}
-
 TEST_F(CL, DISABLED_Test_ZeroLocalSize)
 {
     ZeroLocalSize();
