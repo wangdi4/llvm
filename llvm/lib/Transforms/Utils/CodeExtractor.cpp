@@ -63,8 +63,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #if INTEL_COLLAB
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/DebugInfoTransform.h"
 #endif // INTEL_COLLAB
 #include <cassert>
@@ -88,6 +86,14 @@ using ProfileCount = Function::ProfileCount;
 static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
+
+#if INTEL_COLLAB
+static cl::opt<bool>
+IntelExtractDebug("intel-extract-debug",
+                  cl::Hidden,
+                  cl::init(true),
+                  cl::desc("Use Intel CodeExtractor debug information"));
+#endif // INTEL_COLLAB
 
 /// Test whether a block is valid for extraction.
 static bool isBlockValidForExtraction(const BasicBlock &BB,
@@ -1518,7 +1524,6 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
       MDBuilder(TI->getContext()).createBranchWeights(BranchWeights));
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool definedInFunction(const Function *F, Value *V) {
   if (Instruction *I = dyn_cast_or_null<Instruction>(V))
@@ -1839,7 +1844,7 @@ void CodeExtractor::updateDebugInfoAfterCodeExtraction(
   RewrittenValues.clear();
 }
 #endif // INTEL_COLLAB
-=======
+
 /// Erase debug info intrinsics which refer to values in \p F but aren't in
 /// \p F.
 static void eraseDebugIntrinsicsWithNonLocalRefs(Function &F) {
@@ -1962,7 +1967,6 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
 
   eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
 }
->>>>>>> 360abb7ee56f1524b6e2951a4fda36296d5b3582
 
 Function *
 CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
@@ -1976,7 +1980,8 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 
 #if INTEL_COLLAB
   DebugIntrinsicsToUpdateArray DebugIntrinsicsToUpdate;
-  prepareDebugInfoForCodeExtraction(DebugIntrinsicsToUpdate);
+  if (IntelExtractDebug)
+    prepareDebugInfoForCodeExtraction(DebugIntrinsicsToUpdate);
 #endif // INTEL_COLLAB
 
   // Calculate the entry frequency of the new function before we change the root
@@ -2224,11 +2229,12 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
       }
     }
 
-<<<<<<< HEAD
-=======
+#if INTEL_COLLAB
+  // Only fixupDebugInfoPostExtraction() when not using IntelExtractDebug.
+  if (!IntelExtractDebug)
+#endif // INTEL_COLLAB
   fixupDebugInfoPostExtraction(*oldFunction, *newFunction, *TheCall);
 
->>>>>>> 360abb7ee56f1524b6e2951a4fda36296d5b3582
   // Mark the new function `noreturn` if applicable. Terminators which resume
   // exception propagation are treated as returning instructions. This is to
   // avoid inserting traps after calls to outlined functions which unwind.
@@ -2242,8 +2248,9 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 #if INTEL_COLLAB
   hoistAlloca(*newFunction);
 
-  updateDebugInfoAfterCodeExtraction(
-      oldFunction, newFunction, DebugIntrinsicsToUpdate);
+  if (IntelExtractDebug)
+    updateDebugInfoAfterCodeExtraction(
+        oldFunction, newFunction, DebugIntrinsicsToUpdate);
 #endif // INTEL_COLLAB
 
   LLVM_DEBUG(if (verifyFunction(*newFunction, &errs())) {
