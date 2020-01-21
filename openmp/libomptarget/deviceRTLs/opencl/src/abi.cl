@@ -136,6 +136,11 @@ void __kmpc_init_runtime() {
   __kmp_init_locals();
 }
 
+/// Initialize program data
+kernel void __kmpc_init_program(global void *data) {
+  GLOBAL.program_data = *(kmp_program_data_t *)data;
+}
+
 
 ///
 /// Support for critical section
