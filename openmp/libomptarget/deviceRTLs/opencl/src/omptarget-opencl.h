@@ -180,6 +180,11 @@ typedef enum omp_sched_t {
   omp_sched_auto = 0x4,
 } omp_sched_t;
 
+typedef enum omp_pause_resource_t {
+  omp_pause_soft = 1,
+  omp_pause_hard = 2
+} omp_pause_resource_t;
+
 ///
 /// Task state
 ///
@@ -261,10 +266,18 @@ typedef struct kmp_local_state {
   kmp_barrier_counting_t work_barrier;
 } kmp_local_state_t;
 
+/// Host data -- misc. data that are copied from host
+typedef struct kmp_program_data {
+  int initialized;
+  int num_devices;
+  int device_num;
+} kmp_program_data_t;
+
 /// Global state
 typedef struct kmp_global_state {
-  kmp_barrier_t g_barrier;              // global barrier
+  kmp_barrier_t g_barrier;         // global barrier
   int assume_simple_spmd_mode;     // assume simple SPMD mode
+  kmp_program_data_t program_data; // data initialized by host
 } kmp_global_state_t;
 
 
@@ -682,6 +695,18 @@ EXTERN int omp_get_max_threads(void);
 EXTERN int omp_get_device_num(void);
 
 EXTERN int omp_get_num_devices(void);
+
+EXTERN int omp_get_num_procs(void);
+
+EXTERN int omp_get_supported_active_levels(void);
+
+EXTERN void omp_set_affinity_format(const char *fmt);
+
+EXTERN size_t omp_get_affinity_format(char *buf, size_t size);
+
+EXTERN void omp_display_affinity(const char *fmt);
+
+EXTERN size_t omp_capture_affinity(char *buf, size_t size, const char *fmt);
 
 EXTERN int omp_is_initial_device(void);
 

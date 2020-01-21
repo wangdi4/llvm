@@ -357,6 +357,14 @@ struct BufferInfoTy {
   int64_t Size; // Allocation size
 };
 
+/// Program data to be initialized.
+/// TODO: include other runtime parameters if necessary.
+struct ProgramData {
+  int Initialized = 0;
+  int NumDevices = 0;
+  int DeviceNum = -1;
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
@@ -555,6 +563,39 @@ static std::string getDeviceRTLPath() {
   size_t split = rtl_path.find_last_of("/\\");
   rtl_path.replace(split + 1, std::string::npos, DEVICE_RTL_NAME);
   return rtl_path;
+}
+
+/// Invoke kernel to initialize program data.
+/// TODO: consider moving allocation of static buffers in device RTL to here
+///       as it requires device information.
+static int32_t initProgram(int32_t deviceId) {
+  int32_t rc;
+  ProgramData hostData = {1, (int32_t)DeviceInfo.numDevices, deviceId};
+  auto context = DeviceInfo.CTX[deviceId];
+  auto queue = DeviceInfo.Queues[deviceId];
+  auto program = DeviceInfo.FuncGblEntries[deviceId].Program;
+  cl_mem devData = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(hostData),
+                                  nullptr, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Failed to initialize program\n");
+    return OFFLOAD_FAIL;
+  }
+  INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, queue, devData, true, 0,
+                     sizeof(hostData), &hostData, 0, nullptr, nullptr);
+  cl_kernel initPgm = clCreateKernel(program, "__kmpc_init_program", &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Failed to initialize program\n");
+    return OFFLOAD_FAIL;
+  }
+  size_t globalWork = 1;
+  size_t localWork = 1;
+  INVOKE_CL_RET_FAIL(clSetKernelArg, initPgm, 0, sizeof(devData), &devData);
+  INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, queue, initPgm, 1, nullptr,
+                     &globalWork, &localWork, 0, nullptr, nullptr);
+  INVOKE_CL_RET_FAIL(clFinish, queue);
+  INVOKE_CL_RET_FAIL(clReleaseMemObject, devData);
+  INVOKE_CL_RET_FAIL(clReleaseKernel, initPgm);
+  return OFFLOAD_SUCCESS;
 }
 
 #ifdef __cplusplus
@@ -1107,10 +1148,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     INVOKE_CL_EXIT_FAIL(clReleaseProgram, program[i]);
   }
   DeviceInfo.FuncGblEntries[device_id].Program = program[2];
-
+  if (initProgram(device_id) != OFFLOAD_SUCCESS)
+    return nullptr;
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
   table.EntriesBegin = &(entries[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
+
   return &table;
 }
 
