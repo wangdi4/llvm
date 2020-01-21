@@ -354,7 +354,7 @@ void VPOCodeGen::createEmptyLoop() {
 
   Type *IdxTy = Legal->getWidestInductionType();
   Value *StartIdx = ConstantInt::get(IdxTy, 0);
-  Constant *Step = ConstantInt::get(IdxTy, VF);
+  Constant *Step = ConstantInt::get(IdxTy, VF * UF);
 
   // Create an induction variable in vector loop with a step equal to VF.
   Induction = createInductionVariable(Lp, StartIdx, CountRoundDown, Step);
@@ -1221,7 +1221,7 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
   // iterations are not required for correctness, or N - Step, otherwise. Step
   // is equal to the vectorization factor (number of SIMD elements) times the
   // unroll factor (number of SIMD instructions).
-  Constant *Step = ConstantInt::get(TC->getType(), VF);
+  Constant *Step = ConstantInt::get(TC->getType(), VF * UF);
   Value *R = Builder.CreateURem(TC, Step, "n.mod.vf");
 
   VectorTripCount = Builder.CreateSub(TC, R, "n.vec");

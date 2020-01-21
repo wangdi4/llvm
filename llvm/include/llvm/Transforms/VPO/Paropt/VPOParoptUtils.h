@@ -1409,6 +1409,11 @@ public:
   /// Returns execution scheme for loop-kind regions on SPIR targets.
   static spirv::ExecutionSchemeTy getSPIRExecutionScheme();
 
+  /// Returns true, if it is allowed to execute "omp target parallel for"
+  /// with multiple teams/WGs. According to OpenMP specification only
+  /// one team/WG is allowed, which corresponds to false return value.
+  static bool getSPIRImplicitMultipleTeams();
+
   /// Returns true, if the given instruction \p I represents a call
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);

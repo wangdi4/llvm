@@ -58,7 +58,9 @@ static cl::opt<bool> StrictOutlineVerification(
     cl::desc("Only allow pointers to be arguments of outlined routines."));
 
 // Undocumented option to control execution scheme for SPIR targets.
-cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
+// This option has to have the same value for the host and the target
+// compilations to work properly.
+static cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
     spirv::ExecutionSchemeOptionName, cl::Hidden,
     cl::init(spirv::ImplicitSIMDSPMDES),
     cl::desc(""),
@@ -69,6 +71,15 @@ cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
             "1", "<undocumented>"),        // Implicit SIMD with SPMD
         clEnumValN(spirv::ExplicitSIMDES,
             "2", "<undocumented>")));      // Explicit SIMD
+
+// Control whether "omp target parallel for" may be executed
+// with multiple teams/WGs.
+// This option has to have the same value for the host and the target
+// compilations to work properly.
+static cl::opt<bool> SPIRImplicitMultipleTeams(
+    "vpo-implicit-multiple-teams", cl::Hidden, cl::init(true),
+    cl::desc("Allow creation of multiple WGs for executing omp target "
+             "parallel for. Note that it is not OpenMP conformant."));
 
 static const unsigned StackAdjustedAlignment = 16;
 
@@ -4316,6 +4327,10 @@ bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
 
 spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
   return SPIRExecutionScheme;
+}
+
+bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
+  return SPIRImplicitMultipleTeams;
 }
 
 bool VPOParoptUtils::isOMPCritical(
