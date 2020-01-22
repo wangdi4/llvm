@@ -1215,13 +1215,13 @@ def CC_X86_32_HiPE : CallingConv<[
 // if INTEL_CUSTOMIZATION
 def CC_SVML : CallingConv<[
 
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+  CCIfType<[f32, f64, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
            CCAssignToReg<[XMM0, XMM1, XMM2]>>,
   
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
+  CCIfType<[v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
            CCAssignToReg<[YMM0, YMM1, YMM2]>>,
 
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
+  CCIfType<[v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
            CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>,
 
   CCIfType<[v2i1, v4i1, v8i1, v16i1],
