@@ -101,7 +101,9 @@ FunctionPass *createHIRLoopReversalPass();
 
 /// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
 /// Memory Motion.
-FunctionPass *createHIRLMMPass();
+/// \p LoopNestLevelOnly indicates whether the hoisting is only allowed outside
+/// the outermost loop.
+FunctionPass *createHIRLMMPass(bool LoopNestLevelOnly = false);
 
 /// createHIRLoopCollapsePass - This creates a HIR Loop pass that performs Loop
 /// Collapse

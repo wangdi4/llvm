@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.h - DTrans Field ModRef Analysis-------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -59,6 +59,18 @@ public:
   // try to compute the result. Otherwise, the conservative answer of ModRef is
   // returned.
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
+
+  /// Results cannot be invalidated.
+  bool invalidate(Module &, const PreservedAnalyses &,
+                  ModuleAnalysisManager::Invalidator &) {
+    return false;
+  }
+
+  /// Results cannot be invalidated.
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
+    return false;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
