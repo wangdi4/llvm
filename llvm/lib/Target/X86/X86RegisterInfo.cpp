@@ -86,6 +86,7 @@ X86RegisterInfo::getCSRFirstUseCost(const MachineFunction &MF) const {
   if (!ST->isTarget64BitLP64())
     return 0;
 
+<<<<<<< HEAD
   return 1 << 14;
 }
 #endif // INTEL_CUSTOMIZATION
@@ -95,6 +96,8 @@ X86RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
   return true;
 }
 
+=======
+>>>>>>> 8e8a75ad50828b5093d6ba7aae0eba6dc290c90a
 int
 X86RegisterInfo::getSEHRegNum(unsigned i) const {
   return getEncodingValue(i);

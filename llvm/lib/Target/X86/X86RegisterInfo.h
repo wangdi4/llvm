@@ -62,12 +62,15 @@ public:
   // FIXME: This should be tablegen'd like getDwarfRegNum is
   int getSEHRegNum(unsigned i) const;
 
+<<<<<<< HEAD
   /// Code Generation virtual methods...
   ///
   bool trackLivenessAfterRegAlloc(const MachineFunction &MF) const override;
 #if INTEL_CUSTOMIZATION
   unsigned getCSRFirstUseCost(const MachineFunction &MF) const override;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 8e8a75ad50828b5093d6ba7aae0eba6dc290c90a
   /// getMatchingSuperRegClass - Return a subclass of the specified register
   /// class A so that each register in it has a sub-register of the
   /// specified sub-register index which is in the specified register class B.

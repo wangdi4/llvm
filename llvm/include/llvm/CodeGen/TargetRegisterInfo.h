@@ -861,7 +861,7 @@ public:
 
   /// Returns true if the live-ins should be tracked after register allocation.
   virtual bool trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
-    return false;
+    return true;
   }
 
   /// True if the stack can be realigned for the target.
