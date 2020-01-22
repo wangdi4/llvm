@@ -1974,7 +1974,6 @@ private:
   //===--------------------------------------------------------------------===//
   // C++ Concepts
 
-  ExprResult ParseRequiresExpression();
   void ParseTrailingRequiresClause(Declarator &D);
 
   //===--------------------------------------------------------------------===//
@@ -2873,7 +2872,7 @@ private:
          Declarator &D,
          SmallVectorImpl<DeclaratorChunk::ParamInfo> &ParamInfo);
   void ParseParameterDeclarationClause(
-         DeclaratorContext DeclaratorContext,
+         Declarator &D,
          ParsedAttributes &attrs,
          SmallVectorImpl<DeclaratorChunk::ParamInfo> &ParamInfo,
          SourceLocation &EllipsisLoc);

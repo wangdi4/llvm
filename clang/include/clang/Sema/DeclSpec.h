@@ -1806,8 +1806,7 @@ enum class DeclaratorContext {
     TemplateArgContext,  // Any template argument (in template argument list).
     TemplateTypeArgContext, // Template type argument (in default argument).
     AliasDeclContext,    // C++11 alias-declaration.
-    AliasTemplateContext, // C++11 alias-declaration template.
-    RequiresExprContext   // C++2a requires-expression.
+    AliasTemplateContext // C++11 alias-declaration template.
 };
 
 
@@ -2031,7 +2030,6 @@ public:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
     case DeclaratorContext::TrailingReturnVarContext:
-    case DeclaratorContext::RequiresExprContext:
       return true;
     }
     llvm_unreachable("unknown context kind!");
@@ -2054,7 +2052,6 @@ public:
     case DeclaratorContext::TemplateParamContext:
     case DeclaratorContext::CXXCatchContext:
     case DeclaratorContext::ObjCCatchContext:
-    case DeclaratorContext::RequiresExprContext:
       return true;
 
     case DeclaratorContext::TypeNameContext:
@@ -2091,7 +2088,6 @@ public:
     case DeclaratorContext::MemberContext:
     case DeclaratorContext::PrototypeContext:
     case DeclaratorContext::TemplateParamContext:
-    case DeclaratorContext::RequiresExprContext:
       // Maybe one day...
       return false;
 
@@ -2169,7 +2165,6 @@ public:
     case DeclaratorContext::TemplateArgContext:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
-    case DeclaratorContext::RequiresExprContext:
       return false;
     }
     llvm_unreachable("unknown context kind!");
@@ -2394,7 +2389,6 @@ public:
     case DeclaratorContext::TemplateTypeArgContext:
     case DeclaratorContext::TrailingReturnContext:
     case DeclaratorContext::TrailingReturnVarContext:
-    case DeclaratorContext::RequiresExprContext:
       return false;
     }
     llvm_unreachable("unknown context kind!");
@@ -2428,7 +2422,6 @@ public:
     case DeclaratorContext::TrailingReturnContext:
     case DeclaratorContext::TrailingReturnVarContext:
     case DeclaratorContext::TemplateTypeArgContext:
-    case DeclaratorContext::RequiresExprContext:
       return false;
 
     case DeclaratorContext::BlockContext:

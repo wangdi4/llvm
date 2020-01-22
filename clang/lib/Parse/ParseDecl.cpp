@@ -6575,7 +6575,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     ProhibitAttributes(FnAttrs);
   } else {
     if (Tok.isNot(tok::r_paren))
-      ParseParameterDeclarationClause(D.getContext(), FirstArgAttrs, ParamInfo,
+      ParseParameterDeclarationClause(D, FirstArgAttrs, ParamInfo,
                                       EllipsisLoc);
     else if (RequiresArg)
       Diag(Tok, diag::err_argument_required_after_attribute);
@@ -6793,9 +6793,9 @@ void Parser::ParseFunctionDeclaratorIdentifierList(
 /// after the opening parenthesis. This function will not parse a K&R-style
 /// identifier list.
 ///
-/// DeclContext is the context of the declarator being parsed.  If FirstArgAttrs
-/// is non-null, then the caller parsed those attributes immediately after the
-/// open paren - they should be considered to be part of the first parameter.
+/// D is the declarator being parsed.  If FirstArgAttrs is non-null, then the
+/// caller parsed those arguments immediately after the open paren - they should
+/// be considered to be part of the first parameter.
 ///
 /// After returning, ParamInfo will hold the parsed parameters. EllipsisLoc will
 /// be the location of the ellipsis, if any was parsed.
@@ -6821,7 +6821,11 @@ void Parser::ParseFunctionDeclaratorIdentifierList(
 /// [C++11] attribute-specifier-seq parameter-declaration
 ///
 void Parser::ParseParameterDeclarationClause(
+<<<<<<< HEAD
        DeclaratorContext DeclaratorCtx,
+=======
+       Declarator &D,
+>>>>>>> baa84d8cde940278d6fb37917ac0d64c127b528f
        ParsedAttributes &FirstArgAttrs,
        SmallVectorImpl<DeclaratorChunk::ParamInfo> &ParamInfo,
        SourceLocation &EllipsisLoc) {
@@ -6870,11 +6874,17 @@ void Parser::ParseParameterDeclarationClause(
     // "LambdaExprParameterContext", because we must accept either
     // 'declarator' or 'abstract-declarator' here.
     Declarator ParmDeclarator(
+<<<<<<< HEAD
         DS, DeclaratorCtx == DeclaratorContext::RequiresExprContext
                 ? DeclaratorContext::RequiresExprContext
                 : DeclaratorCtx == DeclaratorContext::LambdaExprContext
                       ? DeclaratorContext::LambdaExprParameterContext
                       : DeclaratorContext::PrototypeContext);
+=======
+        DS, D.getContext() == DeclaratorContext::LambdaExprContext
+                ? DeclaratorContext::LambdaExprParameterContext
+                : DeclaratorContext::PrototypeContext);
+>>>>>>> baa84d8cde940278d6fb37917ac0d64c127b528f
     ParseDeclarator(ParmDeclarator);
 
     // Parse GNU attributes, if present.
@@ -6928,7 +6938,11 @@ void Parser::ParseParameterDeclarationClause(
         SourceLocation EqualLoc = Tok.getLocation();
 
         // Parse the default argument
+<<<<<<< HEAD
         if (DeclaratorCtx == DeclaratorContext::MemberContext) {
+=======
+        if (D.getContext() == DeclaratorContext::MemberContext) {
+>>>>>>> baa84d8cde940278d6fb37917ac0d64c127b528f
           // If we're inside a class definition, cache the tokens
           // corresponding to the default argument. We'll actually parse
           // them when we see the end of the class definition.
