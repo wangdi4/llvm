@@ -147,7 +147,7 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
     // Need to give up for anything that is a byte-flattened GEP form because we
     // don't have DTrans analysis info preserved.
     if (GEP->getNumIndices() == 1)
-      std::make_pair(nullptr, 0);
+      return std::make_pair(nullptr, 0);
 
     auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
     if (!StructTy)
