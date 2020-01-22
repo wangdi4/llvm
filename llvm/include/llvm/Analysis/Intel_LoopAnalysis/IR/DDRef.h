@@ -165,6 +165,12 @@ public:
   /// Returns true if this DDRef contains undefined canon expressions.
   virtual bool containsUndef() const = 0;
 
+  /// Returns true if this is linear at some levels (greater than
+  /// DefinedAtLevel) in the current loopnest.
+  bool isLinearAtLevel(unsigned Level) const {
+    return getDefinedAtLevel() < Level;
+  }
+
   /// Verifies DDRef integrity.
   virtual void verify() const;
 
