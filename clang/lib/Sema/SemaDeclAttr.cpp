@@ -4773,7 +4773,7 @@ void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
     E = ICE.get();
   }
 
-  if (IntelFPGAMaxPrivateCopiesAttr::classof(&TmpAttr)) {
+  if (IntelFPGAPrivateCopiesAttr::classof(&TmpAttr)) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
           Context, IntelFPGAMemoryAttr::Default));
@@ -6153,7 +6153,7 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<IntelFPGABankWidthAttr>(S, D, Attr))
     InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<IntelFPGAPrivateCopiesAttr>(S, D, Attr))
     InCompat = true;
   if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
     if (!NBA->isImplicit() &&
@@ -6393,6 +6393,7 @@ void Sema::AddIntelFPGABankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
                  IntelFPGABankBitsAttr(Context, CI, Args.data(), Args.size()));
 }
 
+<<<<<<< HEAD
 static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
                                                 const ParsedAttr &Attr) {
 
@@ -6403,6 +6404,19 @@ static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
     return;
 
   S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
+=======
+static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &Attr) {
+
+  if (S.LangOpts.SYCLIsHost)
+    return;
+
+  checkForDuplicateAttribute<IntelFPGAPrivateCopiesAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
+>>>>>>> 97a199f239ae6cfb0bcbb168eecbb976696cb697
       D, Attr, Attr.getArgAsExpr(0));
 }
 
@@ -8956,8 +8970,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGANumBanks:
     handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
     break;
-  case ParsedAttr::AT_IntelFPGAMaxPrivateCopies:
-    handleIntelFPGAMaxPrivateCopiesAttr(S, D, AL);
+  case ParsedAttr::AT_IntelFPGAPrivateCopies:
+    handleIntelFPGAPrivateCopiesAttr(S, D, AL);
     break;
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_VecLenHint:
