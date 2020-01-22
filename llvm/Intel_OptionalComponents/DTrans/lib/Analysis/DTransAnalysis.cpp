@@ -7780,6 +7780,39 @@ private:
       }
     };
 
+    // FSV and FSAF checks for "ConstVal" that is being assigned to a field
+    // corresponding to "FI".
+    auto CheckWriteValue = [](Constant *ConstVal, dtrans::FieldInfo &FI,
+                              size_t ElementNum,
+                              dtrans::StructInfo *ParentStInfo) {
+      if (FI.processNewSingleValue(ConstVal)) {
+        DEBUG_WITH_TYPE(DTRANS_FSV, {
+          dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType()) << " ["
+                 << ElementNum << "] New value: ";
+          ConstVal->printAsOperand(dbgs());
+          dbgs() << "\n";
+        });
+      }
+      if (!isa<ConstantPointerNull>(ConstVal)) {
+        DEBUG_WITH_TYPE(DTRANS_FSAF, {
+          if (!FI.isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType()) << " ["
+                   << ElementNum << "] <BOTTOM>\n";
+        });
+        FI.setBottomAllocFunction();
+      }
+    };
+
+    // Returns true if "WriteVal" is SelectInst and both true and false values
+    // are constants.
+    auto IsConstantResultSelectInst = [](Value *WriteVal) {
+      auto *SI = dyn_cast<SelectInst>(WriteVal);
+      if (!SI || !isa<Constant>(SI->getTrueValue()) ||
+          !isa<Constant>(SI->getFalseValue()))
+        return false;
+      return true;
+    };
+
     // Update LoadInfoMap and StoreInfoMap if the instruction I is accessing
     // a structure element.
     auto &PointeeSet = PtrInfo.getElementPointeeSet();
@@ -7911,22 +7944,7 @@ private:
             AnalyzeIndirectArrays(&FI, &I);
           } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
-              if (FI.processNewSingleValue(ConstVal)) {
-                DEBUG_WITH_TYPE(DTRANS_FSV, {
-                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                         << " [" << ElementNum << "] New value: ";
-                  ConstVal->printAsOperand(dbgs());
-                  dbgs() << "\n";
-                });
-              }
-              if (!isa<ConstantPointerNull>(WriteVal)) {
-                DEBUG_WITH_TYPE(DTRANS_FSAF, {
-                  if (!FI.isBottomAllocFunction())
-                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                           << " [" << ElementNum << "] <BOTTOM>\n";
-                });
-                FI.setBottomAllocFunction();
-              }
+              CheckWriteValue(ConstVal, FI, ElementNum, ParentStInfo);
             } else if (auto *Call = dyn_cast<CallBase>(WriteVal)) {
               DEBUG_WITH_TYPE(DTRANS_FSV, {
                 if (!FI.isMultipleValue())
@@ -7955,6 +7973,12 @@ private:
                 });
                 FI.setBottomAllocFunction();
               }
+            } else if (IsConstantResultSelectInst(WriteVal)) {
+              auto *SI = cast<SelectInst>(WriteVal);
+              CheckWriteValue(cast<Constant>(SI->getTrueValue()), FI,
+                              ElementNum, ParentStInfo);
+              CheckWriteValue(cast<Constant>(SI->getFalseValue()), FI,
+                              ElementNum, ParentStInfo);
             } else {
               DEBUG_WITH_TYPE(DTRANS_FSV, {
                 if (!FI.isMultipleValue())

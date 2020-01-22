@@ -1,6 +1,6 @@
 //===----- IntelVPOCodeGenHIR.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -102,9 +102,10 @@ static cl::opt<unsigned> TinyTripCountThreshold(
     cl::desc("Don't vectorize loops with a constant "
              "trip count that is smaller than this value."));
 
-static cl::opt<bool> VPlanVectorizeMaskedFabs(
-    "vplan-vectorize-masked-fabs", cl::init(false), cl::Hidden,
-    cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic."));
+static cl::opt<bool> VPlanAssumeMaskedFabsProfitable(
+    "vplan-assume-masked-fabs-profitable", cl::init(false), cl::Hidden,
+    cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic assuming "
+             "profitability."));
 
 namespace llvm {
 
@@ -572,9 +573,10 @@ void HandledCheck::visit(HLDDNode *Node) {
       bool TrivialVectorIntrinsic =
           (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
       // Prevent vectorization of loop if masked fabs intrinsic vectorization is
-      // disabled.
+      // not profitable specifically for non-AVX512 targets. Check JIRA :
+      // CMPLRLLVM-11468.
       if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
-          !VPlanVectorizeMaskedFabs)
+          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasAVX512())
         TrivialVectorIntrinsic = false;
       if (isa<HLIf>(Inst->getParent()) &&
           (VF > 1 && !TrivialVectorIntrinsic &&

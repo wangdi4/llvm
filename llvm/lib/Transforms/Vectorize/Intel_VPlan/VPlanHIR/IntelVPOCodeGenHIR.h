@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -381,6 +381,13 @@ public:
   // map instructions linked to a LoopEntity, to the new ref which will be used
   // during CG.
   void createAndMapLoopEntityRefs();
+
+  // Utility to check if target being compiled for has AVX512 Intel
+  // optimizations.
+  bool targetHasAVX512() const {
+    return TTI->isAdvancedOptEnabled(
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512);
+  }
 
 private:
   // Target Library Info is used to check for svml.
