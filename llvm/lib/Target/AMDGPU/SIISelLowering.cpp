@@ -5460,8 +5460,11 @@ SDValue SITargetLowering::lowerImage(SDValue Op,
   unsigned DimIdx = AddrIdx + BaseOpcode->NumExtraArgs;
   MVT VAddrVT = Op.getOperand(DimIdx).getSimpleValueType();
   const MVT VAddrScalarVT = VAddrVT.getScalarType();
-  if (((VAddrScalarVT == MVT::f16) || (VAddrScalarVT == MVT::i16)) &&
-      ST->hasFeature(AMDGPU::FeatureR128A16)) {
+  if (((VAddrScalarVT == MVT::f16) || (VAddrScalarVT == MVT::i16))) {
+    // Illegal to use a16 images
+    if (!ST->hasFeature(AMDGPU::FeatureR128A16))
+      return Op;
+
     IsA16 = true;
     const MVT VectorVT = VAddrScalarVT == MVT::f16 ? MVT::v2f16 : MVT::v2i16;
     for (unsigned i = AddrIdx; i < (AddrIdx + NumMIVAddrs); ++i) {
@@ -7380,7 +7383,8 @@ SDValue SITargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
   SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
   // If there is a possibilty that flat instruction access scratch memory
   // then we need to use the same legalization rules we use for private.
-  if (AS == AMDGPUAS::FLAT_ADDRESS)
+  if (AS == AMDGPUAS::FLAT_ADDRESS &&
+      !Subtarget->hasMultiDwordFlatScratchAddressing())
     AS = MFI->hasFlatScratchInit() ?
          AMDGPUAS::PRIVATE_ADDRESS : AMDGPUAS::GLOBAL_ADDRESS;
 
@@ -7883,7 +7887,8 @@ SDValue SITargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
   // If there is a possibilty that flat instruction access scratch memory
   // then we need to use the same legalization rules we use for private.
-  if (AS == AMDGPUAS::FLAT_ADDRESS)
+  if (AS == AMDGPUAS::FLAT_ADDRESS &&
+      !Subtarget->hasMultiDwordFlatScratchAddressing())
     AS = MFI->hasFlatScratchInit() ?
          AMDGPUAS::PRIVATE_ADDRESS : AMDGPUAS::GLOBAL_ADDRESS;
 
@@ -10371,24 +10376,6 @@ SDNode *SITargetLowering::PostISelFolding(MachineSDNode *Node,
       Ops.push_back(Node->getOperand(I));
 
     Ops.push_back(ImpDef.getValue(1));
-    return DAG.getMachineNode(Opcode, SDLoc(Node), Node->getVTList(), Ops);
-  }
-  case AMDGPU::V_PERMLANE16_B32:
-  case AMDGPU::V_PERMLANEX16_B32: {
-    ConstantSDNode *FI = cast<ConstantSDNode>(Node->getOperand(0));
-    ConstantSDNode *BC = cast<ConstantSDNode>(Node->getOperand(2));
-    if (!FI->getZExtValue() && !BC->getZExtValue())
-      break;
-    SDValue VDstIn = Node->getOperand(6);
-    if (VDstIn.isMachineOpcode()
-        && VDstIn.getMachineOpcode() == AMDGPU::IMPLICIT_DEF)
-      break;
-    MachineSDNode *ImpDef = DAG.getMachineNode(TargetOpcode::IMPLICIT_DEF,
-                                               SDLoc(Node), MVT::i32);
-    SmallVector<SDValue, 8> Ops = { SDValue(FI, 0), Node->getOperand(1),
-                                    SDValue(BC, 0), Node->getOperand(3),
-                                    Node->getOperand(4), Node->getOperand(5),
-                                    SDValue(ImpDef, 0), Node->getOperand(7) };
     return DAG.getMachineNode(Opcode, SDLoc(Node), Node->getVTList(), Ops);
   }
   default:

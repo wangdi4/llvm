@@ -1816,7 +1816,7 @@ bool Parser::TryAnnotateTypeOrScopeToken() {
                                        /*EnteringContext=*/false, nullptr,
                                        /*IsTypename*/ true))
       return true;
-    if (!SS.isSet()) {
+    if (SS.isEmpty()) {
       if (Tok.is(tok::identifier) || Tok.is(tok::annot_template_id) ||
           Tok.is(tok::annot_decltype)) {
         // Attempt to recover by skipping the invalid 'typename'
@@ -1989,7 +1989,7 @@ bool Parser::TryAnnotateTypeOrScopeTokenAfterScopeSpec(CXXScopeSpec &SS,
       // template-id annotation in a context where we weren't allowed
       // to produce a type annotation token. Update the template-id
       // annotation token to a type annotation token now.
-      AnnotateTemplateIdTokenAsType();
+      AnnotateTemplateIdTokenAsType(SS);
       return false;
     }
   }
