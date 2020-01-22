@@ -6058,23 +6058,8 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
       AL.getMustBeNull()));
 }
 
-<<<<<<< HEAD
-=======
-/// Give a warning for duplicate attributes, return true if duplicate.
-template <typename AttrType>
-static bool checkForDuplicateAttribute(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  // Give a warning for duplicates but not if it's one we've implicitly added.
-  auto *A = D->getAttr<AttrType>();
-  if (A && !A->isImplicit()) {
-    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
-    return true;
-  }
-  return false;
-}
-
-static void handleUsesGlobalWorkOffsetAttr(Sema &S, Decl *D,
-                                           const ParsedAttr &Attr) {
+static void handleSYCLUsesGlobalWorkOffsetAttr(Sema &S, Decl *D,         // INTEL
+                                               const ParsedAttr &Attr) { // INTEL
   if (S.LangOpts.SYCLIsHost)
     return;
 
@@ -6093,7 +6078,6 @@ static void handleUsesGlobalWorkOffsetAttr(Sema &S, Decl *D,
                  SYCLIntelUsesGlobalWorkOffsetAttr(S.Context, Attr, Enabled));
 }
 
->>>>>>> 8bed533f01cb5c9f6635585fe92042f1a4016368
 /// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
 /// One but not both can be specified
 /// Both are incompatible with the __register__ attribute.
@@ -8622,7 +8606,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSYCLMaxGlobalWorkDimAttr(S, D, AL); // INTEL
     break;
   case ParsedAttr::AT_SYCLIntelUsesGlobalWorkOffset:
-    handleUsesGlobalWorkOffsetAttr(S, D, AL);
+    handleSYCLUsesGlobalWorkOffsetAttr(S, D, AL); // INTEL
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
