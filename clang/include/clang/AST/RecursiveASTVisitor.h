@@ -2165,12 +2165,9 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
       !D->hasUnparsedDefaultArg())
     TRY_TO(TraverseStmt(D->getDefaultArg()));
 })
-<<<<<<< HEAD
-=======
 
 DEF_TRAVERSE_DECL(RequiresExprBodyDecl, {})
 
->>>>>>> 027931899763409e2c61a84bdee6057b5e838ffa
 #undef DEF_TRAVERSE_DECL
 
 // ----------------- Stmt traversal -----------------
