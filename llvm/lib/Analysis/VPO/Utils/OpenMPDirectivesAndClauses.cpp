@@ -25,7 +25,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
-    : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
+    : FullName(Name), IsAlways(false), IsArraySection(false),
+      IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
       IsF90DopeVector(false), IsWILocal(false),
 #endif // INTEL_CUSTOMIZATION
