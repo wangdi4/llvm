@@ -172,6 +172,12 @@ bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
                                                   uiUnrecognizedOptionsSize);
 }
 
+void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
+                                      IOCLFESpecConstInfo **pSpecConstInfo) {
+  ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
+      .getSpecConstInfo(pSpecConstInfo);
+}
+
 namespace Intel {
 namespace OpenCL {
 namespace Utils {
