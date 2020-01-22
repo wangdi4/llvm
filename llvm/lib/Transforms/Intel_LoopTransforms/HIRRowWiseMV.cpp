@@ -230,6 +230,13 @@ static bool canHoistLoopHeader(const HLLoop *Lp) {
   if (!Lp->isDo())
     return false;
 
+  // The loop also has to be normalized: this is required to be able to use
+  // peelFirstIteration on the check loop, and for the temp array loop it is
+  // required because support for non-normalized loops hasn't been implemented
+  // by this pass yet.
+  if (!Lp->isNormalized())
+    return false;
+
   // Make sure that the loop bounds/stride/ztt are invariant in the outer loop
   // levels.
   for (const RegDDRef *const Ref :
@@ -319,11 +326,25 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
     }
   }
 
-  // The array itself should also not be modified within this region.
+  // Carry out extra checks on the non-invariant outer loop if one was found.
+  if (NonInvariantLevel) {
+    const HLLoop *const NonInvariantLoop =
+      Ref->getParentLoop()->getParentLoopAtLevel(NonInvariantLevel);
+
+    // If the non-invariant outer loop can't actually be hoisted, we can't use
+    // the temp array for it.
+    if (!canHoistLoopHeader(NonInvariantLoop)) {
+      LLVM_DEBUG(dbgs() << "  Unable to use array: parent loop at level "
+                        << NonInvariantLevel << " can't be hoisted \n");
+      return {};
+    }
+  }
+
+  // The array itself should also not be modified within the loop nest.
   // Add support for modifications in outer loops if needed.
   if (!incomingEmpty(DDG, Ref)) {
     LLVM_DEBUG({
-      dbgs() << "  Array is not read-only within the region:\n";
+      dbgs() << "  Array is not read-only within the loop nest:\n";
       for (const DDEdge *const Edge : DDG.incoming(Ref)) {
         dbgs() << "    ";
         Edge->print(dbgs());
@@ -431,14 +452,6 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
     return {};
   }
 
-  // Using an array for non-invariant outer loops isn't supported in this
-  // version yet; bail now if this DDRef would require that.
-  // TODO: Remove this check when this is supported.
-  if (NonInvariantLevel) {
-    LLVM_DEBUG(dbgs() << "  Temp array for non-invariant outer loops NYI\n");
-    return {};
-  }
-
   // This DDRef passes all of the checks, so it is a candidate.
   LLVM_DEBUG(dbgs() << "  Overlap values found; will process\n");
   return {Ref, ACVals, NonInvariantLevel};
@@ -496,8 +509,10 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
   assert(MVCand);
   const RegDDRef *const MVRef   = MVCand.Ref;
   const ACVec &MVVals           = MVCand.Values;
+  const unsigned MVNonInvariantLevel = MVCand.NonInvariantLevel;
   HLNodeUtils &HNU              = Lp->getHLNodeUtils();
   DDRefUtils &DDRU              = Lp->getDDRefUtils();
+  CanonExprUtils &CEU                = Lp->getCanonExprUtils();
   HLLoop *const OutermostParent = Lp->getOutermostParentLoop();
 
   LLVM_DEBUG({
@@ -506,36 +521,77 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
     dbgs() << "\n";
   });
 
+  // Create an empty clone of the non-invariant loop outside of the loop nest if
+  // needed:
+  //
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // + END LOOP
+  //
+  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
+  // |   |   |   %sum = %sum  +  %AikBkj;
+  // |   |   + END LOOP
+  // |   + END LOOP
+  // + END LOOP
+  const HLLoop *const NonInvariantLoop =
+    MVNonInvariantLevel ? Lp->getParentLoopAtLevel(MVNonInvariantLevel)
+                        : nullptr;
+  HLLoop *NonInvariantCheckLoop = nullptr;
+  if (MVNonInvariantLevel) {
+    NonInvariantCheckLoop = NonInvariantLoop->cloneEmpty();
+    OutermostParent->extractPreheader();
+    HLNodeUtils::insertBefore(OutermostParent, NonInvariantCheckLoop);
+  }
+
   // Create an empty clone of the inner loop outside of the loop nest to start
   // the check loop:
   //
-  // + DO i1 = 0, %M + -1, 1    <DO_LOOP>
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %K + -1, 1    <DO_LOOP>
+  // |   + END LOOP
   // + END LOOP
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |   |   %Aijbj = (%A)[%M * i1 + i2]  *  (%b)[i2];
-  // |   |   %sum = %sum  +  %Aijbj;
+  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
+  // |   |   |   %sum = %sum  +  %AikBkj;
+  // |   |   + END LOOP
   // |   + END LOOP
   // + END LOOP
   HLLoop *const CheckLoop = Lp->cloneEmpty();
-  HLNodeUtils::insertBefore(OutermostParent, CheckLoop);
+  if (NonInvariantCheckLoop) {
+    HLNodeUtils::insertAsLastChild(NonInvariantCheckLoop, CheckLoop);
+  } else {
+    OutermostParent->extractPreheader();
+    HLNodeUtils::insertBefore(OutermostParent, CheckLoop);
+  }
 
   // Add ZTTs from the outer loops to make sure the accesses are safe:
   //
-  // + Ztt: if (%M > 0 && %N > 0)
-  // + DO i1 = 0, %M + -1, 1    <DO_LOOP>
+  // + Ztt: if (%N > 0 && %M > 0)
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %K + -1, 1    <DO_LOOP>
+  // |   + END LOOP
   // + END LOOP
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |   |   %Aijbj = (%A)[%M * i1 + i2]  *  (%b)[i2];
-  // |   |   %sum = %sum  +  %Aijbj;
+  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
+  // |   |   |   %sum = %sum  +  %AikBkj;
+  // |   |   + END LOOP
   // |   + END LOOP
   // + END LOOP
   const HLLoop *ParentLp = Lp;
+  HLLoop *const ZTTLoop =
+    NonInvariantCheckLoop ? NonInvariantCheckLoop : CheckLoop;
   while (ParentLp = ParentLp->getParentLoop()) {
     if (!ParentLp->hasZtt())
+      continue;
+    if (ParentLp == NonInvariantLoop)
       continue;
     for (auto ZTTIter = ParentLp->ztt_pred_begin(),
               ZTTEnd  = ParentLp->ztt_pred_end();
@@ -544,31 +600,37 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
         ParentLp->getZttPredicateOperandDDRef(ZTTIter, true);
       const RegDDRef *const Right =
         ParentLp->getZttPredicateOperandDDRef(ZTTIter, false);
-      CheckLoop->addZttPredicate(*ZTTIter, Left->clone(), Right->clone());
+      ZTTLoop->addZttPredicate(*ZTTIter, Left->clone(), Right->clone());
     }
   }
 
   // Add a load of the DDRef chosen for multiversioning:
   //
-  // + DO i1 = 0, %M + -1, 1    <DO_LOOP>
-  // |   %rwmv.next = (%b)[i1];
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %K + -1, 1    <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2];
+  // |   + END LOOP
   // + END LOOP
   RegDDRef *const CheckRef = MVRef->clone();
-  CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(), 1);
+  if (MVNonInvariantLevel) {
+    CheckRef->getSingleCanonExpr()->replaceIV(MVNonInvariantLevel, 1);
+    CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(), 2);
+  } else {
+    CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(), 1);
+  }
   HLInst *const NextLoad = HNU.createLoad(CheckRef, "rwmv.next");
   HLNodeUtils::insertAsLastChild(CheckLoop, NextLoad);
   const RegDDRef *const Next = NextLoad->getLvalDDRef();
 
   // Peel the first iteration of the loop to load the first value of the array:
   //
-  // if (%M > 0 && %N > 0)
-  // {
-  //    %rwmv.first = (%b)[0];
-  //
-  //    + DO i1 = 0, %M + -2, 1    <DO_LOOP>
-  //    |   %rwmv.next = (%b)[i1 + 1];
-  //    + END LOOP
-  // }
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%A)[%M * i1];
+  // |
+  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   + END LOOP
+  // + END LOOP
   const HLNode *const PrePeelParent = CheckLoop->getParent();
   HLLoop *const PeelLoop            = CheckLoop->peelFirstIteration();
   auto *const FirstLoad             = cast<HLInst>(PeelLoop->getFirstChild());
@@ -589,17 +651,16 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
   // Add the comparison to check that each value in the array is equal to the
   // first:
   //
-  // if (%M > 0 && %N > 0)
-  // {
-  //    %rwmv.first = (%b)[0];
-  //
-  //    + DO i1 = 0, %M + -2, 1    <DO_LOOP>
-  //    |   %rwmv.next = (%b)[i1 + 1];
-  //    |   if (%rwmv.next !=u %rwmv.first)
-  //    |   {
-  //    |   }
-  //    + END LOOP
-  // }
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%A)[%M * i1];
+  // |
+  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   {
+  // |   |   }
+  // |   + END LOOP
+  // + END LOOP
   HLIf *const CheckIf =
     HNU.createHLIf(CmpInst::FCMP_UNE, Next->clone(), First->clone());
   HLNodeUtils::insertAsLastChild(CheckLoop, CheckIf);
@@ -607,20 +668,19 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Add a goto to exit the loop when the check fails:
   //
-  // if (%M > 0 && %N > 0)
-  // {
-  //    %rwmv.first = (%b)[0];
-  //
-  //    + DO i1 = 0, %M + -2, 1    <DO_MULTI_EXIT_LOOP>
-  //    |   %rwmv.next = (%b)[i1 + 1];
-  //    |   if (%rwmv.next !=u %rwmv.first)
-  //    |   {
-  //    |      goto RWMVCheckFailed;
-  //    |   }
-  //    + END LOOP
-  //
-  //    RWMVCheckFailed:
-  // }
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%A)[%M * i1];
+  // |
+  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   {
+  // |   |      goto RWMVCheckFailed;
+  // |   |   }
+  // |   + END LOOP
+  // |
+  // |   RWMVCheckFailed:
+  // + END LOOP
   HLLabel *const FailedLabel = HNU.createHLLabel("RWMVCheckFailed");
   HLNodeUtils::insertAfter(CheckLoop, FailedLabel);
   HLGoto *const FailedGoto = HNU.createHLGoto(FailedLabel);
@@ -629,21 +689,20 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Initialize the multiversioning case to 0 (no special value):
   //
-  // %rwmv.rowcase = 0;
-  // if (%M > 0 && %N > 0)
-  // {
-  //    %rwmv.first = (%b)[0];
-  //
-  //    + DO i1 = 0, %M + -2, 1    <DO_MULTI_EXIT_LOOP>
-  //    |   %rwmv.next = (%b)[i1 + 1];
-  //    |   if (%rwmv.next !=u %rwmv.first)
-  //    |   {
-  //    |      goto RWMVCheckFailed;
-  //    |   }
-  //    + END LOOP
-  //
-  //    RWMVCheckFailed:
-  // }
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%A)[%M * i1];
+  // |   %rwmv.rowcase = 0;
+  // |
+  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   {
+  // |   |      goto RWMVCheckFailed;
+  // |   |   }
+  // |   + END LOOP
+  // |
+  // |   RWMVCheckFailed:
+  // + END LOOP
   Type *const RowCaseTy = IntegerType::getInt8Ty(HNU.getContext());
   HLInst *const RowCaseInit =
     HNU.createCopyInst(DDRU.createConstDDRef(RowCaseTy, 0), "rwmv.rowcase");
@@ -652,39 +711,40 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
   else
     HLNodeUtils::insertBefore(CheckLoop, RowCaseInit);
   const RegDDRef *const RowCase = RowCaseInit->getLvalDDRef();
-  for (HLLoop *Parent = Lp->getParentLoop(); Parent != nullptr;
-       Parent         = Parent->getParentLoop()) {
-    Parent->addLiveInTemp(RowCase->getSymbase());
+  if (!NonInvariantCheckLoop) {
+    for (HLLoop *Parent = Lp->getParentLoop(); Parent != nullptr;
+         Parent         = Parent->getParentLoop()) {
+      Parent->addLiveInTemp(RowCase->getSymbase());
+    }
   }
 
   // Check for identified multiversion values:
   //
-  // %rwmv.rowcase = 0;
-  // if (%M > 0 && %N > 0)
-  // {
-  //    %rwmv.first = (%b)[0];
-  //
-  //    + DO i1 = 0, %M + -2, 1    <DO_MULTI_EXIT_LOOP>
-  //    |   %rwmv.next = (%b)[i1 + 1];
-  //    |   if (%rwmv.next !=u %rwmv.first)
-  //    |   {
-  //    |      goto RWMVCheckFailed;
-  //    |   }
-  //    + END LOOP
-  //
-  //    if (%rwmv.first == -1.0)
-  //    {
-  //       %rwmv.rowcase = 1;
-  //    }
-  //    else
-  //    {
-  //       if (%rwmv.first == 0.0)
-  //       {
-  //          %rwmv.rowcase = 2;
-  //       }
-  //    }
-  //    RWMVCheckFailed:
-  // }
+  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%A)[%M * i1];
+  // |   %rwmv.rowcase = 0;
+  // |
+  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   {
+  // |   |      goto RWMVCheckFailed;
+  // |   |   }
+  // |   + END LOOP
+  // |
+  // |   if (%rwmv.first == -1.0)
+  // |   {
+  // |      %rwmv.rowcase = 1;
+  // |   }
+  // |   else
+  // |   {
+  // |      if (%rwmv.first == 0.0)
+  // |      {
+  // |         %rwmv.rowcase = 2;
+  // |      }
+  // |   }
+  // |   RWMVCheckFailed:
+  // + END LOOP
   HLIf *PrevIf = nullptr;
   for (size_t MVInd = 0, MVEnd = MVVals.size(); MVInd != MVEnd; ++MVInd) {
     HLIf *const CurIf = HNU.createHLIf(CmpInst::FCMP_OEQ, First->clone(),
@@ -699,59 +759,133 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
     PrevIf = CurIf;
   }
 
-  // Construct the switch for the multiversioning:
+  // If needed, collect the row types in a temp array:
+  //
+  // %rwmv.rowcases = alloca %N;
   //
   // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |   |   %Aijbj = (%A)[%M * i1 + i2]  *  (%b)[i2];
-  // |   |   %sum = %sum  +  %Aijbj;
+  // |   %rwmv.first = (%A)[%M * i1];
+  // |   %rwmv.rowcase = 0;
+  // |
+  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   {
+  // |   |      goto RWMVCheckFailed;
+  // |   |   }
   // |   + END LOOP
-  // |   switch(%rwmv.rowcase)
+  // |
+  // |   if (%rwmv.first == -1.0)
   // |   {
+  // |      %rwmv.rowcase = 1;
   // |   }
+  // |   else
+  // |   {
+  // |      if (%rwmv.first == 0.0)
+  // |      {
+  // |         %rwmv.rowcase = 2;
+  // |      }
+  // |   }
+  // |   RWMVCheckFailed:
+  // |   (%rwmv.rowcases)[i1] = %rwmv.rowcase;
   // + END LOOP
-  HLSwitch *const MVSwitch = HNU.createHLSwitch(RowCase->clone());
+  RegDDRef *RowCases    = nullptr;
+  RegDDRef *RowCasesRef = nullptr;
+  if (NonInvariantCheckLoop) {
+    HLInst *const RowCaseAlloca = HNU.createAlloca(
+      RowCaseTy, NonInvariantCheckLoop->getTripCountDDRef(), "rwmv.rowcases");
+    HLNodeUtils::insertBefore(NonInvariantCheckLoop, RowCaseAlloca);
+    RowCases = RowCaseAlloca->getLvalDDRef();
+
+    RowCasesRef =
+      DDRU.createMemRef(RowCases->getSingleCanonExpr()->getSingleBlobIndex());
+    CanonExpr *const RowCasesRefDim =
+      CEU.createCanonExpr(NonInvariantCheckLoop->getIVType());
+    RowCasesRefDim->addIV(1, InvalidBlobIndex, 1);
+    RowCasesRef->addDimension(RowCasesRefDim);
+    HLInst *const RowCaseStore =
+      HNU.createStore(RowCase->clone(), "", RowCasesRef);
+    HLNodeUtils::insertAsLastChild(NonInvariantCheckLoop, RowCaseStore);
+
+    NonInvariantCheckLoop->addLiveInTemp(RowCases->getSymbase());
+    for (HLLoop *Parent = Lp->getParentLoop(); Parent != nullptr;
+         Parent         = Parent->getParentLoop()) {
+      Parent->addLiveInTemp(RowCases->getSymbase());
+    }
+  }
+
+  // We need to be careful that the temp array is initialized in every case
+  // where it will be used. This is the case for this transformation because
+  // we're requiring that the ZTTs are loop-invariant and are copying the ZTTs
+  // from the loops using the temp array so they're going to be present on both
+  // loops.
+
+  // Construct the switch for the multiversioning:
+  //
+  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
+  // |   |   |   %sum = %sum  +  %AikBkj;
+  // |   |   + END LOOP
+  // |   |   switch((%rwmv.rowcases)[i2])
+  // |   |   {
+  // |   |   }
+  // |   + END LOOP
+  // + END LOOP
+  RegDDRef *SwitchRef = nullptr;
+  if (RowCases) {
+    SwitchRef = RowCasesRef->clone();
+    SwitchRef->getSingleCanonExpr()->replaceIV(1, MVNonInvariantLevel);
+  } else {
+    SwitchRef = RowCase->clone();
+  }
+  HLSwitch *const MVSwitch = HNU.createHLSwitch(SwitchRef);
   HLNodeUtils::insertAfter(Lp, MVSwitch);
 
   // The unmodified loop will be the default case:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   switch(%rwmv.rowcase)
-  // |   {
-  // |   default:
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %Aijbj = (%A)[%M * i1 + i2]  *  (%b)[i2];
-  // |      |   %sum = %sum  +  %Aijbj;
-  // |      + END LOOP
-  // |      break;
-  // |   }
+  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+  // |   |   switch((%rwmv.rowcases)[i2])
+  // |   |   {
+  // |   |   default:
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
+  // |   |      |   %sum = %sum  +  %AikBkj;
+  // |   |      + END LOOP
+  // |   |      break;
+  // |   |   }
+  // |   + END LOOP
   // + END LOOP
   HLNodeUtils::moveAsLastDefaultChild(MVSwitch, Lp);
 
   // Clone the loop for each other case:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   switch(%rwmv.rowcase)
-  // |   {
-  // |   case 1:
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %Aijbj = (%A)[%M * i1 + i2]  *  -1.0;
-  // |      |   %sum = %sum  +  %Aijbj;
-  // |      + END LOOP
-  // |      break;
-  // |   case 2:
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %Aijbj = (%A)[%M * i1 + i2]  *  0.0;
-  // |      |   %sum = %sum  +  %Aijbj;
-  // |      + END LOOP
-  // |      break;
-  // |   default:
-  // |      + DO i2 = 0, %M + -1, 1   <DO_LOOP>
-  // |      |   %Aijbj = (%A)[%M * i1 + i2]  *  (%b)[i2];
-  // |      |   %sum = %sum  +  %Aijbj;
-  // |      + END LOOP
-  // |      break;
-  // |   }
+  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
+  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+  // |   |   switch((%rwmv.rowcases)[i2])
+  // |   |   {
+  // |   |   case 1:
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %AikBkj = -1.0  *  (%B)[i1 + %M * i3];
+  // |   |      |   %sum = %sum  +  %AikBkj;
+  // |   |      + END LOOP
+  // |   |      break;
+  // |   |   case 2:
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %AikBkj = 0.0  *  (%B)[i1 + %M * i3];
+  // |   |      |   %sum = %sum  +  %AikBkj;
+  // |   |      + END LOOP
+  // |   |      break;
+  // |   |   default:
+  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |   |      |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
+  // |   |      |   %sum = %sum  +  %AikBkj;
+  // |   |      + END LOOP
+  // |   |      break;
+  // |   |   }
+  // |   + END LOOP
   // + END LOOP
   for (size_t MVInd = 0, MVEnd = MVVals.size(); MVInd != MVEnd; ++MVInd) {
     HLLoop *const MVLoop = Lp->clone();
@@ -785,8 +919,8 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
     return false;
   }
 
-  // TODO: Add something to evaluate whether the peeling trick might be a good
-  // idea here. Until then, use the following legality checks.
+  // TODO: Update this to reflect the checks needed for the one-time in-nest
+  // probe loop. Until then, use the following legality checks.
 
   // And also it needs to be safe to hoist checks for all of the parents within
   // the loop.
@@ -812,7 +946,7 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
 
   LLVM_DEBUG(dbgs() << "Loads:\n");
 
-  const DDGraph DDG = HDDA.getGraph(Lp->getParentRegion());
+  const DDGraph DDG = HDDA.getGraph(OutermostParent);
 
   // Take a look through the enclosed instructions and collect candidate DDRefs.
   // Add support for ifs/switches if needed.
