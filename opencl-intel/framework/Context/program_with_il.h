@@ -16,27 +16,11 @@
 #include "program.h"
 #include "cl_shared_ptr.hpp"
 
-#include <cstdint>
-#include <vector>
-
 namespace Intel { namespace OpenCL { namespace Framework {
 
 class ProgramWithIL : public Program
 {
     std::vector<char> m_pIL;
-
-    // Info about specialiazation constants found in m_pIL.
-    // This info is used to validate arguments given by the user
-    // to clSetProgramSpecializationConstant API.
-    using SpecConstInfoTy = std::pair<uint32_t, uint32_t>;
-    std::vector<SpecConstInfoTy> m_SpecConstInfo;
-
-    bool m_bHasSpecConstInfoFromIL = false;
-
-    // Specialization constant provided by the user
-    std::vector<uint32_t> m_SpecIds;
-    std::vector<uint64_t> m_SpecVals;
-
 public:
 
     PREPARE_SHARED_PTR(ProgramWithIL)
@@ -55,25 +39,6 @@ public:
     virtual const char* GetSourceInternal() { return m_pIL.data(); }
 
     virtual unsigned int GetSize()          { return m_pIL.size(); }
-
-    bool IsSpecConstInfoCached() {return m_bHasSpecConstInfoFromIL;}
-
-    void SpecConstInfoIsCached() {m_bHasSpecConstInfoFromIL = true;}
-
-    unsigned int GetSpecConstCount() const {return m_SpecIds.size();}
-
-    const uint32_t* GetSpecConstIds() const {return m_SpecIds.data();}
-
-    const uint64_t* GetSpecConstValues() const {return m_SpecVals.data();}
-
-    std::vector<SpecConstInfoTy>& GetSpecConstInfoRef()
-    {
-        return m_SpecConstInfo;
-    }
-
-    cl_int AddSpecConst(cl_uint spec_id,
-                        size_t spec_size,
-                        const void* spec_value);
 
     cl_err_code GetInfo(cl_int  param_name,
                         size_t  param_value_size,

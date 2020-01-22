@@ -117,27 +117,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
         /******************************************************************************************
-        * Function:     SetSpecializationConstant
-        * Description:  Set the value of a specialization constant
-        * Arguments:    pProgram[inout] - pointer to the program created from a SPIR-V module.
-        *               uiSpecId[in]    - id of the specialization constant whose value will be set.
-        *               szSpecSize[in]  - size in bytes of the data pointed to by spec_value.
-        *               pSpecValue[in]  - pointer to the memory location that contains the value
-        *                                 of the specialization constant.
-        * Return Value: CL_INVALID_PROGRAM    if program is not a valid program object created from
-        *                                     a module in an intermediate format (e.g. SPIR-V).
-        *               CL_INVALID_SPEC_ID    if spec_id is not a valid specialization constant ID
-        *               CL_INVALID_VALUE      if spec_size does not match the size of
-        *                                     the specialization constant in the module,
-        *                                     or if spec_value is NULL.
-        * Author:       Alexey Sotkin
-        * Date:         January 2020
-        ******************************************************************************************/
-        cl_err_code SetSpecializationConstant(SharedPtr<Program> pProgram,
-                                              cl_uint uiSpecId,
-                                              size_t szSpecSize,
-                                              const void* pSpecValue);
-        /******************************************************************************************
         * Function:     CreateProgramWithSource    
         * Description:  creates new program object with source code attached
         * Arguments:    
