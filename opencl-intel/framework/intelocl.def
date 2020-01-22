@@ -39,7 +39,6 @@ EXPORTS
 	clCreateProgramWithBuiltInKernels
 	clRetainProgram
 	clReleaseProgram
-	clSetProgramSpecializationConstant
 	clBuildProgram
 	clUnloadCompiler
 	clUnloadPlatformCompiler

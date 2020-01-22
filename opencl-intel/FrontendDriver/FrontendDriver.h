@@ -53,10 +53,6 @@ public:
   bool CheckLinkOptions(const char *szOptions, char *szUnrecognizedOptions,
                         size_t uiUnrecognizedOptionsSize);
 
-  void GetSpecConstInfo(
-      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
-      IOCLFESpecConstInfo **pSpecConstInfo);
-
   void Release() { delete this; }
 
   static void ShutDown();

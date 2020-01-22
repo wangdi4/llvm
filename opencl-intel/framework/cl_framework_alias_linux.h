@@ -51,7 +51,6 @@ DECLARE_ALIAS(clCreateProgramWithBinary);
 DECLARE_ALIAS(clCreateProgramWithBuiltInKernels);
 DECLARE_ALIAS(clRetainProgram);
 DECLARE_ALIAS(clReleaseProgram);
-DECLARE_ALIAS(clSetProgramSpecializationConstant);
 DECLARE_ALIAS(clBuildProgram);
 DECLARE_ALIAS(clCompileProgram);
 DECLARE_ALIAS(clLinkProgram);

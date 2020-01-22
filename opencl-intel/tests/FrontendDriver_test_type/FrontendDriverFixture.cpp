@@ -88,9 +88,6 @@ FESPIRVProgramDescriptor ClangCompilerTestType::GetTestFESPIRVProgramDescriptor(
     spirvDesc.pSPIRVContainer = &GetSpirvBinaryContainer()[0];
     spirvDesc.uiSPIRVContainerSize = GetSpirvBinaryContainer().size();
     spirvDesc.pszOptions = build_options;
-    spirvDesc.uiSpecConstCount = 0;
-    spirvDesc.puiSpecConstIds = nullptr;
-    spirvDesc.puiSpecConstValues = nullptr;
 
     return spirvDesc;
 }

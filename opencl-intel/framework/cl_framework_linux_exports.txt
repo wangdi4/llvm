@@ -13,7 +13,6 @@
         clCreateProgramWithSource;
         clCreateProgramWithIL;
         clCreateProgramWithILKHR;
-        clSetProgramSpecializationConstant;
         clCreateSampler;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;
