@@ -1459,34 +1459,34 @@
 
   float __attribute__((intel_ocl_bicc))  __ocl_svml_s9_cvtfp64tofp32rtz1 (double a);
 
-  int __attribute__((intel_ocl_bicc))  __ocl_svml_n8_idiv1 (int a, int b);
+  int __ocl_svml_n8_idiv1 (int a, int b);
 
-  int __attribute__((intel_ocl_bicc))  __ocl_svml_n8_irem1 (int a, int b);
-
-
-  int __attribute__((intel_ocl_bicc))  __ocl_svml_g9_idiv1 (int a, int b);
-
-  int __attribute__((intel_ocl_bicc))  __ocl_svml_g9_irem1 (int a, int b);
+  int __ocl_svml_n8_irem1 (int a, int b);
 
 
-  int __attribute__((intel_ocl_bicc))  __ocl_svml_s9_idiv1 (int a, int b);
+  int __ocl_svml_g9_idiv1 (int a, int b);
 
-  int __attribute__((intel_ocl_bicc))  __ocl_svml_s9_irem1 (int a, int b);
-
-
-  uint __attribute__((intel_ocl_bicc))  __ocl_svml_n8_udiv1 (uint a, uint b);
-
-  uint __attribute__((intel_ocl_bicc))  __ocl_svml_n8_urem1 (uint a, uint b);
+  int __ocl_svml_g9_irem1 (int a, int b);
 
 
-  uint __attribute__((intel_ocl_bicc))  __ocl_svml_g9_udiv1 (uint a, uint b);
+  int __ocl_svml_s9_idiv1 (int a, int b);
 
-  uint __attribute__((intel_ocl_bicc))  __ocl_svml_g9_urem1 (uint a, uint b);
+  int __ocl_svml_s9_irem1 (int a, int b);
 
 
-  uint __attribute__((intel_ocl_bicc))  __ocl_svml_s9_udiv1 (uint a, uint b);
+  uint __ocl_svml_n8_udiv1 (uint a, uint b);
 
-  uint __attribute__((intel_ocl_bicc))  __ocl_svml_s9_urem1 (uint a, uint b);
+  uint __ocl_svml_n8_urem1 (uint a, uint b);
+
+
+  uint __ocl_svml_g9_udiv1 (uint a, uint b);
+
+  uint __ocl_svml_g9_urem1 (uint a, uint b);
+
+
+  uint __ocl_svml_s9_udiv1 (uint a, uint b);
+
+  uint __ocl_svml_s9_urem1 (uint a, uint b);
 
 
   float2 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_invf2 (float2 a);
@@ -13829,7 +13829,7 @@
   float3 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf3_rm(float3  a,  float3  b);
   float4 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf4_rm(float4  a,  float4  b);
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf8_rm(float8  a,  float8  b);
-  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf16_rm(float16  a,  float16  b);
+  float16 __ocl_svml_n8_divf16_rm(float16  a,  float16  b);
 
   float __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf1_rm(float  a,  float  b);
   float2 __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf2_rm(float2  a,  float2  b);
@@ -13852,7 +13852,7 @@
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_expf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_logf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_log2f16_rm (float16 a);
-  float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_powf16_rm (float16 a, float16 b);
+  float16 __ocl_svml_n8_powf16_rm (float16 a, float16 b);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_sinf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_tanf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_sincosf16_rm(float16 a, float16 * b);
@@ -14130,10 +14130,10 @@
   double __attribute__((intel_ocl_bicc)) __ocl_svml_x0_tanpi1(double a);
   double __attribute__((intel_ocl_bicc)) __ocl_svml_x0_tgamma1(double a);
   double __attribute__((intel_ocl_bicc)) __ocl_svml_x0_trunc1(double a);
-  int __attribute__((intel_ocl_bicc)) __ocl_svml_x0_idiv1(int a, int b);
-  int __attribute__((intel_ocl_bicc)) __ocl_svml_x0_irem1(int a, int b);
-  uint __attribute__((intel_ocl_bicc)) __ocl_svml_x0_udiv1(uint a, uint b);
-  uint __attribute__((intel_ocl_bicc)) __ocl_svml_x0_urem1(uint a, uint b);
+  int __ocl_svml_x0_idiv1(int a, int b);
+  int __ocl_svml_x0_irem1(int a, int b);
+  uint __ocl_svml_x0_udiv1(uint a, uint b);
+  uint __ocl_svml_x0_urem1(uint a, uint b);
   float2 __attribute__((intel_ocl_bicc)) __ocl_svml_x0_acosf2(float2 a);
   float2 __attribute__((intel_ocl_bicc)) __ocl_svml_x0_acoshf2(float2 a);
   float2 __attribute__((intel_ocl_bicc)) __ocl_svml_x0_acospif2(float2 a);
