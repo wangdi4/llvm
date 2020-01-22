@@ -79,6 +79,12 @@ struct _pi_mem {
   // TODO: see if there a better way to tag buffer vs. image.
   bool IsMemImage;
 
+  // Keeps the host pointer where the buffer will be mapped to,
+  // if created with PI_MEM_FLAGS_HOST_PTR_USE (see
+  // piEnqueueMemBufferMap for details).
+  //
+  char *MapHostPtr;
+
 #ifndef NDEBUG
   // Keep the descriptor of the image (for debugging purposes)
   ze_image_desc_t L0ImageDesc;
