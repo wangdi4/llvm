@@ -1244,6 +1244,33 @@ cl_int CL_API_CALL clReleaseProgram(cl_program program)
 }
 SET_ALIAS(clReleaseProgram);
 
+
+cl_int CL_API_CALL clSetProgramSpecializationConstant(
+    cl_program program,
+    cl_uint spec_id,
+    size_t spec_size,
+    const void* spec_value)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clSetProgramSpecializationConstant);
+        apiLogger << "cl_program program" << program
+                  << "cl_unit spec_id" << spec_id
+                  << "size_t spec_size" << spec_size
+                  << "const void* spec_value" << spec_value;
+        OutputParamsValueProvider provider(apiLogger);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            clSetProgramSpecializationConstant(program, spec_id, spec_size, spec_value));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            clSetProgramSpecializationConstant(program, spec_id, spec_size, spec_value));
+    }
+}
+SET_ALIAS(clSetProgramSpecializationConstant);
+REGISTER_EXTENSION_FUNCTION(clSetProgramSpecializationConstant, clSetProgramSpecializationConstant);
+
 cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  cl_uint              num_devices,
 					  const cl_device_id * device_list,

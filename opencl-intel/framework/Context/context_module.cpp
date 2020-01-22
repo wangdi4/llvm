@@ -1094,6 +1094,29 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
     }
     return pProgram->GetInfo((cl_int)clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::clSetProgramSpecializationConstant
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::clSetProgramSpecializationConstant(cl_program clProgram,
+                                                         cl_uint uiSpecId,
+                                                         size_t szSpecSize,
+                                                         const void* pSpecValue)
+{
+    LOG_INFO(TEXT("clSetProgramSpecializationConstant enter. program=%d, "
+                   "spec_id=%d, spec_size=%d, spec_value=%d"),
+             clProgram, uiSpecId, szSpecSize, pSpecValue);
+    SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
+    if (NULL == pProgram)
+    {
+        LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+        return CL_INVALID_PROGRAM;
+    }
+
+    SharedPtr<Context> pContext = pProgram->GetContext();
+    return pContext->SetSpecializationConstant(pProgram, uiSpecId, szSpecSize, pSpecValue);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetProgramBuildInfo
 //////////////////////////////////////////////////////////////////////////

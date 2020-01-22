@@ -25,8 +25,10 @@
 #include <llvm/IR/Verifier.h>
 #if OPENCL_INTREE_BUILD
 #include <LLVMSPIRVLib.h> // llvm::ReadSPIRV
+#include <LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
 #else
 #include <LLVMSPIRVLib/LLVMSPIRVLib.h> // llvm::ReadSPIRV
+#include <LLVMSPIRVLib/LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
 #endif
 #include <llvm/Support/SwapByteOrder.h>
 #include <spirv/1.1/spirv.hpp> // spv::MagicNumber, spv::Version
@@ -234,7 +236,15 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-  bool success = llvm::readSpirv(*context, inputStream, pModule, errorMsg);
+
+  SPIRV::TranslatorOpts opts;
+  opts.enableAllExtensions();
+  for (size_t i = 0; i < m_pProgDesc->uiSpecConstCount; ++i) {
+    opts.setSpecConst(m_pProgDesc->puiSpecConstIds[i],
+                      m_pProgDesc->puiSpecConstValues[i]);
+  }
+
+  bool success = llvm::readSpirv(*context, opts, inputStream, pModule, errorMsg);
 
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
@@ -264,3 +274,17 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   return success ? CL_SUCCESS : CL_INVALID_PROGRAM;
 }
+
+void ClangFECompilerParseSPIRVTask::getSpecConstInfo(
+    IOCLFESpecConstInfo** pSpecConstInfo) {
+  std::istringstream inputStream;
+  inputStream.rdbuf()->pubsetbuf(
+      static_cast<char *>(const_cast<void *>(m_pProgDesc->pSPIRVContainer)),
+      m_pProgDesc->uiSPIRVContainerSize);
+  auto pResult = std::make_unique<OCLFESpecConstInfo>();
+  llvm::getSpecConstInfo(inputStream, pResult->getRef());
+  if (pSpecConstInfo) {
+    *pSpecConstInfo = pResult.release();
+  }
+}
+
