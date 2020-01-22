@@ -6393,18 +6393,6 @@ void Sema::AddIntelFPGABankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
                  IntelFPGABankBitsAttr(Context, CI, Args.data(), Args.size()));
 }
 
-<<<<<<< HEAD
-static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
-                                                const ParsedAttr &Attr) {
-
-  if (S.LangOpts.SYCLIsHost)
-    return;
-  checkForDuplicateAttribute<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
-=======
 static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &Attr) {
 
@@ -6415,8 +6403,7 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
->>>>>>> 97a199f239ae6cfb0bcbb168eecbb976696cb697
+  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
       D, Attr, Attr.getArgAsExpr(0));
 }
 
