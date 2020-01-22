@@ -1874,21 +1874,15 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     return false;
 
   PredValueInfoTy PredValues;
-<<<<<<< HEAD
   // bool Changed = false;                                              // INTEL
   ThreadRegionInfoTy RegionInfo;                                        // INTEL
   if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
                                        RegionInfo,                      // INTEL
-                                       Preference, CxtI))               // INTEL
-    return false;
-=======
-  if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues, Preference,
-                                       CxtI)) {
+                                       Preference, CxtI)) {             // INTEL
     // We don't have known values in predecessors.  See if we can thread through
     // BB and its sole predecessor.
     return MaybeThreadThroughTwoBasicBlocks(BB, Cond);
   }
->>>>>>> 53b68e676faf208b4a8f817e9bd4ddd522cc6006
 
   assert(!PredValues.empty() && !RegionInfo.empty() &&                  // INTEL
          "ComputeValueKnownInPredecessors returned true with no "       // INTEL
@@ -2381,7 +2375,6 @@ JumpThreadingPass::CloneInstructions(BasicBlock::iterator BI,
   return ValueMapping;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// We intend to thread an edge into the region across a group of blocks to an
 /// outgoing edge of the region. In order to do this, we have to duplicate all
@@ -2492,16 +2485,8 @@ static BasicBlock* getSubRegionPred(BasicBlock *OldBB,
 
   return nullptr;
 }
+#endif // INTEL_CUSTOMIZATION
 
-/// ThreadEdge was significantly modified to support distant jump threading.
-/// Not every line was changed, but the entire routine is under
-/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
-/// to be manually merged.
-///
-/// ThreadEdge - We have decided that it is safe and profitable to factor the
-/// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
-/// across a region of blocks.  Transform the IR to reflect this change.
-=======
 /// Attempt to thread through two successive basic blocks.
 bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
                                                          Value *Cond) {
@@ -2606,10 +2591,13 @@ bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
   }
 
   // Check the cost of duplicating BB and PredBB.
-  unsigned JumpThreadCost =
-      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold);
-  JumpThreadCost += getJumpThreadDuplicationCost(
-      PredBB, PredBB->getTerminator(), BBDupThreshold);
+  SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
+  RegionBlocks.push_back(BB);                                           // INTEL
+  unsigned JumpThreadCost =                                             // INTEL
+      getJumpThreadDuplicationCost(RegionBlocks, BB, BBDupThreshold);   // INTEL
+  RegionBlocks[0] = PredBB;                                             // INTEL
+  JumpThreadCost += getJumpThreadDuplicationCost(                       // INTEL
+      RegionBlocks, PredBB, BBDupThreshold);                            // INTEL
   if (JumpThreadCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not threading BB '" << BB->getName()
                       << "' - Cost is too high: " << JumpThreadCost << "\n");
@@ -2679,11 +2667,22 @@ void JumpThreadingPass::ThreadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
 
   SmallVector<BasicBlock *, 1> PredsToFactor;
   PredsToFactor.push_back(NewBB);
-  ThreadEdge(BB, PredsToFactor, SuccBB);
+  ThreadRegionInfoTy RegionInfo;                                        // INTEL
+  RegionInfo.push_back(std::make_pair(BB, BB));                         // INTEL
+  SmallVector<BasicBlock *, 1> RegionBlocks;                            // INTEL
+  RegionBlocks.push_back(BB);                                           // INTEL
+  ThreadEdge(RegionInfo, RegionBlocks, false, PredsToFactor, SuccBB);   // INTEL
 }
 
-/// TryThreadEdge - Thread an edge if it's safe and profitable to do so.
->>>>>>> 53b68e676faf208b4a8f817e9bd4ddd522cc6006
+#if INTEL_CUSTOMIZATION
+/// ThreadEdge was significantly modified to support distant jump threading.
+/// Not every line was changed, but the entire routine is under
+/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
+/// to be manually merged.
+///
+/// ThreadEdge - We have decided that it is safe and profitable to factor the
+/// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
+/// across a region of blocks.  Transform the IR to reflect this change.
 bool JumpThreadingPass::TryThreadEdge(
     const ThreadRegionInfo &RegionInfo,
     const SmallVectorImpl<BasicBlock *> &PredBBs, BasicBlock *SuccBB) {
