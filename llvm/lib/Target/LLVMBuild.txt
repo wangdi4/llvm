@@ -24,16 +24,12 @@ subdirectories =
  ARM
  AVR
  BPF
-<<<<<<< HEAD
+ Hexagon
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_CSA
  Intel_CSA
 ; end INTEL_FEATURE_CSA
 ; end INTEL_CUSTOMIZATION
- Lanai
-=======
->>>>>>> 819421745c5c32c62ec8d632b66eae34f711e192
- Hexagon
  Lanai
  MSP430
  Mips
