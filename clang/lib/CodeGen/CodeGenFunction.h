@@ -1909,6 +1909,7 @@ private:
   void EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                 llvm::Function *Fn);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Add metadata for HLS component functions.
   void EmitHLSComponentMetadata(const FunctionDecl *FD, llvm::Function *Fn);
@@ -1931,8 +1932,10 @@ private:
                                  const QualType FieldType,
                                  const CGRecordLayout &RL);
 
+=======
+>>>>>>> 2147703bde1e1a7a1b89ccb66f55d36fd17620f1
 public:
-  CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext = false);
+  CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
   ~CodeGenFunction();
 
   CodeGenTypes &getTypes() const { return CGM.getTypes(); }
