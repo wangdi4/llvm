@@ -4263,17 +4263,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       field->getType().withCVRQualifiers(base.getVRQualifiers());
     // TODO: Support TBAA for bit fields.
     LValueBaseInfo FieldBaseInfo(BaseInfo.getAlignmentSource());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    BitfieldResult = LValue::MakeBitfield(Addr, Info, FieldType, FieldBaseInfo,
+    BitfieldResult = LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo,
                                           TBAAAccessInfo());
     if (!getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
       return BitfieldResult;
 #endif  // INTEL_CUSTOMIZATION
-=======
-    return LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo,
-                                TBAAAccessInfo());
->>>>>>> 2147703bde1e1a7a1b89ccb66f55d36fd17620f1
   }
 
   // Fields of may-alias structures are may-alias themselves.
