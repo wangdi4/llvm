@@ -362,9 +362,7 @@ protected:
   DenseMap<Value *, AllocaInst *> SROAArgValues;
 
   /// Keep track of Allocas for which we believe we may get SROA optimization.
-  /// We don't delete entries in SROAArgValue because we still want
-  /// isAllocaDerivedArg to function correctly.
-  DenseSet<AllocaInst *> EnabledSROAArgValues;
+  DenseSet<AllocaInst *> EnabledSROAAllocas;
 
   /// Keep track of values which map to a pointer base and constant offset.
   DenseMap<Value *, std::pair<Value *, APInt>> ConstantOffsetPtrs;
@@ -393,8 +391,7 @@ protected:
 
   AllocaInst *getSROAArgForValueOrNull(Value *V) const {
     auto It = SROAArgValues.find(V);
-    if (It == SROAArgValues.end() ||
-        EnabledSROAArgValues.count(It->second) == 0)
+    if (It == SROAArgValues.end() || EnabledSROAAllocas.count(It->second) == 0)
       return nullptr;
     return It->second;
   }
@@ -2906,7 +2903,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     assert(Arg != nullptr &&
            "Should not initialize SROA costs for null value.");
     SROAArgCosts[Arg] = 0;
-    EnabledSROAArgValues.insert(Arg);
   }
 
   void onAggregateSROAUse(AllocaInst *SROAArg) override {
@@ -3244,7 +3240,7 @@ bool CallAnalyzer::isAllocaDerivedArg(Value *V) {
 
 void CallAnalyzer::disableSROAForArg(AllocaInst *SROAArg) {
   onDisableSROA(SROAArg);
-  EnabledSROAArgValues.erase(SROAArg);
+  EnabledSROAAllocas.erase(SROAArg);
   disableLoadElimination();
 }
 /// If 'V' maps to a SROA candidate, disable SROA for it.
@@ -4692,6 +4688,7 @@ InlineResult CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI,
       if (auto *SROAArg = dyn_cast<AllocaInst>(PtrArg)) {
         SROAArgValues[&*FAI] = SROAArg;
         onInitializeSROAArg(SROAArg);
+        EnabledSROAAllocas.insert(SROAArg);
       }
     }
   }
