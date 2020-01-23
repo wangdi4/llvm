@@ -1281,10 +1281,16 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI,
         // away. Avoid doing so unless we know we have a value which computes
         // the ExitValue already. TODO: This should be merged into SCEV
         // expander to leverage its knowledge of existing expressions.
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-7590. Allow SCEV add, min and max expression to be
+        // propagated into the exit value even if DefInst of this exit value has
+        // hard use inside the loop.
         if (ReplaceExitValue != AlwaysRepl &&
-            !isa<SCEVConstant>(ExitValue) && !isa<SCEVUnknown>(ExitValue) &&
+            !(ExitValue->getSCEVType() < scMulExpr ||
+              isa<SCEVMinMaxExpr>(ExitValue) || isa<SCEVUnknown>(ExitValue)) &&
             hasHardUserWithinLoop(L, Inst))
           continue;
+#endif // INTEL_CUSTOMIZATION
 
         bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L, Inst);
         Value *ExitVal = Rewriter.expandCodeFor(ExitValue, PN->getType(), Inst);
