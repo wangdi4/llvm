@@ -9794,6 +9794,20 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
     StringRef Name = CGM.getMangledName(GD);
     bool HasTargetRegions =
         scanForTargetRegionsFunctions(FD->getBody(), Name);
+    if (!HasTargetRegions) {
+      // Since the offload entry has only the Ctor_Complete or Dtor_Complete
+      // mangled name for constructors and destructors, check with the
+      // "Complete" name as well.  Both may be needed.
+      if (isa<CXXConstructorDecl>(FD) && GD.getCtorType() == Ctor_Base) {
+        HasTargetRegions = scanForTargetRegionsFunctions(
+            FD->getBody(),
+            CGM.getMangledName(GD.getWithCtorType(Ctor_Complete)));
+      } else if (isa<CXXDestructorDecl>(FD) && GD.getDtorType() == Dtor_Base) {
+        HasTargetRegions = scanForTargetRegionsFunctions(
+            FD->getBody(),
+            CGM.getMangledName(GD.getWithDtorType(Dtor_Complete)));
+      }
+    }
 
     // Emit functions with target regions if doing BE outlining.
 #if INTEL_CUSTOMIZATION
@@ -9802,7 +9816,10 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
     if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline &&
         !FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
       // Force function to be emitted
-      (void) CGM.GetAddrOfFunction(FD);
+      if (isa<CXXConstructorDecl>(FD) || isa<CXXDestructorDecl>(FD))
+        CGM.getAddrOfCXXStructor(GD);
+      else
+        CGM.GetAddrOfFunction(GD);
       return false;
     }
 
