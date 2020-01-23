@@ -2304,35 +2304,23 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
     // Before resorting to actually inserting the truncate, use the same
     // reasoning as from SimplifyIndvar::eliminateTrunc to see if we can extend
     // the other side of the comparison instead.  We still evaluate the limit
-<<<<<<< HEAD
-    // in the narrower bitwidth, we just prefer a sext/zext outside the loop to
-    // a truncate within in.  
+    // in the narrower bitwidth, we just prefer a zext/sext outside the loop to
+    // a truncate within in.
     //
     // Most loops have IVs in positive signed range, which means the trip
     // count (ExitCnt) is in signed range. Since ExitCnt is likely to be
     // signed we should try sext before zext as it is likely to preserve more
     // indormation.
 #endif // INTEL_CUSTOMIZATION
-=======
-    // in the narrower bitwidth, we just prefer a zext/sext outside the loop to
-    // a truncate within in.
->>>>>>> b5b6126d97ebf79bbc5a59fe0fb674ce907e7365
     bool Extended = false;
     const SCEV *IV = SE->getSCEV(CmpIndVar);
     const SCEV *TruncatedIV = SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                   ExitCnt->getType());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     const SCEV *SExtTrunc =
       SE->getSignExtendExpr(TruncatedIV, CmpIndVar->getType());
-    
-    if (SExtTrunc == IV) {
-=======
-    const SCEV *ZExtTrunc =
-      SE->getZeroExtendExpr(TruncatedIV, CmpIndVar->getType());
 
-    if (ZExtTrunc == IV) {
->>>>>>> b5b6126d97ebf79bbc5a59fe0fb674ce907e7365
+    if (SExtTrunc == IV) {
       Extended = true;
       ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
                                    "wide.trip.count");
