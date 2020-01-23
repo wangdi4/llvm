@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
 ; CHECK:       |   |      %sum.L2 = %sum.L1
 ; CHECK:       |   |   + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |   %Aijbj = (%A)[%M * i2 + i3]  *  (%b)[i3];
+; CHECK:       |   |   |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  (%b)[i3];
 ; CHECK:       |   |   |   %sum.L2 = %sum.L2  +  %Aijbj;
 ; CHECK:       |   |   + END LOOP
 ; CHECK:       |   |      %sum.L1 = %sum.L2
@@ -65,7 +65,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   case 1:
 ; CHECK:       |   |         %sum.L2 = %sum.L1
 ; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[%M * i2 + i3]  *  -1.000000e+00;
+; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  -1.000000e+00;
 ; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
@@ -73,7 +73,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   case 2:
 ; CHECK:       |   |         %sum.L2 = %sum.L1
 ; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[%M * i2 + i3]  *  0.000000e+00;
+; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  0.000000e+00;
 ; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
@@ -81,7 +81,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   case 3:
 ; CHECK:       |   |         %sum.L2 = %sum.L1
 ; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[%M * i2 + i3]  *  1.000000e+00;
+; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  1.000000e+00;
 ; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
@@ -89,7 +89,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   default:
 ; CHECK:       |   |         %sum.L2 = %sum.L1
 ; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[%M * i2 + i3]  *  (%b)[i3];
+; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  (%b)[i3];
 ; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
@@ -104,11 +104,13 @@ define double @gemv(double* %A, double* %b, i64 %N, i64 %M) {
 entry:
   %L1.ztt = icmp sgt i64 %N, 0
   %L2.ztt = icmp sgt i64 %M, 0
+  %NM = mul nuw nsw i64 %N, %M
   br label %L0
 
 L0:
   %h = phi i64 [ 0, %entry ], [ %h.next, %L0.latch ]
   %sum = phi double [ 0.0, %entry ], [ %sum.final.L1, %L0.latch ]
+  %A_mat = mul nuw nsw i64 %h, %NM
   br i1 %L1.ztt, label %L1.pre, label %L0.latch
 
 L1.pre:
@@ -117,7 +119,8 @@ L1.pre:
 L1:
   %i = phi i64 [ 0, %L1.pre ], [ %i.next, %L1.latch ]
   %sum.L1 = phi double [ %sum, %L1.pre ], [ %sum.final.L2, %L1.latch ]
-  %A_row = mul nuw nsw i64 %i, %M
+  %A_row_off = mul nuw nsw i64 %i, %M
+  %A_row = add nuw nsw i64 %A_mat, %A_row_off
   br i1 %L2.ztt, label %L2.pre, label %L1.latch
 
 L2.pre:

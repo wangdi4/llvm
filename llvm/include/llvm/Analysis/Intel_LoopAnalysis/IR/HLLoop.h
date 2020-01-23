@@ -1126,7 +1126,7 @@ public:
   /// loop's UB and DDRefs are updated so that peeled iterations are not
   /// executed again. Otherwise, this loop's UB and DDRefs won't be updated and
   /// the loop will redundantly execute the iterations executed by the peel
-  /// loop.
+  /// loop. This method requires that the loop is in normalized form.
   //
   /// NOTE: Peeling can fail for unknown loops in which case it returns nullptr
   /// and leaves the original loop unchanged.

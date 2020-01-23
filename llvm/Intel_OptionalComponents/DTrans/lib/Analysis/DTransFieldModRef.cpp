@@ -182,10 +182,6 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
       dbgs() << "Loc: " << cast<Function>(Loc.Ptr)->getName() << "\n";
   });
 
-  // Cannot tell anything about an indirect call.
-  if (Call->isIndirectCall())
-    return ModRefInfo::ModRef;
-
   // Return a conservative answer for direct calls to memcpy, memset, etc. This
   // is necessary because information about what they modify within our data
   // structures is stored with the calling function. Alternatively, we could
@@ -220,6 +216,12 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
                            << *StTy << " is not a tracked candidate]\n");
     return ModRefInfo::ModRef;
   }
+
+  // Any field read or written by an indirect call (or reachable from the
+  // indirect call) has been eliminated as a candidate. Therefore, this indirect
+  // call must not modify or reference the field.
+  if (Call->isIndirectCall())
+    return ModRefInfo::NoModRef;
 
   // Information is available for the structure field, check the function and
   // all the reachable functions from it to determine whether the field may be

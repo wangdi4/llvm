@@ -206,6 +206,15 @@ public:
   DDGraph() : CurNode(nullptr), G(nullptr) {}
   DDGraph(const HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
 
+  // Returns true if this is an empty object containing no info.
+  bool empty() const { return !CurNode; }
+
+  // Clears the object and makes it empty.
+  void clear() {
+    CurNode = nullptr;
+    G = nullptr;
+  }
+
   iterator_range<FilterEdgeIterator> incoming(const DDRef *Ref) const {
     return make_filter_range(
         llvm::make_range(getGraphImpl()->incoming_edges_begin(Ref),
