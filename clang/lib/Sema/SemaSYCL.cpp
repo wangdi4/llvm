@@ -363,10 +363,7 @@ public:
     // new operator and any user-defined overloads that
     // do not allocate storage are permitted.
     if (FunctionDecl *FD = E->getOperatorNew()) {
-      if (FD->isReplaceableGlobalAllocationFunction()) {
-        SemaRef.Diag(E->getExprLoc(), diag::err_sycl_restrict)
-            << Sema::KernelAllocateStorage;
-      } else if (FunctionDecl *Def = FD->getDefinition()) {
+      if (FunctionDecl *Def = FD->getDefinition()) {
         if (!Def->hasAttr<SYCLDeviceAttr>()) {
           Def->addAttr(SYCLDeviceAttr::CreateImplicit(SemaRef.Context));
           SemaRef.addSyclDeviceDecl(Def);
@@ -533,8 +530,7 @@ private:
         if (!CheckSYCLType(Field->getType(), Field->getSourceRange(),
                            Visited)) {
           if (SemaRef.getLangOpts().SYCLIsDevice)
-            SemaRef.SYCLDiagIfDeviceCode(Loc.getBegin(),
-                                         diag::note_sycl_used_here);
+            SemaRef.Diag(Loc.getBegin(), diag::note_sycl_used_here);
           return false;
         }
       }
@@ -543,8 +539,7 @@ private:
         if (!CheckSYCLType(Field->getType(), Field->getSourceRange(),
                            Visited)) {
           if (SemaRef.getLangOpts().SYCLIsDevice)
-            SemaRef.SYCLDiagIfDeviceCode(Loc.getBegin(),
-                                         diag::note_sycl_used_here);
+            SemaRef.Diag(Loc.getBegin(), diag::note_sycl_used_here);
           return false;
         }
       }
@@ -1403,8 +1398,7 @@ void Sema::MarkDevice(void) {
 
 // Do we know that we will eventually codegen the given function?
 static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
-  if (!FD)
-    return true; // Seen in LIT testing
+  assert(FD && "Given function may not be null.");
 
   if (FD->hasAttr<SYCLDeviceAttr>() || FD->hasAttr<SYCLKernelAttr>())
     return true;
@@ -1420,16 +1414,16 @@ Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
          "Should only be called during SYCL compilation");
   FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
   DeviceDiagBuilder::Kind DiagKind = [this, FD] {
-    if (ConstructingOpenCLKernel)
+    if (ConstructingOpenCLKernel || !FD)
       return DeviceDiagBuilder::K_Nop;
-    else if (isKnownEmitted(*this, FD))
+    if (isKnownEmitted(*this, FD))
       return DeviceDiagBuilder::K_ImmediateWithCallStack;
     return DeviceDiagBuilder::K_Deferred;
   }();
   return DeviceDiagBuilder(DiagKind, Loc, DiagID, FD, *this);
 }
 
-bool Sema::CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee) {
+void Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
   assert(Callee && "Callee may not be null.");
   FunctionDecl *Caller = dyn_cast<FunctionDecl>(getCurLexicalContext());
 
@@ -1439,7 +1433,6 @@ bool Sema::CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee) {
     markKnownEmitted(*this, Caller, Callee, Loc, isKnownEmitted);
   else if (Caller)
     DeviceCallGraph[Caller].insert({Callee, Loc});
-  return true;
 }
 
 // -----------------------------------------------------------------------------
