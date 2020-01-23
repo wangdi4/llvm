@@ -173,10 +173,10 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
 #endif  // INTEL_CUSTOMIZATION
       FullyCheckedComparisonCategories(
           static_cast<unsigned>(ComparisonCategoryType::Last) + 1),
-      AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
-      NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
-      CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
-      TyposCorrected(0), AnalysisWarnings(*this),
+      SatisfactionCache(Context), AccessCheckingSFINAE(false),
+      InNonInstantiationSFINAEContext(false), NonInstantiationEntries(0),
+      ArgumentPackSubstitutionIndex(-1), CurrentInstantiationScope(nullptr),
+      DisableTypoCorrection(false), TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
       CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr),
       SyclIntHeader(nullptr) {
@@ -437,6 +437,14 @@ Sema::~Sema() {
   // If Sema's ExternalSource is the multiplexer - we own it.
   if (isMultiplexExternalSource)
     delete ExternalSource;
+
+  // Delete cached satisfactions.
+  std::vector<ConstraintSatisfaction *> Satisfactions;
+  Satisfactions.reserve(Satisfactions.size());
+  for (auto &Node : SatisfactionCache)
+    Satisfactions.push_back(&Node);
+  for (auto *Node : Satisfactions)
+    delete Node;
 
   threadSafety::threadSafetyCleanup(ThreadSafetyDeclCache);
 
