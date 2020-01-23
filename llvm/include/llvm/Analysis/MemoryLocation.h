@@ -241,7 +241,6 @@ public:
     return getForArgument(Call, ArgIdx, &TLI);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Try to get memory locations for all pointer elements in a vector, by
   /// searching the source of each pointer element. Results are saved
@@ -252,13 +251,12 @@ public:
   static void getForPtrVec(const Value *PtrVec,
                            SmallVectorImpl<MemoryLocation> &Results, int Depth);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Return the exact size if the exact size is known at compiletime,
   // otherwise return MemoryLocation::UnknownSize.
   static uint64_t getSizeOrUnknown(const TypeSize &T) {
     return T.isScalable() ? UnknownSize : T.getFixedSize();
   }
->>>>>>> 4cf16efe49766d454eda74927a547a0cf587f540
 
   explicit MemoryLocation(const Value *Ptr = nullptr,
                           LocationSize Size = LocationSize::unknown(),
