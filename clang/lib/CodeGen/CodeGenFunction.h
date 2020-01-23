@@ -1909,7 +1909,6 @@ private:
   void EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                 llvm::Function *Fn);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Add metadata for HLS component functions.
   void EmitHLSComponentMetadata(const FunctionDecl *FD, llvm::Function *Fn);
@@ -1925,13 +1924,12 @@ private:
   llvm::Value *EmitX86MayIUseCpuFeatureExt(const CallExpr *E);
   llvm::Value *EmitX86MayIUseCpuFeatureStr(const CallExpr *E);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Perform AAPCS specific tweaks on volatile bitfield accesses.
   bool AdjustAAPCSBitfieldLValue(Address &Base, CGBitFieldInfo &Info,
                                  const FieldDecl *Field,
                                  const QualType FieldType,
                                  const CGRecordLayout &RL);
->>>>>>> 6a24339a45246b66bd3de88cc9c6a5b5e77c0645
 
 public:
   CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext = false);

@@ -4371,13 +4371,9 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
     // TODO: Support TBAA for bit fields.
     LValueBaseInfo FieldBaseInfo(BaseInfo.getAlignmentSource());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    BitfieldResult = LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo,
-=======
-    return LValue::MakeBitfield(Addr, Info, FieldType, FieldBaseInfo,
->>>>>>> 6a24339a45246b66bd3de88cc9c6a5b5e77c0645
-                                TBAAAccessInfo());
+    BitfieldResult = LValue::MakeBitfield(Addr, Info, FieldType, FieldBaseInfo,
+                                          TBAAAccessInfo());
     if (!getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
       return BitfieldResult;
 #endif  // INTEL_CUSTOMIZATION
