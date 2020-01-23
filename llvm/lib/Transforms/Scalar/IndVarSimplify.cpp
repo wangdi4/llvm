@@ -1792,7 +1792,7 @@ bool IndVarSimplify::simplifyAndExtend(Loop *L,
 
 /// Given an Value which is hoped to be part of an add recurance in the given
 /// loop, return the associated Phi node if so.  Otherwise, return null.  Note
-/// that this is less general than SCEVs AddRec checking.  
+/// that this is less general than SCEVs AddRec checking.
 static PHINode *getLoopPhiForCounter(Value *IncV, Loop *L) {
   Instruction *IncI = dyn_cast<Instruction>(IncV);
   if (!IncI)
@@ -1854,7 +1854,7 @@ static bool needsLFTR(Loop *L, BasicBlock *ExitingBB) {
   BranchInst *BI = cast<BranchInst>(ExitingBB->getTerminator());
   if (L->isLoopInvariant(BI->getCondition()))
     return false;
-  
+
   // Do LFTR to simplify the exit condition to an ICMP.
   ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
   if (!Cond)
@@ -1897,9 +1897,9 @@ static bool needsLFTR(Loop *L, BasicBlock *ExitingBB) {
 /// actually poison.  This can be used to assess whether a new use of Root can
 /// be added at a location which is control equivalent with OnPathTo (such as
 /// immediately before it) without introducing UB which didn't previously
-/// exist.  Note that a false result conveys no information.  
+/// exist.  Note that a false result conveys no information.
 static bool mustExecuteUBIfPoisonOnPathTo(Instruction *Root,
-                                          Instruction *OnPathTo, 
+                                          Instruction *OnPathTo,
                                           DominatorTree *DT) {
   // Basic approach is to assume Root is poison, propagate poison forward
   // through all users we can easily track, and then check whether any of those
@@ -1917,7 +1917,7 @@ static bool mustExecuteUBIfPoisonOnPathTo(Instruction *Root,
     // If we know this must trigger UB on a path leading our target.
     if (mustTriggerUB(I, KnownPoison) && DT->dominates(I, OnPathTo))
       return true;
-    
+
     // If we can't analyze propagation through this instruction, just skip it
     // and transitive users.  Safe as false is a conservative result.
     if (!propagatesFullPoison(I) && I != Root)
@@ -1929,7 +1929,7 @@ static bool mustExecuteUBIfPoisonOnPathTo(Instruction *Root,
   }
 
   // Might be non-UB, or might have a path we couldn't prove must execute on
-  // way to exiting bb. 
+  // way to exiting bb.
   return false;
 }
 
@@ -1996,7 +1996,7 @@ static bool isLoopCounter(PHINode* Phi, Loop *L,
                           ScalarEvolution *SE) {
   assert(Phi->getParent() == L->getHeader());
   assert(L->getLoopLatch());
-  
+
   if (!SE->isSCEVable(Phi->getType()))
     return false;
 
@@ -2057,7 +2057,7 @@ static PHINode *FindLoopCounter(Loop *L, BasicBlock *ExitingBB,
     if (!hasConcreteDef(Phi)) {
       // We explicitly allow unknown phis as long as they are already used by
       // the loop exit test.  This is legal since performing LFTR could not
-      // increase the number of undef users. 
+      // increase the number of undef users.
       Value *IncPhi = Phi->getIncomingValueForBlock(LatchBlock);
       if (!isLoopExitTestBasedOn(Phi, ExitingBB) &&
           !isLoopExitTestBasedOn(IncPhi, ExitingBB))
@@ -2075,7 +2075,7 @@ static PHINode *FindLoopCounter(Loop *L, BasicBlock *ExitingBB,
     if (!Phi->getType()->isIntegerTy() &&
         !mustExecuteUBIfPoisonOnPathTo(Phi, ExitingBB->getTerminator(), DT))
       continue;
-    
+
     const SCEV *Init = AR->getStart();
 
     if (BestPhi && !AlmostDeadIV(BestPhi, LatchBlock, Cond)) {
@@ -2304,6 +2304,7 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
     // Before resorting to actually inserting the truncate, use the same
     // reasoning as from SimplifyIndvar::eliminateTrunc to see if we can extend
     // the other side of the comparison instead.  We still evaluate the limit
+<<<<<<< HEAD
     // in the narrower bitwidth, we just prefer a sext/zext outside the loop to
     // a truncate within in.  
     //
@@ -2312,15 +2313,26 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
     // signed we should try sext before zext as it is likely to preserve more
     // indormation.
 #endif // INTEL_CUSTOMIZATION
+=======
+    // in the narrower bitwidth, we just prefer a zext/sext outside the loop to
+    // a truncate within in.
+>>>>>>> b5b6126d97ebf79bbc5a59fe0fb674ce907e7365
     bool Extended = false;
     const SCEV *IV = SE->getSCEV(CmpIndVar);
     const SCEV *TruncatedIV = SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                   ExitCnt->getType());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     const SCEV *SExtTrunc =
       SE->getSignExtendExpr(TruncatedIV, CmpIndVar->getType());
     
     if (SExtTrunc == IV) {
+=======
+    const SCEV *ZExtTrunc =
+      SE->getZeroExtendExpr(TruncatedIV, CmpIndVar->getType());
+
+    if (ZExtTrunc == IV) {
+>>>>>>> b5b6126d97ebf79bbc5a59fe0fb674ce907e7365
       Extended = true;
       ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
                                    "wide.trip.count");
@@ -2338,7 +2350,7 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
     if (Extended) {
       bool Discard;
       L->makeLoopInvariant(ExitCnt, Discard);
-    } else 
+    } else
       CmpIndVar = Builder.CreateTrunc(CmpIndVar, ExitCnt->getType(),
                                       "lftr.wideiv");
   }
@@ -2492,11 +2504,10 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
   L->getExitingBlocks(ExitingBlocks);
 
   // Remove all exits which aren't both rewriteable and analyzeable.
-  auto NewEnd = llvm::remove_if(ExitingBlocks,
-                                [&](BasicBlock *ExitingBB) {
+  auto NewEnd = llvm::remove_if(ExitingBlocks, [&](BasicBlock *ExitingBB) {
     // If our exitting block exits multiple loops, we can only rewrite the
     // innermost one.  Otherwise, we're changing how many times the innermost
-    // loop runs before it exits. 
+    // loop runs before it exits.
     if (LI->getLoopFor(ExitingBB) != L)
       return true;
 
@@ -2508,18 +2519,18 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
     // If already constant, nothing to do.
     if (isa<Constant>(BI->getCondition()))
       return true;
-    
+
     const SCEV *ExitCount = SE->getExitCount(L, ExitingBB);
     if (isa<SCEVCouldNotCompute>(ExitCount))
       return true;
     return false;
-   });
+  });
   ExitingBlocks.erase(NewEnd, ExitingBlocks.end());
 
   if (ExitingBlocks.empty())
     return false;
-  
-  // Get a symbolic upper bound on the loop backedge taken count.  
+
+  // Get a symbolic upper bound on the loop backedge taken count.
   const SCEV *MaxExitCount = getMaxBackedgeTakenCount(*SE, *DT, L);
   if (isa<SCEVCouldNotCompute>(MaxExitCount))
     return false;
@@ -2527,7 +2538,7 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
   // Visit our exit blocks in order of dominance.  We know from the fact that
   // all exits (left) are analyzeable that the must be a total dominance order
   // between them as each must dominate the latch.  The visit order only
-  // matters for the provably equal case.  
+  // matters for the provably equal case.
   llvm::sort(ExitingBlocks,
              [&](BasicBlock *A, BasicBlock *B) {
                // std::sort sorts in ascending order, so we want the inverse of
@@ -2541,7 +2552,7 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
     assert(DT->dominates(ExitingBlocks[i-1], ExitingBlocks[i]));
   }
 #endif
-  
+
   auto FoldExit = [&](BasicBlock *ExitingBB, bool IsTaken) {
     BranchInst *BI = cast<BranchInst>(ExitingBB->getTerminator());
     bool ExitIfTrue = !L->contains(*succ_begin(ExitingBB));
@@ -2558,7 +2569,7 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
   for (BasicBlock *ExitingBB : ExitingBlocks) {
     const SCEV *ExitCount = SE->getExitCount(L, ExitingBB);
     assert(!isa<SCEVCouldNotCompute>(ExitCount) && "checked above");
-    
+
     // If we know we'd exit on the first iteration, rewrite the exit to
     // reflect this.  This does not imply the loop must exit through this
     // exit; there may be an earlier one taken on the first iteration.
@@ -2576,13 +2587,13 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
     if (!ExitCount->getType()->isIntegerTy() ||
         !MaxExitCount->getType()->isIntegerTy())
       continue;
-    
+
     Type *WiderType =
       SE->getWiderType(MaxExitCount->getType(), ExitCount->getType());
     ExitCount = SE->getNoopOrZeroExtend(ExitCount, WiderType);
     MaxExitCount = SE->getNoopOrZeroExtend(MaxExitCount, WiderType);
     assert(MaxExitCount->getType() == ExitCount->getType());
-    
+
     // Can we prove that some other exit must be taken strictly before this
     // one?
     if (SE->isLoopEntryGuardedByCond(L, CmpInst::ICMP_ULT,
@@ -2595,7 +2606,7 @@ bool IndVarSimplify::optimizeLoopExits(Loop *L, SCEVExpander &Rewriter) {
     // As we run, keep track of which exit counts we've encountered.  If we
     // find a duplicate, we've found an exit which would have exited on the
     // exiting iteration, but (from the visit order) strictly follows another
-    // which does the same and is thus dead. 
+    // which does the same and is thus dead.
     if (!DominatingExitCounts.insert(ExitCount).second) {
       FoldExit(ExitingBB, false);
       Changed = true;
@@ -2616,22 +2627,20 @@ bool IndVarSimplify::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
   SmallVector<BasicBlock*, 16> ExitingBlocks;
   L->getExitingBlocks(ExitingBlocks);
 
-  bool Changed = false;
-
   // Finally, see if we can rewrite our exit conditions into a loop invariant
-  // form.  If we have a read-only loop, and we can tell that we must exit down
+  // form. If we have a read-only loop, and we can tell that we must exit down
   // a path which does not need any of the values computed within the loop, we
   // can rewrite the loop to exit on the first iteration.  Note that this
   // doesn't either a) tell us the loop exits on the first iteration (unless
   // *all* exits are predicateable) or b) tell us *which* exit might be taken.
   // This transformation looks a lot like a restricted form of dead loop
   // elimination, but restricted to read-only loops and without neccesssarily
-  // needing to kill the loop entirely. 
+  // needing to kill the loop entirely.
   if (!LoopPredication)
-    return Changed;
+    return false;
 
   if (!SE->hasLoopInvariantBackedgeTakenCount(L))
-    return Changed;
+    return false;
 
   // Note: ExactBTC is the exact backedge taken count *iff* the loop exits
   // through *explicit* control flow.  We have to eliminate the possibility of
@@ -2640,16 +2649,16 @@ bool IndVarSimplify::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
   if (isa<SCEVCouldNotCompute>(ExactBTC) ||
       !SE->isLoopInvariant(ExactBTC, L) ||
       !isSafeToExpand(ExactBTC, *SE))
-    return Changed;
+    return false;
 
   // If we end up with a pointer exit count, bail.  It may be unsized.
   if (!ExactBTC->getType()->isIntegerTy())
-    return Changed;
+    return false;
 
   auto BadExit = [&](BasicBlock *ExitingBB) {
     // If our exiting block exits multiple loops, we can only rewrite the
     // innermost one.  Otherwise, we're changing how many times the innermost
-    // loop runs before it exits. 
+    // loop runs before it exits.
     if (LI->getLoopFor(ExitingBB) != L)
       return true;
 
@@ -2704,18 +2713,18 @@ bool IndVarSimplify::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
   // is complicated and we choose not to for now.
   for (unsigned i = 1; i < ExitingBlocks.size(); i++)
     if (!DT->dominates(ExitingBlocks[i-1], ExitingBlocks[i]))
-      return Changed;
+      return false;
 
   // Given our sorted total order, we know that exit[j] must be evaluated
   // after all exit[i] such j > i.
   for (unsigned i = 0, e = ExitingBlocks.size(); i < e; i++)
     if (BadExit(ExitingBlocks[i])) {
-      ExitingBlocks.resize(i);  
+      ExitingBlocks.resize(i);
       break;
     }
 
   if (ExitingBlocks.empty())
-    return Changed;
+    return false;
 
   // We rely on not being able to reach an exiting block on a later iteration
   // then it's statically compute exit count.  The implementaton of
@@ -2737,8 +2746,9 @@ bool IndVarSimplify::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
     for (auto &I : *BB)
       // TODO:isGuaranteedToTransfer
       if (I.mayHaveSideEffects() || I.mayThrow())
-        return Changed;
+        return false;
 
+  bool Changed = false;
   // Finally, do the actual predication for all predicatable blocks.  A couple
   // of notes here:
   // 1) We don't bother to constant fold dominated exits with identical exit
@@ -2792,7 +2802,6 @@ bool IndVarSimplify::run(Loop *L) {
   // We need (and expect!) the incoming loop to be in LCSSA.
   assert(L->isRecursivelyLCSSAForm(*DT, *LI) &&
          "LCSSA required to run indvars!");
-  bool Changed = false;
 
   // If LoopSimplify form is not available, stay out of trouble. Some notes:
   //  - LSR currently only supports LoopSimplify-form loops. Indvars'
@@ -2811,6 +2820,7 @@ bool IndVarSimplify::run(Loop *L) {
   const SCEV *BackedgeTakenCount = SE->getBackedgeTakenCount(L);
 #endif
 
+  bool Changed = false;
   // If there are any floating-point recurrences, attempt to
   // transform them to use integer recurrences.
   Changed |= rewriteNonIntegerIVs(L);
