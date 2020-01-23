@@ -493,7 +493,6 @@ static Value *isOneOf(const InstructionsState &S, Value *Op) {
   return S.OpValue;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// \return true if it is legal to turn on PSLP for VL.
 static bool isLegalToPSLP(ArrayRef<Value *> VL) {
@@ -521,7 +520,7 @@ static bool isLegalToPSLP(ArrayRef<Value *> VL) {
   return allSameBlock(VL) && llvm::all_of(VL, isInstructionLegalToPSLP);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// \returns true if \p Opcode is allowed as part of of the main/alternate
 /// instruction for SLP vectorization.
 ///
@@ -533,7 +532,6 @@ static bool isValidForAlternation(unsigned Opcode) {
 
   return true;
 }
->>>>>>> e1d6d368529322edc658c893c01eaadaf8053ea6
 
 /// \returns analysis of the Instructions in \p VL described in
 /// InstructionsState, the Opcode that we suppose the whole list
