@@ -493,6 +493,7 @@ static Value *isOneOf(const InstructionsState &S, Value *Op) {
   return S.OpValue;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// \return true if it is legal to turn on PSLP for VL.
 static bool isLegalToPSLP(ArrayRef<Value *> VL) {
@@ -520,6 +521,19 @@ static bool isLegalToPSLP(ArrayRef<Value *> VL) {
   return allSameBlock(VL) && llvm::all_of(VL, isInstructionLegalToPSLP);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+/// \returns true if \p Opcode is allowed as part of of the main/alternate
+/// instruction for SLP vectorization.
+///
+/// Example of unsupported opcode is SDIV that can potentially cause UB if the
+/// "shuffled out" lane would result in division by zero.
+static bool isValidForAlternation(unsigned Opcode) {
+  if (Instruction::isIntDivRem(Opcode))
+    return false;
+
+  return true;
+}
+>>>>>>> e1d6d368529322edc658c893c01eaadaf8053ea6
 
 /// \returns analysis of the Instructions in \p VL described in
 /// InstructionsState, the Opcode that we suppose the whole list
@@ -548,7 +562,8 @@ static InstructionsState getSameOpcodeHelper(ArrayRef<Value *> VL,
     if (IsBinOp && isa<BinaryOperator>(VL[Cnt])) {
       if (InstOpcode == Opcode || InstOpcode == AltOpcode)
         continue;
-      if (Opcode == AltOpcode) {
+      if (Opcode == AltOpcode && isValidForAlternation(InstOpcode) &&
+          isValidForAlternation(Opcode)) {
         AltOpcode = InstOpcode;
         AltIndex = Cnt;
         continue;
@@ -560,6 +575,9 @@ static InstructionsState getSameOpcodeHelper(ArrayRef<Value *> VL,
         if (InstOpcode == Opcode || InstOpcode == AltOpcode)
           continue;
         if (Opcode == AltOpcode) {
+          assert(isValidForAlternation(Opcode) &&
+                 isValidForAlternation(InstOpcode) &&
+                 "Cast isn't safe for alternation, logic needs to be updated!");
           AltOpcode = InstOpcode;
           AltIndex = Cnt;
           continue;
