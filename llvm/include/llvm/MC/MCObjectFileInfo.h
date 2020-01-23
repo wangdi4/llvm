@@ -216,14 +216,12 @@ protected:
   MCSection *GFIDsSection = nullptr;
   MCSection *GLJMPSection = nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   MCSection *OptReportSection = nullptr;
 #endif  // INTEL_CUSTOMIZATION
-=======
+
   // XCOFF specific sections
   MCSection *TOCBaseSection = nullptr;
->>>>>>> 45a4aaea7fdf21a139b35ad6d25f6c4a150e065f
 
 public:
   void InitMCObjectFileInfo(const Triple &TT, bool PIC, MCContext &ctx,
