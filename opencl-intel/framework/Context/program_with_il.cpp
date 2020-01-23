@@ -17,8 +17,6 @@
 #include "cl_logger.h"
 #include "cl_sys_defines.h"
 
-#include <algorithm> // std::find
-
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
@@ -99,54 +97,6 @@ cl_err_code ProgramWithIL::GetInfo(cl_int  param_name,
 		//No need for specialized implementation
 		return Program::GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
 	}
-}
-
-cl_int ProgramWithIL::AddSpecConst(cl_uint spec_id, size_t spec_size,
-                                   const void* spec_value)
-{
-    auto it = std::find_if(m_SpecConstInfo.begin(), m_SpecConstInfo.end(),
-                           [=](SpecConstInfoTy& SC) {return SC.first == spec_id;});
-
-    // There is no such spec id in the module.
-    if (it == m_SpecConstInfo.end())
-    {
-      return CL_INVALID_SPEC_ID;
-    }
-
-    // spec_size does not match the size of the specialization constant in
-    // the module, or spec_value is NULL.
-    if (it->second != spec_size || spec_value == nullptr)
-    {
-      return CL_INVALID_VALUE;
-    }
-
-    uint64_t value = 0;
-    switch (spec_size) {
-    case sizeof(uint8_t):
-      value = *reinterpret_cast<const uint8_t *>(spec_value);
-      break;
-    case sizeof(uint16_t):
-      value = *reinterpret_cast<const uint16_t *>(spec_value);
-      break;
-    case sizeof(uint32_t):
-      value = *reinterpret_cast<const uint32_t *>(spec_value);
-      break;
-    case sizeof(uint64_t):
-      value = *reinterpret_cast<const uint64_t *>(spec_value);
-      break;
-    }
-    // Calling this function multiple times for the same specialization constant
-    // shall cause the last provided value to override any previously specified
-    // value.
-    auto idIt = std::find(m_SpecIds.begin(), m_SpecIds.end(), spec_id);
-    if (idIt == m_SpecIds.end()) {
-      m_SpecIds.push_back(spec_id);
-      m_SpecVals.push_back(value);
-    } else {
-      m_SpecVals[idIt - m_SpecIds.begin()] = value;
-    }
-
-    return CL_SUCCESS;
 }
 
 ProgramWithIL::~ProgramWithIL()

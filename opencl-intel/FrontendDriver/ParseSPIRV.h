@@ -18,7 +18,6 @@
 
 #include <cstdint> // std::uint32_t
 #include <string>
-#include <vector>
 
 namespace Intel {
 namespace OpenCL {
@@ -29,27 +28,6 @@ namespace ClangFE {
 struct CLANG_DEV_INFO;
 }
 namespace ClangFE {
-
-class OCLFESpecConstInfo : public IOCLFESpecConstInfo {
-public:
-  using SpecConstInfoTy = std::pair<uint32_t, uint32_t>;
-  size_t getSpecConstCount() const override {
-    return SpecConstInfo.size();
-  }
-  cl_uint getSpecConstId(size_t index) const override {
-    return SpecConstInfo[index].first;
-  }
-  cl_uint getSpecConstSize(size_t index) const override {
-    return SpecConstInfo[index].second;
-  }
-  void Release() override {
-    SpecConstInfo.clear();
-  }
-  std::vector<SpecConstInfoTy>& getRef() {return SpecConstInfo;}
-
-private:
-  std::vector<SpecConstInfoTy> SpecConstInfo;
-};
 
 // SPIR-V -> llvm::Module converter wrapper.
 class ClangFECompilerParseSPIRVTask {
@@ -65,9 +43,6 @@ public:
   /// magic number, i.e 0x07230203
   static bool isSPIRV(const void* pBinary, const size_t BinarySize);
 
-  /// \brief partially parse SPIR-V module, i.e. only decode what is needed to
-  /// get specialization constant info.
-  void getSpecConstInfo(IOCLFESpecConstInfo** pSpecConstInfo);
 private:
   /// \brief Read 32bit integer value and convert it to little-endian if
   /// necessary
