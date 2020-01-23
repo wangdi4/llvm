@@ -2019,6 +2019,53 @@ write only. Expected to be used only in SYCL headers.
   }];
 }
 
+// INTEL_CUSTOMIZATION
+def LoopFuseDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "loop_fuse";
+  let Content = [{
+The ``#pragma loop fuse`` directive applies to a scope (compound statement). A
+``loop_fuse`` construct specifies a region of code where the compiler will
+attempt to fuse adjacent loops. The default behavior at -O3 is the compiler
+attempts to fuse loops it considers safe and profitable. #pragma loop_fuse
+causes the compiler to ignore the profitability analysis part. Additional
+clauses to the pragma can be specified to cause the compiler to ignore different
+aspects of the safety analysis.
+
+If a ``depth`` clause is present, the integer-expression parameter value defines
+the number of nesting depths at which fusion of adjacent loops will be attempted
+foregoing the compiler's profitability analysis. The depth clause extends the
+applicability of the ``loop_fuse`` construct to all loops nested in top-level
+loops contained in the construct at nesting depth less-than or equal to the
+clause parameter, including loops that become adjacent as a result of fusion of
+their corresponding containing loops. In the absence of a `depth` clause, only
+loops at the top-level of the ``loop_fuse`` construct will attempt to be fused,
+ignoring the compiler's profitability analysis (i.e. loops not contained in
+other loops defined within the construct). ``depth`` clause with a parameter of
+1 is equivalent to absence of a ``depth`` clause.
+
+If an ``independent`` clause is present, adjacent loops that are fusion
+candidates within a ``loop_fuse`` construct are assumed to have no
+negative-distance data access dependencies. That is, for two adjacent loops
+considered for fusion, iterations of the logically-second loop will not access
+data elements produced in a later iteration of the logically-first loop. The
+``independent`` clause overloads the compiler's static analysis during Loop
+Fusion safety analysis. ``independent`` clause applies to loops at all nesting
+depths as specified by the ``depth`` clause that are explicitly defined inside
+the ``loop_fuse`` construct.
+
+If a function call is present in a ``loop_fuse`` construct at any of the
+applicable nesting depths, and inlining the function call materializes a loop,
+then the resulting loop is considered to be a candidate for fusion.
+
+Default clauses are none, making the ``loop_fuse`` construct unable to introduce
+a functional error on its own. Introduction of an ``independent`` clause is a
+guarantee by the user that bypasses a respective aspect of the compiler's safety
+analysis and might lead to functional errors.
+  }];
+}
+// end INTEL_CUSTOMIZATION
+
 def SYCLIntelFPGAIVDepAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "ivdep";

@@ -396,6 +396,10 @@ Retry:
   case tok::annot_pragma_loop_count:
     ProhibitAttributes(Attrs);
     return ParsePragmaLoopCount(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  case tok::annot_pragma_loop_fuse:
+    ProhibitAttributes(Attrs);
+    return HandlePragmaLoopFuse();
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_openmp:
