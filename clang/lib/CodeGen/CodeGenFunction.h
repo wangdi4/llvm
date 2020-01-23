@@ -3677,10 +3677,13 @@ private:
 
 public:
   bool requiresImplicitTask(const OMPExecutableDirective &S);
-#if INTEL_CUSTOMIZATION
+  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
+                                         OpenMPDirectiveKind Kind,
+                                         unsigned Depth);
   bool IsPrivateCounter(const VarDecl *VD) {
     return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
   }
+#if INTEL_CUSTOMIZATION
   bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
    return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
   }
@@ -3690,9 +3693,6 @@ public:
                                              OpenMPDirectiveKind Kind);
   bool hasOMPSpirTarget() const;
   bool useUncollapsedLoop(const OMPLoopDirective &S) const;
-  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
-                                         OpenMPDirectiveKind Kind,
-                                         unsigned Depth);
 
 private:
   llvm::SmallPtrSet<const void *, 8> HoistedBoundsLoops;
