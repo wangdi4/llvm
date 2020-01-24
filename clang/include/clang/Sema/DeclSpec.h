@@ -441,15 +441,11 @@ public:
         TypeSpecComplex(TSC_unspecified), TypeSpecSign(TSS_unspecified),
         TypeSpecType(TST_unspecified), TypeAltiVecVector(false),
         TypeAltiVecPixel(false), TypeAltiVecBool(false), TypeSpecOwned(false),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         TypeSpecChannel(false),
 #endif // INTEL_CUSTOMIZATION
-        TypeSpecPipe(false), TypeSpecSat(false), TypeQualifiers(TQ_unspecified),
-=======
         TypeSpecPipe(false), TypeSpecSat(false), ConstrainedAuto(false),
         TypeQualifiers(TQ_unspecified),
->>>>>>> b481f028144ca91c15d1db3649ce14f174259e7e
         FS_inline_specified(false), FS_forceinline_specified(false),
         FS_virtual_specified(false), FS_noreturn_specified(false),
         Friend_specified(false), ConstexprSpecifier(CSK_unspecified),
