@@ -143,12 +143,10 @@ def err_bankbits_numbanks_conflicting : Error<
   "the number of bank_bits must be equal to ceil(log2(numbanks))">;
 def err_bankbits_non_consecutive : Error<
   "bank_bits must be consecutive">;
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 def err_loop_fuse_unknown_arg : Error<
   "unknown argument to 'loop_fuse'. Expected integer expression">;
 // endif // INTEL_CUSTOMIZATION
-=======
 def err_intel_fpga_mem_limitations
     : Error<
           "illegal %select{pointer argument of type %1 |field in type pointed "
@@ -159,7 +157,6 @@ def err_intel_fpga_mem_arg_mismatch
             "a pointer"
             "|a non-negative integer constant}0">;
 
->>>>>>> 1e33c01a332a0ab0c827edc1c87ee486083359db
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
   InGroup<VLAExtension>;
