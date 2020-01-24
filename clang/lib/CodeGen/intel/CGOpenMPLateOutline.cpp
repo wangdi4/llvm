@@ -1982,6 +1982,7 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_master_taskloop_simd:
     return Kind == OMPD_master;
 
+  case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
     return Kind == OMPD_parallel;
@@ -2226,6 +2227,12 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
     // OMPD_master -> OMPD_taskloop_simd
     if (CurrDirKind == OMPD_master)
       return OMPD_taskloop_simd;
+    return OMPD_unknown;
+
+  case OMPD_parallel_master:
+    // OMPD_parallel -> OMPD_master
+    if (CurrDirKind == OMPD_parallel)
+      return OMPD_master;
     return OMPD_unknown;
 
   case OMPD_parallel_master_taskloop:
