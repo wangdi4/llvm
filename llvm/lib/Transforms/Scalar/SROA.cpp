@@ -2803,7 +2803,7 @@ private:
                                          NewAI.getAlign(), "load");
       V = insertVector(IRB, Old, V, BeginIndex, "vec");
     }
-    StoreInst *Store = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlignment());
+    StoreInst *Store = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlign());
     if (AATags)
       Store->setAAMetadata(AATags);
     Pass.DeadInsts.insert(&SI);
@@ -2824,7 +2824,7 @@ private:
       V = insertInteger(DL, IRB, Old, SI.getValueOperand(), Offset, "insert");
     }
     V = convertValue(DL, IRB, V, NewAllocaTy);
-    StoreInst *Store = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlignment());
+    StoreInst *Store = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlign());
     Store->copyMetadata(SI, {LLVMContext::MD_mem_parallel_loop_access,
                              LLVMContext::MD_access_group});
     if (AATags)
@@ -2886,8 +2886,8 @@ private:
           }
 
       V = convertValue(DL, IRB, V, NewAllocaTy);
-      NewSI = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlignment(),
-                                     SI.isVolatile());
+      NewSI =
+          IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlign(), SI.isVolatile());
     } else {
       unsigned AS = SI.getPointerAddressSpace();
       Value *NewPtr = getNewAllocaSlicePtr(IRB, V->getType()->getPointerTo(AS));
@@ -3054,8 +3054,8 @@ private:
       V = convertValue(DL, IRB, V, AllocaTy);
     }
 
-    StoreInst *New = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlignment(),
-                                            II.isVolatile());
+    StoreInst *New =
+        IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlign(), II.isVolatile());
     if (AATags)
       New->setAAMetadata(AATags);
     LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
@@ -3603,7 +3603,7 @@ private:
       Value *InBoundsGEP =
           IRB.CreateInBoundsGEP(BaseTy, Ptr, GEPIndices, Name + ".gep");
       StoreInst *Store =
-          IRB.CreateAlignedStore(ExtractValue, InBoundsGEP, Alignment.value());
+          IRB.CreateAlignedStore(ExtractValue, InBoundsGEP, Alignment);
       if (AATags)
         Store->setAAMetadata(AATags);
       LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
@@ -4118,7 +4118,7 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
             getAdjustedPtr(IRB, DL, StoreBasePtr,
                            APInt(DL.getIndexSizeInBits(AS), PartOffset),
                            PartPtrTy, StoreBasePtr->getName() + "."),
-            getAdjustedAlignment(SI, PartOffset, DL).value(),
+            getAdjustedAlignment(SI, PartOffset, DL),
             /*IsVolatile*/ false);
         PStore->copyMetadata(*LI, {LLVMContext::MD_mem_parallel_loop_access,
                                    LLVMContext::MD_access_group});
@@ -4215,7 +4215,7 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
           getAdjustedPtr(IRB, DL, StoreBasePtr,
                          APInt(DL.getIndexSizeInBits(AS), PartOffset),
                          StorePartPtrTy, StoreBasePtr->getName() + "."),
-          getAdjustedAlignment(SI, PartOffset, DL).value(),
+          getAdjustedAlignment(SI, PartOffset, DL),
           /*IsVolatile*/ false);
 
       // Now build a new slice for the alloca.

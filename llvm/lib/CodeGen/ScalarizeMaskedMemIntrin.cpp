@@ -271,7 +271,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   Value *Alignment = CI->getArgOperand(2);
   Value *Mask = CI->getArgOperand(3);
 
-  unsigned AlignVal = cast<ConstantInt>(Alignment)->getZExtValue();
+  const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
   VectorType *VecType = cast<VectorType>(Src->getType());
 
   Type *EltTy = VecType->getElementType();
@@ -290,7 +290,8 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   }
 
   // Adjust alignment for the scalar instruction.
-  AlignVal = MinAlign(AlignVal, EltTy->getPrimitiveSizeInBits() / 8);
+  const Align AdjustedAlignVal =
+      commonAlignment(AlignVal, EltTy->getPrimitiveSizeInBits() / 8);
   // Bitcast %addr from i8* to EltTy*
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
@@ -303,7 +304,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
         continue;
       Value *OneElt = Builder.CreateExtractElement(Src, Idx);
       Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, FirstEltPtr, Idx);
-      Builder.CreateAlignedStore(OneElt, Gep, AlignVal);
+      Builder.CreateAlignedStore(OneElt, Gep, AdjustedAlignVal);
     }
     CI->eraseFromParent();
     return;
@@ -345,7 +346,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
 
     Value *OneElt = Builder.CreateExtractElement(Src, Idx);
     Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, FirstEltPtr, Idx);
-    Builder.CreateAlignedStore(OneElt, Gep, AlignVal);
+    Builder.CreateAlignedStore(OneElt, Gep, AdjustedAlignVal);
 
     // Create "else" block, fill it in the next iteration
     BasicBlock *NewIfBlock =
@@ -599,7 +600,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Builder.SetInsertPoint(InsertPt);
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
-  unsigned AlignVal = cast<ConstantInt>(Alignment)->getZExtValue();
+  MaybeAlign AlignVal(cast<ConstantInt>(Alignment)->getZExtValue());
   unsigned VectorWidth = Src->getType()->getVectorNumElements();
 
   // Shorten the way if the mask is a vector of constants.
@@ -811,7 +812,7 @@ static void scalarizeMaskedCompressStore(CallInst *CI, bool &ModifiedDT) {
       Value *OneElt =
           Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
       Value *NewPtr = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, MemIndex);
-      Builder.CreateAlignedStore(OneElt, NewPtr, 1);
+      Builder.CreateAlignedStore(OneElt, NewPtr, Align(1));
       ++MemIndex;
     }
     CI->eraseFromParent();
@@ -852,7 +853,7 @@ static void scalarizeMaskedCompressStore(CallInst *CI, bool &ModifiedDT) {
     Builder.SetInsertPoint(InsertPt);
 
     Value *OneElt = Builder.CreateExtractElement(Src, Idx);
-    Builder.CreateAlignedStore(OneElt, Ptr, 1);
+    Builder.CreateAlignedStore(OneElt, Ptr, Align(1));
 
     // Move the pointer if there are more blocks to come.
     Value *NewPtr;
