@@ -182,7 +182,6 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 static bool isLoopInvariant(const Value *Val, Loop *Lp) {
@@ -313,16 +312,11 @@ static bool loopBecomesOptimizable(Loop *Lp) {
 }
 
 #endif // INTEL_CUSTOMIZATION
-// Look for a phi which is only used outside the loop (via a LCSSA phi)
-// in the exit from the header. This means that rotating the loop can
-// remove the phi.
-static bool shouldRotateLoopExitingLatch(Loop *L) {
-=======
+
 // Assuming both header and latch are exiting, look for a phi which is only
 // used outside the loop (via a LCSSA phi) in the exit from the header.
 // This means that rotating the loop can remove the phi.
 static bool profitableToRotateLoopExitingLatch(Loop *L) {
->>>>>>> 2f6987ba61cc31c16c64f511e5cbc76b52dc67b3
   BasicBlock *Header = L->getHeader();
   BranchInst *BI = dyn_cast<BranchInst>(Header->getTerminator());
   assert(BI && BI->isConditional() && "need header with conditional exit");
@@ -338,6 +332,13 @@ static bool profitableToRotateLoopExitingLatch(Loop *L) {
       continue;
     return true;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Header->getParent()->isPreLoopOpt() && loopBecomesOptimizable(L)) {
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 
@@ -359,14 +360,6 @@ static bool canRotateDeoptimizingLatchExit(Loop *L) {
   if (L->contains(Exit))
     Exit = BI->getSuccessor(0);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (Header->getParent()->isPreLoopOpt() && loopBecomesOptimizable(L)) {
-    return true;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-=======
   // Latch exit is non-deoptimizing, no need to rotate.
   if (!Exit->getPostdominatingDeoptimizeCall())
     return false;
@@ -390,7 +383,6 @@ static bool canRotateDeoptimizingLatchExit(Loop *L) {
       return !BB->getPostdominatingDeoptimizeCall();
     });
   }
->>>>>>> 2f6987ba61cc31c16c64f511e5cbc76b52dc67b3
   return false;
 }
 
