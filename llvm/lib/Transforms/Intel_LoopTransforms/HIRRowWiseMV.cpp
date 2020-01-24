@@ -288,6 +288,7 @@ static bool canHoistCheck(const HLNode *Parent) {
 
 /// Determines whether \p Ref is a candidate for row-wise multiversioning.
 static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
+                                       const HLLoop *SafeCheckLevelParent,
                                        const DDGraph &DDG,
                                        DTransImmutableInfo &DTII) {
 
@@ -311,7 +312,8 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
     LLVM_DEBUG(dbgs() << "  Invariant in inner loop\n");
     return {};
   }
-  const bool RejectNonInvariantOuters = NestLevel < 3;
+  const bool RejectNonInvariantOuters =
+    NestLevel - SafeCheckLevelParent->getNestingLevel() < 2;
   unsigned NonInvariantLevel          = 0;
   for (unsigned Level = NestLevel - 1; Level >= 1; --Level) {
     if (!Ref->isStructurallyInvariantAtLevel(Level, true)) {
@@ -342,6 +344,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
 
   // The array itself should also not be modified within the loop nest.
   // Add support for modifications in outer loops if needed.
+  // TODO: Replace this check using the isLoopInvariant() interface when ready.
   if (!incomingEmpty(DDG, Ref)) {
     LLVM_DEBUG({
       dbgs() << "  Array is not read-only within the loop nest:\n";
@@ -504,8 +507,10 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
 }
 
 /// Performs the multiversioning transform on \p Lp for the multiversioning
-/// candidate \p MVCand.
-static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
+/// candidate \p MVCand, putting the check loop just outside of \p
+/// SafeCheckLevelParent.
+static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
+                             HLLoop *SafeCheckLevelParent) {
   assert(MVCand);
   const RegDDRef *const MVRef   = MVCand.Ref;
   const ACVec &MVVals           = MVCand.Values;
@@ -521,19 +526,78 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
     dbgs() << "\n";
   });
 
-  // Create an empty clone of the non-invariant loop outside of the loop nest if
-  // needed:
+  // If it isn't safe to hoist the check loop all of the way out of the loop
+  // nest, construct an if at the right place inside the loop nest and set up
+  // NeedCheck to ensure that the check loop is run only once per entry into the
+  // loop nest:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+  //    %rwmv.needcheck = 1;
+  // + DO i1 = 0, %N1 + -1, 1   <DO_LOOP>
+  // |   if (%M1 > 0)
+  // |   {
+  // |      if (%rwmv.needcheck != 0)
+  // |      {
+  // |         %rwmv.needcheck = 0;
+  // |      }
+  // |
+  // |      + DO i2 = 0, %M1 + -1, 1   <DO_LOOP>
+  // |      |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |      |   |   + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   |   |   |   %sum = %sum  +  %AijBkl;
+  // |      |   |   |   + END LOOP
+  // |      |   |   + END LOOP
+  // |      |   + END LOOP
+  // |      + END LOOP
+  // |   }
   // + END LOOP
+  HLIf *SafeCheckIf = nullptr;
+  if (SafeCheckLevelParent != OutermostParent) {
+    Type *const BoolType = IntegerType::getInt1Ty(HNU.getContext());
+    HLInst *const NeedCheckInit =
+      HNU.createCopyInst(DDRU.createConstDDRef(BoolType, 1), "rwmv.needcheck");
+    HLNodeUtils::insertAsLastPreheaderNode(OutermostParent, NeedCheckInit);
+    const RegDDRef *const NeedCheck = NeedCheckInit->getLvalDDRef();
+    RegDDRef *const Zero            = DDRU.createConstDDRef(BoolType, 0);
+    SafeCheckIf =
+      HNU.createHLIf(PredicateTy::ICMP_NE, NeedCheck->clone(), Zero->clone());
+    SafeCheckLevelParent->extractPreheader();
+    HLNodeUtils::insertBefore(SafeCheckLevelParent, SafeCheckIf);
+    HLInst *const NeedCheckReset =
+      HNU.createCopyInst(Zero, "", NeedCheck->clone());
+    HLNodeUtils::insertAsLastThenChild(SafeCheckIf, NeedCheckReset);
+    for (HLLoop *Parent            = SafeCheckLevelParent->getParentLoop();
+         Parent != nullptr; Parent = Parent->getParentLoop()) {
+      Parent->addLiveInTemp(NeedCheck->getSymbase());
+    }
+  }
+
+  // Create an empty clone of the non-invariant loop if needed:
   //
-  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
-  // |   |   |   %sum = %sum  +  %AikBkj;
-  // |   |   + END LOOP
-  // |   + END LOOP
+  //    %rwmv.needcheck = 1;
+  // + DO i1 = 0, %N1 + -1, 1   <DO_LOOP>
+  // |   if (%M1 > 0)
+  // |   {
+  // |      if (%rwmv.needcheck != 0)
+  // |      {
+  // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |         + END LOOP
+  // |
+  // |         %rwmv.needcheck = 0;
+  // |      }
+  // |
+  // |      + DO i2 = 0, %M1 + -1, 1   <DO_LOOP>
+  // |      |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |      |   |   + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   |   |   |   %sum = %sum  +  %AijBkl;
+  // |      |   |   |   + END LOOP
+  // |      |   |   + END LOOP
+  // |      |   + END LOOP
+  // |      + END LOOP
+  // |   }
   // + END LOOP
   const HLLoop *const NonInvariantLoop =
     MVNonInvariantLevel ? Lp->getParentLoopAtLevel(MVNonInvariantLevel)
@@ -541,29 +605,47 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
   HLLoop *NonInvariantCheckLoop = nullptr;
   if (MVNonInvariantLevel) {
     NonInvariantCheckLoop = NonInvariantLoop->cloneEmpty();
-    OutermostParent->extractPreheader();
-    HLNodeUtils::insertBefore(OutermostParent, NonInvariantCheckLoop);
+    if (SafeCheckIf)
+      HLNodeUtils::insertAsFirstThenChild(SafeCheckIf, NonInvariantCheckLoop);
+    else {
+      OutermostParent->extractPreheader();
+      HLNodeUtils::insertBefore(OutermostParent, NonInvariantCheckLoop);
+    }
   }
 
-  // Create an empty clone of the inner loop outside of the loop nest to start
-  // the check loop:
+  // Create an empty clone of the inner loop to start the check loop:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %K + -1, 1    <DO_LOOP>
-  // |   + END LOOP
-  // + END LOOP
-  //
-  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
-  // |   |   |   %sum = %sum  +  %AikBkj;
-  // |   |   + END LOOP
-  // |   + END LOOP
+  //    %rwmv.needcheck = 1;
+  // + DO i1 = 0, %N1 + -1, 1   <DO_LOOP>
+  // |   if (%M1 > 0)
+  // |   {
+  // |      if (%rwmv.needcheck != 0)
+  // |      {
+  // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |         |   + DO i3 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |         |   + END LOOP
+  // |         + END LOOP
+  // |
+  // |         %rwmv.needcheck = 0;
+  // |      }
+  // |
+  // |      + DO i2 = 0, %M1 + -1, 1   <DO_LOOP>
+  // |      |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |      |   |   + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   |   |   |   %sum = %sum  +  %AijBkl;
+  // |      |   |   |   + END LOOP
+  // |      |   |   + END LOOP
+  // |      |   + END LOOP
+  // |      + END LOOP
+  // |   }
   // + END LOOP
   HLLoop *const CheckLoop = Lp->cloneEmpty();
   if (NonInvariantCheckLoop) {
     HLNodeUtils::insertAsLastChild(NonInvariantCheckLoop, CheckLoop);
+  } else if (SafeCheckIf) {
+    HLNodeUtils::insertAsFirstThenChild(SafeCheckIf, CheckLoop);
   } else {
     OutermostParent->extractPreheader();
     HLNodeUtils::insertBefore(OutermostParent, CheckLoop);
@@ -571,24 +653,37 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Add ZTTs from the outer loops to make sure the accesses are safe:
   //
-  // + Ztt: if (%N > 0 && %M > 0)
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %K + -1, 1    <DO_LOOP>
-  // |   + END LOOP
+  //    %rwmv.needcheck = 1;
+  // + DO i1 = 0, %N1 + -1, 1   <DO_LOOP>
+  // |   if (%M1 > 0)
+  // |   {
+  // |      if (%rwmv.needcheck != 0)
+  // |      {
+  // |         + Ztt: if (%N2 > 0 && %K > 0)
+  // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |         |   + DO i3 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |         |   + END LOOP
+  // |         + END LOOP
+  // |
+  // |         %rwmv.needcheck = 0;
+  // |      }
+  // |
+  // |      + DO i2 = 0, %M1 + -1, 1   <DO_LOOP>
+  // |      |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |      |   |   + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   |   |   |   %sum = %sum  +  %AijBkl;
+  // |      |   |   |   + END LOOP
+  // |      |   |   + END LOOP
+  // |      |   + END LOOP
+  // |      + END LOOP
+  // |   }
   // + END LOOP
-  //
-  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
-  // |   |   |   %sum = %sum  +  %AikBkj;
-  // |   |   + END LOOP
-  // |   + END LOOP
-  // + END LOOP
-  const HLLoop *ParentLp = Lp;
   HLLoop *const ZTTLoop =
     NonInvariantCheckLoop ? NonInvariantCheckLoop : CheckLoop;
-  while (ParentLp = ParentLp->getParentLoop()) {
+  for (const HLLoop *ParentLp                     = Lp->getParentLoop();
+       ParentLp != SafeCheckLevelParent; ParentLp = ParentLp->getParentLoop()) {
     if (!ParentLp->hasZtt())
       continue;
     if (ParentLp == NonInvariantLoop)
@@ -606,17 +701,21 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Add a load of the DDRef chosen for multiversioning:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %K + -1, 1    <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2];
+  // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   + DO i3 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%B)[%M2 * i2 + i3];
   // |   + END LOOP
   // + END LOOP
   RegDDRef *const CheckRef = MVRef->clone();
+  unsigned SafeCheckLevel  = SafeCheckLevelParent->getNestingLevel();
   if (MVNonInvariantLevel) {
-    CheckRef->getSingleCanonExpr()->replaceIV(MVNonInvariantLevel, 1);
-    CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(), 2);
+    CheckRef->getSingleCanonExpr()->replaceIV(MVNonInvariantLevel,
+                                              SafeCheckLevel);
+    CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(),
+                                              SafeCheckLevel + 1);
   } else {
-    CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(), 1);
+    CheckRef->getSingleCanonExpr()->replaceIV(Lp->getNestingLevel(),
+                                              SafeCheckLevel);
   }
   HLInst *const NextLoad = HNU.createLoad(CheckRef, "rwmv.next");
   HLNodeUtils::insertAsLastChild(CheckLoop, NextLoad);
@@ -624,11 +723,11 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Peel the first iteration of the loop to load the first value of the array:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   %rwmv.first = (%A)[%M * i1];
+  // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%B)[%M2 * i2];
   // |
-  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
   // |   + END LOOP
   // + END LOOP
   const HLNode *const PrePeelParent = CheckLoop->getParent();
@@ -651,11 +750,11 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
   // Add the comparison to check that each value in the array is equal to the
   // first:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   %rwmv.first = (%A)[%M * i1];
+  // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%B)[%M2 * i2];
   // |
-  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
   // |   |   if (%rwmv.next !=u %rwmv.first)
   // |   |   {
   // |   |   }
@@ -668,11 +767,11 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Add a goto to exit the loop when the check fails:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   %rwmv.first = (%A)[%M * i1];
+  // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%B)[%M2 * i2];
   // |
-  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
   // |   |   if (%rwmv.next !=u %rwmv.first)
   // |   |   {
   // |   |      goto RWMVCheckFailed;
@@ -689,12 +788,12 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Initialize the multiversioning case to 0 (no special value):
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   %rwmv.first = (%A)[%M * i1];
+  // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%B)[%M2 * i2];
   // |   %rwmv.rowcase = 0;
   // |
-  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
   // |   |   if (%rwmv.next !=u %rwmv.first)
   // |   |   {
   // |   |      goto RWMVCheckFailed;
@@ -706,7 +805,9 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
   Type *const RowCaseTy = IntegerType::getInt8Ty(HNU.getContext());
   HLInst *const RowCaseInit =
     HNU.createCopyInst(DDRU.createConstDDRef(RowCaseTy, 0), "rwmv.rowcase");
-  if (OuterIf)
+  if (SafeCheckIf && !NonInvariantCheckLoop)
+    HLNodeUtils::insertAsLastPreheaderNode(OutermostParent, RowCaseInit);
+  else if (OuterIf)
     HLNodeUtils::insertBefore(OuterIf, RowCaseInit);
   else
     HLNodeUtils::insertBefore(CheckLoop, RowCaseInit);
@@ -720,12 +821,12 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Check for identified multiversion values:
   //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   %rwmv.first = (%A)[%M * i1];
+  // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   %rwmv.first = (%B)[%M2 * i2];
   // |   %rwmv.rowcase = 0;
   // |
-  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
+  // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
   // |   |   if (%rwmv.next !=u %rwmv.first)
   // |   |   {
   // |   |      goto RWMVCheckFailed;
@@ -761,47 +862,71 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // If needed, collect the row types in a temp array:
   //
-  // %rwmv.rowcases = alloca %N;
-  //
-  // + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-  // |   %rwmv.first = (%A)[%M * i1];
-  // |   %rwmv.rowcase = 0;
-  // |
-  // |   + DO i2 = 0, %K + -2, 1   <DO_LOOP>
-  // |   |   %rwmv.next = (%A)[%M * i1 + i2 + 1];
-  // |   |   if (%rwmv.next !=u %rwmv.first)
-  // |   |   {
-  // |   |      goto RWMVCheckFailed;
-  // |   |   }
-  // |   + END LOOP
-  // |
-  // |   if (%rwmv.first == -1.0)
+  //    %rwmv.needcheck = 1;
+  //    %rwmv.rowcases = alloca %N2
+  // + DO i1 = 0, %N1 + -1, 1   <DO_LOOP>
+  // |   if (%M1 > 0)
   // |   {
-  // |      %rwmv.rowcase = 1;
-  // |   }
-  // |   else
-  // |   {
-  // |      if (%rwmv.first == 0.0)
+  // |      if (%rwmv.needcheck != 0)
   // |      {
-  // |         %rwmv.rowcase = 2;
+  // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |         |   %rwmv.first = (%B)[%M2 * i2];
+  // |         |   %rwmv.rowcase = 0;
+  // |         |
+  // |         |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |         |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
+  // |         |   |   if (%rwmv.next !=u %rwmv.first)
+  // |         |   |   {
+  // |         |   |      goto RWMVCheckFailed;
+  // |         |   |   }
+  // |         |   + END LOOP
+  // |         |
+  // |         |   if (%rwmv.first == -1.0)
+  // |         |   {
+  // |         |      %rwmv.rowcase = 1;
+  // |         |   }
+  // |         |   else
+  // |         |   {
+  // |         |      if (%rwmv.first == 0.0)
+  // |         |      {
+  // |         |         %rwmv.rowcase = 2;
+  // |         |      }
+  // |         |   }
+  // |         |   RWMVCheckFailed:
+  // |         |   (rwmv.rowcases)[i2] = %rwmv.rowcase;
+  // |         + END LOOP
+  // |
+  // |         %rwmv.needcheck = 0;
   // |      }
+  // |
+  // |      + DO i2 = 0, %M1 + -1, 1   <DO_LOOP>
+  // |      |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
+  // |      |   |   + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   |   |   |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   |   |   |   %sum = %sum  +  %AijBkl;
+  // |      |   |   |   + END LOOP
+  // |      |   |   + END LOOP
+  // |      |   + END LOOP
+  // |      + END LOOP
   // |   }
-  // |   RWMVCheckFailed:
-  // |   (%rwmv.rowcases)[i1] = %rwmv.rowcase;
   // + END LOOP
   RegDDRef *RowCases    = nullptr;
   RegDDRef *RowCasesRef = nullptr;
   if (NonInvariantCheckLoop) {
     HLInst *const RowCaseAlloca = HNU.createAlloca(
       RowCaseTy, NonInvariantCheckLoop->getTripCountDDRef(), "rwmv.rowcases");
-    HLNodeUtils::insertBefore(NonInvariantCheckLoop, RowCaseAlloca);
+    if (SafeCheckIf)
+      HLNodeUtils::insertAsLastPreheaderNode(OutermostParent, RowCaseAlloca);
+    else
+      HLNodeUtils::insertBefore(NonInvariantCheckLoop, RowCaseAlloca);
     RowCases = RowCaseAlloca->getLvalDDRef();
 
     RowCasesRef =
       DDRU.createMemRef(RowCases->getSingleCanonExpr()->getSingleBlobIndex());
     CanonExpr *const RowCasesRefDim =
       CEU.createCanonExpr(NonInvariantCheckLoop->getIVType());
-    RowCasesRefDim->addIV(1, InvalidBlobIndex, 1);
+    RowCasesRefDim->addIV(SafeCheckLevel, InvalidBlobIndex, 1);
     RowCasesRef->addDimension(RowCasesRefDim);
     HLInst *const RowCaseStore =
       HNU.createStore(RowCase->clone(), "", RowCasesRef);
@@ -822,21 +947,21 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // Construct the switch for the multiversioning:
   //
-  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-  // |   |   + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |   |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
-  // |   |   |   %sum = %sum  +  %AikBkj;
-  // |   |   + END LOOP
-  // |   |   switch((%rwmv.rowcases)[i2])
-  // |   |   {
-  // |   |   }
+  // + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |   |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |   |   %sum = %sum  +  %AijBkl;
   // |   + END LOOP
+  // |
+  // |   switch((%rwmv.rowcases)[i4])
+  // |   {
+  // |   }
   // + END LOOP
   RegDDRef *SwitchRef = nullptr;
   if (RowCases) {
     SwitchRef = RowCasesRef->clone();
-    SwitchRef->getSingleCanonExpr()->replaceIV(1, MVNonInvariantLevel);
+    SwitchRef->getSingleCanonExpr()->replaceIV(SafeCheckLevel,
+                                               MVNonInvariantLevel);
   } else {
     SwitchRef = RowCase->clone();
   }
@@ -845,47 +970,43 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand) {
 
   // The unmodified loop will be the default case:
   //
-  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-  // |   |   switch((%rwmv.rowcases)[i2])
-  // |   |   {
-  // |   |   default:
-  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |      |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
-  // |   |      |   %sum = %sum  +  %AikBkj;
-  // |   |      + END LOOP
-  // |   |      break;
-  // |   |   }
-  // |   + END LOOP
+  // + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   switch((%rwmv.rowcases)[i4])
+  // |   {
+  // |   default:
+  // |      + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   %sum = %sum  +  %AijBkl;
+  // |      + END LOOP
+  // |      break;
+  // |   }
   // + END LOOP
   HLNodeUtils::moveAsLastDefaultChild(MVSwitch, Lp);
 
   // Clone the loop for each other case:
   //
-  // + DO i1 = 0, %M + -1, 1   <DO_LOOP>
-  // |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-  // |   |   switch((%rwmv.rowcases)[i2])
-  // |   |   {
-  // |   |   case 1:
-  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |      |   %AikBkj = -1.0  *  (%B)[i1 + %M * i3];
-  // |   |      |   %sum = %sum  +  %AikBkj;
-  // |   |      + END LOOP
-  // |   |      break;
-  // |   |   case 2:
-  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |      |   %AikBkj = 0.0  *  (%B)[i1 + %M * i3];
-  // |   |      |   %sum = %sum  +  %AikBkj;
-  // |   |      + END LOOP
-  // |   |      break;
-  // |   |   default:
-  // |   |      + DO i3 = 0, %K + -1, 1   <DO_LOOP>
-  // |   |      |   %AikBkj = (%A)[%M * i2 + i3]  *  (%B)[i1 + %M * i3];
-  // |   |      |   %sum = %sum  +  %AikBkj;
-  // |   |      + END LOOP
-  // |   |      break;
-  // |   |   }
-  // |   + END LOOP
+  // + DO i4 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |   switch((%rwmv.rowcases)[i4])
+  // |   {
+  // |   case 1:
+  // |      + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   %AijBkl = (%A)[%M1 * i1 + i2] * -1.0;
+  // |      |   %sum = %sum  +  %AijBkl;
+  // |      + END LOOP
+  // |      break;
+  // |   case 2:
+  // |      + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   %AijBkl = (%A)[%M1 * i1 + i2] * 0.0;
+  // |      |   %sum = %sum  +  %AijBkl;
+  // |      + END LOOP
+  // |      break;
+  // |   default:
+  // |      + DO i5 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |      |   %AijBkl = (%A)[%M1 * i1 + i2] * (%B)[%M2 * i4 + i5];
+  // |      |   %sum = %sum  +  %AijBkl;
+  // |      + END LOOP
+  // |      break;
+  // |   }
   // + END LOOP
   for (size_t MVInd = 0, MVEnd = MVVals.size(); MVInd != MVEnd; ++MVInd) {
     HLLoop *const MVLoop = Lp->clone();
@@ -919,26 +1040,35 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
     return false;
   }
 
-  // TODO: Update this to reflect the checks needed for the one-time in-nest
-  // probe loop. Until then, use the following legality checks.
-
-  // And also it needs to be safe to hoist checks for all of the parents within
-  // the loop.
+  // Determine how many of the parents it is possible to hoist checks for.
   const HLLoop *const OutermostParent = Lp->getOutermostParentLoop();
-  for (const HLNode *Parent      = Lp->getParent(),
-                    *ParentE     = OutermostParent->getParent();
-       Parent != ParentE; Parent = Parent->getParent())
+  HLLoop *SafeCheckLevelParent        = Lp;
+  for (HLNode *Parent            = Lp->getParent(),
+              *ParentE           = OutermostParent->getParent();
+       Parent != ParentE; Parent = Parent->getParent()) {
     if (!canHoistCheck(Parent))
-      return false;
+      break;
+    if (auto *const ParentLp = dyn_cast<HLLoop>(Parent))
+      SafeCheckLevelParent = ParentLp;
+  }
+  if (SafeCheckLevelParent == Lp)
+    return false;
+  unsigned SafeCheckLevel = SafeCheckLevelParent->getNestingLevel();
+  if (SafeCheckLevel != 1) {
+    LLVM_DEBUG(
+      dbgs() << "Falling back to an in-nest check loop outside loop level "
+             << SafeCheckLevel << "\n");
+  }
 
-  // Also check that there are no forward gotos in the loop nest.
+  // Also check that there are no forward gotos in the hoisted-from portion of
+  // the loop nest.
   //
   // Really, only the gotos that jump over an inner loop that will be hoisted
   // are a problem, but it's easier to be more conservative and avoid having any
   // forward gotos at all. Fancier checking for only the problematic gotos can
   // be added later if needed, and should probably be done by checking that each
   // child HLNode post-dominates the corresponding branch of its parent.
-  if (HLS.getTotalLoopStatistics(OutermostParent).hasForwardGotos()) {
+  if (HLS.getTotalLoopStatistics(SafeCheckLevelParent).hasForwardGotos()) {
     LLVM_DEBUG(dbgs() << "Avoiding this loop because there are forward gotos "
                          "in the loop nest\n");
     return false;
@@ -956,8 +1086,8 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
     if (const auto *const CI = dyn_cast<HLInst>(&C))
       for (const RegDDRef *const Ref :
            make_range(CI->ddref_begin(), CI->ddref_end()))
-        if (const MVCandidate MVCand =
-              checkCandidateDDRef(Ref, Lp->getNestingLevel(), DDG, DTII))
+        if (const MVCandidate MVCand = checkCandidateDDRef(
+              Ref, Lp->getNestingLevel(), SafeCheckLevelParent, DDG, DTII))
           MVCands.push_back(MVCand);
 
   LLVM_DEBUG(dbgs() << "\n");
@@ -985,7 +1115,7 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
   // do the first one. Later, we may want to have fancier logic to choose one.
   const MVCandidate &ChosenCand = MVCands.front();
 
-  multiversionLoop(Lp, ChosenCand);
+  multiversionLoop(Lp, ChosenCand, SafeCheckLevelParent);
 
   return true;
 }
