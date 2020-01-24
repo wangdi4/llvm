@@ -1709,8 +1709,9 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       ResInst = VPOUtils::createMaskedStoreCall(
           StorePtr, StoreVal, Builder, LvalRef->getAlignment(), MaskVal);
     } else {
-      ResInst = Builder.CreateAlignedStore(
-          StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
+      ResInst = Builder.CreateAlignedStore(StoreVal, StorePtr,
+                                           MaybeAlign(LvalRef->getAlignment()),
+                                           LvalRef->isVolatile());
     }
 
     setMetadata(ResInst, LvalRef);

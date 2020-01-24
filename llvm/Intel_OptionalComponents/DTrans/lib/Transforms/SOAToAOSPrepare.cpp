@@ -1,6 +1,6 @@
 //===------ SOAToAOSPrepare.cpp - SOAToAOSPreparePass ---------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1817,7 +1817,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Indices.push_back(IRB.getInt32(BaseArrayIdx));
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewElemTy, ThisPtr, Indices, "");
-    unsigned Align = DL.getABITypeAlignment(Elem->getType());
+    auto Align = MaybeAlign(DL.getABITypeAlignment(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());

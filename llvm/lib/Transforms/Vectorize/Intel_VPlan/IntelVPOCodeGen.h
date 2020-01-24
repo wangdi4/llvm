@@ -472,7 +472,7 @@ private:
 
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
-  unsigned getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
+  Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
 
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support

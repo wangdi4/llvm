@@ -1659,8 +1659,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
 #endif
 
   Value *WideSinLoad = Builder.CreateAlignedLoad(
-      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlignment(),
-      "wide.sin.InitVal");
+      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlign(), "wide.sin.InitVal");
   VPWidenMap[VPCall] = WideSinLoad;
 }
 
@@ -1843,15 +1842,14 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-unsigned
-VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
+Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   assert((VPInst->getOpcode() == Instruction::Load ||
           VPInst->getOpcode() == Instruction::Store) &&
          "Alignment helper called on non load/store instruction.");
   // TODO: Peeking at underlying Value for alignment info.
   auto *UV = VPInst->getUnderlyingValue();
   if (!UV)
-    return 1;
+    return Align::None();
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   // For store instructions alignment is determined by type of value operand.
@@ -1861,8 +1859,7 @@ VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
 
   // Absence of alignment means target abi alignment. We need to use the
   // scalar's target abi alignment in such a case.
-  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy)
-      .value();
+  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy);
 }
 
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
@@ -1897,7 +1894,7 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
       cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
   Value *GroupPtr = Builder.CreateBitCast(
       ScalarAddress, GroupType->getPointerTo(AddressSpace), "groupPtr");
-  unsigned Align = getOriginalLoadStoreAlignment(Leader);
+  Align Alignment = getOriginalLoadStoreAlignment(Leader);
 
   Instruction *GroupLoad;
   if (MaskValue) {
@@ -1906,11 +1903,11 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
                           : 1;
     Value *LoadMask = replicateVectorElts(MaskValue, OriginalVL * Group->size(),
                                           Builder, "groupLoadMask");
-    GroupLoad = Builder.CreateMaskedLoad(GroupPtr, Align, LoadMask, nullptr,
+    GroupLoad = Builder.CreateMaskedLoad(GroupPtr, Alignment, LoadMask, nullptr,
                                          "groupLoad");
   } else {
     GroupLoad =
-        Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
+        Builder.CreateAlignedLoad(GroupType, GroupPtr, Alignment, "groupLoad");
   }
 
   DEBUG_WITH_TYPE(
@@ -1962,7 +1959,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
   Type *LoadType = getLoadStoreType(VPInst);
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
 
   // Masking not needed for privates.
@@ -2022,7 +2019,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
 
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *NewLI = nullptr;
 
   // Try to handle consecutive loads without VLS.
@@ -2055,8 +2052,9 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
       RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                          "replicatedMaskElts.");
     Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
-    NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
-                                       nullptr, "wide.masked.gather");
+    NewLI =
+        Builder.CreateMaskedGather(GatherAddress, Alignment.value(),
+                                   RepMaskValue, nullptr, "wide.masked.gather");
   }
 
   VPWidenMap[VPInst] = NewLI;
@@ -2138,15 +2136,15 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
       Builder.CreateBitCast(ScalarAddress, GroupPtrTy, "groupPtr");
 
   // Create the wide store.
-  unsigned Align = getOriginalLoadStoreAlignment(VPStore);
+  Align Alignment = getOriginalLoadStoreAlignment(VPStore);
   Instruction *GroupStore;
   if (MaskValue) {
     Value *StoreMask = replicateVectorElts(
         MaskValue, OriginalVL * Group->size(), Builder, "groupStoreMask");
     GroupStore =
-        Builder.CreateMaskedStore(StoredValue, GroupPtr, Align, StoreMask);
+        Builder.CreateMaskedStore(StoredValue, GroupPtr, Alignment, StoreMask);
   } else {
-    GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
+    GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Alignment);
   }
 
   DEBUG_WITH_TYPE("ovls", dbgs()
@@ -2163,7 +2161,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
   Type *StoreType = getLoadStoreType(VPInst);
   unsigned OriginalVL =
       StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
 
   if (StrideVal < 0) // Reverse
@@ -2189,7 +2187,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
 
   if (auto *Underlying = VPInst->getUnderlyingValue())
     if (!cast<StoreInst>(Underlying)->isSimple())
@@ -2263,7 +2261,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   if (MaskValue)
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
-  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
+  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment.value(),
+                              RepMaskValue);
 }
 
 // This function returns computed addresses of memory locations which should be

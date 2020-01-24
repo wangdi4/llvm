@@ -113,8 +113,8 @@ CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
                                          unsigned Alignment,
                                          Value *Mask,
                                          Value *PassThru) {
-  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask,
-                                               PassThru);
+  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, assumeAligned(Alignment),
+                                              Mask, PassThru);
   return NewCallInst;
 }
 
@@ -123,8 +123,8 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
                                           IRBuilder<> &Builder,
                                           unsigned Alignment,
                                           Value *Mask) {
-  auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
-                                                Mask);
+  auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr,
+                                               assumeAligned(Alignment), Mask);
   return NewCallInst;
 }
 
