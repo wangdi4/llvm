@@ -50,6 +50,54 @@ static Attr *handleFallThroughAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) FallThroughAttr(S.Context, A);
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns false if an invalid argument is detected
+static bool HandleLoopFuseAttrArg(Sema &S, ArgsUnion AU,
+                                  unsigned &DepthValue,
+                                  bool &Independent) {
+  if (AU.is<Expr *>()) {
+    Expr *E = AU.get<Expr *>();
+    if (!E)
+      return true;
+
+    llvm::APSInt ArgVal;
+    if (E->isIntegerConstantExpr(ArgVal, S.getASTContext())) {
+      if (!ArgVal.isStrictlyPositive()) {
+        S.Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+            << "'loop_fuse'" << /* positive */ 0;
+        return false;
+      }
+      DepthValue = ArgVal.getZExtValue();
+      return true;
+    }
+    S.Diag(E->getExprLoc(), diag::err_loop_fuse_unknown_arg);
+  } else if (AU.is<IdentifierLoc *>()) {
+    IdentifierLoc *IE = AU.get<IdentifierLoc *>();
+    if (!IE)
+      return true;
+    Independent = true;
+    return true;
+  }
+  return true;
+}
+
+static Attr *handleLoopFuseAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                                SourceRange Range) {
+  unsigned NumArgs = A.getNumArgs();
+  if (NumArgs > 2) {
+    S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A << 2;
+    return nullptr;
+  }
+  // Extract unsigned for depth and a bool for independent
+  unsigned DepthValue = 0; // 0 stands for not-specified (default)
+  bool Independent = false;
+  for (unsigned i = 0; i < NumArgs; ++i)
+    if (!HandleLoopFuseAttrArg(S, A.getArg(i), DepthValue, Independent))
+      return nullptr;
+  return ::new (S.Context) LoopFuseAttr(S.Context, A, DepthValue, Independent);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                 SourceRange Range) {
   if (A.getNumArgs() < 1) {
@@ -1411,6 +1459,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelBlockLoopAttr(S, St, A, AL, Range);
   case ParsedAttr::AT_SYCLIntelFPGALegacyIVDep:
     return handleIntelFPGALoopAttr<SYCLIntelFPGALegacyIVDepAttr>(S, A);
+  case ParsedAttr::AT_LoopFuse:
+    return handleLoopFuseAttr(S, St, A, Range);
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);

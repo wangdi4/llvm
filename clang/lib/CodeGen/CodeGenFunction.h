@@ -448,6 +448,17 @@ public:
     llvm::CallInst *CallEntry = nullptr;
   };
 
+  class IntelFPGALoopFuseHandler {
+  public:
+    IntelFPGALoopFuseHandler(CodeGenFunction &CGF,
+                             ArrayRef<const Attr *> Attrs);
+    ~IntelFPGALoopFuseHandler();
+
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry = nullptr;
+  };
+
   class DistributePointHandler {
   public:
     DistributePointHandler(CodeGenFunction &CGF, const Stmt *S,

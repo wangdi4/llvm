@@ -143,7 +143,10 @@ def err_bankbits_numbanks_conflicting : Error<
   "the number of bank_bits must be equal to ceil(log2(numbanks))">;
 def err_bankbits_non_consecutive : Error<
   "bank_bits must be consecutive">;
-
+// if INTEL_CUSTOMIZATION
+def err_loop_fuse_unknown_arg : Error<
+  "unknown argument to 'loop_fuse'. Expected integer expression">;
+// endif // INTEL_CUSTOMIZATION
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
   InGroup<VLAExtension>;

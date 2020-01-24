@@ -744,6 +744,10 @@ private:
   /// #pragma simd
   void HandlePragmaSIMD();
 
+  /// Handle the loop fusion INTEL FPGA pragma
+  /// #pragma loop_fuse
+  StmtResult HandlePragmaLoopFuse();
+
   /// Parse a pragma SIMD statement.
   /// {code}
   /// #pragma simd ...
@@ -2083,6 +2087,7 @@ private:
   std::unique_ptr<PragmaHandler> IVDepHandler;
   std::unique_ptr<PragmaHandler> MaxConcurrencyHandler;
   std::unique_ptr<PragmaHandler> MaxInterleavingHandler;
+  std::unique_ptr<PragmaHandler> LoopFuseHandler;
   std::unique_ptr<PragmaHandler> IIAtMostHandler;
   std::unique_ptr<PragmaHandler> IIAtLeastHandler;
   std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;

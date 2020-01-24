@@ -3444,6 +3444,25 @@ def InitSeg : Attr {
   }];
 }
 
+// INTEL_CUSTOMIZATION
+def LoopFuse : Attr {
+  let Spellings = [Pragma<"", "loop_fuse">];
+  let Args = [DefaultIntArgument<"Depth", 0>,
+              DefaultBoolArgument<"Independent", /*default*/0, /*fake*/0>];
+  let Documentation = [LoopFuseDocs];
+  let Subjects = SubjectList<[Block]>;
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << "#pragma loop_fuse";
+    if (getDepth())
+      OS << " depth(" << getDepth() << ")";
+    if (getIndependent())
+      OS << " independent";
+  }
+  }];
+}
+// end INTEL_CUSTOMIZATION
+
 def LoopHint : Attr {
   /// #pragma clang loop <option> directive
   /// vectorize: vectorizes loop operations if State == Enable.
