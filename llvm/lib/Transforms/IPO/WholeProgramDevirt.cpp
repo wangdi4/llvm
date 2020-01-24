@@ -892,21 +892,14 @@ bool DevirtModule::runForTesting(
 
 #if INTEL_CUSTOMIZATION
   bool Changed =
-<<<<<<< HEAD
-      DevirtModule(
-          M, AARGetter, OREGetter, LookupDomTree,
-          ClSummaryAction == PassSummaryAction::Export ? &Summary : nullptr,
-          ClSummaryAction == PassSummaryAction::Import ? &Summary : nullptr,
-          WPDevirtAssumeSafe).run();
-#endif
-=======
       DevirtModule(M, AARGetter, OREGetter, LookupDomTree,
                    ClSummaryAction == PassSummaryAction::Export ? Summary.get()
                                                                 : nullptr,
                    ClSummaryAction == PassSummaryAction::Import ? Summary.get()
-                                                                : nullptr)
+                                                                : nullptr,
+                   WPDevirtAssumeSafe)
           .run();
->>>>>>> 8973fae19512163cf00cb7caab253c1ab7a88355
+#endif // INTEL_CUSTOMIZATION
 
   if (!ClWriteSummary.empty()) {
     ExitOnError ExitOnErr(
