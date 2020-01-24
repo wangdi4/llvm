@@ -457,10 +457,6 @@ cleanupret2:
   cleanupret from %cp unwind to caller
 }
 
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-=======
->>>>>>> c467faf23c7abda60cfd5486a39ffadd6f546d5c
 ; CHECK-LABEL: define void @f11(
 ;   This case tests the handling of an empty cleanup pad that
 ;   contains a lifetime_end intrinsic and does not dominate its
@@ -471,11 +467,6 @@ cleanupret2:
 ; CHECK:   invoke void @g()
 ; CHECK: invoke.cont2:
 ; CHECK:   invoke void @g()
-<<<<<<< HEAD
-; FIXME -- As a temporary workaround, we're not deleting the cleanup pad.
-;          Long term, we should delete the cleanup pad and sink the intrinsic.
-=======
->>>>>>> c467faf23c7abda60cfd5486a39ffadd6f546d5c
 ; CHECK-NOT: ehcleanup:
 ; CHECK-NOT:   phi
 ; CHECK-NOT:   cleanuppad
@@ -514,10 +505,6 @@ catch:                                            ; preds = %catch.dispatch
 return:                                           ; preds = %invoke.cont, %catch.cont
   ret void
 }
-<<<<<<< HEAD
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> c467faf23c7abda60cfd5486a39ffadd6f546d5c
 
 %struct.S = type { i8 }
 %struct.S2 = type { i8 }
