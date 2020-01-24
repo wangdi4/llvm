@@ -1,5 +1,9 @@
 ; RUN: opt -whole-program-assume -dtransanalysis -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -debug-only=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
 
+; This test checks that the basic row-wise multiversioning transformation
+; generates the expected code when using DTrans analysis to determine likely
+; values.
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -122,4 +126,3 @@ define void @structinit() {
   store double 0.0, double* %b3, align 8
   ret void
 }
-
