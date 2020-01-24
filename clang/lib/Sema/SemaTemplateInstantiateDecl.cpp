@@ -2017,7 +2017,7 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
   Expr *TrailingRequiresClause = D->getTrailingRequiresClause();
   if (TrailingRequiresClause) {
     EnterExpressionEvaluationContext ConstantEvaluated(
-        SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+        SemaRef, Sema::ExpressionEvaluationContext::Unevaluated);
     ExprResult SubstRC = SemaRef.SubstExpr(TrailingRequiresClause,
                                            TemplateArgs);
     if (SubstRC.isInvalid())
@@ -2357,7 +2357,7 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
   Expr *TrailingRequiresClause = D->getTrailingRequiresClause();
   if (TrailingRequiresClause) {
     EnterExpressionEvaluationContext ConstantEvaluated(
-        SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+        SemaRef, Sema::ExpressionEvaluationContext::Unevaluated);
     ExprResult SubstRC = SemaRef.SubstExpr(TrailingRequiresClause,
                                            TemplateArgs);
     if (SubstRC.isInvalid())
@@ -2697,8 +2697,6 @@ Decl *TemplateDeclInstantiator::VisitTemplateTypeParmDecl(
     TemplateArgumentListInfo InstArgs;
 
     if (TemplArgInfo) {
-      EnterExpressionEvaluationContext ConstantEvaluated(
-        SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
       InstArgs.setLAngleLoc(TemplArgInfo->LAngleLoc);
       InstArgs.setRAngleLoc(TemplArgInfo->RAngleLoc);
       if (SemaRef.Subst(TemplArgInfo->getTemplateArgs(),
@@ -3904,7 +3902,7 @@ TemplateDeclInstantiator::SubstTemplateParams(TemplateParameterList *L) {
   Expr *InstRequiresClause = nullptr;
   if (Expr *E = L->getRequiresClause()) {
     EnterExpressionEvaluationContext ConstantEvaluated(
-        SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+        SemaRef, Sema::ExpressionEvaluationContext::Unevaluated);
     ExprResult Res = SemaRef.SubstExpr(E, TemplateArgs);
     if (Res.isInvalid() || !Res.isUsable()) {
       return nullptr;
