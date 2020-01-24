@@ -18,6 +18,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 %struct.lzma_match = type { i32, i32 }
+%struct.lzma_mf_s = type { i8*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 (%struct.lzma_mf_s*, %struct.lzma_match*)*, void (%struct.lzma_mf_s*, i32)*, i32*, i32*, i32, i32, i32, i32, i32, i32, i32, i32, i32 }
 
 @0 = private unnamed_addr constant [16 x i8] c"padded 32 bytes\00", align 1
 @1 = private unnamed_addr constant [10 x i8] c"ld-temp.o\00", align 1
@@ -201,3 +202,317 @@ attributes #1 = { nounwind willreturn }
 !10 = !{!11, !6, i64 0}
 !11 = !{!"struct@", !6, i64 0, !6, i64 4}
 !12 = !{!11, !6, i64 4}
+
+; This test just makes sure compiler doesn't crush during load PRE
+; when load and phi node are in different basic blocks:
+; bb1:
+;  %phi = phi i32 [ %l, %if.else ], [ %l, %while.end ], [ %s, %if.else10 ]
+;  ...
+; bb2:
+;  %0 = zext i32 %phi to i64
+;  %1 = getelementptr inbounds i8, i8* %a, i64 %0
+;  %2 = load i8, i8* %1, align 1, !tbaa !19
+; CHECK-LABEL: @lzma_mf_bt2_find_no_crush
+define internal i32 @lzma_mf_bt2_find_no_crush(%struct.lzma_mf_s* nocapture %0, %struct.lzma_match* %1) {
+  %3 = getelementptr %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 5
+  %4 = load i32, i32* %3
+  %5 = getelementptr %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 8
+  %6 = load i32, i32* %5
+  %7 = sub i32 %6, %4
+  %8 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 18
+  %9 = load i32, i32* %8
+  %10 = icmp ugt i32 %9, %7
+  br i1 %10, label %11, label %22
+
+11:                                               ; preds = %2
+  %12 = icmp ult i32 %7, 2
+  br i1 %12, label %17, label %13
+
+13:                                               ; preds = %11
+  %14 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 20
+  %15 = load i32, i32* %14
+  %16 = icmp eq i32 %15, 1
+  br i1 %16, label %17, label %22
+
+17:                                               ; preds = %13, %11
+  %18 = add i32 %4, 1
+  store i32 %18, i32* %3
+  %19 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 9
+  %20 = load i32, i32* %19
+  %21 = add i32 %20, 1
+  store i32 %21, i32* %19
+  br label %187
+
+22:                                               ; preds = %13, %2
+  %23 = phi i32 [ %7, %13 ], [ %9, %2 ]
+  %24 = getelementptr %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 0
+  %25 = load i8*, i8** %24
+  %26 = tail call i8* @llvm.ptr.annotation.p0i8(i8* %25, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @1, i64 0, i64 0), i32 0)
+  %27 = zext i32 %4 to i64
+  %28 = getelementptr inbounds i8, i8* %26, i64 %27
+  %29 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 4
+  %30 = load i32, i32* %29
+  %31 = add i32 %30, %4
+  %32 = load i8, i8* %28
+  %33 = zext i8 %32 to i64
+  %34 = getelementptr inbounds i8, i8* %28, i64 1
+  %35 = load i8, i8* %34
+  %36 = zext i8 %35 to i64
+  %37 = shl nuw nsw i64 %36, 8
+  %38 = or i64 %37, %33
+  %39 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 12
+  %40 = load i32*, i32** %39
+  %41 = getelementptr inbounds i32, i32* %40, i64 %38
+  %42 = load i32, i32* %41
+  store i32 %31, i32* %41
+  %43 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 17
+  %44 = load i32, i32* %43
+  %45 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 13
+  %46 = load i32*, i32** %45
+  %47 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 14
+  %48 = load i32, i32* %47
+  %49 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 15
+  %50 = load i32, i32* %49
+  %51 = shl i32 %48, 1
+  %52 = zext i32 %51 to i64
+  %53 = getelementptr inbounds i32, i32* %46, i64 %52
+  %54 = getelementptr inbounds i32, i32* %53, i64 1
+  %55 = sub i32 %31, %42
+  %56 = icmp ne i32 %44, 0
+  %57 = icmp ult i32 %55, %50
+  %58 = and i1 %56, %57
+  br i1 %58, label %63, label %59
+
+59:                                               ; preds = %141, %22
+  %60 = phi %struct.lzma_match* [ %1, %22 ], [ %132, %141 ]
+  %61 = phi i32* [ %54, %22 ], [ %142, %141 ]
+  %62 = phi i32* [ %53, %22 ], [ %143, %141 ]
+  store i32 0, i32* %61
+  store i32 0, i32* %62
+  br label %152
+
+63:                                               ; preds = %22, %141
+  %64 = phi i32 [ %73, %141 ], [ %44, %22 ]
+  %65 = phi i32 [ %148, %141 ], [ %55, %22 ]
+  %66 = phi i32 [ %147, %141 ], [ %42, %22 ]
+  %67 = phi i32 [ %145, %141 ], [ 0, %22 ]
+  %68 = phi i32 [ %144, %141 ], [ 0, %22 ]
+  %69 = phi i32* [ %143, %141 ], [ %53, %22 ]
+  %70 = phi i32* [ %142, %141 ], [ %54, %22 ]
+  %71 = phi i32 [ %133, %141 ], [ 1, %22 ]
+  %72 = phi %struct.lzma_match* [ %132, %141 ], [ %1, %22 ]
+  %73 = add i32 %64, -1
+  %74 = sub i32 %48, %65
+  %75 = icmp ult i32 %48, %65
+  %76 = select i1 %75, i32 %50, i32 0
+  %77 = add i32 %74, %76
+  %78 = shl i32 %77, 1
+  %79 = zext i32 %78 to i64
+  %80 = getelementptr inbounds i32, i32* %46, i64 %79
+  %81 = zext i32 %65 to i64
+  %82 = sub nsw i64 0, %81
+  %83 = getelementptr inbounds i8, i8* %28, i64 %82
+  %84 = icmp ult i32 %68, %67
+  %85 = select i1 %84, i32 %68, i32 %67
+  %86 = zext i32 %85 to i64
+  %87 = getelementptr inbounds i8, i8* %83, i64 %86
+  %88 = load i8, i8* %87
+  %89 = getelementptr inbounds i8, i8* %28, i64 %86
+  %90 = load i8, i8* %89
+  %91 = icmp eq i8 %88, %90
+  br i1 %91, label %92, label %129
+
+92:                                               ; preds = %63
+  %93 = add i32 %85, 1
+  %94 = icmp eq i32 %93, %23
+  br i1 %94, label %106, label %98
+
+95:                                               ; preds = %98
+  %96 = add i32 %99, 1
+  %97 = icmp eq i32 %96, %23
+  br i1 %97, label %106, label %98
+
+98:                                               ; preds = %92, %95
+  %99 = phi i32 [ %96, %95 ], [ %93, %92 ]
+  %100 = zext i32 %99 to i64
+  %101 = getelementptr inbounds i8, i8* %83, i64 %100
+  %102 = load i8, i8* %101
+  %103 = getelementptr inbounds i8, i8* %28, i64 %100
+  %104 = load i8, i8* %103
+  %105 = icmp eq i8 %102, %104
+  br i1 %105, label %95, label %106
+
+106:                                              ; preds = %98, %95, %92
+  %107 = phi i32 [ %23, %92 ], [ %99, %98 ], [ %23, %95 ]
+  %108 = phi i1 [ true, %92 ], [ false, %98 ], [ true, %95 ]
+  %109 = icmp ult i32 %71, %107
+  br i1 %109, label %110, label %123
+
+110:                                              ; preds = %106
+  %111 = getelementptr inbounds %struct.lzma_match, %struct.lzma_match* %72, i64 0, i32 0
+  store i32 %107, i32* %111
+  %112 = add i32 %65, -1
+  %113 = getelementptr inbounds %struct.lzma_match, %struct.lzma_match* %72, i64 0, i32 1
+  store i32 %112, i32* %113
+  %114 = getelementptr inbounds %struct.lzma_match, %struct.lzma_match* %72, i64 1
+  br i1 %108, label %115, label %123
+
+115:                                              ; preds = %110
+  %116 = phi i32* [ %69, %110 ]
+  %117 = phi i32* [ %70, %110 ]
+  %118 = phi i32* [ %80, %110 ]
+  %119 = phi %struct.lzma_match* [ %114, %110 ]
+  %120 = load i32, i32* %118
+  store i32 %120, i32* %116
+  %121 = getelementptr inbounds i32, i32* %118, i64 1
+  %122 = load i32, i32* %121
+  store i32 %122, i32* %117
+  br label %152
+
+123:                                              ; preds = %106, %110
+  %124 = phi %struct.lzma_match* [ %72, %106 ], [ %114, %110 ]
+  %125 = phi i32 [ %71, %106 ], [ %107, %110 ]
+  %126 = zext i32 %107 to i64
+  %127 = getelementptr inbounds i8, i8* %83, i64 %126
+  %128 = load i8, i8* %127
+  br label %129
+
+129:                                              ; preds = %123, %63
+  %130 = phi i64 [ %126, %123 ], [ %86, %63 ]
+  %131 = phi i8 [ %88, %63 ], [ %128, %123 ]
+  %132 = phi %struct.lzma_match* [ %72, %63 ], [ %124, %123 ]
+  %133 = phi i32 [ %71, %63 ], [ %125, %123 ]
+  %134 = phi i32 [ %85, %63 ], [ %107, %123 ]
+  %135 = getelementptr inbounds i8, i8* %28, i64 %130
+  %136 = load i8, i8* %135
+  %137 = icmp ult i8 %131, %136
+  br i1 %137, label %138, label %140
+
+138:                                              ; preds = %129
+  store i32 %66, i32* %69
+  %139 = getelementptr inbounds i32, i32* %80, i64 1
+  br label %141
+
+140:                                              ; preds = %129
+  store i32 %66, i32* %70
+  br label %141
+
+141:                                              ; preds = %140, %138
+  %142 = phi i32* [ %70, %138 ], [ %80, %140 ]
+  %143 = phi i32* [ %139, %138 ], [ %69, %140 ]
+  %144 = phi i32 [ %68, %138 ], [ %134, %140 ]
+  %145 = phi i32 [ %134, %138 ], [ %67, %140 ]
+  %146 = phi i32* [ %139, %138 ], [ %80, %140 ]
+  %147 = load i32, i32* %146
+  %148 = sub i32 %31, %147
+  %149 = icmp ne i32 %73, 0
+  %150 = icmp ult i32 %148, %50
+  %151 = and i1 %149, %150
+  br i1 %151, label %63, label %59
+
+152:                                              ; preds = %115, %59
+  %153 = phi %struct.lzma_match* [ %60, %59 ], [ %119, %115 ]
+  %154 = ptrtoint %struct.lzma_match* %153 to i64
+  %155 = ptrtoint %struct.lzma_match* %1 to i64
+  %156 = sub i64 %154, %155
+  %157 = lshr exact i64 %156, 3
+  %158 = trunc i64 %157 to i32
+  %159 = load i32, i32* %47
+  %160 = add i32 %159, 1
+  %161 = load i32, i32* %49
+  %162 = icmp eq i32 %160, %161
+  %163 = select i1 %162, i32 0, i32 %160
+  store i32 %163, i32* %47
+  %164 = load i32, i32* %3
+  %165 = add i32 %164, 1
+  store i32 %165, i32* %3
+  %166 = load i32, i32* %29
+  %167 = add i32 %166, %165
+  %168 = icmp eq i32 %167, -1
+  br i1 %168, label %169, label %187
+
+169:                                              ; preds = %152
+  %170 = xor i32 %161, -1
+  %171 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 21
+  %172 = load i32, i32* %171
+  %173 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 22
+  %174 = load i32, i32* %173
+  %175 = add i32 %174, %172
+  %176 = icmp eq i32 %175, 0
+  br i1 %176, label %184, label %177
+
+177:                                              ; preds = %169
+  %178 = zext i32 %175 to i64
+  %179 = add i32 %174, %172
+  %180 = zext i32 %179 to i64
+  %181 = udiv i64 %180, 4
+  %182 = shl i64 %181, 2
+  %183 = icmp ult i64 0, %182
+  br i1 %183, label %189, label %206
+
+184:                                              ; preds = %226, %169
+  %185 = phi i32 [ %227, %226 ], [ %166, %169 ]
+  %186 = sub i32 %185, %170
+  store i32 %186, i32* %29
+  br label %187
+
+187:                                              ; preds = %184, %152, %17
+  %188 = phi i32 [ 0, %17 ], [ %158, %152 ], [ %158, %184 ]
+  ret i32 %188
+
+189:                                              ; preds = %177
+  %190 = shl i64 %181, 2
+  %191 = add i64 %190, -1
+  br label %192
+
+192:                                              ; preds = %192, %189
+  %193 = phi i64 [ 0, %189 ], [ %204, %192 ]
+  %194 = getelementptr inbounds i32, i32* %40, i64 %193
+  %195 = bitcast i32* %194 to <4 x i32>*
+  %196 = load <4 x i32>, <4 x i32>* %195
+  %197 = sub i32 0, %161
+  %198 = add i32 %197, -1
+  %199 = insertelement <4 x i32> undef, i32 %198, i32 0
+  %200 = shufflevector <4 x i32> %199, <4 x i32> undef, <4 x i32> zeroinitializer
+  %201 = call <4 x i32> @llvm.usub.sat.v4i32(<4 x i32> %196, <4 x i32> %200) #24
+  %202 = getelementptr inbounds i32, i32* %40, i64 %193
+  %203 = bitcast i32* %202 to <4 x i32>*
+  store <4 x i32> %201, <4 x i32>* %203
+  %204 = add nuw nsw i64 %193, 4
+  %205 = icmp sle i64 %204, %191
+  br i1 %205, label %192, label %206
+
+206:                                              ; preds = %192, %177
+  %207 = shl i64 %181, 2
+  %208 = add i32 %174, %172
+  %209 = zext i32 %208 to i64
+  %210 = icmp ult i64 %207, %209
+  br i1 %210, label %211, label %226
+
+211:                                              ; preds = %206
+  %212 = shl i64 %181, 2
+  %213 = add i32 %174, %172
+  %214 = zext i32 %213 to i64
+  %215 = add i64 %214, -1
+  br label %216
+
+216:                                              ; preds = %216, %211
+  %217 = phi i64 [ %212, %211 ], [ %224, %216 ]
+  %218 = getelementptr inbounds i32, i32* %40, i64 %217
+  %219 = load i32, i32* %218
+  %220 = sub i32 0, %161
+  %221 = add i32 %220, -1
+  %222 = tail call i32 @llvm.usub.sat.i32(i32 %219, i32 %221) #24
+  %223 = getelementptr inbounds i32, i32* %40, i64 %217
+  store i32 %222, i32* %223
+  %224 = add nuw nsw i64 %217, 1
+  %225 = icmp ne i64 %217, %215
+  br i1 %225, label %216, label %226
+
+226:                                              ; preds = %216, %206
+  %227 = load i32, i32* %29
+  br label %184
+}
+
+declare <4 x i32> @llvm.usub.sat.v4i32(<4 x i32>, <4 x i32>)
+declare i32 @llvm.usub.sat.i32(i32, i32)

@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -127,8 +127,10 @@ public:
                                                     bool Masked);
 
   /// Vectorize call arguments, or for simd functions scalarize if the arg
-  /// is linear or uniform.
+  /// is linear or uniform. If the call is being pumped by \p PumpFactor times,
+  /// then the appropriate sub-vector is extracted for given \p PumpPart.
   void vectorizeCallArgs(VPInstruction *VPCall, VectorVariant *VecVariant,
+                         unsigned PumpPart, unsigned PumpFactor,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
@@ -516,14 +518,31 @@ private:
   // vector. Functionality is same as VectorUtils::getSplatValue.
   const VPValue *getOrigSplatVPValue(const VPValue *V);
 
-  /// Adjust arguments passed to SVML functions to handle masks
-  void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<Value *> &VecArgs,
+  // Determine if scalar function \p FnName should be vectorized by pumping
+  // feature. If yes, then the factor to pump by is returned, 1 otherwise.
+  unsigned getPumpFactor(StringRef FnName, bool IsMasked);
+
+  /// Adjust arguments passed to SVML functions to handle masks. \p
+  /// CallMaskValue defines the mask being applied to the current SVML call
+  /// instruction that is processed.
+  void addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
+                         SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
-  // Widen call instruction parameters and return. Currently, this is limited
-  // to svml function support that is hooked in to TLI. Later, this can be
-  // extended to user-defined vector functions.
-  void vectorizeCallInstruction(VPInstruction *VPCall);
+  // Widen call instruction parameters and return. If given \p VPCall cannot be
+  // widened for current VF, but can be pumped with lower VF, then vectorize the
+  // call by breaking down the operands and pumping it \p PumpFactor times.
+  // Pumped call results are subsequently combined back to current VF context.
+  // For example -
+  // %1 = call float @sinf(float %0)
+  //
+  // for a VF=128, this call will be pumped 2-way as below -
+  // %shuffle1 = shufflevector %0.vec, undef, <0, 1, ... 63>
+  // %pump1 = call <64 x float> @__svml_sinf64(%shuffle1)
+  // %shuffle2 = shufflevector %0.vec, undef, <64, 65, ... 127>
+  // %pump2 = call <64 x float> @__svml_sinf64(%shuffle2)
+  // %combine = shufflevector %pump1, %pump2, <0, 1, ... 127>
+  void vectorizeCallInstruction(VPInstruction *VPCall, unsigned PumpFactor);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(VPInstruction *VPInst);
