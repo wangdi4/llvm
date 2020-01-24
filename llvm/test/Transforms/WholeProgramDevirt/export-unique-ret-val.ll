@@ -1,7 +1,11 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; This customization is for turning off the multiversioning.
 
 ; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck %s
+=======
+; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck %s
+>>>>>>> 90e630a95ecc2cd615d631f684d61acc872ce37e
 ; RUN: FileCheck --check-prefix=SUMMARY %s < %t
 ; END INTEL_CUSTOMIZATION
 
