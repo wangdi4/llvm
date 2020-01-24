@@ -29,6 +29,7 @@ def tan_rm    : OclBuiltin<"tan_rm",    (outs gentype:$ret), (ins gentype:$x), [
 def sincos_pas_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def sincos_las_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def sincos_gas_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def sincos_gen_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>;
 }
 
 // Implementation of atomic builtins relies on "generic address space" optimization passes

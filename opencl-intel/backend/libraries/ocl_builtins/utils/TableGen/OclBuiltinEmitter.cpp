@@ -110,7 +110,10 @@ OclType::getCType(const OclBuiltin* OB, bool NoAS) const
   if (OB->hasVolatile())
     Ret += (Ret.empty() ? "" : " ") + std::string("volatile");
 
-  Ret += (Ret.empty() ? "" : " ") + (NoAS ? "" : OB->getAS());
+  if (!NoAS)
+    if (!OB->getAS().empty())
+      Ret += (Ret.empty() ? "" : " ") + (NoAS ? "" : OB->getAS());
+
   Ret += (Ret.empty() ? "" : " ") + m_CType + " *";
 
   return Ret;
