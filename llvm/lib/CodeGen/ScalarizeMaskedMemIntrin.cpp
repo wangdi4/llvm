@@ -478,15 +478,9 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
-<<<<<<< HEAD
       Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
-      LoadInst *Load =
-          Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
-=======
-      Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
       LoadInst *Load = Builder.CreateAlignedLoad(
           EltTy, Ptr, MaybeAlign(AlignVal), "Load" + Twine(Idx));
->>>>>>> 279fa8e0064e3d0bd1646b8efdb94045585dd924
       VResult =
           Builder.CreateInsertElement(VResult, Load, Idx, "Res" + Twine(Idx));
     }
