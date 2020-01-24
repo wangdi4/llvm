@@ -462,7 +462,7 @@ void SOAToAOSPrepCandidateInfo::updateCallBase(CallBase *CB,
 }
 
 void SOAToAOSPrepCandidateInfo::removeDeadInsts(Function *F) {
-  SmallVector<Instruction *, 4> DeadInsts;
+  SmallVector<WeakTrackingVH, 4> DeadInsts;
 
   for (auto &I : instructions(F))
     if (isInstructionTriviallyDead(&I)) {
