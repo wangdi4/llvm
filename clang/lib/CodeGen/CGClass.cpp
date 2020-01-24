@@ -2649,7 +2649,6 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
 
   if (SanOpts.has(SanitizerKind::CFIVCall))
     EmitVTablePtrCheckForCall(RD, VTable, CodeGenFunction::CFITCK_VCall, Loc);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   else if (WrappingNeeded || (CGM.getCodeGenOpts().WholeProgramVTables &&
                               CGM.HasHiddenLTOVisibility(RD))) {
@@ -2665,10 +2664,6 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
       EmitBlock(WrapBB);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-  else if (CGM.getCodeGenOpts().WholeProgramVTables &&
-           CGM.HasHiddenLTOVisibility(RD)) {
->>>>>>> 90e630a95ecc2cd615d631f684d61acc872ce37e
     llvm::Metadata *MD =
         CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
     llvm::Value *TypeId =
