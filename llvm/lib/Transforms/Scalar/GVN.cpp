@@ -1067,7 +1067,8 @@ PHINode *PREProfitableWithPaddedMalloc(LoadInst *LI) {
     ZExtInst *ZEI = dyn_cast<ZExtInst>(GEP->getOperand(1));
     if (isa<PHINode>(ZEI->getOperand(0))) {
       PHINode *PH = dyn_cast<PHINode>(ZEI->getOperand(0));
-      if (PH->getNumIncomingValues() == 3) {
+      if ((PH->getNumIncomingValues() == 3) &&
+          PH->getParent() == LI->getParent()) {
         return PH;
       }
     }

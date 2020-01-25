@@ -467,6 +467,14 @@ Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
 ///   vector of NxVF elements
 Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
                          const Twine &Name = "");
+
+/// Generate code to extract a subvector of vector value \p V. The number of
+/// parts that vector should be divided into is \p NumParts and \p Part defines
+/// the position of the part to extract i.e. starts from Part*(subvector
+/// size)-th element of the vector. Subvector size is determined by given vector
+/// size and number of parts to be divided into.
+Value *generateExtractSubVector(Value *V, unsigned Part, unsigned NumParts,
+                                IRBuilder<> &Builder, const Twine &Name = "");
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.
