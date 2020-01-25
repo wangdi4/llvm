@@ -4698,6 +4698,8 @@ public:
   /// Issue any -Wunguarded-availability warnings in \c FD
   void DiagnoseUnguardedAvailabilityViolations(Decl *FD);
 
+  void handleDelayedAvailabilityCheck(sema::DelayedDiagnostic &DD, Decl *Ctx);
+
   //===--------------------------------------------------------------------===//
   // Expression Parsing Callbacks: SemaExpr.cpp.
 
