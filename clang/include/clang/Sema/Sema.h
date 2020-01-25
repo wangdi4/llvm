@@ -557,8 +557,6 @@ public:
   static const unsigned MaxAlignmentExponent = 29;
   static const unsigned MaximumAlignment = 1u << MaxAlignmentExponent;
 
-<<<<<<< HEAD
-public:
 #if INTEL_CUSTOMIZATION
   friend void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S);
 
@@ -599,8 +597,6 @@ public:
   FunctionToChannelMapType FunctionToChannelMap;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 0d61cd25a6927a7700bfb1636faca1ef16c46428
   typedef OpaquePtr<DeclGroupRef> DeclGroupPtrTy;
   typedef OpaquePtr<TemplateName> TemplateTy;
   typedef OpaquePtr<QualType> TypeTy;
