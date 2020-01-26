@@ -128,10 +128,9 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 ; Start and end of original reduction array for finalization.
-; CHECK-DAG: %[[Y_ARRREF_REF_ADDR:[a-zA-Z._0-9]+]] = load [3 x [4 x [5 x i32]]]**, [3 x [4 x [5 x i32]]]*** %y_Arr_ref.addr
 ; CHECK-DAG: %[[ORIG_LOAD_CAST_PLUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[ORIG_LOAD_CAST:[a-zA-Z._0-9]+]], i64 30
 ; CHECK-DAG: %[[ORIG_LOAD_CAST]] = bitcast [3 x [4 x [5 x i32]]]* %[[ORIG_LOAD:[a-zA-Z._0-9]+]] to i32*
-; CHECK-DAG: %[[ORIG_LOAD]] = load [3 x [4 x [5 x i32]]]*, [3 x [4 x [5 x i32]]]** %[[Y_ARRREF_REF_ADDR]]
+; CHECK-DAG: %[[ORIG_LOAD]] = load [3 x [4 x [5 x i32]]]*, [3 x [4 x [5 x i32]]]** %y_Arr_ref.addr
 ; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = getelementptr i32, i32* %[[ORIG_LOAD_CAST_PLUS_OFFSET]], i64 5
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL.LOOP"() ]

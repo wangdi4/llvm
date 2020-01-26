@@ -13,7 +13,6 @@
 ;   }
 ; }
 
-; CHECK: %[[L:.+]] = load i32*, i32** %l
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LASTPRIVATE"(i32* %[[LPRIV:[^,]+]]){{.*}} ]
 ; CHECK: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
 ; CHECK: [[PHB]]:
@@ -25,7 +24,7 @@
 ; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
 ; CHECK: [[LEXIT]]:
 ; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
-; CHECK: store i32 %[[V]], i32* %[[L]]
+; CHECK: store i32 %[[V]], i32* %l
 ; CHECK: br label %[[REXIT]]
 
 ; ModuleID = 'par_simd_lastprivate.c'

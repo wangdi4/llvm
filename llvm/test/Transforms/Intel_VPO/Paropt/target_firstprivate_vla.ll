@@ -60,8 +60,7 @@ entry:
 ; Check that inside the outlined function, the captured size is loaded
 ; and used in allocating a local VLA for %vla
 ; CHECK: define internal void [[OUTLINE_FUNCTION]](double** {{.*}}, i64* [[SIZE_ADDR_ARG:[^ ]+]], double* {{.+}})
-; CHECK: [[SIZE_ADDR_HOME:[^ ]+]] = load i64*, i64** [[SIZE_ADDR_ARG]]
-; CHECK: [[VLA_SIZE_VAL:[^ ]+]] = load i64, i64* [[SIZE_ADDR_HOME]]
+; CHECK: [[VLA_SIZE_VAL:[^ ]+]] = load i64, i64* [[SIZE_ADDR_ARG]]
 ; CHECK: {{.+}} = alloca double, i64 [[VLA_SIZE_VAL]]
 
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(double* %vla), "QUAL.OMP.MAP.TO"(double** @yptr) ]

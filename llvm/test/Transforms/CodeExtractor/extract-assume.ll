@@ -5,7 +5,7 @@
 
 ; CHECK:      Cached assumptions for function: fun
 ; CHECK-NEXT: Cached assumptions for function: fun.cold
-; CHECK-NEXT:   %cmp = icmp uge i32 %0, 64                               ;INTEL
+; CHECK-NEXT:   %cmp = icmp uge i32 %x, 64
 
 declare void @fun2(i32) #0
 

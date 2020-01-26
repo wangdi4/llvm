@@ -1734,7 +1734,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
       SeqCI->setCallingConv(CS.getCallingConv());
       SeqCI->takeName(NewCall);
-      SeqCI->setDebugLoc(NewCall->getDebugLoc());
       VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
                                              TaskAllocCI, ElseTerm);
     }
