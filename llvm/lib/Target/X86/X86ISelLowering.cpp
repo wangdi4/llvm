@@ -30483,397 +30483,6 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
 const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch ((X86ISD::NodeType)Opcode) {
   case X86ISD::FIRST_NUMBER:       break;
-<<<<<<< HEAD
-  case X86ISD::BSF:                return "X86ISD::BSF";
-  case X86ISD::BSR:                return "X86ISD::BSR";
-  case X86ISD::SHLD:               return "X86ISD::SHLD";
-  case X86ISD::SHRD:               return "X86ISD::SHRD";
-  case X86ISD::FAND:               return "X86ISD::FAND";
-  case X86ISD::FANDN:              return "X86ISD::FANDN";
-  case X86ISD::FOR:                return "X86ISD::FOR";
-  case X86ISD::FXOR:               return "X86ISD::FXOR";
-  case X86ISD::FILD:               return "X86ISD::FILD";
-  case X86ISD::FIST:               return "X86ISD::FIST";
-  case X86ISD::FP_TO_INT_IN_MEM:   return "X86ISD::FP_TO_INT_IN_MEM";
-  case X86ISD::FLD:                return "X86ISD::FLD";
-  case X86ISD::FST:                return "X86ISD::FST";
-  case X86ISD::CALL:               return "X86ISD::CALL";
-  case X86ISD::BT:                 return "X86ISD::BT";
-  case X86ISD::CMP:                return "X86ISD::CMP";
-  case X86ISD::STRICT_FCMP:        return "X86ISD::STRICT_FCMP";
-  case X86ISD::STRICT_FCMPS:       return "X86ISD::STRICT_FCMPS";
-  case X86ISD::COMI:               return "X86ISD::COMI";
-  case X86ISD::UCOMI:              return "X86ISD::UCOMI";
-  case X86ISD::CMPM:               return "X86ISD::CMPM";
-  case X86ISD::STRICT_CMPM:        return "X86ISD::STRICT_CMPM";
-  case X86ISD::CMPM_SAE:           return "X86ISD::CMPM_SAE";
-  case X86ISD::SETCC:              return "X86ISD::SETCC";
-  case X86ISD::SETCC_CARRY:        return "X86ISD::SETCC_CARRY";
-  case X86ISD::FSETCC:             return "X86ISD::FSETCC";
-  case X86ISD::FSETCCM:            return "X86ISD::FSETCCM";
-  case X86ISD::FSETCCM_SAE:        return "X86ISD::FSETCCM_SAE";
-  case X86ISD::CMOV:               return "X86ISD::CMOV";
-  case X86ISD::BRCOND:             return "X86ISD::BRCOND";
-  case X86ISD::RET_FLAG:           return "X86ISD::RET_FLAG";
-  case X86ISD::IRET:               return "X86ISD::IRET";
-  case X86ISD::REP_STOS:           return "X86ISD::REP_STOS";
-  case X86ISD::REP_MOVS:           return "X86ISD::REP_MOVS";
-  case X86ISD::GlobalBaseReg:      return "X86ISD::GlobalBaseReg";
-  case X86ISD::Wrapper:            return "X86ISD::Wrapper";
-  case X86ISD::WrapperRIP:         return "X86ISD::WrapperRIP";
-  case X86ISD::MOVQ2DQ:            return "X86ISD::MOVQ2DQ";
-  case X86ISD::MOVDQ2Q:            return "X86ISD::MOVDQ2Q";
-  case X86ISD::MMX_MOVD2W:         return "X86ISD::MMX_MOVD2W";
-  case X86ISD::MMX_MOVW2D:         return "X86ISD::MMX_MOVW2D";
-  case X86ISD::PEXTRB:             return "X86ISD::PEXTRB";
-  case X86ISD::PEXTRW:             return "X86ISD::PEXTRW";
-  case X86ISD::INSERTPS:           return "X86ISD::INSERTPS";
-  case X86ISD::PINSRB:             return "X86ISD::PINSRB";
-  case X86ISD::PINSRW:             return "X86ISD::PINSRW";
-  case X86ISD::PSHUFB:             return "X86ISD::PSHUFB";
-  case X86ISD::ANDNP:              return "X86ISD::ANDNP";
-  case X86ISD::BLENDI:             return "X86ISD::BLENDI";
-  case X86ISD::BLENDV:             return "X86ISD::BLENDV";
-  case X86ISD::HADD:               return "X86ISD::HADD";
-  case X86ISD::HSUB:               return "X86ISD::HSUB";
-  case X86ISD::FHADD:              return "X86ISD::FHADD";
-  case X86ISD::FHSUB:              return "X86ISD::FHSUB";
-  case X86ISD::CONFLICT:           return "X86ISD::CONFLICT";
-  case X86ISD::FMAX:               return "X86ISD::FMAX";
-  case X86ISD::FMAXS:              return "X86ISD::FMAXS";
-  case X86ISD::FMAX_SAE:           return "X86ISD::FMAX_SAE";
-  case X86ISD::FMAXS_SAE:          return "X86ISD::FMAXS_SAE";
-  case X86ISD::FMIN:               return "X86ISD::FMIN";
-  case X86ISD::FMINS:              return "X86ISD::FMINS";
-  case X86ISD::FMIN_SAE:           return "X86ISD::FMIN_SAE";
-  case X86ISD::FMINS_SAE:          return "X86ISD::FMINS_SAE";
-  case X86ISD::FMAXC:              return "X86ISD::FMAXC";
-  case X86ISD::FMINC:              return "X86ISD::FMINC";
-  case X86ISD::FRSQRT:             return "X86ISD::FRSQRT";
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  case X86ISD::FRSQRTS:            return "X86ISD::FRSQRTS";
-  case X86ISD::FRCPS:              return "X86ISD::FRCPS";
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-  case X86ISD::FRCP:               return "X86ISD::FRCP";
-  case X86ISD::EXTRQI:             return "X86ISD::EXTRQI";
-  case X86ISD::INSERTQI:           return "X86ISD::INSERTQI";
-  case X86ISD::TLSADDR:            return "X86ISD::TLSADDR";
-  case X86ISD::TLSBASEADDR:        return "X86ISD::TLSBASEADDR";
-  case X86ISD::TLSCALL:            return "X86ISD::TLSCALL";
-  case X86ISD::EH_SJLJ_SETJMP:     return "X86ISD::EH_SJLJ_SETJMP";
-  case X86ISD::EH_SJLJ_LONGJMP:    return "X86ISD::EH_SJLJ_LONGJMP";
-  case X86ISD::EH_SJLJ_SETUP_DISPATCH:
-    return "X86ISD::EH_SJLJ_SETUP_DISPATCH";
-  case X86ISD::EH_RETURN:          return "X86ISD::EH_RETURN";
-  case X86ISD::TC_RETURN:          return "X86ISD::TC_RETURN";
-  case X86ISD::FNSTCW16m:          return "X86ISD::FNSTCW16m";
-  case X86ISD::FNSTSW16r:          return "X86ISD::FNSTSW16r";
-  case X86ISD::LCMPXCHG_DAG:       return "X86ISD::LCMPXCHG_DAG";
-  case X86ISD::LCMPXCHG8_DAG:      return "X86ISD::LCMPXCHG8_DAG";
-  case X86ISD::LCMPXCHG16_DAG:     return "X86ISD::LCMPXCHG16_DAG";
-  case X86ISD::LCMPXCHG8_SAVE_EBX_DAG:
-    return "X86ISD::LCMPXCHG8_SAVE_EBX_DAG";
-  case X86ISD::LCMPXCHG16_SAVE_RBX_DAG:
-    return "X86ISD::LCMPXCHG16_SAVE_RBX_DAG";
-  case X86ISD::LADD:               return "X86ISD::LADD";
-  case X86ISD::LSUB:               return "X86ISD::LSUB";
-  case X86ISD::LOR:                return "X86ISD::LOR";
-  case X86ISD::LXOR:               return "X86ISD::LXOR";
-  case X86ISD::LAND:               return "X86ISD::LAND";
-  case X86ISD::VZEXT_MOVL:         return "X86ISD::VZEXT_MOVL";
-  case X86ISD::VZEXT_LOAD:         return "X86ISD::VZEXT_LOAD";
-  case X86ISD::VEXTRACT_STORE:     return "X86ISD::VEXTRACT_STORE";
-  case X86ISD::VTRUNC:             return "X86ISD::VTRUNC";
-  case X86ISD::VTRUNCS:            return "X86ISD::VTRUNCS";
-  case X86ISD::VTRUNCUS:           return "X86ISD::VTRUNCUS";
-  case X86ISD::VMTRUNC:            return "X86ISD::VMTRUNC";
-  case X86ISD::VMTRUNCS:           return "X86ISD::VMTRUNCS";
-  case X86ISD::VMTRUNCUS:          return "X86ISD::VMTRUNCUS";
-  case X86ISD::VTRUNCSTORES:       return "X86ISD::VTRUNCSTORES";
-  case X86ISD::VTRUNCSTOREUS:      return "X86ISD::VTRUNCSTOREUS";
-  case X86ISD::VMTRUNCSTORES:      return "X86ISD::VMTRUNCSTORES";
-  case X86ISD::VMTRUNCSTOREUS:     return "X86ISD::VMTRUNCSTOREUS";
-  case X86ISD::VFPEXT:             return "X86ISD::VFPEXT";
-  case X86ISD::STRICT_VFPEXT:      return "X86ISD::STRICT_VFPEXT";
-  case X86ISD::VFPEXT_SAE:         return "X86ISD::VFPEXT_SAE";
-  case X86ISD::VFPEXTS:            return "X86ISD::VFPEXTS";
-  case X86ISD::VFPEXTS_SAE:        return "X86ISD::VFPEXTS_SAE";
-  case X86ISD::VFPROUND:           return "X86ISD::VFPROUND";
-  case X86ISD::STRICT_VFPROUND:    return "X86ISD::STRICT_VFPROUND";
-  case X86ISD::VMFPROUND:          return "X86ISD::VMFPROUND";
-  case X86ISD::VFPROUND_RND:       return "X86ISD::VFPROUND_RND";
-  case X86ISD::VFPROUNDS:          return "X86ISD::VFPROUNDS";
-  case X86ISD::VFPROUNDS_RND:      return "X86ISD::VFPROUNDS_RND";
-  case X86ISD::VSHLDQ:             return "X86ISD::VSHLDQ";
-  case X86ISD::VSRLDQ:             return "X86ISD::VSRLDQ";
-  case X86ISD::VSHL:               return "X86ISD::VSHL";
-  case X86ISD::VSRL:               return "X86ISD::VSRL";
-  case X86ISD::VSRA:               return "X86ISD::VSRA";
-  case X86ISD::VSHLI:              return "X86ISD::VSHLI";
-  case X86ISD::VSRLI:              return "X86ISD::VSRLI";
-  case X86ISD::VSRAI:              return "X86ISD::VSRAI";
-  case X86ISD::VSHLV:              return "X86ISD::VSHLV";
-  case X86ISD::VSRLV:              return "X86ISD::VSRLV";
-  case X86ISD::VSRAV:              return "X86ISD::VSRAV";
-  case X86ISD::VROTLI:             return "X86ISD::VROTLI";
-  case X86ISD::VROTRI:             return "X86ISD::VROTRI";
-  case X86ISD::VPPERM:             return "X86ISD::VPPERM";
-  case X86ISD::CMPP:               return "X86ISD::CMPP";
-  case X86ISD::STRICT_CMPP:        return "X86ISD::STRICT_CMPP";
-  case X86ISD::PCMPEQ:             return "X86ISD::PCMPEQ";
-  case X86ISD::PCMPGT:             return "X86ISD::PCMPGT";
-  case X86ISD::PHMINPOS:           return "X86ISD::PHMINPOS";
-  case X86ISD::ADD:                return "X86ISD::ADD";
-  case X86ISD::SUB:                return "X86ISD::SUB";
-  case X86ISD::ADC:                return "X86ISD::ADC";
-  case X86ISD::SBB:                return "X86ISD::SBB";
-  case X86ISD::SMUL:               return "X86ISD::SMUL";
-  case X86ISD::UMUL:               return "X86ISD::UMUL";
-  case X86ISD::OR:                 return "X86ISD::OR";
-  case X86ISD::XOR:                return "X86ISD::XOR";
-  case X86ISD::AND:                return "X86ISD::AND";
-  case X86ISD::BEXTR:              return "X86ISD::BEXTR";
-  case X86ISD::BZHI:               return "X86ISD::BZHI";
-  case X86ISD::MUL_IMM:            return "X86ISD::MUL_IMM";
-  case X86ISD::MOVMSK:             return "X86ISD::MOVMSK";
-  case X86ISD::PTEST:              return "X86ISD::PTEST";
-  case X86ISD::TESTP:              return "X86ISD::TESTP";
-  case X86ISD::KORTEST:            return "X86ISD::KORTEST";
-  case X86ISD::KTEST:              return "X86ISD::KTEST";
-  case X86ISD::KADD:               return "X86ISD::KADD";
-  case X86ISD::KSHIFTL:            return "X86ISD::KSHIFTL";
-  case X86ISD::KSHIFTR:            return "X86ISD::KSHIFTR";
-  case X86ISD::PACKSS:             return "X86ISD::PACKSS";
-  case X86ISD::PACKUS:             return "X86ISD::PACKUS";
-  case X86ISD::PALIGNR:            return "X86ISD::PALIGNR";
-  case X86ISD::VALIGN:             return "X86ISD::VALIGN";
-  case X86ISD::VSHLD:              return "X86ISD::VSHLD";
-  case X86ISD::VSHRD:              return "X86ISD::VSHRD";
-  case X86ISD::VSHLDV:             return "X86ISD::VSHLDV";
-  case X86ISD::VSHRDV:             return "X86ISD::VSHRDV";
-  case X86ISD::PSHUFD:             return "X86ISD::PSHUFD";
-  case X86ISD::PSHUFHW:            return "X86ISD::PSHUFHW";
-  case X86ISD::PSHUFLW:            return "X86ISD::PSHUFLW";
-  case X86ISD::SHUFP:              return "X86ISD::SHUFP";
-  case X86ISD::SHUF128:            return "X86ISD::SHUF128";
-  case X86ISD::MOVLHPS:            return "X86ISD::MOVLHPS";
-  case X86ISD::MOVHLPS:            return "X86ISD::MOVHLPS";
-  case X86ISD::MOVDDUP:            return "X86ISD::MOVDDUP";
-  case X86ISD::MOVSHDUP:           return "X86ISD::MOVSHDUP";
-  case X86ISD::MOVSLDUP:           return "X86ISD::MOVSLDUP";
-  case X86ISD::MOVSD:              return "X86ISD::MOVSD";
-  case X86ISD::MOVSS:              return "X86ISD::MOVSS";
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  case X86ISD::MOVSH:              return "X86ISD::MOVSH";
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-  case X86ISD::UNPCKL:             return "X86ISD::UNPCKL";
-  case X86ISD::UNPCKH:             return "X86ISD::UNPCKH";
-  case X86ISD::VBROADCAST:         return "X86ISD::VBROADCAST";
-  case X86ISD::VBROADCAST_LOAD:    return "X86ISD::VBROADCAST_LOAD";
-  case X86ISD::VBROADCASTM:        return "X86ISD::VBROADCASTM";
-  case X86ISD::SUBV_BROADCAST:     return "X86ISD::SUBV_BROADCAST";
-  case X86ISD::VPERMILPV:          return "X86ISD::VPERMILPV";
-  case X86ISD::VPERMILPI:          return "X86ISD::VPERMILPI";
-  case X86ISD::VPERM2X128:         return "X86ISD::VPERM2X128";
-  case X86ISD::VPERMV:             return "X86ISD::VPERMV";
-  case X86ISD::VPERMV3:            return "X86ISD::VPERMV3";
-  case X86ISD::VPERMI:             return "X86ISD::VPERMI";
-  case X86ISD::VPTERNLOG:          return "X86ISD::VPTERNLOG";
-  case X86ISD::VFIXUPIMM:          return "X86ISD::VFIXUPIMM";
-  case X86ISD::VFIXUPIMM_SAE:      return "X86ISD::VFIXUPIMM_SAE";
-  case X86ISD::VFIXUPIMMS:         return "X86ISD::VFIXUPIMMS";
-  case X86ISD::VFIXUPIMMS_SAE:     return "X86ISD::VFIXUPIMMS_SAE";
-  case X86ISD::VRANGE:             return "X86ISD::VRANGE";
-  case X86ISD::VRANGE_SAE:         return "X86ISD::VRANGE_SAE";
-  case X86ISD::VRANGES:            return "X86ISD::VRANGES";
-  case X86ISD::VRANGES_SAE:        return "X86ISD::VRANGES_SAE";
-  case X86ISD::PMULUDQ:            return "X86ISD::PMULUDQ";
-  case X86ISD::PMULDQ:             return "X86ISD::PMULDQ";
-  case X86ISD::PSADBW:             return "X86ISD::PSADBW";
-  case X86ISD::DBPSADBW:           return "X86ISD::DBPSADBW";
-  case X86ISD::VASTART_SAVE_XMM_REGS: return "X86ISD::VASTART_SAVE_XMM_REGS";
-  case X86ISD::VAARG_64:           return "X86ISD::VAARG_64";
-  case X86ISD::WIN_ALLOCA:         return "X86ISD::WIN_ALLOCA";
-  case X86ISD::MEMBARRIER:         return "X86ISD::MEMBARRIER";
-  case X86ISD::MFENCE:             return "X86ISD::MFENCE";
-  case X86ISD::SEG_ALLOCA:         return "X86ISD::SEG_ALLOCA";
-  case X86ISD::SAHF:               return "X86ISD::SAHF";
-  case X86ISD::RDRAND:             return "X86ISD::RDRAND";
-  case X86ISD::RDSEED:             return "X86ISD::RDSEED";
-  case X86ISD::RDPKRU:             return "X86ISD::RDPKRU";
-  case X86ISD::WRPKRU:             return "X86ISD::WRPKRU";
-  case X86ISD::VPMADDUBSW:         return "X86ISD::VPMADDUBSW";
-  case X86ISD::VPMADDWD:           return "X86ISD::VPMADDWD";
-  case X86ISD::VPSHA:              return "X86ISD::VPSHA";
-  case X86ISD::VPSHL:              return "X86ISD::VPSHL";
-  case X86ISD::VPCOM:              return "X86ISD::VPCOM";
-  case X86ISD::VPCOMU:             return "X86ISD::VPCOMU";
-  case X86ISD::VPERMIL2:           return "X86ISD::VPERMIL2";
-  case X86ISD::FMSUB:              return "X86ISD::FMSUB";
-  case X86ISD::FNMADD:             return "X86ISD::FNMADD";
-  case X86ISD::FNMSUB:             return "X86ISD::FNMSUB";
-  case X86ISD::FMADDSUB:           return "X86ISD::FMADDSUB";
-  case X86ISD::FMSUBADD:           return "X86ISD::FMSUBADD";
-  case X86ISD::FMADD_RND:          return "X86ISD::FMADD_RND";
-  case X86ISD::FNMADD_RND:         return "X86ISD::FNMADD_RND";
-  case X86ISD::FMSUB_RND:          return "X86ISD::FMSUB_RND";
-  case X86ISD::FNMSUB_RND:         return "X86ISD::FNMSUB_RND";
-  case X86ISD::FMADDSUB_RND:       return "X86ISD::FMADDSUB_RND";
-  case X86ISD::FMSUBADD_RND:       return "X86ISD::FMSUBADD_RND";
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  case X86ISD::VFMADDC:            return "X86ISD::VFMADDC";
-  case X86ISD::VFMADDC_RND:        return "X86ISD::VFMADDC_RND";
-  case X86ISD::VFCMADDC:           return "X86ISD::VFCMADDC";
-  case X86ISD::VFCMADDC_RND:       return "X86ISD::VFCMADDC_RND";
-  case X86ISD::VFMULC:             return "X86ISD::VFMULC";
-  case X86ISD::VFMULC_RND:         return "X86ISD::VFMULC_RND";
-  case X86ISD::VFCMULC:            return "X86ISD::VFCMULC";
-  case X86ISD::VFCMULC_RND:        return "X86ISD::VFCMULC_RND";
-  case X86ISD::VFMULCSH:           return "X86ISD::VFMULCSH";
-  case X86ISD::VFMULCSH_RND:       return "X86ISD::VFMULCSH_RND";
-  case X86ISD::VFCMULCSH:          return "X86ISD::VFCMULCSH";
-  case X86ISD::VFCMULCSH_RND:      return "X86ISD::VFCMULCSH_RND";
-  case X86ISD::VFMADDCSH:          return "X86ISD::VFMADDCSH";
-  case X86ISD::VFMADDCSH_RND:      return "X86ISD::VFMADDCSH_RND";
-  case X86ISD::VFCMADDCSH:         return "X86ISD::VFCMADDCSH";
-  case X86ISD::VFCMADDCSH_RND:     return "X86ISD::VFCMADDCSH_RND";
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-  case X86ISD::VPMADD52H:          return "X86ISD::VPMADD52H";
-  case X86ISD::VPMADD52L:          return "X86ISD::VPMADD52L";
-  case X86ISD::VRNDSCALE:          return "X86ISD::VRNDSCALE";
-  case X86ISD::STRICT_VRNDSCALE:   return "X86ISD::STRICT_VRNDSCALE";
-  case X86ISD::VRNDSCALE_SAE:      return "X86ISD::VRNDSCALE_SAE";
-  case X86ISD::VRNDSCALES:         return "X86ISD::VRNDSCALES";
-  case X86ISD::VRNDSCALES_SAE:     return "X86ISD::VRNDSCALES_SAE";
-  case X86ISD::VREDUCE:            return "X86ISD::VREDUCE";
-  case X86ISD::VREDUCE_SAE:        return "X86ISD::VREDUCE_SAE";
-  case X86ISD::VREDUCES:           return "X86ISD::VREDUCES";
-  case X86ISD::VREDUCES_SAE:       return "X86ISD::VREDUCES_SAE";
-  case X86ISD::VGETMANT:           return "X86ISD::VGETMANT";
-  case X86ISD::VGETMANT_SAE:       return "X86ISD::VGETMANT_SAE";
-  case X86ISD::VGETMANTS:          return "X86ISD::VGETMANTS";
-  case X86ISD::VGETMANTS_SAE:      return "X86ISD::VGETMANTS_SAE";
-  case X86ISD::PCMPESTR:           return "X86ISD::PCMPESTR";
-  case X86ISD::PCMPISTR:           return "X86ISD::PCMPISTR";
-  case X86ISD::XTEST:              return "X86ISD::XTEST";
-  case X86ISD::COMPRESS:           return "X86ISD::COMPRESS";
-  case X86ISD::EXPAND:             return "X86ISD::EXPAND";
-  case X86ISD::SELECTS:            return "X86ISD::SELECTS";
-  case X86ISD::ADDSUB:             return "X86ISD::ADDSUB";
-  case X86ISD::RCP14:              return "X86ISD::RCP14";
-  case X86ISD::RCP14S:             return "X86ISD::RCP14S";
-  case X86ISD::RCP28:              return "X86ISD::RCP28";
-  case X86ISD::RCP28_SAE:          return "X86ISD::RCP28_SAE";
-  case X86ISD::RCP28S:             return "X86ISD::RCP28S";
-  case X86ISD::RCP28S_SAE:         return "X86ISD::RCP28S_SAE";
-  case X86ISD::EXP2:               return "X86ISD::EXP2";
-  case X86ISD::EXP2_SAE:           return "X86ISD::EXP2_SAE";
-  case X86ISD::RSQRT14:            return "X86ISD::RSQRT14";
-  case X86ISD::RSQRT14S:           return "X86ISD::RSQRT14S";
-  case X86ISD::RSQRT28:            return "X86ISD::RSQRT28";
-  case X86ISD::RSQRT28_SAE:        return "X86ISD::RSQRT28_SAE";
-  case X86ISD::RSQRT28S:           return "X86ISD::RSQRT28S";
-  case X86ISD::RSQRT28S_SAE:       return "X86ISD::RSQRT28S_SAE";
-  case X86ISD::FADD_RND:           return "X86ISD::FADD_RND";
-  case X86ISD::FADDS:              return "X86ISD::FADDS";
-  case X86ISD::FADDS_RND:          return "X86ISD::FADDS_RND";
-  case X86ISD::FSUB_RND:           return "X86ISD::FSUB_RND";
-  case X86ISD::FSUBS:              return "X86ISD::FSUBS";
-  case X86ISD::FSUBS_RND:          return "X86ISD::FSUBS_RND";
-  case X86ISD::FMUL_RND:           return "X86ISD::FMUL_RND";
-  case X86ISD::FMULS:              return "X86ISD::FMULS";
-  case X86ISD::FMULS_RND:          return "X86ISD::FMULS_RND";
-  case X86ISD::FDIV_RND:           return "X86ISD::FDIV_RND";
-  case X86ISD::FDIVS:              return "X86ISD::FDIVS";
-  case X86ISD::FDIVS_RND:          return "X86ISD::FDIVS_RND";
-  case X86ISD::FSQRT_RND:          return "X86ISD::FSQRT_RND";
-  case X86ISD::FSQRTS:             return "X86ISD::FSQRTS";
-  case X86ISD::FSQRTS_RND:         return "X86ISD::FSQRTS_RND";
-  case X86ISD::FGETEXP:            return "X86ISD::FGETEXP";
-  case X86ISD::FGETEXP_SAE:        return "X86ISD::FGETEXP_SAE";
-  case X86ISD::FGETEXPS:           return "X86ISD::FGETEXPS";
-  case X86ISD::FGETEXPS_SAE:       return "X86ISD::FGETEXPS_SAE";
-  case X86ISD::SCALEF:             return "X86ISD::SCALEF";
-  case X86ISD::SCALEF_RND:         return "X86ISD::SCALEF_RND";
-  case X86ISD::SCALEFS:            return "X86ISD::SCALEFS";
-  case X86ISD::SCALEFS_RND:        return "X86ISD::SCALEFS_RND";
-  case X86ISD::AVG:                return "X86ISD::AVG";
-  case X86ISD::MULHRS:             return "X86ISD::MULHRS";
-  case X86ISD::SINT_TO_FP_RND:     return "X86ISD::SINT_TO_FP_RND";
-  case X86ISD::UINT_TO_FP_RND:     return "X86ISD::UINT_TO_FP_RND";
-  case X86ISD::CVTTP2SI:           return "X86ISD::CVTTP2SI";
-  case X86ISD::CVTTP2UI:           return "X86ISD::CVTTP2UI";
-  case X86ISD::STRICT_CVTTP2SI:    return "X86ISD::STRICT_CVTTP2SI";
-  case X86ISD::STRICT_CVTTP2UI:    return "X86ISD::STRICT_CVTTP2UI";
-  case X86ISD::MCVTTP2SI:          return "X86ISD::MCVTTP2SI";
-  case X86ISD::MCVTTP2UI:          return "X86ISD::MCVTTP2UI";
-  case X86ISD::CVTTP2SI_SAE:       return "X86ISD::CVTTP2SI_SAE";
-  case X86ISD::CVTTP2UI_SAE:       return "X86ISD::CVTTP2UI_SAE";
-  case X86ISD::CVTTS2SI:           return "X86ISD::CVTTS2SI";
-  case X86ISD::CVTTS2UI:           return "X86ISD::CVTTS2UI";
-  case X86ISD::CVTTS2SI_SAE:       return "X86ISD::CVTTS2SI_SAE";
-  case X86ISD::CVTTS2UI_SAE:       return "X86ISD::CVTTS2UI_SAE";
-  case X86ISD::CVTSI2P:            return "X86ISD::CVTSI2P";
-  case X86ISD::CVTUI2P:            return "X86ISD::CVTUI2P";
-  case X86ISD::STRICT_CVTSI2P:     return "X86ISD::STRICT_CVTSI2P";
-  case X86ISD::STRICT_CVTUI2P:     return "X86ISD::STRICT_CVTUI2P";
-  case X86ISD::MCVTSI2P:           return "X86ISD::MCVTSI2P";
-  case X86ISD::MCVTUI2P:           return "X86ISD::MCVTUI2P";
-  case X86ISD::VFPCLASS:           return "X86ISD::VFPCLASS";
-  case X86ISD::VFPCLASSS:          return "X86ISD::VFPCLASSS";
-  case X86ISD::MULTISHIFT:         return "X86ISD::MULTISHIFT";
-  case X86ISD::SCALAR_SINT_TO_FP:     return "X86ISD::SCALAR_SINT_TO_FP";
-  case X86ISD::SCALAR_SINT_TO_FP_RND: return "X86ISD::SCALAR_SINT_TO_FP_RND";
-  case X86ISD::SCALAR_UINT_TO_FP:     return "X86ISD::SCALAR_UINT_TO_FP";
-  case X86ISD::SCALAR_UINT_TO_FP_RND: return "X86ISD::SCALAR_UINT_TO_FP_RND";
-  case X86ISD::CVTPS2PH:           return "X86ISD::CVTPS2PH";
-  case X86ISD::MCVTPS2PH:          return "X86ISD::MCVTPS2PH";
-  case X86ISD::CVTPH2PS:           return "X86ISD::CVTPH2PS";
-  case X86ISD::CVTPH2PS_SAE:       return "X86ISD::CVTPH2PS_SAE";
-  case X86ISD::CVTP2SI:            return "X86ISD::CVTP2SI";
-  case X86ISD::CVTP2UI:            return "X86ISD::CVTP2UI";
-  case X86ISD::MCVTP2SI:           return "X86ISD::MCVTP2SI";
-  case X86ISD::MCVTP2UI:           return "X86ISD::MCVTP2UI";
-  case X86ISD::CVTP2SI_RND:        return "X86ISD::CVTP2SI_RND";
-  case X86ISD::CVTP2UI_RND:        return "X86ISD::CVTP2UI_RND";
-  case X86ISD::CVTS2SI:            return "X86ISD::CVTS2SI";
-  case X86ISD::CVTS2UI:            return "X86ISD::CVTS2UI";
-  case X86ISD::CVTS2SI_RND:        return "X86ISD::CVTS2SI_RND";
-  case X86ISD::CVTS2UI_RND:        return "X86ISD::CVTS2UI_RND";
-  case X86ISD::CVTNE2PS2BF16:      return "X86ISD::CVTNE2PS2BF16";
-  case X86ISD::CVTNEPS2BF16:       return "X86ISD::CVTNEPS2BF16";
-  case X86ISD::MCVTNEPS2BF16:      return "X86ISD::MCVTNEPS2BF16";
-  case X86ISD::DPBF16PS:           return "X86ISD::DPBF16PS";
-  case X86ISD::LWPINS:             return "X86ISD::LWPINS";
-  case X86ISD::MGATHER:            return "X86ISD::MGATHER";
-  case X86ISD::MSCATTER:           return "X86ISD::MSCATTER";
-  case X86ISD::VPDPBUSD:           return "X86ISD::VPDPBUSD";
-  case X86ISD::VPDPBUSDS:          return "X86ISD::VPDPBUSDS";
-  case X86ISD::VPDPWSSD:           return "X86ISD::VPDPWSSD";
-  case X86ISD::VPDPWSSDS:          return "X86ISD::VPDPWSSDS";
-  case X86ISD::VPSHUFBITQMB:       return "X86ISD::VPSHUFBITQMB";
-  case X86ISD::GF2P8MULB:          return "X86ISD::GF2P8MULB";
-  case X86ISD::GF2P8AFFINEQB:      return "X86ISD::GF2P8AFFINEQB";
-  case X86ISD::GF2P8AFFINEINVQB:   return "X86ISD::GF2P8AFFINEINVQB";
-  case X86ISD::NT_CALL:            return "X86ISD::NT_CALL";
-  case X86ISD::NT_BRIND:           return "X86ISD::NT_BRIND";
-  case X86ISD::UMWAIT:             return "X86ISD::UMWAIT";
-  case X86ISD::TPAUSE:             return "X86ISD::TPAUSE";
-  case X86ISD::ENQCMD:             return "X86ISD:ENQCMD";
-  case X86ISD::ENQCMDS:            return "X86ISD:ENQCMDS";
-  case X86ISD::VP2INTERSECT:       return "X86ISD::VP2INTERSECT";
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  case X86ISD::TESTUI:             return "X86ISD::TESTUI";
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
-=======
 #define NODE_NAME_CASE(NODE) case X86ISD::NODE: return "X86ISD::" #NODE;
   NODE_NAME_CASE(BSF)
   NODE_NAME_CASE(BSR)
@@ -30941,6 +30550,12 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(FMAXC)
   NODE_NAME_CASE(FMINC)
   NODE_NAME_CASE(FRSQRT)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  NODE_NAME_CASE(FRSQRTS)
+  NODE_NAME_CASE(FRCPS)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(FRCP)
   NODE_NAME_CASE(EXTRQI)
   NODE_NAME_CASE(INSERTQI)
@@ -31047,6 +30662,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(MOVSLDUP)
   NODE_NAME_CASE(MOVSD)
   NODE_NAME_CASE(MOVSS)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  NODE_NAME_CASE(MOVSH)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(UNPCKL)
   NODE_NAME_CASE(UNPCKH)
   NODE_NAME_CASE(VBROADCAST)
@@ -31101,6 +30721,26 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(FNMSUB_RND)
   NODE_NAME_CASE(FMADDSUB_RND)
   NODE_NAME_CASE(FMSUBADD_RND)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  NODE_NAME_CASE(VFMADDC)
+  NODE_NAME_CASE(VFMADDC_RND)
+  NODE_NAME_CASE(VFCMADDC)
+  NODE_NAME_CASE(VFCMADDC_RND)
+  NODE_NAME_CASE(VFMULC)
+  NODE_NAME_CASE(VFMULC_RND)
+  NODE_NAME_CASE(VFCMULC)
+  NODE_NAME_CASE(VFCMULC_RND)
+  NODE_NAME_CASE(VFMULCSH)
+  NODE_NAME_CASE(VFMULCSH_RND)
+  NODE_NAME_CASE(VFCMULCSH)
+  NODE_NAME_CASE(VFCMULCSH_RND)
+  NODE_NAME_CASE(VFMADDCSH)
+  NODE_NAME_CASE(VFMADDCSH_RND)
+  NODE_NAME_CASE(VFCMADDCSH)
+  NODE_NAME_CASE(VFCMADDCSH_RND)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(VPMADD52H)
   NODE_NAME_CASE(VPMADD52L)
   NODE_NAME_CASE(VRNDSCALE)
@@ -31225,7 +30865,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(ENQCMD)
   NODE_NAME_CASE(ENQCMDS)
   NODE_NAME_CASE(VP2INTERSECT)
->>>>>>> 3fdd435a4b8dc89de46562c903f9d825002ca949
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  NODE_NAME_CASE(TESTUI)
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
   }
   return nullptr;
 #undef NODE_NAME_CASE
