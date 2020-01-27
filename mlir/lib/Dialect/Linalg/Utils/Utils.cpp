@@ -35,9 +35,9 @@ using namespace mlir::loop;
 mlir::edsc::LoopRangeBuilder::LoopRangeBuilder(ValueHandle *iv,
                                                ValueHandle range) {
   assert(range.getType() && "expected !linalg.range type");
-  assert(range.getValue()->getDefiningOp() &&
+  assert(range.getValue().getDefiningOp() &&
          "need operations to extract range parts");
-  auto rangeOp = cast<RangeOp>(range.getValue()->getDefiningOp());
+  auto rangeOp = cast<RangeOp>(range.getValue().getDefiningOp());
   auto lb = rangeOp.min();
   auto ub = rangeOp.max();
   auto step = rangeOp.step();
@@ -97,6 +97,37 @@ ValueHandle LoopNestRangeBuilder::LoopNestRangeBuilder::operator()(
   return ValueHandle::null();
 }
 
+namespace mlir {
+namespace edsc {
+
+template <>
+GenericLoopNestRangeBuilder<
+    loop::ForOp>::GenericLoopNestRangeBuilder(ArrayRef<edsc::ValueHandle *> ivs,
+                                              ArrayRef<Value> ranges) {
+  builder = std::make_unique<LoopNestRangeBuilder>(ivs, ranges);
+}
+
+template <>
+GenericLoopNestRangeBuilder<
+    AffineForOp>::GenericLoopNestRangeBuilder(ArrayRef<ValueHandle *> ivs,
+                                              ArrayRef<Value> ranges) {
+  SmallVector<ValueHandle, 4> lbs;
+  SmallVector<ValueHandle, 4> ubs;
+  SmallVector<int64_t, 4> steps;
+  for (Value range : ranges) {
+    assert(range.getType() && "expected linalg.range type");
+    assert(range.getDefiningOp() && "need operations to extract range parts");
+    RangeOp rangeOp = cast<RangeOp>(range.getDefiningOp());
+    lbs.emplace_back(ValueHandle(rangeOp.min()));
+    ubs.emplace_back(ValueHandle(rangeOp.max()));
+    steps.emplace_back(ValueHandle(rangeOp.step()));
+  }
+  builder = std::make_unique<AffineLoopNestBuilder>(ivs, lbs, ubs, steps);
+}
+
+} // namespace edsc
+} // namespace mlir
+
 static Value emitOrFoldComposedAffineApply(OpBuilder &b, Location loc,
                                            AffineMap map,
                                            ArrayRef<Value> operandsRef,
@@ -137,7 +168,7 @@ mlir::linalg::getAssumedNonViewOperands(LinalgOp linalgOp) {
   res.reserve(nOperands);
   for (unsigned i = 0; i < nOperands; ++i) {
     res.push_back(op->getOperand(numViews + i));
-    auto t = res.back()->getType();
+    auto t = res.back().getType();
     (void)t;
     assert((t.isIntOrIndexOrFloat() || t.isa<VectorType>()) &&
            "expected scalar or vector type");

@@ -4248,6 +4248,17 @@ def : InstAlias<"vmovd\t{$src, $dst|$dst, $src}",
 def : InstAlias<"vmovd\t{$src, $dst|$dst, $src}",
                 (VMOVPQIto64Zrr GR64:$dst, VR128X:$src), 0>;
 
+// Conversions between masks and scalar fp.
+def : Pat<(v32i1 (bitconvert FR32X:$src)),
+          (KMOVDkr (VMOVSS2DIZrr FR32X:$src))>;
+def : Pat<(f32 (bitconvert VK32:$src)),
+          (VMOVDI2SSZrr (KMOVDrk VK32:$src))>;
+
+def : Pat<(v64i1 (bitconvert FR64X:$src)),
+          (KMOVQkr (VMOVSDto64Zrr FR64X:$src))>;
+def : Pat<(f64 (bitconvert VK64:$src)),
+          (VMOV64toSDZrr (KMOVQrk VK64:$src))>;
+
 //===----------------------------------------------------------------------===//
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -8311,32 +8322,6 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, _dst.info256, _src.info512, X86any_vfpround, sched.ZMM>,
              avx512_vcvt_fp_rc<opc, OpcodeStr, _dst.info256, _src.info512,
                                X86vfproundRnd, sched.ZMM>, EVEX_V512;
-
-    def : Pat<(_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
-              (!cast<Instruction>(NAME # "Zrr") VR512:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
-                       VR256X:$src0),
-              (!cast<Instruction>(NAME # "Zrrk") VR256X:$src0, maskRC512:$mask, VR512:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (_src.info512.VT VR512:$src))),
-                       _dst.info256.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Zrrkz") maskRC512:$mask, VR512:$src)>;
-
-    def : Pat<(_dst.info256.VT (any_fpround (loadVT512 addr:$src))),
-              (!cast<Instruction>(NAME # "Zrm") addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (loadVT512 addr:$src))), VR256X:$src0),
-              (!cast<Instruction>(NAME # "Zrmk") VR256X:$src0, maskRC512:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (_dst.info256.VT (any_fpround (loadVT512 addr:$src))),
-                       _dst.info256.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Zrmkz") maskRC512:$mask, addr:$src)>;
-
-    def : Pat<(_dst.info256.VT (any_fpround (_src.info512.VT (bcast512 addr:$src)))),
-              (!cast<Instruction>(NAME # "Zrmb") addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (any_fpround (_src.info512.VT (bcast512 addr:$src))),
-                       (_dst.info256.VT VR256X:$src0)),
-              (!cast<Instruction>(NAME # "Zrmbk") VR256X:$src0, maskRC512:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC512:$mask, (any_fpround (_src.info512.VT (bcast512 addr:$src))),
-                       _dst.info256.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Zrmbkz") maskRC512:$mask, addr:$src)>;
   }
   let Predicates = [prd, HasVLX] in {
     defm Z128 : avx512_vcvt_fp<opc, OpcodeStr, _dst.info128, _src.info128,
@@ -8344,35 +8329,6 @@ multiclass avx512_cvt_trunc<bits<8> opc, string OpcodeStr,
                                f128mem, maskRC128>, EVEX_V128;
     defm Z256 : avx512_vcvt_fp<opc, OpcodeStr, _dst.info128, _src.info256, X86any_vfpround,
                                sched.YMM, _src.info256.BroadcastStr, "{y}">, EVEX_V256;
-
-    def : Pat<(_dst.info128.VT (any_fpround (_src.info256.VT VR256X:$src))),
-              (!cast<Instruction>(NAME # "Z256rr") VR256X:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (_src.info256.VT VR256X:$src))),
-                       VR128X:$src0),
-              (!cast<Instruction>(NAME # "Z256rrk") VR128X:$src0, maskRC256:$mask, VR256X:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (_src.info256.VT VR256X:$src))),
-                       _dst.info128.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Z256rrkz") maskRC256:$mask, VR256X:$src)>;
-
-    def : Pat<(_dst.info128.VT (any_fpround (loadVT256 addr:$src))),
-              (!cast<Instruction>(NAME # "Z256rm") addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (loadVT256 addr:$src))),
-                       VR128X:$src0),
-              (!cast<Instruction>(NAME # "Z256rmk") VR128X:$src0, maskRC256:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask, (_dst.info128.VT (any_fpround (loadVT256 addr:$src))),
-                       _dst.info128.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Z256rmkz") maskRC256:$mask, addr:$src)>;
-
-    def : Pat<(_dst.info128.VT (any_fpround (_src.info256.VT (bcast256 addr:$src)))),
-              (!cast<Instruction>(NAME # "Z256rmb") addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask,
-                       (_dst.info128.VT (any_fpround (_src.info256.VT (bcast256 addr:$src)))),
-                       VR128X:$src0),
-              (!cast<Instruction>(NAME # "Z256rmbk") VR128X:$src0, maskRC256:$mask, addr:$src)>;
-    def : Pat<(vselect maskRC256:$mask,
-                       (_dst.info128.VT (any_fpround (_src.info256.VT (bcast256 addr:$src)))),
-                       _dst.info128.ImmAllZerosV),
-              (!cast<Instruction>(NAME # "Z256rmbkz") maskRC256:$mask, addr:$src)>;
 
     // Special patterns to allow use of X86vmfpround for masking. Instruction
     // patterns have been disabled with null_frag.
@@ -8566,37 +8522,6 @@ defm VCVTPD2PH : avx512_cvtpd2ph<0x5A, "vcvtpd2ph", SchedWriteCvtPD2PS>,
                                  VEX_W, T_MAP5PD, EVEX_CD8<64, CD8VF>;
 defm VCVTPH2PD : avx512_cvtph2pd<0x5A, "vcvtph2pd", SchedWriteCvtPS2PD>,
                                  T_MAP5PS, EVEX_CD8<16, CD8VQ>;
-
-let Predicates = [HasFP16] in {
-  def : Pat<(v8f16 (fpround (v8f64 VR512:$src))),
-            (VCVTPD2PHZrr VR512:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (v8f64 VR512:$src))),
-                     VR128X:$src0),
-            (VCVTPD2PHZrrk VR128X:$src0, VK8WM:$mask, VR512:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (v8f64 VR512:$src))),
-                     v8f16x_info.ImmAllZerosV),
-            (VCVTPD2PHZrrkz VK8WM:$mask, VR512:$src)>;
-
-  def : Pat<(v8f16 (fpround (loadv8f64 addr:$src))),
-            (VCVTPD2PHZrm addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (loadv8f64 addr:$src))),
-                     VR128X:$src0),
-            (VCVTPD2PHZrmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask, (v8f16 (fpround (loadv8f64 addr:$src))),
-                     v8f16x_info.ImmAllZerosV),
-            (VCVTPD2PHZrmkz VK8WM:$mask, addr:$src)>;
-
-  def : Pat<(v8f16 (fpround (v8f64 (X86VBroadcastld64 addr:$src)))),
-            (VCVTPD2PHZrmb addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask,
-                     (fpround (v8f64 (X86VBroadcastld64 addr:$src))),
-                     (v8f16 VR128X:$src0)),
-            (VCVTPD2PHZrmbk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(vselect VK8WM:$mask,
-                     (fpround (v8f64 (X86VBroadcastld64 addr:$src))),
-                     v8f16x_info.ImmAllZerosV),
-            (VCVTPD2PHZrmbkz VK8WM:$mask, addr:$src)>;
-}
 
 let Predicates = [HasFP16, HasVLX] in {
   // Special patterns to allow use of X86vmfpround for masking. Instruction
@@ -10041,13 +9966,13 @@ multiclass avx512_rndscale_scalar<bits<8> opc, string OpcodeStr,
   }
 
   let Predicates = [HasAVX512] in {
-    def : Pat<(X86VRndScale _.FRC:$src1, timm:$src2),
+    def : Pat<(X86any_VRndScale _.FRC:$src1, timm:$src2),
               (_.EltVT (!cast<Instruction>(NAME##r) (_.EltVT (IMPLICIT_DEF)),
                _.FRC:$src1, timm:$src2))>;
   }
 
   let Predicates = [HasAVX512, OptForSize] in {
-    def : Pat<(X86VRndScale (_.ScalarLdFrag addr:$src1), timm:$src2),
+    def : Pat<(X86any_VRndScale (_.ScalarLdFrag addr:$src1), timm:$src2),
               (_.EltVT (!cast<Instruction>(NAME##m) (_.EltVT (IMPLICIT_DEF)),
                addr:$src1, timm:$src2))>;
   }
@@ -10653,7 +10578,7 @@ defm : AVX512_pmovx_patterns<"VPMOVSX", sext, sext_invec>;
 defm : AVX512_pmovx_patterns<"VPMOVZX", zext, zext_invec>;
 
 // Without BWI we can't do a trunc from v16i16 to v16i8. DAG combine can merge
-// ext+trunc aggresively making it impossible to legalize the DAG to this
+// ext+trunc aggressively making it impossible to legalize the DAG to this
 // pattern directly.
 let Predicates = [HasAVX512, NoBWI] in {
 def: Pat<(v16i8 (trunc (v16i16 VR256X:$src))),
@@ -11329,7 +11254,7 @@ multiclass avx512_common_unary_fp_sae_packed_imm_all<string OpcodeStr,
 defm VREDUCE   : avx512_common_unary_fp_sae_packed_imm_all<"vreduce", 0x56, 0x56,
                               X86VReduce, X86VReduceSAE, SchedWriteFRnd, HasDQI>;
 defm VRNDSCALE : avx512_common_unary_fp_sae_packed_imm_all<"vrndscale", 0x08, 0x09,
-                              X86VRndScale, X86VRndScaleSAE, SchedWriteFRnd, HasAVX512>;
+                              X86any_VRndScale, X86VRndScaleSAE, SchedWriteFRnd, HasAVX512>;
 defm VGETMANT : avx512_common_unary_fp_sae_packed_imm_all<"vgetmant", 0x26, 0x26,
                               X86VGetMant, X86VGetMantSAE, SchedWriteFRnd, HasAVX512>;
 #endif // INTEL_CUSTOMIZATION

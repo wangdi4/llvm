@@ -3127,7 +3127,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
                 SemaRef.Context, SemaRef.Context.getTranslationUnitDecl(),
                 /*KeyLoc*/ SourceLocation(), /*NameLoc*/ D.getBeginLoc(),
                 TemplateParameterDepth, AutoParameterPosition,
-                /*Identifier*/ nullptr, false, IsParameterPack);
+                /*Identifier*/ nullptr, false, IsParameterPack,
+                /*HasTypeConstraint=*/false);
         CorrespondingTemplateParam->setImplicit();
         LSI->TemplateParams.push_back(CorrespondingTemplateParam);
         // Replace the 'auto' in the function parameter with this invented
@@ -4800,7 +4801,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         // OpenCL doesn't support variadic functions and blocks
         // (s6.9.e and s6.12.5 OpenCL v2.0) except for printf.
         // We also allow here any toolchain reserved identifiers.
-        // FIXME: Use deferred diagnostics engine to skip host side issues.
         if (FTI.isVariadic &&
             !LangOpts.SYCLIsDevice &&
             !(D.getIdentifier() &&

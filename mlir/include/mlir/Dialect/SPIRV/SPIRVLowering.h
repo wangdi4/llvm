@@ -13,11 +13,10 @@
 #ifndef MLIR_DIALECT_SPIRV_SPIRVLOWERING_H
 #define MLIR_DIALECT_SPIRV_SPIRVLOWERING_H
 
-#include "mlir/Dialect/SPIRV/SPIRVOps.h"
-#include "mlir/IR/Attributes.h"
-#include "mlir/Support/StringExtras.h"
+#include "mlir/Dialect/SPIRV/SPIRVTypes.h"
+#include "mlir/Dialect/SPIRV/TargetAndABI.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 
 namespace mlir {
 
@@ -50,36 +49,41 @@ protected:
   SPIRVTypeConverter &typeConverter;
 };
 
-#include "mlir/Dialect/SPIRV/SPIRVLowering.h.inc"
-
 namespace spirv {
+class SPIRVConversionTarget : public ConversionTarget {
+public:
+  /// Creates a SPIR-V conversion target for the given target environment.
+  static std::unique_ptr<SPIRVConversionTarget> get(TargetEnvAttr targetEnv,
+                                                    MLIRContext *context);
+
+private:
+  SPIRVConversionTarget(TargetEnvAttr targetEnv, MLIRContext *context);
+
+  // Be explicit that instance of this class cannot be copied or moved: there
+  // are lambdas capturing fields of the instance.
+  SPIRVConversionTarget(const SPIRVConversionTarget &) = delete;
+  SPIRVConversionTarget(SPIRVConversionTarget &&) = delete;
+  SPIRVConversionTarget &operator=(const SPIRVConversionTarget &) = delete;
+  SPIRVConversionTarget &operator=(SPIRVConversionTarget &&) = delete;
+
+  /// Returns true if the given `op` is legal to use under the current target
+  /// environment.
+  bool isLegalOp(Operation *op);
+
+  Version givenVersion;                            /// SPIR-V version to target
+  llvm::SmallSet<Extension, 4> givenExtensions;    /// Allowed extensions
+  llvm::SmallSet<Capability, 8> givenCapabilities; /// Allowed capabilities
+};
+
 /// Returns a value that represents a builtin variable value within the SPIR-V
 /// module.
-Value getBuiltinVariableValue(Operation *op, spirv::BuiltIn builtin,
+Value getBuiltinVariableValue(Operation *op, BuiltIn builtin,
                               OpBuilder &builder);
 
-/// Attribute name for specifying argument ABI information.
-StringRef getInterfaceVarABIAttrName();
-
-/// Get the InterfaceVarABIAttr given its fields.
-InterfaceVarABIAttr getInterfaceVarABIAttr(unsigned descriptorSet,
-                                           unsigned binding,
-                                           spirv::StorageClass storageClass,
-                                           MLIRContext *context);
-
-/// Attribute name for specifying entry point information.
-StringRef getEntryPointABIAttrName();
-
-/// Get the EntryPointABIAttr given its fields.
-EntryPointABIAttr getEntryPointABIAttr(ArrayRef<int32_t> localSize,
-                                       MLIRContext *context);
-
 /// Sets the InterfaceVarABIAttr and EntryPointABIAttr for a function and its
-/// arguments
-LogicalResult setABIAttrs(FuncOp funcOp,
-                          spirv::EntryPointABIAttr entryPointInfo,
-                          ArrayRef<spirv::InterfaceVarABIAttr> argABIInfo);
-
+/// arguments.
+LogicalResult setABIAttrs(FuncOp funcOp, EntryPointABIAttr entryPointInfo,
+                          ArrayRef<InterfaceVarABIAttr> argABIInfo);
 } // namespace spirv
 } // namespace mlir
 

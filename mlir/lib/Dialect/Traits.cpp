@@ -151,7 +151,7 @@ static bool areCompatibleShapes(ArrayRef<int64_t> shape1,
   };
   if (shape1.size() != shape2.size())
     return false;
-  for (const auto &p : llvm::zip(shape1, shape2))
+  for (auto p : llvm::zip(shape1, shape2))
     if (!isCompatible(std::get<0>(p), std::get<1>(p)))
       return false;
   return true;
@@ -163,9 +163,9 @@ LogicalResult OpTrait::impl::verifyCompatibleOperandBroadcast(Operation *op) {
   assert(op->getNumResults() == 1 &&
          "only support broadcast check on one result");
 
-  auto type1 = op->getOperand(0)->getType();
-  auto type2 = op->getOperand(1)->getType();
-  auto retType = op->getResult(0)->getType();
+  auto type1 = op->getOperand(0).getType();
+  auto type2 = op->getOperand(1).getType();
+  auto retType = op->getResult(0).getType();
 
   // We forbid broadcasting vector and tensor.
   if (hasBothVectorAndTensorType({type1, type2, retType}))

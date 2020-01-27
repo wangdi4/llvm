@@ -188,7 +188,16 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::UADDSAT, VT, Legal);
       setOperationAction(ISD::SSUBSAT, VT, Legal);
       setOperationAction(ISD::USUBSAT, VT, Legal);
+      setOperationAction(ISD::SMAX, VT, Legal);
+      setOperationAction(ISD::UMAX, VT, Legal);
+      setOperationAction(ISD::SMIN, VT, Legal);
+      setOperationAction(ISD::UMIN, VT, Legal);
     }
+
+    for (auto VT :
+         { MVT::nxv2i8, MVT::nxv2i16, MVT::nxv2i32, MVT::nxv2i64, MVT::nxv4i8,
+           MVT::nxv4i16, MVT::nxv4i32, MVT::nxv8i8, MVT::nxv8i16 })
+      setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Legal);
   }
 
   // Compute derived properties from the register classes
@@ -428,14 +437,10 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::FSUB,        MVT::v4f16, Promote);
     setOperationAction(ISD::FMUL,        MVT::v4f16, Promote);
     setOperationAction(ISD::FDIV,        MVT::v4f16, Promote);
-    setOperationAction(ISD::FP_EXTEND,   MVT::v4f16, Promote);
-    setOperationAction(ISD::FP_ROUND,    MVT::v4f16, Promote);
     AddPromotedToType(ISD::FADD,         MVT::v4f16, MVT::v4f32);
     AddPromotedToType(ISD::FSUB,         MVT::v4f16, MVT::v4f32);
     AddPromotedToType(ISD::FMUL,         MVT::v4f16, MVT::v4f32);
     AddPromotedToType(ISD::FDIV,         MVT::v4f16, MVT::v4f32);
-    AddPromotedToType(ISD::FP_EXTEND,    MVT::v4f16, MVT::v4f32);
-    AddPromotedToType(ISD::FP_ROUND,     MVT::v4f16, MVT::v4f32);
 
     setOperationAction(ISD::FABS,        MVT::v4f16, Expand);
     setOperationAction(ISD::FNEG,        MVT::v4f16, Expand);
@@ -3986,11 +3991,10 @@ AArch64TargetLowering::LowerCall(CallLoweringInfo &CLI,
   }
 
   // Walk the register/memloc assignments, inserting copies/loads.
-  for (unsigned i = 0, realArgIdx = 0, e = ArgLocs.size(); i != e;
-       ++i, ++realArgIdx) {
+  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];
-    SDValue Arg = OutVals[realArgIdx];
-    ISD::ArgFlagsTy Flags = Outs[realArgIdx].Flags;
+    SDValue Arg = OutVals[i];
+    ISD::ArgFlagsTy Flags = Outs[i].Flags;
 
     // Promote the value if needed.
     switch (VA.getLocInfo()) {
@@ -4005,7 +4009,7 @@ AArch64TargetLowering::LowerCall(CallLoweringInfo &CLI,
       Arg = DAG.getNode(ISD::ZERO_EXTEND, DL, VA.getLocVT(), Arg);
       break;
     case CCValAssign::AExt:
-      if (Outs[realArgIdx].ArgVT == MVT::i1) {
+      if (Outs[i].ArgVT == MVT::i1) {
         // AAPCS requires i1 to be zero-extended to 8-bits by the caller.
         Arg = DAG.getNode(ISD::TRUNCATE, DL, MVT::i1, Arg);
         Arg = DAG.getNode(ISD::ZERO_EXTEND, DL, MVT::i8, Arg);
@@ -4034,7 +4038,7 @@ AArch64TargetLowering::LowerCall(CallLoweringInfo &CLI,
     }
 
     if (VA.isRegLoc()) {
-      if (realArgIdx == 0 && Flags.isReturned() && !Flags.isSwiftSelf() &&
+      if (i == 0 && Flags.isReturned() && !Flags.isSwiftSelf() &&
           Outs[0].VT == MVT::i64) {
         assert(VA.getLocVT() == MVT::i64 &&
                "unexpected calling convention register assignment");
@@ -4591,6 +4595,97 @@ AArch64TargetLowering::LowerDarwinGlobalTLSAddress(SDValue Op,
   return DAG.getCopyFromReg(Chain, DL, AArch64::X0, PtrVT, Chain.getValue(1));
 }
 
+/// Convert a thread-local variable reference into a sequence of instructions to
+/// compute the variable's address for the local exec TLS model of ELF targets.
+/// The sequence depends on the maximum TLS area size.
+SDValue AArch64TargetLowering::LowerELFTLSLocalExec(const GlobalValue *GV,
+                                                    SDValue ThreadBase,
+                                                    const SDLoc &DL,
+                                                    SelectionDAG &DAG) const {
+  EVT PtrVT = getPointerTy(DAG.getDataLayout());
+  SDValue TPOff, Addr;
+
+  switch (DAG.getTarget().Options.TLSSize) {
+  default:
+    llvm_unreachable("Unexpected TLS size");
+
+  case 12: {
+    // mrs   x0, TPIDR_EL0
+    // add   x0, x0, :tprel_lo12:a
+    SDValue Var = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0, AArch64II::MO_TLS | AArch64II::MO_PAGEOFF);
+    return SDValue(DAG.getMachineNode(AArch64::ADDXri, DL, PtrVT, ThreadBase,
+                                      Var,
+                                      DAG.getTargetConstant(0, DL, MVT::i32)),
+                   0);
+  }
+
+  case 24: {
+    // mrs   x0, TPIDR_EL0
+    // add   x0, x0, :tprel_hi12:a
+    // add   x0, x0, :tprel_lo12_nc:a
+    SDValue HiVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0, AArch64II::MO_TLS | AArch64II::MO_HI12);
+    SDValue LoVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0,
+        AArch64II::MO_TLS | AArch64II::MO_PAGEOFF | AArch64II::MO_NC);
+    Addr = SDValue(DAG.getMachineNode(AArch64::ADDXri, DL, PtrVT, ThreadBase,
+                                      HiVar,
+                                      DAG.getTargetConstant(0, DL, MVT::i32)),
+                   0);
+    return SDValue(DAG.getMachineNode(AArch64::ADDXri, DL, PtrVT, Addr,
+                                      LoVar,
+                                      DAG.getTargetConstant(0, DL, MVT::i32)),
+                   0);
+  }
+
+  case 32: {
+    // mrs   x1, TPIDR_EL0
+    // movz  x0, #:tprel_g1:a
+    // movk  x0, #:tprel_g0_nc:a
+    // add   x0, x1, x0
+    SDValue HiVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0, AArch64II::MO_TLS | AArch64II::MO_G1);
+    SDValue LoVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0,
+        AArch64II::MO_TLS | AArch64II::MO_G0 | AArch64II::MO_NC);
+    TPOff = SDValue(DAG.getMachineNode(AArch64::MOVZXi, DL, PtrVT, HiVar,
+                                       DAG.getTargetConstant(16, DL, MVT::i32)),
+                    0);
+    TPOff = SDValue(DAG.getMachineNode(AArch64::MOVKXi, DL, PtrVT, TPOff, LoVar,
+                                       DAG.getTargetConstant(0, DL, MVT::i32)),
+                    0);
+    return DAG.getNode(ISD::ADD, DL, PtrVT, ThreadBase, TPOff);
+  }
+
+  case 48: {
+    // mrs   x1, TPIDR_EL0
+    // movz  x0, #:tprel_g2:a
+    // movk  x0, #:tprel_g1_nc:a
+    // movk  x0, #:tprel_g0_nc:a
+    // add   x0, x1, x0
+    SDValue HiVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0, AArch64II::MO_TLS | AArch64II::MO_G2);
+    SDValue MiVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0,
+        AArch64II::MO_TLS | AArch64II::MO_G1 | AArch64II::MO_NC);
+    SDValue LoVar = DAG.getTargetGlobalAddress(
+        GV, DL, PtrVT, 0,
+        AArch64II::MO_TLS | AArch64II::MO_G0 | AArch64II::MO_NC);
+    TPOff = SDValue(DAG.getMachineNode(AArch64::MOVZXi, DL, PtrVT, HiVar,
+                                       DAG.getTargetConstant(32, DL, MVT::i32)),
+                    0);
+    TPOff = SDValue(DAG.getMachineNode(AArch64::MOVKXi, DL, PtrVT, TPOff, MiVar,
+                                       DAG.getTargetConstant(16, DL, MVT::i32)),
+                    0);
+    TPOff = SDValue(DAG.getMachineNode(AArch64::MOVKXi, DL, PtrVT, TPOff, LoVar,
+                                       DAG.getTargetConstant(0, DL, MVT::i32)),
+                    0);
+    return DAG.getNode(ISD::ADD, DL, PtrVT, ThreadBase, TPOff);
+  }
+  }
+}
+
 /// When accessing thread-local variables under either the general-dynamic or
 /// local-dynamic system, we make a "TLS-descriptor" call. The variable will
 /// have a descriptor, accessible via a PC-relative ADRP, and whose first entry
@@ -4628,15 +4723,7 @@ SDValue
 AArch64TargetLowering::LowerELFGlobalTLSAddress(SDValue Op,
                                                 SelectionDAG &DAG) const {
   assert(Subtarget->isTargetELF() && "This function expects an ELF target");
-  if (getTargetMachine().getCodeModel() == CodeModel::Large)
-    report_fatal_error("ELF TLS only supported in small memory model");
-  // Different choices can be made for the maximum size of the TLS area for a
-  // module. For the small address model, the default TLS size is 16MiB and the
-  // maximum TLS size is 4GiB.
-  // FIXME: add -mtls-size command line option and make it control the 16MiB
-  // vs. 4GiB code sequence generation.
-  // FIXME: add tiny codemodel support. We currently generate the same code as
-  // small, which may be larger than needed.
+
   const GlobalAddressSDNode *GA = cast<GlobalAddressSDNode>(Op);
 
   TLSModel::Model Model = getTargetMachine().getTLSModel(GA->getGlobal());
@@ -4646,6 +4733,17 @@ AArch64TargetLowering::LowerELFGlobalTLSAddress(SDValue Op,
       Model = TLSModel::GeneralDynamic;
   }
 
+  if (getTargetMachine().getCodeModel() == CodeModel::Large &&
+      Model != TLSModel::LocalExec)
+    report_fatal_error("ELF TLS only supported in small memory model or "
+                       "in local exec TLS model");
+  // Different choices can be made for the maximum size of the TLS area for a
+  // module. For the small address model, the default TLS size is 16MiB and the
+  // maximum TLS size is 4GiB.
+  // FIXME: add tiny and large code model support for TLS access models other
+  // than local exec. We currently generate the same code as small for tiny,
+  // which may be larger than needed.
+
   SDValue TPOff;
   EVT PtrVT = getPointerTy(DAG.getDataLayout());
   SDLoc DL(Op);
@@ -4654,23 +4752,7 @@ AArch64TargetLowering::LowerELFGlobalTLSAddress(SDValue Op,
   SDValue ThreadBase = DAG.getNode(AArch64ISD::THREAD_POINTER, DL, PtrVT);
 
   if (Model == TLSModel::LocalExec) {
-    SDValue HiVar = DAG.getTargetGlobalAddress(
-        GV, DL, PtrVT, 0, AArch64II::MO_TLS | AArch64II::MO_HI12);
-    SDValue LoVar = DAG.getTargetGlobalAddress(
-        GV, DL, PtrVT, 0,
-        AArch64II::MO_TLS | AArch64II::MO_PAGEOFF | AArch64II::MO_NC);
-
-    SDValue TPWithOff_lo =
-        SDValue(DAG.getMachineNode(AArch64::ADDXri, DL, PtrVT, ThreadBase,
-                                   HiVar,
-                                   DAG.getTargetConstant(0, DL, MVT::i32)),
-                0);
-    SDValue TPWithOff =
-        SDValue(DAG.getMachineNode(AArch64::ADDXri, DL, PtrVT, TPWithOff_lo,
-                                   LoVar,
-                                   DAG.getTargetConstant(0, DL, MVT::i32)),
-                0);
-    return TPWithOff;
+    return LowerELFTLSLocalExec(GV, ThreadBase, DL, DAG);
   } else if (Model == TLSModel::InitialExec) {
     TPOff = DAG.getTargetGlobalAddress(GV, DL, PtrVT, 0, AArch64II::MO_TLS);
     TPOff = DAG.getNode(AArch64ISD::LOADgot, DL, PtrVT, TPOff);
@@ -5667,7 +5749,7 @@ SDValue AArch64TargetLowering::LowerSPONENTRY(SDValue Op,
 // FIXME? Maybe this could be a TableGen attribute on some registers and
 // this table could be generated automatically from RegInfo.
 Register AArch64TargetLowering::
-getRegisterByName(const char* RegName, EVT VT, const MachineFunction &MF) const {
+getRegisterByName(const char* RegName, LLT VT, const MachineFunction &MF) const {
   Register Reg = MatchRegisterName(RegName);
   if (AArch64::X1 <= Reg && Reg <= AArch64::X28) {
     const MCRegisterInfo *MRI = Subtarget->getRegisterInfo();
@@ -12235,18 +12317,14 @@ static SDValue performST1ScatterCombine(SDNode *N, SelectionDAG &DAG,
 }
 
 static SDValue performLD1GatherCombine(SDNode *N, SelectionDAG &DAG,
-                                       unsigned Opcode) {
+                                       unsigned Opcode,
+                                       bool OnlyPackedOffsets = true) {
   EVT RetVT = N->getValueType(0);
   assert(RetVT.isScalableVector() &&
          "Gather loads are only possible for SVE vectors");
-
   SDLoc DL(N);
-  MVT RetElVT = RetVT.getVectorElementType().getSimpleVT();
-  unsigned NumElements = AArch64::SVEBitsPerBlock / RetElVT.getSizeInBits();
 
-  EVT MaxVT = llvm::MVT::getScalableVectorVT(RetElVT, NumElements);
-  if (RetVT.getSizeInBits().getKnownMinSize() >
-      MaxVT.getSizeInBits().getKnownMinSize())
+  if (RetVT.getSizeInBits().getKnownMinSize() > AArch64::SVEBitsPerBlock)
     return SDValue();
 
   // Depending on the addressing mode, this is either a pointer or a vector of
@@ -12254,11 +12332,18 @@ static SDValue performLD1GatherCombine(SDNode *N, SelectionDAG &DAG,
   const SDValue Base = N->getOperand(3);
   // Depending on the addressing mode, this is either a single offset or a
   // vector of offsets  (that fits into one register)
-  const SDValue Offset = N->getOperand(4);
+  SDValue Offset = N->getOperand(4);
 
-  if (!DAG.getTargetLoweringInfo().isTypeLegal(Base.getValueType()) ||
-      !DAG.getTargetLoweringInfo().isTypeLegal(Offset.getValueType()))
+  auto &TLI = DAG.getTargetLoweringInfo();
+  if (!TLI.isTypeLegal(Base.getValueType()))
     return SDValue();
+
+  // Some gather load variants allow unpacked offsets, but only as nxv2i32
+  // vectors. These are implicitly sign (sxtw) or zero (zxtw) extend to
+  // nxv2i64. Legalize accordingly.
+  if (!OnlyPackedOffsets &&
+      Offset.getValueType().getSimpleVT().SimpleTy == MVT::nxv2i32)
+    Offset = DAG.getNode(ISD::ANY_EXTEND, DL, MVT::nxv2i64, Offset).getValue(0);
 
   // Return value type that is representable in hardware
   EVT HwRetVt = getSVEContainerType(RetVT);
@@ -12443,13 +12528,17 @@ SDValue AArch64TargetLowering::PerformDAGCombine(SDNode *N,
     case Intrinsic::aarch64_sve_ld1_gather_index:
       return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_SCALED);
     case Intrinsic::aarch64_sve_ld1_gather_sxtw:
-      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_SXTW);
+      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_SXTW,
+                                      /*OnlyPackedOffsets=*/false);
     case Intrinsic::aarch64_sve_ld1_gather_uxtw:
-      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_UXTW);
+      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_UXTW,
+                                      /*OnlyPackedOffsets=*/false);
     case Intrinsic::aarch64_sve_ld1_gather_sxtw_index:
-      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_SXTW_SCALED);
+      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_SXTW_SCALED,
+                                      /*OnlyPackedOffsets=*/false);
     case Intrinsic::aarch64_sve_ld1_gather_uxtw_index:
-      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_UXTW_SCALED);
+      return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_UXTW_SCALED,
+                                      /*OnlyPackedOffsets=*/false);
     case Intrinsic::aarch64_sve_ld1_gather_imm:
       return performLD1GatherCombine(N, DAG, AArch64ISD::GLD1_IMM);
     case Intrinsic::aarch64_sve_st1_scatter:
@@ -13095,7 +13184,7 @@ bool AArch64TargetLowering::
 bool AArch64TargetLowering::shouldExpandShift(SelectionDAG &DAG,
                                               SDNode *N) const {
   if (DAG.getMachineFunction().getFunction().hasMinSize() &&
-      !Subtarget->isTargetWindows())
+      !Subtarget->isTargetWindows() && !Subtarget->isTargetDarwin())
     return false;
   return true;
 }

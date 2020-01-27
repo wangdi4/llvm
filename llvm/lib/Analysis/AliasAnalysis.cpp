@@ -944,6 +944,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>(); // INTEL
+  AU.addUsedIfAvailable<ExternalAAWrapperPass>();
 }
 
 AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
@@ -977,6 +978,9 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
   if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
 #endif     // INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = P.getAnalysisIfAvailable<ExternalAAWrapperPass>())
+    if (WrapperPass->CB)
+      WrapperPass->CB(P, F, AAR);
 
   return AAR;
 }
@@ -1022,4 +1026,5 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
+  AU.addUsedIfAvailable<ExternalAAWrapperPass>();
 }

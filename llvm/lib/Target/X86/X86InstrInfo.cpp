@@ -2359,7 +2359,7 @@ unsigned X86::getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand) {
   default: llvm_unreachable("Illegal register size!");
   case 2: return HasMemoryOperand ? X86::CMOV16rm : X86::CMOV16rr;
   case 4: return HasMemoryOperand ? X86::CMOV32rm : X86::CMOV32rr;
-  case 8: return HasMemoryOperand ? X86::CMOV32rm : X86::CMOV64rr;
+  case 8: return HasMemoryOperand ? X86::CMOV64rm : X86::CMOV64rr;
   }
 }
 
@@ -4864,6 +4864,10 @@ static MachineInstr *FuseInst(MachineFunction &MF, unsigned Opcode,
   }
 
   updateOperandRegConstraints(MF, *NewMI, TII);
+
+  // Copy the NoFPExcept flag from the instruction we're fusing.
+  if (MI.getFlag(MachineInstr::MIFlag::NoFPExcept))
+    NewMI->setFlag(MachineInstr::MIFlag::NoFPExcept);
 
   MachineBasicBlock *MBB = InsertPt->getParent();
   MBB->insert(InsertPt, NewMI);

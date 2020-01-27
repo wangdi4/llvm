@@ -12258,11 +12258,7 @@ getListOfPossibleValues(OpenMPClauseKind K, unsigned First, unsigned Last,
                         ArrayRef<unsigned> Exclude = llvm::None) {
   SmallString<256> Buffer;
   llvm::raw_svector_ostream Out(Buffer);
-  unsigned Bound = Last >= 2 ? Last - 2 : 0;
   unsigned Skipped = Exclude.size();
-#if INTEL_CUSTOMIZATION
-  bool HasMultipleValues = Last > First + Skipped + 1;
-#endif // INTEL_CUSTOMIZATION
   auto S = Exclude.begin(), E = Exclude.end();
   for (unsigned I = First; I < Last; ++I) {
     if (std::find(S, E, I) != E) {
@@ -12270,13 +12266,10 @@ getListOfPossibleValues(OpenMPClauseKind K, unsigned First, unsigned Last,
       continue;
     }
     Out << "'" << getOpenMPSimpleClauseTypeName(K, I) << "'";
-#if INTEL_CUSTOMIZATION
-    if (HasMultipleValues)
-      if (I == Bound - Skipped)
-        Out << " or ";
-      else if (I != Bound + 1 - Skipped)
-        Out << ", ";
-#endif // INTEL_CUSTOMIZATION
+    if (I + Skipped + 2 == Last)
+      Out << " or ";
+    else if (I + Skipped + 1 != Last)
+      Out << ", ";
   }
   return Out.str();
 }
@@ -13856,7 +13849,8 @@ buildDeclareReductionRef(Sema &SemaRef, SourceLocation Loc, SourceRange Range,
     }
   }
   if (ReductionIdScopeSpec.isSet()) {
-    SemaRef.Diag(Loc, diag::err_omp_not_resolved_reduction_identifier) << Range;
+    SemaRef.Diag(Loc, diag::err_omp_not_resolved_reduction_identifier)
+        << Ty << Range;
     return ExprError();
   }
   return ExprEmpty();
@@ -14715,8 +14709,8 @@ bool Sema::CheckOpenMPLinearDecl(const ValueDecl *D, SourceLocation ELoc,
   // A list item must be of integral or pointer type.
   Type = Type.getUnqualifiedType().getCanonicalType();
   const auto *Ty = Type.getTypePtrOrNull();
-  if (!Ty || (!Ty->isDependentType() && !Ty->isIntegralType(Context) &&
-              !Ty->isPointerType())) {
+  if (!Ty || (LinKind != OMPC_LINEAR_ref && !Ty->isDependentType() &&
+              !Ty->isIntegralType(Context) && !Ty->isPointerType())) {
     Diag(ELoc, diag::err_omp_linear_expected_int_or_ptr) << Type;
     if (D) {
       bool IsDecl =
@@ -15382,6 +15376,22 @@ Sema::ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind,
       }
       OpsOffs.emplace_back(RHS, OOK);
     } else {
+      // OpenMP 5.0 [2.17.11, Restrictions]
+      // List items used in depend clauses cannot be zero-length array sections.
+      const auto *OASE = dyn_cast<OMPArraySectionExpr>(SimpleExpr);
+      if (OASE) {
+        const Expr *Length = OASE->getLength();
+        Expr::EvalResult Result;
+        if (Length && !Length->isValueDependent() &&
+            Length->EvaluateAsInt(Result, Context) &&
+            Result.Val.getInt().isNullValue()) {
+          Diag(ELoc,
+               diag::err_omp_depend_zero_length_array_section_not_allowed)
+              << SimpleExpr->getSourceRange();
+          continue;
+        }
+      }
+
       auto *ASE = dyn_cast<ArraySubscriptExpr>(SimpleExpr);
       if (!RefExpr->IgnoreParenImpCasts()->isLValue() ||
           (ASE &&
@@ -16353,8 +16363,22 @@ static void checkMappableExpressionList(
           return MC.getAssociatedDeclaration();
         });
     assert(I != CurComponents.end() && "Null decl on map clause.");
-    QualType Type =
-        I->getAssociatedDeclaration()->getType().getNonReferenceType();
+    QualType Type;
+    auto *ASE = dyn_cast<ArraySubscriptExpr>(VE->IgnoreParens());
+    auto *OASE = dyn_cast<OMPArraySectionExpr>(VE->IgnoreParens());
+    if (ASE) {
+      Type = ASE->getType().getNonReferenceType();
+    } else if (OASE) {
+      QualType BaseType =
+          OMPArraySectionExpr::getBaseOriginalType(OASE->getBase());
+      if (const auto *ATy = BaseType->getAsArrayTypeUnsafe())
+        Type = ATy->getElementType();
+      else
+        Type = BaseType->getPointeeType();
+      Type = Type.getNonReferenceType();
+    } else {
+      Type = VE->getType();
+    }
 
     // OpenMP 4.5 [2.10.5, target update Construct, Restrictions, p.4]
     // A list item in a to or from clause must have a mappable type.
@@ -16363,6 +16387,8 @@ static void checkMappableExpressionList(
     if (!checkTypeMappable(VE->getExprLoc(), VE->getSourceRange(), SemaRef,
                            DSAS, Type))
       continue;
+
+    Type = I->getAssociatedDeclaration()->getType().getNonReferenceType();
 
     if (CKind == OMPC_map) {
       // target enter data

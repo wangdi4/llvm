@@ -151,9 +151,7 @@ void X86_64::writePltHeader(uint8_t *buf) const {
   };
   memcpy(buf, pltData, sizeof(pltData));
   uint64_t gotPlt = in.gotPlt->getVA();
-#if INTEL_CUSTOMIZATION
   uint64_t plt = in.ibtPlt ? in.ibtPlt->getVA() : in.plt->getVA();
-#endif // INTEL_CUSTOMIZATION
   write32le(buf + 2, gotPlt - plt + 2); // GOTPLT+8
   write32le(buf + 8, gotPlt - plt + 4); // GOTPLT+16
 }
@@ -570,42 +568,42 @@ bool X86_64::adjustPrologueForCrossSplitStack(uint8_t *loc, uint8_t *end,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-// If Intel CET (Control-Flow Enforcement Technology) is enabled,
-// we have to emit special PLT entries containing endbr64 instructions.
+// If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
+// entries containing endbr64 instructions. A PLT entry will be split into two
+// parts, one in .plt.sec (writePlt), and the other in .plt (writeIBTPlt).
 namespace {
-class IntelCET : public X86_64 {
+class IntelIBT : public X86_64 {
 public:
-  IntelCET();
+  IntelIBT();
   void writeGotPlt(uint8_t *buf, const Symbol &s) const override;
   void writePlt(uint8_t *buf, const Symbol &sym,
                 uint64_t pltEntryAddr) const override;
   void writeIBTPlt(uint8_t *buf, size_t numEntries) const override;
 
-  enum { IBTPltHeaderSize = 16 };
+  static const unsigned IBTPltHeaderSize = 16;
 };
 } // namespace
 
-IntelCET::IntelCET() { pltHeaderSize = 0; }
+IntelIBT::IntelIBT() { pltHeaderSize = 0; }
 
-void IntelCET::writeGotPlt(uint8_t *buf, const Symbol &s) const {
+void IntelIBT::writeGotPlt(uint8_t *buf, const Symbol &s) const {
   uint64_t va =
       in.ibtPlt->getVA() + IBTPltHeaderSize + s.pltIndex * pltEntrySize;
   write64le(buf, va);
 }
 
-void IntelCET::writePlt(uint8_t *buf, const Symbol &sym,
+void IntelIBT::writePlt(uint8_t *buf, const Symbol &sym,
                         uint64_t pltEntryAddr) const {
-  const uint8_t inst[] = {
+  const uint8_t Inst[] = {
       0xf3, 0x0f, 0x1e, 0xfa,       // endbr64
       0xff, 0x25, 0,    0,    0, 0, // jmpq *got(%rip)
       0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
   };
-  memcpy(buf, inst, sizeof(inst));
+  memcpy(buf, Inst, sizeof(Inst));
   write32le(buf + 6, sym.getGotPltVA() - pltEntryAddr - 10);
 }
 
-void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
+void IntelIBT::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
   writePltHeader(buf);
   buf += IBTPltHeaderSize;
 
@@ -623,7 +621,6 @@ void IntelCET::writeIBTPlt(uint8_t *buf, size_t numEntries) const {
     buf += sizeof(inst);
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 // These nonstandard PLT entries are to migtigate Spectre v2 security
 // vulnerability. In order to mitigate Spectre v2, we want to avoid indirect
@@ -752,12 +749,10 @@ static TargetInfo *getTargetInfo() {
     return &t;
   }
 
-#if INTEL_CUSTOMIZATION
   if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
-    static IntelCET t;
+    static IntelIBT t;
     return &t;
   }
-#endif // INTEL_CUSTOMIZATION
 
   static X86_64 t;
   return &t;

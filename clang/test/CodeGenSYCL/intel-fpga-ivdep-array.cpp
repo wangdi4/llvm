@@ -1,6 +1,4 @@
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -x c++ -triple spir64-unknown-linux-sycldevice -std=c++11 -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
-// end INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
 
 // Array-specific ivdep - annotate the correspondent GEPs only
 //

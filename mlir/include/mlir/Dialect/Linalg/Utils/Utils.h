@@ -65,6 +65,21 @@ private:
   SmallVector<LoopRangeBuilder, 4> loops;
 };
 
+/// Helper template class for building loop.for and affine.loop nests from
+/// ranges.
+template <typename LoopTy> class GenericLoopNestRangeBuilder {
+public:
+  GenericLoopNestRangeBuilder(ArrayRef<edsc::ValueHandle *> ivs,
+                              ArrayRef<Value> ranges);
+  void operator()(std::function<void(void)> fun = nullptr) { (*builder)(fun); }
+
+private:
+  typedef typename std::conditional<std::is_same<LoopTy, AffineForOp>::value,
+                                    AffineLoopNestBuilder,
+                                    LoopNestRangeBuilder>::type BuilderType;
+  std::unique_ptr<BuilderType> builder;
+};
+
 } // namespace edsc
 
 namespace linalg {
@@ -104,8 +119,8 @@ Optional<FusionInfo> fuseProducerOf(OpBuilder &b, LinalgOp consumer,
 template <typename ConcreteOp>
 SmallVector<Value, 8> getViewSizes(ConcreteOp linalgOp) {
   SmallVector<Value, 8> res;
-  for (auto v : linalgOp.getInputsAndOutputs()) {
-    MemRefType t = v->getType().template cast<MemRefType>();
+  for (auto v : linalgOp.getInputsAndOutputBuffers()) {
+    MemRefType t = v.getType().template cast<MemRefType>();
     for (unsigned i = 0; i < t.getRank(); ++i)
       res.push_back(edsc::intrinsics::dim(v, i));
   }

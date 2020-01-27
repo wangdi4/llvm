@@ -1055,7 +1055,7 @@ void MipsGotSection::writeTo(uint8_t *buf) {
     // Write VA to the primary GOT only. For secondary GOTs that
     // will be done by REL32 dynamic relocations.
     if (&g == &gots.front())
-      for (const std::pair<const Symbol *, size_t> &p : g.global)
+      for (const std::pair<Symbol *, size_t> &p : g.global)
         write(p.second, p.first, 0);
     for (const std::pair<Symbol *, size_t> &p : g.relocs)
       write(p.second, p.first, 0);
@@ -2442,16 +2442,20 @@ void HashTableSection::writeTo(uint8_t *buf) {
   }
 }
 
-// On PowerPC64 the lazy symbol resolvers go into the `global linkage table`
-// in the .glink section, rather then the typical .plt section.
 PltSection::PltSection()
     : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".plt"),
       headerSize(target->pltHeaderSize) {
+  // On PowerPC, this section contains lazy symbol resolvers.
   if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
     name = ".glink";
     alignment = 4;
-  } else if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) // INTEL
-    name = ".plt.sec";                                             // INTEL
+  }
+
+  // On x86 when IBT is enabled, this section contains the second PLT (lazy
+  // symbol resolvers).
+  if ((config->emachine == EM_386 || config->emachine == EM_X86_64) &&
+      (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT))
+    name = ".plt.sec";
 
   // The PLT needs to be writable on SPARC as the dynamic linker will
   // modify the instructions in the PLT entries.
@@ -2502,7 +2506,40 @@ void PltSection::addSymbols() {
   }
 }
 
-#if INTEL_CUSTOMIZATION
+IpltSection::IpltSection()
+    : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".iplt") {
+  if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
+    name = ".glink";
+    alignment = 4;
+  }
+}
+
+void IpltSection::writeTo(uint8_t *buf) {
+  uint32_t off = 0;
+  for (const Symbol *sym : entries) {
+    target->writeIplt(buf + off, *sym, getVA() + off);
+    off += target->ipltEntrySize;
+  }
+}
+
+size_t IpltSection::getSize() const {
+  return entries.size() * target->ipltEntrySize;
+}
+
+void IpltSection::addEntry(Symbol &sym) {
+  sym.pltIndex = entries.size();
+  entries.push_back(&sym);
+}
+
+// ARM uses mapping symbols to aid disassembly.
+void IpltSection::addSymbols() {
+  size_t off = 0;
+  for (size_t i = 0, e = entries.size(); i != e; ++i) {
+    target->addPltSymbols(*this, off);
+    off += target->pltEntrySize;
+  }
+}
+
 // This is an x86-only extra PLT section and used only when a security
 // enhancement feature called CET is enabled. In this comment, I'll explain what
 // the feature is and why we have two PLT sections if CET is enabled.
@@ -2513,7 +2550,7 @@ void PltSection::addSymbols() {
 // "landing pad" instruction (which is actually a repurposed NOP instruction and
 // now called "endbr32" or "endbr64") is at the jump target. If the jump target
 // does not start with that instruction, the processor raises an exception
-// instead of continue executing code.
+// instead of continuing executing code.
 //
 // If CET is enabled, the compiler emits endbr to all locations where indirect
 // jumps may jump to.
@@ -2522,8 +2559,8 @@ void PltSection::addSymbols() {
 // a function that is not supporsed to be a indirect jump target, preventing
 // certain types of attacks such as ROP or JOP.
 //
-// Note that the processors in the market as of early 2019 don't actually
-// support the feature. Only the spec is available at the moment.
+// Note that the processors in the market as of 2019 don't actually support the
+// feature. Only the spec is available at the moment.
 //
 // Now, I'll explain why we have this extra PLT section for CET.
 //
@@ -2569,45 +2606,8 @@ void IBTPltSection::writeTo(uint8_t *buf) {
 }
 
 size_t IBTPltSection::getSize() const {
-  // 16 is the header size of .plt.sec.
+  // 16 is the header size of .plt.
   return 16 + in.plt->getNumEntries() * target->pltEntrySize;
-}
-
-#endif // INTEL_CUSTOMIZATION
-
-IpltSection::IpltSection()
-    : SyntheticSection(SHF_ALLOC | SHF_EXECINSTR, SHT_PROGBITS, 16, ".iplt") {
-  if (config->emachine == EM_PPC || config->emachine == EM_PPC64) {
-    name = ".glink";
-    alignment = 4;
-  } else if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) // INTEL
-    name = ".plt.sec";                                             // INTEL
-}
-
-void IpltSection::writeTo(uint8_t *buf) {
-  uint32_t off = 0;
-  for (const Symbol *sym : entries) {
-    target->writeIplt(buf + off, *sym, getVA() + off);
-    off += target->ipltEntrySize;
-  }
-}
-
-size_t IpltSection::getSize() const {
-  return entries.size() * target->ipltEntrySize;
-}
-
-void IpltSection::addEntry(Symbol &sym) {
-  sym.pltIndex = entries.size();
-  entries.push_back(&sym);
-}
-
-// ARM uses mapping symbols to aid disassembly.
-void IpltSection::addSymbols() {
-  size_t off = 0;
-  for (size_t i = 0, e = entries.size(); i != e; ++i) {
-    target->addPltSymbols(*this, off);
-    off += target->pltEntrySize;
-  }
 }
 
 // The string hash function for .gdb_index.

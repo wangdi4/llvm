@@ -734,7 +734,7 @@ is used. They serve as "hooks" to the enclosing environment.  This includes
   we want the constraints on each type definition reads naturally and we want
   to attach type constraints directly to an operand/result, `$_self` will be
   replaced by the operand/result's type. E.g., for `F32` in `F32:$operand`, its
-  `$_self` will be expanded as `getOperand(...)->getType()`.
+  `$_self` will be expanded as `getOperand(...).getType()`.
 
 TODO(b/130663252): Reconsider the leading symbol for special placeholders.
 Eventually we want to allow referencing operand/result $-names; such $-names
@@ -1203,8 +1203,8 @@ arbitrary computations needed to specify output shapes.
 [TableGenIntro]: https://llvm.org/docs/TableGen/LangIntro.html
 [TableGenRef]: https://llvm.org/docs/TableGen/LangRef.html
 [TableGenBackend]: https://llvm.org/docs/TableGen/BackEnds.html#introduction
-[OpBase]: https://github.com/tensorflow/mlir/blob/master/include/mlir/IR/OpBase.td
-[OpDefinitionsGen]: https://github.com/tensorflow/mlir/blob/master/tools/mlir-tblgen/OpDefinitionsGen.cpp
-[EnumsGen]: https://github.com/tensorflow/mlir/blob/master/tools/mlir-tblgen/EnumsGen.cpp
-[StringAttr]: https://github.com/tensorflow/mlir/blob/master/g3doc/LangRef.md#string-attribute
-[IntegerAttr]: https://github.com/tensorflow/mlir/blob/master/g3doc/LangRef.md#integer-attribute
+[OpBase]: ../include/mlir/IR/OpBase.td
+[OpDefinitionsGen]: ../tools/mlir-tblgen/OpDefinitionsGen.cpp
+[EnumsGen]: ../tools/mlir-tblgen/EnumsGen.cpp
+[StringAttr]: LangRef.md#string-attribute
+[IntegerAttr]: LangRef.md#integer-attribute

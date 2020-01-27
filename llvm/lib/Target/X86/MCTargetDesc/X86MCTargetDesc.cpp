@@ -558,7 +558,7 @@ static MCInstrAnalysis *createX86MCInstrAnalysis(const MCInstrInfo *Info) {
 }
 
 // Force static initialization.
-extern "C" void LLVMInitializeX86TargetMC() {
+extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target(),

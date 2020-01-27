@@ -15,8 +15,10 @@
 #include "mlir/Dialect/SPIRV/Passes.h"
 #include "mlir/Dialect/SPIRV/SPIRVDialect.h"
 #include "mlir/Dialect/SPIRV/SPIRVLowering.h"
+#include "mlir/Dialect/SPIRV/SPIRVOps.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/ADT/SetVector.h"
 
 using namespace mlir;
 
@@ -215,16 +217,16 @@ void LowerABIAttributesPass::runOnOperation() {
   OwningRewritePatternList patterns;
   patterns.insert<FuncOpLowering>(context, typeConverter);
 
-  ConversionTarget target(*context);
-  target.addLegalDialect<spirv::SPIRVDialect>();
+  std::unique_ptr<ConversionTarget> target = spirv::SPIRVConversionTarget::get(
+      spirv::lookupTargetEnvOrDefault(module), context);
   auto entryPointAttrName = spirv::getEntryPointABIAttrName();
-  target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
+  target->addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
     return op.getAttrOfType<spirv::EntryPointABIAttr>(entryPointAttrName) &&
            op.getNumResults() == 0 && op.getNumArguments() == 0;
   });
-  target.addLegalOp<ReturnOp>();
+  target->addLegalOp<ReturnOp>();
   if (failed(
-          applyPartialConversion(module, target, patterns, &typeConverter))) {
+          applyPartialConversion(module, *target, patterns, &typeConverter))) {
     return signalPassFailure();
   }
 
