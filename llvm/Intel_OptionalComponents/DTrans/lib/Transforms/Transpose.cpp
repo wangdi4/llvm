@@ -1,6 +1,6 @@
 //===--------------- Transpose.cpp - DTransTransposePass------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -960,8 +960,7 @@ private:
       if (!GV.hasInternalLinkage())
         continue;
 
-      // All global variables are pointers
-      llvm::Type *Ty = GV.getType()->getPointerElementType();
+      llvm::Type *Ty = GV.getValueType();
       auto *ArrType = dyn_cast<llvm::ArrayType>(Ty);
       if (!ArrType)
         continue;
