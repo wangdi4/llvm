@@ -1308,7 +1308,8 @@ multiclass avx512_broadcast_rm_split<bits<8> opc, string OpcodeStr,
                        MaskInfo.RC:$src0))],
                      DestInfo.ExeDomain>, T8PD, EVEX, EVEX_K, Sched<[SchedRR]>;
 
-  let hasSideEffects = 0, mayLoad = 1 in
+  let hasSideEffects = 0, mayLoad = 1, isReMaterializable = 1, // INTEL
+      canFoldAsLoad = 1 in // INTEL
   def m : AVX512PI<opc, MRMSrcMem, (outs MaskInfo.RC:$dst),
                    (ins SrcInfo.ScalarMemOp:$src),
                    !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
