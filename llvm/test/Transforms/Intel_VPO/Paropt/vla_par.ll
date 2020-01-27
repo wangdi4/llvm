@@ -58,8 +58,7 @@ entry:
 ; Check that VLA_SIZE_VAL was stored to VLA_SIZE_CAPTURED
 ; CHECK-DAG: store i64 [[VLA_SIZE_VAL]], i64* [[VLA_SIZE_CAPTURED]]
 ; CHECK that a load from VLA_SIZE_CAPTURED was used in another alloca (which is for the private copy of %vla)
-; CHECK: [[VLA_SIZE_HOME:%[0-9]+]] = load i64*, i64** [[VLA_SIZE_CAPTURED]]
-; CHECK: [[VLA_SIZE_VAL2:%.+]] = load i64, i64* [[VLA_SIZE_HOME]]
+; CHECK: [[VLA_SIZE_VAL2:%.+]] = load i64, i64* [[VLA_SIZE_CAPTURED]]
 ; CHECK: [[VLA_PRIVATE:%.+]] = alloca i32, i64 [[VLA_SIZE_VAL2]]
 
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %vla), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.SHARED"(i32** @yptr), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp) ]

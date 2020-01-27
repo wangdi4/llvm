@@ -44,9 +44,6 @@ alloca:
   store i32 0, i32* %temp4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PRIVATE"(i32* %"foo_$I"), "QUAL.OMP.LASTPRIVATE:F90_DV"({ i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A"), "QUAL.OMP.FIRSTPRIVATE:F90_DV"({ i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A"), "QUAL.OMP.NORMALIZED.IV"(i32* %temp2), "QUAL.OMP.NORMALIZED.UB"(i32* %temp4), "QUAL.OMP.FIRSTPRIVATE"(i32* %temp) ]
 
-; Check for homing of the dope vector argument
-; CHECK: [[HOME_DV:%[^ ]+]] = alloca { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }*, align 8
-
 ; Check for the allocation of local dope vector
 ; CHECK: [[PRIV_DV:%[^ ]+]] = alloca { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
 ; Make sure that the private dope vector is allocated only once

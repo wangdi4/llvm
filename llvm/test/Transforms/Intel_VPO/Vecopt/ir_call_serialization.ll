@@ -20,8 +20,7 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i1 [[PREDICATE]], true
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_CALL_IF:%.*]], label [[TMP5:%.*]]
 ; CHECK:       pred.call.if:
-;; FIXME: Preserve calling convention!
-; CHECK-NEXT:    call void @baz(i32 [[DOTEXTRACT_0_:%.*]])
+; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_0_:%.*]])
 ; CHECK-NEXT:    br label [[TMP5]]
 ; CHECK:       5:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
@@ -30,7 +29,7 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE1]], true
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF3:%.*]], label [[TMP7:%.*]]
 ; CHECK:       pred.call.if3:
-; CHECK-NEXT:    call void @baz(i32 [[DOTEXTRACT_1_:%.*]])
+; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_1_:%.*]])
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK:       7:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE4:%.*]]
