@@ -33,7 +33,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
         endif()
 
         include_directories(${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS})
-        add_library(omptarget.rtl.opencl SHARED src/rtl.cpp)
+        add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/ompt-opencl.cpp)
 
         if (NOT OPENMP_STANDALONE_BUILD)
           # We have to disable EH for Windows compilation.
