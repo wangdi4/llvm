@@ -906,7 +906,7 @@ static void setLinear(DDRef *TmpRef, unsigned LoopLevel) {
   TmpRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
 
   if (auto BlobRef = dyn_cast<BlobDDRef>(TmpRef)) {
-    BlobRef->getParentDDRef()->updateDefLevel(LoopLevel);
+    BlobRef->getParentDDRef()->updateDefLevel();
   } else {
     assert(cast<RegDDRef>(TmpRef)->isTerminalRef() &&
            "Expecting a terminal ref");
