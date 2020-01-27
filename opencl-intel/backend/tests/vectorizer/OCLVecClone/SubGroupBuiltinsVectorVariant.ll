@@ -42,7 +42,7 @@ entry:
 ; CHECK: [[VECTOR_ALL:%.*]] = call <4 x i32> @_Z13sub_group_allDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 ; TODO: VPValue-based CG does not preserve any attributes for serialized Calls.
 ; Check JIRA : CMPLRLLVM-10806
-; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = {{(tail )?}}call {{(spir_func )?}}i32 @_Z16get_sub_group_idv()
+; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = call spir_func i32 @_Z16get_sub_group_idv()
 
   %call3 = tail call spir_func i64 @_Z19sub_group_broadcastlj(i64 %3, i32 0) #4
   %call4 = tail call spir_func i32 @_Z19sub_group_broadcastij(i32 %0, i32 0) #4
@@ -112,8 +112,7 @@ entry:
   %add = add i64 %call, %conv
   %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %add
   store i32 %call1, i32 addrspace(1)* %arrayidx4, align 4, !tbaa !10
-; FIXME: Use uniformity/linearity information to not have scatter.
-; CHECK: {{call.*.llvm.masked.scatter.*\(|store }}<4 x i32> [[VECTOR_ALL]]
+; CHECK: store <4 x i32> [[VECTOR_ALL]]
 
   %cmp = icmp eq i32 %slid, 0
 ; CHECK: [[VICMP:%.*]] = icmp eq <4 x i32> [[VSLID]], zeroinitializer
