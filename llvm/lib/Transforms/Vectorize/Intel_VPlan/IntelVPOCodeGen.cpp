@@ -1849,7 +1849,7 @@ Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   // TODO: Peeking at underlying Value for alignment info.
   auto *UV = VPInst->getUnderlyingValue();
   if (!UV)
-    return Align::None();
+    return Align(1);
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   // For store instructions alignment is determined by type of value operand.
