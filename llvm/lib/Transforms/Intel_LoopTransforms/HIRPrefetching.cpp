@@ -285,6 +285,7 @@ bool HIRPrefetching::doPrefetching(
 
   unsigned Distance = IterationDistance * Stride;
   unsigned Level = Lp->getNestingLevel();
+  unsigned NumSpatialPrefetches = PrefetchCandidates.size();
 
   for (auto RefIt = PrefetchCandidates.begin(), E = PrefetchCandidates.end();
        RefIt != E; ++RefIt) {
@@ -306,6 +307,12 @@ bool HIRPrefetching::doPrefetching(
         HNU.createPrefetch(PrefetchRef, ReadTy, Locality, DataCacheTy);
     HLNodeUtils::insertAsLastChild(Lp, PrefetchInst);
   }
+
+  LoopOptReportBuilder &LORBuilder = HNU.getHIRFramework().getLORBuilder();
+
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Number of spatial prefetches=%d, dist=%d",
+                            NumSpatialPrefetches, IterationDistance);
 
   HIRInvalidationUtils::invalidateBody(Lp);
 
