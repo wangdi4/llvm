@@ -2176,6 +2176,13 @@ def gno_inline_line_tables : Flag<["-"], "gno-inline-line-tables">,
 def gintel_sti : Flag<["-"], "gintel-sti">,
   HelpText<"Generate Intel STI debug information">,
   Flags<[CC1Option]>;
+def gintel_opencl_builtin_types : Joined<["-"], "gintel-opencl-builtin-types">,
+ Group<internal_Group>,
+ HelpText<"Emit OpenCL builtin types in debug as basic types">,
+ Flags<[CC1Option]>;
+def gno_intel_opencl_builtin_types : Joined<["-"], "gno-intel-opencl-builtin-types">,
+ Group<internal_Group>,
+ HelpText<"Emit OpenCL builtin types in debug as defined in OpenCL headers">;
 // endif // INTEL_CUSTOMIZATION
 
 def gfull : Flag<["-"], "gfull">, Group<g_Group>;

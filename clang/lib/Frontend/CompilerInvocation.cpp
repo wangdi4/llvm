@@ -772,6 +772,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.CodeViewGHash = Args.hasArg(OPT_gcodeview_ghash);
 #if INTEL_CUSTOMIZATION
   Opts.EmitIntelSTI = Args.hasArg(OPT_gintel_sti);
+  Opts.DebugOpenCLBasicTypes = Args.hasArg(OPT_gintel_opencl_builtin_types);
 #endif // INTEL_CUSTOMIZATION
   Opts.MacroDebugInfo = Args.hasArg(OPT_debug_info_macro);
   Opts.WholeProgramVTables = Args.hasArg(OPT_fwhole_program_vtables);

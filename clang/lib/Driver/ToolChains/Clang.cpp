@@ -3811,6 +3811,13 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-dwarf-explicit-import");
 
   RenderDebugInfoCompressionArgs(Args, CmdArgs, D, TC);
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_gintel_opencl_builtin_types,
+                   options::OPT_gno_intel_opencl_builtin_types,
+                   false))
+      CmdArgs.push_back("-gintel-opencl-builtin-types");
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Clang::ConstructJob(Compilation &C, const JobAction &JA,
