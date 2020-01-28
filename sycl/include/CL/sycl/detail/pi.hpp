@@ -92,7 +92,7 @@ template <> inline void print<>(PiPlatform val) {
   std::cout << "pi_platform : " << val;
 }
 
-// #ifdef INTEL_CUSTOMIZATION
+/* INTEL_CUSTOMIZATION */
 template <> inline void print<>(PiEvent val) {
   std::cout << "pi_event : " << val;
 }
@@ -114,7 +114,7 @@ template <> inline void print<>(const PiEvent *val) {
     std::cout << "[ " << *val << " ... ]";
   }
 }
-// #endif // INTEL_CUSTOMIZATION
+/* end INTEL_CUSTOMIZATION */
 
 template <> inline void print<>(PiResult val) {
   std::cout << "pi_result : ";
@@ -135,7 +135,7 @@ void printArgs(Arg0 arg0, Args... args) {
   printArgs(std::forward<Args>(args)...);
 }
 
-// #if INTEL_CUSTOMIZATION
+/* INTEL_CUSTOMIZATION */
 template <typename T>
 struct printOut { printOut(T val) { } }; // Do nothing
 
@@ -179,7 +179,7 @@ void printOuts(Arg0 arg0, Args... args) {
   printOut<T> a(arg0);
   printOuts(std::forward<Args>(args)...);
 }
-// #endif // INTEL_CUSTOMIZATION
+/* end INTEL_CUSTOMIZATION */
 
 // Utility function to check return from pi calls.
 // Throws if pi_result is not a PI_SUCCESS.
