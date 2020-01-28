@@ -750,7 +750,9 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
     if (!computeDelinearizationValidityConditions(DelinearizedGroup, GroupSizes,
                                                   Loop, InnermostLoop,
                                                   ValidityConditions)) {
-      LLVM_DEBUG(dbgs() << "[RTDD] Infeasible delinearization conditions\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "[RTDD] computeDelinearizationValidityConditions() failed.\n");
       return DELINEARIZATION_FAILED;
     }
   }
@@ -791,6 +793,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
       ValidityConditions.begin(), ValidityConditions.end(), IsTrivialCondition);
 
   if (IsTriviallyFalse) {
+    LLVM_DEBUG(dbgs() << "[RTDD] Infeasible delinearization conditions\n");
     return DELINEARIZATION_FAILED;
   }
 
@@ -1014,6 +1017,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
                << Context.PreConditions.size() << "\n");
 
     DelinearizationRequired = true;
+    Context.DelinearizedGroupIndices = UnsortedGroupIndices;
   }
 
   unsigned GroupSize = Groups.size();
@@ -1501,6 +1505,16 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   //    creation of a mapping mechanism between original and cloned
   //    DDRefs.
   markDDRefsIndep(Context);
+
+  // Populate loop MVDelinearizableBlobIndices with base indices which were
+  // delinearized.
+  std::transform(
+      Context.DelinearizedGroupIndices.begin(),
+      Context.DelinearizedGroupIndices.end(),
+      std::back_inserter(NoAliasLoop->getMVDelinearizableBlobIndices()),
+      [&](unsigned Index) {
+        return Context.Groups[Index].front()->getBasePtrBlobIndex();
+      });
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(MemcheckIf);
   applyForLoopnest(NoAliasLoop, [&LoopMapper](HLLoop *Loop) {

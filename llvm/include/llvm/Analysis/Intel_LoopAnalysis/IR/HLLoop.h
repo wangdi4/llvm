@@ -103,8 +103,12 @@ private:
   // Indicates whether loop's IV is in signed range.
   bool IsNSW;
 
-  // Temporary tag to mark loop as multiversioned.
+  // Tag to mark loop as multiversioned.
   unsigned MVTag = 0;
+
+  // List of temp blobs that is proven to be delinearizable within the loop.
+  // Note: changing the loopnest bounds may invalidate the list.
+  SmallVector<unsigned, 0> MVDelinearizableBlobIndices;
 
   // Set of temp symbases live into the loop.
   LiveInSetTy LiveInSet;
@@ -673,6 +677,14 @@ public:
   bool isVecLoop() const { return isSIMD() || hasDirective(DIR_VPO_AUTO_VEC); }
 
   unsigned getMVTag() const { return MVTag; }
+
+  SmallVectorImpl<unsigned> &getMVDelinearizableBlobIndices() {
+    return MVDelinearizableBlobIndices;
+  }
+
+  const SmallVectorImpl<unsigned> &getMVDelinearizableBlobIndices() const {
+    return MVDelinearizableBlobIndices;
+  }
 
   bool isDistributedForMemRec() const { return DistributedForMemRec; }
 
