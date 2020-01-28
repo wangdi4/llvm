@@ -168,6 +168,18 @@ typedef enum {
   PI_DEVICE_NATIVE_VECTOR_WIDTH_HALF      = CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF
 } _pi_device_info;
 
+/* INTEL_CUSTOMIZATION */
+typedef enum {
+  PI_PROGRAM_REFERENCE_COUNT  = CL_PROGRAM_REFERENCE_COUNT,
+  PI_PROGRAM_NUM_DEVICES      = CL_PROGRAM_NUM_DEVICES,
+  PI_PROGRAM_DEVICES          = CL_PROGRAM_DEVICES,
+  PI_PROGRAM_BINARY_SIZES     = CL_PROGRAM_BINARY_SIZES,
+  PI_PROGRAM_BINARIES         = CL_PROGRAM_BINARIES,
+  PI_PROGRAM_NUM_KERNELS      = CL_PROGRAM_NUM_KERNELS,
+  PI_PROGRAM_KERNEL_NAMES     = CL_PROGRAM_KERNEL_NAMES
+} _pi_program_info;
+/* end INTEL_CUSTOMIZATION */
+
 // TODO: populate
 typedef enum {
   PI_CONTEXT_INFO_DEVICES     = CL_CONTEXT_DEVICES,
@@ -345,6 +357,7 @@ typedef _pi_platform_info           pi_platform_info;
 typedef _pi_device_type             pi_device_type;
 typedef _pi_device_mem_cache_type   pi_device_mem_cache_type;
 typedef _pi_device_info             pi_device_info;
+typedef _pi_program_info            pi_program_info;  // INTEL
 typedef _pi_context_info            pi_context_info;
 typedef _pi_queue_info              pi_queue_info;
 typedef _pi_image_info              pi_image_info;
@@ -732,7 +745,7 @@ pi_result piclProgramCreateWithBinary(
 
 pi_result piProgramGetInfo(
   pi_program          program,
-  cl_program_info     param_name, // TODO: untie from OpenCL
+  pi_program_info     param_name,   // INTEL
   size_t              param_value_size,
   void *              param_value,
   size_t *            param_value_size_ret);
