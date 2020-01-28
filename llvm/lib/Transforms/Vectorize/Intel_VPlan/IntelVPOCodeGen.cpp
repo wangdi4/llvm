@@ -2059,9 +2059,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
       RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                          "replicatedMaskElts.");
     Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
-    NewLI =
-        Builder.CreateMaskedGather(GatherAddress, Alignment.value(),
-                                   RepMaskValue, nullptr, "wide.masked.gather");
+    NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
+                                       nullptr, "wide.masked.gather");
   }
 
   VPWidenMap[VPInst] = NewLI;
@@ -2268,8 +2267,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   if (MaskValue)
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
-  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment.value(),
-                              RepMaskValue);
+  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
 }
 
 // This function returns computed addresses of memory locations which should be

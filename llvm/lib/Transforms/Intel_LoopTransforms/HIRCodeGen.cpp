@@ -1014,7 +1014,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
                                              Ref->getAlignment(), MaskVal);
     } else {
-      LInst = Builder.CreateAlignedLoad(GEPVal, Ref->getAlignment(),
+      LInst = Builder.CreateAlignedLoad(GEPVal, MaybeAlign(Ref->getAlignment()),
                                         Ref->isVolatile(), "gepload");
     }
 

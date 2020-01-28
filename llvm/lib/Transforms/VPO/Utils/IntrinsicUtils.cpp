@@ -93,8 +93,8 @@ CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
                                            unsigned Alignment,
                                            Value *Mask,
                                            Value *PassThru) {
-  auto NewCallInst = Builder.CreateMaskedGather(VecPtr, Alignment, Mask,
-                                                PassThru);
+  auto NewCallInst =
+      Builder.CreateMaskedGather(VecPtr, Align(Alignment), Mask, PassThru);
   return NewCallInst;
 }
 
@@ -103,8 +103,8 @@ CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
                                             IRBuilder<> &Builder,
                                             unsigned Alignment,
                                             Value *Mask) {
-  auto NewCallInst = Builder.CreateMaskedScatter(VecData, VecPtr, Alignment,
-                                                 Mask);
+  auto NewCallInst =
+      Builder.CreateMaskedScatter(VecData, VecPtr, Align(Alignment), Mask);
   return NewCallInst;
 }
 
