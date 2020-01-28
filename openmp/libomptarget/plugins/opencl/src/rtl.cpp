@@ -40,6 +40,12 @@
 #endif
 
 #include "omptargetplugin.h"
+#include "omptarget-tools.h"
+
+extern thread_local OmptTraceTy *omptTracePtr;
+extern void omptInitPlugin();
+extern const char *omptDocument;
+extern ompt_interface_fn_t omptLookupEntries(const char *);
 
 #if INTEL_CUSTOMIZATION
 // FIXME: find a way to include cl_usm_ext.h to get these definitions
@@ -91,7 +97,7 @@ double omp_get_wtime(void) __attribute__((weak));
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 #ifdef OMPTARGET_OPENCL_DEBUG
-static int DebugLevel = 0;
+int DebugLevel = 0;
 #define DP(...)                                                                \
   do {                                                                         \
     if (DebugLevel > 0) {                                                      \
@@ -519,6 +525,19 @@ public:
     if (Flags & EnableProfileFlag)
       for (uint32_t i = 0; i < numDevices; i++)
         Profiles[i].printData(i, Names[i].data(), ProfileResolution);
+    // Invoke OMPT callbacks
+    if (omptEnabled.enabled) {
+      for (uint32_t i = 0; i < numDevices; i++) {
+        // Skip uninitialized device if there is any
+        cl_device_id device_id;
+        if (clGetCommandQueueInfo(Queues[i], CL_QUEUE_DEVICE, sizeof(device_id),
+                                  &device_id, nullptr) != CL_SUCCESS ||
+            device_id != deviceIDs[i])
+          continue;
+        OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
+        OMPT_CALLBACK(ompt_callback_device_finalize, i);
+      }
+    }
 #ifndef _WIN32
     // Release resources. There is no safe way of making OpenCL calls in a
     // global object constructor or destructor on Windows -- only non-Windows
@@ -747,8 +766,11 @@ int32_t __tgt_rtl_number_of_devices() {
     DP("Addressing mode is %d bit\n", addressmode);
 #endif
   }
-  if (DeviceInfo.numDevices == 0)
+  if (DeviceInfo.numDevices > 0) {
+    omptInitPlugin();
+  } else {
     DP("WARNING: No OpenCL devices found.\n");
+  }
 
   return DeviceInfo.numDevices;
 }
@@ -790,6 +812,11 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   DeviceInfo.QueuesOOO[device_id] = nullptr;
 
   DeviceInfo.Extensions[device_id].getExtensionsInfoForDevice(device_id);
+
+  OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
+                DeviceInfo.Names[device_id].data(),
+                DeviceInfo.deviceIDs[device_id],
+                omptLookupEntries, omptDocument);
 
   return OFFLOAD_SUCCESS;
 }
@@ -1153,6 +1180,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
   table.EntriesBegin = &(entries[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
+
+  OMPT_CALLBACK(ompt_callback_device_load, device_id,
+                "" /* filename */,
+                -1 /* offset_in_file */,
+                nullptr /* vma_in_file */,
+                table.EntriesEnd - table.EntriesBegin /* bytes */,
+                table.EntriesBegin /* host_addr */,
+                nullptr /* device_addr */,
+                0 /* module_id */);
 
   return &table;
 }
@@ -1870,6 +1906,16 @@ static inline int32_t run_target_team_nd_region(
   }
 #endif  // INTEL_CUSTOMIZATION
 
+  if (omptEnabled.enabled) {
+    // Push current work size
+    size_t finalNumTeams =
+        global_work_size[0] * global_work_size[1] * global_work_size[2];
+    size_t finalThreadLimit =
+        local_work_size[0] * local_work_size[1] * local_work_size[2];
+    finalNumTeams /= finalThreadLimit;
+    omptTracePtr->pushWorkSize(finalNumTeams, finalThreadLimit);
+  }
+
   cl_event event;
   INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
                      *kernel, (cl_uint)work_dim, nullptr, global_work_size,
@@ -1986,4 +2032,5 @@ EXTERN char *__tgt_rtl_get_device_name(
 #ifdef __cplusplus
 }
 #endif
+
 #endif // INTEL_COLLAB

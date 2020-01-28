@@ -13,6 +13,9 @@
 #include "device.h"
 #include "private.h"
 #include "rtl.h"
+#if INTEL_COLLAB
+#include "omptarget-tools.h"
+#endif // INTEL_COLLAB
 
 #include <cassert>
 #include <cstdlib>
@@ -81,6 +84,9 @@ void RTLsTy::LoadRTLs() {
   if (TargetOffloadPolicy == tgt_disabled) {
     return;
   }
+#if INTEL_COLLAB
+  omptInit();
+#endif // INTEL_COLLAB
 
   DP("Loading RTLs...\n");
 
