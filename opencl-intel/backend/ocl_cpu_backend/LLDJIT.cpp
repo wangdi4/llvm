@@ -92,6 +92,10 @@ LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
   // Build debug information by default, since LLDJIT's purpose is to allow
   // native VS debugging.
   ArgvLLD.push_back("-debug");
+
+  // Don't allow embedded LLD to create additional threads.
+  //
+  ArgvLLD.push_back("-threads:no");
 }
 
 LLDJIT::~LLDJIT() {
