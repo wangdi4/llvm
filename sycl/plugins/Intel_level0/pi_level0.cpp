@@ -87,6 +87,7 @@ void _pi_queue::executeCommandList(ze_command_list_handle_t ze_command_list,
   ZE_CALL(zeCommandQueueExecuteCommandLists(
     L0CommandQueue, 1, &ze_command_list, nullptr));
 
+  // TODO: add a global control to make every command blocking for debugging.
   if (is_blocking) {
     // Wait until command lists attached to the command queue are executed.
     ZE_CALL(zeCommandQueueSynchronize(L0CommandQueue, UINT32_MAX));
@@ -1867,6 +1868,13 @@ pi_result L0(piEventRelease)(pi_event event) {
       ZE_CALL(zeCommandListDestroy(event->L0CommandList));
       event->L0CommandList = nullptr;
     }
+    if (event->CommandType == PI_COMMAND_TYPE_MEM_BUFFER_UNMAP &&
+        event->CommandData) {
+      // Free the memory allocated in the piEnqueueMemBufferMap.
+      ZE_CALL(zeDriverFreeMem(ze_driver_global, event->CommandData));
+      event->CommandData = nullptr;
+    }
+
     ZE_CALL(zeEventDestroy(event->L0Event));
     ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
     delete event;
@@ -2615,6 +2623,11 @@ pi_result L0(piEnqueueMemUnmap)(
   ze_command_list_handle_t ze_command_list =
     queue->Context->Device->createCommandList();
 
+  // TODO: handle the case when user does not care to follow the event
+  // of unmap completion.
+  //
+  pi_assert(event);
+
   L0(piEventCreate)(queue->Context, event);
   (*event)->Queue = queue;
   (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_UNMAP;
@@ -2652,14 +2665,14 @@ pi_result L0(piEnqueueMemUnmap)(
     ze_event
   ));
 
-  if (!memobj->MapHostPtr) {
-    // TODO: free the host memory allocated in piEnqueueMemBufferMap.
-    // This is only OK to do so after the above copy is completed.
-  }
+  // NOTE: we still have to free the host memory allocated/returned by
+  // piEnqueueMemBufferMap, but can only do so after the above copy
+  // is completed. Instead of waiting for it here (blocking), we shall
+  // do so in piEventRelease called for the pi_event tracking the unmap.
+  (*event)->CommandData = memobj->MapHostPtr ? nullptr : mapped_ptr;
 
-  // unmap operations are asynchronous, as one of the events
-  // in the event_wait_list is a user event which will be signaled after
-  // exiting this call.
+  // Execute command list asynchronously, as the event will be used
+  // to track down its completion.
   queue->executeCommandList(ze_command_list);
   _pi_event::deleteL0EventList(ze_event_wait_list);
 

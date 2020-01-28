@@ -507,15 +507,6 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (isa<IntrinsicInst>(&I))
         continue;
       if (I.mayHaveSideEffects()) {
-        // REMOVE this code when hierarchical parallelism is fully implemented.
-        // We avoid conditionalizing calls with return values, because the
-        // threads > 0 will get undefined values. We also might need a better
-        // filter than mayHaveSideEffects, which is very broad.
-        if (auto *Call = dyn_cast<CallInst>(&I)) {
-          auto *FnType = Call->getFunctionType();
-          if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
-            continue;
-        }
         if (ignoreSpecialOperands(&I))
           continue;
 
@@ -561,6 +552,8 @@ void VPOParoptTransform::guardSideEffectStatements(
   while (I != IE) {
 
     Instruction *StartI = *I;
+    bool StartIHasUses = StartI->hasNUsesOrMore(1);
+
     // Collect a consecutive set of Instructions with side effects
     // from the same block. We want to guard them all at once.
     // Note that we cannot easily guard any intermediate instructions.
@@ -569,9 +562,13 @@ void VPOParoptTransform::guardSideEffectStatements(
     // loads from addrspace(1|3) as well, since they may be loading
     // from the memory we are about to guard, and the memory may be outdated
     // in non-master WIs.
-    while (std::next(I) != IE &&
-           *std::next(I) == (*I)->getNextNonDebugInstruction())
-      I = std::next(I);
+    // Instructions with uses are guarded separately.
+    if (!StartIHasUses)
+      while (std::next(I) != IE &&
+             *std::next(I) == (*I)->getNextNonDebugInstruction() &&
+             !((*std::next(I))->hasNUsesOrMore(1))) {
+        I = std::next(I);
+      }
 
     // I is pointing to the last instruction in the sequence.
     Instruction *StopI = *I;
@@ -591,8 +588,32 @@ void VPOParoptTransform::guardSideEffectStatements(
     LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n" <<
                *StartI << "\nto:\n" << *StopI);
 
+    // For the following code:
+    //
+    //   #pragma omp target map(tofrom:a)
+    //     int val = bar(a);
+    //
+    // Generate code like this:
+    //
+    //  @c.broadcast.ptr.__local = internal addrspace(3) global i32 0 //  (1)
+    //
+    //  if (is_master) {                                              //  (2)
+    //    %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)     // StartI
+    //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (3)
+    //  }
+    //
+    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (4)
+    //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (5)
+    //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
+    //
+    Value *TeamLocalVal = nullptr;
+    if (StartIHasUses)
+      TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
+          StartI->getType(), nullptr, TargetDirectiveBegin,
+          StartI->getName() + ".broadcast.ptr", vpo::ADDRESS_SPACE_LOCAL);
+
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-        MasterCheckPredicate, StartI, false, nullptr, DT, LI);
+        MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (2)
     BasicBlock *ThenBB = ThenTerm->getParent();
     ThenBB->setName("master.thread.code");
     Instruction *ElseInst = StopI->getNextNonDebugInstruction();
@@ -601,9 +622,24 @@ void VPOParoptTransform::guardSideEffectStatements(
     ThenBB->getInstList().splice(
         ThenTerm->getIterator(), StartI->getParent()->getInstList(),
         StartI->getIterator(), ElseInst->getIterator());
-    // Insert group barrier at the merge point.
-    InsertBarrierAt.push_back(ElseBB->getFirstNonPHI());
 
+    Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
+
+    if (StartIHasUses) { //                                               (3)
+      StoreInst *StoreGuardedInstValue = new StoreInst(StartI, TeamLocalVal);
+      StoreGuardedInstValue->insertAfter(StartI);
+
+      LoadInst *LoadSavedValue = new LoadInst(StartI->getType(), TeamLocalVal,
+                                              StartI->getName() + ".new"); //(5)
+      LoadSavedValue->insertBefore(BarrierInsertPt);
+      BarrierInsertPt = LoadSavedValue;
+
+      StartI->replaceAllUsesWith(LoadSavedValue);
+      StoreGuardedInstValue->replaceUsesOfWith(LoadSavedValue, StartI);
+    }
+
+    // Insert group barrier at the merge point.
+    InsertBarrierAt.push_back(BarrierInsertPt);
     I = std::next(I);
   }
 
@@ -624,7 +660,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       W->getChildren().size() > 1) {
     for (auto *InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
-      InsertWorkGroupBarrier(InsertPt);
+      InsertWorkGroupBarrier(InsertPt); //                                (4)
     }
   }
 

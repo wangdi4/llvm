@@ -649,20 +649,18 @@ static bool computeDelinearizationValidityConditions(
   DDRefUtils &DRU = Group.front()->getDDRefUtils();
   BlobUtils &BU = DRU.getBlobUtils();
 
-  RefGroupTy SortedRefs;
-  SortedRefs.append(Group.begin(), Group.end());
-
   SmallSetVector<const RegDDRef *, 8> AuxRefs;
 
   for (int I = 0, E = Sizes.size() - 1; I < E; ++I) {
     // We already checked that subscripts may be compared.
-    std::sort(SortedRefs.begin(), SortedRefs.end(),
-              [&](const RegDDRef *A, const RegDDRef *B) {
-                return CanonExprUtils::compare(A->getDimensionIndex(I + 1),
-                                               B->getDimensionIndex(I + 1));
-              });
+    auto MinMax = std::minmax_element(
+        Group.begin(), Group.end(), [&](const RegDDRef *A, const RegDDRef *B) {
+          return CanonExprUtils::compare(A->getDimensionIndex(I + 1),
+                                         B->getDimensionIndex(I + 1));
+        });
 
-    AuxRefs.insert(SortedRefs.back());
+    AuxRefs.insert(*MinMax.first);
+    AuxRefs.insert(*MinMax.second);
 
     // Generate:
     //   Size[i] > 1
@@ -677,7 +675,10 @@ static bool computeDelinearizationValidityConditions(
     //   Subscript[i + 1] < Size[i]
     // TODO: need to handle Ref's lower bound
 
-    const CanonExpr *MaxCE = SortedRefs.back()->getDimensionIndex(I + 1);
+    const CanonExpr *MinCE = (*MinMax.first)->getDimensionIndex(I + 1);
+    std::unique_ptr<CanonExpr> MinCEClone(MinCE->clone());
+
+    const CanonExpr *MaxCE = (*MinMax.second)->getDimensionIndex(I + 1);
     RegDDRef *MaxRef =
         DRU.createScalarRegDDRef(GenericRvalSymbase, MaxCE->clone());
 
@@ -686,19 +687,30 @@ static bool computeDelinearizationValidityConditions(
          Loop != LoopE; Loop = Loop->getParentLoop()) {
       auto Ret = replaceIVByBound(MaxRef->getSingleCanonExpr(), Loop, InnerLoop,
                                   false);
-      if (Ret) {
-        if (*Ret) {
-          AuxRefs.insert(Loop->getUpperDDRef());
-        } else {
-          return false;
-        }
+      if (Ret && !*Ret) {
+        return false;
       }
+
+      Ret = replaceIVByBound(MinCEClone.get(), Loop, InnerLoop, true);
+      if (Ret && !*Ret) {
+        return false;
+      }
+
+      // replaceIVByBound() has non-trivial logic for choosing between Lower and
+      // Upper bound RefDDRef - add both.
+      AuxRefs.insert(Loop->getUpperDDRef());
+      AuxRefs.insert(Loop->getLowerDDRef());
     }
+
+    bool Subtracted = CanonExprUtils::subtract(MaxRef->getSingleCanonExpr(),
+                                               MinCEClone.get(), false);
+    (void)Subtracted;
+    assert(Subtracted && "Can not subtract!");
 
     // Subscripts may contain embedded cast even if they are constant.
     MaxRef->getSingleCanonExpr()->simplify(true, false);
 
-    // MaxRef < DimSizeRef
+    // (MaxCE - MinCE) < DimSizeRef
     MaxRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
     Conditions.emplace_back(MaxRef, CmpInst::ICMP_SLT, DimSizeRef->clone());
   }
@@ -738,6 +750,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
     if (!computeDelinearizationValidityConditions(DelinearizedGroup, GroupSizes,
                                                   Loop, InnermostLoop,
                                                   ValidityConditions)) {
+      LLVM_DEBUG(dbgs() << "[RTDD] Infeasible delinearization conditions\n");
       return DELINEARIZATION_FAILED;
     }
   }

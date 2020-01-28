@@ -3634,6 +3634,9 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
                           AllocaAddrSpace.getValue());
 
+    if (!ValueAddrSpace)
+      return GV;
+
     auto *ASCI = Builder.CreateAddrSpaceCast(
         GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
         GV->getName() + ".ascast");

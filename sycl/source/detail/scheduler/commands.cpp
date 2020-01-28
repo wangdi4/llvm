@@ -293,12 +293,11 @@ cl_int ReleaseCommand::enqueueImp() {
     NeedUnmap |= CurAllocaIsHost == MAllocaCmd->MIsActive;
   }
 
+  RT::PiEvent UnmapEvent = nullptr; // INTEL
   if (NeedUnmap) {
     const QueueImplPtr &Queue = CurAllocaIsHost
                                     ? MAllocaCmd->MLinkedAllocaCmd->getQueue()
                                     : MAllocaCmd->getQueue();
-    RT::PiEvent UnmapEvent = nullptr;
-
     void *Src = CurAllocaIsHost
                     ? MAllocaCmd->getMemAllocation()
                     : MAllocaCmd->MLinkedAllocaCmd->getMemAllocation();
@@ -322,6 +321,17 @@ cl_int ReleaseCommand::enqueueImp() {
                            MAllocaCmd->getSYCLMemObj(),
                            MAllocaCmd->getMemAllocation(), std::move(RawEvents),
                            Event);
+
+#ifdef INTEL_CUSTOMIZATION
+  // TODO: remove this after https://github.com/intel/llvm/pull/1030 is merged.
+  // In there the raw PI event will be wrapped into SYCL object that will
+  // perform this releasing in its destructor.
+  //
+  if (UnmapEvent) {
+    // Release the event created for unmap
+    PI_CALL(piEventRelease)(UnmapEvent);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return CL_SUCCESS;
 }

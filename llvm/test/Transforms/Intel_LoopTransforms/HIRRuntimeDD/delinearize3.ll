@@ -1,26 +1,39 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Check delinearize conditions for 2d case
+; Check delinearize conditions for 2d case with respect to lower bound (-2).
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, %UB1, 1   <DO_LOOP>
 ;       |   + DO i2 = 0, %UB2, 1   <DO_LOOP>
 ;       |   |   + DO i3 = 0, %UB3, 1   <DO_LOOP>
 ;       |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3] = (%q)[i3];
-;       |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3 + %d2] = (%q)[i3];
+;       |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3 + %d2 - 2] = (%q)[i3];
 ;       |   |   + END LOOP
 ;       |   + END LOOP
 ;       + END LOOP
 ; END REGION
 
 ; CHECK: %mv.test = &((%q)[%UB3]) >=u &((%p)[0][0][0]);
-; CHECK: %mv.test3 = &((%p)[%UB1][%UB2 + 1][%UB3]) >=u &((%q)[0]);
+; CHECK: %mv.test3 = &((%p)[%UB1][%UB2 + 1][%UB3 + -2]) >=u &((%q)[0]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test3;
+
+; For each inner dimension check that the index span (Maximum index - Minimum index)
+; is less then the next higher dimension size. In this case-
+;
+;      d1     d2
+; (%p)[i1][i2    ][i3    ]
+; (%p)[i1][i2 + 1][i3 - 2]
+;
+; Maximum indices for inner dimensions:
+; [][UB2 + 1][UB3]
+;
+; Minimum indices for inner dimensions:
+; [][0][-2]
 
 ; CHECK: if
 ; CHECK-DAG: %d2 > 1
-; CHECK-DAG: %UB3 < %d2
+; CHECK-DAG: %UB3 + 2 < %d2
 ; CHECK-DAG: %d1 > 1
 ; CHECK-DAG: %UB2 + 1 < %d1
 ; CHECK-DAG: %mv.and == 0
@@ -45,7 +58,8 @@ for.cond5.preheader:                              ; preds = %for.cond.cleanup7, 
   %j.048 = phi i64 [ 0, %for.cond1.preheader ], [ %add16, %for.cond.cleanup7 ]
   %mul10 = mul i64 %j.048, %d2
   %add16 = add nuw nsw i64 %j.048, 1
-  %mul17 = mul i64 %add16, %d2
+  %mul17_ = mul i64 %add16, %d2
+  %mul17 = add i64 %mul17_, -2
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7

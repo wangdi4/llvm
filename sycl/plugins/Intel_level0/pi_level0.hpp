@@ -126,6 +126,9 @@ struct _pi_event {
   pi_queue Queue;
   pi_command_type CommandType;
 
+  // Opaque data to hold any data needed for CommandType.
+  void * CommandData;
+
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
 
