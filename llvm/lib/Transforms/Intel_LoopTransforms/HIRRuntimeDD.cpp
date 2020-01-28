@@ -126,6 +126,10 @@ static cl::opt<bool>
     DisableCostModel("disable-" OPT_SWITCH "-cost-model", cl::init(false),
                      cl::Hidden, cl::desc("Disable " OPT_DESCR " cost model."));
 
+static cl::opt<bool> DisableLibraryCallSwitch(
+    "disable-" OPT_SWITCH "-library-call", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESCR " library call method."));
+
 static cl::opt<unsigned> RtlThreshold(
     OPT_SWITCH "-rtl-threshold", cl::init(ExpectedNumberOfTests), cl::Hidden,
     cl::desc("Number of tests when LibraryCall method would be used."));
@@ -134,6 +138,29 @@ static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests",
                          cl::init(60), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+namespace DbgMessage {
+enum Kind {
+  None = 0,
+  Positive = 1,
+  Negative = 2,
+  Both = 3,
+};
+}
+
+static cl::opt<DbgMessage::Kind> CreateDbgMessages(
+    OPT_SWITCH "-dbg", cl::init(DbgMessage::None), cl::Hidden,
+    cl::ValueOptional,
+    cl::desc(OPT_DESCR " creates stdout messages for loop versions."),
+    cl::values(clEnumValN(DbgMessage::None, "none", "Disable debug messages"),
+               clEnumValN(DbgMessage::Positive, "positive", "Positive matches"),
+               clEnumValN(DbgMessage::Negative, "negative", "Negative matches"),
+               clEnumValN(DbgMessage::Both, "both",
+                          "Both positive and negative matches"),
+               // Value assumed when just -dbg is specified.
+               clEnumValN(DbgMessage::Both, "", "")));
+#endif
 
 // This will count both innermost and outer transformations
 STATISTIC(LoopsMultiversioned, "Number of loops multiversioned by runtime DD");
@@ -622,34 +649,36 @@ static bool computeDelinearizationValidityConditions(
   DDRefUtils &DRU = Group.front()->getDDRefUtils();
   BlobUtils &BU = DRU.getBlobUtils();
 
-  RefGroupTy SortedRefs;
-  SortedRefs.append(Group.begin(), Group.end());
-
   SmallSetVector<const RegDDRef *, 8> AuxRefs;
 
   for (int I = 0, E = Sizes.size() - 1; I < E; ++I) {
     // We already checked that subscripts may be compared.
-    std::sort(SortedRefs.begin(), SortedRefs.end(),
-              [&](const RegDDRef *A, const RegDDRef *B) {
-                return CanonExprUtils::compare(A->getDimensionIndex(I + 1),
-                                               B->getDimensionIndex(I + 1));
-              });
+    auto MinMax = std::minmax_element(
+        Group.begin(), Group.end(), [&](const RegDDRef *A, const RegDDRef *B) {
+          return CanonExprUtils::compare(A->getDimensionIndex(I + 1),
+                                         B->getDimensionIndex(I + 1));
+        });
 
-    AuxRefs.insert(SortedRefs.back());
+    AuxRefs.insert(*MinMax.first);
+    AuxRefs.insert(*MinMax.second);
 
     // Generate:
     //   Size[i] > 1
-    RegDDRef *DimSizeRef = DRU.createConstDDRef(Sizes[I]->getType(), 0);
-    DimSizeRef->getSingleCanonExpr()->addBlob(BU.findOrInsertBlob(Sizes[I]), 1);
+    auto SizeBlob = Sizes[E - I - 1];
+    RegDDRef *DimSizeRef = DRU.createConstDDRef(SizeBlob->getType(), 0);
+    DimSizeRef->getSingleCanonExpr()->addBlob(BU.findOrInsertBlob(SizeBlob), 1);
     DimSizeRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
-    RegDDRef *OneRef = DRU.createConstDDRef(Sizes[I]->getType(), 1);
+    RegDDRef *OneRef = DRU.createConstDDRef(SizeBlob->getType(), 1);
     Conditions.emplace_back(DimSizeRef, CmpInst::ICMP_SGT, OneRef);
 
     // Generate:
     //   Subscript[i + 1] < Size[i]
     // TODO: need to handle Ref's lower bound
 
-    const CanonExpr *MaxCE = SortedRefs.back()->getDimensionIndex(I + 1);
+    const CanonExpr *MinCE = (*MinMax.first)->getDimensionIndex(I + 1);
+    std::unique_ptr<CanonExpr> MinCEClone(MinCE->clone());
+
+    const CanonExpr *MaxCE = (*MinMax.second)->getDimensionIndex(I + 1);
     RegDDRef *MaxRef =
         DRU.createScalarRegDDRef(GenericRvalSymbase, MaxCE->clone());
 
@@ -658,19 +687,30 @@ static bool computeDelinearizationValidityConditions(
          Loop != LoopE; Loop = Loop->getParentLoop()) {
       auto Ret = replaceIVByBound(MaxRef->getSingleCanonExpr(), Loop, InnerLoop,
                                   false);
-      if (Ret) {
-        if (*Ret) {
-          AuxRefs.insert(Loop->getUpperDDRef());
-        } else {
-          return false;
-        }
+      if (Ret && !*Ret) {
+        return false;
       }
+
+      Ret = replaceIVByBound(MinCEClone.get(), Loop, InnerLoop, true);
+      if (Ret && !*Ret) {
+        return false;
+      }
+
+      // replaceIVByBound() has non-trivial logic for choosing between Lower and
+      // Upper bound RefDDRef - add both.
+      AuxRefs.insert(Loop->getUpperDDRef());
+      AuxRefs.insert(Loop->getLowerDDRef());
     }
+
+    bool Subtracted = CanonExprUtils::subtract(MaxRef->getSingleCanonExpr(),
+                                               MinCEClone.get(), false);
+    (void)Subtracted;
+    assert(Subtracted && "Can not subtract!");
 
     // Subscripts may contain embedded cast even if they are constant.
     MaxRef->getSingleCanonExpr()->simplify(true, false);
 
-    // MaxRef < DimSizeRef
+    // (MaxCE - MinCE) < DimSizeRef
     MaxRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
     Conditions.emplace_back(MaxRef, CmpInst::ICMP_SLT, DimSizeRef->clone());
   }
@@ -710,6 +750,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
     if (!computeDelinearizationValidityConditions(DelinearizedGroup, GroupSizes,
                                                   Loop, InnermostLoop,
                                                   ValidityConditions)) {
+      LLVM_DEBUG(dbgs() << "[RTDD] Infeasible delinearization conditions\n");
       return DELINEARIZATION_FAILED;
     }
   }
@@ -763,6 +804,20 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
   return OK;
 }
 
+static bool isStarEdge(const DDEdge &Edge) {
+  for (DVKind Kind : Edge.getDV()) {
+    if (Kind == DVKind::NONE) {
+      break;
+    }
+
+    if (Kind == DVKind::ALL) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
     DenseMap<RegDDRef *, unsigned> &RefGroupIndex,
@@ -778,6 +833,11 @@ RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
 
     for (const DDEdge *Edge : DDG.outgoing(SrcRef)) {
       assert(!Edge->isInput() && "Input edges are unexpected");
+
+      // Do not multiversion if the dependency is well defined.
+      if (!isStarEdge(*Edge)) {
+        continue;
+      }
 
       RegDDRef *DstRef = cast<RegDDRef>(Edge->getSink());
       auto GroupBI = RefGroupIndex.find(DstRef);
@@ -1221,7 +1281,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
       AttributeList::get(LLVMContext, AttributeList::FunctionIndex, AB);
 
   Type *IntPtrType = HNU.getDataLayout().getIntPtrType(PtrType);
-  FunctionCallee RtddIndep = HNU.getFunction().getParent()->getOrInsertFunction(
+  FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
   RegDDRef *ArrayRef = DRU.createMemRef(TestArrayBlobIndex);
@@ -1334,7 +1394,52 @@ HLIf *HIRRuntimeDD::createMasterCondition(
   llvm_unreachable("Unknown test generation method");
 }
 
-void HIRRuntimeDD::generateHLNodes(LoopContext &Context) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static void createDbgMessages(HLLoop *NoAliasLoop, HLLoop *ClonedLoop,
+                              SmallVectorImpl<unsigned> &NewLiveinSymbases,
+                              const TargetLibraryInfo &TLI) {
+  if (CreateDbgMessages == DbgMessage::None) {
+    return;
+  }
+
+  std::string LoopInfoMsg;
+  raw_string_ostream LIMO(LoopInfoMsg);
+
+  LIMO << "[RTDD]: " << NoAliasLoop->getHLNodeUtils().getFunction().getName()
+       << "(), <Loop " << NoAliasLoop->getNumber();
+  if (NoAliasLoop->getDebugLoc()) {
+    LIMO << "@";
+    NoAliasLoop->getDebugLoc().print(LIMO);
+  }
+  LIMO << ">:";
+  LIMO.flush();
+
+  auto InsertDbgPuts = [&NewLiveinSymbases, TLI](HLLoop *Loop,
+                                                 StringRef Message) {
+    auto *Call = Loop->getHLNodeUtils().createDbgPuts(
+        TLI, Loop->getParentRegion(), Message);
+    assert(Call &&
+           "Could not create 'puts' call - libraries are not available");
+
+    HLNodeUtils::insertBefore(Loop, Call);
+
+    NewLiveinSymbases.push_back(Call->getOperandDDRef(1)->getBasePtrSymbase());
+  };
+
+  if (CreateDbgMessages.getValue() & DbgMessage::Positive) {
+    InsertDbgPuts(NoAliasLoop, LoopInfoMsg + " OK");
+  }
+
+  if (CreateDbgMessages.getValue() & DbgMessage::Negative) {
+    InsertDbgPuts(ClonedLoop, LoopInfoMsg + " FAILED");
+  }
+}
+#endif
+
+void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
+                                   const TargetLibraryInfo &TLI) {
+  (void)TLI;
+
   Context.Loop->extractZtt();
   Context.Loop->extractPreheaderAndPostexit();
 
@@ -1374,6 +1479,10 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context) {
 
   HLNodeUtils::moveAsFirstThenChild(MemcheckIf, NoAliasLoop);
   HLNodeUtils::insertAsFirstElseChild(MemcheckIf, ClonedLoop);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  createDbgMessages(NoAliasLoop, ClonedLoop, NewLiveinSymbases, TLI);
+#endif
 
   // Add new live-in symbases to the parent loops.
   for (HLLoop *ParentLoop = MemcheckIf->getParentLoop(); ParentLoop != nullptr;
@@ -1460,7 +1569,8 @@ bool HIRRuntimeDD::run() {
   LLVM_DEBUG(dbgs() << "HIRRuntimeDD for function: "
                     << HIRF.getFunction().getName() << "\n");
 
-  if (!TTI.isAdvancedOptEnabled(
+  if (DisableLibraryCallSwitch ||
+      !TTI.isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42) ||
       !TLI.has(LibFunc_qsort)) {
     LLVM_DEBUG(dbgs() << "[RTDD] Libraries are not available. The Library Call "
@@ -1474,7 +1584,7 @@ bool HIRRuntimeDD::run() {
 
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
-      generateHLNodes(Candidate);
+      generateHLNodes(Candidate, TLI);
 
       // Statistics
       ++LoopsMultiversioned;

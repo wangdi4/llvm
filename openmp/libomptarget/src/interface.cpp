@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <omptarget.h>
+#if INTEL_COLLAB
+#include "omptarget-tools.h"
+#endif // INTEL_COLLAB
 
 #include "device.h"
 #include "private.h"
@@ -111,6 +114,9 @@ EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
     return;
   }
 
+#if INTEL_COLLAB
+  omptTrace.targetDataEnterBegin(device_id);
+#endif // INTEL_COLLAB
   DeviceTy& Device = Devices[device_id];
 
 #ifdef OMPTARGET_DEBUG
@@ -124,6 +130,9 @@ EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
   int rc = target_data_begin(Device, arg_num, args_base,
       args, arg_sizes, arg_types);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
+#if INTEL_COLLAB
+  omptTrace.targetDataEnterEnd(device_id);
+#endif // INTEL_COLLAB
 }
 
 EXTERN void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
@@ -174,9 +183,15 @@ EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
   }
 #endif
 
+#if INTEL_COLLAB
+  omptTrace.targetDataExitBegin(device_id);
+#endif // INTEL_COLLAB
   int rc = target_data_end(Device, arg_num, args_base,
       args, arg_sizes, arg_types);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
+#if INTEL_COLLAB
+  omptTrace.targetDataExitEnd(device_id);
+#endif // INTEL_COLLAB
 }
 
 EXTERN void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
@@ -206,10 +221,16 @@ EXTERN void __tgt_target_data_update(int64_t device_id, int32_t arg_num,
     return;
   }
 
+#if INTEL_COLLAB
+  omptTrace.targetDataUpdateBegin(device_id);
+#endif // INTEL_COLLAB
   DeviceTy& Device = Devices[device_id];
   int rc = target_data_update(Device, arg_num, args_base,
       args, arg_sizes, arg_types);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
+#if INTEL_COLLAB
+  omptTrace.targetDataUpdateEnd(device_id);
+#endif // INTEL_COLLAB
 }
 
 EXTERN void __tgt_target_data_update_nowait(
@@ -247,9 +268,15 @@ EXTERN int __tgt_target(int64_t device_id, void *host_ptr, int32_t arg_num,
   }
 #endif
 
+#if INTEL_COLLAB
+  omptTrace.targetBegin(device_id);
+#endif // INTEL_COLLAB
   int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
       arg_types, 0, 0, false /*team*/);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
+#if INTEL_COLLAB
+  omptTrace.targetEnd(device_id);
+#endif // INTEL_COLLAB
   return rc;
 }
 
@@ -289,9 +316,15 @@ EXTERN int __tgt_target_teams(int64_t device_id, void *host_ptr,
   }
 #endif
 
+#if INTEL_COLLAB
+  omptTrace.targetBegin(device_id);
+#endif // INTEL_COLLAB
   int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
       arg_types, team_num, thread_limit, true /*team*/);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
+#if INTEL_COLLAB
+  omptTrace.targetEnd(device_id);
+#endif // INTEL_COLLAB
 
   return rc;
 }
@@ -594,5 +627,13 @@ EXTERN int __tgt_get_interop_property(
   }
 
   return OFFLOAD_SUCCESS;
+}
+
+EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
+  omptTrace.pushCodeLocation(location, codeptr_ra);
+}
+
+EXTERN void *__tgt_get_ompt_trace(void) {
+  return &omptTrace;
 }
 #endif // INTEL_COLLAB

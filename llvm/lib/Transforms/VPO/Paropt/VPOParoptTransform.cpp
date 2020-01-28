@@ -2281,10 +2281,10 @@ bool VPOParoptTransform::genReductionScalarFini(
 //   @.kmpc_loc.0.0.4, i32 %my.tid31, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %exitStub
 //
-bool VPOParoptTransform::genReductionFini(WRegionNode *W,
-                                          ReductionItem *RedI, Value *OldV,
-                                          Instruction *InsertPt,
-                                          DominatorTree *DT) {
+bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
+                                          Value *OldV, Instruction *InsertPt,
+                                          DominatorTree *DT,
+                                          bool NoNeedToOffsetOrDerefOldV) {
   Value *NewAI = RedI->getNew();
   // NewAI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(NewAI) &&
@@ -2295,16 +2295,18 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
-  if (RedI->getIsByRef())
+  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
     OldV = Builder.CreateLoad(OldV);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
-    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
+    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
+                                     NoNeedToOffsetOrDerefOldV);
 
 #endif // INTEL_CUSTOMIZATION
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
-    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
+    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
+                                     NoNeedToOffsetOrDerefOldV);
 
   assert((VPOUtils::canBeRegisterized(AllocaTy,
                                       InsertPt->getModule()->getDataLayout()) ||
@@ -2392,12 +2394,10 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 //   @.kmpc_loc.0.0.5, i32 %my.tid85, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %exitStub
 //
-bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
-                                                   ReductionItem *RedI,
-                                                   Value *AI, Value *OldV,
-                                                   Instruction *InsertPt,
-                                                   bool IsInit,
-                                                   DominatorTree *DT) {
+bool VPOParoptTransform::genRedAggregateInitOrFini(
+    WRegionNode *W, ReductionItem *RedI, Value *AI, Value *OldV,
+    Instruction *InsertPt, bool IsInit, DominatorTree *DT,
+    bool NoNeedToOffsetOrDerefOldV) {
 
   bool NeedsKmpcCritical = false;
   IRBuilder<> Builder(InsertPt);
@@ -2414,7 +2414,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
   else
     genAggrReductionFiniSrcDstInfo(*RedI, AI, OldV, InsertPt, Builder,
                                    NumElements, SrcBegin, DestBegin,
-                                   DestElementTy);
+                                   DestElementTy, NoNeedToOffsetOrDerefOldV);
 
   assert(DestBegin && "Null destination address for reduction init/fini.");
   assert(DestElementTy && "Null element type for reduction init/fini.");
@@ -3227,9 +3227,10 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
 // of the source and destination arrays, number of elements, and the type of
 // destination array elements.
 void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
-    const ReductionItem &RedI, Value *AI, Value *OldV,
-    Instruction *InsertPt, IRBuilder<> &Builder, Value *&NumElements,
-    Value *&SrcArrayBegin, Value *&DestArrayBegin, Type *&DestElementTy) {
+    const ReductionItem &RedI, Value *AI, Value *OldV, Instruction *InsertPt,
+    IRBuilder<> &Builder, Value *&NumElements, Value *&SrcArrayBegin,
+    Value *&DestArrayBegin, Type *&DestElementTy,
+    bool NoNeedToOffsetOrDerefOldV) {
 
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
@@ -3280,10 +3281,9 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   auto *SrcPointerTy = SrcArrayBegin->getType();
   assert(isa<PointerType>(SrcPointerTy) &&
          "Reduction source must have pointer type.");
-  SrcArrayBegin = Builder.CreateBitCast(
-      SrcArrayBegin,
-      PointerType::get(SrcElementTy,
-                       cast<PointerType>(SrcPointerTy)->getAddressSpace()));
+  auto SrcAddrSpace = cast<PointerType>(SrcPointerTy)->getAddressSpace();
+  auto *SrcArrayBeginTy = PointerType::get(SrcElementTy, SrcAddrSpace);
+  SrcArrayBegin = Builder.CreateBitCast(SrcArrayBegin, SrcArrayBeginTy);
 
   // Generated IR for destination starting address for the above example:
   //
@@ -3292,8 +3292,11 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   //   %_yarrptr.load.cast.plus.offset = gep %_yarrptr.load.cast, 211   ; (3)
   //
   //   %_yarrptr.load.cast.plus.offset is the final DestArrayBegin.
-  DestArrayBegin = VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
-      OldV, ArrSecInfo, InsertPt);
+  if (NoNeedToOffsetOrDerefOldV)
+      DestArrayBegin = Builder.CreateBitCast(OldV, SrcArrayBeginTy);
+  else
+    DestArrayBegin = VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
+        OldV, ArrSecInfo, InsertPt);
 }
 
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
@@ -3591,10 +3594,10 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
 }
 
 // Extract the type and size of local Alloca to be created to privatize I.
-void VPOParoptTransform::getItemInfo(Item *I,
-                                     Type *&ElementType,    // out
-                                     Value *&NumElements,   // out
-                                     unsigned &AddrSpace) { // out
+std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
+  Type *ElementType = nullptr;
+  Value *NumElements = nullptr;
+  unsigned AddrSpace = 0;
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
@@ -3635,6 +3638,7 @@ void VPOParoptTransform::getItemInfo(Item *I,
                dbgs() << ", NumElements: ";
                NumElements->printAsOperand(dbgs());
              } dbgs() << "\n");
+  return std::make_tuple(ElementType, NumElements, AddrSpace);
 }
 
 // Generate a private variable version for the local copy of OrigValue.
@@ -3679,7 +3683,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   Value *NumElements = nullptr;
   unsigned AddrSpace = 0;
 
-  getItemInfo(I, ElementType, NumElements, AddrSpace);
+  std::tie(ElementType, NumElements, AddrSpace) = getItemInfo(I);
   assert(ElementType && "Could not find Type of local element.");
 
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(

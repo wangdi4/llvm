@@ -186,6 +186,13 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
 
       SerialInst = Builder.CreateCall(FT, FuncPtr, Ops);
     }
+    // FIXME: We plan to introduce VPCallInst subclass that should abstract
+    // these accessors.
+    if (auto *UnderlyingCall =
+            cast_or_null<CallInst>(VPInst->getUnderlyingValue())) {
+      cast<CallInst>(SerialInst)
+          ->setCallingConv(UnderlyingCall->getCallingConv());
+    }
   } else if (VPGEPInstruction *VPGEP = dyn_cast<VPGEPInstruction>(VPInst)) {
     assert(ScalarOperands.size() > 1 &&
            "VPGEPInstruction should have atleast two operands.");
