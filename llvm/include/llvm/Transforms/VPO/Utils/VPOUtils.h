@@ -137,10 +137,7 @@ public:
   /// invalid metadata when present in the extracted function, causing
   /// verification failure with `-fiopenmp -O0 -g`.
   static void stripDebugInfoInstrinsics(Function &F);
-
 #if INTEL_CUSTOMIZATION
-  // Remove llvm.loop metadata from instructions in the specified function.
-  static void stripLoopInfoMetadata(const WRegionNode &W);
 
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
   static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,

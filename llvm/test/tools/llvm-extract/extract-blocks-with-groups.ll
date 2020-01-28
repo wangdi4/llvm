@@ -6,27 +6,25 @@
 ; blocks if, then, and else from foo.
 ; CHECK: define dso_local void @foo.if.split(i32 %arg1, i32 %arg, i32* %tmp.0.ce.out) {
 ; CHECK: newFuncRoot:
-; CHECK:   %[[ARG1:.+]] = load i32, i32* %arg1.addr
-; CHECK:   %[[ARG:.+]] = load i32, i32* %arg.addr
 ; CHECK:   br label %if.split
 ;
 ; CHECK: end.exitStub:                                     ; preds = %end.split
 ; CHECK:   ret void
 ;
 ; CHECK: then:                                             ; preds = %if.split
-; CHECK:   %tmp12 = shl i32 %[[ARG1]], 2
-; CHECK:   %tmp13 = add nsw i32 %tmp12, %[[ARG]]
+; CHECK:   %tmp12 = shl i32 %arg1, 2
+; CHECK:   %tmp13 = add nsw i32 %tmp12, %arg
 ; CHECK:   br label %end.split
 ;
 ; CHECK: else:                                             ; preds = %if.split
-; CHECK:   %tmp22 = mul nsw i32 %[[ARG]], 3
-; CHECK:   %tmp24 = sdiv i32 %[[ARG1]], 6
+; CHECK:   %tmp22 = mul nsw i32 %arg, 3
+; CHECK:   %tmp24 = sdiv i32 %arg1, 6
 ; CHECK:   %tmp25 = add nsw i32 %tmp24, %tmp22
 ; CHECK:   br label %end.split
 ;
 ; CHECK: if.split:                                         ; preds = %newFuncRoot
-; CHECK:   %tmp5 = icmp sgt i32 %[[ARG]], 0
-; CHECK:   %tmp8 = icmp sgt i32 %[[ARG1]], 0
+; CHECK:   %tmp5 = icmp sgt i32 %arg, 0
+; CHECK:   %tmp8 = icmp sgt i32 %arg1, 0
 ; CHECK:   %or.cond = and i1 %tmp5, %tmp8
 ; CHECK:   br i1 %or.cond, label %then, label %else
 ;
@@ -40,8 +38,6 @@
 ; bb14 and bb20 from bar.
 ; CHECK: define dso_local i1 @bar.bb14(i32 %arg1, i32 %arg, i32* %tmp25.out) {
 ; CHECK: newFuncRoot:
-; CHECK:   %[[ARG1:.+]] = load i32, i32* %arg1.addr
-; CHECK:   %[[ARG:.+]] = load i32, i32* %arg.addr
 ; CHECK:   br label %bb14
 ;
 ; CHECK: bb26.exitStub:                                    ; preds = %bb14
@@ -51,13 +47,13 @@
 ; CHECK:   ret i1 false
 ;
 ; CHECK: bb14:                                             ; preds = %newFuncRoot
-; CHECK:   %tmp0 = and i32 %[[ARG1]], %[[ARG]]
+; CHECK:   %tmp0 = and i32 %arg1, %arg
 ; CHECK:   %tmp1 = icmp slt i32 %tmp0, 0
 ; CHECK:   br i1 %tmp1, label %bb20, label %bb26.exitStub
 ;
 ; CHECK: bb20:                                             ; preds = %bb14
-; CHECK:   %tmp22 = mul nsw i32 %[[ARG]], 3
-; CHECK:   %tmp24 = sdiv i32 %[[ARG1]], 6
+; CHECK:   %tmp22 = mul nsw i32 %arg, 3
+; CHECK:   %tmp24 = sdiv i32 %arg1, 6
 ; CHECK:   %tmp25 = add nsw i32 %tmp24, %tmp22
 ; CHECK:   store i32 %tmp25, i32* %tmp25.out
 ; CHECK:   br label %bb30.exitStub

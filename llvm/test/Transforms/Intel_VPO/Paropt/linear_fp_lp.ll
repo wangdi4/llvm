@@ -69,8 +69,7 @@ entry:
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.LINEAR"(i16* @y, i32 %0), "QUAL.OMP.FIRSTPRIVATE"(i32* @x), "QUAL.OMP.LASTPRIVATE"(i32* @x), "QUAL.OMP.SHARED"(i16* @y), "QUAL.OMP.SHARED"(i32* @step), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; Initial copy of linear var
-; CHECK: [[STEP_VAL_HOME:%[a-zA-Z._0-9]+]] = load i32*, i32** [[STEP_VAL_CAPTURED]]
-; CHECK: [[STEP_VAL_INREGION:%[a-zA-Z._0-9]+]] = load i32, i32* [[STEP_VAL_HOME]]
+; CHECK: [[STEP_VAL_INREGION:%[a-zA-Z._0-9]+]] = load i32, i32* [[STEP_VAL_CAPTURED]]
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i16, i16* @y
 ; CHECK: store i16 [[LOAD1]], i16* [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
 ; CHECK: call void @__kmpc_barrier{{.*}}

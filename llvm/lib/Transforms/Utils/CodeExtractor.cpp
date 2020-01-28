@@ -62,9 +62,12 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/DebugInfoTransform.h"
 #endif // INTEL_COLLAB
+=======
+>>>>>>> d385b09feb11132f4a1470ba41c8fc668b9b4bb4
 #include <cassert>
 #include <cstdint>
 #include <iterator>
@@ -296,7 +299,6 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID)),
       TgtClauseArgs(TgtClauseArgs),
-      RewrittenValues(), Debug(), DeclLoc(), HomeArguments(true),
 #else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
@@ -313,7 +315,6 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
 #if INTEL_COLLAB
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false)),
-      RewrittenValues(), Debug(), DeclLoc(), HomeArguments(true),
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
 #endif // INTEL_COLLAB
@@ -1011,40 +1012,17 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   // arguments (or appropriate addressing into struct) instead.
   for (unsigned i = 0, e = inputs.size(); i != e; ++i) {
     Value *RewriteVal;
-#if INTEL_COLLAB
-    Instruction *TI = newFunction->begin()->getTerminator();
-#endif // INTEL_COLLAB
     if (AggregateArgs) {
       Value *Idx[2];
       Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
       Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), i);
+      Instruction *TI = newFunction->begin()->getTerminator();
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructTy, &*AI, Idx, "gep_" + inputs[i]->getName(), TI);
       RewriteVal = new LoadInst(StructTy->getElementType(i), GEP,
                                 "loadgep_" + inputs[i]->getName(), TI);
     } else
       RewriteVal = &*AI++;
-
-#if INTEL_COLLAB
-    // Home the argument. This alloca is referenced later by debug intrinsics.
-    if (HomeArguments && !inputs[i]->isSwiftError()) {
-      Type *ArgType = RewriteVal->getType();
-      AllocaInst *Alloca = new AllocaInst(
-          ArgType,
-          M->getDataLayout().getAllocaAddrSpace(),
-          nullptr,
-          inputs[i]->getName() + ".addr",
-          TI);
-      Alloca->setAlignment(MaybeAlign(
-          M->getDataLayout().getPrefTypeAlignment(ArgType)));
-      new StoreInst(RewriteVal, Alloca, TI);
-      RewriteVal = new LoadInst(ArgType, Alloca, "", TI);
-
-      // Record the homed value location so debug emission can use it later.
-      unsigned ArgNo = i + 1;
-      RewrittenValues[inputs[i]] = {Alloca, ArgNo};
-    }
-#endif // INTEL_COLLAB
 
     std::vector<User *> Users(inputs[i]->user_begin(), inputs[i]->user_end());
     for (User *use : Users)
@@ -1092,28 +1070,7 @@ void CodeExtractor::hoistAlloca(Function &F) {
   }
 }
 
-// Determines which debug info metadata should be cloned by the debug info
-// transformation tool.
-bool CodeExtractor::DebugInfoTransformImpl::ignore(
-    const MDNode *const Node) {
-  // We currently ignore types. For most cases this correct. Eventually we
-  // should consider cloning locally allocated types into the extracted
-  // region.
-  if (isa<DIType>(Node))
-    return true;
-
-  // Don't change global scopes which are not part of the extracted code.
-  if (isa<DIFile>(Node) || isa<DICompileUnit>(Node))
-    return true;
-
-  // Don't change global variables.
-  if (isa<DIGlobalVariable>(Node))
-    return true;
-
-  return false;
-}
 #endif // INTEL_COLLAB
-
 /// Erase lifetime.start markers which reference inputs to the extraction
 /// region, and insert the referenced memory into \p LifetimesStart.
 ///
@@ -1524,6 +1481,7 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
       MDBuilder(TI->getContext()).createBranchWeights(BranchWeights));
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool definedInFunction(const Function *F, Value *V) {
   if (Instruction *I = dyn_cast_or_null<Instruction>(V))
@@ -1968,6 +1926,8 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
   eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
 }
 
+=======
+>>>>>>> d385b09feb11132f4a1470ba41c8fc668b9b4bb4
 Function *
 CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
   if (!isEligible())
@@ -1978,12 +1938,15 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
   BasicBlock *header = *Blocks.begin();
   Function *oldFunction = header->getParent();
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   DebugIntrinsicsToUpdateArray DebugIntrinsicsToUpdate;
   if (IntelExtractDebug)
     prepareDebugInfoForCodeExtraction(DebugIntrinsicsToUpdate);
 #endif // INTEL_COLLAB
 
+=======
+>>>>>>> d385b09feb11132f4a1470ba41c8fc668b9b4bb4
   // Calculate the entry frequency of the new function before we change the root
   //   block.
   BlockFrequency EntryFreq;
@@ -2229,11 +2192,34 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
       }
     }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   // Only fixupDebugInfoPostExtraction() when not using IntelExtractDebug.
   if (!IntelExtractDebug)
 #endif // INTEL_COLLAB
   fixupDebugInfoPostExtraction(*oldFunction, *newFunction, *TheCall);
+=======
+  // Erase debug info intrinsics. Variable updates within the new function are
+  // invisible to debuggers. This could be improved by defining a DISubprogram
+  // for the new function.
+  for (BasicBlock &BB : *newFunction) {
+    auto BlockIt = BB.begin();
+    // Remove debug info intrinsics from the new function.
+    while (BlockIt != BB.end()) {
+      Instruction *Inst = &*BlockIt;
+      ++BlockIt;
+      if (isa<DbgInfoIntrinsic>(Inst))
+        Inst->eraseFromParent();
+    }
+    // Remove debug info intrinsics which refer to values in the new function
+    // from the old function.
+    SmallVector<DbgVariableIntrinsic *, 4> DbgUsers;
+    for (Instruction &I : BB)
+      findDbgUsers(DbgUsers, &I);
+    for (DbgVariableIntrinsic *DVI : DbgUsers)
+      DVI->eraseFromParent();
+  }
+>>>>>>> d385b09feb11132f4a1470ba41c8fc668b9b4bb4
 
   // Mark the new function `noreturn` if applicable. Terminators which resume
   // exception propagation are treated as returning instructions. This is to
@@ -2247,10 +2233,13 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 
 #if INTEL_COLLAB
   hoistAlloca(*newFunction);
+<<<<<<< HEAD
 
   if (IntelExtractDebug)
     updateDebugInfoAfterCodeExtraction(
         oldFunction, newFunction, DebugIntrinsicsToUpdate);
+=======
+>>>>>>> d385b09feb11132f4a1470ba41c8fc668b9b4bb4
 #endif // INTEL_COLLAB
 
   LLVM_DEBUG(if (verifyFunction(*newFunction, &errs())) {

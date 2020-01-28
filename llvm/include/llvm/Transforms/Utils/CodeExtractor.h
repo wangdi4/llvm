@@ -20,10 +20,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include <limits>
 #if INTEL_COLLAB
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/Transforms/Utils/DebugInfoTransform.h"
 #include <utility>
 #endif // INTEL_COLLAB
 
@@ -117,27 +113,6 @@ public:
 
   private:
     const OrderedArgs *TgtClauseArgs = nullptr;
-
-    // Information about inputs/outputs which are rewritten during block
-    // extraction. This information is used later for emitting debug info.
-    struct RewrittenValueInfo {
-      Instruction *Storage;
-      unsigned ArgNo;
-    };
-    typedef DenseMap<Value *, struct RewrittenValueInfo> RewrittenValuesMap;
-    RewrittenValuesMap RewrittenValues;
-
-    // Debug information transformation data.
-    class DebugInfoTransformImpl : public DebugInfoTransform {
-    public:
-      virtual bool ignore(const MDNode *const Metadata);
-    };
-    DebugInfoTransformImpl Debug;
-
-    // Declaration location for extracted routine.
-    DebugLoc DeclLoc;
-
-    bool HomeArguments; // When true, emits home locations for arguments
 #endif // INTEL_COLLAB
 
     // Suffix to use when creating extracted function (appended to the original
@@ -181,19 +156,6 @@ public:
                   BranchProbabilityInfo *BPI = nullptr,
                   AssumptionCache *AC = nullptr,
                   std::string Suffix = "");
-
-#if INTEL_COLLAB
-    /// Routines for updating debug information during code extraction.
-    void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
-    void setHomeArguments(bool Value) { HomeArguments = Value; }
-    typedef SmallVector<DbgInfoIntrinsic *, 32> DebugIntrinsicsToUpdateArray;
-    void prepareDebugInfoForCodeExtraction(
-        DebugIntrinsicsToUpdateArray& DebugIntrinsicsToUpdate);
-    void updateDebugInfoAfterCodeExtraction(
-        Function *OldFunction,
-        Function *NewFunction,
-        const DebugIntrinsicsToUpdateArray& DebugIntrinsicsToUpdate);
-#endif // INTEL_COLLAB
 
     /// Perform the extraction, returning the new function.
     ///

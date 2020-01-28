@@ -65,9 +65,6 @@ bb6:                                              ; preds = %bb9
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.EQV"(i32* %"omp_test_$R") ]
   br label %bb10
 
-; CHECK: %[[OMP_TEST_R_ADDR:[^ ]+]] = alloca i32*
-; CHECK: store i32* %"omp_test_$R", i32** %[[OMP_TEST_R_ADDR]]
-; CHECK: %[[OMP_TEST_R:[0-9]+]] = load i32*, i32** %[[OMP_TEST_R_ADDR]]
 ; CHECK:  store i32 1, i32* %"omp_test_$R.red"
 
 bb4:                                              ; preds = %bb3
@@ -101,10 +98,10 @@ bb10:                                             ; preds = %bb6
   br label %bb11
 
 ; CHECK:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R.red"
-; CHECK-NEXT:  %{{[0-9]+}} = load i32, i32* %[[OMP_TEST_R]]
+; CHECK-NEXT:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R"
 ; CHECK-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, %{{[0-9]+}}
 ; CHECK-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, -1
-; CHECK-NEXT:  store i32 %{{[0-9]+}}, i32* %[[OMP_TEST_R]]
+; CHECK-NEXT:  store i32 %{{[0-9]+}}, i32* %"omp_test_$R"
 
 bb1:                                              ; preds = %bb13
   ret void

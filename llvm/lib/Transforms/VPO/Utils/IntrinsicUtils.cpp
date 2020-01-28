@@ -142,12 +142,20 @@ Value *VPOUtils::stripCasts(Value *ValWithCasts,
   return ValWithCasts;
 }
 
-// Places where the loop info metadata is stripped should be fixed to properly
-// pass the information through.
-void VPOUtils::stripLoopInfoMetadata(const WRegionNode &W) {
-  for (auto *BBI : make_range(W.bbset_begin(), W.bbset_end()))
-    for (Instruction &I : *BBI)
-      I.setMetadata(LLVMContext::MD_loop, nullptr);
+// Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
+// This is a workaround for now till CodeExtractor learns to handle these.
+void VPOUtils::stripDebugInfoInstrinsics(Function &F)
+{
+  for (auto &BB : F) {
+    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
+      Instruction *Insn = &*BI++;
+      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
+        DVI->eraseFromParent();
+      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
+        DDI->eraseFromParent();
+      }
+    }
+  }
 }
 
 // Return true if the given type can be registerized.

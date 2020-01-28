@@ -37,12 +37,11 @@ bb2:                                              ; preds = %alloca
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"([10 x float]* %foo.A.cast) ]
 
 ; Check for the allocation of local copy
-; CHECK: [[A_LOAD:%[^ ]+]] = load [10 x float]*{{.*}} %foo.A.cast.addr
-; CHECK: [[A_PRIV:%foo.*priv]] = alloca [10 x float]
+; CHECK: [[A_PRIV:%[^ ]+]] = alloca [10 x float]
 ; Check for initialization of local array
 
 ; CHECK: [[A_PRIV_CAST:%[^ ]+]] = bitcast [10 x float]* [[A_PRIV]] to i8*
-; CHECK: [[A_CAST:%[^ ]+]] = bitcast [10 x float]* [[A_LOAD]] to i8*
+; CHECK: [[A_CAST:%[^ ]+]] = bitcast [10 x float]* %foo.A.cast to i8*
 ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8*{{.*}}[[A_PRIV_CAST]], i8*{{.*}}[[A_CAST]], i64 40, i1 false)
 
   %foo.A = bitcast [10 x float]* %foo.A.cast to float*
