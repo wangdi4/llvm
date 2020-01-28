@@ -47,7 +47,7 @@ static cl::opt<uint64_t>
 
 // Threshold for min allowed number of memory streams
 static cl::opt<unsigned> NumMemoryStreamsThreshold(
-    "hir-prefetching-num-memory-streams-threshold", cl::init(18), cl::Hidden,
+    "hir-prefetching-num-memory-streams-threshold", cl::init(15), cl::Hidden,
     cl::desc("Threshold for number of memory streams"));
 
 // Threshold for min allowed number of trip count
@@ -237,12 +237,18 @@ bool HIRPrefetching::doAnalysis(
   unsigned Level = Lp->getNestingLevel();
   int64_t ConstStride;
   uint64_t Stride;
+  unsigned NumNonLinearStreams = 0;
 
   for (auto &RefGroup : SpatialGroups) {
     const RegDDRef *FirstRef = RefGroup.front();
 
     if (!FirstRef->getConstStrideAtLevel(Level, &ConstStride) ||
         ConstStride == 0) {
+
+      if (!FirstRef->isLinearAtLevel(Level)) {
+        NumNonLinearStreams++;
+      }
+
       continue;
     }
 
@@ -252,7 +258,12 @@ bool HIRPrefetching::doAnalysis(
                               PrefetchCandidates);
   }
 
-  if (PrefetchCandidates.size() < NumMemoryStreamsThreshold &&
+  if (PrefetchCandidates.empty()) {
+    return false;
+  }
+
+  if ((PrefetchCandidates.size() + NumNonLinearStreams) <
+          NumMemoryStreamsThreshold &&
       !SkipNumMemoryStreamsCheck) {
     return false;
   }
