@@ -2156,6 +2156,19 @@ implicitly inherit this attribute.
   }];
 }
 
+// INTEL_CUSTOMIZATION
+def HLSDeviceDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "hls_device";
+  let Content = [{
+This attribute can only be applied to functions and indicates that the
+function must be treated as a device function and must be emitted even if it has
+no direct uses from other device functions. All ``hls_device`` function callees
+implicitly inherit this attribute.
+  }];
+}
+// end INTEL_CUSTOMIZATION
+
 def RISCVInterruptDocs : Documentation {
   let Category = DocCatFunction;
   let Heading = "interrupt (RISCV)";

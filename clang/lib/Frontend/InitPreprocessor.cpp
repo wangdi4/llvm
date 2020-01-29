@@ -1140,6 +1140,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__", "1");
 
+#if INTEL_CUSTOMIZATION
+  // Define a macro indicating that the HLS cpp source file is being compiled.
+  if (LangOpts.HLS) {
+    Builder.defineMacro("HLS_EXTERNAL", "__attribute__((hls_device))");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // OpenCL definitions.
   if (LangOpts.OpenCL) {
 #define OPENCLEXT(Ext)                                                         \

@@ -14499,6 +14499,16 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
       SYCLDiagIfDeviceCode(LParenLoc, diag::err_sycl_restrict)
           << Sema::KernelCallVariadicFunction;
 
+#if INTEL_CUSTOMIZATION
+    // Diagnose variadic calls in HLS.
+    if (getLangOpts().HLS && !isUnevaluatedContext()) {
+      CallingConv CC = Method->getType()->castAs<FunctionType>()->getCallConv();
+      if (!supportsVariadicCall(CC))
+        SYCLDiagIfDeviceCode(LParenLoc, diag::err_cconv_varargs)
+            << FunctionType::getNameForCallConv(CC);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // Promote the arguments (C99 6.5.2.2p7).
     for (unsigned i = NumParams, e = Args.size(); i < e; i++) {
       ExprResult Arg = DefaultVariadicArgumentPromotion(Args[i], VariadicMethod,
