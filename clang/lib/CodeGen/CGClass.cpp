@@ -2649,10 +2649,12 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
 
   if (SanOpts.has(SanitizerKind::CFIVCall))
     EmitVTablePtrCheckForCall(RD, VTable, CodeGenFunction::CFITCK_VCall, Loc);
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   else if (WrappingNeeded || (CGM.getCodeGenOpts().WholeProgramVTables &&
-                              CGM.HasHiddenLTOVisibility(RD))) {
+                              // Don't insert type test assumes if we are
+                              // forcing public std visibility.
+                              !CGM.HasLTOVisibilityPublicStd(RD))) {
 
     llvm::BasicBlock *ContinueBB;
     if (WrappingNeeded) {
@@ -2665,12 +2667,6 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
       EmitBlock(WrapBB);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-  else if (CGM.getCodeGenOpts().WholeProgramVTables &&
-           // Don't insert type test assumes if we are forcing public std
-           // visibility.
-           !CGM.HasLTOVisibilityPublicStd(RD)) {
->>>>>>> 2f63d549f1e1edd165392837aaa53f569f7fb88d
     llvm::Metadata *MD =
         CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
     llvm::Value *TypeId =

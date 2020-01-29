@@ -1,12 +1,8 @@
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; This customization is for turning off the multiversioning.
 
-; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
+; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
 ; END INTEL_CUSTOMIZATION
-=======
-; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
->>>>>>> 2f63d549f1e1edd165392837aaa53f569f7fb88d
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"

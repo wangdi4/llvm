@@ -142,7 +142,6 @@ static cl::opt<bool>
                        cl::init(false), cl::ZeroOrMore,
                        cl::desc("Print index-based devirtualization messages"));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Set the threshold for the maximum targets we can devirtualize using
 // the multiversioning
@@ -164,7 +163,6 @@ static cl::opt<bool> WPDevirtMultiversionVerify(
 static cl::opt<bool> WPDevirtAssumeSafe(
     "wholeprogramdevirt-assume-safe", cl::init(false), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
-=======
 /// Provide a way to force enable whole program visibility in tests.
 /// This is needed to support legacy tests that don't contain
 /// !vcall_visibility metadata (the mere presense of type tests
@@ -180,7 +178,6 @@ cl::opt<bool> DisableWholeProgramVisibility(
     "disable-whole-program-visibility", cl::init(false), cl::Hidden,
     cl::ZeroOrMore,
     cl::desc("Disable whole program visibility (overrides enabling options)"));
->>>>>>> 2f63d549f1e1edd165392837aaa53f569f7fb88d
 
 // Find the minimum offset that we may store a value of size Size bits at. If
 // IsAfter is set, look for an offset before the object, otherwise look for an

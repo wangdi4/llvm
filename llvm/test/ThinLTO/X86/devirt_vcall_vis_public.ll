@@ -5,8 +5,10 @@
 
 ; Index based WPD
 ; Generate unsplit module with summary for ThinLTO index-based WPD.
+; INTEL_CUSTOMIZATION
 ; RUN: opt -thinlto-bc -o %t2.o %s
 ; RUN: llvm-lto2 run %t2.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t2.o,test,px \
@@ -24,6 +26,7 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -verify-machineinstrs=0 \
 ; RUN:   -o %t3 \
@@ -47,6 +50,7 @@
 ; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
 ; RUN: llvm-lto2 run %t4.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t4.o,test,px \
@@ -58,6 +62,7 @@
 ; RUN:   -r=%t4.o,_ZTV1C,px \
 ; RUN:   -r=%t4.o,_ZTV1D,px 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t5.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; END_INTEL_CUSTOMIZATION
 
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1A1nEi
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1D1mEi
