@@ -1,4 +1,4 @@
-; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S < %s -intel-extract-debug=false | FileCheck %s ;INTEL
+; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S < %s | FileCheck %s
 
 ; When an llvm.dbg.label intrinsic is extracted into a new function, make sure
 ; that its metadata argument is a DILabel that points to a scope within the new

@@ -84,14 +84,6 @@ static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
 
-#if INTEL_COLLAB
-static cl::opt<bool>
-IntelExtractDebug("intel-extract-debug",
-                  cl::Hidden,
-                  cl::init(true),
-                  cl::desc("Use Intel CodeExtractor debug information"));
-#endif // INTEL_COLLAB
-
 /// Test whether a block is valid for extraction.
 static bool isBlockValidForExtraction(const BasicBlock &BB,
                                       const SetVector<BasicBlock *> &Result,

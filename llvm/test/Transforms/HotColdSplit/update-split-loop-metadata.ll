@@ -1,4 +1,4 @@
-; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S < %s -intel-extract-debug=false | FileCheck %s ;INTEL
+; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S < %s | FileCheck %s
 
 ; Check that llvm.loop metadata extracted by CodeExtractor is updated so that
 ; the debug locations it contains have the right scope.
