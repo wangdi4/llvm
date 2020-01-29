@@ -193,7 +193,9 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
 
     dtrans::FieldInfo &Field = ParentStruct->getField(Idx);
     llvm::Type *FieldTy = Field.getLLVMType();
-    dtrans::TypeInfo *FieldTI = DTInfo->getOrCreateTypeInfo(FieldTy);
+    dtrans::TypeInfo *FieldTI = DTInfo->getTypeInfo(FieldTy);
+    assert(FieldTI && "Field TypeInfo must be created during analysis pass to "
+           "have safety data computed");
 
     // If the field is marked as address taken, then we need to make sure
     // that it passes the safety issues for delete fields.
