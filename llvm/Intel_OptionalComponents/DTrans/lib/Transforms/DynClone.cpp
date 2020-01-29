@@ -655,13 +655,10 @@ Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
   if (CInfo->getCallInfoKind() != CallInfo::CIK_Alloc &&
       CInfo->getCallInfoKind() != CallInfo::CIK_Memfunc)
     return nullptr;
-  auto &CallTypes = CInfo->getPointerTypeInfoRef().getTypes();
+  auto &CallTypes = CInfo->getElementTypesRef().getElemTypes();
   if (CallTypes.size() != 1)
     return nullptr;
-  Type *PtrTy = *CallTypes.begin();
-  if (!PtrTy->isPointerTy())
-    return nullptr;
-  Type *ElemTy = PtrTy->getPointerElementType();
+  Type *ElemTy = *CallTypes.begin();
   if (!isa<StructType>(ElemTy))
     return nullptr;
   return ElemTy;
@@ -873,13 +870,10 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     if (isValueEqualToSize(Inst.getValue(), 0))
       return;
 
-    auto &CallTypes = CInfo->getPointerTypeInfoRef().getTypes();
+    auto &CallTypes = CInfo->getElementTypesRef().getElemTypes();
     if (CallTypes.size() != 1)
       return;
-    Type *PtrTy = *CallTypes.begin();
-    if (!PtrTy->isPointerTy())
-      return;
-    Type *ElemTy = PtrTy->getPointerElementType();
+    Type *ElemTy = *CallTypes.begin();
     for (auto &CandidatePair : CandidateFields) {
       if (CandidatePair.first == ElemTy) {
         InvalidFields.insert(CandidatePair);

@@ -21,12 +21,12 @@ define void @test01() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 ; CHECK: Function: test01
 ; CHECK: FreeCallInfo:
 ; CHECK:   Kind: Free
 ; CHECK:   Aliased types:
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 
 
 ; This test verifies non-remapped types stored in the callinfo
@@ -42,12 +42,12 @@ define void @test02() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.noclonetype01*{{ *$}}
+; CHECK:     Type: %struct.noclonetype01 = type { i32, i32 }
 ; CHECK: Function: test02
 ; CHECK: FreeCallInfo:
 ; CHECK:   Kind: Free
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.noclonetype01*{{ *$}}
+; CHECK:     Type: %struct.noclonetype01 = type { i32, i32 }
 
 
 ; This test verifies the types for a memset call info get updated
@@ -65,7 +65,7 @@ define void @test03() {
 ; CHECK:     Kind: memset
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 
 
 ; This test verifies the types for memfunc calls involving multiple
@@ -90,12 +90,12 @@ define void @test04() {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 0
 ; CHECK:     LastField:  1
-; CHECK:     Type: %__DTT_struct.type02*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type02 = type { i32, i32, i32, i32 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 0
 ; CHECK:     LastField:  1
-; CHECK:     Type: %__DTT_struct.type02*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type02 = type { i32, i32, i32, i32 }
 
 
 ; This test verifies the call info gets moved to the cloned
@@ -109,7 +109,7 @@ define %struct.type01* @test05() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 
 
 ; This test verifies the call info gets moved to the cloned
@@ -124,7 +124,7 @@ define void @test06(%struct.type01* %in) {
 ; CHECK: FreeCallInfo:
 ; CHECK:   Kind: Free
 ; CHECK:   Aliased types:
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 
 
 ; Test to verify call info about memfunc is moved to the cloned
@@ -139,7 +139,7 @@ define void @test07(%struct.type02* %in1) {
 ; CHECK:     Kind: memset
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DTT_struct.type02*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type02 = type { i32, i32, i32, i32 }
 
 
 ; This test verifies the types for memfunc calls involving multiple
@@ -158,10 +158,10 @@ define void @test08(%struct.type01* %in1, %struct.type01* %in2) {
 ; CHECK:     Kind: memmove
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DTT_struct.type01*{{ *$}}
+; CHECK:     Type: %__DTT_struct.type01 = type { i32, i16, i8 }
 
 
 ; Test to verify remapped dependent data types get their CallInfo objects
@@ -177,10 +177,10 @@ define void @test09(%struct.type01dep* %in1, %struct.type01dep* %in2) {
 ; CHECK:     Kind: memcpy
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DDT_struct.type01dep*{{ *$}}
+; CHECK:     Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DDT_struct.type01dep*{{ *$}}
+; CHECK:     Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
 
 
 declare i8* @malloc(i64)
