@@ -2174,6 +2174,32 @@ def G_AMDGPU_BUFFER_LOAD_FORMAT_D16 : BufferLoadGenericInstruction;
 def G_AMDGPU_TBUFFER_LOAD_FORMAT : TBufferLoadGenericInstruction;
 def G_AMDGPU_TBUFFER_LOAD_FORMAT_D16 : TBufferLoadGenericInstruction;
 
+class BufferStoreGenericInstruction : AMDGPUGenericInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins type0:$vdata, type1:$rsrc, type2:$vindex, type2:$voffset,
+                           type2:$soffset, untyped_imm_0:$offset,
+                           untyped_imm_0:$cachepolicy, untyped_imm_0:$idxen);
+  let hasSideEffects = 0;
+  let mayStore = 1;
+}
+
+class TBufferStoreGenericInstruction : AMDGPUGenericInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins type0:$vdata, type1:$rsrc, type2:$vindex, type2:$voffset,
+                           type2:$soffset, untyped_imm_0:$offset,
+                           untyped_imm_0:$format,
+                           untyped_imm_0:$cachepolicy, untyped_imm_0:$idxen);
+  let hasSideEffects = 0;
+  let mayStore = 1;
+}
+
+def G_AMDGPU_BUFFER_STORE : BufferStoreGenericInstruction;
+def G_AMDGPU_BUFFER_STORE_BYTE : BufferStoreGenericInstruction;
+def G_AMDGPU_BUFFER_STORE_SHORT : BufferStoreGenericInstruction;
+def G_AMDGPU_BUFFER_STORE_FORMAT : BufferStoreGenericInstruction;
+def G_AMDGPU_BUFFER_STORE_FORMAT_D16 : BufferStoreGenericInstruction;
+def G_AMDGPU_TBUFFER_STORE_FORMAT : TBufferStoreGenericInstruction;
+def G_AMDGPU_TBUFFER_STORE_FORMAT_D16 : TBufferStoreGenericInstruction;
 
 // Atomic cmpxchg. $cmpval ad $newval are packed in a single vector
 // operand Expects a MachineMemOperand in addition to explicit
@@ -2189,4 +2215,37 @@ def G_AMDGPU_ATOMIC_CMPXCHG : AMDGPUGenericInstruction {
 let Namespace = "AMDGPU" in {
 def G_AMDGPU_ATOMIC_INC : G_ATOMICRMW_OP;
 def G_AMDGPU_ATOMIC_DEC : G_ATOMICRMW_OP;
+}
+
+class BufferAtomicGenericInstruction : AMDGPUGenericInstruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$vdata, type1:$rsrc, type2:$vindex, type2:$voffset,
+                           type2:$soffset, untyped_imm_0:$offset,
+                           untyped_imm_0:$cachepolicy, untyped_imm_0:$idxen);
+  let hasSideEffects = 0;
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+
+def G_AMDGPU_BUFFER_ATOMIC_SWAP : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_ADD : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_SUB : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_SMIN : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_UMIN : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_SMAX : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_UMAX : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_AND : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_OR : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_XOR : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_INC : BufferAtomicGenericInstruction;
+def G_AMDGPU_BUFFER_ATOMIC_DEC : BufferAtomicGenericInstruction;
+
+def G_AMDGPU_BUFFER_ATOMIC_CMPSWAP : AMDGPUGenericInstruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$vdata, type0:$cmp, type1:$rsrc, type2:$vindex,
+                           type2:$voffset, type2:$soffset, untyped_imm_0:$offset,
+                           untyped_imm_0:$cachepolicy, untyped_imm_0:$idxen);
+  let hasSideEffects = 0;
+  let mayLoad = 1;
+  let mayStore = 1;
 }
