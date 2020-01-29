@@ -4102,16 +4102,15 @@ void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
   // [0, "getUMaxShrIntTyValueWithDelta()"] range (i.e [0, 16373]) then
   // truncate %arg from i64 to i16 or sign extend it from i16 to i64.
   // Else, use the special cases.
-  int64_t MinVal = 0;
   int64_t MaxVal = getUMaxShrIntTyValueWithDelta();
 
-  ConstantInt *MinDecodeValue = ConstantInt::get(SrcType, MinVal);
+  // "CmpULE InputArg, 16373" is good enough to check if input argument is in
+  // [0, 16373] range and no need to check for negative values.
+  // Decoder: Input argument is never negative.
+  // Encoder: With unsigned compare, all negative values are greater than
+  // 16373.
   ConstantInt *MaxDecodeValue = ConstantInt::get(SrcType, MaxVal);
-
-  Value *MinCmpr = IRBEntry.CreateICmpSGT(F->arg_begin(), MinDecodeValue);
-  Value *MaxCmpr = IRBEntry.CreateICmpSLT(F->arg_begin(), MaxDecodeValue);
-
-  Value *EntryCmpr = IRBEntry.CreateAnd(MinCmpr, MaxCmpr);
+  Value *EntryCmpr = IRBEntry.CreateICmpULE(F->arg_begin(), MaxDecodeValue);
 
   BasicBlock *BB = BasicBlock::Create(M.getContext(), "switch_bb", F);
   IRBuilder<> IRB(BB);
