@@ -259,6 +259,12 @@ bool CompileTask::Execute()
         return true;
     }
 
+    // Compilation is done, set used compile options so that program will not be
+    // recompiled if same options are passed. Also this is necessary to
+    // propagate "-cl-opt-disable" and "-g" options to build task which is
+    // actually peforming all backend optimizations depending on provided
+    // options.
+    m_pDeviceProgram->SetBuildOptionsInternal(m_sOptions.c_str());
     m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
     m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary.get(), CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
     SetComplete(CL_BUILD_SUCCESS);
@@ -532,6 +538,11 @@ bool DeviceBuildTask::Execute()
         }
 
         m_pDeviceProgram->SetDeviceHandleInternal(programHandle);
+
+        std::string OptionsLog =
+            std::string("Options used by backend compiler: ") + m_sOptions +
+            std::string("\n");
+        m_pDeviceProgram->SetBuildLogInternal(OptionsLog.c_str());
 
         err = pDeviceAgent->clDevBuildProgram(programHandle, m_sOptions.c_str(), &build_status);
         if (CL_DEV_SUCCESS != err)
@@ -1195,7 +1206,36 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                 {
                     bNeedToBuild = true;
                     ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
-                    arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(context, program, ppDevicePrograms[i], buildOptions.c_str());
+
+                    // Propagate "-cl-opt-disable" and "-g" options used for
+                    // compilation to build task because build task is actually
+                    // performing all backend optimizations depending on
+                    // provided options. This propagation is necessary for
+                    // scenario when SYCL compiler is used with CPU backend
+                    // because SYCL compiler doesn't add metadata for these
+                    // options. In case of OpenCL options are propagated using
+                    // opencl.compiler.options metadata.
+                    std::string compileOptions;
+                    for (unsigned int libIndex = 0;
+                         libIndex < num_input_programs; ++libIndex) {
+                      if (const char *opts =
+                              input_programs[libIndex]->GetBuildOptionsInternal(
+                                  ppDevicePrograms[i]->GetDeviceId())) {
+                        if (std::string(opts).find("-cl-opt-disable") !=
+                                std::string::npos &&
+                            compileOptions.find("-cl-opt-disable") ==
+                                std::string::npos)
+                          compileOptions.append(" -cl-opt-disable");
+                        if (std::string(opts).find("-g") != std::string::npos &&
+                            compileOptions.find("-g") == std::string::npos)
+                          compileOptions.append(" -g");
+                      }
+                    }
+
+                    std::string mergedOptions = compileOptions + buildOptions;
+                    arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(
+                        context, program, ppDevicePrograms[i],
+                        mergedOptions.c_str());
                     if (NULL == arrDeviceBuildTasks[i])
                     {
                         ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);

@@ -102,6 +102,8 @@ protected:
 
     void CreateProgramWithIL_PROGRAM_IL_Negative() const;
 
+    void BuildOptionsPropagate() const;
+
     void Init()
     {
         ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, ::CL_base::GetOCLVersion()) <<
