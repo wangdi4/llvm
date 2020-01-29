@@ -1156,7 +1156,7 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   if (insn->isIceCode) {
     *instructionID = decode(insn->opcodeType, insnCtx, insn->opcode, 0);
     if (*instructionID) {
-      auto spec = specifierForUID(*instructionID);
+      auto spec = &INSTRUCTIONS_SYM[*instructionID];
       for (const auto &Op : x86OperandSets[spec->operands])
         if (Op.encoding == ENCODING_RM) {
           if ((OperandType)Op.type == TYPE_M32)
