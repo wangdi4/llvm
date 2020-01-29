@@ -1784,10 +1784,14 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
         // Don't swap prof metadata, we didn't change the branch behavior.
         return replaceInstUsesWith(I, Op1);
       }
+    }
 
 #if INTEL_CUSTOMIZATION
+    if (Op0C->isNullValue()) {
+      unsigned BitWidth = I.getType()->getScalarSizeInBits();
+
       // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
-      const APInt *Mask;
+      const APInt *Mask, *ShAmt;
       if (match(Op1,
                 m_OneUse(m_And(m_LShr(m_Value(X), m_APInt(ShAmt)),
                                m_APInt(Mask)))) &&
@@ -1799,8 +1803,8 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
                                           ConstantInt::get(I.getType(),
                                                            BitWidth - 1));
       }
-#endif // INTEL_CUSTOMIZATION
     }
+#endif // INTEL_CUSTOMIZATION
 
     // Turn this into a xor if LHS is 2^n-1 and the remaining bits are known
     // zero.
