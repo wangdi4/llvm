@@ -604,6 +604,7 @@ namespace llvm {
       case Intrinsic::memcpy:
       case Intrinsic::memmove:
       case Intrinsic::memset:
+      case Intrinsic::memcpy_inline:
         return true;
       default: return false;
       }
@@ -630,8 +631,14 @@ namespace llvm {
   public:
     // Methods for support type inquiry through isa, cast, and dyn_cast:
     static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::memcpy ||
-             I->getIntrinsicID() == Intrinsic::memmove;
+      switch (I->getIntrinsicID()) {
+      case Intrinsic::memcpy:
+      case Intrinsic::memmove:
+      case Intrinsic::memcpy_inline:
+        return true;
+      default:
+        return false;
+      }
     }
     static bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
@@ -662,6 +669,21 @@ namespace llvm {
     }
   };
 
+  /// This class wraps the llvm.memcpy.inline intrinsic.
+  class MemCpyInlineInst : public MemTransferInst {
+  public:
+    ConstantInt *getLength() const {
+      return cast<ConstantInt>(MemTransferInst::getLength());
+    }
+    // Methods for support type inquiry through isa, cast, and dyn_cast:
+    static bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::memcpy_inline;
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+  };
+
   // The common base class for any memset/memmove/memcpy intrinsics;
   // whether they be atomic or non-atomic.
   // i.e. llvm.element.unordered.atomic.memset/memcpy/memmove
@@ -678,6 +700,7 @@ namespace llvm {
     static bool classof(const IntrinsicInst *I) {
       switch (I->getIntrinsicID()) {
       case Intrinsic::memcpy:
+      case Intrinsic::memcpy_inline:
       case Intrinsic::memmove:
       case Intrinsic::memset:
       case Intrinsic::memcpy_element_unordered_atomic:
@@ -720,6 +743,7 @@ namespace llvm {
     static bool classof(const IntrinsicInst *I) {
       switch (I->getIntrinsicID()) {
       case Intrinsic::memcpy:
+      case Intrinsic::memcpy_inline:
       case Intrinsic::memmove:
       case Intrinsic::memcpy_element_unordered_atomic:
       case Intrinsic::memmove_element_unordered_atomic:
@@ -741,6 +765,7 @@ namespace llvm {
     static bool classof(const IntrinsicInst *I) {
       switch (I->getIntrinsicID()) {
       case Intrinsic::memcpy:
+      case Intrinsic::memcpy_inline:
       case Intrinsic::memcpy_element_unordered_atomic:
         return true;
       default:
