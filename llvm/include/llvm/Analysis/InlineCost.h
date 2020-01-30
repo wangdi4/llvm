@@ -58,6 +58,7 @@ const int ColdccPenalty = 2000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
 const unsigned TotalAllocaSizeRecursiveCaller = 1024;
+<<<<<<< HEAD
 const unsigned BasicBlockSuccRatio = 210; // INTEL
 }
 
@@ -182,6 +183,9 @@ typedef enum {
 } InlineReason;
 
 }
+=======
+} // namespace InlineConstants
+>>>>>>> 7f434b91a95f71ccd775c0cc43a5bc6f7dd5b939
 
 extern bool IsInlinedReason(InlineReportTypes::InlineReason Reason);
 extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
@@ -200,16 +204,13 @@ extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 /// INTEL principal reason that a call site was or was not inlined.
 
 class InlineCost {
-  enum SentinelValues {
-    AlwaysInlineCost = INT_MIN,
-    NeverInlineCost = INT_MAX
-  };
+  enum SentinelValues { AlwaysInlineCost = INT_MIN, NeverInlineCost = INT_MAX };
 
   /// The estimated cost of inlining this callsite.
-  int Cost;
+  int Cost = 0;
 
   /// The adjusted threshold against which this cost was computed.
-  int Threshold;
+  int Threshold = 0;
 
   /// Must be set for Always and Never instances.
   const char *Reason = nullptr;
@@ -273,9 +274,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   /// Test whether the inline cost is low enough for inlining.
-  explicit operator bool() const {
-    return Cost < Threshold;
-  }
+  explicit operator bool() const { return Cost < Threshold; }
 
   bool isAlways() const { return Cost == AlwaysInlineCost; }
   bool isNever() const { return Cost == NeverInlineCost; }
@@ -349,7 +348,7 @@ public:
 
 struct InlineParams {
   /// The default threshold to start with for a callee.
-  int DefaultThreshold;
+  int DefaultThreshold = -1;
 
   /// Threshold to use for callees with inline hint.
   Optional<int> HintThreshold;
@@ -452,7 +451,13 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.
+<<<<<<< HEAD
 InlineResult isInlineViable(Function &Callee,                         // INTEL
                             InlineReportTypes::InlineReason& Reason); // INTEL
 }
+=======
+InlineResult isInlineViable(Function &Callee);
+} // namespace llvm
+
+>>>>>>> 7f434b91a95f71ccd775c0cc43a5bc6f7dd5b939
 #endif
