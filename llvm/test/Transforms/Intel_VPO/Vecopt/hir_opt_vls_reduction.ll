@@ -28,8 +28,8 @@
 ; CHECK-NEXT:       |   %vls.shuf1 = shufflevector %.vls.load,  undef,  <i32 2, i32 5, i32 8, i32 11>;
 ; CHECK-NEXT:       |   %vls.shuf2 = shufflevector %.vls.load,  undef,  <i32 0, i32 3, i32 6, i32 9>;
 ; CHECK-NEXT:       |   %.vec3 = %vls.shuf  +  %vls.shuf1;
-; CHECK-NEXT:       |   %.vec4 = %.vec3  +  %.vec;
-; CHECK-NEXT:       |   %red.var = %.vec4  +  %vls.shuf2;
+; CHECK-NEXT:       |   %red.var = %.vec3  +  %.vec;
+; CHECK-NEXT:       |   %red.var = %red.var  +  %vls.shuf2;
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:            %sum.022 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
 
