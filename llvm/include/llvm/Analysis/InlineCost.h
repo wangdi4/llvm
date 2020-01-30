@@ -58,9 +58,8 @@ const int ColdccPenalty = 2000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
 const unsigned TotalAllocaSizeRecursiveCaller = 1024;
-<<<<<<< HEAD
 const unsigned BasicBlockSuccRatio = 210; // INTEL
-}
+} // namespace InlineConstants
 
 #if INTEL_CUSTOMIZATION
 
@@ -183,9 +182,6 @@ typedef enum {
 } InlineReason;
 
 }
-=======
-} // namespace InlineConstants
->>>>>>> 7f434b91a95f71ccd775c0cc43a5bc6f7dd5b939
 
 extern bool IsInlinedReason(InlineReportTypes::InlineReason Reason);
 extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
@@ -451,13 +447,7 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.
-<<<<<<< HEAD
 InlineResult isInlineViable(Function &Callee,                         // INTEL
                             InlineReportTypes::InlineReason& Reason); // INTEL
-}
-=======
-InlineResult isInlineViable(Function &Callee);
 } // namespace llvm
-
->>>>>>> 7f434b91a95f71ccd775c0cc43a5bc6f7dd5b939
 #endif
