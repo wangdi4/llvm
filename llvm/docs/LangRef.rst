@@ -1921,7 +1921,6 @@ example:
     function has not changed between the function prolog and eiplog. It is
     currently x86_64-specific.
 
-<<<<<<< HEAD
 .. INTEL_CUSTOMIZATION
 
 ``"kernel-call-once"``
@@ -1956,7 +1955,7 @@ example:
     using vector variant.
 
 .. END INTEL_CUSTOMIZATION
-=======
+
 Call Site Attributes
 ----------------------
 
@@ -2027,7 +2026,6 @@ attributes are supported:
     <scalar_name>:= name of the scalar function
 
     <vector_redirection>:= optional, custom name of the vector function
->>>>>>> 4bc07c332a2fe657b7ce3f01cdc2e73b096e2154
 
 .. _glattrs:
 
