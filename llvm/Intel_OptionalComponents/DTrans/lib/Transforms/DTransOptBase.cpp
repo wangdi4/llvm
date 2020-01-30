@@ -725,10 +725,11 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
         DTInfo->replaceCallInfoInstruction(
             CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
 
-      dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
-      size_t Num = PTI.getNumTypes();
+      dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
+      size_t Num = ElementTypes.getNumTypes();
       for (size_t i = 0; i < Num; ++i)
-        PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
+        ElementTypes.setElemType(
+            i, TypeRemapper->remapType(ElementTypes.getElemType(i)));
     }
 }
 

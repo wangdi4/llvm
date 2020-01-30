@@ -729,14 +729,10 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
-  // The number of types in the pointer info and the number of types
+  // The number of types in the call element info and the number of types
   // in the OrigToNew type mapping should both be very small.
-  auto &PtrInfo = CInfo->getPointerTypeInfoRef();
-  for (auto *CallTy : PtrInfo.getTypes()) {
-    if (!CallTy->isPointerTy())
-      continue;
-
-    auto *PointeeTy = CallTy->getPointerElementType();
+  auto CallElemTypes = CInfo->getElementTypesRef();
+  for (auto *PointeeTy : CallElemTypes.getElemTypes())
 
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;
@@ -759,7 +755,6 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
-  }
 }
 
 void DeleteFieldImpl::processSubInst(Instruction *I) {

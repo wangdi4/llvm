@@ -17,7 +17,7 @@ define void @test01(%struct.test01* %in1) {
 ; CHECK: MemfuncInfo:
 ; CHECK:     Kind: memset
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test01*{{ *$}}
+; CHECK:     Type: %struct.test01 = type { i32, i16, i8 }
 
 
 ; This test checks when a multiple of the structure size is used by
@@ -32,7 +32,7 @@ define void @test02(%struct.test02* %in1) {
 ; CHECK: MemfuncInfo:
 ; CHECK:     Kind: memset
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test02*{{ *$}}
+; CHECK:     Type: %struct.test02 = type { i32, i16, i8 }
 
 
 ; This test checks using memset to clear part of the structure, starting
@@ -49,7 +49,7 @@ define void @test03(%struct.test03* %in1) {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 0
 ; CHECK:     LastField:  1
-; CHECK:     Type: %struct.test03*{{ *$}}
+; CHECK:     Type: %struct.test03 = type { i32, i16, i16, i8 }
 
 
 ; This test checks using memset to clear part of the structure, starting
@@ -68,7 +68,7 @@ define void @test04(%struct.test04* %in1) {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 0
 ; CHECK:     LastField:  2
-; CHECK:     Type: %struct.test04*{{ *$}}
+; CHECK:     Type: %struct.test04 = type { i64, i64, i64, i64, i64 }
 
 
 ; This test checks using memset to write a subset of fields in the middle of a
@@ -86,7 +86,7 @@ define void @test05(%struct.test05* %in1) {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 1
 ; CHECK:     LastField:  3
-; CHECK:     Type: %struct.test05*{{ *$}}
+; CHECK:     Type: %struct.test05 = type { i64, i64, i64, i64, i64 }
 
 
 ; This test checks using memset to clear the entire the structure, starting
@@ -102,7 +102,7 @@ define void @test06(%struct.test06* %in1) {
 ; CHECK: MemfuncInfo:
 ; CHECK:     Kind: memset
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test06*{{ *$}}
+; CHECK:     Type: %struct.test06 = type { i64, i64, i64, i64, i64 }
 
 
 ; This test checks using memset with a pointer to a structure that is a
@@ -126,7 +126,7 @@ define void @test07(%struct.test07.b* %in1) {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 1
 ; CHECK:     LastField:  1
-; CHECK:     Type: %struct.test07.b*{{ *$}}
+; CHECK:     Type: %struct.test07.b = type { i32, %struct.test07.a }
 
 
 ; This test checks using memset with an array type.
@@ -140,7 +140,7 @@ define void @test08(%array.test08* %in1) {
 ; CHECK: MemfuncInfo:
 ; CHECK:     Kind: memset
 ; CHECK:     Complete: true
-; CHECK:     Type: [25 x i32]*{{ *$}}
+; CHECK:     Type: [25 x i32]{{ *$}}
 
 
 ; --------------------------------------------------------------------------
@@ -161,10 +161,10 @@ define void @test09(%struct.test09* %in1, %struct.test09* %in2) {
 ; CHECK:   Kind: memcpy
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test09*{{ *$}}
+; CHECK:     Type: %struct.test09 = type { i32, i32 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test09*{{ *$}}
+; CHECK:     Type: %struct.test09 = type { i32, i32 }
 
 
 ; The test checks calls to memcpy with matched struct pointers that copies
@@ -184,10 +184,10 @@ define void @test10(%struct.test10* %in1, %struct.test10* %in2) {
 ; CHECK:   Kind: memcpy
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test10*{{ *$}}
+; CHECK:     Type: %struct.test10 = type { i32, i32, i32, i32 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test10*{{ *$}}
+; CHECK:     Type: %struct.test10 = type { i32, i32, i32, i32 }
 
 
 ; The test checks calls to memcpy with matched struct pointers that copy
@@ -207,12 +207,12 @@ define void @test11(%struct.test11* %in1, %struct.test11* %in2) {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 0
 ; CHECK:     LastField:  1
-; CHECK:     Type: %struct.test11*{{ *$}}
+; CHECK:     Type: %struct.test11 = type { i32, i32, i32, i32 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 0
 ; CHECK:     LastField:  1
-; CHECK:     Type: %struct.test11*{{ *$}}
+; CHECK:     Type: %struct.test11 = type { i32, i32, i32, i32 }
 
 
 ; This test checks using memcpy to copy a subset of fields in the middle of a
@@ -233,12 +233,12 @@ define void @test12(%struct.test12* %in1, %struct.test12* %in2) {
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 1
 ; CHECK:     LastField:  3
-; CHECK:     Type: %struct.test12*{{ *$}}
+; CHECK:     Type: %struct.test12 = type { i64, i64, i64, i64, i64 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: false
 ; CHECK:     FirstField: 1
 ; CHECK:     LastField:  3
-; CHECK:     Type: %struct.test12*{{ *$}}
+; CHECK:     Type: %struct.test12 = type { i64, i64, i64, i64, i64 }
 
 
 ; This test checks using memcpy with an array type.
@@ -254,10 +254,10 @@ define void @test13(%array.test13* %in1, %array.test13* %in2) {
 ; CHECK:   Kind: memcpy
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: [25 x i64]*{{ *$}}
+; CHECK:     Type: [25 x i64]{{ *$}}
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: [25 x i64]*{{ *$}}
+; CHECK:     Type: [25 x i64]{{ *$}}
 
 ; --------------------------------------------------------------------------
 ; Tests for memmove callinfo
@@ -279,10 +279,10 @@ define void @test14(%struct.test14* %in1, %struct.test14* %in2) {
 ; CHECK:   Kind: memmove
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test14*{{ *$}}
+; CHECK:     Type: %struct.test14 = type { i32, i32 }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: %struct.test14*{{ *$}}
+; CHECK:     Type: %struct.test14 = type { i32, i32 }
 
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)

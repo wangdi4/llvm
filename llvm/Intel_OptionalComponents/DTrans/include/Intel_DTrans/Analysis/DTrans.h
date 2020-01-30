@@ -752,53 +752,52 @@ struct MemfuncRegion {
   unsigned int PostPadBytes;
 };
 
-// This class is used to hold information that has been
-// extracted from the LocalPointerInfo to contain a
-// list of aggregate types being used by one of the tracked
-// call instructions. This is kept outside of the CallInfo
-// class itself to allow for cases where type information needs
-// to be tracked for more than a single function argument.
-class PointerTypeInfo {
+// This class is used to hold information related to the object type(s) that are
+// used by a CallInfo object. The information stored here has been extracted
+// from the LocalPointerInfo to contain a list of aggregate types being used by
+// one of the tracked call instructions. This is kept outside of the CallInfo
+// class itself to allow for cases where type information needs to be tracked
+// for more than a single function argument.
+class CallInfoElementTypes {
 public:
-  typedef SmallVector<llvm::Type *, 2> PointerTypeAliasSet;
-  typedef SmallVectorImpl<llvm::Type *> &PointerTypeAliasSetRef;
+  typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
+  typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
 
-  PointerTypeInfo() : AliasesToAggregatePointer(false), Analyzed(false) {}
+  CallInfoElementTypes() : AliasesToAggregateType(false), Analyzed(false) {}
 
-  // Returns 'true' if the type (at some level of indirection)
-  // was known to be a pointer to an aggregate type.
-  bool getAliasesToAggregatePointer() const {
-    return AliasesToAggregatePointer;
+  // Returns 'true' if the call was known to be a pointer (at some level of
+  // indirection) to an aggregate type.
+  bool getAliasesToAggregateType() const {
+    return AliasesToAggregateType;
   }
 
-  void setAliasesToAggregatePointer(bool Val) {
-    AliasesToAggregatePointer = Val;
+  void setAliasesToAggregateType(bool Val) {
+    AliasesToAggregateType = Val;
   }
 
   void setAnalyzed(bool Val) { Analyzed = Val; }
 
   bool getAnalyzed() const { return Analyzed; }
 
-  void addType(llvm::Type *Ty) {
-    assert(isa<llvm::PointerType>(Ty) &&
-        "PointerTypeInfo::addType: Expecting pointer type");
-    Types.push_back(Ty);
+  void addElemType(llvm::Type *Ty) {
+    ElemTypes.push_back(Ty);
   }
-  PointerTypeAliasSetRef getTypes() { return Types; }
 
-  size_t getNumTypes() { return Types.size(); }
+  TypeAliasSetRef getElemTypes() { return ElemTypes; }
 
-  llvm::Type *getType(size_t Idx) const {
-    assert(Idx < Types.size() && "Index out of range");
-    return Types[Idx];
+  size_t getNumTypes() { return ElemTypes.size(); }
+
+  llvm::Type *getElemType(size_t Idx) const {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    return ElemTypes[Idx];
   }
 
   // Change the type at index \p Idx to type \p Ty. This
   // function should only be used for updating a type based
   // on the type remapping done when processing a function.
-  void setType(size_t Idx, llvm::Type *Ty) {
-    assert(Idx < Types.size() && "Index out of range");
-    Types[Idx] = Ty;
+  void setElemType(size_t Idx, llvm::Type *Ty) {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    ElemTypes[Idx] = Ty;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -808,16 +807,17 @@ public:
 
 private:
   // When true, indicates that the base type for one or more of the pointer
-  // types collected for the pointer was an aggregate type.
-  bool AliasesToAggregatePointer;
+  // types operated upon by the call was an aggregate type.
+  bool AliasesToAggregateType;
 
   // When true, indicates the LocalPointerAnalysis was performed to collect type
   // information for the pointer.
   bool Analyzed;
 
-  // List of pointer to aggregate types resolved by the local pointer analysis
-  // for this item.
-  PointerTypeAliasSet Types;
+  // List of element types, resolved by the local pointer analysis, that the
+  // call instruction is operating upon. e.g. an allocation of %struct.foo
+  // objects, or a memset of i64 objects or %struct.foo* pointers.
+  TypeAliasSet ElemTypes;
 };
 
 // Base class for storing collected information about specific
@@ -832,21 +832,22 @@ public:
   Instruction *getInstruction() const { return I; }
   void setInstruction(Instruction *NewI) { I = NewI; }
 
-  bool getAliasesToAggregatePointer() const {
-    return PTI.getAliasesToAggregatePointer();
+  bool getAliasesToAggregateType() const {
+    return ElementTypes.getAliasesToAggregateType();
   }
 
-  void setAliasesToAggregatePointer(bool Val) {
-    PTI.setAliasesToAggregatePointer(Val);
+  void setAliasesToAggregateType(bool Val) {
+    ElementTypes.setAliasesToAggregateType(Val);
+  }
+  void setAnalyzed(bool Val) { ElementTypes.setAnalyzed(Val); }
+
+  bool getAnalyzed() const { return ElementTypes.getAnalyzed(); }
+
+  void addElemType(llvm::Type *Ty) {
+    ElementTypes.addElemType(Ty);
   }
 
-  void setAnalyzed(bool Val) { PTI.setAnalyzed(Val); }
-
-  bool getAnalyzed() const { return PTI.getAnalyzed(); }
-
-  void addType(llvm::Type *Ty) { PTI.addType(Ty); }
-
-  PointerTypeInfo &getPointerTypeInfoRef() { return PTI; }
+  CallInfoElementTypes &getElementTypesRef() { return ElementTypes; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
@@ -860,7 +861,7 @@ protected:
   Instruction *I;
 
   // The type list from the local pointer analysis.
-  PointerTypeInfo PTI;
+  CallInfoElementTypes ElementTypes;
 
 private:
   // ID to support type inquiry through isa, cast, and dyn_cast

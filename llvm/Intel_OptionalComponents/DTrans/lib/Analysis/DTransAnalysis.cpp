@@ -8474,7 +8474,7 @@ private:
 
         if (analyzeMemfuncStructureMemberParam(
                 I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc))
-          createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
+          createMemsetCallInfo(I, StructTy, RegionDesc);
 
         return;
       }
@@ -8524,7 +8524,7 @@ private:
 
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
-      createMemsetCallInfo(I, cast<PointerType>(DestParentTy), RegionDesc);
+      createMemsetCallInfo(I, DestPointeeTy, RegionDesc);
 
       return;
     }
@@ -8536,7 +8536,7 @@ private:
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
                                              RegionDesc))
-        createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
+        createMemsetCallInfo(I, StructTy, RegionDesc);
       return;
     }
 
@@ -8705,8 +8705,8 @@ private:
 
         // Create memfunc info for a single field access.
         createMemcpyOrMemmoveCallInfo(
-            I, (DstPtrToMember ? DestParentTy : SrcParentTy)->getPointerTo(),
-            Kind, RegionDesc, RegionDesc);
+            I, (DstPtrToMember ? DestParentTy : SrcParentTy), Kind, RegionDesc,
+            RegionDesc);
 
         auto *StructInfo =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructType));
@@ -8818,8 +8818,8 @@ private:
         if (analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                                DstPrePadBytes, SetSize,
                                                RegionDesc)) {
-          createMemcpyOrMemmoveCallInfo(I, DstStructTy->getPointerTo(), Kind,
-                                        RegionDesc, RegionDesc);
+          createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind, RegionDesc,
+                                        RegionDesc);
 
           auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcStructTy);
           auto *SrcParentStructTI = cast<dtrans::StructInfo>(SrcParentTI);
@@ -8884,9 +8884,8 @@ private:
       // which are the same types/
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
-      createMemcpyOrMemmoveCallInfo(I, cast<PointerType>(DestParentTy), Kind,
-                                    RegionDesc, RegionDesc);
-
+      createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind, RegionDesc,
+                                    RegionDesc);
       return;
     }
 
@@ -8901,8 +8900,8 @@ private:
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
                                              RegionDesc)) {
-        createMemcpyOrMemmoveCallInfo(I, StructTy->getPointerTo(), Kind,
-                                      RegionDesc, RegionDesc);
+        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind, RegionDesc,
+                                      RegionDesc);
 
         addFieldReaders(SrcParentStructTI, RegionDesc.FirstField,
                         RegionDesc.LastField, I);
@@ -8931,14 +8930,14 @@ private:
   void populateCallInfoFromLPI(LocalPointerInfo &LPI, dtrans::CallInfo *CI) {
     CI->setAnalyzed(true);
     if (LPI.canAliasToAggregatePointer()) {
-      CI->setAliasesToAggregatePointer(true);
+      CI->setAliasesToAggregateType(true);
       LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
           LPI.getPointerTypeAliasSet();
-      for (auto *Ty : AliasSet) {
+      for (auto *Ty : AliasSet)
         if (DTInfo.isTypeOfInterest(Ty)) {
-          CI->addType(Ty);
+          assert(Ty->isPointerTy() && "Expected pointer type");
+          CI->addElemType(Ty->getPointerElementType());
         }
-      }
     }
   }
 
@@ -8951,33 +8950,32 @@ private:
 
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memset call.
-  void createMemsetCallInfo(Instruction &I, llvm::PointerType *Ty,
+  void createMemsetCallInfo(Instruction &I, llvm::Type *ElemTy,
                             dtrans::MemfuncRegion &RegionDesc) {
     dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
-    MCI->setAliasesToAggregatePointer(true);
+    MCI->setAliasesToAggregateType(true);
     MCI->setAnalyzed(true);
-    MCI->addType(Ty);
+    MCI->addElemType(ElemTy);
 
     if (!RegionDesc.IsCompleteAggregate)
-      markFieldsComplexUse(Ty->getElementType(), RegionDesc.FirstField,
-                           RegionDesc.LastField);
+      markFieldsComplexUse(ElemTy, RegionDesc.FirstField, RegionDesc.LastField);
   }
 
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memcpy/memmove call.
-  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::PointerType *Ty,
+  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::Type *ElemTy,
                                      dtrans::MemfuncCallInfo::MemfuncKind Kind,
                                      dtrans::MemfuncRegion &RegionDescDest,
                                      dtrans::MemfuncRegion &RegionDescSrc) {
     dtrans::MemfuncCallInfo *MCI =
         DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
-    MCI->setAliasesToAggregatePointer(true);
+    MCI->setAliasesToAggregateType(true);
     MCI->setAnalyzed(true);
-    MCI->addType(Ty);
+    MCI->addElemType(ElemTy);
 
     if (!RegionDescDest.IsCompleteAggregate)
-      markFieldsComplexUse(Ty->getElementType(), RegionDescDest.FirstField,
+      markFieldsComplexUse(ElemTy, RegionDescDest.FirstField,
                            RegionDescDest.LastField);
   }
 
