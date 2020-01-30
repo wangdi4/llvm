@@ -43,6 +43,7 @@ using PiPlatform = ::pi_platform;
 using PiDevice = ::pi_device;
 using PiDeviceType = ::pi_device_type;
 using PiDeviceInfo = ::pi_device_info;
+using PiProgramInfo = ::pi_program_info;
 using PiDeviceBinaryType = ::pi_device_binary_type;
 using PiContext = ::pi_context;
 using PiProgram = ::pi_program;

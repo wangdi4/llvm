@@ -381,9 +381,9 @@ RT::PiProgram ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel) {
 
 string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program) {
   size_t Size = 0;
-  PI_CALL(piProgramGetInfo)(Program, CL_PROGRAM_DEVICES, 0, nullptr, &Size);
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_DEVICES, 0, nullptr, &Size);
   vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
-  PI_CALL(piProgramGetInfo)(Program, CL_PROGRAM_DEVICES, Size, PIDevices.data(),
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_DEVICES, Size, PIDevices.data(),
                             nullptr);
   string_class Log = "The program was built for " +
                      std::to_string(PIDevices.size()) + " devices";

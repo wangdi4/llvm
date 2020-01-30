@@ -1184,35 +1184,38 @@ pi_result L0(piclProgramCreateWithSource)(
 
 pi_result L0(piProgramGetInfo)(
   pi_program          program,
-  cl_program_info     param_name, // TODO: untie from OpenCL
+  pi_program_info     param_name,
   size_t              param_value_size,
   void *              param_value,
   size_t *            param_value_size_ret) {
 
-  if (param_name == CL_PROGRAM_REFERENCE_COUNT) {
+  if (param_name == PI_PROGRAM_REFERENCE_COUNT) {
     SET_PARAM_VALUE(pi_uint32{program->RefCount});
   }
-  else if (param_name == CL_PROGRAM_NUM_DEVICES) {
+  else if (param_name == PI_PROGRAM_NUM_DEVICES) {
     // L0 Module is always for a single device.
     SET_PARAM_VALUE(pi_uint32{1});
   }
-  else if (param_name == CL_PROGRAM_BINARY_SIZES) {
+  else if (param_name == PI_PROGRAM_DEVICES) {
+    SET_PARAM_VALUE(program->Context->Device);
+  }
+  else if (param_name == PI_PROGRAM_BINARY_SIZES) {
     size_t szBinary = 0;
     ZE_CALL(zeModuleGetNativeBinary(program->L0Module, &szBinary, nullptr));
     // This is an array of 1 element, initialize if it were scalar.
     SET_PARAM_VALUE(size_t{szBinary});
   }
-  else if (param_name == CL_PROGRAM_BINARIES) {
+  else if (param_name == PI_PROGRAM_BINARIES) {
     size_t szBinary = 0;
     uint8_t **pBinary = pi_cast<uint8_t **>(param_value);
     ZE_CALL(zeModuleGetNativeBinary(program->L0Module, &szBinary, pBinary[0]));
   }
-  else if (param_name == CL_PROGRAM_NUM_KERNELS) {
+  else if (param_name == PI_PROGRAM_NUM_KERNELS) {
     uint32_t num_kernels = 0;
     ZE_CALL(zetModuleGetKernelNames(program->L0Module, &num_kernels, nullptr));
     SET_PARAM_VALUE(size_t{num_kernels});
   }
-  else if (param_name == CL_PROGRAM_KERNEL_NAMES) {
+  else if (param_name == PI_PROGRAM_KERNEL_NAMES) {
     // There are extra allocations/copying here dictated by the difference
     // in L0 and PI interfaces. Also see discussions at
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/305.

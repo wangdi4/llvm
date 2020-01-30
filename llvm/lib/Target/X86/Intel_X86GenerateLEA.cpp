@@ -296,13 +296,10 @@ bool GenerateLEAPass::insertLEA(const MachineBasicBlock &MBB,
     const Register DestReg = MRI->createVirtualRegister(TRC);
     MachineBasicBlock *MBB = MI->getParent();
 
-    LLVM_DEBUG(dbgs() << "OptimizeLEAs: Candidate to insert: "; MI->dump(););
+    LLVM_DEBUG(dbgs() << "GenerateLEA: Candidate to insert: "; MI->dump(););
 
-#ifndef NDEBUG
-    const MachineInstrBuilder &LEA =
-#endif
     // Insert LEA instruction with MI's base, scale, index, disp and seg.
-    BuildMI(*MBB, *MI, DL, TII->get(LEAOp), DestReg)
+    const MachineInstr *LEA = BuildMI(*MBB, *MI, DL, TII->get(LEAOp), DestReg)
         .add(BaseOp)
         .add(ScaleOp)
         .add(IndexOp)
@@ -316,7 +313,8 @@ bool GenerateLEAPass::insertLEA(const MachineBasicBlock &MBB,
     SegOp.setReg(X86::NoRegister);
     DispOp.ChangeToImmediate(0);
 
-    LLVM_DEBUG(dbgs() << "OptimizeLEAs: After inserting: "; LEA->dump();
+    (void)LEA;
+    LLVM_DEBUG(dbgs() << "GenerateLEA: After inserting: "; LEA->dump();
                MI->dump(););
     Changed = true;
   }
