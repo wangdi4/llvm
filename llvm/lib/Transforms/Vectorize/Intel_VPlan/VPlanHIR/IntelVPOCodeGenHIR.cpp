@@ -3369,8 +3369,20 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   if (!Mask)
     Mask = CurMaskValue;
 
-  // Special handling of PHI nodes to support mixed codegen.
-  if (VPInst->isUnderlyingIRValid() && isa<VPPHINode>(VPInst)) {
+  // Special handling of PHI nodes to support mixed codegen. In mixed mode we
+  // should generate explicit code for PHIs only if they have any invalidated
+  // users; it should be ignored otherwise.
+  if (isa<VPPHINode>(VPInst)) {
+    auto *VPPhi = cast<VPPHINode>(VPInst);
+    // Any PHI involved in loop-entities based reduction should be mapped to the
+    // DDRef that was already created for it. Explicit blends are not needed for
+    // them.
+    if (ReductionRefs.count(VPPhi)) {
+      addVPValueWideRefMapping(VPPhi, ReductionRefs[VPPhi]);
+      return;
+    }
+
+    // Cases where PHIs can have invalidated users.
     // Case 1: Decomposed PHI
     // It is possible to have the same PHI node being part of multiple master
     // instructions. In such scenarios if any of the user master instruction is
@@ -3408,14 +3420,12 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     // Widened code for PHI should be generated to ensure that mixed codegen for
     // such users works.
     //
-    auto *VPPhi = cast<VPPHINode>(VPInst);
     for (auto *U : VPPhi->users()) {
       auto *UserInst = dyn_cast<VPInstruction>(U);
       if (!UserInst)
         continue;
       if (!UserInst->isUnderlyingIRValid()) {
-        LLVM_DEBUG(dbgs() << "VPPHINode with valid HIR has an "
-                             "invalid master user instruction:"
+        LLVM_DEBUG(dbgs() << "VPPHINode has an invalid master user instruction:"
                           << "\n"
                           << *VPPhi << "\n"
                           << *UserInst << "\n");
@@ -3424,6 +3434,11 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
         return;
       }
     }
+
+    // PHI need not be widened since all users have valid underlying HIR.
+    LLVM_DEBUG(dbgs() << "Skipping unecessary PHI in mixed mode:" << *VPInst
+                      << "\n");
+    return;
   }
 
   if (HIR.isDecomposed() && VPInst->isUnderlyingIRValid()) {
@@ -3484,28 +3499,6 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
-  }
-
-  // For mixed codegen, all instructions under if-else blocks are appropriately
-  // masked, hence we don't need to explicitly generate a select for a masked
-  // reduction's loop exit blend PHI instruction.
-  if (isa<VPPHINode>(VPInst) && ReductionRefs.count(VPInst)) {
-    auto *RednEntity = VPLoopEntities->getReduction(VPInst);
-    assert(RednEntity && "VPReduction not found for PHI.");
-    if (RednEntity->getLoopExitInstr() == VPInst) {
-      VPPHINode *StartPhi = VPLoopEntities->getRecurrentVPHINode(*RednEntity);
-      // Use the same map entry as the masked reduction's updating instruction
-      // for the exiting blend PHI.
-      assert(StartPhi && "Masked reduction does not have start PHI.");
-      VPValue *UpdatingVPVal = VPInst->getOperand(0) == StartPhi
-                                   ? VPInst->getOperand(1)
-                                   : VPInst->getOperand(0);
-      RegDDRef *Ref = getWideRefForVPVal(UpdatingVPVal);
-      assert(Ref && "Wide DDRef not found for UpdatingVPVal.");
-      addVPValueWideRefMapping(VPInst, Ref);
-
-      return;
-    }
   }
 
   widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
