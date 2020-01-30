@@ -59,6 +59,12 @@ static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> DumpAfterVPEntityInstructions(
+    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after insertion of VPEntity instructions."));
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -157,8 +163,12 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       VPBuilder VPIRBuilder;
       LE->insertVPInstructions(VPIRBuilder);
       LE->doSOAAnalysis();
-      LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
-                 dbgs() << *Plan;);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (DumpAfterVPEntityInstructions) {
+        outs() << "After insertion VPEntities instructions:\n";
+        Plan->dump(outs(), Plan->getVPlanDA());
+      }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
     }
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
