@@ -480,8 +480,6 @@ void Parser::initializePragmaHandlers() {
     DistributePointHandler =
         std::make_unique<PragmaDistributePointHandler>("distribute_point");
     PP.AddPragmaHandler(DistributePointHandler.get());
-    NoFusionHandler = std::make_unique<PragmaNoFusionHandler>("nofusion");
-    PP.AddPragmaHandler(NoFusionHandler.get());
     FusionHandler = std::make_unique<PragmaFusionHandler>("fusion");
     PP.AddPragmaHandler(FusionHandler.get());
   }
@@ -492,6 +490,8 @@ void Parser::initializePragmaHandlers() {
   if (HLSCompat || IntelCompat) {
     IVDepHandler = std::make_unique<PragmaIVDepHandler>("ivdep");
     PP.AddPragmaHandler(IVDepHandler.get());
+    NoFusionHandler = std::make_unique<PragmaNoFusionHandler>("nofusion");
+    PP.AddPragmaHandler(NoFusionHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
     VectorHandler = std::make_unique<PragmaVectorHandler>("vector");
@@ -645,8 +645,6 @@ void Parser::resetPragmaHandlers() {
   if (IntelCompat) {
     PP.RemovePragmaHandler(DistributePointHandler.get());
     DistributePointHandler.reset();
-    PP.RemovePragmaHandler(NoFusionHandler.get());
-    NoFusionHandler.reset();
     PP.RemovePragmaHandler(FusionHandler.get());
     FusionHandler.reset();
   }
@@ -657,6 +655,8 @@ void Parser::resetPragmaHandlers() {
   if (HLSCompat || IntelCompat) {
     PP.RemovePragmaHandler(IVDepHandler.get());
     IVDepHandler.reset();
+    PP.RemovePragmaHandler(NoFusionHandler.get());
+    NoFusionHandler.reset();
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
     PP.RemovePragmaHandler(VectorHandler.get());
