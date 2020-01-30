@@ -65,7 +65,7 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   UID = uid;
 
   Rec = insn.TheDef;
-  Name = Rec->getName();
+  Name = std::string(Rec->getName());
   Spec = &tables.specForUID(UID);
 
   if (!Rec->isSubClassOf("X86Inst")) {
@@ -94,7 +94,7 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   ForceDisassemble   = Rec->getValueAsBit("ForceDisassemble");
   CD8_Scale          = byteFromRec(Rec, "CD8_Scale");
 
-  Name      = Rec->getName();
+  Name = std::string(Rec->getName());
 
   Operands = &insn.Operands.OperandList;
 
@@ -418,10 +418,11 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
 
   StringRef typeName = (*Operands)[operandIndex].Rec->getName();
 
-  OperandEncoding encoding = encodingFromString(typeName, OpSize);
+  OperandEncoding encoding = encodingFromString(std::string(typeName), OpSize);
   // Adjust the encoding type for an operand based on the instruction.
   adjustOperandEncoding(encoding);
   Spec->operands[operandIndex].encoding = encoding;
+<<<<<<< HEAD
   Spec->operands[operandIndex].type = typeFromString(typeName,
                                                      HasREX_WPrefix, OpSize);
 #if INTEL_CUSTOMIZATION
@@ -431,6 +432,10 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
     Spec->operands[operandIndex].type = TYPE_M32;
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
+=======
+  Spec->operands[operandIndex].type =
+      typeFromString(std::string(typeName), HasREX_WPrefix, OpSize);
+>>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
 
   ++operandIndex;
   ++physicalOperandIndex;

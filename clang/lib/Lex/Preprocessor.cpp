@@ -1368,7 +1368,7 @@ bool Preprocessor::FinishLexStringLiteral(Token &Result, std::string &String,
     return false;
   }
 
-  String = Literal.GetString();
+  String = std::string(Literal.GetString());
   return true;
 }
 

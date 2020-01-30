@@ -514,7 +514,7 @@ void LTO::addModuleToGlobalRes(ArrayRef<InputFile::Symbol> Syms,
       assert(!GlobalRes.Prevailing &&
              "Multiple prevailing defs are not allowed");
       GlobalRes.Prevailing = true;
-      GlobalRes.IRName = Sym.getIRName();
+      GlobalRes.IRName = std::string(Sym.getIRName());
     } else if (!GlobalRes.Prevailing && GlobalRes.IRName.empty()) {
       // Sometimes it can be two copies of symbol in a module and prevailing
       // symbol can have no IR name. That might happen if symbol is defined in
@@ -522,7 +522,7 @@ void LTO::addModuleToGlobalRes(ArrayRef<InputFile::Symbol> Syms,
       // the same symbol we want to use IR name of the prevailing symbol.
       // Otherwise, if we haven't seen a prevailing symbol, set the name so that
       // we can later use it to check if there is any prevailing copy in IR.
-      GlobalRes.IRName = Sym.getIRName();
+      GlobalRes.IRName = std::string(Sym.getIRName());
     }
 
     // Set the partition to external if we know it is re-defined by the linker
@@ -764,7 +764,7 @@ LTO::addRegularLTO(BitcodeModule BM, ArrayRef<InputFile::Symbol> Syms,
     if (Sym.isCommon()) {
       // FIXME: We should figure out what to do about commons defined by asm.
       // For now they aren't reported correctly by ModuleSymbolTable.
-      auto &CommonRes = RegularLTO.Commons[Sym.getIRName()];
+      auto &CommonRes = RegularLTO.Commons[std::string(Sym.getIRName())];
       CommonRes.Size = std::max(CommonRes.Size, Sym.getCommonSize());
       CommonRes.Align =
           std::max(CommonRes.Align, MaybeAlign(Sym.getCommonAlignment()));
@@ -1228,7 +1228,7 @@ std::string lto::getThinLTOOutputFile(const std::string &Path,
       llvm::errs() << "warning: could not create directory '" << ParentPath
                    << "': " << EC.message() << '\n';
   }
-  return NewPath.str();
+  return std::string(NewPath.str());
 }
 
 namespace {
@@ -1257,7 +1257,7 @@ public:
       MapVector<StringRef, BitcodeModule> &ModuleMap) override {
     StringRef ModulePath = BM.getModuleIdentifier();
     std::string NewModulePath =
-        getThinLTOOutputFile(ModulePath, OldPrefix, NewPrefix);
+        getThinLTOOutputFile(std::string(ModulePath), OldPrefix, NewPrefix);
 
     if (LinkedObjectsFile)
       *LinkedObjectsFile << NewModulePath << '\n';
@@ -1281,7 +1281,7 @@ public:
     }
 
     if (OnWrite)
-      OnWrite(ModulePath);
+      OnWrite(std::string(ModulePath));
     return Error::success();
   }
 
@@ -1428,7 +1428,7 @@ Expected<std::unique_ptr<ToolOutputFile>>
 lto::setupOptimizationRemarks(LLVMContext &Context, StringRef RemarksFilename,
                               StringRef RemarksPasses, StringRef RemarksFormat,
                               bool RemarksWithHotness, int Count) {
-  std::string Filename = RemarksFilename;
+  std::string Filename = std::string(RemarksFilename);
   // For ThinLTO, file.opt.<format> becomes
   // file.opt.<format>.thin.<num>.<format>.
   if (!Filename.empty() && Count != -1)
