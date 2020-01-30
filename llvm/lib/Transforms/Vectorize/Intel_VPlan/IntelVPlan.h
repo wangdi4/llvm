@@ -2690,53 +2690,7 @@ public:
   splitBlockEnd(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                 VPDominatorTree *DomTree = nullptr,
                 VPPostDominatorTree *PostDomTree = nullptr);
-  //===----------------------------------------------------------------------===//
-  // VPRegionBlock specific Utilities
-  //===----------------------------------------------------------------------===//
 
-  /// Insert a \p Region in a HCFG using \p Entry and \p Exit blocks as Region's
-  /// single entry and single exit. \p Entry and \p Exit blocks must be part of
-  /// the HCFG and be in the same region. \p Region cannot be part of a HCFG.
-  static void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
-                           VPBlockBase *Exit, bool RecomputeSize = true) {
-
-    assert(Entry->getNumSuccessors() != 0 && "Entry must be in a HCFG");
-    assert(Entry->getNumPredecessors() != 0 && "Exit must be in a HCFG");
-    assert(Entry->getParent() && Exit->getParent() &&
-           "Entry and Exit must have a parent region");
-    assert(Entry->getParent() == Exit->getParent() &&
-           "Entry and Exit must have the same parent region");
-    assert(Exit->getParent()->getExit() != Exit &&
-           "Exit node cannot be an exit node in another region");
-    assert(!Region->getEntry() && "Region's entry must be null");
-    assert(!Region->getExit() && "Region's exit must be null");
-    assert(!Region->getNumSuccessors() && "Region cannot have successors");
-    assert(!Region->getNumPredecessors() && "Region cannot have predecessors");
-
-    VPRegionBlock *ParentRegion = Entry->getParent();
-
-    // If Entry is parent region's entry, set Region as parent region's entry
-    if (ParentRegion->getEntry() == Entry) {
-      ParentRegion->setEntry(Region);
-    } else {
-      VPBlockUtils::movePredecessors(Entry, Region);
-    }
-
-    // moveSuccessors is propagating Exit's parent to Region
-    VPBlockUtils::moveSuccessors(Exit, Region);
-    Region->setEntry(Entry);
-    Region->setExit(Exit);
-
-    // Recompute region size and update parent
-    if (RecomputeSize) {
-      Region->recomputeSize();
-      ParentRegion->Size -= Region->Size + 1 /*Region*/;
-    }
-  }
-
-  /// Set parent region for each VPBlockBase of the given region. Don't enter
-  /// into subregions, because their VPBlockBases must not be touched.
-  static void setParentRegionForBody(VPRegionBlock *Region);
 #endif // INTEL_CUSTOMIZATION
 };
 

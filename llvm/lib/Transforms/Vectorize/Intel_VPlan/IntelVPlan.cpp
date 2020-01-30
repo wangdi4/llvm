@@ -1731,14 +1731,6 @@ void VPValue::printAsOperand(raw_ostream &OS) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
-  for (VPBlockBase *Block :
-       make_range(df_iterator<VPBlockBase *>::begin(Region->getEntry()),
-                  df_iterator<VPBlockBase *>::end(Region->getExit()))) {
-    Block->setParent(Region);
-  }
-}
-
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
