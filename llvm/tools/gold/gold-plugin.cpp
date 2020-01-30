@@ -239,15 +239,11 @@ namespace options {
       extra_library_path =
           std::string(opt.substr(strlen("extra_library_path=")));
     } else if (opt.startswith("mtriple=")) {
-<<<<<<< HEAD
-      triple = opt.substr(strlen("mtriple="));
+      triple = std::string(opt.substr(strlen("mtriple=")));
 #if INTEL_CUSTOMIZATION
     } else if (opt.startswith("fintel-advanced-optim")) {
       AdvOptim = true;
 #endif // INTEL_CUSTOMIZATION
-=======
-      triple = std::string(opt.substr(strlen("mtriple=")));
->>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
     } else if (opt.startswith("obj-path=")) {
       obj_path = std::string(opt.substr(strlen("obj-path=")));
     } else if (opt == "emit-llvm") {

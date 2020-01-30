@@ -422,9 +422,8 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
   // Adjust the encoding type for an operand based on the instruction.
   adjustOperandEncoding(encoding);
   Spec->operands[operandIndex].encoding = encoding;
-<<<<<<< HEAD
-  Spec->operands[operandIndex].type = typeFromString(typeName,
-                                                     HasREX_WPrefix, OpSize);
+  Spec->operands[operandIndex].type =
+      typeFromString(std::string(typeName), HasREX_WPrefix, OpSize);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   // Hack to force decoder using 32bits registers for memory operand
@@ -432,10 +431,6 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
     Spec->operands[operandIndex].type = TYPE_M32;
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-=======
-  Spec->operands[operandIndex].type =
-      typeFromString(std::string(typeName), HasREX_WPrefix, OpSize);
->>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
 
   ++operandIndex;
   ++physicalOperandIndex;

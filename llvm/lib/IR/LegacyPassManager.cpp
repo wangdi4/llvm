@@ -155,13 +155,9 @@ bool llvm::isFunctionInPrintList(StringRef FunctionName) {
 #else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   static std::unordered_set<std::string> PrintFuncNames(PrintFuncsList.begin(),
                                                         PrintFuncsList.end());
-<<<<<<< HEAD
-  return PrintFuncNames.empty() || PrintFuncNames.count(FunctionName);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   return PrintFuncNames.empty() ||
          PrintFuncNames.count(std::string(FunctionName));
->>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
 /// or higher is specified.

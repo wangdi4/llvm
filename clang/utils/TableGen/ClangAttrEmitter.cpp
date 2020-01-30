@@ -112,29 +112,18 @@ GetFlattenedSpellings(const Record &Attr) {
 
 static std::string ReadPCHRecord(StringRef type) {
   return StringSwitch<std::string>(type)
-<<<<<<< HEAD
-    .EndsWith("Decl *", "Record.GetLocalDeclAs<" 
-              + std::string(type, 0, type.size()-1) + ">(Record.readInt())")
-    .Case("TypeSourceInfo *", "Record.readTypeSourceInfo()")
-    .Case("Expr *", "Record.readExpr()")
-    .Case("IdentifierInfo *", "Record.readIdentifier()")
-#if INTEL_CUSTOMIZATION
-    .Case("SourceLocation", "Record.readSourceLocation()")
-#endif  // INTEL_CUSTOMIZATION
-    .Case("StringRef", "Record.readString()")
-    .Case("ParamIdx", "ParamIdx::deserialize(Record.readInt())")
-    .Default("Record.readInt()");
-=======
       .EndsWith("Decl *", "Record.GetLocalDeclAs<" +
                               std::string(type.data(), 0, type.size() - 1) +
                               ">(Record.readInt())")
       .Case("TypeSourceInfo *", "Record.readTypeSourceInfo()")
       .Case("Expr *", "Record.readExpr()")
       .Case("IdentifierInfo *", "Record.readIdentifier()")
+#if INTEL_CUSTOMIZATION
+      .Case("SourceLocation", "Record.readSourceLocation()")
+#endif // INTEL_CUSTOMIZATION
       .Case("StringRef", "Record.readString()")
       .Case("ParamIdx", "ParamIdx::deserialize(Record.readInt())")
       .Default("Record.readInt()");
->>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
 }
 
 // Get a type that is suitable for storing an object of the specified type.
@@ -146,19 +135,6 @@ static StringRef getStorageType(StringRef type) {
 
 // Assumes that the way to get the value is SA->getname()
 static std::string WritePCHRecord(StringRef type, StringRef name) {
-<<<<<<< HEAD
-  return "Record." + StringSwitch<std::string>(type)
-    .EndsWith("Decl *", "AddDeclRef(" + std::string(name) + ");\n")
-    .Case("TypeSourceInfo *", "AddTypeSourceInfo(" + std::string(name) + ");\n")
-    .Case("Expr *", "AddStmt(" + std::string(name) + ");\n")
-    .Case("IdentifierInfo *", "AddIdentifierRef(" + std::string(name) + ");\n")
-#if INTEL_CUSTOMIZATION
-    .Case("SourceLocation", "AddSourceLocation(" + std::string(name) + ");\n")
-#endif  // INTEL_CUSTOMIZATION
-    .Case("StringRef", "AddString(" + std::string(name) + ");\n")
-    .Case("ParamIdx", "push_back(" + std::string(name) + ".serialize());\n")
-    .Default("push_back(" + std::string(name) + ");\n");
-=======
   return "Record." +
          StringSwitch<std::string>(type)
              .EndsWith("Decl *", "AddDeclRef(" + std::string(name) + ");\n")
@@ -167,11 +143,14 @@ static std::string WritePCHRecord(StringRef type, StringRef name) {
              .Case("Expr *", "AddStmt(" + std::string(name) + ");\n")
              .Case("IdentifierInfo *",
                    "AddIdentifierRef(" + std::string(name) + ");\n")
+#if INTEL_CUSTOMIZATION
+             .Case("SourceLocation",
+                   "AddSourceLocation(" + std::string(name) + ");\n")
+#endif // INTEL_CUSTOMIZATION
              .Case("StringRef", "AddString(" + std::string(name) + ");\n")
              .Case("ParamIdx",
                    "push_back(" + std::string(name) + ".serialize());\n")
              .Default("push_back(" + std::string(name) + ");\n");
->>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
 }
 
 // Normalize attribute name by removing leading and trailing

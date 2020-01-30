@@ -3648,17 +3648,13 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
 static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
                                   DiagnosticsEngine &Diags,
                                   frontend::ActionKind Action) {
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(OPT_fintel_ms_compatibility))
       Opts.OutputFile = Args.getLastArgValue(OPT_o);
 #endif // INTEL_CUSTOMIZATION
 
-  Opts.ImplicitPCHInclude = Args.getLastArgValue(OPT_include_pch);
-=======
   Opts.ImplicitPCHInclude = std::string(Args.getLastArgValue(OPT_include_pch));
->>>>>>> 586bea3ec515ce20aac8abbc01fbe4173d0dbad7
   Opts.PCHWithHdrStop = Args.hasArg(OPT_pch_through_hdrstop_create) ||
                         Args.hasArg(OPT_pch_through_hdrstop_use);
   Opts.PCHWithHdrStopCreate = Args.hasArg(OPT_pch_through_hdrstop_create);
