@@ -1083,6 +1083,15 @@ def CUDAShared : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// INTEL_CUSTOMIZATION
+def HLSDevice : InheritableAttr {
+  let Spellings = [Clang<"hls_device">];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [HLS];
+  let Documentation = [HLSDeviceDocs];
+}
+// end INTEL_CUSTOMIZATION
+
 def SYCLDevice : InheritableAttr {
   let Spellings = [GNU<"sycl_device">];
   let Subjects = SubjectList<[Function]>;

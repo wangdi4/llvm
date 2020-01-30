@@ -268,8 +268,16 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
     if (getLangOpts().CUDA && !CheckCUDACall(Loc, FD))
       return true;
 
+<<<<<<< HEAD
     if (getLangOpts().SYCLIsDevice)
       checkSYCLDeviceFunction(Loc, FD);
+=======
+#if INTEL_CUSTOMIZATION
+    // HLS also uses SYCL's diagnostic deferring system
+    if (getLangOpts().SYCLIsDevice || getLangOpts().HLS)
+#endif // INTEL_CUSTOMIZATION
+      CheckSYCLCall(Loc, FD);
+>>>>>>> b8faa80717c9dc5b5e36900e8ed701ff49d7b535
   }
 
   if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
@@ -5447,6 +5455,25 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
 
     // Otherwise do argument promotion, (C99 6.5.2.2p7).
     } else {
+<<<<<<< HEAD
+=======
+      // Diagnose variadic calls in SYCL.
+      if (getLangOpts().SYCLIsDevice && !isUnevaluatedContext() &&
+          !isKnownGoodSYCLDecl(FDecl))
+        SYCLDiagIfDeviceCode(CallLoc, diag::err_sycl_restrict)
+            << Sema::KernelCallVariadicFunction;
+
+#if INTEL_CUSTOMIZATION
+      // Diagnose variadic calls in HLS.
+      if (getLangOpts().HLS && !isUnevaluatedContext()) {
+        CallingConv CC = FDecl->getType()->castAs<FunctionType>()->getCallConv();
+        if (!supportsVariadicCall(CC))
+          SYCLDiagIfDeviceCode(CallLoc, diag::err_cconv_varargs)
+              << FunctionType::getNameForCallConv(CC);
+      }
+#endif // INTEL_CUSTOMIZATION
+
+>>>>>>> b8faa80717c9dc5b5e36900e8ed701ff49d7b535
       for (Expr *A : Args.slice(ArgIx)) {
         ExprResult Arg = DefaultVariadicArgumentPromotion(A, CallType, FDecl);
         Invalid |= Arg.isInvalid();

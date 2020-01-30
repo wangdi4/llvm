@@ -1404,8 +1404,11 @@ void Sema::MarkDevice(void) {
 static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
   assert(FD && "Given function may not be null.");
 
-  if (FD->hasAttr<SYCLDeviceAttr>() || FD->hasAttr<SYCLKernelAttr>())
+#if INTEL_CUSTOMIZATION
+  if (FD->hasAttr<SYCLDeviceAttr>() || FD->hasAttr<SYCLKernelAttr>() ||
+      FD->hasAttr<HLSDeviceAttr>())
     return true;
+#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, the function is known-emitted if it's in our set of
   // known-emitted functions.
@@ -1414,8 +1417,10 @@ static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
 
 Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
                                                    unsigned DiagID) {
-  assert(getLangOpts().SYCLIsDevice &&
-         "Should only be called during SYCL compilation");
+#if INTEL_CUSTOMIZATION
+  assert((getLangOpts().SYCLIsDevice || getLangOpts().HLS) &&
+         "Should only be called during SYCL or HLS compilation");
+#endif // INTEL_CUSTOMIZATION
   FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
   DeviceDiagBuilder::Kind DiagKind = [this, FD] {
     if (ConstructingOpenCLKernel || !FD)

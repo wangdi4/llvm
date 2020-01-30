@@ -7484,11 +7484,12 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state, ParsedAttr &attr,
   // much ability to diagnose it later.
   if (!supportsVariadicCall(CC)) {
     const FunctionProtoType *FnP = dyn_cast<FunctionProtoType>(fn);
-    // Disable these diagnostics for SYCL
-    if (FnP && FnP->isVariadic() && !S.getLangOpts().SYCLIsDevice) {
+#if INTEL_CUSTOMIZATION
+    // Disable these diagnostics for SYCL and HLS
+    if (FnP && FnP->isVariadic() && !S.getLangOpts().SYCLIsDevice &&
+        !S.getLangOpts().HLS) {
       // stdcall and fastcall are ignored with a warning for GCC and MS
       // compatibility.
-#if INTEL_CUSTOMIZATION
       if (CC == CC_SpirFunction && S.getLangOpts().IntelCompat &&
           !S.Context.getTargetInfo().shouldDiagnoseVariadicCall())
         return S.Diag(attr.getLoc(), diag::warn_cconv_unsupported)

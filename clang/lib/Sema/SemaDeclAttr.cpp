@@ -8397,6 +8397,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Flatten:
     handleSimpleAttribute<FlattenAttr>(S, D, AL);
     break;
+#if INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_HLSDevice:
+    handleSimpleAttribute<HLSDeviceAttr>(S, D, AL);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_SYCLKernel:
     handleSYCLKernelAttr(S, D, AL);
     break;
