@@ -92,6 +92,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -659,67 +660,6 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
   return true;
 }
 
-// Looks for a single dominating (load inst) definition of the base pointer of
-// \p MemRef. Returns the rval load ref if found. Ex-
-//
-// p = A[0].1; << BasePtrLoadRef
-//   = p[5]; << MemRef
-static const RegDDRef *getBasePtrLoadRef(const DDGraph &DDG,
-                                         const RegDDRef *MemRef) {
-  assert(!DDG.empty() && "Empty DDG not expected!");
-
-  unsigned BaseIndex = MemRef->getBasePtrBlobIndex();
-
-  auto *BasePtrBlobRef = MemRef->getBlobDDRef(BaseIndex);
-
-  assert(BasePtrBlobRef && "Blob ref for base ptr not found!");
-
-  const RegDDRef *SrcRef = nullptr;
-  const RegDDRef *BasePtrLoadRef = nullptr;
-
-  for (const DDEdge *Edge : DDG.incoming(BasePtrBlobRef)) {
-    if (BasePtrLoadRef) {
-      return nullptr;
-    }
-
-    SrcRef = cast<RegDDRef>(Edge->getSrc());
-    assert(SrcRef->isTerminalRef() && "SrcRef should be a terminal ref!");
-
-    auto *SrcInst = cast<HLInst>(SrcRef->getHLDDNode());
-
-    if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
-      return nullptr;
-    }
-
-    // Single definition should dominate the use or we cannot use it.
-    if (!HLNodeUtils::dominates(SrcInst, MemRef->getHLDDNode())) {
-      return nullptr;
-    }
-
-    BasePtrLoadRef = SrcInst->getRvalDDRef();
-  }
-
-  assert(BasePtrLoadRef &&
-         "No temp definition found in loop for non-linear blob!");
-
-  // Only allow a structure field load with precise location.
-  // This is because only in this case are the results returned by FieldModRef
-  // applicable to both Ref and BasePtrLoadRef.
-  // TODO: Find a cleaner way by querying mod-ref twice.
-  if (!BasePtrLoadRef->hasTrailingStructOffsets(1)) {
-    return nullptr;
-  }
-
-  bool LocIsPrecise;
-  BasePtrLoadRef->getLocationPtr(LocIsPrecise);
-
-  if (!LocIsPrecise) {
-    return nullptr;
-  }
-
-  return BasePtrLoadRef;
-}
-
 // A Group is legal IF&F every Ref is legal within the Group
 bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
                      bool QueryMode) {
@@ -735,7 +675,22 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
     assert(QueryMode && "memref is not structually invariant w.r.t loop!");
     (void)QueryMode;
 
-    if (!(BasePtrLoadRef = getBasePtrLoadRef(DDG, FirstRef))) {
+    if (!(BasePtrLoadRef = DDUtils::getSingleBasePtrLoadRef(DDG, FirstRef))) {
+      return false;
+    }
+
+    // Only allow a structure field load with precise location.
+    // This is because only in this case are the results returned by FieldModRef
+    // applicable to both Ref and BasePtrLoadRef.
+    // TODO: Find a cleaner way by querying mod-ref twice.
+    if (!BasePtrLoadRef->hasTrailingStructOffsets(1)) {
+      return false;
+    }
+
+    bool LocIsPrecise;
+    BasePtrLoadRef->getLocationPtr(LocIsPrecise);
+
+    if (!LocIsPrecise) {
       return false;
     }
 
