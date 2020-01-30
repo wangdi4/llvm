@@ -28,7 +28,7 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %incdec.ptr = getelementptr inbounds i32, i32* %p.addr.04, i32 1
   store i32 %i.05, i32* %p.addr.04, align 4
   %inc = add nsw i32 %i.05, 1
-  call void @sink()
+  call void @sink(), !dbg !11                                            ;INTEL
   %cmp = icmp slt i32 %inc, %k
   br i1 %cmp, label %for.body, label %for.cond.for.end_crit_edge, !llvm.loop !10
 
@@ -56,3 +56,4 @@ declare void @sink() cold
 !8 = !{}
 !9 = !DILocation(line: 1, column: 1, scope: !6)
 !10 = distinct !{!10, !9, !9}
+!11 = !DILocation(line: 2, column: 1, scope: !6)                         ;INTEL

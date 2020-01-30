@@ -4232,6 +4232,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
                    nullptr, nullptr, AC, false, true, true,
                    IsTarget ? &TgtClauseArgs : nullptr);
+  CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   // Remove the use of the entry directive in the exit directive, so that it
@@ -4293,11 +4294,6 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   // call site.
   NewFunction->setCallingConv(CC);
   CallSite->setCallingConv(CC);
-
-  // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
-  // to prevent verification failures. This is due due to the
-  // CodeExtractor not properly handling them at the moment.
-  VPOUtils::stripDebugInfoInstrinsics(*NewFunction);
 
   return NewFunction;
 }

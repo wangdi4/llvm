@@ -247,6 +247,11 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   NFn->takeName(Fn);
   NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
 
+  // Everything including the routine name has been moved to the new routine.
+  // Do the same with the debug information.
+  NFn->setSubprogram(Fn->getSubprogram());
+  Fn->setSubprogram(nullptr);
+
   IRBuilder<> Builder(NFn->getEntryBlock().getFirstNonPHI());
   Function::arg_iterator NewArgI = NFn->arg_begin();
   for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
@@ -278,15 +283,6 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
 
-  DenseMap<const Function *, DISubprogram *> FunctionDIs;
-
-  auto DI = FunctionDIs.find(Fn);
-  if (DI != FunctionDIs.end()) {
-    DISubprogram *SP = DI->second;
-
-    FunctionDIs.erase(DI);
-    FunctionDIs[NFn] = SP;
-  }
   InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
   return NFn;
