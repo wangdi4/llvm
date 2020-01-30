@@ -2810,70 +2810,52 @@ RegDDRef *VPOCodeGenHIR::getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
   return AddrRef;
 }
 
-// Widen PHI instruction. The implementation here generates a sequence
-// of selects if VPPhi is marked as blend. Consider the following scalar
-// phi in bb0
-//      vp1 = phi [vp2, bb1] [vp3, bb2] [vp4, bb3].
+// Widen blend instruction. The implementation here generates a sequence
+// of selects. Consider the following scalar blend in bb0:
+//      vp1 = blend [vp2, bp2] [vp3, bp3] [vp4, bp4].
 // The selects are generated as follows:
-//      select1 = mask_for_edge(bb0, bb2) ? vp3_vec : vp2_vec
-//      vp1_vec = mask_for_edge(bb0, bb3) ? vp4_vec : select1
-// The implementation here assumes that any PHI not marked as a blend
-// is the loop IV and widens it by generating the ref i1 + <0, 1, 2, .. VF-1>.
-// This assumption needs to change when we start handling reductions/linears.
-void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
-  // Blend marked PHIs using selects and incoming masks
-  if (VPPhi->getBlend()) {
-    unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
-    assert(NumIncomingValues > 0 && "Unexpected PHI with zero values");
+//      select1 = bp3_vec ? vp3_vec : vp2_vec
+//      vp1_vec = bp4_vec ? vp4_vec : select1
+void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
+  unsigned NumIncomingValues = Blend->getNumIncomingValues();
+  assert(NumIncomingValues > 0 && "Unexpected blend with zero values");
 
-    if (NumIncomingValues == 1) {
-      // Blend phis should only be encountered in the linearized control flow.
-      // However, currently some preceding transformations mark some
-      // single-value phis as blends too (and codegen is probably relying on
-      // that as well). Bail out right now because general processing of phis
-      // with multiple incoming values relies on the control flow being
-      // linearized.
-      RegDDRef *Val = widenRef(VPPhi->getOperand(0), getVF());
-      addVPValueWideRefMapping(VPPhi, Val);
-      return;
+  // Generate a sequence of selects.
+  RegDDRef *BlendVal = nullptr;
+  for (unsigned Idx = 0, End = NumIncomingValues; Idx < End;
+       ++Idx) {
+    auto *IncomingVecVal = widenRef(Blend->getIncomingValue(Idx), getVF());
+    if (!BlendVal) {
+      BlendVal = IncomingVecVal;
+      continue;
     }
 
-    // FIXME: Ugly hack - should probably have a single VPlan-to-VPlan pass
-    // doing this and possible other preparations. Not UB because we always
-    // create non-const instructions in PlainCFGBuilder.
-    const_cast<VPPHINode *>(VPPhi)->sortIncomingBlocksForBlend();
+    // We are trying to blend same wide ref here, so select is not needed.
+    // Leave BlendVal untouched.
+    if (DDRefUtilities.areEqual(IncomingVecVal, BlendVal))
+      continue;
 
-    // Generate a sequence of selects.
-    RegDDRef *BlendVal = nullptr;
-    for (unsigned Idx = 0, End = VPPhi->getNumIncomingValues(); Idx < End;
-         ++Idx) {
-      VPBasicBlock *Block = VPPhi->getIncomingBlock(Idx);
-      auto *IncomingVecVal = widenRef(VPPhi->getIncomingValue(Idx), getVF());
-      if (!BlendVal) {
-        BlendVal = IncomingVecVal;
-        continue;
-      }
-
-      // We are trying to blend same wide ref here, so select is not needed.
-      // Leave BlendVal untouched.
-      if (DDRefUtilities.areEqual(IncomingVecVal, BlendVal))
-        continue;
-
-      RegDDRef *Cond = widenRef(Block->getPredicate(), getVF());
-      Type *CondTy = Cond->getDestType();
-      Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
-      RegDDRef *OneValRef =
-          getConstantSplatDDRef(DDRefUtilities, OneVal, getVF());
-      HLInst *BlendInst = HLNodeUtilities.createSelect(
-          CmpInst::ICMP_EQ, Cond, OneValRef, IncomingVecVal, BlendVal);
-      // TODO: Do we really need the Mask here?
-      addInst(BlendInst, Mask);
-      BlendVal = BlendInst->getLvalDDRef()->clone();
-    }
-    addVPValueWideRefMapping(VPPhi, BlendVal);
-    return;
+    VPValue *BlockPred = Blend->getIncomingPredicate(Idx);
+    assert(BlockPred && "block-predicate should not be null for select");
+    RegDDRef *Cond = widenRef(BlockPred, getVF());
+    Type *CondTy = Cond->getDestType();
+    Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
+    RegDDRef *OneValRef =
+        getConstantSplatDDRef(DDRefUtilities, OneVal, getVF());
+    HLInst *BlendInst = HLNodeUtilities.createSelect(
+        CmpInst::ICMP_EQ, Cond, OneValRef, IncomingVecVal, BlendVal);
+    // TODO: Do we really need the Mask here?
+    addInst(BlendInst, Mask);
+    BlendVal = BlendInst->getLvalDDRef()->clone();
   }
+  addVPValueWideRefMapping(Blend, BlendVal);
+}
 
+// Widen PHI instruction.
+// The implementation here assumes that PHI is the loop IV and widens it by
+// generating the ref i1 + <0, 1, 2, .. VF-1>. This assumption needs to change
+// when we start handling reductions/linears.
+void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   // Check if PHI corresponds to a reduction, if yes just use the corresponding
   // reduction ref as its widened ref.
   if (ReductionRefs.count(VPPhi)) {
@@ -3111,6 +3093,11 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
   if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
     widenPhiImpl(VPPhi, Mask);
+    return;
+  }
+
+  if (auto *Blend = dyn_cast<VPBlendInst>(VPInst)) {
+    widenBlendImpl(Blend, Mask);
     return;
   }
 
@@ -3494,16 +3481,15 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   if (!Mask)
     Mask = CurMaskValue;
 
-  // Special handling of PHI nodes to support mixed codegen. In mixed mode we
-  // should generate explicit code for PHIs only if they have any invalidated
+  // Special handling of PHI/Blend nodes to support mixed codegen. In mixed mode
+  // we should generate explicit code for PHIs only if they have any invalidated
   // users; it should be ignored otherwise.
-  if (isa<VPPHINode>(VPInst)) {
-    auto *VPPhi = cast<VPPHINode>(VPInst);
-    // Any PHI involved in loop-entities based reduction should be mapped to the
-    // DDRef that was already created for it. Explicit blends are not needed for
-    // them.
-    if (ReductionRefs.count(VPPhi)) {
-      addVPValueWideRefMapping(VPPhi, ReductionRefs[VPPhi]);
+  if (isa<VPPHINode>(VPInst) || isa<VPBlendInst>(VPInst)) {
+    // Any PHI/Blend involved in loop-entities based reduction should be mapped
+    // to the DDRef that was already created for it. Explicit blends are not
+    // needed for them.
+    if (ReductionRefs.count(VPInst)) {
+      addVPValueWideRefMapping(VPInst, ReductionRefs[VPInst]);
       return;
     }
 
@@ -3545,14 +3531,14 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     // Widened code for PHI should be generated to ensure that mixed codegen for
     // such users works.
     //
-    for (auto *U : VPPhi->users()) {
+    for (auto *U : VPInst->users()) {
       auto *UserInst = dyn_cast<VPInstruction>(U);
       if (!UserInst)
         continue;
       if (!UserInst->isUnderlyingIRValid()) {
-        LLVM_DEBUG(dbgs() << "VPPHINode has an invalid master user instruction:"
-                          << "\n"
-                          << *VPPhi << "\n"
+        LLVM_DEBUG(dbgs() << "VPPHINode/VPBlendInst has an invalid master user "
+                          << "instruction:" << "\n"
+                          << *VPInst << "\n"
                           << *UserInst << "\n");
         widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                       GrpStartInst);
@@ -3560,9 +3546,9 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
       }
     }
 
-    // PHI need not be widened since all users have valid underlying HIR.
-    LLVM_DEBUG(dbgs() << "Skipping unecessary PHI in mixed mode:" << *VPInst
-                      << "\n");
+    // PHI/Blend need not be widened since all users have valid underlying HIR.
+    LLVM_DEBUG(dbgs() << "Skipping unecessary PHI/Blend in mixed mode:"
+                      << *VPInst << "\n");
     return;
   }
 

@@ -641,6 +641,9 @@ private:
                      const OVLSGroup *Group, int64_t InterleaveFactor,
                      int64_t InterleaveIndex, const HLInst *GrpStartInst);
 
+  // Implementation of blend widening.
+  void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
+
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
 

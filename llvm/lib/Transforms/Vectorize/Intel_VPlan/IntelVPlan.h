@@ -263,6 +263,10 @@ class VPInstruction : public VPUser,
   friend class VPValueMapper;
   friend class VPLoopEntityList;
   friend class VPValue;
+  // FIXME: This is only needed to support buggy mixed HIR codegen. Once we
+  // retire it and use full VPValue-based codegen, underlying IR copying won't
+  // be necessary.
+  friend class VPlanPredicator;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -488,6 +492,7 @@ public:
       ReductionFinal,
       AllocatePrivate,
       Subscript,
+      Blend,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -726,32 +731,70 @@ public:
   }
 };
 
+/// Concrete class for blending instruction. Was previously represented as
+/// VPPHINode with Blend = true.
+class VPBlendInst : public VPInstruction {
+public:
+  explicit VPBlendInst(Type *BaseTy)
+      : VPInstruction(VPInstruction::Blend, BaseTy, ArrayRef<VPValue *>()) {}
+
+  /// Return number of incoming values. For blend, this is the number of
+  /// operands / 2 because both the incoming value and block-predicate are
+  /// added as operands.
+  unsigned getNumIncomingValues(void) const { return getNumOperands() / 2; }
+
+  /// Return incoming value at stride 2 Idx.
+  VPValue *getIncomingValue(const unsigned Idx) const {
+    assert(Idx < getNumIncomingValues() &&
+           "Idx outside range of incoming values");
+    return getOperand(Idx*2);
+  }
+
+  /// Return incoming block-predicate at stride 2 Idx.
+  VPValue *getIncomingPredicate(const unsigned Idx) const {
+    assert(Idx < getNumIncomingValues() &&
+           "Idx outside range of incoming values");
+    return getOperand(Idx*2+1);
+  }
+
+  /// Add operands of incoming value and block-predicate to the end of the
+  /// blend operand list.
+  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred) {
+    addOperand(IncomingVal);
+    addOperand(BlockPred);
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::Blend;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  /// Create new Blend and copy original incoming values to the newly created
+  /// Blend. Caller is responsible to replace these values with what is
+  /// needed.
+  virtual VPBlendInst *cloneImpl() const override {
+    VPBlendInst *Cloned = new VPBlendInst(getType());
+    for (unsigned I = 0, E = getNumIncomingValues(); I != E; ++I)
+      Cloned->addIncoming(getIncomingValue(I), getIncomingPredicate(I));
+    return Cloned;
+  }
+};
+
 /// Concrete class for PHI instruction.
 class VPPHINode : public VPInstruction {
 private:
   SmallVector<VPBasicBlock *, 2> VPBBUsers;
 
-  // Used to indicate that this PHI needs to be blended using selects during
-  // vector code generation. This can be removed once we make the phi->select
-  // transformation explicit in VPlan.
-  bool Blend = false;
-
 public:
-  void setBlend(bool B) { Blend = B; }
-  bool getBlend() const { return Blend; }
-  /// Sort the incoming blocks of the blend phi according to their execution
-  /// order in the linearized CFG. Required to be performed prior to code
-  /// generation for the blend phis.
-  ///
-  /// \p BlockIndexInRPOTOrNull is an optional parameter with the mapping of the
-  /// blocks in \p this phi's parent region to that blocks' RPOT numbers. If not
-  /// provided, it will be calculated inside the method.
-  //
-  // TODO: As an optimization, the sorting can be done once per block, but that
-  // should be done at the caller side complicating the code.
-  void sortIncomingBlocksForBlend(
-      DenseMap<const VPBasicBlock *, int> *BlockIndexInRPOTOrNull = nullptr);
-
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
   using const_vpblock_iterator =
       SmallVectorImpl<VPBasicBlock *>::const_iterator;
@@ -873,7 +916,6 @@ public:
   /// needed.
   virtual VPPHINode *cloneImpl() const final {
     VPPHINode *Cloned = new VPPHINode(getType());
-    Cloned->setBlend(getBlend());
     for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
       Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
     }

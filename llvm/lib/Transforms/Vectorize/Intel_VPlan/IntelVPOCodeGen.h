@@ -54,6 +54,7 @@ class VPLoopEntity;
 class VPReduction;
 class VPInduction;
 class VPGEPInstruction;
+class VPBlendInst;
 
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -357,6 +358,9 @@ private:
   /// Create a new widened alloca in the function entry BB. We allocate VF
   /// elements of the private element type.
   void vectorizeAllocatePrivate(VPAllocatePrivate *V);
+
+  /// Vectorize blend instructions using selects.
+  void vectorizeBlend(VPBlendInst *Blend);
 
   /// The original loop.
   Loop *OrigLoop;
