@@ -614,7 +614,11 @@ public:
 
   /// The selector slot.  Under the MandatoryCleanup model, all landing pads
   /// write the current selector value into this alloca.
+#if INTEL_COLLAB
+  llvm::Value *EHSelectorSlot = nullptr;
+#else
   llvm::AllocaInst *EHSelectorSlot = nullptr;
+#endif // INTEL_COLLAB
 
   /// A stack of exception code slots. Entering an __except block pushes a slot
   /// on the stack and leaving pops one. The __exception_code() intrinsic loads
@@ -1670,12 +1674,18 @@ public:
     CodeGenFunction &CGF;
     llvm::BasicBlock *TerminateHandler;
     llvm::BasicBlock *TerminateLandingPad;
+    llvm::Value *ExceptionSlot = nullptr;
+    llvm::Value *EHSelectorSlot = nullptr;
+
   public:
     TerminateHandlerRAII(CodeGenFunction &CGF)
-      : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
-                         TerminateLandingPad(CGF.TerminateLandingPad) {
+        : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
+          TerminateLandingPad(CGF.TerminateLandingPad),
+          ExceptionSlot(CGF.ExceptionSlot), EHSelectorSlot(CGF.EHSelectorSlot) {
       CGF.TerminateHandler = nullptr;
       CGF.TerminateLandingPad = nullptr;
+      CGF.ExceptionSlot = nullptr;
+      CGF.EHSelectorSlot = nullptr;
     }
     ~TerminateHandlerRAII() {
       if (CGF.TerminateHandler) {
@@ -1692,6 +1702,8 @@ public:
       }
       CGF.TerminateHandler = TerminateHandler;
       CGF.TerminateLandingPad = TerminateLandingPad;
+      CGF.ExceptionSlot = ExceptionSlot;
+      CGF.EHSelectorSlot = EHSelectorSlot;
     }
   };
 private:
