@@ -180,20 +180,36 @@ public:
       : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()), DT(DT),
         FieldModRef(FieldModRef), LoopNestHoistingOnly(LoopNestHoistingOnly) {}
 
-  // The only entry for all caller(s) for doing loop memory motion
-  bool doLoopMemoryMotion(HLLoop *Lp);
-
   bool run();
 
-private:
-  bool doLoopPreliminaryChecks(const HLLoop *Lp);
+  // Exposed as a utility to be called on demand.
+  // Returns true if \p MemRef is invariant inside \p Loop. \p If IgnoreIVs is
+  // set to true, any IVs present inside \p MemRef will be ignored when making
+  // structural checks.
+  bool isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Loop,
+                       bool IgnoreIVs);
 
-  bool doCollection(HLLoop *Lp);
+private:
+  bool doLoopMemoryMotion(HLLoop *Lp);
+
+  bool doLoopPreliminaryChecks(const HLLoop *Lp,
+                               bool AllowUnknownAliasingCalls);
+
+  /// Collects candidate memrefs and unknown aliasing calls insts.
+  /// If \p CandidateMemRef is non-null, it is the only candidate considered.
+  /// If \p IgnoreIVs is set to true, any IVs present inside candidate memrefs
+  /// will be ignored when making structural checks.
+  bool doCollection(HLLoop *Lp, RegDDRef *CandidateMemRef = nullptr,
+                    bool IgnoreIVs = false);
 
   bool processLegalityAndProfitability(const HLLoop *Lp);
 
   bool isLegal(const HLLoop *Lp);
-  bool isLegal(const HLLoop *Lp, const MemRefGroup &Group);
+
+  /// \p QueryMode indicates that this pass only intends to query invariance but
+  /// not perform any transformation.
+  bool isLegal(const HLLoop *Lp, const MemRefGroup &Group,
+               bool QueryMode = false);
 
   // Analyze the Loop by doing collection, profit analysis and legal analysis.
   // Return true indicates that the loop has at least 1 Group suitable
