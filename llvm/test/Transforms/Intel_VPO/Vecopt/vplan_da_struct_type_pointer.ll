@@ -5,6 +5,13 @@
 ; RUN: opt < %s -VPlanDriver -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+%struct.S = type { i32, i32 }
+
+; Function Attrs: nounwind uwtable
+define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
@@ -31,14 +38,7 @@
 ; For sanity ensure that scalar load is generated for uniform load to StructType in vector loop
 ; CHECK: {{.*}} = load i32, i32*
 ; CHECK-LABEL: VPlannedBB:
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-%struct.S = type { i32, i32 }
-
-; Function Attrs: nounwind uwtable
-define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
+;
 omp.inner.for.body.lr.ph:
   %i.lpriv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1

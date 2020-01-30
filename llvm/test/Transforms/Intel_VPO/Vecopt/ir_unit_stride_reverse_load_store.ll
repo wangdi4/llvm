@@ -5,6 +5,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -VPlanDriver -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
 
+define void @reverse(i32* %src, i32* %dest) {
 ; CHECK: Printing Divergence info for Loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
@@ -17,7 +18,6 @@
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 
-define void @reverse(i32* %src, i32* %dest) {
 ; CHECK:  vector.body:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
