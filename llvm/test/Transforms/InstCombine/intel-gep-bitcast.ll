@@ -11,6 +11,7 @@
 ; product or sum.
 
 declare void @use(i32) readonly
+declare void @use64(i64) readonly
 
 ; Convert gep/bitcast when there are multiple uses of the scale.
 define void @test_multi_uses(i32* %in1, i32* %in2, i64 %in) {
@@ -96,6 +97,38 @@ define void @test_descale_or(i32* %src, i64 %in) {
   %val = load i32, i32* %gep.bc
   call void @use(i32 %val)
   ret void
+}
+
+; Support descaling sums with multiple users. Here, descaling ; can only happen
+; by looking through a multiplication and then realizing that both addends can
+; be descaled. In CMPLRLLVM-11526 this was happening, but the sum had a second
+; use which was incorrectly also being descaled. This tests that the gep use is
+; descaled while the second use (by ret) is preserved.
+define i64 @test_descale_add2(i32* %src, i64 %in, i64 %cantdescale) {
+; CHECK-LABEL: @test_descale_add2
+; Ensure that we descaled:
+; CHECK-NOT: bitcast
+
+; Verify the descaled sum:
+; CHECK-DAG: getelementptr i32, i32* %src, i64 [[DESCALED:.*]]
+; CHECK-DAG: [[DESCALED]] = mul {{.*}} i64 [[NEWSUM:.*]], %cantdescale
+; CHECK-DAG: [[NEWSUM]] = add {{.*}} i64 [[NEWSHIFT:.*]], 2
+; CHECK-DAG: [[NEWSHIFT]] = shl {{.*}} i64 %in, 1
+
+; Verify that a use of the original sum was not modified:
+; CHECK-DAG: ret i64 [[USE2:.*]]
+; CHECK-DAG: [[USE2]] = mul {{.*}} i64 [[SUM:.*]], %cantdescale
+; CHECK-DAG: [[SUM]] = add {{.*}} i64 [[SHIFT:.*]], 8
+; CHECK-DAG: [[SHIFT]] = shl {{.*}} i64 %in, 3
+  %shift = shl nuw nsw i64 %in, 3
+  %add = add nsw i64 %shift, 8
+  %index = mul nuw nsw i64 %add, %cantdescale
+  %bc = bitcast i32* %src to i8*
+  %gep = getelementptr inbounds i8, i8* %bc, i64 %index
+  %gep.bc = bitcast i8* %gep to i32*
+  %val = load i32, i32* %gep.bc
+  call void @use(i32 %val)
+  ret i64 %index
 }
 
 ; Verify that we don't descale sums without "nsw"
