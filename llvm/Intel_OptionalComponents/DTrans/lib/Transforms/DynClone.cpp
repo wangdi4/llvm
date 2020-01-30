@@ -711,9 +711,9 @@ Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
 //              verify it later.
 //           c. Non-Candidate field: Not qualified.
 //
-//     TODO: Support for Args will be added later.
+//     3. Argument: Check values of the argument at all callsites.
 //
-//     3. Other (Unknown value): First try to trace it back to compile-time
+//     4. Other (Unknown value): First try to trace it back to compile-time
 //     known constant value set. If not - map between field and the function
 //     where it is assigned is recorded. All unknown assignments should be in
 //     the same routine (i.e InitRoutine).
@@ -854,6 +854,72 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     }
   };
 
+  // Check if it is safe to assign "V" to "StElem" field.
+  auto CheckStoredValue = [&, CheckConstInt, CheckLoadValue,
+                           TraceConstantValue](Value *V, DynField &StElem,
+                                               Function *F) {
+    if (isa<ConstantInt>(V)) {
+      CheckConstInt(V, StElem);
+    } else if (isa<LoadInst>(V)) {
+      CheckLoadValue(V, StElem, F);
+    } else if (TraceConstantValue(V, StElem)) {
+      LLVM_DEBUG(
+          dbgs() << "    Value traced back to constants in init routine: ";
+          printDynField(dbgs(), StElem));
+    } else {
+      auto It = DynFieldFuncMap.find(StElem);
+      if (It == DynFieldFuncMap.end()) {
+        DynFieldFuncMap.insert({StElem, F});
+        LLVM_DEBUG(dbgs() << "    unknown value assigned in init routine:";
+                   printDynField(dbgs(), StElem));
+      } else if (It->second != F) {
+        InvalidFields.insert(StElem);
+        LLVM_DEBUG(dbgs() << "    Invalid...More than one init routine: ";
+                   printDynField(dbgs(), StElem));
+      }
+    }
+  };
+
+  // Check values of "Arg" at all callsites of "F" to prove that it is safe
+  // to assign "Arg" to "StElem" field.
+  //
+  // Ex:
+  //   foo(int cost) {
+  //     ...
+  //     // Here, we check values of "cost" at callsites to prove that it
+  //     // is safe to assign "cost" to "field1".
+  //     arc1->field1 = cost;
+  //     ...
+  //   }
+  //
+  //   Callsite 1: foo(30);   // OK
+  //
+  //   CallSite 2: foo(arc2->field1);   // OK
+  //
+  //   CallSite 3: foo(*some_ptr);   // Not OK
+  //
+  auto CheckArgValues = [&, CheckStoredValue](Argument *Arg, DynField &StElem,
+                                              Function *F) {
+    unsigned ArgNo = Arg->getArgNo();
+
+    LLVM_DEBUG(dbgs() << "    Checking " << *Arg << " argument assignment to ";
+               printDynField(dbgs(), StElem));
+    for (auto *U : F->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      if (!CB) {
+        // If there is any use of F other than call, just go conservative
+        // by passing "Arg" as stored value and then return.
+        LLVM_DEBUG(dbgs() << "    Noticed use of function other than call \n");
+        CheckStoredValue(Arg, StElem, F);
+        return;
+      }
+      Value *ArgOp = CB->getArgOperand(ArgNo);
+      LLVM_DEBUG(dbgs() << "       Checking callsite: " << *CB << "\n"
+                        << "              Argument: " << *ArgOp << "\n");
+      CheckStoredValue(ArgOp, StElem, F);
+    }
+  };
+
   // Analyze memset here: memset(ptr2str, 0, size)
   //   Any call/ memset with zero value: No issues
   //
@@ -980,31 +1046,14 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         if (!isCandidateField(StElem))
           continue;
 
+        LLVM_DEBUG(dbgs() << "    Checking instruction for pruning:" << Inst
+                          << "\n");
         Value *V = StInst->getValueOperand();
-        if (isa<ConstantInt>(V)) {
-          CheckConstInt(V, StElem);
-        } else if (isa<LoadInst>(V)) {
-          CheckLoadValue(V, StElem, &F);
-        } else {
-          if (TraceConstantValue(V, StElem)) {
-            LLVM_DEBUG(
-                dbgs()
-                    << "    Value traced back to constants in init routine: ";
-                printDynField(dbgs(), StElem));
-          } else {
-            auto It = DynFieldFuncMap.find(StElem);
-            if (It == DynFieldFuncMap.end()) {
-              DynFieldFuncMap.insert({StElem, &F});
-              LLVM_DEBUG(dbgs()
-                             << "    unknown value assigned in init routine:";
-                         printDynField(dbgs(), StElem));
-            } else if (It->second != &F) {
-              InvalidFields.insert(StElem);
-              LLVM_DEBUG(dbgs() << "    Invalid...More than one init routine: ";
-                         printDynField(dbgs(), StElem));
-            }
-          }
-        }
+        if (auto *Arg = dyn_cast<Argument>(V))
+          CheckArgValues(Arg, StElem, &F);
+        else
+          CheckStoredValue(V, StElem, &F);
+
       } else if (isa<CallInst>(Inst)) {
         WrittenUnknownValue(&Inst);
       }
