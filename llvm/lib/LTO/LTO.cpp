@@ -12,11 +12,8 @@
 
 #include "llvm/LTO/LTO.h"
 #include "llvm/ADT/Statistic.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h" // INTEL
-=======
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
->>>>>>> 31ae0165c3519cc27989b3e4bd71845593e08cfe
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
