@@ -78,9 +78,9 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; FIXME: Reduction PHI should use reduction-init as incoming value.
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP7:%.*]] = phi  [ i32 [[TMP2:%.*]], [[BB2]] ],  [ i32 [[VP1]], [[BB0]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP5]] = phi  [ i32 [[VP__IND_INIT]], [[BB2]] ],  [ i32 [[VP4]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP8:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     [DA: Uniform] i32 [[VP8:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP9:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP10:%.*]] = mul i32 [[VP8]] i32 [[VP9]]
+; CHECK-NEXT:     [DA: Uniform] i32 [[VP10:%.*]] = mul i32 [[VP8]] i32 [[VP9]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP1]] = add i32 [[VP10]] i32 [[VP7]]
 ; CHECK-NEXT:     [DA: Divergent] store i32 [[VP1]] i32* [[VP2]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP4]] = add i32 [[VP5]] i32 [[VP__IND_INIT_STEP]]
@@ -210,9 +210,9 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; FIXME: Reduction PHI should use reduction-init as incoming value.
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP1]] = phi  [ i32 [[TMP2:%.*]], [[BB2]] ],  [ i32 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP6]] = phi  [ i32 [[VP__IND_INIT]], [[BB2]] ],  [ i32 [[VP5]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP8:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     [DA: Uniform] i32 [[VP8:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP9:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP10:%.*]] = mul i32 [[VP8]] i32 [[VP9]]
+; CHECK-NEXT:     [DA: Uniform] i32 [[VP10:%.*]] = mul i32 [[VP8]] i32 [[VP9]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP0]] = add i32 [[VP10]] i32 [[VP1]]
 ; CHECK-NEXT:     [DA: Divergent] store i32 [[VP0]] i32* [[VP3]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP5]] = add i32 [[VP6]] i32 [[VP__IND_INIT_STEP]]

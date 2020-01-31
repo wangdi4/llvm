@@ -94,9 +94,7 @@ VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist) {
 
     // Create an OR of these values.
     VPValue *Or = Builder.createOr(LHS, RHS);
-    auto *DA = Plan.getVPlanDA();
-    if (DA->isDivergent(*LHS) || DA->isDivergent(*RHS))
-      DA->markDivergent(*Or);
+    Plan.getVPlanDA()->updateDivergence(*Or);
 
     // Push OR to the back of the worklist.
     Worklist.push_back(Or);
@@ -127,9 +125,7 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
   Builder.setInsertPoint(InsertBB, InsertBB->end());
   auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
 
-  auto *DA = Plan.getVPlanDA();
-  if (DA->isDivergent(*Cond))
-    DA->markDivergent(*Not);
+  Plan.getVPlanDA()->updateDivergence(*Not);
 
   Cond2NotCond[Cond] = Not;
   return Not;
@@ -290,7 +286,6 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   if (!Val)
     return Predicate;
 
-  auto *DA = Plan.getVPlanDA();
   VPBuilder::InsertPointGuard Guard(Builder);
   VPBasicBlock *PredicateInstsBB = nullptr;
   // TODO: Don't do splitting once we start preserving uniform control flow
@@ -308,13 +303,10 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
-  bool IsDivergent = DA->isDivergent(*Val) || DA->isDivergent(*Predicate);
   Val = Builder.createAnd(Predicate, Val,
                           VPValue::getVPNamePrefix() + Block->getName() +
                               ".br." + Val->getName());
-  if (IsDivergent)
-    DA->markDivergent(*Val);
-
+  Plan.getVPlanDA()->updateDivergence(*Val);
   return Val;
 }
 
@@ -404,10 +396,8 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     Phi->setIncomingValue(Phi->getBlockIndex(PredBB->getExitBasicBlock()),
                           LiveIn);
 
-    auto *DA = Plan.getVPlanDA();
     // TODO: Should it be an assert instead?
-    if (DA->isDivergent(*LiveIn))
-      DA->markDivergent(*Phi);
+    Plan.getVPlanDA()->updateDivergence(*Phi);
   }
 
   assert(LiveValueMap.count(AtBlock) == 1 && "Live for AtBlock not computed!");
@@ -769,13 +759,16 @@ void VPlanPredicator::fixupUniformInnerLoops() {
     VPBuilder Builder;
     Builder.setInsertPoint(Latch);
     auto *NewAllZeroCheck = Builder.createAllZeroCheck(Predicate);
+    Plan.getVPlanDA()->updateDivergence(*NewAllZeroCheck);
     VPValue *NewCondBit;
     if (!BackEdgeIsFalseSucc) {
       NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
+      Plan.getVPlanDA()->updateDivergence(*NewAllZeroCheck);
       NewCondBit = Builder.createAnd(NewAllZeroCheck, CondBit);
-    } else {
+    } else
       NewCondBit = Builder.createOr(NewAllZeroCheck, CondBit);
-    }
+
+    Plan.getVPlanDA()->updateDivergence(*NewCondBit);
     Latch->setCondBit(NewCondBit);
   }
 }
@@ -822,13 +815,13 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
   if (!SearchLoopHack)
     linearizeRegion(RPOT);
 
-  auto *DA = Plan.getVPlanDA();
-
   // Get updated DomTree for the proper IDF calculation to insert needed phis
   // for predicates propagation.
   VPDomTree.recalculate(*Region);
   ReversePostOrderTraversal<VPBlockBase *> PostLinearizationRPOT(
       Region->getEntry());
+
+  auto *DA = Plan.getVPlanDA();
   for (VPBlockBase *Block : PostLinearizationRPOT) {
     const auto &PredTerms = Block2PredicateTermsAndUniformity[Block].first;
 
@@ -851,8 +844,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
         Builder.setInsertPointFirstNonPhi(Block->getEntryBasicBlock());
         Block->setPredicate(Predicate);
         auto *BlockPredicateInst = Builder.createPred(Predicate);
-        if (DA->isDivergent(*Predicate))
-          DA->markDivergent(*BlockPredicateInst);
+        Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
       }
 
       continue;
@@ -874,8 +866,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
         (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
       Block->setPredicate(Predicate);
       auto *BlockPredicateInst = Builder.createPred(Predicate);
-      if (DA->isDivergent(*Predicate))
-        DA->markDivergent(*BlockPredicateInst);
+      Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
     }
   }
 
