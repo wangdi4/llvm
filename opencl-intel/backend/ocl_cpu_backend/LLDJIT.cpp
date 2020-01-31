@@ -276,7 +276,7 @@ std::set<std::string> LLDJIT::getExternalSymbolsList(
       assert(!errorToErrorCode(Symbol.takeError()));
       Coff->getSymbolName(*Symbol, Name);
       if (Symbol->getSectionNumber() == 0)
-        ExternalSymbols.insert(Name);
+        ExternalSymbols.insert(std::string(Name));
     }
   }
   return ExternalSymbols;
@@ -752,7 +752,7 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
           Prefix, FileExtension, FD, ResultPath))
     report_fatal_error("Failed to create a temporary file on the system!");
   File = std::make_unique<llvm::ToolOutputFile>(ResultPath, FD);
-  Name = ResultPath.str();
+  Name = std::string(ResultPath);
 }
 
 void LLDJIT::notifyObjectLoaded(const object::ObjectFile &Obj,

@@ -300,7 +300,7 @@ static VarTypeDescriptor GenerateVarTypeBasic(const DIBasicType* di_type)
     }
     descriptor_basic->set_tag(basic_tag);
     descriptor_basic->set_size_nbits(di_type->getSizeInBits());
-    descriptor_basic->set_name(di_type->getName());
+    descriptor_basic->set_name(std::string(di_type->getName()));
 
     return descriptor;
 }
@@ -382,7 +382,7 @@ VarTypeDescriptor Generator::GenerateVarTypeTypedef(
         // A vector typedef
         //
         VarTypeVector vector_descriptor;
-        vector_descriptor.set_name(di_type.getName());
+        vector_descriptor.set_name(std::string(di_type.getName()));
         descriptor.set_tag(VarTypeDescriptor::VECTOR);
         descriptor.mutable_type_vector()->CopyFrom(vector_descriptor);
     }
@@ -391,7 +391,7 @@ VarTypeDescriptor Generator::GenerateVarTypeTypedef(
         //
         VarTypeDescriptor original = GenerateVarTypeDescriptor(&di_derived_from);
         VarTypeTypedef typedef_descriptor;
-        typedef_descriptor.set_name(di_type.getName());
+        typedef_descriptor.set_name(std::string(di_type.getName()));
         typedef_descriptor.mutable_original_type()->CopyFrom(original);
         descriptor.set_tag(VarTypeDescriptor::TYPEDEF);
         descriptor.mutable_type_typedef()->CopyFrom(typedef_descriptor);
@@ -412,7 +412,7 @@ static VarTypeDescriptor GenerateUnknownVarType()
 static VarTypeDescriptor GenerateVarTypeEnum(const DICompositeType& di_enum)
 {
     VarTypeEnum enum_descriptor;
-    enum_descriptor.set_name(di_enum.getName());
+    enum_descriptor.set_name(std::string(di_enum.getName()));
 
     DINodeArray di_enum_members = di_enum.getElements();
     for (auto di_member_i : di_enum_members) {
@@ -466,7 +466,7 @@ VarTypeDescriptor Generator::GenerateVarTypeArray(const DICompositeType& di_arra
 VarTypeDescriptor Generator::GenerateVarTypeStruct(const DICompositeType& di_struct)
 {
     VarTypeStruct struct_descriptor;
-    struct_descriptor.set_name(di_struct.getName());
+    struct_descriptor.set_name(std::string(di_struct.getName()));
 
     DINodeArray di_struct_members = di_struct.getElements();
     for (auto di_member_i : di_struct_members) {
@@ -478,7 +478,7 @@ VarTypeDescriptor Generator::GenerateVarTypeStruct(const DICompositeType& di_str
         DIDerivedType* di_member_derived = cast<DIDerivedType>(di_member_i);
 
         VarTypeStruct::StructMember* member = struct_descriptor.add_members();
-        member->set_name(di_member_derived->getName());
+        member->set_name(std::string(di_member_derived->getName()));
         member->set_align_nbits(di_member_derived->getAlignInBits());
         member->set_size_nbits(di_member_derived->getSizeInBits());
         member->set_offset_nbits(di_member_derived->getOffsetInBits());
