@@ -24,16 +24,18 @@ set(src_files
 add_library(omptarget SHARED ${src_files})
 
 # INTEL_COLLAB
-include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+if(INTEL_CUSTOMIZATION)
+  include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+  add_dependencies(omptarget libomptarget-libiomp-file)
+  target_link_libraries(omptarget ${LIBOMP_LIB_FILE})
+else(INTEL_CUSTOMIZATION)
+  # OpenMP runtime library must be linked in.
+  target_link_libraries(omptarget omp)
+endif(INTEL_CUSTOMIZATION)
 
-add_dependencies(omptarget libomptarget-libiomp-file)
-
-if (WIN32)
+target_link_libraries(omptarget ${CMAKE_DL_LIBS})
+if (NOT WIN32)
   target_link_libraries(omptarget
-    ${CMAKE_DL_LIBS} ${LIBOMP_LIB_FILE})
-else()
-  target_link_libraries(omptarget
-    ${CMAKE_DL_LIBS} ${LIBOMP_LIB_FILE}
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
 endif()
 # end INTEL_COLLAB
