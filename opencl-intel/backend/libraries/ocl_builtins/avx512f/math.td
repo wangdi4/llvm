@@ -250,6 +250,7 @@ code remquo_svml = [{
 OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, math_FP512_types, 0, remquo_svml>;
 OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, math_FP512_types, 0, remquo_svml>;
 OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, math_FP512_types, 0, remquo_svml>;
+OclBuiltinImpl remquo_gen_svml = OclBuiltinImpl<remquo_gen, math_FP512_types, 0, remquo_svml>;
 
 // rint
 OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, math_FP512_types, 0, [{

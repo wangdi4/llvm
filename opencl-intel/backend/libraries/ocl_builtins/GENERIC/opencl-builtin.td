@@ -972,6 +972,7 @@ class CONSTANT      : OclAddressSpace<"__constant", 1, 0>;
 class CONST_PRIVATE : OclAddressSpace<"__private",  1, 0>;
 class CONST_LOCAL   : OclAddressSpace<"__local",    1, 0>;
 class CONST_GLOBAL  : OclAddressSpace<"__global",   1, 0>;
+class CONST_GENERIC  : OclAddressSpace<"",   1, 0>;
 class VOLATILE_PRIVATE : OclAddressSpace<"__private",  0, 1>;
 class VOLATILE_LOCAL   : OclAddressSpace<"__local",    0, 1>;
 class VOLATILE_GLOBAL  : OclAddressSpace<"__global",   0, 1>;

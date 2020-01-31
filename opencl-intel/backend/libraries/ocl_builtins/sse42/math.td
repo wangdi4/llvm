@@ -50,6 +50,7 @@ OclBuiltinImpl rint_f32_impl = OclBuiltinImpl<rint, [v4f32], 0, [{
 OclBuiltinImpl fract_pas_f32_promote = OclBuiltinImpl<fract_pas, [v1f32, v2f32, v3f32], 0, Promote_fract>;
 OclBuiltinImpl fract_las_f32_promote = OclBuiltinImpl<fract_las, [v1f32, v2f32, v3f32], 0, Promote_fract>;
 OclBuiltinImpl fract_gas_f32_promote = OclBuiltinImpl<fract_gas, [v1f32, v2f32, v3f32], 0, Promote_fract>;
+OclBuiltinImpl fract_gen_f32_promote = OclBuiltinImpl<fract_gen, [v1f32, v2f32, v3f32], 0, Promote_fract>;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
