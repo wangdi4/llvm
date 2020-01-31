@@ -34,14 +34,16 @@ template <> const char *Deserializer::Deserialize<const char *>() {
   const char *str = m_buffer.data();
   m_buffer = m_buffer.drop_front(pos + 1);
 #ifdef LLDB_REPRO_INSTR_TRACE
-    llvm::errs() << "Deserializing with " << LLVM_PRETTY_FUNCTION << " -> \""
-                 << str << "\"\n";
+  llvm::errs() << "Deserializing with " << LLVM_PRETTY_FUNCTION << " -> \""
+               << str << "\"\n";
 #endif
   return str;
 }
 
 template <> const char **Deserializer::Deserialize<const char **>() {
   size_t size = Deserialize<size_t>();
+  if (size == 0)
+    return nullptr;
   const char **r =
       reinterpret_cast<const char **>(calloc(size + 1, sizeof(char *)));
   for (size_t i = 0; i < size; ++i)

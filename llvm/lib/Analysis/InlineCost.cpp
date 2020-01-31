@@ -313,7 +313,7 @@ protected:
 
   /// Called to account for any other instruction not specifically accounted
   /// for.
-  virtual void onCommonInstructionSimplification() {}
+  virtual void onMissedSimplification() {}
 
   /// Start accounting potential benefits due to SROA for the given alloca.
   virtual void onInitializeSROAArg(AllocaInst *Arg) {}
@@ -2895,7 +2895,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     addCost(SwitchCost, (int64_t)CostUpperBound);
   }
-  void onCommonInstructionSimplification() override {
+  void onMissedSimplification() override {
     addCost(InlineConstants::InstrCost);
   }
 
@@ -4394,7 +4394,7 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     if (Base::visit(&*I))
       ++NumInstructionsSimplified;
     else
-      onCommonInstructionSimplification();
+      onMissedSimplification();
 
     using namespace ore;
     // If the visit this instruction detected an uninlinable pattern, abort.

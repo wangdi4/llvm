@@ -253,7 +253,8 @@ struct NotImplementedTag {};
 
 /// Return the deserialization tag for the given type T.
 template <class T> struct serializer_tag {
-  typedef typename std::conditional<std::is_trivially_copyable<T>::value, ValueTag, NotImplementedTag>::type type;
+  typedef typename std::conditional<std::is_trivially_copyable<T>::value,
+                                    ValueTag, NotImplementedTag>::type type;
 };
 template <class T> struct serializer_tag<T *> {
   typedef
@@ -606,9 +607,14 @@ private:
   }
 
   void Serialize(const char **t) {
+    size_t size = 0;
+    if (!t) {
+      Serialize(size);
+      return;
+    }
+
     // Compute the size of the array.
     const char *const *temp = t;
-    size_t size = 0;
     while (*temp++)
       size++;
     Serialize(size);
