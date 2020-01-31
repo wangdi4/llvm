@@ -5886,7 +5886,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
     StringRef FeatList = FeatAttr->getFeatures();
     while (!FeatList.empty()) {
       std::pair<StringRef, StringRef> FPair = FeatList.split(',');
-      Features.push_back(FPair.first);
+      Features.push_back(std::string(FPair.first));
       FeatList = FPair.second;
     }
   }
@@ -5901,7 +5901,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
   // Check Feature List
   for (StringRef ReqFeature : ReqFeatures)
     if (!FeatureMap.lookup(ReqFeature))
-      FeaturesToAdd.push_back(ReqFeature);
+      FeaturesToAdd.push_back(std::string(ReqFeature));
 
   if (FeaturesToAdd.empty())
     return;
@@ -5924,7 +5924,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
 
   // Update Feature Attribute.
   if (auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
-    std::string NewFeatureString = FeatAttr->getFeatures();
+    std::string NewFeatureString = std::string(FeatAttr->getFeatures());
     NewFeatureString += ',';
     NewFeatureString += FeaturesToAddList;
     FeatAttr->setFeatures(S.getASTContext(), NewFeatureString);

@@ -3670,7 +3670,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
     assert(newFunc && "The function should be defined");
   }
   else {
-    std::string baseName = origFunc->getName();
+    std::string baseName = std::string(origFunc->getName());
     origFunc->setName(Twine("_replaced_").concat(baseName));
     newFunc = cast<Function>((M->getOrInsertFunction(baseName, newFuncType,
                                      origFunc->getAttributes())).getCallee());

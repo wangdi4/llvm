@@ -203,7 +203,8 @@ CallSiteInliningReport::CallSiteInliningReport(
     bool IsInlined, int InlineCost, int OuterInlineCost, int InlineThreshold,
     int EarlyExitInlineCost, int EarlyExitInlineThreshold) {
   Function *Callee = MainCB->getCalledFunction();
-  std::string Name = Callee ? (Callee->hasName() ? Callee->getName() : "") : "";
+  std::string Name =
+      Callee ? std::string(Callee->hasName() ? Callee->getName() : "") : "";
   const DebugLoc &DL = MainCB->getDebugLoc();
   StringRef ModuleName =
       MainCB->getParent()->getParent()->getParent()->getName();
@@ -434,8 +435,9 @@ cloneInliningReportHelper(LLVMContext &C, Metadata *OldMD,
     unsigned LineNum = 0, ColNum = 0;
     OldRep.getLineAndCol(&LineNum, &ColNum);
     CallSiteInliningReport *NewRep = new CallSiteInliningReport(
-        &C, OldRep.getName(), nullptr, NinlrNoReason, false, -1, -1, -1,
-        INT_MAX, INT_MAX, LineNum, ColNum, OldRep.getModuleName());
+        &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false, -1,
+        -1, -1, INT_MAX, INT_MAX, LineNum, ColNum,
+        std::string(OldRep.getModuleName()));
     NewMD = NewRep->get();
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
@@ -580,7 +582,7 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
 
   LLVMContext &Ctx = NewFunction->getParent()->getContext();
   // Op 1: function name
-  std::string FuncName = NewFunction->getName();
+  std::string FuncName = std::string(NewFunction->getName());
   FuncName.insert(0, "name: ");
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
   OldFIR->replaceOperandWith(FMDIR_FuncName, FuncNameMD);

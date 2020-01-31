@@ -359,7 +359,7 @@ static bool ignoreSpecialOperands(const Instruction *I) {
     auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found ");
     if (CalledF->hasName() &&
-        IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
+        IgnoreCalls.find(std::string(CalledF->getName())) != IgnoreCalls.end())
       return true;
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
@@ -675,8 +675,8 @@ void VPOParoptTransform::guardSideEffectStatements(
   // The extra references in the clauses may prevent address space
   // inferring. We cannot remove the directive call yet, because
   // the removal in paroptTransforms() will complain.
-  OperandBundleDef B(VPOAnalysisUtils::getDirectiveString(KernelEntryDir),
-                     None);
+  OperandBundleDef B(
+      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), None);
   // The following call clones the original directive call
   // with just the directive name in the operand bundles.
   auto *NewEntryDir = CallInst::Create(KernelEntryDir, { B }, KernelEntryDir);

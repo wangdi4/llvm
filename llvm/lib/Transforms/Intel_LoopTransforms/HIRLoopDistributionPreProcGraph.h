@@ -210,7 +210,7 @@ public:
   // Possible failures could be too many nodes, edges etc
   void setInvalid(StringRef FailureReason) {
     GraphValidity = false;
-    FailureString = FailureReason;
+    FailureString = std::string(FailureReason);
   }
 
   unsigned getNodeCount() { return DistPPNodeList.size(); }

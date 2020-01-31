@@ -56,7 +56,7 @@ std::string
 DirectivesEmitter::genDirectiveClauseEnumString(StringRef DCString) {
   SmallVector<StringRef, 4> StringParts;
   DCString.split(StringParts, '.');
-  std::string DCEnum = StringParts[0];
+  std::string DCEnum = std::string(StringParts[0]);
   for (unsigned Idx = 1; Idx < StringParts.size(); Idx++) {
     DCEnum = DCEnum + "_" + StringParts[Idx].str();
   }

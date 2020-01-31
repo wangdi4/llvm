@@ -1305,7 +1305,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.TLSSize = getLastArgIntValue(Args, OPT_mtls_size_EQ, 0, Diags);
 
 #if INTEL_CUSTOMIZATION
-  Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options);
+  Opts.SPIRCompileOptions =
+      std::string(Args.getLastArgValue(OPT_cl_spir_compile_options));
 
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
@@ -1323,8 +1324,10 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
   // CQ#368125 - support for '/Fd' and '/Fo' options.
-  Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
-  Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
+  Opts.MSOutputObjFile =
+      std::string(Args.getLastArgValue(OPT_fms_debug_info_obj_file));
+  Opts.MSOutputPdbFile =
+      std::string(Args.getLastArgValue(OPT_fms_debug_info_pdb_file));
   // CQ#366796 - support for '--no_expr_source_pos' option.
   Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
   // Support for '-fargument-noalias' option.
@@ -2687,10 +2690,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         IMFAttr.split(IMFAttrElement, ':');
         if (IMFAttrElement.size() == 2) {
           std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
-              Opts.ImfAttrMap.insert({IMFAttrElement[0], IMFAttrElement[1]});
+              Opts.ImfAttrMap.insert(
+                  {IMFAttrElement[0], std::string(IMFAttrElement[1])});
           if (!Res.second) {
             // Update the existing attribute.
-            Res.first->second = IMFAttrElement[1];
+            Res.first->second = std::string(IMFAttrElement[1]);
           }
         } else if (IMFAttrElement.size() == 3) {
           SmallVector<StringRef, 30> FuncList;
@@ -2701,15 +2705,16 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
               // The function is already in the map, add options to it.
               std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
                   FuncMapIt->second.insert(
-                      {IMFAttrElement[0], IMFAttrElement[1]});
+                      {IMFAttrElement[0], std::string(IMFAttrElement[1])});
               if (!Res.second) {
                 // Update the existing attribute.
-                Res.first->second = IMFAttrElement[1];
+                Res.first->second = std::string(IMFAttrElement[1]);
               }
             } else {
               // The first appearence of the function in the imf attributes.
               LangOptions::IMFAttrMap NewMap;
-              NewMap.insert({IMFAttrElement[0], IMFAttrElement[1]});
+              NewMap.insert(
+                  {IMFAttrElement[0], std::string(IMFAttrElement[1])});
               Opts.ImfAttrFuncMap.insert({FuncName, std::move(NewMap)});
             }
           }
@@ -2721,7 +2726,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
-      Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
+      std::string(Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ));
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
@@ -2795,7 +2800,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Diags.Report(diag::warn_ignored_hip_only_option)
         << Args.getLastArg(OPT_gpu_max_threads_per_block_EQ)->getAsString(Args);
 
-  Opts.SYCLIntHeader = Args.getLastArgValue(OPT_fsycl_int_header);
+  Opts.SYCLIntHeader = std::string(Args.getLastArgValue(OPT_fsycl_int_header));
 
   if (Opts.ObjC) {
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {

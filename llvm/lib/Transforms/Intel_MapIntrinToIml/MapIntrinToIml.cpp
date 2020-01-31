@@ -232,7 +232,7 @@ void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
 
       // Make sure this is an IMF attribute by looking for the prefix of
       // "imf-".
-      if (AttrName.find(ImfPrefix) != 0)
+      if (AttrName.find(std::string(ImfPrefix)) != 0)
         continue;
       AttrName = AttrName.substr(ImfPrefix.size(), std::string::npos);
 

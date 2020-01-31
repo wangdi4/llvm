@@ -297,7 +297,7 @@ public:
 
 #if INTEL_COLLAB
   /// set the target device information.
-  void setTargetDevices(StringRef T) { TargetDevices = T; }
+  void setTargetDevices(StringRef T) { TargetDevices = std::string(T); }
 #endif // INTEL_COLLAB
 
   /// Set the module-scope inline assembly blocks.

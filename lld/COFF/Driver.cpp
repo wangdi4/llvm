@@ -940,7 +940,7 @@ filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
   if (std::error_code ec = sys::fs::createTemporaryFile(
           "lld-" + sys::path::stem(path), ".lib", s))
     fatal("cannot create a temporary file: " + ec.message());
-  std::string temp = s.str();
+  std::string temp = std::string(s.str());
   temporaryFiles.push_back(temp);
 
   Error e =
@@ -980,7 +980,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
       fatal("cannot create a temporary file: " + ec.message());
     raw_fd_ostream os(fd, /*shouldClose*/ true);
     os << obj->mb.getBuffer();
-    temps.push_back(s.str());
+    temps.push_back(std::string(s.str()));
     rsp += quote(s) + "\n";
   }
 

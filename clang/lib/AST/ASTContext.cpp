@@ -10990,7 +10990,7 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
     StringRef NewFeats(TP->getFeatures());
     while (!NewFeats.empty()) {
       std::pair<StringRef, StringRef> split = NewFeats.split(',');
-      FeaturesTmp.push_back(split.first);
+      FeaturesTmp.push_back(std::string(split.first));
       NewFeats = split.second;
     }
 

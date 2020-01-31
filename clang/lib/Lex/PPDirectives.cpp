@@ -2472,7 +2472,7 @@ static void getTypelibGuid(const char *Name, GUID *GuidPtr,
 
 static std::string getTypelibName(StringRef Filename, unsigned short Major,
                                   unsigned short Minor, unsigned long Lcid) {
-  std::string Result = Filename.substr(1, Filename.size() - 2);
+  std::string Result = std::string(Filename.substr(1, Filename.size() - 2));
   GUID Guid;
   getTypelibGuid(Filename.data() + 1, &Guid, &Major, &Minor, &Lcid);
 
@@ -2643,7 +2643,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
           << ErrorCode.message();
       return;
     }
-    WrapperFilename = StringRef(WrapperFilenameImpl);
+    WrapperFilename = std::string(WrapperFilenameImpl);
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
                  WrapperFilename, WrapperFileDesc,
                  llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::F_Append)) {

@@ -1142,7 +1142,7 @@ StableMangledName(std::string &MainFileName) {
   SmallString<32> NameStr;
   Hash.stringifyResult(Result, NameStr);
 
-  return NameStr.str();
+  return std::string(NameStr);
 }
 #endif // INTEL_COLLAB
 
@@ -1179,7 +1179,7 @@ static std::string getMangledNameImpl(const CodeGenModule &CGM, GlobalDecl GD,
     if (const auto *VD = dyn_cast<VarDecl>(GD.getDecl())) {
       SourceManager &SM = CGM.getContext().getSourceManager();
       if (auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
-        std::string MainFileName = MainFile->getName();
+        std::string MainFileName = std::string(MainFile->getName());
         if (!MainFileName.empty() &&
             VD->getStorageClass() == SC_Static && VD->hasGlobalStorage() &&
             !VD->isLocalVarDecl() && !VD->isStaticDataMember())

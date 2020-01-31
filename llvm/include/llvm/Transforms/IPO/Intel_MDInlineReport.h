@@ -270,9 +270,10 @@ public:
                          std::string LinkageChar);
   FunctionInliningReport(Function *F, std::vector<MDTuple *> *CSs, bool IsDead)
       : FunctionInliningReport(&(F->getParent()->getContext()),
-                               (F->hasName() ? F->getName() : ""), CSs,
-                               F->getParent()->getName(), IsDead,
-                               F->isDeclaration(), getLinkageStr(F)) {}
+                               std::string(F->hasName() ? F->getName() : ""),
+                               CSs, std::string(F->getParent()->getName()),
+                               IsDead, F->isDeclaration(),
+                               std::string(getLinkageStr(F))) {}
   static bool isFunctionInliningReportMetadata(const Metadata *R);
 };
 

@@ -80,8 +80,9 @@ ParVecDirectiveInsertion::Visitor::insertBeginRegion(HLLoop *Lp,
   assert(Intrin && "Cannot get declaration for intrinsic");
 
   SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
-  llvm::OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(Dir),
-                                  ArrayRef<llvm::Value *>{});
+  llvm::OperandBundleDef OpBundle(
+      std::string(IntrinsicUtils::getDirectiveString(Dir)),
+      ArrayRef<llvm::Value *>{});
   IntrinOpBundle.push_back(OpBundle);
   // TODO: Operand bundles for any clauses in auto-vec directive
 
@@ -103,8 +104,9 @@ HLInst *ParVecDirectiveInsertion::Visitor::insertEndRegion(HLLoop *Lp,
   assert(Intrin && "Cannot get declaration for intrinsic");
 
   SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
-  llvm::OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(Dir),
-                                  ArrayRef<llvm::Value *>{});
+  llvm::OperandBundleDef OpBundle(
+      std::string(IntrinsicUtils::getDirectiveString(Dir)),
+      ArrayRef<llvm::Value *>{});
   IntrinOpBundle.push_back(OpBundle);
 
   SmallVector<RegDDRef *, 1> CallArgs;

@@ -989,13 +989,13 @@ static std::string getIPPBasePath(const ArgList &Args,
       P.append("cp");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetIPPIncludePath(const ArgList &Args) const {
   SmallString<128> P(getIPPBasePath(Args, getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 // Add IPP specific performance library search path.  The different IPP libs
@@ -1028,13 +1028,13 @@ static std::string getMKLBasePath(const std::string DriverDir) {
     P.append(getIntelBasePath(DriverDir) + "mkl");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetMKLIncludePath(const ArgList &Args) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
@@ -1043,7 +1043,7 @@ std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
     llvm::sys::path::append(P, "intel64/lp64");
   else
     llvm::sys::path::append(P, "ia32");
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetMKLLibPath(void) const {
@@ -1052,7 +1052,7 @@ std::string ToolChain::GetMKLLibPath(void) const {
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
-  return P.str();
+  return std::string(P);
 }
 
 // Add MKL specific performance library search path
@@ -1070,13 +1070,13 @@ static std::string getTBBBasePath(const std::string DriverDir) {
     P.append(getIntelBasePath(DriverDir) + "tbb");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetTBBIncludePath(const ArgList &Args) const {
   SmallString<128> P(getTBBBasePath(getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 // Add TBB specific performance library search path
@@ -1105,13 +1105,13 @@ static std::string getDAALBasePath(const std::string DriverDir) {
     P.append(getIntelBasePath(DriverDir) + "daal");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetDAALLibPath(void) const {
@@ -1120,7 +1120,7 @@ std::string ToolChain::GetDAALLibPath(void) const {
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
-  return P.str();
+  return std::string(P);
 }
 
 // Add DAAL specific performance library search path

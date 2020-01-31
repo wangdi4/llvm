@@ -2277,7 +2277,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
   CIM->insert(std::make_pair(llvmType, new ClassInfo()));
   ClassInfo &info = *(CIM->find(llvmType)->second);
 
-  std::string constructorName = llvmType->getName();
+  std::string constructorName = std::string(llvmType->getName());
   std::string destructorName = (Twine("~") + Twine(llvmType->getName())).str();
   std::string virtualTableName =
       (Twine("_vptr$") + Twine(llvmType->getName())).str();
@@ -2955,7 +2955,7 @@ STIType *STIDebugImpl::lowerTypeAlias(const DIDerivedType *llvmType) {
     STITypeStructure *pType = static_cast<STITypeStructure *>(baseType);
     auto stringMap = const_cast<STIDebugImpl *>(this)->getStringNameMap();
     if (stringMap->count(llvmBaseType)) {
-      (*stringMap)[llvmType] = name;
+      (*stringMap)[llvmType] = std::string(name);
       pType->setName(name);
     }
   }
@@ -3332,7 +3332,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     auto itr = members[i];
     const DIDerivedType *llvmMember = dyn_cast<DIDerivedType>(itr.first);
 
-    std::string name = llvmMember->getName();
+    std::string name = std::string(llvmMember->getName());
     truncateName(name);
 
     STITypeMember *member = STITypeMember::create();
@@ -3391,7 +3391,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
   for (auto &itr : info.methods) {
     unsigned overloadedCount = itr.second.size();
     assert(overloadedCount > 0 && "Empty methods map entry");
-    std::string name = itr.first;
+    std::string name = std::string(itr.first);
     truncateName(name);
     if (overloadedCount == 1) {
       auto &methodInfo = itr.second[0];
@@ -3585,7 +3585,7 @@ STITypeEnumerator* STIDebugImpl::lowerTypeEnumerator(
   STINumeric *value;
   std::string name;
 
-  name      = llvmType->getName();
+  name = std::string(llvmType->getName());
   value     = createNumericSignedInt(llvmType->getValue());
   attribute = STI_ACCESS_PUBLIC; // FIXME: set correct attributes here!
 
@@ -3669,7 +3669,7 @@ STIType *STIDebugImpl::lowerTypeEnumeration(const DICompositeType *llvmType) {
     appendFixup(new STIDebugFixupNested(llvmType));
   }
 
-  name = llvmType->getName();
+  name = std::string(llvmType->getName());
   if (name.empty()) {
       // When the name is empty (just a null character), this can cause the
       // Microsoft PDB writer to generate a corrupt PDB file.  Instead, we
@@ -4058,10 +4058,10 @@ STIScope *STIDebugImpl::getOrCreateScope(const DIScope* llvmScope) {
 std::string STIDebugImpl::getScopeFullName(const DIScope* llvmScope,
                                            StringRef name, bool useClassName) {
   if (!llvmScope || isa<DIFile>(llvmScope) || name.empty())
-    return name;
+    return std::string(name);
   if (const DIType* llvmType = dyn_cast<DIType>(llvmScope)) {
     if (llvmType->getName().empty()) {
-      return name;
+      return std::string(name);
     }
     std::string scopedName =
         (Twine(llvmType->getName()) + "::" + Twine(name)).str();
@@ -4077,9 +4077,9 @@ std::string STIDebugImpl::getScopeFullName(const DIScope* llvmScope,
   }
   if (isa<DISubprogram>(llvmScope)) {
     // TODO: should we assert here?
-    return name;
+    return std::string(name);
   }
-  return name;
+  return std::string(name);
 }
 
 STIType *STIDebugImpl::getClassScope(const DIScope* llvmScope) {
@@ -4229,7 +4229,7 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   procedure->setName(name);
 
   if (EmitFunctionIDs) {
-    std::string name = SP->getName();
+    std::string name = std::string(SP->getName());
     truncateName(name);
     STIType *classType = getClassScope(SP->getScope());
     STITypeFunctionID *funcIDType = STITypeFunctionID::create();
@@ -4322,7 +4322,7 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
   STISymbolBlock *block;
   block = STISymbolBlock::create();
 
-  std::string name = LB->getName();
+  std::string name = std::string(LB->getName());
   truncateName(name);
 
   LexicalScope *Scope = _lexicalScopes.findLexicalScope(LB);
@@ -6019,7 +6019,7 @@ void STIDebugImpl::emitTypeStructure(const STITypeStructure *type) const {
   const STIType *derivedType = type->getDerivedType();
   const STIType *vshapeType = type->getVShapeType();
   const STINumeric *size = type->getSize();
-  std::string name = type->getName();
+  std::string name = std::string(type->getName());
 
   assert(!name.empty() && "empty stucture name!");
 

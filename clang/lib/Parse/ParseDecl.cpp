@@ -256,7 +256,7 @@ static void fillAttrFullName(const IdentifierInfo &II,
   case ParsedAttr::Syntax::AS_CXX11:
     Variety = "CXX11";
     if (ScopeName)
-      Scope = ScopeName->getName();
+      Scope = std::string(ScopeName->getName());
     break;
   case ParsedAttr::Syntax::AS_Declspec:
     Variety = "Declspec";

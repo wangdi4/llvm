@@ -758,7 +758,7 @@ void VPOCodeGen::initOpenCLScalarSelectSet(
 }
 
 bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
-  return Idx == 2 && ScalarSelectSet.count(FnName);
+  return Idx == 2 && ScalarSelectSet.count(std::string(FnName));
 }
 
 bool VPOCodeGen::callHasAttribute(VPInstruction *VPInst,

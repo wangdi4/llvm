@@ -1767,7 +1767,8 @@ static void populateOperandBundles(HLInst *HInst,
       Inputs.push_back(Operands[J]);
     }
 
-    Bundles.emplace_back(HInst->getOperandBundleAt(I).getTagName(), Inputs);
+    Bundles.emplace_back(std::string(HInst->getOperandBundleAt(I).getTagName()),
+                         Inputs);
     OpBeginIndex = OpEndIndex;
   }
 

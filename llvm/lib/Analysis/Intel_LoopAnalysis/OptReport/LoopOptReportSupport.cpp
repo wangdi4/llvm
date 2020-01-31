@@ -46,7 +46,7 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
 
   for (const LoopOptRemark Remark : OptReport.origin()) {
     const MDString *R = cast<MDString>(Remark.getOperand(0));
-    std::string OriginString = R->getString();
+    std::string OriginString = std::string(R->getString());
 
     if (OriginString == "Remainder loop for vectorization") {
       VecBits.set(2);
@@ -67,7 +67,7 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
 
   for (const LoopOptRemark Remark : OptReport.remarks()) {
     const auto *R = cast<MDString>(Remark.getOperand(0));
-    std::string FormatString = R->getString();
+    std::string FormatString = std::string(R->getString());
 
     if (FormatString == "LOOP WAS VECTORIZED") {
       // TODO (vzakhari 02/10/2019): bits 47-49 must specify main vectorization
@@ -85,7 +85,7 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
       assert(SM && "Expected string argument");
       // Use 1 vectorlength for release builds in case of incorrect
       // argument specification.
-      uint32_t VecLen = SM ? std::stoi(SM->getString()) : 1u;
+      uint32_t VecLen = SM ? std::stoi(std::string(SM->getString())) : 1u;
       uint32_t Log2VecLen = std::min(Log2_32(VecLen), 15u);
       uint32_t Mask[] { 0, Log2VecLen << 3 };
       VecBits.setBitsInMask(Mask);
