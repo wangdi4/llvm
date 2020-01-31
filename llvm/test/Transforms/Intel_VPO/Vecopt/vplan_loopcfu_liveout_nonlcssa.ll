@@ -14,7 +14,6 @@ declare void @llvm.directive.region.exit(token)
 ;; once this is fixed. In fact, we should fix this and add an assert in the
 ;; LoopCFU transformation for any non-LCSSA uses.
 define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
-;
 ; CHECK-LABEL:  After inner loop control flow transformation
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -79,10 +78,10 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:          PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:         [DA: Divergent] i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:         [DA: Divergent] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB11]] ]
-; CHECK-NEXT:         [DA: Divergent] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB11]] ]
-; CHECK-NEXT:         [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB11]] ]
+; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:         [DA: Uniform]   i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB11]] ]
+; CHECK-NEXT:         [DA: Uniform]   i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB11]] ]
+; CHECK-NEXT:         [DA: Uniform]   i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB11]] ]
 ; CHECK-NEXT:         [DA: Divergent] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB10]]
 ; CHECK-NEXT:        PREDECESSORS(2): [[BB11]] [[INTERMEDIATE_BB0]]

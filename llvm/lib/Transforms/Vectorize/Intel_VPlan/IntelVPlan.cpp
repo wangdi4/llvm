@@ -863,7 +863,11 @@ bool VPInstruction::mayHaveSideEffects() const {
   if (Instruction::isCast(Opcode) || Instruction::isShift(Opcode) ||
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
-      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr)
+      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
+      Opcode == Instruction::PHI || Opcode == Instruction::ICmp ||
+      Opcode == Instruction::FCmp || Opcode == VPInstruction::Not ||
+      Opcode == VPInstruction::AllZeroCheck ||
+      Opcode == VPInstruction::InductionInit)
     return false;
 
   return true;

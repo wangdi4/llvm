@@ -320,10 +320,6 @@ void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
         PreserveSSAPhi->addIncoming(ValueToUse, cast<VPBasicBlock>(Pred));
       }
 
-      // Update DA for PreserveSSAPhi.
-      VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-      VPlanDA->markDivergent(*PreserveSSAPhi);
-
       // Finally, update the uses of the definition with the SSA phi node.
       for (auto *Use : UsesToUpdate)
         Use->replaceUsesOfWith(&Def, PreserveSSAPhi);
@@ -636,13 +632,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
-  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPPHINode *ExitIDVPPhi = VPBldr.createPhiInstruction(Ty32, "exit.id.phi");
   ExitIDVPPhi->addIncoming(Plan->getVPConstant(ConstantInt::get(Ty32, ExitID)),
                            cast<VPBasicBlock>(OrigLoopLatch));
-  // TODO: Merge loop exits transformation should only be kicked in for inner
-  // loops that have a divergent exiting edge.
-  VPlanDA->markDivergent(*ExitIDVPPhi);
 
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
@@ -659,7 +651,6 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   }
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
-  VPlanDA->markDivergent(*NewCondBit);
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
@@ -817,10 +808,6 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitID = Pair.second;
       auto *CondBr = new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
       IfBlock->appendInstruction(CondBr);
-      // The condition bit of the cascaded if block depends on ExitIDVPPhi.
-      // Since ExitIDVPPhi is marked as divergent, CondBr should also be marked
-      // as divergent.
-      VPlanDA->markDivergent(*CondBr);
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
@@ -1022,9 +1009,6 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   TakeBackedgeCond->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
   TakeBackedgeCond->addIncoming(FalseConst, cast<VPBasicBlock>(ExitingBlock));
   NewLoopLatch->setCondBit(TakeBackedgeCond);
-  // Update DA.
-  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-  VPlanDA->markDivergent(*TakeBackedgeCond);
 
   // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
   // recalculating it.
@@ -1123,6 +1107,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
              VPDomTree.print(dbgs()));
 
   if (LoopMassagingEnabled) {
+    // TODO: Bail-out loop massaging for uniform inner loops.
     for (auto *VPL : post_order(TopLoop)) {
       singleExitWhileLoopCanonicalization(VPL);
       mergeLoopExits(VPL);
@@ -1240,36 +1225,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              VPPostDomTree.print(dbgs()));
 
 #if INTEL_CUSTOMIZATION
-  // simplifyPlainCFG inserts empty blocks with CondBit instructions. This
-  // messes up determining the influence region of a branch instruction. i.e.,
-  // the immediate post-dominator becomes this empty block instead of the actual
-  // convergence point containing the phi. Running DA here allows reuse of the
-  // current Dominator Trees and results in fewer modifications to the DA
-  // algorithm since it was designed to run over a plain CFG. We should also
-  // be able to leverage DA for use in the inner loop control flow uniformity
-  // massaging for outer loop vectorization (done in simplifyPlainCFG). That
-  // way, we only have to transform the CFG for inner loops known to be non-
-  // uniform.
-  // TODO: Right now DA is computed per VPlan for the outermost loop of the
-  // VPlan region. We will need additional information provided to DA if we wish
-  // to vectorize more than one loop, or vectorize a specific loop within the
-  // VPlan that is not the outermost one.
-  // TODO: Check to see how this ordering impacts loops with multiple exits in
-  // mergeLoopExits(). It's possible that we may want to delay DA from running
-  // until after loops with multiple exits are canonicalized to a single loop
-  // exit. But, this means that the DA algorithm will have to be changed to have
-  // to deal with empty loop pre-header blocks unless we can run mergeLoopExits
-  // before the empty pre-header blocks are inserted.
-  if (!DisableVPlanDA) {
-    // TODO: Determine if we want to have a separate DA instance for each VF.
-    // Currently, there is only one instance and no distinction between VFs.
-    // i.e., values are either uniform or divergent for all VFs.
-    VPLoop *CandidateLoop = *VPLInfo->begin();
-    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
-    VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
-    Plan->setVPlanDA(std::move(VPDA));
-  }
-
   if (VPlanPrintPlainCFG) {
     errs() << "Print after buildPlainCFG\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1280,6 +1235,22 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
+
+#if INTEL_CUSTOMIZATION
+  // TODO: Right now DA is computed per VPlan for the outermost loop of the
+  // VPlan region. We will need additional information provided to DA if we wish
+  // to vectorize more than one loop, or vectorize a specific loop within the
+  // VPlan that is not the outermost one.
+  if (!DisableVPlanDA) {
+    // TODO: Determine if we want to have a separate DA instance for each VF.
+    // Currently, there is only one instance and no distinction between VFs.
+    // i.e., values are either uniform or divergent for all VFs.
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, false/*Not in LCSSA form*/);
+    Plan->setVPlanDA(std::move(VPDA));
+  }
+#endif /* INTEL_CUSTOMIZATION */
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintSimplifyCFG) {
