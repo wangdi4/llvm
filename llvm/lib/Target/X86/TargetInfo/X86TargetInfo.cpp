@@ -37,7 +37,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetInfo() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   RegisterTarget<Triple::x86_icecode, /*HasJIT=*/true> Z(
-      getTheX86_IceCodeTarget(), "x86-IceCode", "64-bit X86: IceCode", "X86");
+      getTheX86_IceCodeTarget(), "x86-icecode", "64-bit X86: IceCode", "X86");
 #endif  // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
 }

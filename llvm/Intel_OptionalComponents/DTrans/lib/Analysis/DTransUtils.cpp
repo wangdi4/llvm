@@ -677,13 +677,13 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
   if (!C)
     return false;
-  return ConstantValues.insert(C).second;
+  return ConstantValues.insert(C);
 }
 
 bool dtrans::FieldInfo::processNewSingleIAValue(llvm::Constant *C) {
   if (!C)
     return false;
-  return ConstantIAValues.insert(C).second;
+  return ConstantIAValues.insert(C);
 }
 
 bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {

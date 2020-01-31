@@ -142,7 +142,7 @@ let Predicates = [InIceCodeMode] in {
                          [(int_x86_icecode_sta_special addr:$mem)]>, NotMemoryFoldable, AdSize32;
     def NR_READr : Ii8<0x83, MRM6r, (outs GR32:$dst), (ins i32u8imm:$src),
                        "nr_read\t{$src, $dst|$dst, $src}",
-                       [(set GR32:$dst, (int_x86_icecode_nr_read (i32 imm:$src)))]>;
+                       [(set GR32:$dst, (int_x86_icecode_nr_read (i32 timm:$src)))]>;
 
     let Uses = [EAX] in
       def SIGEVENTJUMP : Ii32<0x81, MRM2r, (outs), (ins GR32:$src1, i32imm:$src2),
@@ -172,6 +172,6 @@ let Predicates = [InIceCodeMode] in {
   let Constraints = "$src1 = $dst" in
     def CMODEMOVcc : Ii8<0x40, MRMSrcRegCC, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2, i32u4imm:$cond),
                          "cmodemov\t{$cond, $src2, $dst|$dst, $src2, $cond}",
-                         [(set GR64:$dst, (int_x86_icecode_cmodemov GR64:$src1, GR64:$src2, (i32 imm:$cond)))]>, XS;
+                         [(set GR64:$dst, (int_x86_icecode_cmodemov GR64:$src1, GR64:$src2, (i32 timm:$cond)))]>, XS;
 }
 // end INTEL_FEATURE_ICECODE

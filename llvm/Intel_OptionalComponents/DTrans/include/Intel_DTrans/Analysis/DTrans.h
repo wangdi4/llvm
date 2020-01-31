@@ -22,6 +22,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
@@ -136,11 +137,11 @@ public:
   uint64_t getFrequency() const { return Frequency; }
 
   // Returns a set of possible constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &values()
+  llvm::SetVector<llvm::Constant *> &values()
       { return ConstantValues; }
 
   // Returns a set of possible indirect array constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &iavalues()
+  llvm::SetVector<llvm::Constant *> &iavalues()
       { return ConstantIAValues; }
 
   // Returns true if the set of possible values is complete.
@@ -209,9 +210,9 @@ private:
   bool MismatchedElementAccess;
 
   SingleValueKind SVKind;
-  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
+  llvm::SetVector<llvm::Constant *> ConstantValues;
   SingleValueKind SVIAKind;
-  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantIAValues;
+  llvm::SetVector<llvm::Constant *> ConstantIAValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
   // For computing ModRef information for the field, these sets contain the
