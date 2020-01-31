@@ -3859,7 +3859,7 @@ bool NEATPlugIn::DetectAndExecuteOCLBuiltins( Function *F,
     OCLBuiltinParser::ArgVector ArgList;
 
     // try to extract string with OCL built-in
-    if(!OCLBuiltinParser::ParseOCLBuiltin(F->getName(),
+    if(!OCLBuiltinParser::ParseOCLBuiltin(std::string(F->getName()),
                     BINameStr, ArgList))
     {
         // TODO: add here detection of non regular OCL built-ins names

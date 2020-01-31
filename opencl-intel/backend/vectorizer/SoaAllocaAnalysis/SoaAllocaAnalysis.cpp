@@ -185,12 +185,12 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
           Function *pCalledFunc = pCall->getCalledFunction();
           V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
           StringRef CalledFuncName = pCalledFunc->getName();
-          if (Mangler::isMangledLoad(CalledFuncName)) {
+          if (Mangler::isMangledLoad(std::string(CalledFuncName))) {
             // Load is allowed instructions that does not result in a pointer,
             // so only need to continue checking other usages.
             continue;
           }
-          else if (Mangler::isMangledStore(CalledFuncName)) {
+          else if (Mangler::isMangledStore(std::string(CalledFuncName))) {
             if (pCall->getArgOperand(2) == pAI) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported usage as store value (" << *usage << ")\n");
               return false;

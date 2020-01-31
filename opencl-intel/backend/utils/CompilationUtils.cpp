@@ -318,7 +318,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       llvm::StringRef func_name = F.getName();
       if (func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
           func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
-          CompilationUtils::isKMPAcquireReleaseLock(func_name))
+          CompilationUtils::isKMPAcquireReleaseLock(std::string(func_name)))
         functionSet.insert(&F);
       }
   }
@@ -337,8 +337,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
           func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
           func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
-          CompilationUtils::isKMPAcquireReleaseLock(func_name) ||
-          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(func_name, pModule)) {
+          CompilationUtils::isKMPAcquireReleaseLock(std::string(func_name)) ||
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(std::string(func_name), pModule)) {
             functionSet.insert(&F);
         }
       }
@@ -356,9 +356,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
-          CompilationUtils::isWorkGroupBuiltin(func_name)  ||
+          CompilationUtils::isWorkGroupBuiltin(std::string(func_name))  ||
           /* built-ins synced as if were called by a single work item */
-          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(func_name, pModule) ) {
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(std::string(func_name), pModule) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -1313,7 +1313,7 @@ bool CompilationUtils::isSubGroupScanInclusiveMax(const std::string& S) {
 
 bool CompilationUtils::hasWorkGroupFinalizePrefix(const std::string& S) {
   if (!isMangledName(S.c_str())) return false;
-  std::string funcName = stripName(S.c_str());
+  std::string funcName = std::string(stripName(S.c_str()));
   return StringRef(funcName).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
 }
 
@@ -1495,7 +1495,7 @@ PipeKind CompilationUtils::getPipeKind(const std::string &Name) {
   }
 
   if (N.consume_front("_") && N.startswith("v")) {
-    Kind.SimdSuffix = N;
+    Kind.SimdSuffix = std::string(N);
   }
 
   assert(Name == getPipeName(Kind) &&

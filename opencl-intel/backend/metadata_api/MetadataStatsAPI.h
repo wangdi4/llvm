@@ -96,11 +96,11 @@ private:
     getMDStatKindNames(m_Object, MDStatKinds);
 
     for (auto &MDStatKind : MDStatKinds) {
-      std::string MDStatKindStr = MDStatKind;
+      std::string MDStatKindStr = std::string(MDStatKind);
       FunctionStatTy MDStat(&m_Object, MDStatKindStr.c_str());
 
       if (MDStat.hasValue()) {
-        std::string name = MDStatKind;
+        std::string name = std::string(MDStatKind);
         auto value = MDStat.get();
 
         StatDescriptionTy StatDescription(m_Object.getParent(), name.c_str());
@@ -129,7 +129,7 @@ public:
       auto name = namedMetadata.getName();
       if (isOpenCLStatKind(name)) {
         StatDescriptionTy StatDescription(&M, name.str().c_str());
-        Descs.push_back({name, StatDescription.get()});
+        Descs.push_back({std::string(name), StatDescription.get()});
       }
     }
   }

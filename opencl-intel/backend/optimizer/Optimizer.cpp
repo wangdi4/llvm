@@ -948,7 +948,7 @@ std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) {
         if (GVM.DepthIsIgnored.hasValue() && GVM.DepthIsIgnored.get()) {
           assert(GV.getName().endswith(".pipe") &&
               "Only global pipes are expected");
-          Res.push_back(GV.getName().drop_back(5));
+          Res.push_back(std::string(GV.getName().drop_back(5)));
         }
     }
   }
@@ -976,7 +976,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
     }
 
     if (Invalid) {
-      Res.push_back(F.getName());
+      Res.push_back(std::string(F.getName()));
     }
   }
 

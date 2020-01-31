@@ -2161,7 +2161,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
     return false;
   }
 
-  if (Mangler::isMangledLoad(call->getCalledFunction()->getName())) {
+  if (Mangler::isMangledLoad(std::string(call->getCalledFunction()->getName()))) {
     V_ASSERT(call->getNumArgOperands() == 2 && "expected 2 arguments");
     if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM) {
        V_ASSERT(m_predicatedToOriginalInst.count(call) &&
@@ -2175,7 +2175,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
     }
     return false;
   }
-  if (Mangler::isMangledStore(call->getCalledFunction()->getName())) {
+  if (Mangler::isMangledStore(std::string(call->getCalledFunction()->getName()))) {
     V_ASSERT(call->getNumArgOperands() == 3 && "expected 3 arguments");
     if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM &&
       m_WIA->whichDepend(call->getArgOperand(2)) == WIAnalysis::UNIFORM) {
@@ -2913,7 +2913,7 @@ BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
     CallInst* condCall = dyn_cast<CallInst>(cond);
     if (condCall && condCall->getCalledFunction()) {
       StringRef name = condCall->getCalledFunction()->getName();
-      if (Mangler::isAllOne(name))
+      if (Mangler::isAllOne(std::string(name)))
         return br;
     }
   }

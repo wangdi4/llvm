@@ -87,7 +87,7 @@ struct MDValueTraits<std::string, void> {
       "can't load string, wrong node type");
     auto mdStr = llvm::cast<llvm::MDString>(pNode);
 
-    return mdStr->getString();
+    return std::string(mdStr->getString());
   }
 
   static llvm::Metadata *generateValue(llvm::LLVMContext &Context,

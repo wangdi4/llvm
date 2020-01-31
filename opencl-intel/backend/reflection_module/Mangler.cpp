@@ -240,7 +240,7 @@ std::string Mangler::demangle(const std::string& name, bool masked) {
       }
     }
     if (! masked)
-      return stripped;
+      return std::string(stripped);
   }
 
   if (! masked)

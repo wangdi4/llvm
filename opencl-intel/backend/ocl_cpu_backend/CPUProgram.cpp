@@ -85,7 +85,7 @@ void CPUProgram::GetGlobalVariablePointers(cl_prog_gv_map &GVs) const {
                 static_cast<uintptr_t>(Sym->getAddress()));
         }
         cl_prog_gv_prop Prop = { Size.second, Addr };
-        GVs[Name] = Prop;
+        GVs[std::string(Name)] = Prop;
     }
 }
 

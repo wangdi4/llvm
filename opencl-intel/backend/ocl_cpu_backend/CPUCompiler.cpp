@@ -89,7 +89,7 @@ void SplitString( const std::string& s, const char* d, llvm::SmallVectorImpl<std
     llvm::SmallVector<llvm::StringRef,2> sv;
 
     sr.split(sv, d, -1, false);
-    std::copy( sv.begin(), sv.end(), std::back_inserter( v ));
+    std::transform( sv.begin(), sv.end(), std::back_inserter( v ), [](llvm::StringRef s) { return std::string(s); });
 }
 
 unsigned int SelectCpuFeatures(

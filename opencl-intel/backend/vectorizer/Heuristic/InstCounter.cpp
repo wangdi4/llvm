@@ -421,7 +421,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
     StringRef Name = Call->getCalledFunction()->getName();
     // Since we run before the resolver, masked load/stores should count
     // as load/stores, not calls. Maybe slightly better or worse.
-    if (Mangler::isMangledLoad(Name) || Mangler::isMangledStore(Name)) {
+    if (Mangler::isMangledLoad(std::string(Name)) || Mangler::isMangledStore(std::string(Name))) {
       // If the mask is non-scalar, this will become a lot of memops,
       // since the CPU doesn't have gathers.
       Value *Mask = Call->getArgOperand(0);
@@ -437,7 +437,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // So yes, this is a hack for this purpose.
       // The check is very specific trying to catch LuxMark::Sampler.
       // alone without causing collateral damage.
-      if (Mangler::isMangledStore(Name) && !MaskType->isVectorTy()) {
+      if (Mangler::isMangledStore(std::string(Name)) && !MaskType->isVectorTy()) {
         V_ASSERT(Call->getNumArgOperands() == 3 && "expected 3 params in masked store");
         if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(Call->getOperand(2))) {
           if (gep->getNumOperands() == NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK) {
@@ -462,12 +462,12 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // TODO: if the vector is really large, still need to multiply...
     }
 
-    if (Mangler::isMangledGather(Name) || Mangler::isMangledScatter(Name)) {
+    if (Mangler::isMangledGather(std::string(Name)) || Mangler::isMangledScatter(std::string(Name))) {
       // 16 x 32bit element gather/scatter with 64 bit indices will turn
       // into 2 gathers/scatters, so adjust weight accordingly.
 
       int Weight;
-      if (Mangler::isMangledGather(Name))
+      if (Mangler::isMangledGather(std::string(Name)))
         Weight = GATHER_WEIGHT;
       else
         Weight = SCATTER_WEIGHT;
@@ -507,14 +507,14 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
     // allZero are cheap, it's basically a xor/ptest
     // allone we do not count at all, since we don't want allone-bypasses
     // to effect the result of the heuristics.
-    if (Mangler::isAllZero(Name))
+    if (Mangler::isAllZero(std::string(Name)))
       return DEFAULT_WEIGHT;
 
-    if (Mangler::isAllOne(Name))
+    if (Mangler::isAllOne(std::string(Name)))
       return NOOP_WEIGHT;
 
     // See if we can find the function in the function cost table
-    return getFuncCost(Name);
+    return getFuncCost(std::string(Name));
 }
 
 int WeightedInstCounter::getFuncCost(const std::string& name)
@@ -693,7 +693,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
       CallInst* CondCall = dyn_cast<CallInst>(Cond);
       if (CondCall && CondCall->getCalledFunction()) {
         StringRef Name = CondCall->getCalledFunction()->getName();
-        if (Mangler::isAllOne(Name))
+        if (Mangler::isAllOne(std::string(Name)))
           return NOOP_WEIGHT;
       }
 
@@ -925,7 +925,7 @@ void WeightedInstCounter::
         // We believe case (a) is more common. There is no reason to punish guards, since
         // the logic of "all workitems must agree for the block to be skipped, which is rarer
         // then a single workitem satisfying the condition" no longer applies.
-        if (Mangler::isAllZero(Name)
+        if (Mangler::isAllZero(std::string(Name))
           && AllZOpType->isVectorTy()
           && (DepSet.find(CondCall) != DepSet.end()))
             count--;
@@ -933,7 +933,7 @@ void WeightedInstCounter::
         // A degenerate case - an allZero(true) branch is never taken.
         // If you depend on one of those, ignore this dependency.
         ConstantInt* ConstOp = dyn_cast<ConstantInt>(AllZOp);
-        if (Mangler::isAllZero(Name) &&
+        if (Mangler::isAllZero(std::string(Name)) &&
             ConstOp && ConstOp->isOne())
               count--;
       }

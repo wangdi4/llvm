@@ -278,7 +278,7 @@ std::pair<std::string,width::V> fdToPair(const FunctionDescriptor& fd){
 }
 
 std::pair<std::string,width::V> nullPair(){
-  return std::make_pair(FunctionDescriptor::nullString(), width::NONE);
+  return std::make_pair(std::string(FunctionDescriptor::nullString()), width::NONE);
 }
 
 bool isNullPair(const std::pair<std::string,width::V>& sw){
