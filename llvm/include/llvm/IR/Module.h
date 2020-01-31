@@ -877,6 +877,12 @@ public:
   Metadata *getProfileSummary(bool IsCS);
   /// @}
 
+  /// Returns whether semantic interposition is to be respected.
+  bool getSemanticInterposition() const;
+
+  /// Set whether semantic interposition is to be respected.
+  void setSemanticInterposition(bool);
+
   /// Returns true if PLT should be avoided for RTLib calls.
   bool getRtLibUseGOT() const;
 
