@@ -10691,7 +10691,7 @@ DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
     auto StructField = getByteFlattenedGEPElement(GEP);
     auto StructTy = dyn_cast_or_null<StructType>(StructField.first);
     if (!StructTy)
-      std::make_pair(nullptr, 0);
+      return std::make_pair(nullptr, 0);
 
     return std::make_pair(StructTy, StructField.second);
   }

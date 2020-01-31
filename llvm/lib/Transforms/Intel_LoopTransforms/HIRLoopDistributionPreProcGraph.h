@@ -230,7 +230,7 @@ public:
 
   DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
               HIRSparseArrayReductionAnalysis &SARA,
-              bool ForceCycleForLoopIndepDep, bool CreateControlNodes);
+              bool AllowScalarExpansion, bool CreateControlNodes);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution

@@ -169,10 +169,10 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
 public:
   PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
           HIRSparseArrayReductionAnalysis &SARA,
-          bool ForceCycleForLoopIndepDep,
+          bool AllowScalarExpansion,
           bool CreateControlNodes) {
 
-    PPGraph = new DistPPGraph(Loop, DDA, SARA, ForceCycleForLoopIndepDep,
+    PPGraph = new DistPPGraph(Loop, DDA, SARA, AllowScalarExpansion,
                               CreateControlNodes);
 
     if (!isGraphValid()) {
