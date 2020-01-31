@@ -505,11 +505,10 @@ define <8 x i32> @test9(%struct.ST* %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; KNL_64-NEXT:    vpmuldq {{.*}}(%rip){1to8}, %zmm1, %zmm1
 ; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; KNL_64-NEXT:    vpaddq %zmm0, %zmm4, %zmm0
-; KNL_64-NEXT:    vpaddq {{.*}}(%rip){1to8}, %zmm0, %zmm1
+; KNL_64-NEXT:    vpaddq %zmm0, %zmm4, %zmm1 ;INTEL
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
 ; KNL_64-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; KNL_64-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; KNL_64-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1} ;INTEL
 ; KNL_64-NEXT:    retq
 ;
 ; KNL_32-LABEL: test9:
@@ -521,13 +520,11 @@ define <8 x i32> @test9(%struct.ST* %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; KNL_32-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [820,820,820,820,820,820,820,820]
 ; KNL_32-NEXT:    vpmulld %ymm3, %ymm0, %ymm0
 ; KNL_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; KNL_32-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [68,68,68,68,68,68,68,68]
-; KNL_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; KNL_32-NEXT:    vpaddd %ymm0, %ymm2, %ymm1
+; KNL_32-NEXT:    vpaddd %ymm0, %ymm2, %ymm1 ;INTEL
 ; KNL_32-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
 ; KNL_32-NEXT:    movw $255, %ax
 ; KNL_32-NEXT:    kmovw %eax, %k1
-; KNL_32-NEXT:    vpgatherdd (,%zmm1), %zmm0 {%k1}
+; KNL_32-NEXT:    vpgatherdd 68(,%zmm1), %zmm0 {%k1} ;INTEL
 ; KNL_32-NEXT:    # kill: def $ymm0 killed $ymm0 killed $zmm0
 ; KNL_32-NEXT:    retl
 ;
@@ -538,11 +535,10 @@ define <8 x i32> @test9(%struct.ST* %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; SKX_SMALL-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; SKX_SMALL-NEXT:    vpmuldq {{.*}}(%rip){1to8}, %zmm1, %zmm1
 ; SKX_SMALL-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; SKX_SMALL-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
-; SKX_SMALL-NEXT:    vpaddq {{.*}}(%rip){1to8}, %zmm0, %zmm1
+; SKX_SMALL-NEXT:    vpaddq %zmm0, %zmm2, %zmm1 ;INTEL
 ; SKX_SMALL-NEXT:    kxnorw %k0, %k0, %k1
 ; SKX_SMALL-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; SKX_SMALL-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; SKX_SMALL-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1} ;INTEL
 ; SKX_SMALL-NEXT:    retq
 ;
 ; SKX_LARGE-LABEL: test9:
@@ -554,12 +550,10 @@ define <8 x i32> @test9(%struct.ST* %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; SKX_LARGE-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; SKX_LARGE-NEXT:    vpmullq (%rax){1to8}, %zmm0, %zmm0
 ; SKX_LARGE-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; SKX_LARGE-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
-; SKX_LARGE-NEXT:    movabsq ${{\.LCPI.*}}, %rax
-; SKX_LARGE-NEXT:    vpaddq (%rax){1to8}, %zmm0, %zmm1
+; SKX_LARGE-NEXT:    vpaddq %zmm0, %zmm2, %zmm1 ;INTEL
 ; SKX_LARGE-NEXT:    kxnorw %k0, %k0, %k1
 ; SKX_LARGE-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; SKX_LARGE-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; SKX_LARGE-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1} ;INTEL
 ; SKX_LARGE-NEXT:    retq
 ;
 ; SKX_32-LABEL: test9:
@@ -568,11 +562,10 @@ define <8 x i32> @test9(%struct.ST* %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; SKX_32-NEXT:    vpmovqd %zmm0, %ymm0
 ; SKX_32-NEXT:    vpmulld {{\.LCPI.*}}{1to8}, %ymm0, %ymm0
 ; SKX_32-NEXT:    vpaddd {{[0-9]+}}(%esp){1to8}, %ymm0, %ymm0
-; SKX_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; SKX_32-NEXT:    vpaddd {{\.LCPI.*}}{1to8}, %ymm0, %ymm1
+; SKX_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm1 ;INTEL
 ; SKX_32-NEXT:    kxnorw %k0, %k0, %k1
 ; SKX_32-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; SKX_32-NEXT:    vpgatherdd (,%ymm1), %ymm0 {%k1}
+; SKX_32-NEXT:    vpgatherdd 68(,%ymm1), %ymm0 {%k1} ;INTEL
 ; SKX_32-NEXT:    retl
 entry:
   %broadcast.splatinsert = insertelement <8 x %struct.ST*> undef, %struct.ST* %base, i32 0
@@ -596,11 +589,10 @@ define <8 x i32> @test10(%struct.ST* %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; KNL_64-NEXT:    vpmuldq {{.*}}(%rip){1to8}, %zmm1, %zmm1
 ; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; KNL_64-NEXT:    vpaddq %zmm0, %zmm4, %zmm0
-; KNL_64-NEXT:    vpaddq {{.*}}(%rip){1to8}, %zmm0, %zmm1
+; KNL_64-NEXT:    vpaddq %zmm0, %zmm4, %zmm1 ;INTEL
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
 ; KNL_64-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; KNL_64-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; KNL_64-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1} ;INTEL
 ; KNL_64-NEXT:    retq
 ;
 ; KNL_32-LABEL: test10:
@@ -612,13 +604,11 @@ define <8 x i32> @test10(%struct.ST* %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; KNL_32-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [820,820,820,820,820,820,820,820]
 ; KNL_32-NEXT:    vpmulld %ymm3, %ymm0, %ymm0
 ; KNL_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; KNL_32-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [68,68,68,68,68,68,68,68]
-; KNL_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; KNL_32-NEXT:    vpaddd %ymm0, %ymm2, %ymm1
+; KNL_32-NEXT:    vpaddd %ymm0, %ymm2, %ymm1 ;INTEL
 ; KNL_32-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
 ; KNL_32-NEXT:    movw $255, %ax
 ; KNL_32-NEXT:    kmovw %eax, %k1
-; KNL_32-NEXT:    vpgatherdd (,%zmm1), %zmm0 {%k1}
+; KNL_32-NEXT:    vpgatherdd 68(,%zmm1), %zmm0 {%k1} ;INTEL
 ; KNL_32-NEXT:    # kill: def $ymm0 killed $ymm0 killed $zmm0
 ; KNL_32-NEXT:    retl
 ;
@@ -629,11 +619,10 @@ define <8 x i32> @test10(%struct.ST* %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; SKX_SMALL-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; SKX_SMALL-NEXT:    vpmuldq {{.*}}(%rip){1to8}, %zmm1, %zmm1
 ; SKX_SMALL-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; SKX_SMALL-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
-; SKX_SMALL-NEXT:    vpaddq {{.*}}(%rip){1to8}, %zmm0, %zmm1
+; SKX_SMALL-NEXT:    vpaddq %zmm0, %zmm2, %zmm1 ;INTEL
 ; SKX_SMALL-NEXT:    kxnorw %k0, %k0, %k1
 ; SKX_SMALL-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; SKX_SMALL-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; SKX_SMALL-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1} ;INTEL
 ; SKX_SMALL-NEXT:    retq
 ;
 ; SKX_LARGE-LABEL: test10:
@@ -645,12 +634,10 @@ define <8 x i32> @test10(%struct.ST* %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; SKX_LARGE-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; SKX_LARGE-NEXT:    vpmullq (%rax){1to8}, %zmm0, %zmm0
 ; SKX_LARGE-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; SKX_LARGE-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
-; SKX_LARGE-NEXT:    movabsq ${{\.LCPI.*}}, %rax
-; SKX_LARGE-NEXT:    vpaddq (%rax){1to8}, %zmm0, %zmm1
+; SKX_LARGE-NEXT:    vpaddq %zmm0, %zmm2, %zmm1 ;INTEL
 ; SKX_LARGE-NEXT:    kxnorw %k0, %k0, %k1
 ; SKX_LARGE-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; SKX_LARGE-NEXT:    vpgatherqd (,%zmm1), %ymm0 {%k1}
+; SKX_LARGE-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1} ;INTEL
 ; SKX_LARGE-NEXT:    retq
 ;
 ; SKX_32-LABEL: test10:
@@ -659,11 +646,10 @@ define <8 x i32> @test10(%struct.ST* %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; SKX_32-NEXT:    vpmovqd %zmm0, %ymm0
 ; SKX_32-NEXT:    vpmulld {{\.LCPI.*}}{1to8}, %ymm0, %ymm0
 ; SKX_32-NEXT:    vpaddd {{[0-9]+}}(%esp){1to8}, %ymm0, %ymm0
-; SKX_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; SKX_32-NEXT:    vpaddd {{\.LCPI.*}}{1to8}, %ymm0, %ymm1
+; SKX_32-NEXT:    vpaddd %ymm1, %ymm0, %ymm1 ;INTEL
 ; SKX_32-NEXT:    kxnorw %k0, %k0, %k1
 ; SKX_32-NEXT:    vpxor %xmm0, %xmm0, %xmm0 ;INTEL
-; SKX_32-NEXT:    vpgatherdd (,%ymm1), %ymm0 {%k1}
+; SKX_32-NEXT:    vpgatherdd 68(,%ymm1), %ymm0 {%k1} ;INTEL
 ; SKX_32-NEXT:    retl
 entry:
   %broadcast.splatinsert = insertelement <8 x %struct.ST*> undef, %struct.ST* %base, i32 0
