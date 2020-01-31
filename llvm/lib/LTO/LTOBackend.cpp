@@ -436,8 +436,8 @@ Expected<const Target *> initAndLookupTarget(const Config &C, Module &Mod) {
 }
 }
 
-static Error
-finalizeOptimizationRemarks(std::unique_ptr<ToolOutputFile> DiagOutputFile) {
+Error lto::finalizeOptimizationRemarks(
+    std::unique_ptr<ToolOutputFile> DiagOutputFile) {
   // Make sure we flush the diagnostic remarks file in case the linker doesn't
   // call the global destructors before exiting.
   if (!DiagOutputFile)
@@ -457,18 +457,10 @@ Error lto::backend(const Config &C, AddStreamFn AddStream,
 
   std::unique_ptr<TargetMachine> TM = createTargetMachine(C, *TOrErr, *Mod);
 
-  // Setup optimization remarks.
-  auto DiagFileOrErr = lto::setupOptimizationRemarks(
-      Mod->getContext(), C.RemarksFilename, C.RemarksPasses, C.RemarksFormat,
-      C.RemarksWithHotness);
-  if (!DiagFileOrErr)
-    return DiagFileOrErr.takeError();
-  auto DiagnosticOutputFile = std::move(*DiagFileOrErr);
-
   if (!C.CodeGenOnly) {
     if (!opt(C, TM.get(), 0, *Mod, /*IsThinLTO=*/false,
              /*ExportSummary=*/&CombinedIndex, /*ImportSummary=*/nullptr))
-      return finalizeOptimizationRemarks(std::move(DiagnosticOutputFile));
+      return Error::success();
   }
 
   if (ParallelCodeGenParallelismLevel == 1) {
@@ -477,7 +469,7 @@ Error lto::backend(const Config &C, AddStreamFn AddStream,
     splitCodeGen(C, TM.get(), AddStream, ParallelCodeGenParallelismLevel,
                  std::move(Mod));
   }
-  return finalizeOptimizationRemarks(std::move(DiagnosticOutputFile));
+  return Error::success();
 }
 
 static void dropDeadSymbols(Module &Mod, const GVSummaryMapTy &DefinedGlobals,
