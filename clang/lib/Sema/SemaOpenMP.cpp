@@ -5448,7 +5448,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
     ImplicitConversionSequence ICS =
         TryImplicitConversion(VariantRef, FnPtrType.getUnqualifiedType(),
                               /*SuppressUserConversions=*/false,
-                              /*AllowExplicit=*/false,
+                              AllowedExplicit::None,
                               /*InOverloadResolution=*/false,
                               /*CStyle=*/false,
                               /*AllowObjCWritebackConversion=*/false);
