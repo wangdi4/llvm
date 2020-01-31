@@ -147,6 +147,10 @@ let Predicates = [InIceCodeMode] in {
     let Uses = [EAX] in
       def SIGEVENTJUMP : Ii32<0x81, MRM2r, (outs), (ins GR32:$src1, i32imm:$src2),
                               "sigeventjump\t{$src2, $src1, %eax|eax, $src1, $src2}", []>;
+
+    def SETTRACKER : Ii8<0x6a, RawFrm, (outs), (ins i32u8imm:$src),
+                         "settracker\t$src",
+                         [(int_x86_icecode_set_tracker (i32 timm:$src))]>;
   }
 
   def SSERIALIZE : I<0x01, MRM_D4, (outs), (ins), "sserialize", []>, TB;
