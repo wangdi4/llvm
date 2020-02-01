@@ -417,6 +417,40 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
   }
 }
 
+/// Verify current if-clause applies to current directive, which can be
+/// an individual directive or part of a set of directives connected
+/// together. An if-clause applies if:
+/// - it is implicit, or
+/// - it has no name modifier associated with it, or
+/// - its name modifier matches current directive (DKind)
+///
+/// An example: the distribute parallel for simd directive is broken down
+/// into distribute paralle for, and, simd, both of which will come through
+/// this function from getApplicableDirectives. An if-clause specified with
+/// distribute parallel for simd can specify no name modifier, or parallel,
+/// or simd, or both.
+bool OpenMPLateOutliner::checkIfModifier(OpenMPDirectiveKind DKind,
+                                         const OMPIfClause *IC) {
+
+  // If no if-clause(s) with original directive, then this if-clause is
+  // implicit.
+  if (!Directive.hasClausesOfKind<OMPIfClause>())
+    return true;
+  OpenMPDirectiveKind NameModifier = IC ? IC->getNameModifier() : OMPD_unknown;
+
+  // If no name modifier, or name modifier matches current directive, or
+  // name modifier is parallel and the current directive is another form
+  // of the parallel directive, if-clause should be applied.
+  if (NameModifier == OMPD_unknown || NameModifier == DKind ||
+     (NameModifier == OMPD_parallel && (DKind == OMPD_parallel_for ||
+     DKind == OMPD_parallel_sections || DKind == OMPD_distribute_parallel_for)))
+    return true;
+
+  // No match for current if-clause/modifier and current directive. Should not
+  // be applied.
+  return false;
+}
+
 void OpenMPLateOutliner::getApplicableDirectives(
     OpenMPClauseKind CK, SmallVector<DirectiveIntrinsicSet *, 4> &Dirs) {
 
@@ -444,6 +478,13 @@ void OpenMPLateOutliner::getApplicableDirectives(
       if (D.DKind != OMPD_target &&
           isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP))
         Dirs.push_back(&D);
+      break;
+    case OMPC_if:
+      if (isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP)) {
+        const OMPIfClause *IC = dyn_cast_or_null<OMPIfClause>(CurrentClause);
+        if (checkIfModifier(D.DKind, IC))
+          Dirs.push_back(&D);
+      }
       break;
     case OMPC_unknown:
       Dirs.push_back(&D);
@@ -1908,6 +1949,7 @@ void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
+    CurrentClause = C;
     OpenMPClauseKind ClauseKind = C->getClauseKind();
     if (shouldSkipExplicitClause(ClauseKind))
       continue;
@@ -1925,6 +1967,7 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
       llvm_unreachable("Clause not allowed");
     }
   }
+  CurrentClause = nullptr;
   return *this;
 }
 

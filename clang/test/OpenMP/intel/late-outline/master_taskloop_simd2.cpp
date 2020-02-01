@@ -57,6 +57,8 @@ int main(int argc, char **argv) {
   // CHECK-SAME: QUAL.OMP.GRAINSIZE
   // CHECK-SAME: QUAL.OMP.REDUCTION.MAX
   // CHECK: DIR.OMP.SIMD
+  // Should be here once we switch to OpenMP5.0 (allows if on simd)
+  // CHECK-NOT: DIR.OMP.SIMD
   // CHECK-SAME: QUAL.OMP.SIMDLEN
   // CHECK: DIR.OMP.END.SIMD
   // CHECK: DIR.OMP.END.TASKLOOP
