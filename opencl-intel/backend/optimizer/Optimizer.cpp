@@ -589,6 +589,7 @@ static void populatePassesPostFailCheck(
         PM.add(createLowerSwitchPass());
         PM.add(createLoopSimplifyPass());
         PM.add(createLCSSAPass());
+        PM.add(createLICMPass());
         PM.add(createVPOCFGRestructuringPass());
         PM.add(createVPlanDriverPass());
         PM.add(createOCLPostVectPass());
