@@ -422,19 +422,20 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
     OS << " Value:" << LF->getValue() << " Signed:" << LF->isSigned();
     break;
   }
+#if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
     const auto *BF = cast<MCBoundaryAlignFragment>(this);
-    if (BF->canEmitNops())
-      OS << " (can emit nops to align";
-    if (BF->isFused())
-      OS << " fused branch)";
-    else
-      OS << " unfused branch)";
+    if (BF->hasEmitNops())
+      OS << " (emit nops)";
     OS << "\n       ";
+    if (BF->hasValue())
+      OS << " Value:" << hexdigit(BF->getValue());
     OS << " BoundarySize:" << BF->getAlignment().value()
+       << " MaxBytesToEmit:" << BF->getMaxBytesToEmit()
        << " Size:" << BF->getSize();
     break;
   }
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_SymbolId: {
     const auto *F = cast<MCSymbolIdFragment>(this);
     OS << "\n       ";
