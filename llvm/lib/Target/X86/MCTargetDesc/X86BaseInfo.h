@@ -346,10 +346,6 @@ namespace X86 {
     llvm_unreachable("unknown fusion type");
   }
 
-<<<<<<< HEAD
-=======
-#if INTEL_CUSTOMIZATION
->>>>>>> 102c8febcb208b190857979b63bdff1c9ff81b3d
   /// \returns true if the instruction with given opcode is a prefix.
   inline bool isPrefix(unsigned Opcode) {
     switch (Opcode) {
@@ -376,10 +372,6 @@ namespace X86 {
       return true;
     }
   }
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 102c8febcb208b190857979b63bdff1c9ff81b3d
 
   /// Defines the possible values of the branch boundary alignment mask.
   enum AlignBranchBoundaryKind : uint8_t {
