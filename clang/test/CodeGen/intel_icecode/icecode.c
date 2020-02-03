@@ -93,6 +93,7 @@ void test_icecode() {
 // CHECK: call void asm sideeffect "int_trap_point"
 // CHECK: call void asm sideeffect "iceret
 // CHECK: call void asm sideeffect "iceret_indirect
+// CHECK: call void @llvm.x86.icecode.set.tracker(i32 0)
   _ce_creg_xchg32(reg, data32);
   _ce_creg_xchg64(reg, data64);
   _ce_fscp_xchg32(reg, data32);
@@ -123,4 +124,5 @@ void test_icecode() {
   _ce_int_trap_point();
   _ce_iceret(reg);
   _ce_iceret_indirect(reg, reg);
+  _ce_set_tracker(0);
 }

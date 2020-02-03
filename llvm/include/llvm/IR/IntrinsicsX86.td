@@ -5900,6 +5900,8 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [ llvm_i32_ty ], []>;
   def int_x86_icecode_cmodemov : GCCBuiltin<"__builtin_ia32_icecode_cmodemov">,
               Intrinsic<[ llvm_i64_ty ], [ llvm_i64_ty, llvm_i64_ty, llvm_i32_ty ], [ ImmArg<2> ]>;
+  def int_x86_icecode_set_tracker : GCCBuiltin<"__builtin_ia32_icecode_set_tracker">,
+              Intrinsic<[], [ llvm_i32_ty ], [ ImmArg<0> ]>;
 }
 #endif // INTEL_FEATURE_ICECODE
 

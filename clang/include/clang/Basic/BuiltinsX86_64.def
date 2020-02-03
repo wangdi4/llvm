@@ -299,6 +299,7 @@ TARGET_BUILTIN(__builtin_ia32_icecode_sta_special, "vvC*", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_nr_read, "UiIi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_ucodecall, "vUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_cmodemov, "ULLiULLiULLiIi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_set_tracker, "vIi", "n", "icecode-mode")
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
