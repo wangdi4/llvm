@@ -606,6 +606,7 @@ KMPC_ATOMIC_FN_CPT(fixed8u, max, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, orl, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, andl, ulong);
 
+#if HAVE_FP64_SUPPORT
 /// 8-byte float
 KMPC_ATOMIC_FN(float8, add, double);
 KMPC_ATOMIC_FN(float8, sub, double);
@@ -625,6 +626,7 @@ KMPC_ATOMIC_FN_CPT(float8, min, double);
 KMPC_ATOMIC_FN_CPT(float8, max, double);
 KMPC_ATOMIC_FN_CPT(float8, orl, double);
 KMPC_ATOMIC_FN_CPT(float8, andl, double);
+#endif // HAVE_FP64_SUPPORT
 
 /// TODO: more data types
 
@@ -670,8 +672,10 @@ EXTERN void __kmpc_reduction_add_long(const uint id, const uint size,
                                       void *local_result, void *output);
 EXTERN void __kmpc_reduction_add_float(const uint id, const uint size,
                                        void *local_result, void *output);
+#if HAVE_FP64_SUPPORT
 EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
                                         void *local_result, void *output);
+#endif // HAVE_FP64_SUPPORT
 
 
 ///
