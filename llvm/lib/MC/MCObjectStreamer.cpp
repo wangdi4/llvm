@@ -191,15 +191,25 @@ MCFragment *MCObjectStreamer::getCurrentFragment() const {
   return nullptr;
 }
 
-static bool CanReuseDataFragment(const MCDataFragment &F,
-                                 const MCAssembler &Assembler,
+#if INTEL_CUSTOMIZATION
+static bool CanReuseDataFragment(const MCDataFragment &F, MCObjectStreamer &OS,
                                  const MCSubtargetInfo *STI) {
   if (!F.hasInstructions())
     return true;
+
+  MCAssembler &Assembler = OS.getAssembler();
+
   // When bundling is enabled, we don't want to add data to a fragment that
   // already has instructions (see MCELFStreamer::EmitInstToData for details)
   if (Assembler.isBundlingEnabled())
     return Assembler.getRelaxAll();
+
+  // When the target need align instructions, we need to determine the size
+  // of some instructions during the relaxation, the easiest way to do it is
+  // to emit each instruction into fragment of its own.
+  if (Assembler.getBackend().allowAutoPadding())
+    return false;
+
   // If the subtarget is changed mid fragment we start a new fragment to record
   // the new STI.
   return !STI || F.getSubtargetInfo() == STI;
@@ -208,12 +218,22 @@ static bool CanReuseDataFragment(const MCDataFragment &F,
 MCDataFragment *
 MCObjectStreamer::getOrCreateDataFragment(const MCSubtargetInfo *STI) {
   MCDataFragment *F = dyn_cast_or_null<MCDataFragment>(getCurrentFragment());
-  if (!F || !CanReuseDataFragment(*F, *Assembler, STI)) {
+  if (!F || !CanReuseDataFragment(*F, *this, STI)) {
     F = new MCDataFragment();
     insert(F);
   }
   return F;
 }
+
+MCBoundaryAlignFragment *MCObjectStreamer::getOrCreateBoundaryAlignFragment() {
+  auto *F = dyn_cast_or_null<MCBoundaryAlignFragment>(getCurrentFragment());
+  if (!F || F->hasEmitNopsOrValue()) {
+    F = new MCBoundaryAlignFragment();
+    insert(F);
+  }
+  return F;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void MCObjectStreamer::visitUsedSymbol(const MCSymbol &Sym) {
   Assembler->registerSymbol(Sym);
