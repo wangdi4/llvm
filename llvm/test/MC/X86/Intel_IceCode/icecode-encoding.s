@@ -268,3 +268,7 @@
 // CHECK: cmodemov $15, %rax, %rbx
 // CHECK: encoding: [0xf3,0x0f,0x4f,0xd8]
           cmodemov $0xf, %rax, %rbx
+
+// CHECK: settracker $1
+// CHECK: encoding: [0xf3,0x6a,0x01]
+          settracker $1

@@ -3844,6 +3844,7 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     return SemaBuiltinMayIUseCpuFeatureStr(*this, TheCall);
 #if INTEL_FEATURE_ICECODE
   case X86::BI__builtin_ia32_icecode_nr_read:
+  case X86::BI__builtin_ia32_icecode_set_tracker:
     i = 0; l = 0; u = 255;
     break;
   case X86::BI__builtin_ia32_icecode_loadseg:

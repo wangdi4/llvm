@@ -279,6 +279,8 @@ _ce_iceret_indirect(unsigned target, unsigned value) {
   __asm__ __volatile__ ("iceret_indirect %0, %1" :: "b"(value), "a"(target));
 }
 
+#define _ce_set_tracker(imm) __builtin_ia32_icecode_set_tracker(imm)
+
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __x86_64__ */
