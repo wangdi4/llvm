@@ -1038,6 +1038,14 @@ pi_result L0(piMemImageCreate)(
     ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_UINT;
     ze_image_format_type_size = 8;
     break;
+  case CL_UNORM_INT16:
+    ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_UNORM;
+    ze_image_format_type_size = 16;
+    break;
+  case CL_UNORM_INT8:
+    ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_UNORM;
+    ze_image_format_type_size = 8;
+    break;
   case CL_SIGNED_INT32:
     ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_SINT;
     ze_image_format_type_size = 32;
@@ -1048,6 +1056,14 @@ pi_result L0(piMemImageCreate)(
     break;
   case CL_SIGNED_INT8:
     ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_SINT;
+    ze_image_format_type_size = 8;
+    break;
+  case CL_SNORM_INT16:
+    ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_SNORM;
+    ze_image_format_type_size = 16;
+    break;
+  case CL_SNORM_INT8:
+    ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_SNORM;
     ze_image_format_type_size = 8;
     break;
   default:
