@@ -87,6 +87,16 @@ static int DebugLevel = 0;
 #define CALL_ZE_RET_NULL(Fn, ...) CALL_ZE_RET(NULL, Fn, __VA_ARGS__)
 #define CALL_ZE_RET_ZERO(Fn, ...) CALL_ZE_RET(0, Fn, __VA_ARGS__)
 
+#define CALL_ZE_EXIT_FAIL(Fn, ...)                                             \
+  do {                                                                         \
+    ze_result_t rc = Fn(__VA_ARGS__);                                          \
+    if (rc != ZE_RESULT_SUCCESS) {                                             \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
+         getZeErrorName(rc));                                                  \
+      std::exit(EXIT_FAILURE);                                                 \
+    }                                                                          \
+  } while (0)
+
 #define FOREACH_ZE_ERROR_CODE(Fn)                                              \
   Fn(ZE_RESULT_SUCCESS)                                                        \
   Fn(ZE_RESULT_NOT_READY)                                                      \
@@ -122,6 +132,7 @@ struct RTLDeviceInfoTy {
   std::vector<ze_command_queue_handle_t> CmdQueues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::vector<void *>> OwnedMemory; // Memory owned by the plugin
+  std::vector<bool> Initialized;
   std::mutex *Mutexes;
 
   /// Flags and parameters
@@ -166,19 +177,6 @@ struct RTLDeviceInfoTy {
     int threadLimit = omp_get_thread_limit();
     ThreadLimit = threadLimit > 0 ? threadLimit : 0;
   }
-
-  ~RTLDeviceInfoTy() {
-#if 0
-    for (uint32_t i = 0; i < NumDevices; i++) {
-      Mutexes[i].lock();
-      for (auto mem : OwnedMemory[i]) {
-        zeDriverFreeMem(Driver, mem);
-      }
-      Mutexes[i].unlock();
-    }
-#endif
-    delete[] Mutexes;
-  }
 };
 
 /// Libomptarget-defined handler and argument.
@@ -213,6 +211,29 @@ static void addDataTransferLatency() {
   double goal = omp_get_wtime() + 1e-6 * DeviceInfo.DataTransferLatency;
   while (omp_get_wtime() < goal)
     ;
+}
+
+/// Clean-up routine to be registered by std::atexit().
+static void closeRTL() {
+#ifndef _WIN32
+  for (uint32_t i = 0; i < DeviceInfo.NumDevices; i++) {
+    if (!DeviceInfo.Initialized[i])
+      continue;
+    DeviceInfo.Mutexes[i].lock();
+    for (auto mem : DeviceInfo.OwnedMemory[i]) {
+      CALL_ZE_EXIT_FAIL(zeDriverFreeMem, DeviceInfo.Driver, mem);
+    }
+    CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, DeviceInfo.CmdQueues[i]);
+    CALL_ZE_EXIT_FAIL(zeCommandListDestroy, DeviceInfo.CmdLists[i]);
+    for (auto kernel : DeviceInfo.FuncGblEntries[i].Kernels) {
+      CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
+    }
+    CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
+    DeviceInfo.Mutexes[i].unlock();
+  }
+#endif
+  delete[] DeviceInfo.Mutexes;
+  DP("Closed RTL successfully\n");
 }
 
 EXTERN
@@ -273,6 +294,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.CmdQueues.resize(DeviceInfo.NumDevices);
   DeviceInfo.FuncGblEntries.resize(DeviceInfo.NumDevices);
   DeviceInfo.OwnedMemory.resize(DeviceInfo.NumDevices);
+  DeviceInfo.Initialized.resize(DeviceInfo.NumDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.NumDevices];
 
   ze_device_compute_properties_t computeProperties = {};
@@ -284,6 +306,10 @@ int32_t __tgt_rtl_number_of_devices() {
   DP("Found %" PRIu32 " device(s)!\n", DeviceInfo.NumDevices);
   DP("Type = %" PRId32 ", Name = %s\n", DeviceInfo.DeviceProperties.type,
      DeviceInfo.DeviceProperties.name);
+
+  if (std::atexit(closeRTL)) {
+    FATAL_ERROR("Registration of clean-up function");
+  }
 
   return DeviceInfo.NumDevices;
 }
@@ -315,6 +341,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   };
   CALL_ZE_RET_FAIL(zeCommandQueueCreate, deviceHandle, &cmdQueueDesc,
                    &DeviceInfo.CmdQueues[DeviceId]);
+  DeviceInfo.Initialized[DeviceId] = true;
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;

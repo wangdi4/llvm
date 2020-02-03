@@ -392,6 +392,7 @@ public:
   std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
   std::vector<ProfileDataTy> Profiles;
   std::vector<std::vector<char>> Names;
+  std::vector<bool> Initialized;
   std::mutex *Mutexes;
 
   // Requires flags
@@ -519,47 +520,40 @@ public:
       CompilationOptions += env;
     }
   }
-
-  ~RTLDeviceInfoTy() {
-    // Print profiles
-    if (Flags & EnableProfileFlag)
-      for (uint32_t i = 0; i < numDevices; i++)
-        Profiles[i].printData(i, Names[i].data(), ProfileResolution);
-    // Invoke OMPT callbacks
-    if (omptEnabled.enabled) {
-      for (uint32_t i = 0; i < numDevices; i++) {
-        // Skip uninitialized device if there is any
-        cl_device_id device_id;
-        if (clGetCommandQueueInfo(Queues[i], CL_QUEUE_DEVICE, sizeof(device_id),
-                                  &device_id, nullptr) != CL_SUCCESS ||
-            device_id != deviceIDs[i])
-          continue;
-        OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-        OMPT_CALLBACK(ompt_callback_device_finalize, i);
-      }
-    }
-#ifndef _WIN32
-    // Release resources. There is no safe way of making OpenCL calls in a
-    // global object constructor or destructor on Windows -- only non-Windows
-    // platforms are handled here.
-    for (uint32_t i = 0; i < numDevices; i++) {
-      for (auto kernel : FuncGblEntries[i].Kernels) {
-        if (kernel)
-          INVOKE_CL_EXIT_FAIL(clReleaseKernel, kernel);
-      }
-      INVOKE_CL_EXIT_FAIL(clReleaseProgram, FuncGblEntries[i].Program);
-      INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, Queues[i]);
-      if (QueuesOOO[i]) {
-        INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, QueuesOOO[i]);
-      }
-      INVOKE_CL_EXIT_FAIL(clReleaseContext, CTX[i]);
-    }
-#endif // !defined(_WIN32)
-    delete[] Mutexes;
-  }
 };
 
 static RTLDeviceInfoTy DeviceInfo;
+
+/// Clean-up routine to be registered by std::atexit().
+static void closeRTL() {
+  for (uint32_t i = 0; i < DeviceInfo.numDevices; i++) {
+    if (!DeviceInfo.Initialized[i])
+      continue;
+    // Invoke OMPT callbacks
+    if (omptEnabled.enabled) {
+      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+    }
+    if (DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag)
+      DeviceInfo.Profiles[i].printData(i, DeviceInfo.Names[i].data(),
+                                       DeviceInfo.ProfileResolution);
+#ifndef _WIN32
+    // Making OpenCL calls during process exit on Windows is unsafe.
+    for (auto kernel : DeviceInfo.FuncGblEntries[i].Kernels) {
+      if (kernel)
+        INVOKE_CL_EXIT_FAIL(clReleaseKernel, kernel);
+    }
+    INVOKE_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo.FuncGblEntries[i].Program);
+    INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo.Queues[i]);
+    if (DeviceInfo.QueuesOOO[i]) {
+      INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo.QueuesOOO[i]);
+    }
+    INVOKE_CL_EXIT_FAIL(clReleaseContext, DeviceInfo.CTX[i]);
+#endif // !defined(_WIN32)
+  }
+  delete[] DeviceInfo.Mutexes;
+  DP("Closed RTL successfully\n");
+}
 
 static std::string getDeviceRTLPath() {
   std::string rtl_path;
@@ -735,6 +729,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.ImplicitArgs.resize(DeviceInfo.numDevices);
   DeviceInfo.Profiles.resize(DeviceInfo.numDevices);
   DeviceInfo.Names.resize(DeviceInfo.numDevices);
+  DeviceInfo.Initialized.resize(DeviceInfo.numDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.numDevices];
 
   // get device specific information
@@ -765,6 +760,7 @@ int32_t __tgt_rtl_number_of_devices() {
                     nullptr);
     DP("Addressing mode is %d bit\n", addressmode);
 #endif
+    DeviceInfo.Initialized[i] = false;
   }
   if (DeviceInfo.numDevices > 0) {
     omptInitPlugin();
@@ -817,6 +813,12 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
                 DeviceInfo.Names[device_id].data(),
                 DeviceInfo.deviceIDs[device_id],
                 omptLookupEntries, omptDocument);
+
+  // Make sure it is registered after OCL handlers are registered.
+  if (std::atexit(closeRTL)) {
+    FATAL_ERROR("Registration of clean-up function");
+  }
+  DeviceInfo.Initialized[device_id] = true;
 
   return OFFLOAD_SUCCESS;
 }
