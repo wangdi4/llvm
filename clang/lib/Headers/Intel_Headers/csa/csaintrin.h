@@ -123,44 +123,44 @@ static __inline__ float __DEFAULT_FN_ATTRS _mm64_extract_ps(__m64f a, int i)
 
 #ifdef __CSA__
 #define _mm64_add_ps(A, B, D, M, N) \
-  (__m64f)(__builtin_csa_addf32x2((__m64f)(A), (__m64f)(B), \
-                                   (D), (M), (N)))
+  ((__m64f)(__builtin_csa_addf32x2((__m64f)(A), (__m64f)(B), \
+                                   (D), (M), (N))))
 
 #define _mm64_sub_ps(A, B, D, M, N) \
-  (__m64f)(__builtin_csa_subf32x2((__m64f)(A), (__m64f)(B), \
-                                   (D), (M), (N)))
+  ((__m64f)(__builtin_csa_subf32x2((__m64f)(A), (__m64f)(B), \
+                                   (D), (M), (N))))
 
 #define _mm64_addsub_ps(A, B, D, M, N) \
-  (__m64f)(__builtin_csa_addsubf32x2((__m64f)(A), (__m64f)(B), \
-                                      (D), (M), (N)))
+  ((__m64f)(__builtin_csa_addsubf32x2((__m64f)(A), (__m64f)(B), \
+                                      (D), (M), (N))))
 
 #define _mm64_subadd_ps(A, B, D, M, N) \
-  (__m64f)(__builtin_csa_subaddf32x2((__m64f)(A), (__m64f)(B), \
-                                      (D), (M), (N)))
+  ((__m64f)(__builtin_csa_subaddf32x2((__m64f)(A), (__m64f)(B), \
+                                      (D), (M), (N))))
 
 #define _mm64_mul_ps(A, B, D, M, N) \
-  (__m64f)(__builtin_csa_mulf32x2((__m64f)(A), (__m64f)(B), \
-                                   (D), (M), (N)))
+  ((__m64f)(__builtin_csa_mulf32x2((__m64f)(A), (__m64f)(B), \
+                                   (D), (M), (N))))
 
 #define _mm64_fma_ps(A, B, C, D, M, N) \
-  (__m64f)(__builtin_csa_fmaf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
-                                   (D), (M), (N)))
+  ((__m64f)(__builtin_csa_fmaf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
+                                   (D), (M), (N))))
 
 #define _mm64_fms_ps(A, B, C, D, M, N) \
-  (__m64f)(__builtin_csa_fmsf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
-                                   (D), (M), (N)))
+  ((__m64f)(__builtin_csa_fmsf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
+                                   (D), (M), (N))))
 
 #define _mm64_fmrs_ps(A, B, C, D, M, N) \
-  (__m64f)(__builtin_csa_fmrsf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
-                                    (D), (M), (N)))
+  ((__m64f)(__builtin_csa_fmrsf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
+                                    (D), (M), (N))))
 
 #define _mm64_fmas_ps(A, B, C, D, M, N) \
-  (__m64f)(__builtin_csa_fmasf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
-                                    (D), (M), (N)))
+  ((__m64f)(__builtin_csa_fmasf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
+                                    (D), (M), (N))))
 
 #define _mm64_fmsa_ps(A, B, C, D, M, N) \
-  (__m64f)(__builtin_csa_fmsaf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
-                                    (D), (M), (N)))
+  ((__m64f)(__builtin_csa_fmsaf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
+                                    (D), (M), (N))))
 #else
 #include <cmath>
 
@@ -483,7 +483,7 @@ static __m64f _mm64_fmsa_ps(__m64f a, __m64f b, __m64f c, _MM_DISABLE_ENUM disab
 #endif /* __CSA__ */
 
 #define _mm64_shuf_ps(A, B, M, N) \
-  (__m64f)(__builtin_shufflevector((__m64f)(A), (__m64f)(B), (M), (N)))
+  ((__m64f)(__builtin_shufflevector((__m64f)(A), (__m64f)(B), (M), (N))))
 
 
 #ifdef __CSA__
@@ -786,16 +786,16 @@ static __inline__ int __DEFAULT_FN_ATTRS _mm64_extract_epi32(__m64i a, int i)
    the selectors determine the corresponding lane on in the input, with sel0 determining the
    low 16 bits and sel3 the highest 16 bits. */
 #define _mm64_shuf_si64(A, B, M, N, O, P) \
-  (__m64i)(__builtin_shufflevector((__v4hi)(A), (__v4hi)(B), (M), (N), (O), (P)))
+  ((__m64i)(__builtin_shufflevector((__v4hi)(A), (__v4hi)(B), (M), (N), (O), (P))))
 
 /* Shuffle 16-bit integers in A using the control in IMM8, and return the
    shuffled vector. Every 2 bits of IMM8 are used to control the output. */
 #define _mm64_shuffle_epi16(A, IMM8) \
-  (__m64i) (__builtin_shufflevector((__v4hi)(A), (__v4hi) _mm64_set1_epi16(0), \
+  ((__m64i) (__builtin_shufflevector((__v4hi)(A), (__v4hi) _mm64_set1_epi16(0), \
     (IMM8) & 0x3,          \
     ((IMM8) & 0xc) >> 2,   \
     ((IMM8) & 0x30) >> 4,  \
-    ((IMM8) & 0xc0) >> 6))
+    ((IMM8) & 0xc0) >> 6)))
 
 /* Blend packed 8-bit integers from a and b using the bits in mask. Each element is picked
    from a if its corresponding bit in the mask is 0, and from b if it is 1. */
@@ -857,14 +857,14 @@ static __inline__ _Float16 __DEFAULT_FN_ATTRS _mm64_extract_ph(__m64h a, int i)
   return a[i];
 }
 
-/* Return a new vector which is composed of 16-bit slices from the two input vectors. 
+/* Return a new vector which is composed of 16-bit slices from the two input vectors.
    Each of the selectors determines the corresponding lane on in the input. */
 #define _mm64_shuf_ph(A, B, M, N, O, P)                                   \
-  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(B), (M), (N), (O), (P)))
+  ((__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(B), (M), (N), (O), (P))))
 
 /* Shuffle 16-bit floating-point values in a using the control in imm8, and return the shuffled vector. */
 #define _mm64_shuffle_ph(A, M) \
-  (__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(A), (M) & 0x3, ((M) >> 2) & 0x3, ((M) >> 4) & 0x3, ((M) >> 6) & 0x3))
+  ((__m64h)(__builtin_shufflevector((__m64h)(A), (__m64h)(A), (M) & 0x3, ((M) >> 2) & 0x3, ((M) >> 4) & 0x3, ((M) >> 6) & 0x3)))
 
 /* Cast vector of type __m64f to type __m64h. */
 static __inline__ __m64h __DEFAULT_FN_ATTRS _mm64_castps_ph(__m64f a)
@@ -892,70 +892,70 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
 
 /* Perform a floating-point addition on the corresponding half-precision floating-point
    values in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_add_ph(OP1, OP2, D, SW1, SW2)                      \
-  (__m64h)(__builtin_csa_addf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                   (D), (SW1), (SW2)))
+#define _mm64_add_ph(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64h)(__builtin_csa_addf16x4 ((__m64h)(OP1), (__m64h)(OP2),       \
+                                    (D), (SW1), (SW2))))
 
 /* Perform a floating-point subtraction on the corresponding half-precision floating-point
    values in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_sub_ph(OP1, OP2, D, SW1, SW2)                      \
-  (__m64h)(__builtin_csa_subf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                   (D), (SW1), (SW2)))
+#define _mm64_sub_ph(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64h)(__builtin_csa_subf16x4 ((__m64h)(OP1), (__m64h)(OP2),       \
+                                    (D), (SW1), (SW2))))
 
 /* Perform a floating-point multiplication on the corresponding half-precision floating-point
    values in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_mul_ph(OP1, OP2, D, SW1, SW2)                      \
-  (__m64h)(__builtin_csa_mulf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                   (D), (SW1), (SW2)))
+#define _mm64_mul_ph(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64h)(__builtin_csa_mulf16x4 ((__m64h)(OP1), (__m64h)(OP2),       \
+                                    (D), (SW1), (SW2))))
 
 /* Perform a floating-point addition on the odd lanes of the input vectors, and a floating-point
    subtraction of the even lanes of the input vectors. The swizzle and disable inputs modify the
    operation. */
-#define _mm64_addsub_ph(OP1, OP2, D, SW1, SW2)                      \
-  (__m64h)(__builtin_csa_addsubf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                      (D), (SW1), (SW2)))
+#define _mm64_addsub_ph(OP1, OP2, D, SW1, SW2)                          \
+  ((__m64h)(__builtin_csa_addsubf16x4 ((__m64h)(OP1), (__m64h)(OP2),    \
+                                       (D), (SW1), (SW2))))
 
 /* Perform a floating-point subtraction on the odd lanes of the input vectors, and a floating-point
    addition of the even lanes of the input vectors. The swizzle and disable inputs modify the
    operation as described above. */
-#define _mm64_subadd_ph(OP1, OP2, D, SW1, SW2)                      \
-  (__m64h)(__builtin_csa_subaddf16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                      (D), (SW1), (SW2)))
+#define _mm64_subadd_ph(OP1, OP2, D, SW1, SW2)                          \
+  ((__m64h)(__builtin_csa_subaddf16x4 ((__m64h)(OP1), (__m64h)(OP2),    \
+                                       (D), (SW1), (SW2))))
 
 /* Perform the op1 * op2 + op3 floating-point operation (with no intermediate rounding) on the
    corresponding lanes of the input vectors. The swizzle and disable inputs modify the operation.
    There is no swizzle parameter available for op3. */
 #define _mm64_fma_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
-  (__m64h)(__builtin_csa_fmaf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3),  \
-                                   (D), (SW1), (SW2)))
+  ((__m64h)(__builtin_csa_fmaf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                    (D), (SW1), (SW2))))
 
 /* Perform the op1 * op2 - op3 floating-point operation (with no intermediate rounding) on the
    corresponding lanes of the input vectors. The swizzle and disable inputs modify the operation.
    There is no swizzle parameter available for op3. */
 #define _mm64_fms_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
-  (__m64h)(__builtin_csa_fmsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
-                                   (D), (SW1), (SW2)))
+  ((__m64h)(__builtin_csa_fmsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                    (D), (SW1), (SW2))))
 
 /* Perform the op3 - op1 * op2 floating-point operation (with no intermediate rounding) on the
    corresponding lanes of the input vectors. The swizzle and disable inputs modify the operation.
    There is no swizzle parameter available for op3. */
-#define _mm64_fmrs_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
-  (__m64h)(__builtin_csa_fmrsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
-                                    (D), (SW1), (SW2)))
+#define _mm64_fmrs_ph(OP1, OP2, OP3, D, SW1, SW2)	                          \
+  ((__m64h)(__builtin_csa_fmrsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                     (D), (SW1), (SW2))))
 
 /* Perform the op1 * op2 + op3 floating-point operation (with no intermediate rounding) on the odd
    lanes and the op1 * op2 - op3 operation on the even lanes of the input vectors. The swizzle and
    disable inputs modify the operation. There is no swizzle parameter available for op3. */
-#define _mm64_fmas_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
-  (__m64h)(__builtin_csa_fmasf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
-                                    (D), (SW1), (SW2)))
+#define _mm64_fmas_ph(OP1, OP2, OP3, D, SW1, SW2)	                          \
+  ((__m64h)(__builtin_csa_fmasf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                     (D), (SW1), (SW2))))
 
 /* Perform the op1 * op2 - op3 floating-point operation (with no intermediate rounding) on the odd
    lanes and the op1 * op2 + op3 operation on the even lanes of the input vectors. The swizzle and
    disable inputs modify the operation. There is no swizzle parameter available for op3. */
-#define _mm64_fmsa_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
-  (__m64h)(__builtin_csa_fmsaf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
-                                    (D), (SW1), (SW2)))
+#define _mm64_fmsa_ph(OP1, OP2, OP3, D, SW1, SW2)	                          \
+  ((__m64h)(__builtin_csa_fmsaf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                     (D), (SW1), (SW2))))
 
 /*
  * New Half-Precision Vector Intrinsics
@@ -964,21 +964,21 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
 /* Perform the -(op1 * op2) - op3 floating-point operation (with no intermediate rounding)
    on the corresponding lanes of the input vectors. The swizzle and disable inputs modify
    the operation. There is no swizzle parameter available for op3. */
-#define _mm64_fnms_ph(OP1, OP2, OP3, D, SW1, SW2)	                         \
-  (__m64h)(__builtin_csa_fnmsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
-                                    (D), (SW1), (SW2)))
+#define _mm64_fnms_ph(OP1, OP2, OP3, D, SW1, SW2)	                          \
+  ((__m64h)(__builtin_csa_fnmsf16x4 ((__m64h)(OP1), (__m64h)(OP2), (__m64h)(OP3), \
+                                     (D), (SW1), (SW2))))
 
 /* Compare the corresponding half-precision floating-point values and store the minimum,
    for each lane in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_min_ph(OP1, OP2, D, SW1, SW2)                     \
-  (__m64h)(__builtin_csa_min16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                  (D), (SW1), (SW2)))
+#define _mm64_min_ph(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64h)(__builtin_csa_min16x4 ((__m64h)(OP1), (__m64h)(OP2),        \
+                                   (D), (SW1), (SW2))))
 
 /* Compare the corresponding half-precision floating-point values and store the maximum,
    for each lane in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_max_ph(OP1, OP2, D, SW1, SW2)                     \
-  (__m64h)(__builtin_csa_max16x4 ((__m64h)(OP1), (__m64h)(OP2), \
-                                  (D), (SW1), (SW2)))
+#define _mm64_max_ph(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64h)(__builtin_csa_max16x4 ((__m64h)(OP1), (__m64h)(OP2),        \
+                                   (D), (SW1), (SW2))))
 
 /*
  * New Single-Precision Vector Intrinsics
@@ -987,21 +987,21 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_castph_i64(__m64h a)
 /* Perform the -(op1 * op2) - op3 floating-point operation (with no intermediate rounding)
    on the corresponding lanes of the input vectors. The swizzle and disable inputs modify
    the operation. There is no swizzle parameter available for op3. */
-#define _mm64_fnms_ps(OP1, OP2, OP3, D, SW1, SW2)		                 \
-  (__m64f)(__builtin_csa_fnmsf32x2 ((__m64f)(OP1), (__m64f)(OP2), (__m64f)(OP3), \
-                                    (D), (SW1), (SW2)))
+#define _mm64_fnms_ps(OP1, OP2, OP3, D, SW1, SW2)                                 \
+  ((__m64f)(__builtin_csa_fnmsf32x2 ((__m64f)(OP1), (__m64f)(OP2), (__m64f)(OP3), \
+                                     (D), (SW1), (SW2))))
 
 /* Compare the corresponding single-precision floating-point values and store the minimum,
    for each lane in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_min_ps(OP1, OP2, D, SW1, SW2)                     \
-  (__m64f)(__builtin_csa_min32x2 ((__m64f)(OP1), (__m64f)(OP2), \
-                                  (D), (SW1), (SW2)))
+#define _mm64_min_ps(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64f)(__builtin_csa_min32x2 ((__m64f)(OP1), (__m64f)(OP2),        \
+                                   (D), (SW1), (SW2))))
 
 /* Compares the corresponding single-precision floating-point values and store the maximum,
    for each lane in the vector. The swizzle and disable inputs modify the operation. */
-#define _mm64_max_ps(OP1, OP2, D, SW1, SW2)                     \
-  (__m64f)(__builtin_csa_max32x2 ((__m64f)(OP1), (__m64f)(OP2), \
-                                  (D), (SW1), (SW2)))
+#define _mm64_max_ps(OP1, OP2, D, SW1, SW2)                             \
+  ((__m64f)(__builtin_csa_max32x2 ((__m64f)(OP1), (__m64f)(OP2),        \
+                                   (D), (SW1), (SW2))))
 
 /* SIMD integer: we use a single intrinsic with comparison codes here. The
  * mapping is based on ISD::CondCode, see the comment above _MM_CMP_ENUM. */
@@ -1109,15 +1109,15 @@ static __inline__ int __DEFAULT_FN_ATTRS _mm64_cmple_epu16(__m64i a, __m64i b)
  * parameter into three different parameters.
  */
 #define _mm64_cmp_ph(A, B, CMP, D, S1, S2) \
-  (__builtin_csa_cmpf16x4((__m64h)(A), (__m64h)(B), (CMP) & 0x7, \
-                          (D), (S1), (S2), \
-                          ((CMP) & __CMP_U_BIT) == 0, \
+  (__builtin_csa_cmpf16x4((__m64h)(A), (__m64h)(B), (CMP) & 0x7,  \
+                          (D), (S1), (S2),                        \
+                          ((CMP) & __CMP_U_BIT) == 0,             \
                           ((CMP) & __CMP_S_BIT) != 0))
 
 #define _mm64_cmp_ps(A, B, CMP, D, S1, S2) \
   (__builtin_csa_cmpf32x2((__m64f)(A), (__m64f)(B), (CMP) & 0x7, \
-                          (D), (S1), (S2), \
-                          ((CMP) & __CMP_U_BIT) == 0, \
+                          (D), (S1), (S2),                       \
+                          ((CMP) & __CMP_U_BIT) == 0,            \
                           ((CMP) & __CMP_S_BIT) != 0))
 
 #define _mm64_min_ph(A, B, D, S1, S2) \
@@ -1201,50 +1201,50 @@ static __inline__ unsigned short _cvtss_sh(float a, const int rounding)
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written
    to the corresponding bit in the output. */
 #define _ternlog_u1(A, B, C, IMM8) \
-  (unsigned char)(__builtin_ternlog_u1((unsigned char)(A), \
-                                       (unsigned char)(B), \
-                                       (unsigned char)(C), \
-                                       (IMM8)
+  ((unsigned char)(__builtin_ternlog_u1((unsigned char)(A), \
+                                        (unsigned char)(B), \
+                                        (unsigned char)(C), \
+                                        (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u8(A, B, C, IMM8) \
-  (unsigned char)(__builtin_ternlog_u8((unsigned char)(A), \
-                                       (unsigned char)(B), \
-                                       (unsigned char)(C), \
-                                       (IMM8)
+  ((unsigned char)(__builtin_ternlog_u8((unsigned char)(A), \
+                                        (unsigned char)(B), \
+                                        (unsigned char)(C), \
+                                        (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u16(A, B, C, IMM8) \
-  (unsigned short)(__builtin_ternlog_u16((unsigned short)(A), \
-                                         (unsigned short)(B), \
-                                         (unsigned short)(C), \
-                                         (IMM8)
+  ((unsigned short)(__builtin_ternlog_u16((unsigned short)(A), \
+                                          (unsigned short)(B), \
+                                          (unsigned short)(C), \
+                                          (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u32(A, B, C, IMM8) \
-  (unsigned int)(__builtin_ternlog_u32((unsigned int)(A), \
-                                       (unsigned int)(B), \
-                                       (unsigned int)(C), \
-                                       (IMM8)
+  ((unsigned int)(__builtin_ternlog_u32((unsigned int)(A), \
+                                        (unsigned int)(B), \
+                                        (unsigned int)(C), \
+                                        (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u64(A, B, C, IMM8) \
-  (unsigned __int64)(__builtin_ternlog_u64((unsigned __int64)(A), \
-                                           (unsigned __int64)(B), \
-                                           (unsigned __int64)(C), \
-                                           (IMM8)
+  ((unsigned __int64)(__builtin_ternlog_u64((unsigned __int64)(A), \
+                                            (unsigned __int64)(B), \
+                                            (unsigned __int64)(C), \
+                                            (IMM8))))
 
 #endif /* __CSA__ */
 
