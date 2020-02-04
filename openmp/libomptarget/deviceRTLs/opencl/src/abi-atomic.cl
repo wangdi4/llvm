@@ -391,6 +391,7 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shr, >>)
 #endif
 
+#if HAVE_FP64_SUPPORT
 /// 8-byte float atomics
 #if KMP_ATOMIC_FIXED8_SUPPORTED
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, add, OP_ADD)
@@ -426,7 +427,9 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, min, OP_MIN)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, max, OP_MAX)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, orl, OP_OR)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, andl, OP_AND)
-#endif
+#endif // ! KMP_ATOMIC_FIXED8_SUPPORTED
+#endif // HAVE_FP64_SUPPORT
+
 
 
 // Needed to use this code due to a compiler issue with casting
