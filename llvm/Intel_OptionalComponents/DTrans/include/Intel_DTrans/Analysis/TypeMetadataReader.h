@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.h - Decode metadata annotations---------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -104,7 +104,9 @@ public:
 #endif // !INTEL_PRODUCT_RELEASE
 } // end namespace dtrans
 
+#if !INTEL_PRODUCT_RELEASE
 ModulePass *createDTransMetadataReaderTestWrapperPass();
+#endif // !INTEL_PRODUCT_RELEASE
 
 } // end namespace llvm
 
