@@ -1863,7 +1863,6 @@ adjustNullPointerValidAttr(Function &Caller, const Function &Callee) {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// If the inlined function has "contains-rec-pro-clone" attribute,
 /// set this attribute in the caller post inlining.
@@ -1875,7 +1874,7 @@ adjustContainsRecProCloneAttr(Function &Caller, const Function &Callee) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 struct EnumAttr {
   static bool isSet(const Function &Fn,
                     Attribute::AttrKind Kind) {
@@ -1916,7 +1915,6 @@ struct StrBoolAttr {
     static StringRef getKind() { return #DISPLAY_NAME; }                       \
   };
 #include "llvm/IR/Attributes.inc"
->>>>>>> 4dba14cf37abda16ab33cb748a5c762dae2e95e9
 
 #define GET_ATTR_COMPAT_FUNC
 #include "llvm/IR/Attributes.inc"
