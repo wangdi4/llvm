@@ -1408,6 +1408,7 @@ if (INTEL_CUSTOMIZATION)
       # SYCL components
       opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
       pi_opencl sycl-config-file opencl-aot sycl-post-link llvm-foreach
+      pi_level0 // INTEL
     )
 
     if (WIN32)
@@ -1421,8 +1422,6 @@ if (INTEL_CUSTOMIZATION)
         llvm-ar llvm-ranlib LLVMgold
         # XDEV components
         xdev-icpx
-        # SYCL components
-        pi_level0
         # CXX components
         cxx cxxabi cxx-headers
       )
