@@ -11,21 +11,18 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @foo(%struct.pair* byval %x) #0 {
 ; CHECK-LABEL: @_ZGVbN4u_foo(
-; CHECK-NEXT:    [[ALLOCA_X:%.*]] = alloca %struct.pair*
-; CHECK-NEXT:    store %struct.pair* [[X:%.*]], %struct.pair** [[ALLOCA_X]]
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <4 x i32>
 ; CHECK-NEXT:    [[RET_CAST:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(%struct.pair** [[ALLOCA_X]]) ]
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(%struct.pair* [[X:%.*]]) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
-; CHECK-NEXT:    [[LOAD_X:%.*]] = load %struct.pair*, %struct.pair** [[ALLOCA_X]]
 ; CHECK-NEXT:    br label [[SIMD_LOOP:%.*]]
 ; CHECK:       simd.loop:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER]] ], [ [[INDVAR:%.*]], [[SIMD_LOOP_EXIT:%.*]] ]
-; CHECK-NEXT:    [[FST_P:%.*]] = getelementptr inbounds [[STRUCT_PAIR:%.*]], %struct.pair* [[LOAD_X]], i32 0, i32 0
-; CHECK-NEXT:    [[SND_P:%.*]] = getelementptr inbounds [[STRUCT_PAIR]], %struct.pair* [[LOAD_X]], i32 0, i32 1
+; CHECK-NEXT:    [[FST_P:%.*]] = getelementptr inbounds [[STRUCT_PAIR:%.*]], %struct.pair* [[X]], i32 0, i32 0
+; CHECK-NEXT:    [[SND_P:%.*]] = getelementptr inbounds [[STRUCT_PAIR]], %struct.pair* [[X]], i32 0, i32 1
 ; CHECK-NEXT:    [[FST:%.*]] = load i32, i32* [[FST_P]], align 4
 ; CHECK-NEXT:    [[SND:%.*]] = load i32, i32* [[SND_P]], align 4
 ; CHECK-NEXT:    [[SUM:%.*]] = add i32 [[FST]], [[SND]]
