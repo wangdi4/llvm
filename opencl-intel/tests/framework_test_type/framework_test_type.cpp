@@ -486,7 +486,7 @@ TEST(FrameworkTestType, Test_GenStats)
     EXPECT_TRUE(cl_GenStats());
 }
 
-TEST(FrameworkTestType, DISABLED_clDoNotVectorizeUnreachable)
+TEST(FrameworkTestType, Test_clDoNotVectorizeUnreachable)
 {
     EXPECT_TRUE(clDoNotVectorizeUnreachable());
 }
@@ -789,6 +789,11 @@ TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
 TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL_Negative)
 {
     CreateProgramWithIL_PROGRAM_IL_Negative();
+}
+
+TEST_F(CL21, Test_BuildOptionsPropagate)
+{
+    BuildOptionsPropagate();
 }
 
 /////////////////////////////////////////////////////////////////////
