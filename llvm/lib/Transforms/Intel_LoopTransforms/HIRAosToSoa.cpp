@@ -468,7 +468,7 @@ void HIRAosToSoa::Analyzer::collectLoopsInNest() {
 bool HIRAosToSoa::Analyzer::anyComplexLoopBound(unsigned Level) const {
   Type *IVType = (*LoopNests.begin())->getIVType();
   for (auto *Loop : LoopNests) {
-    if (!Loop->isNormalized() || Loop->getIVType() != IVType ||
+    if (!Loop->isNormalized() || !Loop->isDo() || Loop->getIVType() != IVType ||
         Loop->getUpperCanonExpr()->numBlobs() > 1 ||
         Loop->getUpperCanonExpr()->hasIV() ||
         !Loop->getUpperDDRef()->isLinearAtLevel(Level))

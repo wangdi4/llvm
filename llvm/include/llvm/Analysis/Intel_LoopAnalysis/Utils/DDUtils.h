@@ -115,6 +115,16 @@ public:
                                           HIRSafeReductionAnalysis &SRA,
                                           bool RefineDV,
                                           const SpecialSymbasesTy *SpecialSBs);
+
+  /// Looks for a single dominating (load inst) definition of the base pointer
+  /// of \p MemRef. Returns the rval load ref if found, nullptr otherwise. Ex-
+  ///
+  /// \code
+  /// p = A[0].1; << BasePtrLoadRef
+  ///   = p[5]; << MemRef
+  /// \endcode
+  static const RegDDRef *getSingleBasePtrLoadRef(const DDGraph &DDG,
+                                                 const RegDDRef *MemRef);
 };
 } // End namespace loopopt
 } // End namespace llvm

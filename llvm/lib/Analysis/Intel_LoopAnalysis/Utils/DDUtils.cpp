@@ -1188,3 +1188,44 @@ void DDUtils::computeDVsForPermuteIgnoringSBs(
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
+
+const RegDDRef *DDUtils::getSingleBasePtrLoadRef(const DDGraph &DDG,
+                                                 const RegDDRef *MemRef) {
+  assert(!DDG.empty() && "Empty DDG not expected!");
+  assert(MemRef->isMemRef() && "getSingleBasePtrLoadRef needs a memref");
+
+  unsigned BaseIndex = MemRef->getBasePtrBlobIndex();
+
+  auto *BasePtrBlobRef = MemRef->getBlobDDRef(BaseIndex);
+
+  if (!BasePtrBlobRef) {
+    return nullptr;
+  }
+
+  const RegDDRef *SrcRef         = nullptr;
+  const RegDDRef *BasePtrLoadRef = nullptr;
+
+  for (const DDEdge *Edge : DDG.incoming(BasePtrBlobRef)) {
+    if (BasePtrLoadRef) {
+      return nullptr;
+    }
+
+    SrcRef = cast<RegDDRef>(Edge->getSrc());
+    assert(SrcRef->isTerminalRef() && "SrcRef should be a terminal ref!");
+
+    auto *SrcInst = cast<HLInst>(SrcRef->getHLDDNode());
+
+    if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
+      return nullptr;
+    }
+
+    // Single definition should dominate the use or we cannot use it.
+    if (!HLNodeUtils::dominates(SrcInst, MemRef->getHLDDNode())) {
+      return nullptr;
+    }
+
+    BasePtrLoadRef = SrcInst->getRvalDDRef();
+  }
+
+  return BasePtrLoadRef;
+}
