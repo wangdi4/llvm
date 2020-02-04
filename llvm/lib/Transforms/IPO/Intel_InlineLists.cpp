@@ -1,6 +1,6 @@
 //===----------- Intel_InlineLists.cpp - [No]Inline Lists  ----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,9 +22,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include <set>
-
-#if INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -279,17 +278,18 @@ static bool isCallsiteInList(StringRef Caller, StringRef Callee,
   return false;
 }
 
-static void addForceNoinlineAttr(CallBase &CB, Function *Callee);
+static void addForceNoinlineAttr(CallBase &CB, Function *Callee,
+                                 bool SetAttribute);
 
 // Add AlwaysInline attribute to callsite.
-static void addForceInlineAttr(CallBase &CB, Function *Callee) {
+static void addForceInlineAttr(CallBase &CB, Function *Callee,
+                               bool SetAttribute) {
   // If Callee is noinline and we need to inline some of its calls then
   // noinline attributes goes to callsites from function definition.
   if (!Callee)
     return;
 
   if (Callee->hasFnAttribute(Attribute::NoInline)) {
-    Callee->removeFnAttr(Attribute::AlwaysInline);
     Callee->removeFnAttr(Attribute::NoInline);
     if (Callee->hasFnAttribute(Attribute::OptimizeNone)) {
       Callee->removeFnAttr(Attribute::OptimizeNone);
@@ -303,7 +303,7 @@ static void addForceInlineAttr(CallBase &CB, Function *Callee) {
         continue;
 
       auto NewCB = cast<CallBase>(I->getUser());
-      addForceNoinlineAttr(*NewCB, Callee);
+      addForceNoinlineAttr(*NewCB, Callee, false);
     }
   }
 
@@ -311,10 +311,13 @@ static void addForceInlineAttr(CallBase &CB, Function *Callee) {
     CB.removeAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
   }
   CB.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::AlwaysInline);
+  if (SetAttribute)
+    CB.addAttribute(llvm::AttributeList::FunctionIndex, "inline-list");
 }
 
 // Add NoInline attribute to callsite.
-static void addForceNoinlineAttr(CallBase &CB, Function *Callee) {
+static void addForceNoinlineAttr(CallBase &CB, Function *Callee,
+                                 bool SetAttribute) {
   // If Callee is alwaysinline and we need to not inline some of its calls then
   // alwaysinline attributes goes to callsites from function definition.
   if (!Callee)
@@ -331,7 +334,7 @@ static void addForceNoinlineAttr(CallBase &CB, Function *Callee) {
         continue;
 
       auto NewCB = cast<CallBase>(I->getUser());
-      addForceInlineAttr(*NewCB, Callee);
+      addForceInlineAttr(*NewCB, Callee, false);
     }
   }
 
@@ -340,6 +343,8 @@ static void addForceNoinlineAttr(CallBase &CB, Function *Callee) {
                        Attribute::AlwaysInline);
   }
   CB.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+  if (SetAttribute)
+    CB.addAttribute(llvm::AttributeList::FunctionIndex, "noinline-list");
 }
 
 // Add AlwaysInline attribute to function.
@@ -433,11 +438,11 @@ static bool addListAttributesToCallsites(Function &F, InlineListsData &Data) {
                        << "> since it is in both inline and noinline lists\n");
           } else if (NeedsInlineListAttr) {
             // Assign InlineList attribute to callsite.
-            addForceInlineAttr(*CB, CalleeFunc);
+            addForceInlineAttr(*CB, CalleeFunc, true);
             Changed = true;
           } else if (NeedsNoinlineListAttr) {
             // Assign NoinlineList attribute to callsite.
-            addForceNoinlineAttr(*CB, CalleeFunc);
+            addForceNoinlineAttr(*CB, CalleeFunc, true);
             Changed = true;
           }
         }
@@ -497,5 +502,3 @@ PreservedAnalyses InlineListsPass::run(Module &M, ModuleAnalysisManager &AM) {
   setInlineListsAttributes(M);
   return PreservedAnalyses::all();
 }
-
-#endif // INTEL_CUSTOMIZATION

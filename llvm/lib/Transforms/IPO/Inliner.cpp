@@ -471,9 +471,14 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
   if (IC.isAlways()) {
     LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
                       << ", Call: " << *CS.getInstruction() << "\n");
-    if (IR != nullptr)                                  // INTEL
-      IR->setReasonIsInlined(CS, IC.getInlineReason()); // INTEL
-    llvm::setMDReasonIsInlined(CS, IC.getInlineReason()); // INTEL
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = IC.getInlineReason();
+    if (CS.hasFnAttr("inline-list"))
+      Reason = InlrInlineList;
+    if (IR != nullptr)
+      IR->setReasonIsInlined(CS, Reason);
+    llvm::setMDReasonIsInlined(CS, Reason);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
@@ -486,9 +491,14 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
              << NV("Caller", Caller) << " because it should never be inlined "
              << IC;
     });
-    if (IR != nullptr)                                   // INTEL
-      IR->setReasonNotInlined(CS, IC.getInlineReason()); // INTEL
-    llvm::setMDReasonNotInlined(CS, IC.getInlineReason()); // INTEL
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = IC.getInlineReason();
+    if (CS.hasFnAttr("noinline-list"))
+      Reason = NinlrNoinlineList;
+    if (IR != nullptr)
+      IR->setReasonNotInlined(CS, Reason);
+    llvm::setMDReasonNotInlined(CS, Reason);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
