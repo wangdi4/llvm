@@ -116,7 +116,7 @@ static cl::opt<bool> Generate2ndPrefetchInst(
 // Option to suppress Inline Report for IPO Prefetch, default to false.
 static cl::opt<bool> SuppressInlineReport(
     PASS_NAME_STR "-suppress-inline-report",
-    cl::init(false), cl::ReallyHidden,
+    cl::init(true), cl::ReallyHidden,
     cl::desc("suppress inline report for ipo prefetch"));
 
 // Min Expected # of arguments in a function that a Delinquent Load (DL) may
