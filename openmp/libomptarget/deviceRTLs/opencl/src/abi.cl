@@ -225,5 +225,7 @@ EXTERN int __kmpc_master_sub_group_leader() {
 KMPC_REDUCTION(OP_ADD, add, int)
 KMPC_REDUCTION(OP_ADD, add, long)
 KMPC_REDUCTION(OP_ADD, add, float)
+#if HAVE_FP64_SUPPORT
 KMPC_REDUCTION(OP_ADD, add, double)
+#endif // HAVE_FP64_SUPPORT
 #endif // INTEL_COLLAB
