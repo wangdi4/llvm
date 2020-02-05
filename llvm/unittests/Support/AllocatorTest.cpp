@@ -140,6 +140,9 @@ TEST(AllocatorTest, TestFasterSlabGrowthDelay) {
   // Decrease the growth delay to double the slab size every slab.
   const size_t GrowthDelay = 1;
   BumpPtrAllocatorImpl<MallocAllocator, SlabSize, SlabSize, GrowthDelay> Alloc;
+  // Disable the red zone for this test. The additional bytes allocated for the
+  // red zone would change the allocation numbers we check below.
+  Alloc.setRedZoneSize(0);
 
   Alloc.Allocate(SlabSize, 1);
   EXPECT_EQ(SlabSize, Alloc.getTotalMemory());
@@ -164,6 +167,9 @@ TEST(AllocatorTest, TestSlowerSlabGrowthDelay) {
   // Increase the growth delay to only double the slab size every 256 slabs.
   const size_t GrowthDelay = 256;
   BumpPtrAllocatorImpl<MallocAllocator, SlabSize, SlabSize, GrowthDelay> Alloc;
+  // Disable the red zone for this test. The additional bytes allocated for the
+  // red zone would change the allocation numbers we check below.
+  Alloc.setRedZoneSize(0);
 
   // Allocate 256 slabs. We should keep getting slabs with the original size
   // as we haven't hit our growth delay on the last allocation.

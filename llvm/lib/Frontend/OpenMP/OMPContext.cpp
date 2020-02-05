@@ -214,13 +214,13 @@ static APInt getVariantMatchScore(const VariantMatchInfo &VMI,
 
     switch (getOpenMPContextTraitSelectorForProperty(Property)) {
     case TraitSelector::device_kind:
-      Score += (1 << (NoConstructTraits + 0));
+      Score += (1ULL << (NoConstructTraits + 0));
       continue;
     case TraitSelector::device_arch:
-      Score += (1 << (NoConstructTraits + 1));
+      Score += (1ULL << (NoConstructTraits + 1));
       continue;
     case TraitSelector::device_isa:
-      Score += (1 << (NoConstructTraits + 2));
+      Score += (1ULL << (NoConstructTraits + 2));
       continue;
     default:
       continue;
@@ -234,8 +234,9 @@ static APInt getVariantMatchScore(const VariantMatchInfo &VMI,
     assert(getOpenMPContextTraitSetForProperty(Property) ==
                TraitSet::construct &&
            "Ill-formed variant match info!");
+    (void)Property;
     // ConstructMatches is the position p - 1 and we need 2^(p-1).
-    Score += (1 << ConstructMatches[ConstructIdx++]);
+    Score += (1ULL << ConstructMatches[ConstructIdx++]);
   }
 
   LLVM_DEBUG(dbgs() << "[" << DEBUG_TYPE << "] Variant has a score of " << Score
