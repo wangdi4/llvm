@@ -137,6 +137,11 @@ private:
 
   bool IsUndoSinkingCandidate;
 
+  // Special field to force VF for a loop inside LoopOpt.
+  unsigned ForcedVectorWidth;
+  // Special field to force vector UF for a loop inside LoopOpt.
+  unsigned ForcedVectorUnrollFactor;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -945,6 +950,19 @@ public:
     }
 
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  }
+
+  /// Returns the VF for this loop forced inside LoopOpt.
+  unsigned getForcedVectorWidth() const { return ForcedVectorWidth; }
+  /// Sets the forced VF that should be used during vectorization.
+  void setForcedVectorWidth(unsigned VF) { ForcedVectorWidth = VF; }
+  /// Returns the vector UF for this loop forced inside LoopOpt.
+  unsigned getForcedVectorUnrollFactor() const {
+    return ForcedVectorUnrollFactor;
+  }
+  /// Sets the forced vector UF that should be used during vectorization.
+  void setForcedVectorUnrollFactor(unsigned UF) {
+    ForcedVectorUnrollFactor = UF;
   }
 
   /// Returns true if minimum trip count of loop is specified using pragma and
