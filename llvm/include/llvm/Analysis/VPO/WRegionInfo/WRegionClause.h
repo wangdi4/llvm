@@ -808,20 +808,20 @@ private:
   Value *BasePtr;
   Value *SectionPtr;
   Value *Size;
-  uint64_t MapTypes;
+  uint64_t MapType;
 public:
-  MapAggrTy(Value *BP, Value *SP, Value *Sz) : BasePtr(BP), SectionPtr(SP),
-                                               Size(Sz) {}
-  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT) : BasePtr(BP),
-                                SectionPtr(SP), Size(Sz), MapTypes(MT) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
-  void setMapTypes(uint64_t MT) { MapTypes = MT;}
+  void setMapType(uint64_t MT) { MapType = MT;}
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
-  uint64_t getMapTypes() const { return MapTypes; }
+  uint64_t getMapType() const { return MapType; }
 };
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
@@ -889,7 +889,7 @@ public:
     MapChain.push_back(Aggr);
   }
 
-  bool getIsMapChain() const { return MapChain.size() > 0; }
+  bool getIsMapChain() const { return !MapChain.empty(); }
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -922,7 +922,7 @@ public:
       case QUAL_OMP_MAP_ALWAYS_DELETE:
         return WRNMapDelete | WRNMapAlways;
       default:
-        llvm_unreachable("Unsupported MAP Clause ID");
+        return WRNMapNone;
     }
   };
 
@@ -937,6 +937,7 @@ public:
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
 
   unsigned getMapKind()     const { return MapKind; }
+  bool getIsMapNone()       const { return MapKind == WRNMapNone; }
   bool getIsMapTo()         const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()       const { return MapKind & WRNMapFrom; }
   bool getIsMapTofrom()     const { return (MapKind & WRNMapFrom) &&
@@ -963,7 +964,7 @@ public:
         Value *BasePtr = Aggr->getBasePtr();
         Value *SectionPtr = Aggr->getSectionPtr();
         Value *Size = Aggr->getSize();
-        uint64_t MapTypes = Aggr->getMapTypes();
+        uint64_t MapType = Aggr->getMapType();
         OS << "<" ;
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
@@ -971,7 +972,7 @@ public:
         OS << ", ";
         Size->printAsOperand(OS, PrintType);
         OS << ", ";
-        OS << MapTypes;
+        OS << MapType;
         OS <<  "> ";
       }
       OS << ") ";

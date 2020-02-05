@@ -901,6 +901,9 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
   if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
     return TGT_MAP_TARGET_PARAM;
 
+  assert(!MapI->getIsMapNone() &&
+         "Cannot compute map type flag. No type info in clause.");
+
   if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
   else if (MapI->getIsMapTo() || MapI->getInFirstprivate() ||
@@ -959,6 +962,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       continue;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
+      uint64_t MapTypeIndexForBaseOfChain = MapTypes.size() + 1;
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
@@ -973,10 +977,31 @@ void VPOParoptTransform::genTgtInformationForPtrs(
           ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                                 ConstValue->getSExtValue()));
         }
-        MapTypes.push_back(
-            getMapTypeFlag(MapI,
-                MapChain.size() > 1 ? false : true,
-                I == 0 ? true : false));
+
+        uint64_t MapType = Aggr->getMapType();
+        if (MapType) {
+          // MemberOf flag is in the 16 MSBs of the 64 bit MapType.
+          uint64_t MemberOfFlag = MapType >> 48;
+
+          if (MemberOfFlag && MemberOfFlag != MapTypeIndexForBaseOfChain) {
+            // We need to set MemberOf to the index of the base of the chain,
+            // instead of what the frontend sent in.
+            assert(MapTypeIndexForBaseOfChain < (1 << 16) &&
+                   "Too many maps. MemberOf flag exceeding 16 bits.");
+            uint64_t Mask = (~(0ull)) >> 16;
+            uint64_t NewMapType = MapType & Mask;
+            NewMapType = NewMapType | (MapTypeIndexForBaseOfChain << 48);
+            LLVM_DEBUG(dbgs()
+                       << __FUNCTION__ << ": Updated MemberOf Flag from '"
+                       << MemberOfFlag << "' to '" << MapTypeIndexForBaseOfChain
+                       << "'; MapType from '" << MapType << "' to '"
+                       << NewMapType << "'\n");
+            MapType = NewMapType;
+          }
+          MapTypes.push_back(MapType);
+        } else
+          MapTypes.push_back(
+              getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0));
       }
     } else {
       assert(!MapI->getIsArraySection() &&

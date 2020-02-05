@@ -1507,46 +1507,6 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  /// Returns the closest ancestor starting from "this", which has successors.
-  /// Returns the root ancestor if all ancestors have no successors.
-  VPBlockBase *getAncestorWithSuccessors();
-
-  /// Returns the closest ancestor starting from "this", which has predecessors.
-  /// Returns the root ancestor if all ancestors have no predecessors.
-  VPBlockBase *getAncestorWithPredecessors();
-
-  /// \return the successors either attached directly to this VPBlockBase or, if
-  /// this VPBlockBase is the exit block of a VPRegionBlock and has no
-  /// successors of its own, search recursively for the first enclosing
-  /// VPRegionBlock that has successors and return them. If no such
-  /// VPRegionBlock exists, return the (empty) successors of the topmost
-  /// VPBlockBase reached.
-  const SmallVectorImpl<VPBlockBase *> &getHierarchicalSuccessors() {
-    return getAncestorWithSuccessors()->getSuccessors();
-  }
-
-  /// \return the hierarchical successor of this VPBlockBase if it has a single
-  /// hierarchical successor. Otherwise return a null pointer.
-  VPBlockBase *getSingleHierarchicalSuccessor() {
-    return getAncestorWithSuccessors()->getSingleSuccessor();
-  }
-
-  /// \return the predecessors either attached directly to this VPBlockBase or,
-  /// if this VPBlockBase is the entry block of a VPRegionBlock and has no
-  /// predecessors of its own, search recursively for the first enclosing
-  /// VPRegionBlock that has predecessors and return them. If no such
-  /// VPRegionBlock exists, return the (empty) predecessors of the topmost
-  /// VPBlockBase reached.
-  const SmallVectorImpl<VPBlockBase *> &getHierarchicalPredecessors() {
-    return getAncestorWithPredecessors()->getPredecessors();
-  }
-
-  /// \return the hierarchical predecessor of this VPBlockBase if it has a
-  /// single hierarchical predecessor. Otherwise return a null pointer.
-  VPBlockBase *getSingleHierarchicalPredecessor() {
-    return getAncestorWithPredecessors()->getSinglePredecessor();
-  }
-
   VPValue *getPredicate() { return Predicate; }
 
   const VPValue *getPredicate() const { return Predicate; }
