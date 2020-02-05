@@ -1519,6 +1519,7 @@ void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
+void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
