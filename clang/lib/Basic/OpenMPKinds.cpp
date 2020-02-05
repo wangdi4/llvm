@@ -215,6 +215,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
 #define OPENMP_LASTPRIVATE_KIND(Name) .Case(#Name, OMPC_LASTPRIVATE_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_LASTPRIVATE_unknown);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -225,6 +226,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
         .Default(OMPC_DATAFLOW_MODIFIER_unknown);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_order:
+    return llvm::StringSwitch<OpenMPOrderClauseKind>(Str)
+#define OPENMP_ORDER_KIND(Name) .Case(#Name, OMPC_ORDER_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_ORDER_unknown);
+>>>>>>> cb8e69148db9938bee93274f52956e1c2b97aee9
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -428,6 +436,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'lastprivate' clause type");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -442,6 +451,18 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     llvm_unreachable("Invalid OpenMP 'dataflow' clause type");
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_order:
+    switch (Type) {
+    case OMPC_ORDER_unknown:
+      return "unknown";
+#define OPENMP_ORDER_KIND(Name)                                                \
+    case OMPC_ORDER_##Name:                                                    \
+      return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'order' clause type");
+>>>>>>> cb8e69148db9938bee93274f52956e1c2b97aee9
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -503,6 +524,9 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
   assert(CKind <= OMPC_unknown);
   // Nontemporal clause is not supported in OpenMP < 5.0.
   if (OpenMPVersion < 50 && CKind == OMPC_nontemporal)
+    return false;
+  // Order clause is not supported in OpenMP < 5.0.
+  if (OpenMPVersion < 50 && CKind == OMPC_order)
     return false;
   switch (DKind) {
   case OMPD_parallel:
