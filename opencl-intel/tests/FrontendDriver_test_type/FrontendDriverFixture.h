@@ -72,6 +72,9 @@ protected:
         spirvDesc.pSPIRVContainer = reinterpret_cast<char const*>(bin);
         spirvDesc.uiSPIRVContainerSize = N * sizeof(T);
         spirvDesc.pszOptions = "";
+        spirvDesc.uiSpecConstCount = 0;
+        spirvDesc.puiSpecConstIds = nullptr;
+        spirvDesc.puiSpecConstValues = nullptr;
 
         return spirvDesc;
     }

@@ -150,6 +150,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code ReleaseProgram(cl_program clProgram);
         virtual cl_int CompileProgram(cl_program clProgram, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, cl_uint num_input_headers, const cl_program* pclInputHeaders, const char **header_include_names, void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), void * pUserData);
         virtual cl_program LinkProgram(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, cl_uint uiNumInputPrograms, const cl_program* pclInputPrograms, void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), void * pUserData, cl_int *pErrcodeRet);
+        virtual cl_int clSetProgramSpecializationConstant(cl_program program, cl_uint spec_id, size_t spec_size, const void* spec_value);
         virtual cl_int BuildProgram(cl_program clProgram, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), void * pUserData);
         virtual cl_int GetProgramInfo(cl_program clProgram, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
         virtual cl_int GetProgramBuildInfo(cl_program clProgram, cl_device_id clDevice, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);

@@ -114,6 +114,7 @@ add_ocl_unittest_artifacts(
     cached_binary_without_section.bin
     cached_binary_with_wrong_version.bin
     data/fp-as-kernel-arg.spv
+    spec_const.spv
 )
 
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )
