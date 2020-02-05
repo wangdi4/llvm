@@ -639,7 +639,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
 
     // Insert group barrier at the merge point.
-    InsertBarrierAt.push_back(BarrierInsertPt);
+    InsertWorkGroupBarrier(BarrierInsertPt); //                           (4)
     I = std::next(I);
   }
 
@@ -660,7 +660,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       W->getChildren().size() > 1) {
     for (auto *InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
-      InsertWorkGroupBarrier(InsertPt); //                                (4)
+      InsertWorkGroupBarrier(InsertPt);
     }
   }
 
