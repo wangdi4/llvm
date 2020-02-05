@@ -4527,16 +4527,13 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
-<<<<<<< HEAD
+  case OMPC_order:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_order:
->>>>>>> cb8e69148db9938bee93274f52956e1c2b97aee9
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }

@@ -359,16 +359,13 @@ OPENMP_CLAUSE(dynamic_allocators, OMPDynamicAllocatorsClause)
 OPENMP_CLAUSE(atomic_default_mem_order, OMPAtomicDefaultMemOrderClause)
 OPENMP_CLAUSE(allocate, OMPAllocateClause)
 OPENMP_CLAUSE(nontemporal, OMPNontemporalClause)
-<<<<<<< HEAD
+OPENMP_CLAUSE(order, OMPOrderClause)
 #if INTEL_CUSTOMIZATION
 OPENMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
 OPENMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-OPENMP_CLAUSE(order, OMPOrderClause)
->>>>>>> cb8e69148db9938bee93274f52956e1c2b97aee9
 
 // Clauses allowed for OpenMP directive 'parallel'.
 OPENMP_PARALLEL_CLAUSE(if)
