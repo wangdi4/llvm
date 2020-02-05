@@ -1333,14 +1333,14 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
     StringRef Val = A->getValue();
     Opts.FPDenormalMode = llvm::parseDenormalFPAttribute(Val);
-    if (Opts.FPDenormalMode == llvm::DenormalMode::Invalid)
+    if (!Opts.FPDenormalMode.isValid())
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
   }
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_f32_EQ)) {
     StringRef Val = A->getValue();
     Opts.FP32DenormalMode = llvm::parseDenormalFPAttribute(Val);
-    if (Opts.FP32DenormalMode == llvm::DenormalMode::Invalid)
+    if (!Opts.FP32DenormalMode.isValid())
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
   }
 
@@ -3607,7 +3607,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.CompleteMemberPointers = Args.hasArg(OPT_fcomplete_member_pointers);
   Opts.BuildingPCHWithObjectFile = Args.hasArg(OPT_building_pch_with_obj);
 
-  Opts.MaxTokens = getLastArgIntValue(Args, OPT_fmax_tokens, 0, Diags);
+  Opts.MaxTokens = getLastArgIntValue(Args, OPT_fmax_tokens_EQ, 0, Diags);
 }
 
 static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
