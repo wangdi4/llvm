@@ -28,7 +28,6 @@ add_llvm_component_library(LLVMTransformUtils
   InjectTLIMappings.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
-<<<<<<< HEAD
   InferAddressSpacesUtils.cpp
 # end INTEL_COLLAB
   Intel_CloneUtils.cpp # INTEL_CUSTOMIZATION
@@ -41,9 +40,6 @@ add_llvm_component_library(LLVMTransformUtils
   Intel_RegionSplitter.cpp
   Intel_VecClone.cpp                    #TODO: VEC to COLLAB
 #end INTEL_CUSTOMIZATION
-  KnowledgeRetention.cpp
-=======
->>>>>>> ad8ffc50104ff3c8cb401cef13bd71bf617db3a9
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp
