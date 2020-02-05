@@ -13,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/IPO/Attributor.h" 
+#include "llvm/Transforms/IPO/Attributor.h"
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/STLExtras.h"
@@ -867,7 +867,9 @@ static void clampCallSiteArgumentStates(Attributor &A, const AAType &QueryingAA,
     return T->isValidState();
   };
 
-  if (!A.checkForAllCallSites(CallSiteCheck, QueryingAA, true))
+  bool AllCallSitesKnown;
+  if (!A.checkForAllCallSites(CallSiteCheck, QueryingAA, true,
+                              AllCallSitesKnown))
     S.indicatePessimisticFixpoint();
   else if (T.hasValue())
     S ^= *T;
@@ -2081,14 +2083,33 @@ struct AANoRecurseFunction final : AANoRecurseImpl {
   void initialize(Attributor &A) override {
     AANoRecurseImpl::initialize(A);
     if (const Function *F = getAnchorScope())
-      if (A.getInfoCache().getSccSize(*F) == 1)
-        return;
-    indicatePessimisticFixpoint();
+      if (A.getInfoCache().getSccSize(*F) != 1)
+        indicatePessimisticFixpoint();
   }
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
 
+    // If all live call sites are known to be no-recurse, we are as well.
+    auto CallSitePred = [&](AbstractCallSite ACS) {
+      const auto &NoRecurseAA = A.getAAFor<AANoRecurse>(
+          *this, IRPosition::function(*ACS.getInstruction()->getFunction()),
+          /* TrackDependence */ false, DepClassTy::OPTIONAL);
+      return NoRecurseAA.isKnownNoRecurse();
+    };
+    bool AllCallSitesKnown;
+    if (A.checkForAllCallSites(CallSitePred, *this, true, AllCallSitesKnown)) {
+      // If we know all call sites and all are known no-recurse, we are done.
+      // If all known call sites, which might not be all that exist, are known
+      // to be no-recurse, we are not done but we can continue to assume
+      // no-recurse. If one of the call sites we have not visited will become
+      // live, another update is triggered.
+      if (AllCallSitesKnown)
+        indicateOptimisticFixpoint();
+      return ChangeStatus::UNCHANGED;
+    }
+
+    // If the above check does not hold anymore we look at the calls.
     auto CheckForNoRecurse = [&](Instruction &I) {
       ImmutableCallSite ICS(&I);
       if (ICS.hasFnAttr(Attribute::NoRecurse))
@@ -2544,9 +2565,10 @@ struct AANoAliasArgument final
 
     // If the argument is never passed through callbacks, no-alias cannot break
     // synchronization.
+    bool AllCallSitesKnown;
     if (A.checkForAllCallSites(
             [](AbstractCallSite ACS) { return !ACS.isCallbackCall(); }, *this,
-            true))
+            true, AllCallSitesKnown))
       return Base::updateImpl(A);
 
     // TODO: add no-alias but make sure it doesn't break synchronization by
@@ -2774,6 +2796,9 @@ struct AAIsDeadValueImpl : public AAIsDead {
   /// See AAIsDead::isAssumedDead().
   bool isAssumedDead() const override { return getAssumed(); }
 
+  /// See AAIsDead::isKnownDead().
+  bool isKnownDead() const override { return getKnown(); }
+
   /// See AAIsDead::isAssumedDead(BasicBlock *).
   bool isAssumedDead(const BasicBlock *BB) const override { return false; }
 
@@ -2929,17 +2954,24 @@ struct AAIsDeadReturned : public AAIsDeadValueImpl {
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
 
+    bool AllKnownDead = true;
     auto PredForCallSite = [&](AbstractCallSite ACS) {
       if (ACS.isCallbackCall())
         return false;
       const IRPosition &CSRetPos =
           IRPosition::callsite_returned(ACS.getCallSite());
       const auto &RetIsDeadAA = A.getAAFor<AAIsDead>(*this, CSRetPos);
+      AllKnownDead &= RetIsDeadAA.isKnownDead();
       return RetIsDeadAA.isAssumedDead();
     };
 
-    if (!A.checkForAllCallSites(PredForCallSite, *this, true))
+    bool AllCallSitesKnown;
+    if (!A.checkForAllCallSites(PredForCallSite, *this, true,
+                                AllCallSitesKnown))
       return indicatePessimisticFixpoint();
+
+    if (AllCallSitesKnown && AllKnownDead)
+      indicateOptimisticFixpoint();
 
     return ChangeStatus::UNCHANGED;
   }
@@ -3045,6 +3077,9 @@ struct AAIsDeadFunction : public AAIsDead {
 
   /// Returns true if the function is assumed dead.
   bool isAssumedDead() const override { return false; }
+
+  /// See AAIsDead::isKnownDead().
+  bool isKnownDead() const override { return false; }
 
   /// See AAIsDead::isAssumedDead(BasicBlock *).
   bool isAssumedDead(const BasicBlock *BB) const override {
@@ -4475,7 +4510,9 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
       return checkAndUpdate(A, *this, *ArgOp, SimplifiedAssociatedValue);
     };
 
-    if (!A.checkForAllCallSites(PredForCallSite, *this, true))
+    bool AllCallSitesKnown;
+    if (!A.checkForAllCallSites(PredForCallSite, *this, true,
+                                AllCallSitesKnown))
       if (!askSimplifiedValueForAAValueConstantRange(A))
         return indicatePessimisticFixpoint();
 
@@ -4884,9 +4921,10 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
   Optional<Type *> identifyPrivatizableType(Attributor &A) override {
     // If this is a byval argument and we know all the call sites (so we can
     // rewrite them), there is no need to check them explicitly.
+    bool AllCallSitesKnown;
     if (getIRPosition().hasAttr(Attribute::ByVal) &&
         A.checkForAllCallSites([](AbstractCallSite ACS) { return true; }, *this,
-                               true))
+                               true, AllCallSitesKnown))
       return getAssociatedValue().getType()->getPointerElementType();
 
     Optional<Type *> Ty;
@@ -4935,7 +4973,7 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
       return !Ty.hasValue() || Ty.getValue();
     };
 
-    if (!A.checkForAllCallSites(CallSiteCheck, *this, true))
+    if (!A.checkForAllCallSites(CallSiteCheck, *this, true, AllCallSitesKnown))
       return nullptr;
     return Ty;
   }
@@ -5099,8 +5137,9 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
       return false;
     };
 
-    if (!A.checkForAllCallSites(IsCompatiblePrivArgOfOtherCallSite, *this,
-                                true))
+    bool AllCallSitesKnown;
+    if (!A.checkForAllCallSites(IsCompatiblePrivArgOfOtherCallSite, *this, true,
+                                AllCallSitesKnown))
       return indicatePessimisticFixpoint();
 
     return ChangeStatus::UNCHANGED;
@@ -6416,7 +6455,8 @@ bool Attributor::checkForAllUses(
 
 bool Attributor::checkForAllCallSites(
     const function_ref<bool(AbstractCallSite)> &Pred,
-    const AbstractAttribute &QueryingAA, bool RequireAllCallSites) {
+    const AbstractAttribute &QueryingAA, bool RequireAllCallSites,
+    bool &AllCallSitesKnown) {
   // We can try to determine information from
   // the call sites. However, this is only possible all call sites are known,
   // hence the function has internal linkage.
@@ -6425,23 +6465,29 @@ bool Attributor::checkForAllCallSites(
   if (!AssociatedFunction) {
     LLVM_DEBUG(dbgs() << "[Attributor] No function associated with " << IRP
                       << "\n");
+    AllCallSitesKnown = false;
     return false;
   }
 
   return checkForAllCallSites(Pred, *AssociatedFunction, RequireAllCallSites,
-                              &QueryingAA);
+                              &QueryingAA, AllCallSitesKnown);
 }
 
 bool Attributor::checkForAllCallSites(
     const function_ref<bool(AbstractCallSite)> &Pred, const Function &Fn,
-    bool RequireAllCallSites, const AbstractAttribute *QueryingAA) {
+    bool RequireAllCallSites, const AbstractAttribute *QueryingAA,
+    bool &AllCallSitesKnown) {
   if (RequireAllCallSites && !Fn.hasLocalLinkage()) {
     LLVM_DEBUG(
         dbgs()
         << "[Attributor] Function " << Fn.getName()
         << " has no internal linkage, hence not all call sites are known\n");
+    AllCallSitesKnown = false;
     return false;
   }
+
+  // If we do not require all call sites we might not see all.
+  AllCallSitesKnown = RequireAllCallSites;
 
   for (const Use &U : Fn.uses()) {
     AbstractCallSite ACS(&U);
@@ -6468,6 +6514,7 @@ bool Attributor::checkForAllCallSites(
       // dependence.
       if (QueryingAA)
         recordDependence(*LivenessAA, *QueryingAA, DepClassTy::OPTIONAL);
+      AllCallSitesKnown = false;
       continue;
     }
 
@@ -6915,12 +6962,13 @@ ChangeStatus Attributor::run(Module &M) {
         if (!F)
           continue;
 
+        bool AllCallSitesKnown;
         if (!checkForAllCallSites(
                 [this](AbstractCallSite ACS) {
                   return ToBeDeletedFunctions.count(
                       ACS.getInstruction()->getFunction());
                 },
-                *F, true, nullptr))
+                *F, true, nullptr, AllCallSitesKnown))
           continue;
 
         ToBeDeletedFunctions.insert(F);
@@ -6980,7 +7028,9 @@ bool Attributor::isValidFunctionSignatureRewrite(
   }
 
   // Avoid callbacks for now.
-  if (!checkForAllCallSites(CallSiteCanBeChanged, *Fn, true, nullptr)) {
+  bool AllCallSitesKnown;
+  if (!checkForAllCallSites(CallSiteCanBeChanged, *Fn, true, nullptr,
+                            AllCallSitesKnown)) {
     LLVM_DEBUG(dbgs() << "[Attributor] Cannot rewrite all call sites\n");
     return false;
   }
@@ -7179,8 +7229,9 @@ ChangeStatus Attributor::rewriteFunctionSignatures() {
     };
 
     // Use the CallSiteReplacementCreator to create replacement call sites.
-    bool Success =
-        checkForAllCallSites(CallSiteReplacementCreator, *OldFn, true, nullptr);
+    bool AllCallSitesKnown;
+    bool Success = checkForAllCallSites(CallSiteReplacementCreator, *OldFn,
+                                        true, nullptr, AllCallSitesKnown);
     (void)Success;
     assert(Success && "Assumed call site replacement to succeed!");
 
