@@ -615,6 +615,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue &Init, Type *Ty,
                                         VPValue &Start) {
   if (PrivateMem) {
+    assert(AI && "Expected non-null original pointer");
     auto V = Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
     Plan.getVPlanDA()->markDivergent(*V);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
