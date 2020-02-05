@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
@@ -445,7 +446,7 @@ private:
   DenseMap<VPValue *, Value *> LoopPrivateVPWidenMap;
 
   // Holds last values generated for loop entities.
-  DenseMap<const VPLoopEntity *, Value *> EntitiesLastValMap;
+  MapVector<const VPLoopEntity *, Value *> EntitiesLastValMap;
 
   // --- Vectorization state ---
 
