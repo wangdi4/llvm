@@ -7761,10 +7761,17 @@ private:
     // the result.  Because the means for storing into the allocated array
     // fields are not exhaustively analyzed, for now, we always mark such
     // field values as 'incomplete'.
-    auto AnalyzeIndirectArrays = [](dtrans::FieldInfo *FI, Instruction *I) {
+    std::function<void(dtrans::FieldInfo *FI, Instruction *I)>
+        AnalyzeIndirectArrays = [&AnalyzeIndirectArrays](dtrans::FieldInfo *FI,
+                                                         Instruction *I) {
       if (!I)
         return;
       for (User *U : I->users()) {
+        auto BCI = dyn_cast<BitCastInst>(U);
+        if (BCI) {
+          AnalyzeIndirectArrays(FI, BCI);
+          continue;
+        }
         auto GEPI = dyn_cast<GetElementPtrInst>(U);
         if (!GEPI || GEPI->getPointerOperand() != I ||
             GEPI->getNumIndices() != 1)
