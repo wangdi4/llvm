@@ -449,7 +449,7 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBlockBase *Block) {
   if (!shouldPreserveUniformBranches())
     return false;
 
-  assert(!VPLI->isLoopHeader(Block->getSingleHierarchicalSuccessor()) &&
+  assert(!VPLI->isLoopHeader(Block->getSingleSuccessor()) &&
          "No loop region formed?");
   assert(none_of(Block->getSuccessors(),
                  [this](const VPBlockBase *Block) {
@@ -621,7 +621,7 @@ void VPlanPredicator::linearizeRegion(
       // through Pred's single successors chain?
 
       VPBlockBase *LastProcessed = Pred;
-      VPBlockBase *PredSucc = Pred->getSingleHierarchicalSuccessor();
+      VPBlockBase *PredSucc = Pred->getSingleSuccessor();
       // Don't go into the blocks that haven't been processed before this one
       // , including itself.
       while (PredSucc && BlockIndexInRPOT[PredSucc] < CurrBlockRPOTIndex) {
@@ -640,7 +640,7 @@ void VPlanPredicator::linearizeRegion(
                "Broken linearized chain!");
         auto *SavedPtr = PredSucc;
         PredSucc = nullptr;
-        for (auto *Succ : SavedPtr->getHierarchicalSuccessors())
+        for (auto *Succ : SavedPtr->getSuccessors())
           if (EdgeFormsLinearizedChain(SavedPtr, Succ)) {
             PredSucc = Succ;
             break;
@@ -730,7 +730,7 @@ void VPlanPredicator::linearizeRegion(
     SmallVector<VPBlockBase *, 4> Preds(Block->getPredecessors().begin(),
                                         Block->getPredecessors().end());
     for (auto *PredBB : Preds) {
-      if (!is_contained(PredBB->getHierarchicalSuccessors(), Block)) {
+      if (!is_contained(PredBB->getSuccessors(), Block)) {
         Block->removePredecessor(PredBB);
       }
     }

@@ -704,7 +704,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 2);
   }
   else {
-    fprintf(stderr, "param_name=%d(%lx)\n", param_name, pi_cast<pi_uint64>(param_name));
+    fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
     pi_throw("Unsupported param_name in piGetDeviceInfo");
   }
 
@@ -906,8 +906,7 @@ pi_result L0(piQueueGetInfo)(
     pi_throw("Unsupported PI_QUEUE_INFO_DEVICE_DEFAULT in piQueueGetInfo\n");
   }
   else {
-    fprintf(stderr, "%d param_name=%d(%lx)\n",
-        __LINE__, param_name, pi_cast<pi_uint64>(param_name));
+    fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
     pi_throw("Unsupported param_name in piQueueGetInfo");
   }
 
@@ -1444,9 +1443,8 @@ pi_result L0(piKernelGetInfo)(
     pi_throw("Unsupported PI_KERNEL_ATTRIBUTES in piKernelGetInfo\n");
   }
   else {
-    fprintf(stderr, "%d param_name=%d(%lx)\n",
-        __LINE__, param_name, pi_cast<pi_uint64>(param_name));
-    pi_throw("Unsupported param_name in piGetDeviceInfo");
+    fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
+    pi_throw("Unsupported param_name in piKernelGetInfo");
   }
 
   return PI_SUCCESS;
@@ -1513,8 +1511,7 @@ pi_result L0(piKernelGetGroupInfo)(
     pi_throw("Unsupported PI_KERNEL_PRIVATE_MEM_SIZE in piKernelGetInfo\n");
   }
   else {
-    fprintf(stderr, "%d param_name=%d(%lx)\n",
-        __LINE__, param_name, pi_cast<pi_uint64>(param_name));
+    fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
     pi_throw("piKernelGetGroupInfo: unknown param_name");
   }
   return PI_SUCCESS;
@@ -1740,8 +1737,7 @@ pi_result L0(piEventGetInfo)(
     SET_PARAM_VALUE(pi_uint32{event->RefCount});
   }
   else {
-    fprintf(stderr, "%d param_name=%d(%lx)\n",
-        __LINE__, param_name, pi_cast<pi_uint64>(param_name));
+    fprintf(stderr, "param_name=%d(%x)\n", param_name, param_name);
     pi_throw("Unsupported param_name in piEventGetInfo");
   }
 
@@ -2387,7 +2383,7 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   pi_assert(ze_result == 0);
 
   zePrint("calling zeCommandListAppendBarrier() with event %lx\n",
-    (unsigned long)ze_event);
+    pi_cast<std::uintptr_t>(ze_event));
 
   command_queue->executeCommandList(ze_command_list, blocking_write);
   _pi_event::deleteL0EventList(ze_event_wait_list);

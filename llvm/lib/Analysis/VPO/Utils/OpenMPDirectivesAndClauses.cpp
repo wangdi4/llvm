@@ -25,14 +25,14 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
-    : FullName(Name), IsAlways(false), IsArraySection(false),
-      IsByRef(false), IsNonPod(false),
+    : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
       IsF90DopeVector(false), IsWILocal(false),
 #endif // INTEL_CUSTOMIZATION
-      IsUnsigned(false), IsComplex(false), IsConditional(false),
-      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
-      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
+      IsAlways(false), IsUnsigned(false), IsComplex(false),
+      IsConditional(false), IsScheduleMonotonic(false),
+      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
+      IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
@@ -110,6 +110,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapAggrHead();
         else if (ModSubString[i] == "AGGR") // map chain (not head)
           setIsMapAggr();
+        else if (ModSubString[i] == "CHAIN") // map chain (not head)
+          setIsMapChainLink();
         else if (ModSubString[i] == "IV")
           setIsIV();
         else
