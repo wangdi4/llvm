@@ -1037,6 +1037,7 @@ CheckForIncompatibleAttributes(Sema &S,
 
     LoopHintAttr::OptionType Option = LH->getOption();
 #if INTEL_CUSTOMIZATION
+    bool IsAnIVDep = false;
     enum {
       Vectorize,
       II,
@@ -1074,12 +1075,15 @@ CheckForIncompatibleAttributes(Sema &S,
     case LoopHintAttr::IVDep:
     case LoopHintAttr::IVDepHLS:
     case LoopHintAttr::IVDepHLSIntel:
+      IsAnIVDep = true;
       Category = IVDep;
       break;
     case LoopHintAttr::IVDepLoop:
+      IsAnIVDep = true;
       Category = IVDepLoop;
       break;
     case LoopHintAttr::IVDepBack:
+      IsAnIVDep = true;
       Category = IVDepBack;
       break;
     case LoopHintAttr::LoopCoalesce:
@@ -1323,11 +1327,10 @@ CheckForIncompatibleAttributes(Sema &S,
               << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
               << LH->getDiagnosticName(Policy);
     } else if (HintAttrs[DisableLoopPipelining].StateAttr != nullptr &&
-               (Category == II || Category == MaxConcurrency ||
+               (IsAnIVDep || Category == II || Category == MaxConcurrency ||
                 Category == MaxInterleaving ||
-                Category == SpeculatedIterations || Category == ForceHyperopt ||
-                (Category == Unroll && (IVDepAttr || CategoryState.StateAttr ||
-                                        CategoryState.NumericAttr)))) {
+                Category == SpeculatedIterations ||
+                Category == ForceHyperopt)) {
       const LoopHintAttr *PrevAttr = HintAttrs[DisableLoopPipelining].StateAttr;
       S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
           << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
