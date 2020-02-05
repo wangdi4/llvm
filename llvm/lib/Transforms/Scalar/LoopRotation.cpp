@@ -114,7 +114,7 @@ public:
                         false, MaxHeaderSize, false);
   }
 };
-}
+} // end namespace
 
 char LoopRotateLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(LoopRotateLegacyPass, "loop-rotate", "Rotate Loops",
