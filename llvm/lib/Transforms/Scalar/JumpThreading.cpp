@@ -197,14 +197,9 @@ FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
   return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
 }                                                                       // INTEL
 
-<<<<<<< HEAD
 JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {       // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
-  BBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
-=======
-JumpThreadingPass::JumpThreadingPass(int T) {
   DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
->>>>>>> 2663a25fadf73e0992182caf4871161a142515ad
 }
 
 // Update branch probability information according to conditional
