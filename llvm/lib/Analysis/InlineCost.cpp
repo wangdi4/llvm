@@ -57,7 +57,6 @@ using namespace llvm::PatternMatch; // INTEL
 
 STATISTIC(NumCallsAnalyzed, "Number of call sites analyzed");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 extern bool llvm::IsInlinedReason(InlineReason Reason) {
   return Reason > InlrFirst && Reason < InlrLast;
@@ -85,12 +84,11 @@ static cl::opt<int> OptSizeThreshold(
     "inlineoptsize-threshold", cl::Hidden, cl::init(15),
     cl::desc("Threshold for inlining functions with -Os"));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static cl::opt<int>
     DefaultThreshold("inlinedefault-threshold", cl::Hidden, cl::init(225),
                      cl::ZeroOrMore,
                      cl::desc("Default amount of inlining to perform"));
->>>>>>> 7f37a8026f6cfe51479309733be642102428fee4
 
 static cl::opt<int> InlineThreshold(
     "inline-threshold", cl::Hidden, cl::init(225), cl::ZeroOrMore,
