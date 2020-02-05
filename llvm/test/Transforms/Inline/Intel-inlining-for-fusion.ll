@@ -1,11 +1,14 @@
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -inline -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inline -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
 ; Test checks that inlining happens for all foo() call sites. The inlining is supposed to be followed by loop fusion and vectorization.
 
-; Check for old pass manager.
+; Check for old pass manager with old inline report and new pass manager with
+; old and metadata inline report
 
 ; CHECK-OLD: COMPILE FUNC: bar
 ; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
@@ -21,8 +24,7 @@
 ; CHECK-OLD-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-OLD-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
-
-; Check for new pass manager.
+; Check for new pass manager with old inline report
 
 ; CHECK-NEW: COMPILE FUNC: baz
 ; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
