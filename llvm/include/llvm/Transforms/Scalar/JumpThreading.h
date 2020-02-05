@@ -128,6 +128,7 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 #endif
 
   unsigned BBDupThreshold;
+  unsigned DefaultBBDupThreshold;
 
 #if INTEL_CUSTOMIZATION
   // Jump threading performs several CFG simplifications that are not

@@ -197,9 +197,14 @@ FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
   return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
 }                                                                       // INTEL
 
+<<<<<<< HEAD
 JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {       // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
   BBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
+=======
+JumpThreadingPass::JumpThreadingPass(int T) {
+  DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
+>>>>>>> 2663a25fadf73e0992182caf4871161a142515ad
 }
 
 // Update branch probability information according to conditional
@@ -413,6 +418,15 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
     BPI = std::move(BPI_);
     BFI = std::move(BFI_);
   }
+
+  // Reduce the number of instructions duplicated when optimizing strictly for
+  // size.
+  if (BBDuplicateThreshold.getNumOccurrences())
+    BBDupThreshold = BBDuplicateThreshold;
+  else if (F.hasFnAttribute(Attribute::MinSize))
+    BBDupThreshold = 3;
+  else
+    BBDupThreshold = DefaultBBDupThreshold;
 
   // JumpThreading must not processes blocks unreachable from entry. It's a
   // waste of compute time and can potentially lead to hangs.
