@@ -174,7 +174,6 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
   };
 
   const LLT S1 = LLT::scalar(1);
-  const LLT S8 = LLT::scalar(8);
   const LLT S16 = LLT::scalar(16);
   const LLT S32 = LLT::scalar(32);
   const LLT S64 = LLT::scalar(64);
@@ -249,7 +248,6 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
   };
 
   const LLT MinScalarFPTy = ST.has16BitInsts() ? S16 : S32;
-  const LLT MinLegalScalarShiftTy = ST.has16BitInsts() ? S16 : S32;
 
   setAction({G_BRCOND, S1}, Legal); // VCC branches
   setAction({G_BRCOND, S32}, Legal); // SCC branches
@@ -439,11 +437,7 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
 
   getActionDefinitionsBuilder({G_SEXT, G_ZEXT, G_ANYEXT})
     .legalFor({{S64, S32}, {S32, S16}, {S64, S16},
-               {S32, S1}, {S64, S1}, {S16, S1},
-               {S96, S32},
-               // FIXME: Hack
-               {S64, LLT::scalar(33)},
-               {S32, S8}, {S32, LLT::scalar(24)}})
+               {S32, S1}, {S64, S1}, {S16, S1}})
     .scalarize(0)
     .clampScalar(0, S32, S64);
 
@@ -1134,10 +1128,13 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
       .scalarize(1);
   }
 
-  // TODO: Make legal for s32, s64. s64 case needs break down in regbankselect.
-  auto &SextInReg = getActionDefinitionsBuilder(G_SEXT_INREG);
+  // S64 is only legal on SALU, and needs to be broken into 32-bit elements in
+  // RegBankSelect.
+  auto &SextInReg = getActionDefinitionsBuilder(G_SEXT_INREG)
+    .legalFor({{S32}, {S64}});
+
   if (ST.hasVOP3PInsts()) {
-    SextInReg.lowerFor({{S32}, {S64}, {S16}, {V2S16}})
+    SextInReg.lowerFor({{V2S16}})
       // Prefer to reduce vector widths for 16-bit vectors before lowering, to
       // get more vector shift opportunities, since we'll get those when
       // expanded.
@@ -1152,7 +1149,7 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
 
   SextInReg
     .scalarize(0)
-    .clampScalar(0, MinLegalScalarShiftTy, S64)
+    .clampScalar(0, S32, S64)
     .lower();
 
   getActionDefinitionsBuilder(G_READCYCLECOUNTER)
