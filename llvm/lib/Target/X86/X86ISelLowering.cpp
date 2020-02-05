@@ -3324,10 +3324,10 @@ static SDValue CreateCopyOfByValArgument(SDValue Src, SDValue Dst,
                                          SelectionDAG &DAG, const SDLoc &dl) {
   SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i32);
 
-  return DAG.getMemcpy(Chain, dl, Dst, Src, SizeNode, Flags.getByValAlign(),
-                       /*isVolatile*/false, /*AlwaysInline=*/true,
-                       /*isTailCall*/false,
-                       MachinePointerInfo(), MachinePointerInfo());
+  return DAG.getMemcpy(
+      Chain, dl, Dst, Src, SizeNode, Flags.getNonZeroByValAlign(),
+      /*isVolatile*/ false, /*AlwaysInline=*/true,
+      /*isTailCall*/ false, MachinePointerInfo(), MachinePointerInfo());
 }
 
 /// Return true if the calling convention is one that we can guarantee TCO for.
@@ -4165,8 +4165,8 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
         // the caller from seeing any modifications the callee may make
         // as guaranteed by the `byval` attribute.
         int FrameIdx = MF.getFrameInfo().CreateStackObject(
-            Flags.getByValSize(), std::max(16, (int)Flags.getByValAlign()),
-            false);
+            Flags.getByValSize(),
+            std::max(Align(16), Flags.getNonZeroByValAlign()), false);
         SDValue StackSlot =
             DAG.getFrameIndex(FrameIdx, getPointerTy(DAG.getDataLayout()));
         Chain =
@@ -6800,7 +6800,7 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
   unsigned MaskEltSize = VT.getScalarSizeInBits();
   SmallVector<uint64_t, 32> RawMask;
   APInt RawUndefs;
-  SDValue ImmN;
+  uint64_t ImmN;
 
   assert(Mask.empty() && "getTargetShuffleMask expects an empty Mask vector");
   assert(Ops.empty() && "getTargetShuffleMask expects an empty Ops vector");
@@ -6811,23 +6811,22 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
   case X86ISD::BLENDI:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodeBLENDMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(), Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodeBLENDMask(NumElems, ImmN, Mask);
     IsUnary = IsFakeUnary = N->getOperand(0) == N->getOperand(1);
     break;
   case X86ISD::SHUFP:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodeSHUFPMask(NumElems, MaskEltSize,
-                    cast<ConstantSDNode>(ImmN)->getZExtValue(), Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodeSHUFPMask(NumElems, MaskEltSize, ImmN, Mask);
     IsUnary = IsFakeUnary = N->getOperand(0) == N->getOperand(1);
     break;
   case X86ISD::INSERTPS:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodeINSERTPSMask(cast<ConstantSDNode>(ImmN)->getZExtValue(), Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodeINSERTPSMask(ImmN, Mask);
     IsUnary = IsFakeUnary = N->getOperand(0) == N->getOperand(1);
     break;
   case X86ISD::EXTRQI:
@@ -6879,9 +6878,8 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
     assert(VT.getScalarType() == MVT::i8 && "Byte vector expected");
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodePALIGNRMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(),
-                      Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodePALIGNRMask(NumElems, ImmN, Mask);
     IsUnary = IsFakeUnary = N->getOperand(0) == N->getOperand(1);
     Ops.push_back(N->getOperand(1));
     Ops.push_back(N->getOperand(0));
@@ -6889,39 +6887,34 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
   case X86ISD::VSHLDQ:
     assert(VT.getScalarType() == MVT::i8 && "Byte vector expected");
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodePSLLDQMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(),
-                     Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodePSLLDQMask(NumElems, ImmN, Mask);
     IsUnary = true;
     break;
   case X86ISD::VSRLDQ:
     assert(VT.getScalarType() == MVT::i8 && "Byte vector expected");
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodePSRLDQMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(),
-                     Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodePSRLDQMask(NumElems, ImmN, Mask);
     IsUnary = true;
     break;
   case X86ISD::PSHUFD:
   case X86ISD::VPERMILPI:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodePSHUFMask(NumElems, MaskEltSize,
-                    cast<ConstantSDNode>(ImmN)->getZExtValue(), Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodePSHUFMask(NumElems, MaskEltSize, ImmN, Mask);
     IsUnary = true;
     break;
   case X86ISD::PSHUFHW:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodePSHUFHWMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(),
-                      Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodePSHUFHWMask(NumElems, ImmN, Mask);
     IsUnary = true;
     break;
   case X86ISD::PSHUFLW:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodePSHUFLWMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(),
-                      Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodePSHUFLWMask(NumElems, ImmN, Mask);
     IsUnary = true;
     break;
   case X86ISD::VZEXT_MOVL:
@@ -6973,8 +6966,8 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
   }
   case X86ISD::VPERMI:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodeVPERMMask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(), Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodeVPERMMask(NumElems, ImmN, Mask);
     IsUnary = true;
     break;
   case X86ISD::MOVSS:
@@ -6991,17 +6984,15 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
   case X86ISD::VPERM2X128:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    DecodeVPERM2X128Mask(NumElems, cast<ConstantSDNode>(ImmN)->getZExtValue(),
-                         Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    DecodeVPERM2X128Mask(NumElems, ImmN, Mask);
     IsUnary = IsFakeUnary = N->getOperand(0) == N->getOperand(1);
     break;
   case X86ISD::SHUF128:
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
-    ImmN = N->getOperand(N->getNumOperands() - 1);
-    decodeVSHUF64x2FamilyMask(NumElems, MaskEltSize,
-                              cast<ConstantSDNode>(ImmN)->getZExtValue(), Mask);
+    ImmN = N->getConstantOperandVal(N->getNumOperands() - 1);
+    decodeVSHUF64x2FamilyMask(NumElems, MaskEltSize, ImmN, Mask);
     IsUnary = IsFakeUnary = N->getOperand(0) == N->getOperand(1);
     break;
   case X86ISD::MOVSLDUP:
@@ -23890,9 +23881,8 @@ static SDValue LowerVACOPY(SDValue Op, const X86Subtarget &Subtarget,
   const Value *SrcSV = cast<SrcValueSDNode>(Op.getOperand(4))->getValue();
   SDLoc DL(Op);
 
-  return DAG.getMemcpy(Chain, DL, DstPtr, SrcPtr,
-                       DAG.getIntPtrConstant(24, DL), 8, /*isVolatile*/false,
-                       false, false,
+  return DAG.getMemcpy(Chain, DL, DstPtr, SrcPtr, DAG.getIntPtrConstant(24, DL),
+                       Align(8), /*isVolatile*/ false, false, false,
                        MachinePointerInfo(DstSV), MachinePointerInfo(SrcSV));
 }
 
@@ -34224,6 +34214,28 @@ void X86TargetLowering::computeKnownBitsForTargetNode(const SDValue Op,
     Known.Zero &= Known2.Zero;
     break;
   }
+  case X86ISD::BEXTR: {
+    SDValue Op0 = Op.getOperand(0);
+    SDValue Op1 = Op.getOperand(1);
+
+    if (auto* Cst1 = dyn_cast<ConstantSDNode>(Op1)) {
+      unsigned Shift = Cst1->getAPIntValue().extractBitsAsZExtValue(8, 0);
+      unsigned Length = Cst1->getAPIntValue().extractBitsAsZExtValue(8, 8);
+
+      // If the length is 0, the result is 0.
+      if (Length == 0) {
+        Known.setAllZero();
+        break;
+      }
+
+      if ((Shift + Length) <= BitWidth) {
+        Known = DAG.computeKnownBits(Op0, Depth + 1);
+        Known = Known.extractBits(Length, Shift);
+        Known = Known.zextOrTrunc(BitWidth, true /* ExtBitsAreKnownZero */);
+      }
+    }
+    break;
+  }
   }
 
   // Handle target shuffles.
@@ -37804,6 +37816,11 @@ bool X86TargetLowering::SimplifyDemandedBitsForTargetNode(
     APInt DemandedMask(APInt::getLowBitsSet(BitWidth, 16));
     if (SimplifyDemandedBits(Op1, DemandedMask, Known1, TLO, Depth + 1))
       return true;
+
+    // If the length is 0, replace with 0.
+    KnownBits LengthBits = Known1.extractBits(8, 8);
+    if (LengthBits.isZero())
+      return TLO.CombineTo(Op, TLO.DAG.getConstant(0, SDLoc(Op), VT));
 
     break;
   }

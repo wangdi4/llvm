@@ -2835,7 +2835,7 @@ SDValue SITargetLowering::LowerCall(CallLoweringInfo &CLI,
         // FIXME: We can have better than the minimum byval required alignment.
         Alignment =
             Flags.isByVal()
-                ? MaybeAlign(Flags.getByValAlign())
+                ? Flags.getNonZeroByValAlign()
                 : commonAlignment(Subtarget->getStackAlignment(), Offset);
 
         Offset = Offset + FPDiff;
@@ -2862,11 +2862,12 @@ SDValue SITargetLowering::LowerCall(CallLoweringInfo &CLI,
       if (Outs[i].Flags.isByVal()) {
         SDValue SizeNode =
             DAG.getConstant(Outs[i].Flags.getByValSize(), DL, MVT::i32);
-        SDValue Cpy = DAG.getMemcpy(
-            Chain, DL, DstAddr, Arg, SizeNode, Outs[i].Flags.getByValAlign(),
-            /*isVol = */ false, /*AlwaysInline = */ true,
-            /*isTailCall = */ false, DstInfo,
-            MachinePointerInfo(AMDGPUAS::PRIVATE_ADDRESS));
+        SDValue Cpy =
+            DAG.getMemcpy(Chain, DL, DstAddr, Arg, SizeNode,
+                          Outs[i].Flags.getNonZeroByValAlign(),
+                          /*isVol = */ false, /*AlwaysInline = */ true,
+                          /*isTailCall = */ false, DstInfo,
+                          MachinePointerInfo(AMDGPUAS::PRIVATE_ADDRESS));
 
         MemOpChains.push_back(Cpy);
       } else {
@@ -5668,7 +5669,7 @@ SDValue SITargetLowering::lowerSBuffer(EVT VT, SDLoc DL, SDValue Rsrc,
 
   if (NumElts == 8 || NumElts == 16) {
     NumLoads = NumElts / 4;
-    LoadVT = MVT::v4i32;
+    LoadVT = MVT::getVectorVT(LoadVT.getScalarType(), 4);
   }
 
   SDVTList VTList = DAG.getVTList({LoadVT, MVT::Glue});
@@ -5694,7 +5695,7 @@ SDValue SITargetLowering::lowerSBuffer(EVT VT, SDLoc DL, SDValue Rsrc,
                                         LoadVT, MMO, DAG));
   }
 
-  if (VT == MVT::v8i32 || VT == MVT::v16i32)
+  if (NumElts == 8 || NumElts == 16)
     return DAG.getNode(ISD::CONCAT_VECTORS, DL, VT, Loads);
 
   return Loads[0];
@@ -10585,6 +10586,8 @@ SITargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
         return std::make_pair(RC->getRegister(Idx), RC);
     }
   }
+
+  // FIXME: Returns VS_32 for physical SGPR constraints
   return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
 }
 
