@@ -2290,22 +2290,22 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; KNL-NEXT:    korw %k1, %k2, %k1
 ; KNL-NEXT:    kandw %k1, %k0, %k0
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
-; KNL-NEXT:    kmovw %k1, %edi
-; KNL-NEXT:    kmovw %k0, %ecx
+; KNL-NEXT:    kmovw %k1, %ecx ;INTEL
+; KNL-NEXT:    kmovw %k0, %edi ;INTEL
 ; KNL-NEXT:    xorl %eax, %eax
-; KNL-NEXT:    testb $1, %cl
-; KNL-NEXT:    movl $0, %ecx
+; KNL-NEXT:    testb $1, %dil ;INTEL
+; KNL-NEXT:    movl $0, %edi ;INTEL
 ; KNL-NEXT:    je LBB85_2
 ; KNL-NEXT:  ## %bb.1:
-; KNL-NEXT:    movzwl (%rsi), %ecx
+; KNL-NEXT:    movzwl (%rsi), %edi ;INTEL
 ; KNL-NEXT:  LBB85_2:
-; KNL-NEXT:    testb $1, %dil
+; KNL-NEXT:    testb $1, %cl ;INTEL
 ; KNL-NEXT:    je LBB85_4
 ; KNL-NEXT:  ## %bb.3:
 ; KNL-NEXT:    movzwl 2(%rsi), %eax
 ; KNL-NEXT:  LBB85_4:
 ; KNL-NEXT:    movw %ax, 2(%rdx)
-; KNL-NEXT:    movw %cx, (%rdx)
+; KNL-NEXT:    movw %di, (%rdx) ;INTEL
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: test_concat_v2i1:
