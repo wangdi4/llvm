@@ -93,7 +93,7 @@ def int_csa_pipeline_loop_exit :
 def int_csa_pipelineable_loop_marker :
     Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
-// New scalar intrinsics
+// Scalar intrinsics
 def int_csa_clxmul8 : GCCBuiltin<"__builtin_csa_clxmul8">,
     Intrinsic<[llvm_i16_ty], [llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
 
@@ -114,6 +114,21 @@ def int_csa_rsqrt14f32: GCCBuiltin<"__builtin_csa_rsqrt14f32">,
 
 def int_csa_rsqrt14f64: GCCBuiltin<"__builtin_csa_rsqrt14f64">,
     Intrinsic<[llvm_double_ty], [llvm_double_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u1 : GCCBuiltin<"__builtin_csa_ternlog_u1">,
+    Intrinsic<[llvm_i1_ty], [llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u8 : GCCBuiltin<"__builtin_csa_ternlog_u8">,
+    Intrinsic<[llvm_i8_ty], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u16 : GCCBuiltin<"__builtin_csa_ternlog_u16">,
+    Intrinsic<[llvm_i16_ty], [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u32 : GCCBuiltin<"__builtin_csa_ternlog_u32">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u64 : GCCBuiltin<"__builtin_csa_ternlog_u64">,
+    Intrinsic<[llvm_i64_ty], [llvm_i64_ty, llvm_i64_ty, llvm_i64_ty, llvm_i8_ty], [IntrNoMem]>;
 
 // SIMD intrinsics (16x4).
 def int_csa_addf16x4 : GCCBuiltin<"__builtin_csa_addf16x4">,

@@ -1203,10 +1203,35 @@ defm SEXT : IntegerInst<"sext",
                         []>;
 
 // ternlog for 1, 8, 16, 32, and 64 bits.
-defm TERNLOG : BitwiseInst<"ternlog",
-                        (outs RC:$res), (ins RCL:$op1, RCL:$op2, RCL:$op3, i8imm:$tab),
-                        "$res, $op1, $op2, $op3, $tab",
-                        []>;
+def TERNLOG1 : FMTGEN<?, Ti1,
+    (outs I1:$res),
+    (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, i8imm:$tab),
+    "ternlog1\t$res, $op1, $op2, $op3, $tab",
+    [(set I1:$res, (int_csa_ternlog_u1 RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, imm:$tab))]>;
+
+def TERNLOG8: FMTGEN<?, Ti8,
+    (outs I8:$res),
+    (ins RCLi8:$op1, RCLi8:$op2, RCLi8:$op3, i8imm:$tab),
+    "ternlog8\t$res, $op1, $op2, $op3, $tab",
+    [(set I8:$res, (int_csa_ternlog_u8 RCLi8:$op1, RCLi8:$op2, RCLi8:$op3, imm:$tab))]>;
+
+def TERNLOG16 : FMTGEN<?, Ti16,
+    (outs I16:$res),
+    (ins RCLi16:$op1, RCLi16:$op2, RCLi16:$op3, i8imm:$tab),
+    "ternlog16\t$res, $op1, $op2, $op3, $tab",
+    [(set I16:$res, (int_csa_ternlog_u16 RCLi16:$op1, RCLi16:$op2, RCLi16:$op3, imm:$tab))]>;
+
+def TERNLOG32 : FMTGEN<?, Ti32,
+    (outs I32:$res),
+    (ins RCLi32:$op1, RCLi32:$op2, RCLi32:$op3, i8imm:$tab),
+    "ternlog32\t$res, $op1, $op2, $op3, $tab",
+    [(set I32:$res, (int_csa_ternlog_u32 RCLi32:$op1, RCLi32:$op2, RCLi32:$op3, imm:$tab))]>;
+
+def TERNLOG64 : FMTGEN<?, Ti64,
+    (outs I64:$res),
+    (ins RCLi64:$op1, RCLi64:$op2, RCLi64:$op3, i8imm:$tab),
+    "ternlog64\t$res, $op1, $op2, $op3, $tab",
+    [(set I64:$res, (int_csa_ternlog_u64 RCLi64:$op1, RCLi64:$op2, RCLi64:$op3, imm:$tab))]>;
 
 // test for 8, 16, 32, and 64 bits.
 defm TEST : IntegerInst<"test",

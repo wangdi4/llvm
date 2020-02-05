@@ -1201,50 +1201,50 @@ static __inline__ unsigned short _cvtss_sh(float a, const int rounding)
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written
    to the corresponding bit in the output. */
 #define _ternlog_u1(A, B, C, IMM8) \
-  ((unsigned char)(__builtin_ternlog_u1((unsigned char)(A), \
-                                        (unsigned char)(B), \
-                                        (unsigned char)(C), \
-                                        (IMM8))))
+  ((unsigned char)(__builtin_csa_ternlog_u1((unsigned char)(A), \
+                                            (unsigned char)(B), \
+                                            (unsigned char)(C), \
+                                            (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u8(A, B, C, IMM8) \
-  ((unsigned char)(__builtin_ternlog_u8((unsigned char)(A), \
-                                        (unsigned char)(B), \
-                                        (unsigned char)(C), \
-                                        (IMM8))))
+  ((unsigned char)(__builtin_csa_ternlog_u8((unsigned char)(A), \
+                                            (unsigned char)(B), \
+                                            (unsigned char)(C), \
+                                            (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u16(A, B, C, IMM8) \
-  ((unsigned short)(__builtin_ternlog_u16((unsigned short)(A), \
-                                          (unsigned short)(B), \
-                                          (unsigned short)(C), \
-                                          (IMM8))))
+  ((unsigned short)(__builtin_csa_ternlog_u16((unsigned short)(A), \
+                                              (unsigned short)(B), \
+                                              (unsigned short)(C), \
+                                              (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u32(A, B, C, IMM8) \
-  ((unsigned int)(__builtin_ternlog_u32((unsigned int)(A), \
-                                        (unsigned int)(B), \
-                                        (unsigned int)(C), \
-                                        (IMM8))))
+  ((unsigned int)(__builtin_csa_ternlog_u32((unsigned int)(A), \
+                                            (unsigned int)(B), \
+                                            (unsigned int)(C), \
+                                            (IMM8))))
 
 /* Bitwise ternary logic that provides the capability to implement any three-operand binary function;
    the specific binary function is specified by the value in imm8. For each bit, the corresponding bits
    from a, b, and c are used to form a 3-bit index into imm8, and the value at that bit is written to
    the corresponding bit in the output. */
 #define _ternlog_u64(A, B, C, IMM8) \
-  ((unsigned __int64)(__builtin_ternlog_u64((unsigned __int64)(A), \
-                                            (unsigned __int64)(B), \
-                                            (unsigned __int64)(C), \
-                                            (IMM8))))
+  ((unsigned __int64)(__builtin_csa_ternlog_u64((unsigned __int64)(A), \
+                                                (unsigned __int64)(B), \
+                                                (unsigned __int64)(C), \
+                                                (IMM8))))
 
 #endif /* __CSA__ */
 

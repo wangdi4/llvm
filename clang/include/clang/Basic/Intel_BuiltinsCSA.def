@@ -107,6 +107,11 @@ BUILTIN(__builtin_csa_rcp14f32,    "ff",                 "nc")
 BUILTIN(__builtin_csa_rcp14f64,    "dd",                 "nc")
 BUILTIN(__builtin_csa_rsqrt14f32,  "ff",                 "nc")
 BUILTIN(__builtin_csa_rsqrt14f64,  "dd",                 "nc")
+BUILTIN(__builtin_csa_ternlog_u1,  "bbbbUc",             "nc")
+BUILTIN(__builtin_csa_ternlog_u8,  "UcUcUcUcUc",         "nc")
+BUILTIN(__builtin_csa_ternlog_u16, "UsUsUsUsUc",         "nc")
+BUILTIN(__builtin_csa_ternlog_u32, "UiUiUiUiUc",         "nc")
+BUILTIN(__builtin_csa_ternlog_u64, "LLiLLiLLiLLiUc",     "nc")
 
 // LIC Queues Builtins
 BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
