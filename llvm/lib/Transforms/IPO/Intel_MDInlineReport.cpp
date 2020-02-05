@@ -468,16 +468,10 @@ cloneInliningReportHelper(LLVMContext &C, Metadata *OldMD,
     unsigned LineNum = 0, ColNum = 0;
     OldRep.getLineAndCol(&LineNum, &ColNum);
     CallSiteInliningReport *NewRep = new CallSiteInliningReport(
-<<<<<<< HEAD
-        &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false, -1,
-        -1, -1, INT_MAX, INT_MAX, LineNum, ColNum,
-        std::string(OldRep.getModuleName()));
-=======
-        &C, OldRep.getName(), nullptr, NinlrNoReason, false,
+        &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false,
         OldRep.getSuppressPrint(),
         -1, -1, -1,
-        INT_MAX, INT_MAX, LineNum, ColNum, OldRep.getModuleName());
->>>>>>> 1d5f4f3bdbc0cb7cd8c4e60a9423bfedcf2428bd
+        INT_MAX, INT_MAX, LineNum, ColNum, std::string(OldRep.getModuleName()));
     NewMD = NewRep->get();
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;

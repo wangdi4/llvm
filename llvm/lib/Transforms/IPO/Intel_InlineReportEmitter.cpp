@@ -315,15 +315,10 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
            "isDeclaration: ", &IsDecl);
   if (IsDecl)
     return;
-<<<<<<< HEAD
   llvm::errs() << "COMPILE FUNC: ";
   std::string Name =
       std::string(getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: "));
-=======
 
-  std::string Name = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
-  llvm::errs() << "COMPILE FUNC: ";
->>>>>>> 1d5f4f3bdbc0cb7cd8c4e60a9423bfedcf2428bd
   // Update linkage last time before printing.
   if (Function *F = M.getFunction(Name)) {
     std::string Linkage = llvm::getLinkageStr(F);
