@@ -1139,11 +1139,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
         if (const Argument *A = dyn_cast<Argument>(V)) {
-<<<<<<< HEAD
           if (NewScopes.count(A) == 0) // INTEL
-=======
-          if (!CS.paramHasAttr(A->getArgNo(), Attribute::NoAlias))
->>>>>>> 342357c5687efcb6bf8191684212507226085317
             UsesAliasingPtr = true;
         } else {
           UsesAliasingPtr = true;
