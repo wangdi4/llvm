@@ -120,12 +120,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:       Vlad Romanov
         * Date:         January 2016
         ******************************************************************************************/
-        cl_err_code ParseSpirv(const char*    szProgramBinary,
-                               unsigned int   uiProgramBinarySize,
-                               const char*    szOptions,
-                               OUT char**     ppBinary,
-                               OUT size_t*    puiBinarySize,
-                               OUT char**     pszCompileLog) const;
+        cl_err_code ParseSpirv(const char*     szProgramBinary,
+                               unsigned int    uiProgramBinarySize,
+                               const char*     szOptions,
+                               size_t          uiSpecConstCount,
+                               const uint32_t* puiSpecConstIds,
+                               const uint64_t* pszSpecConstValues,
+                               OUT char**      ppBinary,
+                               OUT size_t*     puiBinarySize,
+                               OUT char**      pszCompileLog) const;
 
         /******************************************************************************************
         * Function:     MaterializeSPIR
@@ -222,6 +225,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Date:         March 2008
         ******************************************************************************************/
         const char * GetModuleName() const { return m_pszModuleName; }
+
+        /******************************************************************************************
+        * Function:     GetSpecConstInfo
+        * Description:  Get information about specialization constants in the program.
+        * Arguments:    szProgramBinary - the program binary in SPIR-V format
+        *               uiProgramSize - size of the binary
+        * Output:       SpecConstInfo - id of constants available for specialization
+        *               and their size in bytes
+        * Author:       Alexey Sotkin
+        * Date:         January 2020
+        ******************************************************************************************/
+        using SpecConstInfoTy = std::pair<uint32_t, uint32_t>;
+        void GetSpecConstInfo(const char* szProgramBinary,
+                              size_t uiProgramSize,
+                              std::vector<SpecConstInfoTy>& SpecConstInfo) const;
 
         //OclObject implementation
         cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const {return CL_INVALID_OPERATION; }

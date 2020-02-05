@@ -25,8 +25,10 @@
 #include <llvm/IR/Verifier.h>
 #if OPENCL_INTREE_BUILD
 #include <LLVMSPIRVLib.h> // llvm::ReadSPIRV
+#include <LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
 #else
 #include <LLVMSPIRVLib/LLVMSPIRVLib.h> // llvm::ReadSPIRV
+#include <LLVMSPIRVLib/LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
 #endif
 #include <llvm/Support/SwapByteOrder.h>
 #include <spirv/1.1/spirv.hpp> // spv::MagicNumber, spv::Version
@@ -234,7 +236,15 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-  bool success = llvm::readSpirv(*context, inputStream, pModule, errorMsg);
+
+  SPIRV::TranslatorOpts opts;
+  opts.enableAllExtensions();
+  for (size_t i = 0; i < m_pProgDesc->uiSpecConstCount; ++i) {
+    opts.setSpecConst(m_pProgDesc->puiSpecConstIds[i],
+                      m_pProgDesc->puiSpecConstValues[i]);
+  }
+
+  bool success = llvm::readSpirv(*context, opts, inputStream, pModule, errorMsg);
 
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
@@ -264,3 +274,39 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   return success ? CL_SUCCESS : CL_INVALID_PROGRAM;
 }
+
+// We would like to avoid copying the SPIR-V module from
+// FESPIRVProgramDescriptor to the std::istream (or its underlying buffer)
+// object. Normally we would do it in the following way:
+// std::stringbuf buf;
+// buf.pubsetbuf(pSPIRVData, uiSPIRVSize);
+// std::istream SPIRVStream(&buf);
+// While it works fine on Linux, on Windows std::stringbuf::pubsetbuf() does
+// nothing! Admittedly, according to the C++ specification, the effect of this
+// method is "Implementation defined".
+// To workaround this flaw, we initialize std::istream with a struct derived
+// from std::stringbuf. In constructior of this struct we set the buffer
+// without copying by calling setg() - a protected method of std::streambuf.
+struct strbuf : public std::stringbuf {
+  strbuf(char *buffer, std::streamsize size) {
+    this->setg(buffer, buffer, buffer + size);
+  }
+};
+
+void ClangFECompilerParseSPIRVTask::getSpecConstInfo(
+     IOCLFESpecConstInfo** pSpecConstInfo) {
+  if (!pSpecConstInfo) {
+    return;
+  }
+  auto pResult = std::make_unique<OCLFESpecConstInfo>();
+
+  char *pSPIRVData =
+    static_cast<char *>(const_cast<void *>(m_pProgDesc->pSPIRVContainer));
+  size_t uiSPIRVSize = m_pProgDesc->uiSPIRVContainerSize;
+  strbuf SPIRVbuffer(pSPIRVData, uiSPIRVSize);
+  std::istream SPIRVStream(&SPIRVbuffer);
+
+  llvm::getSpecConstInfo(SPIRVStream, pResult->getRef());
+  *pSpecConstInfo = pResult.release();
+}
+

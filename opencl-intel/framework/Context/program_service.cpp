@@ -164,6 +164,9 @@ bool CompileTask::Execute()
             m_pFECompiler->ParseSpirv(szSource,
                                       binarySize,
                                       m_sOptions.c_str(),
+                                      pIL->GetSpecConstCount(),
+                                      pIL->GetSpecConstIds(),
+                                      pIL->GetSpecConstValues(),
                                       pOutBinary.getOutPtr(),
                                       &uiOutBinarySize,
                                       szOutCompileLog.getOutPtr());
@@ -1717,3 +1720,35 @@ void CreateAutorunKernelsTask::Cancel()
 CreateAutorunKernelsTask::~CreateAutorunKernelsTask()
 {
 }
+
+cl_err_code ProgramService::SetSpecializationConstant(const SharedPtr<Program>& pProgram,
+                                                      cl_uint uiSpecId,
+                                                      size_t szSpecSize,
+                                                      const void* pSpecValue)
+{
+    SharedPtr<ProgramWithIL> pIL = pProgram.DynamicCast<ProgramWithIL>();
+    // Retrieve information about specialization constants from IL/SPIRV
+    // just once and cache it the ProgramWithIL object.
+    if (!pIL->IsSpecConstInfoCached()) {
+        // We need a frontend compiler to read SPIR-V. The program is
+        // associated with one or more devices. Each device in turn is
+        // associated with a frontend compiler.
+        // In the current implementaion we have single frontend compiler for
+        // all supported devices. So we can pick any device returned by
+        // GetProgramsForAllDevices().
+        auto& AllDevPrograms = pProgram->GetProgramsForAllDevices();
+        assert(!AllDevPrograms.empty() &&
+               "No device program is associated with the program");
+        unique_ptr<DeviceProgram>& pDevProgram = AllDevPrograms[0];
+        SharedPtr<Device> pDevice = pDevProgram->GetDevice()->GetRootDevice();
+        assert(pDevice && "No device is associated with the device program");
+        SharedPtr<FrontEndCompiler> pFECompiler = pDevice->GetFrontEndCompiler();
+        assert(pFECompiler && "No FE compiler is associated with the device");
+        pFECompiler->GetSpecConstInfo(pIL->GetSourceInternal(),
+                                      pIL->GetSize(),
+                                      pIL->GetSpecConstInfoRef());
+        pIL->SpecConstInfoIsCached();
+    }
+    return pIL->AddSpecConst(uiSpecId, szSpecSize, pSpecValue);
+}
+
