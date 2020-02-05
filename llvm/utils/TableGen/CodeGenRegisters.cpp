@@ -1803,6 +1803,25 @@ static bool isRegUnitSubSet(const std::vector<unsigned> &RUSubSet,
                        RUSubSet.begin(), RUSubSet.end());
 }
 
+#if INTEL_CUSTOMIZATION
+// Don't allow VK* to be merged with VK*WM. The K0 register isn't usable in a
+// lot of places. So keeping the VK*WM around as a pressure set is more
+// accurate. It would be great if we had some way to opt out of merging.
+static bool isX86MaskRegisterMerge(StringRef SupersetName,
+                                   StringRef SubsetName) {
+  if (!(SupersetName == "VK1" || SupersetName == "VK2" ||
+        SupersetName == "VK4" || SupersetName == "VK8" ||
+        SupersetName == "VK16" || SupersetName == "VK32" ||
+        SupersetName == "VK64"))
+    return false;
+
+  return (SubsetName == "VK1WM" || SubsetName == "VK2WM" ||
+          SubsetName == "VK4WM" || SubsetName == "VK8WM" ||
+          SubsetName == "VK16WM" || SubsetName == "VK32WM" ||
+          SubsetName == "VK64WM");
+}
+#endif
+
 /// Iteratively prune unit sets. Prune subsets that are close to the superset,
 /// but with one or two registers removed. We occasionally have registers like
 /// APSR and PC thrown in with the general registers. We also see many
@@ -1838,7 +1857,10 @@ void CodeGenRegBank::pruneUnitSets() {
       if (isRegUnitSubSet(SubSet.Units, SuperSet.Units)
           && (SubSet.Units.size() + 3 > SuperSet.Units.size())
           && UnitWeight == RegUnits[SuperSet.Units[0]].Weight
-          && UnitWeight == RegUnits[SuperSet.Units.back()].Weight) {
+#if INTEL_CUSTOMIZATION
+          && UnitWeight == RegUnits[SuperSet.Units.back()].Weight
+          && !isX86MaskRegisterMerge(SuperSet.Name, SubSet.Name)) {
+#endif // INTEL_CUSTOMIZATION
         LLVM_DEBUG(dbgs() << "UnitSet " << SubIdx << " subsumed by " << SuperIdx
                           << "\n");
         // We can pick any of the set names for the merged set. Go for the
