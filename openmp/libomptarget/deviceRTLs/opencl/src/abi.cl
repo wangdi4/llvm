@@ -148,11 +148,11 @@ kernel void __kmpc_init_program(global void *data) {
 
 // Requires correctly initialized "*name" (=0).
 EXTERN void __kmpc_critical(kmp_critical_name *name) {
-  __kmp_acquire_lock((__global int *)name);
+  __kmp_acquire_lock((int *)name);
 }
 
 EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
-  __kmp_release_lock((__global int *)name);
+  __kmp_release_lock((int *)name);
 }
 
 
