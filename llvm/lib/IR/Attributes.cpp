@@ -1863,6 +1863,7 @@ adjustNullPointerValidAttr(Function &Caller, const Function &Callee) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// If the inlined function has "contains-rec-pro-clone" attribute,
 /// set this attribute in the caller post inlining.
@@ -1916,8 +1917,10 @@ struct StrBoolAttr {
   };
 #include "llvm/IR/Attributes.inc"
 
+=======
+>>>>>>> 89d3b070c1ee305fc6e1f397ef64c0b7a8f2f83d
 #define GET_ATTR_COMPAT_FUNC
-#include "llvm/IR/Attributes.inc"
+#include "AttributesCompatFunc.inc"
 
 bool AttributeFuncs::areInlineCompatible(const Function &Caller,
                                          const Function &Callee) {
