@@ -445,8 +445,7 @@ bool RegDDRef::canCreateLocationGEP() const {
     return false;
   }
 
-  // getIndexedType requires element type.
-  BaseTy = BaseTy->getPointerElementType();
+  SmallVector<uint64_t, 8> IdxList;
 
   for (unsigned I = getNumDimensions(); I > 0; --I) {
     auto *LowerCE = getDimensionLower(I);
@@ -471,19 +470,21 @@ bool RegDDRef::canCreateLocationGEP() const {
       return false;
     }
 
-    SmallVector<uint64_t, 4> IdxList;
     // Array index value doesn't matter for index type validation.
     IdxList.push_back(0);
 
     for (auto StructOffset : getTrailingStructOffsets(I)) {
       IdxList.push_back(StructOffset);
     }
+  }
 
-    // Check if the indexing is valid. It may be invalid for refs fromed from
-    // fortran subscript intrinsics.
-    if (!(BaseTy = GetElementPtrInst::getIndexedType(BaseTy, IdxList))) {
-      return false;
-    }
+  // getIndexedType requires element type.
+  BaseTy = BaseTy->getPointerElementType();
+
+  // Check if the indexing is valid. It may be invalid for refs fromed from
+  // fortran subscript intrinsics.
+  if (!GetElementPtrInst::getIndexedType(BaseTy, IdxList)) {
+    return false;
   }
 
   return true;

@@ -2,7 +2,7 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-locality-analysis -hir-spatial-locality -debug-only=hir-locality-analysis -hir-details-refs 2>&1 | FileCheck %s
 
-; Verify that the two refs (%ptr)[i1+1] and (%ptr)[i1+2] are put into different
+; Verify that the two refs (%ptr)[i1] and (%ptr)[i1+1] are put into different
 ; spatial groups because of unknown stride.
 
 ; TODO: This test helps to verify that the two refs do not have a (literal)
@@ -10,9 +10,9 @@
 ; Locality analysis should use heuristics in the absence of such information.
 
 ; CHECK: Group 0 contains:
-; CHECK:        (%ptr)[1:i1 + 1:%stride(i32*:0)] {sb:13}
+; CHECK:        (%ptr)[0:i1:%stride(i32*:0)] {sb:13}
 ; CHECK: Group 1 contains:
-; CHECK:        (%ptr)[1:i1 + 2:%stride(i32*:0)] {sb:13}
+; CHECK:        (%ptr)[0:i1 + 1:%stride(i32*:0)] {sb:13}
 
 
 define void @func(i32* %ptr, i64 %stride, i64 %t) {

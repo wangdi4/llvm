@@ -3714,6 +3714,14 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         StructOffsets = Arr.offsets();
       }
 
+      // If lower can be merged into index, do it. This will make HIR generated
+      // for Fortran and C/C++ test cases similar and make it easier to perform
+      // idiom recognition.
+      if (!LowerCE->isZero() && CanonExprUtils::canSubtract(IndexCE, LowerCE)) {
+        CanonExprUtils::subtract(IndexCE, LowerCE);
+        LowerCE->clear();
+      }
+
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
                                Dim.getType());
     }
