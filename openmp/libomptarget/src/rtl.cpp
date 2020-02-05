@@ -129,12 +129,12 @@ void RTLsTy::LoadRTLs() {
   }
 
   for (auto *Name : RTLChecked) {
-#else // !INTEL_COLLAB
+#else // INTEL_COLLAB
 
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
   for (auto *Name : RTLNames) {
-#endif // !INTEL_COLLAB
+#endif // INTEL_COLLAB
     DP("Loading library '%s'...\n", Name);
     void *dynlib_handle = dlopen(Name, RTLD_NOW);
 

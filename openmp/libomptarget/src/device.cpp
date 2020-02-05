@@ -195,11 +195,13 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 #if INTEL_COLLAB
     if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
         !HasCloseModifier && is_managed_data(HstPtrBegin)) {
-#else
-    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
-#endif // INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#else
+    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
+      DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
+         DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#endif // INTEL_COLLAB
       IsHostPtr = true;
       rc = HstPtrBegin;
     } else {
@@ -356,9 +358,9 @@ int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
   int32_t ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   omptTrace.targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   return ret;
-#else // !INTEL_COLLAB
+#else // INTEL_COLLAB
   return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
-#endif // !INTEL_COLLAB
+#endif // INTEL_COLLAB
 }
 
 // Retrieve data from device.
@@ -369,9 +371,9 @@ int32_t DeviceTy::data_retrieve(void *HstPtrBegin, void *TgtPtrBegin,
   int32_t ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   omptTrace.targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   return ret;
-#else // !INTEL_COLLAB
+#else // INTEL_COLLAB
   return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
-#endif // !INTEL_COLLAB
+#endif // INTEL_COLLAB
 }
 
 // Run region on device
@@ -383,10 +385,10 @@ int32_t DeviceTy::run_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize);
   omptTrace.targetSubmitEnd(RTLDeviceID, 1);
   return ret;
-#else // !INTEL_COLLAB
+#else // INTEL_COLLAB
   return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
       TgtVarsSize);
-#endif // !INTEL_COLLAB
+#endif // INTEL_COLLAB
 }
 
 // Run team region on device.
@@ -400,10 +402,10 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ThreadLimit, LoopTripCount);
   omptTrace.targetSubmitEnd(RTLDeviceID, NumTeams);
   return ret;
-#else // !INTEL_COLLAB
+#else // INTEL_COLLAB
   return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
       TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
-#endif // !INTEL_COLLAB
+#endif // INTEL_COLLAB
 }
 
 #if INTEL_COLLAB
