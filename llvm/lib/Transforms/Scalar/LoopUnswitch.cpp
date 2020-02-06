@@ -891,7 +891,6 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
   return nullptr;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool isLoopHandledByLoopOpt(Loop *Lp, unsigned SizeThreshold) {
 
@@ -985,9 +984,6 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
 }
 #endif // INTEL CUSTOMIZATION
 /// We have found that we can unswitch currentLoop when LoopCond == Val to
-=======
-/// We have found that we can unswitch CurrentLoop when LoopCond == Val to
->>>>>>> 1c03cc5a39f7088551151c5c6c64d58819c89369
 /// simplify the loop.  If we decide that this is profitable,
 /// unswitch the loop, reprocess the pieces, then return true.
 bool LoopUnswitch::unswitchIfProfitable(Value *LoopCond, Constant *Val,
@@ -1011,21 +1007,17 @@ bool LoopUnswitch::unswitchIfProfitable(Value *LoopCond, Constant *Val,
     return false;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  if (mayAffectPerfectLoopnest(LI, currentLoop, TI)) {
+  if (mayAffectPerfectLoopnest(LI, CurrentLoop, TI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
-                      << currentLoop->getHeader()->getName()
+                      << CurrentLoop->getHeader()->getName()
                       << " at non-trivial condition '" << *Val
                       << "' == " << *LoopCond << "\n"
                       << ". Unswitching deferred to loopopt.\n");
     return false;
   }
 #endif // INTEL CUSTOMIZATION
-  UnswitchNontrivialCondition(LoopCond, Val, currentLoop, TI);
-=======
   unswitchNontrivialCondition(LoopCond, Val, CurrentLoop, TI);
->>>>>>> 1c03cc5a39f7088551151c5c6c64d58819c89369
   return true;
 }
 
@@ -1434,17 +1426,12 @@ void LoopUnswitch::unswitchNontrivialCondition(Value *LIC, Constant *Val,
     ParentLoop->addBasicBlockToLoop(NewBlocks[0], *LI);
   }
 
-<<<<<<< HEAD
   LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,           // INTEL
                                 "Loop has been unswitched via %s", // INTEL
                                 LIC->getName());                   // INTEL
 
-  for (unsigned i = 0, e = ExitBlocks.size(); i != e; ++i) {
-    BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[i]]);
-=======
   for (unsigned EBI = 0, EBE = ExitBlocks.size(); EBI != EBE; ++EBI) {
     BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[EBI]]);
->>>>>>> 1c03cc5a39f7088551151c5c6c64d58819c89369
     // The new exit block should be in the same loop as the old one.
     if (Loop *ExitBBLoop = LI->getLoopFor(ExitBlocks[EBI]))
       ExitBBLoop->addBasicBlockToLoop(NewExit, *LI);
