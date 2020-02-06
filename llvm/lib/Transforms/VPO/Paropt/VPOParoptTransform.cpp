@@ -2288,10 +2288,20 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
   Value *NewAI = RedI->getNew();
   // NewAI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(NewAI) &&
-         "genReductionFini: Expect non-empty optionally casted "
-         "alloca instruction.");
-  Type *AllocaTy =
-      GeneralUtils::getOMPItemLocalVARPointerType(NewAI)->getElementType();
+         "genReductionFini: Expect isOMPItemLocalVAR().");
+  Type *AllocaTy;
+  Value *NumElements;
+  std::tie(AllocaTy, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(NewAI);
+  assert(AllocaTy && "genReductionFini: item type cannot be deduced.");
+  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
+
+  // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
+  //       will specify the array size. Right now, VLA reductions are
+  //       treated as scalar reductions. We either need to support NumElements
+  //       below or ask FE to represent all array reductions (including VLAs)
+  //       with array sections (which would have an explicit number of elements
+  //       specified).
 
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
@@ -2499,9 +2509,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   auto *NewV = FprivI->getNew();
   auto *OldV = FprivI->getOrig();
   // NewV is either AllocaInst, GEP, or an AddrSpaceCastInst of AllocaInst.
-  assert((GeneralUtils::isOMPItemLocalVAR(NewV) ||
-          isa<GetElementPtrInst>(FprivI->getNew())) &&
-         "genFprivInit: Expect valid memory pointer instruction");
+  assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
+         "genFprivInit: Expect isOMPItemLocalVAR().");
 #if INTEL_CUSTOMIZATION
   if (FprivI->getIsF90DopeVector()) {
     if (FprivI->getIsByRef())
@@ -2534,8 +2543,7 @@ void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
   // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
-         "genLprivFini: Expect non-empty optionally casted "
-         "alloca instruction.");
+         "genLprivFini: Expect isOMPItemLocalVAR().");
   // todo: copy constructor call needed?
   VPOParoptUtils::genCopyByAddr(OldV, NewV,
                                 InsertPt->getParent()->getTerminator());
@@ -2981,10 +2989,21 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   Value *AI = RedI->getNew();
   // AI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genReductionInit: Expect non-empty optionally casted "
-         "alloca instruction.");
-  Type *AllocaTy =
-      GeneralUtils::getOMPItemLocalVARPointerType(AI)->getElementType();
+         "genReductionInit: Expect isOMPItemLocalVAR().");
+  Type *AllocaTy;
+  Value *NumElements;
+  std::tie(AllocaTy, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
+  assert(AllocaTy && "genReductionInit: item type cannot be deduced.");
+  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
+
+  // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
+  //       will specify the array size. Right now, VLA reductions are
+  //       treated as scalar reductions. We either need to support NumElements
+  //       below or ask FE to represent all array reductions (including VLAs)
+  //       with array sections (which would have an explicit number of elements
+  //       specified).
+
   Type *ScalarTy = AllocaTy->getScalarType();
 
 #if INTEL_CUSTOMIZATION
@@ -3545,51 +3564,25 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
   ElementType = nullptr;
   NumElements = nullptr;
 
-  if (AllocaInst *AI = dyn_cast<AllocaInst>(OrigValue)) {
-    ElementType = AI->getAllocatedType();
-    AddrSpace = AI->getType()->getAddressSpace();
-    if (AI->isArrayAllocation())
-      NumElements = AI->getArraySize();
-
+  if (GeneralUtils::isOMPItemGlobalVAR(OrigValue)) {
+    ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
+    AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
     return;
   }
 
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(OrigValue)) {
-    ElementType = GV->getValueType();
-    AddrSpace = GV->getAddressSpace();
-    return;
-  }
+  assert(GeneralUtils::isOMPItemLocalVAR(OrigValue) &&
+         "getItemInfoFromValue: Expect isOMPItemLocalVAR().");
 
-#if INTEL_CUSTOMIZATION
-       // Call can feed OrigValue.  Was encountered in miniqmc
-       //
-       // Below is an encounter of OrigValue %287
-       //
-       // #pragma omp target map(to : i)
-       // {
-       //    einsplines_ptr[i]        = tile_ptr;
-       //    einsplines_ptr[i]->coefs = coefs_ptr;
-       //  }
-       //
-       // %287 = call %struct.multi_UBspline_3d_d**
-       //        @llvm.intel.fakeload.p0p0s_struct.multi_UBspline_3d_ds
-       //       (%struct.multi_UBspline_3d_d** %arrayidx.i37, metadata !176) #9
-       // ....
-       // %293 = call token @llvm.directive.region.entry() [
-       //        "DIR.OMP.TARGET.ENTER.DATA"(), "QUAL.OMP.MAP.TO:AGGRHEAD"(
-       //        %struct.multi_UBspline_3d_d** %287, %struct.multi_UBspline_3d_d**
-       //        %287, i64 8), "QUAL.OMP.MAP.TO:AGGR"(%struct.multi_UBspline_3d_d**
-       //        %287, %struct.multi_UBspline_3d_d* %292, i64 248) ]
-#endif // INTEL_CUSTOMIZATION
+  std::tie(ElementType, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue);
+  assert(ElementType && "getItemInfoFromValue: item type cannot be deduced.");
 
-  assert(
-      (isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
-       isa<LoadInst>(OrigValue) || isa<BitCastInst>(OrigValue) ||
-       GeneralUtils::isOMPItemLocalVAR(OrigValue) ||
-       isa<CallInst>(OrigValue)) &&
-      "unsupported input Value");
+  if (auto *ConstNumElements = dyn_cast<Constant>(NumElements))
+    if (ConstNumElements->isOneValue())
+      NumElements = nullptr;
 
-  ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
+  ElementType = cast<PointerType>(ElementType)->getElementType();
+  // The final addresspace is inherited from the clause's item.
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
 
@@ -4487,8 +4480,7 @@ Value *VPOParoptTransform::genRegionPrivateValue(
     WRegionNode *W, Value *V, bool IsFirstPrivate) {
   // V is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(V) &&
-         "genRegionPrivateValue: Expect non-empty optionally casted "
-         "alloca instruction.");
+         "genRegionPrivateValue: Expect isOMPItemLocalVAR().");
 
   // Create a fake firstprivate item referencing the original alloca.
   FirstprivateItem FprivI(V);
@@ -4772,8 +4764,7 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
     bool PromoteToReg = P.second;
 
     // V is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-    assert(GeneralUtils::isOMPItemLocalVAR(V) &&
-           "Expect optionally casted alloca instruction for omp_iv or omp_ub.");
+    assert(GeneralUtils::isOMPItemLocalVAR(V) && "Expect isOMPItemLocalVAR().");
 
     for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
       if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
@@ -4901,8 +4892,7 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 
     for (auto V : LoopEssentialValues) {
       assert(GeneralUtils::isOMPItemLocalVAR(V) &&
-             "Expect optionally casted alloca instruction "
-             "for omp_iv or omp_ub.");
+             "Expect isOMPItemLocalVAR().");
       for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
         if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
           LdInst->setVolatile(true);
@@ -5157,12 +5147,8 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) ||
-          (isa<Argument>(Orig) && isa<PointerType>(Orig->getType())) ||
-          GeneralUtils::isOMPItemLocalVAR(Orig) ||
-          isa<GetElementPtrInst>(Orig) || isa<BitCastInst>(Orig) ||
-          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig))) ||
-          (isa<LoadInst>(Orig) && isa<PointerType>(Orig->getType()))) {
+      if (GeneralUtils::isOMPItemGlobalVAR(Orig) ||
+          GeneralUtils::isOMPItemLocalVAR(Orig)) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
