@@ -90,16 +90,16 @@ INLINE int __kmp_get_num_workers() {
 
 /// Lock builtins which are not widened (considered
 /// uniform) by the device compiler(s).
-EXTERN void __builtin_IB_kmp_acquire_lock(__global int *);
-EXTERN void __builtin_IB_kmp_release_lock(__global int *);
+EXTERN void __builtin_IB_kmp_acquire_lock(int *);
+EXTERN void __builtin_IB_kmp_release_lock(int *);
 
 /// Acquire lock
-INLINE void __kmp_acquire_lock(__global int *lock) {
+INLINE void __kmp_acquire_lock(int *lock) {
   __builtin_IB_kmp_acquire_lock(lock);
 }
 
 /// Release lock
-INLINE void __kmp_release_lock(__global int *lock) {
+INLINE void __kmp_release_lock(int *lock) {
   __builtin_IB_kmp_release_lock(lock);
 }
 
