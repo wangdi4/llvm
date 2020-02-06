@@ -13,3 +13,8 @@
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
 
 ; XFAIL: *
+; INTEL_CUSTOMIZATION
+; Force fail to avoid unexpected passes.
+; See CORC-7259
+; CHECK: Force fail
+; end INTEL_CUSTOMIZATION
