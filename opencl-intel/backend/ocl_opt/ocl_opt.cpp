@@ -29,10 +29,10 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LLVMRemarkStreamer.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/RemarkStreamer.h"
 #include "llvm/Remarks/YAMLRemarkSerializer.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
@@ -524,7 +524,7 @@ int main(int argc, char **argv) {
       errs() << EC.message() << '\n';
       return 1;
     }
-    Context.setRemarkStreamer(std::make_unique<RemarkStreamer>(
+    Context.setMainRemarkStreamer(std::make_unique<remarks::RemarkStreamer>(
         std::make_unique<remarks::YAMLRemarkSerializer>(
           OptRemarkFile->os(), remarks::SerializerMode::Separate),
         StringRef(RemarksFilename)));
