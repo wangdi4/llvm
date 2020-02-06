@@ -535,7 +535,9 @@ struct DevirtModule {
 
   bool areRemarksEnabled();
 
-  void scanTypeTestUsers(Function *TypeTestFunc);
+  void
+  scanTypeTestUsers(Function *TypeTestFunc,
+                    DenseMap<Metadata *, std::set<TypeMemberInfo>> &TypeIdMap);
   void scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc);
 
   void buildTypeIdentifierMap(
@@ -2577,7 +2579,9 @@ bool DevirtModule::areRemarksEnabled() {
   return false;
 }
 
-void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc) {
+void DevirtModule::scanTypeTestUsers(
+    Function *TypeTestFunc,
+    DenseMap<Metadata *, std::set<TypeMemberInfo>> &TypeIdMap) {
   // Find all virtual calls via a virtual table pointer %p under an assumption
   // of the form llvm.assume(llvm.type.test(%p, %md)). This indicates that %p
   // points to a member of the type identifier %md. Group calls by (type ID,
@@ -2597,10 +2601,10 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc) {
     auto &DT = LookupDomTree(*CI->getFunction());
     findDevirtualizableCallsForTypeTest(DevirtCalls, Assumes, CI, DT);
 
+    Metadata *TypeId =
+        cast<MetadataAsValue>(CI->getArgOperand(1))->getMetadata();
     // If we found any, add them to CallSlots.
     if (!Assumes.empty()) {
-      Metadata *TypeId =
-          cast<MetadataAsValue>(CI->getArgOperand(1))->getMetadata();
       Value *Ptr = CI->getArgOperand(0)->stripPointerCasts();
       for (DevirtCallSite Call : DevirtCalls) {
         // Only add this CallSite if we haven't seen it before. The vtable
@@ -2613,10 +2617,19 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc) {
       }
     }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Value *PtrCast = CI->getArgOperand(0);
     BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
 #endif
+=======
+    // If we have any uses on type metadata, keep the type test assumes for
+    // later analysis. Otherwise remove as they aren't useful, and
+    // LowerTypeTests will think they are Unsat and lower to False, which
+    // breaks any uses on assumes.
+    if (TypeIdMap.count(TypeId))
+      continue;
+>>>>>>> 748bb5a0f1964d20dfb3891b0948ab6c66236c70
 
     // We no longer need the assumes or the type test.
     for (auto Assume : Assumes)
@@ -2823,12 +2836,20 @@ bool DevirtModule::run() {
       (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()))
     return false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Find the possible places where a downcasting can occur
   filterDowncasting(AssumeFunc);
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Rebuild type metadata into a map for easy lookup.
+  std::vector<VTableBits> Bits;
+  DenseMap<Metadata *, std::set<TypeMemberInfo>> TypeIdMap;
+  buildTypeIdentifierMap(Bits, TypeIdMap);
+
+>>>>>>> 748bb5a0f1964d20dfb3891b0948ab6c66236c70
   if (TypeTestFunc && AssumeFunc)
-    scanTypeTestUsers(TypeTestFunc);
+    scanTypeTestUsers(TypeTestFunc, TypeIdMap);
 
   if (TypeCheckedLoadFunc)
     scanTypeCheckedLoadUsers(TypeCheckedLoadFunc);
@@ -2850,10 +2871,6 @@ bool DevirtModule::run() {
     return true;
   }
 
-  // Rebuild type metadata into a map for easy lookup.
-  std::vector<VTableBits> Bits;
-  DenseMap<Metadata *, std::set<TypeMemberInfo>> TypeIdMap;
-  buildTypeIdentifierMap(Bits, TypeIdMap);
   if (TypeIdMap.empty())
     return true;
 
@@ -2931,14 +2948,17 @@ bool DevirtModule::run() {
     // function implementation at offset S.first.ByteOffset, and add to
     // TargetsForSlot.
     std::vector<VirtualCallTarget> TargetsForSlot;
+    WholeProgramDevirtResolution *Res = nullptr;
+    if (ExportSummary && isa<MDString>(S.first.TypeID))
+      // Create the type id summary resolution regardlness of whether we can
+      // devirtualize, so that lower type tests knows the type id is used on
+      // a global and not Unsat.
+      Res = &ExportSummary
+                 ->getOrInsertTypeIdSummary(
+                     cast<MDString>(S.first.TypeID)->getString())
+                 .WPDRes[S.first.ByteOffset];
     if (tryFindVirtualCallTargets(TargetsForSlot, TypeIdMap[S.first.TypeID],
                                   S.first.ByteOffset)) {
-      WholeProgramDevirtResolution *Res = nullptr;
-      if (ExportSummary && isa<MDString>(S.first.TypeID))
-        Res = &ExportSummary
-                   ->getOrInsertTypeIdSummary(
-                       cast<MDString>(S.first.TypeID)->getString())
-                   .WPDRes[S.first.ByteOffset];
 
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
@@ -3064,11 +3084,14 @@ void DevirtIndex::run() {
     std::vector<ValueInfo> TargetsForSlot;
     auto TidSummary = ExportSummary.getTypeIdCompatibleVtableSummary(S.first.TypeID);
     assert(TidSummary);
+    // Create the type id summary resolution regardlness of whether we can
+    // devirtualize, so that lower type tests knows the type id is used on
+    // a global and not Unsat.
+    WholeProgramDevirtResolution *Res =
+        &ExportSummary.getOrInsertTypeIdSummary(S.first.TypeID)
+             .WPDRes[S.first.ByteOffset];
     if (tryFindVirtualCallTargets(TargetsForSlot, *TidSummary,
                                   S.first.ByteOffset)) {
-      WholeProgramDevirtResolution *Res =
-          &ExportSummary.getOrInsertTypeIdSummary(S.first.TypeID)
-               .WPDRes[S.first.ByteOffset];
 
       if (!trySingleImplDevirt(TargetsForSlot, S.first, S.second, Res,
                                DevirtTargets))
