@@ -561,6 +561,11 @@ void CGDebugInfo::CreateCompileUnit() {
 
   llvm::dwarf::SourceLanguage LangTag;
   const LangOptions &LO = CGM.getLangOpts();
+#if INTEL_CUSTOMIZATION
+  if (LO.OpenCL) {
+    LangTag = llvm::dwarf::DW_LANG_OpenCL;
+  } else
+#endif // INTEL_CUSTOMIZATION
   if (LO.CPlusPlus) {
     if (LO.ObjC)
       LangTag = llvm::dwarf::DW_LANG_ObjC_plus_plus;
@@ -1148,6 +1153,21 @@ llvm::DIType *CGDebugInfo::CreateType(const TemplateSpecializationType *Ty,
 
 llvm::DIType *CGDebugInfo::CreateType(const TypedefType *Ty,
                                       llvm::DIFile *Unit) {
+#if INTEL_CUSTOMIZATION
+  // Map OpenCL scalar/vector type aliases to DWARF builtin types.
+  if (CGM.getLangOpts().OpenCL &&
+      CGM.getCodeGenOpts().DebugOpenCLBasicTypes) {
+    // Infer size from the underlying type.
+    QualType BaseTy = Ty->getDecl()->getUnderlyingType();
+    uint64_t Size = CGM.getContext().getTypeSize(BaseTy);
+#define BASIC_TYPE(Name, Encoding) \
+    if (Ty->getDecl()->getName() == #Name) \
+      return DBuilder.createBasicType(#Name, Size, llvm::dwarf::Encoding)
+#include "clang/Basic/intel/OpenCLDebugTypes.def"
+#undef BASIC_TYPE
+  }
+#endif // INTEL_CUSTOMIZATION
+
   llvm::DIType *Underlying =
       getOrCreateType(Ty->getDecl()->getUnderlyingType(), Unit);
 
