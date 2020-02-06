@@ -634,16 +634,18 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void printFunction(void) {
-    unsigned Count = 0;
-    for (auto &BB: *F) {
-      // obtain #pred and #succ:
-      unsigned NumPred = std::distance(pred_begin(&BB), pred_end(&BB));
-      unsigned NumSucc = std::distance(succ_begin(&BB), succ_end(&BB));
-      LLVM_DEBUG(dbgs() << "BB#: " << Count++ << " : "
-                        << "#Pred: " << NumPred << "\t#Succ: " << NumSucc
-                        << "\n"
-                        << BB << "\n";);
-    }
+    LLVM_DEBUG(
+        {
+          unsigned Count = 0;
+          for (auto &BB : *F) {
+            // obtain #pred and #succ:
+            unsigned NumPred = std::distance(pred_begin(&BB), pred_end(&BB));
+            unsigned NumSucc = std::distance(succ_begin(&BB), succ_end(&BB));
+            dbgs() << "BB#: " << Count++ << " : "
+                   << "#Pred: " << NumPred << "\t#Succ: " << NumSucc << "\n"
+                   << BB << "\n";
+          }
+        });
   }
 
   LLVM_DUMP_METHOD void dump(bool PrintDetail = false) {
