@@ -334,7 +334,7 @@ void __ovld write_imagef(read_write image2d_array_depth_t image, int4 coord, flo
 #endif //cl_khr_depth_images
 
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-#ifdef cl_khr_mipmap_image
+#if defined(cl_khr_mipmap_image_writes)
 void __ovld write_imagef(read_write image1d_t image, int coord, int lod, float4 color);
 void __ovld write_imagei(read_write image1d_t image, int coord, int lod, int4 color);
 void __ovld write_imageui(read_write image1d_t image, int coord, int lod, uint4 color);
@@ -358,8 +358,8 @@ void __ovld write_imagef(read_write image2d_array_depth_t image, int4 coord, int
 void __ovld write_imagef(read_write image3d_t image, int4 coord, int lod, float4 color);
 void __ovld write_imagei(read_write image3d_t image, int4 coord, int lod, int4 color);
 void __ovld write_imageui(read_write image3d_t image, int4 coord, int lod, uint4 color);
-#endif
-#endif //cl_khr_mipmap_image
+#endif // cl_khr_3d_image_writes
+#endif // cl_khr_mipmap_image_writes
 #endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // Image write functions for half4 type
@@ -661,6 +661,7 @@ float4 __purefn __ovld read_imagef(read_only image3d_t image, sampler_t sampler,
 int4 __purefn __ovld read_imagei(read_only image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
 uint4 __purefn __ovld read_imageui(read_only image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
 
+#if defined(cl_khr_mipmap_image_writes)
 void __ovld write_imagef(write_only image1d_t image, int coord, int lod, float4 color);
 void __ovld write_imagei(write_only image1d_t image, int coord, int lod, int4 color);
 void __ovld write_imageui(write_only image1d_t image, int coord, int lod, uint4 color);
@@ -677,15 +678,16 @@ void __ovld write_imagef(write_only image2d_array_t image_array, int4 coord, int
 void __ovld write_imagei(write_only image2d_array_t image_array, int4 coord, int lod, int4 color);
 void __ovld write_imageui(write_only image2d_array_t image_array, int4 coord, int lod, uint4 color);
 
-void __ovld write_imagef(write_only image2d_depth_t image, int2 coord, int lod, float color);
-void __ovld write_imagef(write_only image2d_array_depth_t image, int4 coord, int lod, float color);
+void __ovld write_imagef(write_only image2d_depth_t image, int2 coord, int lod, float depth);
+void __ovld write_imagef(write_only image2d_array_depth_t image, int4 coord, int lod, float depth);
 
 #ifdef cl_khr_3d_image_writes
 void __ovld write_imagef(write_only image3d_t image, int4 coord, int lod, float4 color);
 void __ovld write_imagei(write_only image3d_t image, int4 coord, int lod, int4 color);
 void __ovld write_imageui(write_only image3d_t image, int4 coord, int lod, uint4 color);
-#endif
-#endif //cl_khr_mipmap_image
+#endif // cl_khr_3d_image_writes
+#endif // cl_khr_mipmap_image_writes
+#endif // cl_khr_mipmap_image
 #endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // OpenCL Extension v2.0 s9.18 - Mipmaps
