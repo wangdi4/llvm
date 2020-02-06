@@ -114,6 +114,13 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
     for (const auto &II : InputFiles)
       CmdArgs.push_back(II.getFilename());
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel) &&
+      JA.isDeviceOffloading(Action::OFK_OpenMP))
+    CmdArgs.push_back(Args.MakeArgString(C.getDriver().Dir +
+                                         "/../lib/libomptarget-opencl.bc"));
+#endif // INTEL_CUSTOMIZATION
+
   // Add additional options from -Xsycl-target-linker
   TranslateSYCLLinkerArgs(C, Args, getToolChain(), CmdArgs);
   // Add an intermediate output file.

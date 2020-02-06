@@ -100,3 +100,17 @@
 // CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
 // CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-UBJOBS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
+
+/// ###########################################################################
+
+/// Check that driver forces -O0 for device compilation with --intel
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 --intel -c %s -o %t.o 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-DEVICE-O0 %s
+// CHK-DEVICE-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
+
+/// ###########################################################################
+
+/// Check that driver links device objects with libomptarget-opencl.bc with --intel
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 --intel -o %t.out %t.o 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-LINK-OPENCLBC %s
+// CHK-LINK-OPENCLBC: llvm-link{{.*}}libomptarget-opencl.bc
