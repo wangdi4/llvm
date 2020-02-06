@@ -726,31 +726,64 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
   DelinearizedGroups.resize(Groups.size());
   SmallVector<PredicateTuple, ExpectedNumberOfTests> ValidityConditions;
 
-  for (auto I : UnsortedGroupIndices) {
+  auto IsAlreadySorted = [&](unsigned Index) {
+    return std::find(UnsortedGroupIndices.begin(), UnsortedGroupIndices.end(),
+                     Index) == UnsortedGroupIndices.end();
+  };
+
+  for (unsigned I = 0, E = Groups.size(); I < E; ++I) {
     auto &Group = Groups[I];
     auto &DelinearizedGroup = DelinearizedGroups[I];
+
+    // The group may be empty because it was cleared before as it's not involved
+    // in DD.
+    if (Group.empty()) {
+      continue;
+    }
 
     // Bail out if any ref has more than one dimension.
     if (std::any_of(Group.begin(), Group.end(), [](const RegDDRef *Ref) {
           return !Ref->isSingleCanonExpr();
         })) {
+
+      if (IsAlreadySorted(I)) {
+        continue;
+      }
+
       return DELINEARIZATION_FAILED;
     }
 
     SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
     if (!DDRefUtils::delinearizeRefs(Group, DelinearizedGroup, &GroupSizes)) {
+      if (IsAlreadySorted(I)) {
+        DelinearizedGroup.clear();
+        continue;
+      }
+
       return DELINEARIZATION_FAILED;
     }
 
     // Try sorting second time after delinearization.
     if (!sortRefsInSingleGroup(DelinearizedGroup)) {
+      if (IsAlreadySorted(I)) {
+        DelinearizedGroup.clear();
+        continue;
+      }
+
       return UNKNOWN_MIN_MAX;
     }
 
     if (!computeDelinearizationValidityConditions(DelinearizedGroup, GroupSizes,
                                                   Loop, InnermostLoop,
                                                   ValidityConditions)) {
-      LLVM_DEBUG(dbgs() << "[RTDD] Infeasible delinearization conditions\n");
+      if (IsAlreadySorted(I)) {
+        DelinearizedGroup.clear();
+        continue;
+      }
+
+      LLVM_DEBUG(
+          dbgs()
+          << "[RTDD] computeDelinearizationValidityConditions() failed.\n");
       return DELINEARIZATION_FAILED;
     }
   }
@@ -791,6 +824,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
       ValidityConditions.begin(), ValidityConditions.end(), IsTrivialCondition);
 
   if (IsTriviallyFalse) {
+    LLVM_DEBUG(dbgs() << "[RTDD] Infeasible delinearization conditions\n");
     return DELINEARIZATION_FAILED;
   }
 
@@ -1014,6 +1048,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
                << Context.PreConditions.size() << "\n");
 
     DelinearizationRequired = true;
+
+    // Populate DelinearizedGroupIndices with indexes where
+    // DelinearizedGroups[I] is not empty.
+    for (auto Group : enumerate(DelinearizedGroups)) {
+      if (!Group.value().empty()) {
+        Context.DelinearizedGroupIndices.push_back(Group.index());
+      }
+    }
   }
 
   unsigned GroupSize = Groups.size();
@@ -1501,6 +1543,16 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   //    creation of a mapping mechanism between original and cloned
   //    DDRefs.
   markDDRefsIndep(Context);
+
+  // Populate loop MVDelinearizableBlobIndices with base indices which were
+  // delinearized.
+  std::transform(
+      Context.DelinearizedGroupIndices.begin(),
+      Context.DelinearizedGroupIndices.end(),
+      std::back_inserter(NoAliasLoop->getMVDelinearizableBlobIndices()),
+      [&](unsigned Index) {
+        return Context.Groups[Index].front()->getBasePtrBlobIndex();
+      });
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(MemcheckIf);
   applyForLoopnest(NoAliasLoop, [&LoopMapper](HLLoop *Loop) {
