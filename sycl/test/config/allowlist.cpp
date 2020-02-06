@@ -7,7 +7,7 @@
 // RUN: env PRINT_PLATFORM_INFO=1 %t.out > %t2.conf
 // RUN: env TEST_DEVICE_AVAILABLE=1 env SYCL_CONFIG_FILE_NAME=%t2.conf %t.out
 //
-// RUN: env TEST_DEVICE_IS_NOT_AVAILABLE=1 env SYCL_DEVICE_WHITE_LIST="PlatformName:{{SUCH NAME DOESN'T EXIST}}" %t.out
+// RUN: env TEST_DEVICE_IS_NOT_AVAILABLE=1 env SYCL_DEVICE_ALLOWLIST="PlatformName:{{SUCH NAME DOESN'T EXIST}}" %t.out
 
 // TODO: Test the correct filtering of the particular driver versions once a mock
 // platform mechanism is prepared
@@ -28,7 +28,7 @@ static void replaceSpecialCharacters(std::string &Str) {
 
 int main() {
 
-  // Expected that white list filter is not set
+  // Expected that the allowlist filter is not set
   if (getenv("PRINT_PLATFORM_INFO")) {
     for (const sycl::platform &Platform : sycl::platform::get_platforms())
       if (!Platform.is_host()) {
@@ -40,7 +40,7 @@ int main() {
         replaceSpecialCharacters(Name);
         replaceSpecialCharacters(Ver);
 
-        std::cout << "SYCL_DEVICE_WHITE_LIST=PlatformName:{{" << Name
+        std::cout << "SYCL_DEVICE_ALLOWLIST=PlatformName:{{" << Name
                   << "}},PlatformVersion:{{" << Ver << "}}";
 
         return 0;
@@ -48,7 +48,7 @@ int main() {
     throw std::runtime_error("Non host device is not found");
   }
 
-  // Expected that white list filter is not set
+  // Expected that the allowlist filter is not set
   if (getenv("PRINT_DEVICE_INFO")) {
     for (const sycl::platform &Platform : sycl::platform::get_platforms())
       if (!Platform.is_host()) {
@@ -61,7 +61,7 @@ int main() {
         replaceSpecialCharacters(Name);
         replaceSpecialCharacters(Ver);
 
-        std::cout << "SYCL_DEVICE_WHITE_LIST=DeviceName:{{" << Name
+        std::cout << "SYCL_DEVICE_ALLOWLIST=DeviceName:{{" << Name
                   << "}},DriverVersion:{{" << Ver << "}}";
 
         return 0;
@@ -69,7 +69,7 @@ int main() {
     throw std::runtime_error("Non host device is not found");
   }
 
-  // Expected white list to be set with result from "PRINT_DEVICE_INFO" run
+  // Expected the allowlist to be set with the "PRINT_DEVICE_INFO" run result
   if (getenv("TEST_DEVICE_AVAILABLE")) {
     for (const sycl::platform &Platform : sycl::platform::get_platforms())
       if (!Platform.is_host()) {
@@ -81,7 +81,7 @@ int main() {
     throw std::runtime_error("Non host device is not found");
   }
 
-  // Expected white list to be set but empty
+  // Expected the allowlist to be set but empty
   if (getenv("TEST_DEVICE_IS_NOT_AVAILABLE")) {
     for (const sycl::platform &Platform : sycl::platform::get_platforms())
       if (!Platform.is_host())
