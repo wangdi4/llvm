@@ -292,3 +292,33 @@ EXTERN int omp_target_disassociate_ptr(void *host_ptr, int device_num) {
   DP("omp_target_disassociate_ptr returns %d\n", rc);
   return rc;
 }
+#if INTEL_COLLAB
+EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
+  DP("Call to omp_get_mapped_ptr with host_ptr " DPxMOD ", "
+      "device_num %d\n", DPxPTR(host_ptr), device_num);
+
+  if (!host_ptr) {
+    DP("Call to omp_get_mapped_ptr with invalid host_ptr\n");
+    return NULL;
+  }
+
+  if (device_num == omp_get_initial_device()) {
+    DP("omp_get_mapped_ptr : Mapped pointer is same as hsot\n");
+    return host_ptr;
+  }
+
+  if (!device_is_ready(device_num)) {
+    DP("omp_get_mapped_ptr :  returns NULL\n");
+    return NULL;
+  }
+
+  DeviceTy& Device = Devices[device_num];
+  bool IsLast, IsHostPtr;
+  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, IsHostPtr);
+  if (rc == NULL)
+     DP("omp_get_mapped_ptr : cannot find device pointer\n");
+  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
+  return rc;
+}
+#endif  // INTEL_COLLAB
+

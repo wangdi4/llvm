@@ -201,6 +201,10 @@ int omp_target_associate_ptr(void *host_ptr, void *device_ptr, size_t size,
 EXTERN
 #endif  // INTEL_COLLAB
 int omp_target_disassociate_ptr(void *host_ptr, int device_num);
+#if INTEL_COLLAB
+EXTERN
+void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+#endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB
