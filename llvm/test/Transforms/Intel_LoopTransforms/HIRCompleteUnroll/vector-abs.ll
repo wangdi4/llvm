@@ -20,7 +20,7 @@
 ; CHECK: |   %NBConv = zext.<16 x i8>.<16 x i32>(%.vec);
 ; CHECK: |   %NBConv3 = zext.<16 x i8>.<16 x i32>(%.vec2);
 ; CHECK: |   %.vec4 = (%NBConv + -1 * %NBConv3 < 0) ? -1 * %NBConv + %NBConv3 : %NBConv + -1 * %NBConv3;
-; CHECK: |   %result.vector = %.vec4 + %result.vector;
+; CHECK: |   %red.var = %.vec4 + %red.var;
 ; CHECK: + END LOOP
 
 ; CHECK: Function: x264_pixel_sad_16x16

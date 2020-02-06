@@ -432,6 +432,8 @@ void LoopVectorizationPlanner::EnterExplicitData(
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
   if (Kind == IRKind::LLVMIR)
     VPlanUseVPEntityInstructions = true;
+  if (Kind == IRKind::HIR)
+    VPlanUseVPEntityInstructions = true;
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {

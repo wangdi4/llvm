@@ -27,7 +27,7 @@
 ; CHECK: END LOOP
 
 ; Check LLVM-IR
-; CHECK: [[VecCast:%.*]] = bitcast i32* %arrayIdx7 to <4 x i32>*
+; CHECK: [[VecCast:%.*]] = bitcast i32* {{%.*}} to <4 x i32>*
 ; CHECK-NEXT: [[ALoad:%.*]] = load <4 x i32>, <4 x i32>* [[VecCast]], align 4 
 ; CHECK-NEXT: store <4 x i32> [[ALoad]], <4 x i32>* {{%.*}}
 ; CHECK-NEXT: [[L0:%.*]] = load i32*, i32** [[ArrB:%.*]]
