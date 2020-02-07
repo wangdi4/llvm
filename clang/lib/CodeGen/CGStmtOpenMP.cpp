@@ -24,11 +24,8 @@
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
-<<<<<<< HEAD
-#include "clang/AST/StmtVisitor.h" // INTEL
-=======
 #include "clang/Basic/OpenMPKinds.h"
->>>>>>> ea9166b5a838d788a4ec0c9ddf0c83b09f49cfe4
+#include "clang/AST/StmtVisitor.h" // INTEL
 #include "clang/Basic/PrettyStackTrace.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 using namespace clang;
