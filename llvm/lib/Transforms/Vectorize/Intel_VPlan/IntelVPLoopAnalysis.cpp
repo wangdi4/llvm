@@ -1112,6 +1112,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       }
 
       // CurrPHI doesn't match StartPhi requirements, recurse on its PHI users.
+      LinkedVPVals.push_back(Exit);
       Exit = CurrPHI;
       // TODO: Enable the assert below when Decomposer is updated to set
       // live-out property of PHI nodes. Check JIRA CMPLRLLVM-10836.

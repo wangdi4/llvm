@@ -1320,6 +1320,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     // all occurrences of Ref. The widened ref is added to the WidenMap
     // here to accomplish this.
     if (isReductionRef(Ref, RedOpCode)) {
+      llvm_unreachable(
+          "HIR vectorizer is trying to handle reductions without entities.");
 
       auto Identity = HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy);
       auto RedOpVecInst = insertReductionInitializer(Identity, Ref->clone());
@@ -2633,6 +2635,8 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
   RegDDRef *FinalLvalRef = ScalRef->clone();
   if (isReductionRef(ScalRef, OpCode)) {
+    llvm_unreachable(
+        "HIR vectorizer is trying to handle reductions without entities.");
     HLContainerTy Tail;
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
