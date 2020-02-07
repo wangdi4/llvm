@@ -99,7 +99,6 @@ else()
   )
 endif()
 
-<<<<<<< HEAD
 if( DEFINED ICD_LOADER_SRC_DIR )
   message ("Build OpenCL from provided sources")
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
@@ -143,10 +142,6 @@ if( DEFINED ICD_LOADER_SRC_DIR )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
-=======
-if( NOT OpenCL_LIBRARIES )
-  message("OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
->>>>>>> 4d3d5960cdad30667d7c2d9cca16a555ae398c82
   if(MSVC)
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
