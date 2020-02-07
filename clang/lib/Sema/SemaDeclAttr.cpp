@@ -6062,26 +6062,8 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
       AL.getMustBeNull()));
 }
 
-<<<<<<< HEAD
-static void handleSYCLUsesGlobalWorkOffsetAttr(Sema &S, Decl *D,         // INTEL
-                                               const ParsedAttr &Attr) { // INTEL
-=======
-/// Give a warning for duplicate attributes, return true if duplicate.
-template <typename AttrType>
-static bool checkForDuplicateAttribute(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  // Give a warning for duplicates but not if it's one we've implicitly added.
-  auto *A = D->getAttr<AttrType>();
-  if (A && !A->isImplicit()) {
-    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
-    return true;
-  }
-  return false;
-}
-
 static void handleNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
                                          const ParsedAttr &Attr) {
->>>>>>> 5a9058b885be8469d09765aa700a4b8a1f1fae49
   if (S.LangOpts.SYCLIsHost)
     return;
 
@@ -8625,13 +8607,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim:
     handleSYCLMaxGlobalWorkDimAttr(S, D, AL); // INTEL
     break;
-<<<<<<< HEAD
-  case ParsedAttr::AT_SYCLIntelUsesGlobalWorkOffset:
-    handleSYCLUsesGlobalWorkOffsetAttr(S, D, AL); // INTEL
-=======
   case ParsedAttr::AT_SYCLIntelNoGlobalWorkOffset:
     handleNoGlobalWorkOffsetAttr(S, D, AL);
->>>>>>> 5a9058b885be8469d09765aa700a4b8a1f1fae49
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
@@ -9232,10 +9209,6 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
-    } else if (const auto *A =
-                   D->getAttr<SYCLIntelUsesGlobalWorkOffsetAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<VecTypeHintAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
@@ -9255,11 +9228,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (const auto *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
-<<<<<<< HEAD
     } else if (const auto *A = D->getAttr<AutorunAttr>()) {
-=======
-    } else if (const auto *A = D->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
->>>>>>> 5a9058b885be8469d09765aa700a4b8a1f1fae49
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<UsesGlobalWorkOffsetAttr>()) {
