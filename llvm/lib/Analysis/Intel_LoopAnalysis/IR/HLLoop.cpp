@@ -433,9 +433,11 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
     auto &Delinearized = getMVDelinearizableBlobIndices();
     if (!Delinearized.empty()) {
+      auto &BU = getBlobUtils();
+
       OS << ", Delinearized: ";
       for (auto I = Delinearized.begin(), E = Delinearized.end(); I != E; ++I) {
-        OS << *I;
+        BU.printBlob(OS, BU.getBlob(*I));
         if (I + 1 != E) {
           OS << ", ";
         }
