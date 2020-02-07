@@ -2613,21 +2613,11 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc) {
       }
     }
 
-<<<<<<< HEAD
-    // If we have any uses on type metadata, keep the type test assumes for
-    // later analysis. Otherwise remove as they aren't useful, and
-    // LowerTypeTests will think they are Unsat and lower to False, which
-    // breaks any uses on assumes.
-    if (TypeIdMap.count(TypeId))
-      continue;
-
 #if INTEL_CUSTOMIZATION
     Value *PtrCast = CI->getArgOperand(0);
     BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
 #endif
 
-=======
->>>>>>> 25aa2eef993e17708889abf56ed1ffad5074a9f4
     // We no longer need the assumes or the type test.
     for (auto Assume : Assumes)
       Assume->eraseFromParent();
@@ -2833,19 +2823,11 @@ bool DevirtModule::run() {
       (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()))
     return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Find the possible places where a downcasting can occur
   filterDowncasting(AssumeFunc);
 #endif // INTEL_CUSTOMIZATION
 
-  // Rebuild type metadata into a map for easy lookup.
-  std::vector<VTableBits> Bits;
-  DenseMap<Metadata *, std::set<TypeMemberInfo>> TypeIdMap;
-  buildTypeIdentifierMap(Bits, TypeIdMap);
-
-=======
->>>>>>> 25aa2eef993e17708889abf56ed1ffad5074a9f4
   if (TypeTestFunc && AssumeFunc)
     scanTypeTestUsers(TypeTestFunc);
 
