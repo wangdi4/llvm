@@ -1214,7 +1214,41 @@ pi_result L0(piclProgramCreateWithBinary)(
   pi_int32 *                     binary_status,
   pi_program *                   ret_program) {
 
-  pi_throw("piclProgramCreateWithBinary: not implemented");
+  // This must be for the single device in this context.
+  pi_assert(num_devices == 1);
+  pi_assert(device_list && device_list[0] == context->Device);
+  ze_device_handle_t ze_device = context->Device->L0Device;
+
+  // Check the binary too.
+  pi_assert(lengths && lengths[0] != 0);
+  pi_assert(binaries && binaries[0] != nullptr);
+  size_t length = lengths[0];
+  auto binary = pi_cast<const uint8_t*>(binaries[0]);
+
+  ze_module_desc_t ze_module_desc;
+  ze_module_desc.version = ZE_MODULE_DESC_VERSION_CURRENT;
+  ze_module_desc.format = ZE_MODULE_FORMAT_NATIVE;
+  ze_module_desc.inputSize = length;
+  ze_module_desc.pInputModule = binary;
+  ze_module_desc.pBuildFlags = nullptr;
+
+  ze_module_handle_t ze_module;
+  ZE_CALL(zeModuleCreate(
+    ze_device,
+    &ze_module_desc,
+    &ze_module,
+    0));
+
+  auto L0PiProgram = new _pi_program();
+  L0PiProgram->L0Module = ze_module;
+  L0PiProgram->Context = context;
+  L0PiProgram->RefCount = 1;
+
+  *ret_program = pi_cast<pi_program>(L0PiProgram);
+  if (binary_status) {
+    *binary_status = PI_SUCCESS;
+  }
+  return PI_SUCCESS;
 }
 
 pi_result L0(piclProgramCreateWithSource)(
@@ -1224,7 +1258,7 @@ pi_result L0(piclProgramCreateWithSource)(
   const size_t *    lengths,
   pi_program *      ret_program) {
 
-  pi_throw("piclProgramCreateWithSource: not implemented");
+  pi_throw("piclProgramCreateWithSource: not supported in L0");
 }
 
 pi_result L0(piProgramGetInfo)(
