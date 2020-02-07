@@ -6253,7 +6253,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.hasArg(options::OPT_regcall))
       CmdArgs.push_back("-fdefault-calling-conv=regcall");
 
-  if (Args.hasArg(options::OPT__intel)) {
+  // Disable extensions for SYCL device compilation since some of them cause
+  // problems for SPIRV translator.
+  if (Args.hasArg(options::OPT__intel) && !IsSYCLOffloadDevice) {
     CmdArgs.push_back("-fintel-compatibility");
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back("-intel-libirc-allowed");

@@ -165,7 +165,12 @@ typedef enum {
   PI_DEVICE_NATIVE_VECTOR_WIDTH_LONG      = CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,
   PI_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT     = CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,
   PI_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE    = CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,
-  PI_DEVICE_NATIVE_VECTOR_WIDTH_HALF      = CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF
+  PI_DEVICE_NATIVE_VECTOR_WIDTH_HALF      = CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF,
+  PI_DEVICE_INFO_USM_HOST_SUPPORT          = CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL, // INTEL
+  PI_DEVICE_INFO_USM_DEVICE_SUPPORT        = CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL, // INTEL
+  PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT = CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL, // INTEL
+  PI_DEVICE_INFO_USM_CROSS_SHARED_SUPPORT  = CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL, // INTEL
+  PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT = CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL // INTEL
 } _pi_device_info;
 
 /* INTEL_CUSTOMIZATION */
@@ -820,6 +825,7 @@ pi_result piKernelSetArg(
   size_t       arg_size,
   const void * arg_value);
 
+// TODO: remove/merge with piextKernelSetArgPointer
 pi_result piextKernelSetArgMemObj(
   pi_kernel       kernel,
   pi_uint32       arg_index,
@@ -1134,14 +1140,6 @@ pi_result piEnqueueMemUnmap(
 ///
 // USM
 ///
-typedef enum {
-  PI_USM_HOST_SUPPORT          = CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
-  PI_USM_DEVICE_SUPPORT        = CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
-  PI_USM_SINGLE_SHARED_SUPPORT = CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
-  PI_USM_CROSS_SHARED_SUPPORT  = CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
-  PI_USM_SYSTEM_SHARED_SUPPORT = CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL
-} _pi_usm_capability_query;
-
 typedef enum : pi_bitfield {
   PI_USM_ACCESS                   = CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL,
   PI_USM_ATOMIC_ACCESS            = CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL,
@@ -1173,7 +1171,6 @@ typedef enum : pi_bitfield {
   PI_USM_MIGRATION_TBD0 = (1 << 0)
 } _pi_usm_migration_flags;
 
-typedef _pi_usm_capability_query  pi_usm_capability_query;
 typedef _pi_usm_capabilities      pi_usm_capabilities;
 typedef _pi_mem_info              pi_mem_info;
 typedef _pi_usm_type              pi_usm_type;
@@ -1303,7 +1300,7 @@ pi_result piextUSMEnqueueMemAdvise(
   pi_queue     queue,
   const void * ptr,
   size_t       length,
-  int          advice,
+  int          advice, // INTEL TODO: define pi_mem_advice values for this
   pi_event *   event);
 
 /// API to query information about USM allocated pointers
