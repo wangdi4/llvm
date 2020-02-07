@@ -1,11 +1,10 @@
-// RUN: %clang_cc1 -fsycl-is-device -verify -pedantic -fsyntax-only -x c++ %s
-// RUN: %clang_cc1 -verify -pedantic -fsyntax-only -x c++ %s
+//RUN: %clang_cc1 -fhls -fsyntax-only -verify -pedantic %s
+//RUN: %clang_cc1 -fsyntax-only -verify -pedantic %s -DWITHOUTFLAG
 
 #define PARAM_1 1U << 7
 #define PARAM_2 1U << 8
 
-#ifdef __SYCL_DEVICE_ONLY__
-static_assert(__has_builtin(__builtin_intel_fpga_mem), "");
+#ifndef WITHOUTFLAG
 struct State {
   int x;
   float y;
@@ -23,7 +22,7 @@ void foo(float *A, int *B, State *C) {
   float *x;
   int *y;
   State *z;
-  int i = 0;
+  int i;
   void *U;
 
   x = __builtin_intel_fpga_mem(A, PARAM_1 | PARAM_2, -1);
@@ -36,47 +35,27 @@ void foo(float *A, int *B, State *C) {
   // expected-error@-1{{argument to '__builtin_intel_fpga_mem' must be a constant integer}}
   z = __builtin_intel_fpga_mem(C, i, 0);
   // expected-error@-1{{argument to '__builtin_intel_fpga_mem' must be a constant integer}}
-  z = __builtin_intel_fpga_mem(U, 0, 0);
-  // expected-error@-1{{illegal pointer argument of type 'void *'  to __builtin_intel_fpga_mem. Only pointers to a first class lvalue or to an rvalue are allowed}}
+  z = __builtin_intel_fpga_mem(U, PARAM_1 | PARAM_2, 0);
+  // expected-error@-1{{illegal pointer argument of type 'void *'  to __builtin_intel_fpga_mem}}
 
   int intArr[10] = {0};
   int *k1 = __builtin_intel_fpga_mem(intArr, 0, 0);
   // expected-error@-1{{builtin parameter must be a pointer}}
 
   int **k2 = __builtin_intel_fpga_mem(&intArr, 0, 0);
-  // expected-error@-1{{illegal pointer argument of type 'int (*)[10]'  to __builtin_intel_fpga_mem. Only pointers to a first class lvalue or to an rvalue are allowed}}
+  // expected-error@-1{{illegal pointer argument of type 'int (*)[10]'  to __builtin_intel_fpga_mem}}
 
   void (*fp1)();
   void (*fp2)() = __builtin_intel_fpga_mem(fp1, 0, 0);
-  // expected-error@-1{{illegal pointer argument of type 'void (*)()'  to __builtin_intel_fpga_mem. Only pointers to a first class lvalue or to an rvalue are allowed}}
+  // expected-error@-1{{illegal pointer argument of type 'void (*)()'  to __builtin_intel_fpga_mem}}
 
   struct outer *iii;
   struct outer *iv = __builtin_intel_fpga_mem(iii, 0, 0);
-  // expected-error@-1{{illegal field in type pointed to by pointer argument to __builtin_intel_fpga_mem. Only pointers to a first class lvalue or to an rvalue are allowed}}
+  // expected-error@-1{{illegal field in type pointed to by pointer argument to __builtin_intel_fpga_mem}}
 }
-
-template <typename name, typename Func>
-__attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
-  kernelFunc();
-}
-int main() {
-  kernel_single_task<class fake_kernel>([]() {
-      float *A;
-      int *B;
-      State *C;
-      foo(A, B, C); });
-  return 0;
-}
-
 #else
 void bar(float *A) {
   float *x = __builtin_intel_fpga_mem(A, PARAM_1 | PARAM_2, 127);
-  // expected-error@-1{{'__builtin_intel_fpga_mem' is only available in OpenCL FPGA or SYCL device or HLS}} // INTEL_CUSTOMIZATION
-}
-
-int main() {
-  float *A;
-  bar(A);
-  return 0;
+  // expected-error@-1{{'__builtin_intel_fpga_mem' is only available in OpenCL FPGA or SYCL device or HLS}}
 }
 #endif

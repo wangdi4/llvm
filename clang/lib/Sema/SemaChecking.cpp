@@ -1918,12 +1918,30 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
       return ExprError();
     break;
   case Builtin::BI__builtin_intel_fpga_mem:
+#if INTEL_CUSTOMIZATION
+    if (Context.getLangOpts().OpenCL &&
+        !Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+      // OpenCL but not FPGA env
+      Diag(TheCall->getBeginLoc(), diag::err_builtin_requires_language)
+          << "__builtin_intel_fpga_mem"
+          << "OpenCL FPGA";
+      return ExprError();
+    } else if (!Context.getLangOpts().OpenCL && !Context.getLangOpts().HLS &&
+               !Context.getLangOpts().SYCLIsDevice) {
+      // Not OpenCL nor HLS nor SYCL device
+      Diag(TheCall->getBeginLoc(), diag::err_builtin_requires_language)
+          << "__builtin_intel_fpga_mem"
+          << "OpenCL FPGA or SYCL device or HLS";
+      return ExprError();
+    }
+#else // INTEL_CUSTOMIZATION
     if (!Context.getLangOpts().SYCLIsDevice) {
       Diag(TheCall->getBeginLoc(), diag::err_builtin_requires_language)
           << "__builtin_intel_fpga_mem"
           << "SYCL device";
       return ExprError();
     }
+#endif // INTEL_CUSTOMIZATION
     if (CheckIntelFPGAMemBuiltinFunctionCall(TheCall))
       return ExprError();
     break;
