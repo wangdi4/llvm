@@ -141,7 +141,7 @@ if( DEFINED ICD_LOADER_SRC_DIR )
     )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
-  message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
+  message("OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
   if(MSVC)
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
