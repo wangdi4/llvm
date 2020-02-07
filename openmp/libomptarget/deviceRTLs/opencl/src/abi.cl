@@ -195,6 +195,14 @@ EXTERN int __kmpc_master_sub_group_leader() {
     return KMP_FALSE;
 }
 
+/// Check if current work is the active sub group leader
+EXTERN int __kmpc_active_sub_group_leader() {
+  if (__kmp_get_active_sub_group_leader_id() == get_sub_group_local_id())
+    return KMP_TRUE;
+  else
+    return KMP_FALSE;
+}
+
 
 ///
 /// Support for reduction
