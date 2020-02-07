@@ -260,6 +260,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_update:
   case OMPC_capture:
   case OMPC_seq_cst:
+  case OMPC_acq_rel:
   case OMPC_device:
   case OMPC_threads:
   case OMPC_simd:
@@ -487,6 +488,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_update:
   case OMPC_capture:
   case OMPC_seq_cst:
+  case OMPC_acq_rel:
   case OMPC_device:
   case OMPC_threads:
   case OMPC_simd:
@@ -638,9 +640,22 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
     }
     break;
   case OMPD_flush:
-    return CKind == OMPC_flush;
+    if (CKind == OMPC_flush)
+      return true;
+    if (OpenMPVersion < 50)
+      return false;
+    switch (CKind) {
+#define OPENMP_FLUSH_CLAUSE(Name)                                              \
+  case OMPC_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+    default:
+      break;
+    }
     break;
   case OMPD_atomic:
+    if (OpenMPVersion < 50 && CKind == OMPC_acq_rel)
+      return false;
     switch (CKind) {
 #define OPENMP_ATOMIC_CLAUSE(Name)                                             \
   case OMPC_##Name:                                                            \

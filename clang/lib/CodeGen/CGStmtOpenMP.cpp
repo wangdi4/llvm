@@ -24,7 +24,11 @@
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
+<<<<<<< HEAD
 #include "clang/AST/StmtVisitor.h" // INTEL
+=======
+#include "clang/Basic/OpenMPKinds.h"
+>>>>>>> ea9166b5a838d788a4ec0c9ddf0c83b09f49cfe4
 #include "clang/Basic/PrettyStackTrace.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 using namespace clang;
@@ -4498,6 +4502,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_collapse:
   case OMPC_default:
   case OMPC_seq_cst:
+  case OMPC_acq_rel:
   case OMPC_shared:
   case OMPC_linear:
   case OMPC_aligned:
@@ -4553,8 +4558,9 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   bool IsSeqCst = S.getSingleClause<OMPSeqCstClause>();
   OpenMPClauseKind Kind = OMPC_unknown;
   for (const OMPClause *C : S.clauses()) {
-    // Find first clause (skip seq_cst clause, if it is first).
-    if (C->getClauseKind() != OMPC_seq_cst) {
+    // Find first clause (skip seq_cst|acq_rel clause, if it is first).
+    if (C->getClauseKind() != OMPC_seq_cst &&
+        C->getClauseKind() != OMPC_acq_rel) {
       Kind = C->getClauseKind();
       break;
     }

@@ -1892,7 +1892,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   DeclarationNameInfo DirName;
   StmtResult Directive = StmtError();
   bool HasAssociatedStatement = true;
-  bool FlushHasClause = false;
 
 #if INTEL_CUSTOMIZATION
   bool DisallowedDirective = false;
@@ -2045,13 +2044,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     break;
   }
   case OMPD_flush:
-    if (PP.LookAhead(0).is(tok::l_paren)) {
-      FlushHasClause = true;
-      // Push copy of the current token back to stream to properly parse
-      // pseudo-clause OMPFlushClause.
-      PP.EnterToken(Tok, /*IsReinject*/ true);
-    }
-    LLVM_FALLTHROUGH;
   case OMPD_taskyield:
   case OMPD_barrier:
   case OMPD_taskwait:
@@ -2114,6 +2106,10 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd: {
+    // Special processing for flush clause.
+    Token FlushTok;
+    if (DKind == OMPD_flush)
+      FlushTok = Tok;
     ConsumeToken();
     // Parse directive name of the 'critical' directive if any.
     if (DKind == OMPD_critical) {
@@ -2143,6 +2139,15 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     Actions.StartOpenMPDSABlock(DKind, DirName, Actions.getCurScope(), Loc);
 
     while (Tok.isNot(tok::annot_pragma_openmp_end)) {
+      bool FlushHasClause = false;
+      if (DKind == OMPD_flush && Tok.is(tok::l_paren)) {
+        FlushHasClause = true;
+        // Push copy of the current token back to stream to properly parse
+        // pseudo-clause OMPFlushClause.
+        PP.EnterToken(Tok, /*IsReinject*/ true);
+        PP.EnterToken(FlushTok, /*IsReinject*/ true);
+        ConsumeAnyToken();
+      }
       OpenMPClauseKind CKind =
           Tok.isAnnotation()
               ? OMPC_unknown
@@ -2315,12 +2320,17 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       thread_limit-clause | priority-clause | grainsize-clause |
 ///       nogroup-clause | num_tasks-clause | hint-clause | to-clause |
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
+<<<<<<< HEAD
 ///       in_reduction-clause | allocator-clause | allocate-clause
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+///       in_reduction-clause | allocator-clause | allocate-clause |
+///       acq_rel-clause
+>>>>>>> ea9166b5a838d788a4ec0c9ddf0c83b09f49cfe4
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -2454,6 +2464,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_update:
   case OMPC_capture:
   case OMPC_seq_cst:
+  case OMPC_acq_rel:
   case OMPC_threads:
   case OMPC_simd:
   case OMPC_nogroup:
