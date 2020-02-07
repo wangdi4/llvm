@@ -26,35 +26,40 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:       + DO i1 = 0, 63, 1   <DO_LOOP>
 ; CHECK:       |   %[[FIRST:[A-Za-z0-9_.]+]] = (%A)[128 * i1];
-; CHECK:       |   %[[ROWCASE:[A-Za-z0-9_.]+]] = 0;
+; CHECK:       |   %[[ALLCLOSE:[A-Za-z0-9_.]+]] = 1;
 ; CHECK:       |
-; CHECK:       |   + DO i2 = 0, 126, 1   <DO_MULTI_EXIT_LOOP>
+; CHECK:       |   + DO i2 = 0, 126, 1   <DO_LOOP>
 ; CHECK:       |   |   %[[NEXT:[A-Za-z0-9_.]+]] = (%A)[128 * i1 + i2 + 1];
-; CHECK:       |   |   if (%[[NEXT]] !=u %[[FIRST]])
+; CHECK:       |   |   %[[DIFF:[A-Za-z0-9_.]+]] = %[[NEXT]]  -  %[[FIRST]];
+; CHECK:       |   |   %[[ABSDIFF:[A-Za-z0-9_.]+]] = @llvm.fabs.f64(%[[DIFF]]);
+; CHECK:       |   |   if (%[[ABSDIFF]] >u 1.000000e-04)
 ; CHECK:       |   |   {
-; CHECK:       |   |      goto [[CHECKFAILED:[A-Za-z0-9_.]+]];
+; CHECK:       |   |      %[[ALLCLOSE]] = 0;
 ; CHECK:       |   |   }
 ; CHECK:       |   + END LOOP
 ; CHECK:       |
-; CHECK:       |   if (%[[FIRST]] == -1.000000e+00)
+; CHECK:       |   %[[ROWCASE:[A-Za-z0-9_.]+]] = 0;
+; CHECK:       |   if (%[[ALLCLOSE]] != 0)
 ; CHECK:       |   {
-; CHECK:       |      %[[ROWCASE]] = 1;
-; CHECK:       |   }
-; CHECK:       |   else
-; CHECK:       |   {
-; CHECK:       |      if (%[[FIRST]] == 0.000000e+00)
+; CHECK:       |      if (%[[FIRST]] == -1.000000e+00)
 ; CHECK:       |      {
-; CHECK:       |         %[[ROWCASE]] = 2;
+; CHECK:       |         %[[ROWCASE]] = 1;
 ; CHECK:       |      }
 ; CHECK:       |      else
 ; CHECK:       |      {
-; CHECK:       |         if (%[[FIRST]] == 1.000000e+00)
+; CHECK:       |         if (%[[FIRST]] == 0.000000e+00)
 ; CHECK:       |         {
-; CHECK:       |            %[[ROWCASE]] = 3;
+; CHECK:       |            %[[ROWCASE]] = 2;
+; CHECK:       |         }
+; CHECK:       |         else
+; CHECK:       |         {
+; CHECK:       |            if (%[[FIRST]] == 1.000000e+00)
+; CHECK:       |            {
+; CHECK:       |               %[[ROWCASE]] = 3;
+; CHECK:       |            }
 ; CHECK:       |         }
 ; CHECK:       |      }
 ; CHECK:       |   }
-; CHECK:       |   [[CHECKFAILED]]:
 ; CHECK:       |   (%[[ROWCASES]])[i1] = %[[ROWCASE]]
 ; CHECK:       + END LOOP
 
@@ -91,7 +96,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-define double @gemm(double* %A, double* %B) {
+define double @gemm(double* %A, double* %B) #0 {
 entry:
   br label %L1
 
@@ -116,7 +121,7 @@ L3:
   %B_ind = add nuw nsw i32 %B_row, %j
   %Bkjp = getelementptr inbounds double, double* %B, i32 %B_ind
   %Bkj = load double, double* %Bkjp
-  %AikBkj = fmul double %Aik, %Bkj
+  %AikBkj = fmul fast double %Aik, %Bkj
   %sum.next = fadd double %sum.L3, %AikBkj
   %k.next = add nuw nsw i32 %k, 1
   %L3.cond = icmp eq i32 %k.next, 128
@@ -138,3 +143,5 @@ L1.exit:
   %sum.next.lcssa.lcssa.lcssa = phi double [ %sum.next.lcssa.lcssa, %L2.exit ]
   ret double %sum.next.lcssa.lcssa.lcssa
 }
+
+attributes #0 = { "unsafe-fp-math"="true" }
