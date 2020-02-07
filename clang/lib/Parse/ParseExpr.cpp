@@ -235,7 +235,7 @@ ExprResult Parser::ParseCaseExpression(SourceLocation CaseLoc) {
 /// \endverbatim
 ExprResult Parser::ParseConstraintExpression() {
   EnterExpressionEvaluationContext ConstantEvaluated(
-      Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+      Actions, Sema::ExpressionEvaluationContext::Unevaluated);
   ExprResult LHS(ParseCastExpression(AnyCastExpr));
   ExprResult Res(ParseRHSOfBinaryExpression(LHS, prec::LogicalOr));
   if (Res.isUsable() && !Actions.CheckConstraintExpression(Res.get())) {
@@ -257,7 +257,7 @@ ExprResult Parser::ParseConstraintExpression() {
 ExprResult
 Parser::ParseConstraintLogicalAndExpression(bool IsTrailingRequiresClause) {
   EnterExpressionEvaluationContext ConstantEvaluated(
-      Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+      Actions, Sema::ExpressionEvaluationContext::Unevaluated);
   bool NotPrimaryExpression = false;
   auto ParsePrimary = [&] () {
     ExprResult E = ParseCastExpression(PrimaryExprOnly,
@@ -761,6 +761,7 @@ class CastExpressionIdValidator final : public CorrectionCandidateCallback {
 /// [C++11] user-defined-literal
 ///         '(' expression ')'
 /// [C11]   generic-selection
+/// [C++2a] requires-expression
 ///         '__func__'        [C99 6.4.2.2]
 /// [GNU]   '__FUNCTION__'
 /// [MS]    '__FUNCDNAME__'
@@ -1547,7 +1548,7 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
         CXXScopeSpec SS;
         ParseOptionalCXXScopeSpecifier(SS, nullptr,
                                        /*EnteringContext=*/false);
-        AnnotateTemplateIdTokenAsType();
+        AnnotateTemplateIdTokenAsType(SS);
         return ParseCastExpression(ParseKind, isAddressOfOperand, NotCastExpr,
                                    isTypeCast, isVectorLiteral,
                                    NotPrimaryExpression);
@@ -1565,7 +1566,8 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
       // We have a template-id that we know refers to a type,
       // translate it into a type and continue parsing as a cast
       // expression.
-      AnnotateTemplateIdTokenAsType();
+      CXXScopeSpec SS;
+      AnnotateTemplateIdTokenAsType(SS);
       return ParseCastExpression(ParseKind, isAddressOfOperand,
                                  NotCastExpr, isTypeCast, isVectorLiteral,
                                  NotPrimaryExpression);
@@ -1616,6 +1618,9 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
     if (NotPrimaryExpression)
       *NotPrimaryExpression = true;
     return ParseCXXDeleteExpression(false, Tok.getLocation());
+
+  case tok::kw_requires: // [C++2a] requires-expression
+    return ParseRequiresExpression();
 
   case tok::kw_noexcept: { // [C++0x] 'noexcept' '(' expression ')'
     if (NotPrimaryExpression)
@@ -3391,6 +3396,16 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
 
     if (Tok.is(tok::ellipsis))
       Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());
+    else if (Tok.is(tok::code_completion)) {
+      // There's nothing to suggest in here as we parsed a full expression.
+      // Instead fail and propogate the error since caller might have something
+      // the suggest, e.g. signature help in function call. Note that this is
+      // performed before pushing the \p Expr, so that signature help can report
+      // current argument correctly.
+      SawError = true;
+      cutOffParsing();
+      break;
+    }
     if (Expr.isInvalid()) {
       SkipUntil(tok::comma, tok::r_paren, StopBeforeMatch);
       SawError = true;

@@ -91,7 +91,7 @@ namespace X86 {
     COND_G = 15,
     LAST_VALID_COND = COND_G,
 
-    // Artificial condition codes. These are used by AnalyzeBranch
+    // Artificial condition codes. These are used by analyzeBranch
     // to indicate a block terminated with two conditional branches that together
     // form a compound condition. They occur in code using FCMP_OEQ or FCMP_UNE,
     // which can't be represented on x86 with a single condition. These
@@ -346,7 +346,6 @@ namespace X86 {
     llvm_unreachable("unknown fusion type");
   }
 
-#if INTEL_CUSTOMIZATION
   /// \returns true if the instruction with given opcode is a prefix.
   inline bool isPrefix(unsigned Opcode) {
     switch (Opcode) {
@@ -373,7 +372,6 @@ namespace X86 {
       return true;
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   /// Defines the possible values of the branch boundary alignment mask.
   enum AlignBranchBoundaryKind : uint8_t {

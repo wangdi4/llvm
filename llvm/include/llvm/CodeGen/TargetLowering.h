@@ -106,6 +106,49 @@ namespace Sched {
 
 } // end namespace Sched
 
+// MemOp models a memory operation, either memset or memcpy/memmove.
+struct MemOp {
+  // Shared
+  uint64_t Size;
+  unsigned DstAlign; // Specified alignment of the memory operation or zero if
+                     // destination alignment can satisfy any constraint.
+  bool AllowOverlap;
+  // memset only
+  bool IsMemset;   // If setthis memory operation is a memset.
+  bool ZeroMemset; // If set clears out memory with zeros.
+  // memcpy only
+  bool MemcpyStrSrc; // Indicates whether the memcpy source is an in-register
+                     // constant so it does not need to be loaded.
+  unsigned SrcAlign; // Inferred alignment of the source or zero if the memory
+                     // operation does not need to load the value.
+
+  static MemOp Copy(uint64_t Size, bool DstAlignCanChange, unsigned DstAlign,
+                    unsigned SrcAlign, bool IsVolatile,
+                    bool MemcpyStrSrc = false) {
+    return {
+        /*.Size =*/Size,
+        /*.DstAlign =*/DstAlignCanChange ? 0 : DstAlign,
+        /*.AllowOverlap =*/!IsVolatile,
+        /*.IsMemset =*/false,
+        /*.ZeroMemset =*/false,
+        /*.MemcpyStrSrc =*/MemcpyStrSrc,
+        /*.SrcAlign =*/SrcAlign,
+    };
+  }
+  static MemOp Set(uint64_t Size, bool DstAlignCanChange, unsigned DstAlign,
+                   bool IsZeroMemset, bool IsVolatile) {
+    return {
+        /*.Size =*/Size,
+        /*.DstAlign =*/DstAlignCanChange ? 0 : DstAlign,
+        /*.AllowOverlap =*/!IsVolatile,
+        /*.IsMemset =*/true,
+        /*.ZeroMemset =*/IsZeroMemset,
+        /*.MemcpyStrSrc =*/false,
+        /*.SrcAlign =*/0,
+    };
+  }
+};
+
 /// This base class for TargetLowering contains the SelectionDAG-independent
 /// parts that can be used from the rest of CodeGen.
 class TargetLoweringBase {
@@ -283,6 +326,20 @@ public:
   virtual MVT getVectorIdxTy(const DataLayout &DL) const {
     return getPointerTy(DL);
   }
+
+  /// This callback is used to inspect load/store instructions and add
+  /// target-specific MachineMemOperand flags to them.  The default
+  /// implementation does nothing.
+  virtual MachineMemOperand::Flags getTargetMMOFlags(const Instruction &I) const {
+    return MachineMemOperand::MONone;
+  }
+
+  MachineMemOperand::Flags getLoadMemOperandFlags(const LoadInst &LI,
+                                                  const DataLayout &DL) const;
+  MachineMemOperand::Flags getStoreMemOperandFlags(const StoreInst &SI,
+                                                   const DataLayout &DL) const;
+  MachineMemOperand::Flags getAtomicMemOperandFlags(const Instruction &AI,
+                                                    const DataLayout &DL) const;
 
   virtual bool isSelectSupported(SelectSupportKind /*kind*/) const {
     return true;
@@ -850,7 +907,7 @@ public:
     int          offset = 0;       // offset off of ptrVal
     uint64_t     size = 0;         // the size of the memory location
                                    // (taken from memVT if zero)
-    MaybeAlign align = Align::None(); // alignment
+    MaybeAlign align = Align(1);   // alignment
 
     MachineMemOperand::Flags flags = MachineMemOperand::MONone;
     IntrinsicInfo() = default;
@@ -950,7 +1007,7 @@ public:
     unsigned EqOpc;
     switch (Op) {
       default: llvm_unreachable("Unexpected FP pseudo-opcode");
-#define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)                   \
+#define DAG_INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)               \
       case ISD::STRICT_##DAGN: EqOpc = ISD::DAGN; break;
 #define CMP_INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)               \
       case ISD::STRICT_##DAGN: EqOpc = ISD::SETCC; break;
@@ -1504,29 +1561,17 @@ public:
 
   /// Returns the target specific optimal type for load and store operations as
   /// a result of memset, memcpy, and memmove lowering.
-  ///
-  /// If DstAlign is zero that means it's safe to destination alignment can
-  /// satisfy any constraint. Similarly if SrcAlign is zero it means there isn't
-  /// a need to check it against alignment requirement, probably because the
-  /// source does not need to be loaded. If 'IsMemset' is true, that means it's
-  /// expanding a memset. If 'ZeroMemset' is true, that means it's a memset of
-  /// zero. 'MemcpyStrSrc' indicates whether the memcpy source is constant so it
-  /// does not need to be loaded.  It returns EVT::Other if the type should be
-  /// determined using generic target-independent logic.
+  /// It returns EVT::Other if the type should be determined using generic
+  /// target-independent logic.
   virtual EVT
-  getOptimalMemOpType(uint64_t /*Size*/, unsigned /*DstAlign*/,
-                      unsigned /*SrcAlign*/, bool /*IsMemset*/,
-                      bool /*ZeroMemset*/, bool /*MemcpyStrSrc*/,
+  getOptimalMemOpType(const MemOp &Op,
                       const AttributeList & /*FuncAttributes*/) const {
     return MVT::Other;
   }
 
-
   /// LLT returning variant.
   virtual LLT
-  getOptimalMemOpLLT(uint64_t /*Size*/, unsigned /*DstAlign*/,
-                     unsigned /*SrcAlign*/, bool /*IsMemset*/,
-                     bool /*ZeroMemset*/, bool /*MemcpyStrSrc*/,
+  getOptimalMemOpLLT(const MemOp &Op,
                      const AttributeList & /*FuncAttributes*/) const {
     return LLT();
   }
@@ -3088,14 +3133,8 @@ public:
   /// Return true if the number of memory ops is below the threshold (Limit).
   /// It returns the types of the sequence of memory ops to perform
   /// memset / memcpy by reference.
-  bool findOptimalMemOpLowering(std::vector<EVT> &MemOps,
-                                unsigned Limit, uint64_t Size,
-                                unsigned DstAlign, unsigned SrcAlign,
-                                bool IsMemset,
-                                bool ZeroMemset,
-                                bool MemcpyStrSrc,
-                                bool AllowOverlap,
-                                unsigned DstAS, unsigned SrcAS,
+  bool findOptimalMemOpLowering(std::vector<EVT> &MemOps, unsigned Limit,
+                                const MemOp &Op, unsigned DstAS, unsigned SrcAS,
                                 const AttributeList &FuncAttributes) const;
 
   /// Check to see if the specified operand of the specified instruction is a
@@ -3761,13 +3800,6 @@ public:
   virtual SDValue prepareVolatileOrAtomicLoad(SDValue Chain, const SDLoc &DL,
                                               SelectionDAG &DAG) const {
     return Chain;
-  }
-
-  /// This callback is used to inspect load/store instructions and add
-  /// target-specific MachineMemOperand flags to them.  The default
-  /// implementation does nothing.
-  virtual MachineMemOperand::Flags getMMOFlags(const Instruction &I) const {
-    return MachineMemOperand::MONone;
   }
 
   /// Should SelectionDAG lower an atomic store of the given kind as a normal

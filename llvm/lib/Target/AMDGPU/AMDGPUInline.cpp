@@ -193,9 +193,9 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
-    if (IsViable)
+    if (IsViable.isSuccess())
       return llvm::InlineCost::getAlways("alwaysinline viable");
-    return llvm::InlineCost::getNever(IsViable.message);
+    return llvm::InlineCost::getNever(IsViable.getFailureReason());
   }
   if (CS.hasFnAttr("always-inline-recursive")) {
     InlineReason Reason = InlrNoReason;

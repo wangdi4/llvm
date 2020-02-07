@@ -321,7 +321,7 @@ static InlineResult InlineCallIfPossible(
   // inlined.
   InlineResult IR = InlineFunction(CS, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
                                    InsertLifetime);          // INTEL
-  if (!IR)
+  if (!IR.isSuccess())
     return IR;
 
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
@@ -917,12 +917,13 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                                AARGetter,
                                                ImportedFunctionsStats,
                                                &Reason);
-        if (!LIR) {
+        if (!LIR.isSuccess()) {
           IR.endUpdate();
           IR.setReasonNotInlined(CS, Reason);
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(CS, Reason);
-          setInlineRemark(CS, std::string(LIR) + "; " + inlineCostStr(*OIC));
+          setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " +
+                                  inlineCostStr(*OIC));
           if (CallSitesForFusion) {
             CallSitesForFusion->clear();
           }
@@ -931,8 +932,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
                                             Block)
                    << NV("Callee", Callee) << " will not be inlined into "
-                   << NV("Caller", Caller) << ": " // INTEL
-                   << NV("Reason", LIR.message);   // INTEL
+                   << NV("Caller", Caller) << ": "            // INTEL
+                   << NV("Reason", LIR.getFailureReason());   // INTEL
           });
           continue;
         }
@@ -1457,14 +1458,14 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
       InlineResult LIR = InlineFunction(CS, IFI, &Report, MDReport, // INTEL
                                         &Reason);                    // INTEL
-      if (!LIR) { // INTEL
-        setInlineRemark(CS, std::string(LIR) + "; " // INTEL
+      if (!LIR.isSuccess()) { // INTEL
+        setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " // INTEL
             + inlineCostStr(*OIC));                 // INTEL
         ORE.emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
                  << NV("Callee", &Callee) << " will not be inlined into "
-                 << NV("Caller", &F) << ": "    // INTEL
-                 << NV("Reason", LIR.message);  // INTEL
+                 << NV("Caller", &F) << ": "
+                 << NV("Reason", LIR.getFailureReason()); // INTEL
         });
         Report.endUpdate(); // INTEL
         Report.setReasonNotInlined(CS, Reason); // INTEL

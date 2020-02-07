@@ -1471,6 +1471,8 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i16,  1 },
     { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i32,  1 },
     { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i32,  1 },
+    { ISD::ZERO_EXTEND, MVT::v16i32, MVT::v16i16, 3 },
+    { ISD::SIGN_EXTEND, MVT::v16i32, MVT::v16i16, 3 },
 
     { ISD::TRUNCATE,    MVT::v4i8,   MVT::v4i64,  2 },
     { ISD::TRUNCATE,    MVT::v4i16,  MVT::v4i64,  2 },
@@ -3668,7 +3670,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
     assert(newFunc && "The function should be defined");
   }
   else {
-    std::string baseName = origFunc->getName();
+    std::string baseName = std::string(origFunc->getName());
     origFunc->setName(Twine("_replaced_").concat(baseName));
     newFunc = cast<Function>((M->getOrInsertFunction(baseName, newFuncType,
                                      origFunc->getAttributes())).getCallee());

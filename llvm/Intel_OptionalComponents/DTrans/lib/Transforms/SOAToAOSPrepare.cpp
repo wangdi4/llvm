@@ -462,7 +462,7 @@ void SOAToAOSPrepCandidateInfo::updateCallBase(CallBase *CB,
 }
 
 void SOAToAOSPrepCandidateInfo::removeDeadInsts(Function *F) {
-  SmallVector<Instruction *, 4> DeadInsts;
+  SmallVector<WeakTrackingVH, 4> DeadInsts;
 
   for (auto &I : instructions(F))
     if (isInstructionTriviallyDead(&I)) {
@@ -806,7 +806,7 @@ void SOAToAOSPrepCandidateInfo::simplifyCalls() {
     InlineFunctionInfo IFI;
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
                     { dbgs() << "  Inlining Call: " << *CB << "\n"; });
-    bool InlineStatus = InlineFunction(CB, IFI);
+    bool InlineStatus = InlineFunction(CB, IFI).isSuccess();
     assert(InlineStatus && "inline must succeed");
     (void)InlineStatus;
   };
@@ -1817,7 +1817,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Indices.push_back(IRB.getInt32(BaseArrayIdx));
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewElemTy, ThisPtr, Indices, "");
-    unsigned Align = DL.getABITypeAlignment(Elem->getType());
+    auto Align = MaybeAlign(DL.getABITypeAlignment(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());

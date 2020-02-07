@@ -1,16 +1,17 @@
-//===- LowerToLoops.cpp - conversion from Linalg library ops to loops------===//
+//===- LinalgToLoops.cpp - conversion from Linalg library ops to loops-----===//
 //
-// Part of the MLIR Project, under the Apache License v2.0 with LLVM Exceptions.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Linalg/EDSC/Builders.h"
+#include "mlir/Dialect/Linalg/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/LinalgTransforms.h"
-#include "mlir/Dialect/Linalg/Utils/Intrinsics.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/LoopOps/LoopOps.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
@@ -29,15 +30,12 @@ using namespace mlir;
 using namespace mlir::edsc;
 using namespace mlir::edsc::intrinsics;
 using namespace mlir::linalg;
-using namespace mlir::linalg::intrinsics;
 
 using IndexedStdValue = TemplatedIndexedValue<std_load, std_store>;
 using IndexedAffineValue = TemplatedIndexedValue<affine_load, affine_store>;
 
 using edsc::op::operator+;
 using edsc::op::operator==;
-
-namespace {
 
 static SmallVector<ValueHandle, 8>
 makeCanonicalAffineApplies(OpBuilder &b, Location loc, AffineMap map,
@@ -78,11 +76,13 @@ SmallVector<Value, 4> emitLoopRanges(OpBuilder &b, Location loc, AffineMap map,
   ScopedContext scope(b, loc);
   SmallVector<Value, 4> res;
   for (unsigned idx = 0, e = map.getNumResults(); idx < e; ++idx) {
-    res.push_back(range(constant_index(0), sizes[idx], constant_index(1)));
+    res.push_back(
+        linalg_range(constant_index(0), sizes[idx], constant_index(1)));
   }
   return res;
 }
 
+namespace {
 template <typename IndexedValueType, typename LinalgOpType>
 class LinalgScopedEmitter {};
 
@@ -438,7 +438,7 @@ LogicalResult LinalgOpToLoopsImpl<LoopTy, IndexedValueTy, ConcreteOpTy>::doit(
   SmallVector<ValueHandle *, 4> allPIvs =
       makeHandlePointers(MutableArrayRef<IndexHandle>(allIvs));
   auto loopRanges = emitLoopRanges(scope.getBuilder(), scope.getLocation(),
-                                   invertedMap, getViewSizes(linalgOp));
+                                   invertedMap, getViewSizes(b, linalgOp));
   assert(loopRanges.size() == allIvs.size());
 
   GenericLoopNestRangeBuilder<LoopTy>(allPIvs, loopRanges)([&] {
@@ -541,6 +541,7 @@ struct FoldAffineOp : public RewritePattern {
     return matchFailure();
   }
 };
+} // namespace
 
 template <typename LoopType, typename IndexedValueType>
 void LowerLinalgToLoopsPass<LoopType, IndexedValueType>::runOnFunction() {
@@ -557,12 +558,9 @@ void LowerLinalgToLoopsPass<LoopType, IndexedValueType>::runOnFunction() {
   applyPatternsGreedily(this->getFunction(), patterns);
 }
 
-} // namespace
-
 /// Create a pass to convert Linalg operations to loop.for loops and
 /// std.load/std.store accesses.
-std::unique_ptr<OpPassBase<FuncOp>>
-mlir::linalg::createConvertLinalgToLoopsPass() {
+std::unique_ptr<OpPassBase<FuncOp>> mlir::createConvertLinalgToLoopsPass() {
   return std::make_unique<
       LowerLinalgToLoopsPass<loop::ForOp, IndexedStdValue>>();
 }
@@ -571,7 +569,7 @@ mlir::linalg::createConvertLinalgToLoopsPass() {
 /// affine_load/affine_store accesses.
 /// Placeholder for now, this is NYI.
 std::unique_ptr<OpPassBase<FuncOp>>
-mlir::linalg::createConvertLinalgToAffineLoopsPass() {
+mlir::createConvertLinalgToAffineLoopsPass() {
   return std::make_unique<
       LowerLinalgToLoopsPass<AffineForOp, IndexedAffineValue>>();
 }

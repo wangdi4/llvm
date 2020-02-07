@@ -1,6 +1,6 @@
 //====-- Intel_FeatureInitCall.cpp ----------------====
 //
-//      Copyright (c) 2019 Intel Corporation.
+//      Copyright (c) 2019-2020 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -161,7 +161,7 @@ public:
     IRB.CreateCall(FI, Ptr8);
 
     // %stmxcsr = load i32, i32* %tmp, align 4
-    LoadInst *LI = IRB.CreateAlignedLoad(AI, 4, "stmxcsr");
+    LoadInst *LI = IRB.CreateAlignedLoad(AI, Align(4), "stmxcsr");
 
     // %or = or i32 %stmxcsr, 32832
     ConstantInt *CInt = IRB.getInt32(0x8040);

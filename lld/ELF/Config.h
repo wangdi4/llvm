@@ -168,10 +168,12 @@ struct Configuration {
   bool ltoCSProfileGenerate;
   bool ltoDebugPassManager;
   bool ltoNewPassManager;
+  bool ltoWholeProgramVisibility;
   bool mergeArmExidx;
   bool mipsN32Abi = false;
   bool mmapOutputFile;
   bool nmagic;
+  bool noDynamicLinker = false;
   bool noinhibitExec;
   bool nostdlib;
   bool oFormatBinary;

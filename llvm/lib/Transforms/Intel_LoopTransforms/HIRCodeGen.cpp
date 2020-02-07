@@ -1014,7 +1014,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
                                              Ref->getAlignment(), MaskVal);
     } else {
-      LInst = Builder.CreateAlignedLoad(GEPVal, Ref->getAlignment(),
+      LInst = Builder.CreateAlignedLoad(GEPVal, MaybeAlign(Ref->getAlignment()),
                                         Ref->isVolatile(), "gepload");
     }
 
@@ -1709,8 +1709,9 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       ResInst = VPOUtils::createMaskedStoreCall(
           StorePtr, StoreVal, Builder, LvalRef->getAlignment(), MaskVal);
     } else {
-      ResInst = Builder.CreateAlignedStore(
-          StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
+      ResInst = Builder.CreateAlignedStore(StoreVal, StorePtr,
+                                           MaybeAlign(LvalRef->getAlignment()),
+                                           LvalRef->isVolatile());
     }
 
     setMetadata(ResInst, LvalRef);
@@ -1766,7 +1767,8 @@ static void populateOperandBundles(HLInst *HInst,
       Inputs.push_back(Operands[J]);
     }
 
-    Bundles.emplace_back(HInst->getOperandBundleAt(I).getTagName(), Inputs);
+    Bundles.emplace_back(std::string(HInst->getOperandBundleAt(I).getTagName()),
+                         Inputs);
     OpBeginIndex = OpEndIndex;
   }
 

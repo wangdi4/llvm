@@ -1004,7 +1004,8 @@ private:
           uint32_t Ranks = FieldStrings.size() - 1;
           SmallVector<uint32_t, FortranMaxRank> TransposeVector;
           for (unsigned Idx = 1; Idx <= Ranks; ++Idx)
-            TransposeVector.push_back(std::stoi(FieldStrings[Idx]));
+            TransposeVector.push_back(
+                std::stoi(std::string(FieldStrings[Idx])));
 
           // Validate the index values as having one value per rank.
           SmallVector<uint32_t, FortranMaxRank> Tmp;

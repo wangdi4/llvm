@@ -3800,7 +3800,7 @@ CallInst *VPOParoptUtils::addOperandBundlesInCall(
   CI->getOperandBundlesAsDefs(OpBundles);
 
   for (auto &StrValVec : OpBundlesToAdd) {
-    OperandBundleDef B(StrValVec.first, StrValVec.second);
+    OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
     OpBundles.push_back(B);
   }
 

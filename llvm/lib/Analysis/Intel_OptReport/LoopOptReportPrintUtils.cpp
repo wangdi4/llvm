@@ -42,7 +42,7 @@ std::string formatRemarkMessage(LoopOptRemark Remark) {
 
   // Here FormatString should be obtaing by getting a string from message
   // catalogue.
-  std::string FormatString = R->getString();
+  std::string FormatString = std::string(R->getString());
 
   std::string Msg;
   // First, reserve some space in the string to avoid memory rellocations.
@@ -106,7 +106,7 @@ std::string formatRemarkMessage(LoopOptRemark Remark) {
       // empty string.
       if (!SM)
         return "";
-      Msg.append(SM->getString());
+      Msg.append(std::string(SM->getString()));
       break;
     }
     default:

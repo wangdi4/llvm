@@ -1,6 +1,6 @@
 //===---------------- MemInitTrimDown.cpp - DTransMemInitTrimDownPass -----===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -615,7 +615,7 @@ void MemInitTrimDownImpl::transformMemInit(void) {
   // analysis can't handle dead instructions.
   for (auto *ClassI : ClassInfoSet)
     for (auto *F : ClassI->field_member_functions()) {
-      SmallVector<Instruction *, 4> DeadInsts;
+      SmallVector<WeakTrackingVH, 4> DeadInsts;
 
       for (auto &I : instructions(F))
         if (isInstructionTriviallyDead(&I)) {

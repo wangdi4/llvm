@@ -877,7 +877,7 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   InlineReason Reason; // INTEL
   if (SkipCostAnalysis)
-    return isInlineViable(*Callee, Reason); // INTEL
+    return isInlineViable(*Callee, Reason).isSuccess(); // INTEL
 
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
@@ -1667,7 +1667,8 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     if (!InlineFunction(CS, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
                         true,                                        // INTEL
                         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
-                                         : nullptr)))
+                                         : nullptr))
+             .isSuccess())
       continue;
 
     CallerORE.emit(OR);

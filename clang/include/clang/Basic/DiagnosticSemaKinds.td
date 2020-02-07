@@ -147,6 +147,16 @@ def err_bankbits_non_consecutive : Error<
 def err_loop_fuse_unknown_arg : Error<
   "unknown argument to 'loop_fuse'. Expected integer expression">;
 // endif // INTEL_CUSTOMIZATION
+def err_intel_fpga_mem_limitations
+    : Error<
+          "illegal %select{pointer argument of type %1 |field in type pointed "
+          "to by pointer argument}0 to __builtin_intel_fpga_mem. Only pointers "
+          "to a first class lvalue or to an rvalue are allowed">;
+def err_intel_fpga_mem_arg_mismatch
+    : Error<"builtin parameter must be %select{"
+            "a pointer"
+            "|a non-negative integer constant}0">;
+
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
   InGroup<VLAExtension>;
@@ -765,6 +775,12 @@ def warn_fortify_source_overflow
 def warn_fortify_source_size_mismatch : Warning<
   "'%0' size argument is too large; destination buffer has size %1,"
   " but size argument is %2">, InGroup<FortifySource>;
+
+def warn_fortify_source_format_overflow : Warning<
+  "'%0' will always overflow; destination buffer has size %1,"
+  " but format string expands to at least %2">,
+  InGroup<FortifySource>;
+
 
 /// main()
 // static main() is not an error in C, just in C++.
@@ -2146,12 +2162,18 @@ def err_auto_not_allowed : Error<
   "|in template argument|in typedef|in type alias|in function return type"
   "|in conversion function type|here|in lambda parameter"
   "|in type allocated by 'new'|in K&R-style function parameter"
-  "|in template parameter|in friend declaration}1">;
+  "|in template parameter|in friend declaration|in function prototype that is "
+  "not a function declaration|in requires expression parameter}1">;
 def err_dependent_deduced_tst : Error<
   "typename specifier refers to "
   "%select{class template|function template|variable template|alias template|"
   "template template parameter|template}0 member in %1; "
   "argument deduction not allowed here">;
+def err_deduced_tst : Error<
+  "typename specifier refers to "
+  "%select{class template|function template|variable template|alias template|"
+  "template template parameter|template}0; argument deduction not allowed "
+  "here">;
 def err_auto_not_allowed_var_inst : Error<
   "'auto' variable template instantiation is not allowed">;
 def err_auto_var_requires_init : Error<
@@ -2634,25 +2656,65 @@ def note_constraints_not_satisfied : Note<
 def note_substituted_constraint_expr_is_ill_formed : Note<
   "because substituted constraint expression is ill-formed%0">;
 def note_atomic_constraint_evaluated_to_false : Note<
-  "%select{and |because }0'%1' evaluated to false">;
+  "%select{and|because}0 '%1' evaluated to false">;
 def note_concept_specialization_constraint_evaluated_to_false : Note<
-  "%select{and |because }0'%1' evaluated to false">;
+  "%select{and|because}0 '%1' evaluated to false">;
 def note_single_arg_concept_specialization_constraint_evaluated_to_false : Note<
-  "%select{and |because }0%1 does not satisfy %2">;
+  "%select{and|because}0 %1 does not satisfy %2">;
 def note_atomic_constraint_evaluated_to_false_elaborated : Note<
-  "%select{and |because }0'%1' (%2 %3 %4) evaluated to false">;
+  "%select{and|because}0 '%1' (%2 %3 %4) evaluated to false">;
 def err_constrained_virtual_method : Error<
   "virtual function cannot have a requires clause">;
 def err_trailing_requires_clause_on_deduction_guide : Error<
   "deduction guide cannot have a requires clause">;
 def err_reference_to_function_with_unsatisfied_constraints : Error<
   "invalid reference to function %0: constraints not satisfied">;
+def note_requires_expr_ill_formed_expr : Note<
+  "expression is invalid: %0">;
+def note_requires_expr_no_implicit_conversion : Note<
+  "no implicit conversion exists between expression type %0 and expected type "
+  "%1">;
+def err_requires_expr_local_parameter_default_argument : Error<
+  "default arguments not allowed for parameters of a requires expression">;
+def err_requires_expr_parameter_referenced_in_evaluated_context : Error<
+  "constraint variable %0 cannot be used in an evaluated context">;
+def note_expr_requirement_expr_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid: %2">;
+def note_expr_requirement_expr_unknown_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid">;
+def note_expr_requirement_noexcept_not_met : Note<
+  "%select{and|because}0 '%1' may throw an exception">;
+def note_expr_requirement_type_requirement_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid: %2">;
+def note_expr_requirement_type_requirement_unknown_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid">;
+def note_expr_requirement_constraints_not_satisfied : Note<
+  "%select{and|because}0 type constraint '%1' was not satisfied:">;
+def note_expr_requirement_constraints_not_satisfied_simple : Note<
+  "%select{and|because}0 %1 does not satisfy %2:">;
+def note_type_requirement_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid: %2">;
+def note_type_requirement_unknown_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid">;
+def err_type_requirement_non_type_template : Error<
+  "'%0' refers to a %select{class template|function template|"
+  "variable template|alias template|template template parameter|template}1, "
+  "not a type template">;
+def err_type_requirement_no_such_type : Error<
+  "'%0' does not name a type">;
+def note_nested_requirement_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid: %2">;
+def note_nested_requirement_unknown_substitution_error : Note<
+  "%select{and|because}0 '%1' would be invalid">;
 def note_ambiguous_atomic_constraints : Note<
   "similar constraint expressions not considered equivalent; constraint "
   "expressions cannot be considered equivalent unless they originate from the "
   "same concept">;
 def note_ambiguous_atomic_constraints_similar_expression : Note<
   "similar constraint expression here">;
+def err_unsupported_placeholder_constraint : Error<
+  "constrained placeholder types other than simple 'auto' on non-type template "
+  "parameters not supported yet">;
 
 def err_template_different_requires_clause : Error<
   "requires clause differs in template redeclaration">;
@@ -2667,6 +2729,8 @@ def err_type_constraint_non_type_concept : Error<
 def err_type_constraint_missing_arguments : Error<
   "%0 requires more than 1 template argument; provide the remaining arguments "
   "explicitly to use it here">;
+def err_placeholder_constraints_not_satisfied : Error<
+  "deduced type %0 does not satisfy %1">;
 
 // C++11 char16_t/char32_t
 def warn_cxx98_compat_unicode_type : Warning<
@@ -3270,9 +3334,6 @@ def warn_at_available_unchecked_use : Warning<
   InGroup<DiagGroup<"unsupported-availability-guard">>;
 
 // Thread Safety Attributes
-def warn_invalid_capability_name : Warning<
-  "invalid capability name '%0'; capability name must be 'mutex' or 'role'">,
-  InGroup<ThreadSafetyAttributes>, DefaultIgnore;
 def warn_thread_attribute_ignored : Warning<
   "ignoring %0 attribute because its argument is invalid">,
   InGroup<ThreadSafetyAttributes>, DefaultIgnore;
@@ -4658,6 +4719,8 @@ def note_template_type_alias_instantiation_here : Note<
   "in instantiation of template type alias %0 requested here">;
 def note_template_exception_spec_instantiation_here : Note<
   "in instantiation of exception specification for %0 requested here">;
+def note_template_requirement_instantiation_here : Note<
+  "in instantiation of requirement here">;
 def warn_var_template_missing : Warning<"instantiation of variable %q0 "
   "required here, but no definition is available">,
   InGroup<UndefinedVarTemplate>;
@@ -4693,6 +4756,8 @@ def note_template_default_arg_checking : Note<
   "while checking a default template argument used here">;
 def note_concept_specialization_here : Note<
   "while checking the satisfaction of concept '%0' requested here">;
+def note_nested_requirement_here : Note<
+  "while checking the satisfaction of nested requirement requested here">;
 def note_checking_constraints_for_template_id_here : Note<
   "while checking constraint satisfaction for template '%0' required here">;
 def note_checking_constraints_for_var_spec_id_here : Note<
@@ -4701,6 +4766,8 @@ def note_checking_constraints_for_var_spec_id_here : Note<
 def note_checking_constraints_for_class_spec_id_here : Note<
   "while checking constraint satisfaction for class template partial "
   "specialization '%0' required here">;
+def note_checking_constraints_for_function_here : Note<
+  "while checking constraint satisfaction for function '%0' required here">;
 def note_constraint_substitution_here : Note<
   "while substituting template arguments into constraint expression here">;
 def note_constraint_normalization_here : Note<
@@ -4826,8 +4893,12 @@ def err_typename_nested_not_found_requirement : Error<
   "declaration">;
 def err_typename_nested_not_type : Error<
     "typename specifier refers to non-type member %0 in %1">;
-def note_typename_refers_here : Note<
+def err_typename_not_type : Error<
+    "typename specifier refers to non-type %0">;
+def note_typename_member_refers_here : Note<
     "referenced member %0 is declared here">;
+def note_typename_refers_here : Note<
+    "referenced %0 is declared here">;
 def err_typename_missing : Error<
   "missing 'typename' prior to dependent type name '%0%1'">;
 def err_typename_missing_template : Error<
@@ -6697,6 +6768,8 @@ def note_objc_unsafe_perform_selector_method_declared_here :  Note<
   "method %0 that returns %1 declared here">;
 def err_attribute_arm_mve_alias : Error<
   "'__clang_arm_mve_alias' attribute can only be applied to an ARM MVE builtin">;
+def err_attribute_arm_mve_polymorphism : Error<
+  "'__clang_arm_mve_strict_polymorphism' attribute can only be applied to an MVE/NEON vector type">;
 
 def warn_setter_getter_impl_required : Warning<
   "property %0 requires method %1 to be defined - "
@@ -8438,6 +8511,12 @@ def note_defaulted_comparison_cannot_deduce : Note<
   "return type of defaulted 'operator<=>' cannot be deduced because "
   "return type %2 of three-way comparison for %select{|member|base class}0 %1 "
   "is not a standard comparison category type">;
+def err_defaulted_comparison_cannot_deduce_undeduced_auto : Error<
+  "return type of defaulted 'operator<=>' cannot be deduced because "
+  "three-way comparison for %select{|member|base class}0 %1 "
+  "has a deduced return type and is not yet defined">;
+def note_defaulted_comparison_cannot_deduce_undeduced_auto : Note<
+  "%select{|member|base class}0 %1 declared here">;
 def note_defaulted_comparison_cannot_deduce_callee : Note<
   "selected 'operator<=>' for %select{|member|base class}0 %1 declared here">;
 def err_incorrect_defaulted_comparison_constexpr : Error<
@@ -10420,8 +10499,10 @@ def err_sycl_virtual_types : Error<
   "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
 def note_sycl_used_here : Note<"used here">;
 def note_sycl_recursive_function_declared_here: Note<"function implemented using recursion declared here">;
+def err_sycl_non_trivially_copyable_type : Error<
+  "kernel parameter has non-trivially copyable class/struct type %0">;
 def err_sycl_non_std_layout_type : Error<
-  "kernel parameter has non-standard layout class/struct type">;
+  "kernel parameter has non-standard layout class/struct type %0">;
 def err_conflicting_sycl_kernel_attributes : Error<
   "conflicting attributes applied to a SYCL kernel">;
 def err_conflicting_sycl_function_attributes : Error<
@@ -10430,6 +10511,9 @@ def err_sycl_x_y_z_arguments_must_be_one : Error<
   "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used with value 0">;
 def err_intel_attribute_argument_is_not_in_range: Error<
    "The value of %0 attribute must be in range from 0 to 3">;
+def warn_boolean_attribute_argument_is_not_valid: Warning<
+   "The value of %0 attribute should be 0 or 1. Adjusted to 1">,
+   InGroup<AdjustedAttributes>;
 def err_sycl_attibute_cannot_be_applied_here
     : Error<"%0 attribute cannot be applied to a "
             "%select{static function or function in an anonymous namespace"

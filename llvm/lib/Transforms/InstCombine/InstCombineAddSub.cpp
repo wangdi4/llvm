@@ -1734,22 +1734,18 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
   }
 
   if (Constant *C = dyn_cast<Constant>(Op0)) {
-    bool IsNegate = match(C, m_ZeroInt());
+    // -f(x) -> f(-x) if possible.
+    if (match(C, m_Zero()))
+      if (Value *Neg = freelyNegateValue(Op1))
+        return replaceInstUsesWith(I, Neg);
+
     Value *X;
-    if (match(Op1, m_ZExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1)) {
-      // 0 - (zext bool) --> sext bool
+    if (match(Op1, m_ZExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1))
       // C - (zext bool) --> bool ? C - 1 : C
-      if (IsNegate)
-        return CastInst::CreateSExtOrBitCast(X, I.getType());
       return SelectInst::Create(X, SubOne(C), C);
-    }
-    if (match(Op1, m_SExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1)) {
-      // 0 - (sext bool) --> zext bool
+    if (match(Op1, m_SExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1))
       // C - (sext bool) --> bool ? C + 1 : C
-      if (IsNegate)
-        return CastInst::CreateZExtOrBitCast(X, I.getType());
       return SelectInst::Create(X, AddOne(C), C);
-    }
 
     // C - ~X == X + (1+C)
     if (match(Op1, m_Not(m_Value(X))))
@@ -1778,56 +1774,24 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
 
   const APInt *Op0C;
   if (match(Op0, m_APInt(Op0C))) {
-
-    if (Op0C->isNullValue()) {
-      Value *Op1Wide;
-      match(Op1, m_TruncOrSelf(m_Value(Op1Wide)));
-      bool HadTrunc = Op1Wide != Op1;
-      bool NoTruncOrTruncIsOneUse = !HadTrunc || Op1->hasOneUse();
-      unsigned BitWidth = Op1Wide->getType()->getScalarSizeInBits();
-
-      Value *X;
-      const APInt *ShAmt;
-      // -(X >>u 31) -> (X >>s 31)
-      if (NoTruncOrTruncIsOneUse &&
-          match(Op1Wide, m_LShr(m_Value(X), m_APInt(ShAmt))) &&
-          *ShAmt == BitWidth - 1) {
-        Value *ShAmtOp = cast<Instruction>(Op1Wide)->getOperand(1);
-        Instruction *NewShift = BinaryOperator::CreateAShr(X, ShAmtOp);
-        NewShift->copyIRFlags(Op1Wide);
-        if (!HadTrunc)
-          return NewShift;
-        Builder.Insert(NewShift);
-        return TruncInst::CreateTruncOrBitCast(NewShift, Op1->getType());
+    if (Op0C->isNullValue() && Op1->hasOneUse()) {
+      Value *LHS, *RHS;
+      SelectPatternFlavor SPF = matchSelectPattern(Op1, LHS, RHS).Flavor;
+      if (SPF == SPF_ABS || SPF == SPF_NABS) {
+        // This is a negate of an ABS/NABS pattern. Just swap the operands
+        // of the select.
+        cast<SelectInst>(Op1)->swapValues();
+        // Don't swap prof metadata, we didn't change the branch behavior.
+        return replaceInstUsesWith(I, Op1);
       }
-      // -(X >>s 31) -> (X >>u 31)
-      if (NoTruncOrTruncIsOneUse &&
-          match(Op1Wide, m_AShr(m_Value(X), m_APInt(ShAmt))) &&
-          *ShAmt == BitWidth - 1) {
-        Value *ShAmtOp = cast<Instruction>(Op1Wide)->getOperand(1);
-        Instruction *NewShift = BinaryOperator::CreateLShr(X, ShAmtOp);
-        NewShift->copyIRFlags(Op1Wide);
-        if (!HadTrunc)
-          return NewShift;
-        Builder.Insert(NewShift);
-        return TruncInst::CreateTruncOrBitCast(NewShift, Op1->getType());
-      }
-
-      if (!HadTrunc && Op1->hasOneUse()) {
-        Value *LHS, *RHS;
-        SelectPatternFlavor SPF = matchSelectPattern(Op1, LHS, RHS).Flavor;
-        if (SPF == SPF_ABS || SPF == SPF_NABS) {
-          // This is a negate of an ABS/NABS pattern. Just swap the operands
-          // of the select.
-          cast<SelectInst>(Op1)->swapValues();
-          // Don't swap prof metadata, we didn't change the branch behavior.
-          return replaceInstUsesWith(I, Op1);
-        }
-      }
+    }
 
 #if INTEL_CUSTOMIZATION
+    if (Op0C->isNullValue()) {
+      unsigned BitWidth = I.getType()->getScalarSizeInBits();
+
       // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
-      const APInt *Mask;
+      const APInt *Mask, *ShAmt;
       if (match(Op1,
                 m_OneUse(m_And(m_LShr(m_Value(X), m_APInt(ShAmt)),
                                m_APInt(Mask)))) &&
@@ -1839,8 +1803,8 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
                                           ConstantInt::get(I.getType(),
                                                            BitWidth - 1));
       }
-#endif // INTEL_CUSTOMIZATION
     }
+#endif // INTEL_CUSTOMIZATION
 
     // Turn this into a xor if LHS is 2^n-1 and the remaining bits are known
     // zero.
@@ -1973,7 +1937,7 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
   }
 
   if (Op1->hasOneUse()) {
-    Value *X = nullptr, *Y = nullptr, *Z = nullptr;
+    Value *Y = nullptr, *Z = nullptr;
     Constant *C = nullptr;
 
     // (X - (Y - Z))  -->  (X + (Z - Y)).
@@ -1985,24 +1949,6 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
     if (match(Op1, m_c_And(m_Value(Y), m_Specific(Op0))))
       return BinaryOperator::CreateAnd(Op0,
                                   Builder.CreateNot(Y, Y->getName() + ".not"));
-
-    // 0 - (X sdiv C)  -> (X sdiv -C)  provided the negation doesn't overflow.
-    if (match(Op0, m_Zero())) {
-      Constant *Op11C;
-      if (match(Op1, m_SDiv(m_Value(X), m_Constant(Op11C))) &&
-          !Op11C->containsUndefElement() && Op11C->isNotMinSignedValue() &&
-          Op11C->isNotOneValue()) {
-        Instruction *BO =
-            BinaryOperator::CreateSDiv(X, ConstantExpr::getNeg(Op11C));
-        BO->setIsExact(cast<BinaryOperator>(Op1)->isExact());
-        return BO;
-      }
-    }
-
-    // 0 - (X << Y)  -> (-X << Y)   when X is freely negatable.
-    if (match(Op1, m_Shl(m_Value(X), m_Value(Y))) && match(Op0, m_Zero()))
-      if (Value *XNeg = dyn_castNegVal(X))
-        return BinaryOperator::CreateShl(XNeg, Y);
 
     // Subtracting -1/0 is the same as adding 1/0:
     // sub [nsw] Op0, sext(bool Y) -> add [nsw] Op0, zext(bool Y)
@@ -2148,6 +2094,12 @@ static Instruction *foldFNegIntoConstant(Instruction &I) {
   if (match(&I, m_FNeg(m_OneUse(m_FDiv(m_Constant(C), m_Value(X))))))
     return BinaryOperator::CreateFDivFMF(ConstantExpr::getFNeg(C), X, &I);
 
+  // With NSZ [ counter-example with -0.0: -(-0.0 + 0.0) != 0.0 + -0.0 ]:
+  // -(X + C) --> -X + -C --> -C - X
+  if (I.hasNoSignedZeros() &&
+      match(&I, m_FNeg(m_OneUse(m_FAdd(m_Value(X), m_Constant(C))))))
+    return BinaryOperator::CreateFSubFMF(ConstantExpr::getFNeg(C), X, &I);
+
   return nullptr;
 }
 
@@ -2227,6 +2179,13 @@ Instruction *InstCombiner::visitFSub(BinaryOperator &I) {
     }
   }
 
+  // (-X) - Op1 --> -(X + Op1)
+  if (I.hasNoSignedZeros() && !isa<ConstantExpr>(Op0) &&
+      match(Op0, m_OneUse(m_FNeg(m_Value(X))))) {
+    Value *FAdd = Builder.CreateFAddFMF(X, Op1, &I);
+    return UnaryOperator::CreateFNegFMF(FAdd, &I);
+  }
+
   if (isa<Constant>(Op0))
     if (SelectInst *SI = dyn_cast<SelectInst>(Op1))
       if (Instruction *NV = FoldOpIntoSelect(I, SI))
@@ -2301,6 +2260,12 @@ Instruction *InstCombiner::visitFSub(BinaryOperator &I) {
     // complex pattern matching and remove this from InstCombine.
     if (Value *V = FAddCombine(Builder).simplify(&I))
       return replaceInstUsesWith(I, V);
+
+    // (X - Y) - Op1 --> X - (Y + Op1)
+    if (match(Op0, m_OneUse(m_FSub(m_Value(X), m_Value(Y))))) {
+      Value *FAdd = Builder.CreateFAddFMF(Y, Op1, &I);
+      return BinaryOperator::CreateFSubFMF(X, FAdd, &I);
+    }
   }
 
   return nullptr;

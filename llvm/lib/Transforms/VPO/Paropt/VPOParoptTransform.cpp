@@ -5600,7 +5600,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   IsLastVal = REBuilder.CreateAlloca(Int32Ty, nullptr, "is.last");
   IsLastVal->setAlignment(MaybeAlign(4));
   // Initialize %is.last with zero.
-  REBuilder.CreateAlignedStore(REBuilder.getInt32(0), IsLastVal, 4);
+  REBuilder.CreateAlignedStore(REBuilder.getInt32(0), IsLastVal, Align(4));
 
   AllocaInst *LowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
   LowerBnd->setAlignment(MaybeAlign(4));
@@ -5642,7 +5642,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   }
 
   // Initialize arguments for loop sharing init call.
-  LoadInst *LoadTid = PHBuilder.CreateAlignedLoad(TidPtrHolder, 4, "my.tid");
+  LoadInst *LoadTid =
+      PHBuilder.CreateAlignedLoad(TidPtrHolder, Align(4), "my.tid");
 
   // Cast the original lower bound value to the type of the induction
   // variable.
@@ -5650,7 +5651,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       IndValTy->getIntegerBitWidth())
     LBInitVal = PHBuilder.CreateSExtOrTrunc(LBInitVal, IndValTy);
 
-  PHBuilder.CreateAlignedStore(LBInitVal, LowerBnd, 4);
+  PHBuilder.CreateAlignedStore(LBInitVal, LowerBnd, Align(4));
 
   Value *UpperBndVal =
       VPOParoptUtils::computeOmpUpperBound(W, 0, PHTerm, ".for.scheduling");
@@ -5662,7 +5663,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       IndValTy->getIntegerBitWidth())
     UpperBndVal = PHBuilder.CreateSExtOrTrunc(UpperBndVal, IndValTy);
 
-  PHBuilder.CreateAlignedStore(UpperBndVal, UpperBnd, 4);
+  PHBuilder.CreateAlignedStore(UpperBndVal, UpperBnd, Align(4));
 
   bool IsNegStride;
   Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
@@ -5676,8 +5677,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       IndValTy->getIntegerBitWidth())
     StrideVal = PHBuilder.CreateSExtOrTrunc(StrideVal, IndValTy);
 
-  PHBuilder.CreateAlignedStore(StrideVal, Stride, 4);
-  PHBuilder.CreateAlignedStore(UpperBndVal, UpperD, 4);
+  PHBuilder.CreateAlignedStore(StrideVal, Stride, Align(4));
+  PHBuilder.CreateAlignedStore(UpperBndVal, UpperD, Align(4));
 
   ICmpInst* LoopBottomTest = WRegionUtils::getOmpLoopBottomTest(L);
 
@@ -5715,7 +5716,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     TeamIsLast = REBuilder.CreateAlloca(Int32Ty, nullptr, "team.is.last");
     TeamIsLast->setAlignment(MaybeAlign(4));
     // Initialize %team.is.last with zero.
-    REBuilder.CreateAlignedStore(REBuilder.getInt32(0), TeamIsLast, 4);
+    REBuilder.CreateAlignedStore(REBuilder.getInt32(0), TeamIsLast, Align(4));
 
     TeamLowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.lower.bnd");
     TeamLowerBnd->setAlignment(MaybeAlign(4));
@@ -5731,10 +5732,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
     // Initialize arguments for team distribution init call.
     // Insert store instructions and the call in the loop pre-header block.
-    PHBuilder.CreateAlignedStore(LBInitVal, TeamLowerBnd, 4);
-    PHBuilder.CreateAlignedStore(UpperBndVal, TeamUpperBnd, 4);
-    PHBuilder.CreateAlignedStore(StrideVal, TeamStride, 4);
-    PHBuilder.CreateAlignedStore(UpperBndVal, TeamUpperD, 4);
+    PHBuilder.CreateAlignedStore(LBInitVal, TeamLowerBnd, Align(4));
+    PHBuilder.CreateAlignedStore(UpperBndVal, TeamUpperBnd, Align(4));
+    PHBuilder.CreateAlignedStore(StrideVal, TeamStride, Align(4));
+    PHBuilder.CreateAlignedStore(UpperBndVal, TeamUpperD, Align(4));
 
     // Generate __kmpc_team_static_init_4{u}/8{u} Call Instruction
     // FIXME: we'd better pass the builder instead of the PHTerm.
@@ -5749,17 +5750,18 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // If we generate dispatch loop for team distribute, TeamLB
     // will be the splitting point, where the team dispatch header
     // will start.
-    TeamLB = PHBuilder.CreateAlignedLoad(TeamLowerBnd, 4, "team.new.lb");
-    TeamUB = PHBuilder.CreateAlignedLoad(TeamUpperBnd, 4, "team.new.ub");
-    TeamST = PHBuilder.CreateAlignedLoad(TeamStride, 4, "team.new.st");
-    auto *TeamUD = PHBuilder.CreateAlignedLoad(TeamUpperBnd, 4, "team.new.ud");
+    TeamLB = PHBuilder.CreateAlignedLoad(TeamLowerBnd, Align(4), "team.new.lb");
+    TeamUB = PHBuilder.CreateAlignedLoad(TeamUpperBnd, Align(4), "team.new.ub");
+    TeamST = PHBuilder.CreateAlignedLoad(TeamStride, Align(4), "team.new.st");
+    auto *TeamUD =
+        PHBuilder.CreateAlignedLoad(TeamUpperBnd, Align(4), "team.new.ud");
 
     // Store the team bounds as the loop's initial bounds
     // for further work sharing.
-    PHBuilder.CreateAlignedStore(TeamLB, LowerBnd, 4);
-    PHBuilder.CreateAlignedStore(TeamUB, UpperBnd, 4);
-    PHBuilder.CreateAlignedStore(TeamST, Stride, 4);
-    PHBuilder.CreateAlignedStore(TeamUD, UpperD, 4);
+    PHBuilder.CreateAlignedStore(TeamLB, LowerBnd, Align(4));
+    PHBuilder.CreateAlignedStore(TeamUB, UpperBnd, Align(4));
+    PHBuilder.CreateAlignedStore(TeamST, Stride, Align(4));
+    PHBuilder.CreateAlignedStore(TeamUD, UpperD, Align(4));
   }
 
   CallInst *KmpcInitCI = nullptr;
@@ -5795,7 +5797,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       // the value of upperD returned by the run-time.  It will be used
       // by genDispatchLoopForStatic() below.
       PHBuilder.SetInsertPoint(PHTerm);
-      UpperBndVal = PHBuilder.CreateAlignedLoad(UpperD, 4, "static.upperD");
+      UpperBndVal =
+          PHBuilder.CreateAlignedLoad(UpperD, Align(4), "static.upperD");
     }
   } else {
     // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
@@ -5804,8 +5807,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // with the team's bounds.  We could have used TeamLB and TeamUB
     // here directly, but having the explicit loads makes unit testing
     // easier.
-    auto *DispInitLB = PHBuilder.CreateAlignedLoad(LowerBnd, 4, "disp.init.lb");
-    auto *DispInitUB = PHBuilder.CreateAlignedLoad(UpperBnd, 4, "disp.init.ub");
+    auto *DispInitLB =
+        PHBuilder.CreateAlignedLoad(LowerBnd, Align(4), "disp.init.lb");
+    auto *DispInitUB =
+        PHBuilder.CreateAlignedLoad(UpperBnd, Align(4), "disp.init.ub");
     KmpcInitCI =
         VPOParoptUtils::genKmpcDispatchInit(W, IdentTy, LoadTid, SchedType,
                                             IsLastVal, DispInitLB, DispInitUB,
@@ -5837,8 +5842,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   // First, load the bounds initialized with run-time values.
   // NOTE: LoadLB is used as a split point for dispatch.
-  LoadInst *LoadLB = PHBuilder.CreateAlignedLoad(LowerBnd, 4, "lb.new");
-  LoadInst *LoadUB = PHBuilder.CreateAlignedLoad(UpperBnd, 4, "ub.new");
+  LoadInst *LoadLB = PHBuilder.CreateAlignedLoad(LowerBnd, Align(4), "lb.new");
+  LoadInst *LoadUB = PHBuilder.CreateAlignedLoad(UpperBnd, Align(4), "ub.new");
 
   // Fixup the induction variable's PHI to take the initial value
   // from the value of the lower bound returned by the run-time init.

@@ -869,6 +869,99 @@ Value *InstCombiner::dyn_castNegVal(Value *V) const {
   return nullptr;
 }
 
+/// Get negated V (that is 0-V) without increasing instruction count,
+/// assuming that the original V will become unused.
+Value *InstCombiner::freelyNegateValue(Value *V) {
+  if (Value *NegV = dyn_castNegVal(V))
+    return NegV;
+
+  Instruction *I = dyn_cast<Instruction>(V);
+  if (!I)
+    return nullptr;
+
+  unsigned BitWidth = I->getType()->getScalarSizeInBits();
+  switch (I->getOpcode()) {
+  // 0-(zext i1 A)  =>  sext i1 A
+  case Instruction::ZExt:
+    if (I->getOperand(0)->getType()->isIntOrIntVectorTy(1))
+      return Builder.CreateSExtOrBitCast(
+          I->getOperand(0), I->getType(), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(sext i1 A)  =>  zext i1 A
+  case Instruction::SExt:
+    if (I->getOperand(0)->getType()->isIntOrIntVectorTy(1))
+      return Builder.CreateZExtOrBitCast(
+          I->getOperand(0), I->getType(), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(A lshr (BW-1))  =>  A ashr (BW-1)
+  case Instruction::LShr:
+    if (match(I->getOperand(1), m_SpecificInt(BitWidth - 1)))
+      return Builder.CreateAShr(
+          I->getOperand(0), I->getOperand(1),
+          I->getName() + ".neg", cast<BinaryOperator>(I)->isExact());
+    return nullptr;
+
+  // 0-(A ashr (BW-1))  =>  A lshr (BW-1)
+  case Instruction::AShr:
+    if (match(I->getOperand(1), m_SpecificInt(BitWidth - 1)))
+      return Builder.CreateLShr(
+          I->getOperand(0), I->getOperand(1),
+          I->getName() + ".neg", cast<BinaryOperator>(I)->isExact());
+    return nullptr;
+
+  default:
+    break;
+  }
+
+  // TODO: The "sub" pattern below could also be applied without the one-use
+  // restriction. Not allowing it for now in line with existing behavior.
+  if (!I->hasOneUse())
+    return nullptr;
+
+  switch (I->getOpcode()) {
+  // 0-(A-B)  =>  B-A
+  case Instruction::Sub:
+    return Builder.CreateSub(
+        I->getOperand(1), I->getOperand(0), I->getName() + ".neg");
+
+  // 0-(A sdiv C)  =>  A sdiv (0-C)  provided the negation doesn't overflow.
+  case Instruction::SDiv: {
+    Constant *C = dyn_cast<Constant>(I->getOperand(1));
+    if (C && !C->containsUndefElement() && C->isNotMinSignedValue() &&
+        C->isNotOneValue())
+      return Builder.CreateSDiv(I->getOperand(0), ConstantExpr::getNeg(C),
+          I->getName() + ".neg", cast<BinaryOperator>(I)->isExact());
+    return nullptr;
+  }
+
+  // 0-(A<<B)  =>  (0-A)<<B
+  case Instruction::Shl:
+    if (Value *NegA = freelyNegateValue(I->getOperand(0)))
+      return Builder.CreateShl(NegA, I->getOperand(1), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(trunc A)  =>  trunc (0-A)
+  case Instruction::Trunc:
+    if (Value *NegA = freelyNegateValue(I->getOperand(0)))
+      return Builder.CreateTrunc(NegA, I->getType(), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(A*B)  =>  (0-A)*B
+  // 0-(A*B)  =>  A*(0-B)
+  case Instruction::Mul:
+    if (Value *NegA = freelyNegateValue(I->getOperand(0)))
+      return Builder.CreateMul(NegA, I->getOperand(1), V->getName() + ".neg");
+    if (Value *NegB = freelyNegateValue(I->getOperand(1)))
+      return Builder.CreateMul(I->getOperand(0), NegB, V->getName() + ".neg");
+    return nullptr;
+
+  default:
+    return nullptr;
+  }
+}
+
 static Value *foldOperationIntoSelectOperand(Instruction &I, Value *SO,
                                              InstCombiner::BuilderTy &Builder) {
   if (auto *Cast = dyn_cast<CastInst>(&I))
@@ -2767,14 +2860,17 @@ Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
 
   Value *ResultOp = RI.getOperand(0);
   Type *VTy = ResultOp->getType();
-  if (!VTy->isIntegerTy())
+  if (!VTy->isIntegerTy() || isa<Constant>(ResultOp))
     return nullptr;
 
   // There might be assume intrinsics dominating this return that completely
   // determine the value. If so, constant fold it.
   KnownBits Known = computeKnownBits(ResultOp, 0, &RI);
-  if (Known.isConstant())
+  if (Known.isConstant()) {
+    Worklist.AddValue(ResultOp);
     RI.setOperand(0, Constant::getIntegerValue(VTy, Known.getConstant()));
+    return &RI;
+  }
 
   return nullptr;
 }
@@ -3587,6 +3683,7 @@ bool InstCombiner::run() {
       }
       MadeIRChange = true;
     }
+    Worklist.AddDeferredInstructions();
   }
 
   Worklist.Zap();
@@ -3648,10 +3745,20 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
 
       // See if we can constant fold its operands.
       for (Use &U : Inst->operands()) {
-        if (!isa<ConstantVector>(U) && !isa<ConstantExpr>(U))
+        bool WrapAsMetadata = false;
+        auto *V = cast<Value>(U);
+
+        // Look through metadata wrappers.
+        if (auto *MAV = dyn_cast<MetadataAsValue>(V))
+          if (auto *VAM = dyn_cast<ValueAsMetadata>(MAV->getMetadata())) {
+            V = VAM->getValue();
+            WrapAsMetadata = true;
+          }
+
+        if (!isa<ConstantVector>(V) && !isa<ConstantExpr>(V))
           continue;
 
-        auto *C = cast<Constant>(U);
+        auto *C = cast<Constant>(V);
         Constant *&FoldRes = FoldedConstants[C];
         if (!FoldRes)
           FoldRes = ConstantFoldConstant(C, DL, TLI);
@@ -3662,7 +3769,11 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
           LLVM_DEBUG(dbgs() << "IC: ConstFold operand of: " << *Inst
                             << "\n    Old = " << *C
                             << "\n    New = " << *FoldRes << '\n');
-          U = FoldRes;
+          if (WrapAsMetadata)
+            U = MetadataAsValue::get(Inst->getContext(),
+                                     ValueAsMetadata::get(FoldRes));
+          else
+            U = FoldRes;
           MadeIRChange = true;
         }
       }
@@ -3744,7 +3855,8 @@ static bool combineInstructionsOverFunction(
     ProfileSummaryInfo *PSI, bool ExpensiveCombines, unsigned MaxIterations,
     bool TypeLoweringOpts, LoopInfo *LI) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
-  ExpensiveCombines |= EnableExpensiveCombines;
+  if (EnableExpensiveCombines.getNumOccurrences())
+    ExpensiveCombines = EnableExpensiveCombines;
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
   if (DisableTypeLoweringOpts)      // INTEL
     TypeLoweringOpts = false;       // INTEL
@@ -3754,7 +3866,7 @@ static bool combineInstructionsOverFunction(
   IRBuilder<TargetFolder, IRBuilderCallbackInserter> Builder(
       F.getContext(), TargetFolder(DL),
       IRBuilderCallbackInserter([&Worklist, &AC](Instruction *I) {
-        Worklist.Add(I);
+        Worklist.AddDeferred(I);
         if (match(I, m_Intrinsic<Intrinsic::assume>()))
           AC.registerAssumption(cast<CallInst>(I));
       }));

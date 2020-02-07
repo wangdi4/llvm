@@ -4205,19 +4205,11 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
       // The iterator must be incremented here because the instructions are
       // being moved to another block.
       PHINode *PN = cast<PHINode>(I++);
-#if INTEL_CUSTOMIZATION
-      if (PN->use_empty() ||
-          std::all_of(PN->user_begin(), PN->user_end(),
-                      [&BB](const Value *V) {
-                        if (auto *I = dyn_cast<Instruction>(V))
-                          return I->getParent() == BB;
-                        return false;
-                      }))
+      if (PN->use_empty() || !PN->isUsedOutsideOfBlock(BB))
         // If the PHI node has no uses or all of its uses are in this basic
         // block (meaning they are debug or lifetime intrinsics), just leave
         // it.  It will be erased when we erase BB below.
         continue;
-#endif // INTEL_CUSTOMIZATION
 
       // Otherwise, sink this PHI node into UnwindDest.
       // Any predecessors to UnwindDest which are not already represented

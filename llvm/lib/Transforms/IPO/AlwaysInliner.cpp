@@ -59,7 +59,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
   InlineReason Reason; // INTEL
   for (Function &F : M)
     if (!F.isDeclaration() && F.hasFnAttribute(Attribute::AlwaysInline) &&
-        isInlineViable(F, Reason)) { // INTEL
+        isInlineViable(F, Reason).isSuccess()) { // INTEL
       Calls.clear();
 
       for (User *U : F.users())
@@ -72,7 +72,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
         // We should do something to log or check the inline failures here.
         Changed |=
             InlineFunction(CS, IFI, &getReport(), &getMDReport(), // INTEL
-                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime);   // INTEL
+                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime)   // INTEL
+                .isSuccess();
 
       // Remember to try and delete this function afterward. This both avoids
       // re-walking the rest of the module and avoids dealing with any iterator
@@ -203,8 +204,10 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
                                 NinlrNotAlwaysInline); // INTEL
 
   auto IsViable = isInlineViable(*Callee, Reason);  // INTEL
-  if (!IsViable)
-    return InlineCost::getNever(IsViable.message, NinlrNotAlwaysInline); // INTEL
+  if (!IsViable.isSuccess())
+    return InlineCost::getNever(IsViable.getFailureReason(), // INTEL
+                                NinlrNotAlwaysInline);       // INTEL
+
 
   return InlineCost::getAlways("always inliner", InlrAlwaysInline); // INTEL
 }

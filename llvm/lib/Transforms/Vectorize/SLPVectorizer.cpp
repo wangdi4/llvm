@@ -521,6 +521,18 @@ static bool isLegalToPSLP(ArrayRef<Value *> VL) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+/// \returns true if \p Opcode is allowed as part of of the main/alternate
+/// instruction for SLP vectorization.
+///
+/// Example of unsupported opcode is SDIV that can potentially cause UB if the
+/// "shuffled out" lane would result in division by zero.
+static bool isValidForAlternation(unsigned Opcode) {
+  if (Instruction::isIntDivRem(Opcode))
+    return false;
+
+  return true;
+}
+
 /// \returns analysis of the Instructions in \p VL described in
 /// InstructionsState, the Opcode that we suppose the whole list
 /// could be vectorized even if its structure is diverse.
@@ -548,7 +560,8 @@ static InstructionsState getSameOpcodeHelper(ArrayRef<Value *> VL,
     if (IsBinOp && isa<BinaryOperator>(VL[Cnt])) {
       if (InstOpcode == Opcode || InstOpcode == AltOpcode)
         continue;
-      if (Opcode == AltOpcode) {
+      if (Opcode == AltOpcode && isValidForAlternation(InstOpcode) &&
+          isValidForAlternation(Opcode)) {
         AltOpcode = InstOpcode;
         AltIndex = Cnt;
         continue;
@@ -560,6 +573,9 @@ static InstructionsState getSameOpcodeHelper(ArrayRef<Value *> VL,
         if (InstOpcode == Opcode || InstOpcode == AltOpcode)
           continue;
         if (Opcode == AltOpcode) {
+          assert(isValidForAlternation(Opcode) &&
+                 isValidForAlternation(InstOpcode) &&
+                 "Cast isn't safe for alternation, logic needs to be updated!");
           AltOpcode = InstOpcode;
           AltIndex = Cnt;
           continue;
@@ -6877,7 +6893,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         Builder.SetInsertPoint(LI);
         PointerType *PtrTy = PointerType::get(VecTy, LI->getPointerAddressSpace());
         Value *Ptr = Builder.CreateBitCast(LI->getOperand(0), PtrTy);
-        LoadInst *V = Builder.CreateAlignedLoad(VecTy, Ptr, LI->getAlignment());
+        LoadInst *V = Builder.CreateAlignedLoad(VecTy, Ptr, LI->getAlign());
         Value *NewV = propagateMetadata(V, E->Scalars);
         if (!E->ReorderIndices.empty()) {
           OrdersType Mask;

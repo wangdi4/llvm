@@ -54,14 +54,13 @@ public:
   FlattenedSpelling(const std::string &Variety, const std::string &Name,
                     const std::string &Namespace, bool KnownToGCC) :
     V(Variety), N(Name), NS(Namespace), K(KnownToGCC) {}
-  explicit FlattenedSpelling(const Record &Spelling) :
-    V(Spelling.getValueAsString("Variety")),
-    N(Spelling.getValueAsString("Name")) {
-
+  explicit FlattenedSpelling(const Record &Spelling)
+      : V(std::string(Spelling.getValueAsString("Variety"))),
+        N(std::string(Spelling.getValueAsString("Name"))) {
     assert(V != "GCC" && V != "Clang" &&
            "Given a GCC spelling, which means this hasn't been flattened!");
     if (V == "CXX11" || V == "C2x" || V == "Pragma")
-      NS = Spelling.getValueAsString("Namespace");
+      NS = std::string(Spelling.getValueAsString("Namespace"));
     bool Unset;
     K = Spelling.getValueAsBitOrUnset("KnownToGCC", Unset);
   }
@@ -97,13 +96,13 @@ GetFlattenedSpellings(const Record &Attr) {
     StringRef Name = Spelling->getValueAsString("Name");
     if (Variety == "GCC") {
       // Gin up two new spelling objects to add into the list.
-      Ret.emplace_back("GNU", Name, "", true);
-      Ret.emplace_back("CXX11", Name, "gnu", true);
+      Ret.emplace_back("GNU", std::string(Name), "", true);
+      Ret.emplace_back("CXX11", std::string(Name), "gnu", true);
     } else if (Variety == "Clang") {
-      Ret.emplace_back("GNU", Name, "", false);
-      Ret.emplace_back("CXX11", Name, "clang", false);
+      Ret.emplace_back("GNU", std::string(Name), "", false);
+      Ret.emplace_back("CXX11", std::string(Name), "clang", false);
       if (Spelling->getValueAsBit("AllowInC"))
-        Ret.emplace_back("C2x", Name, "clang", false);
+        Ret.emplace_back("C2x", std::string(Name), "clang", false);
     } else
       Ret.push_back(FlattenedSpelling(*Spelling));
   }
@@ -113,17 +112,18 @@ GetFlattenedSpellings(const Record &Attr) {
 
 static std::string ReadPCHRecord(StringRef type) {
   return StringSwitch<std::string>(type)
-    .EndsWith("Decl *", "Record.GetLocalDeclAs<" 
-              + std::string(type, 0, type.size()-1) + ">(Record.readInt())")
-    .Case("TypeSourceInfo *", "Record.readTypeSourceInfo()")
-    .Case("Expr *", "Record.readExpr()")
-    .Case("IdentifierInfo *", "Record.readIdentifier()")
+      .EndsWith("Decl *", "Record.GetLocalDeclAs<" +
+                              std::string(type.data(), 0, type.size() - 1) +
+                              ">(Record.readInt())")
+      .Case("TypeSourceInfo *", "Record.readTypeSourceInfo()")
+      .Case("Expr *", "Record.readExpr()")
+      .Case("IdentifierInfo *", "Record.readIdentifier()")
 #if INTEL_CUSTOMIZATION
-    .Case("SourceLocation", "Record.readSourceLocation()")
-#endif  // INTEL_CUSTOMIZATION
-    .Case("StringRef", "Record.readString()")
-    .Case("ParamIdx", "ParamIdx::deserialize(Record.readInt())")
-    .Default("Record.readInt()");
+      .Case("SourceLocation", "Record.readSourceLocation()")
+#endif // INTEL_CUSTOMIZATION
+      .Case("StringRef", "Record.readString()")
+      .Case("ParamIdx", "ParamIdx::deserialize(Record.readInt())")
+      .Default("Record.readInt()");
 }
 
 // Get a type that is suitable for storing an object of the specified type.
@@ -135,17 +135,22 @@ static StringRef getStorageType(StringRef type) {
 
 // Assumes that the way to get the value is SA->getname()
 static std::string WritePCHRecord(StringRef type, StringRef name) {
-  return "Record." + StringSwitch<std::string>(type)
-    .EndsWith("Decl *", "AddDeclRef(" + std::string(name) + ");\n")
-    .Case("TypeSourceInfo *", "AddTypeSourceInfo(" + std::string(name) + ");\n")
-    .Case("Expr *", "AddStmt(" + std::string(name) + ");\n")
-    .Case("IdentifierInfo *", "AddIdentifierRef(" + std::string(name) + ");\n")
+  return "Record." +
+         StringSwitch<std::string>(type)
+             .EndsWith("Decl *", "AddDeclRef(" + std::string(name) + ");\n")
+             .Case("TypeSourceInfo *",
+                   "AddTypeSourceInfo(" + std::string(name) + ");\n")
+             .Case("Expr *", "AddStmt(" + std::string(name) + ");\n")
+             .Case("IdentifierInfo *",
+                   "AddIdentifierRef(" + std::string(name) + ");\n")
 #if INTEL_CUSTOMIZATION
-    .Case("SourceLocation", "AddSourceLocation(" + std::string(name) + ");\n")
-#endif  // INTEL_CUSTOMIZATION
-    .Case("StringRef", "AddString(" + std::string(name) + ");\n")
-    .Case("ParamIdx", "push_back(" + std::string(name) + ".serialize());\n")
-    .Default("push_back(" + std::string(name) + ");\n");
+             .Case("SourceLocation",
+                   "AddSourceLocation(" + std::string(name) + ");\n")
+#endif // INTEL_CUSTOMIZATION
+             .Case("StringRef", "AddString(" + std::string(name) + ");\n")
+             .Case("ParamIdx",
+                   "push_back(" + std::string(name) + ".serialize());\n")
+             .Default("push_back(" + std::string(name) + ");\n");
 }
 
 // Normalize attribute name by removing leading and trailing
@@ -190,7 +195,7 @@ static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
       std::string AN;
       if (Attr->isSubClassOf("TargetSpecificAttr") &&
           !Attr->isValueUnset("ParseKind")) {
-        AN = Attr->getValueAsString("ParseKind");
+        AN = std::string(Attr->getValueAsString("ParseKind"));
 
         // If this attribute has already been handled, it does not need to be
         // handled again.
@@ -219,8 +224,8 @@ namespace {
 
   public:
     Argument(const Record &Arg, StringRef Attr)
-      : lowerName(Arg.getValueAsString("Name")), upperName(lowerName),
-        attrName(Attr), isOpt(false), Fake(false) {
+        : lowerName(std::string(Arg.getValueAsString("Name"))),
+          upperName(lowerName), attrName(Attr), isOpt(false), Fake(false) {
       if (!lowerName.empty()) {
         lowerName[0] = std::tolower(lowerName[0]);
         upperName[0] = std::toupper(upperName[0]);
@@ -322,8 +327,9 @@ namespace {
     }
 
     void writePCHWrite(raw_ostream &OS) const override {
-      OS << "    " << WritePCHRecord(type, "SA->get" +
-                                           std::string(getUpperName()) + "()");
+      OS << "    "
+         << WritePCHRecord(type,
+                           "SA->get" + std::string(getUpperName()) + "()");
     }
 
     std::string getIsOmitted() const override {
@@ -674,7 +680,7 @@ namespace {
     VariadicArgument(const Record &Arg, StringRef Attr, std::string T)
         : Argument(Arg, Attr), Type(std::move(T)),
           ArgName(getLowerName().str() + "_"), ArgSizeName(ArgName + "Size"),
-          RangeName(getLowerName()) {}
+          RangeName(std::string(getLowerName())) {}
 
     const std::string &getType() const { return Type; }
     const std::string &getArgName() const { return ArgName; }
@@ -751,8 +757,8 @@ namespace {
       // If we can't store the values in the current type (if it's something
       // like StringRef), store them in a different type and convert the
       // container afterwards.
-      std::string StorageType = getStorageType(getType());
-      std::string StorageName = getLowerName();
+      std::string StorageType = std::string(getStorageType(getType()));
+      std::string StorageName = std::string(getLowerName());
       if (StorageType != getType()) {
         StorageName += "Storage";
         OS << "    SmallVector<" << StorageType << ", 4> "
@@ -837,11 +843,10 @@ namespace {
 
   public:
     EnumArgument(const Record &Arg, StringRef Attr)
-      : Argument(Arg, Attr), type(Arg.getValueAsString("Type")),
-        values(Arg.getValueAsListOfStrings("Values")),
-        enums(Arg.getValueAsListOfStrings("Enums")),
-        uniques(uniqueEnumsInOrder(enums))
-    {
+        : Argument(Arg, Attr), type(std::string(Arg.getValueAsString("Type"))),
+          values(Arg.getValueAsListOfStrings("Values")),
+          enums(Arg.getValueAsListOfStrings("Enums")),
+          uniques(uniqueEnumsInOrder(enums)) {
       // FIXME: Emit a proper error
       assert(!uniques.empty());
     }
@@ -966,12 +971,12 @@ namespace {
 
   public:
     VariadicEnumArgument(const Record &Arg, StringRef Attr)
-      : VariadicArgument(Arg, Attr, Arg.getValueAsString("Type")),
-        type(Arg.getValueAsString("Type")),
-        values(Arg.getValueAsListOfStrings("Values")),
-        enums(Arg.getValueAsListOfStrings("Enums")),
-        uniques(uniqueEnumsInOrder(enums))
-    {
+        : VariadicArgument(Arg, Attr,
+                           std::string(Arg.getValueAsString("Type"))),
+          type(std::string(Arg.getValueAsString("Type"))),
+          values(Arg.getValueAsListOfStrings("Values")),
+          enums(Arg.getValueAsListOfStrings("Enums")),
+          uniques(uniqueEnumsInOrder(enums)) {
       QualifiedTypeName = getAttrName().str() + "Attr::" + type;
       
       // FIXME: Emit a proper error
@@ -1307,8 +1312,9 @@ namespace {
     }
 
     void writePCHWrite(raw_ostream &OS) const override {
-      OS << "    " << WritePCHRecord(
-          getType(), "SA->get" + std::string(getUpperName()) + "Loc()");
+      OS << "    "
+         << WritePCHRecord(getType(),
+                           "SA->get" + std::string(getUpperName()) + "Loc()");
     }
   };
 
@@ -1651,11 +1657,12 @@ static void writeAttrAccessorDefinition(const Record &R, raw_ostream &OS) {
 static bool
 SpellingNamesAreCommon(const std::vector<FlattenedSpelling>& Spellings) {
   assert(!Spellings.empty() && "An empty list of spellings was provided");
-  std::string FirstName = NormalizeNameForSpellingComparison(
-    Spellings.front().name());
+  std::string FirstName =
+      std::string(NormalizeNameForSpellingComparison(Spellings.front().name()));
   for (const auto &Spelling :
        llvm::make_range(std::next(Spellings.begin()), Spellings.end())) {
-    std::string Name = NormalizeNameForSpellingComparison(Spelling.name());
+    std::string Name =
+        std::string(NormalizeNameForSpellingComparison(Spelling.name()));
     if (Name != FirstName)
       return false;
   }
@@ -1801,7 +1808,7 @@ struct AttributeSubjectMatchRule {
   }
 
   std::string getSpelling() const {
-    std::string Result = MetaSubject->getValueAsString("Name");
+    std::string Result = std::string(MetaSubject->getValueAsString("Name"));
     if (isSubRule()) {
       Result += '(';
       if (isNegatedSubRule())
@@ -1826,7 +1833,7 @@ struct AttributeSubjectMatchRule {
     }
     if (isAbstractRule())
       Result += "_abstract";
-    return Result.str();
+    return std::string(Result.str());
   }
 
   std::string getEnumValue() const { return "attr::" + getEnumValueName(); }
@@ -2385,7 +2392,7 @@ void clang::EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
       const Record *R = Super.first;
       if (R->getName() != "TargetSpecificAttr" &&
           R->getName() != "DeclOrTypeAttr" && SuperName.empty())
-        SuperName = R->getName();
+        SuperName = std::string(R->getName());
       if (R->getName() == "InheritableAttr")
         Inheritable = true;
     }
@@ -3477,7 +3484,7 @@ static void GenerateDefaultAppertainsTo(raw_ostream &OS) {
 }
 
 static std::string GetDiagnosticSpelling(const Record &R) {
-  std::string Ret = R.getValueAsString("DiagSpelling");
+  std::string Ret = std::string(R.getValueAsString("DiagSpelling"));
   if (!Ret.empty())
     return Ret;
 
@@ -3513,7 +3520,7 @@ static std::string CalculateDiagnostic(const Record &S) {
       SmallVector<StringRef, 2> Frags;
       llvm::SplitString(V, Frags, ",");
       for (auto Str : Frags) {
-        DiagList.push_back(Str.trim());
+        DiagList.push_back(std::string(Str.trim()));
       }
     }
   }
@@ -3544,7 +3551,7 @@ static std::string CalculateDiagnostic(const Record &S) {
 }
 
 static std::string GetSubjectWithSuffix(const Record *R) {
-  const std::string &B = R->getName();
+  const std::string &B = std::string(R->getName());
   if (B == "DeclBase")
     return "Decl";
   return B + "Decl";
@@ -3941,7 +3948,7 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
       std::string AttrName;
       if (Attr.isSubClassOf("TargetSpecificAttr") &&
           !Attr.isValueUnset("ParseKind")) {
-        AttrName = Attr.getValueAsString("ParseKind");
+        AttrName = std::string(Attr.getValueAsString("ParseKind"));
         if (Seen.find(AttrName) != Seen.end())
           continue;
         Seen.insert(AttrName);
@@ -4185,7 +4192,7 @@ GetAttributeHeadingAndSpellings(const Record &Documentation,
                     "documented");
 
   // Determine the heading to be used for this attribute.
-  std::string Heading = Documentation.getValueAsString("Heading");
+  std::string Heading = std::string(Documentation.getValueAsString("Heading"));
   if (Heading.empty()) {
     // If there's only one spelling, we can simply use that.
     if (Spellings.size() == 1)
@@ -4194,7 +4201,8 @@ GetAttributeHeadingAndSpellings(const Record &Documentation,
       std::set<std::string> Uniques;
       for (auto I = Spellings.begin(), E = Spellings.end();
            I != E && Uniques.size() <= 1; ++I) {
-        std::string Spelling = NormalizeNameForSpellingComparison(I->name());
+        std::string Spelling =
+            std::string(NormalizeNameForSpellingComparison(I->name()));
         Uniques.insert(Spelling);
       }
       // If the semantic map has only one spelling, that is sufficient for our

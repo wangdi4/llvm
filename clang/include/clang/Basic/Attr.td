@@ -1170,6 +1170,15 @@ def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
+def SYCLIntelUsesGlobalWorkOffset : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","uses_global_work_offset">];
+  let Args = [BoolArgument<"Enabled">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelUsesGlobalWorkOffsetDocs];
+  let PragmaAttributeSupport = 0;
+}
+
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1199,17 +1208,22 @@ def OpenCLUnrollHint : InheritableAttr {
 
 def LoopUnrollHint : InheritableAttr {
   let Spellings = [CXX11<"clang","loop_unroll">];
-  let Args = [UnsignedArgument<"UnrollHint">];
+  let Args = [ExprArgument<"UnrollHintExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "loop_unroll";
     }
-    std::string getDiagnosticName() const {
-      std::string Value = "";
-      if (getUnrollHint())
-        Value = "(" + std::to_string(getUnrollHint()) + ")";
-      return "[[clang::loop_unroll" + Value + "]]";
+    std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+      std::string ValueName;
+      llvm::raw_string_ostream OS(ValueName);
+      if (auto *E = getUnrollHintExpr()) {
+        OS << "(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << ")";
+      }
+      return "[[clang::loop_unroll" + OS.str() + "]]";
     }
   }];
   let Documentation = [LoopUnrollHintDocs];
@@ -1771,12 +1785,12 @@ def IntelFPGANumBanks : Attr {
   }];
 }
 
-def IntelFPGAMaxPrivateCopies : InheritableAttr {
-  let Spellings = [CXX11<"intelfpga","max_private_copies">];
+def IntelFPGAPrivateCopies : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","private_copies">];
   let Args = [ExprArgument<"Value">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
-  let Documentation = [IntelFPGAMaxPrivateCopiesAttrDocs];
+  let Documentation = [IntelFPGAPrivateCopiesAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
       return 0;
@@ -1869,6 +1883,11 @@ def NeonVectorType : TypeAttr {
   let Documentation = [Undocumented];
   // Represented as VectorType instead.
   let ASTNode = 0;
+}
+
+def ArmMveStrictPolymorphism : TypeAttr, TargetSpecificAttr<TargetARM> {
+  let Spellings = [Clang<"__clang_arm_mve_strict_polymorphism">];
+  let Documentation = [ArmMveStrictPolymorphismDocs];
 }
 
 def NoUniqueAddress : InheritableAttr, TargetSpecificAttr<TargetItaniumCXXABI> {
@@ -2954,10 +2973,6 @@ def Capability : InheritableAttr {
   let Accessors = [Accessor<"isShared",
                     [Clang<"shared_capability", 0>]>];
   let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    bool isMutex() const { return getName().equals_lower("mutex"); }
-    bool isRole() const { return getName().equals_lower("role"); }
-  }];
 }
 
 def AssertCapability : InheritableAttr {

@@ -104,7 +104,9 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CallSite.h"
+#include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -329,6 +331,15 @@ struct IRPosition {
       return *AnchorVal;
     assert(isa<CallBase>(AnchorVal) && "Expected a call base!");
     return *cast<CallBase>(AnchorVal)->getArgOperand(getArgNo());
+  }
+
+  /// Return the type this abstract attribute is associated with.
+  Type *getAssociatedType() const {
+    assert(KindOrArgNo != IRP_INVALID &&
+           "Invalid position does not have an associated type!");
+    if (getPositionKind() == IRPosition::IRP_RETURNED)
+      return getAssociatedFunction()->getReturnType();
+    return getAssociatedValue().getType();
   }
 
   /// Return the argument number of the associated value if it is an argument or
@@ -827,38 +838,6 @@ struct Attributor {
     return Changed;
   }
 
-  /// Get pointer operand of memory accessing instruction. If \p I is
-  /// not a memory accessing instruction, return nullptr. If \p AllowVolatile,
-  /// is set to false and the instruction is volatile, return nullptr.
-  static const Value *getPointerOperand(const Instruction *I,
-                                        bool AllowVolatile) {
-    if (auto *LI = dyn_cast<LoadInst>(I)) {
-      if (!AllowVolatile && LI->isVolatile())
-        return nullptr;
-      return LI->getPointerOperand();
-    }
-
-    if (auto *SI = dyn_cast<StoreInst>(I)) {
-      if (!AllowVolatile && SI->isVolatile())
-        return nullptr;
-      return SI->getPointerOperand();
-    }
-
-    if (auto *CXI = dyn_cast<AtomicCmpXchgInst>(I)) {
-      if (!AllowVolatile && CXI->isVolatile())
-        return nullptr;
-      return CXI->getPointerOperand();
-    }
-
-    if (auto *RMWI = dyn_cast<AtomicRMWInst>(I)) {
-      if (!AllowVolatile && RMWI->isVolatile())
-        return nullptr;
-      return RMWI->getPointerOperand();
-    }
-
-    return nullptr;
-  }
-
   /// Record that \p I is to be replaced with `unreachable` after information
   /// was manifested.
   void changeToUnreachableAfterManifest(Instruction *I) {
@@ -972,6 +951,16 @@ struct Attributor {
     /// Allow access to the private members from the Attributor.
     friend struct Attributor;
   };
+
+  /// Check if we can rewrite a function signature.
+  ///
+  /// The argument \p Arg is replaced with new ones defined by the number,
+  /// order, and types in \p ReplacementTypes.
+  ///
+  /// \returns True, if the replacement can be registered, via
+  /// registerFunctionSignatureRewrite, false otherwise.
+  bool isValidFunctionSignatureRewrite(Argument &Arg,
+                                       ArrayRef<Type *> ReplacementTypes);
 
   /// Register a rewrite for a function signature.
   ///
@@ -1191,7 +1180,7 @@ private:
   ///{
   SmallPtrSet<Function *, 8> ToBeDeletedFunctions;
   SmallPtrSet<BasicBlock *, 8> ToBeDeletedBlocks;
-  SmallPtrSet<Instruction *, 8> ToBeDeletedInsts;
+  SmallDenseSet<WeakVH, 8> ToBeDeletedInsts;
   ///}
 };
 
@@ -1254,8 +1243,14 @@ template <typename base_ty, base_ty BestState, base_ty WorstState>
 struct IntegerStateBase : public AbstractState {
   using base_t = base_ty;
 
+  IntegerStateBase() {}
+  IntegerStateBase(base_t Assumed) : Assumed(Assumed) {}
+
   /// Return the best possible representable state.
   static constexpr base_t getBestState() { return BestState; }
+  static constexpr base_t getBestState(const IntegerStateBase &) {
+    return getBestState();
+  }
 
   /// Return the worst possible representable state.
   static constexpr base_t getWorstState() { return WorstState; }
@@ -1397,7 +1392,18 @@ template <typename base_ty = uint32_t, base_ty BestState = ~base_ty(0),
           base_ty WorstState = 0>
 struct IncIntegerState
     : public IntegerStateBase<base_ty, BestState, WorstState> {
+  using super = IntegerStateBase<base_ty, BestState, WorstState>;
   using base_t = base_ty;
+
+  IncIntegerState() : super() {}
+  IncIntegerState(base_t Assumed) : super(Assumed) {}
+
+  /// Return the best possible representable state.
+  static constexpr base_t getBestState() { return BestState; }
+  static constexpr base_t
+  getBestState(const IncIntegerState<base_ty, BestState, WorstState> &) {
+    return getBestState();
+  }
 
   /// Take minimum of assumed and \p Value.
   IncIntegerState &takeAssumedMinimum(base_t Value) {
@@ -1467,7 +1473,11 @@ private:
 
 /// Simple wrapper for a single bit (boolean) state.
 struct BooleanState : public IntegerStateBase<bool, 1, 0> {
+  using super = IntegerStateBase<bool, 1, 0>;
   using base_t = IntegerStateBase::base_t;
+
+  BooleanState() : super() {}
+  BooleanState(base_t Assumed) : super(Assumed) {}
 
   /// Set the assumed value to \p Value but never below the known one.
   void setAssumed(bool Value) { Assumed &= (Known | Value); }
@@ -1503,6 +1513,123 @@ private:
   }
 };
 
+/// State for an integer range.
+struct IntegerRangeState : public AbstractState {
+
+  /// Bitwidth of the associated value.
+  uint32_t BitWidth;
+
+  /// State representing assumed range, initially set to empty.
+  ConstantRange Assumed;
+
+  /// State representing known range, initially set to [-inf, inf].
+  ConstantRange Known;
+
+  IntegerRangeState(uint32_t BitWidth)
+      : BitWidth(BitWidth), Assumed(ConstantRange::getEmpty(BitWidth)),
+        Known(ConstantRange::getFull(BitWidth)) {}
+
+  IntegerRangeState(const ConstantRange &CR)
+      : BitWidth(CR.getBitWidth()), Assumed(CR),
+        Known(getWorstState(CR.getBitWidth())) {}
+
+  /// Return the worst possible representable state.
+  static ConstantRange getWorstState(uint32_t BitWidth) {
+    return ConstantRange::getFull(BitWidth);
+  }
+
+  /// Return the best possible representable state.
+  static ConstantRange getBestState(uint32_t BitWidth) {
+    return ConstantRange::getEmpty(BitWidth);
+  }
+  static ConstantRange getBestState(const IntegerRangeState &IRS) {
+    return getBestState(IRS.getBitWidth());
+  }
+
+  /// Return associated values' bit width.
+  uint32_t getBitWidth() const { return BitWidth; }
+
+  /// See AbstractState::isValidState()
+  bool isValidState() const override {
+    return BitWidth > 0 && !Assumed.isFullSet();
+  }
+
+  /// See AbstractState::isAtFixpoint()
+  bool isAtFixpoint() const override { return Assumed == Known; }
+
+  /// See AbstractState::indicateOptimisticFixpoint(...)
+  ChangeStatus indicateOptimisticFixpoint() override {
+    Known = Assumed;
+    return ChangeStatus::CHANGED;
+  }
+
+  /// See AbstractState::indicatePessimisticFixpoint(...)
+  ChangeStatus indicatePessimisticFixpoint() override {
+    Assumed = Known;
+    return ChangeStatus::CHANGED;
+  }
+
+  /// Return the known state encoding
+  ConstantRange getKnown() const { return Known; }
+
+  /// Return the assumed state encoding.
+  ConstantRange getAssumed() const { return Assumed; }
+
+  /// Unite assumed range with the passed state.
+  void unionAssumed(const ConstantRange &R) {
+    // Don't loose a known range.
+    Assumed = Assumed.unionWith(R).intersectWith(Known);
+  }
+
+  /// See IntegerRangeState::unionAssumed(..).
+  void unionAssumed(const IntegerRangeState &R) {
+    unionAssumed(R.getAssumed());
+  }
+
+  /// Unite known range with the passed state.
+  void unionKnown(const ConstantRange &R) {
+    // Don't loose a known range.
+    Known = Known.unionWith(R);
+    Assumed = Assumed.unionWith(Known);
+  }
+
+  /// See IntegerRangeState::unionKnown(..).
+  void unionKnown(const IntegerRangeState &R) { unionKnown(R.getKnown()); }
+
+  /// Intersect known range with the passed state.
+  void intersectKnown(const ConstantRange &R) {
+    Assumed = Assumed.intersectWith(R);
+    Known = Known.intersectWith(R);
+  }
+
+  /// See IntegerRangeState::intersectKnown(..).
+  void intersectKnown(const IntegerRangeState &R) {
+    intersectKnown(R.getKnown());
+  }
+
+  /// Equality for IntegerRangeState.
+  bool operator==(const IntegerRangeState &R) const {
+    return getAssumed() == R.getAssumed() && getKnown() == R.getKnown();
+  }
+
+  /// "Clamp" this state with \p R. The result is subtype dependent but it is
+  /// intended that only information assumed in both states will be assumed in
+  /// this one afterwards.
+  IntegerRangeState operator^=(const IntegerRangeState &R) {
+    // NOTE: `^=` operator seems like `intersect` but in this case, we need to
+    // take `union`.
+    unionAssumed(R);
+    return *this;
+  }
+
+  IntegerRangeState operator&=(const IntegerRangeState &R) {
+    // NOTE: `&=` operator seems like `intersect` but in this case, we need to
+    // take `union`.
+    unionKnown(R);
+    unionAssumed(R);
+    return *this;
+  }
+};
 /// Helper struct necessary as the modular build fails if the virtual method
 /// IRAttribute::manifest is defined in the Attributor.cpp.
 struct IRAttributeManifest {
@@ -1696,6 +1823,7 @@ template <typename base_ty, base_ty BestState, base_ty WorstState>
 raw_ostream &
 operator<<(raw_ostream &OS,
            const IntegerStateBase<base_ty, BestState, WorstState> &State);
+raw_ostream &operator<<(raw_ostream &OS, const IntegerRangeState &State);
 ///}
 
 struct AttributorPass : public PassInfoMixin<AttributorPass> {
@@ -2005,6 +2133,9 @@ struct AAIsDead : public StateWrapper<BooleanState, AbstractAttribute>,
 /// State for dereferenceable attribute
 struct DerefState : AbstractState {
 
+  static DerefState getBestState() { return DerefState(); }
+  static DerefState getBestState(const DerefState &) { return getBestState(); }
+
   /// State representing for dereferenceable bytes.
   IncIntegerState<> DerefBytesState;
 
@@ -2282,6 +2413,45 @@ struct AAHeapToStack : public StateWrapper<BooleanState, AbstractAttribute>,
   static const char ID;
 };
 
+/// An abstract interface for privatizability.
+///
+/// A pointer is privatizable if it can be replaced by a new, private one.
+/// Privatizing pointer reduces the use count, interaction between unrelated
+/// code parts.
+///
+/// In order for a pointer to be privatizable its value cannot be observed
+/// (=nocapture), it is (for now) not written (=readonly & noalias), we know
+/// what values are necessary to make the private copy look like the original
+/// one, and the values we need can be loaded (=dereferenceable).
+struct AAPrivatizablePtr : public StateWrapper<BooleanState, AbstractAttribute>,
+                           public IRPosition {
+  AAPrivatizablePtr(const IRPosition &IRP) : IRPosition(IRP) {}
+
+  /// Returns true if pointer privatization is assumed to be possible.
+  bool isAssumedPrivatizablePtr() const { return getAssumed(); }
+
+  /// Returns true if pointer privatization is known to be possible.
+  bool isKnownPrivatizablePtr() const { return getKnown(); }
+
+  /// Return the type we can choose for a private copy of the underlying
+  /// value. None means it is not clear yet, nullptr means there is none.
+  virtual Optional<Type *> getPrivatizableType() const = 0;
+
+  /// Return an IR position, see struct IRPosition.
+  ///
+  ///{
+  IRPosition &getIRPosition() { return *this; }
+  const IRPosition &getIRPosition() const { return *this; }
+  ///}
+
+  /// Create an abstract attribute view for the position \p IRP.
+  static AAPrivatizablePtr &createForPosition(const IRPosition &IRP,
+                                              Attributor &A);
+
+  /// Unique ID (due to the unique address)
+  static const char ID;
+};
+
 /// An abstract interface for all memory related attributes.
 struct AAMemoryBehavior
     : public IRAttribute<
@@ -2326,6 +2496,54 @@ struct AAMemoryBehavior
   /// Create an abstract attribute view for the position \p IRP.
   static AAMemoryBehavior &createForPosition(const IRPosition &IRP,
                                              Attributor &A);
+
+  /// Unique ID (due to the unique address)
+  static const char ID;
+};
+
+/// An abstract interface for range value analysis.
+struct AAValueConstantRange : public IntegerRangeState,
+                              public AbstractAttribute,
+                              public IRPosition {
+  AAValueConstantRange(const IRPosition &IRP)
+      : IntegerRangeState(IRP.getAssociatedType()->getIntegerBitWidth()),
+        IRPosition(IRP) {}
+
+  /// Return an IR position, see struct IRPosition.
+  const IRPosition &getIRPosition() const override { return *this; }
+
+  /// See AbstractAttribute::getState(...).
+  IntegerRangeState &getState() override { return *this; }
+  const AbstractState &getState() const override { return *this; }
+
+  /// Create an abstract attribute view for the position \p IRP.
+  static AAValueConstantRange &createForPosition(const IRPosition &IRP,
+                                                 Attributor &A);
+
+  /// Return an assumed range for the assocaited value a program point \p CtxI.
+  /// If \p I is nullptr, simply return an assumed range.
+  virtual ConstantRange
+  getAssumedConstantRange(Attributor &A,
+                          const Instruction *CtxI = nullptr) const = 0;
+
+  /// Return a known range for the assocaited value at a program point \p CtxI.
+  /// If \p I is nullptr, simply return a known range.
+  virtual ConstantRange
+  getKnownConstantRange(Attributor &A,
+                        const Instruction *CtxI = nullptr) const = 0;
+
+  /// Return an assumed constant for the assocaited value a program point \p
+  /// CtxI.
+  Optional<ConstantInt *>
+  getAssumedConstantInt(Attributor &A, const Instruction *CtxI = nullptr) const {
+    ConstantRange RangeV = getAssumedConstantRange(A, CtxI);
+    if (auto *C = RangeV.getSingleElement())
+      return cast<ConstantInt>(
+          ConstantInt::get(getAssociatedValue().getType(), *C));
+    if (RangeV.isEmptySet())
+      return llvm::None;
+    return nullptr;
+  }
 
   /// Unique ID (due to the unique address)
   static const char ID;

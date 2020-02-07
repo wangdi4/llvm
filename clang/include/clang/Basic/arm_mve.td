@@ -116,6 +116,28 @@ def vmulqf: Intrinsic<Vector, (args Vector:$a, Vector:$b), (fmul $a, $b)>,
             NameOverride<"vmulq">;
 }
 
+let params = !listconcat(T.Int16, T.Int32) in {
+  let pnt = PNT_None in {
+    def vmvnq_n: Intrinsic<Vector, (args imm_simd_vmvn:$imm),
+                           (not (splat (Scalar $imm)))>;
+  }
+  defm vmvnq: IntrinsicMX<Vector, (args imm_simd_vmvn:$imm, Predicate:$pred),
+                     (select $pred, (not (splat (Scalar $imm))), $inactive),
+                     1, "_n", PNT_NType, PNT_None>;
+  let pnt = PNT_NType in {
+    def vbicq_n: Intrinsic<Vector, (args Vector:$v, imm_simd_restrictive:$imm),
+                           (and $v, (not (splat (Scalar $imm))))>;
+    def vorrq_n: Intrinsic<Vector, (args Vector:$v, imm_simd_restrictive:$imm),
+                           (or $v, (splat (Scalar $imm)))>;
+  }
+  def vbicq_m_n: Intrinsic<
+    Vector, (args Vector:$v, imm_simd_restrictive:$imm, Predicate:$pred),
+    (select $pred, (and $v, (not (splat (Scalar $imm)))), $v)>;
+  def vorrq_m_n: Intrinsic<
+    Vector, (args Vector:$v, imm_simd_restrictive:$imm, Predicate:$pred),
+    (select $pred, (or $v, (splat (Scalar $imm))), $v)>;
+}
+
 // The bitcasting below is not overcomplicating the IR because while
 // Vector and UVector may be different vector types at the C level i.e.
 // vectors of same size signed/unsigned ints. Once they're lowered
@@ -192,6 +214,10 @@ let params = T.Int in {
 let params = T.Signed in {
   defm vqdmulhq : VectorVectorArithmetic<"qdmulh_predicated", (?), 0>;
   defm vqrdmulhq : VectorVectorArithmetic<"qrdmulh_predicated", (?), 0>;
+  def vminaq_m: Intrinsic<UVector, (args UVector:$a, Vector:$b, Predicate:$pred),
+                                   (IRInt<"vmina_predicated", [UVector,Predicate]> $a, $b, $pred)>;
+  def vmaxaq_m: Intrinsic<UVector, (args UVector:$a, Vector:$b, Predicate:$pred),
+                                   (IRInt<"vmaxa_predicated", [UVector,Predicate]> $a, $b, $pred)>;
 }
 
 let params = T.Poly, overrideKindLetter = "p" in {
@@ -203,6 +229,10 @@ let params = T.Poly, overrideKindLetter = "p" in {
 let params = T.Float in {
   defm vminnmq : VectorVectorArithmetic<"min_predicated", (? (u32 0))>;
   defm vmaxnmq : VectorVectorArithmetic<"max_predicated", (? (u32 0))>;
+  def vminnmaq_m: Intrinsic<Vector, (args Vector:$a, Vector:$b, Predicate:$pred),
+                                    (IRInt<"vminnma_predicated", [Vector,Predicate]> $a, $b, $pred)>;
+  def vmaxnmaq_m: Intrinsic<Vector, (args Vector:$a, Vector:$b, Predicate:$pred),
+                                    (IRInt<"vmaxnma_predicated", [Vector,Predicate]> $a, $b, $pred)>;
 }
 
 let params = T.Int in {
@@ -275,6 +305,14 @@ let params = T.Signed in {
                                (select (icmp_sle $a, $b), $a, $b)>;
   def vmaxq: Intrinsic<Vector, (args Vector:$a, Vector:$b),
                                (select (icmp_sge $a, $b), $a, $b)>;
+  def vminaq: Intrinsic<UVector, (args UVector:$a, Vector:$b),
+                                 (seq (select (icmp_slt $b, (zeroinit Vector)),
+                                              (sub (zeroinit Vector), $b), $b):$absb,
+                                      (select (icmp_ule $a, $absb), $a, $absb))>;
+  def vmaxaq: Intrinsic<UVector, (args UVector:$a, Vector:$b),
+                                 (seq (select (icmp_slt $b, (zeroinit Vector)),
+                                              (sub (zeroinit Vector), $b), $b):$absb,
+                                      (select (icmp_uge $a, $absb), $a, $absb))>;
 }
 let params = T.Unsigned in {
   def vminqu: Intrinsic<Vector, (args Vector:$a, Vector:$b),
@@ -286,9 +324,17 @@ let params = T.Unsigned in {
 }
 let params = T.Float in {
   def vminnmq: Intrinsic<Vector, (args Vector:$a, Vector:$b),
-                               (IRIntBase<"minnum", [Vector]> $a, $b)>;
+                                 (IRIntBase<"minnum", [Vector]> $a, $b)>;
   def vmaxnmq: Intrinsic<Vector, (args Vector:$a, Vector:$b),
-                               (IRIntBase<"maxnum", [Vector]> $a, $b)>;
+                                 (IRIntBase<"maxnum", [Vector]> $a, $b)>;
+  def vminnmaq: Intrinsic<Vector, (args Vector:$a, Vector:$b),
+                                  (IRIntBase<"minnum", [Vector]>
+                                   (IRIntBase<"fabs", [Vector]> $a),
+                                   (IRIntBase<"fabs", [Vector]> $b))>;
+  def vmaxnmaq: Intrinsic<Vector, (args Vector:$a, Vector:$b),
+                                  (IRIntBase<"maxnum", [Vector]>
+                                   (IRIntBase<"fabs", [Vector]> $a),
+                                   (IRIntBase<"fabs", [Vector]> $b))>;
 }
 
 def vpselq: Intrinsic<Vector, (args Vector:$t, Vector:$f, Predicate:$pred),

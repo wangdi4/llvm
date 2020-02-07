@@ -127,7 +127,7 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
 // column in OCLBuiltin) to their OCL builtin counterparts.
 static void replaceMathFnWithOCLBuiltin(Function &F) {
   StringRef OldName = F.getName();
-  auto Map = OCLBuiltin.find(OldName);
+  auto Map = OCLBuiltin.find(std::string(OldName));
   if (Map != OCLBuiltin.end()) {
     StringRef NewName = Map->second;
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "

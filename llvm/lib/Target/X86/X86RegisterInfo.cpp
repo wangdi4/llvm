@@ -89,12 +89,6 @@ X86RegisterInfo::getCSRFirstUseCost(const MachineFunction &MF) const {
   return 1 << 14;
 }
 #endif // INTEL_CUSTOMIZATION
-bool
-X86RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
-  // ExecutionDomainFix, BreakFalseDeps and PostRAScheduler require liveness.
-  return true;
-}
-
 int
 X86RegisterInfo::getSEHRegNum(unsigned i) const {
   return getEncodingValue(i);

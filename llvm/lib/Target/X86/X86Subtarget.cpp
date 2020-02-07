@@ -227,11 +227,11 @@ bool X86Subtarget::isLegalToCallImmediateAddr() const {
 }
 
 void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
-  std::string CPUName = CPU;
+  std::string CPUName = std::string(CPU);
   if (CPUName.empty())
     CPUName = "generic";
 
-  std::string FullFS = FS;
+  std::string FullFS = std::string(FS);
   if (In64BitMode) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE

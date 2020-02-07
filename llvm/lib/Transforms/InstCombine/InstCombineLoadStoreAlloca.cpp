@@ -462,12 +462,11 @@ LoadInst *InstCombiner::combineLoadToNewType(LoadInst &LI, Type *NewTy,
         NewPtr->getType()->getPointerAddressSpace() == AS))
     NewPtr = Builder.CreateBitCast(Ptr, NewTy->getPointerTo(AS));
 
-  unsigned Align = LI.getAlignment();
-  if (!Align)
     // If old load did not have an explicit alignment specified,
     // manually preserve the implied (ABI) alignment of the load.
     // Else we may inadvertently incorrectly over-promise alignment.
-    Align = getDataLayout().getABITypeAlignment(LI.getType());
+  const auto Align =
+      getDataLayout().getValueOrABITypeAlignment(LI.getAlign(), LI.getType());
 
   LoadInst *NewLoad = Builder.CreateAlignedLoad(
       NewTy, NewPtr, Align, LI.isVolatile(), LI.getName() + Suffix);
@@ -490,7 +489,7 @@ static StoreInst *combineStoreToNewValue(InstCombiner &IC, StoreInst &SI, Value 
 
   StoreInst *NewStore = IC.Builder.CreateAlignedStore(
       V, IC.Builder.CreateBitCast(Ptr, V->getType()->getPointerTo(AS)),
-      SI.getAlignment(), SI.isVolatile());
+      SI.getAlign(), SI.isVolatile());
   NewStore->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
   for (const auto &MDPair : MD) {
     unsigned ID = MDPair.first;
@@ -705,9 +704,7 @@ static Instruction *unpackLoadToAggregate(InstCombiner &IC, LoadInst &LI) {
     if (SL->hasPadding())
       return nullptr;
 
-    auto Align = LI.getAlignment();
-    if (!Align)
-      Align = DL.getABITypeAlignment(ST);
+    const auto Align = DL.getValueOrABITypeAlignment(LI.getAlign(), ST);
 
     auto *Addr = LI.getPointerOperand();
     auto *IdxType = Type::getInt32Ty(T->getContext());
@@ -721,9 +718,9 @@ static Instruction *unpackLoadToAggregate(InstCombiner &IC, LoadInst &LI) {
       };
       auto *Ptr = IC.Builder.CreateInBoundsGEP(ST, Addr, makeArrayRef(Indices),
                                                Name + ".elt");
-      auto EltAlign = MinAlign(Align, SL->getElementOffset(i));
-      auto *L = IC.Builder.CreateAlignedLoad(ST->getElementType(i), Ptr,
-                                             EltAlign, Name + ".unpack");
+      auto *L = IC.Builder.CreateAlignedLoad(
+          ST->getElementType(i), Ptr,
+          commonAlignment(Align, SL->getElementOffset(i)), Name + ".unpack");
       // Propagate AA metadata. It'll still be valid on the narrowed load.
       AAMDNodes AAMD;
       LI.getAAMetadata(AAMD);
@@ -756,9 +753,7 @@ static Instruction *unpackLoadToAggregate(InstCombiner &IC, LoadInst &LI) {
 
     const DataLayout &DL = IC.getDataLayout();
     auto EltSize = DL.getTypeAllocSize(ET);
-    auto Align = LI.getAlignment();
-    if (!Align)
-      Align = DL.getABITypeAlignment(T);
+    const auto Align = DL.getValueOrABITypeAlignment(LI.getAlign(), T);
 
     auto *Addr = LI.getPointerOperand();
     auto *IdxType = Type::getInt64Ty(T->getContext());
@@ -773,8 +768,9 @@ static Instruction *unpackLoadToAggregate(InstCombiner &IC, LoadInst &LI) {
       };
       auto *Ptr = IC.Builder.CreateInBoundsGEP(AT, Addr, makeArrayRef(Indices),
                                                Name + ".elt");
-      auto *L = IC.Builder.CreateAlignedLoad(
-          AT->getElementType(), Ptr, MinAlign(Align, Offset), Name + ".unpack");
+      auto *L = IC.Builder.CreateAlignedLoad(AT->getElementType(), Ptr,
+                                             commonAlignment(Align, Offset),
+                                             Name + ".unpack");
       AAMDNodes AAMD;
       LI.getAAMetadata(AAMD);
       L->setAAMetadata(AAMD);
@@ -1376,9 +1372,7 @@ static bool unpackStoreToAggregate(InstCombiner &IC, StoreInst &SI) {
     if (SL->hasPadding())
       return false;
 
-    auto Align = SI.getAlignment();
-    if (!Align)
-      Align = DL.getABITypeAlignment(ST);
+    const auto Align = DL.getValueOrABITypeAlignment(SI.getAlign(), ST);
 
     SmallString<16> EltName = V->getName();
     EltName += ".elt";
@@ -1396,7 +1390,7 @@ static bool unpackStoreToAggregate(InstCombiner &IC, StoreInst &SI) {
       auto *Ptr = IC.Builder.CreateInBoundsGEP(ST, Addr, makeArrayRef(Indices),
                                                AddrName);
       auto *Val = IC.Builder.CreateExtractValue(V, i, EltName);
-      auto EltAlign = MinAlign(Align, SL->getElementOffset(i));
+      auto EltAlign = commonAlignment(Align, SL->getElementOffset(i));
       llvm::Instruction *NS = IC.Builder.CreateAlignedStore(Val, Ptr, EltAlign);
       AAMDNodes AAMD;
       SI.getAAMetadata(AAMD);
@@ -1424,9 +1418,7 @@ static bool unpackStoreToAggregate(InstCombiner &IC, StoreInst &SI) {
 
     const DataLayout &DL = IC.getDataLayout();
     auto EltSize = DL.getTypeAllocSize(AT->getElementType());
-    auto Align = SI.getAlignment();
-    if (!Align)
-      Align = DL.getABITypeAlignment(T);
+    const auto Align = DL.getValueOrABITypeAlignment(SI.getAlign(), T);
 
     SmallString<16> EltName = V->getName();
     EltName += ".elt";
@@ -1446,7 +1438,7 @@ static bool unpackStoreToAggregate(InstCombiner &IC, StoreInst &SI) {
       auto *Ptr = IC.Builder.CreateInBoundsGEP(AT, Addr, makeArrayRef(Indices),
                                                AddrName);
       auto *Val = IC.Builder.CreateExtractValue(V, i, EltName);
-      auto EltAlign = MinAlign(Align, Offset);
+      auto EltAlign = commonAlignment(Align, Offset);
       Instruction *NS = IC.Builder.CreateAlignedStore(Val, Ptr, EltAlign);
       AAMDNodes AAMD;
       SI.getAAMetadata(AAMD);
@@ -1611,9 +1603,12 @@ Instruction *InstCombiner::visitStoreInst(StoreInst &SI) {
       if (PrevSI->isUnordered() && equivalentAddressValues(PrevSI->getOperand(1),
                                                         SI.getOperand(1))) {
         ++NumDeadStore;
-        ++BBI;
+        // Manually add back the original store to the worklist now, so it will
+        // be processed after the operands of the removed store, as this may
+        // expose additional DSE opportunities.
+        Worklist.Add(&SI);
         eraseInstFromFunction(*PrevSI);
-        continue;
+        return nullptr;
       }
       break;
     }

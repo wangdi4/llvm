@@ -84,7 +84,7 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 
   for (auto SvmlVariant : SvmlVariants) {
     std::vector<Record*> VList = SvmlVariant->getValueAsListOfDefs("VList");
-    std::string SvmlVariantNameStr = SvmlVariant->getName();
+    std::string SvmlVariantNameStr = std::string(SvmlVariant->getName());
     for (unsigned i = 0; i < VList.size(); i++) {
       bool isMasked = VList[i]->getValueAsBit("isMasked");
       bool hasSingle = VList[i]->getValueAsBit("hasSingle");

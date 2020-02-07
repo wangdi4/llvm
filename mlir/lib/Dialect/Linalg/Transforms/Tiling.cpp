@@ -1,6 +1,6 @@
 //===- Tiling.cpp - Implementation of linalg Tiling -----------------------===//
 //
-// Part of the MLIR Project, under the Apache License v2.0 with LLVM Exceptions.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Linalg/EDSC/Builders.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
-#include "mlir/Dialect/Linalg/Utils/Intrinsics.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/LoopOps/LoopOps.h"
 #include "mlir/EDSC/Helpers.h"
@@ -32,7 +32,6 @@ using namespace mlir;
 using namespace mlir::edsc;
 using namespace mlir::edsc::intrinsics;
 using namespace mlir::linalg;
-using namespace mlir::linalg::intrinsics;
 using namespace mlir::loop;
 
 #define DEBUG_TYPE "linalg-tiling"
@@ -261,7 +260,8 @@ makeTiledViews(OpBuilder &b, Location loc, LinalgOp linalgOp,
   for (unsigned viewIndex = 0; viewIndex < linalgOp.getNumInputsAndOutputs();
        ++viewIndex) {
     Value view = *(viewIteratorBegin + viewIndex);
-    unsigned rank = view.getType().cast<MemRefType>().getRank();
+    auto viewType = view.getType().cast<MemRefType>();
+    unsigned rank = viewType.getRank();
     auto map = loopToOperandRangesMaps(linalgOp)[viewIndex];
     // If the view is not tiled, we can use it as is.
     if (!isTiled(map, tileSizes)) {
@@ -288,12 +288,29 @@ makeTiledViews(OpBuilder &b, Location loc, LinalgOp linalgOp,
       auto offset = applyMapToValues(b, loc, m, lbs, folder).front();
       offsets.push_back(offset);
       auto size = applyMapToValues(b, loc, m, subViewSizes, folder).front();
+
+      // The size of the subview should be trimmed to avoid out-of-bounds
+      // accesses, unless we statically know the subview size divides the view
+      // size evenly.
+      int64_t viewSize = viewType.getDimSize(r);
+      auto sizeCst = dyn_cast_or_null<ConstantIndexOp>(size.getDefiningOp());
+      if (ShapedType::isDynamic(viewSize) || !sizeCst ||
+          (viewSize % sizeCst.getValue()) != 0) {
+        // Compute min(size, dim - offset) to avoid out-of-bounds accesses.
+        auto minMap = AffineMap::get(
+            /*dimCount=*/3, /*symbolCount=*/0,
+            {getAffineDimExpr(/*position=*/0, b.getContext()),
+             getAffineDimExpr(/*position=*/1, b.getContext()) -
+                 getAffineDimExpr(/*position=*/2, b.getContext())});
+        auto d = dim(folder, view, r);
+        size = affine_min(folder, b.getIndexType(), minMap,
+                          ValueRange{size, d, offset});
+      }
+
       sizes.push_back(size);
       strides.push_back(constant_index(folder, 1));
     }
-    // TODO(b/144419024) Atm std.subview is not guaranteed in-bounds. Depending
-    // on the semantics we attach to it, we may need to use min(size, dim) here
-    // and canonicalize later.
+
     res.push_back(b.create<SubViewOp>(loc, view, offsets, sizes, strides));
   }
 
@@ -333,7 +350,7 @@ mlir::linalg::tileLinalgOp(OpBuilder &b, LinalgOp op, ArrayRef<Value> tileSizes,
   b.setInsertionPoint(op);
   ScopedContext scope(b, op.getLoc());
   // 2. Build the tiled loop ranges.
-  auto viewSizes = getViewSizes(op);
+  auto viewSizes = getViewSizes(b, op);
   // The flattened loopToOperandRangesMaps is expected to be an invertible
   // permutation map (asserted in the inverse calculation).
   auto viewSizesToLoopsMap =
@@ -456,7 +473,7 @@ LinalgTilingPass::LinalgTilingPass(ArrayRef<int64_t> sizes) {
 }
 
 std::unique_ptr<OpPassBase<FuncOp>>
-mlir::linalg::createLinalgTilingPass(ArrayRef<int64_t> tileSizes) {
+mlir::createLinalgTilingPass(ArrayRef<int64_t> tileSizes) {
   return std::make_unique<LinalgTilingPass>(tileSizes);
 }
 

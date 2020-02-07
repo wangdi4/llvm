@@ -460,7 +460,7 @@ void OpenMPLateOutliner::startDirectiveIntrinsicSet(StringRef Begin,
                                                     OpenMPDirectiveKind K) {
   assert(BundleValues.empty());
   DirectiveIntrinsicSet D(End, K);
-  llvm::OperandBundleDef B(Begin, BundleValues);
+  llvm::OperandBundleDef B(std::string(Begin), BundleValues);
   D.OpBundles.push_back(B);
   Directives.push_back(D);
 }
@@ -468,7 +468,7 @@ void OpenMPLateOutliner::startDirectiveIntrinsicSet(StringRef Begin,
 void OpenMPLateOutliner::emitDirective(DirectiveIntrinsicSet &D,
                                        StringRef Name) {
   assert(BundleValues.empty());
-  llvm::OperandBundleDef B(Name, BundleValues);
+  llvm::OperandBundleDef B(std::string(Name), BundleValues);
   D.OpBundles.push_back(B);
   clearBundleTemps();
 }
@@ -477,7 +477,7 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK) {
   SmallVector<DirectiveIntrinsicSet *, 4> DRefs;
   getApplicableDirectives(CK, DRefs);
   for (auto *D : DRefs) {
-    llvm::OperandBundleDef B(BundleString, BundleValues);
+    llvm::OperandBundleDef B(std::string(BundleString), BundleValues);
     D->OpBundles.push_back(B);
   }
   clearBundleTemps();

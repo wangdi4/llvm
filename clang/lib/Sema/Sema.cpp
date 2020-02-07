@@ -52,6 +52,21 @@ SourceLocation Sema::getLocForEndOfToken(SourceLocation Loc, unsigned Offset) {
 
 ModuleLoader &Sema::getModuleLoader() const { return PP.getModuleLoader(); }
 
+IdentifierInfo *
+Sema::InventAbbreviatedTemplateParameterTypeName(IdentifierInfo *ParamName,
+                                                 unsigned int Index) {
+  std::string InventedName;
+  llvm::raw_string_ostream OS(InventedName);
+
+  if (!ParamName)
+    OS << "auto:" << Index + 1;
+  else
+    OS << ParamName->getName() << ":auto";
+
+  OS.flush();
+  return &Context.Idents.get(OS.str());
+}
+
 PrintingPolicy Sema::getPrintingPolicy(const ASTContext &Context,
                                        const Preprocessor &PP) {
   PrintingPolicy Policy = Context.getPrintingPolicy();
@@ -127,6 +142,9 @@ public:
 } // end namespace sema
 } // end namespace clang
 
+const unsigned Sema::MaxAlignmentExponent;
+const unsigned Sema::MaximumAlignment;
+
 Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
            TranslationUnitKind TUKind, CodeCompleteConsumer *CodeCompleter)
     : ExternalSource(nullptr), isMultiplexExternalSource(false),
@@ -158,10 +176,10 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
 #endif  // INTEL_CUSTOMIZATION
       FullyCheckedComparisonCategories(
           static_cast<unsigned>(ComparisonCategoryType::Last) + 1),
-      AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
-      NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
-      CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
-      TyposCorrected(0), AnalysisWarnings(*this),
+      SatisfactionCache(Context), AccessCheckingSFINAE(false),
+      InNonInstantiationSFINAEContext(false), NonInstantiationEntries(0),
+      ArgumentPackSubstitutionIndex(-1), CurrentInstantiationScope(nullptr),
+      DisableTypoCorrection(false), TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
       CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr),
       SyclIntHeader(nullptr) {
@@ -422,6 +440,14 @@ Sema::~Sema() {
   // If Sema's ExternalSource is the multiplexer - we own it.
   if (isMultiplexExternalSource)
     delete ExternalSource;
+
+  // Delete cached satisfactions.
+  std::vector<ConstraintSatisfaction *> Satisfactions;
+  Satisfactions.reserve(Satisfactions.size());
+  for (auto &Node : SatisfactionCache)
+    Satisfactions.push_back(&Node);
+  for (auto *Node : Satisfactions)
+    delete Node;
 
   threadSafety::threadSafetyCleanup(ThreadSafetyDeclCache);
 
@@ -1313,7 +1339,8 @@ DeclContext *Sema::getFunctionLevelDeclContext() {
   DeclContext *DC = CurContext;
 
   while (true) {
-    if (isa<BlockDecl>(DC) || isa<EnumDecl>(DC) || isa<CapturedDecl>(DC)) {
+    if (isa<BlockDecl>(DC) || isa<EnumDecl>(DC) || isa<CapturedDecl>(DC) ||
+        isa<RequiresExprBodyDecl>(DC)) {
       DC = DC->getParent();
     } else if (isa<CXXMethodDecl>(DC) &&
                cast<CXXMethodDecl>(DC)->getOverloadedOperator() == OO_Call &&
@@ -1641,6 +1668,9 @@ Sema::DeviceDiagBuilder Sema::targetDiag(SourceLocation Loc, unsigned DiagID) {
   if (getLangOpts().CUDA)
     return getLangOpts().CUDAIsDevice ? CUDADiagIfDeviceCode(Loc, DiagID)
                                       : CUDADiagIfHostCode(Loc, DiagID);
+  // TODO: analyze which usages of targetDiag could be reused for SYCL.
+  // if (getLangOpts().SYCLIsDevice)
+  //   return SYCLDiagIfDeviceCode(Loc, DiagID);
   return DeviceDiagBuilder(DeviceDiagBuilder::K_Immediate, Loc, DiagID,
                            getCurFunctionDecl(), *this);
 }

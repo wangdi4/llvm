@@ -7,12 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "Plugins/ExpressionParser/Clang/ClangExpressionDeclMap.h"
+#include "Plugins/ExpressionParser/Clang/ClangUtil.h"
+#include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "TestingSupport/SubsystemRAII.h"
 #include "TestingSupport/Symbol/ClangTestUtils.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Symbol/ClangASTContext.h"
-#include "lldb/Symbol/ClangUtil.h"
 #include "lldb/lldb-defines.h"
 #include "gtest/gtest.h"
 
@@ -26,7 +26,7 @@ struct FakeClangExpressionDeclMap : public ClangExpressionDeclMap {
                                nullptr) {
     m_scratch_context = clang_utils::createAST();
   }
-  std::unique_ptr<ClangASTContext> m_scratch_context;
+  std::unique_ptr<TypeSystemClang> m_scratch_context;
   /// Adds a persistent decl that can be found by the ClangExpressionDeclMap
   /// via GetPersistentDecl.
   void AddPersistentDeclForTest(clang::NamedDecl *d) {
@@ -63,7 +63,7 @@ struct ClangExpressionDeclMapTest : public testing::Test {
   std::unique_ptr<FakeClangExpressionDeclMap> decl_map;
 
   /// The target AST that lookup results should be imported to.
-  std::unique_ptr<ClangASTContext> target_ast;
+  std::unique_ptr<TypeSystemClang> target_ast;
 
   void SetUp() override {
     importer = std::make_shared<ClangASTImporter>();

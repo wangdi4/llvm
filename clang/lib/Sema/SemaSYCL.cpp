@@ -363,10 +363,7 @@ public:
     // new operator and any user-defined overloads that
     // do not allocate storage are permitted.
     if (FunctionDecl *FD = E->getOperatorNew()) {
-      if (FD->isReplaceableGlobalAllocationFunction()) {
-        SemaRef.Diag(E->getExprLoc(), diag::err_sycl_restrict)
-            << Sema::KernelAllocateStorage;
-      } else if (FunctionDecl *Def = FD->getDefinition()) {
+      if (FunctionDecl *Def = FD->getDefinition()) {
         if (!Def->hasAttr<SYCLDeviceAttr>()) {
           Def->addAttr(SYCLDeviceAttr::CreateImplicit(SemaRef.Context));
           SemaRef.addSyclDeviceDecl(Def);
@@ -473,6 +470,14 @@ public:
           FD->dropAttr<SYCLIntelMaxGlobalWorkDimAttr>();
         }
       }
+      if (auto *A = FD->getAttr<SYCLIntelUsesGlobalWorkOffsetAttr>()) {
+        if (ParentFD == SYCLKernel) {
+          Attrs.insert(A);
+        } else {
+          SemaRef.Diag(A->getLocation(), diag::warn_attribute_ignored) << A;
+          FD->dropAttr<SYCLIntelUsesGlobalWorkOffsetAttr>();
+        }
+      }
 
       // TODO: vec_len_hint should be handled here
 
@@ -525,8 +530,7 @@ private:
         if (!CheckSYCLType(Field->getType(), Field->getSourceRange(),
                            Visited)) {
           if (SemaRef.getLangOpts().SYCLIsDevice)
-            SemaRef.SYCLDiagIfDeviceCode(Loc.getBegin(),
-                                         diag::note_sycl_used_here);
+            SemaRef.Diag(Loc.getBegin(), diag::note_sycl_used_here);
           return false;
         }
       }
@@ -535,8 +539,7 @@ private:
         if (!CheckSYCLType(Field->getType(), Field->getSourceRange(),
                            Visited)) {
           if (SemaRef.getLangOpts().SYCLIsDevice)
-            SemaRef.SYCLDiagIfDeviceCode(Loc.getBegin(),
-                                         diag::note_sycl_used_here);
+            SemaRef.Diag(Loc.getBegin(), diag::note_sycl_used_here);
           return false;
         }
       }
@@ -973,7 +976,6 @@ static target getAccessTarget(const ClassTemplateSpecializationDecl *AccTy) {
 // Returns true if all arguments are successfully built.
 static bool buildArgTys(ASTContext &Context, CXXRecordDecl *KernelObj,
                         SmallVectorImpl<ParamDesc> &ParamDescs) {
-  const LambdaCapture *Cpt = KernelObj->captures_begin();
   auto CreateAndAddPrmDsc = [&](const FieldDecl *Fld, const QualType &ArgType) {
     // Create a parameter descriptor and append it to the result
     ParamDescs.push_back(makeParamDesc(Fld, ArgType));
@@ -1037,26 +1039,35 @@ static bool buildArgTys(ASTContext &Context, CXXRecordDecl *KernelObj,
     QualType ArgTy = Fld->getType();
     if (Util::isSyclAccessorType(ArgTy) || Util::isSyclSamplerType(ArgTy)) {
       createSpecialSYCLObjParamDesc(Fld, ArgTy);
-    } else if (!ArgTy->isStandardLayoutType()) {
-      // SYCL v1.2.1 s4.8.10 p5:
-      // C++ non-standard layout values must not be passed as arguments to a
-      // kernel that is compiled for a device.
-      const auto &DiagLocation =
-          Cpt ? Cpt->getLocation() : cast<DeclaratorDecl>(Fld)->getLocation();
-
-      Context.getDiagnostics().Report(DiagLocation,
-                                      diag::err_sycl_non_std_layout_type);
-
-      // Set the flag and continue processing so we can emit error for each
-      // invalid argument.
-      AllArgsAreValid = false;
     } else if (ArgTy->isStructureOrClassType()) {
-      assert(ArgTy->isStandardLayoutType());
+      if (Context.getLangOpts().SYCLStdLayoutKernelParams) {
+        if (!ArgTy->isStandardLayoutType()) {
+          Context.getDiagnostics().Report(Fld->getLocation(),
+                                          diag::err_sycl_non_std_layout_type)
+              << ArgTy;
+          AllArgsAreValid = false;
+          continue;
+        }
+      }
+      // TODO: Make stream class trivially copyable and remove the check on
+      // stream class.
+      if (!ArgTy.isTriviallyCopyableType(Context) &&
+          !Util::isSyclStreamType(ArgTy)) {
+        Context.getDiagnostics().Report(
+            Fld->getLocation(), diag::err_sycl_non_trivially_copyable_type)
+            << ArgTy;
+        AllArgsAreValid = false;
+        continue;
+      }
 
       CreateAndAddPrmDsc(Fld, ArgTy);
 
       // Create descriptors for each accessor field in the class or struct
       createParamDescForWrappedAccessors(Fld, ArgTy);
+    } else if (ArgTy->isReferenceType()) {
+      Context.getDiagnostics().Report(
+          Fld->getLocation(), diag::err_bad_kernel_param_type) << ArgTy;
+      AllArgsAreValid = false;
     } else if (ArgTy->isPointerType()) {
       // Pointer Arguments need to be in the global address space
       QualType PointeeTy = ArgTy->getPointeeType();
@@ -1072,10 +1083,6 @@ static bool buildArgTys(ASTContext &Context, CXXRecordDecl *KernelObj,
     } else {
       llvm_unreachable("Unsupported kernel parameter type");
     }
-
-    // Update capture iterator as we process arguments
-    if (Cpt && Cpt != KernelObj->captures_end())
-      ++Cpt;
   }
 
   return AllArgsAreValid;
@@ -1190,7 +1197,7 @@ static std::string constructKernelName(QualType KernelNameType,
   llvm::raw_svector_ostream Out(Result);
 
   MC.mangleTypeName(KernelNameType, Out);
-  return Out.str();
+  return std::string(Out.str());
 }
 
 static FunctionDecl *
@@ -1289,6 +1296,8 @@ void Sema::ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc,
   FunctionDecl *OpenCLKernel =
       CreateOpenCLKernelDeclaration(getASTContext(), Name, ParamDescs);
 
+  ContextRAII FuncContext(*this, OpenCLKernel);
+
   // Let's copy source location of a functor/lambda to emit nicer diagnostics
   OpenCLKernel->setLocation(LE->getLocation());
 
@@ -1361,7 +1370,8 @@ void Sema::MarkDevice(void) {
         case attr::Kind::SYCLIntelKernelArgsRestrict:
         case attr::Kind::SYCLIntelNumSimdWorkItems:
         case attr::Kind::SYCLIntelMaxGlobalWorkDim:
-        case attr::Kind::SYCLIntelMaxWorkGroupSize: {
+        case attr::Kind::SYCLIntelMaxWorkGroupSize:
+        case attr::Kind::SYCLIntelUsesGlobalWorkOffset: {
           SYCLKernel->addAttr(A);
           break;
         }
@@ -1392,12 +1402,7 @@ void Sema::MarkDevice(void) {
 
 // Do we know that we will eventually codegen the given function?
 static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
-  if (!FD)
-    return true; // Seen in LIT testing
-
-  // Templates are emitted when they're instantiated.
-  if (FD->isDependentContext())
-    return false;
+  assert(FD && "Given function may not be null.");
 
 #if INTEL_CUSTOMIZATION
   if (FD->hasAttr<SYCLDeviceAttr>() || FD->hasAttr<SYCLKernelAttr>() ||
@@ -1418,16 +1423,16 @@ Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
 #endif // INTEL_CUSTOMIZATION
   FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
   DeviceDiagBuilder::Kind DiagKind = [this, FD] {
-    if (ConstructingOpenCLKernel || (FD && FD->isDependentContext()))
+    if (ConstructingOpenCLKernel || !FD)
       return DeviceDiagBuilder::K_Nop;
-    else if (isKnownEmitted(*this, FD))
+    if (isKnownEmitted(*this, FD))
       return DeviceDiagBuilder::K_ImmediateWithCallStack;
     return DeviceDiagBuilder::K_Deferred;
   }();
   return DeviceDiagBuilder(DiagKind, Loc, DiagID, FD, *this);
 }
 
-bool Sema::CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee) {
+void Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
   assert(Callee && "Callee may not be null.");
   FunctionDecl *Caller = dyn_cast<FunctionDecl>(getCurLexicalContext());
 
@@ -1437,7 +1442,6 @@ bool Sema::CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee) {
     markKnownEmitted(*this, Caller, Callee, Loc, isKnownEmitted);
   else if (Caller)
     DeviceCallGraph[Caller].insert({Callee, Loc});
-  return true;
 }
 
 // -----------------------------------------------------------------------------
@@ -1767,9 +1771,9 @@ void SYCLIntegrationHeader::startKernel(StringRef KernelName,
                                         QualType KernelNameType,
                                         StringRef KernelStableName) {
   KernelDescs.resize(KernelDescs.size() + 1);
-  KernelDescs.back().Name = KernelName;
+  KernelDescs.back().Name = std::string(KernelName);
   KernelDescs.back().NameType = KernelNameType;
-  KernelDescs.back().StableName = KernelStableName;
+  KernelDescs.back().StableName = std::string(KernelStableName);
 }
 
 void SYCLIntegrationHeader::addParamDesc(kernel_param_kind_t Kind, int Info,
