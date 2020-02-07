@@ -496,14 +496,7 @@ void LinkerDriver::main(ArrayRef<const char *> argsArr) {
   if (args.hasArg(OPT_version))
     return;
 
-  // Initialize time trace profiler.
-  if (config->timeTraceEnabled)
-    timeTraceProfilerInitialize(config->timeTraceGranularity, config->progName);
 
-  {
-    llvm::TimeTraceScope timeScope("ExecuteLinker");
-
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (args.hasArg(OPT_intel_debug_mem))
     errorHandler().intelDebugMem = true;
@@ -512,16 +505,16 @@ void LinkerDriver::main(ArrayRef<const char *> argsArr) {
     errorHandler().intelEmbeddedLinker = true;
 #endif // INTEL_CUSTOMIZATION
 
-  // The Target instance handles target-specific stuff, such as applying
-  // relocations or writing a PLT section. It also contains target-dependent
-  // values such as a default image base address.
-  target = getTarget();
-=======
+  // Initialize time trace profiler.
+  if (config->timeTraceEnabled)
+    timeTraceProfilerInitialize(config->timeTraceGranularity, config->progName);
+  {
+    llvm::TimeTraceScope timeScope("ExecuteLinker");
+
     initLLVM();
     createFiles(args);
     if (errorCount())
       return;
->>>>>>> e7cb374433095219069ef767f70c0c9159a65b7c
 
     inferMachineType();
     setConfigs(args);
@@ -2008,21 +2001,17 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // symbols that we need to the symbol table. This process might
   // add files to the link, via autolinking, these files are always
   // appended to the Files vector.
-<<<<<<< HEAD
- for (size_t i = 0; i < files.size(); ++i)
-    parseFile(files[i]);
-#if INTEL_CUSTOMIZATION
-  // Process the GNU LTO files
-  if (!gNULTOFiles.empty())
-    doGnuLTOLinking<ELFT>();
-#endif // INTEL_CUSTOMIZATION
-=======
   {
     llvm::TimeTraceScope timeScope("Parse input files");
     for (size_t i = 0; i < files.size(); ++i)
       parseFile(files[i]);
   }
->>>>>>> e7cb374433095219069ef767f70c0c9159a65b7c
+
+#if INTEL_CUSTOMIZATION
+  // Process the GNU LTO files
+  if (!gNULTOFiles.empty())
+    doGnuLTOLinking<ELFT>();
+#endif // INTEL_CUSTOMIZATION
 
   // Now that we have every file, we can decide if we will need a
   // dynamic symbol table.
