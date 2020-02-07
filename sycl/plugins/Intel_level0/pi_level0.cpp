@@ -28,6 +28,19 @@ extern "C" {
 
 bool ZE_DEBUG = false;
 
+// Forward declarations
+static pi_result enqueueMemCopyHelper(
+  pi_command_type    command_type,
+  pi_queue           command_queue,
+  void *             dst,
+  pi_bool            blocking_write,
+  size_t             size,
+  const void *       src,
+  pi_uint32          num_events_in_wait_list,
+  const pi_event *   event_wait_list,
+  pi_event *         event);
+
+
 static void zePrint(const char *format, ... ) {
   if (ZE_DEBUG) {
     va_list args;
@@ -703,6 +716,23 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
            param_name == PI_DEVICE_PREFERRED_VECTOR_WIDTH_HALF) {
     SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 2);
   }
+  else if (param_name == PI_DEVICE_INFO_USM_HOST_SUPPORT ||
+           param_name == PI_DEVICE_INFO_USM_DEVICE_SUPPORT ||
+           param_name == PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT ||
+           param_name == PI_DEVICE_INFO_USM_CROSS_SHARED_SUPPORT ||
+           param_name == PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT) {
+
+    pi_uint64 supported = 0;
+    if (ze_device_properties.unifiedMemorySupported) {
+      // TODO: Use ze_memory_access_capabilities_t
+      supported =
+          PI_USM_ACCESS |
+          PI_USM_ATOMIC_ACCESS |
+          PI_USM_CONCURRENT_ACCESS |
+          PI_USM_CONCURRENT_ATOMIC_ACCESS;
+    }
+    SET_PARAM_VALUE(supported);
+  }
   else {
     fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
     pi_throw("Unsupported param_name in piGetDeviceInfo");
@@ -1276,6 +1306,8 @@ pi_result L0(piProgramLink)(
   //
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/172
   //
+  // Temporarily return null meaning program did not change.
+  *ret_program = 0;
   return PI_SUCCESS;
 }
 
@@ -2044,50 +2076,16 @@ pi_result L0(piEnqueueMemBufferRead)(
   const pi_event *    event_wait_list,
   pi_event *          event)
 {
-  ze_result_t               ze_result;
-  // Get a new command list to be used on this call
-  ze_command_list_handle_t ze_command_list =
-    queue->Context->Device->createCommandList();
-
-  L0(piEventCreate)(queue->Context, event);
-  (*event)->Queue = queue;
-  (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_READ;
-  (*event)->L0CommandList = ze_command_list;
-
-  ze_event_handle_t ze_event = (*event)->L0Event;
-
-  ze_event_handle_t *ze_event_wait_list =
-    _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
-
-  ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    ze_command_list,
-    num_events_in_wait_list,
-    ze_event_wait_list
-  ));
-  pi_assert(ze_result == 0);
-
-  ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    ze_command_list,
+  return enqueueMemCopyHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_READ,
+    queue,
     dst,
-    src->L0Mem + offset,
+    blocking_read,
     size,
-    ze_event
-  ));
-
-  queue->executeCommandList(ze_command_list, blocking_read);
-  zePrint("calling zeCommandListAppendMemoryCopy() with\n"
-                  "  xe_event %lx\n"
-                  "  num_events_in_wait_list %d:",
-          pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
-  for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
-  }
-  zePrint("\n");
-
-  _pi_event::deleteL0EventList(ze_event_wait_list);
-
-  // TODO: translate errors
-  return pi_cast<pi_result>(ze_result);
+    src->L0Mem + offset,
+    num_events_in_wait_list,
+    event_wait_list,
+    event);
 }
 
 pi_result L0(piEnqueueMemBufferReadRect)(
@@ -2212,13 +2210,14 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   return pi_cast<pi_result>(ze_result);
 }
 
-pi_result L0(piEnqueueMemBufferWrite)(
+// Shared by all memory read/write/copy PI interfaces.
+static pi_result enqueueMemCopyHelper(
+  pi_command_type    command_type,
   pi_queue           command_queue,
-  pi_mem             buffer,
+  void *             dst,
   pi_bool            blocking_write,
-  size_t             offset,
   size_t             size,
-  const void *       ptr,
+  const void *       src,
   pi_uint32          num_events_in_wait_list,
   const pi_event *   event_wait_list,
   pi_event *         event) {
@@ -2230,7 +2229,7 @@ pi_result L0(piEnqueueMemBufferWrite)(
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
-  (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_WRITE;
+  (*event)->CommandType = command_type;
   (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
@@ -2247,8 +2246,8 @@ pi_result L0(piEnqueueMemBufferWrite)(
 
   ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
     ze_command_list,
-    buffer->L0Mem + offset,
-    ptr,
+    dst,
+    src,
     size,
     ze_event
   ));
@@ -2267,6 +2266,29 @@ pi_result L0(piEnqueueMemBufferWrite)(
 
   // TODO: translate errors
   return pi_cast<pi_result>(ze_result);
+}
+
+pi_result L0(piEnqueueMemBufferWrite)(
+  pi_queue           command_queue,
+  pi_mem             buffer,
+  pi_bool            blocking_write,
+  size_t             offset,
+  size_t             size,
+  const void *       ptr,
+  pi_uint32          num_events_in_wait_list,
+  const pi_event *   event_wait_list,
+  pi_event *         event) {
+
+  return enqueueMemCopyHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_WRITE,
+    command_queue,
+    buffer->L0Mem + offset, // dst
+    blocking_write,
+    size,
+    ptr, // src
+    num_events_in_wait_list,
+    event_wait_list,
+    event);
 }
 
 pi_result L0(piEnqueueMemBufferWriteRect)(
@@ -2403,52 +2425,16 @@ pi_result L0(piEnqueueMemBufferCopy)(
   const pi_event *    event_wait_list,
   pi_event *          event) {
 
-  ze_result_t               ze_result;
-  // Get a new command list to be used on this call
-  ze_command_list_handle_t ze_command_list =
-    command_queue->Context->Device->createCommandList();
-
-  L0(piEventCreate)(command_queue->Context, event);
-  (*event)->Queue = command_queue;
-  (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_COPY;
-  (*event)->L0CommandList = ze_command_list;
-
-  ze_event_handle_t ze_event = (*event)->L0Event;
-
-  ze_event_handle_t *ze_event_wait_list =
-    _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
-
-  ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    ze_command_list,
-    num_events_in_wait_list,
-    ze_event_wait_list
-  ));
-  pi_assert(ze_result == 0);
-
-  ze_result = ZE_CALL(zeCommandListAppendMemoryCopy(
-    ze_command_list,
+  return enqueueMemCopyHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_COPY,
+    command_queue,
     dst_buffer->L0Mem + dst_offset,
-    src_buffer->L0Mem + src_offset,
+    false, // blocking
     size,
-    ze_event
-  ));
-
-  zePrint("calling zeCommandListAppendMemoryCopy() with\n"
-                  "  xe_event %lx\n"
-                  "  num_events_in_wait_list %d:",
-          pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
-  for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
-  }
-  zePrint("\n");
-
-  // Execute command list asynchronously, as the event will be used
-  // to track down its completion.
-  command_queue->executeCommandList(ze_command_list);
-  _pi_event::deleteL0EventList(ze_event_wait_list);
-
-  // TODO: translate errors
-  return pi_cast<pi_result>(ze_result);
+    src_buffer->L0Mem + src_offset,
+    num_events_in_wait_list,
+    event_wait_list,
+    event);
 }
 
 pi_result L0(piEnqueueMemBufferCopyRect)(
@@ -2469,12 +2455,12 @@ pi_result L0(piEnqueueMemBufferCopyRect)(
   pi_throw("piEnqueueMemBufferCopyRect: not implemented");
 }
 
-pi_result L0(piEnqueueMemBufferFill)(
+static pi_result enqueueMemFillHelper(
+  pi_command_type    command_type,
   pi_queue           command_queue,
-  pi_mem             buffer,
+  void *             ptr,
   const void *       pattern,
   size_t             pattern_size,
-  size_t             offset,
   size_t             size,
   pi_uint32          num_events_in_wait_list,
   const pi_event *   event_wait_list,
@@ -2487,7 +2473,7 @@ pi_result L0(piEnqueueMemBufferFill)(
 
   L0(piEventCreate)(command_queue->Context, event);
   (*event)->Queue = command_queue;
-  (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_FILL;
+  (*event)->CommandType = command_type;
   (*event)->L0CommandList = ze_command_list;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
@@ -2507,7 +2493,7 @@ pi_result L0(piEnqueueMemBufferFill)(
 
   ze_result = ZE_CALL(zeCommandListAppendMemoryFill(
     ze_command_list,
-    buffer->L0Mem + offset,
+    ptr,
     pattern,
     pattern_size,
     size,
@@ -2530,6 +2516,29 @@ pi_result L0(piEnqueueMemBufferFill)(
 
   // TODO: translate errors
   return pi_cast<pi_result>(ze_result);
+}
+
+pi_result L0(piEnqueueMemBufferFill)(
+  pi_queue           command_queue,
+  pi_mem             buffer,
+  const void *       pattern,
+  size_t             pattern_size,
+  size_t             offset,
+  size_t             size,
+  pi_uint32          num_events_in_wait_list,
+  const pi_event *   event_wait_list,
+  pi_event *         event) {
+
+  return enqueueMemFillHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_FILL,
+    command_queue,
+    buffer->L0Mem + offset,
+    pattern,
+    pattern_size,
+    size,
+    num_events_in_wait_list,
+    event_wait_list,
+    event);
 }
 
 pi_result L0(piEnqueueMemBufferMap)(
@@ -3006,7 +3015,15 @@ pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
                                 pi_usm_mem_properties *properties, size_t size,
                                 pi_uint32 alignment) {
 
-  pi_throw("piextUSMHostAlloc: not implemented");
+  // TODO: translate PI properties to L0 flags
+  ZE_CALL(zeDriverAllocHostMem(
+    ze_driver_global,
+    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
+    size,
+    alignment,
+    result_ptr));
+
+  return PI_SUCCESS;
 }
 
 pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
@@ -3014,72 +3031,282 @@ pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
                                   pi_usm_mem_properties *properties,
                                   size_t size, pi_uint32 alignment) {
 
-  pi_throw("piextUSMDeviceAlloc: not implemented");
+  // TODO: translate PI properties to L0 flags
+  ZE_CALL(zeDriverAllocDeviceMem(
+    ze_driver_global,
+    device->L0Device,
+    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+    0, // ordinal
+    size,
+    alignment,
+    result_ptr));
+
+  return PI_SUCCESS;
 }
 
-pi_result L0(piextUSMSharedAlloc)(void **result_ptr, pi_context context,
-                                  pi_device device,
-                                  pi_usm_mem_properties *properties,
-                                  size_t size, pi_uint32 alignment) {
+pi_result L0(piextUSMSharedAlloc)(
+  void **                 result_ptr,
+  pi_context              context,
+  pi_device               device,
+  pi_usm_mem_properties * properties,
+  size_t                  size,
+  pi_uint32               alignment) {
 
-  pi_throw("piextUSMSharedAlloc: not implemented");
+  // TODO: translate PI properties to L0 flags
+  ZE_CALL(zeDriverAllocSharedMem(
+    ze_driver_global,
+    device->L0Device,
+    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+    0, // ordinal
+    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
+    size,
+    alignment,
+    result_ptr));
+
+  return PI_SUCCESS;
 }
 
-pi_result L0(piextUSMFree)(pi_context context, void *ptr) {
-
-  pi_throw("piextUSMFree: not implemented");
+pi_result L0(piextUSMFree)(pi_context context, void *ptr)
+{
+  ZE_CALL(zeDriverFreeMem(ze_driver_global, ptr));
+  return PI_SUCCESS;
 }
 
-pi_result L0(piextKernelSetArgPointer)(pi_kernel kernel, pi_uint32 arg_index,
-                                       size_t arg_size,
-                                       const void *arg_value) {
+pi_result L0(piextKernelSetArgPointer)(
+  pi_kernel kernel,
+  pi_uint32 arg_index,
+  size_t arg_size,
+  const void *arg_value) {
 
-  pi_throw("piextKernelSetArgPointer: not implemented");
+  return piKernelSetArg(kernel, arg_index, arg_size, arg_value);
 }
 
-pi_result L0(piextUSMEnqueueMemset)(pi_queue queue, void *ptr, pi_int32 value,
-                                    size_t count,
-                                    pi_uint32 num_events_in_waitlist,
-                                    const pi_event *events_waitlist,
-                                    pi_event *event) {
-
-  pi_throw("piextUSMEnqueueMemset: not implemented");
+/// USM Memset API
+///
+/// @param queue is the queue to submit to
+/// @param ptr is the ptr to memset
+/// @param value is value to set.  It is interpreted as an 8-bit value and the upper
+///        24 bits are ignored
+/// @param count is the size in bytes to memset
+/// @param num_events_in_waitlist is the number of events to wait on
+/// @param events_waitlist is an array of events to wait on
+/// @param event is the event that represents this operation
+pi_result L0(piextUSMEnqueueMemset)(
+  pi_queue queue,
+  void *ptr,
+  pi_int32 value,
+  size_t count,
+  pi_uint32 num_events_in_waitlist,
+  const pi_event *events_waitlist,
+  pi_event *event)
+{
+  return enqueueMemFillHelper(
+    // TODO: do we need a new command type for USM memset?
+    PI_COMMAND_TYPE_MEM_BUFFER_FILL,
+    queue,
+    ptr,
+    &value, // It will be interpreted as an 8-bit value,
+    1,      // which is indicated with this pattern_size==1
+    count,
+    num_events_in_waitlist,
+    events_waitlist,
+    event);
 }
 
-pi_result L0(piextUSMEnqueueMemcpy)(pi_queue queue, pi_bool blocking,
-                                    void *dst_ptr, const void *src_ptr,
-                                    size_t size,
-                                    pi_uint32 num_events_in_waitlist,
-                                    const pi_event *events_waitlist,
-                                    pi_event *event) {
+pi_result L0(piextUSMEnqueueMemcpy)(
+  pi_queue        queue,
+  pi_bool         blocking,
+  void *          dst_ptr,
+  const void *    src_ptr,
+  size_t          size,
+  pi_uint32       num_events_in_waitlist,
+  const pi_event *events_waitlist,
+  pi_event *      event) {
 
-  pi_throw("piextUSMEnqueueMemcpy: not implemented");
+  // TODO: this may not be needed when we translate L0 errors to PI
+  if (!dst_ptr) {
+    return PI_INVALID_VALUE;
+  }
+
+  return enqueueMemCopyHelper(
+    // TODO: do we need a new command type for this?
+    PI_COMMAND_TYPE_MEM_BUFFER_COPY,
+    queue,
+    dst_ptr,
+    blocking,
+    size,
+    src_ptr,
+    num_events_in_waitlist,
+    events_waitlist,
+    event);
 }
 
-pi_result L0(piextUSMEnqueuePrefetch)(pi_queue queue, const void *ptr,
-                                      size_t size,
-                                      pi_usm_migration_flags flags,
-                                      pi_uint32 num_events_in_waitlist,
-                                      const pi_event *events_waitlist,
-                                      pi_event *event) {
+/// Hint to migrate memory to the device
+///
+/// @param queue is the queue to submit to
+/// @param ptr points to the memory to migrate
+/// @param size is the number of bytes to migrate
+/// @param flags is a bitfield used to specify memory migration options
+/// @param num_events_in_waitlist is the number of events to wait on
+/// @param events_waitlist is an array of events to wait on
+/// @param event is the event that represents this operation
+pi_result L0(piextUSMEnqueuePrefetch)(
+  pi_queue queue,
+  const void *ptr,
+  size_t size,
+  pi_usm_migration_flags flags,
+  pi_uint32 num_events_in_waitlist,
+  const pi_event *events_waitlist,
+  pi_event *event)
+{
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    queue->Context->Device->createCommandList();
 
-  pi_throw("piextUSMEnqueuePrefetch: not implemented");
+  // TODO: do we need to create a unique command type for this?
+  L0(piEventCreate)(queue->Context, event);
+  (*event)->Queue = queue;
+  (*event)->CommandType = PI_COMMAND_TYPE_USER;
+  (*event)->L0CommandList = ze_command_list;
+
+  ze_event_handle_t *ze_event_wait_list =
+    _pi_event::createL0EventList(num_events_in_waitlist, events_waitlist);
+
+  ZE_CALL(zeCommandListAppendWaitOnEvents(
+    ze_command_list,
+    num_events_in_waitlist,
+    ze_event_wait_list
+  ));
+
+  // TODO: figure out how to translate "flags"
+  ZE_CALL(zeCommandListAppendMemoryPrefetch(
+    ze_command_list,
+    ptr,
+    size
+  ));
+
+  // TODO: L0 does not have a completion "event" with the prefetch API,
+  // so manually add command to signal our event.
+  //
+  ZE_CALL(zeCommandListAppendSignalEvent(ze_command_list, (*event)->L0Event));
+  
+  queue->executeCommandList(ze_command_list, false);
+  _pi_event::deleteL0EventList(ze_event_wait_list);
+
+  return PI_SUCCESS;
 }
 
-pi_result L0(piextUSMEnqueueMemAdvise)(pi_queue queue, const void *ptr,
-                                       size_t length, int advice,
-                                       pi_event *event) {
+/// USM memadvise API to govern behavior of automatic migration mechanisms
+///
+/// @param queue is the queue to submit to
+/// @param ptr is the data to be advised
+/// @param length is the size in bytes of the meory to advise
+/// @param advice is device specific advice
+/// @param event is the event that represents this operation
+///
+pi_result L0(piextUSMEnqueueMemAdvise)(
+  pi_queue queue,
+  const void *ptr,
+  size_t length,
+  int advice,
+  pi_event *event)
+{
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    queue->Context->Device->createCommandList();
 
-  pi_throw("piextUSMEnqueueMemAdvise: not implemented");
+  // TODO: do we need to create a unique command type for this?
+  L0(piEventCreate)(queue->Context, event);
+  (*event)->Queue = queue;
+  (*event)->CommandType = PI_COMMAND_TYPE_USER;
+  (*event)->L0CommandList = ze_command_list;
+
+  ZE_CALL(zeCommandListAppendMemAdvise(
+    ze_command_list,
+    queue->Context->Device->L0Device,
+    ptr,
+    length,
+    // TODO: we need some translation to L0 advices
+    // pi_cast<ze_memory_advice_t>(advice)
+    ZE_MEMORY_ADVICE_BIAS_CACHED
+  ));
+
+  // TODO: L0 does not have a completion "event" with the advise API,
+  // so manually add command to signal our event.
+  //
+  ZE_CALL(zeCommandListAppendSignalEvent(ze_command_list, (*event)->L0Event));
+
+  queue->executeCommandList(ze_command_list, false);
+  return PI_SUCCESS;
 }
 
-pi_result L0(piextUSMGetMemAllocInfo)(pi_context context, const void *ptr,
-                                      pi_mem_info param_name,
-                                      size_t param_value_size,
-                                      void *param_value,
-                                      size_t *param_value_size_ret) {
+/// API to query information about USM allocated pointers
+/// Valid Queries:
+///   PI_MEM_ALLOC_TYPE returns host/device/shared pi_usm_type value
+///   PI_MEM_ALLOC_BASE_PTR returns the base ptr of an allocation if
+///                         the queried pointer fell inside an allocation.
+///                         Result must fit in void *
+///   PI_MEM_ALLOC_SIZE returns how big the queried pointer's
+///                     allocation is in bytes. Result is a size_t.
+///   PI_MEM_ALLOC_DEVICE returns the pi_device this was allocated against
+///
+/// @param context is the pi_context
+/// @param ptr is the pointer to query
+/// @param param_name is the type of query to perform
+/// @param param_value_size is the size of the result in bytes
+/// @param param_value is the result
+/// @param param_value_ret is how many bytes were written
+pi_result L0(piextUSMGetMemAllocInfo)(
+  pi_context context,
+  const void *ptr,
+  pi_mem_info param_name,
+  size_t param_value_size,
+  void *param_value,
+  size_t *param_value_size_ret)
+{
+  ze_device_handle_t ze_device_handle;
+  ze_memory_allocation_properties_t ze_memory_allocation_properties = {
+    ZE_MEMORY_ALLOCATION_PROPERTIES_VERSION_CURRENT
+  };
 
-  pi_throw("piextUSMGetMemAllocInfo: not implemented");
+  ZE_CALL(zeDriverGetMemAllocProperties(
+    ze_driver_global,
+    ptr,
+    &ze_memory_allocation_properties,
+    &ze_device_handle));
+
+  if (param_name == PI_MEM_ALLOC_TYPE) {
+    pi_usm_type mem_alloc_type;
+    switch (ze_memory_allocation_properties.type) {
+    case ZE_MEMORY_TYPE_UNKNOWN: mem_alloc_type = PI_MEM_TYPE_UNKNOWN; break;
+    case ZE_MEMORY_TYPE_HOST:    mem_alloc_type = PI_MEM_TYPE_HOST; break;
+    case ZE_MEMORY_TYPE_DEVICE:  mem_alloc_type = PI_MEM_TYPE_DEVICE; break;
+    case ZE_MEMORY_TYPE_SHARED:  mem_alloc_type = PI_MEM_TYPE_SHARED; break;
+    default:
+      pi_throw("piextUSMGetMemAllocInfo: unexpected usm memory type");
+    }
+    SET_PARAM_VALUE(mem_alloc_type);
+  }
+  else if (param_name == PI_MEM_ALLOC_DEVICE) {
+    // TODO: this wants pi_device, but we didn't remember it, and cannot
+    // deduct from the L0 device.
+    //
+    pi_throw("piextUSMGetMemAllocInfo: PI_MEM_ALLOC_DEVICE unsupported");
+  }
+  else if (param_name == PI_MEM_ALLOC_BASE_PTR) {
+    void * base;
+    ZE_CALL(zeDriverGetMemAddressRange(ze_driver_global, ptr, &base, nullptr));
+    SET_PARAM_VALUE(base);
+  }
+  else if (param_name == PI_MEM_ALLOC_SIZE) {
+    size_t size;
+    ZE_CALL(zeDriverGetMemAddressRange(ze_driver_global, ptr, nullptr, &size));
+    SET_PARAM_VALUE(size);
+  }
+  else {
+    pi_throw("piextUSMGetMemAllocInfo: unsupported param_name");
+  }
+  return PI_SUCCESS;
 }
 
 pi_result L0(piKernelSetExecInfo)(pi_kernel kernel,
