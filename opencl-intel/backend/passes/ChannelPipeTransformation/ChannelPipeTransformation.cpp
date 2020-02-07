@@ -559,7 +559,7 @@ static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall, Value *G
   assert(GlobalPipe && "Failed to find corresponding global pipe");
   assert(ChannelCall && "ChannelCall should be null");
   assert(ChannelCall->getCalledFunction() && "Indirect function is unexpected");
-  ChannelKind CK = CompilationUtils::getChannelKind(ChannelCall->getCalledFunction()->getName());
+  ChannelKind CK = CompilationUtils::getChannelKind(std::string(ChannelCall->getCalledFunction()->getName()));
 
   PipeKind PK;
   PK.Op = PipeKind::READWRITE;
@@ -594,7 +594,7 @@ static bool isChannelBuiltinCall(CallInst *Call) {
   assert(CalledFunction && "Indirect function call?");
 
   if (ChannelKind Kind =
-          CompilationUtils::getChannelKind(CalledFunction->getName())) {
+          CompilationUtils::getChannelKind(std::string(CalledFunction->getName()))) {
     return true;
   }
 
@@ -716,7 +716,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
   // remove channel built-ins declarations
   SmallVector<Function *, 8> FToDelete;
   for (auto &F : M) {
-    if (F.isDeclaration() && CompilationUtils::getChannelKind(F.getName())) {
+    if (F.isDeclaration() && CompilationUtils::getChannelKind(std::string(F.getName()))) {
       FToDelete.push_back(&F);
     }
   }

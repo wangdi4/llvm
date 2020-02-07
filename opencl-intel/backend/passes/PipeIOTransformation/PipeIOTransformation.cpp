@@ -184,7 +184,7 @@ static void getPipeBuiltinCalls(PipesBuiltinsVector &PBV, Value *V) {
     if (CallInst *Call = dyn_cast<CallInst>(U)) {
       Function *CF = Call->getCalledFunction();
       assert(CF && "Indirect function call?");
-      if (CompilationUtils::isPipeBuiltin(CF->getName())) {
+      if (CompilationUtils::isPipeBuiltin(std::string(CF->getName()))) {
         PBV.push_back(Call);
       }
     } else {
@@ -197,7 +197,7 @@ static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
                                    OCLBuiltins &Builtins) {
   Function *CF = PipeCall->getCalledFunction();
   assert(CF && "Indirect function call");
-  PipeKind PK = CompilationUtils::getPipeKind(CF->getName());
+  PipeKind PK = CompilationUtils::getPipeKind(std::string(CF->getName()));
   PK.IO = true;
   PK.FPGA = true;
 

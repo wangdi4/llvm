@@ -362,7 +362,7 @@ namespace intel {
     DenseMap<StructType *, std::string> STyNames;
     for (const auto &RTL : ClonedRtlModules) {
       for (auto *Ty : RTL->getIdentifiedStructTypes()) {
-        STyNames[Ty] = Ty->getName();
+        STyNames[Ty] = std::string(Ty->getName());
       }
     }
 

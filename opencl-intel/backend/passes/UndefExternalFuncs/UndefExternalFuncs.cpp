@@ -42,7 +42,7 @@ namespace intel {
       if( pFunc->getNumUses() > 0 && pFunc->isDeclaration () ) {
         // Function is not defined inside module
         if ( pFunc->isIntrinsic() ) continue;
-        bool found = SearchForFunction(pFunc->getName());
+        bool found = SearchForFunction(std::string(pFunc->getName()));
         if( !found ) {
           // The extenral function not found in any of the runtime libraries
           // Report an error

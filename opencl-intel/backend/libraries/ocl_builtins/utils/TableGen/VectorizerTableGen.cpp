@@ -55,7 +55,7 @@ VectorizerTableGen::processCell(const Record* pCell){
   const Record* pBi = pCell->getValueAsDef("builtin");
   const Record* pTy = pCell->getValueAsDef("type");
   const OclBuiltin* pOclbi = m_bidb.getOclBuiltin(pBi->getNameInitAsString());
-  const std::string strTy = pTy->getName();
+  const std::string strTy = std::string(pTy->getName());
   BiFunction biFunction = std::make_pair(pOclbi, strTy);
   //avoid future duplicated declarations
   if ( m_biMap.count(biFunction) == 0)
@@ -133,7 +133,7 @@ void VectorizerTableGen::run(raw_ostream& os){
   llvm::Module::const_iterator functionIt = pModule->begin(),
     functionE = pModule->end();
   while(it != e){
-    it->second = functionIt->getName();
+    it->second = std::string(functionIt->getName());
     ++it;
     ++functionIt;
   }

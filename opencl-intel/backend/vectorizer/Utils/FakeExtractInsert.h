@@ -41,7 +41,7 @@ protected:
   FakeVectorOp(const CallInst &call, unsigned indexOfIndexArg):
     Call(call), IndexOfIndexArg(indexOfIndexArg) {
     V_ASSERT(Call.getCalledFunction() &&
-      !Mangler::isMangledCall(Call.getCalledFunction()->getName()) &&
+      !Mangler::isMangledCall(std::string(Call.getCalledFunction()->getName())) &&
       "Fake vector op has no side effects and should not have been masked!");
   }
   public:
@@ -66,7 +66,7 @@ class FakeExtract : public FakeVectorOp {
   static bool isFakeExtract(const CallInst &call) {
     V_ASSERT(call.getCalledFunction() &&
              "Unexpected indirect function invocation");
-    return Mangler::isFakeExtract(call.getCalledFunction()->getName());
+    return Mangler::isFakeExtract(std::string(call.getCalledFunction()->getName()));
   }
   /// Factory method
   /// vec - the base vector to insert element into.
@@ -101,7 +101,7 @@ class FakeInsert : public FakeVectorOp {
   /// Returns true if call is a call to a fake insert
   static bool isFakeInsert(const CallInst &call) {
     assert(call.getCalledFunction() && "Unexpected indirect call");
-    return Mangler::isFakeInsert(call.getCalledFunction()->getName());
+    return Mangler::isFakeInsert(std::string(call.getCalledFunction()->getName()));
   }
   /// Factory method
   /// vec - the base vector to insert element into.

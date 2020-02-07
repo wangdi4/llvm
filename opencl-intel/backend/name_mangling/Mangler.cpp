@@ -139,7 +139,7 @@ private:
 
 std::string mangle(const reflection::FunctionDescriptor &fd) {
   if (fd.isNull())
-    return reflection::FunctionDescriptor::nullString();
+    return std::string(reflection::FunctionDescriptor::nullString());
   std::stringstream ret;
   ret << "_Z" << fd.name.length() << fd.name;
   MangleVisitor visitor(ret);

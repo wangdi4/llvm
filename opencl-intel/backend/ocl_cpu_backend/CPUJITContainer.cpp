@@ -52,7 +52,7 @@ void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) 
     Serializer::SerialPointerHint((const void**)&m_pFunction, ost);
     if(m_pFunction)
     {
-        std::string name = m_pFunction->getName();
+        std::string name = std::string(m_pFunction->getName());
         Serializer::SerialString(name, ost);
     }
     Serializer::SerialPointerHint((const void**)&m_pModule, ost);

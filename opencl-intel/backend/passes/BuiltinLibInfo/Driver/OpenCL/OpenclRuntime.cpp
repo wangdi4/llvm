@@ -108,7 +108,7 @@ Function * OpenclRuntime::findInRuntimeModule(StringRef Name) const {
 
 std::auto_ptr<VectorizerFunction>
 OpenclRuntime::findBuiltinFunction(StringRef mangledName) const {
-  std::auto_ptr<VectorizerFunction> ret(new OpenClVFunction(mangledName));
+  std::auto_ptr<VectorizerFunction> ret(new OpenClVFunction(std::string(mangledName)));
   return ret;
 }
 
@@ -377,8 +377,8 @@ bool OpenclRuntime::isMaskedFunctionCall(const std::string &func_name) const{
 }
 
 bool OpenclRuntime::isFakedFunction(StringRef fname)const{
-  bool isFake = Mangler::isFakeInsert(fname) ||
-    Mangler::isFakeExtract(fname) || Mangler::isFakeBuiltin(fname);
+  bool isFake = Mangler::isFakeInsert(std::string(fname)) ||
+    Mangler::isFakeExtract(std::string(fname)) || Mangler::isFakeBuiltin(std::string(fname));
   if (isFake)
     return true;
   Function* pMaskedFunction = findInRuntimeModule(fname);
@@ -404,7 +404,7 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
                                           bool &isSigned) const {
   // funcName need to be mangled min or max.
   if (!isMangledName(funcName.data())) return false;
-  std::string strippedName = stripName(funcName.data());
+  std::string strippedName = std::string(stripName(funcName.data()));
   isMin = (strippedName == "min");
   if (!isMin && strippedName != "max") return false;
 

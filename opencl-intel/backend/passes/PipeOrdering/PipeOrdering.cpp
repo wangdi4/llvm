@@ -74,7 +74,7 @@ namespace intel {
         continue;
 
       auto FuncName = Func.getName();
-      auto PKind = CompilationUtils::getPipeKind(FuncName);
+      auto PKind = CompilationUtils::getPipeKind(std::string(FuncName));
       if (PKind.Op == PipeKind::READWRITE)
         findCallersRequiringBarrier(&Func, ProcessedFuncs, BarrierRequired);
     }

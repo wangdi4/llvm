@@ -577,11 +577,11 @@ void PacketizeFunction::obtainTranspose() {
       V_ASSERT(CI->getCalledFunction() &&
                "Unexpected indirect function invocation");
       StringRef Name = CI->getCalledFunction()->getName();
-      if (Mangler::isMangledLoad(Name)) {
+      if (Mangler::isMangledLoad(std::string(Name))) {
         isTranspose = true;
         Address = CI->getArgOperand(1);
         isMasked = true;
-      } else if (Mangler::isMangledStore(Name)) {
+      } else if (Mangler::isMangledStore(std::string(Name))) {
         isTranspose = true;
         Val = CI->getArgOperand(1);
         Address = CI->getArgOperand(2);
@@ -631,10 +631,10 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     CallInst* inst = dyn_cast<CallInst>(I);
     if (inst && inst->getCalledFunction()) {
       StringRef funcName = inst->getCalledFunction()->getName();
-      if (Mangler::isAllOne(funcName)) {
+      if (Mangler::isAllOne(std::string(funcName))) {
         isAllOneAllZeroFunctionCall = true;
       }
-      else if (Mangler::isAllZero(funcName)) {
+      else if (Mangler::isAllZero(std::string(funcName))) {
         isAllOneAllZeroFunctionCall = true;
       }
     }
@@ -1289,7 +1289,7 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
     V_ASSERT(CI->getCalledFunction() &&
              "Unexpected indirect function invocation");
-    std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
+    std::string vectorName = Mangler::getVectorizedPrefetchName(std::string(CI->getCalledFunction()->getName()), m_packetWidth);
     return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
   }
@@ -1358,7 +1358,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
       V_ASSERT(CI->getCalledFunction() &&
                "Unexpected indirect function invocation");
-      name = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
+      name = Mangler::getVectorizedPrefetchName(std::string(CI->getCalledFunction()->getName()), m_packetWidth);
       DT = MO.Orig->getType();
       break;
     }
@@ -2379,7 +2379,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
         V_ASSERT(CI->getCalledFunction() &&
                  "Unexpected indirect function invocation");
         StringRef Name = CI->getCalledFunction()->getName();
-        if (Mangler::isMangledLoad(Name)) {
+        if (Mangler::isMangledLoad(std::string(Name))) {
           Value *Address = CI->getArgOperand(1);
           if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
             badForTranspose = true;
@@ -3287,7 +3287,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
   {
     Function *pCalledFunc = CI->getCalledFunction();
     V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
-    if (Mangler::isMangledCall(pCalledFunc->getName()))
+    if (Mangler::isMangledCall(std::string(pCalledFunc->getName())))
     {
       std::vector<Value*> params;
       // Create arguments for new function call, ignoring the predicate operand
@@ -3297,7 +3297,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
       }
 
       Function *origFunc = m_currFunc->getParent()->getFunction(
-        Mangler::demangle(pCalledFunc->getName()));
+        Mangler::demangle(std::string(pCalledFunc->getName())));
       V_ASSERT(origFunc && "error finding unmasked function!");
       tidGenInst = CallInst::Create(origFunc, ArrayRef<Value*>(params), "", I);
       VectorizerUtils::SetDebugLocBy(tidGenInst, I);

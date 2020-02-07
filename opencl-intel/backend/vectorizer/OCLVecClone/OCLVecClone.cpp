@@ -376,7 +376,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // This condition isn't expected to happen, but do the right thing anyway.
     if (Call->hasFnAttr("vector-variants"))
-      Variants = Call->getFnAttr("vector-variants").getValueAsString();
+      Variants = std::string(Call->getFnAttr("vector-variants").getValueAsString());
 
     for (auto &Variant : MatchingVariants) {
       if (!Variants.empty())
@@ -988,8 +988,8 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
   for (auto &F : M) {
     if (!F.isDeclaration())
       continue;
-    if (CompilationUtils::isAsyncWorkGroupCopy(F.getName()) ||
-        CompilationUtils::isAsyncWorkGroupStridedCopy(F.getName()))
+    if (CompilationUtils::isAsyncWorkGroupCopy(std::string(F.getName())) ||
+        CompilationUtils::isAsyncWorkGroupStridedCopy(std::string(F.getName())))
       F.addFnAttr("opencl-vec-uniform-return");
   }
 
