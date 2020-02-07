@@ -167,7 +167,7 @@ public:
         ParsedAttr == AT_SYCLIntelNumSimdWorkItems ||
         ParsedAttr == AT_SYCLIntelMaxWorkGroupSize ||
         ParsedAttr == AT_SYCLIntelMaxGlobalWorkDim ||
-        ParsedAttr == AT_SYCLIntelUsesGlobalWorkOffset)
+        ParsedAttr == AT_SYCLIntelNoGlobalWorkOffset)
       return true;
 
     return false;
