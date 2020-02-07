@@ -2258,6 +2258,13 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
   }
 }
 
+static void addAttrsForFuncWithTargetRegion(llvm::Function *F) {
+    F->addFnAttr("contains-openmp-target", "true");
+    if (F->hasFnAttribute(llvm::Attribute::AlwaysInline))
+      F->removeFnAttr(llvm::Attribute::AlwaysInline);
+    F->addFnAttr(llvm::Attribute::NoInline);
+}
+
 void CodeGenFunction::EmitLateOutlineOMPDirective(
     const OMPExecutableDirective &S, OpenMPDirectiveKind Kind) {
   TerminateHandlerRAII THandler(*this);
@@ -2479,7 +2486,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
       isOpenMPTargetExecutionDirective(S.getDirectiveKind());
     if (IsDeviceTarget)
-      CurFn->addFnAttr("contains-openmp-target", "true");
+      addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
     CapturedStmtInfo->EmitBody(*this, CapturedStmt);
@@ -2539,7 +2546,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoopDirective(
   bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
     isOpenMPTargetExecutionDirective(S.getDirectiveKind());
   if (IsDeviceTarget)
-    CurFn->addFnAttr("contains-openmp-target", "true");
+    addAttrsForFuncWithTargetRegion(CurFn);
   CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
   emitLateOutlineDirective(*this, CodeGen);
 }
