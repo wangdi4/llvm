@@ -1532,6 +1532,209 @@ static bool preferToDelayInlineDecision(Function *Caller,
   return false;
 }
 
+// Heuristic to disable inlining of routines that move elements inside
+// an array of structures. This heuristic is used only when PrepareForLTO is
+// true.
+//
+// Ex:
+//   foo(struct_a *A1, A2, A3, A4, A5, A6, A7) {
+//     // Argument assignments
+//     A1->field2 = A2;
+//     A1->field4 = A7;
+//     ...
+//     for() {
+//       // Copy elements inside array
+//       A1[i].field1 = A1[j].field1;
+//       A1[i].field2 = A1[j].field2;
+//       A1[i].field3 = A1[j].field3;
+//       A1[i].field4 = A1[j].field3;
+//       A1[i].field5 = A1[j].field5;
+//       A1[i].field6 = A1[j].field6;
+//       ...
+//     }
+//   }
+//
+// Checks the following heuristics.
+// 1. Callee should have at least 'CopyArrElemsMinimumArgs' arguments.
+// 2. Type of first argument should be "pointer to struct that should have at
+// least 'CopyArrElemsMinimumFields' fields"
+// 3. Call should be in loop with minimum depth 'CopyArrElemsMinimumLoopDepth'.
+// Callee should have only one loop.
+// 4. In loop, copy at least 'CopyArrElemsMinimumFields' struct fields from one
+// element to another element of first argument array.
+// 5. Allows argument assignments to struct fields of array elements.
+// 6. Except Store instructions in 4 and 5, no other instructions that can
+// "write to memory" are allowed.
+
+// Minimum limit:  Number of callee arguments.
+constexpr static unsigned CopyArrElemsMinimumArgs = 7;
+
+// Minimum limit: loop depth of Caller's BB.
+constexpr static unsigned CopyArrElemsMinimumLoopDepth = 2;
+
+// Minimum Limit: Number of fields of array element struct.
+constexpr static unsigned CopyArrElemsMinimumFields = 6;
+
+static bool preferToDelayInlineForCopyArrElems(CallBase &CB, bool PrepareForLTO,
+                                               InliningLoopInfoCache &ILIC) {
+
+  // Returns true if type of first argument of "F" is pointer to struct.
+  // This routine assumes "F" has at least one argument.
+  auto IsFirstArgPtrToStruct = [](Function *F) {
+    Type *ArgType = F->getArg(0)->getType();
+    if (auto *PTy = dyn_cast<PointerType>(ArgType))
+      if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+        if (STy->getNumElements() > CopyArrElemsMinimumFields)
+          return true;
+    return false;
+  };
+
+  // Returns true if "V" is address of an element in first argument array
+  // of "F".
+  // Ex:
+  //    foo(struct_a *A1, ...) {
+  //      ...
+  //      (A1)  // Allowed pattern: address of 1st element
+  //      ...
+  //      (A1 + some_idx) // Allowed pattern: address of "some_idx + 1"st
+  //                         element.
+  //      ...
+  //    }
+
+  auto IsElementInFirstArgArray = [](Value *V, Function *F) {
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+      if (GEP->getNumOperands() != 2)
+        return false;
+      if (!isa<StructType>(GEP->getSourceElementType()))
+        return false;
+      V = GEP->getOperand(0);
+    }
+    if (V != F->getArg(0))
+      return false;
+    return true;
+  };
+
+  // Returns true if "V" is field access of struct element in first argument
+  // array. "Idx" is set with the field index that is accessed when it returns
+  // true.
+  // Ex:
+  //   foo(struct_a *A1, ...) {
+  //     ...
+  //     (A1 + some_idx)->field5 // Allowed pattern
+  //     ...
+  //   }
+  auto IsStructFieldInFirstArgArrayElem =
+      [&IsElementInFirstArgArray](Value *V, unsigned &Idx) {
+        if (auto *BC = dyn_cast<BitCastInst>(V))
+          V = BC->getOperand(0);
+        auto *GEP = dyn_cast<GetElementPtrInst>(V);
+        if (!GEP || GEP->getNumOperands() != 3)
+          return false;
+        if (!IsElementInFirstArgArray(GEP->getOperand(0), GEP->getFunction()))
+          return false;
+        if (!isa<StructType>(GEP->getSourceElementType()))
+          return false;
+        auto *FIdx = dyn_cast<ConstantInt>(GEP->getOperand(2));
+        if (!FIdx)
+          return false;
+        Idx = FIdx->getLimitedValue();
+        return true;
+      };
+
+  // Returns true if "V" is load of struct element field.
+  auto IsStructFieldLoad = [&IsStructFieldInFirstArgArrayElem](Value *V) {
+    auto *LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      return false;
+    unsigned LdIdx;
+    if (!IsStructFieldInFirstArgArrayElem(LI->getPointerOperand(), LdIdx))
+      return false;
+    return true;
+  };
+
+  // Returns true if "I" is struct element field assignment.
+  //  Ex:
+  //  foo(struct_a *A1, A2, ..) {
+  //    ...
+  //    (A1 + some_idx)->field5 = A2;  // Pattern 1
+  //    ...
+  //    Loop:
+  //      (A1 + some_idx)->field5 = (A1 + some_idx)->field4;  // Pattern 2
+  //      ...
+  //    goto Loop:
+  //  }
+  //
+  // Pattern 2 stores are allowed only in loop. Field offsets of all pattern 2
+  // stores are collected in "CopiedStructOffsets".
+
+  auto IsStructFieldCopy =
+      [&IsStructFieldInFirstArgArrayElem,
+       &IsStructFieldLoad](Instruction &I, LoopInfo *LoopI,
+                           SetVector<unsigned> &CopiedStructOffsets) {
+        auto *SI = dyn_cast<StoreInst>(&I);
+        if (!SI)
+          return false;
+        unsigned StIdx;
+        if (!IsStructFieldInFirstArgArrayElem(SI->getPointerOperand(), StIdx))
+          return false;
+        Value *StoredVal = SI->getValueOperand();
+        if (auto *BC = dyn_cast<BitCastInst>(StoredVal))
+          StoredVal = BC->getOperand(0);
+        else if (auto *TI = dyn_cast<TruncInst>(StoredVal))
+          StoredVal = TI->getOperand(0);
+        // Ok if StoredVal is just argument.
+        if (isa<Argument>(StoredVal))
+          return true;
+        // Check for pattern 2 stores.
+        if (!IsStructFieldLoad(StoredVal))
+          return false;
+        Loop *L = LoopI->getLoopFor(SI->getParent());
+        if (!L)
+          return false;
+        if (!CopiedStructOffsets.insert(StIdx))
+          return false;
+        return true;
+      };
+
+  if (!PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  auto *Callee = CB.getCalledFunction();
+  // Must have the IR for the callee.
+  if (!Callee || Callee->isDeclaration())
+    return false;
+  if (Callee->arg_size() < CopyArrElemsMinimumArgs)
+    return false;
+  if (!IsFirstArgPtrToStruct(Callee))
+    return false;
+  // Callee should have one loop.
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (CalleeLI->size() != 1)
+    return false;
+
+  LoopInfo *CallerLI = ILIC.getLI(CB.getCaller());
+  if (CallerLI->empty())
+    return false;
+  Loop *InnerLoop = CallerLI->getLoopFor(CB.getParent());
+  if (!InnerLoop || InnerLoop->getLoopDepth() < CopyArrElemsMinimumLoopDepth)
+    return false;
+
+  // This is used to collect all fields that are stored in loop using
+  // pattern 2 store.
+  SetVector<unsigned> CopiedStructOffsets;
+  for (auto &I : instructions(*Callee)) {
+    if (isa<DbgInfoIntrinsic>(I))
+      continue;
+    if (IsStructFieldCopy(I, CalleeLI, CopiedStructOffsets))
+      continue;
+    if (I.mayWriteToMemory())
+      return false;
+  }
+  // Make sure minimum number of fields is copied.
+  if (CopiedStructOffsets.size() < CopyArrElemsMinimumFields)
+    return false;
+  return true;
+}
+
 static bool preferToIntelPartialInline(Function &F, bool PrepareForLTO,
                                        InliningLoopInfoCache &ILIC) {
   if (!PrepareForLTO || !DTransInlineHeuristics)
@@ -3211,6 +3414,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
       if (preferToDelayInlineDecision(CandidateCall.getCaller(), PrepareForLTO,
           &QueuedCallers)) {
+        *ReasonAddr = NinlrDelayInlineDecision;
+        return InlineResult::failure("not profitable");
+      }
+      if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO,
+                                             *ILIC)) {
         *ReasonAddr = NinlrDelayInlineDecision;
         return InlineResult::failure("not profitable");
       }
