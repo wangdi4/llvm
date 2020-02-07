@@ -11258,8 +11258,14 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
     Res = CGF.Builder.CreateCall(Intr, {A, B, C, Ops.back() });
   } else {
     llvm::Type *Ty = A->getType();
-    Function *FMA = CGF.CGM.getIntrinsic(Intrinsic::fma, Ty);
-    Res = CGF.Builder.CreateCall(FMA, {A, B, C} );
+    Function *FMA;
+    if (CGF.Builder.getIsFPConstrained()) {
+      FMA = CGF.CGM.getIntrinsic(Intrinsic::experimental_constrained_fma, Ty);
+      Res = CGF.Builder.CreateConstrainedFPCall(FMA, {A, B, C});
+    } else {
+      FMA = CGF.CGM.getIntrinsic(Intrinsic::fma, Ty);
+      Res = CGF.Builder.CreateCall(FMA, {A, B, C});
+    }
 
     if (IsAddSub) {
       // Negate even elts in C using a mask.
@@ -11269,7 +11275,11 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
         Indices[i] = i + (i % 2) * NumElts;
 
       Value *NegC = CGF.Builder.CreateFNeg(C);
-      Value *FMSub = CGF.Builder.CreateCall(FMA, {A, B, NegC} );
+      Value *FMSub;
+      if (CGF.Builder.getIsFPConstrained())
+        FMSub = CGF.Builder.CreateConstrainedFPCall(FMA, {A, B, NegC} );
+      else
+        FMSub = CGF.Builder.CreateCall(FMA, {A, B, NegC} );
       Res = CGF.Builder.CreateShuffleVector(FMSub, Res, Indices);
     }
   }
@@ -11381,6 +11391,10 @@ EmitScalarFMAExpr(CodeGenFunction &CGF, MutableArrayRef<Value *> Ops,
 
     Res = CGF.Builder.CreateCall(CGF.CGM.getIntrinsic(IID),
                                  {Ops[0], Ops[1], Ops[2], Ops[4]});
+  } else if (CGF.Builder.getIsFPConstrained()) {
+    Function *FMA = CGF.CGM.getIntrinsic(
+        Intrinsic::experimental_constrained_fma, Ops[0]->getType());
+    Res = CGF.Builder.CreateConstrainedFPCall(FMA, Ops.slice(0, 3));
   } else {
     Function *FMA = CGF.CGM.getIntrinsic(Intrinsic::fma, Ops[0]->getType());
     Res = CGF.Builder.CreateCall(FMA, Ops.slice(0, 3));
@@ -13230,8 +13244,15 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_sqrtss:
   case X86::BI__builtin_ia32_sqrtsd: {
     Value *A = Builder.CreateExtractElement(Ops[0], (uint64_t)0);
-    Function *F = CGM.getIntrinsic(Intrinsic::sqrt, A->getType());
-    A = Builder.CreateCall(F, {A});
+    Function *F;
+    if (Builder.getIsFPConstrained()) {
+      F = CGM.getIntrinsic(Intrinsic::experimental_constrained_sqrt,
+                           A->getType());
+      A = Builder.CreateConstrainedFPCall(F, {A});
+    } else {
+      F = CGM.getIntrinsic(Intrinsic::sqrt, A->getType());
+      A = Builder.CreateCall(F, {A});
+    }
     return Builder.CreateInsertElement(Ops[0], A, (uint64_t)0);
   }
 #if INTEL_CUSTOMIZATION
@@ -13270,8 +13291,15 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
       return Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
     }
     Value *A = Builder.CreateExtractElement(Ops[1], (uint64_t)0);
-    Function *F = CGM.getIntrinsic(Intrinsic::sqrt, A->getType());
-    A = Builder.CreateCall(F, A);
+    Function *F;
+    if (Builder.getIsFPConstrained()) {
+      F = CGM.getIntrinsic(Intrinsic::experimental_constrained_sqrt,
+                           A->getType());
+      A = Builder.CreateConstrainedFPCall(F, A);
+    } else {
+      F = CGM.getIntrinsic(Intrinsic::sqrt, A->getType());
+      A = Builder.CreateCall(F, A);
+    }
     Value *Src = Builder.CreateExtractElement(Ops[2], (uint64_t)0);
     A = EmitX86ScalarSelect(*this, Ops[3], A, Src);
     return Builder.CreateInsertElement(Ops[0], A, (uint64_t)0);
@@ -13319,8 +13347,14 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
         return Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
       }
     }
-    Function *F = CGM.getIntrinsic(Intrinsic::sqrt, Ops[0]->getType());
-    return Builder.CreateCall(F, Ops[0]);
+    if (Builder.getIsFPConstrained()) {
+      Function *F = CGM.getIntrinsic(Intrinsic::experimental_constrained_sqrt,
+                                     Ops[0]->getType());
+      return Builder.CreateConstrainedFPCall(F, Ops[0]);
+    } else {
+      Function *F = CGM.getIntrinsic(Intrinsic::sqrt, Ops[0]->getType());
+      return Builder.CreateCall(F, Ops[0]);
+    }
   }
   case X86::BI__builtin_ia32_pabsb128:
   case X86::BI__builtin_ia32_pabsw128:

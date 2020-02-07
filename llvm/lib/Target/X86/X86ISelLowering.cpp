@@ -21514,36 +21514,6 @@ static std::pair<SDValue, SDValue> EmitCmp(SDValue Op0, SDValue Op1,
   return std::make_pair(Sub.getValue(1), SDValue());
 }
 
-/// Convert a comparison if required by the subtarget.
-SDValue X86TargetLowering::ConvertCmpIfNecessary(SDValue Cmp,
-                                                 SelectionDAG &DAG) const {
-  // If the subtarget does not support the FUCOMI instruction, floating-point
-  // comparisons have to be converted.
-  bool IsCmp = Cmp.getOpcode() == X86ISD::CMP;
-  bool IsStrictCmp = Cmp.getOpcode() == X86ISD::STRICT_FCMP ||
-                     Cmp.getOpcode() == X86ISD::STRICT_FCMPS;
-
-  if (Subtarget.hasCMov() || (!IsCmp && !IsStrictCmp) ||
-      !Cmp.getOperand(IsStrictCmp ? 1 : 0).getValueType().isFloatingPoint() ||
-      !Cmp.getOperand(IsStrictCmp ? 2 : 1).getValueType().isFloatingPoint())
-    return Cmp;
-
-  // The instruction selector will select an FUCOM instruction instead of
-  // FUCOMI, which writes the comparison result to FPSW instead of EFLAGS. Hence
-  // build an SDNode sequence that transfers the result from FPSW into EFLAGS:
-  // (X86sahf (trunc (srl (X86fp_stsw (trunc (X86any_fcmp ...)), 8))))
-  SDLoc dl(Cmp);
-  SDValue TruncFPSW = DAG.getNode(ISD::TRUNCATE, dl, MVT::i16, Cmp);
-  SDValue FNStSW = DAG.getNode(X86ISD::FNSTSW16r, dl, MVT::i16, TruncFPSW);
-  SDValue Srl = DAG.getNode(ISD::SRL, dl, MVT::i16, FNStSW,
-                            DAG.getConstant(8, dl, MVT::i8));
-  SDValue TruncSrl = DAG.getNode(ISD::TRUNCATE, dl, MVT::i8, Srl);
-
-  // Some 64-bit targets lack SAHF support, but they do support FCOMI.
-  assert(Subtarget.hasLAHFSAHF() && "Target doesn't support SAHF or FCOMI?");
-  return DAG.getNode(X86ISD::SAHF, dl, MVT::i32, TruncSrl);
-}
-
 /// Check if replacement of SQRT with RSQRT should be disabled.
 bool X86TargetLowering::isFsqrtCheap(SDValue Op, SelectionDAG &DAG) const {
   EVT VT = Op.getValueType();
@@ -21680,7 +21650,7 @@ X86TargetLowering::BuildSDIVPow2(SDNode *N, const APInt &Divisor,
 
   // Divide by pow2.
   SDValue SRA =
-      DAG.getNode(ISD::SRA, DL, VT, CMov, DAG.getConstant(Lg2, DL, MVT::i64));
+      DAG.getNode(ISD::SRA, DL, VT, CMov, DAG.getConstant(Lg2, DL, MVT::i8));
 
   // If we're dividing by a positive value, we're done.  Otherwise, we must
   // negate the result.
@@ -22563,7 +22533,6 @@ SDValue X86TargetLowering::emitFlagsForSetcc(SDValue Op0, SDValue Op1,
   SDValue EFLAGS = Tmp.first;
   if (Chain)
     Chain = Tmp.second;
-  EFLAGS = ConvertCmpIfNecessary(EFLAGS, DAG);
   X86CC = DAG.getTargetConstant(CondCode, dl, MVT::i8);
   return EFLAGS;
 }
@@ -22703,8 +22672,7 @@ static SDValue LowerXALUO(SDValue Op, SelectionDAG &DAG) {
 /// Return true if opcode is a X86 logical comparison.
 static bool isX86LogicalCmp(SDValue Op) {
   unsigned Opc = Op.getOpcode();
-  if (Opc == X86ISD::CMP || Opc == X86ISD::COMI || Opc == X86ISD::UCOMI ||
-      Opc == X86ISD::SAHF)
+  if (Opc == X86ISD::CMP || Opc == X86ISD::COMI || Opc == X86ISD::UCOMI)
     return true;
   if (Op.getResNo() == 1 &&
       (Opc == X86ISD::ADD || Opc == X86ISD::SUB || Opc == X86ISD::ADC ||
@@ -23665,7 +23633,6 @@ SDValue X86TargetLowering::LowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
 
           SDValue Cmp = DAG.getNode(X86ISD::CMP, dl, MVT::i32,
                                     Cond.getOperand(0), Cond.getOperand(1));
-          Cmp = ConvertCmpIfNecessary(Cmp, DAG);
           CC = DAG.getTargetConstant(X86::COND_NE, dl, MVT::i8);
           Chain = DAG.getNode(X86ISD::BRCOND, dl, Op.getValueType(),
                               Chain, Dest, CC, Cmp);
@@ -23681,7 +23648,6 @@ SDValue X86TargetLowering::LowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
       // separate test.
       SDValue Cmp = DAG.getNode(X86ISD::CMP, dl, MVT::i32,
                                 Cond.getOperand(0), Cond.getOperand(1));
-      Cmp = ConvertCmpIfNecessary(Cmp, DAG);
       CC = DAG.getTargetConstant(X86::COND_NE, dl, MVT::i8);
       Chain = DAG.getNode(X86ISD::BRCOND, dl, Op.getValueType(),
                           Chain, Dest, CC, Cmp);
@@ -23713,7 +23679,6 @@ SDValue X86TargetLowering::LowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
     CC = DAG.getTargetConstant(X86Cond, dl, MVT::i8);
     Cond = EmitTest(Cond, X86Cond, dl, DAG, Subtarget);
   }
-  Cond = ConvertCmpIfNecessary(Cond, DAG);
   return DAG.getNode(X86ISD::BRCOND, dl, Op.getValueType(),
                      Chain, Dest, CC, Cond);
 }
@@ -30644,7 +30609,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(EH_RETURN)
   NODE_NAME_CASE(TC_RETURN)
   NODE_NAME_CASE(FNSTCW16m)
-  NODE_NAME_CASE(FNSTSW16r)
   NODE_NAME_CASE(LCMPXCHG_DAG)
   NODE_NAME_CASE(LCMPXCHG8_DAG)
   NODE_NAME_CASE(LCMPXCHG16_DAG)
@@ -30774,7 +30738,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(MEMBARRIER)
   NODE_NAME_CASE(MFENCE)
   NODE_NAME_CASE(SEG_ALLOCA)
-  NODE_NAME_CASE(SAHF)
   NODE_NAME_CASE(RDRAND)
   NODE_NAME_CASE(RDSEED)
   NODE_NAME_CASE(RDPKRU)
