@@ -221,11 +221,25 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
     SerialInst = SerialAlloca;
+  } else if (VPInst->getOpcode() == Instruction::AtomicRMW) {
+    assert(ScalarOperands.size() == 2 &&
+           "AtomicRMW instruction should have two operands.");
+    // BinOp for atomicrmw instruction is needed, so underlying instruction must
+    // exist. Should we have VPlan specialization of this opcode for capturing
+    // BinOp?
+    auto *OrigAtomicRMW = cast<AtomicRMWInst>(VPInst->getUnderlyingValue());
+    AtomicRMWInst *SerialAtomicRMW = Builder.CreateAtomicRMW(
+        OrigAtomicRMW->getOperation(), Ops[0], Ops[1],
+        OrigAtomicRMW->getOrdering(), OrigAtomicRMW->getSyncScopeID());
+    SerialAtomicRMW->setVolatile(OrigAtomicRMW->isVolatile());
+    if (SerialAtomicRMW->isFloatingPointOperation())
+      SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
+    SerialInst = SerialAtomicRMW;
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
-    llvm_unreachable(
-        "Currently serialization of only binop instructions, "
-        "load, store, call, gep, insert/extract-element, alloca is supported.");
+    llvm_unreachable("Currently serialization of only binop instructions, "
+                     "load, store, call, gep, insert/extract-element, alloca, "
+                     "atomicrmw is supported.");
   }
 
   return SerialInst;
@@ -777,6 +791,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
 
   case Instruction::Alloca: {
+    serializeWithPredication(VPInst);
+    return;
+  }
+
+  case Instruction::AtomicRMW: {
     serializeWithPredication(VPInst);
     return;
   }

@@ -4266,6 +4266,26 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.getLastArg(options::OPT_save_temps_EQ))
     Args.AddLastArg(CmdArgs, options::OPT_save_temps_EQ);
 
+#if INTEL_CUSTOMIZATION
+  auto AddOptLevel = [&]() {
+    // Force -O0 for OpenMP device compilation for SPIRV target.
+    if (Args.hasArg(options::OPT__intel) && IsOpenMPDevice && Triple.isSPIR()) {
+      Args.ClaimAllArgs(options::OPT_O_Group);
+      CmdArgs.push_back("-O0");
+      return;
+    }
+
+    // Manually translate -O4 to -O3; let clang reject others.
+    if (const Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+      if (A->getOption().matches(options::OPT_O4)) {
+        CmdArgs.push_back("-O3");
+        D.Diag(diag::warn_O4_is_O3);
+      } else
+        A->render(Args, CmdArgs);
+    }
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // Embed-bitcode option.
   // Only white-listed flags below are allowed to be embedded.
   if (C.getDriver().embedBitcodeInObject() && !C.getDriver().isUsingLTO() &&
@@ -4347,14 +4367,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     // Optimization level for CodeGen.
-    if (const Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-      if (A->getOption().matches(options::OPT_O4)) {
-        CmdArgs.push_back("-O3");
-        D.Diag(diag::warn_O4_is_O3);
-      } else {
-        A->render(Args, CmdArgs);
-      }
-    }
+    AddOptLevel(); // INTEL
 
     // Input/Output file.
     if (Output.getType() == types::TY_Dependencies) {
@@ -4904,14 +4917,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.ClaimAllArgs(options::OPT_D);
 
   // Manually translate -O4 to -O3; let clang reject others.
-  if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-    if (A->getOption().matches(options::OPT_O4)) {
-      CmdArgs.push_back("-O3");
-      D.Diag(diag::warn_O4_is_O3);
-    } else {
-      A->render(Args, CmdArgs);
-    }
-  }
+  AddOptLevel(); // INTEL
 
   // Warn about ignored options to clang.
   for (const Arg *A :

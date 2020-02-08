@@ -467,7 +467,6 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint64{max_mem_alloc_size});
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_SIZE) {
-    // TODO: To confirm with spec.
     uint32_t global_mem_size = 0;
     for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
       global_mem_size += ze_device_memory_properties[i].totalSize;
@@ -560,24 +559,21 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_throw("Unsupported PI_DEVICE_PRINTF_BUFFER_SIZE in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_PROFILE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_PROFILE in piGetDeviceInfo");
+    SET_PARAM_VALUE_STR("FULL_PROFILE");
   }
   else if (param_name == PI_DEVICE_BUILT_IN_KERNELS) {
     // TODO: To find out correct value
     SET_PARAM_VALUE_STR("");
   }
   else if (param_name == PI_DEVICE_QUEUE_PROPERTIES) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_QUEUE_PROPERTIES in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_queue_properties{PI_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
+                    PI_QUEUE_PROFILING_ENABLE});
   }
   else if (param_name == PI_DEVICE_EXECUTION_CAPABILITIES) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_EXECUTION_CAPABILITIES in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_device_exec_capabilities{PI_DEVICE_EXEC_CAPABILITIES_NATIVE_KERNEL});
   }
   else if (param_name == PI_DEVICE_ENDIAN_LITTLE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_ENDIAN_LITTLE in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_ERROR_CORRECTION_SUPPORT) {
     // TODO: To find out correct value
@@ -588,12 +584,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_throw("Unsupported PI_DEVICE_PROFILING_TIMER_RESOLUTION in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_LOCAL_MEM_TYPE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_LOCAL_MEM_TYPE in piGetDeviceInfo");
+    SET_PARAM_VALUE(PI_DEVICE_LOCAL_MEM_TYPE_LOCAL);
   }
   else if (param_name == PI_DEVICE_MAX_CONSTANT_ARGS) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MAX_CONSTANT_ARGS in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint32{64});
   }
   else if (param_name == PI_DEVICE_MAX_CONSTANT_BUFFER_SIZE) {
     // TODO: To find out correct value
@@ -607,8 +601,14 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_throw("Unsupported PI_DEVICE_GLOBAL_MEM_CACHELINE_SIZE in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_CACHE_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_GLOBAL_MEM_CACHE_SIZE in piGetDeviceInfo");
+    ze_device_cache_properties_t ze_device_cache_properties;
+    ze_device_cache_properties.version = ZE_DEVICE_CACHE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetCacheProperties(
+      ze_device,
+      &ze_device_cache_properties
+    ));
+
+    SET_PARAM_VALUE(pi_uint64{ze_device_cache_properties.lastLevelCacheSize});
   }
   else if (param_name == PI_DEVICE_MAX_PARAMETER_SIZE) {
     // TODO: To find out correct value
@@ -1214,7 +1214,41 @@ pi_result L0(piclProgramCreateWithBinary)(
   pi_int32 *                     binary_status,
   pi_program *                   ret_program) {
 
-  pi_throw("piclProgramCreateWithBinary: not implemented");
+  // This must be for the single device in this context.
+  pi_assert(num_devices == 1);
+  pi_assert(device_list && device_list[0] == context->Device);
+  ze_device_handle_t ze_device = context->Device->L0Device;
+
+  // Check the binary too.
+  pi_assert(lengths && lengths[0] != 0);
+  pi_assert(binaries && binaries[0] != nullptr);
+  size_t length = lengths[0];
+  auto binary = pi_cast<const uint8_t*>(binaries[0]);
+
+  ze_module_desc_t ze_module_desc;
+  ze_module_desc.version = ZE_MODULE_DESC_VERSION_CURRENT;
+  ze_module_desc.format = ZE_MODULE_FORMAT_NATIVE;
+  ze_module_desc.inputSize = length;
+  ze_module_desc.pInputModule = binary;
+  ze_module_desc.pBuildFlags = nullptr;
+
+  ze_module_handle_t ze_module;
+  ZE_CALL(zeModuleCreate(
+    ze_device,
+    &ze_module_desc,
+    &ze_module,
+    0));
+
+  auto L0PiProgram = new _pi_program();
+  L0PiProgram->L0Module = ze_module;
+  L0PiProgram->Context = context;
+  L0PiProgram->RefCount = 1;
+
+  *ret_program = pi_cast<pi_program>(L0PiProgram);
+  if (binary_status) {
+    *binary_status = PI_SUCCESS;
+  }
+  return PI_SUCCESS;
 }
 
 pi_result L0(piclProgramCreateWithSource)(
@@ -1224,7 +1258,7 @@ pi_result L0(piclProgramCreateWithSource)(
   const size_t *    lengths,
   pi_program *      ret_program) {
 
-  pi_throw("piclProgramCreateWithSource: not implemented");
+  pi_throw("piclProgramCreateWithSource: not supported in L0");
 }
 
 pi_result L0(piProgramGetInfo)(

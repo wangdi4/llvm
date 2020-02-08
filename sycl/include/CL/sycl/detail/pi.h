@@ -90,6 +90,13 @@ typedef enum {
   PI_READ_WRITE_CACHE = CL_READ_WRITE_CACHE
 } _pi_device_mem_cache_type;
 
+/* INTEL_CUSTOMIZATION */
+typedef enum {
+  PI_DEVICE_LOCAL_MEM_TYPE_LOCAL  = CL_LOCAL,
+  PI_DEVICE_LOCAL_MEM_TYPE_GLOBAL = CL_GLOBAL
+} _pi_device_local_mem_type;
+/* end INTEL_CUSTOMIZATION */
+
 // TODO: populate and sync with cl::sycl::info::device
 typedef enum {
   PI_DEVICE_INFO_TYPE                     = CL_DEVICE_TYPE,
@@ -331,6 +338,12 @@ typedef enum {
   PI_SAMPLER_FILTER_MODE_LINEAR  = CL_FILTER_LINEAR,
 } _pi_sampler_filter_mode;
 
+/* INTEL_CUSTOMIZATION */
+typedef pi_bitfield pi_device_exec_capabilities;
+const pi_device_exec_capabilities PI_DEVICE_EXEC_CAPABILITIES_KERNEL        = CL_EXEC_KERNEL;
+const pi_device_exec_capabilities PI_DEVICE_EXEC_CAPABILITIES_NATIVE_KERNEL = CL_EXEC_NATIVE_KERNEL;
+/* end INTEL_CUSTOMIZATION */
+
 typedef pi_bitfield pi_sampler_properties;
 const pi_sampler_properties PI_SAMPLER_PROPERTIES_NORMALIZED_COORDS = CL_SAMPLER_NORMALIZED_COORDS;
 const pi_sampler_properties PI_SAMPLER_PROPERTIES_ADDRESSING_MODE   = CL_SAMPLER_ADDRESSING_MODE;
@@ -361,6 +374,7 @@ typedef _pi_result                  pi_result;
 typedef _pi_platform_info           pi_platform_info;
 typedef _pi_device_type             pi_device_type;
 typedef _pi_device_mem_cache_type   pi_device_mem_cache_type;
+typedef _pi_device_local_mem_type   pi_device_local_mem_type; // INTEL
 typedef _pi_device_info             pi_device_info;
 typedef _pi_program_info            pi_program_info;  // INTEL
 typedef _pi_context_info            pi_context_info;
