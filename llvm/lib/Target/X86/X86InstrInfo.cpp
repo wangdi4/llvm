@@ -575,28 +575,28 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::MMX_MOVQ64rm:
   // AVX-512
 #if INTEL_CUSTOMIZATION
-  case X86::VBROADCASTF32X2Z256m:
-  case X86::VBROADCASTF32X2Zm:
-  case X86::VBROADCASTI32X2Z128m:
-  case X86::VBROADCASTI32X2Z256m:
-  case X86::VBROADCASTI32X2Zm:
-  case X86::VBROADCASTSDZ256m:
-  case X86::VBROADCASTSDZm:
-  case X86::VBROADCASTSSZ128m:
-  case X86::VBROADCASTSSZ256m:
-  case X86::VBROADCASTSSZm:
-  case X86::VPBROADCASTBZ128m:
-  case X86::VPBROADCASTBZ256m:
-  case X86::VPBROADCASTBZm:
-  case X86::VPBROADCASTDZ128m:
-  case X86::VPBROADCASTDZ256m:
-  case X86::VPBROADCASTDZm:
-  case X86::VPBROADCASTQZ128m:
-  case X86::VPBROADCASTQZ256m:
-  case X86::VPBROADCASTQZm:
-  case X86::VPBROADCASTWZ128m:
-  case X86::VPBROADCASTWZ256m:
-  case X86::VPBROADCASTWZm:
+  case X86::VBROADCASTF32X2Z256rm:
+  case X86::VBROADCASTF32X2Zrm:
+  case X86::VBROADCASTI32X2Z128rm:
+  case X86::VBROADCASTI32X2Z256rm:
+  case X86::VBROADCASTI32X2Zrm:
+  case X86::VBROADCASTSDZ256rm:
+  case X86::VBROADCASTSDZrm:
+  case X86::VBROADCASTSSZ128rm:
+  case X86::VBROADCASTSSZ256rm:
+  case X86::VBROADCASTSSZrm:
+  case X86::VPBROADCASTBZ128rm:
+  case X86::VPBROADCASTBZ256rm:
+  case X86::VPBROADCASTBZrm:
+  case X86::VPBROADCASTDZ128rm:
+  case X86::VPBROADCASTDZ256rm:
+  case X86::VPBROADCASTDZrm:
+  case X86::VPBROADCASTQZ128rm:
+  case X86::VPBROADCASTQZ256rm:
+  case X86::VPBROADCASTQZrm:
+  case X86::VPBROADCASTWZ128rm:
+  case X86::VPBROADCASTWZ256rm:
+  case X86::VPBROADCASTWZrm:
 #endif
   case X86::VMOVSSZrm:
   case X86::VMOVSSZrm_alt:
@@ -5653,38 +5653,38 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     break;
   }
 #if INTEL_CUSTOMIZATION
-  case X86::VPBROADCASTBZ128m:
-  case X86::VPBROADCASTBZ256m:
-  case X86::VPBROADCASTBZm:
-  case X86::VPBROADCASTWZ128m:
-  case X86::VPBROADCASTWZ256m:
-  case X86::VPBROADCASTWZm:
-  case X86::VBROADCASTF32X2Z256m:
-  case X86::VBROADCASTF32X2Zm:
-  case X86::VBROADCASTI32X2Z128m:
-  case X86::VBROADCASTI32X2Z256m:
-  case X86::VBROADCASTI32X2Zm:
+  case X86::VPBROADCASTBZ128rm:
+  case X86::VPBROADCASTBZ256rm:
+  case X86::VPBROADCASTBZrm:
+  case X86::VPBROADCASTWZ128rm:
+  case X86::VPBROADCASTWZ256rm:
+  case X86::VPBROADCASTWZrm:
+  case X86::VBROADCASTF32X2Z256rm:
+  case X86::VBROADCASTF32X2Zrm:
+  case X86::VBROADCASTI32X2Z128rm:
+  case X86::VBROADCASTI32X2Z256rm:
+  case X86::VBROADCASTI32X2Zrm:
     // No instructions currently fuse with B/W size. And I don't think
     // 32X2 are used often.
     return nullptr;
 
-  case X86::VPBROADCASTDZ128m:
-  case X86::VPBROADCASTDZ256m:
-  case X86::VPBROADCASTDZm:
-  case X86::VBROADCASTSSZ128m:
-  case X86::VBROADCASTSSZ256m:
-  case X86::VBROADCASTSSZm:
+  case X86::VPBROADCASTDZ128rm:
+  case X86::VPBROADCASTDZ256rm:
+  case X86::VPBROADCASTDZrm:
+  case X86::VBROADCASTSSZ128rm:
+  case X86::VBROADCASTSSZ256rm:
+  case X86::VBROADCASTSSZrm:
     // Folding a broadcast. Just copy the broadcast's address operands.
     MOs.append(LoadMI.operands_begin() + NumOps - X86::AddrNumOperands,
                LoadMI.operands_begin() + NumOps);
 
     return foldMemoryBroadcast(MF, MI, Ops[0], MOs, InsertPt,
                                /*Size=*/4, Alignment, /*AllowCommute=*/true);
-  case X86::VPBROADCASTQZ128m:
-  case X86::VPBROADCASTQZ256m:
-  case X86::VPBROADCASTQZm:
-  case X86::VBROADCASTSDZ256m:
-  case X86::VBROADCASTSDZm:
+  case X86::VPBROADCASTQZ128rm:
+  case X86::VPBROADCASTQZ256rm:
+  case X86::VPBROADCASTQZrm:
+  case X86::VBROADCASTSDZ256rm:
+  case X86::VBROADCASTSDZrm:
     // Folding a broadcast. Just copy the broadcast's address operands.
     MOs.append(LoadMI.operands_begin() + NumOps - X86::AddrNumOperands,
                LoadMI.operands_begin() + NumOps);

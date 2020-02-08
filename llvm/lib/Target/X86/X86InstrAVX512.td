@@ -1308,35 +1308,8 @@ multiclass avx512_broadcast_rm_split<bits<8> opc, string OpcodeStr,
                         MaskInfo.RC:$src0))],
                       DestInfo.ExeDomain>, T8PD, EVEX, EVEX_K, Sched<[SchedRR]>;
 
-<<<<<<< HEAD
   let hasSideEffects = 0, mayLoad = 1, isReMaterializable = 1, // INTEL
       canFoldAsLoad = 1 in // INTEL
-  def m : AVX512PI<opc, MRMSrcMem, (outs MaskInfo.RC:$dst),
-                   (ins SrcInfo.ScalarMemOp:$src),
-                   !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
-                   [(set MaskInfo.RC:$dst,
-                     (MaskInfo.VT
-                      (bitconvert
-                       (DestInfo.VT
-                        (UnmaskedBcastOp addr:$src)))))],
-                   DestInfo.ExeDomain>, T8PD, EVEX,
-                   EVEX_CD8<SrcInfo.EltSize, CD8VT1>, Sched<[SchedRM]>;
-
-  def mkz : AVX512PI<opc, MRMSrcMem, (outs MaskInfo.RC:$dst),
-                     (ins MaskInfo.KRCWM:$mask, SrcInfo.ScalarMemOp:$src),
-                     !strconcat(OpcodeStr, "\t{$src, ${dst} {${mask}} {z}|",
-                      "${dst} {${mask}} {z}, $src}"),
-                      [(set MaskInfo.RC:$dst,
-                        (vselect MaskInfo.KRCWM:$mask,
-                         (MaskInfo.VT
-                          (bitconvert
-                           (DestInfo.VT
-                            (SrcInfo.BroadcastLdFrag addr:$src)))),
-                         MaskInfo.ImmAllZerosV))],
-                      DestInfo.ExeDomain>, T8PD, EVEX, EVEX_KZ,
-                      EVEX_CD8<SrcInfo.EltSize, CD8VT1>, Sched<[SchedRM]>;
-=======
-  let hasSideEffects = 0, mayLoad = 1 in
   def rm : AVX512PI<opc, MRMSrcMem, (outs MaskInfo.RC:$dst),
                     (ins SrcInfo.ScalarMemOp:$src),
                     !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
@@ -1361,7 +1334,6 @@ multiclass avx512_broadcast_rm_split<bits<8> opc, string OpcodeStr,
                           MaskInfo.ImmAllZerosV))],
                        DestInfo.ExeDomain>, T8PD, EVEX, EVEX_KZ,
                        EVEX_CD8<SrcInfo.EltSize, CD8VT1>, Sched<[SchedRM]>;
->>>>>>> 10417ad2e4b5dccc9642960b9ee0ca5bd53bfb7c
 
   let Constraints = "$src0 = $dst",
       isConvertibleToThreeAddress = IsConvertibleToThreeAddress in

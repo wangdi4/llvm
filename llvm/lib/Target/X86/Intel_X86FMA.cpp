@@ -1313,13 +1313,13 @@ X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
   switch (VecBitSize) {
   case 128:
     *RC = &X86::VR128RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZ128r : X86::VPBROADCASTQrZ128r;
+    return IsF32 ? X86::VPBROADCASTDrZ128rr : X86::VPBROADCASTQrZ128rr;
   case 256:
     *RC = &X86::VR256RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZ256r : X86::VPBROADCASTQrZ256r;
+    return IsF32 ? X86::VPBROADCASTDrZ256rr : X86::VPBROADCASTQrZ256rr;
   case 512:
     *RC = &X86::VR512RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZr : X86::VPBROADCASTQrZr;
+    return IsF32 ? X86::VPBROADCASTDrZrr : X86::VPBROADCASTQrZrr;
   default:
     break;
   }
