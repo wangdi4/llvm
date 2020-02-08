@@ -284,18 +284,11 @@ public:
 
   FunctionInliningReport(Function *F, std::vector<MDTuple *> *CSs, bool IsDead)
       : FunctionInliningReport(&(F->getParent()->getContext()),
-<<<<<<< HEAD
                                std::string(F->hasName() ? F->getName() : ""),
                                CSs, std::string(F->getParent()->getName()),
                                IsDead, F->isDeclaration(),
                                F->getMetadata(
                                    IPOUtils::getSuppressInlineReportStringRef()),
-=======
-                               std::string(F->hasName() ? F->getName() : ""), CSs,
-                               std::string(F->getParent()->getName()), IsDead,
-                               F->isDeclaration(),
-                               F->getMetadata(IPOUtils::getSuppressInlineReportStringRef()),
->>>>>>> 89def3152fa428696bd3d7b03bed4b0526af5b96
                                std::string(getLinkageStr(F))) {}
 
   static bool isFunctionInliningReportMetadata(const Metadata *R);
