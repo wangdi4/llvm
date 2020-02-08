@@ -474,33 +474,6 @@ void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,
   }
 }
 
-static void dropDISubprogram(Function *F) {
-  if (F->hasMetadata(LLVMContext::MD_dbg))
-    F->setSubprogram(nullptr);
-}
-
-// Remap DILocation of all instructions in the provided basic block
-// to be belong the provided function scope.
-static void fixDILocation(BasicBlock *BB, Function *ScopeF) {
-  auto I = BB->begin();
-  while (I != BB->end()) {
-    // Current implementation couldn't clone debug intrinsics in proper way.
-    // Workaround is to remove these intrinsics. TODO: implement correct
-    // handling of cloned debug instrinsics
-    if (isa<DbgVariableIntrinsic>(I)) {
-      auto ToRemove = I;
-      I++;
-      ToRemove->eraseFromParent();
-      continue;
-    }
-
-    if (DebugLoc DL = I->getDebugLoc())
-      I->setDebugLoc(
-          DebugLoc::get(DL.getLine(), DL.getCol(), ScopeF->getSubprogram()));
-    I++;
-  }
-}
-
 BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   // Create denseMap of function arguments
   ValueToValueMapTy valueMap;
@@ -516,19 +489,30 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;
 
-  // Drop DISubprogram from the vector function to avoid it
-  // duplicating while cloning
-  dropDISubprogram(m_vectorFunc);
+  // Map debug information metadata entries in the cloned code from the vector
+  // DISubprogram to the scalar DISubprogram.
+  DISubprogram *SSP = m_F->getSubprogram();
+  DISubprogram *VSP = m_vectorFunc->getSubprogram();
+  if (SSP && VSP) {
+    auto &MD = valueMap.MD();
+    MD[VSP].reset(SSP);
+  }
 
   // Do actual cloning work
   // TODO: replace manual inlining by llvm::InlineFunction()
-  CloneFunctionInto(m_F, m_vectorFunc, valueMap, /*ModuleLevelChanges*/false,
+  CloneFunctionInto(m_F, m_vectorFunc, valueMap, /*ModuleLevelChanges*/ true,
                     returns, "vector_func");
+
+  // The CloneFunctionInto() above will move all function metadata from the
+  // vector function to the scalar function. Because the scalar function
+  // already has debug info metadata, it ends up with two DISubprograms
+  // assigned. The easiest way to assign the correct one is to erase both of
+  // them by resetting the original scalar subprogram.
+  m_F->setSubprogram(SSP);
 
   for (auto &VBB : *m_vectorFunc) {
     BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[&VBB]);
     clonedBB->moveBefore(BB);
-    fixDILocation(clonedBB, m_F);
   }
 
   for (unsigned dim=0; dim<m_numDim; ++dim) {
