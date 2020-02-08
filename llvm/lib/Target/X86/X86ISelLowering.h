@@ -566,6 +566,10 @@ namespace llvm {
       // falls back to heap allocation if not.
       SEG_ALLOCA,
 
+      // For allocating stack space when using stack clash protector.
+      // Allocation is performed by block, and each block is probed.
+      PROBED_ALLOCA,
+
       // Memory barriers.
       MEMBARRIER,
       MFENCE,
@@ -1273,6 +1277,8 @@ namespace llvm {
 
     bool supportSwiftError() const override;
 
+    bool hasStackProbeSymbol(MachineFunction &MF) const override;
+    bool hasInlineStackProbe(MachineFunction &MF) const override;
     StringRef getStackProbeSymbolName(MachineFunction &MF) const override;
 
     unsigned getStackProbeSize(MachineFunction &MF) const;
@@ -1504,6 +1510,9 @@ namespace llvm {
 
     MachineBasicBlock *EmitLoweredSegAlloca(MachineInstr &MI,
                                             MachineBasicBlock *BB) const;
+
+    MachineBasicBlock *EmitLoweredProbedAlloca(MachineInstr &MI,
+                                               MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredTLSAddr(MachineInstr &MI,
                                           MachineBasicBlock *BB) const;
