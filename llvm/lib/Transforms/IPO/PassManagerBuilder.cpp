@@ -55,6 +55,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -81,6 +82,9 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #endif // INTEL_COLLAB
+=======
+#include "llvm/Transforms/Vectorize/VectorCombine.h"
+>>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 
 using namespace llvm;
 
@@ -1125,6 +1129,7 @@ void PassManagerBuilder::populateModulePassManager(
   // on -O1 and no #pragma is found). Would be good to have these two passes
   // as function calls, so that we can only pass them when the vectorizer
   // changed the code.
+  MPM.add(createVectorCombinePass());
   addInstructionCombiningPass(MPM);
   if (OptLevel > 1 && ExtraVectorizerPasses) {
     // At higher optimization levels, try to clean up any runtime overlap and
@@ -1151,6 +1156,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       MPM.add(createLoadCoalescingPass());
@@ -1158,6 +1164,9 @@ void PassManagerBuilder::populateModulePassManager(
       // SLP creates opportunities for SROA.
       MPM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
+=======
+    MPM.add(createVectorCombinePass());
+>>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
     if (OptLevel > 1 && ExtraVectorizerPasses) {
       MPM.add(createEarlyCSEPass());
     }
@@ -1665,6 +1674,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
+  PM.add(createVectorCombinePass());
   addInstructionCombiningPass(PM); // Initial cleanup
   PM.add(createCFGSimplificationPass()); // if-convert
   PM.add(createSCCPPass()); // Propagate exposed constants
@@ -1672,6 +1682,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (SLPVectorize) {
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
@@ -1682,6 +1693,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       PM.add(createSROAPass());
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (SLPVectorize) {
+    PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
+  }
+>>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.

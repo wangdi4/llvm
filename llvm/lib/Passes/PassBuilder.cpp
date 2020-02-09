@@ -212,6 +212,7 @@
 #include "llvm/Transforms/Vectorize/LoadStoreVectorizer.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -305,6 +306,9 @@
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #endif // INTEL_COLLAB
+=======
+#include "llvm/Transforms/Vectorize/VectorCombine.h"
+>>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 
 using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
@@ -1238,6 +1242,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(LoopLoadEliminationPass());
 
   // Cleanup after the loop optimization passes.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
   // Configure the instruction combining pass to avoid some transformations
@@ -1250,6 +1255,11 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
 #endif                                        // INTEL_CUSTOMIZATION
+=======
+  OptimizePM.addPass(VectorCombinePass());
+  OptimizePM.addPass(InstCombinePass());
+
+>>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
   // Now that we've formed fast to execute loop structures, we do further
   // optimizations. These are run afterward as they might block doing complex
   // analyses and transforms such as what are needed for loop vectorization.
@@ -1266,8 +1276,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
                                      sinkCommonInsts(true)));
 
   // Optimize parallel scalar instruction chains into SIMD instructions.
-  if (PTO.SLPVectorization)
+  if (PTO.SLPVectorization) {
     OptimizePM.addPass(SLPVectorizerPass());
+    OptimizePM.addPass(VectorCombinePass());
+  }
 
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(

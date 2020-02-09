@@ -138,6 +138,7 @@ bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
 //
 Pass *createLoadStoreVectorizerPass();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -167,6 +168,13 @@ Pass *createVPlanDriverPass();
 //
 Pass *createVPlanDriverHIRPass();
 #endif // INTEL_CUSTOMIZATION
+=======
+//===----------------------------------------------------------------------===//
+//
+// Optimize partial vector operations using target cost models.
+//
+Pass *createVectorCombinePass();
+>>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 
 } // End llvm namespace
 
