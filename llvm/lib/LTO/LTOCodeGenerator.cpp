@@ -144,6 +144,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeSimpleInlinerPass(R);
   initializePruneEHPass(R);
   initializeGlobalDCELegacyPassPass(R);
+  initializeOpenMPOptLegacyPassPass(R);
   initializeArgPromotionPass(R);
   initializeJumpThreadingPass(R);
   initializeSROALegacyPassPass(R);
