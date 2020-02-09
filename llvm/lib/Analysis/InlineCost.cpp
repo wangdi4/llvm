@@ -2083,36 +2083,106 @@ static cl::opt<cl::boolOrDefault>
     InliningForFusionHeuristics("inlining-for-fusion-heuristics",
                                 cl::ReallyHidden);
 
+static cl::opt<unsigned> FusionMinLoopNestDepth(
+    "inline-for-fusion-loop-nest-depth", cl::Hidden, cl::init(3),
+    cl::desc("Min depth of loop nest for link time inlining for fusion"));
+
+//
+// Given the Loop 'LL' and incoming 'ArgCnt', update and return 'ArgCnt'.
+// 'ArgCnt' represents the number of GEPs and SubscriptInsts that have
+// a pointer operand which is a function Argument.
+//
+static int handleLoopForFusion(Loop *LL, int ArgCnt) {
+  for (auto *BB : LL->blocks()) {
+    for (auto &I : *BB) {
+      if (ArgCnt >= MinArgRefs)
+        return ArgCnt;
+      Value *PtrOp = nullptr;
+      if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
+        PtrOp = GEPI->getPointerOperand();
+      } else if (SubscriptInst *SI = dyn_cast<SubscriptInst>(&I)) {
+        PtrOp = SI->getPointerOperand();
+        while (SI = dyn_cast<SubscriptInst>(PtrOp))
+          PtrOp = SI->getPointerOperand();
+      }
+      if (PtrOp) {
+        if (isa<PHINode>(PtrOp))
+          PtrOp = dyn_cast<PHINode>(PtrOp)->getIncomingValue(0);
+        if (isa<Argument>(PtrOp))
+          ArgCnt++;
+      }
+    }
+  }
+  return ArgCnt;
+}
+
+//
+// Given 'VecSubLoops', a vector of Loops enclosed within some loop,
+// and an incoming 'ArgCnt', update and return the 'ArgCnt' by
+// incrementing it for each GEP or SubscriptInst which has a
+// function Argument as its pointer operand.
+//
+static int handleSubLoopsForFusion(std::vector<Loop *>& VecSubLoops,
+                                   int ArgCnt) {
+  for (int I = 0, E = VecSubLoops.size(); I < E; I++) {
+    Loop *LL = VecSubLoops[I];
+    ArgCnt = handleLoopForFusion(LL, ArgCnt);
+    ArgCnt = handleSubLoopsForFusion(LL->getSubLoopsVector(), ArgCnt);
+  }
+  return ArgCnt;
+}
+
+//
+// Return the depth of the deepest Loop represented in 'LI'.
+//
+static unsigned maxLoopDepth(LoopInfo *LI) {
+  auto Loops = LI->getLoopsInPreorder();
+  unsigned MaxDepth = 0;
+  for (auto L : Loops) {
+    unsigned CurDepth = L->getLoopDepth();
+    if (CurDepth > MaxDepth)
+      MaxDepth = CurDepth;
+  }
+  return MaxDepth;
+}
+
 /// \brief Analyze a callsite for potential inlining for fusion.
 ///
 /// Returns true if inlining of this and a number of successive callsites
 /// with the same callee would benefit from loop fusion and vectorization
 /// later on.
-/// The criteria for this heuristic are:
-/// 1) Multiple callsites of the same callee in one basic block.
-/// 2) Loops inside callee should have constant trip count and have
-///    no calles inside.
-/// 3) Array accesses inside loops should corespond to callee arguments.
+/// Two slightly different heuristics are used, one for the PrepareForLTO
+/// stage, and one for the !PrepareForLTO stage of inlining.  See the
+/// comments for details.
 /// In case we decide that current CB is a candidate for inlining for fusion,
 /// then we store other CB to the same function in the same basic block in
 /// the set of inlining candidates for fusion.
 static bool worthInliningForFusion(CallBase &CB,
+                                   TargetLibraryInfo *TLI,
                                    const TargetTransformInfo &CalleeTTI,
                                    InliningLoopInfoCache &ILIC,
                                    SmallSet<CallBase *, 20> *CallSitesForFusion,
                                    bool PrepareForLTO) {
 
+  // Must have at least AVX2 for this heuristic.
   if (InliningForFusionHeuristics != cl::BOU_TRUE) {
     auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-    if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
+    if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2)) {
+      LLVM_DEBUG(
+          llvm::dbgs()
+          << "IC: No inlining for fusion. Must support at least AVX2.");
       return false;
+    }
   }
 
-  // Heuristic is enabled if option is unset and it is first inliner run
-  // (on PrepareForLTO phase) OR if option is set to true.
-  if (((InliningForFusionHeuristics != cl::BOU_UNSET) || !PrepareForLTO) &&
-      (InliningForFusionHeuristics != cl::BOU_TRUE))
+  // Heuristic is enabled if option is unset or if option is set to true.
+  if (((InliningForFusionHeuristics != cl::BOU_UNSET)) &&
+      (InliningForFusionHeuristics != cl::BOU_TRUE)) {
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "IC: No inlining for fusion. Option not set.");
     return false;
+  }
 
   if (!CallSitesForFusion) {
     LLVM_DEBUG(llvm::dbgs()
@@ -2131,50 +2201,83 @@ static bool worthInliningForFusion(CallBase &CB,
   BasicBlock *CSBB = CB.getParent();
 
   SmallVector<CallBase *, 20> LocalCSForFusion;
-  // Check that all call sites in the Caller, that are not to intrinsics, are in
-  // the same basic block and are fusion candidates.
   int CSCount = 0;
-  for (auto &I : instructions(Caller)) {
-    auto LocalCB = dyn_cast<CallBase>(&I);
-    if (!LocalCB)
-      continue;
-
-    Function *CurrCallee = LocalCB->getCalledFunction();
-    if (!CurrCallee) {
+  if (PrepareForLTO) {
+    // Check that all call sites in the Caller, that are not to intrinsics,
+    // are in the same basic block and are fusion candidates.
+    for (auto &I : instructions(Caller)) {
+      auto LocalCB = dyn_cast<CallBase>(&I);
+      if (!LocalCB)
+        continue;
+      Function *CurrCallee = LocalCB->getCalledFunction();
+      if (!CurrCallee) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "IC: No inlining for fusion: Indirect call.\n");
+        return false;
+      }
+      if (CurrCallee->isIntrinsic())
+        continue;
+      if (CurrCallee != Callee) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "IC: No inlining for fusion: Mismatched callees.\n");
+        return false;
+      }
+      if (I.getParent() != CSBB) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "IC: No inlining for fusion: Multiple basic blocks.\n");
+        return false;
+      }
+      LocalCSForFusion.push_back(LocalCB);
+      CSCount++;
+    }
+  } else {
+    // Check that there is no indirect call in the Caller. Check that the
+    // greatest number of call sites in the Caller is to the Callee.
+    Function *MaxCallee = nullptr;
+    SmallDenseMap<Function *, int> CallSiteCountMap;
+    for (auto &I : instructions(Caller)) {
+      auto LocalCB = dyn_cast<CallBase>(&I);
+      if (!LocalCB || isa<IntrinsicInst>(&I))
+        continue;
+      Function *MyCallee = LocalCB->getCalledFunction();
+      if (!MyCallee) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "IC: No inlining for fusion: Indirect call.\n");
+        return false;
+      }
+      if (MyCallee->isDeclaration())
+        continue;
+      if (MyCallee == Callee)
+        LocalCSForFusion.push_back(LocalCB);
+      int MyCount = ++CallSiteCountMap[MyCallee];
+      if (MyCount >= CSCount) {
+        CSCount = MyCount;
+        MaxCallee = MyCallee;
+      }
+    }
+    if (MaxCallee != Callee) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "IC: No inlining for fusion: Not most frequent callee.\n");
       return false;
     }
-
-    if (CurrCallee->isIntrinsic())
-      continue;
-    if (CurrCallee != Callee) {
-      return false;
-    }
-
-    if (I.getParent() != CSBB) {
-      return false;
-    }
-
-    LocalCSForFusion.push_back(LocalCB);
-    CSCount++;
   }
 
-  // If the user doesn't specify number of call sites explicitly then use 8
-  // (and 2 later) as a default value,
+  // If the user doesn't specify number of call sites explicitly, then use
+  // some specific number as the default value.
   if (NumCallSitesForFusion.empty()) {
-    NumCallSitesForFusion.push_back(8);
-    // TODO:   NumCallSitesForFusion.push_back(2);
+    if (PrepareForLTO) {
+      NumCallSitesForFusion.push_back(8);
+      // TODO: NumCallSitesForFusion.push_back(2);
+    } else {
+      NumCallSitesForFusion.push_back(3);
+    }
   }
-
-  // If call site candidates are the only calls in the caller function and the
-  // number of successive calls doesn't fit into the option - skip
-  // transformation.
   bool CSCountApproved = false;
   for (int CSCountVariant : NumCallSitesForFusion)
     if (CSCount == CSCountVariant) {
       CSCountApproved = true;
       break;
     }
-
   if (!CSCountApproved) {
     LLVM_DEBUG(
         llvm::dbgs()
@@ -2183,16 +2286,25 @@ static bool worthInliningForFusion(CallBase &CB,
     return false;
   }
 
-  // Check if callee has function calls inside - skip it.
+  // Check if callee has function calls inside - skip it. Make an exception
+  // for intrinsics and library functions.
   for (BasicBlock &BB : *Callee) {
     for (auto &I : BB) {
       if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
         CallInst *CI = dyn_cast_or_null<CallInst>(&I);
         InvokeInst *II = dyn_cast_or_null<InvokeInst>(&I);
         auto InnerFunc = CI ? CI->getCalledFunction() : II->getCalledFunction();
-        if (!InnerFunc || !InnerFunc->isIntrinsic()) {
+        if (!InnerFunc) {
           LLVM_DEBUG(llvm::dbgs()
-                     << "IC: No inlining for fusion: call inside candidate.\n");
+                     << "IC: No inlining for fusion: "
+                        " indirect call inside candidate.\n");
+          return false;
+        }
+        LibFunc LibF;
+        if (!InnerFunc->isIntrinsic() && !TLI->getLibFunc(*InnerFunc, LibF)) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "IC: No inlining for fusion: "
+                        " user call inside candidate.\n");
           return false;
         }
       }
@@ -2210,33 +2322,22 @@ static bool worthInliningForFusion(CallBase &CB,
   int ArgCnt = 0;
   for (auto LB = LI->begin(), LE = LI->end(); LB != LE; ++LB) {
     Loop *LL = *LB;
-    if (!isConstantTripCount(LL)) {
+    if (PrepareForLTO && !isConstantTripCount(LL)) {
       // Non-constant trip count. Skip inlining.
       LLVM_DEBUG(llvm::dbgs()
                  << "IC: No inlining for fusion: non-constant TC in loop.\n");
       return false;
     }
-    // Check how many array refs in GEP instructions are arguments of
-    // the callee.
-    for (auto *BB : LL->blocks()) {
-      for (auto &I : *BB) {
-        if (ArgCnt > MinArgRefs)
-          break;
-        if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
-          Value *PtrOp = GEPI->getPointerOperand();
-          if (PtrOp) {
-            if (isa<PHINode>(PtrOp))
-              PtrOp = dyn_cast<PHINode>(PtrOp)->getIncomingValue(0);
-            if (isa<Argument>(PtrOp))
-              ArgCnt++;
-          }
-        }
-      }
-      if (ArgCnt > MinArgRefs)
+    // Check how many array refs in GEP or SubscriptInst instructions are
+    // arguments of the callee.
+    ArgCnt = handleLoopForFusion(LL, ArgCnt);
+    if (ArgCnt >= MinArgRefs)
+      break;
+    if (!PrepareForLTO) {
+      ArgCnt = handleSubLoopsForFusion(LL->getSubLoopsVector(), ArgCnt);
+      if (ArgCnt >= MinArgRefs)
         break;
     }
-    if (ArgCnt > MinArgRefs)
-      break;
   }
 
   // Not enough arguments-arrays were found in loop.
@@ -2246,16 +2347,33 @@ static bool worthInliningForFusion(CallBase &CB,
     return false;
   }
 
-  // TODO: Remove this condition once 2 becomes a legal CSCount.
-  if (Caller->getInstructionCount() < 40)
-    return false;
-
-  // Store other inlining candidates in a special map.
-  if (CallSitesForFusion) {
-    for (auto LocalCB : LocalCSForFusion) {
-      CallSitesForFusion->insert(LocalCB);
+  if (PrepareForLTO) {
+    // Require a minimum number of instructions.
+    // TODO: Remove this condition once 2 becomes a legal CSCount.
+    if (Caller->getInstructionCount() < 40) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "IC: No inlining for fusion: not enough instructions.\n");
+      return false;
+    }
+  } else {
+    // Allow only one loop nest.
+    if (std::distance(LI->begin(), LI->end()) != 1) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "IC: No inlining for fusion: more than one loop nest.\n");
+      return false;
+    }
+    // Loop nest must be sufficiently deep.
+    if (maxLoopDepth(LI) < FusionMinLoopNestDepth) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "IC: No inlining for fusion: loop nest not deep enough.\n");
+      return false;
     }
   }
+
+  // Store other inlining candidates in a special map.
+  if (CallSitesForFusion)
+    for (auto LocalCB : LocalCSForFusion)
+      CallSitesForFusion->insert(LocalCB);
 
   return true;
 }
@@ -2705,10 +2823,11 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
       return -InlineConstants::SecondToLastCallToStaticBonus;
     }
   }
-  if (worthInliningForFusion(CB, CalleeTTI, ILIC, CallSitesForFusion,
+  if (worthInliningForFusion(CB, &TLI, CalleeTTI, ILIC, CallSitesForFusion,
     PrepareForLTO)) {
     YesReasonVector.push_back(InlrForFusion);
-    return -InlineConstants::InliningHeuristicBonus;;
+    return PrepareForLTO ? -InlineConstants::InliningHeuristicBonus
+                         : -InlineConstants::VeryDeepInliningHeuristicBonus;
   }
   if (worthInliningForDeeplyNestedIfs(CB, ILIC, IsCallerRecursive,
     PrepareForLTO)) {
@@ -3339,7 +3458,19 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
   // functions which don't currently have a dynamic alloca. This simply
   // disables inlining altogether in the presence of a dynamic alloca.
   HasDynamicAlloca = true;
-  return false;
+#if INTEL_CUSTOMIZATION
+  // In Fortran, dynamic allocas can be used to represent local arrays
+  // allocated on the stack. We don't want to inhibiting inlining under
+  // special circumstances.
+  if (DTransInlineHeuristics) {
+    for (User *U : I.users())
+      if (isa<SubscriptInst>(U)) {
+        HasDynamicAlloca = false;
+        break;
+      }
+  }
+  return !HasDynamicAlloca;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool CallAnalyzer::visitPHI(PHINode &I) {
