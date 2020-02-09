@@ -945,17 +945,15 @@ void PassManagerBuilder::populateModulePassManager(
     RunInliner = true;
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
   if (RunVPOOpt == InvokeParoptAfterInliner) {
     addVPOPasses(MPM, false, /* Simplify= */ true);
   }
 #endif // INTEL_COLLAB
-=======
+
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   MPM.add(createAttributorCGSCCLegacyPass());
->>>>>>> b0c77c36d2fb1157bb32741278661ace75c4e8da
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.

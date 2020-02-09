@@ -54,14 +54,8 @@ entry:
 declare !callback !0 dso_local i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*)
 
 define internal i8* @foo(i8* %arg) {
-<<<<<<< HEAD
-; CHECK-LABEL: define {{[^@]+}}@foo
-; CHECK-SAME: (i8* noalias nofree readnone returned [[ARG:%.*]])
-; CHECK-NEXT:  entry:
-; CHECK-NEXT:    ret i8* null
-=======
 ; MODULE-LABEL: define {{[^@]+}}@foo
-; MODULE-SAME: (i8* noalias nofree readnone returned align 536870912 [[ARG:%.*]])
+; MODULE-SAME: (i8* noalias nofree readnone returned [[ARG:%.*]])
 ; MODULE-NEXT:  entry:
 ; MODULE-NEXT:    ret i8* null
 ;
@@ -69,7 +63,6 @@ define internal i8* @foo(i8* %arg) {
 ; CGSCC-SAME: (i8* noalias nofree readnone returned [[ARG:%.*]])
 ; CGSCC-NEXT:  entry:
 ; CGSCC-NEXT:    ret i8* null
->>>>>>> b0c77c36d2fb1157bb32741278661ace75c4e8da
 ;
 entry:
   ret i8* %arg

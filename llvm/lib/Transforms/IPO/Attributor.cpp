@@ -7756,11 +7756,8 @@ struct AttributorCGSCCLegacyPass : public CallGraphSCCPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // FIXME: Think about passes we will preserve and add them here.
     AU.addRequired<TargetLibraryInfoWrapperPass>();
-<<<<<<< HEAD
     AU.addPreserved<WholeProgramWrapperPass>();          // INTEL
-=======
     CallGraphSCCPass::getAnalysisUsage(AU);
->>>>>>> b0c77c36d2fb1157bb32741278661ace75c4e8da
   }
 };
 
