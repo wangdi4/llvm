@@ -270,14 +270,11 @@ namespace {
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION //TODO: VEC to COLLAB
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass();
 #endif // INTEL_CUSTOMIZATION
-=======
       (void) llvm::createVectorCombinePass();
->>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();

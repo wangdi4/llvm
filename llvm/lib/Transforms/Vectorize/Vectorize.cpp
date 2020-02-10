@@ -26,16 +26,13 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeLoopVectorizePass(Registry);
   initializeSLPVectorizerPass(Registry);
   initializeLoadStoreVectorizerLegacyPassPass(Registry);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeLoadCoalescingLegacyPassPass(Registry);
   initializeMathLibraryFunctionsReplacementLegacyPassPass(Registry);
   initializeVPlanDriverPass(Registry);
   initializeVPlanDriverHIRPass(Registry);
 #endif
-=======
   initializeVectorCombineLegacyPassPass(Registry);
->>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 }
 
 void LLVMInitializeVectorization(LLVMPassRegistryRef R) {

@@ -55,7 +55,6 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -82,9 +81,8 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #endif // INTEL_COLLAB
-=======
+
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
->>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 
 using namespace llvm;
 
@@ -1156,7 +1154,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
-<<<<<<< HEAD
+    MPM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       MPM.add(createLoadCoalescingPass());
@@ -1164,9 +1162,6 @@ void PassManagerBuilder::populateModulePassManager(
       // SLP creates opportunities for SROA.
       MPM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
-=======
-    MPM.add(createVectorCombinePass());
->>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
     if (OptLevel > 1 && ExtraVectorizerPasses) {
       MPM.add(createEarlyCSEPass());
     }
@@ -1682,23 +1677,18 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   if (SLPVectorize) {
+#if INTEL_CUSTOMIZATION
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP)
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
-  }
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (SLPVectorize) {
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
     PM.add(createVectorCombinePass()); // Clean up partial vectorization.
   }
->>>>>>> a17f03bd93939cf30bfbb829321437bd0aaa4ef0
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.
