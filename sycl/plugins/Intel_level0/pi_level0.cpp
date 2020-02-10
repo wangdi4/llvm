@@ -523,10 +523,11 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_bool{1});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_COMPUTE_UNITS) {
-    pi_uint32 max_compute_units = ze_device_properties.numEUsPerSubslice *
-      ze_device_properties.numSubslicesPerSlice *
-      ze_device_properties.numSlicesPerTile *
-      ze_device_properties.numTiles;
+    pi_uint32 max_compute_units =
+        ze_device_properties.numEUsPerSubslice *
+        ze_device_properties.numSubslicesPerSlice *
+        ze_device_properties.numSlicesPerTile *
+        (ze_device_properties.numTiles > 0 ? ze_device_properties.numTiles : 1);
     SET_PARAM_VALUE(pi_uint32{max_compute_units});
   }
   else if (param_name == PI_DEVICE_MAX_WORK_ITEM_DIMENSIONS) {
