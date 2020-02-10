@@ -485,6 +485,20 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     &ze_device_image_properties
   ));
 
+  ze_device_kernel_properties_t ze_device_kernel_properties;
+  ze_device_kernel_properties.version = ZE_DEVICE_KERNEL_PROPERTIES_VERSION_CURRENT;
+  ZE_CALL(zeDeviceGetKernelProperties(
+    ze_device,
+    &ze_device_kernel_properties
+  ));
+
+  ze_device_cache_properties_t ze_device_cache_properties;
+    ze_device_cache_properties.version = ZE_DEVICE_CACHE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetCacheProperties(
+      ze_device,
+      &ze_device_cache_properties
+    ));
+
   if (param_name == PI_DEVICE_INFO_TYPE) {
     if (ze_device_properties.type == ZE_DEVICE_TYPE_GPU) {
       SET_PARAM_VALUE(PI_DEVICE_TYPE_GPU);
@@ -653,8 +667,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_PRINTF_BUFFER_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_PRINTF_BUFFER_SIZE in piGetDeviceInfo");
+    SET_PARAM_VALUE(size_t{ze_device_kernel_properties.printfBufferSize});
   }
   else if (param_name == PI_DEVICE_PROFILE) {
     SET_PARAM_VALUE_STR("FULL_PROFILE");
@@ -674,12 +687,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_ERROR_CORRECTION_SUPPORT) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_ERROR_CORRECTION_SUPPORT in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_bool{ze_device_properties.eccMemorySupported});
   }
   else if (param_name == PI_DEVICE_PROFILING_TIMER_RESOLUTION) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_PROFILING_TIMER_RESOLUTION in piGetDeviceInfo");
+    SET_PARAM_VALUE(size_t{ze_device_properties.timerResolution });
   }
   else if (param_name == PI_DEVICE_LOCAL_MEM_TYPE) {
     SET_PARAM_VALUE(PI_DEVICE_LOCAL_MEM_TYPE_LOCAL);
@@ -688,56 +699,81 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint32{64});
   }
   else if (param_name == PI_DEVICE_MAX_CONSTANT_BUFFER_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MAX_CONSTANT_BUFFER_SIZE in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint64{ze_device_image_properties.maxImageBufferSize});
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_CACHE_TYPE) {
     SET_PARAM_VALUE(PI_READ_WRITE_CACHE);
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_CACHELINE_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_GLOBAL_MEM_CACHELINE_SIZE in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint32{ze_device_cache_properties.lastLevelCachelineSize});
   }
   else if (param_name == PI_DEVICE_GLOBAL_MEM_CACHE_SIZE) {
-    ze_device_cache_properties_t ze_device_cache_properties;
-    ze_device_cache_properties.version = ZE_DEVICE_CACHE_PROPERTIES_VERSION_CURRENT;
-    ZE_CALL(zeDeviceGetCacheProperties(
-      ze_device,
-      &ze_device_cache_properties
-    ));
-
     SET_PARAM_VALUE(pi_uint64{ze_device_cache_properties.lastLevelCacheSize});
   }
   else if (param_name == PI_DEVICE_MAX_PARAMETER_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MAX_PARAMETER_SIZE in piGetDeviceInfo");
+      SET_PARAM_VALUE(size_t{ze_device_kernel_properties.maxArgumentsSize});
   }
   else if (param_name == PI_DEVICE_MEM_BASE_ADDR_ALIGN) {
     SET_PARAM_VALUE(pi_uint32{8});
   }
   else if (param_name == PI_DEVICE_MAX_SAMPLERS) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MAX_SAMPLERS in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint32{ze_device_image_properties.maxSamplers});
   }
   else if (param_name == PI_DEVICE_MAX_READ_IMAGE_ARGS) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MAX_READ_IMAGE_ARGS in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint32{ze_device_image_properties.maxReadImageArgs});
   }
   else if (param_name == PI_DEVICE_MAX_WRITE_IMAGE_ARGS) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_MAX_WRITE_IMAGE_ARGS in piGetDeviceInfo");
+    SET_PARAM_VALUE(pi_uint32{ze_device_image_properties.maxWriteImageArgs});
   }
   else if (param_name == PI_DEVICE_SINGLE_FP_CONFIG) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_SINGLE_FP_CONFIG in piGetDeviceInfo");
+    uint32_t singleFPValue = 0;
+    ze_floating_point_capabilities_t singleFpCapabilities = ze_device_kernel_properties.singleFpCapabilities;
+    if (ZE_FP_CAPS_DENORM & singleFpCapabilities) {
+      singleFPValue |= CL_FP_DENORM;
+    }
+    if (ZE_FP_CAPS_INF_NAN & singleFpCapabilities) {
+      singleFPValue |= CL_FP_INF_NAN;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_NEAREST  & singleFpCapabilities) {
+      singleFPValue |= CL_FP_ROUND_TO_NEAREST;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_ZERO & singleFpCapabilities) {
+      singleFPValue |= CL_FP_ROUND_TO_ZERO;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_INF & singleFpCapabilities) {
+      singleFPValue |= CL_FP_ROUND_TO_INF;
+    }
+    if (ZE_FP_CAPS_FMA & singleFpCapabilities) {
+      singleFPValue |= CL_FP_FMA;
+    }
+    SET_PARAM_VALUE(pi_uint32{singleFPValue});
   }
   else if (param_name == PI_DEVICE_HALF_FP_CONFIG) {
     // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_HALF_FP_CONFIG in piGetDeviceInfo");
+    printf("Unsupported PI_DEVICE_HALF_FP_CONFIG in piGetDeviceInfo");
   }
   else if (param_name == PI_DEVICE_DOUBLE_FP_CONFIG) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_DOUBLE_FP_CONFIG in piGetDeviceInfo");
+    uint32_t doubleFPValue = 0;
+    ze_floating_point_capabilities_t doubleFpCapabilities = ze_device_kernel_properties.doubleFpCapabilities;
+    if (ZE_FP_CAPS_DENORM & doubleFpCapabilities) {
+      doubleFPValue |= CL_FP_DENORM;
+    }
+    if (ZE_FP_CAPS_INF_NAN & doubleFpCapabilities) {
+      doubleFPValue |= CL_FP_INF_NAN;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_NEAREST  & doubleFpCapabilities) {
+      doubleFPValue |= CL_FP_ROUND_TO_NEAREST;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_ZERO & doubleFpCapabilities) {
+      doubleFPValue |= CL_FP_ROUND_TO_ZERO;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_INF & doubleFpCapabilities) {
+      doubleFPValue |= CL_FP_ROUND_TO_INF;
+    }
+    if (ZE_FP_CAPS_FMA & doubleFpCapabilities) {
+      doubleFPValue |= CL_FP_FMA;
+    }
+    SET_PARAM_VALUE(pi_uint32{doubleFPValue});
   }
   else if (param_name == PI_DEVICE_IMAGE2D_MAX_WIDTH) {
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
@@ -775,8 +811,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(size_t{2048});
   }
   else if (param_name == PI_DEVICE_IMAGE_MAX_BUFFER_SIZE) {
-    // TODO: To find out correct value
-    pi_throw("Unsupported PI_DEVICE_IMAGE_MAX_BUFFER_SIZE in piGetDeviceInfo");
+    SET_PARAM_VALUE(size_t{ze_device_image_properties.maxImageBufferSize});
   }
   else if (param_name == PI_DEVICE_IMAGE_MAX_ARRAY_SIZE) {
     SET_PARAM_VALUE(size_t{ze_device_image_properties.maxImageArraySlices});
