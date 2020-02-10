@@ -1,5 +1,5 @@
-; RUN: opt -hir-temp-cleanup -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512f -enable-intel-advanced-opts -hir-temp-cleanup -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512f -enable-intel-advanced-opts -passes="hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; Check that sparse array reduction is distributed from the rest of the loop.
 
