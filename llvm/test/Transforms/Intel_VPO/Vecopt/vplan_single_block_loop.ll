@@ -5,18 +5,17 @@
 ; Verify the divergence information for the single loop for.body.
 
 define void @test1(float* nocapture %A, i64 %n) {
-; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
+; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store float 4.200000e+01 float* [[VP_ARRAYIDX]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ;
 entry:
   %cmp = icmp sgt i64 %n, 0

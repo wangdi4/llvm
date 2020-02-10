@@ -38,14 +38,14 @@ define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
 ; CHECK: Uniform: [Shape: Uniform] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT1:%.*]] = sext i32 [[PHI1]] to i64
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV:%.*]] i64 0 i64 [[SEXT1]]
-; CHECK: Divergent: [Shape: Random] i8* [[IV_IDX:%.*]] = bitcast i32* %inv.arrayidx
-; CHECK-NEXT: Divergent: [Shape: Random] i8 [[BC1:%.*]] = load i8* %bc.1
-; CHECK-NEXT: Divergent: [Shape: Random] i82 [[BC2:%.*]] = load i82* %bc.2
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4096] i8* [[IV_IDX:%.*]] = bitcast i32* [[INV_ARRIDX:%.*]]
+; CHECK-NEXT: Divergent: [Shape: Random] i8 [[BC1:%.*]] = load i8* [[BC1:%.*]]
+; CHECK-NEXT: Divergent: [Shape: Random] i82 [[BC2:%.*]] = load i82* [[BC2:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[L1:%.*]] = load i32* [[PRIV_GEP1]]
 ; CHECK: Divergent: [Shape: Random] i32* [[PRIV_GEP2:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT2:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[VAL_TO_STORE:%.*]] = call i32 {{.*}} i32 (i32)* @helper
-; CHECK: Divergent: [Shape: Random] i64 [[L_BC3:%.*]] = load i64* %bc.3
-; CHECK-NEXT: Divergent: [Shape: Random] i64 [[L_BC4:%.*]] = load i64* %bc.gep
+; CHECK: Divergent: [Shape: Random] i64 [[L_BC3:%.*]] = load i64* [[BC3:%.*]]
+; CHECK-NEXT: Divergent: [Shape: Random] i64 [[L_BC4:%.*]] = load i64* [[BC_GEP:%.*]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[JVAL:%.*]] = load i32* @j
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT3:%.*]] = sext i32 [[JVAL]] to i64
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
@@ -168,8 +168,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @scalPrivate(i32 %RetIdx) local_unnamed_addr #0 {
-; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
-; CHECK: Divergent: [Shape: Random] store i32 [[PHI1]] i32* %i.lpriv
+; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI1:%.*]] = phi  [ i32 [[IND_INIT:%.*]], {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
+; CHECK: Divergent: [Shape: Random] store i32 [[PHI1]] i32* [[L_PRIV:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load i32* [[J:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD4:%.*]] = add i32 [[J1]] i32 [[PHI1]]
 ; CHECK: Divergent: [Shape: Random] store i32 [[ADD4]] i32* [[J]]

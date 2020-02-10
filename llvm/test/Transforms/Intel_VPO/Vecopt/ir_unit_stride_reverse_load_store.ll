@@ -9,15 +9,17 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK: Printing Divergence info for Loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP0:%.*]] = sub i64 1023 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[SRC0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[DEST0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP1]] i32* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP2:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
-
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK:  vector.body:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]

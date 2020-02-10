@@ -12,10 +12,10 @@ define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i64 [[VP_STRIDED_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_STRIDED_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_STRIDE_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_UNIT_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_UNIT_NEG_STRIDE_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_UNIT_NEG_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAR_STRIDE_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VAR_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i64 [[VP_STRIDED_IV:%.*]] = phi  [ i64 [[VP_STRIDED_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_STRIDED_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_STRIDE_IV:%.*]] = phi  [ i64 [[VP_UNIT_STRIDE_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_UNIT_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_UNIT_NEG_STRIDE_IV:%.*]] = phi  [ i64 [[VP_UNIT_NEG_STRIDE_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_UNIT_NEG_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAR_STRIDE_IV:%.*]] = phi  [ i64 [[VP_VAR_STRIDE_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_VAR_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 16] i32* [[VP_STRIDED_GEP:%.*]] = getelementptr inbounds i32* [[ARY0:%.*]] i64 [[VP_STRIDED_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = load i32* [[VP_STRIDED_GEP]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_UNIT_STRIDE_GEP:%.*]] = getelementptr inbounds i32* [[ARY0]] i64 [[VP_UNIT_STRIDE_IV]]
@@ -24,13 +24,19 @@ define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = load i32* [[VP_UNIT_NEG_STRIDE_GEP]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_VAR_STRIDE_GEP:%.*]] = getelementptr inbounds i32* [[ARY0]] i64 [[VP_VAR_STRIDE_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = load i32* [[VP_VAR_STRIDE_GEP]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i64 [[VP_STRIDED_IV_NEXT]] = add i64 [[VP_STRIDED_IV]] i64 4
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_STRIDE_IV_NEXT]] = add i64 [[VP_UNIT_STRIDE_IV]] i64 1
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_UNIT_NEG_STRIDE_IV_NEXT]] = add i64 [[VP_UNIT_NEG_STRIDE_IV]] i64 -1
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAR_STRIDE_IV_NEXT]] = add i64 [[VP_VAR_STRIDE_IV]] i64 [[VAR_STEP0:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i64 [[VP_STRIDED_IV_NEXT]] = add i64 [[VP_STRIDED_IV]] i64 [[VP4:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_STRIDE_IV_NEXT]] = add i64 [[VP_UNIT_STRIDE_IV]] i64 [[VP5:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_UNIT_NEG_STRIDE_IV_NEXT]] = add i64 [[VP_UNIT_NEG_STRIDE_IV]] i64 [[VP6:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAR_STRIDE_IV_NEXT]] = add i64 [[VP_VAR_STRIDE_IV]] i64 [[VP7:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp i64 [[VP_STRIDED_IV_NEXT]] i64 1024
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_STRIDED_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 4
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_UNIT_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_UNIT_NEG_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 -1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VAR_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 [[VAR_STEP0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
 ;
 pre.entry:
   %i = alloca i64, align 4

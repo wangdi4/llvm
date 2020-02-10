@@ -19,6 +19,7 @@
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPlanCostModel.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
@@ -161,6 +162,16 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
     VPBuilder VPIRBuilder;
     LE->insertVPInstructions(VPIRBuilder);
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    Plan->setVPlanDA(std::move(VPDA));
+    auto *VPLInfo = Plan->getVPLoopInfo();
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    VPRegionBlock *TopRegion = Plan->getEntry();
+    TopRegion->computeDT();
+    TopRegion->computePDT();
+    Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
+                                *TopRegion->getDT(), *TopRegion->getPDT(),
+                                false /*Not in LCSSA form*/);
     LE->doSOAAnalysis();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterVPEntityInstructions) {

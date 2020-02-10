@@ -25,39 +25,39 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP3:%.*]] = icmp i32 [[VP0]] i32 [[VP1]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp i32 [[VP0]] i32 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP3]]), [[BB3]](!i1 [[VP_CMP3]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP6:%.*]] = icmp i32 [[VP0]] i32 16
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP_MUL:%.*]] = mul i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP_ADD:%.*]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP2:%.*]] = select i1 [[VP_CMP6]] i32 [[VP_MUL]] i32 1
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP3:%.*]] = select i1 [[VP_CMP6]] i32 [[VP_ADD]] i32 1
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP_MUL20:%.*]] = mul i32 [[VP1]] i32 [[VP1]]
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP_MUL25:%.*]] = mul i32 [[VP0]] i32 [[VP0]]
+; CHECK-NEXT:       i1 [[VP_CMP6:%.*]] = icmp i32 [[VP0]] i32 16
+; CHECK-NEXT:       i32 [[VP_MUL:%.*]] = mul i32 [[VP1]] i32 [[VP0]]
+; CHECK-NEXT:       i32 [[VP_ADD:%.*]] = add i32 [[VP1]] i32 [[VP0]]
+; CHECK-NEXT:       i32 [[VP2:%.*]] = select i1 [[VP_CMP6]] i32 [[VP_MUL]] i32 1
+; CHECK-NEXT:       i32 [[VP3:%.*]] = select i1 [[VP_CMP6]] i32 [[VP_ADD]] i32 1
+; CHECK-NEXT:       i32 [[VP_MUL20:%.*]] = mul i32 [[VP1]] i32 [[VP1]]
+; CHECK-NEXT:       i32 [[VP_MUL25:%.*]] = mul i32 [[VP0]] i32 [[VP0]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_MB_0:%.*]] = phi  [ i32 [[VP_MUL20]], [[BB4]] ],  [ i32 0, [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_MA_0:%.*]] = phi  [ i32 [[VP_MUL25]], [[BB4]] ],  [ i32 0, [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_MC_1:%.*]] = phi  [ i32 [[VP2]], [[BB4]] ],  [ i32 1, [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_MD_1:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 1, [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_MUL27:%.*]] = mul i32 [[VP_MC_1]] i32 [[VP_MB_0]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_ADD30:%.*]] = add i32 [[VP_MUL27]] i32 [[VP1]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP_ADD30]] i32* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_MUL31:%.*]] = mul i32 [[VP_MD_1]] i32 [[VP_MA_0]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_ADD34:%.*]] = add i32 [[VP_MUL31]] i32 [[VP0]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP_ADD34]] i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[TMP2:%.*]]
+; CHECK-NEXT:     i32 [[VP_MB_0:%.*]] = phi  [ i32 [[VP_MUL20]], [[BB4]] ],  [ i32 0, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP_MA_0:%.*]] = phi  [ i32 [[VP_MUL25]], [[BB4]] ],  [ i32 0, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP_MC_1:%.*]] = phi  [ i32 [[VP2]], [[BB4]] ],  [ i32 1, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP_MD_1:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 1, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP_MUL27:%.*]] = mul i32 [[VP_MC_1]] i32 [[VP_MB_0]]
+; CHECK-NEXT:     i32 [[VP_ADD30:%.*]] = add i32 [[VP_MUL27]] i32 [[VP1]]
+; CHECK-NEXT:     store i32 [[VP_ADD30]] i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     i32 [[VP_MUL31:%.*]] = mul i32 [[VP_MD_1]] i32 [[VP_MA_0]]
+; CHECK-NEXT:     i32 [[VP_ADD34:%.*]] = add i32 [[VP_MUL31]] i32 [[VP0]]
+; CHECK-NEXT:     store i32 [[VP_ADD34]] i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
+; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[TMP2:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_CMP]]), [[BB5:BB[0-9]+]](!i1 [[VP_CMP]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:

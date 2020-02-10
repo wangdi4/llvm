@@ -25,30 +25,30 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP0:%.*]] = add i32 [[LEN_LIMIT0:%.*]] i32 -2
+; CHECK-NEXT:     i32 [[VP0:%.*]] = add i32 [[LEN_LIMIT0:%.*]] i32 -2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP1:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = zext i32 [[DELTA20:%.*]] to i64
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = mul i64 [[VP3]] i64 -1
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP5:%.*]] = zext i32 [[VP1]] to i64
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP6:%.*]] = add i64 [[VP4]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP8:%.*]] = getelementptr inbounds i32* [[CUR0:%.*]] i64 [[VP7]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP9:%.*]] = load i32* [[VP8]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP10:%.*]] = add i32 [[VP1]] i32 1
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP11:%.*]] = zext i32 [[VP10]] to i64
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP12:%.*]] = getelementptr inbounds i32* [[CUR0]] i64 [[VP11]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP13:%.*]] = load i32* [[VP12]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP14:%.*]] = icmp i32 [[VP9]] i32 [[VP13]]
+; CHECK-NEXT:     i32 [[VP1:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = zext i32 [[DELTA20:%.*]] to i64
+; CHECK-NEXT:     i64 [[VP4:%.*]] = mul i64 [[VP3]] i64 -1
+; CHECK-NEXT:     i64 [[VP5:%.*]] = zext i32 [[VP1]] to i64
+; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP4]] i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
+; CHECK-NEXT:     i32* [[VP8:%.*]] = getelementptr inbounds i32* [[CUR0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i32 [[VP9:%.*]] = load i32* [[VP8]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP1]] i32 1
+; CHECK-NEXT:     i64 [[VP11:%.*]] = zext i32 [[VP10]] to i64
+; CHECK-NEXT:     i32* [[VP12:%.*]] = getelementptr inbounds i32* [[CUR0]] i64 [[VP11]]
+; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[VP12]]
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp i32 [[VP9]] i32 [[VP13]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP14]]), [[BB3]](!i1 [[VP14]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP2]] = add i32 [[VP1]] i32 1
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP15:%.*]] = icmp i32 [[VP2]] i32 [[VP0]]
+; CHECK-NEXT:       i32 [[VP2]] = add i32 [[VP1]] i32 1
+; CHECK-NEXT:       i1 [[VP15:%.*]] = icmp i32 [[VP2]] i32 [[VP0]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP15]]), [[BB5:BB[0-9]+]](!i1 [[VP15]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -58,7 +58,7 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       [DA: Uniform]   br for.end.loopexit
+; CHECK-NEXT:       br for.end.loopexit
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

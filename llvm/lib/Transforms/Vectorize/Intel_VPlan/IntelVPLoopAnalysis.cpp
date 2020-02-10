@@ -592,7 +592,6 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
     return nullptr;
   AI = MemDescr->getMemoryPtr();
   VPValue *Ret = Builder.createAllocaPrivate(AI);
-  Plan.getVPlanDA()->markDivergent(*Ret);
   linkValue(&E, Ret);
   return Ret;
 }
@@ -603,8 +602,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue &Start) {
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
-    auto V = Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
-    Plan.getVPlanDA()->markDivergent(*V);
+    Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
   }
   // Now replace Start by Init inside the loop. It may be a
@@ -636,7 +634,6 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
     VPValue *V = Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
-    Plan.getVPlanDA()->markUniform(*V);
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())
@@ -693,7 +690,6 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
                                           Name + ".red.init");
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
-    Plan.getVPlanDA()->markDivergent(*Init);
 
     // Create instruction for last value. If a register reduction does not have
     // a liveout loop exit instruction (store to reduction variable after
@@ -704,7 +700,6 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
         Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
             ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
             : Reduction->getLoopExitInstr());
-    Plan.getVPlanDA()->markDivergent(*Exit);
 
     VPReductionFinal *Final = nullptr;
     if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
@@ -734,7 +729,6 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
     }
-    Plan.getVPlanDA()->markUniform(*Final);
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
 }
@@ -773,10 +767,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
-    if (Induction->getIsMemOnly()) {
+    if (Induction->getIsMemOnly())
       Start = Builder.createNaryOp(Instruction::Load, Ty, {AI});
-      Plan.getVPlanDA()->markUniform(*Start);
-    }
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
@@ -789,11 +781,9 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     }
     VPInstruction *Init = Builder.createInductionInit(
         Start, Induction->getStep(), Opc, Name + ".ind.init");
-    Plan.getVPlanDA()->markDivergent(*Init);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-    VPInstruction *InitStep =
-        Builder.createInductionInitStep(Induction->getStep(), Opc);
-    Plan.getVPlanDA()->markUniform(*InitStep);
+    VPInstruction *InitStep = Builder.createInductionInitStep(
+        Induction->getStep(), Opc, ".ind.init.step");
     if (!Induction->needCloseForm()) {
       if (auto *Instr = Induction->getInductionBinOp()) {
         assert(isConsistentInductionUpdate(Instr,
@@ -826,7 +816,6 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
             : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
                                            Name + ".ind.final");
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
-    Plan.getVPlanDA()->markUniform(*Final);
   }
 }
 
@@ -835,8 +824,6 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                                                    VPBasicBlock *Preheader) {
 
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
-
-  auto *DA = Plan.getVPlanDA();
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -847,19 +834,15 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   for (VPPrivate *Private : vpprivates()) {
     VPValue *AI = nullptr;
     VPValue *PrivateMem = createPrivateMemory(*Private, Builder, AI);
-    if (PrivateMem) {
+    if (PrivateMem)
       LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
                         << *PrivateMem << "\n");
-      // Mark the new private pointer as divergent.
-      DA->markDivergent(*PrivateMem);
-    }
 
     // Handle aliases in two passes.
     // Insert the aliases into the Loop preheader in the regular order first.
     for (auto const &ValInstPair : Private->aliases()) {
       auto *VPInst = ValInstPair.second;
       Builder.insert(VPInst);
-      DA->markDivergent(*VPInst);
     }
 
     // Now do the replacement. We first replace all instances of VPOperand
@@ -907,11 +890,6 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   // Insert VPInstructions related to VPPrivates.
   insertPrivateVPInstructions(Builder, Preheader);
 
-  // If DA is run again after this point, this function-call will make sure
-  // that it would not mark the original memory-ptr of the Loop Entities as
-  // divergent. So, instructions which load data from the original memory
-  // pointer are not converted into 'gathers'.
-  Plan.setLoopEntitiesPrivatizationDone(true);
 }
 
 // Create so called "close-form calculation" for induction. The close-form
@@ -994,7 +972,6 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
-    Plan.getVPlanDA()->markDivergent(*NewInd);
     auto Ndx = StartPhi->getOperandIndex(BinOp);
     StartPhi->setOperand(Ndx, NewInd);
     VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
@@ -1008,9 +985,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     VPBasicBlock *Block = cast<VPBasicBlock>(Loop.getHeader());
     Builder.setInsertPointFirstNonPhi(Block);
     VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
-    auto StoreInst = Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
-    Plan.getVPlanDA()->markDivergent(*IndPhi);
-    Plan.getVPlanDA()->markDivergent(*StoreInst);
+    Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
     // Then insert increment of induction and update phi.
     Block = cast<VPBasicBlock>(Loop.getLoopLatch());
     Builder.setInsertPoint(Block);
@@ -1020,7 +995,6 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       NewInd = Builder.createInBoundsGEP(IndPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
-    Plan.getVPlanDA()->markDivergent(*NewInd);
     // Step will be initialized in loop preheader always.
     VPBasicBlock *InitParent = cast<VPBasicBlock>(Loop.getLoopPreheader());
     IndPhi->addIncoming(&Init, InitParent);

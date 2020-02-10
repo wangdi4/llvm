@@ -2,127 +2,74 @@
 ; In the following lit test, the inner loop is uniform and all the side exits
 ; are uniform.
 
-; RUN: opt -VPlanDriver -disable-output -vplan-print-after-simplify-cfg %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-driver" -disable-output -vplan-print-after-simplify-cfg %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver" -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @main() #0 {
-; CHECK-LABEL:  Print after simplify plain CFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]],[[BB5:BB[0-9]+]],[[BB6:BB[0-9]+]],[[BB7:BB[0-9]+]],[[BB8:BB[0-9]+]]<latch><exiting>,[[BB9:BB[0-9]+]],[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]],[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]],[[INTERMEDIATE_BB1:intermediate.bb[0-9]+]],[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]],[[CASCADED_IF_BLOCK1:cascaded.if.block[0-9]+]],[[BB10:BB[0-9]+]]
+; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header>,[[BB3]],[[BB6]],[[NEW_LOOP_LATCH0]]<latch><exiting>,[[INTERMEDIATE_BB0]],[[INTERMEDIATE_BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:  Basic Block: [[BB0]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT:%.*]], [[BB11:BB[0-9]+]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB8]] ]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-NEXT:  Basic Block: [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:  Basic Block: [[BB1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB9]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC1:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INC1]] i32 16
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_INC1:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 1
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INC1]] i32 16
-; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_CMP1]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP1]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB4]]
+; CHECK-NEXT:  Basic Block: [[INTERMEDIATE_BB0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT1_PHI:%.*]] = phi  [ i32 [[VP_INC1]], [[BB1]] ]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[INTERMEDIATE_BB0]]:
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_LIVE_OUT1_PHI:%.*]] = phi  [ i32 [[VP_INC1]], [[BB5]] ]
-; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC2:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INC2]] i32 32
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_INC2:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 2
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INC2]] i32 32
-; CHECK-NEXT:      SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATE_BB1:intermediate.bb[0-9]+]](!i1 [[VP_CMP2]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:  Basic Block: [[INTERMEDIATE_BB1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT2_PHI:%.*]] = phi  [ i32 [[VP_INC2]], [[BB3]] ]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[INTERMEDIATE_BB1]]:
-; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_LIVE_OUT2_PHI:%.*]] = phi  [ i32 [[VP_INC2]], [[BB6]] ]
-; CHECK-NEXT:        SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:  Basic Block: [[BB6]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INNER_LOOP_INDUCTION:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 4
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_INNER_LOOP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_INNER_LOOP_INDUCTION]] i32 1024
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_INNER_LOOP_INDUCTION:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 4
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_INNER_LOOP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_INNER_LOOP_INDUCTION]] i32 1024
-; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:  Basic Block: [[NEW_LOOP_LATCH0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT2_PHI_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB6]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 [[VP_LIVE_OUT2_PHI]], [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT1_PHI_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB6]] ],  [ i32 [[VP_LIVE_OUT1_PHI]], [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI]] = phi  [ i32 [[VP_INNER_LOOP_INDUCTION]], [[BB6]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB6]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ],  [ i32 2, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_INNER_LOOP_BOTTOM_TEST]], [[BB6]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ],  [ i1 false, [[INTERMEDIATE_BB1]] ]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_LIVE_OUT2_PHI_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB7]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 [[VP_LIVE_OUT2_PHI]], [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_LIVE_OUT1_PHI_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB7]] ],  [ i32 [[VP_LIVE_OUT1_PHI]], [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI]] = phi  [ i32 [[VP_INNER_LOOP_INDUCTION]], [[BB7]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB7]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ],  [ i32 2, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_INNER_LOOP_BOTTOM_TEST]], [[BB7]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ],  [ i1 false, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](!i1 [[VP_TAKE_BACKEDGE_COND]])
-; CHECK-NEXT:    PREDECESSORS(3): [[BB7]] [[INTERMEDIATE_BB0]] [[INTERMEDIATE_BB1]]
+; CHECK-NEXT:  Basic Block: [[CASCADED_IF_BLOCK1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
+; CHECK-NEXT:  Basic Block: [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[CASCADED_IF_BLOCK0]]): [DA: Uniform]   i1 [[VP0]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
-; CHECK-NEXT:    SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP0]]), [[CASCADED_IF_BLOCK1:cascaded.if.block[0-9]+]](!i1 [[VP0]])
-; CHECK-NEXT:    PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
+; CHECK-NEXT:  Basic Block: [[CASCADED_IF_BLOCK0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP1:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[CASCADED_IF_BLOCK1]]:
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP1:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
-; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP1]]), [[BB11:BB[0-9]+]](!i1 [[VP1]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:  Basic Block: [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB11]]:
-; CHECK-NEXT:         <Empty Block>
-; CHECK-NEXT:        SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:        PREDECESSORS(1): [[CASCADED_IF_BLOCK1]]
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT2:%.*]] = add i32 [[VP_LIVE_OUT2_PHI_SSA_PHI]] i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB10]]:
-; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_LIVE_OUT2:%.*]] = add i32 [[VP_LIVE_OUT2_PHI_SSA_PHI]] i32 1
-; CHECK-NEXT:        SUCCESSORS(1):[[BB12:BB[0-9]+]]
-; CHECK-NEXT:        PREDECESSORS(1): [[CASCADED_IF_BLOCK1]]
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LIVE_OUT1:%.*]] = add i32 [[VP_LIVE_OUT1_PHI_SSA_PHI]] i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB9]]:
-; CHECK-NEXT:         [DA: Uniform]   i32 [[VP_LIVE_OUT1:%.*]] = add i32 [[VP_LIVE_OUT1_PHI_SSA_PHI]] i32 1
-; CHECK-NEXT:        SUCCESSORS(1):[[BB12]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB12]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
+; CHECK-NEXT:  Basic Block: [[BB8]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_OUTER_LOOP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 1
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_OUTER_LOOP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_OUTER_LOOP_BOTTOM_TEST]]), [[BB13:BB[0-9]+]](!i1 [[VP_OUTER_LOOP_BOTTOM_TEST]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB11]] [[BB12]]
+; CHECK-NEXT:  Basic Block: [[BB12:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB13]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB14:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB14]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
+; CHECK-NEXT:  Basic Block: [[BB13:BB[0-9]+]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

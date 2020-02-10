@@ -533,12 +533,6 @@ bool VPlanDivergenceAnalysis::pushMissingOperands(const VPInstruction &I) {
 
 void VPlanDivergenceAnalysis::computeImpl() {
 
-  for (auto *PinnedVal : Pinned)
-    pushUsers(*PinnedVal);
-
-  for (auto *DivVal : DivergentLoopEntities)
-    pushUsers(*DivVal);
-
   // propagate divergence
   while (const VPInstruction *NextI = popFromWorklist()) {
     const VPInstruction &I = *NextI;
@@ -616,8 +610,6 @@ bool VPlanDivergenceAnalysis::isUniformLoopEntity(const VPValue *V) const {
 #endif // INTEL_CUSTOMIZATION
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
-  if (DivergentLoopEntities.count(&V))
-    return false;
 
   if (UniformOverrides.find(&V) != UniformOverrides.end() ||
       isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
@@ -1198,8 +1190,50 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
   return getRandomVectorShape();
 }
 
-VPVectorShape VPlanDivergenceAnalysis::computeVectorShape(
-    const VPInstruction *I) {
+// Computes vector shape for AllocatePrivate instruction.
+VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
+    const VPAllocatePrivate *AI) {
+  // Allocate-private is of a pointer type. Get the pointee size and set a
+  // tentative shape.
+  Type *PointeeTy = cast<PointerType>(AI->getType())->getPointerElementType();
+  // We set the stride in terms of bytes.
+  uint64_t Stride = getTypeSizeInBytes(PointeeTy);
+  updateVectorShape(AI, getStridedVectorShape(Stride));
+
+  return getVectorShape(AI);
+}
+
+// Computes vector shape for induction-init instruction.
+VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
+    const VPInductionInit *Init) {
+  VPValue *Step = Init->getStep();
+  auto *StepConst = dyn_cast<VPConstant>(Step);
+  if (!StepConst) {
+    // This could be a VPExternalDef (a non-constant value), i.e., a
+    // variable step IV. We should set the shape to be random if we
+    // cannot infer the step-size.
+    assert(isa<VPExternalDef>(Step) &&
+           "Expect the non-constant to be VPExternalDef.");
+    return getRandomVectorShape();
+  }
+  int StepInt;
+  // If this is a pointer induction, compute the step-size in terms of
+  // bytes, using the size of the pointee.
+  if (isa<PointerType>(Init->getType())) {
+    unsigned TypeSizeInBytes =
+        getTypeSizeInBytes(Init->getType()->getPointerElementType());
+    StepInt = TypeSizeInBytes * StepConst->getZExtValue();
+  } else
+    StepInt = StepConst->getZExtValue();
+
+  if (StepInt == 1 || StepInt == -1)
+    return VPVectorShape{VPVectorShape::Seq, const_cast<VPValue *>(Step)};
+
+  return getStridedVectorShape(StepInt);
+}
+
+VPVectorShape
+VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 
   // Note: It is assumed at this point that shapes for all operands of I have
   // been defined, with the possible exception of phi nodes. Shape computation
@@ -1243,6 +1277,19 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShape(
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
   else if (Opcode == VPInstruction::AllZeroCheck)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::InductionInit)
+    NewShape = computeVectorShapeForInductionInit(cast<VPInductionInit>(I));
+  else if (Opcode == VPInstruction::InductionInitStep)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::InductionFinal)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionInit)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinal)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::AllocatePrivate)
+    NewShape = computeVectorShapeForAllocatePrivateInst(
+        cast<const VPAllocatePrivate>(I));
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
@@ -1260,33 +1307,16 @@ void VPlanDivergenceAnalysis::initializePhiShapes(VPLoop *CandidateLoop) {
   for (const auto &Phi :
        cast<VPBasicBlock>(CandidateLoop->getHeader())->getVPPhis()) {
     VPVectorShape NewShape = VPVectorShape::getUndef();
-    if (const VPInduction *Ind = RegionLoopEntities->getInduction(&Phi)) {
-      const VPValue *Step = Ind->getStep();
-      int StepInt = 0;
-      if (auto *StepConst = dyn_cast<VPConstant>(Step)) {
-        if (StepConst->isConstantInt())
-          // If this is a pointer induction, compute the step-size in terms of
-          // bytes, using the size of the pointee.
-          if (isa<PointerType>(Phi.getType())) {
-            unsigned TypeSizeInBytes =
-                getTypeSizeInBytes(Phi.getType()->getPointerElementType());
-            StepInt = TypeSizeInBytes * StepConst->getZExtValue();
-          } else {
-            StepInt = StepConst->getZExtValue();
-          }
+    auto getInduction = [](const auto &Phi) -> VPInductionInit * {
+      for (auto *PhiArg : Phi.incoming_values())
+        if (isa<VPInductionInit>(PhiArg))
+          return cast<VPInductionInit>(PhiArg);
+      return nullptr;
+    };
 
-        // IV's vector shape is determined based on its step value. For variable
-        // step IVs, we choose Strided (unknown stride value).
-        NewShape =
-            (StepInt == 1 || StepInt == -1)
-                ? VPVectorShape{VPVectorShape::Seq, const_cast<VPValue *>(Step)}
-                : getStridedVectorShape(StepInt);
-      } else
-        // This could be a VPExternalDef (a non-constant value), i.e., a
-        // variable step IV. We should set the shape to be random if we
-        // cannot infer the step-size.
-        NewShape = getRandomVectorShape();
-    } else
+    if (const VPInductionInit *Init = getInduction(Phi))
+      NewShape = getVectorShape(Init);
+    else
       // To be conservative, we mark phi nodes with random shape unless we
       // know the phi is an induction. This matches the divergent property
       // set for outer loop phi nodes just before this step. See beginning
@@ -1294,25 +1324,6 @@ void VPlanDivergenceAnalysis::initializePhiShapes(VPLoop *CandidateLoop) {
       NewShape = getRandomVectorShape();
 
     setPinnedShape(Phi, NewShape);
-  }
-}
-
-void VPlanDivergenceAnalysis::initializeShapesForInstsInLoopPreheader() {
-  // Iterate through all the instructions in the loop-preheader and assign
-  // uniform-shape to all the operands of those instructions. In addition to
-  // that, compute the shape of the instructions and pin their shapes.
-  if (auto VPBB = dyn_cast<VPBasicBlock>(RegionLoop->getLoopPreheader())) {
-    for (auto &VPInst : *VPBB) {
-      unsigned NumOps = VPInst.getNumOperands();
-      for (unsigned i = 0; i < NumOps; i++) {
-        const VPValue *Op = VPInst.getOperand(i);
-        if (isAlwaysUniform(*Op)) {
-          VPVectorShape NewShape = getUniformVectorShape();
-          updateVectorShape(Op, NewShape);
-        }
-      }
-      setPinnedShape(VPInst, computeVectorShape(&VPInst));
-    }
   }
 }
 
@@ -1381,48 +1392,6 @@ void VPlanDivergenceAnalysis::initializeInnerLoopPhis() {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-template <typename EntitiesRange>
-void VPlanDivergenceAnalysis::markEntitiesAsDivergent(
-    const EntitiesRange &Range) {
-  // Mark the entity, i.e., the memory pointer as divergent.
-  // For the private-entities, We also mark the aliases, which are outside the
-  // loop, as divergent.
-  for (const auto *RawEntityPtr : Range) {
-    // Continue if there is no AllocaInst corresponding to the given entity.
-    if (!RawEntityPtr->getIsMemOnly())
-      continue;
-
-    auto *AllocaInst =
-        RegionLoopEntities->getMemoryDescriptor(RawEntityPtr)->getMemoryPtr();
-    LLVM_DEBUG(dbgs() << "Memory entity = " << *AllocaInst << "\n");
-    // Mark the Alloca instruction as divergent.
-    DivergentLoopEntities.insert(AllocaInst);
-    markDivergent(*AllocaInst);
-    // Alloca is of a pointer type. Get the pointee size and set a tentative
-    // shape.
-    assert(isa<PointerType>(AllocaInst->getType()) &&
-           "Expected private to be of a pointer-type");
-    Type *PointeeTy =
-        cast<PointerType>(AllocaInst->getType())->getPointerElementType();
-    // We set the stride in terms of bytes.
-    uint64_t Stride = getTypeSizeInBytes(PointeeTy);
-    updateVectorShape(AllocaInst, getStridedVectorShape(Stride));
-
-    // Currently, we only deal with aliases for loop-privates. Array-reductions
-    // can potentially have aliases, but when the FE is capable of handling it,
-    // we intend to take care of those in earlier passes. This code,
-    // accordingly, might have to change.
-    auto *PrivEntity = dyn_cast<VPPrivate>(RawEntityPtr);
-    if (!PrivEntity)
-      continue;
-
-    for (const auto &AliasPair : PrivEntity->aliases()) {
-      auto *AliasExternalDef = AliasPair.first;
-      DivergentLoopEntities.insert(AliasExternalDef);
-      updateVectorShape(AliasExternalDef, getRandomVectorShape());
-    }
-  }
-}
 
 // Push users of instructions with non-deterministic results on to the
 // Worklist. These include instructions which can have side-effects and/or
@@ -1439,9 +1408,8 @@ void VPlanDivergenceAnalysis::pushNonDeterministicInsts(VPLoop *CandidateLoop) {
         if (isAlwaysUniform(*CB)) {
           VPVectorShape NewShape = getUniformVectorShape();
           updateVectorShape(CB, NewShape);
-        } else {
+        } else
           markDivergent(*CB);
-        }
       }
     }
 }
@@ -1463,30 +1431,42 @@ void VPlanDivergenceAnalysis::markLoopExitsAsUniforms(VPLoop *CandidateLoop) {
   }
 }
 
+// Mark instructions in the Preheader and other non-loop blocks with
+// appropriate shapes. These instructions are not visited during the core
+// algorithm.
+void VPlanDivergenceAnalysis::initializeShapesForLoopInvariantCode(
+    VPLoop *RegionLoop) {
+
+  // Mark instructions in the Preheader with appropriate shapes.
+  auto *LoopPreheader = dyn_cast<VPBasicBlock>(RegionLoop->getLoopPreheader());
+  assert(LoopPreheader && "Expect a valid Loop preheader.");
+  for (const auto &VPInst : *LoopPreheader) {
+    // First mark the shapes of the operands as 'Uniform' if they are so.
+    for (const auto *VPOper : VPInst.operands())
+      if (isAlwaysUniform(*VPOper))
+        updateVectorShape(VPOper, getUniformVectorShape());
+
+    // Compute the vector-shape of the Instruction and push the users of these
+    // instructions to the Worklist.
+    auto NewShape = computeVectorShape(&VPInst);
+    updateVectorShape(&VPInst, NewShape);
+    pushUsers(VPInst);
+  }
+
+  // Mark instructions in the PostExit block with appropriate shapes.
+  if (VPBlockBase *UniqueExit = RegionLoop->getUniqueExitBlock()) {
+    auto *LoopExit = cast<VPBasicBlock>(UniqueExit);
+    for (const auto &VPInst : *LoopExit)
+      updateVectorShape(&VPInst, computeVectorShape(&VPInst));
+  }
+}
+
 #endif // INTEL_CUSTOMIZATION
 void VPlanDivergenceAnalysis::init() {
-  // Initialize the set of 'pinned'-values.
 #if INTEL_CUSTOMIZATION
-  // Mark the relevant Loop-entities as divergent.
-
-  // The flag returned by 'isLoopEntitiesImportDone()', when \ false, enforces
-  // DA to consider VPExternalDef memory pointers corresponding to loop-entities
-  // like inductions, reductions, and privates as 'divergent' for correct
-  // propagation of privates' divergence. (The privatization process of those
-  // entities replaces them with private memory definitions.) When the flag is \
-  // true, all VPExternalDefs are treated as 'uniform' by DA.
-
-  if (!Plan->isLoopEntitiesPrivatizationDone()) {
-
-    // Mark private entities as divergent.
-    markEntitiesAsDivergent(RegionLoopEntities->vpprivates());
-
-    // Mark reduction entities as divergent.
-    markEntitiesAsDivergent(RegionLoopEntities->vpreductions());
-
-    // Mark induction entities as divergent.
-    markEntitiesAsDivergent(RegionLoopEntities->vpinductions());
-  }
+  // We are running DA after materialization of VPEntities.
+  // Set shapes for instructions in the non-loop blocks.
+  initializeShapesForLoopInvariantCode(RegionLoop);
 #endif // INTEL_CUSTOMIZATION
 
   // Push instructions with non-deterministic results to Worklist.
@@ -1495,13 +1475,9 @@ void VPlanDivergenceAnalysis::init() {
   // Mark the loop-exits are uniform.
   markLoopExitsAsUniforms(RegionLoop);
 
-  // Initialize the shapes of the Phis corresponding to the loop begin
+  // Initialize the shapes of the Phis corresponding to the loop being
   // vectorized.
   initializePhiShapes(RegionLoop);
-
-  // Initialize the shapes of instructions in the loop-preheader. These
-  // instructions are not otherwise analyzed as part of the DA algorithm.
-  initializeShapesForInstsInLoopPreheader();
 
   // Initialize the shapes of operands of instructions which have constant or
   // uniform operands.
@@ -1511,6 +1487,10 @@ void VPlanDivergenceAnalysis::init() {
   // as part of the DA algorithm because of no incoming value from the
   // outer-loop.
   initializeInnerLoopPhis();
+
+  // Push users of pinned values to the Worklist.
+  for (auto *PinnedVal : Pinned)
+    pushUsers(*PinnedVal);
 }
 
 void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
@@ -1524,6 +1504,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   RegionLoopEntities = Plan->getOrCreateLoopEntities(CandidateLoop);
   VPLI = VPLInfo;
   DT = &VPDomTree;
+  PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
   SDA = new SyncDependenceAnalysis(CandidateLoop->getHeader(), VPDomTree,
                                    VPPostDomTree, *VPLInfo);
@@ -1541,14 +1522,6 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   if (VPlanVerifyDA)
     verifyVectorShapes(CandidateLoop);
 
-  // Mark the Loop-entities which we had marked as divergent, as uniform again.
-  if (!P->isLoopEntitiesPrivatizationDone()) {
-    for (auto *EntityPtr : DivergentLoopEntities) {
-      markUniform(*EntityPtr);
-      updateVectorShape(EntityPtr, getUniformVectorShape());
-    }
-    DivergentLoopEntities.clear();
-  }
 #endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

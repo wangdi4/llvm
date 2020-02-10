@@ -32,12 +32,12 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: Reduction list
 ; CHECK-NEXT:   (FloatMax) Start: float [[TMAX_0150:%.*]] Exit: float [[VP0:%.*]]
-; CHECK-NEXT:    Linked values:{{.*}}
+; CHECK-NEXT:    Linked values: float [[VP1:%.*]], float [[VP0]], float [[VP2:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP2:%.*]] = add i64 [[VP3:%.*]] i64 1
-; CHECK-NEXT:    Linked values:{{.*}}
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP3:%.*]] = add i64 [[VP4:%.*]] i64 1
+; CHECK-NEXT:    Linked values: i64 [[VP4]], i64 [[VP3]],
 ; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
@@ -47,33 +47,33 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = sext i32 [[N0:%.*]] to i64
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP5:%.*]] = add i64 [[VP4]] i64 -1
+; CHECK-NEXT:     i64 [[VP5:%.*]] = sext i32 [[N0:%.*]] to i64
+; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP5]] i64 -1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB0:BB[0-9]*]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]:
-; CHECK-NEXT:     [DA: Divergent] float [[VP1:%.*]] = phi  [ float [[TMAX_0150]], [[BB2]] ],  [ float [[VP0]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP3]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP2]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Divergent] float* [[VP6:%.*]] = getelementptr inbounds [1000 x float]* @B i64 0 i64 [[VP3]]
-; CHECK-NEXT:     [DA: Divergent] float [[VP7:%.*]] = load float* [[VP6]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = fcmp float [[VP7]] float 0.000000e+00
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8]]), [[BB3]](!i1 [[VP8]])
+; CHECK-NEXT:     float [[VP1]] = phi  [ float [[TMAX_0150]], [[BB2]] ],  [ float [[VP0]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP4]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP3]], [[BB3]] ]
+; CHECK-NEXT:     float* [[VP7:%.*]] = getelementptr inbounds [1000 x float]* @B i64 0 i64 [[VP4]]
+; CHECK-NEXT:     float [[VP8:%.*]] = load float* [[VP7]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = fcmp float [[VP8]] float 0.000000e+00
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP9]]), [[BB3]](!i1 [[VP9]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       [DA: Divergent] float [[VP9:%.*]] = phi  [ float [[VP1]], [[BB0]] ]
-; CHECK-NEXT:       [DA: Divergent] float* [[VP10:%.*]] = getelementptr inbounds [1000 x float]* @C i64 0 i64 [[VP3]]
-; CHECK-NEXT:       [DA: Divergent] float [[VP11:%.*]] = load float* [[VP10]]
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP12:%.*]] = fcmp float [[VP11]] float [[VP9]]
-; CHECK-NEXT:       [DA: Divergent] float [[VP13:%.*]] = select i1 [[VP12]] float [[VP11]] float [[VP9]]
+; CHECK-NEXT:       float [[VP10:%.*]] = phi  [ float [[VP1]], [[BB0]] ]
+; CHECK-NEXT:       float* [[VP11:%.*]] = getelementptr inbounds [1000 x float]* @C i64 0 i64 [[VP4]]
+; CHECK-NEXT:       float [[VP12:%.*]] = load float* [[VP11]]
+; CHECK-NEXT:       i1 [[VP13:%.*]] = fcmp float [[VP12]] float [[VP10]]
+; CHECK-NEXT:       float [[VP2]] = select i1 [[VP13]] float [[VP12]] float [[VP10]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] float [[VP0]] = phi  [ float [[VP13]], [[BB4]] ],  [ float [[VP1]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP2]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP14:%.*]] = icmp i64 [[VP2]] i64 [[VP5]]
+; CHECK-NEXT:     float [[VP0]] = phi  [ float [[VP2]], [[BB4]] ],  [ float [[VP1]], [[BB0]] ]
+; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP4]] i64 1
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp i64 [[VP3]] i64 [[VP6]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB0]](i1 [[VP14]]), [[BB5:BB[0-9]+]](!i1 [[VP14]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB0]]
 ; CHECK-EMPTY:

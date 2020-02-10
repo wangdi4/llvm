@@ -8,12 +8,15 @@
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture %p) {
 ; CHECK: Basic Block: {{BB[0-9]+}}
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VAL1:%vp.*]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[VAL2:%vp.*]], {{BB[0-9]+}} ]
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL3:%vp.*]] = phi  [ i32* %p, {{BB[0-9]+}} ],  [ i32* [[VAL4:%vp.*]], {{BB[0-9]+}} ]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VAL1:%vp.*]] = phi  [ i32 [[IND_INIT:%.*]], {{BB[0-9]+}} ],  [ i32 [[VAL2:%vp.*]], {{BB[0-9]+}} ]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL3:%vp.*]] = phi  [ i32* [[VPEXTDEF:%.*]], {{BB[0-9]+}} ],  [ i32* [[VAL4:%vp.*]], {{BB[0-9]+}} ]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL1]] i32* [[VAL3]]
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL4]] = getelementptr inbounds i32* [[VAL3]] i64 1
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VAL2]] = add i32 [[VAL1]] i32 1
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] i32* [[VAL_R:%.*]] = getelementptr inbounds i32* [[VAL3]] i64 1
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VAL2]] = add i32 [[VAL1]] i32 [[INT1:%.*]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i32 [[VAL2]] i32 256
+; CHECK: Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VAL_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ADDR_OF_FINAL:%.*]] = induction-final{getelementptr} i32* [[P0:%.*]] i64 1
 ;
 omp.inner.for.body.lr.ph:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
@@ -40,15 +43,19 @@ DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.2
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3) {
-; CHECK: Divergent: [Shape: Strided, Stride: i64 3] i32 [[IV:%.*]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[ADD2:%.*]], {{BB[0-9]+}} ]
-; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[PHI1:%.*]] = phi  [ i32* %p1, {{BB[0-9]+}} ],  [ i32* [[INC2:%.*]], {{BB[0-9]+}} ]
-; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[PHI2:%.*]] = phi  [ i32* %p2, {{BB[0-9]+}} ],  [ i32* [[INC3:%.*]], {{BB[0-9]+}} ]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 3] i32 [[IV:%.*]] = phi  [ i32 [[IND_INIT:%.*]], {{BB[0-9]+}} ],  [ i32 [[ADD2:%.*]], {{BB[0-9]+}} ]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[PHI1:%.*]] = phi  [ i32* [[VPEXTDEF1:%.*]], {{BB[0-9]+}} ],  [ i32* [[INC2:%.*]], {{BB[0-9]+}} ]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[PHI2:%.*]] = phi  [ i32* [[VPEXTDEF2:%.*]], {{BB[0-9]+}} ],  [ i32* [[INC3:%.*]], {{BB[0-9]+}} ]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC1:%.*]] = getelementptr inbounds i32* [[PHI1]] i64 1
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC2]] = getelementptr inbounds i32* [[INC1]] i64 1
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC3]] = getelementptr inbounds i32* [[PHI2]] i64 2
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC2_DEAD:%.*]] = getelementptr inbounds i32* [[INC1]] i64 1
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] i32* [[INC3_DEAD:%.*]] = getelementptr inbounds i32* [[PHI2]] i64 2
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 3] i32 [[ADD1:%.*]] = add i32 [[IV]] i32 1
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 3] i32 [[ADD2]] = add i32 [[ADD1]] i32 2
-; CHECK: Divergent: [Shape: Strided, Stride: i64 12] i32* [[INC4:%.*]] = getelementptr inbounds i32* %p3 i32 [[ADD2]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 3] i32 [[ADD2_TEMP:%.*]] = add i32 [[ADD1]] i32 2
+; CHECK: Divergent: [Shape: Strided, Stride: i64 12] i32* [[INC4:%.*]] = getelementptr inbounds i32* %p3 i32 [[ADD2_TEMP]]
+; CHECK:  Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 3
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P10:%.*]] i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P20:%.*]] i64 2
 ;
 omp.inner.for.body.lr.ph:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
