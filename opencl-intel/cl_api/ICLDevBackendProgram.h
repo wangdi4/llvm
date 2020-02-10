@@ -177,7 +177,8 @@ public:
      * @param gvPtrs a map from global variable name to its property
      * (size/pointer)
      */
-    virtual void GetGlobalVariablePointers(cl_prog_gv_map &gvPtrs) const = 0;
+    virtual void GetGlobalVariablePointers(const cl_prog_gv **gvPtrs,
+                                           size_t *gvCount) const = 0;
 };
 }}} // namespace
 

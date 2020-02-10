@@ -2129,6 +2129,14 @@ bool CPUDevice::CoreToCoreIndex(unsigned int* core)
     }
     return false;
 }
+
+void CPUDevice::clDevGetComputeUnitMap(const unsigned OUT **computeUnitMap,
+                                       size_t OUT *count) const {
+    assert(m_pComputeUnitMap && "m_pComputeUnitMap is not initialized");
+    *computeUnitMap = m_pComputeUnitMap;
+    *count = (size_t)m_numCores;
+}
+
 /****************************************************************************************************************
  clDevPartition
     Calculate appropriate affinity mask to support the partitioning mode and instantiate as many SubdeviceTaskDispatcher objects as needed
@@ -2750,11 +2758,11 @@ cl_dev_err_code CPUDevice::clDevGetFunctionPointerFor(cl_dev_program IN prog,
 }
 
 void CPUDevice::clDevGetGlobalVariablePointers(cl_dev_program IN prog,
-    cl_prog_gv_map OUT &gvPtrs) const
+    const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
         TEXT("clDevGetGlobalVariablePointers Function enter"));
-    m_pProgramService->GetGlobalVariablePointers(prog, gvPtrs);
+    m_pProgramService->GetGlobalVariablePointers(prog, gvPtrs, gvCount);
 }
 
 /*******************************************************************************************************************

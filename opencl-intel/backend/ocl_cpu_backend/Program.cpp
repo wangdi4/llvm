@@ -20,6 +20,7 @@
 #include "Serializer.h"
 #include "cache_binary_handler.h"
 #include "cl_device_api.h"
+#include "cl_sys_defines.h"
 #include "exceptions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -32,6 +33,9 @@ Program::Program():
 Program::~Program()
 {
     m_kernels.reset(nullptr);
+
+    for (auto &gv : m_globalVariables)
+        free(gv.name);
 
     delete m_pObjectCodeContainer;
     delete m_pIRCodeContainer;
@@ -116,14 +120,9 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
     return CL_DEV_SUCCESS;
 }
 
-const llvm::StringMap<size_t>& Program::GetGlobalVariableSizes() const
+void Program::SetGlobalVariables(std::vector<cl_prog_gv> gvs)
 {
-    return m_globalVariableSizes;
-}
-
-void Program::SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes)
-{
-    m_globalVariableSizes = sizes;
+    m_globalVariables = std::move(gvs);
 }
 
 void Program::RecordCtorDtors(llvm::Module &M) {
@@ -189,13 +188,13 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     unsigned long long int tmp =
         (unsigned long long int)m_globalVariableTotalSize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    unsigned int gvCount = (unsigned int)m_globalVariableSizes.size();
+    unsigned int gvCount = (unsigned int)m_globalVariables.size();
     Serializer::SerialPrimitive<unsigned int>(&gvCount, ost);
-    for (auto &gv : m_globalVariableSizes)
+    for (auto &gv : m_globalVariables)
     {
-        std::string name = gv.first().str();
+        std::string name = gv.name;
         Serializer::SerialString(name, ost);
-        tmp = (unsigned long long int)gv.second;
+        tmp = (unsigned long long int)gv.size;
         Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     }
 
@@ -236,12 +235,14 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
     m_globalVariableTotalSize = (size_t)tmp;
     unsigned int gvCount;
     Serializer::DeserialPrimitive<unsigned int>(&gvCount, ist);
+    m_globalVariables.resize(gvCount);
     for (unsigned int i = 0; i < gvCount; ++i)
     {
         std::string name;
         Serializer::DeserialString(name, ist);
+        m_globalVariables[i].name = STRDUP(name.c_str());
         Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-        m_globalVariableSizes[name] = (size_t)tmp;
+        m_globalVariables[i].size = (size_t)tmp;
     }
 
     // Global Ctor Names

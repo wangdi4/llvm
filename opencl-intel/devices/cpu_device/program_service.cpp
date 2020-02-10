@@ -394,7 +394,7 @@ cl_dev_err_code ProgramService::GetFunctionPointerFor(cl_dev_program IN prog,
 }
 
 void ProgramService::GetGlobalVariablePointers(cl_dev_program IN prog,
-    cl_prog_gv_map OUT &gvPtrs) const
+    const cl_prog_gv OUT **gvPtrs, size_t *gvCount) const
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
         TEXT("GetGlobalVariablePointers enter"));
@@ -402,7 +402,7 @@ void ProgramService::GetGlobalVariablePointers(cl_dev_program IN prog,
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     assert(CL_BUILD_SUCCESS == pEntry->clBuildStatus && "program not built");
 
-    pEntry->pProgram->GetGlobalVariablePointers(gvPtrs);
+    pEntry->pProgram->GetGlobalVariablePointers(gvPtrs, gvCount);
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
 }

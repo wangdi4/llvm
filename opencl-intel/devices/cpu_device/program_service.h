@@ -133,7 +133,7 @@ public:
 
     // Retrieves sizes/pointers of all global variables in a built program
     void GetGlobalVariablePointers(cl_dev_program IN prog,
-        cl_prog_gv_map OUT &gvPtrs) const;
+        const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const;
 
     struct KernelMapEntry
     {

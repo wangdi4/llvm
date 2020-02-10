@@ -56,7 +56,8 @@ public:
 
     cl_ulong GetFunctionPointerFor(const char *) const override { return 0; }
 
-    void GetGlobalVariablePointers(cl_prog_gv_map &) const override {}
+    void GetGlobalVariablePointers(const cl_prog_gv **, size_t *)
+        const override {}
 
 protected:
     // Stores a list of MKL kernels perticipated in the Built-In kernel program

@@ -33,6 +33,7 @@
 #include "CPUSerializationService.h"
 #include "ObjectCodeContainer.h"
 #include "cache_binary_handler.h"
+#include "cl_sys_defines.h"
 
 #include <vector>
 
@@ -385,7 +386,7 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     if (!spModule->global_empty())
     {
         size_t GlobalVariableTotalSize = 0;
-        llvm::StringMap<size_t> GlobalVariableSizes;
+        std::vector<cl_prog_gv> GlobalVariables;
         const llvm::DataLayout &DL = spModule->getDataLayout();
         for (auto &GV : spModule->globals())
         {
@@ -405,10 +406,11 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
             if (!GV.hasCommonLinkage() && !GV.hasExternalLinkage())
                 continue;
 
-            GlobalVariableSizes[GV.getName()] = Size;
+            GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
+                                       Size, nullptr});
         }
         pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
-        pProgram->SetGlobalVariableSizes(GlobalVariableSizes);
+        pProgram->SetGlobalVariables(std::move(GlobalVariables));
     }
 
     // Record global Ctor/Dtor names
@@ -450,6 +452,26 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
       llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
       throw Exceptions::CompilerException("Failed to run LLJIT constructors");
     }
+  }
+
+  // Get pointer of global variables
+  std::vector<cl_prog_gv> &globalVariables = pProgram->GetGlobalVariables();
+  for (auto &gv : globalVariables) {
+    std::string name(gv.name);
+    uintptr_t addr;
+    if (executionEngine) {
+      addr =
+          static_cast<uintptr_t>(executionEngine->getGlobalValueAddress(name));
+    } else {
+      auto sym = LLJIT->lookupLinkerMangled(name);
+      if (llvm::Error err = sym.takeError()) {
+        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        throw Exceptions::CompilerException(
+            "Failed to get address of global variable " + name);
+      }
+      addr = static_cast<uintptr_t>(sym->getAddress());
+    }
+    gv.pointer = reinterpret_cast<void *>(addr);
   }
 }
 }}} // namespace
