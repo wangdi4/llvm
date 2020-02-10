@@ -284,13 +284,6 @@ endif()
 
 # Package deploy support
 # Listed here are component names contributing the package
-# INTEL_CUSTOMIZATION
-# WARNING: the components list below does not affect creation
-# WARNING: of official Intel software products. Please use
-# WARNING: llvm/CMakeLists.txt to define components that
-# WARNING: must appear in the official releases
-# WARNING: (look for INTEL_CMAKE_DEPLOY).
-# end INTEL_CUSTOMIZATION
 set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      clang
      clang-offload-wrapper
@@ -309,15 +302,19 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      pi_opencl
 # INTEL_CUSTOMIZATION
-     sycl-config-file
+     # Please add xmain specific deploy components
+     # under the existing if(INTEL_CUSTOMIZATION)
+     # guard below.
 # end INTEL_CUSTOMIZATION
 )
 
-# INTEL_CUSTOMIZATION
-if (CMAKE_SYCL_USE_LEVEL0)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
-endif()
-# end INTEL_CUSTOMIZATION
+if(INTEL_CUSTOMIZATION)
+  # Add xmain specific deploy components here.
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
+  if (CMAKE_SYCL_USE_LEVEL0)
+    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
+  endif()
+endif(INTEL_CUSTOMIZATION)
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it
@@ -327,6 +324,12 @@ add_custom_command(OUTPUT __force_it
 set(__chain_dep __force_it)
 
 set(manifest_list)
+if(INTEL_CUSTOMIZATION)
+  # Keep the list in cache to have some useful info in the build logs.
+  set(SYCL_DEPLOY_COMPONENTS ${SYCL_TOOLCHAIN_DEPLOY_COMPONENTS} CACHE INTERNAL
+    "SYCL deploy components for xmain product."
+    )
+endif(INTEL_CUSTOMIZATION)
 foreach( comp ${SYCL_TOOLCHAIN_DEPLOY_COMPONENTS} )
   message( STATUS "Adding component ${comp} to deploy")
 

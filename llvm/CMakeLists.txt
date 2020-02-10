@@ -1406,9 +1406,7 @@ if (INTEL_CUSTOMIZATION)
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
       # SYCL components
-      opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
-      pi_opencl sycl-config-file opencl-aot sycl-post-link llvm-foreach
-      pi_level0 // INTEL
+      khronos-icd-loader opencl-aot
     )
 
     if (WIN32)
@@ -1456,18 +1454,11 @@ if (INTEL_CUSTOMIZATION)
       ${INTEL_OPENCL_DEPLOY_COMPONENTS_LIST}
     )
 
-    # FIXME: temporary verification before we remove INTEL_DEPLOY_COMPONENTS
-    #        setup in VRD files.
-    if (DEFINED INTEL_DEPLOY_COMPONENTS)
-      foreach (comp ${INTEL_DEPLOY_COMPONENTS})
-        list(FIND INTEL_DEPLOY_COMPONENTS_LIST ${comp} idx)
-        if (idx LESS 0)
-          message(FATAL_ERROR "CMake component (${comp}) is present in "
-            "INTEL_DEPLOY_COMPONENTS but not in "
-            "INTEL_DEPLOY_COMPONENTS_LIST.")
-        endif()
-      endforeach(comp)
-    endif()
+    # Add SYCL deploy components defined by SYCL project.
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST ${SYCL_DEPLOY_COMPONENTS})
+
+    # There may be duplicates due to the addition of SYCL_DEPLOY_COMPONENTS.
+    list(REMOVE_DUPLICATES INTEL_DEPLOY_COMPONENTS_LIST)
 
     set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS_LIST})
   endif()
