@@ -3883,16 +3883,18 @@ def OMPDeclareVariant : InheritableAttr {
     static const char *getSupportedSelectorSets() {
       return "'construct' or 'device'";
     }
-    static const char *getSupportedConstructs() {
-      return "'target variant dispatch'";
-    }
     static const char *getSupportedDevices() {
       return "'arch'";
+    }
+// end INTEL_CUSTOMIZATION
+// INTEL_COLLAB
+    static const char *getSupportedConstructs() {
+      return "'target variant dispatch'";
     }
     static const char *getSupportedArchs() {
       return "'gen'";
     }
-// end INTEL_CUSTOMIZATION
+// end INTEL_COLLAB
     void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
       if (const Expr *E = *std::next(scores_begin(), I)) {
         OS << "score(";

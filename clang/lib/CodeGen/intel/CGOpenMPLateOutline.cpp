@@ -1492,12 +1492,14 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
   ClauseEmissionHelper CEH(*this, OMPC_tile);
   addArg("QUAL.OMP.TILE");
   for (auto *E : C->sizes())
     addArg(CGF.EmitScalarExpr(E));
 }
+#endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
