@@ -201,6 +201,8 @@ public:
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
+  bool isVPlanVLSProfitable() const;
+  bool isAggressiveVLSProfitable() const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);

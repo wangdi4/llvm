@@ -77,7 +77,12 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
 void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
                                       OVLSMemrefVector &MemrefVector,
                                       unsigned VF) {
-  if (VPlanVLSLevel == VPlanVLSRunNever)
+  // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
+  if (VPlanVLSLevel == VPlanVLSRunNever ||
+      VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable())
+    return;
+
+  if (!TTI->isAggressiveVLSProfitable())
     return;
 
   auto Range = make_range(df_iterator<const VPRegionBlock *>::begin(Region),

@@ -1085,6 +1085,12 @@ public:
   /// \return true if 'Mask' requires a target-specific shuffle
   /// instruction, return false otherwise.
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
+
+  /// \return true if VPlanVLS is expected to be profitable for the target.
+  bool isVPlanVLSProfitable() const;
+
+  /// \return true if VLS is expected to be profitable in almost all cases.
+  bool isAggressiveVLSProfitable() const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1407,6 +1413,8 @@ public:
 
   virtual bool
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const = 0;
+  virtual bool isVPlanVLSProfitable() const = 0;
+  virtual bool isAggressiveVLSProfitable() const = 0;
   virtual bool needsStructuredCFG() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
@@ -1869,6 +1877,14 @@ public:
   bool
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const override {
     return Impl.isTargetSpecificShuffleMask(Mask);
+  }
+
+  bool isVPlanVLSProfitable() const override {
+    return Impl.isVPlanVLSProfitable();
+  }
+
+  bool isAggressiveVLSProfitable() const override {
+    return Impl.isAggressiveVLSProfitable();
   }
 
   bool needsStructuredCFG() const override {

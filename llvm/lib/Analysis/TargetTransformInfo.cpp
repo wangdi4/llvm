@@ -794,6 +794,13 @@ bool TargetTransformInfo::isTargetSpecificShuffleMask(
   return TTIImpl->isTargetSpecificShuffleMask(Mask);
 }
 
+bool TargetTransformInfo::isVPlanVLSProfitable() const {
+  return TTIImpl->isVPlanVLSProfitable();
+}
+
+bool TargetTransformInfo::isAggressiveVLSProfitable() const {
+  return TTIImpl->isAggressiveVLSProfitable();
+}
 #endif // INTEL_CUSTOMIZATION
 
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(LLVMContext &Context,
