@@ -35,7 +35,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         virtual cl_int getArgLocalMemSize(size_t index) const = 0;
         // release result
         virtual void Release() = 0;
-    protected:
+
         virtual ~IOCLFEKernelArgInfo() {}
     };
     struct IOCLFESpecConstInfo {

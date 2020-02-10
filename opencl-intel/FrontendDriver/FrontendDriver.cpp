@@ -83,7 +83,7 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 }
 
 ClangFECompiler::~ClangFECompiler() {
-  if (!m_sDeviceInfo.sExtensionStrings)
+  if (m_sDeviceInfo.sExtensionStrings)
     free((void *)m_sDeviceInfo.sExtensionStrings);
 }
 

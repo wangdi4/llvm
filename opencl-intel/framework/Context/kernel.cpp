@@ -825,7 +825,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             argInfo.localMemSize    = pArgsInfo->getArgLocalMemSize(i);
         }
 
-        pArgsInfo->Release();
+        delete pArgsInfo;
     }
     else
     {
