@@ -1239,6 +1239,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(LoopLoadEliminationPass());
 
   // Cleanup after the loop optimization passes.
+  OptimizePM.addPass(VectorCombinePass());
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
   // Configure the instruction combining pass to avoid some transformations
@@ -1251,8 +1252,6 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
 #endif                                        // INTEL_CUSTOMIZATION
-  OptimizePM.addPass(VectorCombinePass());
-  OptimizePM.addPass(InstCombinePass());
 
   // Now that we've formed fast to execute loop structures, we do further
   // optimizations. These are run afterward as they might block doing complex

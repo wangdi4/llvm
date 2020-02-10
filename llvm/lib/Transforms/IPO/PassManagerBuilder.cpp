@@ -1678,16 +1678,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // More scalar chains could be vectorized due to more alias information
   if (SLPVectorize) {
-#if INTEL_CUSTOMIZATION
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
+#if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP)
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
-    PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
-    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
   }
 
   // After vectorization, assume intrinsics may tell us more about pointer
