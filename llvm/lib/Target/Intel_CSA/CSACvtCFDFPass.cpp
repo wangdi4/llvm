@@ -991,14 +991,21 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
   // Attempt to pipeline the loop.
   unsigned pipeliningDegree = getInnerLoopPipeliningDegree(L);
   if (pipeliningDegree > 1) {
-    // The completionN operators we will insert are limited to a maximum depth
-    // of 2**8-1==255 by the VISA.
-    unsigned numTokens = std::min(255U, pipeliningDegree);
+    unsigned numTokens = pipeliningDegree;
 
-    if (!AllowOversizedCompletionBuffers) {
-      // ...and they're further limited to a maximum depth of 64 according to
-      // V1 expectations. This limit will seemingly be exposed to the vISA.
-      numTokens = std::min(64U, numTokens);
+    // If the ILPL codegen will use completion buffers, then there are
+    // limitations on the allowed degree of parallelism.
+    if (ILPLUseCompletionBuf) {
+      // The completionN operators we will insert are limited to a maximum
+      // depth of 2**8-1==255 by the VISA.
+      numTokens = std::min(255U, numTokens);
+
+      if (!AllowOversizedCompletionBuffers) {
+        // ...and they're further limited to a maximum depth of 64
+        // according to V1 expectations. This limit will seemingly be
+        // exposed to the vISA.
+        numTokens = std::min(64U, numTokens);
+      }
     }
 
     assert(DFLoop.getNumExits() == 1 &&
