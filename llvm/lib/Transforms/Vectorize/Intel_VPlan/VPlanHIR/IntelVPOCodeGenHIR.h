@@ -357,6 +357,10 @@ public:
   // if one is not found.
   RegDDRef *widenRef(const VPValue *VPVal, unsigned VF);
 
+  // Returns the expression IV + <0, 1, .., VF-1> where IV is the current loop's
+  // main induction variable.
+  RegDDRef *generateLoopInductionRef(Type *RefDestTy);
+
   // Given a widened ref corresponding to the pointer operand of
   // a load/store instruction, setup and return the pointer operand
   // for use in generating the load/store HLInst.
@@ -529,6 +533,10 @@ private:
   // Map of VPValues and their corresponding HIR induction variable used inside
   // the generated vector loop.
   DenseMap<const VPValue *, RegDDRef *> InductionRefs;
+  // Collection of VPInstructions inside the loop that correspond to main loop
+  // IV. This is expected to contain the PHI and incrementing add
+  // instruction(s).
+  SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // created to represent within vector loop.
   DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
