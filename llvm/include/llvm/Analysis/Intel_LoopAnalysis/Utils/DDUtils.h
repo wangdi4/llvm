@@ -108,7 +108,8 @@ public:
       HIRSafeReductionAnalysis &SRA, bool RefineDV,
       const SpecialSymbasesTy *IgnorableSBs);
 
-  static void computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DV,
+  static void computeDVsForPermuteWithSBs(
+                   SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
                                           const HLLoop *OutermostLoop,
                                           unsigned InnermostNestingLevel,
                                           HIRDDAnalysis &DDA,
