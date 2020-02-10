@@ -90,6 +90,10 @@
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 #endif
 
+/// Device types -- use the same definitions in cl.h
+#define CL_DEVICE_TYPE_CPU (1 << 1)
+#define CL_DEVICE_TYPE_GPU (1 << 2)
+
 /// OP definitions for atomic/reduction entries
 #define OP_MIN(X, Y, DT) ((X) < (Y) ? (X) : (Y))
 #define OP_MAX(X, Y, DT) ((X) > (Y) ? (X) : (Y))
@@ -271,6 +275,7 @@ typedef struct kmp_program_data {
   int initialized;
   int num_devices;
   int device_num;
+  int device_type;
 } kmp_program_data_t;
 
 /// Global state
@@ -660,6 +665,9 @@ EXTERN int __kmpc_master_sub_group();
 
 /// Check if the current work item is the leader of the master sub group
 EXTERN int __kmpc_master_sub_group_leader();
+
+/// Check if the current work item is the active sub group leader
+EXTERN int __kmpc_active_sub_group_leader();
 
 
 ///

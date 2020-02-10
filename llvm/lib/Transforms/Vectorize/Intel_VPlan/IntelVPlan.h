@@ -165,23 +165,19 @@ struct VPTransformState {
   /// traversing the VPBasicBlocks and generating corresponding IR BasicBlocks.
   struct CFGState {
     /// The previous VPBasicBlock visited. Initially set to null.
-    VPBasicBlock *PrevVPBB;
+    VPBasicBlock *PrevVPBB = nullptr;
     /// The previous IR BasicBlock created or used. Initially set to the new
     /// header BasicBlock.
-    BasicBlock *PrevBB;
+    BasicBlock *PrevBB = nullptr;
     /// The last IR BasicBlock in the output IR. Set to the new latch
     /// BasicBlock, used for placing the newly created BasicBlocks.
-    BasicBlock *LastBB;
+    BasicBlock *LastBB = nullptr;
     /// A mapping of each VPBasicBlock to the corresponding BasicBlock. In case
     /// of replication, maps the BasicBlock of the last replica created.
     SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IRBB;
-
-#if INTEL_CUSTOMIZATION
     /// Vector of VPBasicBlocks whose terminator instruction needs to be fixed
     /// up at the end of vector code generation.
     SmallVector<VPBasicBlock *, 8> VPBBsToFix;
-#endif
-    CFGState() : PrevVPBB(nullptr), PrevBB(nullptr), LastBB(nullptr) {}
   } CFG;
 
   /// Hold a pointer to LoopInfo to register new basic blocks in the loop.

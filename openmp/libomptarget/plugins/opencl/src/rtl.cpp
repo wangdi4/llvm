@@ -369,6 +369,7 @@ struct ProgramData {
   int Initialized = 0;
   int NumDevices = 0;
   int DeviceNum = -1;
+  int DeviceType = CL_DEVICE_TYPE_GPU;
 };
 
 /// Class containing all the device information.
@@ -583,7 +584,12 @@ static std::string getDeviceRTLPath() {
 ///       as it requires device information.
 static int32_t initProgram(int32_t deviceId) {
   int32_t rc;
-  ProgramData hostData = {1, (int32_t)DeviceInfo.numDevices, deviceId};
+  ProgramData hostData = {
+    1,                              // Initialized
+    (int32_t)DeviceInfo.numDevices, // Number of devices
+    deviceId,                       // Device ID
+    (int32_t)DeviceInfo.DeviceType  // Device type
+  };
   auto context = DeviceInfo.CTX[deviceId];
   auto queue = DeviceInfo.Queues[deviceId];
   auto program = DeviceInfo.FuncGblEntries[deviceId].Program;
