@@ -45,7 +45,9 @@ add_opencl_library (${TARGET_NAME} SHARED
     INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
     ${CL_API_HEADERS}
-    ${OCL_BINARY_DIR})
+    ${OCL_BINARY_DIR}
+
+    RC_TEMPLATE DEFAULT)
 
 if (WIN32)
     list (APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)
