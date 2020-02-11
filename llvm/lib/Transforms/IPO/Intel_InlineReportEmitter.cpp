@@ -44,21 +44,9 @@ static void printFunctionLinkageChar(StringRef CalleeName, Module &M,
     llvm::errs() << llvm::getLinkageStr(F) << ' ';
     return;
   }
-  // If the function is dead we should look for its linkage info in the
-  // metadata.
-  NamedMDNode *ModuleInlineReport =
-      M.getOrInsertNamedMetadata("intel.module.inlining.report");
-  for (unsigned I = 0; I < ModuleInlineReport->getNumOperands(); ++I) {
-    MDNode *Node = ModuleInlineReport->getOperand(I);
-    assert(isa<MDTuple>(Node) && "Bad format of function inlining report");
-    MDTuple *FIR = cast<MDTuple>(Node);
-    StringRef FuncName = getOpStr(FIR->getOperand(FMDIR_FuncName), "name: ");
-    if (FuncName == CalleeName) {
-      llvm::errs() << getOpStr(FIR->getOperand(FMDIR_LinkageStr), "linkage: ")
-                   << ' ';
-      return;
-    }
-  }
+  // If we can't find a function in the module, then it is dead. Which means it
+  // should have local linkage.
+  llvm::errs() << "L ";
 }
 
 ///
@@ -304,8 +292,13 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
                    << ' ';
     }
     // Function name
-    llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ")
-                 << "\n\n";
+    llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    // Module name
+    if (Level & InlineReportOptions::File)
+      llvm::errs() << ' '
+                   << getOpStr(FuncReport->getOperand(FMDIR_ModuleName),
+                               "moduleName: ");
+    llvm::errs() << "\n\n";
     return;
   }
 
