@@ -1798,6 +1798,13 @@ static inline int32_t run_target_team_nd_region(
   size_t num_work_groups_max = DeviceInfo.maxWorkGroups[device_id];
   DP("OpenCL maximum number of work-groups is %zu.\n", num_work_groups_max);
 
+  size_t kernel_simd_width = 1;
+  INVOKE_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
+                     DeviceInfo.deviceIDs[device_id],
+                     CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                     sizeof(size_t), &kernel_simd_width, nullptr);
+  DP("Preferred work-group size multiple: %zu\n", kernel_simd_width);
+
   // Account for kernel-specific maximum work group size.
   size_t kernel_wg_size = 1;
 
@@ -1840,12 +1847,13 @@ static inline int32_t run_target_team_nd_region(
        // NOTE: Windows.h defines max() macro, so we have to guard
        //       the call with parentheses.
        DeviceInfo.OMPThreadLimit == (std::numeric_limits<int32_t>::max)()) &&
-      optimal_work_size > 16)
-    // Default to 16 WIs per WG for ND-range paritioning.
+      optimal_work_size > kernel_simd_width)
+    // Default to 8/16/32 WIs per WG for ND-range paritioning depending
+    // on the SIMD width the kernel was compiled for.
     // This size seems to provide the best results for steam and nbody
     // benchmarks. Users may use more WIs/WG by using thread_limit clause
     // and OMP_THREAD_LIMIT, but the number may not exceed OpenCL limits.
-    optimal_work_size = 16;
+    optimal_work_size = kernel_simd_width;
 
   // TODO: we may want to reshape local work if necessary.
   size_t local_work_size[3] = { 1, 1, 1 };
