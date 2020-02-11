@@ -3249,6 +3249,11 @@ pi_result L0(piextUSMEnqueueMemset)(
   const pi_event *events_waitlist,
   pi_event *event)
 {
+  // TODO: this may not be needed when we translate L0 errors to PI
+  if (!ptr) {
+    return PI_INVALID_VALUE;
+  }
+
   return enqueueMemFillHelper(
     // TODO: do we need a new command type for USM memset?
     PI_COMMAND_TYPE_MEM_BUFFER_FILL,
