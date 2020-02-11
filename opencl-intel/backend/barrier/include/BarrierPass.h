@@ -176,7 +176,7 @@ namespace intel {
 
     /// @brief Update Map with structure stride size for each kernel
     /// @param M module to optimize
-    void updateStructureStride(Module &M);
+    void updateStructureStride(Module &M, TFunctionSet& fnsWithSync);
 
     unsigned computeNumDim(Function *F);
     typedef std::vector<std::pair<ConstantInt *, BasicBlock *> >
