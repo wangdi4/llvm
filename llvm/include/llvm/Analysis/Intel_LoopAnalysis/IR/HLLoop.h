@@ -1186,6 +1186,11 @@ public:
     assert(ParTraits == nullptr && "parallel traits already set");
     ParTraits.reset(CT);
   }
+
+  bool isMVFallBack() const {
+    unsigned MVTag = getMVTag();
+    return (MVTag && (MVTag != getNumber()));
+  }
 };
 
 /// Loop information related to its parallel characteristics, such as

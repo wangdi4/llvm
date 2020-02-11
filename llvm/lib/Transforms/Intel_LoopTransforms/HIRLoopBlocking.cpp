@@ -275,6 +275,9 @@ namespace {
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
 /// Represent a Loop nest of [Outermost, Innermost]
+/// Template argument T could be the type of a value, where
+/// a value mapped to a loop. E.g. Stripmine size, T will be unsigned,
+/// for a trip count, T will be uint64_t, and so on.
 template <typename T> struct LoopNestValTy {
   const HLLoop *Outermost;
   const HLLoop *Innermost;
@@ -292,13 +295,9 @@ template <typename T> struct LoopNestValTy {
 
   T operator[](const HLLoop *Lp) const {
     return operator[](Lp->getNestingLevel());
-    // return LevelToVal[getIndex(Lp->getNestingLevel())];
   }
 
-  T &operator[](const HLLoop *Lp) {
-    return operator[](Lp->getNestingLevel());
-    // return LevelToVal[getIndex(Lp->getNestingLevel())];
-  }
+  T &operator[](const HLLoop *Lp) { return operator[](Lp->getNestingLevel()); }
 
   void setOutermostLoop(const HLLoop *NewOutermost) {
     Outermost = NewOutermost;
@@ -313,8 +312,6 @@ template <typename T> struct LoopNestValTy {
     }
   }
 
-  const HLLoop *getLoop(unsigned Level) { return Loop[getIndex(Level)]; }
-
   const HLLoop *getLoop(unsigned Level) const { return Loop[getIndex(Level)]; }
 
   IntegerRangeIterator level_from_outer_begin() const {
@@ -324,7 +321,7 @@ template <typename T> struct LoopNestValTy {
     return IntegerRangeIterator(InnermostLevel + 1);
   }
 
-protected:
+private:
   unsigned InnermostLevel;
   // Contains TC by the increasing order of level (i.e. Outermost Level
   // to InnermostLevel)
@@ -335,9 +332,7 @@ protected:
   // Vector contains Val from innermost to outermost.
   // This is for our applications, innermost does not change,
   // while outermost can change.
-  inline unsigned getIndex(unsigned Level) const {
-    return InnermostLevel - Level;
-  }
+  unsigned getIndex(unsigned Level) const { return InnermostLevel - Level; }
 };
 
 class LoopNestTCTy : public LoopNestValTy<uint64_t> {
@@ -347,8 +342,6 @@ public:
 
   static bool isConstTC(uint64_t TC) { return TC > 0; };
 };
-
-using LoopNestStripmineTy = LoopNestValTy<unsigned>;
 
 // Mapping from a loop to its kind. Used for/during actual transformantion.
 // For a loop to be strimined, (will become unit-strided), holds stripmine size.
@@ -718,10 +711,9 @@ typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
 typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 
 class RefGrouper {
-  friend class StencilChecker;
-
 public:
   RefGrouper(ArrayRef<RegDDRef *> Refs) { groupByBasePtr(Refs); }
+  RefGroupVecTy &getGroups() { return Groups; }
 
 private:
   void groupByBasePtr(ArrayRef<RegDDRef *> Refs) {
@@ -758,14 +750,24 @@ private:
   RefGroupVecTy Groups;
 };
 
+/// Checks if the innermost loop body has a certain stencil pattern.
+/// Checks
+///  - kinds of binary operations.
+///  - Per memref group (grouping is done by RefGrouper)
+///    + Get the median by compareMemRefAddress.
+///    + Check all other memrefs in the same group has
+///      a constant distance.
+///    + for a 3-D reference, upto 2 dimensions can have different
+///      from those of median ref.
 class StencilChecker {
 public:
-  StencilChecker(RefGrouper &Grouper, const HLLoop *Innermost, StringRef Func)
-      : Grouper(Grouper), InnermostLoop(Innermost),
+  StencilChecker(RefGroupVecTy &Groups, const HLLoop *Innermost, StringRef Func)
+      : Groups(Groups), InnermostLoop(Innermost),
         MaxLevel(InnermostLoop->getNestingLevel()), MinLevel(MaxLevel + 1),
         Func(Func){};
 
-  /// One time check, not dependent on loopnest.
+  // One time check, only dependent on the innermost loopbody.
+  // We only consider loop blocking of the perfect loopnest.
   bool isStencilForm() {
     if (!scanLoopBody()) {
       printDiag(NO_STENCIL_LOOP_BODY, Func, InnermostLoop);
@@ -773,9 +775,9 @@ public:
     }
 
     unsigned PrevMinimumLevel;
-    for (unsigned I = 0, E = Grouper.Groups.size(); I < E; I++) {
+    for (unsigned I = 0, E = Groups.size(); I < E; I++) {
       unsigned Min;
-      if (!scanDiffsFromMedian(Grouper.Groups[I], Min)) {
+      if (!scanDiffsFromMedian(Groups[I], Min)) {
         printDiag(NO_STENCIL_MEM_REFS, Func, InnermostLoop);
         return false;
       }
@@ -919,7 +921,7 @@ private:
   }
 
 private:
-  RefGrouper &Grouper;
+  RefGroupVecTy &Groups;
   const HLLoop *InnermostLoop;
   // All levels in [MinLevel, MaxLevel] appear (as IV) in every Group of
   // Groups.
@@ -963,6 +965,8 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
   return IsUpdated;
 }
 
+// Profitablity check based on KandR book algorithm.
+// Checks whether memrefs with missing loop induction variables exist.
 class KAndRChecker {
 public:
   KAndRChecker(MemRefGatherer::VectorTy &Refs) : Refs(Refs) {
@@ -1198,13 +1202,6 @@ private:
   const LoopMapTy &StripmineSizes;
 };
 
-// Returns true if the loop is multi-versioned
-// but a fallback loop.
-bool isMVFallBackLoop(const HLLoop *Loop) {
-  unsigned MVTag = Loop->getMVTag();
-  return (MVTag && (MVTag != Loop->getNumber()));
-}
-
 // Different Outermost Loop is tried.
 // Outermost loop's level increased(i.e. inner-loop) per try.
 // When the first legal/profitable loopnest is found, tries stop.
@@ -1224,7 +1221,7 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   for (HLLoop *Lp = OutermostLoop; Lp != InnermostLoop;
        Lp = cast<HLLoop>(Lp->getFirstChild())) {
 
-    if (isMVFallBackLoop(Lp)) {
+    if (Lp->isMVFallBack()) {
       // We don't need to look inner loops because
       // all the innerloops are all multi-versioned.
       printDiag(MULTIVERSIONED_FALLBACK_LOOP, Func);
@@ -1292,7 +1289,7 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   for (HLLoop *Lp = OutermostLoop; Lp != InnermostLoop;
        Lp = cast<HLLoop>(Lp->getFirstChild())) {
 
-    if (isMVFallBackLoop(Lp)) {
+    if (Lp->isMVFallBack()) {
       // We don't need to look inner loops because
       // all the innerloops are all multi-versioned.
       printDiag(MULTIVERSIONED_FALLBACK_LOOP, Func);
@@ -1377,7 +1374,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     return nullptr;
   }
 
-  if (isMVFallBackLoop(HighestAncestor)) {
+  if (HighestAncestor->isMVFallBack()) {
     printDiag(MULTIVERSIONED_FALLBACK_LOOP, Func, HighestAncestor);
     return nullptr;
   }
@@ -1419,7 +1416,8 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     RefGrouper Grouping(Refs);
 
     // Try stencil pattern + fixed stripmine sizes.
-    StencilChecker StencilProfitability(Grouping, InnermostLoop, Func);
+    StencilChecker StencilProfitability(Grouping.getGroups(), InnermostLoop,
+                                        Func);
     if (!StencilProfitability.isStencilForm()) {
       // No hope as a stencil with this innermost loop body.
       printDiag(NO_STENCIL_LOOP, Func, AdjustedHighestAncestor,
