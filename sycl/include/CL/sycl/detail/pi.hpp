@@ -20,24 +20,27 @@
 __SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
+
+enum class PiApiKind {
+#define _PI_API(api) api,
+#include <CL/sycl/detail/pi.def>
+};
+class plugin;
 namespace pi {
 
-// Function to load the shared library
-// Implementation is OS dependent.
-void *loadOsLibrary(const std::string &Library);
-
-// Function to get Address of a symbol defined in the shared
-// library, implementation is OS dependent.
-void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName);
-
-// For selection of SYCL RT back-end, now manually through the "SYCL_BE"
-// environment variable.
-//
-enum Backend { SYCL_BE_PI_OPENCL, SYCL_BE_PI_OTHER };
-
+<<<<<<< HEAD
 // Check for manually selected BE at run-time.
 bool useBackend(Backend Backend);
 
+=======
+#ifdef SYCL_RT_OS_WINDOWS
+#define PLUGIN_NAME "pi_opencl.dll"
+#else
+#define PLUGIN_NAME "libpi_opencl.so"
+#endif
+
+using PiPlugin = ::pi_plugin;
+>>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
 using PiResult = ::pi_result;
 using PiPlatform = ::pi_platform;
 using PiDevice = ::pi_device;
@@ -65,32 +68,61 @@ using PiMemObjectType = ::pi_mem_type;
 using PiMemImageChannelOrder = ::pi_image_channel_order;
 using PiMemImageChannelType = ::pi_image_channel_type;
 
+// Function to load the shared library
+// Implementation is OS dependent.
+void *loadOsLibrary(const std::string &Library);
+
+// Function to get Address of a symbol defined in the shared
+// library, implementation is OS dependent.
+void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName);
+
+// For selection of SYCL RT back-end, now manually through the "SYCL_BE"
+// environment variable.
+enum Backend { SYCL_BE_PI_OPENCL, SYCL_BE_PI_OTHER };
+
+// Check for manually selected BE at run-time.
+bool useBackend(Backend Backend);
+
 // Get a string representing a _pi_platform_info enum
 std::string platformInfoToString(pi_platform_info info);
 
 // Report error and no return (keeps compiler happy about no return statements).
 [[noreturn]] void die(const char *Message);
+
 void assertion(bool Condition, const char *Message = nullptr);
 
 // Want all the needed casts be explicit, do not define conversion operators.
 template <class To, class From> To cast(From value);
 
 // Holds the PluginInformation for the plugin that is bound.
-// TODO: Move this into sycl::platform. Currenlty, we have only a single Plugin
-// connection possible.
-extern pi_plugin PluginInformation;
+// Currently a global varaible is used to store OpenCL plugin information to be
+// used with SYCL Interoperability Constructors.
+extern std::shared_ptr<plugin> GlobalPlugin;
 
 // Performs PI one-time initialization.
-void initialize();
+vector_class<plugin> initialize();
 
+// Utility Functions to get Function Name for a PI Api.
+template <PiApiKind PiApiOffset> struct PiFuncInfo {};
+
+#define _PI_API(api)                                                           \
+  template <> struct PiFuncInfo<PiApiKind::api> {                              \
+    inline std::string getFuncName() { return #api; }                          \
+    inline decltype(&::api) getFuncPtr(PiPlugin MPlugin) {                     \
+      return MPlugin.PiFunctionTable.api;                                      \
+    }                                                                          \
+  };
+#include <CL/sycl/detail/pi.def>
+
+// Helper utilities for PI Tracing
 // The run-time tracing of PI calls.
 // Print functions used by Trace class.
 template <typename T> inline void print(T val) {
-  std::cout << "<unknown> : " << val;
+  std::cout << "<unknown> : " << val << std::endl;
 }
 
 template <> inline void print<>(PiPlatform val) {
-  std::cout << "pi_platform : " << val;
+  std::cout << "pi_platform : " << val << std::endl;
 }
 
 /* INTEL_CUSTOMIZATION */
@@ -120,9 +152,9 @@ template <> inline void print<>(const PiEvent *val) {
 template <> inline void print<>(PiResult val) {
   std::cout << "pi_result : ";
   if (val == PI_SUCCESS)
-    std::cout << "PI_SUCCESS";
+    std::cout << "PI_SUCCESS" << std::endl;
   else
-    std::cout << val;
+    std::cout << val << std::endl;
 }
 
 // cout does not resolve a nullptr.
@@ -131,10 +163,11 @@ template <> inline void print<>(std::nullptr_t val) { print<void *>(val); }
 inline void printArgs(void) {}
 template <typename Arg0, typename... Args>
 void printArgs(Arg0 arg0, Args... args) {
-  std::cout << std::endl << "       ";
+  std::cout << "       ";
   print(arg0);
   printArgs(std::forward<Args>(args)...);
 }
+<<<<<<< HEAD
 
 /* INTEL_CUSTOMIZATION */
 template <typename T>
@@ -264,40 +297,17 @@ public:
 
 #include <CL/sycl/detail/pi.def>
 
+=======
+>>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
 } // namespace pi
 
 namespace RT = cl::sycl::detail::pi;
-
-// Use this macro to call the API, trace the call, check the return and throw a
-// runtime_error exception.
-// Usage: PI_CALL(pi)(Args);
-#define PI_CALL(pi)                                                            \
-  RT::CallPiAndCheck<decltype(&::pi),                                          \
-                     (offsetof(pi_plugin::FunctionPointers, pi))>()
-
-// Use this macro to call the API, trace the call and return the result.
-// To check the result use checkPiResult.
-// Usage:
-// PiResult Err = PI_CALL_NOCHECK(pi)(args);
-// RT::checkPiResult(Err); <- Checks Result and throws a runtime_error
-// exception.
-#define PI_CALL_NOCHECK(pi)                                                    \
-  RT::CallPi<decltype(&::pi), (offsetof(pi_plugin::FunctionPointers, pi))>()
-
-// Use this macro to call the API, trace the call, check the return and throw an
-// Exception as given in the MACRO.
-// Usage: PI_CALL_THROW(pi, compile_program_error)(args);
-#define PI_CALL_THROW(pi, Exception)                                           \
-  RT::CallPiAndCheck<decltype(&::pi),                                          \
-                     (offsetof(pi_plugin::FunctionPointers, pi)), Exception>()
-
-#define PI_ASSERT(cond, msg) RT::assertion((cond), "assert: " msg);
 
 // Want all the needed casts be explicit, do not define conversion
 // operators.
 template <class To, class From> To pi::cast(From value) {
   // TODO: see if more sanity checks are possible.
-  PI_ASSERT(sizeof(From) == sizeof(To), "cast failed size check");
+  RT::assertion((sizeof(From) == sizeof(To)), "assert: cast failed size check");
   return (To)(value);
 }
 

@@ -32,12 +32,18 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
       MCreatedFromSource(IsCreatedFromSource) {
 
   RT::PiContext Context = nullptr;
+<<<<<<< HEAD
   PI_CALL(piKernelGetInfo)(MKernel, PI_KERNEL_INFO_CONTEXT, sizeof(Context),
                            &Context, nullptr);
+=======
+  // Using the plugin from the passed ContextImpl
+  getPlugin().call<PiApiKind::piKernelGetInfo>(
+      MKernel, CL_KERNEL_CONTEXT, sizeof(Context), &Context, nullptr);
+>>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
   if (ContextImpl->getHandleRef() != Context)
     throw cl::sycl::invalid_parameter_error(
         "Input context must be the same as the context of cl_kernel");
-  PI_CALL(piKernelRetain)(MKernel);
+  getPlugin().call<PiApiKind::piKernelRetain>(MKernel);
 }
 
 kernel_impl::kernel_impl(ContextImplPtr Context,
@@ -47,7 +53,7 @@ kernel_impl::kernel_impl(ContextImplPtr Context,
 kernel_impl::~kernel_impl() {
   // TODO catch an exception and put it to list of asynchronous exceptions
   if (!is_host()) {
-    PI_CALL(piKernelRelease)(MKernel);
+    getPlugin().call<PiApiKind::piKernelRelease>(MKernel);
   }
 }
 
@@ -60,7 +66,7 @@ kernel_impl::get_info() const {
   }
   return get_kernel_info<
       typename info::param_traits<info::kernel, param>::return_type,
-      param>::get(this->getHandleRef());
+      param>::get(this->getHandleRef(), getPlugin());
 }
 
 template <> context kernel_impl::get_info<info::kernel::context>() const {
@@ -79,7 +85,8 @@ kernel_impl::get_work_group_info(const device &Device) const {
   }
   return get_kernel_work_group_info<
       typename info::param_traits<info::kernel_work_group, param>::return_type,
-      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef());
+      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(),
+                  getPlugin());
 }
 
 template <info::kernel_sub_group param>
@@ -90,7 +97,8 @@ kernel_impl::get_sub_group_info(const device &Device) const {
   }
   return get_kernel_sub_group_info<
       typename info::param_traits<info::kernel_sub_group, param>::return_type,
-      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef());
+      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(),
+                  getPlugin());
 }
 
 template <info::kernel_sub_group param>
@@ -106,7 +114,8 @@ kernel_impl::get_sub_group_info(
       typename info::param_traits<info::kernel_sub_group, param>::return_type,
       param,
       typename info::param_traits<info::kernel_sub_group, param>::input_type>::
-      get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(), Value);
+      get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(), Value,
+          getPlugin());
 }
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
