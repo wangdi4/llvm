@@ -93,10 +93,12 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   for (auto *Item : MpClause.items()) {
     if (!Item->getIsMapChain())
       continue;
+    Value *Orig = Item->getOrig();
     MapChainTy const &MapChain = Item->getMapChain();
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
+      Value *BasePtr = Aggr->getBasePtr();
       // Do not reset section pointers in cases like this:
       //   %12 = call i8* @llvm.launder.invariant.group.p0i8(
       //       i8* bitcast (double** @f_global to i8*))
@@ -117,8 +119,13 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
       // (e.g. the inner "parallel" region referencing @f_global
       // is outlined). This difference may cause a mismatch between
       // outlined functions generated for the host and the device.
-      if (SectionPtr != Aggr->getBasePtr())
+      if (SectionPtr != BasePtr)
         resetValueInOmpClauseGeneric(W, SectionPtr);
+      // If BasePtr of the Aggr is not same as Orig, then we don't want it
+      // inside the outlined function. e.g. %y in the following:
+      //   "DIR.OMP.TARGET" [ "QUAL.OMP.MAP"(%x, ...) "MAP:CHAIN"(%y, ...) ]
+      if (BasePtr != Orig)
+        resetValueInOmpClauseGeneric(W, BasePtr);
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInOmpClauseGeneric(W, Size);
