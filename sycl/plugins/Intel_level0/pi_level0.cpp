@@ -50,6 +50,112 @@ static void zePrint(const char *format, ... ) {
   }
 }
 
+inline void zeParseError(ze_result_t error, std::string &errorString)
+{
+    if (ZE_RESULT_SUCCESS == error) {
+      errorString = "ZE_RESULT_SUCCESS";
+    }
+    else if (ZE_RESULT_NOT_READY == error) {
+      errorString = "ZE_RESULT_NOT_READY";
+    }
+    else if (ZE_RESULT_ERROR_DEVICE_LOST == error) {
+      errorString = "ZE_RESULT_ERROR_DEVICE_LOST";
+    }
+    else if (ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY == error) {
+      errorString = "ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY";
+    }
+    else if (ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY == error) {
+      errorString = "ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY";
+    }
+    else if (ZE_RESULT_ERROR_MODULE_BUILD_FAILURE == error) {
+      errorString = "ZE_RESULT_ERROR_MODULE_BUILD_FAILURE";
+    }
+    else if (ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS == error) {
+      errorString = "ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS";
+    }
+    else if (ZE_RESULT_ERROR_NOT_AVAILABLE == error) {
+      errorString = "ZE_RESULT_ERROR_NOT_AVAILABLE";
+    }
+    else if (ZE_RESULT_ERROR_UNINITIALIZED == error) {
+      errorString = "ZE_RESULT_ERROR_UNINITIALIZED";
+    }
+    else if (ZE_RESULT_ERROR_UNSUPPORTED_VERSION == error) {
+      errorString = "ZE_RESULT_ERROR_UNSUPPORTED_VERSION";
+    }
+    else if (ZE_RESULT_ERROR_UNSUPPORTED_FEATURE == error) {
+      errorString = "ZE_RESULT_ERROR_UNSUPPORTED_FEATURE";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_ARGUMENT == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_ARGUMENT";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_NULL_HANDLE == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_NULL_HANDLE";
+    }
+    else if (ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE == error) {
+      errorString = "ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_NULL_POINTER == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_NULL_POINTER";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_SIZE == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_SIZE";
+    }
+    else if (ZE_RESULT_ERROR_UNSUPPORTED_SIZE == error) {
+      errorString = "ZE_RESULT_ERROR_UNSUPPORTED_SIZE";
+    }
+    else if (ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT == error) {
+      errorString = "ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_ENUMERATION == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_ENUMERATION";
+    }
+    else if (ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION == error) {
+      errorString = "ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION";
+    }
+    else if (ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT == error) {
+      errorString = "ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_NATIVE_BINARY == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_NATIVE_BINARY";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_GLOBAL_NAME == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_GLOBAL_NAME";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_KERNEL_NAME == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_KERNEL_NAME";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_FUNCTION_NAME == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_FUNCTION_NAME";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE";
+    }
+    else if (ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE == error) {
+      errorString = "ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE";
+    }
+    else if (ZE_RESULT_ERROR_OVERLAPPING_REGIONS == error) {
+      errorString = "ZE_RESULT_ERROR_OVERLAPPING_REGIONS";
+    }
+    else if (ZE_RESULT_ERROR_UNKNOWN == error) {
+      errorString = "ZE_RESULT_ERROR_UNKNOWN";
+    }
+}
+
 static ze_result_t zeCallCheck(ze_result_t ze_result, const char *call_str, bool nothrow = false)
 {
   zePrint("ZE ---> %s\n", call_str);
@@ -57,7 +163,9 @@ static ze_result_t zeCallCheck(ze_result_t ze_result, const char *call_str, bool
   // TODO: handle errors
   if (ze_result) {
     if (!nothrow) {
-      fprintf(stderr, "Error (%d) in %s\n", pi_cast<uint32_t>(ze_result), call_str);
+      std::string errorString;
+      zeParseError(ze_result, errorString);
+      fprintf(stderr, "Error (%s) in %s\n", errorString.c_str(), call_str);
       pi_throw("L0 Error");
     }
   }
