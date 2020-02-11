@@ -86,11 +86,16 @@ List of supported functions from C standard library:
   - cacosf, cacos         (from <complex.h>)
   - catanf, catan         (from <complex.h>)
 
+All functions are grouped into different device libraries based on
+functionalities. C and C++ standard library groups functions and
+classes by purpose(e.g. <math.h> for mathematical operations and
+transformations) and device library infrastructure uses this as
+a baseline.
 NOTE: Only the GNU glibc, Microsoft C libraries are currently
 supported. The device libraries for <math.h> and <complex.h> are
 ready for Linux and Windows support will be added in the future.
 Not all functions from <math.h> are supported right now, following
-math functions will be supported in the future:
+math functions are not supported now:
  - abs
  - ceilf, ceil
  - copysignf, copysign
@@ -102,6 +107,13 @@ math functions will be supported in the future:
  - rintf, rint
  - roundf, round
  - truncf, trunc
+ - scalbnf, scalbn
+ - nearbyintf, nearbyint
+ - lrintf, lrint
+ - nexttowardf, nexttoward
+ - nanf, nan
+Device libraries can't support both single and double precision as some
+underlying device may not support double precision.
 
 Example of usage
 ================
@@ -141,8 +153,8 @@ Example of usage
    void device_sin_test() {
      cl::sycl::queue deviceQueue;
      cl::sycl::range<1> numOfItems{1};
-     float  result_f = -1;
-     double result_d = -1;
+     float  result_f = -1.f;
+     double result_d = -1.d;
      {
        cl::sycl::buffer<float, 1> buffer1(&result_f, numOfItems);
        cl::sycl::buffer<double, 1> buffer2(&result_d, numOfItems);
@@ -150,12 +162,12 @@ Example of usage
          auto res_access1 = buffer1.get_access<sycl_write>(cgh);
          auto res_access2 = buffer2.get_access<sycl_write>(cgh);
          cgh.single_task<class DeviceSin>([=]() {
-           res_access1[0] = sinf(0);
-           res_access2[0] = sin(0);
+           res_access1[0] = sinf(0.f);
+           res_access2[0] = sin(0.0);
          });
        });
      }
-     assert((result_f == 0) && (result_d == 0));
+     assert((result_f == 0.f) && (result_d == 0.0));
   }
 
 Frontend

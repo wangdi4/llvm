@@ -1,6 +1,6 @@
 // UNSUPPORTED: windows
 // RUN: %clangxx -fsycl -c %s -o %t.o
-// RUN: %clangxx -fsycl %t.o %llvm_build_libs_dir/libsycl-cmath.o -o %t.out
+// RUN: %clangxx -fsycl %t.o %llvm_build_libs_dir/libsycl-cmath-fp64.o -o %t.out
 #include <CL/sycl.hpp>
 #include <iostream>
 #include <cmath>
@@ -78,7 +78,9 @@ void device_cmath_test(s::queue &deviceQueue) {
 
 int main() {
   s::queue deviceQueue;
-  device_cmath_test<float>(deviceQueue);
-  std::cout << "Pass" << std::endl;
+  if (deviceQueue.get_device().has_extension("cl_khr_fp64")) {
+    device_cmath_test<double>(deviceQueue);
+    std::cout << "Pass" << std::endl;
+  }
   return 0;
 }

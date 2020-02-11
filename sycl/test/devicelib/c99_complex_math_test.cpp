@@ -1,21 +1,14 @@
 // UNSUPPORTED: windows
 // RUN: %clangxx -fsycl -c %s -o %t.o
-// RUN: %clangxx -fsycl %t.o %llvm_build_libs_dir/libsycl-complex.o  -o %t.out
+// RUN: %clangxx -fsycl %t.o %llvm_build_libs_dir/libsycl-complex.o -o %t.out
 #include <CL/sycl.hpp>
 #include <cassert>
 #include <complex.h>
 #include "math_utils.hpp"
-#ifndef CMPLX
-#define CMPLX(r, i) ((double __complex__){ (double)r, (double)i })
-#endif
+
 #ifndef CMPLXF
 #define CMPLXF(r, i) ((float __complex__){ (float)r, (float)i })
 #endif
-
-bool is_about_C99_CMPLX(double __complex__ x, double __complex__ y) {
-  return is_about_FP(creal(x), creal(y)) && is_about_FP(cimag(x), cimag(y));
-}
-
 
 bool is_about_C99_CMPLXF(float __complex__ x, float __complex__ y) {
   return is_about_FP(crealf(x), crealf(y)) && is_about_FP(cimagf(x), cimagf(y));
@@ -37,39 +30,23 @@ void device_c99_complex_times(s::queue &deviceQueue) {
   float __complex__ ref_results1[4] = {CMPLXF(-1, 1),  CMPLXF(1, 3),
                                        CMPLXF(-2, 10), CMPLXF(-8, 31)};
 
-  double __complex__ buf_in3[4] = {CMPLX(0, 1), CMPLX(1, 1),
-                                   CMPLX(2, 3), CMPLX(4, 5)};
-  double __complex__ buf_in4[4] = {CMPLX(1, 1), CMPLX(2, 1),
-                                   CMPLX(2, 2), CMPLX(3, 4)};
-  double __complex__ buf_out2[4];
-
-  double __complex__ ref_results2[4] = {CMPLX(-1, 1),  CMPLX(1, 3),
-                                        CMPLX(-2, 10), CMPLX(-8, 31)};
   s::range<1> numOfItems{4};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_in2, numOfItems);
   s::buffer<float __complex__, 1> buffer3(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_in3, numOfItems);
-  s::buffer<double __complex__, 1> buffer5(buf_in4, numOfItems);
-  s::buffer<double __complex__, 1> buffer6(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_in2_access = buffer2.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer3.get_access<sycl_write>(cgh);
-    auto buf_in3_access = buffer4.get_access<sycl_read>(cgh);
-    auto buf_in4_access = buffer5.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer6.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexTimes>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = buf_in1_access[WIid] * buf_in2_access[WIid];
-      buf_out2_access[WIid] = buf_in3_access[WIid] * buf_in4_access[WIid];
     });
   });
   }
 
   for (size_t idx = 0; idx < 4; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLX(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -90,45 +67,23 @@ void device_c99_complex_divides(s::queue &deviceQueue) {
                                        CMPLXF(2, 0), CMPLXF(0, 0)};
   float __complex__ buf_out1[8];
 
-  double __complex__ buf_in3[8] = {CMPLX(-1, 1),  CMPLX(1, 3),
-                                   CMPLX(-2, 10), CMPLX(-8, 31),
-                                   CMPLX(4, 2), CMPLX(-1, 0),
-                                   CMPLX(0, 10), CMPLX(0 , 0)};
-  double __complex__ buf_in4[8] = {CMPLX(0, 1), CMPLX(1, 1),
-                                   CMPLX(2, 3), CMPLX(4, 5),
-                                   CMPLX(2, 0), CMPLX(0, 1),
-                                   CMPLX(0, 5), CMPLX(1, 0)};
-  double __complex__ ref_results2[8] = {CMPLX(1, 1), CMPLX(2, 1),
-                                        CMPLX(2, 2), CMPLX(3, 4),
-                                        CMPLX(2, 1), CMPLX(0, 1),
-                                        CMPLX(2, 0), CMPLX(0, 0)};
-  double __complex__ buf_out2[8];
-
   s::range<1> numOfItems{8};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_in2, numOfItems);
   s::buffer<float __complex__, 1> buffer3(buf_out1,numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_in3, numOfItems);
-  s::buffer<double __complex__, 1> buffer5(buf_in4, numOfItems);
-  s::buffer<double __complex__, 1> buffer6(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_in2_access = buffer2.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer3.get_access<sycl_write>(cgh);
-    auto buf_in3_access = buffer4.get_access<sycl_read>(cgh);
-    auto buf_in4_access = buffer5.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer6.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexDivides>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = buf_in1_access[WIid] / buf_in2_access[WIid];
-      buf_out2_access[WIid] = buf_in3_access[WIid] / buf_in4_access[WIid];
     });
   });
   }
 
   for (size_t idx = 0; idx < 8; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLX(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -141,32 +96,21 @@ void device_c99_complex_sqrt(s::queue &deviceQueue) {
   float __complex__ ref_results1[4] = {CMPLXF(0, 1), CMPLXF(1, 1),
                                        CMPLXF(2, 0), CMPLXF(2, 3)};
 
-  double __complex__ buf_in2[4] = {CMPLX(-1, 0), CMPLX(0, 2),
-                                   CMPLX(4, 0),  CMPLX(-5, 12)};
-  double __complex__ buf_out2[4];
-  double __complex__ ref_results2[4] = {CMPLX(0, 1), CMPLX(1, 1),
-                                        CMPLX(2, 0), CMPLX(2, 3)};
   s::range<1> numOfItems{4};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer3(buf_in2, numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer2.get_access<sycl_write>(cgh);
-    auto buf_in2_access = buffer3.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer4.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexSqrt>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = csqrtf(buf_in1_access[WIid]);
-      buf_out2_access[WIid] = csqrt(buf_in2_access[WIid]);
     });
   });
   }
 
   for (size_t idx = 0; idx < 4; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLX(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -178,31 +122,21 @@ void device_c99_complex_abs(s::queue &deviceQueue) {
   float buf_out1[4];
   float ref_results1[4] = {0, 5, 13, INFINITY};
 
-  double __complex__ buf_in2[4] = {CMPLX(0, 0),  CMPLX(3, 4),
-                                   CMPLX(12, 5), CMPLX(INFINITY, 1)};
-  double buf_out2[4];
-  double ref_results2[4] = {0, 5, 13, INFINITY};
   s::range<1> numOfItems{4};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float, 1> buffer2(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer3(buf_in2, numOfItems);
-  s::buffer<double, 1> buffer4(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer2.get_access<sycl_write>(cgh);
-    auto buf_in2_access = buffer3.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer4.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexAbs>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = cabsf(buf_in1_access[WIid]);
-      buf_out2_access[WIid] = cabs(buf_in2_access[WIid]);
     });
   });
   }
 
   for (size_t idx = 0; idx < 4; ++idx) {
     assert(is_about_FP(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_FP(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -214,32 +148,21 @@ void device_c99_complex_exp(s::queue &deviceQueue) {
   float __complex__ buf_out1[4];
   float __complex__ ref_results1[4] = {CMPLXF(1, 0), CMPLXF(0, 1),
                                        CMPLXF(-1, 0),CMPLXF(0, M_E)};
-  double __complex__ buf_in2[4] = {CMPLX(0, 0), CMPLX(0, M_PI_2),
-                                   CMPLX(0, M_PI), CMPLX(1, M_PI_2)};
-  double __complex__ buf_out2[4];
-  double __complex__ ref_results2[4] = {CMPLX(1, 0), CMPLX(0, 1),
-                                        CMPLX(-1, 0),CMPLX(0, M_E)};
   s::range<1> numOfItems{4};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer3(buf_in2, numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer2.get_access<sycl_write>(cgh);
-    auto buf_in2_access = buffer3.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer4.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexExp>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = cexpf(buf_in1_access[WIid]);
-      buf_out2_access[WIid] = cexp(buf_in2_access[WIid]);
     });
   });
   }
 
   for (size_t idx = 0; idx < 4; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLX(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -251,32 +174,21 @@ void device_c99_complex_log(s::queue &deviceQueue) {
   float __complex__ buf_out1[4];
   float __complex__ ref_results1[4] = {CMPLXF(0, 0), CMPLXF(0, M_PI_2),
                                        CMPLXF(0, M_PI), CMPLXF(1, M_PI_2)};
-  double __complex__ buf_in2[4] = {CMPLX(1, 0),  CMPLX(0, 1),
-                                   CMPLX(-1, 0), CMPLX(0, M_E)};
-  double __complex__ buf_out2[4];
-  double __complex__ ref_results2[4] = {CMPLX(0, 0), CMPLX(0, M_PI_2),
-                                        CMPLX(0, M_PI), CMPLX(1, M_PI_2)};
   s::range<1> numOfItems{4};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer3(buf_in2, numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer2.get_access<sycl_write>(cgh);
-    auto buf_in2_access = buffer3.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer4.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexLog>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = clogf(buf_in1_access[WIid]);
-      buf_out2_access[WIid] = ::clog(buf_in2_access[WIid]);
     });
   });
   }
 
   for (size_t idx = 0; idx < 4; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLX(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -286,30 +198,21 @@ void device_c99_complex_sin(s::queue &deviceQueue) {
   float __complex__ buf_in1[2] = {CMPLXF(0, 0), CMPLXF(M_PI_2, 0)};
   float __complex__ buf_out1[2];
   float __complex__ ref_results1[2] = {CMPLXF(0, 0), CMPLXF(1, 0)};
-  double __complex__ buf_in2[2] = {CMPLX(0, 0), CMPLX(M_PI_2, 0)};
-  double __complex__ buf_out2[2];
-  double __complex__ ref_results2[2] = {CMPLX(0, 0), CMPLX(1, 0)};
   s::range<1> numOfItems{2};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer3(buf_in2, numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer2.get_access<sycl_write>(cgh);
-    auto buf_in2_access = buffer3.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer4.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexSin>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = csinf(buf_in1_access[WIid]);
-      buf_out2_access[WIid] = csin(buf_in2_access[WIid]);
     });
   });
   }
 
   for (size_t idx = 0; idx < 2; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLXF(buf_out2[idx], ref_results2[idx]));
   }
 }
 
@@ -319,30 +222,21 @@ void device_c99_complex_cos(s::queue &deviceQueue) {
   float __complex__ buf_in1[2] = {CMPLXF(0, 0), CMPLXF(M_PI, 0)};
   float __complex__ buf_out1[2];
   float __complex__ ref_results1[2] = {CMPLXF(1, 0), CMPLXF(-1, 0)};
-  double __complex__ buf_in2[2] = {CMPLX(0, 0), CMPLX(M_PI, 0)};
-  double __complex__ buf_out2[2];
-  double __complex__ ref_results2[2] = {CMPLX(1, 0), CMPLX(-1, 0)};
   s::range<1> numOfItems{2};
   {
   s::buffer<float __complex__, 1> buffer1(buf_in1, numOfItems);
   s::buffer<float __complex__, 1> buffer2(buf_out1, numOfItems);
-  s::buffer<double __complex__, 1> buffer3(buf_in2, numOfItems);
-  s::buffer<double __complex__, 1> buffer4(buf_out2, numOfItems);
   deviceQueue.submit([&](s::handler &cgh) {
     auto buf_in1_access = buffer1.get_access<sycl_read>(cgh);
     auto buf_out1_access = buffer2.get_access<sycl_write>(cgh);
-    auto buf_in2_access = buffer3.get_access<sycl_read>(cgh);
-    auto buf_out2_access = buffer4.get_access<sycl_write>(cgh);
     cgh.parallel_for<class DeviceComplexCos>(numOfItems, [=](s::id<1>WIid) {
       buf_out1_access[WIid] = ccosf(buf_in1_access[WIid]);
-      buf_out2_access[WIid] = ccos(buf_in2_access[WIid]);
     });
   });
   }
 
   for (size_t idx = 0; idx < 2; ++idx) {
     assert(is_about_C99_CMPLXF(buf_out1[idx], ref_results1[idx]));
-    assert(is_about_C99_CMPLXF(buf_out2[idx], ref_results2[idx]));
   }
 }
 
