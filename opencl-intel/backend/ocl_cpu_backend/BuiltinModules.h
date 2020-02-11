@@ -76,11 +76,16 @@ public:
 
     virtual void Load() = 0;
 
+    virtual std::string& getLog() {
+        return m_builtinLibLog;
+    }
+
 protected:
     const Intel::CPUId   m_cpuId;
     llvm::MemoryBuffer* m_pRtlBuffer;
     llvm::MemoryBuffer* m_pRtlBufferSvmlShared;
     llvm::SmallVector<llvm::MemoryBuffer* , 4> m_RtlBuffersForEyeQEmulationMode;
+    std::string m_builtinLibLog;
 };
 
 

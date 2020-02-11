@@ -233,6 +233,21 @@ unsigned int SelectCpuFeatures(
 
 }
 
+void CPUCompiler::GetOrLoadBuiltinModules()
+{
+    BuiltinLibrary *pLibrary =
+        m_bIsEyeQEmulator
+            ? BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId)
+            : m_bIsFPGAEmulator
+                  ? BuiltinModuleManager::GetInstance()
+                        ->GetOrLoadFPGAEmuLibrary(m_CpuId)
+                  : BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(
+                        m_CpuId);
+    llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
+    LoadBuiltinModules(pLibrary, bltnFuncList);
+    m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+    setBuiltinInitLog(pLibrary->getLog());
+}
 // If binary not matchs current cpu arch
 // and cpu is backwards compatible,load builtin modules again
 void
@@ -242,13 +257,8 @@ CPUCompiler::SetBuiltinModules(const std::string& cpuName, const std::string& cp
     if(m_pBuiltinModule != nullptr)
     {
         SelectCpu(cpuName, cpuFeatures);
-        BuiltinLibrary* pLibrary = m_bIsEyeQEmulator ?
-                                   BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId) :
-                                   BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
-        llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
-        LoadBuiltinModules(pLibrary, bltnFuncList);
         delete m_pBuiltinModule;
-        m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+        GetOrLoadBuiltinModules();
     }
 }
 
@@ -263,13 +273,7 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     // Initialize the BuiltinModules
     if(config.GetLoadBuiltins())
     {
-        BuiltinLibrary* pLibrary = EYEQ_EMU_DEVICE == config.TargetDevice() ?
-                                                      BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId) :
-                                                      BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
-
-        llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
-        LoadBuiltinModules(pLibrary, bltnFuncList);
-        m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+        GetOrLoadBuiltinModules();
     }
 
     // Create the listener that allows Amplifier to profile OpenCL kernels

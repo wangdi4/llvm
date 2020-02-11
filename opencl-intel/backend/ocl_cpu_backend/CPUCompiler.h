@@ -73,6 +73,7 @@ private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
     bool useLLDJITForExecution(llvm::Module* pModule) const;
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
+    void GetOrLoadBuiltinModules();
 
 private:
     BuiltinModules*         m_pBuiltinModule;

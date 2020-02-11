@@ -196,6 +196,10 @@ public:
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
     virtual void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures=""){}
+
+    virtual std::string& getBuiltinInitLog() {
+        return m_builtinInitLog;
+    }
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
       llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
@@ -203,6 +207,9 @@ protected:
     // Create TargetMachine for X86.
     llvm::TargetMachine* GetTargetMachine(llvm::Module* pModule) const;
 
+    virtual void setBuiltinInitLog(std::string& log) {
+       m_builtinInitLog = log;
+    }
 protected:
     bool                     m_bIsFPGAEmulator;
     bool                     m_bIsEyeQEmulator;
@@ -215,6 +222,7 @@ protected:
     std::vector<int>         m_IRDumpAfter;
     std::vector<int>         m_IRDumpBefore;
     std::string              m_IRDumpDir;
+    std::string              m_builtinInitLog;
     bool                     m_dumpHeuristicIR;
     bool                     m_debug;
     bool                     m_disableOptimization;

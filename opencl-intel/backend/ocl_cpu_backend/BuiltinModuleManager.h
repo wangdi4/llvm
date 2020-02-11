@@ -58,6 +58,12 @@ public:
      * Returns the \see BuiltinsLibrary for an EyeQ device, based on the given cpu. Loads it if necessary
      */
     BuiltinLibrary* GetOrLoadEyeQLibrary(Intel::CPUId cpuId);
+
+    /**
+     * Returns the \see BuiltinsLibrary for the FPGA emu. Loads it if necessary
+     */
+    BuiltinLibrary* GetOrLoadFPGAEmuLibrary(Intel::CPUId cpuId);
+
     /**
      * Creates the builtins module for the given cpu using the given LLVMContext
      */

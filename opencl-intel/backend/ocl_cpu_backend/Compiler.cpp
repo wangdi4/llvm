@@ -454,6 +454,12 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
 
     if(optimizer.hasUndefinedExternals())
     {
+        // For FPGA, Buitlin initialization log is a hint for undefiend externals.
+        // TODO: It's better to check whether the module contains IHC content.
+        if(m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty()) {
+          pResult->LogS() << this->getBuiltinInitLog() << "\n";
+        }
+
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
     }

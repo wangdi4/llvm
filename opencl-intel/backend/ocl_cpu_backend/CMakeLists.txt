@@ -91,6 +91,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CompilerConfig.h
     ExecutionService.h
     EyeQBuiltinLibrary.h
+    FPGAEmuBuiltinLibrary.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h
     ImageCallbackServices.h
@@ -135,6 +136,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     CompilerConfig.cpp
     ExecutionService.cpp
     EyeQBuiltinLibrary.cpp
+    FPGAEmuBuiltinLibrary.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
