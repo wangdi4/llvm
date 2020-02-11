@@ -176,4 +176,5 @@ bool TbbSetMaxThreads(int NumThreads);
 #endif
 bool cl_CheckBuildNumber();
 bool cl12_atomic_add_float_test();
+void clFuncSignatureInconsistencyOnLinkageTest();
 //#define CUDA_DEVICE
