@@ -7656,6 +7656,13 @@ PreservedAnalyses AttributorPass::run(Module &M, ModuleAnalysisManager &AM) {
   InformationCache InfoCache(M, AG, /* CGSCC */ nullptr);
   if (runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater)) {
     // FIXME: Think about passes we will preserve and add them here.
+#if INTEL_CUSTOMIZATION
+    {
+      PreservedAnalyses PA;
+      PA.preserve<WholeProgramAnalysis>();
+      return PA;
+    }
+#endif // INTEL_CUSTOMIZATION
     return PreservedAnalyses::none();
   }
   return PreservedAnalyses::all();
@@ -7719,6 +7726,7 @@ struct AttributorLegacyPass : public ModulePass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // FIXME: Think about passes we will preserve and add them here.
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
   }
 };
 
