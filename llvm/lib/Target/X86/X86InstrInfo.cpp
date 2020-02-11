@@ -5846,6 +5846,49 @@ bool X86InstrInfo::unfoldMemoryOperand(
   if (UnfoldLoad) {
     auto MMOs = extractLoadMMOs(MI.memoperands(), MF);
 
+#if INTEL_CUSTOMIZATION
+    if (X86II::isKMasked(MCID.TSFlags)) {
+      if (MMOs.size() != 1)
+        return false;
+
+      // Make sure we won't read more bits than our memop says.
+      if (FoldedBCast) {
+        switch (I->Flags & TB_BCAST_MASK) {
+        default: llvm_unreachable("Unexpected broadcast type!");
+        case TB_BCAST_D:
+        case TB_BCAST_SS:
+          if (MMOs.front()->getSize() < 4)
+            return false;
+          break;
+        case TB_BCAST_Q:
+        case TB_BCAST_SD:
+          if (MMOs.front()->getSize() < 8)
+            return false;
+          break;
+        }
+      } else if (MMOs.front()->getSize() < TRI.getSpillSize(*RC))
+        return false;
+
+      auto IsDeferenceableLoad = [&MF](MachineMemOperand *MMO) {
+        if (MMO->isDereferenceable())
+          return true;
+
+        // A load from the constant pool is deferenceable.
+        const MachineFrameInfo &MFI = MF.getFrameInfo();
+        if (const PseudoSourceValue *PSV = MMO->getPseudoValue())
+          if (PSV->isConstant(&MFI))
+            return true;
+
+        // Be conservative.
+        return false;
+      };
+
+      // Make sure the pointer is dereferenceable.
+      if (!IsDeferenceableLoad(MMOs.front()))
+        return false;
+    }
+#endif
+
     unsigned Opc;
     if (FoldedBCast) {
       Opc = getBroadcastOpcode(I, RC, Subtarget);
@@ -5977,6 +6020,12 @@ X86InstrInfo::unfoldMemoryOperand(SelectionDAG &DAG, SDNode *N,
   }
   SDValue Chain = N->getOperand(NumOps-1);
   AddrOps.push_back(Chain);
+
+#if INTEL_CUSTOMIZATION
+  // FIXME: Only handle unmasked for now.
+  if (X86II::isKMasked(MCID.TSFlags))
+    return false;
+#endif
 
   // Emit the load instruction.
   SDNode *Load = nullptr;
