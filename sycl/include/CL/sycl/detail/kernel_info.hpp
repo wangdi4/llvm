@@ -26,25 +26,19 @@ template <info::kernel Param> struct get_kernel_info<string_class, Param> {
     size_t ResultSize;
 
     // TODO catch an exception and put it to list of asynchronous exceptions
-<<<<<<< HEAD
-    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), 0, nullptr,
-                             &ResultSize);
-=======
-    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, cl_kernel_info(Param), 0,
+#if INTEL_CUSTOMIZATION
+    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param), 0,
                                             nullptr, &ResultSize);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
+#endif // INTEL_CUSTOMIZATION
     if (ResultSize == 0) {
       return "";
     }
     vector_class<char> Result(ResultSize);
     // TODO catch an exception and put it to list of asynchronous exceptions
-<<<<<<< HEAD
-    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), ResultSize,
-                             Result.data(), nullptr);
-=======
-    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, cl_kernel_info(Param),
+#if INTEL_CUSTOMIZATION
+    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
                                             ResultSize, Result.data(), nullptr);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
+#endif // INTEL_CUSTOMIZATION
     return string_class(Result.data());
   }
 };
@@ -54,13 +48,10 @@ template <info::kernel Param> struct get_kernel_info<cl_uint, Param> {
     cl_uint Result;
 
     // TODO catch an exception and put it to list of asynchronous exceptions
-<<<<<<< HEAD
-    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), sizeof(cl_uint),
-                             &Result, nullptr);
-=======
-    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, cl_kernel_info(Param),
+#if INTEL_CUSTOMIZATION
+    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
                                             sizeof(cl_uint), &Result, nullptr);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
+#endif // INTEL_CUSTOMIZATION
     return Result;
   }
 };

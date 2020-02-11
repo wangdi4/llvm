@@ -313,20 +313,15 @@ cl_int ReleaseCommand::enqueueImp() {
     NeedUnmap |= CurAllocaIsHost == MAllocaCmd->MIsActive;
   }
 
-  RT::PiEvent UnmapEvent = nullptr; // INTEL
   if (NeedUnmap) {
     const QueueImplPtr &Queue = CurAllocaIsHost
                                     ? MAllocaCmd->MLinkedAllocaCmd->getQueue()
                                     : MAllocaCmd->getQueue();
-<<<<<<< HEAD
-=======
-
     EventImplPtr UnmapEventImpl(new event_impl(Queue));
     UnmapEventImpl->setContextImpl(
         detail::getSyclObjImpl(Queue->get_context()));
     RT::PiEvent &UnmapEvent = UnmapEventImpl->getHandleRef();
 
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
     void *Src = CurAllocaIsHost
                     ? MAllocaCmd->getMemAllocation()
                     : MAllocaCmd->MLinkedAllocaCmd->getMemAllocation();
@@ -350,17 +345,6 @@ cl_int ReleaseCommand::enqueueImp() {
                            MAllocaCmd->getSYCLMemObj(),
                            MAllocaCmd->getMemAllocation(),
                            std::move(EventImpls), Event);
-
-#ifdef INTEL_CUSTOMIZATION
-  // TODO: remove this after https://github.com/intel/llvm/pull/1030 is merged.
-  // In there the raw PI event will be wrapped into SYCL object that will
-  // perform this releasing in its destructor.
-  //
-  if (UnmapEvent) {
-    // Release the event created for unmap
-    PI_CALL(piEventRelease)(UnmapEvent);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   return CL_SUCCESS;
 }
@@ -945,20 +929,16 @@ cl_int ExecCGCommand::enqueueImp() {
       case kernel_param_kind_t::kind_accessor: {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-
         if (RT::useBackend(pi::Backend::SYCL_BE_PI_OTHER)) {
-          PI_CALL(piextKernelSetArgMemObj)(Kernel, Arg.MIndex, &MemArg);
+          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex,
+                                                          &MemArg);
           break;
         }
-        PI_CALL(piKernelSetArg)(
-            Kernel, Arg.MIndex, sizeof(RT::PiMem), &MemArg);
-=======
-        cl_mem MemArg = (cl_mem)AllocaCmd->getMemAllocation();
+#endif // INTEL_CUSTOMIZATION
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                sizeof(cl_mem), &MemArg);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
         break;
       }
       case kernel_param_kind_t::kind_std_layout: {
@@ -970,18 +950,15 @@ cl_int ExecCGCommand::enqueueImp() {
         sampler *SamplerPtr = (sampler *)Arg.MPtr;
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
         if (RT::useBackend(pi::Backend::SYCL_BE_PI_OTHER)) {
-          PI_CALL(piextKernelSetArgMemObj)(Kernel, Arg.MIndex,
-                                           (const RT::PiMem*)&Sampler);
+          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel,
+              Arg.MIndex, (const RT::PiMem*)&Sampler);
           break;
         }
-        PI_CALL(piKernelSetArg)(
-            Kernel, Arg.MIndex, sizeof(cl_sampler), &Sampler);
-=======
+#endif // INTEL_CUSTOMIZATION
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                sizeof(cl_sampler), &Sampler);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
         break;
       }
       case kernel_param_kind_t::kind_pointer: {

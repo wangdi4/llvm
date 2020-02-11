@@ -132,13 +132,11 @@ bool handleInvalidWorkGroupSize(const device_impl &DeviceImpl, pi_kernel Kernel,
       // given by local_work_size
 
       pi_program Program = nullptr;
-<<<<<<< HEAD
-      PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM,
-                               sizeof(pi_program), &Program, nullptr);
-=======
+
+#if INTEL_CUSTOMIZATION
       Plugin.call<PiApiKind::piKernelGetInfo>(
-          Kernel, CL_KERNEL_PROGRAM, sizeof(pi_program), &Program, nullptr);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
+          Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(pi_program), &Program, nullptr);
+#endif // INTEL_CUSTOMIZATION
       size_t OptsSize = 0;
       Plugin.call<PiApiKind::piProgramGetBuildInfo>(
           Program, Device, CL_PROGRAM_BUILD_OPTIONS, 0, nullptr, &OptsSize);

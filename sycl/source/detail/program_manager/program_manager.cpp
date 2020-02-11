@@ -387,33 +387,27 @@ RT::PiProgram
 ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel,
                                          const ContextImplPtr Context) {
   RT::PiProgram Program;
-<<<<<<< HEAD
-  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program),
-                           &Program, nullptr);
-=======
   const detail::plugin &Plugin = Context->getPlugin();
+#if INTEL_CUSTOMIZATION
   Plugin.call<PiApiKind::piKernelGetInfo>(
-      Kernel, CL_KERNEL_PROGRAM, sizeof(cl_program), &Program, nullptr);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
+      Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program), &Program, nullptr);
+#endif // INTEL_CUSTOMIZATION
   return Program;
 }
 
 string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
                                                 const ContextImplPtr Context) {
   size_t Size = 0;
-<<<<<<< HEAD
-  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_DEVICES, 0, nullptr, &Size);
-  vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
-  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_DEVICES, Size, PIDevices.data(),
-                            nullptr);
-=======
   const detail::plugin &Plugin = Context->getPlugin();
-  Plugin.call<PiApiKind::piProgramGetInfo>(Program, CL_PROGRAM_DEVICES, 0,
+#if INTEL_CUSTOMIZATION
+  Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_DEVICES, 0,
                                            nullptr, &Size);
+#endif // INTEL_CUSTOMIZATION
   vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
-  Plugin.call<PiApiKind::piProgramGetInfo>(Program, CL_PROGRAM_DEVICES, Size,
+#if INTEL_CUSTOMIZATION
+  Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_DEVICES, Size,
                                            PIDevices.data(), nullptr);
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
+#endif // INTEL_CUSTOMIZATION
   string_class Log = "The program was built for " +
                      std::to_string(PIDevices.size()) + " devices";
   for (RT::PiDevice &Device : PIDevices) {

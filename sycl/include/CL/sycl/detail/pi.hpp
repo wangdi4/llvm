@@ -28,11 +28,6 @@ enum class PiApiKind {
 class plugin;
 namespace pi {
 
-<<<<<<< HEAD
-// Check for manually selected BE at run-time.
-bool useBackend(Backend Backend);
-
-=======
 #ifdef SYCL_RT_OS_WINDOWS
 #define PLUGIN_NAME "pi_opencl.dll"
 #else
@@ -40,7 +35,6 @@ bool useBackend(Backend Backend);
 #endif
 
 using PiPlugin = ::pi_plugin;
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
 using PiResult = ::pi_result;
 using PiPlatform = ::pi_platform;
 using PiDevice = ::pi_device;
@@ -167,7 +161,6 @@ void printArgs(Arg0 arg0, Args... args) {
   print(arg0);
   printArgs(std::forward<Args>(args)...);
 }
-<<<<<<< HEAD
 
 /* INTEL_CUSTOMIZATION */
 template <typename T>
@@ -214,91 +207,6 @@ void printOuts(Arg0 arg0, Args... args) {
   printOuts(std::forward<Args>(args)...);
 }
 /* end INTEL_CUSTOMIZATION */
-
-// Utility function to check return from pi calls.
-// Throws if pi_result is not a PI_SUCCESS.
-template <typename Exception = cl::sycl::runtime_error>
-inline void checkPiResult(PiResult pi_result) {
-  CHECK_OCL_CODE_THROW(pi_result, Exception);
-}
-
-// Class to call PI API, trace and get the result.
-// To Trace : Set SYCL_PI_TRACE environment variable.
-// Template Arguments:
-//    FnType  - Type of Function pointer to the PI API.
-//    FnOffset- Offset to the Function Pointer in the piPlugin::FunctionPointers
-//    structure. Used to differentiate between APIs with same pointer type,
-//    E.g.: piDeviceRelease and piDeviceRetain. Differentiation needed to avoid
-//    redefinition error during explicit specialization of class in pi.cpp.
-// Members: Initialized in default constructor in Class Template Specialization.
-// Usage:
-// Operator() - Call, Trace and Get result
-// Use Macro PI_CALL_NOCHECK call the constructor directly.
-template <typename FnType, size_t FnOffset> class CallPi {
-private:
-  FnType MFnPtr;
-  std::string MFnName;
-  static bool MEnableTrace;
-
-public:
-  CallPi();
-  template <typename... Args> PiResult operator()(Args... args) {
-    if (MEnableTrace) {
-      std::cout << "---> " << MFnName << "(";
-      printArgs(args...);
-      std::cout << std::flush;  // INTEL
-    }
-
-    PiResult r = MFnPtr(args...);
-
-    if (MEnableTrace) {
-      std::cout << ") ---> ";
-      std::cout << (print(r), "") << std::endl;
-      printOuts(args...);       // INTEL
-      std::cout << std::endl;   // INTEL
-      std::cout << std::flush;  // INTEL
-    }
-    return r;
-  }
-};
-
-template <typename FnType, size_t FnOffset>
-bool CallPi<FnType, FnOffset>::MEnableTrace = (std::getenv("SYCL_PI_TRACE") !=
-                                               nullptr);
-
-// Class to call PI API, trace, check the return result and throw Exception.
-// To Trace : Set SYCL_PI_TRACE environment variable.
-// Template Arguments:
-//    FnType, FnOffset - for CallPi Class.
-//    Exception - The type of exception to throw if PiResult of a call is not
-//    PI_SUCCESS. Default value is cl::sycl::runtime_error.
-// Usage:
-// Operator() - Call, Trace, check Result and Throw Exception.
-// Use Macro PI_CALL and PI_CALL_THROW to call the constructor directly.
-template <typename FnType, size_t FnOffset,
-          typename Exception = cl::sycl::runtime_error>
-class CallPiAndCheck : private CallPi<FnType, FnOffset> {
-public:
-  CallPiAndCheck() : CallPi<FnType, FnOffset>(){};
-
-  template <typename... Args> void operator()(Args... args) {
-    PiResult Err = (CallPi<FnType, FnOffset>::operator()(args...));
-    checkPiResult<Exception>(Err);
-  }
-};
-
-// Explicit specialization declarations for Trace class for every FnType.
-// The offsetof is used as a template argument to uniquely identify every
-// api.
-#define _PI_API(api)                                                           \
-  template <>                                                                  \
-  CallPi<decltype(&::api),                                                     \
-         (offsetof(pi_plugin::FunctionPointers, api))>::CallPi();
-
-#include <CL/sycl/detail/pi.def>
-
-=======
->>>>>>> 95652d4642b858ada012e55b820a584acb9adca0
 } // namespace pi
 
 namespace RT = cl::sycl::detail::pi;
