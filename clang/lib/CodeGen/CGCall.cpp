@@ -4616,6 +4616,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     // Can't legally throw in an OpenMP region that cannot catch the exception
     // within the region.
     CannotThrow = true;
+    Attrs =
+        Attrs.addAttribute(getLLVMContext(), llvm::AttributeList::FunctionIndex,
+                           llvm::Attribute::NoUnwind);
 #endif // INTEL_COLLAB
   } else {
     // Otherwise, nounwind call sites will never throw.

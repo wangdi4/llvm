@@ -3675,8 +3675,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   auto *NormUB = RegionInfo.getNormUB(Idx);
 
   assert(NormUB && GeneralUtils::isOMPItemLocalVAR(NormUB) &&
-         "NORMALIZED.UB clause must specify an AllocaInst or"
-         " AddrSpaceCastInst.");
+         "computeOmpUpperBound: Expect isOMPItemLocalVAR().");
 
   auto *NormUBAlloca = cast<Instruction>(NormUB);
   assert(isa<PointerType>(NormUBAlloca->getType()) &&
@@ -3955,9 +3954,16 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
   // FIXME: we can probably gather the type information from
   //        BaseAddr, and do not pass AI at all.
   assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genArrayLength: Expect non-empty optionally casted "
-         "alloca instruction.");
-  Type *AllocaTy = cast<PointerType>(AI->getType())->getElementType();
+         "genArrayLength: Expect isOMPItemLocalVAR().");
+
+  Type *AllocaTy;
+  Value *NumElements;
+  std::tie(AllocaTy, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
+  assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
+
+  // TODO: NumElements??
+  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");

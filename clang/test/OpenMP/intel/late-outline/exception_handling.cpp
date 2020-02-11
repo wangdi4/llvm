@@ -90,13 +90,13 @@ void call_invoke_check()
   #pragma omp parallel for
   for (int i = 0; i < 100; ++i)
   {
-    //BOTH: call void{{.*}}may_throw
+    //BOTH: call void{{.*}}may_throw{{.*}} #[[NOUNWIND:[0-9]+]]
     may_throw();
     try {
       //BOTH: invoke void{{.*}}may_throw
       may_throw();
     } catch(...) {}
-    //BOTH: call void{{.*}}may_throw
+    //BOTH: call void{{.*}}may_throw{{.*}} #[[NOUNWIND]]
     may_throw();
   }
   //BOTH: call {{.*}}DIR.OMP.END.PARALLEL.LOOP
@@ -111,7 +111,7 @@ void call_invoke_check_two() {
     #pragma omp target teams distribute parallel for collapse(2)
     for (int i = 0; i < 100; ++i)
       for (int j = 0; j < 100; ++j) {
-        //BOTH: call void{{.*}}may_throw
+        //BOTH: call void{{.*}}may_throw{{.*}} #[[NOUNWIND]]
         may_throw();
     }
     //BOTH: call {{.*}}DIR.OMP.END.TARGET
@@ -119,5 +119,7 @@ void call_invoke_check_two() {
     may_throw();
   } catch(...) { }
 }
+
+//BOTH: attributes #[[NOUNWIND]] = { {{.*}}nounwind{{.*}} }
 
 // end INTEL_COLLAB

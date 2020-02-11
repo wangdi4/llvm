@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -hir-rowwise-mv-skip-dtrans -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
 
 ; This test checks that the basic row-wise multiversioning transformation
-; generates the expected code.
+; generates the expected code when there are multiple uses of a loaded value.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -11,8 +11,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: BEGIN REGION
 ; CHECK:       + DO i1 = 0, 63, 1   <DO_LOOP>
 ; CHECK:       |   + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |   %Aijbj = (%A)[128 * i1 + i2]  *  (%b)[i2];
-; CHECK:       |   |   %sum = %sum  +  %Aijbj;
+; CHECK:       |   |   %bj = (%b)[i2];
+; CHECK:       |   |   %A1ijbj = (%A1)[128 * i1 + i2]  *  %bj;
+; CHECK:       |   |   %A2ijbj = (%A2)[128 * i1 + i2]  *  %bj;
+; CHECK:       |   |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
+; CHECK:       |   |   %sum = %sum  +  %Aijbjsum;
 ; CHECK:       |   + END LOOP
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
@@ -61,33 +64,42 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   {
 ; CHECK:       |   case 1:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  -1.000000e+00;
-; CHECK:       |      |   %sum = %sum  +  %Aijbj;
+; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  -1.000000e+00;
+; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  -1.000000e+00;
+; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
+; CHECK:       |      |   %sum = %sum  +  %Aijbjsum;
 ; CHECK:       |      + END LOOP
 ; CHECK:       |      break;
 ; CHECK:       |   case 2:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  0.000000e+00;
-; CHECK:       |      |   %sum = %sum  +  %Aijbj;
+; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  0.000000e+00;
+; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  0.000000e+00;
+; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
+; CHECK:       |      |   %sum = %sum  +  %Aijbjsum;
 ; CHECK:       |      + END LOOP
 ; CHECK:       |      break;
 ; CHECK:       |   case 3:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  1.000000e+00;
-; CHECK:       |      |   %sum = %sum  +  %Aijbj;
+; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  1.000000e+00;
+; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  1.000000e+00;
+; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
+; CHECK:       |      |   %sum = %sum  +  %Aijbjsum;
 ; CHECK:       |      + END LOOP
 ; CHECK:       |      break;
 ; CHECK:       |   default:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  (%b)[i2];
-; CHECK:       |      |   %sum = %sum  +  %Aijbj;
+; CHECK:       |      |   %bj = (%b)[i2];
+; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  %bj;
+; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  %bj;
+; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
+; CHECK:       |      |   %sum = %sum  +  %Aijbjsum;
 ; CHECK:       |      + END LOOP
 ; CHECK:       |      break;
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-define double @gemv(double* %A, double* %b) #0 {
+define double @gemv(double* %A1, double* %A2, double* %b) #0 {
 entry:
   br label %L1
 
@@ -101,12 +113,16 @@ L2:
   %j = phi i32 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum.L2 = phi double [ %sum, %L1 ], [ %sum.next, %L2 ]
   %A_ind = add nuw nsw i32 %A_row, %j
-  %Aijp = getelementptr inbounds double, double* %A, i32 %A_ind
-  %Aij = load double, double* %Aijp
+  %A1ijp = getelementptr inbounds double, double* %A1, i32 %A_ind
+  %A1ij = load double, double* %A1ijp
+  %A2ijp = getelementptr inbounds double, double* %A2, i32 %A_ind
+  %A2ij = load double, double* %A2ijp
   %bjp = getelementptr inbounds double, double* %b, i32 %j
   %bj = load double, double* %bjp
-  %Aijbj = fmul fast double %Aij, %bj
-  %sum.next = fadd double %sum.L2, %Aijbj
+  %A1ijbj = fmul fast double %A1ij, %bj
+  %A2ijbj = fmul fast double %A2ij, %bj
+  %Aijbjsum = fadd double %A1ijbj, %A2ijbj
+  %sum.next = fadd double %sum.L2, %Aijbjsum
   %j.next = add nuw nsw i32 %j, 1
   %L2.cond = icmp eq i32 %j.next, 128
   br i1 %L2.cond, label %L2.exit, label %L2

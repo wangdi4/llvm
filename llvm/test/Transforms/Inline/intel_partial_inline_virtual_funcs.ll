@@ -176,7 +176,7 @@
 ;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
-; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -wholeprogramdevirt-assume-safe -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"

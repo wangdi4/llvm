@@ -26,22 +26,26 @@
 ///
 /// first = A[0]
 /// rowcase = 0;
+/// allclose = 1;
 /// DO i1 = B + S, E, S
-///   if (A[i1+S] != first)
+///   if (fabs(A[i1+S] - first) > 0.0001)
 ///   {
-///     goto CheckFailed;
+///     allclose = 0;
 ///   }
 /// END DO
 ///
-/// if (first == 0)
+/// if (allclose != 0)
 /// {
-///   rowcase = 1;
-/// }
-/// else
-/// {
-///   if (first == 1)
+///   if (first == 0)
 ///   {
-///     rowcase = 2;
+///     rowcase = 1;
+///   }
+///   else
+///   {
+///     if (first == 1)
+///     {
+///       rowcase = 2;
+///     }
 ///   }
 /// }
 ///
@@ -68,14 +72,17 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMV.h"
 
+#include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -94,6 +101,10 @@ static cl::opt<bool> SkipDTrans{
   OPT_SWITCH "-skip-dtrans", cl::init(false), cl::Hidden,
   cl::desc("Skip the DTrans check and multiversion for all arithmetically "
            "convenient values")};
+static cl::opt<double> CheckTolerance{
+  OPT_SWITCH "-tolerance", cl::init(0.0001), cl::Hidden,
+  cl::desc("The tolerance used by RWMV for checking that values in a row are "
+           "approximately equal")};
 
 namespace {
 
@@ -112,6 +123,7 @@ public:
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<DTransImmutableAnalysisWrapper>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
     AU.setPreservesAll();
   }
 };
@@ -121,11 +133,12 @@ class HIRRowWiseMV {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
   DTransImmutableInfo &DTII;
+  FieldModRefResult &FieldModRef;
 
 public:
   HIRRowWiseMV(HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
-               DTransImmutableInfo &DTII)
-      : HDDA{HDDA}, HLS{HLS}, DTII{DTII} {}
+               DTransImmutableInfo &DTII, FieldModRefResult &FieldModRef)
+      : HDDA{HDDA}, HLS{HLS}, DTII{DTII}, FieldModRef{FieldModRef} {}
 
   /// Performs row-wise multiversioning on the given loop.
   bool run(HLLoop *);
@@ -169,12 +182,6 @@ struct MVCandidate {
 
 } // namespace
 
-/// Determines whether the set of incoming edges for \p Ref in \p DDG is empty.
-/// \todo Should this just be part of the DDGraph interface?
-static bool incomingEmpty(const DDGraph &DDG, const DDRef *Ref) {
-  return DDG.incoming_edges_begin(Ref) == DDG.incoming_edges_end(Ref);
-}
-
 /// Determines the arithmetically convenient values of type \p T for opcode
 /// \p OPC.
 ///
@@ -195,6 +202,15 @@ static ACVec getConvenientVals(unsigned OPC, Type *T) {
                       << Instruction::getOpcodeName(OPC) << "\n");
     return {};
   };
+}
+
+/// Determines whether \p Inst has enough fast math flags to allow the
+/// approximate checks used by this pass.
+static bool allowsApproxChecks(const HLInst *Inst) {
+  const auto *const FPOp = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
+  if (!FPOp)
+    return false;
+  return FPOp->isFast();
 }
 
 /// Computes the union of two sets of (sorted) arithmetically convenient values.
@@ -286,11 +302,45 @@ static bool canHoistCheck(const HLNode *Parent) {
   return true;
 }
 
+/// Compiles a list of uses of a load \p Load according to \p DDG for possible
+/// replacement during multiversioning.
+static SmallVector<RegDDRef *, 3> getLoadUses(const HLInst *Load,
+                                              const DDGraph &DDG) {
+  assert(Load->getLLVMInstruction()->getOpcode() == Instruction::Load);
+
+  SmallVector<RegDDRef *, 3> Uses;
+  for (const DDEdge *const Edge : DDG.outgoing(Load->getLvalDDRef())) {
+
+    // Ignore edges that don't lead to RegDDRefs in HLInsts.
+    auto *const UseRef = dyn_cast<RegDDRef>(Edge->getSink());
+    if (!UseRef)
+      continue;
+    const auto *const UseInst = dyn_cast<HLInst>(UseRef->getHLDDNode());
+    if (!UseInst)
+      continue;
+
+    // Give up if there are any other lvalue refs.
+    if (UseRef->isLval())
+      return {};
+
+    // Ignore instructions not dominated by the load.
+    if (!HLNodeUtils::dominates(Load, UseInst))
+      continue;
+
+    // All of the checks passed; this should be a proper use.
+    Uses.push_back(UseRef);
+  }
+
+  return Uses;
+}
+
 /// Determines whether \p Ref is a candidate for row-wise multiversioning.
-static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
+static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
                                        const HLLoop *SafeCheckLevelParent,
-                                       const DDGraph &DDG,
-                                       DTransImmutableInfo &DTII) {
+                                       HIRDDAnalysis &HDDA,
+                                       HIRLoopStatistics &HLS,
+                                       DTransImmutableInfo &DTII,
+                                       FieldModRefResult &FieldModRef) {
 
   // For this to be the case, it must be a load (Rval memory reference).
   if (Ref->isLval())
@@ -303,20 +353,37 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
     dbgs() << "\n";
   });
 
+  // For now, the ref is required to have a single CanonExpr.
+  // Update the transformation to handle multi-dimensional refs if needed.
+  if (!Ref->isSingleCanonExpr()) {
+    LLVM_DEBUG(dbgs() << "  Ref has multile CanonExprs\n");
+    return {};
+  }
+
+  // Candidate array accesses must be linear at the loop level they'll be
+  // hoisted to because this pass does not yet hoist blobs.
+  unsigned SafeCheckLevel = SafeCheckLevelParent->getNestingLevel();
+  if (!Ref->isLinearAtLevel(SafeCheckLevel)) {
+    LLVM_DEBUG(dbgs() << "  Not linear at level " << SafeCheckLevel << "\n");
+    return {};
+  }
+
   // Candidate array accesses must be not invariant at the innermost loop level
   // but invariant at all higher loop levels except for at most one (which will
   // eventually be handled with a temp array). If there are fewer than three
   // loop levels, bail without trying the temp array because there won't be any
-  // re-use anyway.
-  if (Ref->isStructurallyInvariantAtLevel(NestLevel)) {
+  // re-use anyway. These checks only concern IVs because blobs always required
+  // to be invariant and that is checked below as part of the isLoopInvariant
+  // call.
+  const unsigned NestLevel = Lp->getNestingLevel();
+  if (!Ref->hasIV(NestLevel)) {
     LLVM_DEBUG(dbgs() << "  Invariant in inner loop\n");
     return {};
   }
-  const bool RejectNonInvariantOuters =
-    NestLevel - SafeCheckLevelParent->getNestingLevel() < 2;
+  const bool RejectNonInvariantOuters = NestLevel < 3;
   unsigned NonInvariantLevel          = 0;
   for (unsigned Level = NestLevel - 1; Level >= 1; --Level) {
-    if (!Ref->isStructurallyInvariantAtLevel(Level, true)) {
+    if (Ref->hasIV(Level)) {
       if (RejectNonInvariantOuters || NonInvariantLevel) {
         LLVM_DEBUG(dbgs() << "  Not invariant at loop level " << Level << "\n");
         return {};
@@ -344,11 +411,14 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
 
   // The array itself should also not be modified within the loop nest.
   // Add support for modifications in outer loops if needed.
-  // TODO: Replace this check using the isLoopInvariant() interface when ready.
-  if (!incomingEmpty(DDG, Ref)) {
+  const HLLoop *const OutermostParent =
+    Ref->getParentLoop()->getOutermostParentLoop();
+  if (!HIRTransformUtils::isLoopInvariant(Ref, OutermostParent, HDDA, HLS,
+                                          &FieldModRef, true)) {
     LLVM_DEBUG({
       dbgs() << "  Array is not read-only within the loop nest:\n";
-      for (const DDEdge *const Edge : DDG.incoming(Ref)) {
+      for (const DDEdge *const Edge :
+           HDDA.getGraph(OutermostParent).incoming(Ref)) {
         dbgs() << "    ";
         Edge->print(dbgs());
       }
@@ -364,18 +434,29 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
   // If this is a load, add convenient values of its users instead.
   ACVec ACVals;
   if (Inst->getLLVMInstruction()->getOpcode() == Instruction::Load) {
-    for (const DDEdge *const Edge : DDG.outgoing(Inst->getLvalDDRef())) {
-      const auto *const UseRef = dyn_cast<RegDDRef>(Edge->getSink());
-      if (!UseRef)
-        continue;
-      const auto *const UseInst = dyn_cast<HLInst>(UseRef->getHLDDNode());
-      if (!UseInst)
-        continue;
+    for (const RegDDRef *const UseRef : getLoadUses(Inst, HDDA.getGraph(Lp))) {
+      const HLInst *const UseInst = cast<HLInst>(UseRef->getHLDDNode());
+      if (!allowsApproxChecks(UseInst)) {
+        LLVM_DEBUG({
+          dbgs() << "  Used by instruction that does not allow approximate "
+                    "values:\n    ";
+          UseInst->print(fdbgs(), 0);
+        });
+        return {};
+      }
       const ACVec CurACVals = getConvenientVals(
         UseInst->getLLVMInstruction()->getOpcode(), Ref->getDestType());
       ACVals = getUnion(ACVals, CurACVals);
     }
   } else {
+    if (!allowsApproxChecks(Inst)) {
+      LLVM_DEBUG({
+        dbgs() << "  Used by instruction that does not allow approximate "
+                  "values:\n    ";
+        Inst->print(fdbgs(), 0);
+      });
+      return {};
+    }
     ACVals = getConvenientVals(Inst->getLLVMInstruction()->getOpcode(),
                                Ref->getDestType());
   }
@@ -396,21 +477,21 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
   if (!SkipDTrans) {
 
     // See if the base address is a pointer loaded from a struct.
-    if (!Ref->getHLDDNode()->getParentRegion()->isLiveIn(
-          Ref->getBasePtrSymbase())) {
-      LLVM_DEBUG(dbgs() << "  Base value is not live-in to the region\n");
+    const RegDDRef *const BaseLoadRef =
+      DDUtils::getSingleBasePtrLoadRef(HDDA.getGraph(OutermostParent), Ref);
+    if (!BaseLoadRef) {
+      LLVM_DEBUG(dbgs() << "  Could not find base load\n");
       return {};
     }
-    const auto *const BaseLd =
-      dyn_cast_or_null<LoadInst>(Ref->getTempBaseValue());
-    if (!BaseLd) {
-      LLVM_DEBUG(dbgs() << "  Base value is not a load\n");
-      return {};
-    }
+    bool IsPrecise = false;
     const auto *const BaseGEP =
-      dyn_cast<GetElementPtrInst>(BaseLd->getPointerOperand());
+      dyn_cast<GetElementPtrInst>(BaseLoadRef->getLocationPtr(IsPrecise));
     if (!BaseGEP) {
       LLVM_DEBUG(dbgs() << "  Base load does not have a GEP\n");
+      return {};
+    }
+    if (!IsPrecise) {
+      LLVM_DEBUG(dbgs() << "  Base load location was not precise\n");
       return {};
     }
     auto *const BaseStructType =
@@ -463,7 +544,8 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, unsigned NestLevel,
 /// Replaces all refs equivalent to \p OrigRef within \p Node with \p NewConst.
 static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
                                                  const RegDDRef *OrigRef,
-                                                 Constant *NewConst) {
+                                                 Constant *NewConst,
+                                                 const DDGraph &DDG) {
 
   // A visitor for visiting every node within Node and replacing DDRefs with
   // constants.
@@ -471,21 +553,23 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
     const RegDDRef *const OrigRef;
     Constant *const NewConst;
     DDRefUtils &DDRU;
-    Visitor(const RegDDRef *OrigRef, Constant *NewConst)
-        : OrigRef{OrigRef}, NewConst{NewConst}, DDRU{OrigRef->getDDRefUtils()} {
-    }
+    const DDGraph &DDG;
+    Visitor(const RegDDRef *OrigRef, Constant *NewConst, const DDGraph &DDG)
+        : OrigRef{OrigRef}, NewConst{NewConst}, DDRU{OrigRef->getDDRefUtils()},
+          DDG{DDG} {}
 
     void visit(HLDDNode *Node) {
 
       // If this node is a load inst, it needs some special handling to replace
-      // it with a copy.
+      // its users instead.
       if (auto *const Load = dyn_cast<HLInst>(Node)) {
         if (Load->getLLVMInstruction()->getOpcode() == Instruction::Load) {
           if (!DDRefUtils::areEqual(Load->getRvalDDRef(), OrigRef))
             return;
-          HLInst *const Copy = Node->getHLNodeUtils().createCopyInst(
-            DDRU.createConstDDRef(NewConst), "", Load->getLvalDDRef()->clone());
-          Node->getHLNodeUtils().replace(Load, Copy);
+          for (RegDDRef *const UseRef : getLoadUses(Load, DDG)) {
+            UseRef->getHLDDNode()->replaceOperandDDRef(
+              UseRef, DDRU.createConstDDRef(NewConst));
+          }
           return;
         }
       }
@@ -502,7 +586,7 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
     void postVisit(HLNode *) {}
   };
 
-  Visitor HV{OrigRef, NewConst};
+  Visitor HV{OrigRef, NewConst, DDG};
   HLNodeUtils::visit(HV, Node);
 }
 
@@ -510,7 +594,8 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
 /// candidate \p MVCand, putting the check loop just outside of \p
 /// SafeCheckLevelParent.
 static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
-                             HLLoop *SafeCheckLevelParent) {
+                             HLLoop *SafeCheckLevelParent,
+                             HIRDDAnalysis &HDDA) {
   assert(MVCand);
   const RegDDRef *const MVRef   = MVCand.Ref;
   const ACVec &MVVals           = MVCand.Values;
@@ -519,6 +604,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   DDRefUtils &DDRU              = Lp->getDDRefUtils();
   CanonExprUtils &CEU                = Lp->getCanonExprUtils();
   HLLoop *const OutermostParent = Lp->getOutermostParentLoop();
+  assert(OutermostParent && "Lp should not be the outermost loop");
 
   LLVM_DEBUG({
     dbgs() << "Multiversioning on ";
@@ -553,19 +639,20 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |   }
   // + END LOOP
   HLIf *SafeCheckIf = nullptr;
+  Type *const BoolType  = IntegerType::getInt1Ty(HNU.getContext());
+  RegDDRef *const True  = DDRU.createConstDDRef(BoolType, 1);
+  RegDDRef *const False = DDRU.createConstDDRef(BoolType, 0);
   if (SafeCheckLevelParent != OutermostParent) {
-    Type *const BoolType = IntegerType::getInt1Ty(HNU.getContext());
     HLInst *const NeedCheckInit =
-      HNU.createCopyInst(DDRU.createConstDDRef(BoolType, 1), "rwmv.needcheck");
+      HNU.createCopyInst(True->clone(), "rwmv.needcheck");
     HLNodeUtils::insertAsLastPreheaderNode(OutermostParent, NeedCheckInit);
     const RegDDRef *const NeedCheck = NeedCheckInit->getLvalDDRef();
-    RegDDRef *const Zero            = DDRU.createConstDDRef(BoolType, 0);
     SafeCheckIf =
-      HNU.createHLIf(PredicateTy::ICMP_NE, NeedCheck->clone(), Zero->clone());
+      HNU.createHLIf(PredicateTy::ICMP_NE, NeedCheck->clone(), False->clone());
     SafeCheckLevelParent->extractPreheader();
     HLNodeUtils::insertBefore(SafeCheckLevelParent, SafeCheckIf);
     HLInst *const NeedCheckReset =
-      HNU.createCopyInst(Zero, "", NeedCheck->clone());
+      HNU.createCopyInst(False->clone(), "", NeedCheck->clone());
     HLNodeUtils::insertAsLastThenChild(SafeCheckIf, NeedCheckReset);
     for (HLLoop *Parent            = SafeCheckLevelParent->getParentLoop();
          Parent != nullptr; Parent = Parent->getParentLoop()) {
@@ -684,6 +771,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     NonInvariantCheckLoop ? NonInvariantCheckLoop : CheckLoop;
   for (const HLLoop *ParentLp                     = Lp->getParentLoop();
        ParentLp != SafeCheckLevelParent; ParentLp = ParentLp->getParentLoop()) {
+    assert(ParentLp && "Lp should not be the outermost loop");
     if (!ParentLp->hasZtt())
       continue;
     if (ParentLp == NonInvariantLoop)
@@ -747,7 +835,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     assert(OuterIf->getParent() == PrePeelParent);
   }
 
-  // Add the comparison to check that each value in the array is equal to the
+  // Add the comparison to check that each value in the array is close to the
   // first:
   //
   // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
@@ -755,52 +843,69 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |
   // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
   // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
-  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
+  // |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
+  // |   |   if (%rwmv.absdiff >u 1.000000e-04)
   // |   |   {
   // |   |   }
   // |   + END LOOP
   // + END LOOP
-  HLIf *const CheckIf =
-    HNU.createHLIf(CmpInst::FCMP_UNE, Next->clone(), First->clone());
+  HLInst *const Diff =
+    HNU.createFSub(Next->clone(), First->clone(), "rwmv.diff");
+  HLNodeUtils::insertAsLastChild(CheckLoop, Diff);
+  Function *const FAbs = Intrinsic::getDeclaration(
+    &HNU.getModule(), Intrinsic::fabs, Next->getDestType());
+  HLInst *const AbsDiff =
+    HNU.createCall(FAbs, Diff->getLvalDDRef()->clone(), "rwmv.absdiff");
+  HLNodeUtils::insertAsLastChild(CheckLoop, AbsDiff);
+  RegDDRef *const Tolerance =
+    DDRU.createConstDDRef(ConstantFP::get(Next->getDestType(), CheckTolerance));
+  HLIf *const CheckIf = HNU.createHLIf(
+    CmpInst::FCMP_UGT, AbsDiff->getLvalDDRef()->clone(), Tolerance);
   HLNodeUtils::insertAsLastChild(CheckLoop, CheckIf);
   CheckLoop->addLiveInTemp(First->getSymbase());
 
-  // Add a goto to exit the loop when the check fails:
+  // Add a variable to keep track of whether the check fails:
   //
   // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
   // |   %rwmv.first = (%B)[%M2 * i2];
+  // |   %rwmv.allclose = 1;
   // |
   // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
   // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
-  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
+  // |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
+  // |   |   if (%rwmv.absdiff >u 1.000000e-04)
   // |   |   {
-  // |   |      goto RWMVCheckFailed;
+  // |   |      %rwmv.allclose = 0;
   // |   |   }
   // |   + END LOOP
-  // |
-  // |   RWMVCheckFailed:
   // + END LOOP
-  HLLabel *const FailedLabel = HNU.createHLLabel("RWMVCheckFailed");
-  HLNodeUtils::insertAfter(CheckLoop, FailedLabel);
-  HLGoto *const FailedGoto = HNU.createHLGoto(FailedLabel);
-  HLNodeUtils::insertAsLastThenChild(CheckIf, FailedGoto);
-  CheckLoop->setNumExits(2);
+  HLInst *const AllCloseInit = HNU.createCopyInst(True, "rwmv.allclose");
+  HLNodeUtils::insertBefore(CheckLoop, AllCloseInit);
+  const RegDDRef *const AllClose = AllCloseInit->getLvalDDRef();
+  HLInst *const AllCloseReset =
+    HNU.createCopyInst(False->clone(), "", AllClose->clone());
+  HLNodeUtils::insertAsLastThenChild(CheckIf, AllCloseReset);
+  CheckLoop->addLiveOutTemp(AllClose->getSymbase());
 
   // Initialize the multiversioning case to 0 (no special value):
   //
   // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
   // |   %rwmv.first = (%B)[%M2 * i2];
-  // |   %rwmv.rowcase = 0;
+  // |   %rwmv.allclose = 1;
   // |
   // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
   // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
-  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
+  // |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
+  // |   |   if (%rwmv.absdiff >u 1.000000e-04)
   // |   |   {
-  // |   |      goto RWMVCheckFailed;
+  // |   |      %rwmv.allclose = 0;
   // |   |   }
   // |   + END LOOP
   // |
-  // |   RWMVCheckFailed:
+  // |   %rwmv.rowcase = 0;
   // + END LOOP
   Type *const RowCaseTy = IntegerType::getInt8Ty(HNU.getContext());
   HLInst *const RowCaseInit =
@@ -810,7 +915,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   else if (OuterIf)
     HLNodeUtils::insertBefore(OuterIf, RowCaseInit);
   else
-    HLNodeUtils::insertBefore(CheckLoop, RowCaseInit);
+    HLNodeUtils::insertAfter(CheckLoop, RowCaseInit);
   const RegDDRef *const RowCase = RowCaseInit->getLvalDDRef();
   if (!NonInvariantCheckLoop) {
     for (HLLoop *Parent = Lp->getParentLoop(); Parent != nullptr;
@@ -823,29 +928,40 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   //
   // + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
   // |   %rwmv.first = (%B)[%M2 * i2];
-  // |   %rwmv.rowcase = 0;
+  // |   %rwmv.allclose = 1;
   // |
   // |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
   // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
-  // |   |   if (%rwmv.next !=u %rwmv.first)
+  // |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
+  // |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
+  // |   |   if (%rwmv.absdiff >u 1.000000e-04)
   // |   |   {
-  // |   |      goto RWMVCheckFailed;
+  // |   |      %rwmv.allclose = 0;
   // |   |   }
   // |   + END LOOP
   // |
-  // |   if (%rwmv.first == -1.0)
+  // |   %rwmv.rowcase = 0;
+  // |   if (%rwmv.allclose != 0)
   // |   {
-  // |      %rwmv.rowcase = 1;
-  // |   }
-  // |   else
-  // |   {
-  // |      if (%rwmv.first == 0.0)
+  // |      if (%rwmv.first == -1.0)
   // |      {
-  // |         %rwmv.rowcase = 2;
+  // |         %rwmv.rowcase = 1;
+  // |      }
+  // |      else
+  // |      {
+  // |         if (%rwmv.first == 0.0)
+  // |         {
+  // |            %rwmv.rowcase = 2;
+  // |         }
   // |      }
   // |   }
-  // |   RWMVCheckFailed:
   // + END LOOP
+  HLIf *const CloseIf =
+    HNU.createHLIf(CmpInst::ICMP_NE, AllClose->clone(), False);
+  if ((SafeCheckIf && !NonInvariantCheckLoop) || OuterIf)
+    HLNodeUtils::insertAfter(CheckLoop, CloseIf);
+  else
+    HLNodeUtils::insertAfter(RowCaseInit, CloseIf);
   HLIf *PrevIf = nullptr;
   for (size_t MVInd = 0, MVEnd = MVVals.size(); MVInd != MVEnd; ++MVInd) {
     HLIf *const CurIf = HNU.createHLIf(CmpInst::FCMP_OEQ, First->clone(),
@@ -853,7 +969,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     if (PrevIf)
       HLNodeUtils::insertAsLastElseChild(PrevIf, CurIf);
     else
-      HLNodeUtils::insertAfter(CheckLoop, CurIf);
+      HLNodeUtils::insertAsFirstThenChild(CloseIf, CurIf);
     HLInst *const RowCaseUpdate = HNU.createCopyInst(
       DDRU.createConstDDRef(RowCaseTy, MVInd + 1), "", RowCase->clone());
     HLNodeUtils::insertAsLastThenChild(CurIf, RowCaseUpdate);
@@ -871,28 +987,33 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |      {
   // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
   // |         |   %rwmv.first = (%B)[%M2 * i2];
-  // |         |   %rwmv.rowcase = 0;
+  // |         |   %rwmv.allclose = 1;
   // |         |
   // |         |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
   // |         |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
-  // |         |   |   if (%rwmv.next !=u %rwmv.first)
+  // |         |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
+  // |         |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
+  // |         |   |   if (%rwmv.absdiff >u 1.000000e-04)
   // |         |   |   {
-  // |         |   |      goto RWMVCheckFailed;
+  // |         |   |      %rwmv.allclose = 0;
   // |         |   |   }
   // |         |   + END LOOP
   // |         |
-  // |         |   if (%rwmv.first == -1.0)
+  // |         |   %rwmv.rowcase = 0;
+  // |         |   if (%rwmv.allclose != 0)
   // |         |   {
-  // |         |      %rwmv.rowcase = 1;
-  // |         |   }
-  // |         |   else
-  // |         |   {
-  // |         |      if (%rwmv.first == 0.0)
+  // |         |      if (%rwmv.first == -1.0)
   // |         |      {
-  // |         |         %rwmv.rowcase = 2;
+  // |         |         %rwmv.rowcase = 1;
+  // |         |      }
+  // |         |      else
+  // |         |      {
+  // |         |         if (%rwmv.first == 0.0)
+  // |         |         {
+  // |         |            %rwmv.rowcase = 2;
+  // |         |         }
   // |         |      }
   // |         |   }
-  // |         |   RWMVCheckFailed:
   // |         |   (rwmv.rowcases)[i2] = %rwmv.rowcase;
   // |         + END LOOP
   // |
@@ -914,8 +1035,10 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   RegDDRef *RowCases    = nullptr;
   RegDDRef *RowCasesRef = nullptr;
   if (NonInvariantCheckLoop) {
-    HLInst *const RowCaseAlloca = HNU.createAlloca(
-      RowCaseTy, NonInvariantCheckLoop->getTripCountDDRef(), "rwmv.rowcases");
+    RegDDRef *const TripCount = NonInvariantCheckLoop->getTripCountDDRef();
+    assert(TripCount && "Normalized loops should have known trip counts");
+    HLInst *const RowCaseAlloca =
+      HNU.createAlloca(RowCaseTy, TripCount, "rwmv.rowcases");
     if (SafeCheckIf)
       HLNodeUtils::insertAsLastPreheaderNode(OutermostParent, RowCaseAlloca);
     else
@@ -1016,7 +1139,8 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     HLNodeUtils::insertAsLastChild(MVSwitch, MVLoop, CaseNum);
 
     // Replace all uses of the loaded value within the loop with the constant.
-    replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd]);
+    replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
+                                         HDDA.getGraph(MVLoop));
   }
 
   HIRInvalidationUtils::invalidateBody(Lp->getParentLoop());
@@ -1076,8 +1200,6 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
 
   LLVM_DEBUG(dbgs() << "Loads:\n");
 
-  const DDGraph DDG = HDDA.getGraph(OutermostParent);
-
   // Take a look through the enclosed instructions and collect candidate DDRefs.
   // Add support for ifs/switches if needed.
   SmallVector<MVCandidate, 1> MVCands;
@@ -1087,7 +1209,7 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
       for (const RegDDRef *const Ref :
            make_range(CI->ddref_begin(), CI->ddref_end()))
         if (const MVCandidate MVCand = checkCandidateDDRef(
-              Ref, Lp->getNestingLevel(), SafeCheckLevelParent, DDG, DTII))
+              Ref, Lp, SafeCheckLevelParent, HDDA, HLS, DTII, FieldModRef))
           MVCands.push_back(MVCand);
 
   LLVM_DEBUG(dbgs() << "\n");
@@ -1115,20 +1237,32 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
   // do the first one. Later, we may want to have fancier logic to choose one.
   const MVCandidate &ChosenCand = MVCands.front();
 
-  multiversionLoop(Lp, ChosenCand, SafeCheckLevelParent);
+  multiversionLoop(Lp, ChosenCand, SafeCheckLevelParent, HDDA);
 
   return true;
 }
 
 /// Performs row-wise multiversioning using the given analysis results.
 static bool runRowWiseMV(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                         HIRLoopStatistics &HLS, DTransImmutableInfo &DTII) {
+                         HIRLoopStatistics &HLS, DTransImmutableInfo &DTII,
+                         FieldModRefResult &FieldModRef) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << OPT_DESC " Disabled\n");
     return false;
   }
 
-  HIRRowWiseMV RWMV{HDDA, HLS, DTII};
+  // This pass adds approximate checks, so if this function is not marked with
+  // unsafe-fp-math leave it alone.
+  const Attribute UnsafeFpMath =
+    HIRF.getFunction().getFnAttribute("unsafe-fp-math");
+  if (!UnsafeFpMath.isStringAttribute() ||
+      UnsafeFpMath.getValueAsString() != "true") {
+    LLVM_DEBUG(dbgs() << "Function is not marked with unsafe-fp-math; skipping "
+                         "row-wise multiversioning\n");
+    return false;
+  }
+
+  HIRRowWiseMV RWMV{HDDA, HLS, DTII, FieldModRef};
 
   // Attempt row-wise multiversioning on innermost loops.
   SmallVector<HLLoop *, 16> CandLoops;
@@ -1149,6 +1283,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
 INITIALIZE_PASS_END(HIRRowWiseMVLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIRRowWiseMVPass() {
@@ -1164,7 +1299,8 @@ bool HIRRowWiseMVLegacyPass::runOnFunction(Function &F) {
     getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
     getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
     getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-    getAnalysis<DTransImmutableAnalysisWrapper>().getResult());
+    getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
+    getAnalysis<DTransFieldModRefResultWrapper>().getResult());
 }
 
 PreservedAnalyses HIRRowWiseMVPass::run(Function &F,
@@ -1172,6 +1308,7 @@ PreservedAnalyses HIRRowWiseMVPass::run(Function &F,
   runRowWiseMV(AM.getResult<HIRFrameworkAnalysis>(F),
                AM.getResult<HIRDDAnalysisPass>(F),
                AM.getResult<HIRLoopStatisticsAnalysis>(F),
-               AM.getResult<DTransImmutableAnalysis>(F));
+               AM.getResult<DTransImmutableAnalysis>(F),
+               AM.getResult<DTransFieldModRefResult>(F));
   return PreservedAnalyses::all();
 }

@@ -104,6 +104,7 @@
 #include <string>
 
 using namespace llvm;
+using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
@@ -158,10 +159,6 @@ static cl::opt<bool> WPDevirtMultiversion("wholeprogramdevirt-multiversion",
 static cl::opt<bool> WPDevirtMultiversionVerify(
     "wholeprogramdevirt-multiversion-verify", cl::init(false),
     cl::ReallyHidden);
-
-// Assume that whole program is safe for testing purposes
-static cl::opt<bool> WPDevirtAssumeSafe(
-    "wholeprogramdevirt-assume-safe", cl::init(false), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
 /// Provide a way to force enable whole program visibility in tests.
 /// This is needed to support legacy tests that don't contain
@@ -831,6 +828,13 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 // Enable whole program visibility if enabled by client (e.g. linker) or
 // internal option, and not force disabled.
 static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
+#if INTEL_CUSTOMIZATION
+  // If the user specifies that we assume whole program then we need to turn
+  // on the visibility
+  if (AssumeWholeProgram && !DisableWholeProgramVisibility)
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   return (WholeProgramVisibilityEnabledInLTO || WholeProgramVisibility) &&
          !DisableWholeProgramVisibility;
 }
@@ -954,7 +958,7 @@ bool DevirtModule::runForTesting(
                                                                 : nullptr,
                    ClSummaryAction == PassSummaryAction::Import ? Summary.get()
                                                                 : nullptr,
-                   WPDevirtAssumeSafe)
+                   AssumeWholeProgram)
           .run();
 #endif // INTEL_CUSTOMIZATION
 
