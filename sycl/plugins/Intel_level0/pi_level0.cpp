@@ -1340,8 +1340,8 @@ pi_result L0(piProgramLink)(
   //
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/172
   //
-  // Temporarily return null meaning program did not change.
-  *ret_program = 0;
+  pi_assert(num_input_programs == 1 && input_programs);
+  *ret_program = input_programs[0];
   return PI_SUCCESS;
 }
 

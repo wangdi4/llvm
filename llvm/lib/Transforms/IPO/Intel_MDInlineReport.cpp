@@ -272,7 +272,7 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string InlineCostStr = "inlineCost: ";
@@ -301,7 +301,7 @@ void llvm::setMDReasonNotInlined(const CallSite CS, InlineReason Reason) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
@@ -318,7 +318,7 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC,
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string OuterInlineCostStr = "outerInlineCost: ";
@@ -335,7 +335,7 @@ void llvm::setMDReasonIsInlined(const CallSite CS, InlineReason Reason) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
@@ -353,7 +353,7 @@ void llvm::setMDReasonIsInlined(const CallSite CS, const InlineCost &IC) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string InlineCostStr = "inlineCost: ";
@@ -547,7 +547,7 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
   std::set<MDTuple *>::iterator It, ItEnd = LeafMDIR.end();
   for (It = LeafMDIR.begin(); It != ItEnd; ++It) {
     auto *CSIR = dyn_cast<MDTuple>(*It);
-    assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+    assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
         "Incorrect call site inline report metadata");
     LLVMContext &Ctx = CSIR->getContext();
     std::string ReasonStr = "reason: ";

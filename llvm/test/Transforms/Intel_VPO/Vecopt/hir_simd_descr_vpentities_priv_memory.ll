@@ -66,13 +66,11 @@
 ; used for last-value computation representation. The stores to private memory inside the loop are dead and expected to be removed by later optimizations.
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -debug -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -debug -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -vplan-print-after-linearization -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check entities dump and VPlan IR for case 1
-; CHECK-LABEL: VPlan HIR Driver for Function: foo1
-; CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ; CHECK: Reduction list
 ; CHECK: (+) Start: i32* [[V1_START:%.*]]
 ; CHECK: Memory: i32* [[V1_START]]
@@ -88,8 +86,6 @@
 ; CHECK: END Region
 
 ; Check entities dump and VPlan IR for case 2
-; CHECK-LABEL: VPlan HIR Driver for Function: foo2
-; CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ; CHECK: Reduction list
 ; CHECK: (+) Start: i32* [[V1_START:%.*]] Exit: i32 [[ADD_EXIT:%vp.*]]
 ; CHECK: Memory: i32* [[V1_START]]

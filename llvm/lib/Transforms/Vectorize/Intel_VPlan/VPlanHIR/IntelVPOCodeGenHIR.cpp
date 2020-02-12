@@ -673,6 +673,38 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
     MemRefSeen = true;
   }
+
+  // We cannot support invalidated Fortran array accesses because of missing
+  // support in VPValue-based codegen. Check JIRA - CMPLRLLVM-9881. As of today,
+  // we known that only memrefs participating in reductions are invalidated. Try
+  // to recognize such memrefs, and bail out of vectorization. For example -
+  //
+  // 1. Unsupported pattern
+  //    DO LOOP i1=0, N, 1
+  //     %1 = %1 + (@FortranArray)[i1] <Safe reduction>
+  //    END LOOP
+  //
+  // 2. Supported pattern
+  //    DO LOOP i1=0, N, 1
+  //     %0 = (@FortranArray)[i1]
+  //     %1 = %1 + %0 <Safe reduction>
+  //    END LOOP
+  //
+  // TODO : Remove this bailout when CMPLRLLVM-9881 is resolved.
+  if (auto *HInst = dyn_cast<HLInst>(RegDD->getHLDDNode())) {
+    for (unsigned DimNum = RegDD->getNumDimensions() - 1; DimNum > 0;
+         --DimNum) {
+      unsigned Opcode;
+      if (!RegDD->isDimensionLLVMArray(DimNum) && HInst->hasLval() &&
+          CG->isReductionRef(HInst->getLvalDDRef(), Opcode)) {
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - Fortran "
+                             "array accesses using llvm.subscript.intrinsic "
+                             "participating in reduction\n");
+        IsHandled = false;
+        return;
+      }
+    }
+  }
 }
 
 // Checks Canon Expr to see if we support it. Currently, we do not

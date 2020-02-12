@@ -4360,6 +4360,12 @@ static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
     fn->setDoesNotThrow();
     fn->setDoesNotReturn();
 
+#if INTEL_COLLAB
+    // If encountered in OpenMP device codegen mark it for the target.
+    if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice)
+      fn->addFnAttr("openmp-target-declare", "true");
+#endif // INTEL_COLLAB
+
     // What we really want is to massively penalize inlining without
     // forbidding it completely.  The difference between that and
     // 'noinline' is negligible.

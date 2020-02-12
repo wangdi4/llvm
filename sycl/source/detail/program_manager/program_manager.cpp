@@ -679,6 +679,16 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
     LinkOpts = LinkOptions.c_str();
   }
 
+#if INTEL_CUSTOMIZATION
+  // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
+  // is built during piProgramCreate.
+  // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
+  // implemented in L0 plugin.
+  if (pi::useBackend(pi::SYCL_BE_PI_OTHER)) {
+    LinkDeviceLibs = false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   std::vector<RT::PiProgram> LinkPrograms;
   if (LinkDeviceLibs) {
     LinkPrograms = getDeviceLibPrograms(Context, Devices, CachedLibPrograms);
@@ -711,15 +721,7 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
 
   // Link program call returns a new program object if all parameters are valid,
   // or NULL otherwise. Release the original (user) program.
-#if INTEL_CUSTOMIZATION
-  // LinkedProg is not expected to be nullptr in case of success. But currently
-  // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
-  // is built during piProgramCreate.
-  // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
-  // implemented in L0 plugin.
-  if (LinkedProg)
-#endif // INTEL_CUSTOMIZATION
-    Program.reset(LinkedProg);
+  Program.reset(LinkedProg);
   if (Error != PI_SUCCESS) {
     if (LinkedProg) {
       // A non-trivial error occurred during linkage: get a build log, release

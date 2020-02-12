@@ -337,6 +337,7 @@ if(INTEL_CUSTOMIZATION)
   list(REMOVE_ITEM files
     # ARM
     arm_acle.h
+    arm_cmse.h
     armintr.h
     arm64intr.h
 
