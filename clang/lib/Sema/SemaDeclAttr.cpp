@@ -4766,9 +4766,8 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
-                                            const AttributeCommonInfo &CI,
-                                            Expr *E) {
+void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                   Expr *E) {
   AttrType TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
@@ -4798,8 +4797,9 @@ void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
 }
 
 template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
-    Decl *D, const AttributeCommonInfo &CI, Expr *E) {
+void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
+                                           const AttributeCommonInfo &CI,
+                                           Expr *E) {
   AttrType TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
@@ -6159,8 +6159,7 @@ static void handleForcePow2DepthAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL,
-                                                         AL.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL, AL.getArgAsExpr(0));
 }
 
 
@@ -6230,8 +6229,7 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
 /// The numbanks and bank_bits attributes are related.  If bank_bits exists
 /// when handling numbanks they are checked for consistency.
 template <typename AttrType>
-static void
-handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
                                             const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
@@ -6244,7 +6242,7 @@ handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(
       D, Attr, Attr.getArgAsExpr(0));
 }
 
@@ -6284,8 +6282,8 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(D, Attr,
+                                                        Attr.getArgAsExpr(0));
 }
 
 /// Handle the merge attribute.
@@ -6429,8 +6427,8 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(D, Attr,
+                                                        Attr.getArgAsExpr(0));
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -8977,10 +8975,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleIntelFPGARegisterAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGABankWidth:
-    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
+    handleOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGANumBanks:
-    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
+    handleOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGAPrivateCopies:
     handleIntelFPGAPrivateCopiesAttr(S, D, AL);

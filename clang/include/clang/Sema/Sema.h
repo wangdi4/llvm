@@ -9801,11 +9801,10 @@ public:
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                    ExprResult &Result);
   template <typename AttrType>
-  void IntelFPGAAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
-                                        Expr *E);
+  void AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
   template <typename AttrType>
-  void IntelFPGAAddOneConstantPowerTwoValueAttr(
-      Decl *D, const AttributeCommonInfo &CI, Expr *E);
+  void AddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                       Expr *E);
 
 #if INTEL_CUSTOMIZATION
   void AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
