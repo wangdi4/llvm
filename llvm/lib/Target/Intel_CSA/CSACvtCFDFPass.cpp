@@ -1496,6 +1496,7 @@ void CSACvtCFDFPass::pipelineLoopWithTokenLIC(MachineLoop                       
   // Create a zero-width LIC to hold the tokens that control the max number of concurrent
   // inner-loop instances. Fill that LIC with tokens using an INIT instruction.
   unsigned ILPLTokens = LMFI->allocateLIC(&CSA::CI0RegClass, "ILPLTokens");
+  LMFI->addLICAttribute(ILPLTokens, "csasim_backedge");
   LMFI->setLICDepth(ILPLTokens, numTokens);
   auto InsertPoint = Header->getFirstNonPHI();
   auto& INIT_Op = TII->get(CSA::INIT1);
