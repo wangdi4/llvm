@@ -593,9 +593,9 @@ void check_template_parameters() {
   [[intelfpga::private_copies(C)]] unsigned int private_copies;
 
   //CHECK: VarDecl{{.*}}bank_bits_width
-  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
-  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK-NEXT: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGANumBanksAttr{{.*}}
+  //CHECK: IntegerLiteral{{.*}}4{{$}}
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK-NEXT: IntelFPGABankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
