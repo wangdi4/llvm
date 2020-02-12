@@ -16,11 +16,11 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK-DAG: i64 [[IVPhi:%.*]] = phi  [ i64 0, [[LoopPH:BB.*]] ],  [ i64 {{%.*}}, [[Latch:BB.*]] ]
-; CHECK-DAG: i32 [[Phi:%.*]] = phi  [ i32 [[LiveIn:%.*]], [[LoopPH]] ],  [ i32 [[Sum:%.*]], [[Latch]] ]
-; CHECK: i32 [[ALoad:%.*]] = load i32* {{%.*}}
+; CHECK:      i32 [[Phi:%.*]] = phi  [ i32 [[LiveIn:%.*]], [[LoopPH:BB.*]] ],  [ i32 [[Sum:%.*]], [[Latch:BB.*]] ]
+; CHECK-NEXT: i64 [[IVPhi:%.*]] = phi  [ i64 0, [[LoopPH]] ],  [ i64 {{%.*}}, [[Latch]] ]
+; CHECK:      i32 [[ALoad:%.*]] = load i32* {{%.*}}
 ; CHECK-NEXT: i32 [[Sum]] = add i32 [[ALoad]] i32 [[Phi]]
-; CHECK-NOT: {{%.*}} = phi
+; CHECK-NOT:  {{%.*}} = phi
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

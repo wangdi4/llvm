@@ -95,15 +95,15 @@ private:
   using PhiFixMapKey = std::pair<VPBasicBlock *, unsigned>;
   // The value mapped to the key is the VPPHINode and the ambiguous sink DDRef
   using PhiFixMapValue = std::pair<VPPHINode *, loopopt::DDRef *>;
-  DenseMap<PhiFixMapKey, PhiFixMapValue> PhisToFix;
+  MapVector<PhiFixMapKey, PhiFixMapValue> PhisToFix;
 
   //////////////// Data structures for fixPhiNodePass //////////////////
 
   // a. Set of unique Symbases for which empty PHI nodes were added
-  DenseSet<unsigned> TrackedSymbases;
+  SetVector<unsigned> TrackedSymbases;
   // b. Preserve a map to track which VPPhiNode corresponds to which Symbase
   // This is needed for quick lookup, instead of iterating over PhisToFix map
-  DenseMap<VPPHINode *, unsigned> PhiToSymbaseMap;
+  MapVector<VPPHINode *, unsigned> PhiToSymbaseMap;
   // c. Set of visited VPBBs for the traversal
   SmallPtrSet<VPBasicBlock *, 16> PhiNodePassVisited;
   // d. Map to lookup the base types of the PHI nodes that were added for given

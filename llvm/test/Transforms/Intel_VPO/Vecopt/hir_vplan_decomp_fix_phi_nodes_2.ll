@@ -51,8 +51,8 @@
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK:         [[BB2]]:
-; CHECK-DAG:      i32 [[VP0:%.*]] = phi  [ i32 [[EXTERN_T2_069:%.*]], [[BB1]] ],  [ i32 [[LOOP_LATCH_PHI_T2:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-DAG:      i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[EXTERN_T2_069:%.*]], [[BB1]] ],  [ i32 [[LOOP_LATCH_PHI_T2:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK:         SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8:%vp.*]]), [[BB5:BB[0-9]+]](!i1 [[VP8]])
 ; CHECK:           [[BB5]]:
 ; CHECK:            i32 [[VP11:%.*]] = bitcast i32 {{%vp.*}}
@@ -68,14 +68,14 @@
 ; CHECK:              i32 [[VP19:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
 ; CHECK:           [[BB8]]:
-; CHECK-DAG:        i32 [[VP20:%.*]] = phi  [ i32 [[VP17]], [[BB6]] ],  [ i32 [[VP15]], [[BB7]] ]
-; CHECK-DAG:        i32 [[VP21:%.*]] = phi  [ i32 [[VP19]], [[BB6]] ],  [ i32 [[VP16]], [[BB7]] ]
+; CHECK-NEXT:       i32 [[VP21:%.*]] = phi  [ i32 [[VP19]], [[BB6]] ],  [ i32 [[VP16]], [[BB7]] ]
+; CHECK-NEXT:       i32 [[VP20:%.*]] = phi  [ i32 [[VP17]], [[BB6]] ],  [ i32 [[VP15]], [[BB7]] ]
 ; CHECK:            i32 [[VP22:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:       i32 [[VP23:%.*]] = bitcast i32 {{%vp.*}}
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK:         [[BB3]]:
-; CHECK-DAG:      i32 [[VP24:%.*]] = phi  [ i32 [[VP23]], [[BB8]] ],  [ i32 [[VP11]], [[BB5]] ]
-; CHECK-DAG:      i32 [[LOOP_LATCH_PHI_T2]] = phi  [ i32 [[VP22]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
+; CHECK-NEXT:     i32 [[VP24:%.*]] = phi  [ i32 [[VP23]], [[BB8]] ],  [ i32 [[VP11]], [[BB5]] ]
+; CHECK-NEXT:     i32 [[LOOP_LATCH_PHI_T2]] = phi  [ i32 [[VP22]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
 ; CHECK:          i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp i64 [[VP3]] i64 1023
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP39]]), [[BB9:BB[0-9]+]](!i1 [[VP39]])

@@ -60,12 +60,8 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-;
-; FIXME: CMPLRLLVM-10515: We depend on the iteration order of some container
-; here. Has to be root-caused and fixed.
-;
-; CHECK-DAG:      i32 [[VP0:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-DAG:      i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = mul i64 -1 i64 [[VP2]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP4]] i64 8
 ; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP5]]
@@ -84,12 +80,8 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-;
-; FIXME: CMPLRLLVM-10515: We depend on the iteration order of some container
-; here. Has to be root-caused and fixed.
-;
-; CHECK-DAG:      i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
-; CHECK-DAG:      i32 [[VP15:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP0]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP15:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP0]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP1]] = mul i32 [[VP15]] i32 [[VP14]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp i64 [[VP3]] i64 7
