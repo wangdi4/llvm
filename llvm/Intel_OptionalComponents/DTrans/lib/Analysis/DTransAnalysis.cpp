@@ -838,7 +838,14 @@ public:
 
           StringStream << Prefix;
           StringStream.indent(Indent + 4);
-          StringStream << *PointeePair.first << " @ ";
+          if (auto *StTy = dyn_cast<llvm::StructType>(PointeePair.first))
+            if (StTy->hasName())
+              StringStream << "%" << StTy->getName();
+            else
+              StringStream << *StTy;
+          else
+            StringStream << *PointeePair.first;
+          StringStream << " @ ";
           if (PointeePair.second.getKind() == PointeeLoc::PLK_Offset)
             StringStream << "not-field ByteOffset: "
                          << PointeePair.second.getByteOffset();
@@ -6937,6 +6944,16 @@ public:
       }
 
       void emitLPA(Value *V, formatted_raw_ostream &OS) {
+        // Check for any constant expressions being used for the instruction,
+        // and report types for those, if available.
+        if (auto *I = dyn_cast<Instruction>(V))
+          for (auto *Op : I->operand_values())
+            if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
+              OS << "\n;        CE: " << *CE << "\n";
+              auto &LPI = LPA.getLocalPointerInfo(CE);
+              LPI.print(OS, 10, ";");
+            }
+
         if (!LPA.isPossiblePtrValue(V))
           return;
 

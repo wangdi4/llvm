@@ -50,7 +50,7 @@ define void @atest01() {
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.atest01sub*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.atest01 = type { i64, %struct.atest01sub, i64 } @ 1
+; CHECK:        %struct.atest01 @ 1
 ; CHECK-NOT: ByteOffset:
 
 ; Padding location should report a ByteOffset value
@@ -59,7 +59,7 @@ define void @atest01() {
 ; CHECK:      Aliased types:
 ; CHECK:        i8*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.atest01 = type { i64, %struct.atest01sub, i64 } @ not-field ByteOffset: 28
+; CHECK:        %struct.atest01 @ not-field ByteOffset: 28
 
 ; Byte-GEP to field element should not report a ByteOffset value
 ; CHECK: %bgep = getelementptr i8, i8* %mem, i64 32
@@ -68,7 +68,7 @@ define void @atest01() {
 ; CHECK:        i64*
 ; CHECK:        i8*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.atest01sub = type { i64, i64, i32, i64 } @ 3
+; CHECK:        %struct.atest01sub @ 3
 ; CHECK-NOT: ByteOffset:
 
 ; Should not report a ByteOffset value
@@ -77,7 +77,7 @@ define void @atest01() {
 ; CHECK:      Aliased types:
 ; CHECK:        i64*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.atest01sub = type { i64, i64, i32, i64 } @ 3
+; CHECK:        %struct.atest01sub @ 3
 ; CHECK-NOT: ByteOffset:
 
 ; Should report a ByteOffset value
@@ -86,7 +86,7 @@ define void @atest01() {
 ; CHECK:      Aliased types:
 ; CHECK:        i8*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.atest01sub = type { i64, i64, i32, i64 } @ not-field ByteOffset: 20
+; CHECK:        %struct.atest01sub @ not-field ByteOffset: 20
 
 
 ; Test with offset that is not to a padding location. This will result in a
@@ -109,7 +109,7 @@ define void @atest02() {
 ; CHECK:      Aliased types:
 ; CHECK:        i8*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.atest02 = type { i64, i64, i64 } @ not-field ByteOffset: 12
+; CHECK:        %struct.atest02 @ not-field ByteOffset: 12
 
 declare dso_local noalias i8* @malloc(i64)
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
