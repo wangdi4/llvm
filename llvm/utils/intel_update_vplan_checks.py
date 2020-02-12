@@ -230,20 +230,27 @@ def add_checks(output_lines, prefix_list, func_dict, func_name, opt_basename):
       printed_prefixes.append(checkprefix)
       cost_model_output = func_dict[checkprefix][func_name].splitlines()
       cost_model_output = genericize_check_lines(cost_model_output)
-      output_lines.append('; %s-LABEL:  %s' % (checkprefix, cost_model_output[0]))
-      is_blank_line = False
+      num_blank_lines = 2 # Don't emit CHECK-NEXT without CHECK-LABEL
+      if cost_model_output[0]:
+        output_lines.append('; %s-LABEL:  %s' % (checkprefix, cost_model_output[0]))
+        num_blank_lines = 0
       for cost_line in cost_model_output[1:]:
         if cost_line.strip() == '':
-          is_blank_line = True
+          num_blank_lines += 1
           continue
-        if is_blank_line:
+        if num_blank_lines == 1:
           output_lines.append('; %s-EMPTY:' % (checkprefix))
-        output_lines.append('; %s-NEXT:  %s' % (checkprefix, cost_line))
-        is_blank_line = False
+
+        if num_blank_lines <= 1:
+          output_lines.append('; %s-NEXT:  %s' % (checkprefix, cost_line))
+        else:
+          output_lines.append('; %s:       %s' % (checkprefix, cost_line))
+        num_blank_lines = 0
 
     # Add space between different check prefixes and also before the first
     # line of code in the test function.
-    output_lines.append(';')
+    if (output_lines[-1] != ";"):
+      output_lines.append(';')
   return output_lines
 
 def should_add_line_to_output(input_line, prefix_set):

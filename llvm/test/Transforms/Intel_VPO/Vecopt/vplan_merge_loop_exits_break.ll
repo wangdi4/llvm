@@ -77,6 +77,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
+;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.loop
