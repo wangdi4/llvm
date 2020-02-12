@@ -114,7 +114,6 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
     for (const auto &II : InputFiles)
       CmdArgs.push_back(II.getFilename());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel) &&
       JA.isDeviceOffloading(Action::OFK_OpenMP))
@@ -122,10 +121,6 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
                                          "/../lib/libomptarget-opencl.bc"));
 #endif // INTEL_CUSTOMIZATION
 
-  // Add additional options from -Xsycl-target-linker
-  TranslateSYCLLinkerArgs(C, Args, getToolChain(), CmdArgs);
-=======
->>>>>>> 933e3ebb4ea9f2200d67256c4fa4aec09e4f9ea3
   // Add an intermediate output file.
   CmdArgs.push_back("-o");
   const char *OutputFileName = Output.getFilename();
