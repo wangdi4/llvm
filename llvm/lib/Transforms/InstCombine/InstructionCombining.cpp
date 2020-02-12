@@ -1462,8 +1462,26 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
           return CanDescale ? Val : nullptr;
 
         if (CanDescale) {
-          // We know that we can descale both operands.
-          // Get the descaled Values.
+          // We know that we can descale both operands. First, build a new BO
+          // so that recursive Descale calls will see that modified operands
+          // may now have multiple users.
+          IRBuilderBase::InsertPointGuard Guard(Builder);
+          Builder.SetInsertPoint(BO);
+          if (BO->getOpcode() == Instruction::Add) {
+            Op = Builder.CreateAdd(LHS, RHS, BO->getName(),
+                                   BO->hasNoUnsignedWrap(),
+                                   BO->hasNoSignedWrap());
+          } else if (BO->getOpcode() == Instruction::Or) {
+            Op = Builder.CreateAdd(LHS, RHS, BO->getName(), true, false);
+          } else {
+            assert(BO->getOpcode() == Instruction::Sub &&
+                   "Unexpected Descaled binary operation");
+            Op = Builder.CreateSub(LHS, RHS, BO->getName(),
+                                   BO->hasNoUnsignedWrap(),
+                                   BO->hasNoSignedWrap());
+          }
+
+          // Next, get the descaled Values.
           LHSNoSignedWrap = RHSNoSignedWrap = false;
           Value *RHSDescale, *LHSDescale;
           RHSDescale = Descale(RHS, Scale, RHSNoSignedWrap);
@@ -1471,23 +1489,11 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
           assert(LHSDescale && RHSDescale &&
                  "A Descale TestOnly returned a false positive");
 
-          // Build a descaled Value based on the descaled operands.
-          IRBuilderBase::InsertPointGuard Guard(Builder);
-          Builder.SetInsertPoint(BO);
-          if (BO->getOpcode() == Instruction::Add) {
-            Op = Builder.CreateAdd(LHSDescale, RHSDescale, BO->getName(),
-                                   BO->hasNoUnsignedWrap(),
-                                   BO->hasNoSignedWrap());
-          } else if (BO->getOpcode() == Instruction::Or) {
-            Op = Builder.CreateAdd(LHSDescale, RHSDescale, BO->getName(), true,
-                                   false);
-          } else {
-            assert(BO->getOpcode() == Instruction::Sub &&
-                   "Unexpected Descaled binary operation");
-            Op = Builder.CreateSub(LHSDescale, RHSDescale, BO->getName(),
-                                   BO->hasNoUnsignedWrap(),
-                                   BO->hasNoSignedWrap());
-          }
+          // Finally, update the new BO to be descaled via the descaled
+          // operands.
+          BinaryOperator *DescaledBO = dyn_cast<BinaryOperator>(Op);
+          DescaledBO->setOperand(0, LHSDescale);
+          DescaledBO->setOperand(1, RHSDescale);
 
           // Now we have multiplication by exactly the scale.
           NoSignedWrap = false;
