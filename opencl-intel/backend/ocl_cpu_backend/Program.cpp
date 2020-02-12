@@ -126,8 +126,8 @@ void Program::SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes)
     m_globalVariableSizes = sizes;
 }
 
-void Program::RecordCtorDtors(const llvm::Module &M) {
-    CompilationUtils::getGlobalCtorDtorNames(M, m_globalCtors, m_globalDtors);
+void Program::RecordCtorDtors(llvm::Module &M) {
+    CompilationUtils::recordGlobalCtorDtors(M, m_globalCtors, m_globalDtors);
 }
 
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)

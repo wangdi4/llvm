@@ -170,9 +170,9 @@ public:
     void SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes);
 
     /**
-     * Record name and priority of global ctors and dtors
+     * Record name and promote linkage of global ctors and dtors.
      */
-    void RecordCtorDtors(const llvm::Module &M);
+    void RecordCtorDtors(llvm::Module &M);
 
     /**
      * Return names of global ctors
