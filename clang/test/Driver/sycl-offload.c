@@ -579,6 +579,7 @@
 
 /// ###########################################################################
 
+<<<<<<< HEAD
 /// test behaviors of -foffload-static-lib=<lib>
 // RUN: touch %t.a
 // RUN: touch %t.o
@@ -657,6 +658,8 @@
 
 /// ###########################################################################
 
+=======
+>>>>>>> 360b25b6c06bdf12911ac73b24d8a46b00de2d56
 /// Check -Xsycl-target-backend triggers error when multiple triples are used.
 // RUN:   %clang -### -fsycl -fsycl-targets=spir64_fpga-unknown-unknown-sycldevice,spir_fpga-unknown-unknown-sycldevice -Xsycl-target-backend -DFOO %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-FSYCL-TARGET-AMBIGUOUS-ERROR %s
