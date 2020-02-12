@@ -10,7 +10,7 @@
 ;
 ;    @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -her-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=UNSUPPORTED
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=UNSUPPORTED
 
 ; Check that loop was not vectorized.
 ; UNSUPPORTED-NOT: <2 x
@@ -65,8 +65,8 @@ bb11.preheader:                                   ; preds = %bb7
 bb11:                                             ; preds = %bb11.preheader, %bb11
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb11 ], [ 0, %bb11.preheader ]
   %red.phi = phi double [ 0.000000e+00, %bb11.preheader ], [ %red.add, %bb11 ]
-  %"interp_$ARR[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* %"interp_$ARR", i64 %indvars.iv)
-  %"interp_$ARR[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"interp_$ARR[]", i64 %indvars.iv39)
+  %"interp_$ARR[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 %mul, double* %"interp_$ARR", i64 %indvars.iv)
+  %"interp_$ARR[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* %"interp_$ARR[]", i64 %indvars.iv39)
   %2 = load double, double* %"interp_$ARR[][]", align 8
   %red.add = fadd fast double %red.phi, %2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
