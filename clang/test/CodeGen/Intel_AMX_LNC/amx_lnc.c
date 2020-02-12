@@ -1,7 +1,7 @@
 // REQUIRES: intel_feature_isa_amx_lnc
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
-// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex -emit-llvm -o - -Wall -Werror -pedantic \
+// RUN: +amx-transpose -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
 
 #include <immintrin.h>
@@ -29,13 +29,6 @@ void test_tile_2transposewt1(const void *A, size_t B, size_t C) {
   // CHECK-LABEL: @test_tile_2transposewt1
   // CHECK: call void @llvm.x86.t2transposewt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
   _tile_2transposewt1(1, A, B, C);
-}
-
-// FP16
-void test_tile_dpfp16ps() {
-  // CHECK-LABEL: @test_tile_dpfp16ps
-  // CHECK: call void @llvm.x86.tdpfp16ps(i8 1, i8 2, i8 3)
-  _tile_dpfp16ps(1, 2, 3);
 }
 
 typedef float __m512 __attribute__((__vector_size__(64)));

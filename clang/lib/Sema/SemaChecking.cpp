@@ -3762,8 +3762,6 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
     return CheckX86BuiltinTileArgumentsRange(TheCall, 2);
   case X86::BI__builtin_ia32_tcvtd2pse:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 2, 0, 31);
-  case X86::BI__builtin_ia32_tdpfp16ps:
-    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
   case X86::BI__builtin_ia32_tdpbssde:
   case X86::BI__builtin_ia32_tdpbsude:
   case X86::BI__builtin_ia32_tdpbusde:
@@ -3771,6 +3769,10 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tdpbf16pse:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2}, 0, 31);
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  case X86::BI__builtin_ia32_tdpfp16ps:
+    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX
   }
 }

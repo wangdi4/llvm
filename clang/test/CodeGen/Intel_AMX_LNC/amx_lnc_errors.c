@@ -1,7 +1,7 @@
 // REQUIRES: intel_feature_isa_amx_lnc
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
-// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex \
+// RUN: +amx-transpose -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex \
 // RUN: -emit-llvm -fsyntax-only -verify
 
 #include <immintrin.h>
@@ -372,13 +372,6 @@ void test_tile_xord_reg() {
 
 void test_tile_xord_mem(void *A) {
   _tile_xord_mem(1, 1, A); // expected-error {{tmul arguments must refer to different tiles}}
-}
-
-// FP16
-void test_tile_dpfp16ps() {
-  _tile_dpfp16ps(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpfp16ps(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpfp16ps(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
 }
 
 // AMXAVX512

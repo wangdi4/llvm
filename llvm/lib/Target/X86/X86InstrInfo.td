@@ -1029,13 +1029,15 @@ def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
-def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
 def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
 def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
 def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
 def HasAMXELEMENTEVEX   : Predicate<"Subtarget->hasAMXELEMENTEVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;

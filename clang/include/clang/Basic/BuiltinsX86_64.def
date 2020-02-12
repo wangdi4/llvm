@@ -236,8 +236,6 @@ TARGET_BUILTIN(__builtin_ia32_t2transposew, "vIUcvC*zULLi", "n",
                "amx-transpose")
 TARGET_BUILTIN(__builtin_ia32_t2transposewt1, "vIUcvC*zULLi", "n",
                "amx-transpose")
-// AMX_LNC FP16
-TARGET_BUILTIN(__builtin_ia32_tdpfp16ps, "vIUcIUcIUc", "n", "amx-fp16")
 // AMX_LNC AVX512
 TARGET_BUILTIN(__builtin_ia32_tile16move, "vIUcV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16f", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovei, "V16fIUcIUc", "n", "amx-avx512")
@@ -262,6 +260,11 @@ TARGET_BUILTIN(__builtin_ia32_tilezeroe, "vUc", "n", "amx-tile-evex")
 TARGET_BUILTIN(__builtin_ia32_tcvtd2pse, "vv*zIUc", "n", "amx-element-evex")
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_ISA_AMX_FP16
+// AMX_FP16 FP16
+TARGET_BUILTIN(__builtin_ia32_tdpfp16ps, "vIUcIUcIUc", "n", "amx-fp16")
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

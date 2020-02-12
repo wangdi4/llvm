@@ -950,24 +950,6 @@ let Predicates = [HasAMXELEMENTEVEX, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXELEMENTEVEX
 
-//AMX-FP16
-let Predicates = [HasAMXFP16, In64BitMode] in {
-  let SchedRW = [WriteSystem] in {
-    let Constraints = "$src1 = $dst" in {
-      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                        (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
-                        "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        []>, VEX_4V, T8XD;
-    }
-    let  usesCustomInserter = 1 in {
-      def PTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
-                               u8imm:$src2, u8imm:$src3),
-                               [(int_x86_tdpfp16ps timm:$src1,
-                                 timm:$src2, timm:$src3)]>;
-    }
-  }
-} // HasAMXTILE, HasAMXFP16
-
 //AMX-INT8-EVEX
 let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
@@ -1170,3 +1152,25 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
 } // HasAMXTILE, HasAMXTRANSPOSE
 
 // end INTEL_FEATURE_ISA_AMX_LNC
+
+// INTEL_FEATURE_ISA_AMX_FP16
+
+//AMX-FP16
+let Predicates = [HasAMXFP16, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    let Constraints = "$src1 = $dst" in {
+      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                        (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                        "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        []>, VEX_4V, T8XD;
+    }
+    let  usesCustomInserter = 1 in {
+      def PTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+                               u8imm:$src2, u8imm:$src3),
+                               [(int_x86_tdpfp16ps timm:$src1,
+                                 timm:$src2, timm:$src3)]>;
+    }
+  }
+} // HasAMXTILE, HasAMXFP16
+
+// end INTEL_FEATURE_ISA_AMX_FP16

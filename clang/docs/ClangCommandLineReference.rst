@@ -2811,8 +2811,6 @@ X86
 .. INTEL_FEATURE_ISA_AMX_LNC
 .. option:: -mamx-transpose, -mno-amx-transpose
 
-.. option:: -mamx-fp16, -mno-amx-fp16
-
 .. option:: -mamx-avx512, -mno-amx-avx512
 
 .. option:: -mamx-bf16-evex, -mno-amx-bf16-evex
@@ -2824,6 +2822,11 @@ X86
 .. option:: -mamx-element-evex, -mno-amx-element-evex
 
 .. end INTEL_FEATURE_ISA_AMX_LNC
+
+.. INTEL_FEATURE_ISA_AMX_FP16
+.. option:: -mamx-fp16, -mno-amx-fp16
+
+.. end INTEL_FEATURE_ISA_AMX_FP16
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 

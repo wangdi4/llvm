@@ -300,10 +300,6 @@ def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE
                                       "Support AMX amx-transpose instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
-                                      "Support AMX amx-fp16 instructions",
-                                      [FeatureAMXTILE]>;
-
 def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true",
                                       "Support AMX amx-avx512 instructions",
                                       [FeatureAMXTILE]>;
@@ -325,6 +321,12 @@ def FeatureAMXELEMENTEVEX     : SubtargetFeature<"amx-element-evex", "HasAMXELEM
                                       [FeatureAMXTILE]>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
+                                      "Support AMX amx-fp16 instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;

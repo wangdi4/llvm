@@ -160,13 +160,15 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
   bool HasAMXTRANSPOSE = false;
-  bool HasAMXFP16 = false;
   bool HasAMXAVX512 = false;
   bool HasAMXBF16EVEX = false;
   bool HasAMXINT8EVEX = false;
   bool HasAMXTILEEVEX = false;
   bool HasAMXELEMENTEVEX =  false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  bool HasAMXFP16 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
