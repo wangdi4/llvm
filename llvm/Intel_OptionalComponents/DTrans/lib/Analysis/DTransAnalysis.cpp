@@ -587,19 +587,22 @@ class LocalPointerInfo {
 public:
   // Used to describe the field and offset into an array or structure.
   struct PointeeLoc {
-    size_t ElementNum;
-    size_t ByteOffset;
+    enum PointeeLocKind { PLK_Field, PLK_Offset };
+    PointeeLocKind Kind;
+    union {
+      size_t ElementNum;
+      size_t ByteOffset;
+    } Loc;
 
-    // Sentinel to represent the location is just a byte offset, that does not
-    // refer to a valid element of the containing type. This is used when
-    // tracking an address into a structure that does not start on a field
-    // boundary.
-    static const size_t InvalidElement = ~0;
-
-    PointeeLoc(size_t ElementNum, size_t ByteOffset)
-        : ElementNum(ElementNum), ByteOffset(ByteOffset) {}
-    size_t getElementNum() const { return ElementNum; }
-    size_t getByteOffset() const { return ByteOffset; }
+    PointeeLoc(PointeeLocKind Kind, size_t Val) : Kind(Kind) {
+      if (Kind == PLK_Field)
+        Loc.ElementNum = Val;
+      else
+        Loc.ByteOffset = Val;
+    }
+    PointeeLocKind getKind() const { return Kind; }
+    size_t getElementNum() const { return Loc.ElementNum; }
+    size_t getByteOffset() const { return Loc.ByteOffset; }
   };
 
   typedef std::pair<llvm::Type *, PointeeLoc> TypeAndPointeeLocPair;
@@ -648,9 +651,18 @@ public:
   }
 
   // If a pointer is pointing to an element of an aggregate, we want to track
-  // that information.
-  void addElementPointee(llvm::Type *Base, size_t ElemIdx, size_t ByteOffset) {
-    PointeeLoc Loc(ElemIdx, ByteOffset);
+  // that information. Track the element being accessed by index.
+  void addElementPointee(llvm::Type *Base, size_t ElemIdx) {
+    PointeeLoc Loc(PointeeLoc::PLK_Field, ElemIdx);
+    ElementPointees.insert(std::make_pair(Base, Loc));
+  }
+
+  // If the pointer is pointing into an aggregate, but does not correspond to
+  // the starting location of an element, we want to track the byte offset. This
+  // is used for the case of a memintrinsic that starts on a byte that is
+  // padding between elements.
+  void addElementPointeeByOffset(llvm::Type *Base, size_t ByteOffset) {
+    PointeeLoc Loc(PointeeLoc::PLK_Offset, ByteOffset);
     ElementPointees.insert(std::make_pair(Base, Loc));
   }
 
@@ -826,13 +838,13 @@ public:
 
           StringStream << Prefix;
           StringStream.indent(Indent + 4);
-          StringStream << *PointeePair.first << " @ "
-                       << (PointeePair.second.getElementNum() ==
-                                   LocalPointerInfo::PointeeLoc::InvalidElement
-                               ? "not-field"
-                               : std::to_string(
-                                     PointeePair.second.getElementNum()))
-                       << " ByteOffset: " << PointeePair.second.getByteOffset();
+          StringStream << *PointeePair.first << " @ ";
+          if (PointeePair.second.getKind() == PointeeLoc::PLK_Offset)
+            StringStream << "not-field ByteOffset: "
+                         << PointeePair.second.getByteOffset();
+          else
+            StringStream << std::to_string(PointeePair.second.getElementNum());
+
           StringStream.flush();
           return OutputVal;
         };
@@ -887,8 +899,16 @@ private:
 // Comparator for PointeeLoc to enable using type within std::set.
 bool operator<(const LocalPointerInfo::PointeeLoc &A,
                const LocalPointerInfo::PointeeLoc &B) {
-  return std::make_pair(A.ElementNum, A.ByteOffset) <
-    std::make_pair(B.ElementNum, B.ByteOffset);
+  if (A.Kind == B.Kind)
+    return A.Kind == LocalPointerInfo::PointeeLoc::PLK_Field
+               ? A.getElementNum() < B.getElementNum()
+               : A.getByteOffset() < B.getByteOffset();
+
+  // Treat field elements as sorting before non-field elements
+  if (A.Kind == LocalPointerInfo::PointeeLoc::PLK_Field)
+    return true;
+
+  return false;
 }
 
 // Class to analyze and identify functions that are post-dominated by
@@ -2635,7 +2655,7 @@ private:
                DestTy->getPointerElementType()->isPointerTy() &&
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
-            Info.addElementPointee(AccessedTy->getPointerElementType(), 0, 0);
+            Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
             IsElementZeroAccess = true;
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
@@ -2662,9 +2682,13 @@ private:
             // because loading from the new pointer will effectively be
             // an access of the original element.
             for (auto &PointeePair : SrcLPI.getElementPointeeSet())
-              Info.addElementPointee(PointeePair.first,
-                                     PointeePair.second.getElementNum(),
-                                     PointeePair.second.getByteOffset());
+              if (PointeePair.second.getKind() ==
+                  LocalPointerInfo::PointeeLoc::PLK_Field)
+                Info.addElementPointee(PointeePair.first,
+                                       PointeePair.second.getElementNum());
+              else
+                Info.addElementPointeeByOffset(
+                    PointeePair.first, PointeePair.second.getByteOffset());
           }
         }
         // If this is an element zero access, don't merge the source info.
@@ -2748,8 +2772,7 @@ private:
             dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
       uint64_t Idx = LastArg->getLimitedValue();
       // Add this information to the local pointer information for the GEP.
-      Info.addElementPointee(IndexedTy, Idx,
-                             Idx * DL.getTypeStoreSize(IndexedTy));
+      Info.addElementPointee(IndexedTy, Idx);
       return;
     }
 
@@ -2766,7 +2789,7 @@ private:
       // then it is safe to have non-constant array access. Use 0 index for
       // Pointee set.
       if (!DTransOutOfBoundsOK)
-        Info.addElementPointee(IndexedTy, 0, 0);
+        Info.addElementPointee(IndexedTy, 0);
     }
 
     return;
@@ -2903,7 +2926,7 @@ private:
     // Otherwise, this is a match.
     // Save the element address usage in the returned value's
     // local pointer info.
-    Info.addElementPointee(StructTy, IdxAtOffset, ElementOffset);
+    Info.addElementPointee(StructTy, IdxAtOffset);
 
     // If this element is a type of interest, mark that as an expected
     // type alias for this pointer.
@@ -2922,7 +2945,7 @@ private:
     if (NewOffset == 0) {
       // The offset is an exact multiple of the element size. This
       // is a match for the element access.
-      Info.addElementPointee(ArrayTy, Offset / ElementSize, Offset);
+      Info.addElementPointee(ArrayTy, Offset / ElementSize);
 
       // If this element is a type of interest, mark that as an expected
       // type alias for this pointer.
@@ -3159,8 +3182,8 @@ private:
         for (auto &PointeePair : ElementPointees) {
           llvm::Type *Ty = PointeePair.first;
           if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-            assert(PointeePair.second.getElementNum() !=
-                       LocalPointerInfo::PointeeLoc::InvalidElement &&
+            assert(PointeePair.second.getKind() !=
+                       LocalPointerInfo::PointeeLoc::PLK_Offset &&
                    "Unexpected use of invalid element");
             llvm::Type *ElemTy =
                 StructTy->getElementType(PointeePair.second.getElementNum());
@@ -5582,9 +5605,9 @@ public:
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
         llvm::Type *ElemTy;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          assert(PointeePair.second.getElementNum() !=
-            LocalPointerInfo::PointeeLoc::InvalidElement &&
-            "Unexpected use of invalid element");
+          assert(PointeePair.second.getKind() !=
+                     LocalPointerInfo::PointeeLoc::PLK_Offset &&
+                 "Unexpected use of invalid element");
 
           size_t ElementNum = PointeePair.second.getElementNum();
           assert(ElementNum < ParentStInfo->getNumFields());
@@ -5789,8 +5812,8 @@ public:
                       Value *ValOp) {
     llvm::Type *ParentTy = PointeePair.first;
     assert((!ParentTy->isStructTy() ||
-            PointeePair.second.getElementNum() !=
-                LocalPointerInfo::PointeeLoc::InvalidElement) &&
+            PointeePair.second.getKind() !=
+                LocalPointerInfo::PointeeLoc::PLK_Offset) &&
            "Unexpected use of invalid element");
 
     size_t Idx = PointeePair.second.getElementNum();
@@ -6056,8 +6079,7 @@ public:
             static_cast<uint64_t>(Offset) < DL.getTypeStoreSize(DomAggTy) &&
             OnlyUsedForMemset(I)) {
           // Record the access offset to allow the memset analyzer to check it.
-          GEPLPI.addElementPointee(
-              DomAggTy, LocalPointerInfo::PointeeLoc::InvalidElement, Offset);
+          GEPLPI.addElementPointeeByOffset(DomAggTy, Offset);
         } else {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                             << "  " << *I << "\n");
@@ -6078,8 +6100,8 @@ public:
         // byte-flattened form, store this information for later reference.
         LocalPointerInfo::TypeAndPointeeLocPair Element = *PointeeSet.begin();
         assert((!Element.first->isStructTy() ||
-                Element.second.getElementNum() !=
-                    LocalPointerInfo::PointeeLoc::InvalidElement) &&
+                Element.second.getKind() !=
+                    LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                "Unexpected use of invalid element");
         std::pair<llvm::Type *, size_t> Pointee(Element.first,
                                                 Element.second.getElementNum());
@@ -6115,8 +6137,8 @@ public:
           if (ParentTy->isStructTy()) {
             auto *ParentStInfo =
                 cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
-            assert(PointeePair.second.getElementNum() !=
-                       LocalPointerInfo::PointeeLoc::InvalidElement &&
+            assert(PointeePair.second.getKind() !=
+                       LocalPointerInfo::PointeeLoc::PLK_Offset &&
                    "Unexpected use of invalid element");
             dtrans::FieldInfo &FI =
                 ParentStInfo->getField(PointeePair.second.getElementNum());
@@ -7825,8 +7847,8 @@ private:
     auto &PointeeSet = PtrInfo.getElementPointeeSet();
     if (PointeeSet.size() == 1 && PointeeSet.begin()->first->isStructTy()) {
       LocalPointerInfo::TypeAndPointeeLocPair Element = *PointeeSet.begin();
-      assert(Element.second.getElementNum() !=
-                 LocalPointerInfo::PointeeLoc::InvalidElement &&
+      assert(Element.second.getKind() !=
+                 LocalPointerInfo::PointeeLoc::PLK_Offset &&
              "Unexpected use of invalid element");
       std::pair<llvm::Type *, size_t> Pointee(Element.first,
                                               Element.second.getElementNum());
@@ -7858,8 +7880,8 @@ private:
 
       if (auto *CompTy = cast<CompositeType>(ParentTy)) {
         assert((!PointeePair.first->isStructTy() ||
-                PointeePair.second.getElementNum() !=
-                    LocalPointerInfo::PointeeLoc::InvalidElement) &&
+                PointeePair.second.getKind() !=
+                    LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                "Unexpected use of invalid element");
         size_t ElementNum = PointeePair.second.getElementNum();
         llvm::Type *FieldTy = CompTy->getTypeAtIndex(ElementNum);
@@ -7937,8 +7959,8 @@ private:
           auto *ParentStInfo =
               cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
           assert((!PointeePair.first->isStructTy() ||
-                  PointeePair.second.getElementNum() !=
-                      LocalPointerInfo::PointeeLoc::InvalidElement) &&
+                  PointeePair.second.getKind() !=
+                      LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                  "Unexpected use of invalid element");
           size_t ElementNum = PointeePair.second.getElementNum();
           dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
@@ -9012,11 +9034,10 @@ private:
       return false;
 
     auto &PointeePair = *(ElementPointees.begin());
-    size_t ElementNum = PointeePair.second.getElementNum();
     // Check whether the address is to a location that is not the start of a
     // field.
-    if (ElementNum ==
-        LocalPointerInfo::PointeeLoc::InvalidElement) {
+    if (PointeePair.second.getKind() ==
+        LocalPointerInfo::PointeeLoc::PLK_Offset) {
       Type *Ty = PointeePair.first;
       if (auto *StTy = dyn_cast<llvm::StructType>(Ty)) {
         auto *SL = DL.getStructLayout(StTy);
@@ -9058,6 +9079,7 @@ private:
     //   call void @llvm.memset.p0i8.i64(i8* getelementptr(
     //        %struct.test08, %struct.test08* @test08var, i64 0, i32 0, i64 0),
     //       i8 0, i64 200, i32 4, i1 false)
+    size_t ElementNum = PointeePair.second.getElementNum();
     if (ElementNum == 0) {
       if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet()))
         return false;
