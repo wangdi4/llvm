@@ -46,13 +46,9 @@ struct ImageDeleter;
 enum DeviceLibExt {
   cl_intel_devicelib_assert = 0,
   cl_intel_devicelib_math,
-<<<<<<< HEAD
-  cl_intel_devicelib_complex
-=======
   cl_intel_devicelib_math_fp64,
   cl_intel_devicelib_complex,
   cl_intel_devicelib_complex_fp64
->>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
 };
 
 // Provides single loading and building OpenCL programs with unique contexts

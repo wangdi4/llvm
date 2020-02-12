@@ -456,17 +456,12 @@ static const char* getDeviceLibFilename(DeviceLibExt Extension) {
     return "libsycl-fallback-cassert.spv";
   case cl_intel_devicelib_math:
     return "libsycl-fallback-cmath.spv";
-<<<<<<< HEAD
-  case cl_intel_devicelib_complex:
-    return "libsycl-fallback-complex.spv";
-=======
   case cl_intel_devicelib_math_fp64:
     return "libsycl-fallback-cmath-fp64.spv";
   case cl_intel_devicelib_complex:
     return "libsycl-fallback-complex.spv";
   case cl_intel_devicelib_complex_fp64:
     return "libsycl-fallback-complex-fp64.spv";
->>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -477,17 +472,12 @@ static const char* getDeviceLibExtensionStr(DeviceLibExt Extension) {
     return "cl_intel_devicelib_assert";
   case cl_intel_devicelib_math:
     return "cl_intel_devicelib_math";
-<<<<<<< HEAD
-  case cl_intel_devicelib_complex:
-    return "cl_intel_devicelib_complex";
-=======
   case cl_intel_devicelib_math_fp64:
     return "cl_intel_devicelib_math_fp64";
   case cl_intel_devicelib_complex:
     return "cl_intel_devicelib_complex";
   case cl_intel_devicelib_complex_fp64:
     return "cl_intel_devicelib_complex_fp64";
->>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -640,13 +630,9 @@ getDeviceLibPrograms(const ContextImplPtr Context,
   std::pair<DeviceLibExt, bool> RequiredDeviceLibExt[] = {
       {cl_intel_devicelib_assert, /* is fallback loaded? */ false},
       {cl_intel_devicelib_math, false},
-<<<<<<< HEAD
-      {cl_intel_devicelib_complex, false}
-=======
       {cl_intel_devicelib_math_fp64, false},
       {cl_intel_devicelib_complex, false},
       {cl_intel_devicelib_complex_fp64, false}
->>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
   };
 
   // Disable all devicelib extensions requiring fp64 support if at least

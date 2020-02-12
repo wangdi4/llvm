@@ -79,10 +79,6 @@ void device_cmath_test(s::queue &deviceQueue) {
 int main() {
   s::queue deviceQueue;
   device_cmath_test<float>(deviceQueue);
-<<<<<<< HEAD
-  device_cmath_test<double>(deviceQueue);
-=======
->>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
   std::cout << "Pass" << std::endl;
   return 0;
 }
