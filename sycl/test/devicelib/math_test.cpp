@@ -14,6 +14,7 @@ class DeviceSin;
 void device_sin_test(s::queue &deviceQueue) {
   s::range<1> numOfItems{1};
   float  result_f = -1;
+<<<<<<< HEAD
   double result_d = -1;
   {
     s::buffer<float, 1> buffer1(&result_f, numOfItems);
@@ -24,11 +25,23 @@ void device_sin_test(s::queue &deviceQueue) {
       cgh.single_task<class DeviceSin>([=]() {
         res_access1[0] = sinf(0);
         res_access2[0] = sin(0);
+=======
+  {
+    s::buffer<float, 1> buffer1(&result_f, numOfItems);
+    deviceQueue.submit([&](cl::sycl::handler &cgh) {
+      auto res_access1 = buffer1.get_access<sycl_write>(cgh);
+      cgh.single_task<class DeviceSin>([=]() {
+        res_access1[0] = sinf(0);
+>>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
       });
     });
   }
 
+<<<<<<< HEAD
   assert((result_f == 0) && (result_d == 0));
+=======
+  assert(result_f == 0);
+>>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
 }
 
 class DeviceCos;
@@ -36,6 +49,7 @@ class DeviceCos;
 void device_cos_test(s::queue &deviceQueue) {
   s::range<1> numOfItems{1};
   float  result_f = -1;
+<<<<<<< HEAD
   double result_d = -1;
   {
     s::buffer<float, 1> buffer1(&result_f, numOfItems);
@@ -46,11 +60,23 @@ void device_cos_test(s::queue &deviceQueue) {
       cgh.single_task<class DeviceCos>([=]() {
         res_access1[0] = cosf(0);
         res_access2[0] = cos(0);
+=======
+  {
+    s::buffer<float, 1> buffer1(&result_f, numOfItems);
+    deviceQueue.submit([&](cl::sycl::handler &cgh) {
+      auto res_access1 = buffer1.get_access<sycl_write>(cgh);
+      cgh.single_task<class DeviceCos>([=]() {
+        res_access1[0] = cosf(0);
+>>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
       });
     });
   }
 
+<<<<<<< HEAD
   assert((result_f == 1) && (result_d == 1));
+=======
+  assert(result_f == 1);
+>>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
 }
 
 class DeviceLog;
@@ -58,6 +84,7 @@ class DeviceLog;
 void device_log_test(s::queue &deviceQueue) {
   s::range<1> numOfItems{1};
   float  result_f = -1;
+<<<<<<< HEAD
   double result_d = -1;
   {
     s::buffer<float, 1> buffer1(&result_f, numOfItems);
@@ -68,11 +95,23 @@ void device_log_test(s::queue &deviceQueue) {
       cgh.single_task<class DeviceLog>([=]() {
         res_access1[0] = logf(1);
         res_access2[0] = log(1);
+=======
+  {
+    s::buffer<float, 1> buffer1(&result_f, numOfItems);
+    deviceQueue.submit([&](cl::sycl::handler &cgh) {
+      auto res_access1 = buffer1.get_access<sycl_write>(cgh);
+      cgh.single_task<class DeviceLog>([=]() {
+        res_access1[0] = logf(1);
+>>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
       });
     });
   }
 
+<<<<<<< HEAD
   assert((result_f == 0) && (result_d == 0));
+=======
+  assert(result_f == 0);
+>>>>>>> 7abd9d503645ff252ed5ccacfd0cf0b8f86a0abf
 }
 
 void device_math_test(s::queue &deviceQueue) {
