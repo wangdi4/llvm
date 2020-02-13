@@ -44,7 +44,7 @@ ProgramManager &ProgramManager::getInstance() {
 }
 
 static RT::PiDevice getFirstDevice(RT::PiContext Context) {
-  cl_uint NumDevices = 0;
+  pi_uint32 NumDevices = 0;
   PI_CALL(piContextGetInfo)(Context, PI_CONTEXT_INFO_NUM_DEVICES,
                             sizeof(NumDevices), &NumDevices,
                             /*param_value_size_ret=*/nullptr);
@@ -65,7 +65,7 @@ static RT::PiProgram createBinaryProgram(const RT::PiContext Context,
                                          size_t DataLen) {
   // FIXME: we don't yet support multiple devices with a single binary.
 #ifndef _NDEBUG
-  cl_uint NumDevices = 0;
+  pi_uint32 NumDevices = 0;
   PI_CALL(piContextGetInfo)(Context, PI_CONTEXT_INFO_NUM_DEVICES,
                             sizeof(NumDevices), &NumDevices,
                             /*param_value_size_ret=*/nullptr);
@@ -375,16 +375,16 @@ RT::PiKernel ProgramManager::getOrCreateKernel(OSModuleHandle M,
 
 RT::PiProgram ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel) {
   RT::PiProgram Program;
-  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program),
+  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram),
                            &Program, nullptr);
   return Program;
 }
 
 string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program) {
   size_t Size = 0;
-  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_DEVICES, 0, nullptr, &Size);
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES, 0, nullptr, &Size);
   vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
-  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_DEVICES, Size, PIDevices.data(),
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES, Size, PIDevices.data(),
                             nullptr);
   string_class Log = "The program was built for " +
                      std::to_string(PIDevices.size()) + " devices";
