@@ -171,17 +171,6 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
   ze_result_t result =
     ZE_CALL(zeInit(ZE_INIT_FLAG_NONE));
 
-  // This is needed for zetXXX calls to function properly.
-  // Since this API is part of Pin, we need also to enable the environment
-  // variable.
-  //
-#if defined(_WIN32) || defined(_WIN64)
-  _putenv_s("ZE_ENABLE_PROGRAM_INSTRUMENTATION", "1");
-#else
-  setenv("ZE_ENABLE_PROGRAM_INSTRUMENTATION", "1", 0);
-#endif
-  ZE_CALL(zetInit(ZE_INIT_FLAG_NONE));
-
   // L0 does not have concept of platforms, return a fake one.
   if (platforms && num_entries >= 1) {
     *platforms = 0;
@@ -199,18 +188,17 @@ pi_result L0(piPlatformGetInfo)(
   void *            param_value,
   size_t *          param_value_size_ret) {
 
-  uint32_t ze_driver_version;
   pi_assert(ze_driver_global != nullptr);
-  ZE_CALL(zeDriverGetDriverVersion(ze_driver_global, &ze_driver_version));
-  uint32_t ze_driver_version_major = ZE_DRIVER_MAJOR_VERSION(ze_driver_version);
-  uint32_t ze_driver_version_minor = ZE_DRIVER_MINOR_VERSION(ze_driver_version);
-  uint32_t ze_driver_version_patch = ZE_DRIVER_PATCH_VERSION(ze_driver_version);
+  ze_driver_properties_t ze_driver_properties;
+  ZE_CALL(zeDriverGetProperties(ze_driver_global, &ze_driver_properties));
+  uint32_t ze_driver_version = ze_driver_properties.driverVersion;
+  uint32_t ze_driver_version_major = ZE_MAJOR_VERSION(ze_driver_version);
+  uint32_t ze_driver_version_minor = ZE_MINOR_VERSION(ze_driver_version);
 
   char ze_driver_version_string[255];
-  sprintf(ze_driver_version_string, "Level-Zero %d.%d.%d\n",
+  sprintf(ze_driver_version_string, "Level-Zero %d.%d\n",
       ze_driver_version_major,
-      ze_driver_version_minor,
-      ze_driver_version_patch);
+      ze_driver_version_minor);
   zePrint("==========================\n");
   zePrint("SYCL over %s\n", ze_driver_version_string);
   zePrint("==========================\n");
@@ -491,13 +479,14 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR("Intel");
   }
   else if (param_name == PI_DRIVER_VERSION) {
-    uint32_t ze_driver_version;
     pi_assert(ze_driver_global != nullptr);
-    ZE_CALL(zeDriverGetDriverVersion(ze_driver_global, &ze_driver_version));
+    ze_driver_properties_t ze_driver_properties;
+    ZE_CALL(zeDriverGetProperties(ze_driver_global, &ze_driver_properties));
+    uint32_t ze_driver_version = ze_driver_properties.driverVersion;
     std::string driver_version =
-        std::to_string(ZE_DRIVER_MAJOR_VERSION(ze_driver_version)) +
+        std::to_string(ZE_MAJOR_VERSION(ze_driver_version)) +
         std::string(".") +
-        std::to_string(ZE_DRIVER_MINOR_VERSION(ze_driver_version));
+        std::to_string(ZE_MINOR_VERSION(ze_driver_version));
     SET_PARAM_VALUE_STR(driver_version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_VERSION) {
@@ -974,13 +963,15 @@ pi_result piMemBufferCreate(
   ze_device_handle_t ze_device = context->Device->L0Device;
 
   // TODO: translate errors
+  ze_device_mem_alloc_desc_t ze_desc;
+  ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
+  ze_desc.ordinal = 0;
   ZE_CALL(zeDriverAllocDeviceMem(
     ze_driver_global,
-    ze_device,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0, // ordinal
+    &ze_desc,
     size,
     1, // TODO: alignment
+    ze_device,
     &ptr));
 
   if ((flags & PI_MEM_FLAGS_HOST_PTR_USE)  != 0 ||
@@ -1291,7 +1282,7 @@ pi_result L0(piProgramGetInfo)(
   }
   else if (param_name == PI_PROGRAM_NUM_KERNELS) {
     uint32_t num_kernels = 0;
-    ZE_CALL(zetModuleGetKernelNames(program->L0Module, &num_kernels, nullptr));
+    ZE_CALL(zeModuleGetKernelNames(program->L0Module, &num_kernels, nullptr));
     SET_PARAM_VALUE(size_t{num_kernels});
   }
   else if (param_name == PI_PROGRAM_KERNEL_NAMES) {
@@ -1299,13 +1290,13 @@ pi_result L0(piProgramGetInfo)(
     // in L0 and PI interfaces. Also see discussions at
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/305.
     //
-    uint32_t pCount = 0;
-    ZE_CALL(zetModuleGetKernelNames(program->L0Module, &pCount, nullptr));
-    char** pNames = new char*[pCount];
-    ZE_CALL(zetModuleGetKernelNames(program->L0Module, &pCount,
-                                    const_cast<const char **>(pNames)));
+    uint32_t count = 0;
+    ZE_CALL(zeModuleGetKernelNames(program->L0Module, &count, nullptr));
+    char** pNames = new char*[count];
+    ZE_CALL(zeModuleGetKernelNames(program->L0Module, &count,
+                                   const_cast<const char **>(pNames)));
     std::string piNames{""};
-    for (uint32_t i = 0; i < pCount; ++i) {
+    for (uint32_t i = 0; i < count; ++i) {
       piNames += (i > 0 ? ";" : "");
       piNames += pNames[i];
     }
@@ -1557,9 +1548,9 @@ pi_result L0(piKernelGetGroupInfo)(
     struct {
       size_t arr[3];
     }  wg_size = {
-      { ze_kernel_properties.compileGroupSize.groupCountX,
-        ze_kernel_properties.compileGroupSize.groupCountY,
-        ze_kernel_properties.compileGroupSize.groupCountZ
+      { ze_kernel_properties.requiredGroupSizeX,
+        ze_kernel_properties.requiredGroupSizeY,
+        ze_kernel_properties.requiredGroupSizeZ
       }
     };
     SET_PARAM_VALUE(wg_size);
@@ -1621,7 +1612,7 @@ pi_result L0(piEnqueueKernelLaunch)(
   const pi_event *  event_wait_list,
   pi_event *        event)
 {
-  ze_thread_group_dimensions_t thread_group_dimensions {1, 1, 1};
+  ze_group_count_t thread_group_dimensions {1, 1, 1};
   uint32_t wg[3];
 
   // global_work_size of unused dimensions must be set to 1
@@ -2207,18 +2198,21 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   * is resolved 3D buffer copies must be spit into multiple 2D buffer copies in the
   * sycl plugin.
   */
-  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, width, height};
-  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, width, height};
+  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
+  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
 
+  // TODO: Remove the for loop and use the slice pitches
   for (uint32_t i = 0; i < depth; i++) {
     ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
       ze_command_list,
       destination_ptr,
       &dstRegion,
       dstPitch,
+      0, /* dstSlicePitc */
       source_ptr,
       &srcRegion,
       srcPitch,
+      0, /* srcSlicePitch */
       nullptr
     ));
 
@@ -2413,15 +2407,18 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, width, height};
   const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, width, height};
 
+  // TODO: Remove the for loop and use the slice pitches.
   for (uint32_t i = 0; i < depth; i++) {
     ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
       ze_command_list,
       destination_ptr,
       &dstRegion,
       dstPitch,
+      0, /* dstSlicePitch */
       source_ptr,
       &srcRegion,
       srcPitch,
+      0, /* srcSlicePitch */
       nullptr
     ));
 
@@ -2634,9 +2631,11 @@ pi_result L0(piEnqueueMemBufferMap)(
     *ret_map = buffer->MapHostPtr + offset;
   }
   else {
+    ze_host_mem_alloc_desc_t ze_desc;
+    ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
     ZE_CALL(zeDriverAllocHostMem(
       ze_driver_global,
-      ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
+      &ze_desc,
       size,
       1, // TODO: alignment
       ret_map));
@@ -3049,10 +3048,12 @@ pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
                                 pi_usm_mem_properties *properties, size_t size,
                                 pi_uint32 alignment) {
 
+  ze_host_mem_alloc_desc_t ze_desc;
+  ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
   // TODO: translate PI properties to L0 flags
   ZE_CALL(zeDriverAllocHostMem(
     ze_driver_global,
-    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
+    &ze_desc,
     size,
     alignment,
     result_ptr));
@@ -3066,13 +3067,15 @@ pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
                                   size_t size, pi_uint32 alignment) {
 
   // TODO: translate PI properties to L0 flags
+  ze_device_mem_alloc_desc_t ze_desc;
+  ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
+  ze_desc.ordinal = 0;
   ZE_CALL(zeDriverAllocDeviceMem(
     ze_driver_global,
-    device->L0Device,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0, // ordinal
+    &ze_desc,
     size,
     alignment,
+    device->L0Device,
     result_ptr));
 
   return PI_SUCCESS;
@@ -3087,14 +3090,18 @@ pi_result L0(piextUSMSharedAlloc)(
   pi_uint32               alignment) {
 
   // TODO: translate PI properties to L0 flags
+  ze_host_mem_alloc_desc_t ze_host_desc;
+  ze_host_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
+  ze_device_mem_alloc_desc_t ze_dev_desc;
+  ze_dev_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
+  ze_dev_desc.ordinal = 0;
   ZE_CALL(zeDriverAllocSharedMem(
     ze_driver_global,
-    device->L0Device,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0, // ordinal
-    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT,
+    &ze_dev_desc,
+    &ze_host_desc,
     size,
     alignment,
+    device->L0Device,
     result_ptr));
 
   return PI_SUCCESS;
