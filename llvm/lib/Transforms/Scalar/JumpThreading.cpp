@@ -2537,6 +2537,12 @@ bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
   if (PredBB->getSinglePredecessor())
     return false;
 
+#if INTEL_CUSTOMIZATION
+  Instruction *PredTerm = PredBB->getTerminator();
+  if (PredTerm->getNumSuccessors() < 2)
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Don't thread across a loop header.
   if (LoopHeaders.count(PredBB))
     return false;
