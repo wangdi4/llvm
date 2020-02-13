@@ -46,6 +46,7 @@ extern HostProgramFunc host_fpga_channels;
 extern HostProgramFunc host_fpga_autorun;
 extern HostProgramFunc host_fpga_fp16;
 extern HostProgramFunc host_compile_link;
+extern HostProgramFunc host_jit_reload;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -146,6 +147,8 @@ HostProgramFunc get_host_program_by_name(string name)
         return host_fpga_fp16;
     else if (name == "host_compile_link")
         return host_compile_link;
+    else if (name == "jit_reload")
+        return host_jit_reload;
 
     throw runtime_error("Unknown host program: '" + name + "'");
 }

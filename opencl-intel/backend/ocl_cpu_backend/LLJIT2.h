@@ -51,6 +51,12 @@ public:
     return LLJIT::addIRModule(Main, std::move(TSM));
   }
 
+  // Add an object file and it key to the Main JITDylib
+  llvm::Error addObjectFile(std::unique_ptr<llvm::MemoryBuffer> Obj,
+                            llvm::orc::VModuleKey K) {
+    return ObjTransformLayer.add(Main, std::move(Obj), std::move(K));
+  }
+
   /// Runs all static constructors.
   llvm::Error runConstructors() { return LLJIT::runConstructors(); }
 
