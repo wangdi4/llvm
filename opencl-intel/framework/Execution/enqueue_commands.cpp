@@ -1630,13 +1630,13 @@ cl_err_code NDRangeKernelCommand::Init()
     m_pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
     if (!nonArgUsmBufs.empty())
     {
-        cl_unified_shared_memory_capabilities_intel hostCaps =
+        cl_device_unified_shared_memory_capabilities_intel hostCaps =
             GetDevice()->GetUSMCapabilities(
             CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL);
-        cl_unified_shared_memory_capabilities_intel deviceCaps =
+        cl_device_unified_shared_memory_capabilities_intel deviceCaps =
             GetDevice()->GetUSMCapabilities(
             CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL);
-        cl_unified_shared_memory_capabilities_intel sharedSingleCaps =
+        cl_device_unified_shared_memory_capabilities_intel sharedSingleCaps =
             GetDevice()->GetUSMCapabilities(
             CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
         bool hostSupported = hostCaps & CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL;
@@ -2925,7 +2925,7 @@ cl_err_code MigrateMemObjCommand::CommandDone()
 MigrateUSMMemCommand::MigrateUSMMemCommand(
     const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
     ContextModule*         contextModule,
-    cl_mem_migration_flags clFlags,
+    cl_mem_migration_flags_intel clFlags,
     const void* ptr,
     size_t size):
     Command(cmdQueue), m_ptr(ptr),
@@ -2944,9 +2944,11 @@ MigrateUSMMemCommand::MigrateUSMMemCommand(
  ******************************************************************/
 cl_err_code MigrateUSMMemCommand::Init()
 {
-    MemoryObject::MemObjUsage access = (0 !=
-        (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)) ?
-        MemoryObject::WRITE_ENTIRE : MemoryObject::READ_ONLY;
+    MemoryObject::MemObjUsage access =
+        (0 != (m_migrateCmdParams.flags &
+               CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL))
+            ? MemoryObject::WRITE_ENTIRE
+            : MemoryObject::READ_ONLY;
 
     SharedPtr<Context> queueContext =
         m_contextModule->GetContext(m_pCommandQueue->GetParentHandle());

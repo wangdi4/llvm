@@ -2025,20 +2025,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL:
         {
             *pinternalRetunedValueSize =
-                sizeof(cl_unified_shared_memory_capabilities_intel);
+                sizeof(cl_device_unified_shared_memory_capabilities_intel);
 
             if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 return CL_DEV_INVALID_VALUE;
 
             if (nullptr != paramVal)
             {
-                cl_unified_shared_memory_capabilities_intel cap =
+                cl_device_unified_shared_memory_capabilities_intel cap =
                   CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL |
                   CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL |
                   CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ACCESS_INTEL |
                   CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ATOMIC_ACCESS_INTEL;
 
-                *(cl_unified_shared_memory_capabilities_intel*)paramVal = cap;
+                *(cl_device_unified_shared_memory_capabilities_intel*)paramVal =
+                    cap;
             }
 
             break;

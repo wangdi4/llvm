@@ -261,7 +261,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     for (tSetOfDevices::const_iterator iter = pDevices->begin();
          iter != pDevices->end(); iter++)
     {
-        cl_unified_shared_memory_capabilities_intel usmCaps;
+        cl_device_unified_shared_memory_capabilities_intel usmCaps;
 
         cl_err_code err = (*iter)->GetInfo(
             CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL, sizeof(usmCaps), &usmCaps,
@@ -1843,15 +1843,25 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
         return userPtr;
     }
 
+#define USM_ALLOC_ERR_RET(err)                                                 \
+  {                                                                            \
+    if (errcode)                                                               \
+      *errcode = err;                                                          \
+    return nullptr;                                                            \
+  }
+
+    // Check alignment
+    size_t forceAlignment = 0;
+    if (0 != alignment)
+    {
+        if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
+            USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
+        forceAlignment = alignment;
+    }
+
     cl_int err;
     cl_mem_alloc_flags_intel flags = ParseUSMAllocProperties(properties,
                                                              &err);
-#define USM_ALLOC_ERR_RET(err) \
-        { \
-            if (errcode) \
-                *errcode = err; \
-            return nullptr; \
-        }
     if (CL_SUCCESS != err)
         USM_ALLOC_ERR_RET(err);
 
@@ -1883,15 +1893,14 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
 
     // Check device capabilities
     bool capSupported = false;
-    bool sizeSupported = false;
     for (cl_uint i = 0; i < numDevices; i++)
     {
         SharedPtr<Device> rootDevice = pDevices[i]->GetRootDevice();
 
-        cl_unified_shared_memory_capabilities_intel hostCap;
-        cl_unified_shared_memory_capabilities_intel deviceCap;
-        cl_unified_shared_memory_capabilities_intel singleSharedCap;
-        cl_unified_shared_memory_capabilities_intel crossSharedCap;
+        cl_device_unified_shared_memory_capabilities_intel hostCap;
+        cl_device_unified_shared_memory_capabilities_intel deviceCap;
+        cl_device_unified_shared_memory_capabilities_intel singleSharedCap;
+        cl_device_unified_shared_memory_capabilities_intel crossSharedCap;
         err = rootDevice->GetInfo(CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
             sizeof(hostCap), &hostCap, nullptr);
         if (CL_SUCCESS != err)
@@ -1918,26 +1927,23 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
             capSupported = true;
         }
 
+        // Check size
         cl_ulong ulDevMaxAllocSize;
         err = rootDevice->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE,
             sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, nullptr);
         if (CL_SUCCESS != err)
             USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
-        if (size > 0 && size <= ulDevMaxAllocSize)
+        if (0 == size || size > ulDevMaxAllocSize)
         {
-            sizeSupported = true;
+            LOG_ERROR(TEXT("size is zero or greater than "
+                           "CL_DEVICE_MAX_MEM_ALLOC_SIZE for any device"), "");
+            USM_ALLOC_ERR_RET(CL_INVALID_BUFFER_SIZE);
         }
     }
     if (!capSupported)
     {
         LOG_ERROR(TEXT("no devices support this type of USM allocation"), "");
         USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
-    }
-    if (!sizeSupported)
-    {
-        LOG_ERROR(TEXT("size is zero or greater than "
-                       "CL_DEVICE_MAX_MEM_ALLOC_SIZE for all devices"), "");
-        USM_ALLOC_ERR_RET(CL_INVALID_BUFFER_SIZE);
     }
 
     // do the real work
@@ -1954,14 +1960,6 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     flags |= CL_MEM_READ_WRITE;
     if (nullptr != userPtr)
         flags |= CL_MEM_USE_HOST_PTR;
-
-    size_t forceAlignment = 0;
-    if (0 != alignment)
-    {
-        if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
-            USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
-        forceAlignment = alignment;
-    }
 
     // these flags aren't needed anymore
     err = usmBuf->Initialize(flags & ~CL_MEM_ALLOC_WRITE_COMBINED_INTEL,
@@ -2093,12 +2091,10 @@ cl_int Context::GetMemAllocInfoINTEL(const void* ptr,
     }
     if (nullptr != param_value && param_value_size < valueSize)
         return CL_INVALID_VALUE;
+    if (nullptr != param_value && valueSize > 0)
+        MEMCPY_S(param_value, param_value_size, value, valueSize);
     if (nullptr != param_value_size_ret)
         *param_value_size_ret = valueSize;
-    if (nullptr != param_value && valueSize > 0)
-    {
-        MEMCPY_S(param_value, param_value_size, value, valueSize);
-    }
 
     return CL_SUCCESS;
 }

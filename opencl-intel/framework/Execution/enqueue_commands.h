@@ -1372,7 +1372,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MigrateUSMMemCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ContextModule* contextModule,
-            cl_mem_migration_flags clFlags,
+            cl_mem_migration_flags_intel clFlags,
             const void* ptr,
             size_t size
         );

@@ -3399,13 +3399,12 @@ void* CL_API_CALL clSharedMemAllocINTEL(cl_context context,
 SET_ALIAS(clSharedMemAllocINTEL);
 REGISTER_EXTENSION_FUNCTION(clSharedMemAllocINTEL, clSharedMemAllocINTEL);
 
-cl_int CL_API_CALL clMemFreeINTEL(cl_context context,
-                                  const void* ptr)
+cl_int CL_API_CALL clMemFreeINTEL(cl_context context, void* ptr)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clMemFreeINTEL);
-        apiLogger << "cl_context context" << context << "void* ptr" << ptr;
+        apiLogger << "cl_context context" << context << "ptr" << ptr;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
             USMFree(context, ptr));
     }
@@ -3570,7 +3569,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
             cl_command_queue command_queue,
             const void* ptr,
             size_t size,
-            cl_mem_migration_flags flags,
+            cl_mem_migration_flags_intel flags,
             cl_uint num_events_in_wait_list,
             const cl_event* event_wait_list,
             cl_event* event) CL_API_SUFFIX__VERSION_2_1
@@ -3580,7 +3579,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
         START_LOG_API(clEnqueueMigrateMemINTEL);
         apiLogger << "cl_command_queue command_queue" << command_queue <<
         "const void* ptr" << ptr << "size_t size" << size <<
-        "cl_mem_migration_flags flags" << flags <<
+        "cl_mem_migration_flags_intel flags" << flags <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;
