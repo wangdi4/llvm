@@ -15,6 +15,7 @@
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -122,6 +123,7 @@ public:
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.setPreservesCFG();
     AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();
     FunctionPass::getAnalysisUsage(AU);
   }
@@ -156,5 +158,6 @@ PreservedAnalyses VectorCombinePass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();  // INTEL
   return PA;
 }
