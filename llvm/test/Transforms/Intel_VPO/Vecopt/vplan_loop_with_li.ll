@@ -3,6 +3,7 @@
 
 ; Verify the divergence information for the single loop for.body.
 
+define void @test1(float* nocapture %A, i64 %n) {
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header><latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi [ i64 0, BB2 ], [ i64 [[VAL2:%vp.*]], BB3 ]
@@ -12,15 +13,8 @@
 ; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL7:%vp.*]] float* [[VAL3:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2:%vp.*]] = add i64 [[VAL1:%vp.*]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL8:%vp.*]] = icmp i64 [[VAL2:%vp.*]] i64 [[VAL6:%n]]
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
-
-define void @test1(float* nocapture %A, i64 %n) {
-  entry:
+;
+entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %for.cond.cleanup
 
@@ -46,3 +40,8 @@ for.cond.cleanup:
   ret void
 }
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

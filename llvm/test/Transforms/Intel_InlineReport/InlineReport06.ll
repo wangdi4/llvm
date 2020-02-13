@@ -26,7 +26,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-SAME: (8,11)
 ; CHECK-SAME: <<Callee is always inline>>
 
-; CHECK-MD-INLREP: DEAD STATIC FUNC: foo
+; CHECK-MD-INLREP: DEAD STATIC FUNC: foo <stdin>
 
 ; Function Attrs: nounwind uwtable
 define i32 @fred() #0 {

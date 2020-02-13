@@ -2,9 +2,10 @@
 ; Test to check that DA ignores integer overflow clamping pattern, and propagates shape of operand being checked for overflow.
 
 ; REQUIRES: asserts
-; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -VPlanDriver -S -vplan-force-vf=4 2>&1 | FileCheck %s
-; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-driver" -S -vplan-force-vf=4 2>&1 | FileCheck %s
+; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -VPlanDriver -S -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-driver" -S -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 
+define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
@@ -37,20 +38,7 @@
 ; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
-
-; Function Attrs: nounwind readnone
-declare i64 @_Z12get_local_idj(i32) local_unnamed_addr #1
-
-; Function Attrs: nounwind readnone
-declare i64 @_Z14get_local_sizej(i32) local_unnamed_addr #1
-
-define void @test1(i64 %n, i64* %arr, float* %arr1) {
+;
 entry:
   %cmp = icmp sgt i64 %n, 0
   %uni.call = call i64 @_Z12get_local_idj(i32 0) #1
@@ -93,3 +81,15 @@ for.end:
 exit:
   ret void
 }
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z12get_local_idj(i32) local_unnamed_addr #1
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z14get_local_sizej(i32) local_unnamed_addr #1

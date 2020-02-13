@@ -288,6 +288,14 @@ struct ProfileDataTy {
     timings.device += device_elapsed;
   }
 
+  void update(
+      const char *name, double host_elapsed, double device_elapsed) {
+    std::string key(name);
+    TimingsTy &timings = data[key];
+    timings.host += host_elapsed;
+    timings.device += device_elapsed;
+  }
+
   // for event profile
   void update(const char *name, cl_event event) {
     cl_ulong host_begin = 0, host_end = 0;
@@ -520,10 +528,146 @@ public:
     if (env = std::getenv("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
       CompilationOptions += env;
     }
+#if INTEL_CUSTOMIZATION
+    // OpenCL CPU compiler complains about unsupported option.
+    // Intel Graphics compilers that do not support that option
+    // silently ignore it.
+    if (DeviceType == CL_DEVICE_TYPE_GPU &&
+        (env = std::getenv("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) &&
+        (env[0] == 'T' || env[0] == 't' || env[0] == '1'))
+        CompilationOptions += " -cl-take-global-address ";
+#endif  // INTEL_CUSTOMIZATION
   }
 };
 
 static RTLDeviceInfoTy DeviceInfo;
+
+// Helper class to collect time intervals for host and device.
+// The interval is managed by start()/stop() methods.
+// The automatic flush of the time interval happens at the object's
+// destruction.
+class ProfileIntervalTy {
+  // A timer interval may be either disabled, paused or running.
+  // Interval may switch from paused to running and from running
+  // to paused. Interval may switch to disabled start from any state,
+  // and it cannot switch to disabled to anything else.
+  enum TimerStatusTy {
+    Disabled,
+    Paused,
+    Running
+  };
+
+  // Cumulative times collected by this interval so far.
+  double DeviceElapsed = 0.0;
+  double HostElapsed = 0.0;
+
+  // Temporary timer values initialized at each interval
+  // (re)start.
+  cl_ulong DeviceTimeTemp = 0;
+  cl_ulong HostTimeTemp = 0;
+
+  // The interval name as seen in the profile data output.
+  std::string Name;
+
+  // OpenMP device id.
+  int32_t DeviceId;
+
+  // OpenCL device id.
+  cl_device_id ClDeviceId;
+
+  // Current status of the interval.
+  TimerStatusTy Status;
+
+public:
+  // Create new timer interval for the given OpenMP device
+  // and with the given name (which will be used for the profile
+  // data output).
+  ProfileIntervalTy(const char *Name, int32_t DeviceId)
+    : Name(Name), DeviceId(DeviceId),
+      ClDeviceId(DeviceInfo.deviceIDs[DeviceId]) {
+    if (DeviceInfo.Flags & RTLDeviceInfoTy::EnableProfileFlag)
+      // Start the interval paused.
+      Status = TimerStatusTy::Paused;
+    else
+      // Disable the interval for good.
+      Status = TimerStatusTy::Disabled;
+  }
+
+  // The destructor automatically updates the profile data.
+  ~ProfileIntervalTy() {
+    if (Status == TimerStatusTy::Disabled)
+      return;
+    if (Status == TimerStatusTy::Running) {
+      Status = TimerStatusTy::Disabled;
+      WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
+              "is disabled due to start/stop mismatch.",
+              Name.c_str(), DeviceId, DeviceInfo.Names[DeviceId].data());
+      return;
+    }
+
+    DeviceInfo.Profiles[DeviceId].update(
+        Name.c_str(), HostElapsed, DeviceElapsed);
+  }
+
+  // Trigger interval start.
+  void start() {
+    if (Status == TimerStatusTy::Disabled)
+      return;
+    if (Status == TimerStatusTy::Running) {
+      Status = TimerStatusTy::Disabled;
+      WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
+              "is disabled due to start/stop mismatch.",
+              Name.c_str(), DeviceId, DeviceInfo.Names[DeviceId].data());
+      return;
+    }
+    if (clGetDeviceAndHostTimer(ClDeviceId, &DeviceTimeTemp, &HostTimeTemp) !=
+            CL_SUCCESS) {
+      Status = TimerStatusTy::Disabled;
+      WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
+              "is disabled due to invalid OpenCL timer.",
+              Name.c_str(), DeviceId, DeviceInfo.Names[DeviceId].data());
+      return;
+    }
+    Status = TimerStatusTy::Running;
+  }
+
+  // Trigger interval stop (actually, a pause).
+  void stop() {
+    if (Status == TimerStatusTy::Disabled)
+      return;
+    if (Status == TimerStatusTy::Paused) {
+      Status = TimerStatusTy::Disabled;
+      WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
+              "is disabled due to start/stop mismatch.",
+              Name.c_str(), DeviceId, DeviceInfo.Names[DeviceId].data());
+      return;
+    }
+
+    cl_ulong DeviceTime, HostTime;
+    if (clGetDeviceAndHostTimer(ClDeviceId, &DeviceTime, &HostTime) !=
+            CL_SUCCESS) {
+      Status = TimerStatusTy::Disabled;
+      WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
+              "is disabled due to invalid OpenCL timer.",
+              Name.c_str(), DeviceId, DeviceInfo.Names[DeviceId].data());
+      return;
+    }
+
+    if (DeviceTime < DeviceTimeTemp || HostTime < HostTimeTemp) {
+      Status = TimerStatusTy::Disabled;
+      WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
+              "is disabled due to timer overflow.",
+              Name.c_str(), DeviceId, DeviceInfo.Names[DeviceId].data());
+      return;
+    }
+
+    DeviceElapsed +=
+        static_cast<double>(DeviceTime) - static_cast<double>(DeviceTimeTemp);
+    HostElapsed +=
+        static_cast<double>(HostTime) - static_cast<double>(HostTimeTemp);
+    Status = TimerStatusTy::Paused;
+  }
+}; // ProfileIntervalTy
 
 /// Clean-up routine to be registered by std::atexit().
 static void closeRTL() {
@@ -921,23 +1065,14 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
   DP("Expecting to have %zu entries defined.\n", NumEntries);
 
+  ProfileIntervalTy CompilationTimer("Compiling", device_id);
+  ProfileIntervalTy LinkingTimer("Linking", device_id);
+
   // create Program
   cl_int status;
   cl_program program[3];
   cl_uint num_programs = 0;
   std::string compilation_options(DeviceInfo.CompilationOptions);
-#if INTEL_CUSTOMIZATION
-  cl_device_type device_type;
-
-  if (clGetDeviceInfo(DeviceInfo.deviceIDs[device_id],
-                      CL_DEVICE_TYPE, sizeof(device_type), &device_type,
-                      nullptr) == CL_SUCCESS &&
-      device_type == CL_DEVICE_TYPE_GPU)
-    // OpenCL CPU compiler complains about unsupported option.
-    // Intel Graphics compilers that do not support that option
-    // silently ignore it.
-    compilation_options += " -cl-take-global-address ";
-#endif // INTEL_CUSTOMIZATION
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
@@ -982,6 +1117,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   // Create program for the target regions.
   dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
+  CompilationTimer.start();
   program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                      image->ImageStart, ImageSize, &status);
   if (status != CL_SUCCESS) {
@@ -998,10 +1134,14 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     return NULL;
   }
 
+  CompilationTimer.stop();
+
   num_programs++;
 
   if (num_programs < 2)
     DP("Skipped device RTL.\n");
+
+  LinkingTimer.start();
 
   program[2] = clLinkProgram(
       DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id],
@@ -1014,6 +1154,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   } else {
     DP("Successfully linked program.\n");
   }
+
+  LinkingTimer.stop();
 
   // create kernel and target entries
   DeviceInfo.FuncGblEntries[device_id].Entries.resize(NumEntries);
@@ -1055,6 +1197,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DPI("Error: clGetMemAllocInfoINTEL API is nullptr.  Direct references "
           "to declare target variables will not work properly.\n");
   }
+
+  ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
 #endif  // INTEL_CUSTOMIZATION
 
   for (unsigned i = 0; i < NumEntries; i++) {
@@ -1063,6 +1207,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
     if (Size != 0) {
 #if INTEL_CUSTOMIZATION
+      EntriesTimer.start();
+
       void *TgtAddr = nullptr;
       auto HostAddr = image->EntriesBegin[i].addr;
       auto Name = image->EntriesBegin[i].name;
@@ -1124,6 +1270,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       entries[i].addr = TgtAddr;
       entries[i].name = Name;
       entries[i].size = Size;
+
+      EntriesTimer.stop();
 #endif  // INTEL_CUSTOMIZATION
       continue;
     }
@@ -1449,7 +1597,6 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     return OFFLOAD_SUCCESS;
 
   cl_command_queue queue = DeviceInfo.Queues[device_id];
-  cl_device_id id = DeviceInfo.deviceIDs[device_id];
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -1466,36 +1613,15 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   case DATA_TRANSFER_METHOD_SVMMAP: {
     // No asynchronous data copy here since we use map/unmap as explicit
     // synchronization points.
-    cl_ulong device_begin, device_end;
-    cl_ulong host_begin, host_end;
-    if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &device_begin, &host_begin) !=
-              CL_SUCCESS) {
-        profile_enabled = 0;
-        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
-        WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
-                "is disabled due to invalid timer", device_id,
-                DeviceInfo.Names[device_id].data());
-      }
-    }
+    ProfileIntervalTy SubmitTime("DATA-WRITE", device_id);
+    SubmitTime.start();
 
     INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
                        size, 0, nullptr, nullptr);
     memcpy(tgt_ptr, hst_ptr, size);
     INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
 
-    if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &device_end, &host_end) != CL_SUCCESS) {
-        profile_enabled = 0;
-        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
-        WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
-                "is disabled due to invalid timer", device_id,
-                DeviceInfo.Names[device_id].data());
-      } else {
-        DeviceInfo.Profiles[device_id].update(
-            "DATA-WRITE", host_end - host_begin, device_end - device_begin);
-      }
-    }
+    SubmitTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
     cl_event event;
@@ -1557,7 +1683,6 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     return OFFLOAD_SUCCESS;
 
   cl_command_queue queue = DeviceInfo.Queues[device_id];
-  cl_device_id id = DeviceInfo.deviceIDs[device_id];
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -1574,36 +1699,15 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
   case DATA_TRANSFER_METHOD_SVMMAP: {
     // No asynchronous data copy here since we use map/unmap as explicit
     // synchronization points.
-    cl_ulong device_begin, device_end;
-    cl_ulong host_begin, host_end;
-    if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &device_begin, &host_begin) !=
-              CL_SUCCESS) {
-        profile_enabled = 0;
-        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
-        WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
-                "is disabled due to invalid timer", device_id,
-                DeviceInfo.Names[device_id].data());
-      }
-    }
+    ProfileIntervalTy RetrieveTime("DATA-READ", device_id);
+    RetrieveTime.start();
 
     INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
                        size, 0, nullptr, nullptr);
     memcpy(hst_ptr, tgt_ptr, size);
     INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
 
-    if (profile_enabled) {
-      if (clGetDeviceAndHostTimer(id, &device_end, &host_end) != CL_SUCCESS) {
-        profile_enabled = 0;
-        DeviceInfo.Flags &= ~RTLDeviceInfoTy::EnableProfileFlag;
-        WARNING("LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s "
-                "is disabled due to invalid timer", device_id,
-                DeviceInfo.Names[device_id].data());
-      } else {
-        DeviceInfo.Profiles[device_id].update(
-            "DATA-READ", host_end - host_begin, device_end - device_begin);
-      }
-    }
+    RetrieveTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
     cl_event event;

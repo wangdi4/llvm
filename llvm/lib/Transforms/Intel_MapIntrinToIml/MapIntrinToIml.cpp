@@ -325,13 +325,12 @@ void MapIntrinToImlImpl::generateMathLibCalls(unsigned NumRet,
                                               SmallVectorImpl<Value *> &Calls) {
   // Insert the new shuffle instructions that split the original vector
   // parameter and generate the call to the svml function.
-  LLVM_DEBUG(dbgs() << "Splitting Args to match legal VL:\n");
+  LLVM_DEBUG(dbgs() << "Splitting Args to match legal VL:\n";
+             for (const Value *A : Args)
+               dbgs() << "Arg Value: " << *A << "\n"
+                      << "Arg Type: " << *A->getType() << "\n");
 
   for (unsigned I = 0; I < NumRet; I++) {
-
-    LLVM_DEBUG(dbgs() << "Arg Value: " << *Args[I] << "\n");
-    LLVM_DEBUG(dbgs() << "Arg Type: " << *Args[I]->getType() << "\n");
-
     SmallVector<Value *, 8> NewArgs;
     splitArg(Args, NewArgs, I, TargetVL);
     CallInst *NewCI = Builder.CreateCall(Func, NewArgs, "vcall");

@@ -2,9 +2,13 @@
 ; Test to check that DA initializes correct VectorShape for different types of IVs in loop.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -VPlanDriver -vplan-dump-da -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -S 2>&1 | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-dump-da -S -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -S -disable-output 2>&1 | FileCheck %s
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
@@ -27,13 +31,7 @@
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp i64 [[VP_STRIDED_IV_NEXT]] i64 1024
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
+;
 pre.entry:
   %i = alloca i64, align 4
   br label %entry

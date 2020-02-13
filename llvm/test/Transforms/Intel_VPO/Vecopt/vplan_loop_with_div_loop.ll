@@ -4,6 +4,7 @@
 
 ; Verify the divergence information for the outermost loop for.body.
 
+define void @test1(float* nocapture %ptr, i64 %n) {
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
@@ -32,14 +33,7 @@
 ; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
-
-define void @test1(float* nocapture %ptr, i64 %n) {
+;
 entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %exit
@@ -76,3 +70,9 @@ for.end:
 exit:
   ret void
 }
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

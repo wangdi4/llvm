@@ -3,6 +3,14 @@
 ; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -vplan-dump-da 2>&1 -disable-output | FileCheck %s
 
 ; For VPValue-based CG, loop private variables and their corresponding users are marked as divergent by DA.
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@count = dso_local local_unnamed_addr global [3000 x [3000 x i32]] zeroinitializer, align 16
+
+; Function Attrs: norecurse uwtable
+define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 ; CHECK: Basic Block: [[BB1:BB[0-9]+]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi  [ i64 [[VAL2:%vp.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, BB2 ]
 ; CHECK-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
@@ -51,16 +59,7 @@
 ; CHECK-NEXT: Divergent: [Shape: Random] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2]] = add i64 [[VAL1]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i64 [[VAL2]] i64 3000
-
-; ModuleID = 'mod.cpp'
-source_filename = "mod.cpp"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-@count = dso_local local_unnamed_addr global [3000 x [3000 x i32]] zeroinitializer, align 16
-
-; Function Attrs: norecurse uwtable
-define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+;
 entry:
   br label %omp.inner.for.body.lr.ph
 

@@ -14,8 +14,9 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-print-after-hcfg < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-print-after-hcfg < %s -disable-output 2>&1 | FileCheck %s
 
+define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
 ; CHECK-LABEL:  Print after building H-CFG:
 ; CHECK:          [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] double* [[VP4:%.*]] = getelementptr inbounds double* [[Y0:%.*]] i64 [[VP2]]
@@ -25,10 +26,7 @@
 ; CHECK-NEXT:     [DA: Divergent] store double [[VP6]] double* [[VP7]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP8:%.*]] = icmp i64 [[VP3]] i64 [[VP1:%vp.*]]
-
-declare double @llvm.exp.f64(double %Val) nounwind readnone
-
-define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
+;
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.end
@@ -55,3 +53,4 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
+declare double @llvm.exp.f64(double %Val) nounwind readnone
