@@ -150,7 +150,7 @@
 // CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}daal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
 // CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
 // CHECK-DAAL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libdaal_sycl.a"
-// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=host-x86_64-unknown-linux-gnu,sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs={{.+\.o}},[[LISTLIN:.+\.txt]]" "-unbundle"
+// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs=[[LISTLIN:.+\.txt]]" "-unbundle"
 // CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "@[[LISTLIN]]"
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}

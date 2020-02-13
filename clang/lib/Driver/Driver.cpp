@@ -4435,7 +4435,21 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   if (!C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment() &&
       Args.hasArg(options::OPT_offload_lib_Group)) {
     ActionList UnbundlerInputs;
-    for (const auto &LI : LinkerInputs) {
+#if INTEL_CUSTOMIZATION
+    auto makePerfLib = [&](SmallString<128> &FileName) {
+      // Modify any of the performance library placeholders to be full
+      // blown libraries with locations.
+      if (FileName == StringRef("libmkl_sycl")) {
+        FileName = C.getDefaultToolChain().GetMKLLibPath();
+        llvm::sys::path::append(FileName, "libmkl_sycl.a");
+      }
+      if (FileName == StringRef("libdaal_sycl")) {
+        FileName = C.getDefaultToolChain().GetDAALLibPath();
+        llvm::sys::path::append(FileName, "libdaal_sycl.a");
+      }
+    };
+    for (auto &LI : LinkerInputs) {
+#endif // INTEL_CUSTOMIZATION
       // Unbundler only handles objects.
       if (auto *IA = dyn_cast<InputAction>(LI)) {
         std::string FileName = IA->getInputArg().getAsString(Args);
@@ -4443,13 +4457,31 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
             IA->getInputArg().getOption().hasFlag(options::LinkerInput))
           // Pass the Input along to linker only.
           continue;
+#if INTEL_CUSTOMIZATION
+        // Modify any of the performance library placeholders to be full
+        // blown libraries with locations.
+        if (FileName == "libdaal_sycl" || FileName == "libmkl_sycl") {
+          SmallString<128> LibName(FileName);
+          makePerfLib(LibName);
+          const llvm::opt::OptTable &Opts = getOpts();
+          Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
+          LI = C.MakeAction<InputAction>(*InputArg, IA->getType());
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         UnbundlerInputs.push_back(LI);
       }
     }
     const Arg *LastArg;
     auto addUnbundlerInput = [&](types::ID T, const Arg *A) {
       const llvm::opt::OptTable &Opts = getOpts();
-      Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+#if INTEL_CUSTOMIZATION
+      // For Performance libraries, we have placeholders which need to be
+      // updated to the proper library name.
+      SmallString<128> LibName(A->getValue());
+      makePerfLib(LibName);
+      Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
+#endif // INTEL_CUSTOMIZATION
       LastArg = InputArg;
       Action *Current = C.MakeAction<InputAction>(*InputArg, T);
       UnbundlerInputs.push_back(Current);
@@ -4469,38 +4501,28 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   }
   const llvm::opt::OptTable &Opts = getOpts();
   auto unbundleStaticLib = [&](types::ID T, const Arg *A) {
-    Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+#if INTEL_CUSTOMIZATION
+    SmallString<128> LibName(A->getValue());
+    if (T == types::TY_Archive || T == types::TY_WholeArchive) {
+      // For Performance libraries, we have placeholders which need to be
+      // updated to the proper library name
+      if (A->getValue() == StringRef("libmkl_sycl")) {
+        LibName = C.getDefaultToolChain().GetMKLLibPath();
+        llvm::sys::path::append(LibName, "mkl_sycl.lib");
+      }
+      if (A->getValue() == StringRef("libdaal_sycl")) {
+        LibName = C.getDefaultToolChain().GetDAALLibPath();
+        llvm::sys::path::append(LibName, "daal_sycl.lib");
+      }
+    }
+    Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
+#endif // INTEL_CUSTOMIZATION
     Action *Current = C.MakeAction<InputAction>(*InputArg, T);
     OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
     OffloadBuilder.addDeviceDependencesToHostAction(
         Current, InputArg, phases::Link, PL.back(), PL);
   };
   for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
-<<<<<<< HEAD
-    auto unbundleStaticLib = [&](types::ID T) {
-#if INTEL_CUSTOMIZATION
-      SmallString<128> LibName(A->getValue());
-      if (T == types::TY_Archive) {
-        // For Performance libraries, we have placeholders which need to be
-        // updated to the proper library name
-        if (A->getValue() == StringRef("libmkl_sycl")) {
-          LibName = C.getDefaultToolChain().GetMKLLibPath();
-          llvm::sys::path::append(LibName, "mkl_sycl.lib");
-        }
-        if (A->getValue() == StringRef("libdaal_sycl")) {
-          LibName = C.getDefaultToolChain().GetDAALLibPath();
-          llvm::sys::path::append(LibName, "daal_sycl.lib");
-        }
-      }
-      Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
-#endif // INTEL_CUSTOMIZATION
-      Action *Current = C.MakeAction<InputAction>(*InputArg, T);
-      OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
-      OffloadBuilder.addDeviceDependencesToHostAction(
-          Current, InputArg, phases::Link, PL.back(), PL);
-    };
-=======
->>>>>>> 360b25b6c06bdf12911ac73b24d8a46b00de2d56
     // In MSVC environment offload-static-libs are handled slightly different
     // because of missing support for partial linking in the linker. We add an
     // unbundling action for each static archive which produces list files with
@@ -5399,17 +5421,13 @@ InputInfo Driver::BuildJobsForActionNoCache(
       bool IsFPGAObjLink = (JA->getType() == types::TY_Object &&
           C.getInputArgs().hasArg(options::OPT_fintelfpga) &&
           C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // We create list files for unbundling when using -foffload-static-lib.
       // This is also true for -mkl and -daal, as they imply additional
       // fat static libraries.
       if ((C.getInputArgs().hasArg(options::OPT_mkl_EQ, options::OPT_daal_EQ) ||
-          C.getInputArgs().hasArg(options::OPT_foffload_static_lib_EQ)) &&
+          C.getInputArgs().hasArg(options::OPT_offload_lib_Group)) &&
 #endif // INTEL_CUSTOMIZATION
-=======
-      if (C.getInputArgs().hasArg(options::OPT_offload_lib_Group) &&
->>>>>>> 360b25b6c06bdf12911ac73b24d8a46b00de2d56
           ((JA->getType() == types::TY_Archive && IsMSVCEnv) ||
            (JA->getType() == types::TY_Object && !IsMSVCEnv))) {
         // Host part of the unbundled static archive is not used.
