@@ -188,15 +188,13 @@ void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
   // Set default precision to high accuracy. For bitwise reproducible svml
   // functions, the iml accuracy inferface expects these attributes to appear
   // before imf-arch-consistency.
-  ImfAttr *MaxError = new ImfAttr();
-  MaxError->name = "max-error";
-  MaxError->value = "0.6";
   ImfAttr *Precision = new ImfAttr();
   Precision->name = "precision";
-  Precision->value = "high";
-  MaxError->next = Precision;
+  // If fast math is enabled, use medium accuracy (as ICC does), otherwise
+  // defaults to high accuracy.
+  Precision->value = isa<FPMathOperator>(CI) &&
+    CI->getFastMathFlags().approxFunc() ? "medium" : "high";
   Precision->next = nullptr;
-  addAttributeToList(List, &Tail, MaxError);
   addAttributeToList(List, &Tail, Precision);
 
   // Build the linked list of IMF attributes that will be used to query
