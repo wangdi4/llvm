@@ -55,9 +55,14 @@ static cl::opt<uint64_t>
     TripCountThreshold("hir-prefetching-trip-count-threshold", cl::init(10000),
                        cl::Hidden, cl::desc("Threshold for trip count"));
 
-static cl::opt<unsigned> IterationDistance(
+static cl::opt<unsigned> ForceIterationDistance(
     "hir-prefetching-iteration-distance", cl::init(6), cl::Hidden,
     cl::desc("Iteration distance for prefetching distance computation"));
+
+static cl::opt<unsigned>
+    AssumedMemPrefetchLatency("hir-prefetching-assumed-mem-prefetch-latency",
+                              cl::init(840), cl::Hidden,
+                              cl::desc("Assumed Memory Prefetch Latency"));
 
 static cl::opt<bool>
     SkipNonModifiedRegions("hir-prefetching-skip-non-modified-regions",
@@ -77,12 +82,13 @@ namespace {
 class HIRPrefetching {
   HIRFramework &HIRF;
   HIRLoopLocality &LA;
+  HIRLoopResource &HLR;
   const TargetTransformInfo &TTI;
 
 public:
-  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA,
+  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA, HIRLoopResource &HLR,
                  const TargetTransformInfo &TTI)
-      : HIRF(HIRF), LA(LA), TTI(TTI) {}
+      : HIRF(HIRF), LA(LA), HLR(HLR), TTI(TTI) {}
 
   bool run();
 
@@ -283,7 +289,24 @@ bool HIRPrefetching::doPrefetching(
 
   StrideRef->isIntConstant(&Stride);
 
+  unsigned IterationDistance = 0;
+
+  if (ForceIterationDistance.getNumOccurrences() > 0) {
+    IterationDistance = ForceIterationDistance;
+  } else {
+    // Dynamically compute the IterationDistance by considering the total cost
+    // in loop resource as the loop latency. The IterationDistance and the cost
+    // have an inverse ratio.
+    unsigned Cost = HLR.getTotalLoopResource(Lp).getTotalCost();
+    IterationDistance = AssumedMemPrefetchLatency / Cost;
+
+    if (IterationDistance == 0) {
+      IterationDistance = ForceIterationDistance;
+    }
+  }
+
   unsigned Distance = IterationDistance * Stride;
+
   unsigned Level = Lp->getNestingLevel();
   unsigned NumSpatialPrefetches = PrefetchCandidates.size();
 
@@ -367,6 +390,7 @@ PreservedAnalyses HIRPrefetchingPass::run(llvm::Function &F,
                                           llvm::FunctionAnalysisManager &AM) {
   HIRPrefetching(AM.getResult<HIRFrameworkAnalysis>(F),
                  AM.getResult<HIRLoopLocalityAnalysis>(F),
+                 AM.getResult<HIRLoopResourceAnalysis>(F),
                  AM.getResult<TargetIRAnalysis>(F))
       .run();
   return PreservedAnalyses::all();
@@ -383,6 +407,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
   }
@@ -395,6 +420,7 @@ public:
     return HIRPrefetching(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+               getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
                getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
         .run();
   }
@@ -406,6 +432,7 @@ INITIALIZE_PASS_BEGIN(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_END(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 

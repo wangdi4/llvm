@@ -35,7 +35,7 @@
 ; CHECK:           |   %0 = trunc.i64.i32(i1);
 ; CHECK:           |   (@A)[0][i1 + -5 * (sext.i32.i64(%0) /u 5)] = i1;
 ; CHECK:           |   (@B)[0][i1] = i1;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 6]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 49]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
