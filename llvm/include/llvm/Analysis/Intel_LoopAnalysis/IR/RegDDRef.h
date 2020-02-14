@@ -808,15 +808,9 @@ public:
   /// Returns true if the Ref has trailing offsets for any dimension.
   bool hasTrailingStructOffsets() const;
 
-  /// Returns the number of elements for specified dimension. 0 is returned for
-  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
-  unsigned getNumDimensionElements(unsigned DimensionNum) const {
-    assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
-    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
-
-    Type *DimType = getDimensionType(DimensionNum);
-    return DimType->isArrayTy() ? DimType->getArrayNumElements() : 0;
-  }
+  /// Returns the number of elements for specified dimension. 0 is returned if
+  /// it is unknown. DimensionNum must be within [1, getNumDimensions()].
+  unsigned getNumDimensionElements(unsigned DimensionNum) const;
 
   /// Returns the stride in number of bytes for specified dimension if it is
   /// constant, else returns 0. DimensionNum must be within [1,
