@@ -148,11 +148,11 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK: }
 
 ; Verify that the interface was created
-; CHECK-LABEL: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !2 {
+; CHECK: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize ![[NUM:[0-9]+]] {
 ; CHECK-LABEL: entry:
 ; CHECK:   [[TMP0:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
 ; CHECK:   [[TMP1:%.*]] = icmp ult i32 [[TMP0:%.*]], 250
 ; CHECK:   ret i1 [[TMP1:%.*]]
 ; CHECK: }
 
-; CHECK: !2 = !{i32 32}
+; CHECK: ![[NUM]] = !{i32 32}

@@ -6343,6 +6343,17 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
     ForkCallFn->setCallingConv(CallingConv::C);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (!ForkCallFn->hasMetadata(LLVMContext::MD_callback)) {
+    // Annotate the callback behavior of the call.
+    MDBuilder MDB(C);
+    ForkCallFn->addMetadata(LLVMContext::MD_callback,
+                            *MDNode::get(C, {MDB.createCallbackEncoding(
+                                                2, {-1, -1},
+                                                /*VarArgsArePassed=*/true)}));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   AttributeList ForkCallFnAttr;
   SmallVector<AttributeList, 4> Attrs;
 

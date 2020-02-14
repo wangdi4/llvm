@@ -124,3 +124,6 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 ; CHECK: call void {{.*}} @__kmpc_fork_call({{.*}})
 ; CHECK: call void @__kmpc_team_static_init_4({{.*}})
 
+; CHECK: declare !callback ![[NUM1:[0-9]+]] void @__kmpc_fork_call({{.*}}, ...)
+; CHECK: ![[NUM1]] = !{![[NUM2:[0-9]+]]}
+; CHECK: ![[NUM2]] = !{i64 2, i64 -1, i64 -1, i1 true}
