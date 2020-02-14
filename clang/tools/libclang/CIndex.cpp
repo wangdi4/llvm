@@ -2265,6 +2265,8 @@ void OMPClauseEnqueue::VisitOMPAcquireClause(const OMPAcquireClause *) {}
 
 void OMPClauseEnqueue::VisitOMPReleaseClause(const OMPReleaseClause *) {}
 
+void OMPClauseEnqueue::VisitOMPRelaxedClause(const OMPRelaxedClause *) {}
+
 void OMPClauseEnqueue::VisitOMPThreadsClause(const OMPThreadsClause *) {}
 
 void OMPClauseEnqueue::VisitOMPSIMDClause(const OMPSIMDClause *) {}
