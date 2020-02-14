@@ -100,13 +100,37 @@ static int DebugLevel = 0;
 #define FOREACH_ZE_ERROR_CODE(Fn)                                              \
   Fn(ZE_RESULT_SUCCESS)                                                        \
   Fn(ZE_RESULT_NOT_READY)                                                      \
-  Fn(ZE_RESULT_ERROR_UNINITIALIZED)                                            \
   Fn(ZE_RESULT_ERROR_DEVICE_LOST)                                              \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED)                                              \
-  Fn(ZE_RESULT_ERROR_INVALID_ARGUMENT)                                         \
   Fn(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY)                                       \
   Fn(ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY)                                     \
   Fn(ZE_RESULT_ERROR_MODULE_BUILD_FAILURE)                                     \
+  Fn(ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS)                                 \
+  Fn(ZE_RESULT_ERROR_NOT_AVAILABLE)                                            \
+  Fn(ZE_RESULT_ERROR_UNINITIALIZED)                                            \
+  Fn(ZE_RESULT_ERROR_UNSUPPORTED_VERSION)                                      \
+  Fn(ZE_RESULT_ERROR_UNSUPPORTED_FEATURE)                                      \
+  Fn(ZE_RESULT_ERROR_INVALID_ARGUMENT)                                         \
+  Fn(ZE_RESULT_ERROR_INVALID_NULL_HANDLE)                                      \
+  Fn(ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE)                                     \
+  Fn(ZE_RESULT_ERROR_INVALID_NULL_POINTER)                                     \
+  Fn(ZE_RESULT_ERROR_INVALID_SIZE)                                             \
+  Fn(ZE_RESULT_ERROR_UNSUPPORTED_SIZE)                                         \
+  Fn(ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT)                                    \
+  Fn(ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT)                           \
+  Fn(ZE_RESULT_ERROR_INVALID_ENUMERATION)                                      \
+  Fn(ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION)                                  \
+  Fn(ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT)                                 \
+  Fn(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY)                                    \
+  Fn(ZE_RESULT_ERROR_INVALID_GLOBAL_NAME)                                      \
+  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_NAME)                                      \
+  Fn(ZE_RESULT_ERROR_INVALID_FUNCTION_NAME)                                    \
+  Fn(ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION)                             \
+  Fn(ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION)                           \
+  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX)                            \
+  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE)                             \
+  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE)                           \
+  Fn(ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE)                                \
+  Fn(ZE_RESULT_ERROR_OVERLAPPING_REGIONS)                                      \
   Fn(ZE_RESULT_ERROR_UNKNOWN)
 
 /// Per-device global entry table
@@ -135,10 +159,11 @@ struct RTLDeviceInfoTy {
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
 
-  /// Flags and parameters
+  /// Flags, parameters, options
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
   uint32_t ThreadLimit; // Global thread limit
+  std::string CompilationOptions; // Compilation options for IGC
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
@@ -176,6 +201,9 @@ struct RTLDeviceInfoTy {
     // Global thread limit
     int threadLimit = omp_get_thread_limit();
     ThreadLimit = threadLimit > 0 ? threadLimit : 0;
+    // Compilation options for IGC
+    if (char *env = getenv("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
+      CompilationOptions += env;
   }
 };
 
@@ -226,7 +254,8 @@ static void closeRTL() {
     CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, DeviceInfo.CmdQueues[i]);
     CALL_ZE_EXIT_FAIL(zeCommandListDestroy, DeviceInfo.CmdLists[i]);
     for (auto kernel : DeviceInfo.FuncGblEntries[i].Kernels) {
-      CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
+      if (kernel)
+        CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
     }
     CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
     DeviceInfo.Mutexes[i].unlock();
@@ -362,7 +391,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     ZE_MODULE_FORMAT_IL_SPIRV,
     imageSize,
     (uint8_t *)Image->ImageStart,
-    "-cl-intel-enable-global-relocation"
+    DeviceInfo.CompilationOptions.c_str(),
+    nullptr /* pointer to specialization constants */
   };
   ze_module_handle_t module;
   CALL_ZE_RET_NULL(zeModuleCreate, DeviceInfo.Devices[DeviceId], &moduleDesc,
@@ -439,11 +469,14 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   offset = (offset >= 0) ? offset : 0;
   size += offset;
 
+  ze_device_mem_alloc_desc_t allocDesc = {
+    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
+    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+    0 /* ordinal */
+  };
   void *base = nullptr;
-  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo.Driver,
-                   DeviceInfo.Devices[DeviceId],
-                   ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT, 0, size, LEVEL0_ALIGNMENT,
-                   &base);
+  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo.Driver, &allocDesc,
+                   size, LEVEL0_ALIGNMENT, DeviceInfo.Devices[DeviceId], &base);
   void *mem = (void *)((intptr_t)base + offset);
 
 #ifdef OMPTARGET_LEVEL0_DEBUG
@@ -689,7 +722,7 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
 
 static void decideGroupArguments(uint32_t NumTeams, uint32_t ThreadLimit,
                                  int64_t *LoopLevels, uint32_t *Sizes,
-                                 ze_thread_group_dimensions_t &Dimensions) {
+                                 ze_group_count_t &Dimensions) {
   uint32_t maxGroupSize = DeviceInfo.ComputeProperties.maxTotalGroupSize;
   // maxGroupCountX does not suggest practically useful count (~4M)
   //uint32_t maxGroupCount = DeviceInfo.ComputeProperties.maxGroupCountX;
@@ -779,7 +812,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   // Decide group sizes and dimensions
   uint32_t groupSizes[3];
-  ze_thread_group_dimensions_t groupDimensions;
+  ze_group_count_t groupDimensions;
   decideGroupArguments((uint32_t )NumTeams, (uint32_t)ThreadLimit,
                        (int64_t *)LoopDesc, groupSizes, groupDimensions);
 

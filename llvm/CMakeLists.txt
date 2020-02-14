@@ -1410,6 +1410,7 @@ if (INTEL_CUSTOMIZATION)
       # OpenMP components
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
+      llvm-level0-ompplugin
       # SYCL components
       khronos-icd-loader opencl-aot
     )
