@@ -2548,8 +2548,8 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   // is resolved 3D buffer copies must be split into multiple 2D buffer copies in the
   // sycl plugin.
   //
-  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, width, height};
-  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, width, height};
+  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
+  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
 
   // TODO: Remove the for loop and use the slice pitches.
   for (uint32_t i = 0; i < depth; i++) {
