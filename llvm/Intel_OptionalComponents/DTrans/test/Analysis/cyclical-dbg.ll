@@ -1,4 +1,6 @@
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
+
 ; REQUIRES: asserts
 
 ; test01 has a cyclic dependency between PHI nodes
@@ -338,38 +340,38 @@ exit:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*
 ; CHECK-NEXT: Element pointees:
-; CHECK-NEXT:   %struct.test02.a = type { i32, i32 } @ 1
+; CHECK-NEXT:   %struct.test02.a @ 1
 
 ; CHECK: analyzeValue   %pb.y = getelementptr
 ; CHECK: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*
 ; CHECK-NEXT: Element pointees:
-; CHECK-NEXT:   %struct.test02.b = type { i32, i32 } @ 1
+; CHECK-NEXT:   %struct.test02.b @ 1
 
 ; CHECK: analyzeValue   %y = phi
 ; CHECK: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*
 ; CHECK-NEXT: Element pointees:
-; CHECK-DAG:   %struct.test02.a = type { i32, i32 } @ 1
-; CHECK-DAG:   %struct.test02.b = type { i32, i32 } @ 1
+; CHECK-DAG:   %struct.test02.a @ 1
+; CHECK-DAG:   %struct.test02.b @ 1
 
 ; CHECK: analyzeValue   %tmpA.y = phi
 ; CHECK: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*
 ; CHECK-NEXT: Element pointees:
-; CHECK-DAG:   %struct.test02.a = type { i32, i32 } @ 1
-; CHECK-DAG:   %struct.test02.b = type { i32, i32 } @ 1
+; CHECK-DAG:   %struct.test02.a @ 1
+; CHECK-DAG:   %struct.test02.b @ 1
 
 ; CHECK: analyzeValue   %tmpB.y = phi
 ; CHECK: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*
 ; CHECK-NEXT: Element pointees:
-; CHECK-DAG:   %struct.test02.a = type { i32, i32 } @ 1
-; CHECK-DAG:   %struct.test02.b = type { i32, i32 } @ 1
+; CHECK-DAG:   %struct.test02.a @ 1
+; CHECK-DAG:   %struct.test02.b @ 1
 
 
 ; In test03, our analysis of the allocated pointer, %M, has a dependency of

@@ -1,5 +1,5 @@
 ; REQUIRES: intel_feature_isa_amx_lnc
-; RUN: llc < %s -O0 -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+amx-tile,+amx-fp16,+amx-bf16,+amx-int8,+amx-transpose,+amx-avx512,+amx-tile-evex,+amx-int8-evex,+amx-bf16-evex,+amx-memory,+amx-element-evex | FileCheck %s
+; RUN: llc < %s -O0 -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+amx-tile,+amx-bf16,+amx-int8,+amx-transpose,+amx-avx512,+amx-tile-evex,+amx-int8-evex,+amx-bf16-evex,+amx-memory,+amx-element-evex | FileCheck %s
 
 ; CHECK-LABEL: test_amx:
 ; CHECK:       # %bb.0:
@@ -14,8 +14,6 @@
 ; CHECK:    tdpbf16pse %tmm7, %tmm4, %tmm3
 ; amx-element-evex
 ; CHECK:    tcvtd2pse        %tmm1, (%{{.*}},%{{.*}})
-; amx-fp16
-; CHECK:    tdpfp16ps       %tmm1, %tmm2, %tmm3
 ; amx-int8-evex
 ; CHECK:    tdpbssde %tmm7, %tmm4, %tmm3
 ; CHECK:    tdpbsude %tmm7, %tmm4, %tmm3
@@ -46,8 +44,6 @@ call <16 x float> @llvm.x86.tilemovex(i8 7, <4 x float> %xmm)
 call void @llvm.x86.tdpbf16pse(i8 3, i8 4, i8 7)
 ; amx-element-evex
 call void @llvm.x86.tcvtd2pse  (i8* %addr1, i64 %stride, i8 1)
-; amx-fp16
-call void @llvm.x86.tdpfp16ps(i8 3, i8 2, i8 1)
 ; amx-int8-evex
 call void @llvm.x86.tdpbssde(i8 3, i8 4, i8 7)
 call void @llvm.x86.tdpbsude(i8 3, i8 4, i8 7)
@@ -79,8 +75,6 @@ declare <16 x float> @llvm.x86.tilemovex(i8 %tile0, <4 x float> %xmm)
 declare void @llvm.x86.tdpbf16pse(i8 %tile0, i8 %tile1, i8 %tile2)
 ; amx-element-evex
 declare void @llvm.x86.tcvtd2pse  (i8* %addr1, i64 %stride, i8 %tile1)
-; amx-fp16
-declare void @llvm.x86.tdpfp16ps(i8 %tile3, i8 %tile2, i8 %tile1)
 ; amx-int8-evex
 declare void @llvm.x86.tdpbssde(i8 %tile0, i8 %tile1, i8 %tile2)
 declare void @llvm.x86.tdpbsude(i8 %tile0, i8 %tile1, i8 %tile2)

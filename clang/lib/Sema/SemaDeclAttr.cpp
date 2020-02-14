@@ -3516,6 +3516,12 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
+  if (isa<VarDecl>(D)) {
+    S.Diag(Attr.getLoc(), diag::warn_max_concurrency_deprecated) << Attr;
+    if (checkAttrMutualExclusion<IntelFPGAPrivateCopiesAttr>(S, D, Attr))
+      return;
+  }
+
   checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
   if (isa<VarDecl>(D) &&
       checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
@@ -6422,6 +6428,11 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
 
   if (S.LangOpts.SYCLIsHost)
     return;
+
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGAPrivateCopiesAttr>(S, D, Attr);
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))

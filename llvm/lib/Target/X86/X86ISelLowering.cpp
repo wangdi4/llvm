@@ -34120,23 +34120,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTDPFP16PS:{
-    const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc;
-    switch (MI.getOpcode()) {
-    default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTDPFP16PS: Opc = X86::TDPFP16PS; break;
-    }
-
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
-
-    MI.eraseFromParent(); // The pseudo is gone now.
-    return BB;
-  }
   case X86::PTDPBSSDE:
   case X86::PTDPBSUDE:
   case X86::PTDPBUSDE:
@@ -34253,6 +34236,25 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  case X86::PTDPFP16PS:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTDPFP16PS: Opc = X86::TDPFP16PS; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 }

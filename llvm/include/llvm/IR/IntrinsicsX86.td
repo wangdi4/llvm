@@ -6164,11 +6164,6 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_tcvtd2pse">,
         Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<2>]>;
 
-//AMX-FP16
-  def int_x86_tdpfp16ps : GCCBuiltin<"__builtin_ia32_tdpfp16ps">,
-                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
-                                    [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
-
 //AMX-INT8-EVEX
   def int_x86_tdpbssde : GCCBuiltin<"__builtin_ia32_tdpbssde">,
               Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
@@ -6247,4 +6242,15 @@ let TargetPrefix = "x86" in {
                   [ImmArg<0>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_ISA_AMX_FP16
+//===----------------------------------------------------------------------===//
+let TargetPrefix = "x86" in {
+// AMX_FP16 - Intel FP16 AMX extensions
+//AMX-FP16
+  def int_x86_tdpfp16ps : GCCBuiltin<"__builtin_ia32_tdpfp16ps">,
+                          Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                                    [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 #endif // INTEL_CUSTOMIZATION

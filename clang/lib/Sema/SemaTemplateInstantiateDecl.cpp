@@ -739,6 +739,13 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, MCA, New);
       continue;
     }
+    const IntelFPGAPrivateCopiesAttr *PCA =
+        dyn_cast<IntelFPGAPrivateCopiesAttr>(TmplAttr);
+    if (PCA) {
+      instantiateDependentHLSOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
+          *this, TemplateArgs, PCA, New);
+      continue;
+    }
     const SchedulerTargetFmaxMHzAttr *STFM =
         dyn_cast<SchedulerTargetFmaxMHzAttr>(TmplAttr);
     if (STFM) {

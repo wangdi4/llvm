@@ -27,10 +27,6 @@
 #define _tile_2transposewt1(tdst, base, stride, src)                           \
   __builtin_ia32_t2transposewt1(tdst, base, stride, src)
 
-// FP16
-#define _tile_dpfp16ps(tsrc1_dst, tsrc2, tsrc3)                                \
-  __builtin_ia32_tdpfp16ps(tsrc1_dst, tsrc2, tsrc3)
-
 // AMX_LNC AVX512
 #define _tile_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6, tsrc7,\
   tsrc8, tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16)        \

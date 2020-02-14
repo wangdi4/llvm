@@ -11,19 +11,6 @@
 // RUN: | FileCheck  -check-prefix=NO-AMX-TRANSPOSE %s
 // NO-AMX-TRANSPOSE-NOT: #define __AMXTRANSPOSE__ 1
 
-// RUN: %clang -target i386-unknown-linux-gnu -march=i386 -mamx-fp16 -x c \
-// RUN: -E -dM -o - %s | FileCheck  -check-prefix=AMX-FP16 %s
-// AMX-FP16: #define __AMXFP16__ 1
-// RUN: %clang -target i386-unknown-linux-gnu -march=i386 -mno-amx-fp16 -x c \
-// RUN: -E -dM -o - %s | FileCheck  -check-prefix=NO-AMX-FP16 %s
-// RUN: %clang -target i386-unknown-linux-gnu -march=i386 -mamx-fp16 \
-// RUN: -mno-amx-tile -x c -E -dM -o - %s \
-// RUN: | FileCheck  -check-prefix=NO-AMX-FP16 %s
-// RUN: %clang -target i386-unknown-linux-gnu -march=i386 -mamx-fp16 \
-// RUN: -mno-avx512fp16 -x c -E -dM -o - %s \
-// RUN: | FileCheck  -check-prefix=NO-AMX-FP16 %s
-// NO-AMX-FP16-NOT: #define __AMXFP16__ 1
-
 // RUN: %clang -target i386-unknown-linux-gnu -march=i386 -mamx-avx512 -x c \
 // RUN: -E -dM -o - %s | FileCheck  -check-prefix=AMX-AVX512 %s
 // AMX-AVX512: #define __AMXAVX512__ 1

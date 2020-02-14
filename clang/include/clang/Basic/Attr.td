@@ -1786,9 +1786,10 @@ def IntelFPGANumBanks : Attr {
 }
 
 def IntelFPGAPrivateCopies : InheritableAttr {
-  let Spellings = [CXX11<"intelfpga","private_copies">];
+  let Spellings = [CXX11<"intelfpga","private_copies">, // INTEL
+                   GNU<"private_copies">]; // INTEL
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
   let Documentation = [IntelFPGAPrivateCopiesAttrDocs];
   let AdditionalMembers = [{

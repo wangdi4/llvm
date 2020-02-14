@@ -18,6 +18,7 @@
 //CHECK: [[ANN21:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,8}{max_replicates:4}{staticreset:1}
 //CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{max_replicates:2}{max_concurrency:4}
 //CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{simple_dual_port:1}{max_concurrency:4}
+//CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{private_copies:11}{numbanks:8}{simple_dual_port:1}
 //CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:3}
 //CHECK: [[ANN15:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{bank_bits:4,3,2}{max_replicates:3}
 //CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{bank_bits:4,3,2}{simple_dual_port:1}
@@ -35,10 +36,12 @@ void foo() {
 }
 
 template <int bankwidth, int numbanks, int readports, int writeports,
-          int bit1, int bit2, int bit3, int max_concurrency, int num_replicates>
+          int bit1, int bit2, int bit3, int max_concurrency, int num_replicates,
+          int private_copies>
 __attribute__((ihc_component)) void foo_one() {
   //CHECK: call void @llvm.var.annotation(i8* %var_one1, i8* getelementptr{{.*}}[[ANN11]]
   //CHECK: call void @llvm.var.annotation(i8* %var_two2, i8* getelementptr{{.*}}[[ANN12]]
+  //CHECK: call void @llvm.var.annotation(i8* %var_four4, i8* getelementptr{{.*}}[[ANN13]]
   __attribute__((bankwidth(bankwidth), numbanks(numbanks),
                  max_concurrency(max_concurrency),
                  max_replicates(num_replicates))) int var_one;
@@ -46,7 +49,11 @@ __attribute__((ihc_component)) void foo_one() {
                  max_concurrency(max_concurrency),
                  simple_dual_port)) int var_two;
   __attribute__((simple_dual_port, max_replicates(num_replicates))) int var_three;
+  __attribute__((bankwidth(bankwidth), numbanks(numbanks),
+                 private_copies(private_copies),
+                 simple_dual_port)) int var_four;
 }
+
 
 template <int numbanks, int bit, int num_replicates>
 __attribute__((ihc_component)) void foo_two() {
@@ -66,7 +73,7 @@ __attribute__((ihc_component)) void foo_two() {
 }
 
 void call() {
-  foo_one<4, 8, 2, 3, 2, 3, 4, 4, 2>();
+  foo_one<4, 8, 2, 3, 2, 3, 4, 4, 2, 11>();
   foo_two<8, 3, 3>();
 }
 
