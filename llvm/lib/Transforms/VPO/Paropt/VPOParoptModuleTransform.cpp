@@ -59,68 +59,249 @@ static cl::opt<bool> AssumeExternMayHaveOmpCritical(
 // llvm.*.ty mangling.  The intrinsics will be generated only for
 // C; for C++ calls to fabs[f], etc. will be generated as-is.
 std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
-    // float:
-    {"asinf",                 "_Z4asinf"},
-    {"asinhf",                "_Z5asinhf"},
-    {"sinf",                  "_Z3sinf"},
-    {"sinhf",                 "_Z4sinhf"},
-    {"acosf",                 "_Z4acosf"},
-    {"acoshf",                "_Z5acoshf"},
-    {"cosf",                  "_Z3cosf"},
-    {"coshf",                 "_Z4coshf"},
-    {"atanf",                 "_Z4atanf"},
-    {"atanhf",                "_Z5atanhf"},
-    {"atan2f",                "_Z5atan2f"},
-    {"tanf",                  "_Z3tanf"},
-    {"tanhf",                 "_Z4tanhf"},
-    {"erff",                  "_Z3erff"},
-    {"expf",                  "_Z3expf"},
-    {"logf",                  "_Z3logf"},
-    {"log2f",                 "_Z4log2f"},
-    {"powf",                  "_Z3powff"},
-    {"sqrtf",                 "_Z4sqrtf"},
-    {"invsqrtf",              "_Z5rsqrtf"},   // from mathimf.h
-    {"fmaxf",                 "_Z4fmaxff"},
-    {"llvm.maxnum.f32",       "_Z4fmaxff"},
-    {"fminf",                 "_Z4fminff"},
-    {"llvm.minnum.f32",       "_Z4fminff"},
-    {"fabsf",                 "_Z4fabsf"},
+/////////////////////////////////////////////
+//                 FLOAT                   //
+/////////////////////////////////////////////
+//  Basic functions
+    {"_ZSt3absf",             "_Z4fabsf"},
+    {"_ZSt4fabsf",            "_Z4fabsf"},
     {"llvm.fabs.f32",         "_Z4fabsf"},
-    {"ceilf",                 "_Z4ceilf"},
+
+    {"fmodf",                 "_Z4fmodff"},
+    {"_ZSt4fmodff",           "_Z4fmodff"},
+
+    {"remainderf",            "_Z9remainderff"},
+    {"_ZSt9remainderff",      "_Z9remainderff"},
+
+    {"remquof",               "_Z6remquoffPi"},
+    {"_ZSt6remquoffPi",       "_Z6remquoffPi"},
+
+    {"fmaf",                  "_Z3fmafff"},
+    {"llvm.fma.f32",          "_Z3fmafff"},
+    {"_ZSt3fmafff",           "_Z3fmafff"},
+
+    {"llvm.maxnum.f32",       "_Z4fmaxff"},
+    {"_ZSt4fmaxff",           "_Z4fmaxff"},
+
+    {"llvm.minnum.f32",       "_Z4fminff"},
+    {"_ZSt4fminff",           "_Z4fminff"},
+
+    {"fdimf",                 "_Z4fdimff"},
+    {"_ZSt4fdimff",           "_Z4fdimff"},
+
+//  Exponential functions
+    {"expf",                  "_Z3expf"},
+    {"llvm.exp.f32",          "_Z3expf"},
+    {"_ZSt3expf",             "_Z3expf"},
+
+    {"exp2f",                 "_Z4exp2f"},
+    {"llvm.exp2.f32",         "_Z4exp2f"},
+    {"_ZSt4exp2f",            "_Z4exp2f"},
+
+    {"expm1f",                "_Z5expm1f"},
+    {"_ZSt5expm1f",           "_Z5expm1f"},
+
+    {"logf",                  "_Z3logf"},
+    {"llvm.log.f32",          "_Z3logf"},
+    {"_ZSt3logf",             "_Z3logf"},
+
+    {"log2f",                 "_Z4log2f"},
+    {"llvm.log2.f32",         "_Z4log2f"},
+    {"_ZSt4log2f",            "_Z4log2f"},
+
+    {"log10f",                "_Z5log10f"},
+    {"llvm.log10.f32",        "_Z5log10f"},
+    {"_ZSt5log10f",           "_Z5log10f"},
+
+    {"log1pf",                "_Z5log1pf"},
+    {"_ZSt5log1pf",           "_Z5log1pf"},
+
+//  Power functions
+    {"powf",                  "_Z3powff"},
+    {"llvm.pow.f32",          "_Z3powff"},
+    {"_ZSt3powff",            "_Z3powff"},
+
+    {"sqrtf",                 "_Z4sqrtf"},
+    {"llvm.sqrt.f32",         "_Z4sqrtf"},
+    {"_ZSt4sqrtf",            "_Z4sqrtf"},
+
+    {"cbrtf",                 "_Z4cbrtf"},
+    {"_ZSt4cbrtf",            "_Z4cbrtf"},
+
+    {"hypotf",                "_Z5hypotff"},
+    {"_ZSt5hypotff",          "_Z5hypotff"},
+
+    {"invsqrtf",              "_Z5rsqrtf"},   // from mathimf.h
+
+//  Trig & hyperbolic functions
+    {"sinf",                  "_Z3sinf"},
+    {"llvm.sin.f32",          "_Z3sinf"},
+    {"_ZSt3sinf",             "_Z3sinf"},
+
+    {"asinf",                 "_Z4asinf"},
+    {"_ZSt4asinf",            "_Z4asinf"},
+
+    {"asinhf",                "_Z5asinhf"},
+    {"_ZSt5asinhf",           "_Z5asinhf"},
+
+    {"sinhf",                 "_Z4sinhf"},
+    {"_ZSt4sinhf",            "_Z4sinhf"},
+
+    {"cosf",                  "_Z3cosf"},
+    {"llvm.cos.f32",          "_Z3cosf"},
+    {"_ZSt3cosf",             "_Z3cosf"},
+
+    {"acosf",                 "_Z4acosf"},
+    {"_ZSt4acosf",            "_Z4acosf"},
+
+    {"acoshf",                "_Z5acoshf"},
+    {"_ZSt5acoshf",           "_Z5acoshf"},
+
+    {"coshf",                 "_Z4coshf"},
+    {"_ZSt4coshf",            "_Z4coshf"},
+
+    {"tanf",                  "_Z3tanf"},
+    {"_ZSt3tanf",             "_Z3tanf"},
+
+    {"atanf",                 "_Z4atanf"},
+    {"_ZSt4atanf",            "_Z4atanf"},
+
+    {"atanhf",                "_Z5atanhf"},
+    {"_ZSt5atanhf",           "_Z5atanhf"},
+
+    {"tanhf",                 "_Z4tanhf"},
+    {"_ZSt4tanhf",            "_Z4tanhf"},
+
+    {"atan2f",                "_Z5atan2ff"},
+    {"_ZSt5atan2ff",          "_Z5atan2ff"},
+
+    {"sincosf",               "_Z6sincosfPf"},
+
+//  Error & gamma functions
+    {"erff",                  "_Z3erff"},
+    {"_ZSt3erff",             "_Z3erff"},
+
+    {"erfcf",                 "_Z4erfcf"},
+    {"_ZSt4erfcf",            "_Z4erfcf"},
+
+    {"tgammaf",               "_Z6tgammaf"},
+    {"_ZSt6tgammaf",          "_Z6tgammaf"},
+
+    {"lgammaf",               "_Z6lgammaf"},
+    {"_ZSt6lgammaf",          "_Z6lgammaf"},
+
+//  Rounding functions
     {"llvm.ceil.f32",         "_Z4ceilf"},
-    {"floorf",                "_Z5floorf"},
+    {"_ZSt4ceilf",            "_Z4ceilf"},
+
     {"llvm.floor.f32",        "_Z5floorf"},
-    // double:
+    {"_ZSt5floorf",           "_Z5floorf"},
+
+    {"llvm.trunc.f32",        "_Z5truncf"},
+    {"_ZSt5truncf",           "_Z5truncf"},
+
+    {"llvm.round.f32",        "_Z5roundf"},
+    {"_ZSt5roundf",           "_Z5roundf"},
+
+//  Floating-point manipulation functions
+    {"frexpf",                "_Z5frexpfPi"},
+    {"_ZSt5frexpfPi",         "_Z5frexpfPi"},
+
+    {"ldexpf",                "_Z5ldexpfi"},
+    {"_ZSt5ldexpfi",          "_Z5ldexpfi"},
+
+    {"modff",                 "_Z4modffPf"},
+    {"_ZSt4modffPf",          "_Z4modffPf"},
+
+    {"ilogbf",                "_Z5ilogbf"},
+    {"_ZSt5ilogbf",           "_Z5ilogbf"},
+
+    {"logbf",                 "_Z4logbf"},
+    {"_ZSt4logbf",            "_Z4logbf"},
+
+    {"nextafterf",            "_Z9nextafterff"},
+    {"_ZSt9nextafterff",      "_Z9nextafterff"},
+
+    {"llvm.copysign.f32",     "_Z8copysignff"},
+    {"_ZSt8copysignff",       "_Z8copysignff"},
+
+/////////////////////////////////////////////
+//                 DOUBLE                  //
+/////////////////////////////////////////////
+//  Basic functions
+    {"_ZSt3absd",             "_Z4fabsd"},
+    {"llvm.fabs.f64",         "_Z4fabsd"},
+    {"fmod",                  "_Z4fmoddd"},
+    {"remainder",             "_Z9remainderdd"},
+    {"remquo",                "_Z6remquoddPi"},
+    {"fma",                   "_Z3fmaddd"},
+    {"llvm.fma.f64",          "_Z3fmaddd"},
+    {"llvm.maxnum.f64",       "_Z4fmaxdd"},
+    {"llvm.minnum.f64",       "_Z4fmindd"},
+    {"fdim",                  "_Z4fdimdd"},
+
+//  Exponential functions
+    {"exp",                   "_Z3expd"},
+    {"llvm.exp.f64",          "_Z3expd"},
+    {"exp2",                  "_Z4exp2d"},
+    {"llvm.exp2.f64",         "_Z4exp2d"},
+    {"expm1",                 "_Z5expm1d"},
+    {"log",                   "_Z3logd"},
+    {"llvm.log.f64",          "_Z3logd"},
+    {"log2",                  "_Z4log2d"},
+    {"llvm.log2.f64",         "_Z4log2d"},
+    {"log10",                 "_Z5log10d"},
+    {"llvm.log10.f64",        "_Z5log10d"},
+    {"log1p",                 "_Z5log1pd"},
+
+//  Power functions
+    {"pow",                   "_Z3powdd"},
+    {"llvm.pow.f64",          "_Z3powdd"},
+    {"sqrt",                  "_Z4sqrtd"},
+    {"llvm.sqrt.f64",         "_Z4sqrtd"},
+    {"cbrt",                  "_Z4cbrtd"},
+    {"hypot",                 "_Z5hypotdd"},
+    {"invsqrt",               "_Z5rsqrtd"},   // from mathimf.h
+
+//  Trig & hyperbolic functions
+    {"sin",                   "_Z3sind"},
+    {"llvm.sin.f64",          "_Z3sind"},
     {"asin",                  "_Z4asind"},
     {"asinh",                 "_Z5asinhd"},
-    {"sin",                   "_Z3sind"},
     {"sinh",                  "_Z4sinhd"},
+    {"cos",                   "_Z3cosd"},
+    {"llvm.cos.f64",          "_Z3cosd"},
     {"acos",                  "_Z4acosd"},
     {"acosh",                 "_Z5acoshd"},
-    {"cos",                   "_Z3cosd"},
     {"cosh",                  "_Z4coshd"},
+    {"tan",                   "_Z3tand"},
     {"atan",                  "_Z4atand"},
     {"atanh",                 "_Z5atanhd"},
-    {"atan2",                 "_Z5atan2d"},
-    {"tan",                   "_Z3tand"},
     {"tanh",                  "_Z4tanhd"},
+    {"atan2",                 "_Z5atan2dd"},
+    {"sincos",                "_Z6sincosdPd"},
+
+//  Error & gamma functions
     {"erf",                   "_Z3erfd"},
-    {"exp",                   "_Z3expd"},
-    {"log",                   "_Z3logd"},
-    {"log2",                  "_Z4log2d"},
-    {"pow",                   "_Z3powdd"},
-    {"sqrt",                  "_Z4sqrtd"},
-    {"invsqrt",               "_Z5rsqrtd"},   // from mathimf.h
-    {"fmax",                  "_Z4fmaxdd"},
-    {"llvm.maxnum.f64",       "_Z4fmaxdd"},
-    {"fmin",                  "_Z4fmindd"},
-    {"llvm.minnum.f64",       "_Z4fmindd"},
-    {"fabs",                  "_Z4fabsd"},
-    {"llvm.fabs.f64",         "_Z4fabsd"},
-    {"ceil",                  "_Z4ceild"},
+    {"erfc",                  "_Z4erfcd"},
+    {"tgamma",                "_Z6tgammad"},
+    {"lgamma",                "_Z6lgammad"},
+
+//  Rounding functions
     {"llvm.ceil.f64",         "_Z4ceild"},
-    {"floor",                 "_Z5floord"},
-    {"llvm.floor.f64",        "_Z5floord"}};
+    {"llvm.floor.f64",        "_Z5floord"},
+    {"llvm.trunc.f64",        "_Z5truncd"},
+    {"llvm.round.f64",        "_Z5roundd"},
+
+//  Floating-point manipulation functions
+    {"frexp",                 "_Z5frexpdPi"},
+    {"ldexp",                 "_Z5ldexpdi"},
+    {"modf",                  "_Z4modfdPd"},
+    {"ilogb",                 "_Z5ilogbd"},
+    {"logb",                  "_Z4logbd"},
+    {"nextafter",             "_Z9nextafterdd"},
+    {"llvm.copysign.f64",     "_Z8copysigndd"}};
+
 
 // To support the SPIRV target compilation stage of the OpenMP compilation
 // offloading to GPUs, we must translate the name of math functions (left
@@ -165,6 +346,90 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\nOld printf decl: " << *PrintfDecl
                     << "\nOCL printf decl: " << *OCLPrintfDecl << "\n");
+}
+
+// Given the original sincosf()/sincos() declaration \p F coming in from clang:
+//
+//   declare dso_local spir_func
+//           void @sincosf(float, float addrspace(4)*, float addrspace(4)*)
+//   declare dso_local spir_func
+//           void @sincos(double, double addrspace(4)*, double addrspace(4)*)
+//
+// Create the corresponding decl for OCL sincos() called from offload kernels:
+//
+//   declare dso_local spir_func
+//           float @_Z6sincosfPf(float, float addrspace(4)*)
+//   declare dso_local spir_func
+//           double @_Z6sincosdPd(double, double addrspace(4)*)
+//
+// Then replace all sincos and sincosf calls as follows:
+//
+//   old:
+//        sincos(Opnd, SineVar, CosineVar)       // or sincosf
+//   new:
+//        %sine = _Z6sincosdPd(opnd, CosineVar)  // or _Z6sincosfPf
+//        store %sine, SineVar
+void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
+                                                           bool IsDouble) {
+
+  // First, create the function declaration for the OCL built-in versions
+
+  Function *SincosDecl = F; // decl for sincos or sincosf
+  Function *OCLSincosDecl;  // decl for _Z6sincosdPd or _Z6sincosfPf
+
+  // Create the FunctionType
+  Type *FpTy;    // floating-point type; can be double or float
+  Type *FpPtrTy; // pointer to double or float
+  StringRef NewName;
+  if (IsDouble) {
+    FpTy = Type::getDoubleTy(C);
+    FpPtrTy = Type::getDoublePtrTy(C, ADDRESS_SPACE_GENERIC /*=4*/);
+    NewName = "_Z6sincosdPd";
+  } else {
+    FpTy = Type::getFloatTy(C);
+    FpPtrTy = Type::getFloatPtrTy(C, ADDRESS_SPACE_GENERIC /*=4*/);
+    NewName = "_Z6sincosfPf";
+  }
+  FunctionType *FnTy = FunctionType::get(FpTy, {FpTy, FpPtrTy}, false);
+
+  // Get or create the function prototype
+  FunctionCallee FnC = M.getOrInsertFunction(NewName, FnTy);
+
+  OCLSincosDecl = cast<Function>(FnC.getCallee());
+  OCLSincosDecl->copyAttributesFrom(SincosDecl);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\nOld sincos decl: " << *SincosDecl
+                    << "\nOCL sincos decl: " << *OCLSincosDecl << "\n");
+
+  // Then, replace all calls to the old function with calls to the OCL built-in
+
+  for (User *U : SincosDecl->users())
+    if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": old sincos: " << *OldCall
+                        << "\n");
+
+      // Create the new call based on OCLSincosDecl and
+      // insert it before the old call
+
+      SmallVector<Value *, 3> FnArgs(OldCall->arg_operands());
+      // arg[0]: Opnd;  arg[1]: SineVar;  arg[2]: CosineVar
+
+      CallInst *NewCall = CallInst::Create(
+          OCLSincosDecl, {FnArgs[0], FnArgs[2]}, "sine", OldCall);
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": OCL sincos: " << *NewCall
+                        << "\n");
+
+      // Store the return value into SineVar (which is FnArgs[1])
+      StoreInst *StoreSine = new StoreInst(NewCall, FnArgs[1], OldCall);
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store for sine: " << *StoreSine
+                        << "\n");
+
+      // Remove the old call
+      OldCall->eraseFromParent();
+    }
 }
 
 void VPOParoptModuleTransform::collectMayHaveOMPCriticalFunctions(
@@ -348,8 +613,13 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
       if (IsTargetSPIRV) {
-        if (F->getName() == "printf")
+        auto FuncName = F->getName();
+        if (FuncName == "printf")
           createOCLPrintfDecl(&*F);
+        else if (FuncName == "sincos")
+          replaceSincosWithOCLBuiltin(&*F, true);  // double sincos
+        else if (FuncName == "sincosf")
+          replaceSincosWithOCLBuiltin(&*F, false); // float sincosf
         else
           replaceMathFnWithOCLBuiltin(*F);
       }
