@@ -11,3 +11,13 @@
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
+<<<<<<< HEAD
+=======
+
+; XFAIL: *
+; INTEL_CUSTOMIZATION
+; Force fail to avoid unexpected passes.
+; See CORC-7259
+; CHECK: Force fail
+; end INTEL_CUSTOMIZATION
+>>>>>>> f47ac163e2e0cded6244af3986c503993f741eb6
