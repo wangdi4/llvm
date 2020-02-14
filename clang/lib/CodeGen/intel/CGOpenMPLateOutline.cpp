@@ -1523,6 +1523,7 @@ void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
 void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
+void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
