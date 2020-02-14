@@ -355,7 +355,8 @@ public:
         ExpensiveCombines(ExpensiveCombines),          // INTEL
         TypeLoweringOpts(TypeLoweringOpts),            // INTEL
         AA(AA), AC(AC), TLI(TLI),                      // INTEL
-        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC), // INTEL
+        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
+                                     nullptr, true, &TTI), // INTEL
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}        // INTEL
 
   /// Run the combiner over the entire worklist until it is empty.
