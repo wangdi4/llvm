@@ -1177,8 +1177,9 @@ bool ReductionDescr::replaceOrigWithAlias() {
     LLVM_DEBUG(
         dbgs()
         << "Reduction descr: Using alias instead of original descriptor.\n");
-    if (!Start)
-      Start = Alias.getValue().Start;
+
+    // Overwrite start value of descriptor with that of the alias.
+    Start = Alias.getValue().Start;
     // Add updates to linked VPValues before overwriting
     for (auto *U : UpdateVPInsts)
       LinkedVPVals.push_back(U);
