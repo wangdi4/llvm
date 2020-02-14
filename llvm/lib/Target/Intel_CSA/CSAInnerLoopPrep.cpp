@@ -330,8 +330,8 @@ uint64_t CSAInnerLoopPrep::programmerSpecifiedPipelineable(Loop *L) {
 
         // The parent loop has a "pipeline_loop" directive with it, referring
         // to some child loop. Is that child loop us?
-        if (not DT->dominates(pipeline_loop_entry->getParent(), L->getHeader()) or
-            not PDT->dominates(pipeline_loop_exit->getParent(), L->getHeader()))
+        if (not DT->properlyDominates(pipeline_loop_entry->getParent(), L->getHeader()) or
+            not PDT->properlyDominates(pipeline_loop_exit->getParent(), L->getHeader()))
           continue;
 
         if (pipeliningDepth->isZero())
