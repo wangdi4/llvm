@@ -129,7 +129,7 @@ public:
 
   /// Given \p Loop, a candidate of the multiversion,
   /// returns its lowest ancestor without any other child
-  /// other than an ancestor of \p Loop.
+  /// than an ancestor of \p Loop.
   /// \p Loop itself, can be returned as its own valid lowest ancestor.
   /// e.g.
   /// For the following loop structure, where L3 is the only MV candidate
@@ -146,7 +146,7 @@ public:
   /// L1 <-- L2 <-- L3
   /// L1 is the lowest ancestor without any other child than L2, L3's ancestor.
   /// On the other hand if L4 were also a MV cand,
-  /// getValidLowestAncestor(L1) would have returned L2.
+  /// getValidLowestAncestor(L3) would have returned L2.
   /// the loop tree built from the above struct will look like
   /// L1 <-- L2 <-- L3
   ///    ^-- L4
@@ -254,9 +254,6 @@ void LoopTreeForMV::buildTreeByTrackingAncestors() {
       ParentLp = ParentLp->getParentLoop();
     }
   }
-
-  assert((Loop2ID.size() == ID2Loop.size()) &&
-         ((int)Loop2ID.size() == getTotalNumLoops()));
 
   LLVM_DEBUG(print());
 }
@@ -507,7 +504,7 @@ bool HIRMVForVariableStride::Analyzer::hasVariableStride(const RegDDRef *Ref) {
 
   const CanonExpr *StrideCE = HIRMVForVariableStride::getStrideCE(Ref);
   int64_t ConstStride;
-  if (StrideCE->isIntConstant(&ConstStride))
+  if (StrideCE->isIntConstant(&ConstStride) || StrideCE->containsUndef())
     return false;
 
   return true;
