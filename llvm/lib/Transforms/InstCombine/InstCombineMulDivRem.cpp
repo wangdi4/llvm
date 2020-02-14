@@ -589,6 +589,141 @@ Instruction *InstCombiner::visitFMul(BinaryOperator &I) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // R1 = (A + X) * Y
+  // R2 = (B + X) * Y
+  //  =>
+  // R0 = X * Y
+  // R1 = A * Y + R0
+  // R2 = B * Y + R0
+  //
+  // That may seems like doing additional multiplication, but
+  // R1 and R2 computations can be turned into FMA instruction.
+  // According to instruction tables, latencies and throughput of
+  // vaddss, vmulss and vfmaddXXXss are equal. So after generating
+  // FMA we save 1 instruction.
+  //
+  // We do the same transformation for add and sub and
+  // allow them to be mixed:
+  //  R1 = (A - X) * Y
+  //  R2 = (X + B) * Y
+  if (I.isFast()) {
+    Value *A, *X;
+    Value *OpAddSub = nullptr, *Y = nullptr;
+    if (match(Op0, m_OneUse(m_FSub(m_Value(A), m_Value(X)))) ||
+        match(Op0, m_OneUse(m_FAdd(m_Value(A), m_Value(X))))) {
+      OpAddSub = Op0;
+      Y = Op1;
+    } else if (match(Op1, m_OneUse(m_FSub(m_Value(A), m_Value(X)))) ||
+               match(Op1, m_OneUse(m_FAdd(m_Value(A), m_Value(X))))) {
+      OpAddSub = Op1;
+      Y = Op0;
+    }
+
+    // We require all the values to originate from loads.
+    // It is done to reduce the scope of optimization to
+    // 526.blender_r only.
+    if (OpAddSub && Y && isa<LoadInst>(Y) && isa<LoadInst>(A) &&
+        isa<LoadInst>(X)) {
+      Instruction *R1AddSub = cast<Instruction>(OpAddSub);
+      if (!R1AddSub->isFast())
+        return nullptr;
+
+      // For now we just bail out if Y doesn't have 2 users.
+      // But this is not a constraint. Later we can extend
+      // the algorithm by exploring every user of Y and
+      // potentially combine them all.
+      if (!Y->hasNUses(2))
+        return nullptr;
+
+      // Now let's try to find another subgraph (R2) with similar computations.
+      Value *FirstYUser = *Y->user_begin();
+      Value *SecondYUser = *(++Y->user_begin());
+      Value *R2 = FirstYUser == &I ? SecondYUser : FirstYUser;
+      if (!R2)
+        return nullptr;
+
+      Value *R2AddSub;
+      if (!match(R2, m_FMul(m_Value(R2AddSub), m_Specific(Y))) &&
+          !match(R2, m_FMul(m_Specific(Y), m_Value(R2AddSub))))
+        return nullptr;
+
+      Instruction *R2mul = cast<Instruction>(R2);
+      if (!R2mul->isFast())
+        return nullptr;
+
+      // We found a matching fmul. Now let's try to find matching fsub/fadd.
+      Value *B;
+      Value *CommonOperand = nullptr;
+      if (match(R2AddSub, m_OneUse(m_FSub(m_Value(B), m_Specific(X)))) ||
+          match(R2AddSub, m_OneUse(m_FSub(m_Specific(X), m_Value(B)))) ||
+          match(R2AddSub, m_OneUse(m_FAdd(m_Value(B), m_Specific(X)))) ||
+          match(R2AddSub, m_OneUse(m_FAdd(m_Specific(X), m_Value(B))))) {
+        CommonOperand = X;
+      } else if (match(R2AddSub, m_OneUse(m_FSub(m_Value(B), m_Specific(A)))) ||
+                 match(R2AddSub, m_OneUse(m_FSub(m_Specific(A), m_Value(B)))) ||
+                 match(R2AddSub, m_OneUse(m_FAdd(m_Value(B), m_Specific(A)))) ||
+                 match(R2AddSub, m_OneUse(m_FAdd(m_Specific(A), m_Value(B))))) {
+        CommonOperand = A;
+      }
+      if (CommonOperand && isa<LoadInst>(B)) {
+        Instruction *R2AddSubI = cast<Instruction>(R2AddSub);
+        if (!R2AddSubI->isFast())
+          return nullptr;
+
+        // Actual transformation.
+        // 1) Create R0 = X * Y
+        Value *R0 = Builder.CreateFMulFMF(CommonOperand, Y, &I);
+        // 2) Move R0 to the place where it will be available
+        //    for both subgraphs.
+        if (isa<Instruction>(R0)) {
+          Instruction *DefC = cast<Instruction>(CommonOperand);
+          Instruction *DefY = cast<Instruction>(Y);
+          Instruction *DefR0 = cast<Instruction>(R0);
+          if (DT.dominates(DefY, DefC))
+            DefR0->moveAfter(DefC);
+          else if (DT.dominates(DefC, DefY))
+            DefR0->moveAfter(DefY);
+          else
+            llvm_unreachable("IR is broken?");
+        }
+
+        // 3) Create R1 = A * Y + R0
+        Instruction *NewR1Mul = InsertNewInstWith(
+            BinaryOperator::CreateFMulFMF(A == CommonOperand ? X : A, Y, &I),
+            I);
+        BinaryOperator::BinaryOps Opcode1 =
+            cast<BinaryOperator>(R1AddSub)->getOpcode();
+        Instruction *NewR1AddSub =
+            (A == CommonOperand)
+                ? InsertNewInstWith(BinaryOperator::CreateWithCopiedFlags(
+                                        Opcode1, R0, NewR1Mul, R1AddSub),
+                                    I)
+                : InsertNewInstWith(BinaryOperator::CreateWithCopiedFlags(
+                                        Opcode1, NewR1Mul, R0, R1AddSub),
+                                    I);
+
+        // 4) Create R2 = B * Y + R0
+        Instruction *NewR2Mul = InsertNewInstWith(
+            BinaryOperator::CreateFMulFMF(B, Y, R2mul), *R2mul);
+        BinaryOperator::BinaryOps Opcode2 =
+            cast<BinaryOperator>(R2AddSubI)->getOpcode();
+        Instruction *NewR2AddSub =
+            R2AddSubI->getOperand(0) == CommonOperand
+                ? InsertNewInstWith(BinaryOperator::CreateWithCopiedFlags(
+                                        Opcode2, R0, NewR2Mul, R2AddSubI),
+                                    *R2mul)
+                : InsertNewInstWith(BinaryOperator::CreateWithCopiedFlags(
+                                        Opcode2, NewR2Mul, R0, R2AddSubI),
+                                    *R2mul);
+
+        replaceInstUsesWith(*R2mul, NewR2AddSub);
+        return replaceInstUsesWith(I, NewR1AddSub);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return nullptr;
 }
 
