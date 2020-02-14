@@ -5582,6 +5582,14 @@ static void handleCallConvAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   case ParsedAttr::AT_IntelOclBicc:
     D->addAttr(::new (S.Context) IntelOclBiccAttr(S.Context, AL));
     return;
+#if INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_IntelOclBiccAVX:
+    D->addAttr(::new (S.Context) IntelOclBiccAVXAttr(S.Context, AL));
+    return;
+  case ParsedAttr::AT_IntelOclBiccAVX512:
+    D->addAttr(::new (S.Context) IntelOclBiccAVX512Attr(S.Context, AL));
+    return;
+#endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_PreserveMost:
     D->addAttr(::new (S.Context) PreserveMostAttr(S.Context, AL));
     return;
@@ -5748,6 +5756,14 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
   case ParsedAttr::AT_IntelOclBicc:
     CC = CC_IntelOclBicc;
     break;
+#if INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_IntelOclBiccAVX:
+    CC = CC_IntelOclBiccAVX;
+    break;
+  case ParsedAttr::AT_IntelOclBiccAVX512:
+    CC = CC_IntelOclBiccAVX512;
+    break;
+#endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_PreserveMost:
     CC = CC_PreserveMost;
     break;
@@ -8785,6 +8801,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SysVABI:
   case ParsedAttr::AT_Pcs:
   case ParsedAttr::AT_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_IntelOclBiccAVX:
+  case ParsedAttr::AT_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_PreserveMost:
   case ParsedAttr::AT_PreserveAll:
   case ParsedAttr::AT_AArch64VectorPcs:

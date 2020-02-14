@@ -340,3 +340,19 @@ usage can be lowered.
 
  }];
 }
+
+def IntelOclBiccAVXDocs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+On x86 targets, this attribute changes the calling convention of a function to
+match with the calling convention of Intel OpenCL SVML AVX/AVX2 builtin.
+ }];
+}
+
+def IntelOclBiccAVX512Docs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+On x86 targets, this attribute changes the calling convention of a function to
+match with the calling convention of Intel OpenCL SVML AVX512 builtin.
+ }];
+}

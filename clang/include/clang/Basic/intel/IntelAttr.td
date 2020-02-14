@@ -588,3 +588,13 @@ def TargetPromotion : InheritableAttr {
   let Args = [StringArgument<"Features">];
   let Documentation = [Undocumented];
 }
+
+def IntelOclBiccAVX : DeclOrTypeAttr {
+  let Spellings = [Clang<"intel_ocl_bicc_avx", 0>];
+  let Documentation = [IntelOclBiccAVXDocs];
+}
+
+def IntelOclBiccAVX512 : DeclOrTypeAttr {
+  let Spellings = [Clang<"intel_ocl_bicc_avx512", 0>];
+  let Documentation = [IntelOclBiccAVX512Docs];
+}
