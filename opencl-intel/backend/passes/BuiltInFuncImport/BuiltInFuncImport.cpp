@@ -14,8 +14,9 @@
 
 #include "BuiltInFuncImport.h"
 #include "CompilationUtils.h"
-#include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "OCLPassSupport.h"
+#include "TargetArch.h"
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -48,8 +49,12 @@ namespace intel {
   OCL_INITIALIZE_PASS_END(BIImport, "builtin-import", "Built-in function pass", false, true)
 
   BIImport::BIImport(const char *CPUPrefix)
-    : ModulePass(ID), m_cpuPrefix(CPUPrefix)
-  { }
+    : ModulePass(ID)
+  {
+    m_cpuPrefix = CPUPrefix;
+    if (m_cpuPrefix.empty())
+      m_cpuPrefix = OptCPUPrefix;
+  }
 
   static Function *FindFunctionDef(const Function *F,
                                    SmallVectorImpl<Module *> &Modules) {
@@ -88,19 +93,48 @@ namespace intel {
   // current CPU prefix, for example:
   // if CPU is l9, __ocl_svml_shared_acos1f to be changed to
   // __ocl_svml_l9_acos1f
-  void BIImport::UpdateSvmlBuiltinName(Function *F, const char *CPUPrefix) const
-  {
-    llvm::StringRef FName = F->getName();
-    if (FName.startswith("__ocl_svml_shared"))
-    {
-      std::string NewName = FName.str();
-      NewName.replace(11, 6, CPUPrefix);
-      F->setName(NewName);
+  void BIImport::UpdateSvmlBuiltin(const FunctionsVec &SvmlFunctions, Module &M)
+      const {
+    if (m_cpuPrefix.empty())
+      return;
+
+    // Get svml calling convention based on cpu perfix
+    llvm::CallingConv::ID CC = llvm::CallingConv::C; // default
+    if (m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixSSE(true)) == 0 ||
+        m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixSSE(false)) == 0)
+      CC = llvm::CallingConv::Intel_OCL_BI;
+    else if (m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX(true)) == 0 ||
+             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX(false)) == 0 ||
+             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX2(true)) == 0 ||
+             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX2(false)) == 0)
+      CC = llvm::CallingConv::Intel_OCL_BI_AVX;
+    else if (m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX512(true)) == 0 ||
+             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX512(false)) == 0)
+      CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
+
+    for (auto &SvmlF : SvmlFunctions) {
+      for (auto &RTL : m_runtimeModuleList) {
+        if (SvmlF->getParent() != RTL)
+          continue;
+        llvm::StringRef FName = SvmlF->getName();
+        Function *F = M.getFunction(FName);
+        if (!F)
+          continue;
+        std::string NewName = FName.str();
+        NewName.replace(11, 6, m_cpuPrefix);
+        F->setName(NewName);
+        F->setCallingConv(CC);
+
+        for (User *U : F->users())
+          if (CallInst *CI = dyn_cast<CallInst>(U))
+            CI->setCallingConv(CC);
+      }
     }
   }
 
   void BIImport::GetCalledFunctions(const Function *F,
-                                    FunctionsVec &CalledFuncs) const
+                                    FunctionsVec &CalledFuncs,
+                                    FunctionsVec &SvmlFunctions) const
   {
     FunctionsSet VisitedSet;
 
@@ -133,10 +167,8 @@ namespace intel {
 
       if (VisitedSet.count(CalledFunc)) continue;
 
-      // skip svml name renaming when empty cpu prefix is provided.
-      std::string CurCPUPrefix = m_cpuPrefix.empty() ? OptCPUPrefix : m_cpuPrefix;
-      if (!CurCPUPrefix.empty())
-        UpdateSvmlBuiltinName(CalledFunc, CurCPUPrefix.c_str());
+      if (CalledFunc->getName().startswith("__ocl_svml_shared"))
+        SvmlFunctions.push_back(CalledFunc);
 
       VisitedSet.insert(CalledFunc);
       CalledFuncs.push_back(CalledFunc);
@@ -164,7 +196,8 @@ namespace intel {
   void BIImport::ExploreUses(Function *Root,
                              SmallVectorImpl<Module*> &Modules,
                              SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
-                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
+                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals,
+                             FunctionsVec &SvmlFunctions) {
     assert(Root && "Invalid function.");
 
     if (Root->isDeclaration()) {
@@ -184,10 +217,10 @@ namespace intel {
       report_fatal_error("Error materializing function: " + Root->getName());
 
     FunctionsVec CalledFuncs;
-    GetCalledFunctions(Root, CalledFuncs);
+    GetCalledFunctions(Root, CalledFuncs, SvmlFunctions);
 
     for (auto Callee : CalledFuncs) {
-      ExploreUses(Callee, Modules, UsedFunctions, UsedGlobals);
+      ExploreUses(Callee, Modules, UsedFunctions, UsedGlobals, SvmlFunctions);
     }
 
     for (const BasicBlock &BB : *Root)
@@ -291,9 +324,11 @@ namespace intel {
     const int EST_GLOBALS_NUM = 32;
     SmallPtrSet<GlobalValue*, EST_GLOBALS_NUM> UsedFunctions;
     SmallPtrSet<GlobalVariable*, EST_FUNCTIONS_NUM> UsedGlobals;
+    FunctionsVec SvmlFunctions; // shared svml functions
 
     for (auto &F : M) {
-      ExploreUses(&F, m_runtimeModuleList, UsedFunctions, UsedGlobals);
+      ExploreUses(&F, m_runtimeModuleList, UsedFunctions, UsedGlobals,
+                  SvmlFunctions);
     }
 
     // Globals can have other function calls in their initializers,
@@ -308,7 +343,7 @@ namespace intel {
           for (auto &Op : Init->operands())
             if (auto func = dyn_cast<Function>(Op))
               ExploreUses(func, m_runtimeModuleList,
-                          UsedFunctions, UsedGlobals);
+                          UsedFunctions, UsedGlobals, SvmlFunctions);
         }
       }
     } while (GlobalsNumBefore < UsedGlobals.size());
@@ -421,6 +456,11 @@ namespace intel {
     for (auto &F : M) {
       F.removeAttributes(AttributeList::FunctionIndex, IgnoreAttrs);
     }
+
+    // Update svml functions and their callers after cloning and linking, so
+    // that we don't need to modify m_runtimeModuleList because that may cause
+    // some caller's calling convention not updated in another clBuildProgram.
+    UpdateSvmlBuiltin(SvmlFunctions, M);
 
     return true;
   }

@@ -172,58 +172,43 @@ public:
         return GetCPUPrefix(m_CPU, m_is64BitOS != 0);
       }
     }
+    static const char* GetCPUPrefixSSE(bool is64BitOS) {
+        return is64BitOS ? "h8" : "n8";
+    }
+    static const char* GetCPUPrefixAVX(bool is64BitOS) {
+        return is64BitOS ? "e9" : "g9";
+    }
+    static const char* GetCPUPrefixAVX2(bool is64BitOS) {
+        return is64BitOS ? "l9" : "s9";
+    }
+    static const char* GetCPUPrefixAVX512(bool is64BitOS) {
+        return is64BitOS ? "z0" : "x0";
+    }
     static const char* GetCPUPrefix(ECPU CPU, bool is64BitOS) {
-        if (!is64BitOS) {
-            switch(CPU) {
-            default:
-                return 0;
-            case CPU_PENTIUM:
-                return "w7";
-            case CPU_NOCONA:
-                return "t7";
-            case CPU_CORE2:
-                return "v8";
-            case CPU_PENRYN:
-                return "p8";
-            case CPU_LKF:
-            case CPU_COREI7:
-                return "n8";
-            case CPU_SANDYBRIDGE:
-                return "g9";
-            case CPU_HASWELL:
-                return "s9";
-            case CPU_KNL:
-                return "d3";
-            case CPU_SKX: // fallthrough
-            case CPU_ICL: // fallthrough
-            case CPU_ICX:
-                return "x0";
-            }
-        }
         switch(CPU) {
         default:
             return 0;
         case CPU_PENTIUM:
-            return "unknown";
+            return is64BitOS ? "unknown" : "w7";
         case CPU_NOCONA:
-            return "e7";
+            return is64BitOS ? "e7" : "t7";
         case CPU_CORE2:
-            return "u8";
+            return is64BitOS ? "u8" : "v8";
         case CPU_PENRYN:
-            return "y8";
-        case CPU_LKF:
+            return is64BitOS ? "y8" : "p8";
+        case CPU_LKF: // fallthrough
         case CPU_COREI7:
-            return "h8";
+            return GetCPUPrefixSSE(is64BitOS);
         case CPU_SANDYBRIDGE:
-            return "e9";
+            return GetCPUPrefixAVX(is64BitOS);
         case CPU_HASWELL:
-            return "l9";
+            return GetCPUPrefixAVX2(is64BitOS);
         case CPU_KNL:
-            return "b3";
-        case CPU_SKX:
-        case CPU_ICL:
+            return is64BitOS ? "b3" : "d3";
+        case CPU_SKX: // fallthrough
+        case CPU_ICL: // fallthrough
         case CPU_ICX:
-            return "z0";
+            return GetCPUPrefixAVX512(is64BitOS);
         }
     }
     ECPU GetCPU() const {
