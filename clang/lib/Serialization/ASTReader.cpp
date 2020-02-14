@@ -11711,6 +11711,9 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_acq_rel:
     C = new (Context) OMPAcqRelClause();
     break;
+  case OMPC_acquire:
+    C = new (Context) OMPAcquireClause();
+    break;
   case OMPC_threads:
     C = new (Context) OMPThreadsClause();
     break;
@@ -11991,6 +11994,8 @@ void OMPClauseReader::VisitOMPCaptureClause(OMPCaptureClause *) {}
 void OMPClauseReader::VisitOMPSeqCstClause(OMPSeqCstClause *) {}
 
 void OMPClauseReader::VisitOMPAcqRelClause(OMPAcqRelClause *) {}
+
+void OMPClauseReader::VisitOMPAcquireClause(OMPAcquireClause *) {}
 
 void OMPClauseReader::VisitOMPThreadsClause(OMPThreadsClause *) {}
 

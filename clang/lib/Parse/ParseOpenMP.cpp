@@ -2321,12 +2321,16 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       nogroup-clause | num_tasks-clause | hint-clause | to-clause |
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
 ///       in_reduction-clause | allocator-clause | allocate-clause |
+<<<<<<< HEAD
 ///       acq_rel-clause
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+///       acq_rel-clause | acquire-clause
+>>>>>>> 04a830f80af97d1b2d2d652984635a774b23ebda
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -2461,6 +2465,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_capture:
   case OMPC_seq_cst:
   case OMPC_acq_rel:
+  case OMPC_acquire:
   case OMPC_threads:
   case OMPC_simd:
   case OMPC_nogroup:
