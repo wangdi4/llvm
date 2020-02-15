@@ -3255,20 +3255,42 @@ def mamx_transpose : Flag<["-"], "mamx-transpose">, Group<m_x86_Features_Group>;
 def mno_amx_transpose : Flag<["-"], "mno-amx-transpose">, Group<m_x86_Features_Group>;
 def mamx_avx512 : Flag<["-"], "mamx-avx512">, Group<m_x86_Features_Group>;
 def mno_amx_avx512 : Flag<["-"], "mno-amx-avx512">, Group<m_x86_Features_Group>;
-def mamx_bf16_evex : Flag<["-"], "mamx-bf16-evex">, Group<m_x86_Features_Group>;
-def mno_amx_bf16_evex : Flag<["-"], "mno-amx-bf16-evex">, Group<m_x86_Features_Group>;
-def mamx_int8_evex : Flag<["-"], "mamx-int8-evex">, Group<m_x86_Features_Group>;
-def mno_amx_int8_evex : Flag<["-"], "mno-amx-int8-evex">, Group<m_x86_Features_Group>;
-def mamx_tile_evex : Flag<["-"], "mamx-tile-evex">, Group<m_x86_Features_Group>;
-def mno_amx_tile_evex : Flag<["-"], "mno-amx-tile-evex">, Group<m_x86_Features_Group>;
-def mamx_element_evex : Flag<["-"], "mamx-element-evex">, Group<m_x86_Features_Group>;
-def mno_amx_element_evex : Flag<["-"], "mno-amx-element-evex">, Group<m_x86_Features_Group>;
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FP16
 def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
 def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+def mamx_memory2 : Flag<["-"], "mamx-memory2">, Group<m_x86_Features_Group>;
+def mno_amx_memory2 : Flag<["-"], "mno-amx-memory2">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+def mamx_bf16_evex : Flag<["-"], "mamx-bf16-evex">, Group<m_x86_Features_Group>;
+def mno_amx_bf16_evex : Flag<["-"], "mno-amx-bf16-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+def mamx_convert_evex : Flag<["-"], "mamx-convert-evex">, Group<m_x86_Features_Group>;
+def mno_amx_convert_evex : Flag<["-"], "mno-amx-convert-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+def mamx_int8_evex : Flag<["-"], "mamx-int8-evex">, Group<m_x86_Features_Group>;
+def mno_amx_int8_evex : Flag<["-"], "mno-amx-int8-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+def mamx_tile_evex : Flag<["-"], "mamx-tile-evex">, Group<m_x86_Features_Group>;
+def mno_amx_tile_evex : Flag<["-"], "mno-amx-tile-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+def mamx_transpose2 : Flag<["-"], "mamx-transpose2">, Group<m_x86_Features_Group>;
+def mno_amx_transpose2 : Flag<["-"], "mno-amx-transpose2">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 def msse : Flag<["-"], "msse">, Group<m_x86_Features_Group>;
 def mno_sse : Flag<["-"], "mno-sse">, Group<m_x86_Features_Group>;

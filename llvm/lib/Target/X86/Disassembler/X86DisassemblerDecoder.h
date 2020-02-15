@@ -391,25 +391,6 @@ namespace X86Disassembler {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-#define REGS_TMM  \
-  ENTRY(TMM0)     \
-  ENTRY(TMM1)     \
-  ENTRY(TMM2)     \
-  ENTRY(TMM3)     \
-  ENTRY(TMM4)     \
-  ENTRY(TMM5)     \
-  ENTRY(TMM6)     \
-  ENTRY(TMM7)     \
-  ENTRY(TMM8)     \
-  ENTRY(TMM9)     \
-  ENTRY(TMM10)    \
-  ENTRY(TMM11)    \
-  ENTRY(TMM12)    \
-  ENTRY(TMM13)    \
-  ENTRY(TMM14)    \
-  ENTRY(TMM15)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
 #undef  REGS_TMM
 #define REGS_TMM  \
   ENTRY(TMM0)     \
@@ -444,9 +425,7 @@ namespace X86Disassembler {
   ENTRY(TMM29)    \
   ENTRY(TMM30)    \
   ENTRY(TMM31)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
 
-#if INTEL_FEATURE_ISA_AMX_LNC
 #define REGS_TMM_PAIRS  \
   ENTRY(TMM0_TMM1)     \
   ENTRY(TMM2_TMM3)     \
@@ -456,7 +435,7 @@ namespace X86Disassembler {
   ENTRY(TMM10_TMM11)   \
   ENTRY(TMM12_TMM13)   \
   ENTRY(TMM14_TMM15)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
 #define ALL_EA_BASES  \
@@ -471,18 +450,12 @@ namespace X86Disassembler {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 #define TMM_REGS REGS_TMM
+#define TMM_REGS_PAIRS REGS_TMM_PAIRS
 #else // INTEL_FEATURE_ISA_AMX
 #define TMM_REGS
+#define TMM_REGS_PAIRS
 #endif // INTEL_FEATURE_ISA_AMX
 
-#if INTEL_FEATURE_ISA_AMX_LNC
-#define TMM_REGS_PAIRS REGS_TMM_PAIRS
-#else // INTEL_FEATURE_ISA_AMX_LNC
-#define TMM_REGS_PAIRS
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
 #define ALL_REGS      \
   REGS_8BIT           \
   REGS_16BIT          \

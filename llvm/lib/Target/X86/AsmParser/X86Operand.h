@@ -539,7 +539,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX
   bool isVTILEPair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
@@ -584,7 +584,9 @@ struct X86Operand final : public MCParsedAsmOperand {
     }
     Inst.addOperand(MCOperand::createReg(Reg));
   }
+#endif // INTEL_FEATURE_ISA_AMX
 
+#if INTEL_FEATURE_ISA_AMX_LNC
   bool isZMM16Tuples() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VR512RegClassID].contains(getReg());

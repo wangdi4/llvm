@@ -2813,20 +2813,41 @@ X86
 
 .. option:: -mamx-avx512, -mno-amx-avx512
 
-.. option:: -mamx-bf16-evex, -mno-amx-bf16-evex
-
-.. option:: -mamx-int8-evex, -mno-amx-int8-evex
-
-.. option:: -mamx-tile-evex, -mno-amx-tile-evex
-
-.. option:: -mamx-element-evex, -mno-amx-element-evex
-
 .. end INTEL_FEATURE_ISA_AMX_LNC
 
 .. INTEL_FEATURE_ISA_AMX_FP16
 .. option:: -mamx-fp16, -mno-amx-fp16
 
 .. end INTEL_FEATURE_ISA_AMX_FP16
+.. INTEL_FEATURE_ISA_AMX_MEMORY2
+.. option:: -mamx-memory2, -mno-amx-memory2
+
+.. end INTEL_FEATURE_ISA_AMX_MEMORY2
+
+.. INTEL_FEATURE_ISA_AMX_BF16_EVEX
+.. option:: -mamx-bf16-evex, -mno-amx-bf16-evex
+
+.. end INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+.. INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+.. option:: -mamx-convert-evex, -mno-amx-convert-evex
+
+.. end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+.. INTEL_FEATURE_ISA_AMX_INT8_EVEX
+.. option:: -mamx-int8-evex, -mno-amx-int8-evex
+
+.. end INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+.. INTEL_FEATURE_ISA_AMX_TILE_EVEX
+.. option:: -mamx-tile-evex, -mno-amx-tile-evex
+
+.. end INTEL_FEATURE_ISA_AMX_TILE_EVEX
+
+.. INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+.. option:: -mamx-transpose2, -mno-amx-transpose2
+
+.. end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 

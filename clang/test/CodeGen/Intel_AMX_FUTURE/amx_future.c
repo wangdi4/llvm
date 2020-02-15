@@ -19,13 +19,6 @@ void test_tile_coladdps(void *A) {
   _tile_coladdps(A, 1);
 }
 
-// Memory
-void test_tile_broadcastrowd(const void *A) {
-  // CHECK-LABEL: @test_tile_broadcastrowd
-  // CHECK: call void @llvm.x86.tbroadcastrowd(i8 1, i8* %{{.*}})
-  _tile_broadcastrowd(1, A);
-}
-
 void test_tile_gatherrowd(const void *A, const void *B) {
   // CHECK-LABEL: @test_tile_gatherrowd
   // CHECK: call void @llvm.x86.tgatherrowd(i8 1, i8* %{{.*}}, i8* %{{.*}})
@@ -72,42 +65,6 @@ void test_tile_scatterrowqt1(void *A, void *B) {
   // CHECK-LABEL: @test_tile_scatterrowqt1
   // CHECK: call void @llvm.x86.tscatterrowqt1(i8* %{{.*}}, i8* %{{.*}}, i8 1)
   _tile_scatterrowqt1(A, B, 1);
-}
-
-void test_tile_storehd(void *A, size_t B) {
-  // CHECK-LABEL: @test_tile_storehd
-  // CHECK: call void @llvm.x86.tstorehd(i8* %{{.*}}, i64 %{{.*}}, i8 1)
-  _tile_storehd(A, B, 1);
-}
-
-void test_tile_storehdt1(void *A, size_t B) {
-  // CHECK-LABEL: @test_tile_storehdt1
-  // CHECK: call void @llvm.x86.tstorehdt1(i8* %{{.*}}, i64 %{{.*}}, i8 1)
-  _tile_storehdt1(A, B, 1);
-}
-
-void test_tile_storentd(void *A, size_t B) {
-  // CHECK-LABEL: @test_tile_storentd
-  // CHECK: call void @llvm.x86.tstorentd(i8* %{{.*}}, i64 %{{.*}}, i8 1)
-  _tile_storentd(A, B, 1);
-}
-
-void test_tile_storeqd(void *A, size_t B) {
-  // CHECK-LABEL: @test_tile_storeqd
-  // CHECK: call void @llvm.x86.tstoreqd(i8* %{{.*}}, i64 %{{.*}}, i8 1)
-  _tile_storeqd(A, B, 1);
-}
-
-void test_tile_storeqdt1(void *A, size_t B) {
-  // CHECK-LABEL: @test_tile_storeqdt1
-  // CHECK: call void @llvm.x86.tstoreqdt1(i8* %{{.*}}, i64 %{{.*}}, i8 1)
-  _tile_storeqdt1(A, B, 1);
-}
-
-void test_tile_storerowd(void *A) {
-  // CHECK-LABEL: @test_tile_storerowd
-  // CHECK: call void @llvm.x86.tstorerowd(i8* %{{.*}}, i8 1)
-  _tile_storerowd(A, 1);
 }
 
 // Format
