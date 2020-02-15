@@ -1317,16 +1317,10 @@ Pass *llvm::createSimpleLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
 PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                                           LoopStandardAnalysisResults &AR,
                                           LPMUpdater &Updater) {
-  const auto &FAM =
-      AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR).getManager();
-  Function *F = L.getHeader()->getParent();
-
-  auto *ORE = FAM.getCachedResult<OptimizationRemarkEmitterAnalysis>(*F);
-  // FIXME: This should probably be optional rather than required.
-  if (!ORE)
-    report_fatal_error(
-        "LoopFullUnrollPass: OptimizationRemarkEmitterAnalysis not "
-        "cached at a higher level");
+  // For the new PM, we can't use OptimizationRemarkEmitter as an analysis
+  // pass. Function analyses need to be preserved across loop transformations
+  // but ORE cannot be preserved (see comment before the pass definition).
+  OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
 
 #if INTEL_CUSTOMIZATION
   auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);
@@ -1346,6 +1340,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
 
   std::string LoopName = std::string(L.getName());
 
+<<<<<<< HEAD
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
                       /*BFI*/ nullptr, /*PSI*/ nullptr,
@@ -1358,6 +1353,18 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                       /*AllowProfileBasedPeeling*/ false,
                       /*FullUnrollMaxCount*/ None) !=
       LoopUnrollResult::Unmodified;
+=======
+  bool Changed = tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
+                                 /*BFI*/ nullptr, /*PSI*/ nullptr,
+                                 /*PreserveLCSSA*/ true, OptLevel,
+                                 OnlyWhenForced, ForgetSCEV, /*Count*/ None,
+                                 /*Threshold*/ None, /*AllowPartial*/ false,
+                                 /*Runtime*/ false, /*UpperBound*/ false,
+                                 /*AllowPeeling*/ false,
+                                 /*AllowProfileBasedPeeling*/ false,
+                                 /*FullUnrollMaxCount*/ None) !=
+                 LoopUnrollResult::Unmodified;
+>>>>>>> 4f33a68973bfd9fa429b57528c3fe5443f59a734
   if (!Changed)
     return PreservedAnalyses::all();
 
