@@ -823,6 +823,12 @@ public:
     assert(!CI.ParameterEncoding.empty() &&
            "Callback without parameter encoding!");
 
+#if INTEL_CUSTOMIZATION
+    if (auto *CE = dyn_cast<ConstantExpr>(U->getUser()))
+      if (CE->getNumUses() == 1 && CE->isCast())
+        U = &*CE->use_begin();
+#endif // INTEL_CUSTOMIZATION
+
     return (int)CS.getArgumentNo(U) == CI.ParameterEncoding[0];
   }
 
