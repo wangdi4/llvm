@@ -584,6 +584,7 @@ public:
   virtual void AddCCKextLibArgs(const llvm::opt::ArgList &Args,
                                 llvm::opt::ArgStringList &CmdArgs) const;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// GetIPPIncludePath - return the IPP header search path.
   std::string GetIPPIncludePath(const llvm::opt::ArgList &Args) const;
@@ -646,13 +647,21 @@ public:
                      llvm::opt::ArgStringList &CmdArgs,
                      std::string Prefix) const;
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// If a runtime library exists that sets global flags for unsafe floating
+  /// point math, return true.
+  ///
+  /// This checks for presence of the -Ofast, -ffast-math or -funsafe-math flags.
+  virtual bool isFastMathRuntimeAvailable(
+    const llvm::opt::ArgList &Args, std::string &Path) const;
+>>>>>>> fa7cd549d604bfd8f9dce5d649a19720cbc39cca
 
   /// AddFastMathRuntimeIfAvailable - If a runtime library exists that sets
   /// global flags for unsafe floating point math, add it and return true.
   ///
   /// This checks for presence of the -Ofast, -ffast-math or -funsafe-math flags.
-  virtual bool AddFastMathRuntimeIfAvailable(
-      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
+  bool addFastMathRuntimeIfAvailable(
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
 
   /// addProfileRTLibs - When -fprofile-instr-profile is specified, try to pass
   /// a suitable profile runtime library to the linker.
