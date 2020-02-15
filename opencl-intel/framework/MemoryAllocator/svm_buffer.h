@@ -224,14 +224,16 @@ class BufferPointerArg : public SharedPointerArg
 private:
 
     BufferPointerArg(SharedBuffer* pBuf, const void* pArgValue) :
-       SharedPointerArg(pBuf), m_pBuf(pBuf), m_szOffset((char*)pArgValue - (char*)pBuf->GetAddr())
+       SharedPointerArg(pBuf), m_pBuf(pBuf),
+       m_szOffset((char*)pArgValue - (char*)pBuf->GetAddr()),
+       m_bufDescriptor(nullptr)
        {
            assert(pArgValue >= pBuf->GetAddr());
        }
 
     SharedBuffer* m_pBuf;
     const size_t m_szOffset;
-
+    PointerArgDevMemoryObject *m_bufDescriptor;
 };
 
 /**

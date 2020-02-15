@@ -34,6 +34,8 @@ struct CachedArgInfo {
 
 class OCLFEKernelArgInfo : public IOCLFEKernelArgInfo {
 public:
+  ~OCLFEKernelArgInfo() { Release(); }
+
   size_t getNumArgs() const override { return m_argsInfo.size(); }
   const char *getArgName(size_t index) const override {
     return m_argsInfo[index].name.c_str();
