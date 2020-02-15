@@ -957,7 +957,6 @@ void ToolChain::AddCCKextLibArgs(const ArgList &Args,
   CmdArgs.push_back("-lcc_kext");
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static const std::string getIntelBasePath(const std::string DriverDir) {
   // Perf libs are located in different locations depending on the package
@@ -1229,12 +1228,8 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool ToolChain::AddFastMathRuntimeIfAvailable(const ArgList &Args,
-                                              ArgStringList &CmdArgs) const {
-=======
 bool ToolChain::isFastMathRuntimeAvailable(const ArgList &Args,
                                            std::string &Path) const {
->>>>>>> fa7cd549d604bfd8f9dce5d649a19720cbc39cca
   // Do not check for -fno-fast-math or -fno-unsafe-math when -Ofast passed
   // (to keep the linker options consistent with gcc and clang itself).
   if (!isOptimizationLevelFast(Args)) {
