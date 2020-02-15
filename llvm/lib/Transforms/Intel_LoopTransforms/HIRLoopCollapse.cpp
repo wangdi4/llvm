@@ -432,81 +432,71 @@ bool HIRLoopCollapse::areGEPRefsLegal(void) {
 
 unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
 
-  // Struct's access. In the following example, only the first and
-  // up to the second dimension may be collapsed because the 3rd and
-  // 2nd dimensions are not consecutive.
-  // This is shown by the trailing offset (.1) after 3rd dimension.
-  // Pankaj's example: A[i1].1[i2][i3]
-  // See in which level the first appearing trailing struct offset
-  // first appears.
+  // Note that references to variable length arrays are linearized into one
+  // dimension and handled in getLevelsOfIVPattern(), not here.
+
+  // Check the index of the lowest dimension and bail out early if it is not
+  // valid. Index of other dimensions is checked inside the loop later.
+  CanonExpr *LowestIndexCE = GEPRef->getDimensionIndex(1);
+  unsigned Level = UINT_MAX;
+  if (!LowestIndexCE->isStandAloneIV(true, &Level) ||
+      (Level != InnermostLevel)) {
+    return 0;
+  }
+
+  unsigned NewNumCollapsableLevels =
+      std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
+
+  // Examine dimensions pairwise and find MAX collapse-able level.
   unsigned Idx = 2;
-  for (unsigned End = std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
-       Idx <= End; ++Idx) {
-    if (GEPRef->hasTrailingStructOffsets(Idx)) {
+
+  for (unsigned InnerLoopLevel = InnermostLevel; Idx <= NewNumCollapsableLevels;
+       ++Idx, --InnerLoopLevel) {
+
+    // This dimension is collapse-able with the lower dimension if-
+    // 1) It is contiguous with the lower dimension, and
+    // 2) The index of both dimensions is a standalone IV, and
+    // 3) The trip count of inner loop matches the number of elements in the
+    // lower dimension.
+
+    bool Collapsable =
+        !GEPRef->hasTrailingStructOffsets(Idx) &&
+        UBTCArry[InnerLoopLevel].isConstant() &&
+        GEPRef->getDimensionIndex(Idx)->isStandAloneIV(true, &Level) &&
+        (Level == InnerLoopLevel - 1) &&
+        (UBTCArry[InnerLoopLevel].getTripCount() ==
+         GEPRef->getNumDimensionElements(Idx - 1));
+
+    if (!Collapsable) {
       break;
     }
   }
-  unsigned NewNumCollapsableLevels = std::min(Idx - 1, NumCollapsableLoops);
 
-  // Examine each applicable dimension and find MAX collapse-able level.
-  Idx = 1;
-  unsigned LoopLevel = InnermostLevel;
-  for (unsigned End =
-           std::min(GEPRef->getNumDimensions(), NewNumCollapsableLevels);
-       Idx <= End; ++Idx) {
+  NewNumCollapsableLevels = Idx - 1; // last collapsable level.
 
-    // (i) CE on Dimension(I) is a StandAloneIV() on its matching loop level
-    // and
-    // (ii)
-    // If:   Current loop has a constant integer trip count,
-    // Then: Check the TripCount == #Elements on the matching dimension
-    bool IsConstTripLp = UBTCArry[LoopLevel].isConstant();
-    CanonExpr *CE = GEPRef->getDimensionIndex(Idx);
-    unsigned Level = UINT_MAX;
-
-    // Blob Upperbound: at this moment we do not know
-    // the number of elements in terms of blob.
-    // So, we do have no way to ensure trip count of the loop
-    // is the same as the number of elements. We just bail out.
-    //
-    // Note that bailing out here do not hinder
-    // collapsing in the existence of C99 variable length arrays(VLA)
-    // and its number of elements (naturally blob) as upperbounds.
-    // Refrences to VLAs are linearized into one dimension, and handled
-    // in getLevelsOfIVPattern before this fuction is called.
-    // See areGEPRefsLegal().
-    bool Valid = IsConstTripLp && CE->isStandAloneIV(true, &Level) &&
-                 Level == LoopLevel &&
-                 UBTCArry[LoopLevel].getTripCount() ==
-                     GEPRef->getNumDimensionElements(Idx);
-
-    if (!Valid) {
-      break;
-    }
-    --LoopLevel; // move toward OutermostLp, match Dimension Increase on Idx
+  if (NewNumCollapsableLevels < 2) {
+    return 0;
   }
-
-  Idx = Idx - 1; // last valid Idx
 
   // Check for the dimensions outside [1, Idx], i.e. [idx + 1,
   // getNumDimensions()], These dimesions should not have IV in the range of
-  // collapsed loop levels. I.e. [InnermostLevel - (Idx - 1), InnermostLevel].
+  // collapsed loop levels. I.e. [OutermostCollapsableLevel, InnermostLevel].
   // E.g. [i2][i2][i3] is not valid when two innermost loops are collapsed.
   // Note that in a ref [3rd dim][2nd dim][1st dim], but in loop-level
   // [i1][i2][i3].
-  bool SeenInvalidIVs = false;
-  for (unsigned I = Idx + 1, E = GEPRef->getNumDimensions(); I <= E; I++) {
+  unsigned OutermostCollapsableLevel =
+      InnermostLevel - NewNumCollapsableLevels + 1;
+
+  for (unsigned I = Idx, E = GEPRef->getNumDimensions(); I <= E; I++) {
     CanonExpr *CE = GEPRef->getDimensionIndex(I);
-    unsigned KEnd = InnermostLevel - Idx + 1;
-    for (unsigned K = InnermostLevel; K >= KEnd; K--) {
+    for (unsigned K = InnermostLevel; K >= OutermostCollapsableLevel; K--) {
       if (CE->hasIV(K)) {
-        SeenInvalidIVs = true;
-        break;
+        return 0;
       }
     }
   }
 
-  return !SeenInvalidIVs ? Idx : 0;
+  return NewNumCollapsableLevels;
 }
 
 unsigned
