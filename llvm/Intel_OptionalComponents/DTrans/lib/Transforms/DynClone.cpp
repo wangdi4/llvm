@@ -3907,6 +3907,79 @@ void DynCloneImpl::transformIR(void) {
     LLVM_DEBUG(dbgs() << "MemFunc after convert: " << *I << "\n");
   };
 
+  // Collect candidate field store/load instructions that can be skipped
+  // to generate encoding/decoding across function calls.
+  //
+  // Ex:
+  //   foo(int cost) {
+  //     ...
+  //     arc0->field1 = cost;
+  //     ...
+  //     arc1->field1 = cost;
+  //   }
+  //
+  //   CallSite 1: foo(arc2->field1);
+  //   CallSite 2: foo(30);
+  //
+  // In the above example, we normally decode value of "arc2->field1" before
+  // passing it as an argument at callsite and then encode in "foo" routine
+  // before the argument value is stored to "field1". The decoding/encoding
+  // can be skipped if
+  // 1. Value of an argument is only stored to the candidate field and there
+  //    are no other uses.
+  // 2. CallSites: Either value of candidate field or a constant that is not
+  //    changed with encoding is passed as an argument at callsites.
+  //
+  // Collect load and stores instructions related to "Arg" of "F" into
+  // "NoEncodeDecodeInsts" if encoding and decoding can skipped for the
+  // instructions.
+  auto CollectNoEncodeDecodeInsts =
+      [&](Argument *Arg, Function *F,
+          SmallVectorImpl<Instruction *> &NoEncodeDecodeInsts) {
+        SmallVector<Instruction *, 4> LoadStoreInsts;
+
+        // Check value of "Arg" is only stored to the candidate field.
+        for (auto *U : Arg->users()) {
+          auto *SI = dyn_cast<StoreInst>(U);
+          if (!SI)
+            return;
+          if (Arg != SI->getValueOperand())
+            return;
+          auto StElem = DTInfo.getStoreElement(SI);
+          if (!StElem.first || !isCandidateField(StElem))
+            return;
+          LoadStoreInsts.push_back(SI);
+        }
+        // Check argument values at callsites are okay to skip
+        // encoding/decoding.
+        unsigned ArgNo = Arg->getArgNo();
+        for (auto *U : F->users()) {
+          auto *CB = cast<CallBase>(U);
+          Value *ArgOp = CB->getArgOperand(ArgNo);
+          if (auto *CInt = dyn_cast<ConstantInt>(ArgOp)) {
+            if (ConstantInt::isValueValidForType(
+                    ShrunkenIntTyWithDelta, CInt->getValue().getLimitedValue()))
+              continue;
+
+            // Encoding and decoding can't be skipped if constant needs encoding
+            return;
+          }
+          auto *LI = dyn_cast<LoadInst>(ArgOp);
+          // Limit to one use to simplify analysis.
+          if (!LI || !LI->hasOneUse())
+            return;
+          auto LdElem = DTInfo.getLoadElement(LI);
+          if (!LdElem.first || !isCandidateField(LdElem))
+            return;
+          LoadStoreInsts.push_back(LI);
+        }
+
+        // Decoding and encoding can be skipped for instruction in
+        // LoadStoreInsts. Copy them to NoEncodeDecodeInsts.
+        std::copy(LoadStoreInsts.begin(), LoadStoreInsts.end(),
+                  std::back_inserter(NoEncodeDecodeInsts));
+      };
+
   SmallVector<Instruction *, 4> MultiElemLdStToProcess;
   SmallVector<GetElementPtrInst *, 16> GEPsToProcess;
   SmallVector<BinaryOperator *, 16> BinOpsToProcess;
@@ -3915,6 +3988,16 @@ void DynCloneImpl::transformIR(void) {
   SmallVector<GetElementPtrInst *, 16> ByteGEPsToProcess;
   SmallVector<std::pair<CallInfo *, Type *>, 4> CallsToProcess;
   SmallVector<Instruction *, 32> InstsToRemove;
+
+  // List of argument Load/Store instructions that can be skipped
+  // to generate encoding and decoding.
+  SmallVector<Instruction *, 16> NoEncodeDecodeArgInsts;
+
+  for (auto &CPair : CloningMap)
+    for (auto &Arg : CPair.first->args())
+      CollectNoEncodeDecodeInsts(&Arg, CPair.first, NoEncodeDecodeArgInsts);
+  auto NoEncodeDecodeArgEnd = NoEncodeDecodeArgInsts.end();
+  auto NoEncodeDecodeArgBegin = NoEncodeDecodeArgInsts.begin();
 
   // Cloned routines are used for original layout shrunken struct. That means,
   // there will be no changes to cloned routine. Original routines will be
@@ -3970,6 +4053,14 @@ void DynCloneImpl::transformIR(void) {
       // decoder function is null. In either case encoding is not needed.
       if (LP.second) {
         auto *LI = LP.first;
+        // Check if LI is in NoEncodeDecodeArgInsts.
+        if (std::find(NoEncodeDecodeArgBegin, NoEncodeDecodeArgEnd, LI) !=
+            NoEncodeDecodeArgEnd) {
+          DEBUG_WITH_TYPE(REENCODING, dbgs() << " Skip decoding for load:  "
+                                             << *LI << "\n");
+          LP.second = false;
+          continue;
+        }
         auto ItEnd = StoresToProcess.end();
         SmallPtrSet<StoreInst *, 4> StoresWithNoEncoding;
         // Dummy check: if load has no uses, we still need to decode loaded
@@ -4000,6 +4091,22 @@ void DynCloneImpl::transformIR(void) {
             StoresToProcess[SI] = false;
         }
       }
+    }
+
+    // Mark store instructions to indicate that encoding is not needed if
+    // the instructions are in NoEncodeDecodeArgInsts.
+    for (auto &SP : StoresToProcess) {
+      if (!SP.second)
+        continue;
+      auto *SI = SP.first;
+
+      // Check if SI is in NoEncodeDecodeArgInsts.
+      if (std::find(NoEncodeDecodeArgBegin, NoEncodeDecodeArgEnd, SI) ==
+          NoEncodeDecodeArgEnd)
+        continue;
+      DEBUG_WITH_TYPE(REENCODING,
+                      dbgs() << " Skip encoding for store:  " << *SI << "\n");
+      StoresToProcess[SI] = false;
     }
 
     for (auto &II : MultiElemLdStToProcess) {

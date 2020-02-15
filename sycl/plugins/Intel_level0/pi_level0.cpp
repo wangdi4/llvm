@@ -523,10 +523,11 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_bool{1});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_COMPUTE_UNITS) {
-    pi_uint32 max_compute_units = ze_device_properties.numEUsPerSubslice *
-      ze_device_properties.numSubslicesPerSlice *
-      ze_device_properties.numSlicesPerTile *
-      ze_device_properties.numTiles;
+    pi_uint32 max_compute_units =
+        ze_device_properties.numEUsPerSubslice *
+        ze_device_properties.numSubslicesPerSlice *
+        ze_device_properties.numSlicesPerTile *
+        (ze_device_properties.numTiles > 0 ? ze_device_properties.numTiles : 1);
     SET_PARAM_VALUE(pi_uint32{max_compute_units});
   }
   else if (param_name == PI_DEVICE_MAX_WORK_ITEM_DIMENSIONS) {
@@ -3143,13 +3144,18 @@ pi_result L0(piEnqueueNativeKernel)(
   pi_throw("piEnqueueNativeKernel: not implemented");
 }
 
+// TODO: Check if the function_pointer_ret type can be converted to void**.
 pi_result L0(piextGetDeviceFunctionPointer)(
   pi_device        device,
   pi_program       program,
   const char *     function_name,
   pi_uint64 *      function_pointer_ret) {
-
-  pi_throw("piextGetDeviceFunctionPointer: not implemented");
+  pi_assert(program != nullptr);
+  // TODO: Handle Errors.
+  ze_result_t ze_res = ZE_CALL(zeModuleGetFunctionPointer(
+      program->L0Module, function_name,
+      reinterpret_cast<void **>(function_pointer_ret)));
+  return pi_cast<pi_result>(ze_res);
 }
 
 pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
