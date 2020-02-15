@@ -77,8 +77,8 @@ class VPOCodeGen;
 class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPBasicBlock;
-using VPDominatorTree = DomTreeBase<VPBlockBase>;
-using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
+class VPDominatorTree;
+class VPPostDominatorTree;
 #if INTEL_CUSTOMIZATION
 class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend

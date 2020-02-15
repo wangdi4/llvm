@@ -20,6 +20,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANHCFGBUILDER_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "llvm/ADT/SmallVector.h"
 
 extern bool LoopMassagingEnabled;
