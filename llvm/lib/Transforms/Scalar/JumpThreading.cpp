@@ -445,12 +445,6 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         continue;
       while (ProcessBlock(&BB)) // Thread all of the branches we can over BB.
         Changed = true;
-
-      // Jump threading may have introduced redundant debug values into BB
-      // which should be removed.
-      if (Changed)
-        RemoveRedundantDbgInstrs(&BB);
-
       // Stop processing BB if it's the entry or is now deleted. The following
       // routines attempt to eliminate BB and locating a suitable replacement
       // for the entry is non-trivial.
@@ -475,14 +469,19 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       // ProcessBlock doesn't thread BBs with unconditional TIs. However, if BB
       // is "almost empty", we attempt to merge BB with its sole successor.
       auto *BI = dyn_cast<BranchInst>(BB.getTerminator());
+<<<<<<< HEAD
       if (BI && BI->isUnconditional()) {
         BasicBlock *Succ = BI->getSuccessor(0);
         if (
           DoCFGSimplifications &&                                       // INTEL
+=======
+      if (BI && BI->isUnconditional() &&
+>>>>>>> 6ded69f294a9a62a68b0a07aa987c8165a4b31e7
           // The terminator must be the only non-phi instruction in BB.
           BB.getFirstNonPHIOrDbg()->isTerminator() &&
           // Don't alter Loop headers and latches to ensure another pass can
           // detect and transform nested loops later.
+<<<<<<< HEAD
           !LoopHeaders.count(&BB) && !LoopHeaders.count(Succ) &&
           TryToSimplifyUncondBranchFromEmptyBlock(&BB, DTU)) {
         RemoveRedundantDbgInstrs(Succ);
@@ -493,6 +492,14 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         CountableLoopHeaders.erase(&BB); // INTEL
         Changed = true;
         }
+=======
+          !LoopHeaders.count(&BB) && !LoopHeaders.count(BI->getSuccessor(0)) &&
+          TryToSimplifyUncondBranchFromEmptyBlock(&BB, DTU)) {
+        // BB is valid for cleanup here because we passed in DTU. F remains
+        // BB's parent until a DTU->getDomTree() event.
+        LVI->eraseBlock(&BB);
+        Changed = true;
+>>>>>>> 6ded69f294a9a62a68b0a07aa987c8165a4b31e7
       }
     }
     EverChanged |= Changed;
