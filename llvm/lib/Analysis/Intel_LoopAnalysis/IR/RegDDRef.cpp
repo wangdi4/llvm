@@ -1782,6 +1782,41 @@ bool RegDDRef::hasTrailingStructOffsets() const {
   return false;
 }
 
+unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
+  assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+  assert(isDimensionValid(DimensionNum) && "DimensionNum is invalid!");
+
+  Type *DimType = getDimensionType(DimensionNum);
+
+  if (DimType->isArrayTy()) {
+    return DimType->getArrayNumElements();
+
+  } else if (DimensionNum < getNumDimensions()) {
+    // Try to compute number of elements using dimension stride of this and the
+    // next dimension.
+
+    // Dimensions are not contiguous.
+    if (hasTrailingStructOffsets(DimensionNum + 1)) {
+      return 0;
+    }
+
+    int64_t CurDimStride, NextDimStride;
+
+    if (!getDimensionStride(DimensionNum)->isIntConstant(&CurDimStride) ||
+        !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride)) {
+      return 0;
+    }
+
+    assert((NextDimStride % CurDimStride == 0) &&
+           "Higher dimension stride is not an exact multiple of lower "
+           "dimension stride!");
+
+    return NextDimStride / CurDimStride;
+  }
+
+  return 0;
+}
+
 bool RegDDRef::hasIV(unsigned Level) const {
 
   for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {

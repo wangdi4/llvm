@@ -38,16 +38,16 @@
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK:         [[BB2]]:
-; CHECK-DAG:      i64 [[VP1:%.*]] = phi  [ i64 [[RET_021:%.*]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-DAG:      i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 [[RET_021:%.*]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
 ; CHECK:         SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK:         [[BB4]]:
 ; CHECK:         SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK:         [[BB5]]:
-; CHECK-DAG:      i64 [[VP9:%.*]] = phi  [ i64 [[VP1]], [[BB4]] ],  [ i64 [[VP9]], [[BB5]] ]
-; CHECK-DAG:      i64 [[VP10:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP11:%.*]], [[BB5]] ]
+; CHECK-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 [[VP1]], [[BB4]] ],  [ i64 [[VP9]], [[BB5]] ]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP11:%.*]], [[BB5]] ]
 ; CHECK:          i64 [[VP11]] = add i64 [[VP10]] i64 1
 ; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp i64 [[VP11]] i64 {{%vp.*}}
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP16]]), [[BB3]](!i1 [[VP16]])

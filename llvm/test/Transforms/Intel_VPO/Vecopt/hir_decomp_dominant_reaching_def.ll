@@ -33,8 +33,8 @@
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-COUNT-2: {{BB[0-9]*}}:
 ; CHECK:         [[LP_BODY:BB[0-9]+]]:
-; CHECK-DAG:      i32 [[VP0:%.*]] = phi  [ i32 [[ADD824:%add824]], [[LP_PH:BB[0-9]+]] ],  [ i32 [[VP1:%.*]], [[LP_BODY]] ]
-; CHECK-DAG:      i32 [[VP2:%.*]] = phi  [ i32 [[ADD426:%add426]], [[LP_PH]] ],  [ i32 [[VP3:%.*]], [[LP_BODY]] ]
+; CHECK-NEXT:     i32 [[VP2:%.*]] = phi  [ i32 [[ADD426:%add426]], [[LP_PH:BB[0-9]+]] ],  [ i32 [[VP3:%.*]], [[LP_BODY]] ]
+; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[ADD824:%add824]], [[LP_PH]] ],  [ i32 [[VP1:%.*]], [[LP_BODY]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[LP_PH]] ],  [ i64 [[VP5:%.*]], [[LP_BODY]] ]
 ; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
