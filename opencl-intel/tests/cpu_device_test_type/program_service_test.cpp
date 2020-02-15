@@ -137,21 +137,6 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
         }
     }
 
-    // Get optimal size
-    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE, 0, NULL,
-        sizeof(stParamSize), &stParamSize, NULL);
-    if ( CL_DEV_FAILED(rc) )
-    {
-        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
-        dev_entry->clDevReleaseProgram(prog);
-        return false;
-    }
-    if ( stParamSize != 128 )
-    {
-        dev_entry->clDevReleaseProgram(prog);
-        return false;
-    }
-
     // Implicit local memory size
     cl_ulong ullLocalSize;
     rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, 0, NULL,
@@ -183,13 +168,31 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
     rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE, 0, NULL, sizeof(stWGMaxSize), &stWGMaxSize, NULL);
     if ( CL_DEV_FAILED(rc) )
     {
-        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_MAX_WG_SIZE] failed <%X>\n", rc);
         dev_entry->clDevReleaseProgram(prog);
         return false;
     }
     if ( CPU_MAX_WORK_GROUP_SIZE != stWGMaxSize &&
         FPGA_MAX_WORK_GROUP_SIZE != stWGMaxSize )
     {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+
+    // Get optimal size^M
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE, 0, NULL,
+        sizeof(stParamSize), &stParamSize, NULL);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    // stParamSize should be less than or equal to stWGMaxSize
+    if ( stParamSize > stWGMaxSize )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] is bigger than\n");
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_MAX_WG_SIZE].\n");
         dev_entry->clDevReleaseProgram(prog);
         return false;
     }
