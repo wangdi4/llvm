@@ -2427,6 +2427,7 @@ TLI_DEFINE_STRING_INTERNAL("reallocf")
 /// char *realpath(const char *file_name, char *resolved_name);
 TLI_DEFINE_ENUM_INTERNAL(realpath)
 TLI_DEFINE_STRING_INTERNAL("realpath")
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// int regcomp(regex_t *preg, const char *regex, int cflags);
 TLI_DEFINE_ENUM_INTERNAL(regcomp)
@@ -2443,6 +2444,17 @@ TLI_DEFINE_STRING_INTERNAL("regexec")
 TLI_DEFINE_ENUM_INTERNAL(regfree)
 TLI_DEFINE_STRING_INTERNAL("regfree")
 #endif // INTEL_CUSTOMIZATION
+=======
+/// double remainder(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(remainder)
+TLI_DEFINE_STRING_INTERNAL("remainder")
+/// float remainderf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(remainderf)
+TLI_DEFINE_STRING_INTERNAL("remainderf")
+/// long double remainderl(long double x, long double y);
+TLI_DEFINE_ENUM_INTERNAL(remainderl)
+TLI_DEFINE_STRING_INTERNAL("remainderl")
+>>>>>>> 2470d2988a057024b7bab99ace3749e6b770c8a0
 /// int remove(const char *path);
 TLI_DEFINE_ENUM_INTERNAL(remove)
 TLI_DEFINE_STRING_INTERNAL("remove")
