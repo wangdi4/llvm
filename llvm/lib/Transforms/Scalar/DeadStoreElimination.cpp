@@ -1848,15 +1848,11 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
-<<<<<<< HEAD
-  PA.preserve<MemoryDependenceAnalysis>();
-  PA.preserve<AndersensAA>();                // INTEL
-=======
   if (EnableMemorySSA)
     PA.preserve<MemorySSAAnalysis>();
   else
     PA.preserve<MemoryDependenceAnalysis>();
->>>>>>> 81dbb6aec6261a06132f17b06c9071f4a1871fa4
+  PA.preserve<AndersensAA>();                // INTEL
   return PA;
 }
 
@@ -1898,14 +1894,8 @@ public:
     AU.setPreservesCFG();
     AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
-<<<<<<< HEAD
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-=======
->>>>>>> 81dbb6aec6261a06132f17b06c9071f4a1871fa4
-    AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
 
