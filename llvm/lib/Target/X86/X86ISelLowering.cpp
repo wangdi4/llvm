@@ -34446,7 +34446,7 @@ void X86TargetLowering::computeKnownBitsForTargetNode(const SDValue Op,
     APInt DemandedElt = APInt::getOneBitSet(SrcVT.getVectorNumElements(),
                                             Op.getConstantOperandVal(1));
     Known = DAG.computeKnownBits(Src, DemandedElt, Depth + 1);
-    Known = Known.zextOrTrunc(BitWidth, false);
+    Known = Known.anyextOrTrunc(BitWidth);
     Known.Zero.setBitsFrom(SrcVT.getScalarSizeInBits());
     break;
   }
@@ -34560,7 +34560,7 @@ void X86TargetLowering::computeKnownBitsForTargetNode(const SDValue Op,
       if ((Shift + Length) <= BitWidth) {
         Known = DAG.computeKnownBits(Op0, Depth + 1);
         Known = Known.extractBits(Length, Shift);
-        Known = Known.zextOrTrunc(BitWidth, true /* ExtBitsAreKnownZero */);
+        Known = Known.zextOrTrunc(BitWidth);
       }
     }
     break;
@@ -38018,7 +38018,7 @@ bool X86TargetLowering::SimplifyDemandedBitsForTargetNode(
         return TLO.CombineTo(
             Op, TLO.DAG.getNode(Opc, SDLoc(Op), VT, V, Op.getOperand(1)));
 
-      Known = KnownVec.zext(BitWidth, true);
+      Known = KnownVec.zext(BitWidth);
       return false;
     }
     break;
