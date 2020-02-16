@@ -1323,6 +1323,10 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
 
 #if INTEL_CUSTOMIZATION
+  const auto &FAM =
+      AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR).getManager();
+  Function *F = L.getHeader()->getParent();
+
   auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);
   LoopOptReportBuilder LORBuilder;
   LORBuilder.setup(F->getContext(),
@@ -1340,23 +1344,10 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
 
   std::string LoopName = std::string(L.getName());
 
-<<<<<<< HEAD
-  bool Changed =
-      tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
-                      /*BFI*/ nullptr, /*PSI*/ nullptr,
-                      /*PreserveLCSSA*/ true, OptLevel, // INTEL
-                      LORBuilder, OnlyWhenForced,       // INTEL
-                      ForgetSCEV, /*Count*/ None,
-                      /*Threshold*/ None, /*AllowPartial*/ false,
-                      /*Runtime*/ false, /*UpperBound*/ false,
-                      /*AllowPeeling*/ false,
-                      /*AllowProfileBasedPeeling*/ false,
-                      /*FullUnrollMaxCount*/ None) !=
-      LoopUnrollResult::Unmodified;
-=======
   bool Changed = tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
                                  /*BFI*/ nullptr, /*PSI*/ nullptr,
                                  /*PreserveLCSSA*/ true, OptLevel,
+                                 LORBuilder,                          // INTEL
                                  OnlyWhenForced, ForgetSCEV, /*Count*/ None,
                                  /*Threshold*/ None, /*AllowPartial*/ false,
                                  /*Runtime*/ false, /*UpperBound*/ false,
@@ -1364,7 +1355,6 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                                  /*AllowProfileBasedPeeling*/ false,
                                  /*FullUnrollMaxCount*/ None) !=
                  LoopUnrollResult::Unmodified;
->>>>>>> 4f33a68973bfd9fa429b57528c3fe5443f59a734
   if (!Changed)
     return PreservedAnalyses::all();
 
