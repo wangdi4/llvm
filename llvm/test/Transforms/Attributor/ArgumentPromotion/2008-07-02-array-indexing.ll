@@ -6,7 +6,11 @@
 ; because there is a load of %A in the entry block
 define internal i32 @callee(i1 %C, i32* %A) {
 ; CHECK-LABEL: define {{[^@]+}}@callee
+<<<<<<< HEAD
 ; CHECK-SAME: (i1 [[C:%.*]], i32* noalias nocapture nofree nonnull readonly dereferenceable(4) [[A:%.*]])
+=======
+; CHECK-SAME: (i32* noalias nocapture nofree nonnull readonly align 536870912 dereferenceable(4) [[A:%.*]])
+>>>>>>> b2c76002caae91689e94d4ddd2bf4c3474e82066
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[A_0:%.*]] = load i32, i32* null
 ; CHECK-NEXT:    br label [[F:%.*]]
@@ -34,7 +38,11 @@ F:
 
 define i32 @foo() {
 ; CHECK-LABEL: define {{[^@]+}}@foo()
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @callee(i1 false, i32* noalias nofree readonly null)
+=======
+; CHECK-NEXT:    [[X:%.*]] = call i32 @callee(i32* noalias nofree readonly align 536870912 null)
+>>>>>>> b2c76002caae91689e94d4ddd2bf4c3474e82066
 ; CHECK-NEXT:    ret i32 [[X]]
 ;
   %X = call i32 @callee(i1 false, i32* null)             ; <i32> [#uses=1]
