@@ -27,12 +27,9 @@
 #include "llvm/ADT/ilist_iterator.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
-=======
 #include "llvm/Analysis/DomTreeUpdater.h"
->>>>>>> a5b6480d0551aaed77973c1ac160d7d777951aa3
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
