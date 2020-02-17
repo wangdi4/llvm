@@ -555,55 +555,6 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
       dbgs() << " PBR: " << BB->getName() << "\n";
   });
 
-<<<<<<< HEAD
-  // Add some known attributes to the outlined function.
-  Function *OutlinedFn = Extractor.extractCodeRegion(CEAC);
-  OutlinedFn->addParamAttr(0, Attribute::NoAlias);
-  OutlinedFn->addParamAttr(1, Attribute::NoAlias);
-  OutlinedFn->addFnAttr(Attribute::NoUnwind);
-  OutlinedFn->addFnAttr(Attribute::NoRecurse);
-
-  LLVM_DEBUG(dbgs() << "After      outlining: " << *UI->getFunction() << "\n");
-  LLVM_DEBUG(dbgs() << "   Outlined function: " << *OutlinedFn << "\n");
-
-  // For compability with the clang CG we move the outlined function after the
-  // one with the parallel region.
-  OutlinedFn->removeFromParent();
-  M.getFunctionList().insertAfter(OuterFn->getIterator(), OutlinedFn);
-
-  // Remove the artificial entry introduced by the extractor right away, we
-  // made our own entry block after all.
-  {
-    BasicBlock &ArtificialEntry = OutlinedFn->getEntryBlock();
-    assert(ArtificialEntry.getUniqueSuccessor() == PRegEntryBB);
-    assert(PRegEntryBB->getUniquePredecessor() == &ArtificialEntry);
-    PRegEntryBB->moveBefore(&ArtificialEntry);
-#if INTEL_CUSTOMIZATION
-    llvm::MergeBasicBlockIntoOnlyPred(PRegEntryBB);
-#endif // INTEL_CUSTOMIZATION
-  }
-  LLVM_DEBUG(dbgs() << "PP Outlined function: " << *OutlinedFn << "\n");
-  assert(&OutlinedFn->getEntryBlock() == PRegEntryBB);
-
-  assert(OutlinedFn && OutlinedFn->getNumUses() == 1);
-  assert(OutlinedFn->arg_size() >= 2 &&
-         "Expected at least tid and bounded tid as arguments");
-  unsigned NumCapturedVars = OutlinedFn->arg_size() - /* tid & bounded tid */ 2;
-
-  CallInst *CI = cast<CallInst>(OutlinedFn->user_back());
-  CI->getParent()->setName("omp_parallel");
-  Builder.SetInsertPoint(CI);
-
-  // Build call __kmpc_fork_call(Ident, n, microtask, var1, .., varn);
-  Value *ForkCallArgs[] = {Ident, Builder.getInt32(NumCapturedVars),
-                           Builder.CreateBitCast(OutlinedFn, ParallelTaskPtr)};
-
-  SmallVector<Value *, 16> RealArgs;
-  RealArgs.append(std::begin(ForkCallArgs), std::end(ForkCallArgs));
-  RealArgs.append(CI->arg_begin() + /* tid & bound tid */ 2, CI->arg_end());
-
-=======
->>>>>>> 8a56d64d7620b3764f10f03f3a1e307fcdd72c2f
   FunctionCallee RTLFn = getOrCreateRuntimeFunction(OMPRTL___kmpc_fork_call);
   if (auto *F = dyn_cast<llvm::Function>(RTLFn.getCallee())) {
     if (!F->hasMetadata(llvm::LLVMContext::MD_callback)) {
