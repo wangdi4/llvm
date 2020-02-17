@@ -4175,7 +4175,12 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
               ParentRegion == OMPD_distribute_parallel_for ||
               ParentRegion == OMPD_teams_distribute_parallel_for ||
               ParentRegion == OMPD_target_teams_distribute_parallel_for)) ||
-            (CancelRegion == OMPD_taskgroup && ParentRegion == OMPD_task) ||
+            (CancelRegion == OMPD_taskgroup &&
+             (ParentRegion == OMPD_task ||
+              (SemaRef.getLangOpts().OpenMP >= 50 &&
+               (ParentRegion == OMPD_taskloop ||
+                ParentRegion == OMPD_master_taskloop ||
+                ParentRegion == OMPD_parallel_master_taskloop)))) ||
             (CancelRegion == OMPD_sections &&
              (ParentRegion == OMPD_section || ParentRegion == OMPD_sections ||
               ParentRegion == OMPD_parallel_sections)));
@@ -10058,7 +10063,8 @@ StmtResult Sema::ActOnOpenMPTaskLoopDirective(
 
   setFunctionHasBranchProtectedScope();
   return OMPTaskLoopDirective::Create(Context, StartLoc, EndLoc,
-                                      NestedLoopCount, Clauses, AStmt, B);
+                                      NestedLoopCount, Clauses, AStmt, B,
+                                      DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPTaskLoopSimdDirective(
@@ -10143,7 +10149,8 @@ StmtResult Sema::ActOnOpenMPMasterTaskLoopDirective(
 
   setFunctionHasBranchProtectedScope();
   return OMPMasterTaskLoopDirective::Create(Context, StartLoc, EndLoc,
-                                            NestedLoopCount, Clauses, AStmt, B);
+                                            NestedLoopCount, Clauses, AStmt, B,
+                                            DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPMasterTaskLoopSimdDirective(
@@ -10247,7 +10254,8 @@ StmtResult Sema::ActOnOpenMPParallelMasterTaskLoopDirective(
 
   setFunctionHasBranchProtectedScope();
   return OMPParallelMasterTaskLoopDirective::Create(
-      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
+      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
+      DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPParallelMasterTaskLoopSimdDirective(
