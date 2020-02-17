@@ -11358,7 +11358,6 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
   return Address(Addr, Align);
 }
 
-<<<<<<< HEAD
 namespace {
 using OMPContextSelectorData =
     OpenMPCtxSelectorData<ArrayRef<StringRef>, llvm::APSInt>;
@@ -11598,36 +11597,31 @@ static bool greaterCtxScore(const CompleteOMPContextSelectorData &LHS,
   return llvm::APSInt::compareValues(LHSScore, RHSScore) >= 0;
 }
 
-=======
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
 /// Finds the variant function that matches current context with its context
 /// selector.
 static const FunctionDecl *getDeclareVariantFunction(CodeGenModule &CGM,
                                                      const FunctionDecl *FD) {
   if (!FD->hasAttrs() || !FD->hasAttr<OMPDeclareVariantAttr>())
     return FD;
-
-  SmallVector<Expr *, 8> VariantExprs;
-  SmallVector<VariantMatchInfo, 8> VMIs;
+  // Iterate through all DeclareVariant attributes and check context selectors.
+  const OMPDeclareVariantAttr *TopMostAttr = nullptr;
+  CompleteOMPContextSelectorData TopMostData;
   for (const auto *A : FD->specific_attrs<OMPDeclareVariantAttr>()) {
-    const OMPTraitInfo *TI = A->getTraitInfos();
-    if (!TI)
+    CompleteOMPContextSelectorData Data =
+        translateAttrToContextSelectorData(CGM.getContext(), A);
+    if (!matchesContext(CGM, Data))
       continue;
-    VMIs.push_back(VariantMatchInfo());
-    TI->getAsVariantMatchInfo(CGM.getContext(), VMIs.back());
-    VariantExprs.push_back(A->getVariantFuncRef());
+    // If the attribute matches the context, find the attribute with the highest
+    // score.
+    if (!TopMostAttr || !greaterCtxScore(TopMostData, Data)) {
+      TopMostAttr = A;
+      TopMostData.swap(Data);
+    }
   }
-
-  OMPContext Ctx(CGM.getLangOpts().OpenMPIsDevice, CGM.getTriple());
-  // FIXME: Keep the context in the OMPIRBuilder so we can add constructs as we
-  //        build them.
-
-  int BestMatchIdx = getBestVariantMatchForContext(VMIs, Ctx);
-  if (BestMatchIdx < 0)
+  if (!TopMostAttr)
     return FD;
-
   return cast<FunctionDecl>(
-      cast<DeclRefExpr>(VariantExprs[BestMatchIdx]->IgnoreParenImpCasts())
+      cast<DeclRefExpr>(TopMostAttr->getVariantFuncRef()->IgnoreParenImpCasts())
           ->getDecl());
 }
 

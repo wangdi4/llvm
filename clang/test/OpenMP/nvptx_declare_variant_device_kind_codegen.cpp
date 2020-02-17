@@ -43,13 +43,13 @@
 #define HEADER
 
 #ifdef GPU
-#define SUBSET gpu
-#define CORRECT nohost, gpu
+#define CORRECT gpu
+#define SUBSET nohost, gpu
 #define WRONG cpu, gpu
 #endif // GPU
 #ifdef NOHOST
-#define SUBSET nohost
-#define CORRECT nohost, gpu
+#define CORRECT nohost
+#define SUBSET nohost, gpu
 #define WRONG nohost, host
 #endif // NOHOST
 

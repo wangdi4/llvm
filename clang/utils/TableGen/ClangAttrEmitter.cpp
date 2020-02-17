@@ -123,7 +123,6 @@ static std::string ReadPCHRecord(StringRef type) {
 #endif // INTEL_CUSTOMIZATION
       .Case("StringRef", "Record.readString()")
       .Case("ParamIdx", "ParamIdx::deserialize(Record.readInt())")
-      .Case("OMPTraitInfo *", "Record.readOMPTraitInfo()")
       .Default("Record.readInt()");
 }
 
@@ -151,8 +150,6 @@ static std::string WritePCHRecord(StringRef type, StringRef name) {
              .Case("StringRef", "AddString(" + std::string(name) + ");\n")
              .Case("ParamIdx",
                    "push_back(" + std::string(name) + ".serialize());\n")
-             .Case("OMPTraitInfo *",
-                   "writeOMPTraitInfo(" + std::string(name) + ");\n")
              .Default("push_back(" + std::string(name) + ");\n");
 }
 
@@ -369,7 +366,7 @@ namespace {
     void writeDump(raw_ostream &OS) const override {
       if (type == "FunctionDecl *" || type == "NamedDecl *") {
         OS << "    OS << \" \";\n";
-        OS << "    dumpBareDeclRef(SA->get" << getUpperName() << "());\n";
+        OS << "    dumpBareDeclRef(SA->get" << getUpperName() << "());\n"; 
       } else if (type == "IdentifierInfo *") {
         // Some non-optional (comma required) identifier arguments can be the
         // empty string but are then recorded as a nullptr.
@@ -396,8 +393,6 @@ namespace {
           OS << "    if (SA->get" << getUpperName() << "().isValid())\n  ";
         OS << "    OS << \" \" << SA->get" << getUpperName()
            << "().getSourceIndex();\n";
-      } else if (type == "OMPTraitInfo *") {
-        OS << "    OS << \" \" << *SA->get" << getUpperName() << "();\n";
       } else {
         llvm_unreachable("Unknown SimpleArgument type!");
       }
@@ -538,7 +533,7 @@ namespace {
       OS << "  if (is" << getLowerName() << "Expr)\n";
       OS << "    return " << getLowerName() << "Expr && (" << getLowerName()
          << "Expr->isValueDependent() || " << getLowerName()
-         << "Expr->isTypeDependent());\n";
+         << "Expr->isTypeDependent());\n"; 
       OS << "  else\n";
       OS << "    return " << getLowerName()
          << "Type->getType()->isDependentType();\n";
@@ -563,11 +558,11 @@ namespace {
     void writeASTVisitorTraversal(raw_ostream &OS) const override {
       StringRef Name = getUpperName();
       OS << "  if (A->is" << Name << "Expr()) {\n"
-         << "    if (!getDerived().TraverseStmt(A->get" << Name << "Expr()))\n"
-         << "      return false;\n"
+         << "    if (!getDerived().TraverseStmt(A->get" << Name << "Expr()))\n" 
+         << "      return false;\n" 
          << "  } else if (auto *TSI = A->get" << Name << "Type()) {\n"
          << "    if (!getDerived().TraverseTypeLoc(TSI->getTypeLoc()))\n"
-         << "      return false;\n"
+         << "      return false;\n" 
          << "  }\n";
     }
 
@@ -696,7 +691,7 @@ namespace {
       std::string IteratorType = getLowerName().str() + "_iterator";
       std::string BeginFn = getLowerName().str() + "_begin()";
       std::string EndFn = getLowerName().str() + "_end()";
-
+      
       OS << "  typedef " << Type << "* " << IteratorType << ";\n";
       OS << "  " << IteratorType << " " << BeginFn << " const {"
          << " return " << ArgName << "; }\n";
@@ -953,14 +948,14 @@ namespace {
       for (size_t I = 0; I < enums.size(); ++I) {
         if (Uniques.insert(enums[I]).second)
           OS << "    case " << getAttrName() << "Attr::" << enums[I]
-             << ": return \"" << values[I] << "\";\n";
+             << ": return \"" << values[I] << "\";\n";       
       }
       OS << "    }\n"
          << "    llvm_unreachable(\"No enumerator with that value\");\n"
          << "  }\n";
     }
   };
-
+  
   class VariadicEnumArgument: public VariadicArgument {
     std::string type, QualifiedTypeName;
     std::vector<StringRef> values, enums, uniques;
@@ -983,13 +978,13 @@ namespace {
           enums(Arg.getValueAsListOfStrings("Enums")),
           uniques(uniqueEnumsInOrder(enums)) {
       QualifiedTypeName = getAttrName().str() + "Attr::" + type;
-
+      
       // FIXME: Emit a proper error
       assert(!uniques.empty());
     }
 
     bool isVariadicEnumArg() const override { return true; }
-
+    
     void writeDeclarations(raw_ostream &OS) const override {
       auto i = uniques.cbegin(), e = uniques.cend();
       // The last one needs to not have a comma.
@@ -1002,7 +997,7 @@ namespace {
       OS << "    " << *e << "\n";
       OS << "  };\n";
       OS << "private:\n";
-
+      
       VariadicArgument::writeDeclarations(OS);
     }
 
@@ -1079,7 +1074,7 @@ namespace {
       OS << "  VersionTuple get" << getUpperName() << "() const {\n";
       OS << "    return " << getLowerName() << ";\n";
       OS << "  }\n";
-      OS << "  void set" << getUpperName()
+      OS << "  void set" << getUpperName() 
          << "(ASTContext &C, VersionTuple V) {\n";
       OS << "    " << getLowerName() << " = V;\n";
       OS << "  }";
@@ -1388,8 +1383,6 @@ createArgument(const Record &Arg, StringRef Attr,
     Ptr = std::make_unique<VariadicIdentifierArgument>(Arg, Attr);
   else if (ArgName == "VersionArgument")
     Ptr = std::make_unique<VersionArgument>(Arg, Attr);
-  else if (ArgName == "OMPTraitInfoArgument")
-    Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "OMPTraitInfo *");
 
   if (!Ptr) {
     // Search in reverse order so that the most-derived type is handled first.
@@ -2387,10 +2380,10 @@ void clang::EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
     // When attribute documentation can be generated as part of the build
     // itself, this code can be removed.
     (void)R.getValueAsListOfDefs("Documentation");
-
+    
     if (!R.getValueAsBit("ASTNode"))
       continue;
-
+    
     ArrayRef<std::pair<Record *, SMRange>> Supers = R.getSuperClasses();
     assert(!Supers.empty() && "Forgot to specify a superclass for the attr");
     std::string SuperName;
@@ -2577,7 +2570,7 @@ void clang::EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
       }
 
       OS << "  {\n";
-
+  
       for (auto const &ai : Args) {
         if (!shouldEmitArg(ai)) continue;
         ai->writeCtorBody(OS);
@@ -2592,7 +2585,7 @@ void clang::EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
     // Emit a constructor that takes all the non-fake arguments.
     if (HasFakeArg)
       emitCtor(true, false);
-
+ 
     // Emit a constructor that takes all the non-fake, non-optional arguments.
     if (HasOptArg)
       emitCtor(false, false);
@@ -2601,7 +2594,7 @@ void clang::EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
     OS << "  void printPretty(raw_ostream &OS,\n"
        << "                   const PrintingPolicy &Policy) const;\n";
     OS << "  const char *getSpelling() const;\n";
-
+    
     if (!ElideSpelling) {
       assert(!SemanticToSyntacticMap.empty() && "Empty semantic mapping list");
       OS << "  Spelling getSemanticSpelling() const {\n";
@@ -2646,7 +2639,7 @@ void clang::EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
 
   for (auto *Attr : Attrs) {
     Record &R = *Attr;
-
+    
     if (!R.getValueAsBit("ASTNode"))
       continue;
 
@@ -3138,7 +3131,7 @@ static void GenerateHasAttrSpellingStringSwitch(
     // them. If the attribute has no scope, the version information must not
     // have the default value (1), as that's incorrect. Instead, the unscoped
     // attribute version information should be taken from the SD-6 standing
-    // document, which can be found at:
+    // document, which can be found at: 
     // https://isocpp.org/std/standing-documents/sd-6-sg10-feature-test-recommendations
     int Version = 1;
 
@@ -3450,7 +3443,7 @@ void EmitClangAttrParsedAttrList(RecordKeeper &Records, raw_ostream &OS) {
   OS << "#ifndef PARSED_ATTR\n";
   OS << "#define PARSED_ATTR(NAME) NAME\n";
   OS << "#endif\n\n";
-
+  
   ParsedAttrMap Names = getParsedAttrList(Records);
   for (const auto &I : Names) {
     OS << "PARSED_ATTR(" << I.first << ")\n";

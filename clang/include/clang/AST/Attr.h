@@ -17,7 +17,6 @@
 #include "clang/AST/AttrIterator.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
-#include "clang/AST/OpenMPClause.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/AttrKinds.h"
 #include "clang/Basic/AttributeCommonInfo.h"

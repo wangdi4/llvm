@@ -20,7 +20,6 @@
 using namespace clang;
 using namespace llvm::omp;
 
-<<<<<<< HEAD
 OpenMPContextSelectorSetKind
 clang::getOpenMPContextSelectorSet(llvm::StringRef Str) {
   return llvm::StringSwitch<OpenMPContextSelectorSetKind>(Str)
@@ -99,8 +98,6 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified

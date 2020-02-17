@@ -49,9 +49,6 @@ enum class TraitProperty {
 /// Parse \p Str and return the trait set it matches or TraitSet::invalid.
 TraitSet getOpenMPContextTraitSetKind(StringRef Str);
 
-/// Return the trait set for which \p Selector is a selector.
-TraitSet getOpenMPContextTraitSetForSelector(TraitSelector Selector);
-
 /// Return the trait set for which \p Property is a property.
 TraitSet getOpenMPContextTraitSetForProperty(TraitProperty Property);
 
@@ -70,7 +67,9 @@ StringRef getOpenMPContextTraitSelectorName(TraitSelector Kind);
 
 /// Parse \p Str and return the trait set it matches or
 /// TraitProperty::invalid.
-TraitProperty getOpenMPContextTraitPropertyKind(TraitSet Set, StringRef Str);
+TraitProperty getOpenMPContextTraitPropertyKind(TraitSet Set,
+                                                TraitSelector Selector,
+                                                StringRef Str);
 
 /// Return the trait property for a singleton selector \p Selector.
 TraitProperty getOpenMPContextTraitPropertyForSelector(TraitSelector Selector);
@@ -81,16 +80,6 @@ StringRef getOpenMPContextTraitPropertyName(TraitProperty Kind);
 /// Return a textual representation of the trait property \p Kind with selector
 /// and set name included.
 StringRef getOpenMPContextTraitPropertyFullName(TraitProperty Kind);
-
-/// Return a string listing all trait sets.
-std::string listOpenMPContextTraitSets();
-
-/// Return a string listing all trait selectors for \p Set.
-std::string listOpenMPContextTraitSelectors(TraitSet Set);
-
-/// Return a string listing all trait properties for \p Set and \p Selector.
-std::string listOpenMPContextTraitProperties(TraitSet Set,
-                                             TraitSelector Selector);
 ///}
 
 /// Return true if \p Selector can be nested in \p Set. Also sets
