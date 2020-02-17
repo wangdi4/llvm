@@ -84,7 +84,11 @@ private:
                               const context &Context);
   using ProgramPtr = unique_ptr_class<remove_pointer_t<RT::PiProgram>,
                                       decltype(&::piProgramRelease)>;
+<<<<<<< HEAD
   ProgramPtr build(ProgramPtr Program, const ContextImplPtr Context,
+=======
+  ProgramPtr build(ProgramPtr Program, RT::PiContext Context,
+>>>>>>> 9633bde1a8cddd190d33b71d55b8b4c9d3dc0630
                    const string_class &CompileOptions,
                    const string_class &LinkOptions,
                    const std::vector<RT::PiDevice> &Devices,
