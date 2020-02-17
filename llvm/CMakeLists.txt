@@ -1362,6 +1362,7 @@ endif()
 # after all targets are created.
 include(LLVMDistributionSupport)
 llvm_distribution_add_targets()
+process_llvm_pass_plugins()
 
 # This allows us to deploy the Universal CRT DLLs by passing -DCMAKE_INSTALL_UCRT_LIBRARIES=ON to CMake
 if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_INSTALL_UCRT_LIBRARIES)
@@ -1386,6 +1387,7 @@ endif()
 if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
   add_subdirectory(utils/llvm-locstats)
 endif()
+<<<<<<< HEAD
 
 process_llvm_pass_plugins()
 
@@ -1553,3 +1555,5 @@ if (INTEL_CUSTOMIZATION)
     add_custom_target(deploy DEPENDS ${manifest})
   endif()
 endif (INTEL_CUSTOMIZATION)
+=======
+>>>>>>> d21664cce1db8debe2528f36b1fbd2b8af9c9401
