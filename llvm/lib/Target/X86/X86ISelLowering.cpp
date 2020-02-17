@@ -22168,17 +22168,13 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
     // compare like we do for non-strict, we might trigger spurious exceptions
     // from the upper elements. Instead emit a AVX compare and convert to mask.
     unsigned Opc;
-<<<<<<< HEAD
-    if (Subtarget.hasAVX512() && VT.getVectorElementType() == MVT::i1) {
+    if (Subtarget.hasAVX512() && VT.getVectorElementType() == MVT::i1 &&
+        (!IsStrict || Subtarget.hasVLX() ||
+         Op0.getSimpleValueType().is512BitVector())) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
       assert(VT.getVectorNumElements() <= 16 || Subtarget.hasFP16());
 #else  // INTEL_FEATURE_ISA_FP16
-=======
-    if (Subtarget.hasAVX512() && VT.getVectorElementType() == MVT::i1 &&
-        (!IsStrict || Subtarget.hasVLX() ||
-         Op0.getSimpleValueType().is512BitVector())) {
->>>>>>> c2e8a421ac52c5a17962a99db472be1d0bfdc296
       assert(VT.getVectorNumElements() <= 16);
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
