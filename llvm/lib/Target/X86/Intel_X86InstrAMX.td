@@ -1159,10 +1159,10 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
 let Predicates = [HasAMXFP16, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in {
-      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
+      def TDPFP16PS : I<0x5d, MRMSrcReg4VOp3, (outs VTILE:$dst),
                         (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
                         "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        []>, VEX_4V, T8XD;
+                        []>, VEX_4V, T8XS;
     }
     let  usesCustomInserter = 1 in {
       def PTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
