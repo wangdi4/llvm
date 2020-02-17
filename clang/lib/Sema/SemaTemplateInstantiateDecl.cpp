@@ -462,12 +462,39 @@ static void instantiateOMPDeclareVariantAttr(
     VariantFuncRef = Subst(E);
   }
 
+  // Copy the template version of the OMPTraitInfo and run substitute on all
+  // score and condition expressiosn.
+  OMPTraitInfo *TI = new OMPTraitInfo();
+  *TI = *Attr.getTraitInfos();
+
+  // Try to substitute template parameters in score and condition expressions.
+  auto SubstScoreOrConditionExpr = [&S, Subst](Expr *&E, bool) {
+    if (E) {
+      EnterExpressionEvaluationContext Unevaluated(
+          S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+      ExprResult ER = Subst(E);
+      if (ER.isUsable())
+        E = ER.get();
+      else
+        return true;
+    }
+    return false;
+  };
+  if (TI->anyScoreOrCondition(SubstScoreOrConditionExpr)) {
+    delete TI;
+    return;
+  }
+
   // Check function/variant ref.
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
-      S.checkOpenMPDeclareVariantFunction(
-          S.ConvertDeclToDeclGroup(New), VariantFuncRef.get(), Attr.getRange());
-  if (!DeclVarData)
+      S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New),
+                                          VariantFuncRef.get(), *TI,
+                                          Attr.getRange());
+
+  if (!DeclVarData) {
+    delete TI;
     return;
+<<<<<<< HEAD
   SmallVector<Sema::OMPCtxSelectorData, 4> Data;
   for (unsigned I = 0, E = Attr.scores_size(); I < E; ++I) {
     ExprResult Score;
@@ -517,10 +544,13 @@ static void instantiateOMPDeclareVariantAttr(
     case OMP_CTX_SET_unknown:
       llvm_unreachable("Unexpected context selector set kind.");
     }
+=======
+>>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
   }
+
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
-                                       DeclVarData.getValue().second,
-                                       Attr.getRange(), Data);
+                                       DeclVarData.getValue().second, TI,
+                                       Attr.getRange());
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
