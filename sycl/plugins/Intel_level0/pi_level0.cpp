@@ -281,7 +281,7 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
 
   // L0 does not have concept of platforms, return a fake one.
   if (platforms && num_entries >= 1) {
-    *platforms = 0;
+    *platforms = pi_cast<pi_platform>(&ze_driver_global);
   }
   if (num_platforms)
     *num_platforms = 1;
@@ -344,7 +344,7 @@ pi_result L0(piPlatformGetInfo)(
   }
   else {
     // TODO: implement other parameters
-    pi_throw("Unsuppported param_name in piPlatformGetInfo");
+    pi_throw("Unsupported param_name in piPlatformGetInfo");
   }
 
   return PI_SUCCESS;
@@ -371,8 +371,8 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
   }
   ze_driver_global = ze_driver;
 
-  // L0 does not have platforms, expect fake 0 here
-  pi_assert(platform == 0);
+  // L0 does not have platforms, expect fake pointer here
+  pi_assert(platform == pi_cast<pi_platform>(&ze_driver_global));
 
   // Get number of devices supporting L0
   uint32_t ze_device_count = 0;
@@ -512,8 +512,8 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_device{0});
   }
   else if (param_name == PI_DEVICE_INFO_PLATFORM) {
-    // TODO: is there a way to query L0 device for a device-group?
-    SET_PARAM_VALUE(pi_platform{0});
+    // This is our fake platform.
+    SET_PARAM_VALUE(pi_cast<pi_platform>(&ze_driver_global));
   }
   else if (param_name == PI_DEVICE_INFO_VENDOR_ID) {
     SET_PARAM_VALUE(pi_uint32{ze_device_properties.vendorId});
