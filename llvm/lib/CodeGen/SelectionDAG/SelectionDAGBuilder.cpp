@@ -10019,7 +10019,7 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
   }
 
   // Finally, if the target has anything special to do, allow it to do so.
-  EmitFunctionEntryCode();
+  emitFunctionEntryCode();
 }
 
 /// Handle PHI nodes in successor blocks.  Emit code into the SelectionDAG to

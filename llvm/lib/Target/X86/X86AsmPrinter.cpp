@@ -79,7 +79,7 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
     OutStreamer->EmitSyntaxDirective();
 
   // Emit the rest of the function body.
-  EmitFunctionBody();
+  emitFunctionBody();
 
   // Emit the XRay table for this function.
   emitXRayTable();
@@ -90,7 +90,7 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   return false;
 }
 
-void X86AsmPrinter::EmitFunctionBodyStart() {
+void X86AsmPrinter::emitFunctionBodyStart() {
   if (EmitFPOData) {
     if (auto *XTS =
         static_cast<X86TargetStreamer *>(OutStreamer->getTargetStreamer()))
@@ -100,7 +100,7 @@ void X86AsmPrinter::EmitFunctionBodyStart() {
   }
 }
 
-void X86AsmPrinter::EmitFunctionBodyEnd() {
+void X86AsmPrinter::emitFunctionBodyEnd() {
   if (EmitFPOData) {
     if (auto *XTS =
             static_cast<X86TargetStreamer *>(OutStreamer->getTargetStreamer()))
@@ -578,7 +578,7 @@ bool X86AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
   return false;
 }
 
-void X86AsmPrinter::EmitStartOfAsmFile(Module &M) {
+void X86AsmPrinter::emitStartOfAsmFile(Module &M) {
   const Triple &TT = TM.getTargetTriple();
 
   if (TT.isOSBinFormatELF()) {
@@ -701,7 +701,7 @@ static void emitNonLazyStubs(MachineModuleInfo *MMI, MCStreamer &OutStreamer) {
   }
 }
 
-void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
+void X86AsmPrinter::emitEndOfAsmFile(Module &M) {
   const Triple &TT = TM.getTargetTriple();
 
   if (TT.isOSBinFormatMachO()) {
