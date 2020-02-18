@@ -616,6 +616,14 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
+  if (LS.hasCallsWithUnsafeSideEffects()) {
+    LLVM_DEBUG(
+        dbgs() << "Skipping unroll & jam of loopnest containing call(s) with "
+                  "unsafe side effects!\n");
+    HUAJ.throttleRecursively(Lp);
+    return;
+  }
+
   if (!Lp->isInnermost()) {
     if (!Lp->isNormalized()) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of non-normalized loop!\n");
