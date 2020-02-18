@@ -10036,8 +10036,6 @@ def warn_omp_declare_target_after_first_use : Warning<
   InGroup<OpenMPTarget>;
 def err_omp_declare_variant_incompat_attributes : Error<
   "'#pragma omp declare variant' is not compatible with any target-specific attributes">;
-<<<<<<< HEAD
-=======
 def warn_omp_declare_variant_score_not_constant
     : Warning<"score expressions in the OpenMP context selector need to be "
               "constant; %0 is not and will be ignored">,
@@ -10045,7 +10043,6 @@ def warn_omp_declare_variant_score_not_constant
 def err_omp_declare_variant_user_condition_not_constant
     : Error<"the user condition in the OpenMP context selector needs to be "
             "constant; %0 is not">;
->>>>>>> 859654c065583a320d3621d22a09cad89abfc3e9
 def warn_omp_declare_variant_after_used : Warning<
   "'#pragma omp declare variant' cannot be applied for function after first "
   "usage; the original function might be used">, InGroup<SourceUsesOpenMP>;
