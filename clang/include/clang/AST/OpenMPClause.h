@@ -1074,7 +1074,7 @@ class OMPDefaultClause : public OMPClause {
   SourceLocation LParenLoc;
 
   /// A kind of the 'default' clause.
-  OpenMPDefaultClauseKind Kind = OMPC_DEFAULT_unknown;
+  llvm::omp::DefaultKind Kind = llvm::omp::OMP_DEFAULT_unknown;
 
   /// Start location of the kind in source code.
   SourceLocation KindKwLoc;
@@ -1082,7 +1082,7 @@ class OMPDefaultClause : public OMPClause {
   /// Set kind of the clauses.
   ///
   /// \param K Argument of clause.
-  void setDefaultKind(OpenMPDefaultClauseKind K) { Kind = K; }
+  void setDefaultKind(llvm::omp::DefaultKind K) { Kind = K; }
 
   /// Set argument location.
   ///
@@ -1097,7 +1097,7 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-  OMPDefaultClause(OpenMPDefaultClauseKind A, SourceLocation ALoc,
+  OMPDefaultClause(llvm::omp::DefaultKind A, SourceLocation ALoc,
                    SourceLocation StartLoc, SourceLocation LParenLoc,
                    SourceLocation EndLoc)
       : OMPClause(OMPC_default, StartLoc, EndLoc), LParenLoc(LParenLoc),
@@ -1114,7 +1114,7 @@ public:
   SourceLocation getLParenLoc() const { return LParenLoc; }
 
   /// Returns kind of the clause.
-  OpenMPDefaultClauseKind getDefaultKind() const { return Kind; }
+  llvm::omp::DefaultKind getDefaultKind() const { return Kind; }
 
   /// Returns location of clause kind.
   SourceLocation getDefaultKindKwLoc() const { return KindKwLoc; }
