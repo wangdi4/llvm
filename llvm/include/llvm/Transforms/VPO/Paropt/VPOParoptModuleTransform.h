@@ -176,6 +176,9 @@ private:
   /// Routine to populate PrintfDecl and OCLPrintfDecl
   void createOCLPrintfDecl(Function *F);
 
+  /// Replaces calls to sincos/sincosf with _Z6sincosdPd/_Z6sincosfPf
+  void replaceSincosWithOCLBuiltin(Function *F, bool IsDouble);
+
   /// Routine to identify Functions that may use "omp critical"
   /// either directly or down the call stack.
   void collectMayHaveOMPCriticalFunctions(

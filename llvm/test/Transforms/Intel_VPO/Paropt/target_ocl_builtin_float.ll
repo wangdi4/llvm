@@ -9,11 +9,6 @@
 ; asin,asinh,acos,acosh,atan,atanh,atan2
 ; To add new functions, add them to the 2 areas marked MANUALLY ADDED.
 
-;   - For C++, clang will generate calls to ceil, floor, fabs, fmax, fmin.
-;   - For C, clang will generate calls to
-;       llvm.(ceil|floor|fabs|maxnum|minnum).f64
-; We test both forms in one test.
-
 ;
 ; #include <stdio.h>
 ; #include <mathimf.h>
@@ -78,22 +73,13 @@ declare dso_local spir_func float @expf(float) #1
 declare dso_local spir_func float @logf(float) #1
 ; CHECK: declare dso_local spir_func float @_Z3logf(float)
 
-; Function Attrs: nounwind readnone
-declare dso_local spir_func float @ceilf(float) #2
-
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func float @llvm.ceil.f32(float) #6
 ; CHECK: declare dso_local spir_func float @_Z4ceilf(float)
 
-; Function Attrs: nounwind readnone
-declare dso_local spir_func float @floorf(float) #2
-
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func float @llvm.floor.f32(float) #6
 ; CHECK: declare dso_local spir_func float @_Z5floorf(float)
-
-; Function Attrs: nounwind readnone
-declare dso_local spir_func float @fabsf(float) #2
 
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func float @llvm.fabs.f32(float) #6
@@ -111,15 +97,9 @@ declare dso_local spir_func float @log2f(float) #1
 declare dso_local spir_func float @erff(float) #1
 ; CHECK: declare dso_local spir_func float @_Z3erff(float)
 
-; Function Attrs: nounwind
-declare dso_local spir_func float @fmaxf(float, float) #1
-
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func float @llvm.maxnum.f32(float, float) #6
 ; CHECK: declare dso_local spir_func float @_Z4fmaxff(float, float)
-
-; Function Attrs: nounwind
-declare dso_local spir_func float @fminf(float, float) #1
 
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func float @llvm.minnum.f32(float, float) #6
@@ -161,7 +141,7 @@ declare dso_local spir_func float @atanhf(float) #1
 
 ; Function Attrs: nounwind
 declare dso_local spir_func float @atan2f(float, float) #1
-; CHECK: declare dso_local spir_func float @_Z5atan2f(float, float)
+; CHECK: declare dso_local spir_func float @_Z5atan2ff(float, float)
 
 ; Function Attrs: nounwind
 declare dso_local spir_func float @tanhf(float) #1
@@ -207,25 +187,16 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}}  call spir_func float @_Z3logf
   %arrayidx11 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 5
   store float %call10, float addrspace(1)* %arrayidx11, align 4
-  %call12.1 = call spir_func float @ceilf(float 2.500000e+00) #5
-  %call12.2 = call spir_func float @llvm.ceil.f32(float 2.500000e+00)
+  %call12 = call spir_func float @llvm.ceil.f32(float 2.500000e+00)
 ; CHECK: {{.*}}  call spir_func float @_Z4ceilf
-; CHECK: {{.*}}  call spir_func float @_Z4ceilf
-  %call12 = fadd float %call12.1, %call12.2
   %arrayidx13 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 6
   store float %call12, float addrspace(1)* %arrayidx13, align 4
-  %call14.1 = call spir_func float @floorf(float 2.500000e+00)
-  %call14.2 = call spir_func float @llvm.floor.f32(float 2.500000e+00)
+  %call14 = call spir_func float @llvm.floor.f32(float 2.500000e+00)
 ; CHECK: {{.*}}  call spir_func float @_Z5floorf
-; CHECK: {{.*}}  call spir_func float @_Z5floorf
-  %call14 = fadd float %call14.1, %call14.2
   %arrayidx15 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 7
   store float %call14, float addrspace(1)* %arrayidx15, align 4
-  %call16.1 = call spir_func float @fabsf(float -2.000000e+00)
-  %call16.2 = call spir_func float @llvm.fabs.f32(float -2.000000e+00)
+  %call16 = call spir_func float @llvm.fabs.f32(float -2.000000e+00)
 ; CHECK: {{.*}}  call spir_func float @_Z4fabsf
-; CHECK: {{.*}}  call spir_func float @_Z4fabsf
-  %call16 = fadd float %call16.1, %call16.2
   %arrayidx17 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 8
   store float %call16, float addrspace(1)* %arrayidx17, align 4
   %call18 = call spir_func float @sqrtf(float 3.000000e+00) #0
@@ -240,18 +211,12 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}}  call spir_func float @_Z3erff
   %arrayidx23 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 10
   store float %call22, float addrspace(1)* %arrayidx23, align 4
-  %call24.1 = call spir_func float @fmaxf(float 2.000000e+00, float 3.000000e+00)
-  %call24.2 = call spir_func float @llvm.maxnum.f32(float 2.000000e+00, float 3.000000e+00)
+  %call24 = call spir_func float @llvm.maxnum.f32(float 2.000000e+00, float 3.000000e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4fmaxff
-; CHECK: {{.*}} call spir_func float @_Z4fmaxff
-  %call24 = fadd float %call24.1, %call24.2
   %arrayidx25 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 12
   store float %call24, float addrspace(1)* %arrayidx25, align 8
-  %call26.1 = call spir_func float @fminf(float 2.000000e+00, float 3.000000e+00)
-  %call26.2 = call spir_func float @llvm.minnum.f32(float 2.000000e+00, float 3.000000e+00)
+  %call26 = call spir_func float @llvm.minnum.f32(float 2.000000e+00, float 3.000000e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4fminff
-; CHECK: {{.*}} call spir_func float @_Z4fminff
-  %call26 = fadd float %call26.1, %call26.2
   %arrayidx27 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 13
 
 ; MANUALLY ADDED
@@ -290,7 +255,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
   store float %call34, float addrspace(1)* %arrayidx25, align 8
 
   %call35 = call spir_func float @atan2f(float 1.00e+00, float 1.00e+00)
-; CHECK: {{.*}} call spir_func float @_Z5atan2f
+; CHECK: {{.*}} call spir_func float @_Z5atan2ff
   store float %call35, float addrspace(1)* %arrayidx25, align 8
 
   %call36 = call spir_func float @invsqrtf(float 1.00e+00)

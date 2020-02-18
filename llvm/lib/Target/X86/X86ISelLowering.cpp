@@ -46366,6 +46366,31 @@ static SDValue combineX86GatherScatter(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+#if INTEL_CUSTOMIZATION
+// FIXME: This should be open sourced and used in the community code.
+static SDValue rebuildGatherScatter(MaskedGatherScatterSDNode *GorS,
+                                    SDValue Index, SDValue Base, SDValue Scale,
+                                    SelectionDAG &DAG) {
+  SDLoc DL(GorS);
+
+  if (auto *Gather = dyn_cast<MaskedGatherSDNode>(GorS)) {
+    SDValue Ops[] = { Gather->getChain(), Gather->getPassThru(),
+                      Gather->getMask(), Base, Index, Scale } ;
+    return DAG.getMaskedGather(Gather->getVTList(),
+                               Gather->getMemoryVT(), DL, Ops,
+                               Gather->getMemOperand(),
+                               Gather->getIndexType());
+  }
+  auto *Scatter = cast<MaskedScatterSDNode>(GorS);
+  SDValue Ops[] = { Scatter->getChain(), Scatter->getValue(),
+                    Scatter->getMask(), Base, Index, Scale };
+  return DAG.getMaskedScatter(Scatter->getVTList(),
+                              Scatter->getMemoryVT(), DL,
+                              Ops, Scatter->getMemOperand(),
+                              Scatter->getIndexType());
+}
+#endif
+
 static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
                                     TargetLowering::DAGCombinerInfo &DCI) {
   SDLoc DL(N);
@@ -46438,6 +46463,50 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
                                   Scatter->getIndexType());
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  EVT PtrVT = TLI.getPointerTy(DAG.getDataLayout());
+  // Try to move splat constant adders from the index operand to the base
+  // pointer operand. Taking care to multiply by the scale. We can only do
+  // this when index element type is the same as the pointer type.
+  // Otherwise we need to be sure the math doesn't wrap before the scale.
+  if (Index.getOpcode() == ISD::ADD &&
+      Index.getValueType().getVectorElementType() == PtrVT &&
+      isa<ConstantSDNode>(Scale)) {
+    uint64_t ScaleAmt = cast<ConstantSDNode>(Scale)->getZExtValue();
+    if (auto *BV = dyn_cast<BuildVectorSDNode>(Index.getOperand(1))) {
+      BitVector UndefElts;
+      if (ConstantSDNode *C = BV->getConstantSplatNode(&UndefElts)) {
+        // FIXME: Allow non-constant?
+        if (UndefElts.none()) {
+          // Apply the scale.
+          APInt Adder = C->getAPIntValue() * ScaleAmt;
+          // Add it to the existing base.
+          Base = DAG.getNode(ISD::ADD, DL, PtrVT, Base,
+                             DAG.getConstant(Adder, DL, PtrVT));
+          Index = Index.getOperand(0);
+          return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
+        }
+      }
+
+      // It's also possible, base is just a constant. In that case case just
+      // replace it with 0 and move the displacement into the index.
+      if (BV->isConstant() && isa<ConstantSDNode>(Base) &&
+          isOneConstant(Scale)) {
+        SDValue Splat = DAG.getSplatBuildVector(Index.getValueType(), DL, Base);
+        // Combine the constant build_vector and the constant base.
+        Splat = DAG.getNode(ISD::ADD, DL, Index.getValueType(),
+                            Index.getOperand(1), Splat);
+        // Add to the LHS of the original Index add.
+        Index = DAG.getNode(ISD::ADD, DL, Index.getValueType(),
+                            Index.getOperand(0), Splat);
+        Base = DAG.getConstant(0, DL, Base.getValueType());
+        return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
+      }
+    }
+  }
+#endif
 
   if (DCI.isBeforeLegalizeOps()) {
     unsigned IndexWidth = Index.getScalarValueSizeInBits();
