@@ -913,6 +913,27 @@ bool X86TTIImpl::isTargetSpecificShuffleMask(
 
   return IsAlternateLaneVectorMask;
 }
+
+bool X86TTIImpl::isVPlanVLSProfitable() const {
+  // Conservative VLS is profitable for most architectures, except the most
+  // advanced IA processors.
+  return !(ST->hasAVX512() &&
+           getTLI()->getTargetMachine().Options.IntelAdvancedOptim);
+}
+
+bool X86TTIImpl::isAggressiveVLSProfitable() const {
+  // Old processors without support for GATHER/SCATTER instructions always
+  // benefit from the optimization.
+  if (!ST->hasAVX2())
+    return true;
+
+  // We know that it is safe to run VLS aggressively when tuning for IA.
+  if (getTLI()->getTargetMachine().Options.IntelAdvancedOptim)
+    return true;
+
+  // Be conservative otherwise.
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,

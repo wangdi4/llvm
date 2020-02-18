@@ -1897,6 +1897,9 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
 
+  // The wide load can be based on InsertPoint only. Any other memory reference
+  // in the group (e.g. Group->getFirstMemref()) may be not ready at this point
+  // in code generation yet.
   OVLSMemref *InsertPoint = Group->getInsertPoint();
   int InterleaveIndex = computeInterleaveIndex(InsertPoint, Group);
   const VPInstruction *Leader =
@@ -1951,7 +1954,7 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   });
   assert(MemrefIter != Group->end() &&
          "Instruction does not belong to the group");
-  OVLSMemref *Memref = *MemrefIter;
+  auto *Memref = cast<VPVLSClientMemref>(*MemrefIter);
 
   auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
   auto InterleaveFactor = computeInterleaveFactor(Memref);
@@ -1967,15 +1970,23 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   if (InterleaveFactor == 1)
     return GroupLoad;
 
-  // Extract a proper widened value from the wide load. A bit more sophisticated
-  // shuffle mask is required if the input type is itself a vector type.
-  Type *Ty = VPLoad->getType();
-  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  // Extract a proper widened value from the wide load. Generally, an extraction
+  // mask looks like <0, 2, 4, 6>, but in case of vector input types (for
+  // example, <2 x i32>) we would need somewhat more sophisticated mask:
+  // <0, 1, 4, 5, 8, 9, 12, 13>.
+  Type *GroupLeaderTy = cast<VPVLSClientMemref>(Group->getInsertPoint())
+                            ->getInstruction()
+                            ->getType();
+  unsigned OriginalVL =
+      GroupLeaderTy->isVectorTy() ? GroupLeaderTy->getVectorNumElements() : 1;
   Constant *ShuffleMask = createVectorStrideMask(
       Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
-  return Builder.CreateShuffleVector(GroupLoad,
-                                     UndefValue::get(GroupLoad->getType()),
-                                     ShuffleMask, "groupShuffle");
+  Value *GroupShuffle = Builder.CreateShuffleVector(
+      GroupLoad, UndefValue::get(GroupLoad->getType()), ShuffleMask,
+      "groupShuffle");
+  return Builder.CreateBitCast(
+      GroupShuffle, getWidenedType(Memref->getInstruction()->getType(), VF),
+      "groupCast");
 }
 
 Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
@@ -2085,13 +2096,23 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   VPWidenMap[VPInst] = NewLI;
 }
 
-void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
+void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
                                            OVLSGroup *Group) {
   // Don't do anything unless we're vectorizing an instruction that is the group
   // insertion point.
-  auto *Memref = cast<VPVLSClientMemref>(Group->getInsertPoint());
-  if (Memref->getInstruction() != VPStore)
+  if (VPStoreArg !=
+      cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction())
     return;
+
+  // Now we forget about VPStoreArg and work with group leader only.
+  auto *Leader = cast<VPVLSClientMemref>(Group->getFirstMemref());
+  const VPInstruction *LeaderInst = Leader->getInstruction();
+  assert(LeaderInst->getOpcode() == Instruction::Store &&
+         "Unexpected instruction in OVLSGroup");
+  Type *LeaderAccessType = LeaderInst->getOperand(0)->getType();
+  unsigned OriginalVL = LeaderAccessType->isVectorTy()
+                            ? LeaderAccessType->getVectorNumElements()
+                            : 1;
 
   // Values to be stored.
   SmallVector<Value *, 8> GrpValues;
@@ -2102,7 +2123,9 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Populate GrpValues and GrpIndexes.
   for (OVLSMemref *Mrf : *Group) {
     VPValue *V = cast<VPVLSClientMemref>(Mrf)->getInstruction()->getOperand(0);
-    GrpValues.push_back(getVectorValue(V));
+    Type *LeaderAccessType = LeaderInst->getOperand(0)->getType();
+    GrpValues.push_back(Builder.CreateBitCast(
+        getVectorValue(V), getWidenedType(LeaderAccessType, VF), "groupCast"));
     GrpIndexes.push_back(computeInterleaveIndex(Mrf, Group));
   }
 
@@ -2112,10 +2135,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
     assert(GrpIndexes[i] == i && "Unsupported memory references sequence");
 
   // Check that all memory references have the same interleave factor.
-  OVLSMemref *MemRef = Group->getFirstMemref();
-  assert(MemRef &&
-         "Expect a non-null first memref to determine the Interleave factor.");
-  auto InterleaveFactor = computeInterleaveFactor(MemRef);
+  auto InterleaveFactor = computeInterleaveFactor(Leader);
   assert(all_of(*Group,
                 [InterleaveFactor](OVLSMemref *x) {
                   return computeInterleaveFactor(x) == InterleaveFactor;
@@ -2125,11 +2145,6 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Check if the group is valid for this VF.
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
-
-  Type *SingleAccessType = VPStore->getOperand(0)->getType();
-  unsigned OriginalVL = SingleAccessType->isVectorTy()
-                            ? SingleAccessType->getVectorNumElements()
-                            : 1;
 
   Value *StoredValue;
   if (InterleaveFactor != 1) {
@@ -2149,9 +2164,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   }
 
   // Compute address for the wide store.
-  const VPInstruction *Leader =
-      cast<VPVLSClientMemref>(MemRef)->getInstruction();
-  Value *ScatterAddress = getVectorValue(Leader->getOperand(1));
+  Value *ScatterAddress = getVectorValue(LeaderInst->getOperand(1));
   Value *ScalarAddress = Builder.CreateExtractElement(
       ScatterAddress, (uint64_t)0, ScatterAddress->getName() + "_0");
   auto AddressSpace =
@@ -2161,7 +2174,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
       Builder.CreateBitCast(ScalarAddress, GroupPtrTy, "groupPtr");
 
   // Create the wide store.
-  Align Alignment = getOriginalLoadStoreAlignment(VPStore);
+  Align Alignment = getOriginalLoadStoreAlignment(LeaderInst);
   Instruction *GroupStore;
   if (MaskValue) {
     Value *StoreMask = replicateVectorElts(

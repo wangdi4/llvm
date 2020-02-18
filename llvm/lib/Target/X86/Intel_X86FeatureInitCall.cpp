@@ -122,7 +122,7 @@ public:
   }
 
   // Enable Flush To Zero and Denormals Are Zero flags in MXCSR, will generate
-  // the following instruction in main route:
+  // the following instruction in main routine:
   //     %tmp = alloca i32, align 4
   //     %0 = bitcast i32* %tmp to i8*
   //     call void @llvm.lifetime.start.p0i8(i64 4, i8* %0)
@@ -176,6 +176,56 @@ public:
     IRB.CreateCall(FI, Ptr8);
 
     // call void @llvm.lifetime.end.p0i8(i64 4, i8* %0)
+    IRB.CreateLifetimeEnd(Ptr8, AllocaSize);
+
+    return true;
+  }
+
+  // This function initializes X87's PC bits in FPCW, it will generate the
+  // following instruction in main routine:
+  //   %1 = alloca i16, align 2
+  //   store i16 Imm, i16* %1, align 2
+  //   call void asm sideeffect "fldcw ${0:w}",
+  //                            "*m,~{dirflag},~{fpsr},~{flags}"(i16* %1)
+  bool setX87Precision(Function &F, int X87Precision) {
+    if (!TM->getSubtarget<X86Subtarget>(F).hasX87())
+      return false;
+
+    short Imm = 0;
+    switch (X87Precision) {
+    case 1: Imm = 0x107f; break; // PC = 00 (SP)
+    case 2: Imm = 0x127f; break; // PC = 10 (DP)
+    case 3: Imm = 0x137f; break; // PC = 11 (DEP)
+    }
+
+    auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
+    const DataLayout &DL = FirstNonAlloca->getModule()->getDataLayout();
+    IRBuilder<> IRB(FirstNonAlloca);
+
+    // %1 = alloca i16, align 2
+    IntegerType *I16Ty = IRB.getInt16Ty();
+    AllocaInst *AI = IRB.CreateAlloca(I16Ty);
+    AI->setAlignment(MaybeAlign(DL.getPrefTypeAlignment(I16Ty)));
+
+    // %2 = bitcast i16* %1 to i8*
+    PointerType *Int8PtrTy = IRB.getInt8PtrTy();
+    Value *Ptr8 = IRB.CreateBitCast(AI, Int8PtrTy);
+
+    // call void @llvm.lifetime.start.p0i8(i64 2, i8* %2)
+    ConstantInt *AllocaSize = IRB.getInt64(DL.getTypeStoreSize(I16Ty));
+    IRB.CreateLifetimeStart(Ptr8, AllocaSize);
+
+    // store i16 Imm, i16* %1, align 2
+    ConstantInt *CInt = IRB.getInt16(Imm);
+    IRB.CreateStore(CInt, AI);
+
+    // call void asm sideeffect ...
+    InlineAsm *Asm = InlineAsm::get(
+        FunctionType::get(IRB.getVoidTy(), {Ptr8->getType()}, false),
+        "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}", true);
+    IRB.CreateCall(Asm, Ptr8);
+
+    // call void @llvm.lifetime.end.p0i8(i64 2, i8* %2)
     IRB.CreateLifetimeEnd(Ptr8, AllocaSize);
 
     return true;
@@ -235,6 +285,15 @@ public:
     if (isMainFunction(F) == false)
       return false;
 
+    // The following code works for CMPLRLLVM-9854.
+    // ICC supports options -pc80/-pc64/-pc32, which sets x87 FPU to
+    // 64/53/24-bit precision (FP80/FP64/FP32).
+    // We add the same support in Xmain.
+    bool X87PrecisionInit = false;
+
+    if (TM->Options.X87Precision)
+      X87PrecisionInit = setX87Precision(F, TM->Options.X87Precision);
+
     bool ProcInit = insertProcInitCall(F);
     bool FTZ = false;
 
@@ -243,7 +302,7 @@ public:
     if (TM->Options.IntelFtzDaz && !ProcInit)
       FTZ = writeMXCSRFTZBits(F);
 
-    return ProcInit || FTZ;
+    return ProcInit || FTZ || X87PrecisionInit;
   }
 };
 

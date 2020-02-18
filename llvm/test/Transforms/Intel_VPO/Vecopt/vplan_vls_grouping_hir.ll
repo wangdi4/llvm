@@ -19,7 +19,7 @@
 ;}
 
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=ovls -disable-hir-complete-unroll -enable-vplan-vls-cg=false -vplan-force-vf=8 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 | FileCheck %s
 
 ; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1
@@ -37,6 +37,7 @@
 ; CHECK-NEXT:   #5 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1 + 1]
 ; CHECK-NEXT:   #6 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1 + 2]
 
+target triple = "x86_64-unknown-linux-gnu"
 @x = dso_local local_unnamed_addr global [300 x i32] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable

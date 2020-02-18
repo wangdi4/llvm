@@ -515,7 +515,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   BasicBlock *Header = Lp->getHeader();
-  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, SE);
+  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, SE, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
@@ -888,7 +888,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // process for vectorization
   VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
-  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL);
+  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI);
 
   HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,

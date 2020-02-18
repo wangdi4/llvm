@@ -546,6 +546,10 @@ public:
     return false;
   }
 
+  bool isVPlanVLSProfitable() const { return true; }
+
+  bool isAggressiveVLSProfitable() const { return false; }
+
   bool needsStructuredCFG() const { return false; }
 
 #endif

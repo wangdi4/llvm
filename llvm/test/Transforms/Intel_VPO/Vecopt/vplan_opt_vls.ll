@@ -1,9 +1,9 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
-; RUN:     2>&1 | FileCheck %s
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN:     -debug 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" \
-; RUN: -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
-; RUN: 2>&1 | FileCheck %s
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN:     -debug 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; #include <stdio.h>

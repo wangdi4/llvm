@@ -288,6 +288,10 @@ static cl::opt<bool>
 EnableFtzDaz("ftz",
           cl::desc("Enable Flush To Zero and Denormals Are Zero flags in MXCSR"),
           cl::init(false));
+
+static cl::opt<int>
+X87Precision("x87-precision",
+             cl::desc("Set X87 internal precision"), cl::init(0));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -335,6 +339,12 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
     Options.IntelAdvancedOptim = EnableIntelAdvancedOpts;
   if (EnableFtzDaz)
     Options.IntelFtzDaz = EnableFtzDaz;
+  switch (X87Precision) {
+    default: Options.X87Precision = 0; break;
+    case 32: Options.X87Precision = 1; break;
+    case 64: Options.X87Precision = 2; break;
+    case 80: Options.X87Precision = 3; break;
+  }
 #endif // INTEL_CUSTOMIZATION
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
   Options.ForceDwarfFrameSection = ForceDwarfFrameSection;
