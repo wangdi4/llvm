@@ -72,7 +72,8 @@ namespace intel{
 
       // global ctor's and dtor's don't need implicit arguments, as it only
       // called once by runStaticConstructorsDestructors function.
-      if (CompilationUtils::isGlobalCtorDtor(pFunc))
+      // C++ function does not need implicit arguments.
+      if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(pFunc))
         continue;
 
       toHandleFunctions.push_back(pFunc);
@@ -204,7 +205,10 @@ namespace intel{
       // Check call for not inlined module function
       Function *pCallee = pCall->getCalledFunction();
       bool IsDirectCall = (pCallee != nullptr);
-      if (IsDirectCall && pCallee->isDeclaration())
+      // C++ Callee will be skipped as C++ func does not add implicit arguments.
+      // TODO: handle C++ function as indirect callee
+      if (IsDirectCall && (pCallee->isDeclaration() ||
+          CompilationUtils::isGlobalCtorDtorOrCPPFunc(pCallee)))
         continue;
       StringRef Name = IsDirectCall ? pCallee->getName()
                                     : pCall->getCalledValue()->getName();

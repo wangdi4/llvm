@@ -692,6 +692,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //         ctor/dtor for pipes. See TODO inside the implementation
     static bool isGlobalCtorDtor(Function *F);
 
+    // @brief Returns true if the function is global constructor or destructor
+    //        or it's from standard C++.
+    static bool isGlobalCtorDtorOrCPPFunc(Function *F);
+
     /// @brief Get global Ctor/Dtor names sorted by priority. Set Ctor/Dtor
     //         linkage is set to external.
     static void recordGlobalCtorDtors(llvm::Module &M,

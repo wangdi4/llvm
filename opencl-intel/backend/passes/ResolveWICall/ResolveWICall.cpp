@@ -88,7 +88,7 @@ namespace intel {
           continue;
         }
 
-        if (CompilationUtils::isGlobalCtorDtor(pFunc))
+        if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(pFunc))
           continue;
 
         clearPerFunctionCache();
