@@ -18418,11 +18418,12 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
   // This will be just movd/movq/movss/movsd.
   if (IdxVal == 0 && ISD::isBuildVectorAllZeros(N0.getNode())) {
     if (EltVT == MVT::i32 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
-#if INTEL_CUSTOMIZATION && INTEL_FEATURE_ISA_FP16
-        EltVT == MVT::i64 || EltVT == MVT::f16) {
-#else // INTEL_CUSTOMIZATION && INTEL_FEATURE_ISA_FP16
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+        EltVT == MVT::f16 ||
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
         EltVT == MVT::i64) {
-#endif // INTEL_CUSTOMIZATION && INTEL_FEATURE_ISA_FP16
       N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VT, N1);
       return getShuffleVectorZeroOrUndef(N1, 0, true, Subtarget, DAG);
     }
