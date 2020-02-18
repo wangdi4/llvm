@@ -4490,9 +4490,10 @@ void llvm::WriteBitcodeToFile(const Module &M, raw_ostream &Out,
                               bool GenerateHash, ModuleHash *ModHash) {
 #if INTEL_CUSTOMIZATION
   if (M.isIntelProprietary()) {
-    report_fatal_error("Bitcode output disabled because proprietary "
-                       "optimizations have been performed.");
-    return;
+    errs() << "LLVM ERROR: Bitcode output disabled because proprietary "
+           << "optimizations have been performed.\n";
+    errs().flush();
+    exit(1);
   }
 #endif // INTEL_CUSTOMIZATION
 
