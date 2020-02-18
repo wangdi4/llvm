@@ -426,6 +426,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store for sine: " << *StoreSine
                         << "\n");
+      (void) StoreSine;
 
       // Remove the old call
       OldCall->eraseFromParent();

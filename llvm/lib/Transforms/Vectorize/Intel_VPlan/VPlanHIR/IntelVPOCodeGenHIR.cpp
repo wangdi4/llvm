@@ -3032,6 +3032,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // NOTE : We obtain this variable from VPLoopEntity corresponding to the
     // reduction since reduction-final instruction may not have accumulators
     // always.
+    // TODO: This is the only user of VPLoopEntities in CG, this should be
+    // removed once VPReductionFinal is updated to have the StartValue always.
     RegDDRef *RednDescriptor =
         getUniformScalarRef(RednEntity->getRecurrenceStartValue());
 
@@ -3357,32 +3359,59 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs() {
   // Process reductions. For each reduction variable in the loop we create a new
-  // RegDDRef to represent it. Next we map the reduction's init, PHI and loop
-  // exit instructions to have the new RegDDRef as its underlying reduction
-  // RegDDRef. NOTE: The above mentioned instructions are expected to in
-  // reduction's LinkedVPValues.
-  for (VPReduction *Reduction : VPLoopEntities->vpreductions()) {
-    if (Reduction->getIsMemOnly()) {
-      VPValue *StartV = Reduction->getRecurrenceStartValue();
-      assert(isa<VPExternalDef>(StartV) &&
-             "Start value for in-memory reduction is not external def.");
-      InMemoryReductionDescriptors.insert(cast<VPExternalDef>(StartV));
-    }
-    RegDDRef *RednRef = HLNodeUtilities.createTemp(
-        VectorType::get(Reduction->getRecurrenceType(), VF), "red.var");
+  // RegDDRef to represent it. Next we map all instructions related to the
+  // reduction to have the new RegDDRef as its underlying reduction. This is
+  // done by recursively collecting relevant instructions via def-use chains,
+  // starting from the reduction's initializer.
+  std::function<void(VPInstruction *, RegDDRef *)> mapInstAndUsersToRednRef =
+      [&](VPInstruction *Inst, RegDDRef *Ref) {
+        // Do not process an already mapped instruction. Each instruction is
+        // guaranteed to be associated with a unique reduction anyways.
+        if (ReductionRefs.find(Inst) != ReductionRefs.end()) {
+          assert(ReductionRefs[Inst] == Ref &&
+                 "Instruction involved in 2 different reductions.");
+          return;
+        }
 
-    LLVM_DEBUG(dbgs() << "VPReduction: "; Reduction->dump(dbgs());
-               dbgs() << " gets the RegDDRef: "; RednRef->dump(true);
-               dbgs() << "\n");
+        ReductionRefs[Inst] = Ref;
+        LLVM_DEBUG(dbgs() << "VPInst: "; Inst->dump();
+                   dbgs() << " has the underlying reduction ref: ";
+                   Ref->dump(true); dbgs() << "\n");
+        for (auto *User : Inst->users()) {
+          if (!isa<VPInstruction>(User))
+            continue;
 
-    for (auto *V : Reduction->getLinkedVPValues()) {
-      assert(ReductionRefs.find(V) == ReductionRefs.end() &&
-             "VPValue is already mapped to a reduction RegDDRef.");
-      ReductionRefs[V] = RednRef;
+          auto *UserInst = cast<VPInstruction>(User);
+          // We are interested only in instructions that participate in
+          // reduction, so return types should match.
+          if (UserInst->getType() != Inst->getType())
+            continue;
 
-      LLVM_DEBUG(dbgs() << "VPValue: "; V->dump();
-                 dbgs() << " has the underlying reduction ref: ";
-                 RednRef->dump(true); dbgs() << "\n");
+          if (auto *RednFinal = dyn_cast<VPReductionFinal>(UserInst)) {
+            // Make sure finalizer of index reduction is not linked to parent
+            // min/max reduction.
+            if (RednFinal->isMinMaxIndex() &&
+                (RednFinal->getParentExitValOperand() == Inst ||
+                 RednFinal->getParentFinalValOperand() == Inst))
+              continue;
+          }
+
+          mapInstAndUsersToRednRef(UserInst, Ref);
+        }
+      };
+
+  auto *VPLI = Plan->getVPLoopInfo();
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+         "Expected single outermost loop!");
+  VPLoop *OuterMostVPLoop = *VPLI->begin();
+  VPBasicBlock *OuterMostLpPreheader =
+      cast<VPBasicBlock>(OuterMostVPLoop->getLoopPreheader());
+
+  for (VPInstruction &Inst : *OuterMostLpPreheader) {
+    if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
+      RegDDRef *RednRef = HLNodeUtilities.createTemp(
+          VectorType::get(RedInit->getType(), VF), "red.var");
+      mapInstAndUsersToRednRef(RedInit, RednRef);
     }
   }
 
