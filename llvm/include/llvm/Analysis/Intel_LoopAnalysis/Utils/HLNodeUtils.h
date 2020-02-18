@@ -1451,6 +1451,11 @@ public:
   getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
                                        bool &IsNearPerfect);
 
+  /// Collects the diagonal instructions corresponding to the initialization
+  /// of the identity matrix in the loop
+  static void findIdentityMatrix(HIRLoopStatistics *HLS, const HLLoop *InnerLp,
+                                 SmallVector<const RegDDRef *, 2> &Diagonals);
+
   /// Any memref with non-unit stride?
   /// Will take innermost for now.
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
