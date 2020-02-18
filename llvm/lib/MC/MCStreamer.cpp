@@ -161,7 +161,7 @@ unsigned MCStreamer::EmitULEB128Buffer(StringRef Buffer) {
   unsigned Count = encodeULEB128Buffer(
                        reinterpret_cast<const uint8_t *>(Buffer.data()),
                        Buffer.size(), OSE);
-  EmitBytes(OSE.str());
+  emitBytes(OSE.str());
 
   return Count;
 }
@@ -449,13 +449,9 @@ void MCStreamer::EmitCVDefRangeDirective(
   EmitCVDefRangeDirective(Ranges, BytePrefix);
 }
 
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
-void MCStreamer::EmitEHSymAttributes(const MCSymbol *Symbol,
-=======
 void MCStreamer::emitEHSymAttributes(const MCSymbol *Symbol,
->>>>>>> a55daa146166353236aa528546397226bee9363b
                                      MCSymbol *EHSymbol) {
 }
 

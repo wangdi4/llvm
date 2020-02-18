@@ -368,7 +368,7 @@ void OptReportAsmPrinterHandler::endModule() {
     // Emit null-terminated identity string.
     SmallString<32> NullTerminatedIdentString(IdentString);
     NullTerminatedIdentString.push_back('\0');
-    getOS().EmitBytes(NullTerminatedIdentString);
+    getOS().emitBytes(NullTerminatedIdentString);
 
     getOS().AddComment("Table Version 1.2");
     getOS().EmitIntValue(0x0102, 2);
@@ -450,14 +450,14 @@ void OptReportAsmPrinterHandler::endModule() {
     NullTermVersionAnnotation.push_back('\0');
     getOS().EmitLabel(OptReportVersionAnnLabel);
     getOS().AddComment(OptReportVersionAnnotation);
-    getOS().EmitBytes(NullTermVersionAnnotation);
+    getOS().emitBytes(NullTermVersionAnnotation);
 
     // Emit optimization_report annotation string.
     SmallString<32> NullTermOptRptAnnotation(OptReportAnnotation);
     NullTermOptRptAnnotation.push_back('\0');
     getOS().EmitLabel(OptReportAnnLabel);
     getOS().AddComment(OptReportAnnotation);
-    getOS().EmitBytes(NullTermOptRptAnnotation);
+    getOS().emitBytes(NullTermOptRptAnnotation);
     getOS().EmitLabel(StrtabEndLabel);
     // * End of strtab.
 

@@ -790,12 +790,12 @@ void STIAsmWriter::emitInt32(int32_t value) {
 }
 
 void STIAsmWriter::emitString(StringRef string) {
-  ASM()->OutStreamer->EmitBytes(string);
+  ASM()->OutStreamer->emitBytes(string);
   ASM()->emitInt8(0);
 }
 
 void STIAsmWriter::emitBytes(size_t size, const char* data) {
-  ASM()->OutStreamer->EmitBytes(StringRef(data, size));
+  ASM()->OutStreamer->emitBytes(StringRef(data, size));
 }
 
 void STIAsmWriter::emitFill(size_t size, const uint8_t byte) {
