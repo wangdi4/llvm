@@ -19,6 +19,7 @@
 #include "BuiltinModules.h"
 #include "CPUBuiltinLibrary.h"
 #include "EyeQBuiltinLibrary.h"
+#include "FPGAEmuBuiltinLibrary.h"
 
 llvm::Error RegisterCPUBIFunctions(
     Intel::OpenCL::DeviceBackend::LLJIT2* LLJIT = nullptr);
@@ -90,6 +91,12 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
 BuiltinLibrary* BuiltinModuleManager::GetOrLoadEyeQLibrary(Intel::CPUId cpuId)
 {
     return GetOrLoadDeviceLibrary<EyeQBuiltinLibrary>(cpuId);
+}
+
+// TODO: Make this method re-entrable
+BuiltinLibrary* BuiltinModuleManager::GetOrLoadFPGAEmuLibrary(Intel::CPUId cpuId)
+{
+    return GetOrLoadDeviceLibrary<FPGAEmuBuiltinLibrary>(cpuId);
 }
 
 llvm::Error BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(

@@ -761,6 +761,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         break;
 
     case CL_DEV_KERNEL_MAX_WG_SIZE:
+    case CL_DEV_KERNEL_WG_SIZE:
         // TODO: Current implementation uses constants and it's OK with allocated on the stack dynamic local buffers.
         //       But take it into account if the available stack frame size is known at RT. I.e.:
         //          GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
@@ -779,13 +780,15 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
                 ullValue = pKernelProps->GetMaxWorkGroupSize(
                     CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
             }
+            // According to OpenCL spec, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
+            // query should be less then or equal to CL_KERNEL_WORK_GROUP_SIZE query.
+            if (param == CL_DEV_KERNEL_WG_SIZE)
+            {
+                ullValue = std::min(ullValue,
+                    (unsigned long long)pKernelProps->GetKernelPackCount());
+            }
             stValSize = sizeof(size_t);
         }
-        break;
-
-    case CL_DEV_KERNEL_WG_SIZE:
-        ullValue = pKernelProps->GetKernelPackCount();
-        stValSize = sizeof(size_t);
         break;
 
     case CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE:
