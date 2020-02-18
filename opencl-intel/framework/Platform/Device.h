@@ -140,7 +140,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_uint       GetMaxWorkItemDimensions()  const = 0;
         virtual const size_t* GetMaxWorkItemSizes()       const = 0;
         virtual bool          GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const = 0;
-        virtual cl_unified_shared_memory_capabilities_intel GetUSMCapabilities(
+        virtual cl_device_unified_shared_memory_capabilities_intel GetUSMCapabilities(
             cl_device_info param_name) const = 0;
         virtual cl_ulong      GetDeviceTimer() const = 0;
  
@@ -291,7 +291,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                                         *svm_cap = m_CL_DEVICE_SVM_CAPABILITIES; 
                                                                         return m_bSvmSupported; 
                                                                     }
-        cl_unified_shared_memory_capabilities_intel GetUSMCapabilities(
+        cl_device_unified_shared_memory_capabilities_intel GetUSMCapabilities(
             cl_device_info param_name) const;
 
         // Inherited from FissionableDevice
@@ -397,11 +397,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                                        m_bSvmSupported;
 
         // Unified shared memory capabilities
-        cl_unified_shared_memory_capabilities_intel m_usmHostCaps;
-        cl_unified_shared_memory_capabilities_intel m_usmDeviceCaps;
-        cl_unified_shared_memory_capabilities_intel m_usmSharedSingleCaps;
-        cl_unified_shared_memory_capabilities_intel m_usmSharedCrossCaps;
-        cl_unified_shared_memory_capabilities_intel m_usmSharedSystemCaps;
+        cl_device_unified_shared_memory_capabilities_intel m_usmHostCaps;
+        cl_device_unified_shared_memory_capabilities_intel m_usmDeviceCaps;
+        cl_device_unified_shared_memory_capabilities_intel m_usmSharedSingleCaps;
+        cl_device_unified_shared_memory_capabilities_intel m_usmSharedCrossCaps;
+        cl_device_unified_shared_memory_capabilities_intel m_usmSharedSystemCaps;
 
         cl_device_type                              m_deviceType;
         // GL Sharing info
@@ -461,7 +461,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_ulong                    GetDeviceTimer()            const { return m_pRootDevice->GetDeviceTimer(); }
         bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
                                                                       { return m_pRootDevice->GetSVMCapabilities(svm_cap); }
-        cl_unified_shared_memory_capabilities_intel GetUSMCapabilities(
+        cl_device_unified_shared_memory_capabilities_intel GetUSMCapabilities(
             cl_device_info param_name) const {
             return m_pRootDevice->GetUSMCapabilities(param_name);
         };

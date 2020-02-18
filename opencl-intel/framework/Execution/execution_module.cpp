@@ -3840,13 +3840,14 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
 
 cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     cl_command_queue command_queue, const void* ptr, size_t size,
-    cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
+    cl_mem_migration_flags_intel flags, cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
 {
-    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
+    // TODO: it is unresolved in spec (rev. O) whether nullptr is an invalid
     // value for ptr and whether 0 is invalid for size.
-    if (nullptr == ptr || 0 == size || (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
-        CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+    if (nullptr == ptr || 0 == size || 0 == flags ||
+        (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST_INTEL |
+                   CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL)))
         return CL_INVALID_VALUE;
 
     SharedPtr<IOclCommandQueueBase> queue =
@@ -3901,14 +3902,9 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     if (CL_FAILED(err))
         return err;
 
-    if (advice != CL_MEM_ADVICE_TBD0_INTEL &&
-        advice != CL_MEM_ADVICE_TBD1_INTEL &&
-        advice != CL_MEM_ADVICE_TBD2_INTEL &&
-        advice != CL_MEM_ADVICE_TBD3_INTEL &&
-        advice != CL_MEM_ADVICE_TBD4_INTEL &&
-        advice != CL_MEM_ADVICE_TBD5_INTEL &&
-        advice != CL_MEM_ADVICE_TBD6_INTEL &&
-        advice != CL_MEM_ADVICE_TBD7_INTEL)
+    // Check if advice is zero or is not supported advice for the device
+    // associated with command_queue.
+    if (0 == advice)
         return CL_INVALID_VALUE;
 
     AdviseUSMMemCommand* adviseCommand = new AdviseUSMMemCommand(

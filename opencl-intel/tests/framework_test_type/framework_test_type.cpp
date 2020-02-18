@@ -445,7 +445,7 @@ TEST(FrameworkTestType, Test_ShutdownFromChildThread)
     EXPECT_TRUE(ShutdownFromChildThread());
 }
 
-TEST(FrameworkTestType, Test_PredictablePartition)
+TEST(FrameworkTestType, DISABLED_Test_PredictablePartition)
 {
     EXPECT_TRUE(predictable_partition_test());
 }

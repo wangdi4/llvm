@@ -3087,21 +3087,7 @@ void* ContextModule::USMHostAlloc(cl_context context,
             *errcode_ret = CL_INVALID_CONTEXT;
         return nullptr;
     }
-    if (0 == size)
-    {
-        LOG_ERROR(TEXT("size is 0"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_BUFFER_SIZE;
-        return nullptr;
-    }
-    if (alignment > 0 && (!IsPowerOf2(alignment) ||
-                          alignment > sizeof(cl_long16)))
-    {
-        LOG_ERROR(TEXT("invalid alignment"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_VALUE;
-        return nullptr;
-    }
+
     void* pUsmBuf = pContext->USMHostAlloc(properties, size, alignment,
                                            errcode_ret);
     if (pUsmBuf)
@@ -3122,21 +3108,7 @@ void* ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
             *errcode_ret = CL_INVALID_CONTEXT;
         return nullptr;
     }
-    if (0 == size)
-    {
-        LOG_ERROR(TEXT("size is 0"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_BUFFER_SIZE;
-        return nullptr;
-    }
-    if (alignment > 0 &&
-        (!IsPowerOf2(alignment) || alignment > sizeof(cl_long16)))
-    {
-        LOG_ERROR(TEXT("invalid alignment"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_VALUE;
-        return nullptr;
-    }
+
     void* pUsmBuf = pContext->USMDeviceAlloc(device, properties, size,
                                              alignment, errcode_ret);
     if (pUsmBuf)
@@ -3157,21 +3129,7 @@ void* ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
             *errcode_ret = CL_INVALID_CONTEXT;
         return nullptr;
     }
-    if (0 == size)
-    {
-        LOG_ERROR(TEXT("size is 0"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_BUFFER_SIZE;
-        return nullptr;
-    }
-    if (alignment > 0 &&
-        (!IsPowerOf2(alignment) || alignment > sizeof(cl_long16)))
-    {
-        LOG_ERROR(TEXT("invalid alignment"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_VALUE;
-        return nullptr;
-    }
+
     void* pUsmBuf = pContext->USMSharedAlloc(device, properties, size,
                                              alignment, errcode_ret);
     if (pUsmBuf)
@@ -3179,7 +3137,7 @@ void* ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
     return pUsmBuf;
 }
 
-cl_int ContextModule::USMFree(cl_context context, const void* ptr)
+cl_int ContextModule::USMFree(cl_context context, void* ptr)
 {
     SharedPtr<Context> pContext = GetContext(context);
     if (nullptr == pContext.GetPtr())
@@ -3192,10 +3150,9 @@ cl_int ContextModule::USMFree(cl_context context, const void* ptr)
         LOG_INFO(TEXT("ptr is nullptr. No action occurs."), "");
         return CL_SUCCESS;
     }
-    void *usmPtr = const_cast<void*>(ptr);
-    cl_err_code err = pContext->USMFree(usmPtr);
+    cl_err_code err = pContext->USMFree(ptr);
     if (CL_SUCCESS == err)
-        m_mapUSMBuffers.erase(usmPtr);
+        m_mapUSMBuffers.erase(ptr);
     return err;
 }
 

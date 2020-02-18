@@ -269,7 +269,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                              const cl_mem_properties_intel* properties,
                              size_t size, cl_uint alignment,
                              cl_int* errcode_ret);
-        cl_int USMFree(cl_context context, const void* ptr);
+        cl_int USMFree(cl_context context, void* ptr);
         cl_int GetMemAllocInfoINTEL(cl_context context, const void* ptr,
                                     cl_mem_info_intel param_name,
                                     size_t param_value_size, void* param_value,

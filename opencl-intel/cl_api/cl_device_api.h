@@ -605,9 +605,9 @@ struct cl_dev_cmd_param_migrate
  */
 struct cl_dev_cmd_param_migrate_usm
 {
-    IOCLDevMemoryObject*        memObj;        //!< Handle to USM memory object
-    size_t                      size;          //!< Memory region size
-    cl_mem_migration_flags      flags;         //!< Migration flags
+    IOCLDevMemoryObject*         memObj;        //!< Handle to USM memory object
+    size_t                       size;          //!< Memory region size
+    cl_mem_migration_flags_intel flags;         //!< Migration flags
 };
 
 /**

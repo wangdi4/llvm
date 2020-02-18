@@ -1768,19 +1768,25 @@ bool CompilationUtils::isGlobalCtorDtor(Function *F) {
   return F->hasFnAttribute("not-ocl-dpcpp");
 }
 
-static void getCtorDtorNames(
-    const llvm::iterator_range<llvm::orc::CtorDtorIterator> &CtorDtors,
+static void recordCtorDtors(
+    llvm::iterator_range<llvm::orc::CtorDtorIterator> CtorDtors,
     std::vector<std::string> &CtorDtorNames) {
   if (CtorDtors.empty())
     return;
 
   std::map<unsigned, std::vector<const llvm::Function *>> CtorDtorsByPriority;
-  for (const auto &CtorDtor : CtorDtors) {
+  for (auto CtorDtor : CtorDtors) {
     assert(CtorDtor.Func && CtorDtor.Func->hasName() &&
            "Ctor/Dtor must be a named function");
     if (CtorDtor.Data &&
         llvm::cast<llvm::GlobalValue>(CtorDtor.Data)->isDeclaration())
       continue;
+
+    if (CtorDtor.Func->hasLocalLinkage()) {
+      CtorDtor.Func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      CtorDtor.Func->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    }
+
     CtorDtorsByPriority[CtorDtor.Priority].push_back(CtorDtor.Func);
   }
 
@@ -1790,11 +1796,11 @@ static void getCtorDtorNames(
   }
 }
 
-void CompilationUtils::getGlobalCtorDtorNames(
-    const llvm::Module &M, std::vector<std::string> &CtorNames,
+void CompilationUtils::recordGlobalCtorDtors(
+    llvm::Module &M, std::vector<std::string> &CtorNames,
     std::vector<std::string> &DtorNames) {
-  getCtorDtorNames(llvm::orc::getConstructors(M), CtorNames);
-  getCtorDtorNames(llvm::orc::getDestructors(M), DtorNames);
+  recordCtorDtors(llvm::orc::getConstructors(M), CtorNames);
+  recordCtorDtors(llvm::orc::getDestructors(M), DtorNames);
 }
 
 bool CompilationUtils::isBlockInvocationKernel(Function *F) {
