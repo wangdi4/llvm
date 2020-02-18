@@ -114,3 +114,41 @@
 // RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 --intel -o %t.out %t.o 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-LINK-OPENCLBC %s
 // CHK-LINK-OPENCLBC: llvm-link{{.*}}libomptarget-opencl.bc
+
+/// ###########################################################################
+
+/// Check that driver partially links objects with offload library when -foffload-static-lib=<lib> is used.
+// RUN: touch %t.a
+// RUN: touch %t-1.o
+// RUN: touch %t-2.o
+// RUN: touch %t-3.o
+// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
+// FOFFLOAD_STATIC_LIB_MULTI_O: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUT:.+\-1.o]]" "[[INPUT:.+\-2.o]]" "[[INPUT:.+\-3.o]]" "[[INPUT:.+\.a]]"
+// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=oo"
+// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@{{.*}}"
+
+/// ###########################################################################
+
+/// Check phases when -foffload-static-lib=<lib> is used.
+// RUN: touch %t.a
+// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -ccc-print-phases %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC
+// FOFFLOAD_STATIC_LIB_SRC: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 1: preprocessor, {0}, cpp-output, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 2: compiler, {1}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 3: backend, {2}, assembler, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 4: assembler, {3}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 5: clang-offload-unbundler, {4}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 6: input, "[[INPUT]]", c, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 7: preprocessor, {6}, cpp-output, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 8: compiler, {7}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 9: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {8}, ir
+// FOFFLOAD_STATIC_LIB_SRC: 10: backend, {9}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 11: linker, {10, 5}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 12: llvm-spirv, {11}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 13: offload, "device-openmp (spir64)" {12}, image
+// FOFFLOAD_STATIC_LIB_SRC: 14: clang-offload-wrapper, {13}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 15: backend, {14}, assembler, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 16: assembler, {15}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 17: linker, {5, 16}, image, (host-openmp)

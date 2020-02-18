@@ -3142,6 +3142,13 @@ class OffloadingActionBuilder final {
       // If this is an input action replicate it for each OpenMP toolchain.
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
         OpenMPDeviceActions.clear();
+#if INTEL_CUSTOMIZATION
+        // Objects should already be consumed with -foffload-static-lib
+        if (Args.hasArg(options::OPT_foffload_static_lib_EQ) &&
+            IA->getType() == types::TY_Object &&
+            isObjectFile(IA->getInputArg().getAsString(Args)))
+          return ABRT_Inactive;
+#endif // INTEL_CUSTOMIZATION
         for (unsigned I = 0; I < ToolChains.size(); ++I)
           OpenMPDeviceActions.push_back(
               C.MakeAction<InputAction>(IA->getInputArg(), IA->getType()));
