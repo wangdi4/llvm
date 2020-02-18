@@ -100,7 +100,7 @@ void OptReportAsmPrinterHandler::beginInstruction(const MachineInstr *MI) {
   //       ancestor loop, for which this MBB is a header block.
   //       The printing has to be done from the ancestors to the descendants.
   MCSymbol *InstLabel = OutContext.createTempSymbol("opt_report", true);
-  getOS().EmitLabel(InstLabel);
+  getOS().emitLabel(InstLabel);
 
   assert(BlockLabels.find(MBB) == BlockLabels.end() &&
          "OptReport label set more than once for block.");
@@ -232,7 +232,7 @@ void OptReportAsmPrinterHandler::emitOptReportExpression(
                                   OutContext),
           MCConstantExpr::create(1, OutContext),
           OutContext);
-  getOS().EmitLabel(BeginLabel);
+  getOS().emitLabel(BeginLabel);
   getOS().AddComment("DW_FORM_block1 Length");
   getOS().EmitValue(SizeExpr, 1);
   // The target may not even support Dwarf, but the table uses
@@ -244,7 +244,7 @@ void OptReportAsmPrinterHandler::emitOptReportExpression(
   (void)EncodedLength;
   assert(EncodedLength <= 254 &&
          "Maximum 255 bytes may be encoded using DW_FORM_block1.");
-  getOS().EmitLabel(EndLabel);
+  getOS().emitLabel(EndLabel);
 }
 
 void OptReportAsmPrinterHandler::combineFunctionDescs() {
@@ -364,7 +364,7 @@ void OptReportAsmPrinterHandler::endModule() {
 
     // * Start of table header.
     getOS().AddComment("Optimization Report Table's Header Begin");
-    getOS().EmitLabel(HeaderStartLabel);
+    getOS().emitLabel(HeaderStartLabel);
     // Emit null-terminated identity string.
     SmallString<32> NullTerminatedIdentString(IdentString);
     NullTerminatedIdentString.push_back('\0');
@@ -390,7 +390,7 @@ void OptReportAsmPrinterHandler::endModule() {
     getOS().AddComment("Flags");
     getOS().EmitIntValue(TableFlags::OptReportFlag |
                          (PtrSize <= 4 ? AnchorAddrIs32BitFlag : 0), 8);
-    getOS().EmitLabel(HeaderEndLabel);
+    getOS().emitLabel(HeaderEndLabel);
     // * End of table header.
 
     // * Start of table entries.
@@ -410,7 +410,7 @@ void OptReportAsmPrinterHandler::endModule() {
 
     getOS().AddComment("List Of Table Entries");
     // Emit a redundant label just to attach the above comment to it.
-    getOS().EmitLabel(OutContext.createTempSymbol("table_entries_begin", true));
+    getOS().emitLabel(OutContext.createTempSymbol("table_entries_begin", true));
     getOS().AddComment("Anchor");
     getOS().EmitZeros(8);
     getOS().AddComment("Annotation Offset");
@@ -423,7 +423,7 @@ void OptReportAsmPrinterHandler::endModule() {
     // Emit opt-report entries.
     for (auto &&OR : OptReports) {
       getOS().AddComment("Anchor");
-      getOS().EmitSymbolValue(OR->MBBSym, PtrSize);
+      getOS().emitSymbolValue(OR->MBBSym, PtrSize);
       // Anchor value is always 8 bytes, so pad it with zeroes
       // if needed.
       if (PtrSize < 8)
@@ -444,26 +444,26 @@ void OptReportAsmPrinterHandler::endModule() {
 
     // * Start of strtab.
     getOS().AddComment("String Table Begin");
-    getOS().EmitLabel(StrtabStartLabel);
+    getOS().emitLabel(StrtabStartLabel);
     // Emit default optimization_report_version annotation string.
     SmallString<32> NullTermVersionAnnotation(OptReportVersionAnnotation);
     NullTermVersionAnnotation.push_back('\0');
-    getOS().EmitLabel(OptReportVersionAnnLabel);
+    getOS().emitLabel(OptReportVersionAnnLabel);
     getOS().AddComment(OptReportVersionAnnotation);
     getOS().emitBytes(NullTermVersionAnnotation);
 
     // Emit optimization_report annotation string.
     SmallString<32> NullTermOptRptAnnotation(OptReportAnnotation);
     NullTermOptRptAnnotation.push_back('\0');
-    getOS().EmitLabel(OptReportAnnLabel);
+    getOS().emitLabel(OptReportAnnLabel);
     getOS().AddComment(OptReportAnnotation);
     getOS().emitBytes(NullTermOptRptAnnotation);
-    getOS().EmitLabel(StrtabEndLabel);
+    getOS().emitLabel(StrtabEndLabel);
     // * End of strtab.
 
     // * Start of exprtab.
     getOS().AddComment("Expressions Table Begin");
-    getOS().EmitLabel(ExprtabStartLabel);
+    getOS().emitLabel(ExprtabStartLabel);
     // optimization_report_version expression.
     // TODO (vzakhari 10/2/2018): replace the hard-coded opt-report
     //       version with a query of opt-report library.
@@ -478,7 +478,7 @@ void OptReportAsmPrinterHandler::endModule() {
           llvm::LoopOptReportSupport::formatBinaryStream(OR->OptReport));
     }
 
-    getOS().EmitLabel(ExprtabEndLabel);
+    getOS().emitLabel(ExprtabEndLabel);
     // * End of exprtab.
   }
 

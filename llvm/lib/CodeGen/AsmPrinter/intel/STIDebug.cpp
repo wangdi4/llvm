@@ -807,7 +807,7 @@ void STIAsmWriter::emitComment(StringRef comment) {
 }
 
 void STIAsmWriter::emitLabel(MCSymbol *symbol) {
-  ASM()->OutStreamer->EmitLabel(symbol);
+  ASM()->OutStreamer->emitLabel(symbol);
 }
 
 void STIAsmWriter::emitValue(const MCExpr *value, unsigned int sizeInBytes) {
@@ -5052,7 +5052,7 @@ void STIDebugImpl::emitSubsection(STISubsectionID id) const {
 }
 
 void STIDebugImpl::emitAlign(unsigned int byteAlignment) const {
-  ASM()->OutStreamer->EmitValueToAlignment(byteAlignment);
+  ASM()->OutStreamer->emitValueToAlignment(byteAlignment);
 }
 
 void STIDebugImpl::idBegin(const STIType* type) const {
