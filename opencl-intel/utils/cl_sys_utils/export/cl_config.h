@@ -17,6 +17,7 @@
 #include "PipeCommon.h"
 #include "cl_env.h"
 #include "cl_types.h"
+#include "cpu_dev_limits.h"
 #include "task_executor.h"
 
 #include <fstream>
@@ -575,11 +576,44 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             return CPU_DEVICE;
         }
 
+        cl_ulong GetStackDefaultSize() const
+        {
+            std::string strStackDefaultSize;
+            if (!m_pConfigFile->ReadInto(strStackDefaultSize, "CL_CONFIG_STACK_DEFAULT_SIZE"))
+            {
+              return CPU_DEV_STACK_DEFAULT_SIZE;
+            }
+            return ParseStringToSize(strStackDefaultSize);
+        }
+
+        cl_ulong GetStackExtraSize() const
+        {
+            std::string strStackExtraSize;
+            if (!m_pConfigFile->ReadInto(strStackExtraSize, "CL_CONFIG_STACK_EXTRA_SIZE"))
+            {
+              return CPU_DEV_STACK_EXTRA_SIZE;
+            }
+            return ParseStringToSize(strStackExtraSize);
+        }
+
+        bool UseAutoMemory() const
+        {
+            return m_pConfigFile->Read<bool>("CL_CONFIG_AUTO_MEMORY", true);
+        }
+
         cl_ulong GetForcedLocalMemSize() const
         {
             std::string strForcedSize;
             if (!m_pConfigFile->ReadInto(strForcedSize, "CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE"))
             {
+                // Let GetForcedPrivateMemSize and GetForcedLocalMemSize also
+                // work when auto memory allocation mode is enabled. They should
+                // be set as the max allocable memory size because they are used
+                // as checking whether the execution of kernel will be out of resource
+                // and are also needed to provide the memory info such as
+                // CL_DEVICE_LOCAL_MEM_SIZE.
+                if (GetDeviceMode() == FPGA_EMU_DEVICE && UseAutoMemory())
+                    return FPGA_DEV_MAX_WG_LOCAL_SIZE;
                 return 0;
             }
 
@@ -591,6 +625,8 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             std::string strForcedSize;
             if (!m_pConfigFile->ReadInto(strForcedSize, "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE"))
             {
+                if (GetDeviceMode() == FPGA_EMU_DEVICE && UseAutoMemory())
+                    return FPGA_DEV_MAX_WG_PRIVATE_SIZE;
                 return 0;
             }
 

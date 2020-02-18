@@ -20,12 +20,14 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <stack>
+#include <mutex>
 #include <iostream>
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
-
+#include "cl_config.h"
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
@@ -62,7 +64,14 @@ public:
 
 class Kernel : public ICLDevBackendKernel_, public ICLDevBackendKernelRunner {
 public:
-  Kernel() : m_pProps(NULL) {}
+  Kernel() : m_pProps(NULL) {
+    using namespace Intel::OpenCL::Utils;
+    BasicCLConfigWrapper  basicConfig;
+    basicConfig.Initialize(GetConfigFilePath());
+    m_stackDefaultSize = basicConfig.GetStackDefaultSize();
+    m_stackExtraSize = basicConfig.GetStackExtraSize();
+    m_useAutoMemory = basicConfig.UseAutoMemory();
+  }
 
   Kernel(const std::string &name, const std::vector<cl_kernel_argument> &args,
          const std::vector<unsigned int> &memArgs, KernelProperties *pProps);
@@ -298,6 +307,8 @@ protected:
   void DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *Arguments,
                                    size_t offsetToImplicit,
                                    std::ostream &OS) const;
+  void *AllocaStack(size_t size) const;
+  void ReleaseStack(void*) const;
 
   std::string m_name;
   unsigned int m_CSRMask;  // Mask to be applied to set the execution flags
@@ -310,6 +321,12 @@ protected:
   std::vector<IKernelJITContainer *> m_JITs;
   // RuntimeService. Refcounted
   RuntimeServiceSharedPtr m_RuntimeService;
+
+  mutable std::stack<void*> m_stackMem;
+  mutable std::mutex m_stackMutex;
+  cl_ulong m_stackDefaultSize;
+  cl_ulong m_stackExtraSize;
+  bool     m_useAutoMemory;
 
 private:
   // Minimum alignment in bytes for Kernel Uniform Args

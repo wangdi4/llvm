@@ -29,6 +29,13 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <ucontext.h>
+#endif
+
 static size_t GCD(size_t a, size_t b) {
   while (1) {
     a = a % b;
@@ -73,7 +80,8 @@ Kernel::Kernel(const std::string &name,
                KernelProperties *pProps)
     : m_name(name), m_CSRMask(0), m_CSRFlags(0), m_explicitArgs(args),
       m_RequiredUniformKernelArgsAlignment(MinRequiredKernelArgAlignment),
-      m_memArgs(memArgs), m_pProps(pProps) {
+      m_memArgs(memArgs), m_pProps(pProps), m_stackDefaultSize(0),
+      m_stackExtraSize(0), m_useAutoMemory(false) {
   if (!m_explicitArgs.empty()) {
     // calculates the whole explicit arguments buffer size
     // offset of the last argument in the buffer + argumentSize
@@ -104,6 +112,12 @@ Kernel::Kernel(const std::string &name,
       m_RequiredUniformKernelArgsAlignment = TypeAlignment::getAlignment(m_explicitArgs[i]);
     }
   }
+  using namespace Intel::OpenCL::Utils;
+  BasicCLConfigWrapper  basicConfig;
+  basicConfig.Initialize(GetConfigFilePath());
+  m_stackDefaultSize = basicConfig.GetStackDefaultSize();
+  m_stackExtraSize = basicConfig.GetStackExtraSize();
+  m_useAutoMemory = basicConfig.UseAutoMemory();
 }
 
 Kernel::~Kernel() {
@@ -112,6 +126,11 @@ Kernel::~Kernel() {
                                                     e = m_JITs.end();
        i != e; ++i) {
     delete *i;
+  }
+  while (!m_stackMem.empty()) {
+    auto s = m_stackMem.top();
+    free(s);
+    m_stackMem.pop();
   }
 }
 
@@ -130,7 +149,6 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
   size_t max_wg_private_size = m_pProps->GetMaxPrivateMemorySize()
                                ? m_pProps->GetMaxPrivateMemorySize()
                                : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-
   size_t maxWorkGroupSize = (m_pProps->TargetDevice() == FPGA_EMU_DEVICE)
                             ? FPGA_MAX_WORK_GROUP_SIZE
                             : CPU_MAX_WORK_GROUP_SIZE;
@@ -444,6 +462,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     // to dimension
   }
 
+  size_t localNumUniform = 1;
   // Calculate number of work groups and WG size
   for (unsigned int i = 0; i < pKernelUniformImplicitArgs->WorkDim; ++i) {
     assert((m_pProps->IsNonUniformWGSizeSupported() ||
@@ -456,8 +475,32 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     // In case of non-uniform work-group size there can be a reminder group
     // with size less than size of other groups.
     pKernelUniformImplicitArgs->WGCount[i] += static_cast<size_t>(0 != GlbSize % LclSize);
+    localNumUniform *=
+      pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i];
   }
 
+  size_t barrierSize = m_pProps->GetBarrierBufferSize();
+  size_t privateSize = m_pProps->GetPrivateMemorySize();
+  size_t localBufferSize = m_pProps->GetImplicitLocalMemoryBufferSize();
+  for (auto &arg : m_explicitArgs) {
+    if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
+      char* pArgLocation = (char*)pKernelUniformArgs + arg.offset_in_bytes;
+      switch (arg.size_in_bytes) {
+        case sizeof(cl_uint):
+          localBufferSize += *((cl_uint*)pArgLocation);
+          break;
+        case sizeof(cl_long):
+          localBufferSize += *((cl_long*)pArgLocation);
+          break;
+        default:
+          llvm_unreachable("Unknown arg size");
+      }
+    }
+  }
+
+  // barrier buffer is always allocated with the uniform size.
+  pKernelUniformImplicitArgs->stackSize = barrierSize * localNumUniform +
+                                          localBufferSize + m_stackExtraSize;
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);
   if (m_pProps->IsVectorizedWithTail()) {
@@ -467,6 +510,9 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     pKernelUniformImplicitArgs->pUniformJITEntryPoint =
     pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
         CreateEntryPointHandle(pScalarJIT->GetJITCode());
+    size_t nonBarrierPrivateSize = (privateSize - barrierSize) *
+                                   (1 + m_pProps->GetMinGroupSizeFactorial());
+    pKernelUniformImplicitArgs->stackSize += nonBarrierPrivateSize;
   } else {
     const IKernelJITContainer *pVectorJIT =
         GetKernelJITCount() > 1 ? GetKernelJIT(1) : nullptr;
@@ -479,19 +525,30 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
       bool useVectorJit = pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] %
                           pVectorJIT->GetProps()->GetVectorSize() == 0;
       pKernelUniformImplicitArgs->pUniformJITEntryPoint = useVectorJit ?
-                                                          CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
-                                                          CreateEntryPointHandle(pScalarJIT->GetJITCode());
-
+                                                        CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
+                                                        CreateEntryPointHandle(pScalarJIT->GetJITCode());
+      size_t nonBarrierPrivateSize = useVectorJit ?
+                                     (privateSize - barrierSize) * pVectorJIT->GetProps()->GetVectorSize() :
+                                     privateSize - barrierSize;
       useVectorJit = pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0] %
-                     pVectorJIT->GetProps()->GetVectorSize() == 0;
+              pVectorJIT->GetProps()->GetVectorSize() == 0;
       pKernelUniformImplicitArgs->pNonUniformJITEntryPoint = useVectorJit ?
                                                           CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
                                                           CreateEntryPointHandle(pScalarJIT->GetJITCode());
+      // Here we don't separete the stack size between uniform WGs and
+      // non uniform WGs. This may cause a little memory waste when uniform WGs
+      // run vetorized kernel and non uniform WGs run scalar kernel. But most
+      // of stack space are used to hold barrier buffer and local buffer and
+      // they have the same size between uniform and non uniform WGs. So there
+      // should be no great difference between the two sizes. Using the uniform
+      // stack size can simplify the stack reallocation.
+      pKernelUniformImplicitArgs->stackSize += nonBarrierPrivateSize;
     } else {
       // Only scalar JIT is present.
       pKernelUniformImplicitArgs->pUniformJITEntryPoint =
       pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
           CreateEntryPointHandle(pScalarJIT->GetJITCode());
+      pKernelUniformImplicitArgs->stackSize += (privateSize - barrierSize);
     }
   }
 
@@ -588,14 +645,12 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                                 m_explicitArgsSizeInBytes, ss);
     std::cout << ss.str() << std::endl;
   }
-
   IKernelJITContainer::JIT_PTR *kernel =
       (IKernelJITContainer::JIT_PTR *)(size_t) ( pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1 ?
                  pKernelUniformImplicitArgs->pUniformJITEntryPoint :
                  pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
 
   assert(kernel && "Kernel function is nullptr");
-
   // running the kernel with the specified args and (groupID, runtimeHandle)
 #if defined (ENABLE_SDE)
   // do not forget to export BeforeExecution and AfterExecution symbols
@@ -608,7 +663,55 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   AfterExecution();
 #else
-  kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+  if (!m_useAutoMemory || m_pProps->TargetDevice() != FPGA_EMU_DEVICE ||
+      pKernelUniformImplicitArgs->stackSize < m_stackDefaultSize)
+    kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+  else {
+    bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
+#if defined(_WIN32)
+    typedef struct {
+      const void *pKernelUniformArgs;
+      const size_t *pGroupID;
+      void *pRuntimeHandle;
+      IKernelJITContainer::JIT_PTR *kernel;
+      LPVOID primaryFiber;
+    } FIBERDATA;
+    auto runGroup = [](LPVOID params) {
+      FIBERDATA *fiberData = static_cast<FIBERDATA *>(params);
+      fiberData->kernel(fiberData->pKernelUniformArgs, fiberData->pGroupID,
+                        fiberData->pRuntimeHandle);
+      SwitchToFiber(fiberData->primaryFiber);
+    };
+    LPVOID primaryFiber = nullptr, fiber = nullptr;
+    primaryFiber = ConvertThreadToFiber(nullptr);
+    assert(primaryFiber && "ConvertThreadToFiber error!");
+    FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
+                           primaryFiber};
+    fiber = CreateFiberEx(pKernelUniformImplicitArgs->stackSize,
+                          pKernelUniformImplicitArgs->stackSize,
+                          0, runGroup, &fiberData);
+    assert(fiber && "CreateFiberEx error!");
+    SwitchToFiber(fiber);
+    DeleteFiber(fiber);
+    ConvertFiberToThread();
+#else
+    void *stackBase = AllocaStack(pKernelUniformImplicitArgs->stackSize);
+    ucontext_t originalContext, newContext;
+    getcontext(&newContext);
+    newContext.uc_stack.ss_sp = stackBase;
+    newContext.uc_stack.ss_size = pKernelUniformImplicitArgs->stackSize;
+    newContext.uc_link = &originalContext;
+    // workaround "might be clobbered" warning
+    if (isUniform)
+      makecontext(&newContext, (void(*)())pKernelUniformImplicitArgs->pUniformJITEntryPoint,
+                  3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
+    else
+      makecontext(&newContext, (void(*)())pKernelUniformImplicitArgs->pNonUniformJITEntryPoint,
+                  3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
+    swapcontext(&originalContext, &newContext);
+    ReleaseStack(stackBase);
+#endif
+  }
 #endif  // ENABLE_SDE
   return CL_DEV_SUCCESS;
 }
@@ -616,6 +719,26 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   _mm_setcsr(state.MXCSRstate);
   return CL_DEV_SUCCESS;
+}
+
+void* Kernel::AllocaStack(size_t size) const {
+  m_stackMutex.lock();
+  if (m_stackMem.empty()) {
+    m_stackMutex.unlock();
+    void* stackBase = malloc(size);
+    assert(stackBase && "memory out of resource");
+    return stackBase;
+  }
+  void *stackBase = m_stackMem.top();
+  m_stackMem.pop();
+  m_stackMutex.unlock();
+  return stackBase;
+}
+
+void Kernel::ReleaseStack(void* stackBase) const {
+  m_stackMutex.lock();
+  m_stackMem.push(stackBase);
+  m_stackMutex.unlock();
 }
 
 void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const

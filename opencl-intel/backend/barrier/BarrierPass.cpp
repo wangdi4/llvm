@@ -81,8 +81,6 @@ namespace intel {
     m_One = ConstantInt::get(m_sizeTType, 1);
 
     bool ModuleHasAnyInternalCalls = false;
-    //Update Map with structure stride size for each kernel
-    updateStructureStride(M);
 
     if (m_useTLSGlobals) {
       // Add thread local variable for local ids
@@ -96,6 +94,9 @@ namespace intel {
 
     //Find all functions that call synchronize instructions
     TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+
+    //Update Map with structure stride size for each kernel
+    updateStructureStride(M, functionsWithSync);
     //Collect data for each function with synchronize instruction
     for (TFunctionSet::iterator fi = functionsWithSync.begin(),
                                 fe = functionsWithSync.end();
@@ -1225,9 +1226,32 @@ namespace intel {
     }
     return MaxNumDims;
   }
+  // use DFS to calculate a function's non-barrier memory usage.
+  static
+  unsigned getPrivateSize(Function* pFunc, const CallGraph& cg, DataPerValue* dataPerVal,
+                          llvm::DenseMap<Function*, unsigned>& fnPrivSize,
+                          TFunctionSet& fnsWithSync) {
+    // external function or function pointer
+    if (!pFunc || pFunc->isDeclaration())
+      return 0;
+    if (fnPrivSize.count(pFunc))
+      return fnPrivSize[pFunc];
+    unsigned maxSubPrivSize = 0;
+    const CallGraphNode *nodeCG = cg[pFunc];
+    for (auto &ci : *nodeCG) {
+      Function *calledFunc = ci.second->getFunction();
+      maxSubPrivSize = std::max(maxSubPrivSize, getPrivateSize(calledFunc,
+                                cg, dataPerVal, fnPrivSize, fnsWithSync));
+    }
+    fnPrivSize[pFunc] = maxSubPrivSize + (fnsWithSync.count(pFunc) ? 0 :
+                                          dataPerVal->getStrideSize(pFunc));
+    return fnPrivSize[pFunc];
+  }
 
-  void Barrier::updateStructureStride(Module & M) {
+  void Barrier::updateStructureStride(Module & M, TFunctionSet& functionsWithSync) {
     // collect functions to process
+    CallGraph cg{M};
+    llvm::DenseMap<Function*, unsigned> funcToPrivSize;
     auto TodoList = BarrierUtils::getAllKernelsAndVectorizedCounterparts(
         KernelList(&M).getList());
 
@@ -1242,20 +1266,27 @@ namespace intel {
       assert(vecWidth && "vecWidth should not be 0!");
       strideSize = (strideSize + vecWidth - 1) / vecWidth;
 
+      auto privateSize = getPrivateSize(pFunc, cg, m_pDataPerValue,
+                                        funcToPrivSize, functionsWithSync);
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
       //KernelAnalysisPass is running in all scenarios.
-      if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
-        kimd.BarrierBufferSize.set(0);
-      } else {
-        kimd.BarrierBufferSize.set(strideSize);
-      }
-
       // CSSD100016517, CSSD100018743: workaround
       // Private memory is always considered to be non-uniform. I.e. it is not shared by each WI per vector lane.
       // If it is uniform (i.e. its content doesn't depend on non-uniform values) the private memory
       // query returns a smaller value than actual private memory usage. This subtle is taken into account
       // in the query for the maximum work-group.
-      kimd.PrivateMemorySize.set(strideSize);
+      if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
+        kimd.BarrierBufferSize.set(0);
+        // if there are no barrier in the kernel, strideSize is the kernel
+        // body's private memory usage. So need to add sub-function's memory size.
+        kimd.PrivateMemorySize.set(strideSize + privateSize -
+                                   m_pDataPerValue->getStrideSize(pFunc));
+      } else {
+        kimd.BarrierBufferSize.set(strideSize);
+        // if there are some barriers in the kernel, stiderSize is barrier
+        // buffer size. So need to add non barrier private memory.
+        kimd.PrivateMemorySize.set(strideSize + privateSize);
+      }
     }
   }
 } // namespace intel

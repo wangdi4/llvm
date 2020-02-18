@@ -647,13 +647,19 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
         {
             LOG_INFO(TEXT("%s"), "Initialize Executor");
             m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
+            auto deviceMode = m_pConfig->GetDeviceMode();
+            if (deviceMode == FPGA_EMU_DEVICE && m_pConfig->UseAutoMemory()) {
+                m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
+                &m_GPAData, m_pConfig->GetStackDefaultSize(), deviceMode);
+            } else {
             // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE env variable
             // as additional required stack for executor threads because
             // local variables located on stack
             size_t additionalStackSize = m_pConfig->GetForcedLocalMemSize();
             additionalStackSize += m_pConfig->GetForcedPrivateMemSize();
             m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
-                &m_GPAData, additionalStackSize, m_pConfig->GetDeviceMode());
+                &m_GPAData, additionalStackSize, deviceMode);
+            }
         }
     }
 
