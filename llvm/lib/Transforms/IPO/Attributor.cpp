@@ -2494,7 +2494,10 @@ struct AAReachabilityFunction final : public AAReachabilityImpl {
 /// ------------------------ NoAlias Argument Attribute ------------------------
 
 struct AANoAliasImpl : AANoAlias {
-  AANoAliasImpl(const IRPosition &IRP) : AANoAlias(IRP) {}
+  AANoAliasImpl(const IRPosition &IRP) : AANoAlias(IRP) {
+    assert(getAssociatedType()->isPointerTy() &&
+           "Noalias is a pointer attribute");
+  }
 
   const std::string getAsStr() const override {
     return getAssumed() ? "noalias" : "may-alias";
@@ -2518,6 +2521,11 @@ struct AANoAliasFloating final : AANoAliasImpl {
         break;
       Val = Base;
     } while (true);
+
+    if (!Val->getType()->isPointerTy()) {
+      indicatePessimisticFixpoint();
+      return;
+    }
 
     if (isa<AllocaInst>(Val))
       indicateOptimisticFixpoint();
@@ -3057,6 +3065,9 @@ struct AAIsDeadReturned : public AAIsDeadValueImpl {
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
+
+    A.checkForAllInstructions([](Instruction &) { return true; }, *this,
+                              {Instruction::Ret});
 
     auto PredForCallSite = [&](AbstractCallSite ACS) {
       if (ACS.isCallbackCall() || !ACS.getInstruction())
@@ -4477,11 +4488,13 @@ struct AAValueSimplifyImpl : AAValueSimplify {
     Value &QueryingValueSimplifiedUnwrapped =
         *QueryingValueSimplified.getValue();
 
-    if (isa<UndefValue>(QueryingValueSimplifiedUnwrapped))
-      return true;
-
-    if (AccumulatedSimplifiedValue.hasValue())
+    if (AccumulatedSimplifiedValue.hasValue() &&
+        !isa<UndefValue>(AccumulatedSimplifiedValue.getValue()) &&
+        !isa<UndefValue>(QueryingValueSimplifiedUnwrapped))
       return AccumulatedSimplifiedValue == QueryingValueSimplified;
+    if (AccumulatedSimplifiedValue.hasValue() &&
+        isa<UndefValue>(QueryingValueSimplifiedUnwrapped))
+      return true;
 
     LLVM_DEBUG(dbgs() << "[ValueSimplify] " << QueryingValue
                       << " is assumed to be "
@@ -4515,13 +4528,16 @@ struct AAValueSimplifyImpl : AAValueSimplify {
   ChangeStatus manifest(Attributor &A) override {
     ChangeStatus Changed = ChangeStatus::UNCHANGED;
 
-    if (!SimplifiedAssociatedValue.hasValue() ||
+    if (SimplifiedAssociatedValue.hasValue() &&
         !SimplifiedAssociatedValue.getValue())
       return Changed;
 
-    if (auto *C = dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())) {
+    Value &V = getAssociatedValue();
+    auto *C = SimplifiedAssociatedValue.hasValue()
+                  ? dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())
+                  : UndefValue::get(V.getType());
+    if (C) {
       // We can replace the AssociatedValue with the constant.
-      Value &V = getAssociatedValue();
       if (!V.user_empty() && &V != C && V.getType() == C->getType()) {
         LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *C
                           << " :: " << *this << "\n");
@@ -4631,6 +4647,44 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
                ? ChangeStatus::UNCHANGED
                : ChangeStatus ::CHANGED;
   }
+
+  ChangeStatus manifest(Attributor &A) override {
+    ChangeStatus Changed = ChangeStatus::UNCHANGED;
+
+    if (SimplifiedAssociatedValue.hasValue() &&
+        !SimplifiedAssociatedValue.getValue())
+      return Changed;
+
+    Value &V = getAssociatedValue();
+    auto *C = SimplifiedAssociatedValue.hasValue()
+                  ? dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())
+                  : UndefValue::get(V.getType());
+    if (C) {
+      auto PredForReturned =
+          [&](Value &V, const SmallSetVector<ReturnInst *, 4> &RetInsts) {
+            // We can replace the AssociatedValue with the constant.
+            if (&V == C || V.getType() != C->getType() || isa<UndefValue>(V))
+              return true;
+            if (auto *CI = dyn_cast<CallInst>(&V))
+              if (CI->isMustTailCall())
+                return true;
+
+            for (ReturnInst *RI : RetInsts) {
+              if (RI->getFunction() != getAnchorScope())
+                continue;
+              LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *C
+                                << " in " << *RI << " :: " << *this << "\n");
+              if (A.changeUseAfterManifest(RI->getOperandUse(0), *C))
+                Changed = ChangeStatus::CHANGED;
+            }
+            return true;
+          };
+      A.checkForAllReturnedValuesAndReturnInsts(PredForReturned, *this);
+    }
+
+    return Changed | AAValueSimplify::manifest(A);
+  }
+
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override {
     STATS_DECLTRACK_FNRET_ATTR(value_simplify)
@@ -4721,7 +4775,7 @@ struct AAValueSimplifyCallSiteReturned : AAValueSimplifyReturned {
     if (auto *CI = dyn_cast<CallInst>(&getAssociatedValue()))
       if (CI->isMustTailCall())
         return ChangeStatus::UNCHANGED;
-    return AAValueSimplifyReturned::manifest(A);
+    return AAValueSimplifyImpl::manifest(A);
   }
 
   void trackStatistics() const override {
@@ -6649,6 +6703,8 @@ struct AAValueConstantRangeFloating : AAValueConstantRangeImpl {
     }
 
     if (isa<UndefValue>(&V)) {
+      // Collapse the undef state to 0.
+      unionAssumed(ConstantRange(APInt(getBitWidth(), 0)));
       indicateOptimisticFixpoint();
       return;
     }
@@ -7452,9 +7508,15 @@ ChangeStatus Attributor::run() {
   NumAttributesValidFixpoint += NumAtFixpoint;
 
   (void)NumFinalAAs;
-  assert(NumFinalAAs == AllAbstractAttributes.size() &&
-         "Expected the final number of abstract attributes to remain "
-         "unchanged!");
+  if (NumFinalAAs != AllAbstractAttributes.size()) {
+    for (unsigned u = NumFinalAAs; u < AllAbstractAttributes.size(); ++u)
+      errs() << "Unexpected abstract attribute: " << *AllAbstractAttributes[u]
+             << " :: "
+             << AllAbstractAttributes[u]->getIRPosition().getAssociatedValue()
+             << "\n";
+    llvm_unreachable("Expected the final number of abstract attributes to "
+                     "remain unchanged!");
+  }
 
   // Delete stuff at the end to avoid invalid references and a nice order.
   {
@@ -7474,6 +7536,10 @@ ChangeStatus Attributor::run() {
       LLVM_DEBUG(dbgs() << "Use " << *NewV << " in " << *U->getUser()
                         << " instead of " << *OldV << "\n");
       U->set(NewV);
+      // Do not modify call instructions outside the SCC.
+      if (auto *CB = dyn_cast<CallBase>(OldV))
+        if (!Functions.count(CB->getCaller()))
+          continue;
       if (Instruction *I = dyn_cast<Instruction>(OldV)) {
         CGModifiedFunctions.insert(I->getFunction());
         if (!isa<PHINode>(I) && !ToBeDeletedInsts.count(I) &&
@@ -7528,7 +7594,8 @@ ChangeStatus Attributor::run() {
     for (auto &V : ToBeDeletedInsts) {
       if (Instruction *I = dyn_cast_or_null<Instruction>(V)) {
         CGModifiedFunctions.insert(I->getFunction());
-        I->replaceAllUsesWith(UndefValue::get(I->getType()));
+        if (!I->getType()->isVoidTy())
+          I->replaceAllUsesWith(UndefValue::get(I->getType()));
         if (!isa<PHINode>(I) && isInstructionTriviallyDead(I))
           DeadInsts.push_back(I);
         else

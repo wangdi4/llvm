@@ -1730,8 +1730,9 @@ bool AsmPrinter::doFinalization(Module &M) {
           GV.getVisibility() != GlobalValue::DefaultVisibility)
         continue;
 
-      OutStreamer->SwitchSection(OutContext.getELFSection(
-          ".llvm_sympart", ELF::SHT_LLVM_SYMPART, 0, 0, "", ++UniqueID));
+      OutStreamer->SwitchSection(
+          OutContext.getELFSection(".llvm_sympart", ELF::SHT_LLVM_SYMPART, 0, 0,
+                                   "", ++UniqueID, nullptr));
       OutStreamer->emitBytes(GV.getPartition());
       OutStreamer->EmitZeros(1);
       OutStreamer->EmitValue(
@@ -3250,22 +3251,19 @@ void AsmPrinter::emitXRayTable() {
   MCSection *InstMap = nullptr;
   MCSection *FnSledIndex = nullptr;
   if (MF->getSubtarget().getTargetTriple().isOSBinFormatELF()) {
-    auto LinkedToSym = dyn_cast<MCSymbolELF>(CurrentFnSym);
-    assert(LinkedToSym != nullptr);
+    auto LinkedToSym = cast<MCSymbolELF>(CurrentFnSym);
     auto Flags = ELF::SHF_WRITE | ELF::SHF_ALLOC | ELF::SHF_LINK_ORDER;
-    std::string GroupName;
+    StringRef GroupName;
     if (F.hasComdat()) {
       Flags |= ELF::SHF_GROUP;
-      GroupName = std::string(F.getComdat()->getName());
+      GroupName = F.getComdat()->getName();
     }
-
-    auto UniqueID = ++XRayFnUniqueID;
-    InstMap =
-        OutContext.getELFSection("xray_instr_map", ELF::SHT_PROGBITS, Flags, 0,
-                                 GroupName, UniqueID, LinkedToSym);
-    FnSledIndex =
-        OutContext.getELFSection("xray_fn_idx", ELF::SHT_PROGBITS, Flags, 0,
-                                 GroupName, UniqueID, LinkedToSym);
+    InstMap = OutContext.getELFSection("xray_instr_map", ELF::SHT_PROGBITS,
+                                       Flags, 0, GroupName,
+                                       MCSection::NonUniqueID, LinkedToSym);
+    FnSledIndex = OutContext.getELFSection("xray_fn_idx", ELF::SHT_PROGBITS,
+                                           Flags, 0, GroupName,
+                                           MCSection::NonUniqueID, LinkedToSym);
   } else if (MF->getSubtarget().getTargetTriple().isOSBinFormatMachO()) {
     InstMap = OutContext.getMachOSection("__DATA", "xray_instr_map", 0,
                                          SectionKind::getReadOnlyWithRel());
@@ -3327,29 +3325,22 @@ void AsmPrinter::emitPatchableFunctionEntries() {
   const unsigned PointerSize = getPointerSize();
   if (TM.getTargetTriple().isOSBinFormatELF()) {
     auto Flags = ELF::SHF_WRITE | ELF::SHF_ALLOC;
+    const MCSymbolELF *LinkedToSym = nullptr;
+    StringRef GroupName;
 
-    // As of binutils 2.33, GNU as does not support section flag "o" or linkage
-    // field "unique". Use SHF_LINK_ORDER if we are using the integrated
-    // assembler.
+    // GNU as < 2.35 did not support section flag 'o'. Use SHF_LINK_ORDER only
+    // if we are using the integrated assembler.
     if (MAI->useIntegratedAssembler()) {
       Flags |= ELF::SHF_LINK_ORDER;
-      std::string GroupName;
       if (F.hasComdat()) {
         Flags |= ELF::SHF_GROUP;
-        GroupName = std::string(F.getComdat()->getName());
+        GroupName = F.getComdat()->getName();
       }
-      MCSection *Section = getObjFileLowering().SectionForGlobal(&F, TM);
-      unsigned UniqueID =
-          PatchableFunctionEntryID
-              .try_emplace(Section, PatchableFunctionEntryID.size())
-              .first->second;
-      OutStreamer->SwitchSection(OutContext.getELFSection(
-          "__patchable_function_entries", ELF::SHT_PROGBITS, Flags, 0,
-          GroupName, UniqueID, cast<MCSymbolELF>(CurrentFnSym)));
-    } else {
-      OutStreamer->SwitchSection(OutContext.getELFSection(
-          "__patchable_function_entries", ELF::SHT_PROGBITS, Flags));
+      LinkedToSym = cast<MCSymbolELF>(CurrentFnSym);
     }
+    OutStreamer->SwitchSection(OutContext.getELFSection(
+        "__patchable_function_entries", ELF::SHT_PROGBITS, Flags, 0, GroupName,
+        MCSection::NonUniqueID, LinkedToSym));
     emitAlignment(Align(PointerSize));
     OutStreamer->emitSymbolValue(CurrentPatchableFunctionEntrySym, PointerSize);
   }
