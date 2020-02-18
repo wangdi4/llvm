@@ -333,11 +333,7 @@ ProgramManager::getBuiltPIProgram(OSModuleHandle M, const context &Context,
         [](const device Dev) { return getRawSyclObjImpl(Dev)->getHandleRef(); });
 
     ProgramPtr BuiltProgram =
-<<<<<<< HEAD
         build(std::move(ProgramManaged), ContextImpl, Img.CompileOptions,
-=======
-        build(std::move(ProgramManaged), PiContext, Img.CompileOptions,
->>>>>>> 9633bde1a8cddd190d33b71d55b8b4c9d3dc0630
               Img.LinkOptions, PiDevices, ContextImpl->getCachedLibPrograms(),
               LinkDeviceLibs);
 
@@ -689,11 +685,7 @@ getDeviceLibPrograms(const ContextImplPtr Context,
 }
 
 ProgramManager::ProgramPtr
-<<<<<<< HEAD
 ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
-=======
-ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
->>>>>>> 9633bde1a8cddd190d33b71d55b8b4c9d3dc0630
                       const string_class &CompileOptions,
                       const string_class &LinkOptions,
                       const std::vector<RT::PiDevice> &Devices,
@@ -736,11 +728,7 @@ ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
     Opts += " ";
     Opts += LinkOpts;
 
-<<<<<<< HEAD
     RT::PiResult Error = Plugin.call_nocheck<PiApiKind::piProgramBuild>(
-=======
-    RT::PiResult Error = PI_CALL_NOCHECK(piProgramBuild)(
->>>>>>> 9633bde1a8cddd190d33b71d55b8b4c9d3dc0630
         Program.get(), Devices.size(), Devices.data(), Opts.c_str(), nullptr,
         nullptr);
     if (Error != PI_SUCCESS)
@@ -749,7 +737,6 @@ ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
   }
 
   // Include the main program and compile/link everything together
-<<<<<<< HEAD
   Plugin.call<PiApiKind::piProgramCompile>(Program.get(), Devices.size(),
                                            Devices.data(), CompileOpts, 0,
                                            nullptr, nullptr, nullptr, nullptr);
@@ -759,17 +746,6 @@ ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
   RT::PiResult Error = Plugin.call_nocheck<PiApiKind::piProgramLink>(
       Context->getHandleRef(), Devices.size(), Devices.data(), LinkOpts,
       LinkPrograms.size(), LinkPrograms.data(), nullptr, nullptr, &LinkedProg);
-=======
-  PI_CALL(piProgramCompile)(Program.get(), Devices.size(), Devices.data(),
-                            CompileOpts, 0, nullptr, nullptr, nullptr, nullptr);
-  LinkPrograms.push_back(Program.get());
-
-  RT::PiProgram LinkedProg = nullptr;
-
-  RT::PiResult Error = PI_CALL_NOCHECK(piProgramLink)(
-      Context, Devices.size(), Devices.data(), LinkOpts, LinkPrograms.size(),
-      LinkPrograms.data(), nullptr, nullptr, &LinkedProg);
->>>>>>> 9633bde1a8cddd190d33b71d55b8b4c9d3dc0630
 
   // Link program call returns a new program object if all parameters are valid,
   // or NULL otherwise. Release the original (user) program.
