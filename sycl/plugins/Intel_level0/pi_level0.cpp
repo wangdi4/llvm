@@ -3200,12 +3200,21 @@ pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
   ze_host_mem_alloc_desc_t ze_desc;
   ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
   // TODO: translate PI properties to L0 flags
-  ZE_CALL(zeDriverAllocHostMem(
+  ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocHostMem(
     ze_driver_global,
     &ze_desc,
     size,
     alignment,
     result_ptr));
+
+  if (ze_result == ZE_RESULT_ERROR_UNSUPPORTED_SIZE) {
+    // TODO: document the erros returned by piextUSMHostAlloc
+    return PI_INVALID_VALUE;
+  }
+  else {
+    // TODO: handle other errors.
+    zeCallCheck(ze_result, "zeDriverAllocHostMem");
+  }
 
   return PI_SUCCESS;
 }
@@ -3219,13 +3228,22 @@ pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
   ze_device_mem_alloc_desc_t ze_desc;
   ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_desc.ordinal = 0;
-  ZE_CALL(zeDriverAllocDeviceMem(
+  ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocDeviceMem(
     ze_driver_global,
     &ze_desc,
     size,
     alignment,
     device->L0Device,
     result_ptr));
+
+  if (ze_result == ZE_RESULT_ERROR_UNSUPPORTED_SIZE) {
+    // TODO: document the erros returned by piextUSMDeviceAlloc
+    return PI_INVALID_VALUE;
+  }
+  else {
+    // TODO: handle other errors.
+    zeCallCheck(ze_result, "zeDriverAllocDeviceMem");
+  }
 
   return PI_SUCCESS;
 }
@@ -3244,7 +3262,7 @@ pi_result L0(piextUSMSharedAlloc)(
   ze_device_mem_alloc_desc_t ze_dev_desc;
   ze_dev_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_dev_desc.ordinal = 0;
-  ZE_CALL(zeDriverAllocSharedMem(
+  ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocSharedMem(
     ze_driver_global,
     &ze_dev_desc,
     &ze_host_desc,
@@ -3252,6 +3270,15 @@ pi_result L0(piextUSMSharedAlloc)(
     alignment,
     device->L0Device,
     result_ptr));
+
+  if (ze_result == ZE_RESULT_ERROR_UNSUPPORTED_SIZE) {
+    // TODO: document the erros returned by piextUSMSharedAlloc
+    return PI_INVALID_VALUE;
+  }
+  else {
+    // TODO: handle other errors.
+    zeCallCheck(ze_result, "zeDriverAllocSharedMem");
+  }
 
   return PI_SUCCESS;
 }
