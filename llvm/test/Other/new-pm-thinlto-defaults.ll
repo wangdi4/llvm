@@ -164,6 +164,7 @@
 ; CHECK-O-NEXT: Running pass: LoopIdiomRecognizePass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy  ;INTEL
 ; CHECK-O-NEXT: Finished Loop pass manager run.
 ; CHECK-O-NEXT: Running pass: SROA on foo
 ; CHECK-Os-NEXT: Running pass: MergedLoadStoreMotionPass
