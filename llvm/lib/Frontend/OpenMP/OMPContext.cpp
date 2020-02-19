@@ -286,6 +286,20 @@ TraitSet llvm::omp::getOpenMPContextTraitSetKind(StringRef S) {
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
       .Default(TraitSet::invalid);
 }
+<<<<<<< HEAD
+=======
+
+TraitSet
+llvm::omp::getOpenMPContextTraitSetForSelector(TraitSelector Selector) {
+  switch (Selector) {
+#define OMP_TRAIT_SELECTOR(Enum, TraitSetEnum, Str, ReqProp)                   \
+  case TraitSelector::Enum:                                                    \
+    return TraitSet::TraitSetEnum;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+  }
+  llvm_unreachable("Unknown trait selector!");
+}
+>>>>>>> b91c267380ff2e940a6d37a14cfb0b5057555b60
 TraitSet
 llvm::omp::getOpenMPContextTraitSetForProperty(TraitProperty Property) {
   switch (Property) {
@@ -398,3 +412,40 @@ bool llvm::omp::isValidTraitPropertyForTraitSetAndSelector(
   }
   llvm_unreachable("Unknown trait property!");
 }
+<<<<<<< HEAD
+=======
+
+std::string llvm::omp::listOpenMPContextTraitSets() {
+  std::string S;
+#define OMP_TRAIT_SET(Enum, Str)                                               \
+  if (!StringRef(Str).equals("invalid"))                                       \
+    S.append("'").append(Str).append("'").append(" ");
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+  S.pop_back();
+  return S;
+}
+
+std::string llvm::omp::listOpenMPContextTraitSelectors(TraitSet Set) {
+  std::string S;
+#define OMP_TRAIT_SELECTOR(Enum, TraitSetEnum, Str, ReqProp)                   \
+  if (TraitSet::TraitSetEnum == Set && !StringRef(Str).equals("invalid"))      \
+    S.append("'").append(Str).append("'").append(" ");
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+  S.pop_back();
+  return S;
+}
+
+std::string
+llvm::omp::listOpenMPContextTraitProperties(TraitSet Set,
+                                            TraitSelector Selector) {
+  std::string S;
+#define OMP_TRAIT_PROPERTY(Enum, TraitSetEnum, TraitSelectorEnum, Str)         \
+  if (TraitSet::TraitSetEnum == Set &&                                         \
+      TraitSelector::TraitSelectorEnum == Selector &&                          \
+      !StringRef(Str).equals("invalid"))                                       \
+    S.append("'").append(Str).append("'").append(" ");
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+  S.pop_back();
+  return S;
+}
+>>>>>>> b91c267380ff2e940a6d37a14cfb0b5057555b60
