@@ -740,6 +740,44 @@ void VPlanPredicator::linearizeRegion(
   }
 }
 
+void VPlanPredicator::fixupUniformInnerLoops() {
+  for (auto *Loop : VPLI->getLoopsInPreorder()) {
+    auto *Header = cast<VPBasicBlock>(Loop->getHeader());
+    auto *Predicate = Header->getPredicate();
+    if (!Predicate)
+      // Not on a divergent path.
+      continue;
+
+    auto *Latch = cast<VPBasicBlock>(Loop->getLoopLatch());
+    auto *CondBit = Latch->getCondBit();
+    auto *CondBitInst = dyn_cast<VPInstruction>(CondBit);
+    if (CondBitInst && CondBitInst->getOpcode() == VPInstruction::AllZeroCheck)
+      // Already processed by LoopCFU.
+      continue;
+
+    if (CondBitInst && CondBitInst->getOpcode() == VPInstruction::Not) {
+      // Already processed by LoopCFU.
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Fixing up uniform loop with header "
+                      << Header->getName() << "\n");
+
+    bool BackEdgeIsFalseSucc = Latch->getSuccessors()[1] == Header;
+    VPBuilder Builder;
+    Builder.setInsertPoint(Latch);
+    auto *NewAllZeroCheck = Builder.createAllZeroCheck(Predicate);
+    VPValue *NewCondBit;
+    if (!BackEdgeIsFalseSucc) {
+      NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
+      NewCondBit = Builder.createAnd(NewAllZeroCheck, CondBit);
+    } else {
+      NewCondBit = Builder.createOr(NewAllZeroCheck, CondBit);
+    }
+    Latch->setCondBit(NewCondBit);
+  }
+}
+
 void VPlanPredicator::computeLiveInsForIDF(
     PredicateTerm Term, SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks) {
   auto &UseBlocks = PredicateTerm2UseBlocks[Term];
@@ -883,6 +921,7 @@ void VPlanPredicator::predicate(void) {
 
   predicateAndLinearizeRegionRec(cast<VPRegionBlock>(Plan.getEntry()),
                                  Exits.size() != 1 /* SearchLoopHack */);
+  fixupUniformInnerLoops();
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));

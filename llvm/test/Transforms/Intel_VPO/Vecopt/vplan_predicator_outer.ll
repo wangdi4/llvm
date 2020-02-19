@@ -8,7 +8,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define i64 @test_2_level_loop_nest() local_unnamed_addr #0 {
-;
 ; CHECK-LABEL:  After predication and linearization
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -39,11 +38,13 @@ define i64 @test_2_level_loop_nest() local_unnamed_addr #0 {
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_INDUCTION]] = add i64 [[VP_INNER_INDUCTION_PHI]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_INDUCTION]] i64 1024
-; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB5]](!i1 [[VP_EXITCOND]])
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP2:%.*]] = all-zero-check i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP3:%.*]] = or i1 [[VP2]] i1 [[VP_EXITCOND]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP3]]), [[BB5]](!i1 [[VP3]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -121,6 +122,122 @@ exit:                                        ; preds = %outer.loop.latch
   ret i64 0
 }
 
+; Function Attrs: nounwind uwtable
+define i64 @test_2_level_loop_nest_swap_inner_branch() local_unnamed_addr #0 {
+; CHECK-LABEL:  After predication and linearization
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_INDUCTION_PHI_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_OUTER_INDUCTION_PHI_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_OUTER_INDUCTION_PHI_IND_INIT]], [[BB1]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Divergent] i64* [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]]* @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp i64* [[VP_GEP]] i64* null
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP0:%.*]] = block-predicate i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_INDUCTION_PHI:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INNER_INDUCTION:%.*]], [[BB5]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_INDUCTION]] = add i64 [[VP_INNER_INDUCTION_PHI]] i64 1
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_INNER_INDUCTION]] i64 1024
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP2:%.*]] = all-zero-check i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP3:%.*]] = not i1 [[VP2]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP4:%.*]] = and i1 [[VP3]] i1 [[VP_CONTINUE_COND]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP4]]), [[BB6:BB[0-9]+]](!i1 [[VP4]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_INDUCTION]] = add i64 [[VP_OUTER_INDUCTION_PHI]] i64 [[VP_OUTER_INDUCTION_PHI_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
+; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_EXITCOND26]]), [[BB2]](!i1 [[VP_EXITCOND26]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]:
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_OUTER_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB8]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    END Region([[REGION0]])
+;
+entry:
+;        entry
+;          |
+;         bb1
+;          |
+;         bb2
+;          |
+; +------>outer.loop
+; |        |       |
+; |       bb3      |
+; |        |       |
+; |    inner.loop  |
+; |        |       |
+; |       bb4      |
+; |        |       |
+; +--outer.loop.latch
+;          |
+;         exit
+;          |
+  br label %bb1
+
+bb1:                                   ; preds = %entry
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %bb2
+
+bb2:                              ; preds = %bb1
+  br label %outer.loop
+
+outer.loop:                                         ; preds = %outer.loop.latch, %bb2
+  %outer.induction.phi = phi i64 [ 0, %bb2 ], [ %outer.induction, %outer.loop.latch ]
+  %gep = getelementptr inbounds [1024 x [1024 x i64]], [1024 x [1024 x i64]]* @A, i64 0, i64 %outer.induction.phi, i64 0
+  %outer.loop.varying = icmp eq i64* %gep, null
+  br i1 %outer.loop.varying, label %bb3, label %outer.loop.latch
+
+bb3:                                          ; preds = %outer.loop
+  br label %inner.loop
+
+inner.loop:                                        ; preds = %inner.loop, %bb3
+  %inner.induction.phi = phi i64 [ 0, %bb3 ], [ %inner.induction, %inner.loop ]
+  %inner.induction = add nuw nsw i64 %inner.induction.phi, 1
+  %continue.cond = icmp ne i64 %inner.induction, 1024
+  br i1 %continue.cond, label %inner.loop, label %bb4
+
+bb4:                                ; preds = %inner.loop
+  br label %outer.loop.latch
+
+outer.loop.latch:                                        ; preds = %outer.loop, %for.cond.cleanup4
+  %outer.induction = add nuw nsw i64 %outer.induction.phi, 1
+  %exitcond26 = icmp eq i64 %outer.induction, 1024
+  br i1 %exitcond26, label %exit, label %outer.loop
+
+exit:                                        ; preds = %outer.loop.latch
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
+  ret i64 0
+}
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
 
