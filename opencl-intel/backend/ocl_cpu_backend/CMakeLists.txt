@@ -170,6 +170,11 @@ if (WIN32)
         LLDJITBuilder.cpp
         LLDJIT.cpp
         AsmCompiler.cpp
+        ihc_thread_win32.cpp
+    )
+else (WIN32)
+    list(APPEND OCL_CPU_BACKEND_SOURCE_FILES
+        ihc_thread_linux.cpp
     )
 endif (WIN32)
 
