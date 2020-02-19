@@ -934,7 +934,7 @@ OclBuiltinImpl sub_group_shuffle_avx256v8ui32 = OclBuiltinImpl<sub_group_shuffle
   }]>;
 
 // float
-OclBuiltinImpl sub_group_shuffle_avx256fv8f32 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx256v8f32 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8f32], 0,
   [{
     $Arg1VarName = $Arg1VarName & $Arg2VarName;
     return as_$ReturnType(_mm256_permutevar8x32_ps(__builtin_astype($Arg0VarName, __m256),
@@ -942,7 +942,7 @@ OclBuiltinImpl sub_group_shuffle_avx256fv8f32 = OclBuiltinImpl<sub_group_shuffle
   }]>;
 
 // long and ulong
-OclBuiltinImpl sub_group_shuffle_avx512fv8ui64 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8i64, v8u64, v8f64], 0,
+OclBuiltinImpl sub_group_shuffle_avx2v8ui64 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8i64, v8u64, v8f64], 0,
  [{
     $Arg1VarName = $Arg1VarName & $Arg2VarName;
     $Arg0Type res;
@@ -1231,53 +1231,91 @@ OclBuiltinImpl sub_group_shuffle_up_avx2_v8d64 = OclBuiltinImpl<sub_group_shuffl
      return *($Arg0Type*)&temp;
 }]>;
 
-OclBuiltinImpl intel_sub_group_block_read1_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v1u32 ], 0,
+//
+// Block read/write
+//
+code BlockRead1_8 =
   [{
-    const uint8 res = *(uint8*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 1, 2, 3, 4, 5, 6, 7));
-  }]>;
+    const $ReturnType res = vload8(0, $Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 1, 2, 3, 4, 5, 6, 7);
+  }];
+OclBuiltinImpl intel_sub_group_block_read1_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v1u32 ], 0, BlockRead1_8>;
+OclBuiltinImpl intel_sub_group_block_read_us1_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read_us1_8, intel_sub_group_block_read_write_us_types, 0, BlockRead1_8>;
 
-OclBuiltinImpl intel_sub_group_block_read2_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read2_8, [ v1u32 ], 0,
+code BlockRead2_8 =
   [{
-    const uint16 res = *(uint16*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15));
-  }]>;
+    const $ReturnType res = vload16(0, $Arg0VarName);
+    return __builtin_shufflevector(res, res, 0, 8,
+                                             1, 9,
+                                             2, 10,
+                                             3, 11,
+                                             4, 12,
+                                             5, 13,
+                                             6, 14,
+                                             7, 15);
+  }];
+OclBuiltinImpl intel_sub_group_block_read2_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read2_8, [ v1u32 ], 0, BlockRead2_8>;
+OclBuiltinImpl intel_sub_group_block_read_us2_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read_us2_8, intel_sub_group_block_read_write_us_types, 0, BlockRead2_8>;
 
-OclBuiltinImpl intel_sub_group_block_read4_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read4_8, [ v1u32 ], 0,
+code BlockRead4_8 =
   [{
-    const uint32 res = *(uint32*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 8, 16, 24, 1, 9, 17, 25, 2, 10, 18, 26, 3, 11, 19, 27, 4, 12, 20, 28, 5, 13, 21, 29, 6, 14, 22, 30, 7, 15, 23, 31));
-  }]>;
+    $ReturnType res;
+    res.lo  = vload16(0, $Arg0VarName);
+    res.hi  = vload16(1, $Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_8x4(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read4_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read4_8, [ v1u32 ], 0, BlockRead4_8>;
+OclBuiltinImpl intel_sub_group_block_read_us4_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read_us4_8, intel_sub_group_block_read_write_us_types, 0, BlockRead4_8>;
 
-OclBuiltinImpl intel_sub_group_block_read8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v1u32 ], 0,
+code BlockRead8_8 =
   [{
-    const uint64 res = *(uint64*)($Arg0VarName);
-    return ($ReturnType)(__builtin_shufflevector(res, res, 0, 8, 16, 24, 32, 40, 48, 56, 1, 9, 17, 25, 33, 41, 49, 57, 2, 10, 18, 26, 34, 42, 50, 58, 3, 11, 19, 27, 35, 43, 51, 59, 4, 12, 20, 28, 36, 44, 52, 60, 5, 13, 21, 29, 37, 45, 53, 61, 6, 14, 22, 30, 38, 46, 54, 62, 7, 15, 23, 31, 39, 47, 55, 63));
-  }]>;
+    $ReturnType res;
+    res.lo.lo  = vload16(0, $Arg0VarName);
+    res.lo.hi  = vload16(1, $Arg0VarName);
+    res.hi.lo  = vload16(2, $Arg0VarName);
+    res.hi.hi  = vload16(3, $Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_8x8(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v1u32 ], 0, BlockRead8_8>;
+OclBuiltinImpl intel_sub_group_block_read_us8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read_us8_8, intel_sub_group_block_read_write_us_types, 0, BlockRead8_8>;
 
-OclBuiltinImpl intel_sub_group_block_write1_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v1u32 ], 0,
+code BlockWrite1_8 =
   [{
-    uint8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7);
-    *(uint8 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7);
+    vstore8(res, 0, $Arg0VarName);
+  }];
+OclBuiltinImpl intel_sub_group_block_write1_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v1u32 ], 0, BlockWrite1_8>;
+OclBuiltinImpl intel_sub_group_block_write_us1_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write_us1_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite1_8>;
 
-OclBuiltinImpl intel_sub_group_block_write2_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write2_8, [ v1u32 ], 0,
+code BlockWrite2_8 =
   [{
-    uint16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15);
-    *(uint16 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 2, 4, 6, 8, 10, 12, 14,
+                                                                               1, 3, 5, 7, 9, 11, 13, 15);
+    vstore16(res, 0, $Arg0VarName);
+  }];
+OclBuiltinImpl intel_sub_group_block_write2_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write2_8, [ v1u32 ], 0, BlockWrite2_8>;
+OclBuiltinImpl intel_sub_group_block_write_us2_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write_us2_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite2_8>;
 
-OclBuiltinImpl intel_sub_group_block_write4_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write4_8, [ v1u32 ], 0,
+code BlockWrite4_8 =
   [{
-    uint32 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 8, 16, 24, 1, 9, 17, 25, 2, 10, 18, 26, 3, 11, 19, 27, 4, 12, 20, 28, 5, 13, 21, 29, 6, 14, 22, 30, 7, 15, 23, 31);
-    *(uint32 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#32 res = __ocl_shuffle_transpose_$Arg1BaseType#_4x8($Arg1VarName);
+    vstore16(res.lo, 0, $Arg0VarName);
+    vstore16(res.hi, 1, $Arg0VarName);
+  }];
+OclBuiltinImpl intel_sub_group_block_write4_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write4_8, [ v1u32 ], 0, BlockWrite4_8>;
+OclBuiltinImpl intel_sub_group_block_write_us4_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write_us4_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite4_8>;
 
-OclBuiltinImpl intel_sub_group_block_write8_8_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v1u32 ], 0,
+code BlockWrite8_8 =
   [{
-    uint64 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 8, 16, 24, 32, 40, 48, 56, 1, 9, 17, 25, 33, 41, 49, 57, 2, 10, 18, 26, 34, 42, 50, 58, 3, 11, 19, 27, 35, 43, 51, 59, 4, 12, 20, 28, 36, 44, 52, 60, 5, 13, 21, 29, 37, 45, 53, 61, 6, 14, 22, 30, 38, 46, 54, 62, 7, 15, 23, 31, 39, 47, 55, 63);
-    *(uint64 *)($Arg0VarName) = res;
-  }]>;
+    $Arg1BaseType#64 res = __ocl_shuffle_transpose_$Arg1BaseType#_8x8($Arg1VarName);
+    vstore16(res.lo.lo, 0, $Arg0VarName);
+    vstore16(res.lo.hi, 1, $Arg0VarName);
+    vstore16(res.hi.lo, 2, $Arg0VarName);
+    vstore16(res.hi.hi, 3, $Arg0VarName);
+  }];
+OclBuiltinImpl intel_sub_group_block_write8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v1u32 ], 0, BlockWrite8_8>;
+OclBuiltinImpl intel_sub_group_block_write_us8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write_us8_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite8_8>;
+
 
 //
 // Block read/write for image
