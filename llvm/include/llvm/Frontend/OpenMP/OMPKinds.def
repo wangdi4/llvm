@@ -448,6 +448,9 @@ OMP_TRAIT_PROPERTY(invalid, invalid, invalid, "invalid")
 
 __OMP_TRAIT_SET(construct)
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, target)
+#if INTEL_COLLAB
+__OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, target_variant_dispatch)
+#endif // INTEL_COLLAB
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, teams)
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, parallel)
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, for)
@@ -475,6 +478,9 @@ __OMP_TRAIT_PROPERTY(device, arch, armeb)
 __OMP_TRAIT_PROPERTY(device, arch, aarch64)
 __OMP_TRAIT_PROPERTY(device, arch, aarch64_be)
 __OMP_TRAIT_PROPERTY(device, arch, aarch64_32)
+#if INTEL_COLLAB
+__OMP_TRAIT_PROPERTY(device, arch, gen)
+#endif // INTEL_COLLAB
 __OMP_TRAIT_PROPERTY(device, arch, ppc)
 __OMP_TRAIT_PROPERTY(device, arch, ppc64)
 __OMP_TRAIT_PROPERTY(device, arch, ppc64le)

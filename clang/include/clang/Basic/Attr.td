@@ -3897,33 +3897,7 @@ def OMPDeclareVariant : InheritableAttr {
     OMPTraitInfoArgument<"TraitInfos">,
   ];
   let AdditionalMembers = [{
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-    static const char *getSupportedSelectorSets() {
-      return "'construct' or 'device'";
-    }
-    static const char *getSupportedDevices() {
-      return "'arch'";
-    }
-// end INTEL_CUSTOMIZATION
-// INTEL_COLLAB
-    static const char *getSupportedConstructs() {
-      return "'target variant dispatch'";
-    }
-    static const char *getSupportedArchs() {
-      return "'gen'";
-    }
-// end INTEL_COLLAB
-    void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
-      if (const Expr *E = *std::next(scores_begin(), I)) {
-        OS << "score(";
-        E->printPretty(OS, nullptr, Policy);
-        OS << "):";
-      }
-    }
-=======
     ~OMPDeclareVariantAttr() { delete traitInfos; }
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
       if (const Expr *E = getVariantFuncRef()) {
@@ -3932,88 +3906,7 @@ def OMPDeclareVariant : InheritableAttr {
         OS << ")";
       }
       OS << " match(";
-<<<<<<< HEAD
-      int Used[OMP_CTX_SET_unknown] = {0};
-      for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
-        auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
-            *std::next(ctxSelectorSets_begin(), I));
-        if (Used[CtxSet])
-          continue;
-        if (I > 0)
-          OS << ",";
-        switch (CtxSet) {
-        case OMP_CTX_SET_implementation:
-          OS << "implementation={";
-          break;
-        case OMP_CTX_SET_device:
-          OS << "device={";
-          break;
-// INTEL_COLLAB
-        case OMP_CTX_SET_construct:
-          OS << "implementation={";
-          OS << "target variant dispatch";
-          OS << "}";
-          break;
-// end INTEL_COLLAB
-        case OMP_CTX_SET_unknown:
-          llvm_unreachable("Unknown context selector set.");
-        }
-        Used[CtxSet] = 1;
-        for (unsigned K = I, EK = ctxSelectors_size(); K < EK; ++K) {
-          auto CtxSetK = static_cast<OpenMPContextSelectorSetKind>(
-              *std::next(ctxSelectorSets_begin(), K));
-          if (CtxSet != CtxSetK)
-            continue;
-          if (K != I)
-            OS << ",";
-          auto Ctx = static_cast<OpenMPContextSelectorKind>(
-              *std::next(ctxSelectors_begin(), K));
-          switch (Ctx) {
-          case OMP_CTX_vendor:
-            assert(CtxSet == OMP_CTX_SET_implementation &&
-                   "Expected implementation context selector set.");
-            OS << "vendor(";
-            printScore(OS, Policy, K);
-            if (implVendors_size() > 0) {
-              OS << *implVendors(). begin();
-              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
-                OS << ", " << VendorName;
-            }
-            OS << ")";
-            break;
-          case OMP_CTX_kind:
-            assert(CtxSet == OMP_CTX_SET_device &&
-                   "Expected device context selector set.");
-            OS << "kind(";
-            if (deviceKinds_size() > 0) {
-              OS << *deviceKinds().begin();
-              for (StringRef KindName : llvm::drop_begin(deviceKinds(), 1))
-                OS << ", " << KindName;
-            }
-            OS << ")";
-            break;
-// INTEL_COLLAB
-          case OMP_CTX_arch:
-            OS << "arch(";
-            printScore(OS, Policy, I);
-            if (implVendors_size() > 0) {
-              OS << *implVendors(). begin();
-              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
-                OS << ", " << VendorName;
-            }
-            OS << ")";
-            break;
-          case OMP_CTX_target_variant_dispatch:
-// end INTEL_COLLAB
-          case OMP_CTX_unknown:
-            llvm_unreachable("Unknown context selector.");
-          }
-        }
-        OS << "}";
-      }
-=======
       traitInfos->print(OS, Policy);
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
       OS << ")";
     }
   }];

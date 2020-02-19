@@ -1005,7 +1005,24 @@ void Parser::parseOMPTraitSelectorKind(
     return;
   }
 
+#if INTEL_COLLAB
+  // Since the framework does not handle multi-word selectors check and set it
+  // manually. Since 'target variant dispatch' will be added to OpenMP in the
+  // future (possibly with a different name) this code is temporary.
+  if (Name == "target") {
+    const Token &NextTok = getPreprocessor().LookAhead(0);
+    if (Tok.is(tok::identifier) && NextTok.is(tok::identifier) &&
+        Tok.getIdentifierInfo()->getName() == "variant" &&
+        NextTok.getIdentifierInfo()->getName() == "dispatch") {
+      TISelector.Kind = TraitSelector::construct_target_variant_dispatch;
+      ConsumeToken();
+      ConsumeToken();
+    }
+  } else
+    TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
+#else
   TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
+#endif // INTEL_COLLAB
   if (TISelector.Kind != TraitSelector::invalid) {
     if (checkForDuplicates(*this, Name, NameLoc, Seen, CONTEXT_SELECTOR_LVL))
       TISelector.Kind = TraitSelector::invalid;
@@ -1126,20 +1143,6 @@ void Parser::parseOMPContextSelector(
         {getOpenMPContextTraitPropertyForSelector(TISelector.Kind)});
     return;
   }
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  case OMP_CTX_arch:
-  case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-  case OMP_CTX_kind:
-  case OMP_CTX_unknown:
-    P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
-        << "implementation";
-    // Skip until either '}', ')', or end of directive.
-    while (!P.SkipUntil(tok::r_brace, tok::r_paren,
-                        tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-      ;
-=======
 
   if (!Tok.is(tok::l_paren)) {
     Diag(SelectorLoc, diag::warn_omp_ctx_selector_without_properties)
@@ -1155,7 +1158,6 @@ void Parser::parseOMPContextSelector(
       return FinishSelector();
     TISelector.ScoreOrCondition = Condition.get();
     TISelector.Properties.push_back({TraitProperty::user_condition_unknown});
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
     return;
   }
 
@@ -1186,92 +1188,6 @@ void Parser::parseOMPContextSelector(
   BDT.consumeClose();
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-/// Parse context selector for 'construct' selector set.
-///
-/// The 5.0 spec allows: target;teams;parallel;for;simd
-///
-/// Intel extension construct 'target variant dispatch' is currently
-/// the only construct supported.
-///
-static void
-parseConstructSelector(Parser &P, SourceLocation Loc,
-                       llvm::StringMap<SourceLocation> &UsedCtx,
-                       SmallVectorImpl<Sema::OMPCtxSelectorData> &Data) {
-  const Token &Tok = P.getCurToken();
-  // Parse inner context selector set name, if any.
-  if (!Tok.is(tok::identifier)) {
-    P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
-        << "construct";
-    // Skip until either '}', ')', or end of directive.
-    while (!P.SkipUntil(tok::r_brace, tok::r_paren,
-                        tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-      ;
-    return;
-  }
-  Sema::OMPCtxStringType Buffer;
-  StringRef CtxSelectorName = P.getPreprocessor().getSpelling(Tok, Buffer);
-  auto Res = UsedCtx.try_emplace(CtxSelectorName, Tok.getLocation());
-  if (!Res.second) {
-    // OpenMP 5.0, 2.3.2 Context Selectors, Restrictions.
-    // Each trait-selector-name can only be specified once.
-    P.Diag(Tok.getLocation(), diag::err_omp_declare_variant_ctx_mutiple_use)
-        << CtxSelectorName << "construct";
-    P.Diag(Res.first->getValue(), diag::note_omp_declare_variant_ctx_used_here)
-        << CtxSelectorName;
-  }
-  OpenMPContextSelectorKind CSKind = OMP_CTX_unknown;
-  while (Tok.is(tok::identifier)) {
-    IdentifierInfo *II = Tok.getIdentifierInfo();
-    StringRef ConstructName = II->getName();
-    ExprResult Score = parseContextScore(P);
-    llvm::UniqueVector<Sema::OMPCtxStringType> Vendors;
-    if (ConstructName == "target") {
-      const Token &NextTok = P.getPreprocessor().LookAhead(0);
-      const Token &NextNextTok = P.getPreprocessor().LookAhead(1);
-      if (NextTok.is(tok::identifier) && NextNextTok.is(tok::identifier) &&
-          NextTok.getIdentifierInfo()->getName() == "variant" &&
-          NextNextTok.getIdentifierInfo()->getName() == "dispatch") {
-        CSKind = OMP_CTX_target_variant_dispatch;
-        P.ConsumeToken();
-        P.ConsumeToken();
-      } else {
-        P.Diag(Tok, diag::err_omp_bad_context_selector)
-            << "construct" << OMPDeclareVariantAttr::getSupportedConstructs();
-      }
-    } else {
-      P.Diag(Tok, diag::err_omp_bad_context_selector)
-          << "construct" << OMPDeclareVariantAttr::getSupportedConstructs();
-    }
-    P.ConsumeToken();
-
-    if (CSKind != OMP_CTX_unknown)
-      Data.emplace_back(OMP_CTX_SET_construct, CSKind, Score, Vendors);
-
-    // Skip ',' if any.
-    if (Tok.is(tok::comma))
-      P.ConsumeToken();
-  }
-}
-#endif // INTEL_COLLAB
-
-/// Parse context selector for 'device' selector set:
-/// 'kind' '(' <kind> { ',' <kind> } ')'
-static void
-parseDeviceSelector(Parser &P, SourceLocation Loc,
-                    llvm::StringMap<SourceLocation> &UsedCtx,
-                    SmallVectorImpl<Sema::OMPCtxSelectorData> &Data) {
-  const Token &Tok = P.getCurToken();
-  // Parse inner context selector set name, if any.
-  if (!Tok.is(tok::identifier)) {
-    P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
-        << "device";
-    // Skip until either '}', ')', or end of directive.
-    while (!P.SkipUntil(tok::r_brace, tok::r_paren,
-                        tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-      ;
-=======
 void Parser::parseOMPTraitSetKind(OMPTraitInfo::OMPTraitSet &TISet,
                                   llvm::StringMap<SourceLocation> &Seen) {
   TISet.Kind = TraitSet::invalid;
@@ -1282,7 +1198,6 @@ void Parser::parseOMPTraitSetKind(OMPTraitInfo::OMPTraitSet &TISet,
   if (Name.empty()) {
     Diag(Tok.getLocation(), diag::note_omp_declare_variant_ctx_options)
         << CONTEXT_SELECTOR_SET_LVL << listOpenMPContextTraitSets();
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
     return;
   }
 
@@ -1389,55 +1304,6 @@ void Parser::parseOMPContextSelectorSet(
             getOpenMPContextTraitSetName(TISet.Kind) + "\"")
                .str();
   }
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  case OMP_CTX_arch: {
-    // Parse '('.
-    BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
-    (void)T.expectAndConsume(diag::err_expected_lparen_after,
-                             CtxSelectorName.data());
-    ExprResult Score = parseContextScore(P);
-    llvm::UniqueVector<Sema::OMPCtxStringType> ArchNames;
-    do {
-      StringRef ArchName;
-      if (Tok.is(tok::identifier)) {
-        Buffer.clear();
-        ArchName = P.getPreprocessor().getSpelling(P.getCurToken(), Buffer);
-        if (ArchName != "gen")
-          P.Diag(Tok, diag::err_omp_bad_device_selector)
-              << "arch" << OMPDeclareVariantAttr::getSupportedArchs();
-        (void)P.ConsumeToken();
-        if (!ArchName.empty())
-          ArchNames.insert(ArchName);
-      } else {
-        P.Diag(Tok.getLocation(), diag::err_omp_declare_variant_item_expected)
-            << "arch identifier"
-            << "arch"
-            << "device";
-      }
-      if (!P.TryConsumeToken(tok::comma) && Tok.isNot(tok::r_paren)) {
-        P.Diag(Tok, diag::err_expected_punc)
-            << (ArchName.empty() ? "arch name" : ArchName);
-      }
-    } while (Tok.is(tok::identifier));
-    // Parse ')'.
-    (void)T.consumeClose();
-    if (!ArchNames.empty())
-      Data.emplace_back(OMP_CTX_SET_device, CSKind, Score, ArchNames);
-    break;
-  }
-  case OMP_CTX_target_variant_dispatch:
-#endif // INTEL_COLLAB
-  case OMP_CTX_vendor:
-  case OMP_CTX_unknown:
-    P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
-        << "device";
-    // Skip until either '}', ')', or end of directive.
-    while (!P.SkipUntil(tok::r_brace, tok::r_paren,
-                        tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-      ;
-    return;
-=======
 
   llvm::StringMap<SourceLocation> SeenSelectors;
   do {
@@ -1457,7 +1323,6 @@ void Parser::parseOMPContextSelectorSet(
         << ("context selectors for the context set \"" +
             getOpenMPContextTraitSetName(TISet.Kind) + "\"")
                .str();
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
   }
 }
 
@@ -1467,85 +1332,12 @@ void Parser::parseOMPContextSelectorSet(
 bool Parser::parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo &TI) {
   llvm::StringMap<SourceLocation> SeenSets;
   do {
-<<<<<<< HEAD
-    // Parse inner context selector set name.
-    if (!Tok.is(tok::identifier)) {
-      Diag(Tok.getLocation(), diag::err_omp_declare_variant_no_ctx_selector)
-          << getOpenMPClauseName(OMPC_match);
-      return true;
-    }
-    Sema::OMPCtxStringType Buffer;
-    StringRef CtxSelectorSetName = PP.getSpelling(Tok, Buffer);
-    auto Res = UsedCtxSets.try_emplace(CtxSelectorSetName, Tok.getLocation());
-    if (!Res.second) {
-      // OpenMP 5.0, 2.3.2 Context Selectors, Restrictions.
-      // Each trait-set-selector-name can only be specified once.
-      Diag(Tok.getLocation(), diag::err_omp_declare_variant_ctx_set_mutiple_use)
-          << CtxSelectorSetName;
-      Diag(Res.first->getValue(),
-           diag::note_omp_declare_variant_ctx_set_used_here)
-          << CtxSelectorSetName;
-    }
-    // Parse '='.
-    (void)ConsumeToken();
-    if (Tok.isNot(tok::equal)) {
-      Diag(Tok.getLocation(), diag::err_omp_declare_variant_equal_expected)
-          << CtxSelectorSetName;
-      return true;
-    }
-    (void)ConsumeToken();
-    // TBD: add parsing of known context selectors.
-    // Unknown selector - just ignore it completely.
-    {
-      // Parse '{'.
-      BalancedDelimiterTracker TBr(*this, tok::l_brace,
-                                   tok::annot_pragma_openmp_end);
-      if (TBr.expectAndConsume(diag::err_expected_lbrace_after, "="))
-        return true;
-      OpenMPContextSelectorSetKind CSSKind =
-          getOpenMPContextSelectorSet(CtxSelectorSetName);
-      llvm::StringMap<SourceLocation> UsedCtx;
-      do {
-        switch (CSSKind) {
-        case OMP_CTX_SET_implementation:
-          parseImplementationSelector(*this, Loc, UsedCtx, Data);
-          break;
-#if INTEL_COLLAB
-        case OMP_CTX_SET_construct:
-          parseConstructSelector(*this, Loc, UsedCtx, Data);
-          break;
-#endif // INTEL_COLLAB
-        case OMP_CTX_SET_device:
-          parseDeviceSelector(*this, Loc, UsedCtx, Data);
-          break;
-        case OMP_CTX_SET_unknown:
-          // Skip until either '}', ')', or end of directive.
-          while (!SkipUntil(tok::r_brace, tok::r_paren,
-                            tok::annot_pragma_openmp_end, StopBeforeMatch))
-            ;
-          break;
-        }
-        const Token PrevTok = Tok;
-        if (!TryConsumeToken(tok::comma) && Tok.isNot(tok::r_brace))
-          Diag(Tok, diag::err_omp_expected_comma_brace)
-              << (PrevTok.isAnnotation() ? "context selector trait"
-                                         : PP.getSpelling(PrevTok));
-      } while (Tok.is(tok::identifier));
-      // Parse '}'.
-      (void)TBr.consumeClose();
-    }
-    // Consume ','
-    if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))
-      (void)ExpectAndConsume(tok::comma);
-  } while (Tok.isAnyIdentifier());
-=======
     OMPTraitInfo::OMPTraitSet TISet;
     parseOMPContextSelectorSet(TISet, SeenSets);
     if (TISet.Kind != TraitSet::invalid && !TISet.Selectors.empty())
       TI.Sets.push_back(TISet);
   } while (TryConsumeToken(tok::comma));
 
->>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
   return false;
 }
 

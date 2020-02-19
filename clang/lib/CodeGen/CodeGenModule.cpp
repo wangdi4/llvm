@@ -2060,26 +2060,43 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
     unsigned NumConstructs = 0;
     unsigned NumDevices = 0;
 
-    for (unsigned I = 0, E = Attr->scores_size(); I < E; ++I) {
-      auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
-        *std::next(Attr->ctxSelectorSets_begin(), I));
-      auto Ctx = static_cast<OpenMPContextSelectorKind>(
-        *std::next(Attr->ctxSelectors_begin(), I));
-      if (CtxSet != OMP_CTX_SET_construct && CtxSet != OMP_CTX_SET_device)
+    SmallVector<Expr *, 8> VariantExprs;
+    SmallVector<llvm::omp::VariantMatchInfo, 8> VMIs;
+    for (const auto *A : FD->specific_attrs<OMPDeclareVariantAttr>()) {
+      const OMPTraitInfo *TI = A->getTraitInfos();
+      if (!TI)
         continue;
-
-      if (CtxSet == OMP_CTX_SET_construct) {
-        if (NumConstructs++ != 0)
-          Constructs += ',';
-        assert(Ctx == OMP_CTX_target_variant_dispatch &&
-               "unimplemented construct");
-        (void)Ctx;
-        Constructs += "target_variant_dispatch";
-      } else {
-        // OMP_CTX_SET_device
-        if (NumDevices++ != 0)
-          Devices += ',';
-        Devices += *Attr->implVendors_begin();
+      for (const auto &TS : TI->Sets) {
+        llvm::omp::TraitSet Kind = TS.Kind;
+        switch (Kind) {
+        case llvm::omp::TraitSet::construct: {
+          for (const auto &Sel : TS.Selectors) {
+            if (Sel.Kind ==
+                llvm::omp::TraitSelector::construct_target_variant_dispatch) {
+              if (NumConstructs++ != 0)
+                Constructs += ',';
+              Constructs += "target_variant_dispatch";
+            }
+          }
+          break;
+        }
+        case llvm::omp::TraitSet::device: {
+          for (const auto &Sel : TS.Selectors) {
+            if (Sel.Kind == llvm::omp::TraitSelector::device_arch) {
+              for (const auto &Prop : Sel.Properties) {
+                if (Prop.Kind == llvm::omp::TraitProperty::device_arch_gen) {
+                  if (NumDevices++ != 0)
+                    Devices += ',';
+                  Devices += "gen";
+                }
+              }
+            }
+          }
+          break;
+        }
+        default:
+          break;
+        }
       }
     }
     S += ";construct:";
