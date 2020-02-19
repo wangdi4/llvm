@@ -680,7 +680,7 @@ void AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
     unsigned PtrSize = DL.getPointerTypeSize(GV->getType());
     OutStreamer->emitSymbolValue(GetExternalSymbolSymbol("_tlv_bootstrap"),
                                 PtrSize);
-    OutStreamer->EmitIntValue(0, PtrSize);
+    OutStreamer->emitIntValue(0, PtrSize);
     OutStreamer->emitSymbolValue(MangSym, PtrSize);
 
     OutStreamer->AddBlankLine();
@@ -714,7 +714,7 @@ void AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
 /// \p Value - The value to emit.
 /// \p Size - The size of the integer (in bytes) to emit.
 void AsmPrinter::emitDebugValue(const MCExpr *Value, unsigned Size) const {
-  OutStreamer->EmitValue(Value, Size);
+  OutStreamer->emitValue(Value, Size);
 }
 
 /// EmitFunctionHeader - This method emits the header for the current
@@ -1735,7 +1735,7 @@ bool AsmPrinter::doFinalization(Module &M) {
                                    "", ++UniqueID, nullptr));
       OutStreamer->emitBytes(GV.getPartition());
       OutStreamer->EmitZeros(1);
-      OutStreamer->EmitValue(
+      OutStreamer->emitValue(
           MCSymbolRefExpr::create(getSymbol(&GV), OutContext),
           MAI->getCodePointerSize());
     }
@@ -2050,7 +2050,7 @@ void AsmPrinter::emitJumpTableEntry(const MachineJumpTableInfo *MJTI,
   assert(Value && "Unknown entry kind!");
 
   unsigned EntrySize = MJTI->getEntrySize(getDataLayout());
-  OutStreamer->EmitValue(Value, EntrySize);
+  OutStreamer->emitValue(Value, EntrySize);
 }
 
 /// EmitSpecialLLVMGlobal - Check to see if the specified global is a
@@ -2223,22 +2223,22 @@ void AsmPrinter::emitModuleCommandLines(Module &M) {
 /// Emit a byte directive and value.
 ///
 void AsmPrinter::emitInt8(int Value) const {
-  OutStreamer->EmitIntValue(Value, 1);
+  OutStreamer->emitIntValue(Value, 1);
 }
 
 /// Emit a short directive and value.
 void AsmPrinter::emitInt16(int Value) const {
-  OutStreamer->EmitIntValue(Value, 2);
+  OutStreamer->emitIntValue(Value, 2);
 }
 
 /// Emit a long directive and value.
 void AsmPrinter::emitInt32(int Value) const {
-  OutStreamer->EmitIntValue(Value, 4);
+  OutStreamer->emitIntValue(Value, 4);
 }
 
 /// Emit a long long directive and value.
 void AsmPrinter::emitInt64(uint64_t Value) const {
-  OutStreamer->EmitIntValue(Value, 8);
+  OutStreamer->emitIntValue(Value, 8);
 }
 
 /// Emit something like ".long Hi-Lo" where the size in bytes of the directive
@@ -2268,7 +2268,7 @@ void AsmPrinter::emitLabelPlusOffset(const MCSymbol *Label, uint64_t Offset,
     Expr = MCBinaryExpr::createAdd(
         Expr, MCConstantExpr::create(Offset, OutContext), OutContext);
 
-  OutStreamer->EmitValue(Expr, Size);
+  OutStreamer->emitValue(Expr, Size);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2526,7 +2526,7 @@ static void emitGlobalConstantDataSequential(const DataLayout &DL,
       if (AP.isVerbose())
         AP.OutStreamer->GetCommentOS() << format("0x%" PRIx64 "\n",
                                                  CDS->getElementAsInteger(i));
-      AP.OutStreamer->EmitIntValue(CDS->getElementAsInteger(i),
+      AP.OutStreamer->emitIntValue(CDS->getElementAsInteger(i),
                                    ElementByteSize);
     }
   } else {
@@ -2628,17 +2628,17 @@ static void emitGlobalConstantFP(APFloat APF, Type *ET, AsmPrinter &AP) {
     int Chunk = API.getNumWords() - 1;
 
     if (TrailingBytes)
-      AP.OutStreamer->EmitIntValueInHexWithPadding(p[Chunk--], TrailingBytes);
+      AP.OutStreamer->emitIntValueInHexWithPadding(p[Chunk--], TrailingBytes);
 
     for (; Chunk >= 0; --Chunk)
-      AP.OutStreamer->EmitIntValueInHexWithPadding(p[Chunk], sizeof(uint64_t));
+      AP.OutStreamer->emitIntValueInHexWithPadding(p[Chunk], sizeof(uint64_t));
   } else {
     unsigned Chunk;
     for (Chunk = 0; Chunk < NumBytes / sizeof(uint64_t); ++Chunk)
-      AP.OutStreamer->EmitIntValueInHexWithPadding(p[Chunk], sizeof(uint64_t));
+      AP.OutStreamer->emitIntValueInHexWithPadding(p[Chunk], sizeof(uint64_t));
 
     if (TrailingBytes)
-      AP.OutStreamer->EmitIntValueInHexWithPadding(p[Chunk], TrailingBytes);
+      AP.OutStreamer->emitIntValueInHexWithPadding(p[Chunk], TrailingBytes);
   }
 
   // Emit the tail padding for the long double.
@@ -2690,7 +2690,7 @@ static void emitGlobalConstantLargeInt(const ConstantInt *CI, AsmPrinter &AP) {
   const uint64_t *RawData = Realigned.getRawData();
   for (unsigned i = 0, e = BitWidth / 64; i != e; ++i) {
     uint64_t Val = DL.isBigEndian() ? RawData[e - i - 1] : RawData[i];
-    AP.OutStreamer->EmitIntValue(Val, 8);
+    AP.OutStreamer->emitIntValue(Val, 8);
   }
 
   if (ExtraBitsSize) {
@@ -2702,7 +2702,7 @@ static void emitGlobalConstantLargeInt(const ConstantInt *CI, AsmPrinter &AP) {
     assert(Size && Size * 8 >= ExtraBitsSize &&
            (ExtraBits & (((uint64_t)-1) >> (64 - ExtraBitsSize)))
            == ExtraBits && "Directive too small for extra bits.");
-    AP.OutStreamer->EmitIntValue(ExtraBits, Size);
+    AP.OutStreamer->emitIntValue(ExtraBits, Size);
   }
 }
 
@@ -2820,7 +2820,7 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
       if (AP.isVerbose())
         AP.OutStreamer->GetCommentOS() << format("0x%" PRIx64 "\n",
                                                  CI->getZExtValue());
-      AP.OutStreamer->EmitIntValue(CI->getZExtValue(), Size);
+      AP.OutStreamer->emitIntValue(CI->getZExtValue(), Size);
       return;
     default:
       emitGlobalConstantLargeInt(CI, AP);
@@ -2832,7 +2832,7 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
     return emitGlobalConstantFP(CFP, AP);
 
   if (isa<ConstantPointerNull>(CV)) {
-    AP.OutStreamer->EmitIntValue(0, Size);
+    AP.OutStreamer->emitIntValue(0, Size);
     return;
   }
 
@@ -2880,7 +2880,7 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
   if (AP.getObjFileLowering().supportIndirectSymViaGOTPCRel())
     handleIndirectSymViaGOTPCRel(AP, &ME, BaseCV, Offset);
 
-  AP.OutStreamer->EmitValue(ME, Size);
+  AP.OutStreamer->emitValue(ME, Size);
 }
 
 /// EmitGlobalConstant - Print a general LLVM constant to the .s file.
@@ -2891,7 +2891,7 @@ void AsmPrinter::emitGlobalConstant(const DataLayout &DL, const Constant *CV) {
   else if (MAI->hasSubsectionsViaSymbols()) {
     // If the global has zero size, emit a single byte so that two labels don't
     // look like they are at the same location.
-    OutStreamer->EmitIntValue(0, 1);
+    OutStreamer->emitIntValue(0, 1);
   }
 }
 
