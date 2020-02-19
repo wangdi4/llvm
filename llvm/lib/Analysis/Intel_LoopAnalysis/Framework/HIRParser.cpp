@@ -4726,6 +4726,8 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
     CanonExpr *StrideCE = CEU.createCanonExpr(LinearIndexCE->getDestType());
     if (Stride != nullptr) {
+      StrideCE->setSrcType(Stride->getType());
+      StrideCE->setExtType(true);
       StrideCE->setBlobCoeff(BU.findOrInsertBlob(Stride), 1);
     } else {
       StrideCE->setConstant(1);
@@ -4792,7 +4794,8 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
 bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                                 SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                                SmallVectorImpl<BlobTy> *DimSizes) {
+                                SmallVectorImpl<BlobTy> *DimSizes,
+                                bool AllowSExt) {
   LLVM_DEBUG(dbgs() << "Refs delinearization\n");
 
   BlobUtils &BU = getBlobUtils();
@@ -4813,8 +4816,8 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
     }
 
     const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
-    if (LinearIndexCE->getDenominator() != 1 ||
-        LinearIndexCE->getSrcType() != LinearIndexCE->getDestType()) {
+    if (LinearIndexCE->getDenominator() != 1 || LinearIndexCE->isTrunc() ||
+        LinearIndexCE->isZExt() || (!AllowSExt && LinearIndexCE->isSExt())) {
       return false;
     }
 
