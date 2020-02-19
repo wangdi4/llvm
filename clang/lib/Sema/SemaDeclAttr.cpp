@@ -4845,6 +4845,21 @@ void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
   D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
 
+#if INTEL_CUSTOMIZATION
+// Explicitly instantiate members defined above, because they are used in a
+// separate translation unit and by some reason, icpx behaves differently
+// than g++ or clang - it doesn't include these symbols into object file at all,
+// even as weak symbols
+template void Sema::AddOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+template void Sema::AddOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+template void Sema::AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+template void Sema::AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+#endif // INTEL_CUSTOMIZATION
+
 void Sema::AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                           bool IsPackExpansion) {
   AlignedAttr TmpAttr(Context, CI, true, E);
