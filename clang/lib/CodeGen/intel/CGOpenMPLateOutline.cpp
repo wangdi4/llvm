@@ -1115,13 +1115,13 @@ void OpenMPLateOutliner::emitOMPDataflowClause(const OMPDataflowClause *Cl) {
 void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_default);
   switch (Cl->getDefaultKind()) {
-  case OMPC_DEFAULT_none:
+  case OMP_DEFAULT_none:                               // INTEL
     addArg("QUAL.OMP.DEFAULT.NONE");
     break;
-  case OMPC_DEFAULT_shared:
+  case OMP_DEFAULT_shared:                             // INTEL
     addArg("QUAL.OMP.DEFAULT.SHARED");
     break;
-  case OMPC_DEFAULT_unknown:
+  case OMP_DEFAULT_unknown:                            // INTEL
     llvm_unreachable("Unknown default clause");
   }
 }
