@@ -5429,7 +5429,8 @@ static void setPrototype(Sema &S, FunctionDecl *FD, FunctionDecl *FDWithProto,
 
 Optional<std::pair<FunctionDecl *, Expr *>>
 Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
-                                        Expr *VariantRef, SourceRange SR) {
+                                        Expr *VariantRef, OMPTraitInfo &TI,
+                                        SourceRange SR) {
   if (!DG || DG.get().isNull())
     return None;
 
@@ -5482,11 +5483,40 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
     return None;
   }
 
+  auto ShouldDelayChecks = [](Expr *&E, bool) {
+    return E && (E->isTypeDependent() || E->isValueDependent() ||
+                 E->containsUnexpandedParameterPack() ||
+                 E->isInstantiationDependent());
+  };
   // Do not check templates, wait until instantiation.
-  if (VariantRef->isTypeDependent() || VariantRef->isValueDependent() ||
-      VariantRef->containsUnexpandedParameterPack() ||
-      VariantRef->isInstantiationDependent() || FD->isDependentContext())
+  if (FD->isDependentContext() || ShouldDelayChecks(VariantRef, false) ||
+      TI.anyScoreOrCondition(ShouldDelayChecks))
     return std::make_pair(FD, VariantRef);
+
+  // Deal with non-constant score and user condition expressions.
+  auto HandleNonConstantScoresAndConditions = [this](Expr *&E,
+                                                     bool IsScore) -> bool {
+    llvm::APSInt Result;
+    if (!E || E->isIntegerConstantExpr(Result, Context))
+      return false;
+
+    if (IsScore) {
+      // We warn on non-constant scores and pretend they were not present.
+      Diag(E->getExprLoc(), diag::warn_omp_declare_variant_score_not_constant)
+          << E;
+      E = nullptr;
+    } else {
+      // We could replace a non-constant user condition with "false" but we
+      // will soon need to handle these anyway for the dynamic version of
+      // OpenMP context selectors.
+      Diag(E->getExprLoc(),
+           diag::err_omp_declare_variant_user_condition_not_constant)
+          << E;
+    }
+    return true;
+  };
+  if (TI.anyScoreOrCondition(HandleNonConstantScoresAndConditions))
+    return None;
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
@@ -5660,6 +5690,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   return std::make_pair(FD, cast<Expr>(DRE));
 }
 
+<<<<<<< HEAD
 void Sema::ActOnOpenMPDeclareVariantDirective(
     FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
     ArrayRef<OMPCtxSelectorData> Data) {
@@ -5740,6 +5771,15 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
         DeviceKinds.size(), SR);
     FD->addAttr(NewAttr);
   }
+=======
+void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
+                                              Expr *VariantRef,
+                                              OMPTraitInfo *TI,
+                                              SourceRange SR) {
+  auto *NewAttr =
+      OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, TI, SR);
+  FD->addAttr(NewAttr);
+>>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
 }
 
 void Sema::markOpenMPDeclareVariantFuncsReferenced(SourceLocation Loc,
@@ -10688,7 +10728,6 @@ StmtResult Sema::ActOnOpenMPTeamsDistributeSimdDirective(
     // longjmp() and throw() must not violate the entry/exit criteria.
     CS->getCapturedDecl()->setNothrow();
   }
-
 
   OMPLoopDirective::HelperExprs B;
   // In presence of clause 'collapse' with number of loops, it will

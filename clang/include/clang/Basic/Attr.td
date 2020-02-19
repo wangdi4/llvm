@@ -180,6 +180,27 @@ class FunctionArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
 class NamedArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
                                                                        opt,
                                                                        fake>;
+
+// An argument of a OMPDeclareVariantAttribute that represents the `match`
+// clause of the declare variant by keeping the information (incl. nesting) in
+// an OMPTraitInfo object.
+//
+// With some exceptions, the `match(<context-selector>)` clause looks roughly
+// as follows:
+//   context-selector := list<selector-set>
+//       selector-set := <kind>={list<selector>}
+//           selector := <kind>([score(<const-expr>):] list<trait>)
+//              trait := <kind>
+//
+// The structure of an OMPTraitInfo object is a tree as defined below:
+//
+//   OMPTraitInfo     := {list<OMPTraitSet>}
+//   OMPTraitSet      := {Kind, list<OMPTraitSelector>}
+//   OMPTraitSelector := {Kind, Expr, list<OMPTraitProperty>}
+//   OMPTraitProperty := {Kind}
+//
+class OMPTraitInfoArgument<string name> : Argument<name, 0>;
+
 class TypeArgument<string name, bit opt = 0> : Argument<name, opt>;
 class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
@@ -3873,13 +3894,10 @@ def OMPDeclareVariant : InheritableAttr {
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
     ExprArgument<"VariantFuncRef">,
-    VariadicExprArgument<"Scores">,
-    VariadicUnsignedArgument<"CtxSelectorSets">,
-    VariadicUnsignedArgument<"CtxSelectors">,
-    VariadicStringArgument<"ImplVendors">,
-    VariadicStringArgument<"DeviceKinds">
+    OMPTraitInfoArgument<"TraitInfos">,
   ];
   let AdditionalMembers = [{
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
     static const char *getSupportedSelectorSets() {
       return "'construct' or 'device'";
@@ -3903,6 +3921,9 @@ def OMPDeclareVariant : InheritableAttr {
         OS << "):";
       }
     }
+=======
+    ~OMPDeclareVariantAttr() { delete traitInfos; }
+>>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
       if (const Expr *E = getVariantFuncRef()) {
@@ -3910,8 +3931,8 @@ def OMPDeclareVariant : InheritableAttr {
         E->printPretty(OS, nullptr, Policy);
         OS << ")";
       }
-      // TODO: add printing of real context selectors.
       OS << " match(";
+<<<<<<< HEAD
       int Used[OMP_CTX_SET_unknown] = {0};
       for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
         auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
@@ -3990,6 +4011,9 @@ def OMPDeclareVariant : InheritableAttr {
         }
         OS << "}";
       }
+=======
+      traitInfos->print(OS, Policy);
+>>>>>>> 7517d362b77bb5e3f5ee5604f0896883e27c4287
       OS << ")";
     }
   }];
