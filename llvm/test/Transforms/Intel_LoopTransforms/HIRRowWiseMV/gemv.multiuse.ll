@@ -64,6 +64,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   {
 ; CHECK:       |   case 1:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
+; CHECK-NOT:   |      |   %bj = (%b)[i2];
 ; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  -1.000000e+00;
 ; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  -1.000000e+00;
 ; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
@@ -72,6 +73,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |      break;
 ; CHECK:       |   case 2:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
+; CHECK-NOT:   |      |   %bj = (%b)[i2];
 ; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  0.000000e+00;
 ; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  0.000000e+00;
 ; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;
@@ -80,6 +82,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |      break;
 ; CHECK:       |   case 3:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
+; CHECK-NOT:   |      |   %bj = (%b)[i2];
 ; CHECK:       |      |   %A1ijbj = (%A1)[128 * i1 + i2]  *  1.000000e+00;
 ; CHECK:       |      |   %A2ijbj = (%A2)[128 * i1 + i2]  *  1.000000e+00;
 ; CHECK:       |      |   %Aijbjsum = %A1ijbj  +  %A2ijbj;

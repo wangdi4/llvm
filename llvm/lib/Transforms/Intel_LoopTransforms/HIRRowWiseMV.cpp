@@ -10,15 +10,15 @@
 //===----------------------------------------------------------------------===//
 /// \file
 /// This file implements row-wise multiversioning for arrays where entire rows
-/// may be "arithmetically convenient" ones that allow strength for strength
-/// reduction (such as 0 for addition and -1, 0, and 1 for multiplication).
+/// may be "arithmetically convenient" ones that allow for strength reduction
+/// (such as 0 for addition and -1, 0, and 1 for multiplication).
 ///
 /// For example:
 ///
 /// \code
-/// DO i1
-///   DO i2 = B, E, S
-///     ... A[i2] * B ...
+/// DO i = ...
+///   DO j = 0, N, 1
+///     ... A[j] * B ...
 ///   END DO
 /// END DO
 ///
@@ -27,8 +27,8 @@
 /// first = A[0]
 /// rowcase = 0;
 /// allclose = 1;
-/// DO i1 = B + S, E, S
-///   if (fabs(A[i1+S] - first) > 0.0001)
+/// DO j = 0, N - 1, 1
+///   if (fabs(A[j + 1] - first) > 0.0001)
 ///   {
 ///     allclose = 0;
 ///   }
@@ -50,20 +50,20 @@
 /// }
 ///
 /// CheckFailed:
-/// DO i1
+/// DO i = ...
 ///   switch(rowcase)
 ///   {
 ///   case 1:
-///     DO i2 = B, E, S
-///        ... 0 ...
+///     DO j = 0, N, 1
+///        ... 0 * B ...
 ///     END DO
 ///   case 2:
-///     DO i2 = B, E, S
-///        ... B ...
+///     DO j = 0, N, 1
+///        ... 1 * B ...
 ///     END DO
 ///   default:
-///     DO i2 = B, E, S
-///        ... A[i2] * B ...
+///     DO j = 0, N, 1
+///        ... A[j] * B ...
 ///     END DO
 ///   }
 /// END DO
@@ -105,6 +105,10 @@ static cl::opt<double> CheckTolerance{
   OPT_SWITCH "-tolerance", cl::init(0.0001), cl::Hidden,
   cl::desc("The tolerance used by RWMV for checking that values in a row are "
            "approximately equal")};
+static cl::opt<bool> AllFunctionLoops{
+  OPT_SWITCH "-all-function-loops", cl::init(false), cl::Hidden,
+  cl::desc(
+    "Apply RWMV for all eligible loops in a function, not just the first.")};
 
 namespace {
 
@@ -302,32 +306,37 @@ static bool canHoistCheck(const HLNode *Parent) {
   return true;
 }
 
-/// Compiles a list of uses of a load \p Load according to \p DDG for possible
-/// replacement during multiversioning.
+/// Compiles a list of all uses of a load \p Load according to \p DDG as long as
+/// each of those uses is replaceable during multiversioning by HIRRowWiseMV. If
+/// any are not, this function returns an empty vector.
 static SmallVector<RegDDRef *, 3> getLoadUses(const HLInst *Load,
                                               const DDGraph &DDG) {
   assert(Load->getLLVMInstruction()->getOpcode() == Instruction::Load);
 
+  // Avoid this load if it is live out of its containing loop.
+  if (Load->getParentLoop()->isLiveOut(Load->getLvalDDRef()->getSymbase()))
+    return {};
+
   SmallVector<RegDDRef *, 3> Uses;
   for (const DDEdge *const Edge : DDG.outgoing(Load->getLvalDDRef())) {
 
-    // Ignore edges that don't lead to RegDDRefs in HLInsts.
+    // Edges that don't lead to RegDDRefs in HLInsts are not supported.
     auto *const UseRef = dyn_cast<RegDDRef>(Edge->getSink());
     if (!UseRef)
-      continue;
+      return {};
     const auto *const UseInst = dyn_cast<HLInst>(UseRef->getHLDDNode());
     if (!UseInst)
-      continue;
+      return {};
 
     // Give up if there are any other lvalue refs.
     if (UseRef->isLval())
       return {};
 
-    // Ignore instructions not dominated by the load.
+    // Also give up if there are instructions not dominated by the load.
     if (!HLNodeUtils::dominates(Load, UseInst))
-      continue;
+      return {};
 
-    // All of the checks passed; this should be a proper use.
+    // All of the checks passed; this should be a safe use.
     Uses.push_back(UseRef);
   }
 
@@ -560,16 +569,20 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
 
     void visit(HLDDNode *Node) {
 
-      // If this node is a load inst, it needs some special handling to replace
-      // its users instead.
+      // If this node is a relevant load inst, replace its uses and delete the
+      // original load.
       if (auto *const Load = dyn_cast<HLInst>(Node)) {
         if (Load->getLLVMInstruction()->getOpcode() == Instruction::Load) {
           if (!DDRefUtils::areEqual(Load->getRvalDDRef(), OrigRef))
             return;
+          bool UsesReplaced = false;
           for (RegDDRef *const UseRef : getLoadUses(Load, DDG)) {
             UseRef->getHLDDNode()->replaceOperandDDRef(
               UseRef, DDRU.createConstDDRef(NewConst));
+            UsesReplaced = true;
           }
+          if (UsesReplaced)
+            HLNodeUtils::remove(Load);
           return;
         }
       }
@@ -1198,6 +1211,12 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
     return false;
   }
 
+  // Avoid loops containing HLIfs because they're less likely to be hot loops.
+  if (HLS.getSelfLoopStatistics(Lp).hasIfs()) {
+    LLVM_DEBUG(dbgs() << "Avoiding this loop because there are internal ifs\n");
+    return false;
+  }
+
   LLVM_DEBUG(dbgs() << "Loads:\n");
 
   // Take a look through the enclosed instructions and collect candidate DDRefs.
@@ -1269,8 +1288,19 @@ static bool runRowWiseMV(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
   HIRF.getHLNodeUtils().gatherInnermostLoops(CandLoops);
   bool Changed = false;
   for (HLLoop *const Lp : CandLoops) {
-    if (RWMV.run(Lp))
+    if (RWMV.run(Lp)) {
       Changed = true;
+
+      // Because of how much code is generated by this transform, it is limited
+      // by default to one application per function. Currently the pass applies
+      // the transform on the first eligible loop and bails before evaluating
+      // others, but we may want to consider fancier ways of choosing between
+      // eligible loops in the future. The AllFunctionLoops option disables this
+      // behavior and allows the transform to apply to multiple loops within a
+      // function.
+      if (!AllFunctionLoops)
+        return true;
+    }
   }
 
   return Changed;
