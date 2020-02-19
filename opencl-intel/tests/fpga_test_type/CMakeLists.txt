@@ -4,7 +4,7 @@ CALCULATE_TARGET_SOURCES()
 include_directories(include)
 
 add_ocl_unittest(fpga_test_type SOURCE_FILES ${TARGET_SOURCES}
-    LINK_LIBRARIES OpenCL test_utils cl_sys_utils)
+    LINK_LIBRARIES OpenCL test_utils)
 
 add_ocl_unittest_artifacts(
   FILES

@@ -12,57 +12,68 @@
 //
 // ===-------------------------------------------------------------------=== //
 
-#include "export/ihc_threadsupport.h"
+#include "cl_dev_backend_api.h"
+#include "ihc_threadsupport.h"
 #include <Windows.h>
-
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
 
 /* On Windows we use SRWLocks instead of mutexes since condition variables
    doesn't works otherwise */
+extern "C" LLVM_BACKEND_API
 void *_ihc_mutex_create() {
   SRWLOCK *handle = new SRWLOCK;
+  if (handle == 0)
+    return nullptr;
+
   InitializeSRWLock(handle);
   return handle;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_mutex_delete(void *handle) {
   SRWLOCK *_m = (SRWLOCK *)handle;
   delete _m;
   return 0;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_mutex_lock(void *handle) {
   SRWLOCK *_m = (SRWLOCK *)handle;
   AcquireSRWLockExclusive(_m);
   return 0;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_mutex_unlock(void *handle) {
   SRWLOCK *_m = (SRWLOCK *)handle;
   ReleaseSRWLockExclusive(_m);
   return 0;
 }
 
+extern "C" LLVM_BACKEND_API
 void *_ihc_cond_create() {
   CONDITION_VARIABLE *cv = new CONDITION_VARIABLE;
+  if (cv == 0)
+    return nullptr;
+
   InitializeConditionVariable(cv);
   return cv;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_cond_delete(void *cv) {
   CONDITION_VARIABLE *_cond = (CONDITION_VARIABLE *)cv;
   delete _cond;
   return 0;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_cond_notify_one(void *cv) {
   CONDITION_VARIABLE *_cond = (CONDITION_VARIABLE *)cv;
   WakeConditionVariable(_cond);
   return 0;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_cond_wait(void *m, void *cv) {
   CONDITION_VARIABLE *_cond = (CONDITION_VARIABLE *)cv;
   SRWLOCK *_m = (SRWLOCK *)m;
@@ -73,12 +84,16 @@ int _ihc_cond_wait(void *m, void *cv) {
   return 0;
 }
 
+extern "C" LLVM_BACKEND_API
 void *_ihc_pthread_create(void *(*func)(void *), void *arg) {
-  HANDLE _thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, arg,
+  // Note that CreateThread takes a pointer to the function arguments,
+  // while pthreads takes the argument
+  HANDLE _thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, &arg,
                                 DETACHED_PROCESS, NULL);
   return _thread;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_pthread_join(void *_thread) {
   HANDLE threadp = (HANDLE)_thread;
   DWORD res = WaitForMultipleObjects(1, &threadp, TRUE, INFINITE);
@@ -89,6 +104,7 @@ int _ihc_pthread_join(void *_thread) {
 
 } 
 
+extern "C" LLVM_BACKEND_API
 int _ihc_pthread_detach(void *_thread) {
   HANDLE handle = (HANDLE)_thread;
   /* Closing handle is not supposed to kill thread according to Microsoft docs,
@@ -101,6 +117,3 @@ int _ihc_pthread_detach(void *_thread) {
   return GetLastError();
 }
 
-} // namespace OpenCL
-} // namespace Intel
-} // Intel::OpenCL::Utils

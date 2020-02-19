@@ -12,22 +12,21 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#include "export/ihc_threadsupport.h"
+#include "cl_dev_backend_api.h"
+#include "ihc_threadsupport.h"
 #include <pthread.h>
 
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-
+extern "C" LLVM_BACKEND_API
 void *_ihc_mutex_create() {
   pthread_mutex_t *handle = new pthread_mutex_t;
-  int res = pthread_mutex_init(handle, NULL);
-  if (res == 0)
-    return handle;
-  else
+  if (handle == 0)
     return nullptr;
+
+  *handle = PTHREAD_MUTEX_INITIALIZER;
+  return handle;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_mutex_delete(void *handle) {
   pthread_mutex_t *_m = (pthread_mutex_t *)handle;
   int res = pthread_mutex_destroy(_m);
@@ -35,18 +34,21 @@ int _ihc_mutex_delete(void *handle) {
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_mutex_lock(void *handle) {
   pthread_mutex_t *_m = (pthread_mutex_t *)handle;
   int res = pthread_mutex_lock(_m);
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_mutex_unlock(void *handle) {
   pthread_mutex_t *_m = (pthread_mutex_t *)handle;
   int res = pthread_mutex_unlock(_m);
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 void *_ihc_cond_create() {
   pthread_cond_t *cv = new pthread_cond_t;
   if (cv == 0)
@@ -56,6 +58,7 @@ void *_ihc_cond_create() {
   return cv;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_cond_delete(void *cv) {
   pthread_cond_t *_cond = (pthread_cond_t *)cv;
   int res = pthread_cond_destroy(_cond);
@@ -63,12 +66,14 @@ int _ihc_cond_delete(void *cv) {
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_cond_notify_one(void *cv) {
   pthread_cond_t *_cond = (pthread_cond_t *)cv;
   int res = pthread_cond_signal(_cond);
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_cond_wait(void *m, void *cv) {
   pthread_cond_t *_cond = (pthread_cond_t *)cv;
   pthread_mutex_t *_m = (pthread_mutex_t *)m;
@@ -76,8 +81,11 @@ int _ihc_cond_wait(void *m, void *cv) {
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 void *_ihc_pthread_create(void *(*func)(void *), void *arg) {
   pthread_t *handle = new pthread_t;
+  if (handle == 0)
+    return nullptr;
   int res = pthread_create(handle, NULL, func, arg);
   if (res == 0) {
     return handle;
@@ -85,18 +93,18 @@ void *_ihc_pthread_create(void *(*func)(void *), void *arg) {
     return 0;
   }
 }
+
+extern "C" LLVM_BACKEND_API
 int _ihc_pthread_join(void *handle) {
   pthread_t *_thread = (pthread_t *)handle;
   int res = pthread_join(*_thread, nullptr);
   return res;
 }
 
+extern "C" LLVM_BACKEND_API
 int _ihc_pthread_detach(void *handle) {
   pthread_t *_thread = (pthread_t *)handle;
   int res = pthread_detach(*_thread);
   return res;
 }
 
-} // namespace Utils
-} // namespace OpenCL
-} // namespace Intel
