@@ -3880,6 +3880,30 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
   return true;
 }
 
+Instruction *VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(WRegionNode *W,
+                                                                 Function *F) {
+  assert(W && "Null WRegion.");
+
+  WRegionNode *FirstParentWhichDoesOutlining = nullptr;
+
+  for (W = W->getParent(); W != nullptr; W = W->getParent()) {
+    if (!W->needsOutlining())
+      continue;
+
+    FirstParentWhichDoesOutlining = W;
+    break;
+  }
+
+  if (!FirstParentWhichDoesOutlining)
+    return F->getEntryBlock().getFirstNonPHI();
+
+  BasicBlock *SecondBB =
+      FirstParentWhichDoesOutlining->getEntryBBlock()->getSingleSuccessor();
+  assert(SecondBB && "Couldn't find second BB of Wregion.");
+
+  return SecondBB->getFirstNonPHI();
+}
+
 // Find the first directive that dominates "PosInst" and which supports
 // the private clause, and add a private clause for "I" into that directive.
 // Return false if no directive was found. Intended to be called outside paropt,

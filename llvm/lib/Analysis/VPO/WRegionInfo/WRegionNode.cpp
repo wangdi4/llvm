@@ -1615,6 +1615,7 @@ bool WRegionNode::needsOutlining() const {
   case WRNTaskloop:
   case WRNTeams:
   case WRNTarget:
+  case WRNTargetData:
     return true;
   }
   return false;

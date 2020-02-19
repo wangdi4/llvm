@@ -1517,6 +1517,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
             improveAliasForOutlinedFunc(W);
 #endif  // INTEL_CUSTOMIZATION
+            Changed |= addMapForUseDevicePtr(W);
             Changed |= genTargetOffloadingCode(W);
             Changed |= clearLaunderIntrinBeforeRegion(W);
           }

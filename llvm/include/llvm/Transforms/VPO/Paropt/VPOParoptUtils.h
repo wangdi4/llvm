@@ -1418,6 +1418,15 @@ public:
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
 
+  /// Returns the Instruction which can be used as an insertion point for
+  /// any alloca which needs to be inserted before the entry directive of \p W.
+  /// The utility looks at parent WRegions of \p W, and if it finds any that
+  /// would be outlined, then it returns the first non-PHI of its first basic
+  /// block. If no such parent is found, then the first non-PHI of the
+  /// function \p F is returned.
+  static Instruction *getInsertionPtForAllocaBeforeRegion(WRegionNode *W,
+                                                          Function *F);
+
   /// Find the first directive that supports the private clause, that dominates
   /// \p PosInst. Add a private clause for \p I into that directive.
   /// Return false if no directive was found. Intended to be called outside

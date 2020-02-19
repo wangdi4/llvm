@@ -843,6 +843,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     } else if (isa<WRNTargetDataNode>(W)) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
+      useUpdatedUseDevicePtrsInTgtDataRegion(W, NewCall);
     } else if (isa<WRNTargetEnterDataNode>(W) ||
                isa<WRNTargetExitDataNode>(W) ||
                isa<WRNTargetUpdateNode>(W)) {
@@ -904,6 +905,10 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
 uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
+
+  if (MapI->getInUseDevicePtr())
+    return (TGT_MAP_TARGET_PARAM | TGT_MAP_RETURN_PARAM);
+
   uint64_t Res = 0u;
   if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
     return TGT_MAP_TARGET_PARAM;
@@ -1409,13 +1414,118 @@ Value *VPOParoptTransform::genCastforAddr(Value *BPVal, IRBuilder<> &Builder) {
     return Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
 }
 
+bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
+  assert(W && "Null WRegionNode.");
+
+  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+    return false;
+
+  UseDevicePtrClause &UDPC = W->getUseDevicePtr();
+  if (UDPC.empty())
+    return false;
+
+  // Create an empty BB before the entry BB, to insert loads for the new map
+  // clauses.
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *NewEntryBB =
+      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+  W->setEntryBBlock(NewEntryBB);
+  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+
+  IRBuilder<> LoadBuilder(EntryBB->getTerminator());
+  MapClause &MapC = W->getMap();
+  for (UseDevicePtrItem *UDPI : UDPC.items()) {
+    Value *UDP = UDPI->getOrig();
+    Value *UDPLoad = LoadBuilder.CreateLoad(UDP, UDP->getName() + ".load");
+    MapC.add(UDPLoad);
+
+    MapItem *MapI = MapC.back();
+    MapI->setInUseDevicePtr(UDPI);
+    UDPI->setInMap(MapI);
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Added map clause on '";
+               UDPLoad->printAsOperand(dbgs());
+               dbgs() << "', for use_device_ptr '"; UDP->printAsOperand(dbgs());
+               dbgs() << "'.\n");
+  }
+  return true;
+}
+
+// For the following code:
+//   int *udp;
+//   #pragma omp target use_device_ptr(udp)
+//
+// the IR before/after this util will look like:
+//
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...i32** %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   $udp.new = alloca i32*                                          ; (2)
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     %udp.gep.cast = cast i8* %udp.gep to i32**                    ; (3)
+//     %udp.updated.val = load i32*, i32** %udp.gep.cast             ; (4)
+//     store i32* %udp.updated.val, i32** %udp.new                   ; (5)
+//     call @outlined.funtion(...i32** %udp.new)                     ; (6)
+//   call void @__tgt_target_data_end()
+//
+void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
+    WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
+  assert(W && "Null WRegionNode.");
+  assert(TgtDataOutlinedFunctionCall && "Null outlined function call.");
+
+  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+    return;
+
+  UseDevicePtrClause &UDPC = W->getUseDevicePtr();
+  if (UDPC.empty())
+    return;
+
+  IRBuilder<> Builder(TgtDataOutlinedFunctionCall);
+  Function *F = TgtDataOutlinedFunctionCall->getFunction();
+  Instruction *AllocaInsertPt =
+      VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(W, F);
+
+  for (UseDevicePtrItem *UDPI : UDPC.items()) {
+    MapItem *MapI = UDPI->getInMap();
+    assert(MapI && "No map found for use-device-ptr item.");
+
+    Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig(); //             (1)
+    assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
+
+    Value *OrigV = UDPI->getOrig();
+
+    Value *NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //(2)
+
+    Value *GepCast = Builder.CreateBitOrPointerCast(
+        BasePtrGEP, OrigV->getType(), BasePtrGEP->getName() + ".cast"); // (3)
+    LoadInst *UpdatedUDPVal =
+        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); // (4)
+    Builder.CreateStore(UpdatedUDPVal, NewV); //                           (5)
+
+    TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //        (6)
+
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
+        OrigV->printAsOperand(dbgs()); dbgs() << "', with '";
+        NewV->printAsOperand(dbgs()); dbgs() << "' in tgt_data region.\n");
+  }
+}
+
 // Utilities to construct the assignment to the base pointers, section
 // pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
 // true.
 void VPOParoptTransform::genOffloadArraysInitUtil(
     IRBuilder<> &Builder, Value *BasePtr, Value *SectionPtr, Value *Size,
     TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes, unsigned &Cnt,
-    bool hasRuntimeEvaluationCaptureSize) {
+    bool hasRuntimeEvaluationCaptureSize, Instruction **BasePtrGEPOut) {
 
   assert(BasePtr && "Unexpected: BasePtr is null");
   assert(SectionPtr && "Unexpected: SectionPtr is null");
@@ -1433,6 +1543,8 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
       ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
       Info->BaseDataPtrs, 0, Cnt);
   Builder.CreateStore(NewBPVal, BP);
+  if (BasePtrGEPOut)
+    *BasePtrGEPOut = cast<Instruction>(BP);
 
   P = Builder.CreateConstInBoundsGEP2_32(
       ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
@@ -1507,9 +1619,11 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr,
-                               Info, ConstSizes,
-                               Cnt, hasRuntimeEvaluationCaptureSize);
+      Instruction *BasePtrGEP = nullptr;
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
+                               Cnt, hasRuntimeEvaluationCaptureSize,
+                               &BasePtrGEP);
+      MapI->setBasePtrGEPForOrig(BasePtrGEP);
     }
   }
 
