@@ -234,11 +234,11 @@ void OptReportAsmPrinterHandler::emitOptReportExpression(
           OutContext);
   getOS().emitLabel(BeginLabel);
   getOS().AddComment("DW_FORM_block1 Length");
-  getOS().EmitValue(SizeExpr, 1);
+  getOS().emitValue(SizeExpr, 1);
   // The target may not even support Dwarf, but the table uses
   // DW_OP_constu, so we have to hard-coded it here.
   getOS().AddComment("DW_OP_constu");
-  getOS().EmitIntValue(0x10, 1);
+  getOS().emitIntValue(0x10, 1);
   getOS().AddComment("Data");
   unsigned EncodedLength = getOS().EmitULEB128Buffer(Data);
   (void)EncodedLength;
@@ -371,14 +371,14 @@ void OptReportAsmPrinterHandler::endModule() {
     getOS().emitBytes(NullTerminatedIdentString);
 
     getOS().AddComment("Table Version 1.2");
-    getOS().EmitIntValue(0x0102, 2);
+    getOS().emitIntValue(0x0102, 2);
     getOS().AddComment("Header Size");
     getOS().emitAbsoluteSymbolDiff(HeaderEndLabel, HeaderStartLabel, 2);
     // TODO (vzakhari 10/2/2018): right now we only have one entry
     //       that specifies the optimization report version.
     getOS().AddComment("Number Of Entries");
     // Add extra entry for optimization_report_version.
-    getOS().EmitIntValue(OptReports.size() + 1, 4);
+    getOS().emitIntValue(OptReports.size() + 1, 4);
     getOS().AddComment("Strtab Offset");
     getOS().emitAbsoluteSymbolDiff(StrtabStartLabel, HeaderStartLabel, 4);
     getOS().AddComment("Strtab Size");
@@ -388,7 +388,7 @@ void OptReportAsmPrinterHandler::endModule() {
     getOS().AddComment("Exprtab Size");
     getOS().emitAbsoluteSymbolDiff(ExprtabEndLabel, ExprtabStartLabel, 4);
     getOS().AddComment("Flags");
-    getOS().EmitIntValue(TableFlags::OptReportFlag |
+    getOS().emitIntValue(TableFlags::OptReportFlag |
                          (PtrSize <= 4 ? AnchorAddrIs32BitFlag : 0), 8);
     getOS().emitLabel(HeaderEndLabel);
     // * End of table header.
@@ -418,7 +418,7 @@ void OptReportAsmPrinterHandler::endModule() {
                                    StrtabStartLabel, 4);
     getOS().AddComment("Expression Index");
     // This index is unused for optimization_report_version.
-    getOS().EmitIntValue(0, 4);
+    getOS().emitIntValue(0, 4);
 
     // Emit opt-report entries.
     for (auto &&OR : OptReports) {

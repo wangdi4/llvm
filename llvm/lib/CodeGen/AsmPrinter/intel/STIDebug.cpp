@@ -811,7 +811,7 @@ void STIAsmWriter::emitLabel(MCSymbol *symbol) {
 }
 
 void STIAsmWriter::emitValue(const MCExpr *value, unsigned int sizeInBytes) {
-  ASM()->OutStreamer->EmitValue(value, sizeInBytes);
+  ASM()->OutStreamer->emitValue(value, sizeInBytes);
 }
 
 void STIAsmWriter::idBegin(const STIType* type) {

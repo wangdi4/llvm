@@ -476,7 +476,6 @@ MCDwarfLineTableHeader::Emit(MCStreamer *MCOS, MCDwarfLineTableParams Params,
 
   // Next 2 bytes is the Version.
   unsigned LineTableVersion = context.getDwarfVersion();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // The Gold linker prior to version 2.31 does not support DWARF version 4
   // line tables.  To support this, we accept a debug_line table version which
@@ -486,10 +485,7 @@ MCDwarfLineTableHeader::Emit(MCStreamer *MCOS, MCDwarfLineTableParams Params,
   if (DebugLineTableVersion != 0)
     LineTableVersion = DebugLineTableVersion;
 #endif // INTEL_CUSTOMIZATION
-  MCOS->EmitIntValue(LineTableVersion, 2);
-=======
   MCOS->emitIntValue(LineTableVersion, 2);
->>>>>>> 774971030df946916b11fcdb1691511c3c1e27b7
 
   // Keep track of the bytes between the very start and where the header length
   // comes out.
