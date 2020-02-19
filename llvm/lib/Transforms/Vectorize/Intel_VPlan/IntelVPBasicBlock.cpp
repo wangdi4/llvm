@@ -776,3 +776,33 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
 
   return NewBB;
 }
+VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
+                                      const Twine &Name, VPLoopInfo *VPLInfo,
+                                      VPDominatorTree *DomTree,
+                                      VPPostDominatorTree *PostDomTree) {
+  assert(is_contained(From->getSuccessors(), To) &&
+         "From and To do not form an edge!");
+  auto *NewBB = new VPBasicBlock(Name, From->getParent());
+  NewBB->setParent(From->getParent());
+  VPBlockUtils::replaceBlockSuccessor(From, To, NewBB);
+  VPBlockUtils::replaceBlockPredecessor(To, From, NewBB);
+  NewBB->appendPredecessor(From);
+  NewBB->appendSuccessor(To);
+  // FIXME: VPLInfo update.
+  if (VPLInfo) {
+    auto *FromLoop = VPLInfo->getLoopFor(From);
+    auto *ToLoop = VPLInfo->getLoopFor(To);
+    if (FromLoop) {
+      if (FromLoop == ToLoop) {
+        FromLoop->addBasicBlockToLoop(NewBB, *VPLInfo);
+      } else {
+        assert(false && "Not implemented!");
+      }
+    }
+  }
+  if (DomTree)
+    DomTree->recalculate(*From->getParent());
+  if (PostDomTree)
+    PostDomTree->recalculate(*From->getParent());
+  return NewBB;
+}

@@ -259,6 +259,14 @@ public:
     return NewVPPHINode;
   }
 
+  VPBlendInst *createBlendInstruction(Type *Ty, const Twine &Name = "") {
+    auto *Blend = new VPBlendInst(Ty);
+    Blend->setName(Name);
+    if (BB)
+      BB->insert(Blend, InsertPt);
+    return Blend;
+  }
+
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
   // pointer \p Ptr and list of index operands \p IdxList
   VPInstruction *createGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,

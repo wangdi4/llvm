@@ -950,7 +950,19 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred) {
+  addOperand(IncomingVal);
+  if (!BlockPred) {
+    VPlan *Plan = getParent()->getParent();
+    BlockPred =
+        Plan->getVPConstant(ConstantInt::getTrue(*Plan->getLLVMContext()));
+  }
+  addOperand(BlockPred);
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlendInst::print(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   auto PrintValueWithBP = [&](const unsigned i) {

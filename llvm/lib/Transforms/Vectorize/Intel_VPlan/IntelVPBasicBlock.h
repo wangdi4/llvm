@@ -489,6 +489,10 @@ public:
   splitBlockAtPredicate(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
                         VPDominatorTree *DomTree = nullptr,
                         VPPostDominatorTree *PostDomTree = nullptr);
+  static VPBasicBlock *splitEdge(VPBasicBlock *From, VPBasicBlock *To,
+                                 const Twine &Name, VPLoopInfo *VPLInfo,
+                                 VPDominatorTree *DomTree = nullptr,
+                                 VPPostDominatorTree *PostDomTree = nullptr);
 };
 } // namespace vpo
 } // namespace llvm
