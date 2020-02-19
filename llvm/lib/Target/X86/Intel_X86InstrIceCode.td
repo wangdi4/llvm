@@ -90,28 +90,6 @@ let Predicates = [InIceCodeMode] in {
                           "fscp_read{q}\t{$src, $dst|$dst, $src}",
                           [(set GR64:$dst, (int_x86_icecode_fscp_read_64 GR32:$src))]>;
 
-    let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0 in {
-      def CREG_XCHG32r_Rev : I<0x03, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "creg_xchg{l}\t{$src, $dst|$dst, $src}", []>;
-      def CREG_XCHG64r_Rev : RI<0x03, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "creg_xchg{q}\t{$src, $dst|$dst, $src}", []>;
-
-      def FSCP_XCHG32r_Rev : I<0x23, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "fscp_xchg{l}\t{$src, $dst|$dst, $src}", []>;
-      def FSCP_XCHG64r_Rev : RI<0x23, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "fscp_xchg{q}\t{$src, $dst|$dst, $src}", []>;
-
-      def CREG_READ32r_Rev : I<0x2b, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "creg_read{l}\t{$src, $dst|$dst, $src}", []>;
-      def CREG_READ64r_Rev : RI<0x2b, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "creg_read{q}\t{$src, $dst|$dst, $src}", []>;
-
-      def FSCP_READ32r_Rev : I<0x0b, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "fscp_read{l}\t{$src, $dst|$dst, $src}", []>;
-      def FSCP_READ64r_Rev : RI<0x0b, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "fscp_read{q}\t{$src, $dst|$dst, $src}", []>;
-    }
-
     def PORTIN8rm  : I<0x8a, MRMSrcMem, (outs GR8:$dst), (ins opaquemem:$src),
                        "portin{b}\t{$src, $dst|$dst, $src}",
                        [(set GR8:$dst, (int_x86_icecode_portin_8 addr:$src))]>, AdSize32;
