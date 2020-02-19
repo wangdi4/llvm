@@ -65,7 +65,10 @@ public:
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()) {}
+        HLNodeUtilities(Loop->getHLNodeUtils()) {
+    assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
+    VLoop = *(Plan->getVPLoopInfo()->begin());
+  }
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -86,6 +89,9 @@ public:
 
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
+
+  // Fixup gotos in GotoTargetVPBBPairVector using VPBBLabelMap
+  void finalizeGotos(void);
 
   // Check if loop is currently suported by CodeGen.
   bool loopIsHandled(HLLoop *Loop, unsigned int VF);
@@ -389,6 +395,30 @@ public:
         TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512);
   }
 
+  void setUniformControlFlowSeen() {
+    // Search loops do not go through predication currently and code generation
+    // for this is handled separately for now. Until search loop representation
+    // is made explicit we do not need any additional handling of the uniform
+    // control flow case for them.
+    if (!isSearchLoop())
+      UniformControlFlowSeen = true;
+  }
+
+  bool getUniformControlFlowSeen() const { return UniformControlFlowSeen; }
+
+  const VPLoop *getVPLoop() const { return VLoop; }
+
+  // Emit a label to indicate the start of the given basic block if the
+  // block is inside the loop being vectorized and add the label to
+  // the VPBBLabelMap.
+  void emitBlockLabel(const VPBasicBlock *VPBB);
+
+  // Emit the needed gotos to appropriate labels if the block is inside
+  // the loop being vectorized. Add the gotos generated to
+  // GotoTargetVPBBPairVector so that the gotos are fixed up at the end of
+  // vector code generation.
+  void emitBlockTerminator(const VPBasicBlock *SourceBB);
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -401,6 +431,9 @@ private:
 
   // VPlan for which vector code is being generated.
   const VPlan *Plan;
+
+  // VPLoop being vectorized - assumes VPlan contains one loop.
+  const VPLoop *VLoop;
 
   // OPTVLS analysis.
   VPlanVLSAnalysis *VLSA;
@@ -503,6 +536,17 @@ private:
   // Set of masked private temp symbases that have been initialized to undef in
   // vector loop header.
   SmallSet<unsigned, 16> InitializedPrivateTempSymbases;
+
+  // Boolean flag used to see if the loop being vectorized has any uniform
+  // control flow.
+  bool UniformControlFlowSeen = false;
+
+  // Vector of <HLGoto, target basic block> pairs.
+  SmallVector<std::pair<HLGoto *, const VPBasicBlock *>, 8>
+      GotoTargetVPBBPairVector;
+
+  // Map from a basic block to its starting label.
+  SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }

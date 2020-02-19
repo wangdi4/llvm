@@ -70,8 +70,10 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
 
   if (TargetLabel) {
     OS << TargetLabel->getDebugName();
-  } else {
+  } else if (TargetBBlock) {
     HLLabel::printBBlockName(OS, *TargetBBlock);
+  } else {
+    OS << "<null>";
   }
 
   OS << ";\n";

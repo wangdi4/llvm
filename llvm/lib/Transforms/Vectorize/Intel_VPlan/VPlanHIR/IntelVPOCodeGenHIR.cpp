@@ -966,6 +966,7 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
 
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
+  finalizeGotos();
   if (NeedPeelLoop)
     LLVM_DEBUG(PeelLoop->dump());
   LLVM_DEBUG(MainLoop->getParent()->dump());
@@ -3570,4 +3571,81 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
                 GrpStartInst);
 }
 
+void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
+  // Nothing to do if no uniform control flow is seen
+  if (!getUniformControlFlowSeen())
+    return;
+
+  if (VLoop->contains(VPBB)) {
+    HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
+    addInst(Label, nullptr /* Mask */);
+    VPBBLabelMap[VPBB] = Label;
+  }
+}
+
+void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
+  // Nothing to do if no uniform control flow is seen
+  if (!getUniformControlFlowSeen())
+    return;
+
+  // The loop backedge/exit is implicit in the vector loop. Do not emit
+  // gotos in the latch block.
+  if (VLoop->contains(SourceBB) && !VLoop->isLoopLatch(SourceBB)) {
+    assert(SourceBB->getNumSuccessors() && "Expected at least one successor");
+    auto &Successors = SourceBB->getSuccessors();
+    const VPBasicBlock *Succ1 = cast<VPBasicBlock>(*Successors.begin());
+
+    // If the block has two successors, we emit the following sequence
+    // of code for 'SourceBB: (condbit: C1) Successors: Succ1, Succ2'.
+    //
+    //    Cond = extractelement C1_VEC, 0
+    //    if (Cond == 1)
+    //       goto Succ1_Label
+    //    else
+    //       goto Succ2_Label
+    // If the block has a single succesor, we emit the following for
+    // 'SourceBB: Successors: Succ1'.
+    //
+    //     goto Succ1_Label.
+    // The gotos are created initially with a null target label. These are
+    // fixed up at the end of vector code generation when the labels
+    // are available for all basic blocks.
+    if (SourceBB->getNumSuccessors() == 2) {
+      const VPBasicBlock *Succ2 =
+          cast<VPBasicBlock>(*std::next(Successors.begin()));
+      const VPValue *CondBit = SourceBB->getCondBit();
+      auto *CondRef = getWideRefForVPVal(CondBit);
+      HLInst *Extract = HLNodeUtilities.createExtractElementInst(
+          CondRef->clone(), (unsigned)0, "unifcond");
+      addInst(Extract, nullptr /* Mask */);
+      CondRef = Extract->getLvalDDRef()->clone();
+      HLIf *If = HLNodeUtilities.createHLIf(
+          PredicateTy::ICMP_EQ, CondRef,
+          DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+      addInst(If, nullptr /* Mask */);
+
+      HLGoto *ThenGoto = HLNodeUtilities.createHLGoto(nullptr);
+      HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
+      GotoTargetVPBBPairVector.push_back(std::make_pair(ThenGoto, Succ1));
+
+      HLGoto *ElseGoto = HLNodeUtilities.createHLGoto(nullptr);
+      HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
+      GotoTargetVPBBPairVector.push_back(std::make_pair(ElseGoto, Succ2));
+      LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
+    } else {
+      HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
+      addInst(Goto, nullptr /* Mask */);
+      GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Succ1));
+    }
+  }
+}
+
+void VPOCodeGenHIR::finalizeGotos(void) {
+  for (auto It : GotoTargetVPBBPairVector) {
+    HLGoto *Goto = It.first;
+    const VPBasicBlock *TargetBB = It.second;
+
+    Goto->setTargetLabel(VPBBLabelMap[TargetBB]);
+  }
+}
 } // end namespace llvm
