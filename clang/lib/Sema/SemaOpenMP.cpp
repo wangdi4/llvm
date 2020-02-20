@@ -5692,7 +5692,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 
 void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
                                               Expr *VariantRef,
-                                              OMPTraitInfo *TI,
+                                              OMPTraitInfo &TI,
                                               SourceRange SR) {
   auto *NewAttr =
       OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, TI, SR);
