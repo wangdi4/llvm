@@ -55,24 +55,9 @@ static bool collapseLoops(
     Function &F, WRegionInfo &WI, OptimizationRemarkEmitter &ORE) {
   bool Changed = false;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  auto && IsTargetCSA = [&F]() {
-    Triple TT(F.getParent()->getTargetTriple());
-    return TT.getArch() == Triple::ArchType::csa;
-  };
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-
   LLVM_DEBUG(dbgs() << PASS_NAME << ": Before Par Sections Transformation");
   LLVM_DEBUG(dbgs() << F << " \n");
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  // For CSA, don't change OMP SECTIONS into a loop
-  if (!IsTargetCSA())
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
   Changed = VPOUtils::parSectTransformer(&F, WI.getDomTree());
 
   LLVM_DEBUG(dbgs() << PASS_NAME << ": After Par Sections Transformation");
