@@ -99,7 +99,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
   // instead of the original object.
-  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
+  if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
+      JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
     // Go through the Inputs to the link.  When a listfile is encountered, we
     // know it is an unbundled generated list.
     for (const auto &II : InputFiles) {

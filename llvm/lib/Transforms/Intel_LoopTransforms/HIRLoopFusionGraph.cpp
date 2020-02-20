@@ -613,6 +613,7 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
+      Heap.remove(NodeY, NodeX);
 
       eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
@@ -657,6 +658,7 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
       Heap.remove(NodeY, NodeX);
+      Heap.remove(NodeX, NodeY);
 
       eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
@@ -725,6 +727,7 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
+      Heap.remove(NodeY, NodeX);
     } else {
       // No existing relationship, make Y a neighbor of V.
 
