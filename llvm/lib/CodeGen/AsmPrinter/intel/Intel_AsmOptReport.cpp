@@ -412,7 +412,7 @@ void OptReportAsmPrinterHandler::endModule() {
     // Emit a redundant label just to attach the above comment to it.
     getOS().emitLabel(OutContext.createTempSymbol("table_entries_begin", true));
     getOS().AddComment("Anchor");
-    getOS().EmitZeros(8);
+    getOS().emitZeros(8);
     getOS().AddComment("Annotation Offset");
     getOS().emitAbsoluteSymbolDiff(OptReportVersionAnnLabel,
                                    StrtabStartLabel, 4);
@@ -427,7 +427,7 @@ void OptReportAsmPrinterHandler::endModule() {
       // Anchor value is always 8 bytes, so pad it with zeroes
       // if needed.
       if (PtrSize < 8)
-        getOS().EmitZeros(8 - PtrSize);
+        getOS().emitZeros(8 - PtrSize);
       getOS().AddComment("Annotation Index");
       getOS().emitAbsoluteSymbolDiff(OptReportAnnLabel,
                                      StrtabStartLabel, 4);
