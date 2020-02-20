@@ -40,6 +40,22 @@ static pi_result enqueueMemCopyHelper(
   const pi_event *   event_wait_list,
   pi_event *         event);
 
+static pi_result enqueueMemCopyRectHelper(
+  pi_command_type    command_type,
+  pi_queue           command_queue,
+  char *             src_buffer,
+  char *             dst_buffer,
+  const size_t *     src_origin,
+  const size_t *     dst_origin,
+  const size_t *     region,
+  size_t             src_row_pitch,
+  size_t             src_slice_pitch,
+  size_t             dst_row_pitch,
+  size_t             dst_slice_pitch,
+  pi_bool            blocking,
+  pi_uint32          num_events_in_wait_list,
+  const pi_event *   event_wait_list,
+  pi_event *         event);
 
 static void zePrint(const char *format, ... ) {
   if (ZE_DEBUG) {
@@ -2277,113 +2293,22 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   const pi_event *    event_wait_list,
   pi_event *          event) {
 
-  ze_result_t ze_result;
-  // Get a new command list to be used on this call
-  ze_command_list_handle_t ze_command_list =
-    command_queue->Context->Device->createCommandList();
-
-  L0(piEventCreate)(command_queue->Context, event);
-  (*event)->Queue = command_queue;
-  (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_READ_RECT;
-  (*event)->L0CommandList = ze_command_list;
-
-  ze_event_handle_t ze_event = (*event)->L0Event;
-
-  ze_event_handle_t *ze_event_wait_list =
-    _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
-
-  ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    ze_command_list,
+  return enqueueMemCopyRectHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_READ_RECT,
+    command_queue,
+    buffer->L0Mem,
+    static_cast<char *>(ptr),
+    buffer_offset,
+    host_offset,
+    region,
+    buffer_row_pitch,
+    host_row_pitch,
+    buffer_slice_pitch,
+    host_slice_pitch,
+    blocking_read,
     num_events_in_wait_list,
-    ze_event_wait_list
-  ));
-  pi_assert(ze_result == 0);
-
-  zePrint("calling zeCommandListAppendWaitOnEvents() with\n"
-                "  num_events_in_wait_list %d:",
-                pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
-  for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
-  }
-  zePrint("\n");
-
-  uint32_t dstOriginX = pi_cast<uint32_t>(host_offset[0]);
-  uint32_t dstOriginY = pi_cast<uint32_t>(host_offset[1]);
-  uint32_t dstOriginZ = pi_cast<uint32_t>(host_offset[2]);
-
-  uint32_t dstPitch = host_row_pitch;
-  if (dstPitch == 0)
-    dstPitch = pi_cast<uint32_t>(region[0]);
-
-  if (host_slice_pitch == 0)
-    host_slice_pitch = pi_cast<uint32_t>(region[1]) * dstPitch;
-
-  uint32_t srcOriginX = pi_cast<uint32_t>(buffer_offset[0]);
-  uint32_t srcOriginY = pi_cast<uint32_t>(buffer_offset[1]);
-  uint32_t srcOriginZ = pi_cast<uint32_t>(buffer_offset[2]);
-
-  uint32_t srcPitch = buffer_row_pitch;
-  if (srcPitch == 0)
-    srcPitch = pi_cast<uint32_t>(region[0]);
-
-  if (buffer_slice_pitch == 0)
-    buffer_slice_pitch = pi_cast<uint32_t>(region[1]) * srcPitch;
-
-  uint32_t width = pi_cast<uint32_t>(region[0]);
-  uint32_t height = pi_cast<uint32_t>(region[1]);
-  uint32_t depth = pi_cast<uint32_t>(region[2]);
-
-  char *destination_ptr = static_cast<char *>(ptr) + dstOriginZ;
-  char *source_ptr = buffer->L0Mem + srcOriginZ;
-
-  /*
-  * Command List is Created for handling all enqueued Memory Copy Regions
-  * and 1 Barrier. Once command_queue->executeCommandList() is called the
-  * command list is closed & no more commands are added to this
-  * command list such that the barrier only blocks the Memory Copy Regions enqueued.
-  *
-  * Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
-  * is resolved 3D buffer copies must be spit into multiple 2D buffer copies in the
-  * sycl plugin.
-  */
-  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
-  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
-
-  // TODO: Remove the for loop and use the slice pitches
-  for (uint32_t i = 0; i < depth; i++) {
-    ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
-      ze_command_list,
-      destination_ptr,
-      &dstRegion,
-      dstPitch,
-      0, /* dstSlicePitc */
-      source_ptr,
-      &srcRegion,
-      srcPitch,
-      0, /* srcSlicePitch */
-      nullptr
-    ));
-
-    destination_ptr += host_slice_pitch;
-    source_ptr += buffer_slice_pitch;
-  }
-  zePrint("calling zeCommandListAppendMemoryCopyRegion()\n");
-
-  ze_result = ZE_CALL(zeCommandListAppendBarrier(
-    ze_command_list,
-    ze_event,
-    0,
-    nullptr
-  ));
-  pi_assert(ze_result == 0);
-  zePrint("calling zeCommandListAppendBarrier() with event %lx\n",
-    pi_cast<std::uintptr_t>(ze_event));
-
-  command_queue->executeCommandList(ze_command_list, blocking_read);
-  _pi_event::deleteL0EventList(ze_event_wait_list);
-
-  // TODO: translate errors
-  return pi_cast<pi_result>(ze_result);
+    event_wait_list,
+    event);
 }
 
 // Shared by all memory read/write/copy PI interfaces.
@@ -2444,6 +2369,134 @@ static pi_result enqueueMemCopyHelper(
   return pi_cast<pi_result>(ze_result);
 }
 
+// Shared by all memory read/write/copy rect PI interfaces.
+static pi_result enqueueMemCopyRectHelper(
+  pi_command_type    command_type,
+  pi_queue           command_queue,
+  char *             src_buffer,
+  char *             dst_buffer,
+  const size_t *     src_origin,
+  const size_t *     dst_origin,
+  const size_t *     region,
+  size_t             src_row_pitch,
+  size_t             dst_row_pitch,
+  size_t             src_slice_pitch,
+  size_t             dst_slice_pitch,
+  pi_bool            blocking,
+  pi_uint32          num_events_in_wait_list,
+  const pi_event *   event_wait_list,
+  pi_event *         event) {
+
+  ze_result_t ze_result;
+  // Get a new command list to be used on this call
+  ze_command_list_handle_t ze_command_list =
+    command_queue->Context->Device->createCommandList();
+
+  L0(piEventCreate)(command_queue->Context, event);
+  (*event)->Queue = command_queue;
+  (*event)->CommandType = command_type;
+  (*event)->L0CommandList = ze_command_list;
+
+  ze_event_handle_t ze_event = (*event)->L0Event;
+
+  ze_event_handle_t *ze_event_wait_list =
+    _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
+
+  ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
+    ze_command_list,
+    num_events_in_wait_list,
+    ze_event_wait_list
+  ));
+  pi_assert(ze_result == 0);
+
+  zePrint("calling zeCommandListAppendWaitOnEvents() with\n"
+                "  num_events_in_wait_list %d:",
+                pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
+  for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
+    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
+  }
+  zePrint("\n");
+
+  uint32_t srcOriginX = pi_cast<uint32_t>(src_origin[0]);
+  uint32_t srcOriginY = pi_cast<uint32_t>(src_origin[1]);
+  uint32_t srcOriginZ = pi_cast<uint32_t>(src_origin[2]);
+
+  uint32_t srcPitch = src_row_pitch;
+  if (srcPitch == 0)
+    srcPitch = pi_cast<uint32_t>(region[0]);
+
+  if (src_slice_pitch == 0)
+    src_slice_pitch = pi_cast<uint32_t>(region[1]) * srcPitch;
+
+  uint32_t dstOriginX = pi_cast<uint32_t>(dst_origin[0]);
+  uint32_t dstOriginY = pi_cast<uint32_t>(dst_origin[1]);
+  uint32_t dstOriginZ = pi_cast<uint32_t>(dst_origin[2]);
+
+  uint32_t dstPitch = dst_row_pitch;
+  if (dstPitch == 0)
+    dstPitch = pi_cast<uint32_t>(region[0]);
+
+  if (dst_slice_pitch == 0)
+    dst_slice_pitch = pi_cast<uint32_t>(region[1]) * dstPitch;
+
+  uint32_t width = pi_cast<uint32_t>(region[0]);
+  uint32_t height = pi_cast<uint32_t>(region[1]);
+  uint32_t depth = pi_cast<uint32_t>(region[2]);
+
+  char *source_ptr = src_buffer + srcOriginZ;
+  char *destination_ptr = dst_buffer + dstOriginZ;
+
+  //
+  // Command List is Created for handling all enqueued Memory Copy Regions
+  // and 1 Barrier. Once command_queue->executeCommandList() is called the
+  // command list is closed & no more commands are added to this
+  // command list such that the barrier only blocks the Memory Copy Regions enqueued.
+  //
+  // Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
+  // is resolved 3D buffer copies must be split into multiple 2D buffer copies in the
+  // sycl plugin.
+  //
+  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
+  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
+
+  // TODO: Remove the for loop and use the slice pitches.
+  for (uint32_t i = 0; i < depth; i++) {
+    ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
+      ze_command_list,
+      destination_ptr,
+      &dstRegion,
+      dstPitch,
+      0, /* dstSlicePitch */
+      source_ptr,
+      &srcRegion,
+      srcPitch,
+      0, /* srcSlicePitch */
+      nullptr
+    ));
+
+    destination_ptr += dst_slice_pitch;
+    source_ptr += src_slice_pitch;
+  }
+  zePrint("calling zeCommandListAppendMemoryCopyRegion()\n");
+
+  ze_result = ZE_CALL(zeCommandListAppendBarrier(
+    ze_command_list,
+    ze_event,
+    0,
+    nullptr
+  ));
+  pi_assert(ze_result == 0);
+
+  zePrint("calling zeCommandListAppendBarrier() with event %lx\n",
+    pi_cast<std::uintptr_t>(ze_event));
+
+  command_queue->executeCommandList(ze_command_list, blocking);
+  _pi_event::deleteL0EventList(ze_event_wait_list);
+
+  // TODO: translate errors
+  return pi_cast<pi_result>(ze_result);
+}
+
 pi_result L0(piEnqueueMemBufferWrite)(
   pi_queue           command_queue,
   pi_mem             buffer,
@@ -2483,114 +2536,22 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
   const pi_event *    event_wait_list,
   pi_event *          event) {
 
-  ze_result_t ze_result;
-  // Get a new command list to be used on this call
-  ze_command_list_handle_t ze_command_list =
-    command_queue->Context->Device->createCommandList();
-
-  L0(piEventCreate)(command_queue->Context, event);
-  (*event)->Queue = command_queue;
-  (*event)->CommandType = PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT;
-  (*event)->L0CommandList = ze_command_list;
-
-  ze_event_handle_t ze_event = (*event)->L0Event;
-
-  ze_event_handle_t *ze_event_wait_list =
-    _pi_event::createL0EventList(num_events_in_wait_list, event_wait_list);
-
-  ze_result = ZE_CALL(zeCommandListAppendWaitOnEvents(
-    ze_command_list,
+  return enqueueMemCopyRectHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT,
+    command_queue,
+    const_cast<char *>(static_cast<const char *>(ptr)),
+    buffer->L0Mem,
+    host_offset,
+    buffer_offset,
+    region,
+    host_row_pitch,
+    buffer_row_pitch,
+    host_slice_pitch,
+    buffer_slice_pitch,
+    blocking_write,
     num_events_in_wait_list,
-    ze_event_wait_list
-  ));
-  pi_assert(ze_result == 0);
-
-  zePrint("calling zeCommandListAppendWaitOnEvents() with\n"
-                "  num_events_in_wait_list %d:",
-                pi_cast<std::uintptr_t>(ze_event), num_events_in_wait_list);
-  for (pi_uint32 i = 0; i < num_events_in_wait_list; i++) {
-    zePrint(" %lx", pi_cast<std::uintptr_t>(ze_event_wait_list[i]));
-  }
-  zePrint("\n");
-
-  uint32_t srcOriginX = pi_cast<uint32_t>(host_offset[0]);
-  uint32_t srcOriginY = pi_cast<uint32_t>(host_offset[1]);
-  uint32_t srcOriginZ = pi_cast<uint32_t>(host_offset[2]);
-
-  uint32_t srcPitch = host_row_pitch;
-  if (srcPitch == 0)
-    srcPitch = pi_cast<uint32_t>(region[0]);
-
-  if (host_slice_pitch == 0)
-    host_slice_pitch = pi_cast<uint32_t>(region[1]) * srcPitch;
-
-  uint32_t dstOriginX = pi_cast<uint32_t>(buffer_offset[0]);
-  uint32_t dstOriginY = pi_cast<uint32_t>(buffer_offset[1]);
-  uint32_t dstOriginZ = pi_cast<uint32_t>(buffer_offset[2]);
-
-  uint32_t dstPitch = buffer_row_pitch;
-  if (dstPitch == 0)
-    dstPitch = pi_cast<uint32_t>(region[0]);
-
-  if (buffer_slice_pitch == 0)
-    buffer_slice_pitch = pi_cast<uint32_t>(region[1]) * dstPitch;
-
-  uint32_t width = pi_cast<uint32_t>(region[0]);
-  uint32_t height = pi_cast<uint32_t>(region[1]);
-  uint32_t depth = pi_cast<uint32_t>(region[2]);
-
-  char *source_ptr = const_cast<char *>(static_cast<const char *>(ptr)) + srcOriginZ;
-  char *destination_ptr = buffer->L0Mem + dstOriginZ;
-
-  //
-  // Command List is Created for handling all enqueued Memory Copy Regions
-  // and 1 Barrier. Once command_queue->executeCommandList() is called the
-  // command list is closed & no more commands are added to this
-  // command list such that the barrier only blocks the Memory Copy Regions enqueued.
-  //
-  // Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
-  // is resolved 3D buffer copies must be split into multiple 2D buffer copies in the
-  // sycl plugin.
-  //
-  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
-  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
-
-  // TODO: Remove the for loop and use the slice pitches.
-  for (uint32_t i = 0; i < depth; i++) {
-    ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
-      ze_command_list,
-      destination_ptr,
-      &dstRegion,
-      dstPitch,
-      0, /* dstSlicePitch */
-      source_ptr,
-      &srcRegion,
-      srcPitch,
-      0, /* srcSlicePitch */
-      nullptr
-    ));
-
-    destination_ptr += buffer_slice_pitch;
-    source_ptr += host_slice_pitch;
-  }
-  zePrint("calling zeCommandListAppendMemoryCopyRegion()\n");
-
-  ze_result = ZE_CALL(zeCommandListAppendBarrier(
-    ze_command_list,
-    ze_event,
-    0,
-    nullptr
-  ));
-  pi_assert(ze_result == 0);
-
-  zePrint("calling zeCommandListAppendBarrier() with event %lx\n",
-    pi_cast<std::uintptr_t>(ze_event));
-
-  command_queue->executeCommandList(ze_command_list, blocking_write);
-  _pi_event::deleteL0EventList(ze_event_wait_list);
-
-  // TODO: translate errors
-  return pi_cast<pi_result>(ze_result);
+    event_wait_list,
+    event);
 }
 
 pi_result L0(piEnqueueMemBufferCopy)(
@@ -2631,7 +2592,22 @@ pi_result L0(piEnqueueMemBufferCopyRect)(
   const pi_event *    event_wait_list,
   pi_event *          event) {
 
-  pi_throw("piEnqueueMemBufferCopyRect: not implemented");
+  return enqueueMemCopyRectHelper(
+    PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT,
+    command_queue,
+    src_buffer->L0Mem,
+    dst_buffer->L0Mem,
+    src_origin,
+    dst_origin,
+    region,
+    src_row_pitch,
+    dst_row_pitch,
+    src_slice_pitch,
+    dst_slice_pitch,
+    false, // blocking
+    num_events_in_wait_list,
+    event_wait_list,
+    event);
 }
 
 static pi_result enqueueMemFillHelper(
