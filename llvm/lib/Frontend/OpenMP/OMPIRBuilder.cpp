@@ -134,6 +134,17 @@ void OpenMPIRBuilder::finalize() {
       BasicBlock &ArtificialEntry = OutlinedFn->getEntryBlock();
       assert(ArtificialEntry.getUniqueSuccessor() == RegEntryBB);
       assert(RegEntryBB->getUniquePredecessor() == &ArtificialEntry);
+#if INTEL_COLLAB
+      if (!ArtificialEntry.empty()) {
+        Instruction *PrevInst = &(RegEntryBB->front());
+        Instruction *CurrInst = &(ArtificialEntry.front());
+
+        while (!CurrInst->isTerminator()) {
+          CurrInst->moveBefore(PrevInst);
+          CurrInst = &(ArtificialEntry.front());
+        }
+      }
+#endif // INTEL_COLLAB
       RegEntryBB->moveBefore(&ArtificialEntry);
       ArtificialEntry.eraseFromParent();
     }
