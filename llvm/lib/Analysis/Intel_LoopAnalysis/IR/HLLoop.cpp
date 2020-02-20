@@ -291,6 +291,32 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
   } else {
     OS << " No";
   }
+
+  if (BlockingInfo) {
+    OS << "\n";
+    indent(OS, Depth);
+
+    OS << "+ Blocking levels and factors:";
+    for (auto &LevelFactorPair : BlockingInfo->LevelsAndFactors) {
+      OS << "(" << LevelFactorPair.first << ",";
+      LevelFactorPair.second->print(OS, false);
+      OS << ") ";
+    }
+
+    OS << "\n";
+    indent(OS, Depth);
+    OS << "+ Blocking privates:";
+
+    First = true;
+    for (auto *Private : BlockingInfo->Privates) {
+      if (!First) {
+        OS << ", ";
+      }
+      Private->print(OS, false);
+      First = false;
+    }
+  }
+
   OS << "\n";
 #endif // INTEL_PRODUCT_RELEASE
 }
