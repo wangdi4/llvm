@@ -963,23 +963,15 @@ private:
 
   Value *getCastedInt8PtrValue(Value *Ptr);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Insert and return the specified instruction without changing its debug
   /// location.
   template <typename InstTy>
   InstTy *InsertWithDbgLoc(InstTy *I, const Twine &Name = "") const {
-    this->InsertHelper(I, Name, BB, InsertPt);
+    Inserter.InsertHelper(I, Name, BB, InsertPt);
     return I;
   }
 #endif // INTEL_CUSTOMIZATION
-
-  /// No-op overload to handle constants.
-  Constant *Insert(Constant *C, const Twine& = "") const {
-    return C;
-  }
-=======
->>>>>>> 0765d3824d069f37596bc5a890399099b776c2a0
 
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Terminators
