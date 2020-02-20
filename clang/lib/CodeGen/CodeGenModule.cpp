@@ -2063,10 +2063,8 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
     SmallVector<Expr *, 8> VariantExprs;
     SmallVector<llvm::omp::VariantMatchInfo, 8> VMIs;
     for (const auto *A : FD->specific_attrs<OMPDeclareVariantAttr>()) {
-      const OMPTraitInfo *TI = A->getTraitInfos();
-      if (!TI)
-        continue;
-      for (const auto &TS : TI->Sets) {
+      const OMPTraitInfo &TI = A->getTraitInfos();
+      for (const auto &TS : TI.Sets) {
         llvm::omp::TraitSet Kind = TS.Kind;
         switch (Kind) {
         case llvm::omp::TraitSet::construct: {
