@@ -95,6 +95,10 @@ EXTERN int omp_in_parallel(void) {
   return (level > KMP_ACTIVE_PARALLEL_BUMP);
 }
 
+EXTERN int omp_get_thread_limit(void) {
+  return __kmp_get_local_size();
+}
+
 EXTERN int omp_get_device_num(void) {
   if (GLOBAL.program_data.initialized) {
     return GLOBAL.program_data.device_num;
