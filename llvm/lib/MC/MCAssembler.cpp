@@ -1038,12 +1038,8 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
   if (!BF.hasEmitNops()) {
     assert(BF.getNextNode()->hasInstructions() &&
            "The fragment doesn't have any instruction.");
-    assert(computeFragmentSize(Layout, *(BF.getNextNode())) <= 15 &&
-           "The fragment's size must be no longer than 15 since it should only "
-           "hold one instruction.");
-    NewSize = std::min({NewSize,
-                        15 - computeFragmentSize(Layout, *(BF.getNextNode())),
-                        static_cast<uint64_t>(BF.getMaxBytesToEmit())});
+    if (NewSize > static_cast<uint64_t>(BF.getMaxBytesToEmit()))
+      NewSize = 0;
   }
   if (NewSize == BF.getSize())
     return false;
