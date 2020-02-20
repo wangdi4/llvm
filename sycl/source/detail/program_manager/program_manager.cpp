@@ -45,6 +45,7 @@ ProgramManager &ProgramManager::getInstance() {
   return Instance;
 }
 
+<<<<<<< HEAD
 static RT::PiDevice getFirstDevice(const ContextImplPtr &Context) {
   cl_uint NumDevices = 0;
   const detail::plugin &Plugin = Context->getPlugin();
@@ -52,6 +53,13 @@ static RT::PiDevice getFirstDevice(const ContextImplPtr &Context) {
                                            PI_CONTEXT_INFO_NUM_DEVICES,
                                            sizeof(NumDevices), &NumDevices,
                                            /*param_value_size_ret=*/nullptr);
+=======
+static RT::PiDevice getFirstDevice(RT::PiContext Context) {
+  pi_uint32 NumDevices = 0;
+  PI_CALL(piContextGetInfo)(Context, PI_CONTEXT_INFO_NUM_DEVICES,
+                            sizeof(NumDevices), &NumDevices,
+                            /*param_value_size_ret=*/nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   assert(NumDevices > 0 && "Context without devices?");
 
   vector_class<RT::PiDevice> Devices(NumDevices);
@@ -70,11 +78,18 @@ static RT::PiProgram createBinaryProgram(const ContextImplPtr Context,
   // FIXME: we don't yet support multiple devices with a single binary.
   const detail::plugin &Plugin = Context->getPlugin();
 #ifndef _NDEBUG
+<<<<<<< HEAD
   cl_uint NumDevices = 0;
   Plugin.call<PiApiKind::piContextGetInfo>(Context->getHandleRef(),
                                            PI_CONTEXT_INFO_NUM_DEVICES,
                                            sizeof(NumDevices), &NumDevices,
                                            /*param_value_size_ret=*/nullptr);
+=======
+  pi_uint32 NumDevices = 0;
+  PI_CALL(piContextGetInfo)(Context, PI_CONTEXT_INFO_NUM_DEVICES,
+                            sizeof(NumDevices), &NumDevices,
+                            /*param_value_size_ret=*/nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   assert(NumDevices > 0 &&
          "Only a single device is supported for AOT compilation");
 #endif
@@ -387,17 +402,23 @@ RT::PiProgram
 ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel,
                                          const ContextImplPtr Context) {
   RT::PiProgram Program;
+<<<<<<< HEAD
   const detail::plugin &Plugin = Context->getPlugin();
 #if INTEL_CUSTOMIZATION
   Plugin.call<PiApiKind::piKernelGetInfo>(
       Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program), &Program, nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram),
+                           &Program, nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   return Program;
 }
 
 string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
                                                 const ContextImplPtr Context) {
   size_t Size = 0;
+<<<<<<< HEAD
   const detail::plugin &Plugin = Context->getPlugin();
 #if INTEL_CUSTOMIZATION
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_DEVICES, 0,
@@ -408,6 +429,12 @@ string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_DEVICES, Size,
                                            PIDevices.data(), nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES, 0, nullptr, &Size);
+  vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES, Size, PIDevices.data(),
+                            nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   string_class Log = "The program was built for " +
                      std::to_string(PIDevices.size()) + " devices";
   for (RT::PiDevice &Device : PIDevices) {

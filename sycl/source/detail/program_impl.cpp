@@ -81,6 +81,7 @@ program_impl::program_impl(ContextImplPtr Context, RT::PiProgram Program)
     : MProgram(Program), MContext(Context), MLinkable(true) {
 
   // TODO handle the case when cl_program build is in progress
+<<<<<<< HEAD
   cl_uint NumDevices;
   const detail::plugin &Plugin = getPlugin();
 #if INTEL_CUSTOMIZATION
@@ -93,6 +94,15 @@ program_impl::program_impl(ContextImplPtr Context, RT::PiProgram Program)
                                            sizeof(RT::PiDevice) * NumDevices,
                                            PiDevices.data(), nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  pi_uint32 NumDevices;
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_NUM_DEVICES, sizeof(pi_uint32),
+                            &NumDevices, nullptr);
+  vector_class<RT::PiDevice> PiDevices(NumDevices);
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES,
+                            sizeof(RT::PiDevice) * NumDevices, PiDevices.data(),
+                            nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   vector_class<device> SyclContextDevices =
       MContext->get_info<info::context::devices>();
 
@@ -265,22 +275,34 @@ vector_class<vector_class<char>> program_impl::get_binaries() const {
   const detail::plugin &Plugin = getPlugin();
   if (!is_host()) {
     vector_class<size_t> BinarySizes(MDevices.size());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Plugin.call<PiApiKind::piProgramGetInfo>(
         MProgram, PI_PROGRAM_BINARY_SIZES, sizeof(size_t) * BinarySizes.size(),
         BinarySizes.data(), nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+    PI_CALL(piProgramGetInfo)(MProgram, PI_PROGRAM_INFO_BINARY_SIZES,
+                              sizeof(size_t) * BinarySizes.size(),
+                              BinarySizes.data(), nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
 
     vector_class<char *> Pointers;
     for (size_t I = 0; I < BinarySizes.size(); ++I) {
       Result.emplace_back(BinarySizes[I]);
       Pointers.push_back(Result[I].data());
     }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Plugin.call<PiApiKind::piProgramGetInfo>(MProgram, PI_PROGRAM_BINARIES,
                                              sizeof(char *) * Pointers.size(),
                                              Pointers.data(), nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+    PI_CALL(piProgramGetInfo)(MProgram, PI_PROGRAM_INFO_BINARIES,
+                              sizeof(char *) * Pointers.size(), Pointers.data(),
+                              nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   }
   return Result;
 }
@@ -337,6 +359,7 @@ vector_class<RT::PiDevice> program_impl::get_pi_devices() const {
 
 bool program_impl::has_cl_kernel(const string_class &KernelName) const {
   size_t Size;
+<<<<<<< HEAD
   const detail::plugin &Plugin = getPlugin();
 #if INTEL_CUSTOMIZATION
   Plugin.call<PiApiKind::piProgramGetInfo>(MProgram, PI_PROGRAM_KERNEL_NAMES, 0,
@@ -348,6 +371,13 @@ bool program_impl::has_cl_kernel(const string_class &KernelName) const {
                                            ClResult.size(), &ClResult[0],
                                            nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  PI_CALL(piProgramGetInfo)(MProgram, PI_PROGRAM_INFO_KERNEL_NAMES, 0, nullptr,
+                            &Size);
+  string_class ClResult(Size, ' ');
+  PI_CALL(piProgramGetInfo)(MProgram, PI_PROGRAM_INFO_KERNEL_NAMES, ClResult.size(),
+                            &ClResult[0], nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   // Get rid of the null terminator
   ClResult.pop_back();
   vector_class<string_class> KernelNames(split_string(ClResult, ';'));
@@ -414,12 +444,18 @@ cl_uint program_impl::get_info<info::program::reference_count>() const {
   if (is_host()) {
     throw invalid_object_error("This instance of program is a host instance");
   }
+<<<<<<< HEAD
   cl_uint Result;
   const detail::plugin &Plugin = getPlugin();
 #if INTEL_CUSTOMIZATION
   Plugin.call<PiApiKind::piProgramGetInfo>(MProgram, PI_PROGRAM_REFERENCE_COUNT,
                                            sizeof(pi_uint32), &Result, nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  pi_uint32 Result;
+  PI_CALL(piProgramGetInfo)(MProgram, PI_PROGRAM_INFO_REFERENCE_COUNT,
+                            sizeof(pi_uint32), &Result, nullptr);
+>>>>>>> 93775469795a14a161769682dd2b502618d1680a
   return Result;
 }
 
