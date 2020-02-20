@@ -324,10 +324,10 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationPromotedToType(ISD::XOR, VT, IntegerVT);
 
     // Saturated--these are expand by default
-    setOperationAction(ISD::SADDSAT, VT, Expand);
-    setOperationAction(ISD::UADDSAT, VT, Expand);
-    setOperationAction(ISD::SSUBSAT, VT, Expand);
-    setOperationAction(ISD::USUBSAT, VT, Expand);
+    setOperationAction(ISD::SADDSAT, VT, Legal);
+    setOperationAction(ISD::UADDSAT, VT, Legal);
+    setOperationAction(ISD::SSUBSAT, VT, Legal);
+    setOperationAction(ISD::USUBSAT, VT, Legal);
   }
 
   setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
