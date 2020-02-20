@@ -1089,8 +1089,12 @@ pi_result L0(piQueueRelease)(pi_queue command_queue) {
   return PI_SUCCESS;
 }
 
-pi_result L0(piQueueFinish)(pi_queue command_queue) {
-  pi_throw("piQueueFinish: not implemented");
+pi_result L0(piQueueFinish)(pi_queue command_queue)
+{
+  // Wait until command lists attached to the command queue are executed.
+  ZE_CALL(zeCommandQueueSynchronize(
+    command_queue->L0CommandQueue, UINT32_MAX));
+  return PI_SUCCESS;
 }
 
 pi_result piMemBufferCreate(
