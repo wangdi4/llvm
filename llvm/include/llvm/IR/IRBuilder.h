@@ -936,17 +936,6 @@ private:
   Value *getCastedInt8PtrValue(Value *Ptr);
 };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  /// Insert and return the specified instruction without changing its debug
-  /// location.
-  template <typename InstTy>
-  InstTy *InsertWithDbgLoc(InstTy *I, const Twine &Name = "") const {
-    Inserter.InsertHelper(I, Name, BB, InsertPt);
-    return I;
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
 /// This provides a uniform API for creating instructions and inserting
 /// them into a basic block: either at the end of a BasicBlock, or at a specific
 /// iterator location in a block.
@@ -1020,11 +1009,20 @@ public:
     return I;
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Insert and return the specified instruction without changing its debug
+  /// location.
+  template <typename InstTy>
+  InstTy *InsertWithDbgLoc(InstTy *I, const Twine &Name = "") const {
+    this->InsertHelper(I, Name, BB, InsertPt);
+    return I;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// No-op overload to handle constants.
   Constant *Insert(Constant *C, const Twine& = "") const {
     return C;
   }
->>>>>>> af480e8c63b27ad247b8430cf124da8bcdf752f8
 
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Terminators
