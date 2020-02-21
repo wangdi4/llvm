@@ -163,6 +163,11 @@ private:
   void
   linearizeRegion(const ReversePostOrderTraversal<VPBlockBase *> &RegionRPOT);
 
+  // Add an additional all-zero-check for inner loops with uniform backedge
+  // condition on a divergent path. Temporary workaround untill proper region
+  // bypass infrastructure is implemented.
+  void fixupUniformInnerLoops();
+
   bool shouldPreserveUniformBranches() const;
 
   bool shouldPreserveOutgoingEdges(VPBlockBase *Block);

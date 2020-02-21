@@ -750,6 +750,22 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
   }
 }
 
+// Check whether \p Inst is a consistent update of induction, i.e. it
+// has correct opcode and contains induction step.
+static bool isConsistentInductionUpdate(const VPInstruction *Inst,
+                                        unsigned BinOpc, const VPValue *Step) {
+  // Check whether update operator is consistent with induction definition,
+  // i.e. it has the declared opcode and induction step as operand.
+  // For auto-recognized inductions the BinOpc is set to BinaryOpsEnd
+  // so we have special check for that.
+  // TODO: It's better to have the BinOpc set for auto-recognized inductions
+  // as well. This is planned for implementation in the fix for CMPLRLLVM-11590.
+  bool IsAutoRecognizedInduction = BinOpc == Instruction::BinaryOpsEnd;
+  return Instruction::isBinaryOp(Inst->getOpcode()) &&
+         (IsAutoRecognizedInduction || Inst->getOpcode() == BinOpc) &&
+         Inst->getOperandIndex(Step) != -1;
+}
+
 // Insert VPInstructions related to VPInductions.
 void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
                                                      VPBasicBlock *Preheader,
@@ -789,12 +805,17 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
         Induction->getStep(), Opc, Name + ".ind.init.step");
 
     if (!Induction->needCloseForm()) {
-      if (auto *Instr = Induction->getInductionBinOp())
+      if (auto *Instr = Induction->getInductionBinOp()) {
+        assert(isConsistentInductionUpdate(Instr,
+                                           Induction->getInductionOpcode(),
+                                           Induction->getStep()) &&
+               "Inconsistent induction update");
         // This is the only instruction to replace step in induction
         // calculation, no other instruction should be affected. That is
         // important in case the step is used in other instructions linked
         // with induction.
         Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+      }
     } else {
       createInductionCloseForm(Induction, Builder, *Init, *InitStep,
                                *PrivateMem);
@@ -1481,8 +1502,14 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
     // blend them. There might be uses between the updates.
     return true;
 
-  VPInstruction *IndIncrementVPI = InductionBinOp ? InductionBinOp : nullptr;
+  VPInstruction *IndIncrementVPI = InductionBinOp;
 
+  if (IndIncrementVPI) {
+    if (!isConsistentInductionUpdate(IndIncrementVPI, getBinOpcode(),
+                                        getStep()))
+      // The update instruction is inconsistent.
+      return true;
+  }
   if (!IndIncrementVPI) {
     // TODO: Currently we don't have analyses for memory inductions in
     // VPLoopEntities to determine final updating instruction. Temporarily using
