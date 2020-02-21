@@ -2135,6 +2135,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   setTargetDAGCombine(ISD::FADD);
   setTargetDAGCombine(ISD::FSUB);
   setTargetDAGCombine(ISD::FNEG);
+  setTargetDAGCombine(ISD::FMUL); // INTEL
   setTargetDAGCombine(ISD::FMA);
   setTargetDAGCombine(ISD::STRICT_FMA);
   setTargetDAGCombine(ISD::FMINNUM);
@@ -43993,6 +43994,142 @@ static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+#if INTEL_CUSTOMIZATION
+// R1 = (A + X) * Y
+// R2 = (B + X) * Y
+//  =>
+// R0 = X * Y
+// R1 = A * Y + R0
+// R2 = B * Y + R0
+//
+// That may seems like doing additional multiplication, but
+// R1 and R2 computations can be turned into FMA instruction.
+// According to instruction tables, latencies and throughput of
+// vaddss, vmulss and vfmaddXXXss are equal. So after generating
+// FMA we save 1 instruction.
+//
+// We do the same transformation for add and sub and
+// allow them to be mixed:
+//  R1 = (A - X) * Y
+//  R2 = (X + B) * Y
+static SDValue combineFMUL(SDNode *N, SelectionDAG &DAG,
+                           const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+
+  if (!DAG.getTarget().Options.UnsafeFPMath)
+    return SDValue();
+
+  if (!Subtarget.hasAnyFMA())
+    return SDValue();
+
+  SDValue R1AddSub, Y;
+  if (LHS.hasOneUse() &&
+      (LHS.getOpcode() == ISD::FSUB || LHS.getOpcode() == ISD::FADD)) {
+    R1AddSub = LHS;
+    Y = RHS;
+  } else if (RHS.hasOneUse() &&
+             (RHS.getOpcode() == ISD::FSUB || RHS.getOpcode() == ISD::FADD)) {
+    R1AddSub = RHS;
+    Y = LHS;
+  } else
+    return SDValue();
+
+  // We require all the values to originate from loads.
+  // It is done to reduce the scope of optimization to
+  // 526.blender_r only.
+  if (!ISD::isNormalLoad(Y.getNode()) ||
+      !ISD::isNormalLoad(R1AddSub.getOperand(0).getNode()) ||
+      !ISD::isNormalLoad(R1AddSub.getOperand(1).getNode()))
+    return SDValue();
+
+  // For now we just bail out if Y doesn't have 2 users.
+  // But this is not a constraint. Later we can extend
+  // the algorithm by exploring every user of Y and
+  // potentially combine them all.
+  if (!Y->hasNUsesOfValue(2, 0))
+    return SDValue();
+
+  // Now let's try to find another subgraph (R2) with similar computations.
+  SDNode *FirstYUser = *Y->use_begin();
+  SDNode *SecondYUser = *(std::next(Y->use_begin()));
+  SDNode *R2 = FirstYUser == N ? SecondYUser : FirstYUser;
+  assert(R2 && "Expected to find a second user!");
+
+  if (R2->getOpcode() != ISD::FMUL)
+    return SDValue();
+
+  SDValue R2Mul = SDValue(R2, 0);
+
+  SDValue R2AddSub;
+  if (R2Mul.getOperand(0) == Y)
+    R2AddSub = R2Mul.getOperand(1);
+  else if (R2Mul.getOperand(1) == Y)
+    R2AddSub = R2Mul.getOperand(0);
+  else
+    return SDValue();
+
+  if (!R2AddSub.hasOneUse() ||
+      (R2AddSub.getOpcode() != ISD::FADD && R2AddSub.getOpcode() != ISD::FSUB))
+    return SDValue();
+
+  SDValue A = R1AddSub.getOperand(0);
+  SDValue X = R1AddSub.getOperand(1);
+
+  // We found a matching fmul. Now let's try to find matching fsub/fadd.
+  SDValue CommonOperand, B;
+  if (R2AddSub.getOperand(0) == X) {
+    CommonOperand = X;
+    B = R2AddSub.getOperand(1);
+  } else if (R2AddSub.getOperand(1) == X) {
+    CommonOperand = X;
+    B = R2AddSub.getOperand(0);
+  } else if (R2AddSub.getOperand(0) == A) {
+    CommonOperand = A;
+    B = R2AddSub.getOperand(1);
+  } else if (R2AddSub.getOperand(1) == A) {
+    CommonOperand = A;
+    B = R2AddSub.getOperand(0);
+  } else
+    return SDValue();
+
+  if (!ISD::isNormalLoad(B.getNode()))
+    return SDValue();
+
+  // Actual transformation.
+  // 1) Create R0 = X * Y
+  SDLoc dl(N);
+  SDValue R0 = DAG.getNode(ISD::FMUL, dl, VT, CommonOperand, Y, N->getFlags());
+
+  // 2) Create R1 = A * Y + R0
+  SDValue UncommonOperand = CommonOperand == A ? X : A;
+  SDValue NewR1Mul =
+      DAG.getNode(ISD::FMUL, dl, VT, UncommonOperand, Y, N->getFlags());
+  SDValue NewR1AddSub;
+  if (A == CommonOperand)
+    NewR1AddSub = DAG.getNode(R1AddSub->getOpcode(), dl, VT, R0, NewR1Mul,
+                              R1AddSub->getFlags());
+  else
+    NewR1AddSub = DAG.getNode(R1AddSub->getOpcode(), dl, VT, NewR1Mul, R0,
+                              R1AddSub->getFlags());
+
+  // 3) Create R2 = B * Y + R0
+  SDLoc R2dl(R2Mul);
+  SDValue NewR2Mul = DAG.getNode(ISD::FMUL, dl, VT, B, Y, R2Mul->getFlags());
+  SDValue NewR2AddSub;
+  if (R2AddSub.getOperand(0) == CommonOperand)
+    NewR2AddSub = DAG.getNode(R2AddSub->getOpcode(), R2dl, VT, R0, NewR2Mul,
+                              R2AddSub->getFlags());
+  else
+    NewR2AddSub = DAG.getNode(R2AddSub->getOpcode(), R2dl, VT, NewR2Mul, R0,
+                              R2AddSub->getFlags());
+
+  DAG.ReplaceAllUsesOfValueWith(R2Mul, NewR2AddSub);
+  return NewR1AddSub;
+}
+#endif
+
 /// Attempt to pre-truncate inputs to arithmetic ops if it will simplify
 /// the codegen.
 /// e.g. TRUNC( BINOP( X, Y ) ) --> BINOP( TRUNC( X ), TRUNC( Y ) )
@@ -48142,6 +48279,7 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
     return combineUIntToFP(N, DAG, Subtarget);
   case ISD::FADD:
   case ISD::FSUB:           return combineFaddFsub(N, DAG, Subtarget);
+  case ISD::FMUL:           return combineFMUL(N, DAG, Subtarget); // INTEL
   case ISD::FNEG:           return combineFneg(N, DAG, Subtarget);
   case ISD::TRUNCATE:       return combineTruncate(N, DAG, Subtarget);
   case X86ISD::VTRUNC:      return combineVTRUNC(N, DAG);
