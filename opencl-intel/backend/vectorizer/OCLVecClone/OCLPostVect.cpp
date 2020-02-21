@@ -51,13 +51,23 @@ bool OCLPostVect::runOnModule(Module &M) {
   auto Kernels = KernelList(*&M).getList();
   bool ModifiedModule = false;
   for (Function *F : Kernels) {
+    //Remove "ocl_recommended_vector_length" metadata
+    MDValueGlobalObjectStrategy::unset(F, "ocl_recommended_vector_length");
     auto FMD = KernelInternalMetadataAPI(F);
     Function *ClonedKernel = FMD.VectorizedKernel.get();
     if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {
-      // unset the metadata of the original kernel wh
+      // Unset the metadata of the original kernel.
       MDValueGlobalObjectStrategy::unset(F, "vectorized_kernel");
       // If the kernel is not vectorized, then the cloned kernel is removed.
       ClonedKernel->eraseFromParent();
+      ModifiedModule = true;
+    }
+    Function *MaskedKernel = FMD.VectorizedMaskedKernel.get();
+    if (MaskedKernel && !isKernelVectorized(MaskedKernel)) {
+      // Unset the metadata of the original kernel.
+      MDValueGlobalObjectStrategy::unset(F, "vectorized_masked_kernel");
+      // If the kernel is not vectorized, then the masked kernel is removed.
+      MaskedKernel->eraseFromParent();
       ModifiedModule = true;
     }
   }

@@ -42,6 +42,8 @@ public:
 
   virtual const std::string& getGenType(const std::string&) const { return m_Name; }
 
+  std::string getMaskCastTy() const;
+
   std::string getCPattern() const;
 
   std::string getCMask() const;

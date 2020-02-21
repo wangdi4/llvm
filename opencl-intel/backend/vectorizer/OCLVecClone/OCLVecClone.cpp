@@ -127,9 +127,11 @@ static void updateMetadata(Function &F, Function *Clone) {
   // Set "vector_width" for the original kernel.
   FMD.VectorizedWidth.set(1);
   FMD.ScalarizedKernel.set(nullptr);
-  FMD.VectorizedKernel.set(Clone);
-  // Remove "ocl_recommended_vector_length" metadata
-  MDValueGlobalObjectStrategy::unset(&F, "ocl_recommended_vector_length");
+
+  if (F.getFunctionType() == Clone->getFunctionType())
+    FMD.VectorizedKernel.set(Clone);
+  else // Vectorized kernel with mask
+    FMD.VectorizedMaskedKernel.set(Clone);
 }
 
 // Updates all the uses of TID calls with TID + new induction variable.
@@ -281,6 +283,8 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       std::make_pair(CompilationUtils::mangledGetGlobalOffset(),
                      FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetGroupID(), FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetSubGroupSize(),
+                     FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetLocalSize(),
                      FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetEnqueuedLocalSize(),
@@ -832,29 +836,33 @@ static ContainerTy OCLBuiltinVecInfo() {
   addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
   addEntries(Info, "_Z14work_group_all", TypeInfo{'i'}, {VectorKind::vector()}, false);
   addEntries(Info, "_Z14work_group_any", TypeInfo{'i'}, {VectorKind::vector()}, false);
+  addEntries(Info, "_Z14work_group_all", TypeInfo{'i'}, {VectorKind::vector()}, true);
+  addEntries(Info, "_Z14work_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
 
   addEntries(Info, "_Z22intel_sub_group_ballot", TypeInfo{'i'}, {VectorKind::vector()}, true);
 
   addSpecialBuiltins(Info);
 
   TypeInfo WorkGroupReductionTypes[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (TypeInfo &Type : WorkGroupReductionTypes) {
-    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}},
-               {VectorKind::vector(), VectorKind::uniform()}, false);
-    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}},
-               {VectorKind::vector(),
-                  VectorKind::uniform(), VectorKind::uniform()}, false);
-    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}, {'m'}},
-               {VectorKind::vector(),
-                  VectorKind::uniform(), VectorKind::uniform(), VectorKind::uniform()},
-                false);
-    for (auto Op : {"add", "min", "max"}) {
-       addEntries(Info, std::string("_Z21work_group_reduce_") + Op, Type,
-                 {VectorKind::vector()}, false);
-       addEntries(Info, std::string("_Z29work_group_scan_exclusive_") + Op, Type,
-                  {VectorKind::vector()}, false);
-       addEntries(Info, std::string("_Z29work_group_scan_inclusive_") + Op, Type,
-                  {VectorKind::vector()}, false);
+  for (auto MaskOption : {true, false}) {
+    for (TypeInfo &Type : WorkGroupReductionTypes) {
+      addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}},
+                 {VectorKind::vector(), VectorKind::uniform()}, MaskOption);
+      addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}},
+                 {VectorKind::vector(),
+                    VectorKind::uniform(), VectorKind::uniform()}, MaskOption);
+      addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}, {'m'}},
+                 {VectorKind::vector(),
+                    VectorKind::uniform(), VectorKind::uniform(), VectorKind::uniform()},
+                  MaskOption);
+      for (auto Op : {"add", "min", "max"}) {
+         addEntries(Info, std::string("_Z21work_group_reduce_") + Op, Type,
+                   {VectorKind::vector()}, MaskOption);
+         addEntries(Info, std::string("_Z29work_group_scan_exclusive_") + Op, Type,
+                    {VectorKind::vector()}, MaskOption);
+         addEntries(Info, std::string("_Z29work_group_scan_inclusive_") + Op, Type,
+                    {VectorKind::vector()}, MaskOption);
+      }
     }
   }
   TypeInfo SubGroupReductionsTypes[] =
