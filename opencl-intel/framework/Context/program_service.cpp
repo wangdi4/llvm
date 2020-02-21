@@ -156,11 +156,10 @@ bool CompileTask::Execute()
     {
         // The frontend compiler is not thread safe
         OclAutoMutex lockCompile(&m_compileMtx);
-        assert(szSource != NULL && "Invalide source code");
         if(pIL)
         {
             unsigned int binarySize = pIL->GetSize();
-
+            assert(szSource != NULL && "Invalid source code");
             m_pFECompiler->ParseSpirv(szSource,
                                       binarySize,
                                       m_sOptions.c_str(),
@@ -182,6 +181,7 @@ bool CompileTask::Execute()
             }
             else
             {
+                assert(szSource != NULL && "Invalid source code");
                 m_pFECompiler->CompileProgram(szSource,
                                               m_uiNumHeaders,
                                               m_pszHeaders,
