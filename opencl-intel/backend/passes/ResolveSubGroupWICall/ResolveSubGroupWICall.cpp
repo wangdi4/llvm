@@ -132,7 +132,7 @@ namespace intel {
           CI, replaceGetEnqueuedNumSubGroups(M, CI, VF, VD)));
       } else if (CompilationUtils::isGetSubGroupSize(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
-          CI, replaceGetSubGroupSize(M, CI, VF)));
+          CI, replaceGetSubGroupSize(M, CI, VF, VD)));
       }  else if (CompilationUtils::isGetMaxSubGroupSize(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetMaxSubGroupSize(M, CI, VF)));
@@ -164,19 +164,50 @@ namespace intel {
   }
 
   Value* ResolveSubGroupWICall::replaceGetSubGroupSize(
-      Module *M, Value *insertBefore, size_t VF) {
-    // TODO: get_sub_group_size needs to be implemented smarter when
-    // we'll have support for masked loop remainders for non-VF divisible WG sizes.
-    return replaceGetMaxSubGroupSize(M, insertBefore, VF);
+      Module *M, Instruction *insertBefore, size_t VF, int32_t VD) {
+    // get_sub_group_size will be replaced with:
+    // non_uniform_size = get_local_size(VD) % VF
+    // max_uniform_id = get_local_size(VD) - non_uniform_size
+    // sub_group_size = get_local_id(VD) < max_uniform_id ? VF :
+    //                                       non_uniform_size
+    // Though get_local_id will be resolved as the id of first WI in the
+    // sub group, it does not matter. Because we just use the id to
+    // compare with max_uniform_id, any id within a sub group is ok.
+
+    Type* Int32Ty = Type::getInt32Ty(M->getContext());
+    std::string LocalSizeName = CompilationUtils::mangledGetLocalSize();
+    std::string LocalIdName = CompilationUtils::mangledGetLID();
+
+    auto *vecDimVar = ConstantInt::get(Int32Ty, VD);
+
+    auto *localSize =
+      createWIFunctionCall(M, "", LocalSizeName, insertBefore, vecDimVar);
+    auto *maxUniformId =
+      BinaryOperator::Create(Instruction::And, ConstantInt::get(m_ret, -VF),
+                             localSize, "uniform.id.max", insertBefore);
+    auto *nonUniformSize =
+      BinaryOperator::Create(Instruction::Sub, localSize, maxUniformId,
+                             "nonuniform.size", insertBefore);
+    auto *localId =
+      createWIFunctionCall(M, "", LocalIdName, insertBefore, vecDimVar);
+    auto *cond =
+      new ICmpInst(insertBefore, CmpInst::ICMP_ULT, localId, maxUniformId, "");
+    auto *VFVal = createVFConstant(M->getContext(), M->getDataLayout(), VF);
+    auto *sgSize =
+      SelectInst::Create(cond, VFVal, nonUniformSize, "", insertBefore);
+    auto *ret =
+      CastInst::CreateTruncOrBitCast(sgSize, Int32Ty,
+                                     "subgroup.size", insertBefore);
+    return ret;
   }
 
   Value* ResolveSubGroupWICall::replaceGetMaxSubGroupSize(
-      Module *M, Value *insertBefore, size_t VF) {
+      Module *M, Instruction *insertBefore, size_t VF) {
     return ConstantInt::get(IntegerType::get(M->getContext(), 32), VF);
   }
 
   Value* ResolveSubGroupWICall::replaceGetSubGroupLocalId(
-      Module *M, Value *insertBefore, size_t VF) {
+      Module *M, Instruction *insertBefore, size_t VF) {
     // Gets expanded to <0, 1, ..., VF - 1> by Vectorizer.
     return ConstantInt::get(IntegerType::get(M->getContext(), 32), 0);
   }
