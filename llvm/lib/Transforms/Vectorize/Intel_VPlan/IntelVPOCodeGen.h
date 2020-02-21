@@ -265,17 +265,20 @@ private:
   void fixOutgoingValues();
 
   /// Fix up reduction last value (link with remainder etc).
-  void fixReductionLastVal(const VPReduction &Red, Value *LastVal);
+  void fixReductionLastVal(const VPReduction &Red, VPReductionFinal *RedFinal);
 
-  /// Fix up live out value for a loop entity \p Ent.
-  void fixLiveOutValues(const VPLoopEntity &Ent, Value *LastVal);
+  /// Fix up live out value for a loop entity with finalization instruction \p
+  /// FinalVPInst. NOTE: This fixup assumes that all external uses of VPEntity
+  /// related instructions are replaced by its corresponding finalization
+  /// VPInstruction.
+  void fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal);
 
   /// A part of fix up of last value. Creates a needed phi in intermediate
   /// block and updates phi in remainder.
   void createLastValPhiAndUpdateOldStart(Value *OrigStartValue, PHINode *Phi,
                                          const Twine &NameStr, Value *LastVal);
   /// Fix up induction last value.
-  void fixInductionLastVal(const VPInduction &Ind, Value *LastVal);
+  void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
   /// Get an index of last written lane using Mask value.
   Value *getLastLaneFromMask(Value *MaskPtr);
@@ -445,8 +448,8 @@ private:
   // generated %ptr alloca above will be <4 x i32>*.
   DenseMap<VPValue *, Value *> LoopPrivateVPWidenMap;
 
-  // Holds last values generated for loop entities.
-  MapVector<const VPLoopEntity *, Value *> EntitiesLastValMap;
+  // Holds finalization VPInstructions generated for loop entities.
+  MapVector<const VPLoopEntity *, VPInstruction *> EntitiesFinalVPInstMap;
 
   // --- Vectorization state ---
 
