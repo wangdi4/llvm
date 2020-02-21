@@ -129,7 +129,7 @@ namespace intel {
           CI, replaceGetSubGroupId(M, CI, VF)));
       } else if (CompilationUtils::isGetEnqueuedNumSubGroups(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
-          CI, replaceGetEnqueuedNumSubGroups(M, CI, VF)));
+          CI, replaceGetEnqueuedNumSubGroups(M, CI, VF, VD)));
       } else if (CompilationUtils::isGetSubGroupSize(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetSubGroupSize(M, CI, VF)));
@@ -182,7 +182,7 @@ namespace intel {
   }
 
   Instruction* ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(
-    Module *M, Instruction *insertBefore, size_t VF) {
+    Module *M, Instruction *insertBefore, size_t VF, int32_t VD) {
     // Replace get_enqueued_num_sub_groups with the following sequence:
     // Let x be the dimension over which the vectorization has happened. x is in {0,1,2}.
     // Let y and z be the over simensions. y,z are in {0,1,2}\{x}.
@@ -199,21 +199,24 @@ namespace intel {
     auto *enqdlsz2 =
       createWIFunctionCall(M, "enqdlz2", EnqdLocalSizeName, insertBefore, m_two);
 
-    auto *op0 =
-      BinaryOperator::Create(Instruction::Mul, enqdlsz0, enqdlsz1,
-                             "mul.enqdlsz0.enqdlsz1", insertBefore);
-    auto *op1 =
-      BinaryOperator::Create(Instruction::Mul, op0, enqdlsz2,
-                             "mul.enqdlsz0.enqdlsz1.enqdlsz2", insertBefore);
-
+    Value *valOne = ConstantInt::get(m_ret, 1);
+    std::vector<Value*> enqdlszs = {enqdlsz0, enqdlsz1, enqdlsz2};
+    auto *op0 = BinaryOperator::Create(Instruction::Sub, enqdlszs[VD],
+                                       valOne, "", insertBefore);
     auto *VFVal = createVFConstant(M->getContext(), M->getDataLayout(), VF);
+    auto *op1 = BinaryOperator::CreateUDiv(op0, VFVal, "", insertBefore);
+    auto *op2 = BinaryOperator::Create(Instruction::Add, op1, valOne,
+                                       "sg.num.vecdim.enqd", insertBefore);
+    enqdlszs[VD] = op2;
 
-    auto *op2 = BinaryOperator::CreateUDiv(op1, VFVal, "lgid.res.div", insertBefore);
-
-    auto* res =
-      CastInst::CreateTruncOrBitCast(op2, Type::getInt32Ty(M->getContext()),
-                                     "lgid.res.div.trunc", insertBefore);
-
+    auto *sgNumOp0 = BinaryOperator::Create(Instruction::Mul, enqdlszs[0],
+                                            enqdlszs[1], "", insertBefore);
+    auto *sgNumOp1 = BinaryOperator::Create(Instruction::Mul, sgNumOp0,
+                                            enqdlszs[2], "", insertBefore);
+    auto *res =
+      CastInst::CreateTruncOrBitCast(sgNumOp1,
+                                     Type::getInt32Ty(M->getContext()),
+                                     "sg.num.enqd", insertBefore);
     return res;
   }
 
