@@ -71,6 +71,10 @@ public:
     if (!MHostQueue) {
       MCommandQueue = createQueue(Order);
     }
+    if (!Context->hasDevice(Device))
+      throw cl::sycl::invalid_parameter_error(
+          "Queue cannot be constructed with the given context and device "
+          "as the context does not contain the given device.");
   }
 
   /// Constructs a SYCL queue from plugin interoperability handle.
@@ -90,7 +94,7 @@ public:
     // TODO catch an exception and put it to list of asynchronous exceptions
     PI_CALL(piQueueGetInfo)(MCommandQueue, PI_QUEUE_INFO_DEVICE, sizeof(Device),
                             &Device, nullptr);
-    MDevice = std::make_shared<device_impl>(Device);
+    MDevice = DeviceImplPtr(new device_impl(Device));
 
     // TODO catch an exception and put it to list of asynchronous exceptions
     PI_CALL(piQueueRetain)(MCommandQueue);
