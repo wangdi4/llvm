@@ -26,19 +26,19 @@ template <info::kernel Param> struct get_kernel_info<string_class, Param> {
     size_t ResultSize;
 
     // TODO catch an exception and put it to list of asynchronous exceptions
-#if INTEL_CUSTOMIZATION
+/* INTEL_CUSTOMIZATION */
     Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param), 0,
                                             nullptr, &ResultSize);
-#endif // INTEL_CUSTOMIZATION
+/* end INTEL_CUSTOMIZATION */
     if (ResultSize == 0) {
       return "";
     }
     vector_class<char> Result(ResultSize);
     // TODO catch an exception and put it to list of asynchronous exceptions
-#if INTEL_CUSTOMIZATION
+/* INTEL_CUSTOMIZATION */
     Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
                                             ResultSize, Result.data(), nullptr);
-#endif // INTEL_CUSTOMIZATION
+/* end INTEL_CUSTOMIZATION */
     return string_class(Result.data());
   }
 };
