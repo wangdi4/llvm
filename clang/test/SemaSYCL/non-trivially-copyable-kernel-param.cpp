@@ -11,6 +11,18 @@ struct B {
   B (const B& x) : i(x.i) {}
 };
 
+// if INTEL_CUSTOMIZATION
+struct C : A {
+  const A C2;
+  C() : A{0}, C2{2}{}
+};
+
+struct D {
+  int i;
+  ~D();
+};
+// endif // INTEL_CUSTOMIZATION
+
 template <typename Name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
   kernelFunc();
@@ -20,9 +32,16 @@ void test() {
   A IamGood;
   IamGood.i = 0;
   B IamBad(1);
+  C IamAlsoGood;  // INTEL
+  D IamAlsoBad{0}; // INTEL
   kernel_single_task<class kernel_capture_refs>([=] {
     int a = IamGood.i;
-    // expected-error@+1 {{kernel parameter has non-trivially copyable class/struct type}}
+// if INTEL_CUSTOMIZATION
+    // expected-error@+1 {{kernel parameter has non-trivially copy constructible class/struct type}}
     int b = IamBad.i;
+    int c = IamAlsoGood.i;
+    // expected-error@+1 {{kernel parameter has non-trivially destructible class/struct type}}
+    int d = IamAlsoBad.i;
+// endif // INTEL_CUSTOMIZATION
   });
 }
