@@ -185,7 +185,7 @@ private:
 
   ///@brief returns the early exit call.
   ///@returns as above.
-  CallInst *createEECall();
+  CallInst *createEECall(Function* fn);
 
   ///@brief obtain initial global id, and loop size per dimension.
   void getLoopsBoundaries();
@@ -232,6 +232,9 @@ private:
   ///@brief size_t one constant.
   Constant *m_constPacket;
 
+  ///@brief Masked Function being processed.
+  Function *m_maskFn;
+
   ///@brief Function being processed.
   Function *m_F;
 
@@ -246,6 +249,9 @@ private:
 
   ///@brief new entry block.
   BasicBlock *m_newEntry;
+
+  ///@brief vectorized and masked kernel entry block.
+  BasicBlock *m_vectorMaskEntry;
 
   ///@brief scalar kernel entry.
   BasicBlock *m_scalarEntry;
@@ -274,6 +280,14 @@ private:
   ///@brief index i contains vector with vector kernel get_local_id(i) calls.
   IVecVec m_lidCallsVec;
 
+  ///@brief index i contains vector with masked vector kernel
+  //get_global_id(i) calls.
+  IVecVec m_gidCallsMaskedVec;
+
+  ///@brief index i contains vector with masked vector kernel
+  //get_local_id(i) calls.
+  IVecVec m_lidCallsMaskedVec;
+
   ///@brief index i contains the base global id for dimension i.
   IVec m_baseGids;
 
@@ -282,6 +296,9 @@ private:
 
   ///@brief vector kernel return.
   ReturnInst *m_vectorRet;
+
+  ///@brief vector kernel return.
+  ReturnInst *m_maskVectorRet;
 
   ///@brief global_id lower bounds per dimension.
   VVec m_initGIDs;

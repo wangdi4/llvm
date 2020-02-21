@@ -379,6 +379,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if (kimd.VectorizedKernel.hasValue() && kimd.VectorizedKernel.get()) {
         functionSet.insert(kimd.VectorizedKernel.get());
       }
+      if (kimd.VectorizedMaskedKernel.hasValue() && kimd.VectorizedMaskedKernel.get()) {
+        functionSet.insert(kimd.VectorizedMaskedKernel.get());
+      }
     }
   }
 
