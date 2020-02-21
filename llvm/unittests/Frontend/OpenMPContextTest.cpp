@@ -56,7 +56,7 @@ TEST_F(OpenMPContextTest, ValidNesting) {
   EXPECT_TRUE(isValidTraitSelectorForTraitSet(TraitSelector::Enum,             \
                                               TraitSet::TraitSetEnum,          \
                                               AllowsTraitScore, ReqProperty)); \
-  EXPECT_EQ(RequiresProperty, ReqProperty);
+  EXPECT_TRUE(RequiresProperty == ReqProperty);                         // INTEL
 #define OMP_TRAIT_PROPERTY(Enum, TraitSetEnum, TraitSelectorEnum, Str)         \
   EXPECT_TRUE(isValidTraitPropertyForTraitSetAndSelector(                      \
       TraitProperty::Enum, TraitSelector::TraitSelectorEnum,                   \
