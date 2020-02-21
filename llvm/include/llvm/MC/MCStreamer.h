@@ -18,6 +18,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"
@@ -905,27 +906,6 @@ public:
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
       StringRef FixedSizePortion);
 
-#if INTEL_CUSTOMIZATION
-  virtual void EmitCVDefRangeDirectiveRegisterRelSym(
-      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      support::ulittle16_t Register, support::ulittle16_t Flags,
-      support::little32_t BasePointerOffset);
-
-  virtual void EmitCVDefRangeDirectiveSubfieldRegisterSym(
-      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-       support::ulittle16_t Register, support::ulittle16_t MayHaveNoName,
-       support::ulittle32_t OffsetInParent);
-
-  virtual void EmitCVDefRangeDirectiveRegisterSym(
-      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      support::ulittle16_t Register, support::ulittle16_t MayHaveNoName);
-
-  virtual void EmitCVDefRangeDirectiveFramePointerRelSym(
-      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      support::little32_t Offset);
-
-#else // INTEL_CUSTOMIZATION
-
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
       codeview::DefRangeRegisterRelHeader DRHdr);
@@ -941,8 +921,6 @@ public:
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
       codeview::DefRangeFramePointerRelHeader DRHdr);
-
-#endif // INTEL_CUSTOMIZATION
 
   /// This implements the CodeView '.cv_stringtable' assembler directive.
   virtual void EmitCVStringTableDirective() {}

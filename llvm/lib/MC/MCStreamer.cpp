@@ -360,59 +360,6 @@ void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
     StringRef FixedSizePortion) {}
 
-#if INTEL_CUSTOMIZATION
-
-void MCStreamer::EmitCVDefRangeDirectiveRegisterRelSym(
-    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    support::ulittle16_t Register, support::ulittle16_t Flags,
-    support::little32_t BasePointerOffset) {
-  SmallString<20> BytePrefix;
-  codeview::DefRangeRegisterRelHeader DRHdr;
-  DRHdr.Register = Register;
-  DRHdr.Flags = Flags;
-  DRHdr.BasePointerOffset = BasePointerOffset;
-  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER_REL, DRHdr);
-  EmitCVDefRangeDirective(Ranges, BytePrefix);
-}
-
-void MCStreamer::EmitCVDefRangeDirectiveSubfieldRegisterSym(
-    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-      support::ulittle16_t Register, support::ulittle16_t MayHaveNoName,
-      support::ulittle32_t OffsetInParent) {
-  SmallString<20> BytePrefix;
-  codeview::DefRangeSubfieldRegisterHeader DRHdr;
-  DRHdr.Register = Register;
-  DRHdr.MayHaveNoName = MayHaveNoName;
-  DRHdr.OffsetInParent = OffsetInParent;
-  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_SUBFIELD_REGISTER,
-                       DRHdr);
-  EmitCVDefRangeDirective(Ranges, BytePrefix);
-}
-
-void MCStreamer::EmitCVDefRangeDirectiveRegisterSym(
-    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    support::ulittle16_t Register, support::ulittle16_t MayHaveNoName) {
-  SmallString<20> BytePrefix;
-  codeview::DefRangeRegisterHeader DRHdr;
-  DRHdr.Register = Register;
-  DRHdr.MayHaveNoName = MayHaveNoName;
-  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER, DRHdr);
-  EmitCVDefRangeDirective(Ranges, BytePrefix);
-}
-
-void MCStreamer::EmitCVDefRangeDirectiveFramePointerRelSym(
-    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
-    support::little32_t Offset) {
-  SmallString<20> BytePrefix;
-  codeview::DefRangeFramePointerRelHeader DRHdr;
-  DRHdr.Offset = Offset;
-  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_FRAMEPOINTER_REL,
-                       DRHdr);
-  EmitCVDefRangeDirective(Ranges, BytePrefix);
-}
-
-#else // INTEL_CUSTOMIZATION
-
 void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
     codeview::DefRangeRegisterRelHeader DRHdr) {
@@ -446,8 +393,6 @@ void MCStreamer::EmitCVDefRangeDirective(
                        DRHdr);
   EmitCVDefRangeDirective(Ranges, BytePrefix);
 }
-
-#endif // INTEL_CUSTOMIZATION
 
 void MCStreamer::emitEHSymAttributes(const MCSymbol *Symbol,
                                      MCSymbol *EHSymbol) {

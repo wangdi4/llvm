@@ -8,8 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "STIDebug.h"
-#include "STI.h"
-#include "STIIR.h"
 #include "pdbInterface.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerUnion.h" // dyn_cast
@@ -30,6 +28,9 @@
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
+
+#include "STIIR.h"
+#include "STI.h"
 
 #include <map>
 #include <vector>
