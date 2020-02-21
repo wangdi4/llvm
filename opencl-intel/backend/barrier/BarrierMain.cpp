@@ -34,9 +34,10 @@ extern "C" {
   //void* createDataPerBarrierPass();
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
+  void* createReplaceScalarWithMaskPass();
   void *createBarrierPass(bool isNativeDebug, bool useTLSGlobals);
   Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
-
+  Pass* createResolveSubGroupWICallPass();
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 }
 
@@ -53,8 +54,15 @@ namespace intel {
     legacy::PassManager barrierModulePM;
 
     barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
-
     if( m_optLevel > 0 ) {
+      // Currently, vectorizer is enabled only when m_optLevel > 0.
+      barrierModulePM.add((ModulePass*)createReplaceScalarWithMaskPass());
+      // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
+      barrierModulePM.add(createResolveSubGroupWICallPass());
+
+      barrierModulePM.add(createDeadCodeEliminationPass());
+      barrierModulePM.add(createCFGSimplificationPass());
+
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
     }
 

@@ -53,6 +53,7 @@ namespace intel {
     m_dummyBarrierFunc = 0;
     m_getSpecialBufferFunc = 0;
     m_getGIDFunc = 0;
+    m_getSGSizeFunc = nullptr;
     m_getBaseGIDFunc = 0;
     m_getLocalSizeFunc = 0;
 
@@ -403,6 +404,19 @@ namespace intel {
     return CallInst::Create(m_getBaseGIDFunc, dim,
                             AppendWithDimension("BaseGlobalId_", dim),
                             pInsertBefore);
+  }
+
+  Instruction* BarrierUtils::createGetSGSize(BasicBlock* pBB) {
+    const std::string strSGSize = CompilationUtils::mangledGetSubGroupSize();
+    if (!m_getSGSizeFunc)
+      m_getSGSizeFunc = m_pModule->getFunction(strSGSize);
+    if (!m_getSGSizeFunc) {
+      Type *pResult = IntegerType::get(m_pModule->getContext(), 32);
+      std::vector<Type*> funcTyArgs;
+      m_getSGSizeFunc = createFunctionDeclaration(strSGSize, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getSGSizeFunc);
+    }
+    return CallInst::Create(m_getSGSizeFunc, "sg.size", pBB);
   }
 
   Instruction* BarrierUtils::createGetGlobalId(unsigned dim, IRBuilder<> &B) {

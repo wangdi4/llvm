@@ -412,6 +412,11 @@ namespace intel {
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object
+        if (params.size() < pFinalizeFunc->arg_size()) {
+          auto* dummyMask =
+            UndefValue::get((pFinalizeFunc->arg_end()-1)->getType());
+          params.push_back(dummyMask);
+        }
         CallInst *pFinalizeCall = CallInst::Create(pFinalizeFunc, ArrayRef<Value*>(params), "CallFinalizeWG", pWgCallInst);
         assert(pFinalizeCall && "Couldn't create CALL instruction!");
 
