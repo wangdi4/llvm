@@ -35,9 +35,9 @@ protected:
   void printOptionalSegReg(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printVKPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX
   void printVTILEPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 };
 

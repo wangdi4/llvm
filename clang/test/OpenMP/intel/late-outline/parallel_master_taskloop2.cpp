@@ -21,17 +21,16 @@ int main(int argc, char **argv) {
   // CHECK: DIR.OMP.TASKGROUP
   // CHECK-SAME: QUAL.OMP.REDUCTION.ADD
   // CHECK: DIR.OMP.PARALLEL
-  // check-same: QUAL.OMP.IF should this be here? See 2.14
+  // CHECK-SAME: QUAL.OMP.IF
   // check-same: QUAL.OMP.REDUCTION.ADD should this be here? See 2.14
   // CHECK: DIR.OMP.MASTER
   // CHECK-NEXT: fence acquire
   // CHECK: DIR.OMP.TASKLOOP
-  // CHECK-SAME: QUAL.OMP.IF
   // CHECK-SAME: QUAL.OMP.DEFAULT.NONE
   // CHECK-SAME: QUAL.OMP.FINAL
   // CHECK-SAME: QUAL.OMP.PRIORITY
   // CHECK-SAME: QUAL.OMP.NUM_TASKS
-  // check-same: QUAL.OMP.REDUCTION.ADD same here about reduction
+  // CHECK-SAME: QUAL.OMP.REDUCTION.MUL
   // CHECK: DIR.OMP.END.TASKLOOP
   // CHECK: fence release
   // CHECK-NEXT: DIR.OMP.END.MASTER
@@ -42,12 +41,13 @@ int main(int argc, char **argv) {
 #pragma omp parallel master taskloop if(parallel: a) default(none) shared(a, b, argc) final(b) priority(5) num_tasks(argc) reduction(*: g)
 #else
 #pragma omp parallel if (a)
-#pragma omp master taskloop if(a) default(none) shared(a, b, argc) final(b) priority(5) num_tasks(argc) reduction(*: g)
+#pragma omp master taskloop default(none) shared(a, b, argc) final(b) priority(5) num_tasks(argc) reduction(*: g)
 #endif
   for (int i = 0; i < 2; ++i)
     a = 2;
 
   // CHECK: DIR.OMP.PARALLEL
+  // CHECK-SAME: QUAL.OMP.IF
   // CHECK: DIR.OMP.MASTER
   // CHECK-NEXT: fence acquire
   // CHECK: DIR.OMP.TASKLOOP
@@ -61,11 +61,10 @@ int main(int argc, char **argv) {
   // CHECK: fence release
   // CHECK-NEXT: DIR.OMP.END.MASTER
   // CHECK-NEXT: DIR.OMP.END.PARALLEL
-#pragma omp parallel
 #ifdef COMBINED
 #pragma omp parallel master taskloop private(argc, b), firstprivate(argv, c), lastprivate(d, f) collapse(2) shared(g) if(argc) mergeable priority(argc) grainsize(argc) reduction(max: a, e)
 #else
-#pragma omp parallel
+#pragma omp parallel if (argc)
 #pragma omp master taskloop private(argc, b), firstprivate(argv, c), lastprivate(d, f) collapse(2) shared(g) if(argc) mergeable priority(argc) grainsize(argc) reduction(max: a, e)
 #endif
   for (int i = 0; i < 10; ++i)

@@ -512,7 +512,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                   options::OPT_fno_openmp, false)) {
+                   options::OPT_fno_openmp, false) || // INTEL
+      Args.hasArg(options::OPT_fiopenmp)) {           // INTEL
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
     CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
@@ -530,6 +531,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       // Already diagnosed.
       break;
     }
+    if (JA.isHostOffloading(Action::OFK_OpenMP))      // INTEL
+      CmdArgs.push_back("-defaultlib:omptarget.lib"); // INTEL
   }
 
   // Add compiler-rt lib in case if it was explicitly

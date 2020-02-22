@@ -826,7 +826,7 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX
 let RenderMethod = "addTILEPairOperands" in {
   def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
 }
@@ -835,6 +835,8 @@ def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
   let ParserMatchClass = VTILEPairAsmOperand;
 }
 
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
 let RenderMethod = "addZMM16TuplesOperands" in {
   def ZMM16TuplesAsmOperand : AsmOperandClass { let Name = "ZMM16Tuples"; }
 }
@@ -1033,14 +1035,34 @@ def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 #if INTEL_FEATURE_ISA_AMX_LNC
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
 def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
-def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
-def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
-def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
-def HasAMXELEMENTEVEX   : Predicate<"Subtarget->hasAMXELEMENTEVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FP16
 def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 #endif // INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+def HasAMXMEMORY2    : Predicate<"Subtarget->hasAMXMEMORY2()">;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+def HasAMXCONVERTEVEX   : Predicate<"Subtarget->hasAMXCONVERTEVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;

@@ -1046,10 +1046,10 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   TYPE("VTILE",               TYPE_TMM)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("VTILEX",              TYPE_TMM)
   TYPE("VTILEPair",           TYPE_TMM_PAIR)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("ZMM16Tuples",         TYPE_ZMM16_TUPLES)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1100,10 +1100,8 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_IB)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_IB)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
@@ -1151,10 +1149,10 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_RM)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_RM)
   ENCODING("VTILEPAIR",       ENCODING_RM)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1212,10 +1210,10 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_REG)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_REG)
   ENCODING("VTILEPair",       ENCODING_REG)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1258,10 +1256,10 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_VVVV)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_VVVV)
   ENCODING("VTILEPAIR",       ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
