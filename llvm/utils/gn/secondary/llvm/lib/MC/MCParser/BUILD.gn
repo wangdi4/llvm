@@ -14,7 +14,6 @@ static_library("MCParser") {
     "MCAsmLexer.cpp",
     "MCAsmParser.cpp",
     "MCAsmParserExtension.cpp",
-    "MasmParser.cpp",
     "MCTargetAsmParser.cpp",
     "WasmAsmParser.cpp",
   ]

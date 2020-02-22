@@ -399,7 +399,7 @@ public:
     --I;
     MCSectionSubPair NewSection = I->first;
 
-    if (NewSection.first && OldSection != NewSection)
+    if (OldSection != NewSection)
       ChangeSection(NewSection.first, NewSection.second);
     SectionStack.pop_back();
     return true;
