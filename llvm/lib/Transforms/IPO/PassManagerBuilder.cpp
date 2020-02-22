@@ -1487,6 +1487,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelArgumentAlignmentLegacyPass());
     // Recognize Functions that implement qsort
     PM.add(createQsortRecognizerLegacyPass());
+    // Multiversion and mark for inlining functions for tiling
+    PM.add(createTileMVInlMarkerLegacyPass());
   }
 
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;

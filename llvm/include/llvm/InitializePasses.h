@@ -505,6 +505,8 @@ void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 void initializeTransformFPGARegPass(PassRegistry &);
 // Qsort recognition
 void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
+// Multiversioning and inline marking for tiled functions
+void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
