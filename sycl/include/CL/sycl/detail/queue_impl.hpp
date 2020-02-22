@@ -94,9 +94,15 @@ public:
     RT::PiDevice Device = nullptr;
     const detail::plugin &Plugin = getPlugin();
     // TODO catch an exception and put it to list of asynchronous exceptions
+<<<<<<< HEAD
     Plugin.call<PiApiKind::piQueueGetInfo>(MCommandQueue, PI_QUEUE_INFO_DEVICE,
                                            sizeof(Device), &Device, nullptr);
     MDevice = DeviceImplPtr(new device_impl(Device, Context->getPlatformImpl()));
+=======
+    PI_CALL(piQueueGetInfo)(MCommandQueue, PI_QUEUE_INFO_DEVICE, sizeof(Device),
+                            &Device, nullptr);
+    MDevice = DeviceImplPtr(new device_impl(Device));
+>>>>>>> 34c3a7912643ccedac3b7b89ec48271dc8b33333
 
     // TODO catch an exception and put it to list of asynchronous exceptions
     Plugin.call<PiApiKind::piQueueRetain>(MCommandQueue);
