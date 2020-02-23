@@ -1212,8 +1212,10 @@ void OpenMPLateOutliner::emitOMPCollapseClause(const OMPCollapseClause *Cl) {
 void OpenMPLateOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_aligned);
   addArg("QUAL.OMP.ALIGNED");
-  for (auto *E : Cl->varlists())
+  for (auto *E : Cl->varlists()) {
+    E = E->IgnoreParenImpCasts();
     addArg(E);
+  }
   addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
                             : CGF.Builder.getInt32(0));
 }
