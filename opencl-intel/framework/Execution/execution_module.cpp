@@ -2267,9 +2267,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
             auto newPair = m_OclKernelEventMap.insert(
                 std::make_pair(kernelName, pEvent ? pEvent : ::new cl_event));
             errVal = pNDRangeKernelCmd->EnqueueSelf(
-                               false/*never blocking*/, EventListToWait.size(),
-                               &EventListToWait[0], newPair.first->second,
-                               apiLogger);
+                false/*never blocking*/, EventListToWait.size(),
+                EventListToWait.empty() ? nullptr : &EventListToWait[0],
+                newPair.first->second, apiLogger);
             updatedEventList = true;
         }
     }
