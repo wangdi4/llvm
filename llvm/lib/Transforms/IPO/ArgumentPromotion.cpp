@@ -1115,6 +1115,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
             // And it should be passed to the broker as a vararg argument.
             // Otherwise we would need to change broker function signature.
             Function *Broker = ACS.getCallSite().getCalledFunction();
+            assert(Broker && "Expecting broker function");
             if (!Broker->isVarArg() ||
                 static_cast<unsigned>(ArgNo) < Broker->arg_size())
               return false;
