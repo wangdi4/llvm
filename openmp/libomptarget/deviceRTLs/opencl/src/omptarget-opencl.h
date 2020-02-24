@@ -704,6 +704,8 @@ EXTERN int omp_in_parallel(void);
 
 EXTERN int omp_get_max_threads(void);
 
+EXTERN int omp_get_thread_limit(void);
+
 EXTERN int omp_get_device_num(void);
 
 EXTERN int omp_get_num_devices(void);

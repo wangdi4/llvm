@@ -40,8 +40,8 @@ class VPCmpInst;
 class VPLoopEntityList;
 #endif // INTEL_CUSTOMIZATION
 
-using VPDominatorTree = DomTreeBase<VPBlockBase>;
-using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
+class VPDominatorTree;
+class VPPostDominatorTree;
 
 /// Generic divergence analysis for reducible CFGs.
 ///

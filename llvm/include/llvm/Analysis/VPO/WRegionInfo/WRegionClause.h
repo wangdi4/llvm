@@ -826,6 +826,7 @@ public:
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
+class UseDevicePtrItem;
 //
 //   MapItem: OMP MAP clause item
 //
@@ -834,8 +835,11 @@ class MapItem : public Item
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
+  UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
   MapChainTy MapChain;
-  ArraySectionInfo ArrSecInfo;      // For TARGET UPDATE TO/FROM clauses
+  ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
+  Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
+                                  // to tgt runtime calls.
 
 public:
   enum WRNMapKind {
@@ -850,9 +854,12 @@ public:
     WRNMapUpdateFrom = 0x0080,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(VAR Orig)
+      : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr),
+        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {}
   MapItem(MapAggrTy *Aggr)
-      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr) {
+      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr),
+        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {
     MapChain.push_back(Aggr);
   }
   ~MapItem() {
@@ -935,6 +942,8 @@ public:
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
+  void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
+  void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
 
   unsigned getMapKind()     const { return MapKind; }
   bool getIsMapNone()       const { return MapKind == WRNMapNone; }
@@ -949,6 +958,8 @@ public:
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+  UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
+  Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
 
   ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
   const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
@@ -1008,11 +1019,13 @@ class IsDevicePtrItem : public Item
 //
 class UseDevicePtrItem : public Item
 {
-  public:
-    UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
-    static bool classof(const Item *I) {
-      return I->getKind() == IK_UseDevicePtr;
-    }
+  MapItem *InMap;
+
+public:
+  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+  void setInMap(MapItem *MI) { InMap = MI; }
+  MapItem *getInMap() const { return InMap; }
+  static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
 };
 
 
@@ -1153,6 +1166,7 @@ template <typename ClauseItem> class Clause
 {
   friend class WRegionNode;
   friend class WRegionUtils;
+  friend class VPOParoptTransform;
   private:
     typedef typename std::vector<ClauseItem*>       ItemArray;
     typedef typename ItemArray::iterator            Iterator;

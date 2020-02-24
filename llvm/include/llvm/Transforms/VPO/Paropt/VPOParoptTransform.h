@@ -487,6 +487,14 @@ private:
                                          ArraySectionInfo &ArrSecInfo,
                                          bool IsByRef, Instruction *InsertPt);
 
+  /// For all use_device_ptr clauses in \p W, create a Map clause.
+  bool addMapForUseDevicePtr(WRegionNode *W);
+
+  /// Update references of use_device_ptr operands in tgt data region to use the
+  /// value updated by the tgt_data_init call.
+  void useUpdatedUseDevicePtrsInTgtDataRegion(
+      WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall);
+
   /// Transform all array sections in \p W region's map clauses
   /// into map chains. New instructions to compute parameters of
   /// the corresponding map chains are inserted \b before \p InsertPt.
@@ -898,15 +906,16 @@ private:
                             SmallVectorImpl<Constant *> &ConstSizes,
                             bool hasRuntimeEvaluationCaptureSize);
 
-  /// Utilities to construct the assignment to the base pointers, section
-  /// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
-  /// true.
+  /// Utility to construct the assignment to the base pointers, section
+  /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
+  /// true). Sets \p BasePtrGEPOut to the GEP where \p BasePtr is stored.
   void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
                                 Value *SectionPtr, Value *Size,
                                 TgDataInfo *Info,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
-                                bool hasRuntimeEvaluationCaptureSize);
+                                bool hasRuntimeEvaluationCaptureSize,
+                                Instruction **BasePtrGEPOut = nullptr);
 
   /// Fixup references generated for global variables in OpenMP
   /// clauses for targets supporting non-default address spaces.
@@ -1296,7 +1305,7 @@ private:
     TGT_MAP_TARGET_PARAM = 0x20,
     // instructs the runtime that it is the first
     // occurrence of this mapped variable within this construct.
-    GT_MAP_RETURN_PARAM = 0x40,
+    TGT_MAP_RETURN_PARAM = 0x40,
     // instructs the runtime to return the base
     // device address of the mapped variable.
     TGT_MAP_PRIVATE = 0x80,

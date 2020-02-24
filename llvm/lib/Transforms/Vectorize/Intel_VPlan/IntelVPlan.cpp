@@ -517,6 +517,11 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
+
+  // Emit block start label. This is done only if we see uniform control flow
+  // and only for blocks inside the loop being vectorized.
+  CG->emitBlockLabel(this);
+
   for (VPInstruction &Inst : Instructions) {
     if (isDeadPredicateInst(Inst))
       // This is not just emitted code clean-up, but something required to
@@ -525,6 +530,11 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
       continue;
     Inst.executeHIR(CG);
   }
+
+  // Emit block terminator. This can be either an if/else or a simple goto
+  // depending on the block's successors. This is done only if we see uniform
+  // control flow and only for non-latch blocks.
+  CG->emitBlockTerminator(this);
 }
 
 VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
@@ -652,6 +662,21 @@ void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
 
 void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+  const VPLoop *VLoop = CG->getVPLoop();
+
+  // Check and mark if we see any uniform control flow remaining in the loop.
+  // We check for a non-latch block with two successors.
+  // TODO - The code here assumes inner loop vectorization. This needs to
+  // be changed for outer loop vectorization.
+  for (VPBlockBase *Block : RPOT) {
+    auto *BBlock = cast<VPBasicBlock>(Block);
+
+    if (VLoop->contains(BBlock) && !VLoop->isLoopLatch(BBlock) &&
+        BBlock->getNumSuccessors() == 2) {
+      CG->setUniformControlFlowSeen();
+      break;
+    }
+  }
 
   // Visit the VPBlocks connected to "this", starting from it.
   for (VPBlockBase *Block : RPOT) {

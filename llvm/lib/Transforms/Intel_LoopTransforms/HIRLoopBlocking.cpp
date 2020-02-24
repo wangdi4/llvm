@@ -221,8 +221,9 @@ void printDiag(DiagMsg Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
   }
   dbgs() << "Func: " << FuncName << ", ";
   dbgs() << Header << " " << DiagMap[Msg] << "\n";
-  if (Loop)
+  if (Loop) {
     dbgs() << "Loop:" << Loop->getNumber() << "\n";
+  }
 #endif
 }
 
@@ -653,7 +654,8 @@ public:
   static bool hasNonLinear(RefAnalysisResult Res) { return Res == NON_LINEAR; }
   static bool isSIV(RefAnalysisResult Res) { return Res == OK; }
 
-  static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs) {
+  static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
+                                       bool ReplaceRefs = true) {
     if (std::any_of(Refs.begin(), Refs.end(),
                     [](const RegDDRef *Ref) { return Ref->isNonLinear(); })) {
       return NON_LINEAR;
@@ -700,7 +702,10 @@ public:
                             dbgs() << "\n";
                           });
 
-      std::copy(DelinearizedRefs.begin(), DelinearizedRefs.end(), Refs.begin());
+      if (ReplaceRefs) {
+        std::copy(DelinearizedRefs.begin(), DelinearizedRefs.end(),
+                  Refs.begin());
+      }
     }
 
     return OK;
@@ -1386,7 +1391,8 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
                               InnermostLoop->child_end(), Refs);
 
-  RefAnalyzer::RefAnalysisResult RefKind = RefAnalyzer::analyzeRefs(Refs);
+  RefAnalyzer::RefAnalysisResult RefKind =
+      RefAnalyzer::analyzeRefs(Refs, Advanced);
 
   // If any Ref is a non-linear, give up here.
   if (RefAnalyzer::hasNonLinear(RefKind)) {

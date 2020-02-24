@@ -35,6 +35,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/User.h"
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 
 namespace llvm {
 class Function;
@@ -98,6 +99,7 @@ struct SimplifyQuery {
   // keywords like nsw, which provides conservative results if those cannot
   // be safely used.
   const InstrInfoQuery IIQ;
+  const TargetTransformInfo *TTI = nullptr; // INTEL
 
   SimplifyQuery(const DataLayout &DL, const Instruction *CXTI = nullptr)
       : DL(DL), CxtI(CXTI) {}
@@ -105,8 +107,12 @@ struct SimplifyQuery {
   SimplifyQuery(const DataLayout &DL, const TargetLibraryInfo *TLI,
                 const DominatorTree *DT = nullptr,
                 AssumptionCache *AC = nullptr,
-                const Instruction *CXTI = nullptr, bool UseInstrInfo = true)
-      : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo) {}
+#if INTEL_CUSTOMIZATION
+                const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
+                const TargetTransformInfo *TTI = nullptr)
+      : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
+        TTI(TTI) {}
+#endif // INTEL_CUSTOMIZATION
   SimplifyQuery getWithInstruction(Instruction *I) const {
     SimplifyQuery Copy(*this);
     Copy.CxtI = I;

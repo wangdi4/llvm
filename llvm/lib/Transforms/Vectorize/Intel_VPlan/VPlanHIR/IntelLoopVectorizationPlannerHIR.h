@@ -45,20 +45,7 @@ private:
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                            unsigned &EndRangeVF,
                                            LLVMContext *Context,
-                                           const DataLayout *DL) override {
-    // Create new empty VPlan
-    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
-    VPlan *Plan = SharedPlan.get();
-
-    // Build hierarchical CFG
-    const DDGraph &DDG = DDA->getGraph(TheLoop);
-
-    VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
-    HCFGBuilder.buildHierarchicalCFG();
-
-    Plan->markFullLinearizationForced();
-    return SharedPlan;
-  }
+                                           const DataLayout *DL) override;
 
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,

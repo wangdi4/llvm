@@ -519,6 +519,10 @@ static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
 static Value *threadCmpOverTwoSelects(CmpInst::Predicate Pred, Value *LHS,
                                       Value *RHS, const SimplifyQuery &Q,
                                       unsigned MaxRecurse) {
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!Q.TTI || !Q.TTI->isAdvancedOptEnabled(TTIAVX2))
+    return nullptr;
+
   // Recursion is always used, so bail out at once if we already hit the limit.
   if (!MaxRecurse--)
     return nullptr;
@@ -5698,12 +5702,16 @@ const SimplifyQuery getBestSimplifyQuery(Pass &P, Function &F) {
   auto *TLI = TLIWP ? &TLIWP->getTLI(F) : nullptr;
   auto *ACWP = P.getAnalysisIfAvailable<AssumptionCacheTracker>();
   auto *AC = ACWP ? &ACWP->getAssumptionCache(F) : nullptr;
-  return {F.getParent()->getDataLayout(), TLI, DT, AC};
+#if INTEL_CUSTOMIZATION
+  auto *TTIWP = P.getAnalysisIfAvailable<TargetTransformInfoWrapperPass>();
+  auto *TTI = TTIWP ? &TTIWP->getTTI(F) : nullptr;
+  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+#endif // INTEL_CUSTOMIZATION
 }
 
 const SimplifyQuery getBestSimplifyQuery(LoopStandardAnalysisResults &AR,
                                          const DataLayout &DL) {
-  return {DL, &AR.TLI, &AR.DT, &AR.AC};
+  return {DL, &AR.TLI, &AR.DT, &AR.AC, nullptr, true, &AR.TTI}; // INTEL
 }
 
 template <class T, class... TArgs>
@@ -5712,7 +5720,10 @@ const SimplifyQuery getBestSimplifyQuery(AnalysisManager<T, TArgs...> &AM,
   auto *DT = AM.template getCachedResult<DominatorTreeAnalysis>(F);
   auto *TLI = AM.template getCachedResult<TargetLibraryAnalysis>(F);
   auto *AC = AM.template getCachedResult<AssumptionAnalysis>(F);
-  return {F.getParent()->getDataLayout(), TLI, DT, AC};
+#if INTEL_CUSTOMIZATION
+  auto *TTI = AM.template getCachedResult<TargetIRAnalysis>(F);
+  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+#endif // INTEL_CUSTOMIZATION
 }
 template const SimplifyQuery getBestSimplifyQuery(AnalysisManager<Function> &,
                                                   Function &);

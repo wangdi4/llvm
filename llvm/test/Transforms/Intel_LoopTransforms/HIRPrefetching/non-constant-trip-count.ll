@@ -56,12 +56,12 @@
 ; CHECK:           |   %21 = (@B)[0][i1 + 12];
 ; CHECK:           |   %23 = (@B)[0][i1 + 16];
 ; CHECK:           |   (@B)[0][i1] = %13 + %15 + %17 + %19 + %21 + %23;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 6]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10006]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40006]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][2 * i1 + 14]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 6]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 16]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 7]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10007]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40007]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][2 * i1 + 16]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 7]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 18]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;

@@ -3130,7 +3130,7 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
 
   const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
   assert(Entity && "Unexpected: reduction last value is not for entity");
-  EntitiesLastValMap[Entity] = Ret;
+  EntitiesFinalVPInstMap[Entity] = RedFinal;
 }
 
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
@@ -3326,37 +3326,41 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   }
   // The value is scalar
   VPScalarMap[VPInst][0] = LastValue;
-  EntitiesLastValMap[Entity] = LastValue;
+  EntitiesFinalVPInstMap[Entity] = VPInst;
 }
 
 void VPOCodeGen::fixOutgoingValues() {
-  for (auto &LastValPair : EntitiesLastValMap) {
+  for (auto &LastValPair : EntitiesFinalVPInstMap) {
     if (auto *Reduction = dyn_cast<VPReduction>(LastValPair.first))
-      fixReductionLastVal(*Reduction, LastValPair.second);
+      fixReductionLastVal(*Reduction,
+                          cast<VPReductionFinal>(LastValPair.second));
     if (auto *Induction = dyn_cast<VPInduction>(LastValPair.first))
-      fixInductionLastVal(*Induction, LastValPair.second);
+      fixInductionLastVal(*Induction,
+                          cast<VPInductionFinal>(LastValPair.second));
   }
 }
 
-void VPOCodeGen::fixLiveOutValues(const VPLoopEntity &Entity, Value *LastVal) {
-  for (auto *Linked : Entity.getLinkedVPValues())
-    for (auto *User : Linked->users())
-      if (isa<VPExternalUse>(User)) {
-        Value *ExtVal = User->getUnderlyingValue();
-        if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
-          int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
-          if (Ndx == -1)
-            Phi->addIncoming(LastVal, LoopMiddleBlock);
-          else
-            Phi->setIncomingValue(Ndx, LastVal);
-        } else {
-          int Ndx = User->getOperandIndex(Linked);
-          assert(Ndx != -1 && "Operand not found in User");
-          Value *Operand = const_cast<Value *>(
-              cast<VPExternalUse>(User)->getUnderlyingOperand(Ndx));
-          cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
-        }
+void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {
+  assert(isa<VPReductionFinal>(FinalVPInst) ||
+         isa<VPInductionFinal>(FinalVPInst) &&
+             "Only loop entity finalization instructions can be live-out.");
+  for (auto *User : FinalVPInst->users())
+    if (isa<VPExternalUse>(User)) {
+      Value *ExtVal = User->getUnderlyingValue();
+      if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
+        int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
+        if (Ndx == -1)
+          Phi->addIncoming(LastVal, LoopMiddleBlock);
+        else
+          Phi->setIncomingValue(Ndx, LastVal);
+      } else {
+        int Ndx = User->getOperandIndex(FinalVPInst);
+        assert(Ndx != -1 && "Operand not found in User");
+        Value *Operand = const_cast<Value *>(
+            cast<VPExternalUse>(User)->getUnderlyingOperand(Ndx));
+        cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
       }
+    }
 }
 
 void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,
@@ -3377,7 +3381,8 @@ void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,
   Phi->setIncomingValue(SelfEdgeBlockIdx, BCBlockPhi);
 }
 
-void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
+void VPOCodeGen::fixReductionLastVal(const VPReduction &Red,
+                                     VPReductionFinal *RedFinal) {
   if (Red.getIsMemOnly()) {
 #if 0
     // TODO: Implement last value fixing for in-memory reductions.
@@ -3388,6 +3393,9 @@ void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
     MergedVal = Builder.CreateLoad(ScalarPtr, ScalarPtr->getName() + ".reload");
 #endif
   } else {
+    // Reduction final value should be mapped only in scalar map always. TODO:
+    // Use getScalarValue instead?
+    Value *LastVal = VPScalarMap[RedFinal][0];
     VPValue *VPStart = Red.getRecurrenceStartValue();
     Value *OrigStartValue = VPStart->getUnderlyingValue();
     VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Red);
@@ -3395,14 +3403,18 @@ void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
     PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
     createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.merge.reduction",
                                       LastVal);
-    fixLiveOutValues(Red, LastVal);
+    fixLiveOutValues(RedFinal, LastVal);
   }
 }
 
-void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
+void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind,
+                                     VPInductionFinal *IndFinal) {
   if (Ind.getIsMemOnly()) {
     // TODO: Implement last value fixing for in-memory inductions.
   } else {
+    // Induction final value should be mapped only in scalar map always. TODO:
+    // Use getScalarValue instead?
+    Value *LastVal = VPScalarMap[IndFinal][0];
     VPValue *VPStart = Ind.getStartValue();
     Value *OrigStartValue = VPStart->getUnderlyingValue();
     VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Ind);
@@ -3410,7 +3422,7 @@ void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
     PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
     createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.resume.val",
                                       LastVal);
-    fixLiveOutValues(Ind, LastVal);
+    fixLiveOutValues(IndFinal, LastVal);
   }
 }
 

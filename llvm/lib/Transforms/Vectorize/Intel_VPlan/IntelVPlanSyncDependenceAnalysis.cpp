@@ -100,6 +100,7 @@
 /// loop exit and the loop header (_after_ SSA construction).
 ///
 //===----------------------------------------------------------------------===//
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
