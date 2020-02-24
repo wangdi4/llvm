@@ -318,6 +318,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "subscript";
   case VPInstruction::Blend:
     return "blend";
+  case VPInstruction::HIRCopy:
+    return "hir-copy";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -446,9 +448,13 @@ void VPInstruction::print(raw_ostream &O,
     case Instruction::SIToFP:
     case Instruction::UIToFP:
     case Instruction::Trunc:
-    case Instruction::FPTrunc:
+    case Instruction::FPTrunc: {
       O << " to ";
       getType()->print(O);
+      break;
+    }
+    case VPInstruction::HIRCopy:
+      O << " , OriginPhiId: " << cast<VPHIRCopyInst>(this)->getOriginPhiId();
     }
   }
 #endif // INTEL_CUSTOMIZATION

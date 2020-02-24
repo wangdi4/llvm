@@ -526,6 +526,7 @@ public:
       AllocatePrivate,
       Subscript,
       Blend,
+      HIRCopy,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -1281,6 +1282,40 @@ public:
 
   virtual VPSubscriptInst *cloneImpl() const {
     VPSubscriptInst *Cloned = new VPSubscriptInst(*this);
+    return Cloned;
+  }
+};
+
+/// Concrete class to represent copy instruction semantics in VPlan constructed
+/// for HIR input.
+class VPHIRCopyInst : public VPInstruction {
+private:
+  // Represents an ID that this copy instruction is tagged with. This is
+  // needed to identify all copies that are created during SSA deconstruction of
+  // a single VPPHINode.
+  int OriginPhiId = -1;
+
+public:
+  VPHIRCopyInst(VPValue *CopyFrom)
+      : VPInstruction(VPInstruction::HIRCopy, CopyFrom->getType(), {CopyFrom}) {
+  }
+
+  /// Setter/getter for OriginPhiId.
+  int getOriginPhiId() const { return OriginPhiId; }
+  void setOriginPhiId(int Id) { OriginPhiId = Id; }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::HIRCopy;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  virtual VPHIRCopyInst *cloneImpl() const {
+    VPHIRCopyInst *Cloned = new VPHIRCopyInst(getOperand(0));
+    Cloned->setOriginPhiId(getOriginPhiId());
     return Cloned;
   }
 };

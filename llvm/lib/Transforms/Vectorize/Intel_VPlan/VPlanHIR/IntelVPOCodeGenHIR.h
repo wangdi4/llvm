@@ -44,6 +44,8 @@ class VPlan;
 class VPlanVLSAnalysis;
 class VPInstruction;
 
+extern bool EnableVPValueCodegenHIR;
+
 // VPOCodeGenHIR generates vector code by widening of scalars into
 // appropriate length vectors.
 class VPOCodeGenHIR {
@@ -426,6 +428,17 @@ public:
   // vector code generation.
   void emitBlockTerminator(const VPBasicBlock *SourceBB);
 
+  // Return the Lval temp that was generated to represent the deconstructed PHI
+  // identified by its PhiId, if found in PhiIdLValTempsMap. Return null
+  // otherwise.
+  RegDDRef *getLValTempForPhiId(const int PhiId) const {
+    auto Itr = PhiIdLValTempsMap.find(PhiId);
+    if (Itr != PhiIdLValTempsMap.end())
+      return Itr->second;
+    else
+      return nullptr;
+  }
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -567,6 +580,9 @@ private:
 
   // Unrolled part number for the VPInstruction currently being processed.
   unsigned CurrentVPInstUnrollPart;
+
+  // Track HIR temp created for each deconstructed PHI ID.
+  SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
