@@ -302,13 +302,6 @@ private:
   Value *getStepVector(Value *Val, int StartIdx, Value *Step,
                        Instruction::BinaryOps BinOp);
 
-  /// Create a broadcast instruction. This method generates a broadcast
-  /// instruction (shuffle) for loop invariant values and for the induction
-  /// value. If this is the induction variable then we extend it to N, N+1, ...
-  /// this is needed because each iteration in the loop corresponds to a SIMD
-  /// element.
-  Value *getBroadcastInstrs(Value *V);
-
   /// Widen Phi node, which is not an induction variable. This Phi node
   /// is a result of merging blocks ruled out by uniform branch.
   void widenNonInductionPhi(VPPHINode *Phi);
