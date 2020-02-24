@@ -1968,6 +1968,14 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     StoreVal =
         Builder.CreateInsertElement(Ops[1], Ops[2], Ops[3], Inst->getName());
 
+  } else if (isa<ExtractValueInst>(Inst)) {
+    StoreVal = Builder.CreateExtractValue(
+        Ops[1], HInst->getExtractValueIndices(), Inst->getName());
+
+  } else if (isa<InsertValueInst>(Inst)) {
+    StoreVal = Builder.CreateInsertValue(
+        Ops[1], Ops[2], HInst->getInsertValueIndices(), Inst->getName());
+
   } else if (isa<ShuffleVectorInst>(Inst)) {
     StoreVal =
         Builder.CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());

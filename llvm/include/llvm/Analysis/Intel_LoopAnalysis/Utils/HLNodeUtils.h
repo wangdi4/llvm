@@ -897,6 +897,17 @@ public:
                                    const Twine &Name = "extract",
                                    RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new ExtractValue instruction
+  HLInst *createExtractValueInst(RegDDRef *OpRef, ArrayRef<unsigned> Idxs,
+                                 const Twine &Name = "extractvalue",
+                                 RegDDRef *LvalRef = nullptr);
+
+  /// Creates a new InsertValue instruction
+  HLInst *createInsertValueInst(RegDDRef *OpRef, RegDDRef *ValRef,
+                                ArrayRef<unsigned> Idxs,
+                                const Twine &Name = "insertvalue",
+                                RegDDRef *LvalRef = nullptr);
+
   /// Creates a clones sequence from Node1 to Node2, including both the nodes
   /// and all the nodes in between them. If Node2 is null or Node1 equals
   /// Node2, then the utility just clones Node1 and inserts into the

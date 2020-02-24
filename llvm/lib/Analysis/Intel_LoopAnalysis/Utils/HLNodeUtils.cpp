@@ -753,6 +753,44 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createExtractValueInst(RegDDRef *OpRef,
+                                            ArrayRef<unsigned> Idxs,
+                                            const Twine &Name,
+                                            RegDDRef *LvalRef) {
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  Value *InstVal = DummyIRBuilder->CreateExtractValue(UndefVal, Idxs, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef, 1);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createInsertValueInst(RegDDRef *OpRef, RegDDRef *ValRef,
+                                           ArrayRef<unsigned> Idxs,
+                                           const Twine &Name,
+                                           RegDDRef *LvalRef) {
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  auto Val = UndefValue::get(ValRef->getDestType());
+
+  Value *InstVal =
+      DummyIRBuilder->CreateInsertValue(UndefVal, Val, Idxs, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef, 1);
+  HInst->setOperandDDRef(ValRef, 2);
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
                                         RegDDRef *OpRef2, const Twine &Name,
                                         RegDDRef *LvalRef,

@@ -1508,14 +1508,6 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
       return false;
     }
 
-    // TODO: think about HIR representation for
-    // InsertValueInst/ExtractValueInst.
-    if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
-      printOptReportRemark(
-          Lp, "InsertValueInst/ExtractValueInst currently not supported.");
-      return false;
-    }
-
     // TODO: Need to add support of auxiliary (non-operand) data.
     if (isa<ShuffleVectorInst>(Inst)) {
       printOptReportRemark(Lp, "ShuffleVectorInst currently not supported.");
