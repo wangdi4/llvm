@@ -969,6 +969,15 @@ OclBuiltinImpl sub_group_shuffle_avx2v8ui64 = OclBuiltinImpl<sub_group_shuffle_a
     return res;
  }]>;
 
+// char, uchar, short, ushort
+OclBuiltinImpl sub_group_shuffle_avx256v8ui8ui16 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8i8, v8u8, v8i16, v8u16], 0,
+  [{
+    int8 temp = __builtin_convertvector($Arg0VarName, int8);
+    temp = intel_sub_group_shuffle(temp, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName = __builtin_convertvector(temp, $Arg0Type);
+    return $Arg0VarName;
+  }]>;
+
 // Vector
 // int2, uint2, float2
 OclBuiltinImpl sub_group_shuffle_avx2v16 = OclBuiltinImpl<sub_group_shuffle_avx2, [v16u32, v16i32, v16f32], 0,
@@ -998,6 +1007,22 @@ OclBuiltinImpl sub_group_shuffle_avx2v16 = OclBuiltinImpl<sub_group_shuffle_avx2
     return res;
   }]>;
 
+// char2 and uchar2
+OclBuiltinImpl sub_group_shuffle_avx256v16ui8 = OclBuiltinImpl<sub_group_shuffle_avx2, [v16i8, v16u8], 0,
+  [{
+    int16 temp = __builtin_convertvector($Arg0VarName, int16);
+    temp = intel_sub_group_shuffle(temp, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName = __builtin_convertvector(temp, $Arg0Type);
+    return $Arg0VarName;
+  }]>;
+
+// short2, ushort2, char4, uchar4
+OclBuiltinImpl sub_group_shuffle_avx256v16iu16v32iu8 = OclBuiltinImpl<sub_group_shuffle_avx2, [v16i16, v16u16, v32i8, v32u8], 0,
+  [{
+    int8 temp = __builtin_astype($Arg0VarName, int8);
+    temp = intel_sub_group_shuffle(temp, $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(temp, $ReturnType);
+  }]>;
 
 // int4, uint4, float4
 OclBuiltinImpl sub_group_shuffle_avx2v32 = OclBuiltinImpl<sub_group_shuffle_avx2, [v32u32, v32i32, v32f32], 0,
@@ -1017,6 +1042,14 @@ OclBuiltinImpl sub_group_shuffle_avx2v32 = OclBuiltinImpl<sub_group_shuffle_avx2
 
     $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x4($Arg0VarName);
     return $Arg0VarName;
+  }]>;
+
+// short4, ushort4, char8, uchar8
+OclBuiltinImpl sub_group_shuffle_avx256v32iu16v64iu8 = OclBuiltinImpl<sub_group_shuffle_avx2, [v32i16, v32u16, v64i8, v64u8], 0,
+  [{
+    int16 temp = __builtin_astype($Arg0VarName, int16);
+    temp = intel_sub_group_shuffle(temp, $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(temp, $ReturnType);
   }]>;
 
 // int8, uint8, float8
@@ -1046,6 +1079,14 @@ OclBuiltinImpl sub_group_shuffle_avx2v64 = OclBuiltinImpl<sub_group_shuffle_avx2
     $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x8($Arg0VarName);
     return $Arg0VarName;
 }]>;
+
+// short8, ushort8, char16, uchar16
+OclBuiltinImpl sub_group_shuffle_avx256v64iu16v128iu8 = OclBuiltinImpl<sub_group_shuffle_avx2, [v64i16, v64u16, v128i8, v128u8], 0,
+  [{
+    int32 temp = __builtin_astype($Arg0VarName, int32);
+    temp = intel_sub_group_shuffle(temp, $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(temp, $ReturnType);
+  }]>;
 
 OclBuiltinImpl sub_group_shuffle_avx2_v128 = OclBuiltinImpl<sub_group_shuffle_avx2, [v128f32, v128i32, v128u32], 0,
 [{
@@ -1090,13 +1131,23 @@ OclBuiltinImpl sub_group_shuffle_avx2_v128 = OclBuiltinImpl<sub_group_shuffle_av
     return $Arg0VarName;
 }]>;
 
+// short16, ushort16
+OclBuiltinImpl sub_group_shuffle_avx256v128iu16 = OclBuiltinImpl<sub_group_shuffle_avx2, [v128i16, v128u16], 0,
+  [{
+    int64 temp = __builtin_astype($Arg0VarName, int64);
+    temp = intel_sub_group_shuffle(temp, $Arg1VarName, $Arg2VarName);
+    return __builtin_astype(temp, $ReturnType);
+  }]>;
+
 //
 // Shuffle xor
 //
 OclBuiltinImpl sub_group_shuffle_xor_avx2_gen = OclBuiltinImpl<sub_group_shuffle_xor_avx2,
-               [ v8i32,  v8u32,  v8f32,   v8i64,   v8u64,   v8f64,
-                v16u32, v16i32, v16f32,  v32u32,  v32i32,  v32f32,
-                v64u32, v64i32, v64f32, v128u32, v128i32, v128f32 ], 0,
+               [ v8i32, v8u32, v8f32, v8i64, v8u64, v8f64, v8i8, v8u8, v8i16, v8u16,
+                 v16u32, v16i32, v16f32, v16i8, v16u8, v16i16, v16u16,
+                 v32u32, v32i32, v32f32, v32i8, v32u8, v32i16, v32u16,
+                 v64u32, v64i32, v64f32, v64i8, v64u8, v64i16, v64u16,
+                 v128u32, v128i32, v128f32, v128i8, v128u8, v128i16, v128u16 ], 0,
   [{
     uint8 indexes = {0, 1, 2, 3, 4, 5, 6, 7};
     indexes = indexes ^ $Arg1VarName;
@@ -1134,8 +1185,61 @@ OclBuiltinImpl sub_group_shuffle_down_avx2_gen = OclBuiltinImpl<sub_group_shuffl
 
       temp = (*(int$VecLength*)&res_cur | *(int$VecLength*)&res_next);
       return *($Arg0Type*)&temp;
-    }]>;
+  }]>;
 
+OclBuiltinImpl sub_group_shuffle_down_avx2_iu8 = OclBuiltinImpl<sub_group_shuffle_down_avx2,
+        [v8i8, v8u8, v16i8, v16u8, v32i8, v32u8, v64i8, v64u8, v128i8, v128u8], 0,
+  [{
+      $Arg0Type res_cur, res_next;
+      uint8 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7 };
+      const uint max_sg_size = 8;
+      char$VecLength temp;
+      sg_indexes = sg_indexes + $Arg2VarName;
+
+      sg_indexes &= $Arg3VarName;
+
+      int8 indexes_mask = sg_indexes < max_sg_size;
+      int8 inv_indexes_mask = !indexes_mask;
+
+      char$VecLength ext_mask =  __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), char$VecLength);
+
+      res_cur = intel_sub_group_shuffle($Arg0VarName, sg_indexes, *(uint8*)&indexes_mask);
+      temp = *((char$VecLength*)&res_cur) & ext_mask;
+      res_cur = *($Arg0Type*)&temp;
+
+      res_next = intel_sub_group_shuffle($Arg1VarName, (sg_indexes - max_sg_size), *(uint8*)&inv_indexes_mask);
+      temp = *((char$VecLength*)&res_next) & !ext_mask;
+      res_next = *($Arg0Type*)&temp;
+
+      return  res_cur | res_next;
+  }]>;
+
+OclBuiltinImpl sub_group_shuffle_down_avx2_iu16 = OclBuiltinImpl<sub_group_shuffle_down_avx2,
+        [v8i16, v8u16, v16i16, v16u16, v32i16, v32u16, v64i16, v64u16, v128i16, v128u16], 0,
+  [{
+      $Arg0Type res_cur, res_next;
+      uint8 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7 };
+      const uint max_sg_size = 8;
+      short$VecLength temp;
+      sg_indexes = sg_indexes + $Arg2VarName;
+
+      sg_indexes &= $Arg3VarName;
+
+      int8 indexes_mask = sg_indexes < max_sg_size;
+      int8 inv_indexes_mask = !indexes_mask;
+
+      short$VecLength ext_mask =  __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), short$VecLength);
+
+      res_cur = intel_sub_group_shuffle($Arg0VarName, sg_indexes, *(uint8*)&indexes_mask);
+      temp = *((short$VecLength*)&res_cur) & ext_mask;
+      res_cur = *($Arg0Type*)&temp;
+
+      res_next = intel_sub_group_shuffle($Arg1VarName, (sg_indexes - max_sg_size), *(uint8*)&inv_indexes_mask);
+      temp = *((short$VecLength*)&res_next) & !ext_mask;
+      res_next = *($Arg0Type*)&temp;
+
+      return  res_cur | res_next;
+  }]>;
 
 OclBuiltinImpl sub_group_shuffle_down_avx2_v8d64 = OclBuiltinImpl<sub_group_shuffle_down_avx2,
         [v8i64, v8u64, v8f64], 0,
@@ -1164,11 +1268,72 @@ OclBuiltinImpl sub_group_shuffle_down_avx2_v8d64 = OclBuiltinImpl<sub_group_shuf
 
       temp = (*(int16*)&res_cur | *(int16*)&res_next);
       return *($Arg0Type*)&temp;
-    }]>;
+  }]>;
 
 //
 // Shuffle up
 //
+
+// char, uchar
+OclBuiltinImpl sub_group_shuffle_up_avx2_iu8 = OclBuiltinImpl<sub_group_shuffle_up_avx2,
+        [v8i8, v8u8, v16i8, v16u8, v32i8, v32u8, v64i8, v64u8, v128i8, v128u8], 0,
+  [{
+      $Arg0Type res_cur, res_next;
+      char$VecLength temp;
+      int8 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7 };
+      const int max_sg_size = 8;
+
+      sg_indexes = sg_indexes - *(int8*)&$Arg2VarName;
+
+      sg_indexes &= *(int8*)&$Arg3VarName;
+
+      int8 indexes_mask = sg_indexes >= 0;
+      int8 inv_indexes_mask = !indexes_mask;
+
+      char$VecLength ext_mask =  __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), char$VecLength);
+
+      res_cur = intel_sub_group_shuffle($Arg1VarName, *(uint8*)&sg_indexes, *(uint8*)&indexes_mask);
+      temp = *((char$VecLength*)&res_cur) & ext_mask;
+      res_cur = *($Arg0Type*)&temp;
+
+      int8 other_ind = sg_indexes + max_sg_size;
+      res_next = intel_sub_group_shuffle($Arg0VarName, *(uint8*)&other_ind, *(uint8*)&inv_indexes_mask);
+      temp = *((char$VecLength*)&res_next) & !ext_mask;
+      res_next = *($Arg0Type*)&temp;
+
+      return  res_cur | res_next;
+  }]>;
+
+// short, ushort
+OclBuiltinImpl sub_group_shuffle_up_avx2_iu16 = OclBuiltinImpl<sub_group_shuffle_up_avx2,
+        [v8i16, v8u16, v16i16, v16u16, v32i16, v32u16, v64i16, v64u16, v128i16, v128u16], 0,
+  [{
+      $Arg0Type res_cur, res_next;
+      short$VecLength temp;
+      int8 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7 };
+      const int max_sg_size = 8;
+
+      sg_indexes = sg_indexes - *(int8*)&$Arg2VarName;
+
+      sg_indexes &= *(int8*)&$Arg3VarName;
+
+      int8 indexes_mask = sg_indexes >= 0;
+      int8 inv_indexes_mask = !indexes_mask;
+
+      short$VecLength ext_mask =  __builtin_convertvector(__ocl_extend_mask_to_$VecLength(indexes_mask), short$VecLength);
+
+      res_cur = intel_sub_group_shuffle($Arg1VarName, *(uint8*)&sg_indexes, *(uint8*)&indexes_mask);
+      temp = *((short$VecLength*)&res_cur) & ext_mask;
+      res_cur = *($Arg0Type*)&temp;
+
+      int8 other_ind = sg_indexes + max_sg_size;
+      res_next = intel_sub_group_shuffle($Arg0VarName, *(uint8*)&other_ind, *(uint8*)&inv_indexes_mask);
+      temp = *((short$VecLength*)&res_next) & !ext_mask;
+      res_next = *($Arg0Type*)&temp;
+
+      return  res_cur | res_next;
+  }]>;
+
 OclBuiltinImpl sub_group_shuffle_up_avx2_gen = OclBuiltinImpl<sub_group_shuffle_up_avx2,
             [v8i32, v8u32, v8f32, v16i32, v16u32, v16f32, v32i32, v32u32, v32f32,
              v64i32, v64u32, v64f32, v128i32, v128u32, v128f32], 0,

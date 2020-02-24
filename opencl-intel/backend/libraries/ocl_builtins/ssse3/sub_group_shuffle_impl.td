@@ -12,7 +12,7 @@ OclBuiltinImpl sub_group_shuffle_avx512v48gentype = OclBuiltinImpl<sub_group_shu
      return $Arg0VarName;
   }]>;
 
-OclBuiltinImpl sub_group_shuffle_avx2v24gentype = OclBuiltinImpl<sub_group_shuffle_avx, [v24i8, v24u8, v24i16, v24u16, v24f32,
+OclBuiltinImpl sub_group_shuffle_avx2v24gentype = OclBuiltinImpl<sub_group_shuffle_avx2, [v24i8, v24u8, v24i16, v24u16, v24f32,
                                                                                         v24i32, v24u32, v24i64, v24u64], 0,
   [{
      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_3x8($Arg0VarName);
@@ -58,7 +58,7 @@ OclBuiltinImpl sub_group_shuffle_up_avx512v48gentype = OclBuiltinImpl<sub_group_
     return $Arg0VarName;
   }]>;
 
-OclBuiltinImpl sub_group_shuffle_up_avx2v24gentype = OclBuiltinImpl<sub_group_shuffle_up_avx2, [v24i8, v24u8, v24i8, v24u8, v24f32,
+OclBuiltinImpl sub_group_shuffle_up_avx2v24gentype = OclBuiltinImpl<sub_group_shuffle_up_avx2, [v24i8, v24u8, v24i16, v24u16, v24f32,
                                                                                                 v24i32, v24u32, v24i64, v24u64], 0,
   [{
     $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_3x8($Arg0VarName);
@@ -110,7 +110,7 @@ OclBuiltinImpl sub_group_shuffle_down_avx512v48gentype = OclBuiltinImpl<sub_grou
     return $Arg0VarName;
   }]>;
 
-OclBuiltinImpl sub_group_shuffle_down_avx2v24gentype = OclBuiltinImpl<sub_group_shuffle_down_avx2, [v24i8, v24u8, v24i8, v24u8, v24f32,
+OclBuiltinImpl sub_group_shuffle_down_avx2v24gentype = OclBuiltinImpl<sub_group_shuffle_down_avx2, [v24i8, v24u8, v24i16, v24u16, v24f32,
                                                                                                     v24i32, v24u32, v24i64, v24u64], 0,
   [{
     $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_3x8($Arg0VarName);
