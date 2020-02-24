@@ -51,9 +51,9 @@ set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )
 set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS}" )
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  set (ADD_C_FLAGS_RELEASE        "-O2 -ggdb2 -U _DEBUG")
+  set (ADD_C_FLAGS_RELEASE        "-O2 -U _DEBUG")
 else()
-  set (ADD_C_FLAGS_RELEASE        "-O2 -g2 -U _DEBUG -Wno-error")
+  set (ADD_C_FLAGS_RELEASE        "-O2 -U _DEBUG -Wno-error")
 endif()
 
 set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")

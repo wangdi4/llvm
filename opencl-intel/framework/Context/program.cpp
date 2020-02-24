@@ -89,7 +89,8 @@ cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
     if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
         return CL_INVALID_PROGRAM_EXECUTABLE;
 
-    const cl_prog_gv_map &gvs = deviceProgram->GetGlobalVariablePointers();
+    const std::map<std::string, cl_prog_gv> &gvs =
+        deviceProgram->GetGlobalVariablePointers();
     auto it = gvs.find(gv_name);
     if (it == gvs.end())
         return CL_INVALID_ARG_VALUE;
@@ -107,7 +108,8 @@ cl_err_code Program::AllocUSMForGVPointers()
         DeviceProgram* deviceProgram = m_ppDevicePrograms[i].get();
         if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
             continue;
-        const cl_prog_gv_map &gvs = deviceProgram->GetGlobalVariablePointers();
+        const std::map<std::string, cl_prog_gv> &gvs =
+            deviceProgram->GetGlobalVariablePointers();
         for (const auto &gv : gvs)
         {
             // Represent global variable pointer as USM device pointer
@@ -128,7 +130,8 @@ void Program::FreeUSMForGVPointers()
         DeviceProgram* deviceProgram = m_ppDevicePrograms[i].get();
         if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
             continue;
-        const cl_prog_gv_map &gvs = deviceProgram->GetGlobalVariablePointers();
+        const std::map<std::string, cl_prog_gv> &gvs =
+            deviceProgram->GetGlobalVariablePointers();
         for (const auto &gv : gvs)
         {
             cl_int err = m_pContext->USMFree(gv.second.pointer);

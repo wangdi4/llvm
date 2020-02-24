@@ -31,21 +31,21 @@ extern bool gUseHalfProcessors;
 class DPCPPAffinityTest : public ::testing::Test {};
 
 TEST_F(DPCPPAffinityTest, affinity) {
-  std::vector<unsigned> computeUnitMap;
-  dev_entry->clDevGetComputeUnitMap(computeUnitMap);
+  const unsigned int *computeUnitMap;
+  size_t count;
+  dev_entry->clDevGetComputeUnitMap(&computeUnitMap, &count);
+  ASSERT_EQ(gNumProcessors, (unsigned int)count);
 
-  ASSERT_EQ(gNumProcessors, computeUnitMap.size());
-
-  unsigned numUsedProcessors =
+  unsigned int numUsedProcessors =
       gUseHalfProcessors ? (gNumProcessors / 2) : gNumProcessors;
   unsigned int numCpuSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-  unsigned long numUsedCoresPerSocket = numUsedProcessors / numCpuSockets;
+  unsigned int numUsedCoresPerSocket = numUsedProcessors / numCpuSockets;
   std::string errMsg =
       "Combination of DPCPP_CPU_CU_AFFINITY=" + gDPCPPAffinity +
       " and DPCPP_CPU_NUM_CUS=" + std::to_string(numUsedProcessors) + "/" +
       std::to_string(gNumProcessors) + " failed.";
-  for (int i = 0; i < (int)numUsedProcessors; ++i) {
-    int cpuId;
+  for (unsigned int i = 0; i < numUsedProcessors; ++i) {
+    unsigned int cpuId;
     if ("close" == gDPCPPAffinity)
       cpuId = gUseHalfProcessors ? (2 * i) : i;
     else if ("spread" == gDPCPPAffinity) {

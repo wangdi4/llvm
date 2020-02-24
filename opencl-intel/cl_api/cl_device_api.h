@@ -20,8 +20,6 @@
 #include <cassert>
 #include <climits>
 #include <cstring>
-#include <map>
-#include <vector>
 #include "CL/cl.h"
 #include "CL/cl_usm_ext.h"
 
@@ -136,19 +134,15 @@ struct cl_prog_program
     cl_prog_kernel* kernels;                //!< A pointer to list of cl_prog_kernel
 };
 
-/*! \struct cl_prog_gv_prop
- * \brief This struct defines property of a global variable in a built program
+/*! \struct cl_prog_gv
+ * \brief This struct defines properties of a global variable in a built program
  */
-struct cl_prog_gv_prop
+struct cl_prog_gv
 {
+    char*        name;     //!< Name of global variable
     size_t       size;     //!< Size of global variable in bytes
     void*        pointer;  //!< Address of global variable in program
 };
-
-/*! \map cl_prog_gv_map
- * \brief This defined a map from global variable name to its property
- */
-typedef std::map<std::string, cl_prog_gv_prop> cl_prog_gv_map;
 
 /*! \def _CL_CONTAINER_MASK_
     \brief This structure defines a container that holds binaries or IR of OCL compiled programs
@@ -1563,15 +1557,19 @@ public:
     //! Retrieves sizes/pointers of all global variables in a built program
     /*!
         \param[in]  prog   A handle to a program object which is already built.
-        \param[out] gvPtrs A map from global variable name to its property
-                           (size/pointer)
+        \param[out] gvPtrs A pointer to array of global variables
+        \param[out] gvCount Total number of global variables
     */
     virtual void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
-        cl_prog_gv_map OUT &gvPtrs) const = 0;
+        const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const = 0;
 
     //! Retrieves mapping between OpenCL-defined core ID and OS-defined core ID
+    /*!
+        \param[out] computeUnitMap A pointer to the map array
+        \param[out] size Number of elements in the array
+    */
     virtual void clDevGetComputeUnitMap(
-        std::vector<unsigned>& OUT computeUnitMap) const = 0;
+        const unsigned OUT **computeUnitMap, size_t OUT *count) const = 0;
 };
 
 

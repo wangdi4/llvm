@@ -158,16 +158,26 @@ public:
     }
 
     /**
-     * Gets sizes of non-internal global variables.
-     * @return a map from global variable name to its size in bytes
+     * Gets non-internal global variables.
+     * @return a vector of global variables.
      */
-    virtual const llvm::StringMap<size_t>& GetGlobalVariableSizes() const;
+    virtual std::vector<cl_prog_gv>& GetGlobalVariables() {
+        return m_globalVariables;
+    }
 
     /**
-     * Set sizes of non-internal global variables.
-     * @param sizes a map from global variable name to its size in bytes
+     * Gets non-internal global variables.
+     * @return a vector of global variables.
      */
-    void SetGlobalVariableSizes(const llvm::StringMap<size_t>& sizes);
+    virtual const std::vector<cl_prog_gv>& GetGlobalVariables() const {
+        return m_globalVariables;
+    }
+
+    /**
+     * Set non-internal global variables.
+     * @param gvs a vector of global variables.
+     */
+    void SetGlobalVariables(std::vector<cl_prog_gv> gvs);
 
     /**
      * Record name and promote linkage of global ctors and dtors.
@@ -262,8 +272,8 @@ protected:
     RuntimeServiceSharedPtr m_RuntimeService;
     // Total size, in bytes, of program variables in the global address space
     size_t            m_globalVariableTotalSize;
-    // Map from global variable (with non-internal linkage) name to its size.
-    llvm::StringMap<size_t> m_globalVariableSizes;
+    // Global variables (with non-internal linkage).
+    std::vector<cl_prog_gv> m_globalVariables;
     // Names of global ctors sorted by priority
     std::vector<std::string> m_globalCtors;
     // Names of global dtors sorted by priority

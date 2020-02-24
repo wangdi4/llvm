@@ -60,33 +60,12 @@ cl_ulong CPUProgram::GetFunctionPointerFor(const char *FunctionName) const {
     return (cl_ulong)(m_pExecutionEngine->getFunctionAddress(FunctionName));
 }
 
-void CPUProgram::GetGlobalVariablePointers(cl_prog_gv_map &GVs) const {
-    assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
-    const llvm::StringMap<size_t> Sizes = GetGlobalVariableSizes();
-    for (const auto &Size : Sizes)
-    {
-        llvm::StringRef Name = Size.first();
-        void *Addr;
-        if (m_pExecutionEngine)
-        {
-            Addr = reinterpret_cast<void*>((intptr_t)(
-                m_pExecutionEngine->getGlobalValueAddress(Name.str())));
-        }
-        else
-        {
-            auto Sym = m_LLJIT->lookupLinkerMangled(Name);
-            if (llvm::Error Err = Sym.takeError())
-            {
-                llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
-                throw Exceptions::CompilerException(
-                    "Failed to get address of global variable " + Name.str());
-            }
-            Addr = reinterpret_cast<void*>(
-                static_cast<uintptr_t>(Sym->getAddress()));
-        }
-        cl_prog_gv_prop Prop = { Size.second, Addr };
-        GVs[std::string(Name)] = Prop;
-    }
+void CPUProgram::GetGlobalVariablePointers(const cl_prog_gv **GVs,
+                                           size_t *GVCount) const {
+    const std::vector<cl_prog_gv> &GlobalVariables = GetGlobalVariables();
+    *GVCount = GlobalVariables.size();
+    if (*GVCount > 0)
+        *GVs = &GlobalVariables[0];
 }
 
 void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)

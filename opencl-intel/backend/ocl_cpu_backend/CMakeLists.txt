@@ -23,7 +23,7 @@ if (NOT WIN32)
     set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}")
 
     set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
-    set (ADD_C_FLAGS_RELEASE "-O2 -ggdb ")
+    set (ADD_C_FLAGS_RELEASE "-O2")
 
 
     # Compiler switches that CAN be modified during makefile generation and configuration-independent

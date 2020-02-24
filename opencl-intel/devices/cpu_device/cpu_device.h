@@ -182,14 +182,12 @@ public:
 
     // Retrieves sizes/pointers of all global variables in a built program
     void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
-        cl_prog_gv_map OUT &gvPtrs) const;
+        const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const;
 
     // Retrieves mapping between OpenCL-defined core ID and OS-defined core ID
-    void clDevGetComputeUnitMap(std::vector<unsigned>& OUT computeUnitMap)
-        const override {
-        std::copy(m_pComputeUnitMap, m_pComputeUnitMap + m_numCores,
-                  std::back_inserter(computeUnitMap));
-    }
+    // count is the number of elements in the map array.
+    void clDevGetComputeUnitMap(const unsigned OUT **computeUnitMap,
+                                size_t OUT *count) const override;
 
     // NOTE: this function is not thread-safe by itself and caller is
     // responsible for performing synchronization

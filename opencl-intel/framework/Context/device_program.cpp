@@ -493,8 +493,12 @@ void DeviceProgram::CollectGlobalVariablePointers()
 {
     assert(nullptr != m_programHandle && "invalid program handle");
 
+    const cl_prog_gv *gvPtrs;
+    size_t gvCount;
     m_pDevice->GetDeviceAgent()->clDevGetGlobalVariablePointers(m_programHandle,
-        m_gvPointers);
+        &gvPtrs, &gvCount);
+    for (size_t i = 0; i < gvCount; ++i)
+        m_gvPointers[std::string(gvPtrs[i].name)] = gvPtrs[i];
 }
 
 cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet)
