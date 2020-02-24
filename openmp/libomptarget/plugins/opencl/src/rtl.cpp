@@ -413,6 +413,7 @@ public:
   int64_t ProfileResolution;
   cl_device_type DeviceType;
   std::string CompilationOptions;
+  std::string LinkingOptions;
 
 #if INTEL_CUSTOMIZATION
   // A pointer to clGetMemAllocInfoINTEL extension API.
@@ -528,6 +529,9 @@ public:
     if (env = std::getenv("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
       CompilationOptions += env;
     }
+    if (env = std::getenv("LIBOMPTARGET_OPENCL_LINKING_OPTIONS")) {
+      LinkingOptions += env;
+    }
 #if INTEL_CUSTOMIZATION
     // OpenCL CPU compiler complains about unsupported option.
     // Intel Graphics compilers that do not support that option
@@ -535,7 +539,7 @@ public:
     if (DeviceType == CL_DEVICE_TYPE_GPU &&
         (env = std::getenv("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) &&
         (env[0] == 'T' || env[0] == 't' || env[0] == '1'))
-        CompilationOptions += " -cl-take-global-address ";
+        LinkingOptions += " -cl-take-global-address ";
 #endif  // INTEL_CUSTOMIZATION
   }
 };
@@ -1073,6 +1077,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_program program[3];
   cl_uint num_programs = 0;
   std::string compilation_options(DeviceInfo.CompilationOptions);
+  std::string linking_options(DeviceInfo.LinkingOptions);
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
@@ -1141,11 +1146,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   if (num_programs < 2)
     DP("Skipped device RTL.\n");
 
+  DP("OpenCL linking options: %s\n", linking_options.c_str());
+  // clLinkProgram drops the last symbol. Work this around temporarily.
+  linking_options += " ";
+
   LinkingTimer.start();
 
   program[2] = clLinkProgram(
       DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id],
-      compilation_options.c_str(), num_programs, &program[0], nullptr, nullptr,
+      linking_options.c_str(), num_programs, &program[0], nullptr, nullptr,
       &status);
   if (status != CL_SUCCESS) {
     debugPrintBuildLog(program[2], DeviceInfo.deviceIDs[device_id]);
