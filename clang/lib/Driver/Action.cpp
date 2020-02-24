@@ -428,6 +428,10 @@ OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(ActionList &Inputs,
                                                        types:: ID Type)
     : JobAction(OffloadUnbundlingJobClass, Inputs, Type) {}
 
+OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(ActionList &Inputs,
+                                                       types:: ID Type)
+    : JobAction(OffloadUnbundlingJobClass, Inputs, Type) {}
+
 void OffloadWrapperJobAction::anchor() {}
 
 OffloadWrapperJobAction::OffloadWrapperJobAction(ActionList &Inputs,
