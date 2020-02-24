@@ -7251,13 +7251,10 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   InputInfo Input = Inputs.front();
   const char *TypeArg = types::getTypeTempSuffix(Input.getType());
   const char *InputFileName = Input.getFilename();
-<<<<<<< HEAD
   bool IsMSVCEnv =
       C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
   types::ID InputType(Input.getType());
-=======
   bool IsFPGADepUnbundle = (JA.getType() == types::TY_FPGA_Dependencies);
->>>>>>> 3d71a2607ea01c170b22acd348693c2ba404a2a2
 
   // For Linux, we have initial support for fat archives (archives which
   // contain bundled objects). We will perform partial linking against the
