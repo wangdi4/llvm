@@ -7,33 +7,12 @@
 #include <memory>
 #include <vector>
 
-<<<<<<< HEAD
 #include "SchedulerTestUtils.hpp"
-=======
-#include "FakeCommand.hpp"
->>>>>>> eb995ad2778372fd77e53418b29cc75fc7a225f4
 
 // This test checks the leaf limit imposed on the execution graph
 
 using namespace cl::sycl;
 
-<<<<<<< HEAD
-=======
-class TestScheduler : public detail::Scheduler {
-public:
-  void AddNodeToLeaves(detail::MemObjRecord *Rec, detail::Command *Cmd,
-                       access::mode Mode) {
-    return MGraphBuilder.AddNodeToLeaves(Rec, Cmd, Mode);
-  }
-
-  detail::MemObjRecord *
-  getOrInsertMemObjRecord(const detail::QueueImplPtr &Queue,
-                          detail::Requirement *Req) {
-    return MGraphBuilder.getOrInsertMemObjRecord(Queue, Req);
-  }
-};
-
->>>>>>> eb995ad2778372fd77e53418b29cc75fc7a225f4
 int main() {
   TestScheduler TS;
   queue Queue;

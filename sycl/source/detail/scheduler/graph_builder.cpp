@@ -698,7 +698,6 @@ void Scheduler::GraphBuilder::cleanupCommandsForRecord(MemObjRecord *Record) {
     for (auto DepCmdIt : ShouldBeUpdated) {
       if (!DepCmdIt.second)
         continue;
-<<<<<<< HEAD
       DepCmdIt.first->MUsers.erase(Cmd);
     }
 
@@ -707,24 +706,7 @@ void Scheduler::GraphBuilder::cleanupCommandsForRecord(MemObjRecord *Record) {
     if (Cmd->MDeps.empty()) {
       CmdsToDelete.push_back(Cmd);
       Cmd->MUsers.clear();
-=======
-      std::vector<Command *> &DepUsers = DepCmdIt.first->MUsers;
-      DepUsers.erase(std::remove(DepUsers.begin(), DepUsers.end(), Cmd),
-                     DepUsers.end());
->>>>>>> eb995ad2778372fd77e53418b29cc75fc7a225f4
     }
-
-    // If all dependencies have been removed this way, mark the command for
-    // deletion
-    if (Cmd->MDeps.empty()) {
-      CmdsToDelete.push_back(Cmd);
-      Cmd->MUsers.clear();
-    }
-  }
-
-  for (Command *Cmd : CmdsToDelete) {
-    Cmd->getEvent()->setCommand(nullptr);
-    delete Cmd;
   }
 
   for (Command *Cmd : CmdsToDelete) {
