@@ -8826,29 +8826,52 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   bool PassedTarget = !HoistCombinedUBBeforeTarget;
 
   while (P = P->getParent()) {
+#if INTEL_CUSTOMIZATION
+    // We generate explicit stores to the new LB and UB variables.
+    // Stores inside target and teams regions are considered to be side-effect
+    // instructions, which need to be guarded with master thread check
+    // and synchronized with barriers for SPIR-V targets.
+    // At the same time, inside the parallel regions we only really read
+    // from the new LB/UB variables, so they perfectly fit for WILOCAL
+    // markup for target and teams.
+    bool MarkLBUBWILocal =
+        VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+        (isa<WRNTeamsNode>(P) || isa<WRNTargetNode>(P));
+#endif  // INTEL_CUSTOMIZATION
     StringRef FPString;
-    if (P->canHaveFirstprivate()) {
+    if (P->canHaveFirstprivate())
       FPString = VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
-    }
-    else if (P->canHaveShared()) {
+    else if (P->canHaveShared())
       FPString = VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
-    }
+
     StringRef PrivateString;
-    if (P->canHavePrivate()) {
+    if (P->canHavePrivate())
       PrivateString = VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-    }
-    else if (P->canHaveShared()) {
+    else if (P->canHaveShared())
       PrivateString = VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
-    }
 
     CallInst *EntryCI = cast<CallInst>(P->getEntryDirective());
     if (PassedTarget) {
-      if (!PrivateString.empty())
+      if (!PrivateString.empty()) {
+        std::string ClauseString = PrivateString.str();
+#if INTEL_CUSTOMIZATION
+        // WILOCAL modifier only makes sense for [FIRST]PRIVATE clauses.
+        // Target and teams do support [FIRST]PRIVATE.
+        if (MarkLBUBWILocal)
+          ClauseString += ":WILOCAL";
+#endif  // INTEL_CUSTOMIZATION
         EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-            EntryCI, { { PrivateString, { NewLBPtrDef, NewUBPtrDef } } });
-    } else if (!FPString.empty())
+            EntryCI, { { ClauseString, { NewLBPtrDef, NewUBPtrDef } } });
+      }
+    } else if (!FPString.empty()) {
+      std::string ClauseString = FPString.str();
+#if INTEL_CUSTOMIZATION
+      if (MarkLBUBWILocal)
+        ClauseString += ":WILOCAL";
+#endif  // INTEL_CUSTOMIZATION
       EntryCI = VPOParoptUtils::addOperandBundlesInCall(
-          EntryCI, { { FPString, { NewLBPtrDef, NewUBPtrDef } } });
+          EntryCI, { { ClauseString, { NewLBPtrDef, NewUBPtrDef } } });
+    }
 
     if (!PrivateString.empty())
       // IV is always private for the parent regions.
