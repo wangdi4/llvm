@@ -1049,6 +1049,10 @@ def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
 def HasAMXCONVERTEVEX   : Predicate<"Subtarget->hasAMXCONVERTEVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
 
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+def HasAMXCONVERT   : Predicate<"Subtarget->hasAMXCONVERT()">;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
 def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX

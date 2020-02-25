@@ -558,6 +558,16 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPTIONAL(immediate)
     break;
+#if INTEL_CUSTOMIZATION
+  case X86Local::MRMDestMem4VOp2FSIB:
+    // Operand 1 is a sibmem operand
+    // Operand 2 is a mod/r
+    // Operand 3 is VEX.vvvv
+    HANDLE_OPERAND(memory)
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(vvvvRegister)
+    break;
+#endif
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
     // Operand 1 is a memory operand (possibly SIB-extended)
@@ -819,6 +829,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMXr:
     filter = std::make_unique<ModFilter>(true);
     break;
+  case X86Local::MRMDestMem4VOp2FSIB: // INTEL
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
 #if INTEL_CUSTOMIZATION

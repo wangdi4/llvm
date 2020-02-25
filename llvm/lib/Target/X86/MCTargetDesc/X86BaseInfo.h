@@ -614,6 +614,10 @@ namespace X86II {
     ///
 
 #if INTEL_CUSTOMIZATION
+    /// MRMDestMem4VOp2FSIB - sibmem encoding for dst memory.
+    /// src1 mod/r, src2 vex.4v
+    MRMDestMem4VOp2FSIB = 29,
+
     /// MRMSrcMem4VOp3 - But force to use the SIB field.
     MRMSrcMem4VOp3FSIB = 30,
 
@@ -1088,6 +1092,7 @@ namespace X86II {
       return -1;
     case X86II::MRMDestMem:
 #if INTEL_CUSTOMIZATION
+    case X86II::MRMDestMem4VOp2FSIB:
     case X86II::MRMDestMemFSIB:
 #endif // INTEL_CUSTOMIZATION
       return 0;
