@@ -43,7 +43,11 @@ int main() {
   }
   // Add edges as leaves and exceed the leaf limit
   for (auto LeafPtr : LeavesToAdd) {
+<<<<<<< HEAD
     TS.addNodeToLeaves(Rec, LeafPtr);
+=======
+    TS.AddNodeToLeaves(Rec, LeafPtr);
+>>>>>>> 39d55117874fa753e4419af3f6068eaec5416633
   }
   // Check that the oldest leaf has been removed from the leaf list
   // and added as a dependency of the newest one instead
