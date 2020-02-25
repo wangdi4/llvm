@@ -34,7 +34,11 @@ using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 // The MemObjRecord is created for each memory object used in command
 // groups. There should be only one MemObjRecord for SYCL memory object.
 struct MemObjRecord {
+<<<<<<< HEAD
   MemObjRecord(ContextImplPtr CurContext, std::size_t LeafLimit)
+=======
+  MemObjRecord(ContextImplPtr CurContext, size_t LeafLimit)
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
       : MReadLeaves{LeafLimit}, MWriteLeaves{LeafLimit}, MCurContext{
                                                              CurContext} {}
 

@@ -168,10 +168,15 @@ void Scheduler::GraphBuilder::addNodeToLeaves(MemObjRecord *Record,
     Dep.MDepCommand = OldLeaf;
     Cmd->addDep(Dep);
     OldLeaf->addUser(Cmd);
+<<<<<<< HEAD
     --(OldLeaf->MLeafCounter);
   }
   Leaves.push_back(Cmd);
   ++(Cmd->MLeafCounter);
+=======
+  }
+  Leaves.push_back(Cmd);
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
 }
 
 UpdateHostRequirementCommand *Scheduler::GraphBuilder::insertUpdateHostReqCmd(

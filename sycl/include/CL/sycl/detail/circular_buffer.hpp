@@ -10,11 +10,19 @@
 
 #include <CL/sycl/detail/defines.hpp>
 
+<<<<<<< HEAD
 #include <cstddef>
 #include <deque>
 #include <utility>
 
 __SYCL_INLINE_NAMESPACE(cl) {
+=======
+#include <deque>
+#include <utility>
+#include <cstddef>
+
+__SYCL_INLINE namespace cl {
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
 namespace sycl {
 namespace detail {
 
@@ -22,7 +30,11 @@ namespace detail {
 // new data overwrites the old.
 template <typename T> class CircularBuffer {
 public:
+<<<<<<< HEAD
   explicit CircularBuffer(std::size_t Capacity) : MCapacity{Capacity} {};
+=======
+  explicit CircularBuffer(size_t Capacity) : MCapacity{Capacity} {};
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
 
   using value_type = T;
   using pointer = T *;
@@ -49,6 +61,7 @@ public:
 
   const_reference back() const { return MValues.back(); }
 
+<<<<<<< HEAD
   reference operator[](std::size_t Idx) { return MValues[Idx]; }
 
   const_reference operator[](std::size_t Idx) const { return MValues[Idx]; }
@@ -56,6 +69,15 @@ public:
   std::size_t size() const { return MValues.size(); }
 
   std::size_t capacity() const { return MCapacity; }
+=======
+  reference operator[](size_t Idx) { return MValues[Idx]; }
+
+  const_reference operator[](size_t Idx) const { return MValues[Idx]; }
+
+  size_t size() const { return MValues.size(); }
+
+  size_t capacity() const { return MCapacity; }
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
 
   bool empty() const { return MValues.empty(); };
 
@@ -91,9 +113,17 @@ private:
   // and deallocations are a concern, switching to an array/vector might be a
   // worthwhile optimization.
   std::deque<T> MValues;
+<<<<<<< HEAD
   const std::size_t MCapacity;
+=======
+  const size_t MCapacity;
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
 };
 
 } // namespace detail
 } // namespace sycl
+<<<<<<< HEAD
 } // __SYCL_INLINE_NAMESPACE(cl)
+=======
+} // namespace cl
+>>>>>>> 032de254115db0be125c24893be3a9cdf9a4f101
